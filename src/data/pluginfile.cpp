@@ -176,8 +176,8 @@ PluginRefusal plugin_parse_header(const std::uint8_t* bytes, std::size_t availab
     if (out.shutdown_offset != 0 && !entry_ok(out.shutdown_offset, 4)) {
         return Damaged(why, "shutdown offset 0x%x is outside the image", static_cast<unsigned>(out.shutdown_offset));
     }
-    // The table's first four words (size, API version, version, flags) at least.
-    if (!entry_ok(out.table_offset, 16)) {
+    // The whole table: the loader reads its probe and shutdown pointers too.
+    if (!entry_ok(out.table_offset, kPluginTableBytes)) {
         return Damaged(why, "table offset 0x%x is outside the image", static_cast<unsigned>(out.table_offset));
     }
     return PluginRefusal::None;
@@ -258,6 +258,35 @@ bool plugin_relocate(std::uint8_t* image, const PluginHeader& header, const std:
         }
     }
     return true;
+}
+
+PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& header, std::uint32_t base,
+                                 std::uint32_t api_version, std::string& why) {
+    const std::uint8_t* table = image + header.table_offset;
+    const std::uint32_t size = Read32(table);
+    const std::uint32_t table_api = Read32(table + 4);
+    if (table_api != api_version || size < kPluginTableBytes) {
+        return Damaged(why, "its own table says API %u and %u bytes", static_cast<unsigned>(table_api),
+                       static_cast<unsigned>(size));
+    }
+    // Addresses, relocated: code the loader may call must be a word inside
+    // the image, never past it (the .bss, the state) or elsewhere in memory.
+    const auto code_inside = [&](std::uint32_t address) {
+        const std::uint32_t offset = address - base;
+        return address >= base && (offset & 3) == 0 && offset < header.image_bytes;
+    };
+    const std::uint32_t probe = Read32(table + 16);
+    if (probe != 0 && !code_inside(probe)) {
+        return Damaged(why, "its table's probe 0x%08x is not a word of code inside its image",
+                       static_cast<unsigned>(probe));
+    }
+    const std::uint32_t shutdown = Read32(table + 20);
+    const std::uint32_t header_shutdown = header.shutdown_offset != 0 ? base + header.shutdown_offset : 0;
+    if (shutdown != header_shutdown) {
+        return Damaged(why, "its table's shutdown 0x%08x is not the header's 0x%08x", static_cast<unsigned>(shutdown),
+                       static_cast<unsigned>(header_shutdown));
+    }
+    return PluginRefusal::None;
 }
 
 std::string plugin_file_name(const std::string& name, const std::string& version) {

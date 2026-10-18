@@ -33,6 +33,10 @@ constexpr char kStampMarker[] = "RiftWii plugin build stamp: " RIFTWII_BUILD_STA
 constexpr std::size_t kStampMarkerPrefix = sizeof("RiftWii plugin build stamp: ") - 1;
 const char* BuildStamp() { return kStampMarker + kStampMarkerPrefix; }
 
+// The header check (src/data/pluginfile.cpp) keeps kPluginTableBytes of
+// the table inside the image; this is every byte of it the loader reads.
+static_assert(sizeof(rwp_plugin) == kPluginTableBytes, "pluginfile.hpp's table size is not plugin_api.h's");
+
 constexpr const char* kTestFile = "sd:/riftwii/plugin_test.txt";
 constexpr const char* kDefaultDirectory = "sd:/apps/riftwii/plugins/";
 constexpr std::size_t kMaxPlugins = 8;
@@ -396,14 +400,12 @@ bool LoadInto(Slot& slot, const std::string& path, Refused& refused) {
         refused.refusal = PluginRefusal::Damaged;
         return false;
     }
-    const rwp_plugin* table = reinterpret_cast<const rwp_plugin*>(base + header.table_offset);
-    if (table->api_version != RWP_API_VERSION || table->size < offsetof(rwp_plugin, shutdown) + sizeof(table->shutdown)) {
+    refused.refusal = plugin_check_table(image, header, base, RWP_API_VERSION, refused.why);
+    if (refused.refusal != PluginRefusal::None) {
         give_back();
-        refused.refusal = PluginRefusal::Damaged;
-        Say(refused.why, "its own table says API %u and %u bytes", static_cast<unsigned>(table->api_version),
-            static_cast<unsigned>(table->size));
         return false;
     }
+    const rwp_plugin* table = reinterpret_cast<const rwp_plugin*>(base + header.table_offset);
     // Code written as data: out of the data cache to memory, then the
     // instruction cache told to fetch it again (as wii/hooks/vsdhook.cpp
     // does for the code it places in MEM2), then the pipeline synced.

@@ -39,6 +39,11 @@ constexpr std::size_t kPluginNameBytes = 16;
 constexpr std::size_t kPluginStampBytes = 32;
 constexpr std::size_t kPluginHashOffset = 96;
 constexpr std::size_t kPluginRelocBytes = 12;
+// The rwp_plugin table of API 1 as the Wii lays it out (plugin_api.h):
+// size, API version, version, flags, then the probe and shutdown
+// pointers, 32 bits each. Every byte of it the loader reads must be inside
+// the image; wii/core/plugins.cpp checks it against sizeof(rwp_plugin).
+constexpr std::uint32_t kPluginTableBytes = 24;
 // A sanity bound before any allocation: far more than a plugin needs.
 constexpr std::uint32_t kPluginMaxRelocs = 65536;
 
@@ -90,8 +95,9 @@ bool plugin_name_valid(const std::string& name);
 // The checks that need only the 128 header bytes, in the order of
 // docs/PLUGINS.md: magic, header version, the name (it must be
 // `expected_name`), every size inside `file_bytes` and the whole of image,
-// .bss and state inside `budget`, the entry offsets inside the image. Run
-// before anything is allocated. Damaged with `why` when one fails.
+// .bss and state inside `budget`, the entry offsets and the whole
+// rwp_plugin table (kPluginTableBytes) inside the image. Run before
+// anything is allocated. Damaged with `why` when one fails.
 PluginRefusal plugin_parse_header(const std::uint8_t* bytes, std::size_t available, std::uint64_t file_bytes,
                                   const std::string& expected_name, std::uint32_t budget, PluginHeader& out,
                                   std::string& why);
@@ -116,6 +122,15 @@ PluginRefusal plugin_check_versions(const PluginHeader& header, std::uint32_t ap
 // is wrong.
 bool plugin_relocate(std::uint8_t* image, const PluginHeader& header, const std::uint8_t* relocs, std::uint32_t base,
                      std::string& why);
+
+// The plugin's rwp_plugin table in an image relocated to `base` (the
+// header already put all kPluginTableBytes of it inside the image): its
+// size covers the table, its API is `api_version`, its probe is NULL or
+// code inside the image, and its shutdown is the header's (both none, or
+// the same address). Damaged with `why` otherwise, before any of its code
+// runs.
+PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& header, std::uint32_t base,
+                                 std::uint32_t api_version, std::string& why);
 
 // "<name>.<version>.rwp": the file of `name` for RiftWii `version`.
 std::string plugin_file_name(const std::string& name, const std::string& version);

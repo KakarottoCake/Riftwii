@@ -253,9 +253,78 @@ static void TestDamagedHeaders() {
     spec = Spec{};
     spec.shutdown = 0x1000;
     EXPECT_EQ(Parse(MakePlugin(spec)), PluginRefusal::Damaged);
+    // An init past the image's end, or so far past it that offset + 4
+    // would wrap 32 bits.
     spec = Spec{};
-    spec.table = 256 - 8;  // its four first words would run past the image
+    spec.init = 256 - 4;
+    EXPECT_EQ(Parse(MakePlugin(spec)), PluginRefusal::None);
+    spec.init = 0xFFFFFFFCu;
+    EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("init") != std::string::npos);
+    // The table: all of its kPluginTableBytes inside the image. Its last
+    // possible place is fine; anything later would let the loader read
+    // probe or shutdown past the image, so the first four words alone
+    // being inside is not enough.
+    spec = Spec{};
+    spec.table = 256 - riftwii::kPluginTableBytes;
+    EXPECT_EQ(Parse(MakePlugin(spec)), PluginRefusal::None);
+    spec.table = 256 - 16;
+    EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("table") != std::string::npos);
+    spec.table = 256 - 8;
     EXPECT_EQ(Parse(MakePlugin(spec)), PluginRefusal::Damaged);
+    spec.table = 0xFFFFFFF0u;
+    EXPECT_EQ(Parse(MakePlugin(spec)), PluginRefusal::Damaged);
+}
+
+// The relocated rwp_plugin table, checked before init runs: the pointers
+// the loader will call stay inside the image.
+static void TestTable() {
+    PluginHeader header;
+    std::string why;
+    EXPECT_EQ(Parse(MakePlugin(Spec{}), header, why), PluginRefusal::None);  // shutdown 0x20, table 0x40
+    const std::uint32_t base = 0x933C0000;
+    const auto image_with = [&](std::uint32_t size, std::uint32_t api, std::uint32_t probe, std::uint32_t shutdown) {
+        Bytes image(header.image_bytes, 0);
+        Put32(image, header.table_offset, size);
+        Put32(image, header.table_offset + 4, api);
+        Put32(image, header.table_offset + 8, 7);
+        Put32(image, header.table_offset + 12, 0);
+        Put32(image, header.table_offset + 16, probe);
+        Put32(image, header.table_offset + 20, shutdown);
+        return image;
+    };
+    const auto check = [&](const Bytes& image) {
+        return riftwii::plugin_check_table(image.data(), header, base, RWP_API_VERSION, why);
+    };
+    const std::uint32_t shutdown = base + 0x20;
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::None);
+    // No probe is allowed; a longer table (a later plugin) too.
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, 0, shutdown)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(40, RWP_API_VERSION, base, shutdown)), PluginRefusal::None);
+    // Its own size and API.
+    EXPECT_EQ(check(image_with(16, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION + 1, base + 0x30, shutdown)), PluginRefusal::Damaged);
+    // A probe at the image's end, in the .bss, before it, elsewhere in
+    // memory, or not on a word.
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + header.image_bytes - 4, shutdown)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + header.image_bytes, shutdown)), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("probe") != std::string::npos);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base - 4, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, 0x80003000u, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x32, shutdown)), PluginRefusal::Damaged);
+    // A shutdown other than the header's, outside the image, or missing
+    // while the header has one.
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, base + 0x24)), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("shutdown") != std::string::npos);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0x80001800u)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::Damaged);
+    // No shutdown in either.
+    Spec spec;
+    spec.shutdown = 0;
+    EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, base + 0x20)), PluginRefusal::Damaged);
 }
 
 static void TestHash() {
@@ -486,12 +555,14 @@ static void TestToolFixture(const std::string& fixtures) {
     const std::uint32_t shutdown = Get32(memory, table + 20);
     EXPECT_TRUE(probe >= base && probe < base + header.image_bytes);
     EXPECT_EQ(shutdown, base + header.shutdown_offset);
+    EXPECT_EQ(riftwii::plugin_check_table(memory.data(), header, base, header.api_version, why), PluginRefusal::None);
 }
 
 int main(int argc, char** argv) {
     TestSha256();
     TestGoodHeader();
     TestDamagedHeaders();
+    TestTable();
     TestHash();
     TestVersions();
     TestRelocation();
