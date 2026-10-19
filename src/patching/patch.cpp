@@ -21,6 +21,11 @@ constexpr std::size_t kMaxString = 4096;
 // cap; the 1 MiB XML cap bounds the total anyway. Names and paths stay at
 // kMaxString: only these two attributes are exempted in CheckAttrLengths.
 constexpr std::size_t kMaxHexChars = kMaxMemoryValueBytes * 2;
+// All the memory-patch bytes (values and originals) a plan may carry. One
+// XML holds at most 1 MiB of them, but each selection of a patch copies
+// them again, and macros can select the same patch thousands of times
+// (MIN-09): gigabytes were asked for before the bad_alloc ended the launch.
+constexpr std::size_t kMaxPlanMemoryBytes = std::size_t(16) << 20;
 constexpr std::size_t kMaxNodes = 8192;
 // What a package may grow to once its macros are cloned and a repeated
 // patch id names all its definitions: patch references across all choices.
@@ -1590,6 +1595,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
         }
         Plan tmp;
         std::vector<std::string> unsupported;
+        std::size_t memory_bytes = 0;
         for (const auto& sel : selected) {
             const Patch& p = *sel.patch;
             std::string base = package.root;
@@ -1659,7 +1665,13 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 }
                 case PatchKind::Memory: {
                     if (step.index >= p.memory.size()) { error = "corrupt patch order"; return false; }
-                    MemoryPatch m = p.memory[step.index];
+                    const MemoryPatch& listed = p.memory[step.index];
+                    memory_bytes += listed.value.size() + listed.original.size();
+                    if (memory_bytes > kMaxPlanMemoryBytes) {
+                        error = Where(sel) + ": the selected <memory> patches carry more than 16 MiB of values in all";
+                        return false;
+                    }
+                    MemoryPatch m = listed;
                     if (!m.valuefile.empty()) {
                         if (!ResolveExternal(m.valuefile, base, sel, disc, "valuefile", m.valuefile, error)) return false;
                     }
