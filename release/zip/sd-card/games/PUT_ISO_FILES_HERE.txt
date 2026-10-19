@@ -1,0 +1,2 @@
+Put raw .iso disc copies and Dolphin .rvz files here. Split .wbfs
+games go in the wbfs folder instead. Only FAT32 cards work.

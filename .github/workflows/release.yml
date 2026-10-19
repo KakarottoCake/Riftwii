@@ -1,0 +1,253 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A RiftWii release, started by hand (Actions > Release > Run workflow), as
+# docs/DEVELOPING.md (Releasing) describes it: builds main's latest commit
+# with CI's devkitPPC, packs the zip and the update pack, fills in
+# release/notes.md and release/discord.md, then (only when "publish" is
+# picked) makes the GitHub release, latest and for everyone, and posts the
+# testers' message to Discord.
+#
+# "dry-run" (the default) publishes nothing: the three files and the
+# filled-in texts come out as an artifact, and the run's summary shows both
+# texts, so a release can be checked before it goes out.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run builds and shows the release; publish puts it out"
+        type: choice
+        options: [dry-run, publish]
+        default: dry-run
+      discord:
+        description: "Post release/discord.md to the testers' channel after publishing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One release at a time: a second run waits instead of racing for the tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Ready to release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # Every release is for everyone (docs/DEVELOPING.md), so it comes
+      # from main. A dry run may try another branch's notes.
+      - name: From main
+        if: inputs.mode == 'publish' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::A release is published from main; this run is on ${GITHUB_REF#refs/heads/}."
+          exit 1
+      # The tests ran on this commit when it was pushed; a release waits for
+      # them to pass.
+      - name: CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&per_page=1" \
+            --jq '.workflow_runs[0] | if . == null then "none" else (.conclusion // .status) end')
+          echo "CI on ${GITHUB_SHA::8}: $conclusion"
+          if [ "$conclusion" != "success" ]; then
+            message="CI on ${GITHUB_SHA::8} is '$conclusion', not success: wait for it or fix it before releasing."
+            if [ "${{ inputs.mode }}" = "publish" ]; then
+              echo "::error::$message"
+              exit 1
+            fi
+            echo "::warning::$message"
+          fi
+      # The templates are rewritten for each release: notes unchanged since
+      # the last release's tag are that release's notes.
+      - name: Notes written for this release
+        run: |
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9][0-9][0-9][0-9]-*' 2>/dev/null || true)
+          if [ -z "$previous" ]; then
+            echo "No earlier release tag; nothing to compare the notes with."
+            exit 0
+          fi
+          for notes in release/notes.md release/discord.md; do
+            if git cat-file -e "$previous:$notes" 2>/dev/null && git diff --quiet "$previous" HEAD -- "$notes"; then
+              echo "::error::$notes is the same as at $previous. Write this release's text first."
+              exit 1
+            fi
+          done
+          echo "The notes changed since $previous."
+
+  build:
+    name: Build the release
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The same pinned image as CI's Wii build, so the release is the build
+    # CI checked.
+    container: devkitpro/devkitppc@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
+    # The image's default shell may be plain sh: these steps keep to it.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Makefile.wii numbers the build by the commits since the base
+          # tag, so it needs the history and the tags.
+          fetch-depth: 0
+      - name: Install zstd and unzip
+        run: apt-get update -qq && apt-get install -y -qq zstd unzip
+      - name: Fetch the release tags
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*'
+      - name: Version
+        id: version
+        run: |
+          version=$(make --no-print-directory -f Makefile.wii version)
+          if ! echo "$version" | grep -Eq '^[0-9]{4}-[0-9]+$'; then
+            echo "::error::Makefile.wii gives '$version', not a YYMM-N version."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version is already a tag: this commit was released, or a release went out from another commit with the same number."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "RiftWii $version from $(git rev-parse --short=8 HEAD)"
+      # Notes first: a mistake in them fails the run in seconds, not after
+      # the build. The DOL's SHA-256 is filled in again after the build.
+      - name: Check the notes
+        run: |
+          printf 'not the DOL yet' > notes-check.dol
+          python3 tools/release_notes.py render --version "${{ steps.version.outputs.version }}" \
+            --dol notes-check.dol --repo "$GITHUB_REPOSITORY" --role-id "$TESTER_ROLE_ID" \
+            ${{ inputs.mode == 'publish' && inputs.discord && '--require-role' || '' }} --out notes-check
+          rm -rf notes-check notes-check.dol
+      - name: Build the DOL
+        run: |
+          make -f Makefile.wii -j"$(nproc)"
+          test -s riftwii.dol
+          test -s build_wii/riftwii-unpacked.dol
+      - name: Plugins match the DOL
+        run: |
+          python3 tools/make_plugin.py check --dol build_wii/riftwii-unpacked.dol \
+            --commit "$(git rev-parse --short=8 HEAD)" build-plugins/plugins/*.rwp
+      - name: Build the channel
+        run: make -f Makefile.channel -j"$(nproc)"
+      - name: Pack the zip and the update pack
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          mkdir -p out
+          python3 tools/make_release_zip.py --version "$version" --dol riftwii.dol \
+            --channel build-channel/installer.dol --plugins build-plugins/plugins \
+            --out "out/riftwii-v$version.zip"
+          python3 tools/make_update_pack.py "out/riftwii-v$version.zip" out/riftwii-update.pack
+          cp riftwii.dol out/riftwii.dol
+          # docs/DEVELOPING.md's check: one plugin per name, with this version.
+          unzip -l "out/riftwii-v$version.zip" | grep "apps/riftwii/plugins/.*\.$version\.rwp"
+      - name: Fill in the notes
+        run: |
+          python3 tools/release_notes.py render --version "${{ steps.version.outputs.version }}" \
+            --dol out/riftwii.dol --repo "$GITHUB_REPOSITORY" --role-id "$TESTER_ROLE_ID" \
+            ${{ inputs.mode == 'publish' && inputs.discord && '--require-role' || '' }} --out texts
+      - name: Summary
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          {
+            echo "## RiftWii $version (${{ inputs.mode }})"
+            echo
+            echo "Commit \`$(git rev-parse --short=8 HEAD)\`. Files:"
+            echo
+            echo '```'
+            (cd out && sha256sum *)
+            echo '```'
+            echo
+            echo "### Discord message"
+            echo
+            echo '````'
+            cat texts/discord.md
+            echo '````'
+            echo
+            echo "Attached: $(ls texts/discord-images | tr '\n' ' ')"
+            echo
+            echo "### Release notes"
+            echo
+            cat texts/notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Kept with the run: the files to check by hand after a dry run, and
+      # the ELFs that name a crash's offsets (docs/DEVELOPING.md).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: riftwii-v${{ steps.version.outputs.version }}
+          path: |
+            out/
+            texts/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: riftwii-v${{ steps.version.outputs.version }}-elf
+          path: |
+            riftwii.elf
+            build-plugins/*/*.elf
+          if-no-files-found: warn
+
+  publish:
+    name: Publish
+    needs: build
+    if: inputs.mode == 'publish'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The "release" environment holds the Discord secret and can ask for an
+    # approval before this job runs (Settings > Environments).
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: riftwii-v${{ needs.build.outputs.version }}
+          path: release-files
+      # Latest and not a pre-release: every RiftWii's update check reads
+      # /releases/latest (docs/DEVELOPING.md). The tag is made on the commit
+      # that was built.
+      # "Re-run failed jobs" after a Discord failure finds the release
+      # already made from this commit and goes on to Discord.
+      - name: GitHub release
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            tagged=$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)
+            if [ "$tagged" = "$GITHUB_SHA" ]; then
+              echo "::notice::v$VERSION is already published from this commit; not making it again."
+              exit 0
+            fi
+            echo "::error::A release v$VERSION already exists, from another commit."
+            exit 1
+          fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "RiftWii $VERSION" \
+            --notes-file release-files/texts/notes.md --latest \
+            "release-files/out/riftwii-v$VERSION.zip" release-files/out/riftwii.dol release-files/out/riftwii-update.pack
+          echo "Published $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+      - name: Discord
+        if: inputs.discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: |
+          python3 tools/release_notes.py post --dir release-files/texts --role-id "$TESTER_ROLE_ID"
+          echo "Posted the testers' message to Discord." >> "$GITHUB_STEP_SUMMARY"

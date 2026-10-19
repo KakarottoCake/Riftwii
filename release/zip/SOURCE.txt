@@ -1,0 +1,27 @@
+RiftWii {{VERSION}}: source code
+=============================
+
+RiftWii is free software under the GNU General Public License, version 3
+or (at your option) any later version. LICENSE.txt is the license's full
+text. NOTICE.md lists every third-party component, its origin and its
+license.
+
+The complete corresponding source code of this release:
+
+  {{REPO_URL}}/tree/{{TAG}}
+  (tag {{TAG}}, commit {{COMMIT}})
+
+  Source archives: {{REPO_URL}}/releases/tag/{{TAG}}
+  Building: docs/DEVELOPING.md in the source.
+
+Both programs in this zip are built from it:
+  sd-card/apps/riftwii/boot.dol          Makefile.wii
+  sd-card/apps/riftwii_channel/boot.dol  Makefile.channel
+
+The Gecko code handler inside boot.dol (Gecko OS by Nuke, brkirch, Link
+and the Gecko authors, GPL-2.0-or-later) is built from
+vendor-gecko/codehandleronly.s in the same source; vendor-gecko/build.sh
+rebuilds it and checks it byte for byte.
+
+This source will stay available at those addresses for as long as this
+release is offered.
