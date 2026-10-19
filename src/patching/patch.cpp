@@ -1413,8 +1413,6 @@ struct Selection {
 std::string Where(const Selection& s) {
     return "option '" + s.option->name + "' choice '" + s.choice->name + "' patch '" + s.patch_id + "'";
 }
-// Substitutes placeholders and resolves an external-style path against
-// `base`. `what` names the field for messages.
 // A save folder is the game's own: the card's root, or a folder RiftWii or
 // the Homebrew Channel keeps (and everything in them), would put the game's
 // saves and a copy of its NAND save among their files (BUG-19). Resolved
@@ -1431,6 +1429,8 @@ bool SavegameFolderAllowed(const std::string& resolved) {
     return true;
 }
 
+// Substitutes placeholders and resolves an external-style path against
+// `base`. `what` names the field for messages.
 bool ResolveExternal(const std::string& raw, const std::string& base, const Selection& sel,
                      const DiscIdentity& disc, const char* what, std::string& out, std::string& error) {
     std::string substituted;
