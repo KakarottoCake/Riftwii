@@ -944,10 +944,16 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     std::string old = read_cheat_file(game_id);
     std::size_t kept = 0;
     std::size_t held = 0;
+    std::size_t dropped = 0;
     if (!old.empty()) {
-        const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept, enabled, &held);
+        const std::string merged =
+            merge_cheat_text(std::string(body.begin(), body.end()), old, kept, enabled, &held, &dropped);
         body.assign(merged.begin(), merged.end());
     }
+    if (dropped != 0)
+        logf("Cheats: %u new cheat(s) for %s left out: each had the name of a turned-on cheat and would have "
+             "taken its place\n",
+             static_cast<unsigned>(dropped), game_id.c_str());
     if (held != 0)
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
              static_cast<unsigned>(held), game_id.c_str());

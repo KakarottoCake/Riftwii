@@ -378,6 +378,28 @@ void TestCheats() {
             EXPECT_EQ(file.cheats[1].words[1], 0x00000002u);  // turned on: the player's
         }
     }
+    // A download with one more "Inf" before the player's, turned on: the
+    // new block would be "Inf" and the player's "Inf (2)", so the turned-on
+    // name would run the download's code. The new block is left out
+    // (FU-02), before any heading and in an earlier section alike.
+    {
+        const std::string inf_old =
+            "SB4E01\nSuper Mario Galaxy 2\n\n[Rev 1]\n\nInf\n04000000 00000001\n";
+        const std::string inf_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nInf\n04000000 0000DEAD\n\n[Rev 1]\n\nInf\n04000000 00000001\n";
+        std::size_t dropped = 0;
+        const std::string merged_inf = merge_cheat_text(inf_new, inf_old, kept, {"Inf"}, &held, &dropped);
+        EXPECT_EQ(dropped, 1u);
+        EXPECT_TRUE(merged_inf.find("0000DEAD") == std::string::npos);
+        EXPECT_TRUE(parse_cheat_text(merged_inf, file, error, 1));
+        if (!file.cheats.empty()) {
+            EXPECT_EQ(file.cheats[0].name, "Inf");
+            EXPECT_EQ(file.cheats[0].words[1], 0x00000001u);
+        }
+        // Not turned on: the download's blocks all stay.
+        merge_cheat_text(inf_new, inf_old, kept, {}, &held, &dropped);
+        EXPECT_EQ(dropped, 0u);
+    }
     // Notes alone changing on a turned-on cheat: the download's block.
     {
         const std::string noted_old = "SB4E01\nSuper Mario Galaxy 2\n\nNoted\n04000000 00000001\nold note\n";
