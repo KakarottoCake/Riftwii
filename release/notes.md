@@ -13,9 +13,9 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-NOTES NOT WRITTEN YET
+**RiftWii {{VERSION}}.** TEST of the release workflow (dry run): nothing here is a real release. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-**RiftWii {{VERSION}}.** One sentence on what this release is for. Every RiftWii offers this update by itself (Settings > Check for a new version).
+![What's new]({{SCREENSHOTS}}2610-whatsnew-libogc.png)
 
 ## What changed
 
