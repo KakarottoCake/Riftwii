@@ -3989,10 +3989,10 @@ static int MenuSource(FrontendState& state)
 		return shownScanStatus;
 	};
 	const auto showStatus = [&]() { statusTxt.SetText(homeStatusText().c_str()); };
-	const auto refresh = [&](bool keepFocus) {
+	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
-		transition::BeginAuto();
+		if (crossfade) transition::BeginAuto();
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
@@ -4024,8 +4024,10 @@ static int MenuSource(FrontendState& state)
 	// A part of the scan in: the drive's games join in among the card's,
 	// so the focus stays on its tile (`focused`, read before the part
 	// replaced a catalog) rather than on its place.
+	// Not crossfaded: Home takes no press while a crossfade runs, and a
+	// press as the SD card's games came in was lost (Ishtar, in Dolphin).
 	const auto refreshKeepingTile = [&](const std::string& focused) {
-		refresh(true);
+		refresh(true, false);
 		const int index = focused.empty() ? -1 : findTile(focused);
 		if (index >= 0) grid.Focus(index);
 	};
