@@ -47,6 +47,7 @@ struct Animation {
 // Records may overlap, so a small file can name very many tracks and keys,
 // all applied every frame: past these, the animation is refused.
 constexpr std::size_t kMaxAnimTracks = 8192;
+constexpr std::size_t kMaxAnimTargets = 4096;  // panes and materials one animation names (SEC-04)
 constexpr std::size_t kMaxAnimKeys = 131072;
 
 bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std::string& error);

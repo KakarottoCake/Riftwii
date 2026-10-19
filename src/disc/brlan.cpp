@@ -89,6 +89,10 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
             error = "pai1 tables run past it";
             return false;
         }
+        if (nanim > kMaxAnimTargets) {
+            error = "more than " + std::to_string(kMaxAnimTargets) + " animated panes and materials";
+            return false;
+        }
         for (std::uint16_t i = 0; i < ntex; ++i) {
             const std::uint32_t off = be32(s + 0x14 + i * 4);
             if (0x14 + static_cast<std::size_t>(off) >= len) {
@@ -224,15 +228,24 @@ AnimBinding bind_animation(const Animation& anim, const Layout& layout) {
         const auto it = textures.find(name);
         b.texture.push_back(it == textures.end() ? -1 : it->second);
     }
+    // Panes and materials by name, each map made once: a pane is the first
+    // of its name (find_pane), a material the last. Matching every target
+    // against every material took minutes on a crafted banner (SEC-04).
+    std::unordered_map<std::string, int> panes;
+    for (std::size_t i = layout.panes.size(); i-- > 0;) panes[layout.panes[i].name] = static_cast<int>(i);
+    std::unordered_map<std::string, int> materials;
+    for (std::size_t i = 0; i < layout.materials.size(); ++i) materials[layout.materials[i].name] = static_cast<int>(i);
     for (const AnimTarget& t : anim.targets) {
         // A material's tracks name the material, or a pane whose material it is.
-        const int pi = t.material ? -1 : layout.find_pane(t.name);
+        int pi = -1;
         int mi = -1;
         if (t.material) {
-            for (std::size_t i = 0; i < layout.materials.size(); ++i)
-                if (layout.materials[i].name == t.name) mi = static_cast<int>(i);
-        } else if (pi >= 0) {
-            mi = layout.panes[pi].material;
+            const auto it = materials.find(t.name);
+            if (it != materials.end()) mi = it->second;
+        } else {
+            const auto it = panes.find(t.name);
+            if (it != panes.end()) pi = it->second;
+            if (pi >= 0) mi = layout.panes[pi].material;
         }
         b.pane.push_back(pi);
         b.material.push_back(mi);
