@@ -211,6 +211,15 @@ void TestHttp() {
     EXPECT_TRUE(to.tls);
     EXPECT_EQ(to.host, "cdn.example");
     EXPECT_FALSE(http_redirect(from, "ftp://cdn.example/f", to, error));
+    // A Location with a bare LF, a CR or a space inside would put text of
+    // its own into the request (SEC-06): refused in every form.
+    EXPECT_FALSE(http_redirect(from, "/a\nX-Injected: 1", to, error));
+    EXPECT_FALSE(http_redirect(from, "other\r.dol", to, error));
+    EXPECT_FALSE(http_redirect(from, "/a b", to, error));
+    EXPECT_FALSE(http_redirect(from, "https://cdn.example/f\nX: 1", to, error));
+    EXPECT_FALSE(http_redirect(from, "https://cdn\t.example/f", to, error));
+    EXPECT_FALSE(parse_http_url("http://example.org/a\x7f", url, error));
+    EXPECT_TRUE(http_redirect(from, "/a%0Ab", to, error));  // escaped, it is only text
     HttpUrl plain_from;
     EXPECT_TRUE(parse_http_url("http://www.gametdb.com/x", plain_from, error));
     EXPECT_TRUE(http_redirect(plain_from, "https://www.gametdb.com/x", to, error));  // up to https is fine
