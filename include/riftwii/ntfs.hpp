@@ -69,6 +69,7 @@ private:
         std::vector<std::uint8_t> value;  // resident value
         std::vector<NtfsRun> runs;        // non-resident extents, in vcn order
         std::uint64_t data_size = 0;
+        std::uint64_t initialized_size = 0;  // non-resident: bytes written so far; reads past it give zeros
         std::uint16_t flags = 0;
     };
 
