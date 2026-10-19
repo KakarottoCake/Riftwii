@@ -396,6 +396,11 @@ bool apply_patches(const std::vector<FilePatch>& patches, ContentProvider& provi
         error = "no patches to apply";
         return false;
     }
+    if (patches.size() > kMaxPatchesPerFile) {
+        error = "the pack changes " + patches[0].disc + " " + std::to_string(patches.size()) +
+                " times; RiftWii takes at most " + std::to_string(kMaxPatchesPerFile) + " changes to one file";
+        return false;
+    }
     for (const auto& p : patches) {
         if (p.disc != patches[0].disc) {
             error = "apply_patches: mixed disc targets '" + patches[0].disc + "' and '" + p.disc + "'";
