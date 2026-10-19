@@ -437,7 +437,7 @@ static void apply_shifts(const std::vector<ShiftPatch>& shifts, const Fst& fst, 
 
 static bool gather_package(const PackageSelection& selection, const DiscProbe& probe, const Fst& fst,
                            WiiProvider& provider, std::vector<FilePatch>& files, std::vector<ShiftPatch>& shifts,
-                           CompiledMod& mod, std::string& error) {
+                           CompiledMod& mod, std::size_t& memory_bytes, std::string& error) {
     const std::string& xml_sd_path = selection.xml_sd_path;
     // A pack on the USB drive is read through d2x (libogc's driver is
     // gone by now), and so are its files.
@@ -554,11 +554,11 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // game would start to a black screen (Neo Mario Galaxy copied into the
     // wrong folder did). An unreadable one stops the launch.
     std::string missing_value;
-    // Every value and original, those read from valuefiles too: the plan's
-    // budget saw a valuefile as empty, so one selected thousands of times
-    // still asked for gigabytes (FU-04). Never above kMaxPlanMemoryBytes,
-    // so the subtraction below cannot wrap.
-    std::size_t memory_bytes = 0;
+    // Every value and original, those read from valuefiles too, across all
+    // the launch's packs (`memory_bytes` is the caller's): the plan's budget
+    // saw a valuefile as empty, so one selected thousands of times still
+    // asked for gigabytes (FU-04), and each pack's plan counts only its own.
+    // Never above kMaxPlanMemoryBytes, so the subtraction below cannot wrap.
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
@@ -739,10 +739,11 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     //    and its memory patches.
     std::vector<FilePatch> files;
     std::vector<ShiftPatch> shifts;
+    std::size_t memory_bytes = 0;  // the launch's memory-patch values, every pack's
     for (const PackageSelection& selection : packages) {
         ProgressWithin(mod.xml_paths.size(), packages.size(), 10, 25);
         mod.xml_paths.push_back(selection.xml_sd_path);
-        if (!gather_package(selection, probe, fst, provider, files, shifts, mod, error)) return false;
+        if (!gather_package(selection, probe, fst, provider, files, shifts, mod, memory_bytes, error)) return false;
     }
     if (files.empty()) {
         apply_shifts(shifts, fst, mod);
