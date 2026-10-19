@@ -411,6 +411,33 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
    `wii/menu/credits.cpp`. Binaries built from someone else's source ship
    with that source, as `vendor-gecko/` does.
 
+### How an update is trusted
+
+The in-app update trusts what GitHub serves for the latest release:
+
+- The release is read from `api.github.com` over TLS. The certificate
+  chain and host name are checked against the roots in
+  `wii/online/tlsroots.c`.
+- Only an asset URL of the form
+  `https://github.com/<KakarottoCake|RiftWii>/riftwii/releases/download/<tag>/<file>`
+  is accepted (`riftwii_release_asset_url`, `src/net/update.cpp`). Its
+  download follows redirects only to GitHub's release-asset hosts, over
+  HTTPS.
+- Each asset must match the SHA-256 digest the API lists for it.
+
+Updates are not signed yet, so a build signed by a stolen GitHub account
+would still pass. Signing is planned, not built:
+
+- An ECDSA P-256 signature (BearSSL, already vendored, verifies it) over
+  `riftwii.dol` and `riftwii-update.pack`.
+- The private key stays with the maintainer, outside the repository, and
+  the public key is built into the app.
+- The updater refuses an unsigned or badly signed update only once the
+  key is in use.
+
+Losing that key would strand every build that checks for it, so it is
+backed up before the first signed release.
+
 ## Ground rules
 
 - No Riivolution code. Behaviour comes from its public patch-format
