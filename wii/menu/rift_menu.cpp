@@ -3952,25 +3952,29 @@ static int MenuSource(FrontendState& state)
 		emptyNote.SetVisible(!g_scanning && state.sd_catalog.games.empty() && state.usb_catalog.games.empty() &&
 			state.channels.empty());
 	};
-	const auto focusedKey = [&]() -> std::string {
-		const int focused = grid.FocusedIndex();
-		if (focused < 0 || static_cast<std::size_t>(focused) >= items.size()) return "";
-		return items[static_cast<std::size_t>(focused)].key;
+	// A tile across a refresh: its drive as well as its game (one game on
+	// both the card and the drive has two tiles with the same key), and
+	// "disc" for the disc drive's, which has no key. Read only while
+	// `entries` still matches the catalogs it indexes.
+	const auto tileIdentity = [&](int index) -> std::string {
+		if (index < 0 || static_cast<std::size_t>(index) >= entries.size()) return "";
+		const HomeEntry& entry = entries[static_cast<std::size_t>(index)];
+		if (entry.kind == HomeEntry::Kind::Disc) return "disc";
+		return HomeKey(state, entry);
 	};
-	const auto focusKey = [&](const std::string& key) {
-		for (std::size_t i = 0; i < items.size(); ++i) {
-			if (items[i].key != key) continue;
-			grid.Focus(static_cast<int>(i));
-			return true;
-		}
-		return false;
+	const auto focusedTile = [&]() { return tileIdentity(grid.FocusedIndex()); };
+	const auto findTile = [&](const std::string& identity) -> int {
+		for (std::size_t i = 0; i < entries.size(); ++i)
+			if (tileIdentity(static_cast<int>(i)) == identity) return static_cast<int>(i);
+		return -1;
 	};
 	// A part of the scan in: the drive's games join in among the card's,
-	// so the focus stays on its game rather than on its place.
-	const auto refreshKeepingGame = [&]() {
-		const std::string key = focusedKey();
+	// so the focus stays on its tile (`focused`, read before the part
+	// replaced a catalog) rather than on its place.
+	const auto refreshKeepingTile = [&](const std::string& focused) {
 		refresh(true);
-		if (!key.empty()) focusKey(key);
+		const int index = focused.empty() ? -1 : findTile(focused);
+		if (index >= 0) grid.Focus(index);
 	};
 	// The first time Home shows, it opens on the last game played, with the
 	// SD card's games or the drive's, whichever has it; not once the player
@@ -3979,8 +3983,13 @@ static int MenuSource(FrontendState& state)
 	const auto restoreFocus = [&](bool moved, bool lastPart) {
 		if (g_focusRestored) return;
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
-		if (moved || (!recent.empty() && focusKey(recent[0]))) g_focusRestored = true;
-		focusAtOpen = focusedKey();
+		bool found = false;
+		for (std::size_t i = 0; !moved && !recent.empty() && i < items.size() && !found; ++i) {
+			found = items[i].key == recent[0];
+			if (found) grid.Focus(static_cast<int>(i));
+		}
+		if (moved || found) g_focusRestored = true;
+		focusAtOpen = focusedTile();
 		if (lastPart) g_focusRestored = true;
 	};
 	// What Home asks after a look at the drives it opened with (the start,
@@ -4015,7 +4024,7 @@ static int MenuSource(FrontendState& state)
 		StartScan();
 		askAfterScan = true;
 		refresh(true);
-		focusAtOpen = focusedKey();
+		focusAtOpen = focusedTile();
 	} else {
 		showStatus();
 	}
@@ -4154,7 +4163,9 @@ static int MenuSource(FrontendState& state)
 		// page's column peeking in), then the next page's, then the last's.
 		std::string iconId;
 		std::unique_ptr<riftwii::wii::BannerPlayer> iconLoaded;
-		if (grid.Channels()) {
+		// Not while the scan has the drives: no read on the menu's thread
+		// waits on the scan's.
+		if (!g_scanning && grid.Channels()) {
 			const int first = grid.PageFirst(), per = GuiGameGrid::kPerPage;
 			const int from[3] = {first, first + per, first - per};
 			const int count[3] = {per + 4, per, per};
@@ -4212,16 +4223,16 @@ static int MenuSource(FrontendState& state)
 		if (g_scanning && !grid.Carrying()) {
 			riftwii::wii::DriveScanPart part;
 			if (riftwii::wii::TakeSdScan(part)) {
+				const std::string focused = focusedTile();
 				TakeSdScanPart(state, part);
-				const bool moved = focusedKey() != focusAtOpen;
-				refreshKeepingGame();
-				restoreFocus(moved, false);
+				refreshKeepingTile(focused);
+				restoreFocus(focused != focusAtOpen, false);
 			}
 			if (riftwii::wii::TakeUsbScan(part)) {
+				const std::string focused = focusedTile();
 				TakeUsbScanPart(state, part);
-				const bool moved = focusedKey() != focusAtOpen;
-				refreshKeepingGame();
-				restoreFocus(moved, true);
+				refreshKeepingTile(focused);
+				restoreFocus(focused != focusAtOpen, true);
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
 				g_openWhenScanned.clear();
@@ -4249,8 +4260,10 @@ static int MenuSource(FrontendState& state)
 		}
 		// The profiles' pictures on the page shown, read here (the GUI
 		// halted) before the grid draws them: a slow SD read then holds
-		// this loop, not a frame. One a turn; read ones are kept.
-		for (int k = grid.PageFirst(); k < grid.PageFirst() + GuiGameGrid::kPerPage && k < static_cast<int>(items.size()); ++k) {
+		// this loop, not a frame. One a turn; read ones are kept. Not while
+		// the scan has the drives: a pack's picture may be on the USB drive.
+		for (int k = grid.PageFirst();
+		     !g_scanning && k < grid.PageFirst() + GuiGameGrid::kPerPage && k < static_cast<int>(items.size()); ++k) {
 			const GridItem& item = items[static_cast<std::size_t>(k)];
 			if (!item.profile) continue;
 			const riftwii::Profile* profile = riftwii::wii::Profiles().find(item.key);
@@ -4326,17 +4339,14 @@ static int MenuSource(FrontendState& state)
 			g_reopenBanner.clear();
 		}
 		// A game picked while the drives were read opens now that they are.
-		if (clicked < 0 && !openNow.empty()) {
-			for (std::size_t i = 0; i < items.size(); ++i)
-				if (items[i].key == openNow) clicked = static_cast<int>(i);
-		}
+		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
 		if (menu != MENU_NONE) clicked = -1;
 		// Opening a game reads its image, which the scan may be mounting:
 		// it waits for the scan, and Home answers meanwhile.
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
-			g_openWhenScanned = picked.key;
-			logf("Home: %s picked while the drives are read; it opens once they are\n", picked.key.c_str());
+			g_openWhenScanned = tileIdentity(clicked);
+			logf("Home: %s picked while the drives are read; it opens once they are\n", g_openWhenScanned.c_str());
 			toast.Show(tr("{1} opens once RiftWii has finished reading the drives.", {picked.title}), false);
 			clicked = -1;
 		}
