@@ -117,6 +117,21 @@ std::string http_url_for_messages(const std::string& url) {
     return cut == std::string::npos ? url : url.substr(0, cut) + "?...";
 }
 
+namespace {
+
+// A host or path goes into the request as it is: a control character or a
+// space in it would end the request line early or start a header of its
+// own (a redirect's Location carrying a bare LF did, SEC-06).
+bool fits_request_line(const std::string& text) {
+    for (const char c : text) {
+        const unsigned char u = static_cast<unsigned char>(c);
+        if (u <= 0x20 || u == 0x7F) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
     out = HttpUrl{};
     const std::string shown = http_url_for_messages(url);
@@ -154,6 +169,10 @@ bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
         error = "no host in " + shown;
         return false;
     }
+    if (!fits_request_line(authority) || !fits_request_line(out.path)) {
+        error = "an address with spaces or control characters cannot be fetched: " + shown;
+        return false;
+    }
     out.host = authority;
     return true;
 }
@@ -172,6 +191,10 @@ bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to
         if (path[0] != '/') {
             const std::string base = from.path.substr(0, from.path.find('?'));
             path = base.substr(0, base.rfind('/') + 1) + path;
+        }
+        if (!fits_request_line(path)) {
+            error = "a redirect to a path with spaces or control characters: not followed";
+            return false;
         }
         to.path = path;
     } else {
