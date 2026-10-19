@@ -17,6 +17,7 @@
 #include "d2xsd.hpp"
 #include "log.hpp"
 #include "usbcatalog.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -179,14 +180,14 @@ PadPairings ReadPadPairings() {
     static std::uint8_t conf[kSysconfBytes] ATTRIBUTE_ALIGN(32);
     // Opened and closed per read: an IOS reload in between leaves a kept
     // /dev/fs handle dead, and nothing else here uses ISFS.
-    if (ISFS_Initialize() < 0) return out;
+    if (NandOpen() < 0) return out;
     const s32 fd = ISFS_Open("/shared2/sys/SYSCONF", ISFS_OPEN_READ);
     s32 got = -1;
     if (fd >= 0) {
         got = ISFS_Read(fd, conf, sizeof(conf));
         ISFS_Close(fd);
     }
-    ISFS_Deinitialize();
+    NandClose();
     if (got != static_cast<s32>(sizeof(conf)) || std::memcmp(conf, "SCv0", 4) != 0) return out;
     const unsigned count = be16(conf + 4);
     static const char kName[] = "BT.DINF";

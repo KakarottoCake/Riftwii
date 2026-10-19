@@ -19,6 +19,7 @@
 #include "boot.hpp"
 #include "d2xsd.hpp"
 #include "log.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -250,7 +251,7 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
     // behind.
     if (clone && !had_save) {
         if (save_folder_empty(data)) {
-            if (ISFS_Initialize() < 0) {
+            if (NandOpen() < 0) {
                 error = "the Wii's save could not be read (ISFS)";
                 return false;
             }

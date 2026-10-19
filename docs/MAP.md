@@ -109,6 +109,7 @@ The build compiles every folder into one, so no two files share a name.
 | `console.cpp` | libogc's text console, for the launch screen and errors |
 | `crash.cpp` | RiftWii's crash screen and `crash.txt` |
 | `log.cpp` | The log (`session.log`, `boot.log`) |
+| `nanduse.cpp` | The NAND (`/dev/fs`) opened and closed for everyone, counted |
 | `loadersettings.cpp` | Settings as the app reads and writes them |
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |

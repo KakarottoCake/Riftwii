@@ -22,6 +22,7 @@
 #include "log.hpp"
 #include "riftwii/shotfile.hpp"
 #include "skin.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -124,7 +125,7 @@ void DropUnfinishedShots() {
 
 // The in-game captures on the NAND, each to a PNG, then deleted there.
 void ImportGameShots() {
-    if (ISFS_Initialize() < 0) return;
+    if (NandOpen() < 0) return;
     DropUnfinishedShots();
     u32 count = 0;
     if (ISFS_ReadDir(kGameShotDir, nullptr, &count) < 0 || count == 0) return;
@@ -186,7 +187,8 @@ void* Worker(void*) {
     g_busy = true;
     ImportGameShots();
     // /dev/fs is not kept open: an IOS reload with it open damages the heap.
-    ISFS_Deinitialize();
+    // Counted (nanduse.hpp): the menu's channel scan may be reading it now.
+    NandClose();
     g_busy = false;
     while (!g_stop) {
         if (g_frame_ready) {
