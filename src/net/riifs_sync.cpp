@@ -22,6 +22,9 @@ std::string folded(const std::string& s) {
 constexpr std::size_t kMaxPath = 768;
 constexpr unsigned kMaxDepth = 32;
 constexpr unsigned kMaxFolders = 16384;
+// FAT32's largest file: a size past it comes from a server not to be
+// believed (BUG-11).
+constexpr std::uint64_t kMaxFileBytes = 0xFFFFFFFFull;
 
 std::string normal(const std::string& path) {
     std::string out;
@@ -106,6 +109,17 @@ public:
         bool exists = false;
         if (!options_.force && local_.file_size(target, size, exists) && exists && size == st.size) {
             return report(path);
+        }
+        // A size checked before anything is written: a PC (or anything on
+        // the network answering as one) could otherwise fill the card.
+        if (st.size > kMaxFileBytes) {
+            error_ = "RiiFS: the PC gives " + path.substr(0, 80) + " a size no SD card file can have";
+            return false;
+        }
+        if (st.size > local_.free_bytes()) {
+            error_ = "RiiFS: the SD card has no room for " + path.substr(0, 80) + " (" + std::to_string(st.size) +
+                     " bytes)";
+            return false;
         }
         const std::string dir = parent_of(target);
         if (!dir.empty() && !local_.make_dirs(dir)) {

@@ -38,6 +38,8 @@ public:
     virtual bool write(const std::uint8_t* data, std::size_t length) = 0;
     virtual bool end_file(bool keep) = 0;                     // close; delete when !keep
     virtual bool remove(const std::string& path) = 0;         // a file, or a folder and all it holds
+    // Bytes the card has room for; UINT64_MAX when it cannot say.
+    virtual std::uint64_t free_bytes() { return UINT64_MAX; }
 };
 
 struct SyncItem {

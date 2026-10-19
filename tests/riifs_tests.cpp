@@ -251,6 +251,8 @@ public:
     std::map<std::string, std::vector<std::uint8_t>> files;  // folded path -> bytes
     std::set<std::string> dirs;                              // folded paths
     std::uint32_t writes = 0;
+    std::uint64_t room = UINT64_MAX;                         // free_bytes
+    std::uint64_t free_bytes() override { return room; }
 
     static std::string fold(std::string s) {
         for (char& c : s) c = (c >= 'A' && c <= 'Z') ? char(c - 'A' + 'a') : c;
@@ -621,6 +623,33 @@ static void TestHostileServer() {
         server.listing_extra = 65536;
         EXPECT_TRUE(client.list("/big", list, missing, error));
         EXPECT_EQ(list.size(), 65536u);
+        // Entries that are skipped count too (BUG-11): a folder answering
+        // "." 70,000 times is refused, and the connection stays usable.
+        server.rogue_names["/dots"] = std::vector<std::string>(70000, ".");
+        server.extra_dirs.insert("/dots");
+        EXPECT_FALSE(client.list("/dots", list, missing, error));
+        EXPECT_TRUE(error.find("more than") != std::string::npos);
+        EXPECT_TRUE(client.stat("/x.bin", st, missing, error));
+    }
+
+    // A file bigger than the card has room for is refused before anything
+    // is written (BUG-11).
+    {
+        FakeServer server;
+        server.files["/riivolution/Pack/big.bin"] = std::vector<std::uint8_t>(5000, 0x42);
+        Client client(server);
+        std::string error;
+        EXPECT_TRUE(client.handshake(error));
+        FakeCard card;
+        card.room = 4096;
+        riftwii::riifs::SyncStats stats;
+        std::vector<SyncItem> items(1);
+        items[0].path = "/riivolution/Pack/big.bin";
+        EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+        EXPECT_TRUE(error.find("no room") != std::string::npos);
+        EXPECT_TRUE(card.files.empty());
+        card.room = 8192;
+        EXPECT_TRUE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
     }
 }
 

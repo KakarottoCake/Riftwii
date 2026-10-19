@@ -141,6 +141,10 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
     std::vector<DirEntry> entries;
     std::vector<char> name(kNameBytes + 1, 0);
     bool too_many = false;
+    // Every entry the PC sends counts, "." and ".." too (two of each kind
+    // at most): skipped ones were not, and a server answering "." for ever
+    // held the listing for good (BUG-11).
+    std::size_t received = 0;
     for (;;) {
         std::int32_t length = -1;
         if (!set_word(kOptFile, static_cast<std::uint32_t>(dir)) || !command(kCmdNextName) ||
@@ -149,6 +153,10 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
             return false;
         }
         if (length < 0) break;  // no more entries
+        if (++received > kMaxListing + 2) {
+            too_many = true;
+            break;
+        }
         DirEntry e;
         std::int32_t rc = -1;
         if (!command(kCmdNextStat) || !read_stat(e.stat) || !result(rc)) {
