@@ -10,6 +10,10 @@ namespace {
 
 constexpr std::uint32_t kBlr = 0x4E800020u;
 constexpr std::size_t kSearchChunk = 0x8000;
+// The most matches one <memory search> takes. Each match reads a chunk
+// again: a one-byte pattern of zeros matched tens of millions of times and
+// the launch never ended (BUG-07). Real searches find a handful.
+constexpr std::size_t kMaxSearchMatches = 65536;
 
 std::string hex32(std::uint32_t v) {
     static const char digits[] = "0123456789abcdef";
@@ -132,23 +136,40 @@ bool apply_search(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded,
     const std::uint64_t step = std::max(p.original.size(), p.value.size());
     std::uint64_t from = 0;
     std::size_t matches = 0;
+    std::size_t kept_out = 0;
+    bool capped = false;
     std::string where;
     for (;;) {
         std::uint32_t at = 0;
         std::size_t region = 0;
         if (!find_pattern(loaded, memory, p.original, p.align, at, region, error, from)) return false;
         if (region == loaded.size()) break;
+        from = static_cast<std::uint64_t>(at) + step;
+        if (matches + kept_out >= kMaxSearchMatches) {
+            capped = true;
+            break;
+        }
+        // A match where nothing may be written (a hook RiftWii placed, or
+        // memory it keeps for itself) is passed over: the rest of the
+        // search still applies, where it used to fail the launch (MIN-07).
+        if (!inside(writable, at, p.value.size())) {
+            ++kept_out;
+            continue;
+        }
         if (!write_checked(writable, memory, at, p.value, error)) return false;
         if (matches < 4) where += (matches ? ", " : "") + hex32(at);
         ++matches;
-        from = static_cast<std::uint64_t>(at) + step;
     }
+    std::string note;
     if (matches == 0) {
-        notes.push_back("memory search: no match for " + std::to_string(p.original.size()) + " bytes");
+        note = "memory search: no match for " + std::to_string(p.original.size()) + " bytes";
     } else {
-        notes.push_back("memory search: " + std::to_string(p.value.size()) + " bytes written at " + where +
-                        (matches > 4 ? " and " + std::to_string(matches - 4) + " more" : ""));
+        note = "memory search: " + std::to_string(p.value.size()) + " bytes written at " + where +
+               (matches > 4 ? " and " + std::to_string(matches - 4) + " more" : "");
     }
+    if (kept_out != 0) note += "; " + std::to_string(kept_out) + " match(es) where RiftWii keeps its own code, passed over";
+    if (capped) note += "; stopped after " + std::to_string(kMaxSearchMatches) + " matches";
+    notes.push_back(note);
     return true;
 }
 
