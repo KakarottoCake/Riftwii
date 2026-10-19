@@ -19,6 +19,9 @@ reviews:
     drafts: true
     # Review every push, not only the first one.
     auto_incremental_review: true
+    # CodeRabbit stops reviewing on its own after five reviewed commits;
+    # long-running drafts get far more pushes than that.
+    auto_pause_after_reviewed_commits: 0
     # Feature branches sometimes target each other, not only the default
     # branch.
     base_branches:
