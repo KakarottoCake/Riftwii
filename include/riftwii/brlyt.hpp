@@ -96,6 +96,15 @@ struct Layout {
     int find_pane(const std::string& name) const;
 };
 
+// A banner comes from a disc, a game image or a download. Records may be
+// listed many times over, so a small file could name tens of thousands of
+// materials, panes or group entries and keep the menu matching names for
+// minutes (SEC-04): past these, the layout is refused. Real banners have
+// tens of each.
+constexpr std::size_t kMaxLayoutMaterials = 4096;
+constexpr std::size_t kMaxLayoutPanes = 4096;
+constexpr std::size_t kMaxLayoutGroupEntries = 16384;  // pane names in all groups
+
 bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::string& error);
 
 // Banners made for several languages keep each one's text in a group
