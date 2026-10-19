@@ -177,6 +177,12 @@ typedef struct rwp_host {
     unsigned long long (*zstd_frame_size)(const void* from, size_t from_bytes);
     uint32_t (*zstd_is_error)(size_t code);
     const char* (*zstd_error_name)(size_t code);
+
+    /* Added after API 2 (check RWP_HOST_HAS). usb_read: `count` 512-byte
+     * sectors of the USB drive from `sector` into `out` (any buffer),
+     * through d2x's /dev/usb2 once a GameCube game's launch has opened it
+     * (rwp_gc_launch's usb_fd); 1 read, 0 not. */
+    int32_t (*usb_read)(uint64_t sector, uint32_t count, void* out);
 } rwp_host;
 
 /* What a plugin gives RiftWii: a constant table in its image, found by

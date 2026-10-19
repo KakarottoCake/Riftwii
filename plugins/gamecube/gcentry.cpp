@@ -34,6 +34,14 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.sharp = request.sharp != 0;
     image.sixty_hz = request.sixty_hz != 0;
     image.vi_width = request.vi_width;
+    image.usb_fd = request.usb_fd;
+    if (request.usb_fd >= 0) {
+        for (std::uint32_t i = 0; i < request.usb_fragment_count; ++i) {
+            const rwp_fragment& f = request.usb_fragments[i];
+            image.usb_fragments.push_back(riftwii::Fragment{f.sector, f.sector_count});
+        }
+        image.usb_bytes = request.usb_file_bytes;
+    }
     return image;
 }
 

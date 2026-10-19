@@ -138,6 +138,7 @@ what the loader needs:
 | The SD card, raw | `sd_file_fragments` (a file's sectors as `rwp_fragment` pairs and its size), `sd_forget_layout`, `sd_hand_over` (unmount, shut the interface down, open the card for the game: `rwp_sd_card` with its fd, RCA and SDHC flag) | `resolve_sd_file`, `forget_sd_layout`, `fatUnmount`, `sd_interface()->shutdown()`, `sdio::open_card` |
 | System | `ios_open`, `read_sram` (`rwp_sram`: the clock bias, the language, slot A's flash ID), `video_framebuffer`, `shut_down_for_game` (the TV mode as a number, `RWP_TV_NTSC` or `RWP_TV_PAL`; configures the video encoder, two retraces, `SYS_ResetSystem(SYS_SHUTDOWN)`) | `IOS_Open`, `__SYS_LockSram*`, `VIDEO_*` with `TVNtsc480IntDf`/`TVPal528IntDf`, `SYS_ResetSystem` |
 | Zstandard | `zstd_decompress`, `zstd_frame_size`, `zstd_is_error` | the three `ZSTD_*` the RVZ reader and the RVZ blob need |
+| The USB drive, after API 2 | `usb_read` (512-byte sectors through d2x's `/dev/usb2`, once a GameCube game's launch has opened it; checked with `RWP_HOST_HAS`) | `ums::Read` |
 
 The cache entries of API 1 (`flush_range`, `sync_code`) replace
 `DCFlushRange` and `ICInvalidateRange`, and `mem1_alloc` and `mem1_free`
@@ -229,7 +230,7 @@ update's order. Build: `make_plugin.py check` for `selftest` and
 
 | Piece | Where |
 | --- | --- |
-| The tables, API 2 | `include/riftwii/plugin_api.h`: API 1's twelve functions and 24 more (the groups above, plus `zstd_error_name`, which the RVZ reader's messages use), 36 in all; `rwp_plugin` with `launch` (28 bytes, `kPluginTableBytes`) |
+| The tables, API 2 | `include/riftwii/plugin_api.h`: API 1's twelve functions and 24 more (the groups above, plus `zstd_error_name`, which the RVZ reader's messages use), 36 in all, then `usb_read` at the end (37); `rwp_plugin` with `launch` (28 bytes, `kPluginTableBytes`) |
 | The request | `include/riftwii/plugin_gamecube.h` (`rwp_gc_launch`), `src/patching/gcrequest.cpp` (the packs' plan flattened and built again, the plugin's check of a request; `tests/gcrequest_tests.cpp`) |
 | The DOL's side | `wii/launch/gcplugin.cpp`: `LaunchGcNative` fills the request and calls `plugin::Launch("gamecube", ...)`; `FindGcWayBack`, `SetGcCrashScreen` and the card's backup stay here; `wii/core/plugins.cpp` has the host functions and `Launch` |
 | The plugin | `plugins/gamecube/`: `gcnative.cpp` (the loader, moved), `gcentry.cpp` (`rwp_init`, the table, `launch`), `gchost.cpp` (the loader's helpers on the table: `logf`, `resolve_sd_file`, the disc opened as an ISO or an RVZ, the arena check), `gcblobs.S` (the three `runtime/gc` blobs by `.incbin`) |

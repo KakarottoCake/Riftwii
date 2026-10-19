@@ -1012,12 +1012,14 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 	};
 	// Settings > Games from: everything, or one place's games only (a
 	// drive, the Wii's own WiiWare and Virtual Console games, or the
-	// GameCube games, all on the SD card).
+	// GameCube games, on the SD card and the USB drive).
 	const std::string& source = riftwii::wii::Settings().home_source;
-	if (source == "all" || source == "usb")
-		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
+	if (source == "all" || source == "usb" || source == "gamecube")
+		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i) {
+			if (source == "gamecube" && !state.usb_catalog.games[i].gamecube) continue;
 			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id,
 				&state.usb_catalog.games[i]);
+		}
 	if (source == "all" || source == "sd" || source == "gamecube")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
 			if (source == "gamecube" && !state.sd_catalog.games[i].gamecube) continue;
@@ -4041,8 +4043,9 @@ static int MenuSource(FrontendState& state)
 			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
 			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage + 4 && k < items.size(); ++k) {
 				const HomeEntry& e = entries[k];
-				if (e.kind != HomeEntry::Kind::Sd) continue;
-				const riftwii::wii::ImageGame& game = state.sd_catalog.games[e.index];
+				if (e.kind != HomeEntry::Kind::Sd && e.kind != HomeEntry::Kind::Usb) continue;
+				const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Sd ? state.sd_catalog.games[e.index]
+					: state.usb_catalog.games[e.index];
 				if (!game.gamecube || !g_gcBannersAsked.insert(game.id).second) continue;
 				if (!riftwii::wii::GameCubeBannerWanted(game.id)) continue;
 				// A mod is asked for by its own ID only: the three-letter
@@ -4780,6 +4783,8 @@ static std::size_t ShownPacks(const FrontendState& state, std::size_t* enabled =
 	return shown;
 }
 
+static const riftwii::wii::ImageGame* SelectedGcGame(const FrontendState& state);
+
 // `settingsOnly`: the Game settings page's rows (the picture, the language
 // and the rest), without the ones the game page has as tiles.
 static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows, std::vector<RowRef>& refs,
@@ -4952,7 +4957,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	};
 	if (!settingsOnly && state.use_channel) show({W::About, W::Cheats, W::Favorite, W::Cover});
 	else if (!settingsOnly) show({W::Mods, W::About, W::Saves, W::Cheats, W::Favorite, W::Cover});
-	if (state.use_sd && state.sd_index < state.sd_catalog.games.size() && state.sd_catalog.games[state.sd_index].gamecube) {
+	if (SelectedGcGame(state)) {
 		// A GameCube game: none of the Wii's picture or online settings
 		// reach it; its own instead.
 		if (riftwii::kGcDriveTimingReady) {
@@ -5144,12 +5149,14 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 	return true;
 }
 
-// The game picked, when it is a GameCube one (on the SD card).
+// The game picked, when it is a GameCube one (on the SD card or the USB drive).
 static const riftwii::wii::ImageGame* SelectedGcGame(const FrontendState& state)
 {
-	if (!state.use_sd || state.sd_index >= state.sd_catalog.games.size()) return nullptr;
-	const riftwii::wii::ImageGame& game = state.sd_catalog.games[state.sd_index];
-	return game.gamecube ? &game : nullptr;
+	const riftwii::wii::ImageGame* game = nullptr;
+	if (state.use_sd && state.sd_index < state.sd_catalog.games.size()) game = &state.sd_catalog.games[state.sd_index];
+	else if (state.use_usb && state.usb_index < state.usb_catalog.games.size())
+		game = &state.usb_catalog.games[state.usb_index];
+	return game && game->gamecube ? game : nullptr;
 }
 
 // The game picked, when it is a GameCube game still to be made from its

@@ -1397,8 +1397,10 @@ bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat
     std::memcpy(out.header, rvz.head().disc_header.data(), sizeof(out.header));
     out.extents = extents_of(file);
     if (out.extents.size() > GC_RVZ_MAX_EXTENTS) {
-        error = "the RVZ is in " + std::to_string(out.extents.size()) + " pieces on the SD card, more than the " +
-                std::to_string(GC_RVZ_MAX_EXTENTS) + " RiftWii can follow during play: copy it to the card again";
+        const char* drive = !image.usb_fragments.empty() ? "USB drive" : "SD card";
+        error = "the RVZ is in " + std::to_string(out.extents.size()) + " pieces on the " + drive +
+                ", more than the " + std::to_string(GC_RVZ_MAX_EXTENTS) +
+                " RiftWii can follow during play: copy it to the " + drive + " again";
         return false;
     }
     // The group table, 8 bytes a group (gc_rvz.h), read from the card a
@@ -1700,12 +1702,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     gc_map controls;
     load_gc_controls(image.id, controls);
     const bool rvz = image.rvz;
+    const bool on_usb = !image.usb_fragments.empty();  // the image itself (packs may be on the drive too)
     Fat32File file;
-    if (!resolve_sd_file(image.path, file, error)) return false;
+    if (on_usb) {
+        // On the USB drive: its pieces as the menu found them, before the
+        // reload into the d2x cIOS whose /dev/usb2 reads them now.
+        file.entry.size = static_cast<std::uint32_t>(image.usb_bytes);
+        file.fragments = image.usb_fragments;
+        logf("GameCube: the image is on the USB drive (d2x's /dev/usb2 fd %d), in %u piece(s)\n",
+             static_cast<int>(image.usb_fd), static_cast<unsigned>(file.fragments.size()));
+    } else if (!resolve_sd_file(image.path, file, error)) {
+        return false;
+    }
     // The disc: the image file itself, or the disc an RVZ holds.
     std::unique_ptr<ByteSource> disc;
     const RvzDiscSource* rvz_disc = nullptr;
-    if (!open_gc_disc(image.path, rvz, disc, rvz_disc, error)) return false;
+    if (!open_gc_disc(image, disc, rvz_disc, error)) return false;
     const ByteSource& f = *disc;
     // The game's view of the disc: the image, then the packs' window
     // (gcoverlay.hpp) when there are packs. An RVZ's bytes are read from it
@@ -1713,7 +1725,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<GcRun> placed;
     if (rvz) {
         if (!gc_disc_runs_rvz(disc->size(), pack, placed, error)) return false;
-    } else if (!gc_disc_runs(file.fragments, file.entry.size, pack, placed, error)) {
+    } else if (!gc_disc_runs(file.fragments, file.entry.size, pack, placed, error, on_usb)) {
         return false;
     }
     GcRvzSetup rvz_setup;
@@ -1937,6 +1949,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (r.kind == GcRun::Kind::Sd) {
             runs[i].kind = GC_RUN_SD;
             runs[i].source = static_cast<std::uint32_t>(r.sector);
+        } else if (r.kind == GcRun::Kind::Usb) {
+            runs[i].kind = GC_RUN_USB;
+            runs[i].source = static_cast<std::uint32_t>(r.sector);
         } else if (r.kind == GcRun::Kind::Image) {
             runs[i].kind = GC_RUN_RVZ;
             runs[i].source = static_cast<std::uint32_t>(r.image_offset);
@@ -2149,6 +2164,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         reader->table_extent_count = static_cast<std::uint32_t>(rvz_setup.table_extents.size());
         std::copy(rvz_setup.table_extents.begin(), rvz_setup.table_extents.end(), reader->table_extents);
         reader->extent_count = static_cast<std::uint32_t>(rvz_setup.extents.size());
+        reader->extents_on_usb = on_usb ? 1 : 0;  // the group table stays on the card
         std::copy(rvz_setup.extents.begin(), rvz_setup.extents.end(), reader->extents);
         ctx->rvz = rvz_addr;
     }
@@ -2161,6 +2177,20 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // Loading speed option says Fast.
     ctx->drive_timing = image.drive_timing ? 1 : 0;
     ctx->beat_ticks = 30375000;  // half a second of the bus clock / 4
+    // A game or a pack on the USB drive: d2x's /dev/usb2, kept open across
+    // the hand-over like the card's handle, and a keep-alive read of the
+    // first sector the game reads there after 30 s without one, so a hard
+    // drive that spins down when idle does not make the game's next read
+    // take seconds (some games call a slow read a disc error).
+    ctx->usb_fd = image.usb_fd >= 0 ? static_cast<std::uint32_t>(image.usb_fd) : 0xFFFFFFFFu;
+    if (image.usb_fd >= 0) {
+        for (std::size_t i = 0; i < placed.size(); ++i) {
+            if (placed[i].kind != GcRun::Kind::Usb) continue;
+            ctx->usb_keep_sector = static_cast<std::uint32_t>(placed[i].sector);
+            ctx->usb_keep_ticks = 60 * 30375000u;  // 30 s
+            break;
+        }
+    }
     ctx->di_regs = di_regs;
     std::memset(reinterpret_cast<void*>(di_regs), 0, 0x40);
     auto* stream = static_cast<gc_rt_stream*>(staged(stream_addr));

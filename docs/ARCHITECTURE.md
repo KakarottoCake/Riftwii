@@ -169,7 +169,29 @@ reaches the SD card, the Wii Remotes and the way back through it.
 
 **Listing.** `wii/launch/gclaunch.cpp` adds the `sd:/games/<folder>/game.iso`
 images (or `game.rvz`, see [RVZ.md](RVZ.md#gamecube-games)) whose header says
-GameCube to the SD card's games (`ImageGame::gamecube`). A patch-only
+GameCube to the SD card's games (`ImageGame::gamecube`), and the same in
+`usb:/games/<folder>/` to the USB drive's (`ScanUsbGcImages`, through the
+menu's view of the drive; the Wii games' images lie in `usb:/games`
+itself).
+
+**From the USB drive.** libogc's USB driver only works under IOS 58, and
+a GameCube game keeps the IOS it starts on. So a game on the drive has
+its file's pieces found through the menu's view first (`usb_file_pieces`),
+then the launch reloads into a d2x cIOS (`activate_gamecube_usb` in
+`wii/storage/usbcatalog.cpp`, in `image_cios_order`'s order) and opens
+d2x's `/dev/usb2`, checking that the image's first sector reads back the
+same through it. The plugin reads the image through the host's
+`usb_read`; the blob reads `GC_RUN_USB` runs (and an RVZ's pieces, with
+`extents_on_usb`) through the same fd, 32 KB at a time into the MEM2
+bounce buffer, since d2x's USB driver writes nowhere else. A pack on the
+drive is planned from the menu's view of it (`GcProvider`'s `usb:`
+files become `UsbDevice` pieces, `RWP_GC_PIECE_USB` in the request, Usb
+runs in the blob); with one, a game on the SD card is launched under d2x
+too (`ready_usb`, checked against the pack's first file). The memory
+cards, the RVZ's group table and the trace stay on the SD card.
+The heartbeat reads the image's first sector when the drive has been
+quiet for 30 s (`gc_usb_keep_alive`), so a hard drive does not spin down
+under a game that has loaded what it needs. A patch-only
 mod, `sd:/riftwii/patches/*.xdelta`, is listed as the game it makes when
 one of those images is its original (`wii/launch/gcpatch.cpp`, the VCDIFF
 reader `src/patching/vcdiff.cpp`). Starting it builds

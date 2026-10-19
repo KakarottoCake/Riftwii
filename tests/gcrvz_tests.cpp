@@ -308,23 +308,26 @@ void CheckDiscSource(const Disc& d) {
 // The card for gc_rvz.c: 512-byte sectors, the files laid out in pieces.
 struct Card {
     Bytes sectors;
+    Bytes usb_sectors;  // the USB drive, for a game on it (gc_rvz's extents_on_usb)
     std::uint32_t requests = 0;
+    std::uint32_t usb_requests = 0;
     std::uint32_t largest = 0;
     bool fail = false;
 };
 
-// Puts `file` on the card in pieces of `piece` sectors with a gap of one
-// sector between them, and returns the pieces.
-std::vector<gc_rvz_extent> place(Card& card, const Bytes& file, std::uint32_t piece) {
+// Puts `file` on a device (the card's or the USB drive's sectors) in
+// pieces of `piece` sectors with a gap of one sector between them, and
+// returns the pieces.
+std::vector<gc_rvz_extent> place(Bytes& device, const Bytes& file, std::uint32_t piece) {
     std::vector<gc_rvz_extent> out;
     const std::uint32_t sectors = static_cast<std::uint32_t>((file.size() + 511) / 512);
     for (std::uint32_t s = 0; s < sectors; s += piece) {
         const std::uint32_t n = std::min(piece, sectors - s);
-        const std::uint32_t at = static_cast<std::uint32_t>(card.sectors.size() / 512) + 1;
-        card.sectors.resize((std::size_t(at) + n) * 512, 0xCC);
+        const std::uint32_t at = static_cast<std::uint32_t>(device.size() / 512) + 1;
+        device.resize((std::size_t(at) + n) * 512, 0xCC);
         const std::size_t bytes = std::min<std::size_t>(std::size_t(n) * 512, file.size() - std::size_t(s) * 512);
         std::copy(file.begin() + std::size_t(s) * 512, file.begin() + std::size_t(s) * 512 + bytes,
-                  card.sectors.begin() + std::size_t(at) * 512);
+                  device.begin() + std::size_t(at) * 512);
         out.push_back(gc_rvz_extent{s, at, n});
     }
     return out;
@@ -341,20 +344,24 @@ struct Aligned {
 
 }  // namespace
 
-extern "C" int gc_rvz_device_read(void* io, std::uint32_t sector, std::uint32_t count, std::uintptr_t target) {
+extern "C" int gc_rvz_device_read(void* io, std::uint32_t usb, std::uint32_t sector, std::uint32_t count,
+                                  std::uintptr_t target) {
     Card& card = *static_cast<Card*>(io);
+    const Bytes& device = usb ? card.usb_sectors : card.sectors;
     card.requests++;
+    if (usb) card.usb_requests++;
     card.largest = std::max(card.largest, count);
-    if (card.fail || target % 32 != 0 || (std::size_t(sector) + count) * 512 > card.sectors.size()) return 0;
-    std::memcpy(reinterpret_cast<void*>(target), card.sectors.data() + std::size_t(sector) * 512, std::size_t(count) * 512);
+    if (card.fail || target % 32 != 0 || (std::size_t(sector) + count) * 512 > device.size()) return 0;
+    std::memcpy(reinterpret_cast<void*>(target), device.data() + std::size_t(sector) * 512, std::size_t(count) * 512);
     return 1;
 }
 
 namespace {
 
 // The disc through the GameCube blob's reader, set up as the loader does
-// (plugins/gamecube/gcnative.cpp): the group table file and the RVZ on the card.
-void CheckBlobReader(const Disc& d, const char* name) {
+// (plugins/gamecube/gcnative.cpp): the group table file on the card, and
+// the RVZ on the card or, for `on_usb`, on the USB drive.
+void CheckBlobReader(const Disc& d, const char* name, bool on_usb) {
     std::unique_ptr<RvzDiscSource> disc;
     std::string error;
     EXPECT_TRUE(RvzDiscSource::open(std::make_shared<MemorySource>(d.rvz), disc, error));
@@ -368,8 +375,9 @@ void CheckBlobReader(const Disc& d, const char* name) {
 
     Card card;
     card.sectors.resize(512 * 3, 0xCC);
-    const std::vector<gc_rvz_extent> table_pieces = place(card, table.entries, 1);
-    const std::vector<gc_rvz_extent> file_pieces = place(card, d.rvz, 37);
+    card.usb_sectors.resize(512 * 5, 0xDD);
+    const std::vector<gc_rvz_extent> table_pieces = place(card.sectors, table.entries, 1);
+    const std::vector<gc_rvz_extent> file_pieces = place(on_usb ? card.usb_sectors : card.sectors, d.rvz, 37);
     EXPECT_TRUE(table_pieces.size() <= GC_RVZ_TABLE_EXTENTS);
     EXPECT_TRUE(file_pieces.size() <= GC_RVZ_MAX_EXTENTS);
 
@@ -393,6 +401,7 @@ void CheckBlobReader(const Disc& d, const char* name) {
     rvz->table_extent_count = static_cast<std::uint32_t>(table_pieces.size());
     std::copy(table_pieces.begin(), table_pieces.end(), rvz->table_extents);
     rvz->extent_count = static_cast<std::uint32_t>(file_pieces.size());
+    rvz->extents_on_usb = on_usb ? 1 : 0;
     std::copy(file_pieces.begin(), file_pieces.end(), rvz->extents);
 
     // The whole disc in the blob's pieces: never across a group's end, at
@@ -419,8 +428,13 @@ void CheckBlobReader(const Disc& d, const char* name) {
     EXPECT_TRUE(out == d.iso);
     EXPECT_EQ(rvz->failures, 0u);
     EXPECT_TRUE(card.largest <= GC_RVZ_REQUEST_SECTORS);
-    std::cout << "  " << name << ": " << table.group_count << " groups, " << rvz->groups_loaded << " decoded, "
-              << rvz->entry_loads << " table sectors, " << card.requests << " card requests" << std::endl;
+    // On USB the groups come from the drive and only the table's sectors
+    // from the card.
+    if (on_usb) EXPECT_EQ(card.requests - card.usb_requests, rvz->entry_loads);
+    else EXPECT_EQ(card.usb_requests, 0u);
+    std::cout << "  " << name << (on_usb ? " (on USB)" : "") << ": " << table.group_count << " groups, "
+              << rvz->groups_loaded << " decoded, " << rvz->entry_loads << " table sectors, " << card.requests
+              << " requests (" << card.usb_requests << " to USB)" << std::endl;
 
     // A read inside the group held costs nothing more.
     const std::uint32_t loaded = rvz->groups_loaded;
@@ -483,7 +497,8 @@ void TestDiscs() {
     for (const Case& c : cases) {
         const Disc d = make_disc(c.size, c.chunk, c.zstd, kAllKinds);
         CheckDiscSource(d);
-        CheckBlobReader(d, c.name);
+        CheckBlobReader(d, c.name, false);
+        CheckBlobReader(d, c.name, true);
     }
 }
 

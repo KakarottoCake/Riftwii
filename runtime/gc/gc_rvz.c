@@ -67,7 +67,7 @@ static int gc_rvz_fail(struct gc_rvz* rvz, uint32_t error, uint32_t offset) {
  * through the pieces the loader gave: one card request per piece, at
  * most GC_RVZ_REQUEST_SECTORS at a time. 1: read; 0: a sector outside
  * the pieces (*missing set) or a failed request. */
-static int gc_rvz_file_read(struct gc_rvz* rvz, void* io, const struct gc_rvz_extent* extents,
+static int gc_rvz_file_read(struct gc_rvz* rvz, void* io, uint32_t usb, const struct gc_rvz_extent* extents,
                             uint32_t extent_count, uint32_t file_sector, uint32_t count, uintptr_t target,
                             int* missing) {
     *missing = 0;
@@ -89,7 +89,8 @@ static int gc_rvz_file_read(struct gc_rvz* rvz, void* io, const struct gc_rvz_ex
         if (n > count) n = count;
         if (n > GC_RVZ_REQUEST_SECTORS) n = GC_RVZ_REQUEST_SECTORS;
         rvz->card_requests++;
-        if (!gc_rvz_device_read(io, piece->device_sector + (file_sector - piece->file_sector), n, target)) return 0;
+        if (!gc_rvz_device_read(io, usb, piece->device_sector + (file_sector - piece->file_sector), n, target))
+            return 0;
         file_sector += n;
         count -= n;
         target += n * GC_RVZ_SECTOR;
@@ -106,7 +107,7 @@ static int gc_rvz_entry(struct gc_rvz* rvz, void* io, uint32_t group, uint32_t o
     if (rvz->entry_sector != sector) {
         int missing;
         rvz->entry_sector = GC_RVZ_NO_GROUP;  /* the buffer is about to change */
-        if (!gc_rvz_file_read(rvz, io, rvz->table_extents, rvz->table_extent_count, sector, 1,
+        if (!gc_rvz_file_read(rvz, io, 0, rvz->table_extents, rvz->table_extent_count, sector, 1,
                               (uintptr_t)rvz->entries, &missing)) {
             return gc_rvz_fail(rvz, missing ? GC_RVZ_ERR_EXTENT : GC_RVZ_ERR_TABLE, offset);
         }
@@ -148,7 +149,8 @@ static int gc_rvz_load(struct gc_rvz* rvz, void* io, struct gc_rvz_slot* slot, u
     target = compressed ? rvz->stored_buffer : slot->buffer;
     room = compressed ? rvz->stored_bytes : slot->buffer_bytes;
     if (target == 0 || sectors > room / GC_RVZ_SECTOR) return gc_rvz_fail(rvz, GC_RVZ_ERR_TOO_BIG, offset);
-    if (!gc_rvz_file_read(rvz, io, rvz->extents, rvz->extent_count, word0 >> 7, sectors, target, &missing)) {
+    if (!gc_rvz_file_read(rvz, io, rvz->extents_on_usb, rvz->extents, rvz->extent_count, word0 >> 7, sectors,
+                          target, &missing)) {
         return gc_rvz_fail(rvz, missing ? GC_RVZ_ERR_EXTENT : GC_RVZ_ERR_CARD, offset);
     }
     if (compressed) {

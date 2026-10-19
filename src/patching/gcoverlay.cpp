@@ -37,7 +37,7 @@ bool place(std::vector<GcOverlayPlan::Entry>& entries, std::uint64_t at, const s
     std::uint64_t cursor = at;
     for (const GcPiece& p : pieces) {
         if (p.length == 0) continue;
-        if (p.kind == GcPiece::Kind::Device && p.skip >= RT_SECTOR_BYTES) {
+        if ((p.kind == GcPiece::Kind::Device || p.kind == GcPiece::Kind::UsbDevice) && p.skip >= RT_SECTOR_BYTES) {
             error = "a device piece starts past its sector";
             return false;
         }
@@ -149,9 +149,10 @@ bool plan_gc_overlay(const std::vector<std::uint8_t>& boot, const std::vector<st
 namespace {
 
 // gc_disc_runs and gc_disc_runs_rvz: `image` is the image file's fragments
-// on the card, or null for an image read from its RVZ.
+// on the card (or the USB drive, `image_kind` Usb), or null for an image
+// read from its RVZ.
 bool disc_runs(const std::vector<Fragment>* image, std::uint64_t image_size, const GcOverlayPlan* plan,
-               std::vector<GcRun>& out, std::string& error) {
+               std::vector<GcRun>& out, std::string& error, GcRun::Kind image_kind = GcRun::Kind::Sd) {
     out.clear();
     std::uint64_t at = 0;
     // Bytes of the image at `disc`: from its file's fragments, or by their
@@ -174,7 +175,7 @@ bool disc_runs(const std::vector<Fragment>* image, std::uint64_t image_size, con
         if (!place_on_fragments(*image, source, length, placed, error)) return false;
         for (const PlacedRun& p : placed) {
             GcRun r;
-            r.kind = GcRun::Kind::Sd;
+            r.kind = image_kind;
             r.disc = disc;
             r.length = p.length;
             r.sector = p.source;
@@ -206,9 +207,9 @@ bool disc_runs(const std::vector<Fragment>* image, std::uint64_t image_size, con
         zeros_to(e.vstart);
         if (e.piece.kind == GcPiece::Kind::Image) {
             if (!from_image(e.vstart, e.piece.source, e.length)) return false;
-        } else if (e.piece.kind == GcPiece::Kind::Device) {
+        } else if (e.piece.kind == GcPiece::Kind::Device || e.piece.kind == GcPiece::Kind::UsbDevice) {
             GcRun r;
-            r.kind = GcRun::Kind::Sd;
+            r.kind = e.piece.kind == GcPiece::Kind::UsbDevice ? GcRun::Kind::Usb : GcRun::Kind::Sd;
             r.disc = e.vstart;
             r.length = e.length;
             r.sector = e.piece.source;
@@ -241,9 +242,15 @@ bool disc_runs(const std::vector<Fragment>* image, std::uint64_t image_size, con
 
 }  // namespace
 
+bool gc_plan_uses_usb(const GcOverlayPlan& plan) {
+    for (const GcOverlayPlan::Entry& e : plan.entries)
+        if (e.piece.kind == GcPiece::Kind::UsbDevice) return true;
+    return false;
+}
+
 bool gc_disc_runs(const std::vector<Fragment>& image, std::uint64_t image_size, const GcOverlayPlan* plan,
-                  std::vector<GcRun>& out, std::string& error) {
-    return disc_runs(&image, image_size, plan, out, error);
+                  std::vector<GcRun>& out, std::string& error, bool image_on_usb) {
+    return disc_runs(&image, image_size, plan, out, error, image_on_usb ? GcRun::Kind::Usb : GcRun::Kind::Sd);
 }
 
 bool gc_disc_runs_rvz(std::uint64_t image_size, const GcOverlayPlan* plan, std::vector<GcRun>& out,

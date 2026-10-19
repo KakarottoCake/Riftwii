@@ -139,6 +139,17 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
                     std::uint64_t& size);
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
+// The entries of a folder on the USB drive ("usb:/games"), sorted, without
+// "." and "..": false when no drive is up or there is no such folder.
+bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out);
+// A file on the USB drive as the menu's view finds it, whole (its entry,
+// its pieces, and the bytes an NTFS drive keeps in its file table for a
+// file of a few hundred bytes).
+bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error);
+// A file on the USB drive as the menu's view finds it: its size and its
+// pieces in the drive's 512-byte sectors, in the order of its bytes.
+bool usb_file_pieces(const std::string& usb_path, std::uint64_t& size, std::vector<Fragment>& out,
+                     std::string& error);
 // Development aid for Dolphin, which has no d2x: partition reads of the
 // disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
 // the RVZ at `sd_path` instead.
@@ -229,5 +240,14 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
 // `purpose` names what the reload is for in the log.
 bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
                         const char* purpose = "the packs on the USB drive");
+// A GameCube game on the USB drive (wii/launch/gclaunch.hpp): the reload
+// into d2x cIOS `cios_slot`, with the same teardown as activate_image_game,
+// the SD card and the log back, and d2x's /dev/usb2 opened (ums::Fd), which
+// the game's loader reads the image through. The sector at `first_sector`
+// must start with `first_bytes` (32 bytes the menu read there), so d2x is
+// reading the drive the game was listed from. `log_path` null: the log
+// open before the reload is opened again. False with the reason.
+bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_sector, int cios_slot,
+                           const char* log_path, std::string& error);
 
 }  // namespace riftwii::wii

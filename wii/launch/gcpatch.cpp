@@ -16,6 +16,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "progress.hpp"
+#include "usbcatalog.hpp"
 #include "riftwii/vcdiff.hpp"
 
 namespace riftwii::wii {
@@ -36,15 +37,24 @@ VcdiffLimits wii_limits() {
     return l;
 }
 
+// A file on the card, or (to read only) an original on the USB drive,
+// through the menu's view of it (usbcatalog.hpp).
 struct File {
     std::FILE* f = nullptr;
     std::uint64_t size = 0;
-    explicit File(const std::string& path, const char* mode = "rb") : f(std::fopen(path.c_str(), mode)) {
+    std::string usb_path;  // set: read from the USB drive
+    explicit File(const std::string& path, const char* mode = "rb") {
+        if (path.compare(0, 5, "usb:/") == 0 && mode[0] == 'r') {
+            if (read_usb_range(path, 0, nullptr, 0, size)) usb_path = path;
+            return;
+        }
+        f = std::fopen(path.c_str(), mode);
         if (f && mode[0] == 'r' && fseeko(f, 0, SEEK_END) == 0) {
             size = static_cast<std::uint64_t>(ftello(f));
             fseeko(f, 0, SEEK_SET);
         }
     }
+    bool ok() const { return f != nullptr || !usb_path.empty(); }
     ~File() {
         if (f) std::fclose(f);
     }
@@ -52,6 +62,10 @@ struct File {
     File& operator=(const File&) = delete;
     VcdiffReadFn reader() {
         return [this](std::uint64_t at, void* out, std::size_t n) {
+            if (!usb_path.empty()) {
+                std::uint64_t whole = 0;
+                return read_usb_range(usb_path, at, static_cast<std::uint8_t*>(out), n, whole);
+            }
             return fseeko(f, static_cast<off_t>(at), SEEK_SET) == 0 && std::fread(out, 1, n, f) == n;
         };
     }
@@ -110,18 +124,20 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
     std::vector<ImageGame> found;
     for (const std::string& path : patches) {
         File patch(path);
-        if (!patch.f) continue;
+        if (!patch.ok()) continue;
         bool listed = false;
         // Why each GameCube game was not its original, for the log: a
         // tester's patch matched none and the log could not say why.
         std::string why;
         for (const ImageGame& g : games) {
-            if (!g.gamecube || !g.gc_patch_source.empty() || g.device != ImageDevice::Sd) continue;
+            // The original on the card or the USB drive (the list scanned:
+            // ScanGcImages' or ScanUsbGcImages'); the game is made on the card.
+            if (!g.gamecube || !g.gc_patch_source.empty()) continue;
             // A patch is applied to an ISO's bytes as they are on the card,
             // not to the disc inside an RVZ.
             if (g.format == UsbImageFormat::Rvz) continue;
             File original(g.path);
-            if (!original.f) continue;
+            if (!original.ok()) continue;
             std::vector<std::uint8_t> head;
             bool checked = false;
             std::string error;
@@ -164,7 +180,7 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
 
 bool GcPatchSpace(const GcImage& image, std::uint64_t& need, std::uint64_t& have) {
     File original(image.patch_source);
-    if (!original.f) return false;
+    if (!original.ok()) return false;
     need = original.size + (64u << 20);
     have = 0;
     struct statvfs vfs;
@@ -177,8 +193,8 @@ bool PrepareGcPatch(GcImage& image, std::string& error, const GcPrepareProgress&
     const std::string final_path = dir + "/game.iso";
     const std::string part = dir + "/game.iso.part";
     File patch(image.path), original(image.patch_source);
-    if (!patch.f || !original.f) {
-        error = "cannot open " + std::string(patch.f ? image.patch_source : image.path);
+    if (!patch.ok() || !original.ok()) {
+        error = "cannot open " + std::string(patch.ok() ? image.patch_source : image.path);
         return false;
     }
     struct statvfs vfs;

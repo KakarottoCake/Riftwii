@@ -193,16 +193,60 @@ int gc_sd_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint3
     return 1;
 }
 
-/* `length` bytes of a card run from byte `at` of it into `dst`. Whole
- * sectors go straight into the game's buffer when it is aligned for the
- * DMA; the rest through the bounce buffer. */
+/* d2x's USB mass-storage read ('U' 'M' 'S' 3): the sector and the count
+ * in, the data out. */
+#define GC_UMS_READ_SECTORS 0x554D5303u
+/* Sectors a request asks for: 32 KB, as the menu reads the drive through
+ * d2x (wii/storage/umsdev.cpp). */
+#define GC_USB_REQUEST_SECTORS 64u
+
+/* `count` sectors of the USB drive from `sector` into `target`, which is
+ * in MEM2 (d2x's USB driver writes nowhere else) and 32-byte aligned. */
+int gc_usb_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target) {
+    uint32_t* q = ctx->request;
+    while (count != 0) {
+        const uint32_t n = count < GC_USB_REQUEST_SECTORS ? count : GC_USB_REQUEST_SECTORS;
+        int32_t result;
+        q[0] = sector;
+        q[1] = n;
+        ctx->vec[0] = gc_physical((uint32_t)(uintptr_t)&q[0]);
+        ctx->vec[1] = 4;
+        ctx->vec[2] = gc_physical((uint32_t)(uintptr_t)&q[1]);
+        ctx->vec[3] = 4;
+        ctx->vec[4] = gc_physical(target);
+        ctx->vec[5] = n * GC_SECTOR;
+        gc_flush((uint32_t)(uintptr_t)q, 32);
+        gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
+        gc_flush(target, n * GC_SECTOR);  /* no dirty lines left to land on the DMA's bytes */
+        ctx->usb_requests++;
+        result = gc_ioctlv(ctx, ctx->usb_fd, GC_UMS_READ_SECTORS, 2, 1);
+        gc_invalidate(target, n * GC_SECTOR);
+        __asm__ volatile("mftb %0" : "=r"(ctx->usb_last_read));
+        if (result < 0) {
+            ctx->usb_failures++;
+            ctx->failures++;
+            ctx->last_error = result;
+            return 0;
+        }
+        sector += n;
+        count -= n;
+        target += n * GC_SECTOR;
+    }
+    return 1;
+}
+
+/* `length` bytes of a card or USB run from byte `at` of it into `dst`.
+ * From the card, whole sectors go straight into the game's buffer when it
+ * is aligned for the DMA; the rest, and everything from USB (the game's
+ * memory is MEM1), through the bounce buffer. */
 static int gc_read_sd_run(struct gc_rt_context* ctx, const struct gc_rt_run* run, uint32_t at, uint8_t* dst,
                           uint32_t length) {
+    const int usb = run->kind == GC_RUN_USB;
     while (length != 0) {
         const uint32_t byte = run->skip + at;  /* from the start of sector `source` */
         const uint32_t sector = run->source + byte / GC_SECTOR;
         const uint32_t into = byte % GC_SECTOR;
-        if (into == 0 && length >= GC_SECTOR && ((uint32_t)(uintptr_t)dst & 31u) == 0) {
+        if (!usb && into == 0 && length >= GC_SECTOR && ((uint32_t)(uintptr_t)dst & 31u) == 0) {
             uint32_t count = length / GC_SECTOR;
             if (count > 128) count = 128;
             if (!gc_sd_read(ctx, sector, count, (uint32_t)(uintptr_t)dst)) return 0;
@@ -215,7 +259,8 @@ static int gc_read_sd_run(struct gc_rt_context* ctx, const struct gc_rt_run* run
             uint32_t got;
             if (want > ctx->bounce_bytes) want = ctx->bounce_bytes;
             count = (want + GC_SECTOR - 1) / GC_SECTOR;
-            if (!gc_sd_read(ctx, sector, count, ctx->bounce)) return 0;
+            if (usb ? !gc_usb_read(ctx, sector, count, ctx->bounce) : !gc_sd_read(ctx, sector, count, ctx->bounce))
+                return 0;
             got = count * GC_SECTOR - into;
             if (got > length) got = length;
             gc_copy(dst, (const uint8_t*)(uintptr_t)(ctx->bounce + into), got);
@@ -228,9 +273,12 @@ static int gc_read_sd_run(struct gc_rt_context* ctx, const struct gc_rt_run* run
 }
 
 #ifdef RT_RVZ
-/* gc_rvz.c's card reads (gc_rvz.h): `io` is the context. */
-int gc_rvz_device_read(void* io, uint32_t sector, uint32_t count, uintptr_t target) {
-    return gc_sd_read((struct gc_rt_context*)io, sector, count, (uint32_t)target);
+/* gc_rvz.c's reads (gc_rvz.h): `io` is the context. Its buffers are all
+ * in MEM2, so the USB drive's reads go there directly. */
+int gc_rvz_device_read(void* io, uint32_t usb, uint32_t sector, uint32_t count, uintptr_t target) {
+    struct gc_rt_context* ctx = (struct gc_rt_context*)io;
+    if (usb) return gc_usb_read(ctx, sector, count, (uint32_t)target);
+    return gc_sd_read(ctx, sector, count, (uint32_t)target);
 }
 
 /* `length` bytes of the image from its disc offset `offset`, out of the
@@ -269,7 +317,7 @@ static int gc_read_disc_unlocked(struct gc_rt_context* ctx, uint8_t* dst, uint32
         at = offset - runs[i].disc;
         n = runs[i].length - at;
         if (n > length) n = length;
-        if (runs[i].kind == GC_RUN_SD) {
+        if (runs[i].kind == GC_RUN_SD || runs[i].kind == GC_RUN_USB) {
             if (!gc_read_sd_run(ctx, &runs[i], at, dst, n)) return 0;
         } else if (runs[i].kind == GC_RUN_RVZ) {
 #ifdef RT_RVZ
@@ -537,6 +585,9 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_GCAD_REPORTS] = ad->g.reports << 16 | (ad->send_failures & 0xFFFFu);
         w[GC_TR_GCAD_ERROR] = (uint32_t)ad->g.last_error;
     }
+    w[GC_TR_USB_REQUESTS] = ctx->usb_requests;
+    w[GC_TR_USB_FAILURES] = ctx->usb_failures;
+    w[GC_TR_USB_KEEPALIVES] = ctx->usb_keepalives;
     w[GC_TR_AR_WAITS] = ctx->ar_waits;
     w[GC_TR_AR_WAIT_LONGEST] = ctx->ar_wait_longest;
     w[GC_TR_AR_WAIT_TIMEOUTS] = ctx->ar_wait_timeouts;
@@ -898,6 +949,23 @@ typedef void (*gc_callback_fn)(uint32_t type);
 #define GC_OSCONTEXT_SRR0 0x198u
 #define GC_OSCONTEXT_SRR1 0x19Cu
 
+/* From the heartbeat: a game on the USB drive reads one sector of its
+ * image when the drive has been quiet for usb_keep_ticks. Many hard
+ * drives spin down after a few idle minutes, and the next read then
+ * takes seconds, which a game sitting on a menu or with a level loaded
+ * can turn into a disc error. Only while nothing else reads. */
+static void gc_usb_keep_alive(struct gc_rt_context* ctx) {
+    uint32_t now;
+    if (ctx->usb_fd == 0xFFFFFFFFu || ctx->usb_keep_ticks == 0) return;
+    if (ctx->busy || ctx->read_state != GC_READ_NONE) return;
+    __asm__ volatile("mftb %0" : "=r"(now));
+    if (now - ctx->usb_last_read < ctx->usb_keep_ticks) return;
+    ctx->busy = 1;
+    ctx->usb_keepalives++;
+    gc_usb_read(ctx, ctx->usb_keep_sector, 1, ctx->bounce);
+    ctx->busy = 0;
+}
+
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context) {
     const uint32_t cb = ctx->pending_cb;
     if (alarm == (uint32_t)(uintptr_t)ctx->beat_alarm) {
@@ -910,6 +978,7 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         gc_guard(ctx);
         gc_vi_note(ctx);
         if (ctx->card) gc_card_flush(ctx, (struct gc_card*)(uintptr_t)ctx->card, 0);
+        gc_usb_keep_alive(ctx);
         gc_trace(ctx, GC_TRACE_BEAT);
         gc_beat_arm(ctx);
         return;
