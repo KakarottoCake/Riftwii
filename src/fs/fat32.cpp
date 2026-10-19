@@ -623,8 +623,13 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, bool& missing,
     // A file follows as many clusters as its size needs, no more.
     const std::uint64_t cluster_bytes =
         std::uint64_t(geo_.sectors_per_cluster) * geo_.blocks_per_sector() * kFatBlockBytes;
+    // A folder, at most the clusters its largest allowed listing fills: a
+    // long, scattered chain made one fragment per cluster and could run the
+    // Wii out of memory (MIN-03).
+    const std::uint64_t folder_clusters =
+        (std::uint64_t(limits_.max_directory_entries) * 32 + cluster_bytes - 1) / cluster_bytes + 1;
     const std::uint64_t needed = file.entry.is_directory
-                                     ? UINT64_MAX
+                                     ? folder_clusters
                                      : std::max<std::uint64_t>(1, (file.entry.size + cluster_bytes - 1) / cluster_bytes);
     if (!chain(file.entry.first_cluster, file.fragments, error, needed)) {
         error = "'" + path + "': " + error;
