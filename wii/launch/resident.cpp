@@ -525,6 +525,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         out.hook_sites[out.hook_site_count++] = hook_site[e];
     }
     out.fs_state = has_fs ? fs_state_address : 0;
+    out.context_now = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(ctx));
     out.rvz_state = rvz ? rvz_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);

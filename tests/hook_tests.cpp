@@ -2586,6 +2586,17 @@ std::int32_t FakeGameReadAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint3
 
 }  // namespace
 
+// The null round trips a disc read waits in for the card (GETSTATUS on
+// the card's fd), counted.
+static std::uint32_t g_wait_trips = 0;
+static std::int32_t CountWaitTrip(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t*, std::uint32_t,
+                                  std::uint32_t, std::uint32_t, std::uint32_t, rt_pending*) {
+    EXPECT_EQ(fd, 9u);
+    EXPECT_EQ(ioctl, static_cast<std::uint32_t>(RT_SDIO_GETSTATUS));
+    ++g_wait_trips;
+    return 0;
+}
+
 static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     for (std::size_t s = 0; s < 128; ++s) {
         for (std::size_t k = 0; k < 512; ++k) g_card[s * 512 + k] = static_cast<std::uint8_t>(s * 7 + k);
@@ -2690,6 +2701,45 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     std::vector<std::uint8_t> ours(expected);
     ours.insert(ours.end(), m.bytes.begin(), m.bytes.end());
     EXPECT_EQ(ctx.last_checksum, rt_checksum(ours.data(), static_cast<std::uint32_t>(ours.size())));
+
+    // The virtual SD blob beside the runtime has a write the card is still
+    // programming (BUG-05): the read's first chunk waits in a null round
+    // trip instead of going out, and goes once the blob has seen the card
+    // idle. Without savegame state of its own the runtime still waits.
+    {
+        // The blob's word, 32-bit addressable like everything the runtime reads.
+        ctx.vsd_writing = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(low_out + 0x3000));
+        std::uint32_t* writing = reinterpret_cast<std::uint32_t*>(static_cast<std::uintptr_t>(ctx.vsd_writing));
+        *writing = 1;
+        rt_host_ioctl_async = &CountWaitTrip;
+        g_wait_trips = 0;
+        g_sd_sectors_requested.clear();
+        std::memset(out, 0xEE, 0x800);
+        args[6] = 0x80005000;
+        args[7] = 0x80006000;
+        EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+        auto* waiting = reinterpret_cast<rt_pending*>(args[7]);
+        di_result = 1;
+        rt_on_di_complete(&ctx, &di_result, waiting, &cb, &ud);
+        EXPECT_EQ(cb, 0u);
+        EXPECT_EQ(waiting->phase, RT_PHASE_SD_WAIT);
+        EXPECT_EQ(g_wait_trips, 1u);
+        EXPECT_TRUE(g_sd_sectors_requested.empty());
+        *writing = 0;
+        std::int32_t trip = 0;
+        rt_on_di_complete(&ctx, &trip, waiting, &cb, &ud);
+        EXPECT_EQ(g_wait_trips, 1u);
+        EXPECT_EQ(g_sd_sectors_requested.size(), 2u);
+        if (g_sd_sectors_requested.size() == 2) EXPECT_EQ(g_sd_sectors_requested[0], 10u);
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, waiting, &cb, &ud);
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, waiting, &cb, &ud);
+        EXPECT_EQ(cb, 0x80005000u);
+        EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+        ctx.vsd_writing = 0;
+        rt_host_ioctl_async = nullptr;
+    }
 
     // The same read into a buffer half its length is left to IOS: nothing
     // claimed, the game's callback kept, nothing written past the buffer.
