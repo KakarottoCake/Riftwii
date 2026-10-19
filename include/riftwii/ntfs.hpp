@@ -89,14 +89,20 @@ private:
     BlockReader reader_;
     NtfsGeometry geo_;
     std::vector<NtfsRun> mft_runs_;
-    // Listings by MFT record number, dropped whole past kDirCacheEntries:
+    // Listings by MFT record number, dropped whole past kDirCacheBytes:
     // every lookup walked each folder of its path from the root, every
     // index block of it, so a pack's thousands of files re-read the same
     // folders thousands of times. The volume is only read, so a listing
-    // never goes stale. Mutable because lookups are logically const.
-    static constexpr std::size_t kDirCacheEntries = 32768;
+    // never goes stale. Counted in bytes, names included, so long crafted
+    // names cannot pin more (CAV-05); a listing larger than the whole
+    // budget is not kept but handed out from `uncached_` until the next.
+    // Mutable because lookups are logically const, and with no lock: one
+    // thread reads a volume at a time (Home's scan is waited for before
+    // anything else reads the drives, wii/menu/homescan.hpp).
+    static constexpr std::size_t kDirCacheBytes = std::size_t(4) << 20;
     mutable std::map<std::uint64_t, std::vector<DirEntry>> dir_cache_;
-    mutable std::size_t dir_cache_entries_ = 0;
+    mutable std::size_t dir_cache_bytes_ = 0;
+    mutable std::vector<DirEntry> uncached_;
 };
 
 }  // namespace riftwii
