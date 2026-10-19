@@ -220,18 +220,34 @@ DEPENDS	:=	$(OFILES:.o=.d)
 # Homebrew Channel refused a DOL section on a real Wii. riftwii.elf has
 # no stash: start the .dol.
 PYTHON		?=	python3
+ZSTD		?=	zstd
 STASH_LIMIT	:=	0x81200000
 #
 # Then every plugin in build-plugins/plugins must carry this DOL's build
 # stamp and API version (tools/make_plugin.py check, as CI runs it).
+#
+# Last, the DOL is packed (tools/pack_dol.py, runtime/dolpack): its sections
+# Zstandard-compressed behind a stub that unpacks them at start, half the
+# file to download and read from the card. The checks above and
+# tools/size_report.py read the unpacked one, kept as
+# build_wii/riftwii-unpacked.dol. PACK=0 leaves riftwii.dol unpacked.
 PLUGIN_FILES = $(wildcard $(PROJECT_ROOT)/build-plugins/plugins/*.rwp)
-$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py $(PROJECT_ROOT)/tools/make_plugin.py
+PACK		?=	1
+UNPACKED	:=	$(CURDIR)/riftwii-unpacked.dol
+DOLPACK_STUB	:=	$(PROJECT_ROOT)/build-runtime/dolpack.bin
+$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py $(PROJECT_ROOT)/tools/make_plugin.py \
+		$(PROJECT_ROOT)/tools/pack_dol.py $(DOLPACK_STUB)
 	@echo output ... $(notdir $@)
-	@elf2dol $< $@
-	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py $@ --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
+	@elf2dol $< "$(UNPACKED)"
+	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py "$(UNPACKED)" --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
 		$(foreach f,$(STASHFILES),$(f)=$(f))
-	@$(PYTHON) $(PROJECT_ROOT)/tools/make_plugin.py check --dol $@ --stamp "$(RIFTWII_BUILD_STAMP)" \
+	@$(PYTHON) $(PROJECT_ROOT)/tools/make_plugin.py check --dol "$(UNPACKED)" --stamp "$(RIFTWII_BUILD_STAMP)" \
 		--version "$(RIFTWII_VERSION)" $(PLUGIN_FILES)
+ifeq ($(PACK),0)
+	@cp "$(UNPACKED)" $@
+else
+	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
+endif
 $(OUTPUT).elf: $(OFILES)
 
 # The plugins, built with this build's version and stamp (Makefile.plugin).

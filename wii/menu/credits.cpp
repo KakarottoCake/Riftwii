@@ -60,6 +60,8 @@ const char* const kCredits[] = {
     "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
+    "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
+    "",
     "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer by "
     "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player.",
     "",
