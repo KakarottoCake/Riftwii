@@ -258,6 +258,22 @@ void TestHttp() {
     EXPECT_TRUE(http_redirect_allowed(HttpRedirects::SameHost, banner, same_path));
     EXPECT_TRUE(http_redirect_allowed(HttpRedirects::SameHost, banner, same_upper));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_host));
+    // Follow goes anywhere but from the internet into the player's own
+    // network (CAV-04): private and loopback addresses, written as such.
+    {
+        HttpUrl local;
+        for (const char* url : {"http://192.168.1.1/admin", "http://10.0.0.2/", "http://127.0.0.1:8080/x",
+                                "http://172.20.3.4/", "http://169.254.0.1/", "http://localhost/", "http://0.0.0.0/"}) {
+            EXPECT_TRUE(parse_http_url(url, local, error));
+            EXPECT_FALSE(http_redirect_allowed(HttpRedirects::Follow, banner, local));
+            EXPECT_TRUE(http_redirect_allowed(HttpRedirects::Follow, local, local));  // from a local server: fine
+        }
+        for (const char* url : {"http://172.32.0.1/", "http://192.169.0.1/", "http://11.0.0.1/",
+                                "http://10.0.0.1.example.com/", "http://1270.0.0.1/"}) {
+            EXPECT_TRUE(parse_http_url(url, local, error));
+            EXPECT_TRUE(http_redirect_allowed(HttpRedirects::Follow, banner, local));
+        }
+    }
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_port));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, to_https));
     // An update's redirects (SEC-03): GitHub's release file servers over
