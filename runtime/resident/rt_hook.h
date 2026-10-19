@@ -502,6 +502,7 @@ struct rt_fs_state {
     uint32_t card_waits;           /* null round trips savegame commands waited for the card, in all */
     uint32_t backing_off;          /* a failure's pause runs until not_before */
     uint32_t not_before;           /* time base when the next command may go out */
+    uint32_t copy_busy;            /* an import, the import job or the clone owns stats/attr/path and the temp names */
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
