@@ -7,6 +7,7 @@
 #include <ogc/video.h>
 
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -134,6 +135,9 @@ struct GcHead {
     std::string describe;
     std::uint64_t disc_bytes = 0;
     std::uint32_t chunk_bytes = 0;
+    // The header was read: false when the file could not be opened or its
+    // first bytes not read, which the scan says apart from a missing header.
+    bool header_read = false;
 };
 
 bool read_gc_head(const std::string& path, GcHead& out) {
@@ -148,6 +152,7 @@ bool read_gc_head(const std::string& path, GcHead& out) {
             logf("%s scan: %s: %s\n", drive_of(path), path.c_str(), error.c_str());
             return false;
         }
+        out.header_read = true;
         if (head.disc_type != 1) return false;  // a Wii game's RVZ: not one of these
         std::memcpy(out.bytes, head.disc_header.data(), sizeof(out.bytes));
         out.verdict = check_rvz(head, file->size());
@@ -157,6 +162,7 @@ bool read_gc_head(const std::string& path, GcHead& out) {
     } else if (!file->read(0, out.bytes, sizeof(out.bytes))) {
         return false;
     }
+    out.header_read = true;
     return be32(out.bytes + 0x1C) == 0xC2339F3Du;
 }
 
@@ -619,18 +625,21 @@ struct SkippedGcFiles {
 void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped) {
     GcHead found;
     if (!read_gc_head(full, found)) {
-        // Not opened at all: the drive's file system says why (a FAT whose
-        // chain ends before the file's size, issue #129), which a tester's
-        // Simpsons: Hit & Run never showed.
-        if (GcImageOnUsb(full)) {
-            VolumeFile file;
-            std::string why;
-            if (!usb_file_lookup(full, file, why)) {
-                skipped.note(full, "it cannot be opened: " + why);
-                return;
+        // Not read at all: the drive's file system says why when it can (a
+        // FAT whose chain ends before the file's size, issue #129), which a
+        // tester's Simpsons: Hit & Run never showed. An RVZ's own reading
+        // error is in the log already (read_gc_head).
+        if (!found.header_read) {
+            if (found.rvz) return;
+            std::string why = "its first bytes cannot be read";
+            if (GcImageOnUsb(full)) {
+                VolumeFile file;
+                std::string lookup;
+                if (!usb_file_lookup(full, file, lookup)) why = "it cannot be opened: " + lookup;
+            } else if (!CardFile(full).ok()) {
+                why = "it cannot be opened on the SD card";
             }
-        } else if (!CardFile(full).ok()) {
-            skipped.note(full, "it cannot be opened on the SD card");
+            skipped.note(full, why);
             return;
         }
         const bool wii_disc = be32(found.bytes + 0x18) == 0x5D1C9EA3u;
@@ -667,13 +676,23 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     DIR* games = opendir("sd:/games");
-    if (!games) return;
+    if (!games) {
+        // No games folder is the usual card; one that cannot be read is not.
+        if (errno != ENOENT) logf("SD scan: sd:/games cannot be read: %s\n", std::strerror(errno));
+        return;
+    }
     SkippedGcFiles skipped;
     while (dirent* folder = readdir(games)) {
         if (folder->d_name[0] == '.') continue;
+        // A file loose in sd:/games is the Wii scan's (it says when one is
+        // a GameCube game); only folders hold GameCube games.
+        if (folder->d_type == DT_REG) continue;
         const std::string dir = std::string("sd:/games/") + folder->d_name;
         DIR* inner = opendir(dir.c_str());
-        if (!inner) continue;
+        if (!inner) {
+            if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
+            continue;
+        }
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (file->d_type == DT_DIR) continue;
