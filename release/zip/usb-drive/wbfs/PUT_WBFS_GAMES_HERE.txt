@@ -1,0 +1,4 @@
+Put .wbfs game files here (plus every .wbf1, .wbf2, ... piece when a
+game is split), either directly or one folder below, for example:
+  wbfs/Game [RMCE01]/RMCE01.wbfs
+Raw .iso copies work here too (wbfs/Game [RMCE01]/RMCE01.iso), or in games. FAT32 and NTFS drives work.
