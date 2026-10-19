@@ -315,6 +315,21 @@ void TestCheats() {
         EXPECT_EQ(file.cheats[3].name, "My own cheat");
         EXPECT_EQ(file.cheats[3].notes.size(), 1u);
     }
+    // The same download with "infinite health" turned on: its code stays
+    // the player's (SEC-02), and only that one is counted as held.
+    std::size_t held = 0;
+    const std::string guarded =
+        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]", "New one"}, &held);
+    EXPECT_EQ(kept, 3u);
+    EXPECT_EQ(held, 1u);
+    EXPECT_TRUE(parse_cheat_text(guarded, file, error));
+    if (file.cheats.size() == 4) {
+        EXPECT_EQ(file.cheats[0].words[1], 0x60000000u);  // turned on: the old code
+        EXPECT_EQ(file.cheats[2].name, "New one");        // new to the file: the download's
+    }
+    // A repeat's name ("... (2)") counts as the block's own.
+    merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec] (2)"}, &held);
+    EXPECT_EQ(held, 1u);
     // Values filled in on the Wii: the template stays, so they can change.
     std::string valued =
         "SB4E01\nSuper Mario Galaxy 2\n\n"
