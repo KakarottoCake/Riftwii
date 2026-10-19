@@ -36,6 +36,7 @@
 #define GC_RUN_ZERO 1u
 #define GC_RUN_MEM 2u   /* `source` is an address (bytes the loader placed in memory) */
 #define GC_RUN_RVZ 3u   /* `source` is the image's disc offset, read from its RVZ (gc_rvz.h; the RVZ build only) */
+#define GC_RUN_USB 4u   /* `source` is a 512-byte sector of the USB drive (d2x's /dev/usb2), `skip` bytes into it */
 
 /* One stretch of the game's view of the disc. Sorted by `disc`, no gaps
  * the game reads (a read past the last run fails). */
@@ -163,6 +164,11 @@ enum gc_trace_word {
     GC_TR_GCAD,
     GC_TR_GCAD_REPORTS,
     GC_TR_GCAD_ERROR,
+    /* A game on the USB drive: d2x's reads (low 16 bits) << 16 | the failed
+     * ones (low 8 bits) << 8 | the keep-alive reads that kept the drive from
+     * spinning down (low 8 bits). One word, as the record is full; each
+     * count only grows, so two records still tell how many came between. */
+    GC_TR_USB,
     /* The audio hardware as the record found it, for a restart that hangs
      * on a Wii (Dolphin does not model the DSP's state across it). */
     GC_TR_DSP_CSR, /* the DSP's control (0x500A) << 16 | the audio DMA's control (0x5036, bit 15: on) */
@@ -374,6 +380,17 @@ struct gc_rt_context {
     uint32_t bt;              /* struct gc_bt (loader-placed), 0: no Wii Remotes */
     uint32_t card;            /* struct gc_card (loader-placed), 0: the real slot A */
     uint32_t gcad;            /* struct gc_gcad (loader-placed, gc_gcad.h), 0: no GameCube adapter */
+    /* A game on the USB drive: its GC_RUN_USB runs (and an RVZ's pieces)
+     * are read through d2x's /dev/usb2, which the loader opened under the
+     * d2x cIOS the game runs on. d2x's USB driver writes only to MEM2, so
+     * they go through the bounce buffer. */
+    uint32_t usb_fd;          /* 0xFFFFFFFF: the game is not on USB */
+    uint32_t usb_keep_sector; /* a sector of the image, read when the drive has been quiet */
+    uint32_t usb_keep_ticks;  /* timebase ticks of quiet before that read, 0: never */
+    uint32_t usb_last_read;   /* timebase of the last read from the drive */
+    uint32_t usb_requests;
+    uint32_t usb_failures;
+    uint32_t usb_keepalives;
     /* An RVZ game (the blob's RVZ build): the disc's GC_RUN_RVZ runs are
      * read from it. */
     uint32_t rvz;             /* struct gc_rvz (loader-placed), 0: an ISO */

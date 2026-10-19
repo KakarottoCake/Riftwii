@@ -19,12 +19,18 @@ namespace riftwii {
 
 // One piece of a file's new content; a file is its pieces in order.
 struct GcPiece {
-    enum class Kind { Image, Device, Zero };
+    // Device: a pack's bytes on the SD card; UsbDevice: on the USB drive.
+    enum class Kind { Image, Device, Zero, UsbDevice };
     Kind kind = Kind::Zero;
     std::uint64_t length = 0;
-    std::uint64_t source = 0;  // Image: byte offset in the image; Device: 512-byte sector
-    std::uint32_t skip = 0;    // Device: bytes into sector `source` (under 512)
+    std::uint64_t source = 0;  // Image: byte offset in the image; Device, UsbDevice: 512-byte sector
+    std::uint32_t skip = 0;    // Device, UsbDevice: bytes into sector `source` (under 512)
 };
+
+// Whether any of the plan's pieces is on the USB drive (the launch then
+// opens d2x's USB device for it, wherever the image is).
+struct GcOverlayPlan;
+bool gc_plan_uses_usb(const GcOverlayPlan& plan);
 
 struct GcFile {
     std::string disc_path;     // absolute FST path ("/files/x.bin" style, no "files" prefix: "/x.bin")
@@ -56,22 +62,25 @@ bool plan_gc_overlay(const std::vector<std::uint8_t>& boot, const std::vector<st
 // One stretch of the game's view of the disc, as the loader serves it.
 struct GcRun {
     // Fst: the plan's FST, which the loader keeps in memory. Image: bytes
-    // of an image the blob reads by its own offsets (an RVZ).
-    enum class Kind { Sd, Zero, Fst, Image };
+    // of an image the blob reads by its own offsets (an RVZ). Usb: as Sd,
+    // sectors of the USB drive (an image on it; packs stay on the card).
+    enum class Kind { Sd, Zero, Fst, Image, Usb };
     Kind kind = Kind::Zero;
     std::uint64_t disc = 0;
     std::uint64_t length = 0;
-    std::uint64_t sector = 0;  // Sd: the first 512-byte sector
-    std::uint32_t skip = 0;    // Sd: bytes into it
+    std::uint64_t sector = 0;  // Sd, Usb: the first 512-byte sector
+    std::uint32_t skip = 0;    // Sd, Usb: bytes into it
     std::uint64_t fst_offset = 0;  // Fst: bytes into the plan's FST
     std::uint64_t image_offset = 0;  // Image: where its bytes start in the image
 };
 
-// The whole view, sorted and without gaps: the image (its file's SD
+// The whole view, sorted and without gaps: the image (its file's
 // fragments, `image_size` bytes), then, with a plan, its window, the gaps
-// between the window's files as zeros.
+// between the window's files as zeros. The image's fragments are sectors
+// of the SD card, or of the USB drive for `image_on_usb` (Usb runs); the
+// packs' own files are Sd or Usb runs by where each is.
 bool gc_disc_runs(const std::vector<Fragment>& image, std::uint64_t image_size, const GcOverlayPlan* plan,
-                  std::vector<GcRun>& out, std::string& error);
+                  std::vector<GcRun>& out, std::string& error, bool image_on_usb = false);
 
 // The same for an image read from its RVZ (docs/RVZ.md): the image's
 // bytes, in place and in the window, are Image runs that name their offset

@@ -374,13 +374,27 @@ RiftWii says so when you pick it.
 
 ### GameCube games
 
-RiftWii plays GameCube games itself, in Wii mode, without a cIOS. For
-now they go on the SD card only (the USB drive is planned): each game in
-a folder of its own in `sd:/games`, named as you like, for example
+RiftWii plays GameCube games itself, in Wii mode. Each game goes in a
+folder of its own in `sd:/games` on the SD card, or `usb:/games` on a USB
+drive, named as you like, for example
 `sd:/games/Super Mario Sunshine [GMSE01]/game.iso`. An image can be an
 `.iso`, a `.gcm` or a Dolphin `.rvz` (checked as RVZ games are, below).
 A GameCube image left loose in `sd:/games`, or put in `sd:/wbfs`, is not
-listed as a GameCube game. `.ciso` images are not supported: turn them
+listed as a GameCube game.
+
+Games on the SD card need no cIOS. A game on the USB drive runs under a
+d2x cIOS (249, 250 or 251, as USB Wii games do), which reads the drive
+while it plays. Its memory cards and the rest stay on the SD card, so a
+USB game still needs the SD card in. Its packs can be on either drive, as
+a Wii game's can; a game on the SD card with a pack on the USB drive
+runs under d2x too. On an NTFS drive a pack's tiny files (under about
+700 bytes, which NTFS keeps inside its file table) can't be read during
+play: such a pack says so at Start, and plays from the SD card or a
+FAT32 drive. The drive needs 512-byte
+sectors (FAT32 or NTFS, as for Wii games). A hard drive that sleeps when
+idle is read once every 30 seconds while the game is quiet, so it does
+not stop spinning and turn a later load into a disc error. GameCube games
+on the USB drive are new and have not been tested on a Wii yet. `.ciso` images are not supported: turn them
 back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
@@ -436,7 +450,7 @@ RiftWii serves their files to the game without changing the image.
 Packs with memory, savegame or shift patches don't start yet, and say
 so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
-original is in `sd:/games`, and the first start makes that game as
+original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary
 game from then on.
 

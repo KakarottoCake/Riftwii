@@ -4,6 +4,9 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
+#include <memory>
+#include <utility>
 
 namespace riftwii::wii {
 namespace {
@@ -35,6 +38,80 @@ private:
     std::FILE* f_;
     std::uint64_t size_ = 0;
 };
+
+// The image file on the USB drive, read through the host's usb_read (d2x's
+// /dev/usb2) by its pieces, a sector-aligned stretch at a time.
+class UsbDriveFile final : public ByteSource {
+public:
+    UsbDriveFile(std::vector<Fragment> fragments, std::uint64_t size)
+        : fragments_(std::move(fragments)), size_(size), sector_(kSectorBytes * kSectorsAtOnce) {}
+    bool ok() const { return RWP_HOST_HAS(&plugin::host(), usb_read) && !fragments_.empty(); }
+    std::uint64_t size() const override { return size_; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        if (offset > size_ || length > size_ - offset) return false;
+        while (length != 0) {
+            // The piece holding the file's sector at `offset`.
+            const std::uint64_t file_sector = offset / kSectorBytes;
+            std::uint64_t first = 0;
+            const Fragment* piece = nullptr;
+            for (const Fragment& f : fragments_) {
+                if (file_sector < first + f.sector_count) {
+                    piece = &f;
+                    break;
+                }
+                first += f.sector_count;
+            }
+            if (piece == nullptr) return false;
+            const std::uint64_t into_piece = file_sector - first;
+            std::uint64_t sectors = piece->sector_count - into_piece;
+            if (sectors > kSectorsAtOnce) sectors = kSectorsAtOnce;
+            const std::size_t skip = static_cast<std::size_t>(offset % kSectorBytes);
+            const std::uint64_t wanted_sectors = (skip + length + kSectorBytes - 1) / kSectorBytes;
+            if (sectors > wanted_sectors) sectors = wanted_sectors;
+            if (!plugin::host().usb_read(piece->sector + into_piece, static_cast<std::uint32_t>(sectors),
+                                         sector_.data())) {
+                return false;
+            }
+            std::size_t got = static_cast<std::size_t>(sectors * kSectorBytes) - skip;
+            if (got > length) got = length;
+            std::memcpy(destination, sector_.data() + skip, got);
+            destination += got;
+            offset += got;
+            length -= got;
+        }
+        return true;
+    }
+
+private:
+    static constexpr std::uint64_t kSectorBytes = 512;
+    static constexpr std::uint64_t kSectorsAtOnce = 64;  // 32 KB, as the menu reads the drive
+    std::vector<Fragment> fragments_;
+    std::uint64_t size_ = 0;
+    mutable std::vector<std::uint8_t> sector_;
+};
+
+// A file shared with whatever else reads it, as the disc itself.
+class ImageView final : public ByteSource {
+public:
+    explicit ImageView(std::shared_ptr<ByteSource> file) : file_(std::move(file)) {}
+    std::uint64_t size() const override { return file_->size(); }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        return file_->read(offset, destination, length);
+    }
+
+private:
+    std::shared_ptr<ByteSource> file_;
+};
+
+// The image's bytes as a file: on the card, or on the USB drive.
+std::shared_ptr<ByteSource> open_image_file(const GcImage& image) {
+    if (!image.usb_fragments.empty()) {
+        std::shared_ptr<UsbDriveFile> usb(new UsbDriveFile(image.usb_fragments, image.usb_bytes));
+        return usb->ok() ? usb : nullptr;
+    }
+    std::shared_ptr<CardFile> card(new CardFile(image.path));  // not make_shared: its tag type needs RTTI
+    return card->ok() ? card : nullptr;
+}
 
 }  // namespace
 
@@ -87,26 +164,21 @@ bool hand_over_sd_card(rwp_sd_card& card, std::string& error) {
     return false;
 }
 
-bool open_gc_disc(const std::string& path, bool rvz, std::unique_ptr<ByteSource>& out,
-                  const RvzDiscSource*& rvz_disc, std::string& error) {
+bool open_gc_disc(const GcImage& image, std::unique_ptr<ByteSource>& out, const RvzDiscSource*& rvz_disc,
+                  std::string& error) {
     rvz_disc = nullptr;
-    if (!rvz) {
-        std::unique_ptr<CardFile> iso(new CardFile(path));
-        if (!iso->ok()) {
-            error = "cannot open " + path;
-            return false;
-        }
-        out = std::move(iso);
-        return true;
-    }
-    std::shared_ptr<CardFile> file(new CardFile(path));  // not make_shared: its tag type needs RTTI
-    if (!file->ok()) {
-        error = "cannot open " + path;
+    std::shared_ptr<ByteSource> file = open_image_file(image);
+    if (!file) {
+        error = "cannot open " + image.path;
         return false;
+    }
+    if (!image.rvz) {
+        out.reset(new ImageView(file));
+        return true;
     }
     std::unique_ptr<RvzDiscSource> disc;
     if (!RvzDiscSource::open(file, disc, error)) {
-        error = path + ": " + error;
+        error = image.path + ": " + error;
         return false;
     }
     rvz_disc = disc.get();

@@ -379,8 +379,19 @@ bool AutorunPresent() {
     return stat(kAutorunPath, &st) == 0 && S_ISREG(st.st_mode);
 }
 
+// A GameCube game as its launch takes it: on the card or the USB drive,
+// with the d2x slot picked for it (used on the USB drive).
+static GcImage gc_image_of(const LaunchSource& source) {
+    GcImage image;
+    image.path = source.game.path;
+    image.id = source.game.id;
+    image.patch_source = source.game.gc_patch_source;
+    image.cios_slot = source.cios_slot;
+    return image;
+}
+
 bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source) {
-    if (source.game.gamecube) return LaunchGcGame(GcImage{source.game.path, source.game.id, source.game.gc_patch_source}, {}, error);
+    if (source.game.gamecube) return LaunchGcGame(gc_image_of(source), {}, error);
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
@@ -531,7 +542,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
                const std::string& save_mode, const std::string& game_id) {
     // A GameCube game: RiftWii's own loader, its packs served past the image.
-    if (source.game.gamecube) return LaunchGcGame(GcImage{source.game.path, source.game.id, source.game.gc_patch_source}, packages, error);
+    if (source.game.gamecube) return LaunchGcGame(gc_image_of(source), packages, error);
     {
         // A pack that only swaps the game's executable for a Homebrew
         // Channel app (CTGP Revolution 1.03's channel): the app is started

@@ -1317,6 +1317,47 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 
 bool usb_volume_ready() { return g_usb_volume != nullptr; }
 
+bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out) {
+    out.clear();
+    std::string error;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
+    if (!g_usb_volume->list(usb_path.substr(4), out, error)) return false;
+    std::sort(out.begin(), out.end(), [](const VolumeEntry& a, const VolumeEntry& b) { return a.name < b.name; });
+    return true;
+}
+
+bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
+    out = VolumeFile{};
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+        error = "not on the USB drive";
+        return false;
+    }
+    return g_usb_volume->lookup(usb_path.substr(4), out, error);
+}
+
+bool usb_file_pieces(const std::string& usb_path, std::uint64_t& size, std::vector<Fragment>& out,
+                     std::string& error) {
+    out.clear();
+    size = 0;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+        error = "not on the USB drive";
+        return false;
+    }
+    VolumeFile file;
+    if (!g_usb_volume->lookup(usb_path.substr(4), file, error)) return false;
+    if (file.entry.is_directory) {
+        error = "it is a folder";
+        return false;
+    }
+    if (file.fragments.empty()) {
+        error = "it is too small to be a disc image";
+        return false;
+    }
+    size = file.entry.size;
+    out = file.fragments;
+    return true;
+}
+
 std::string rvz_warning(const ImageGame& game) {
     if (game.format != UsbImageFormat::Rvz) return std::string();
     if (gx_protected_game(game.id)) {
@@ -1725,6 +1766,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         g_misplaced_gc.reset();
         scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
         scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
+        ScanUsbGcImages(out.games, &out.ciso);
         const std::string more_gamecube = g_misplaced_gc.rest("USB scan");
         if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
     }
@@ -1925,6 +1967,87 @@ void log_d2x_usb_view(const D2xFragmentList& list) {
     logf("USB (d2x): it starts with \"%s\" (%02x %02x %02x %02x)\n", id, first[0], first[1], first[2], first[3]);
 }
 }  // namespace
+
+bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_sector, int cios_slot,
+                           const char* log_path, std::string& error) {
+    if (cios_slot < 3 || cios_slot > 255) {
+        error = "cIOS slot must be 3..255";
+        return false;
+    }
+    // Vetted while IPC, SD and USB are still up, as for a Wii game.
+    if (!running_in_dolphin()) {
+        std::string why;
+        if (!slot_title_is_launchable(cios_slot, why)) {
+            error = "IOS slot " + std::to_string(cios_slot) + ": " + why +
+                    "; GameCube games on a USB drive need d2x (v11 beta3 is the latest) in 249, 250 or 251";
+            logf("GameCube (USB): skipping IOS%d (%s)\n", cios_slot, why.c_str());
+            return false;
+        }
+        if (!d2x_slot_allowed(cios_slot, why)) {
+            error = why;
+            logf("GameCube (USB): skipping IOS%d (%s)\n", cios_slot, why.c_str());
+            return false;
+        }
+    }
+    // The game keeps this cIOS: its loader reads the image through d2x's
+    // USB device while it runs, as the resident runtime does for a Wii RVZ
+    // on the drive (libogc's USB driver only works under IOS 58).
+    logf("GameCube (USB): reload IOS%d for d2x's USB device; releasing Wii Remotes, USB, SD and DI\n", cios_slot);
+    LaunchMusicPauseForReload("the game's cIOS is loaded next");
+    LogClose();
+    const std::string released = release_for_reload();
+    const ReloadResult r = reload_ios(cios_slot, error, true);
+    if (r == ReloadResult::Terminal) return false;
+    if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) return post_reload_failure(log_path, error);
+    const s32 running = IOS_GetVersion();
+    const s32 revision = IOS_GetRevision();
+    g_sd_back = fatMountSimple("sd", sd_interface());
+    if (g_sd_back) {
+        if (log_path) LogOpen(log_path, true);
+        else LogReopen();  // the log the launch was writing
+    }
+    log_release_heap(released);
+    logf("GameCube (USB): reloaded IOS%d rev %d for slot %d (%s)\n", running, revision, cios_slot,
+         last_reload_detail().c_str());
+    if (revision >= 0 && cios_revision_is_stub(static_cast<std::uint32_t>(revision))) {
+        error = "IOS slot " + std::to_string(cios_slot) +
+                " holds a stub, not a cIOS: install d2x (v11 beta3 is the latest) in 249, 250 or 251";
+        return post_reload_failure(log_path, error);
+    }
+    if (!g_sd_back) {
+        error = "the SD card could not be mounted again after the reload into IOS" + std::to_string(cios_slot) +
+                " (GameCube games keep their memory cards there)";
+        return post_reload_failure(log_path, error);
+    }
+    if (!mem::CheckHeap("after the cIOS reload")) {
+        error = "RiftWii's memory was damaged during the reload into IOS" + std::to_string(cios_slot) +
+                " (the details are in boot.log)";
+        return post_reload_failure(log_path, error);
+    }
+    if (!debug_off("musicresume")) LaunchMusicResumeAfterReload();
+    // Some drives take a while to start after the reload (OpenWaiting).
+    if (!ums::OpenWaiting(error, 20)) {
+        error = "d2x's USB device: " + error;
+        return post_reload_failure(log_path, error);
+    }
+    if (ums::SectorBytes() != kUsbSectorBytes) {
+        error = "the USB drive has " + std::to_string(ums::SectorBytes()) + "-byte sectors; GameCube games need 512";
+        return post_reload_failure(log_path, error);
+    }
+    std::uint8_t first[kUsbSectorBytes];
+    if (!ums::Read(first_sector, 1, first)) {
+        error = "d2x could not read the game's first sector (" + std::to_string(first_sector) + ") on the USB drive";
+        return post_reload_failure(log_path, error);
+    }
+    if (std::memcmp(first, first_bytes, 32) != 0) {
+        error = "d2x reads another USB drive than the one the game was listed from: plug the game's drive into the "
+                "Wii's other USB port, or leave only that drive plugged in";
+        return post_reload_failure(log_path, error);
+    }
+    logf("GameCube (USB): d2x's /dev/usb2 (fd %d) reads the game's first sector %llu\n", ums::Fd(),
+         static_cast<unsigned long long>(first_sector));
+    return true;
+}
 
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error, bool block_ios_reload) {

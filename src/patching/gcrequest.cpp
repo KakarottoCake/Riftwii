@@ -12,6 +12,7 @@ std::uint32_t piece_kind(GcPiece::Kind kind) {
     switch (kind) {
         case GcPiece::Kind::Image: return RWP_GC_PIECE_IMAGE;
         case GcPiece::Kind::Device: return RWP_GC_PIECE_DEVICE;
+        case GcPiece::Kind::UsbDevice: return RWP_GC_PIECE_USB;
         case GcPiece::Kind::Zero: break;
     }
     return RWP_GC_PIECE_ZERO;
@@ -61,6 +62,8 @@ bool gc_plan_from_request(const rwp_gc_launch& request, GcOverlayPlan& plan, std
             entry.piece.kind = GcPiece::Kind::Image;
         } else if (flat.kind == RWP_GC_PIECE_DEVICE) {
             entry.piece.kind = GcPiece::Kind::Device;
+        } else if (flat.kind == RWP_GC_PIECE_USB) {
+            entry.piece.kind = GcPiece::Kind::UsbDevice;
         } else if (flat.kind == RWP_GC_PIECE_ZERO) {
             entry.piece.kind = GcPiece::Kind::Zero;
         } else {

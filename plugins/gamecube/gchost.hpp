@@ -25,9 +25,16 @@ namespace riftwii::wii {
 
 // The game, as the DOL's GcImage (wii/launch/gclaunch.hpp) described it.
 struct GcImage {
-    std::string path;  // sd:/games/.../game.iso, or game.rvz
+    std::string path;  // sd:/games/.../game.iso, or game.rvz; usb:/games/... on the USB drive
     std::string id;    // ID6 from its header
     bool rvz = false;  // the image is an RVZ
+    // d2x's /dev/usb2 the launch opened (-1: nothing is read from the USB
+    // drive), and, for an image on the drive, the file's pieces in the
+    // drive's sectors with its size (none: the image is on the SD card;
+    // its packs may still be on the drive).
+    std::int32_t usb_fd = -1;
+    std::vector<Fragment> usb_fragments;
+    std::uint64_t usb_bytes = 0;
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;
@@ -96,11 +103,12 @@ inline u64 gettime() {
     return (static_cast<u64>(upper) << 32) | lower;
 }
 
-// The game's disc, as the DOL's OpenGcDisc opened it: the file itself, or
-// for an RVZ the disc it holds, then also in `rvz_disc` (the plugin has
+// The game's disc, as the DOL's OpenGcDisc opened it: the file itself
+// (from the SD card, or from the USB drive through the host's usb_read),
+// or for an RVZ the disc it holds, then also in `rvz_disc` (the plugin has
 // no RTTI to tell the two apart afterwards).
-bool open_gc_disc(const std::string& path, bool rvz, std::unique_ptr<ByteSource>& out,
-                  const RvzDiscSource*& rvz_disc, std::string& error);
+bool open_gc_disc(const GcImage& image, std::unique_ptr<ByteSource>& out, const RvzDiscSource*& rvz_disc,
+                  std::string& error);
 
 // False, with `error`, when the plugin's own code lies within one arena's
 // size of [start, end): a launch that writes there would overwrite the

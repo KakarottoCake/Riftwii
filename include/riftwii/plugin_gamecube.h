@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include "riftwii/plugin_api.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,7 @@ typedef struct rwp_gc_pack_entry {
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u
 #define RWP_GC_PIECE_ZERO 2u
+#define RWP_GC_PIECE_USB 3u    /* `source` is a 512-byte sector of the USB drive */
 
 /* The way back (wii/launch/gcplugin.hpp's GcWayBack): kind. */
 #define RWP_GC_WAY_BACK_NONE 0u
@@ -52,6 +55,14 @@ typedef struct rwp_gc_launch {
     uint32_t sixty_hz;     /* a European game told the TV takes 60 Hz */
     int32_t language;      /* the SRAM language the game is told; -1 the console's */
     uint32_t vi_width;     /* the picture width (riftwii/gcvideo.hpp); 0 the game's own */
+    /* An image on the USB drive (path "usb:/..."): d2x's /dev/usb2, open
+     * under the d2x cIOS the launch reloaded into (-1: the image is on
+     * the SD card), and the image file's pieces in the drive's 512-byte
+     * sectors, in the order of its bytes, with its size. */
+    int32_t usb_fd;
+    const rwp_fragment* usb_fragments;
+    uint32_t usb_fragment_count;
+    uint64_t usb_file_bytes;
 
     /* The packs' plan (riftwii/gcoverlay.hpp's GcOverlayPlan); pack_fst
      * NULL when the game has no packs. */

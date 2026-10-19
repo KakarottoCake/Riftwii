@@ -98,9 +98,11 @@ static GcPiece on_card(Bytes& card, std::uint64_t sector, std::uint32_t skip, co
 // The image on the card at sector 100 (one fragment), as the loader finds it.
 constexpr std::uint64_t kImageSector = 100;
 
-// Serves reads like gc_rt.c: each run from the card, zeros or the FST.
+// Serves reads like gc_rt.c: each run from the card (or the USB drive),
+// zeros or the FST.
 struct Reader {
     const Bytes* card = nullptr;
+    const Bytes* usb = nullptr;
     const Bytes* fst = nullptr;
     std::vector<GcRun> runs;
     std::uint8_t byte(std::uint64_t at) const {
@@ -109,6 +111,7 @@ struct Reader {
             const std::uint64_t into = at - r.disc;
             if (r.kind == GcRun::Kind::Zero) return 0;
             if (r.kind == GcRun::Kind::Fst) return fst->at(r.fst_offset + into);
+            if (r.kind == GcRun::Kind::Usb) return usb->at(r.sector * 512 + r.skip + into);
             return card->at(r.sector * 512 + r.skip + into);
         }
         throw 1;  // a read past every run fails in the blob
@@ -312,8 +315,54 @@ static void test_rvz() {
     EXPECT_FALSE(gc_disc_runs_rvz(d.image.size(), &plan, runs, error));
 }
 
+// An image on the USB drive with a pack on the card: the image's bytes
+// (in place and moved into the window) are Usb runs, the pack's own Sd.
+static void test_usb_image() {
+    Disc d = make_disc();
+    Bytes card, usb;
+    const std::vector<Fragment> image = put_image(usb, d.image);
+    const Bytes tail = pattern(0x20, 4);
+    std::vector<GcFile> files(1);
+    files[0].disc_path = "/dir/b.bin";
+    GcPiece orig;
+    orig.kind = GcPiece::Kind::Image;
+    orig.source = 0x20000;
+    orig.length = 0x40;
+    files[0].pieces.push_back(orig);
+    files[0].pieces.push_back(on_card(card, 50, 3, tail));
+    GcOverlayPlan plan;
+    std::string error;
+    Bytes boot(d.image.begin(), d.image.begin() + 0x440);
+    EXPECT_TRUE(plan_gc_overlay(boot, d.fst, d.image.size(), files, plan, error));
+    Reader r;
+    r.card = &card;
+    r.usb = &usb;
+    r.fst = &plan.fst;
+    EXPECT_TRUE(gc_disc_runs(image, d.image.size(), &plan, r.runs, error, true));
+    expect_contiguous(r.runs);
+    bool any_sd = false, image_on_card = false;
+    for (const GcRun& run : r.runs) {
+        if (run.kind == GcRun::Kind::Sd) {
+            any_sd = true;
+            if (run.disc < d.image.size()) image_on_card = true;
+        }
+    }
+    EXPECT_TRUE(any_sd);           // the pack's bytes
+    EXPECT_FALSE(image_on_card);   // never the image's
+    EXPECT_TRUE(!r.runs.empty() && r.runs[0].kind == GcRun::Kind::Usb);
+    EXPECT_TRUE(r.read(0, 0x440) == Bytes(d.image.begin(), d.image.begin() + 0x440));
+    Fst fst;
+    EXPECT_TRUE(Fst::parse(plan.fst.data(), plan.fst.size(), false, fst, error));
+    bool found = false;
+    Bytes want_b(d.image.begin() + 0x20000, d.image.begin() + 0x20040);
+    want_b.insert(want_b.end(), tail.begin(), tail.end());
+    EXPECT_TRUE(file_through(r, fst, "/dir/b.bin", found) == want_b);
+    EXPECT_TRUE(found);
+}
+
 int main() {
     test_full_mod();
+    test_usb_image();
     test_rvz();
     test_refusals();
     test_no_pack();
