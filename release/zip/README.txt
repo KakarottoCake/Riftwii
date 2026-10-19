@@ -244,13 +244,13 @@ New in 3.2 (beta):
 - 2610-464: WiiWare kept whole in an emulated NAND starts
   from there when the Wii's copy has its data removed;
   Bit.Trip Void, Error #002 and a restart's lost access fixed.
-- {{VERSION}}: REX starts with saves on the SD card on; a mod
-  in a "Title [ID]" folder shows under the folder's name; the
-  log says why a GameCube game is passed over; .ciso on USB.
 - 2610-489: GameCube games from a USB drive, the Wii U's
   GameCube adapter in GameCube games, GameCube mods built
   with libogc (Sonic Riders TE), WiiWare and VC with the
   launch screen, problem reports again, half the download.
+- {{VERSION}}: Kirby Air Ride's sound and Melee's music; Home
+  shows SD games before USB ones; REX with SD saves; "Title [ID]"
+  mod folders; safer cheat and update downloads.
 - 2610-280 (RC3): the GameCube adapter set to On no longer stops
   SD games from booting; no Wii Remote rumble for screenshots (it
   crashed Need for Speed: ProStreet). Cars 2 warning.

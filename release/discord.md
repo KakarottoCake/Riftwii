@@ -17,17 +17,22 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Fixes for 2610-489:
+GameCube sound, a faster Home, and fixes from your reports:
 
+* Kirby Air Ride plays clean instead of static, and Melee's music is back (Dolphin only; likely still wrong on a Wii)
+* Home reads the SD card and USB drive in the background: SD games show first, USB games join them, Settings opens at once
 * REX starts again with saves on the SD card turned on (its save stays on the Wii for now)
-* A mod in a folder named with its own ID (like Mario Kart Double Dash Plus [GM4E05]) shows on Home under that folder's name
-* When a GameCube game doesn't show up, session.log now says why (a .gcz, .wia, NKit image, an archive, or a file the drive can't read)
-* .ciso files on a USB drive get the conversion popup too
+* A mod in a "Title [ID]" folder shows on Home under the folder's name
+* When a GameCube game doesn't show up, session.log says why; .ciso on USB gets the popup too
+* Cheats download over https and never change a cheat you turned on; updates come only from RiftWii's own release files
+* POWER/HOME wait for a WAD install, the oldest GameCube card backup survives a restore, a failed cover keeps the old one
 
 To test, please:
 
-1. REX with saves on the SD card: does it start?
-2. Mods in a "Title [ID]" folder: does Home show the folder's name?
-3. GameCube games that didn't show up: what does session.log say?
+1. Kirby Air Ride and Melee on a Wii: clean sound? Melee's music?
+2. Home with games on both SD and USB: do SD games show first?
+3. REX with SD saves, and mods in "Title [ID]" folders
 
 Sending logs (you don't need to take out your SD card anymore): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![A mod kept in a folder named with its own ID shows on Home under the folder name](docs/screenshots/2610-541-mod-folder.png)
