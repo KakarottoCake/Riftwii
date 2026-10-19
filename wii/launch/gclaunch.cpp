@@ -7,6 +7,7 @@
 #include <ogc/video.h>
 
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -134,6 +135,9 @@ struct GcHead {
     std::string describe;
     std::uint64_t disc_bytes = 0;
     std::uint32_t chunk_bytes = 0;
+    // The header was read: false when the file could not be opened or its
+    // first bytes not read, which the scan says apart from a missing header.
+    bool header_read = false;
 };
 
 bool read_gc_head(const std::string& path, GcHead& out) {
@@ -148,6 +152,7 @@ bool read_gc_head(const std::string& path, GcHead& out) {
             logf("%s scan: %s: %s\n", drive_of(path), path.c_str(), error.c_str());
             return false;
         }
+        out.header_read = true;
         if (head.disc_type != 1) return false;  // a Wii game's RVZ: not one of these
         std::memcpy(out.bytes, head.disc_header.data(), sizeof(out.bytes));
         out.verdict = check_rvz(head, file->size());
@@ -157,6 +162,7 @@ bool read_gc_head(const std::string& path, GcHead& out) {
     } else if (!file->read(0, out.bytes, sizeof(out.bytes))) {
         return false;
     }
+    out.header_read = true;
     return be32(out.bytes + 0x1C) == 0xC2339F3Du;
 }
 
@@ -592,11 +598,55 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
 
 namespace {
 
+// A file in a GameCube game's folder that the scan passes over, said in
+// the log so a game that goes missing says why (a tester's .gcz or NKit
+// image left no line at all). The first kSkipLines a scan; the rest are
+// counted and said in one line at its end.
+struct SkippedGcFiles {
+    static constexpr unsigned kSkipLines = 10;
+    unsigned said = 0;
+    unsigned more = 0;
+    void note(const std::string& path, const std::string& why) {
+        if (said < kSkipLines) {
+            logf("%s scan: %s is not listed: %s\n", drive_of(path), path.c_str(), why.c_str());
+            ++said;
+        } else {
+            ++more;
+        }
+    }
+    void finish(const char* drive) const {
+        if (more != 0) logf("%s scan: %u more file(s) in GameCube game folders not listed\n", drive, more);
+    }
+};
+
 // The GameCube image at `full` (on the card or the USB drive) as the list
-// shows it, when it is one.
-void add_gc_image(const std::string& full, std::vector<ImageGame>& out) {
+// shows it, when it is one. A file that is not one is said in `skipped`,
+// unless it is a Wii disc, which the Wii games' scan lists.
+void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped) {
     GcHead found;
-    if (!read_gc_head(full, found)) return;
+    if (!read_gc_head(full, found)) {
+        // Not read at all: the drive's file system says why when it can (a
+        // FAT whose chain ends before the file's size, issue #129), which a
+        // tester's Simpsons: Hit & Run never showed. An RVZ's own reading
+        // error is in the log already (read_gc_head).
+        if (!found.header_read) {
+            if (found.rvz) return;
+            std::string why = "its first bytes cannot be read";
+            if (GcImageOnUsb(full)) {
+                VolumeFile file;
+                std::string lookup;
+                if (!usb_file_lookup(full, file, lookup)) why = "it cannot be opened: " + lookup;
+            } else if (!CardFile(full).ok()) {
+                why = "it cannot be opened on the SD card";
+            }
+            skipped.note(full, why);
+            return;
+        }
+        const bool wii_disc = be32(found.bytes + 0x18) == 0x5D1C9EA3u;
+        if (!wii_disc && !found.rvz)
+            skipped.note(full, "it has no GameCube disc header (damaged, cut short, or not a GameCube image)");
+        return;
+    }
     const std::uint8_t* head = found.bytes;
     ImageGame g;
     g.device = GcImageOnUsb(full) ? ImageDevice::Usb : ImageDevice::Sd;
@@ -626,23 +676,38 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out) {
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     DIR* games = opendir("sd:/games");
-    if (!games) return;
+    if (!games) {
+        // No games folder is the usual card; one that cannot be read is not.
+        if (errno != ENOENT) logf("SD scan: sd:/games cannot be read: %s\n", std::strerror(errno));
+        return;
+    }
+    SkippedGcFiles skipped;
     while (dirent* folder = readdir(games)) {
         if (folder->d_name[0] == '.') continue;
+        // A file loose in sd:/games is the Wii scan's (it says when one is
+        // a GameCube game); only folders hold GameCube games.
+        if (folder->d_type == DT_REG) continue;
         const std::string dir = std::string("sd:/games/") + folder->d_name;
         DIR* inner = opendir(dir.c_str());
-        if (!inner) continue;
+        if (!inner) {
+            if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
+            continue;
+        }
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
+            if (file->d_type == DT_DIR) continue;
             if (!is_gc_image_name(name)) {
                 if (ciso && is_ciso_image_name(name)) ciso->note(dir + "/" + name);
+                const std::string why = gc_folder_skip_reason(name);
+                if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out);
+            add_gc_image(dir + "/" + name, out, skipped);
         }
         closedir(inner);
     }
     closedir(games);
+    skipped.finish("SD");
     ScanGcPatches(out);
 }
 
@@ -651,20 +716,28 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     // a folder of its own there, as on the card.
     std::vector<VolumeEntry> folders;
     if (!list_usb_folder("usb:/games", folders)) return;
+    SkippedGcFiles skipped;
     for (const VolumeEntry& folder : folders) {
         if (!folder.is_directory || folder.name.empty() || folder.name[0] == '.') continue;
         const std::string dir = "usb:/games/" + folder.name;
         std::vector<VolumeEntry> files;
-        if (!list_usb_folder(dir, files)) continue;
+        std::string why;
+        if (!list_usb_folder(dir, files, &why)) {
+            skipped.note(dir, "the folder cannot be read: " + why);
+            continue;
+        }
         for (const VolumeEntry& file : files) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
                 if (ciso && is_ciso_image_name(file.name)) ciso->note(dir + "/" + file.name);
+                const std::string why = gc_folder_skip_reason(file.name);
+                if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out);
+            add_gc_image(dir + "/" + file.name, out, skipped);
         }
     }
+    skipped.finish("USB");
     // Patch-only mods whose original is on the drive (the game they make
     // is written to the SD card when it is first started).
     ScanGcPatches(out);

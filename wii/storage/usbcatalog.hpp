@@ -140,8 +140,9 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
 // The entries of a folder on the USB drive ("usb:/games"), sorted, without
-// "." and "..": false when no drive is up or there is no such folder.
-bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out);
+// "." and "..": false when no drive is up or there is no such folder
+// (`error`, when given, says why: the file system's own words).
+bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out, std::string* error = nullptr);
 // A file on the USB drive as the menu's view finds it, whole (its entry,
 // its pieces, and the bytes an NTFS drive keeps in its file table for a
 // file of a few hundred bytes).
