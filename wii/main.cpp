@@ -39,6 +39,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "d2xsd.hpp"
+#include "entropy.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
@@ -234,7 +235,10 @@ bool StartedFromUsb() {
 // launch opens boot.log. Each line is synced to the card, so after a hang
 // its last line names the step that never finished.
 void OpenSessionLog(bool sd_mounted) {
-    if (!sd_mounted) return;
+    if (!sd_mounted) {
+        riftwii::wii::EntropyStart();  // the console and the clock, at least
+        return;
+    }
     mkdir("sd:/riftwii", 0777);
     riftwii::wii::RotateSessionLog();
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
@@ -248,6 +252,7 @@ void OpenSessionLog(bool sd_mounted) {
     // AHBPROT off (the Homebrew Channel, the channel since version 9): what
     // needs the hardware (IOS patches, the GameCube adapter) can work.
     riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
+    riftwii::wii::EntropyStart();
     // Which title the system is running: the RiftWii channel or the
     // Homebrew Channel (both pass the same path), and the channel installed.
     {

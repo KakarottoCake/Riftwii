@@ -9,6 +9,7 @@
 #include <ctime>
 
 #include "bearssl.h"
+#include "entropy.hpp"
 
 extern "C" {
 extern const br_x509_trust_anchor kTlsRoots[];
@@ -49,18 +50,15 @@ int LowWrite(void* ctx, const unsigned char* data, std::size_t length) {
     return s->socket->send(data, length) ? static_cast<int>(length) : -1;
 }
 
-// Seeds BearSSL's generator. The Wii has no entropy source libogc exposes,
-// so the time base's low bits around the network's own timing stand in;
-// the server's certificate still proves who answers.
+// Seeds BearSSL's generator from the session's pool (entropy.hpp): the
+// card's secret seed file, the console's ID and the jitter gathered since
+// the start. The clock alone was guessable from the handshake's first
+// message, and with it the session's keys (SEC-01).
 void Seed(br_ssl_engine_context& engine) {
-    std::uint64_t pool[32];
-    for (std::uint64_t& word : pool) {
-        const u64 before = gettime();
-        for (volatile int spin = 0; spin < 97; spin = spin + 1) {
-        }
-        word = before ^ (gettime() << 17) ^ static_cast<std::uint64_t>(std::time(nullptr));
-    }
-    br_ssl_engine_inject_entropy(&engine, pool, sizeof(pool));
+    unsigned char seed[64];
+    EntropyTake(seed, sizeof(seed));
+    br_ssl_engine_inject_entropy(&engine, seed, sizeof(seed));
+    std::memset(seed, 0, sizeof(seed));
 }
 
 // Only what GitHub needs, to keep the DOL small: TLS 1.2, ECDHE with
