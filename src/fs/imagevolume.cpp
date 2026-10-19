@@ -147,7 +147,10 @@ void gpt_partitions(const BlockReader& reader, std::vector<DrivePartition>& out)
         for (int k = 0; k < 16; ++k) used = used || e[k] != 0;  // type GUID zero: unused
         const std::uint64_t first = le64(e + 0x20);
         const std::uint64_t last = le64(e + 0x28);
-        if (used && first != 0) out.push_back({first, last >= first ? last - first + 1 : 0});
+        // An entry ending before it starts is damaged: listed with no size
+        // it read as "size unknown", and a WBFS header's sector count went
+        // unchecked against it (MIN-05).
+        if (used && first != 0 && last >= first) out.push_back({first, last - first + 1});
     }
 }
 
