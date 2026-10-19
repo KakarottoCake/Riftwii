@@ -406,6 +406,31 @@ static void test_compose_create_then_patch() {
     EXPECT_TRUE(got == want);
 }
 
+// The most changes one file takes (BUG-01): 512 layers are read through,
+// one more is refused with the file named, and the output is left alone.
+static void test_compose_layer_cap() {
+    MapProvider p;
+    p.disc["/a.bin"] = Seq(0x00, 32);
+    p.ext["/r/x.bin"] = Seq(0x40, 1);
+    std::vector<riftwii::FilePatch> patches;
+    for (std::size_t i = 0; i < riftwii::kMaxPatchesPerFile; ++i)
+        patches.push_back(MakePatch("/a.bin", "/r/x.bin", (i % 8) * 4, 1, 0, false, false));  // word offsets
+    std::unique_ptr<riftwii::AppliedFile> out;
+    std::string err;
+    EXPECT_TRUE(riftwii::apply_patches(patches, p, out, err));
+    std::vector<std::uint8_t> got;
+    EXPECT_TRUE(ReadAll(*out, got));
+    std::vector<std::uint8_t> want = Seq(0x00, 32);
+    for (int w = 0; w < 8; ++w) want[4 * w] = 0x40;
+    EXPECT_TRUE(got == want);
+    patches.push_back(MakePatch("/a.bin", "/r/x.bin", 0, 1, 0, false, false));
+    std::unique_ptr<riftwii::AppliedFile> kept;
+    EXPECT_FALSE(riftwii::apply_patches(patches, p, kept, err));
+    EXPECT_TRUE(kept == nullptr);
+    EXPECT_TRUE(err.find("/a.bin") != std::string::npos);
+    EXPECT_TRUE(err.find("513") != std::string::npos);
+}
+
 static void test_compose_failures_leave_output_untouched() {
     MapProvider p;
     p.disc["/a.bin"] = Seq(0x00, 8);
@@ -614,6 +639,7 @@ int main() {
     test_file_source_rejects_huge_file_without_wrap();
     test_file_source_status_classification();
     test_e2e_disc_to_consumed_replacement();
+    test_compose_layer_cap();
     if (g_failures == 0) {
         std::cout << "ALL APPLY TESTS PASSED" << std::endl;
         return 0;
