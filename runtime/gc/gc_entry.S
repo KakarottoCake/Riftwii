@@ -3,6 +3,8 @@
 /* The GameCube disc blob's header and trampolines (gc_rt.h). Each hook
  * replaces a DVDLow* function at its first word: the game calls it with
  * its own arguments and gets 1 (the command was taken) back. */
+#include "gc_layout.h"
+
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
@@ -594,9 +596,6 @@ gc_exi_table:
     .balign 32
     .globl gc_context_data
 gc_context_data:
-    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x5E0) long: the magic, then zeros.
-     * Keep the count in step with gc_rt.h: the C code is linked after this, so a
-     * context bigger than this block overwrites the C code's first instructions
-     * instead of failing the loader's size check. */
+    /* struct gc_rt_context, in GC_RT_CONTEXT_BYTES (gc_layout.h): the magic, then zeros */
     .long 0x52574743
-    .fill (0x5E0 - 4) / 4, 4, 0
+    .fill GC_RT_CONTEXT_BYTES / 4 - 1, 4, 0
