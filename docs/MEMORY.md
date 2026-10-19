@@ -174,6 +174,18 @@ it. What limits it is the loaders that load `boot.dol`:
   sections from `0x80003F00` up to `0x81700000`.
 - Dolphin accepts anything, so it can't show this limit.
 
+Since the DOL is packed ([ARCHITECTURE.md](ARCHITECTURE.md), "Memory"),
+a loader no longer writes the stash or any of RiftWii's sections itself.
+It sees two sections: the packed bytes right under `0x80900000` (from
+`0x8059D140` today, 3.5 MiB) and the stub, whose code and workspace end at
+`0x8093D9C0`. The stub then writes every section of the unpacked DOL, the
+stash included, at its own address. So the highest address a loader is
+asked to fill is now about `0x80940000`, far under the Homebrew Channel's
+limit. `pack_dol.py` refuses packed bytes below `0x80200000`, where the
+RiftWii channel's forwarders and their heaps lie. `STASH_LIMIT` still
+holds for an unpacked DOL (`make -f Makefile.wii PACK=0`, and
+`build_wii/riftwii-unpacked.dol`), which loaders still load as it is.
+
 So the build fails when the stash would end past `STASH_LIMIT` in
 `Makefile.wii`, which is `0x81200000`, the same line as the heap ceiling.
 Today the stash ends at `0x811BC520`, where the program used to end, so

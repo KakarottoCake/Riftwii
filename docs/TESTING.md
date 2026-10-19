@@ -37,6 +37,12 @@ For things that worked, a short "works" with the game, where it ran from
 
 ## 1. Start-up and Home
 
+- [ ] **Packed start-up.** `boot.dol` is now packed and unpacks itself
+  when it starts. Start RiftWii once from the Homebrew Channel and once
+  from the RiftWii channel, on a Wii and on a Wii U. Each should reach
+  Home, with no red screen. Also check a warm restart (a launch that
+  fails and comes back) and a game's return to RiftWii. A red screen
+  means the DOL did not unpack: say where you started it from.
 - [ ] **Clean install.** Copy the zip's `sd-card` folder over your old
   files. Settings, play history, covers, mods and games stay.
 - [ ] **First start on a fresh card.** Delete `sd:/riftwii/settings.txt`
