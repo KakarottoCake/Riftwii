@@ -127,7 +127,8 @@ struct Record {
         std::memcpy(a + voff, value.data(), value.size());
     }
     void non_resident(std::uint32_t type, const Bytes& pairs, std::uint64_t lowest, std::uint64_t highest,
-                      std::uint64_t size, std::uint16_t flags = 0, const std::u16string& name = u"") {
+                      std::uint64_t size, std::uint16_t flags = 0, const std::u16string& name = u"",
+                      std::uint64_t initialized = UINT64_MAX) {
         const std::size_t mp = align8(0x40 + 2 * name.size());
         std::uint8_t* a = header(type, align8(mp + pairs.size()), true, name, 0x40);
         put16(a + 0x0C, flags);
@@ -136,7 +137,7 @@ struct Record {
         put16(a + 0x20, mp);
         put64(a + 0x28, (size + kCluster - 1) / kCluster * kCluster);
         put64(a + 0x30, size);
-        put64(a + 0x38, size);
+        put64(a + 0x38, initialized == UINT64_MAX ? size : initialized);
         std::memcpy(a + mp, pairs.data(), pairs.size());
     }
     Bytes finish() {
@@ -249,6 +250,7 @@ struct Volume {
 
         Record games(3);
         games.resident(0x90, index_root({{20, "Big.iso", false, kBigSize}, {21, "comp.iso", false, kCluster},
+                                         {26, "half.iso", false, kCluster}, {27, "huge.iso", false, kCluster},
                                          {22, "sparse.iso", false, 2 * kCluster}, {0, "", false, 0, 1, -1, true}}, false), u"$I30");
         record(16, games.finish());
 
@@ -281,6 +283,13 @@ struct Volume {
         Record sparse(1);
         sparse.non_resident(0x80, runs({{310, 1}, {-1, 1}}), 0, 1, 2 * kCluster);
         record(22, sparse.finish());
+        // Written only to its middle (MIN-01), and a size past any drive (MIN-02).
+        Record half(1);
+        half.non_resident(0x80, runs({{330, 1}}), 0, 0, kCluster, 0, u"", kCluster / 2);
+        record(26, half.finish());
+        Record huge(1);
+        huge.non_resident(0x80, runs({{340, 1}}), 0, 0, 0xFFFFFFFFFFFFFE00ull);
+        record(27, huge.finish());
 
         Record game_dir(3);
         game_dir.resident(0x90, index_root({{24, "RABC01.wbfs", false, 4 * kCluster}, {0, "", false, 0, 1, -1, true}}, false), u"$I30");
@@ -384,7 +393,7 @@ void test_walk(std::uint64_t base) {
     EXPECT_TRUE(vol.list("/", es, error));
     EXPECT_EQ(joined(names(es)), "games/,mid.bin,wbfs/,zz.txt");
     EXPECT_TRUE(vol.list("/GAMES", es, error));
-    EXPECT_EQ(joined(names(es)), "Big.iso,comp.iso,sparse.iso");
+    EXPECT_EQ(joined(names(es)), "Big.iso,comp.iso,half.iso,huge.iso,sparse.iso");
 
     VolumeFile f;
     EXPECT_TRUE(vol.lookup("/games/big.ISO", f, error));
@@ -428,6 +437,10 @@ void test_walk(std::uint64_t base) {
     EXPECT_CONTAINS(error, "compressed");
     EXPECT_FALSE(vol.lookup("/games/sparse.iso", f, error));
     EXPECT_CONTAINS(error, "sparse");
+    EXPECT_FALSE(vol.lookup("/games/half.iso", f, error));
+    EXPECT_CONTAINS(error, "not written to its end");
+    EXPECT_FALSE(vol.lookup("/games/huge.iso", f, error));
+    EXPECT_CONTAINS(error, "larger than the drive");
     // Kept in its MFT record: its bytes come with the lookup.
     EXPECT_TRUE(vol.lookup("/zz.txt", f, error));
     EXPECT_EQ(f.entry.size, 5u);
