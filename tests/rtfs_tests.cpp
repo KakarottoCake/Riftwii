@@ -898,6 +898,12 @@ void TestFileDeviceWrite(Low& low) {
     EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
     if (fd >= static_cast<int>(RTFS_FD_BASE)) EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts/1m23s456.rkg")), RTFAT_OK);
+    // Empty, but still listed by the handle opened above: it stays, or its
+    // freed cluster would go on being read and written (BUG-16). Closed, it goes.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts")), RTFS_RIIVO_ERROR);
+    rtfs_ipc closedir = DeviceIoctl(b, RTFS_RIIVO_CLOSEDIR, "");
+    closedir.args.ioctl.in = Addr(b.handle); closedir.args.ioctl.in_len = 4;
+    EXPECT_EQ(RunR(fx, low, closedir), RTFAT_OK);
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts")), RTFAT_OK);
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar/Ghosts")), RTFS_RIIVO_ERROR);
 }
