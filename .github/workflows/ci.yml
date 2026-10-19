@@ -209,7 +209,7 @@ jobs:
           cat size-report.md >> "$GITHUB_STEP_SUMMARY"
       # Sizes only, a few hundred bytes of JSON. Not the DOL: CI publishes
       # no builds.
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: size-report
           path: size-report.json
