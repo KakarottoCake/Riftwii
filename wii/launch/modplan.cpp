@@ -554,6 +554,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // game would start to a black screen (Neo Mario Galaxy copied into the
     // wrong folder did). An unreadable one stops the launch.
     std::string missing_value;
+    std::size_t memory_bytes = 0;
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
@@ -576,12 +577,27 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                         std::to_string(kMaxMemoryValueBytes) + " bytes";
                 return false;
             }
+            // Counted before it is read: a valuefile chosen thousands of
+            // times through macros is read once per choice.
+            if (static_cast<std::size_t>(source->size()) > kMaxPlanMemoryBytes - memory_bytes) {
+                error = "the selected memory patches carry more than 16 MiB of values in all (valuefile '" +
+                        m.valuefile + "')";
+                return false;
+            }
             m.value.resize(static_cast<std::size_t>(source->size()));
             if (!source->read(0, m.value.data(), m.value.size())) {
                 error = "cannot read memory patch valuefile '" + m.valuefile + "'";
                 return false;
             }
         }
+        // Inline values were counted by the plan, but with the valuefiles
+        // they share the one budget.
+        const std::size_t bytes = m.value.size() + m.original.size();
+        if (bytes > kMaxPlanMemoryBytes - memory_bytes) {
+            error = "the selected memory patches carry more than 16 MiB of values in all";
+            return false;
+        }
+        memory_bytes += bytes;
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
