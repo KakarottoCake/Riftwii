@@ -13,12 +13,14 @@
 
 #include "bearssl.h"
 #include "log.hpp"
+#include "online.hpp"
 
 namespace riftwii::wii {
 
 namespace {
 
 constexpr const char* kSeedFile = "sd:/riftwii/seed.bin";
+constexpr const char* kSeedTemp = "sd:/riftwii/seed.bin.tmp";
 constexpr std::size_t kPoolBytes = 32;
 
 // The GUI thread stirs in the Remotes every frame while a download thread
@@ -59,36 +61,61 @@ void Derive(const char* label, unsigned char out[kPoolBytes]) {
     br_sha256_out(&hash, out);
 }
 
-// A new seed file from the pool. Not the pool itself: what the card holds
-// says nothing about the seedings already given out.
-void RenewSeedFile() {
-    unsigned char next[kPoolBytes];
-    Derive("seed file", next);
-    FILE* f = std::fopen(kSeedFile, "wb");
+// The next seed file's bytes, from the pool. Not the pool itself: what the
+// card holds says nothing about the seedings already given out. Under the
+// lock.
+void NextSeed(unsigned char next[kPoolBytes]) { Derive("seed file", next); }
+
+// The seed file written, NOT under the lock: the GUI thread stirs in the
+// Remotes every frame, and a card write would hold it up (NEW-02). Under a
+// card hold, so the power button waits for it, and written beside the old
+// one first: a cut leaves one of the two whole.
+void WriteSeedFile(const unsigned char next[kPoolBytes]) {
+    CardWriteHold hold;
+    FILE* f = std::fopen(kSeedTemp, "wb");
     if (!f) return;
-    const bool ok = std::fwrite(next, 1, sizeof(next), f) == sizeof(next);
-    if (std::fclose(f) != 0 || !ok) std::remove(kSeedFile);
+    const bool ok = std::fwrite(next, 1, kPoolBytes, f) == kPoolBytes;
+    if (std::fclose(f) != 0 || !ok) {
+        std::remove(kSeedTemp);
+        return;
+    }
+    // FAT's rename does not replace a file.
+    std::remove(kSeedFile);
+    std::rename(kSeedTemp, kSeedFile);
+}
+
+// The seed file's bytes, or those of one a cut left beside it.
+bool ReadSeedFile(unsigned char saved[kPoolBytes]) {
+    for (const char* path : {kSeedFile, kSeedTemp}) {
+        FILE* f = std::fopen(path, "rb");
+        if (!f) continue;
+        const bool whole = std::fread(saved, 1, kPoolBytes, f) == kPoolBytes;
+        std::fclose(f);
+        if (whole) return true;
+    }
+    return false;
 }
 
 }  // namespace
 
 void EntropyStart() {
-    Locked lock;
-    const std::time_t now = std::time(nullptr);
-    Stir("start", &now, sizeof(now));
-    u32 console = 0;
-    if (ES_GetDeviceID(&console) >= 0) Stir("console", &console, sizeof(console));
     unsigned char saved[kPoolBytes];
-    bool had = false;
-    if (FILE* f = std::fopen(kSeedFile, "rb")) {
-        had = std::fread(saved, 1, sizeof(saved), f) == sizeof(saved);
-        std::fclose(f);
+    const bool had = ReadSeedFile(saved);
+    unsigned char next[kPoolBytes];
+    {
+        Locked lock;
+        const std::time_t now = std::time(nullptr);
+        Stir("start", &now, sizeof(now));
+        u32 console = 0;
+        if (ES_GetDeviceID(&console) >= 0) Stir("console", &console, sizeof(console));
+        if (had) Stir("seed file", saved, sizeof(saved));
+        NextSeed(next);
     }
-    if (had) Stir("seed file", saved, sizeof(saved));
     std::memset(saved, 0, sizeof(saved));
     // Replaced at once: a start that stops before its first connection
     // must not leave the next start the same file.
-    RenewSeedFile();
+    WriteSeedFile(next);
+    std::memset(next, 0, sizeof(next));
     logf("TLS: random seed %s\n", had ? "from the card's seed file, the console and the clock"
                                       : "from the console and the clock (no seed file yet; one is made now)");
 }
@@ -99,19 +126,24 @@ void EntropyAdd(const void* data, std::size_t size) {
 }
 
 void EntropyTake(void* out, std::size_t size) {
-    Locked lock;
-    Stir("take", nullptr, 0);
-    unsigned char* to = static_cast<unsigned char*>(out);
-    while (size != 0) {
-        unsigned char block[kPoolBytes];
-        Derive("output", block);
-        const std::size_t n = size < sizeof(block) ? size : sizeof(block);
-        std::memcpy(to, block, n);
-        to += n;
-        size -= n;
-        Stir("given", nullptr, 0);  // each block from a pool that has moved on
+    unsigned char next[kPoolBytes];
+    {
+        Locked lock;
+        Stir("take", nullptr, 0);
+        unsigned char* to = static_cast<unsigned char*>(out);
+        while (size != 0) {
+            unsigned char block[kPoolBytes];
+            Derive("output", block);
+            const std::size_t n = size < sizeof(block) ? size : sizeof(block);
+            std::memcpy(to, block, n);
+            to += n;
+            size -= n;
+            Stir("given", nullptr, 0);  // each block from a pool that has moved on
+        }
+        NextSeed(next);
     }
-    RenewSeedFile();
+    WriteSeedFile(next);
+    std::memset(next, 0, sizeof(next));
 }
 
 }  // namespace riftwii::wii

@@ -81,7 +81,8 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
 
 // Card writes RiftWii must not be stopped in the middle of (the update's
 // swap): while one runs, the GUI thread holds back the power button and
-// any exit until it has finished. Taken on the menu thread.
+// any exit until it has finished. Taken on any thread (the count changes
+// with interrupts off): the menu's, a download's.
 class CardWriteHold {
 public:
     CardWriteHold();
