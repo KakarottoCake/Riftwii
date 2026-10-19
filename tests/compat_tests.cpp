@@ -185,6 +185,19 @@ static void test_full_featured() {
     if (!plan.savegames.empty()) EXPECT_EQ(plan.savegames[0].external, std::string("/save/RFT"));
     EXPECT_FALSE(riftwii::plan_package(with_save, disc, riftwii::PlanOptions{}, plan, err));
     EXPECT_TRUE(Contains(err, "option 'Separate save' choice 'On' patch 'save': <savegame> redirection is not supported yet"));
+    // A save folder in the card's root or in RiftWii's or the Homebrew
+    // Channel's folders is refused (BUG-19); one beside them is fine.
+    for (const char* bad : {"/", "/riftwii", "/RiftWii/saves", "/apps/riftwii", "/private", "/save/../riftwii/x"}) {
+        riftwii::Package moved = with_save;
+        moved.patches.at("save").savegames[0].external = bad;
+        EXPECT_FALSE(riftwii::plan_package(moved, disc, AllowAll(), plan, err));
+        EXPECT_TRUE(Contains(err, "a save needs a folder of its own"));
+    }
+    for (const char* good : {"/riftwii-saves", "/applications", "/save/apps"}) {
+        riftwii::Package moved = with_save;
+        moved.patches.at("save").savegames[0].external = good;
+        EXPECT_TRUE(riftwii::plan_package(moved, disc, AllowAll(), plan, err));
+    }
 
     // A disc the filter does not match yields an empty plan, not an error.
     EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"XXXX01", 0, 0}, riftwii::PlanOptions{}, plan, err));
