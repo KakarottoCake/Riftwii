@@ -68,6 +68,7 @@
 #include "riftwii/vsdparts.hpp"
 #include "riftwii/wpadlog.hpp"
 #include "dolboot.h"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -2835,7 +2836,7 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
     const std::vector<std::uint8_t> record = play_log_record(name, probe.header.game_id, ticks);
     alignas(32) static u8 buffer[kPlayLogBytes];
     std::memcpy(buffer, record.data(), sizeof buffer);
-    s32 r = ISFS_Initialize();
+    s32 r = NandOpen();
     if (r >= 0) r = write_play_file(buffer, sizeof buffer);
     if (r == -102) {
         // As for the Menu font (wii/main.cpp): a marker on the card while
@@ -2858,7 +2859,7 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
     } else {
         logf("Message Board: play log not written (error %d under IOS%d)\n", r, IOS_GetVersion());
     }
-    ISFS_Deinitialize();  // not left open for the game's IOS reload
+    NandCloseAll();  // not left open for the game's IOS reload
 }
 
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {

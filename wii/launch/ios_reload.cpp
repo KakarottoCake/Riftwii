@@ -26,6 +26,7 @@
 #include "menumusic.hpp"
 #include "netsock.hpp"
 #include "umsdev.hpp"
+#include "nanduse.hpp"
 
 extern "C" void udelay(int us);
 
@@ -122,7 +123,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // still there to put it back in: open, it would read as open for the
     // next IOS too, which nobody patched.
     close_nand_permissions("IOS reload");
-    ISFS_Deinitialize();
+    NandCloseAll();
     __IOS_ShutdownSubsystems();
     s32 res = __ES_Init();
     if (res < 0) {

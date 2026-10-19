@@ -49,6 +49,7 @@
 #include "gcadapter.hpp"
 #include "netsock.hpp"
 #include "skin.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -1537,7 +1538,7 @@ bool read_slot_info(int slot, SlotInfo& out) {
     // The permission check, opened for the first slot IOS refuses, is
     // closed again once every slot is read (slot_infos).
     static bool isfs = false, refused = false;
-    if (!isfs) isfs = ISFS_Initialize() >= 0;
+    if (!isfs) isfs = NandOpen() >= 0;
     s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
     if (fd == -102 && !refused) {
         if (open_nand_permissions("cIOS check")) fd = ISFS_Open(path, ISFS_OPEN_READ);
@@ -1878,7 +1879,7 @@ std::string release_for_reload() {
     step("stopping the GameCube adapter");
     ums::Forget();
     step("closing d2x's USB device");
-    ISFS_Deinitialize();
+    NandCloseAll();
     step("closing the NAND");
     return note;
 }

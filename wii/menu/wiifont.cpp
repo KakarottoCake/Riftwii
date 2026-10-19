@@ -21,6 +21,7 @@
 #include "riftwii/brfnt.hpp"
 #include "riftwii/sysfont.hpp"
 #include "skin.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -201,7 +202,7 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
     // (RiftWii's own font has none).
     const bool korean = CONF_GetLanguage() == CONF_LANG_KOREAN || MenuLanguage() == "ko";
     if (u8* cached = load_cached(korean, size)) return cached;
-    if (ISFS_Initialize() < 0) {
+    if (NandOpen() < 0) {
         why = "the NAND could not be opened";
         return nullptr;
     }
@@ -235,7 +236,7 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
             }
         }
     }
-    ISFS_Deinitialize();
+    NandClose();
     return font;
 }
 
