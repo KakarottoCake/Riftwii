@@ -755,7 +755,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
         return false;
     }
     std::vector<std::uint8_t> pack;
-    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000)) {
+    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, nullptr, HttpRedirects::GitHubRelease)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
