@@ -645,6 +645,11 @@ static uint32_t op_dir(const struct rtfat_volume* vol, const struct rtfat_op* op
     return op->dir_cluster != 0 ? op->dir_cluster : vol->dir_cluster;
 }
 
+/* FAT's own limit on a folder, 65,536 entries (2 MiB), in clusters. */
+static uint32_t dir_max_clusters(const struct rtfat_volume* vol) {
+    return (DIR_MAX_BYTES / RTFAT_SECTOR_BYTES + vol->sectors_per_cluster - 1) / vol->sectors_per_cluster;
+}
+
 /* A scan of the directory starting at cluster `dir`. */
 static void scan_begin_in(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t dir, uint32_t mode,
                           uint32_t next_state) {
@@ -874,8 +879,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
              * that loops is corrupt long before the volume's size says so
              * (that took minutes on a card, and the runtime was then dead). */
             if (!cluster_valid(vol, v) || ++op->scan_clusters > vol->cluster_count ||
-                op->scan_clusters > (DIR_MAX_BYTES / RTFAT_SECTOR_BYTES + vol->sectors_per_cluster - 1) /
-                                        vol->sectors_per_cluster) {
+                op->scan_clusters > dir_max_clusters(vol)) {
                 return finish(op, RTFAT_ECORRUPT);
             }
             op->scan_cluster = v;
@@ -1000,6 +1004,11 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->state = op->grow_next;
                 return RT_CONT;
             }
+            /* A full folder stays as it is: grown past FAT's limit, every
+             * later scan of it would refuse it as damaged (BUG-09). The
+             * creation scan started at the folder's first cluster, so
+             * scan_clusters is the folder's length. */
+            if (op->scan_clusters >= dir_max_clusters(vol)) return finish(op, RTFAT_ENOSPC);
             /* A new cluster: marked in the FAT, zeroed (S_DIR_ZERO),
              * then linked after the last one. */
             op->alloc_link = op->scan_cluster;
