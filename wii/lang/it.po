@@ -2283,23 +2283,23 @@ msgstr "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii st
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."
 
-msgid "GameCube games play in Wii mode (trial)"
-msgstr "I giochi GameCube funzionano in modalità Wii (prova)"
+msgid "GameCube games from a USB drive"
+msgstr "Giochi GameCube da USB"
 
-msgid "WiiWare and Virtual Console games on Home"
-msgstr "Giochi WiiWare e Virtual Console nella Home"
+msgid "The Wii U's GameCube adapter in GameCube games"
+msgstr "L'adattatore GameCube di Wii U nel GameCube"
 
-msgid "A game can have more Home tiles, each with its own mods"
-msgstr "Un gioco può avere più riquadri nella Home, ognuno con le sue mod"
+msgid "GameCube mods built with libogc, like Sonic Riders TE"
+msgstr "Mod GameCube con libogc, come Sonic Riders TE"
 
-msgid "Put the games on Home in your own order"
-msgstr "Metti i giochi della Home nel tuo ordine"
+msgid "WiiWare and VC: launch screen and screenshots"
+msgstr "WiiWare e VC: schermata di avvio e screenshot"
 
-msgid "Indigo: a third built-in theme"
-msgstr "Indigo: un terzo tema incluso"
+msgid "Problem reports can be sent again"
+msgstr "Le segnalazioni di problema funzionano di nuovo"
 
-msgid "Saves can be shared with USB Loader GX's emulated NAND"
-msgstr "I salvataggi si possono condividere con la NAND emulata di USB Loader GX"
+msgid "A smaller RiftWii: half the download"
+msgstr "Un RiftWii più piccolo: metà del download"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"

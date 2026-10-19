@@ -1935,12 +1935,12 @@ T = {
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
     # What's new in the release after 2610-432
-    "GameCube games play in Wii mode (trial)": ("Los juegos de GameCube funcionan en modo Wii (prueba)", "ゲームキューブのゲームがWiiモードで遊べます（試験版）", "Jogos de GameCube rodam no modo Wii (teste)", "I giochi GameCube funzionano in modalità Wii (prova)"),
-    "WiiWare and Virtual Console games on Home": ("Juegos de WiiWare y Consola Virtual en el Inicio", "Wiiウェアとバーチャルコンソールのゲームがホームに並びます", "Jogos de WiiWare e Virtual Console no Início", "Giochi WiiWare e Virtual Console nella Home"),
-    "A game can have more Home tiles, each with its own mods": ("Un juego puede tener más casillas en el Inicio, cada una con sus mods", "1つのゲームにホームのタイルを増やし、それぞれ別のMODを使えます", "Um jogo pode ter mais blocos no Início, cada um com seus mods", "Un gioco può avere più riquadri nella Home, ognuno con le sue mod"),
-    "Put the games on Home in your own order": ("Pon los juegos del Inicio en tu propio orden", "ホームのゲームを自分の並び順にできます", "Coloque os jogos do Início na sua ordem", "Metti i giochi della Home nel tuo ordine"),
-    "Indigo: a third built-in theme": ("Indigo: un tercer tema incluido", "Indigo：3つ目の内蔵テーマ", "Indigo: um terceiro tema incluído", "Indigo: un terzo tema incluso"),
-    "Saves can be shared with USB Loader GX's emulated NAND": ("Las partidas pueden compartirse con la NAND emulada de USB Loader GX", "セーブをUSB Loader GXのエミュレートNANDと共有できます", "Os saves podem ser compartilhados com a NAND emulada do USB Loader GX", "I salvataggi si possono condividere con la NAND emulata di USB Loader GX"),
+    "GameCube games from a USB drive": ("Juegos de GameCube desde un USB", "USBドライブのゲームキューブのゲーム", "Jogos de GameCube de um USB", "Giochi GameCube da USB"),
+    "The Wii U's GameCube adapter in GameCube games": ("El adaptador GameCube de Wii U en GameCube", "ゲームキューブでWii Uのアダプターが使えます", "O adaptador GameCube do Wii U no GameCube", "L'adattatore GameCube di Wii U nel GameCube"),
+    "GameCube mods built with libogc, like Sonic Riders TE": ("Mods de GameCube con libogc, como Sonic Riders TE", "Sonic Riders TEなど、libogc製のMOD", "Mods de GameCube com libogc, como Sonic Riders TE", "Mod GameCube con libogc, come Sonic Riders TE"),
+    "WiiWare and VC: launch screen and screenshots": ("WiiWare y CV: pantalla de inicio y capturas", "Wiiウェア/VCに起動画面とスクリーンショット", "WiiWare e VC: tela de início e capturas", "WiiWare e VC: schermata di avvio e screenshot"),
+    "Problem reports can be sent again": ("Los informes de problema se envían de nuevo", "問題のレポートを再び送信できます", "Os relatórios de problema funcionam de novo", "Le segnalazioni di problema funzionano di nuovo"),
+    "A smaller RiftWii: half the download": ("Un RiftWii más pequeño: la mitad de descarga", "RiftWiiのダウンロードが半分になりました", "Um RiftWii menor: metade do download", "Un RiftWii più piccolo: metà del download"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3742,18 +3742,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "GameCube games play in Wii mode (trial)":
-        "게임큐브 게임을 Wii 모드에서 플레이할 수 있습니다(시험판)",
-    "WiiWare and Virtual Console games on Home":
-        "WiiWare와 버추얼 콘솔 게임이 홈에 표시됩니다",
-    "A game can have more Home tiles, each with its own mods":
-        "한 게임에 홈 타일을 더 만들고 타일마다 다른 MOD를 쓸 수 있습니다",
-    "Put the games on Home in your own order":
-        "홈의 게임을 원하는 순서로 놓을 수 있습니다",
-    "Indigo: a third built-in theme":
-        "Indigo: 세 번째 기본 테마",
-    "Saves can be shared with USB Loader GX's emulated NAND":
-        "세이브를 USB Loader GX의 에뮬레이트 NAND와 공유할 수 있습니다",
+    "GameCube games from a USB drive":
+        "USB 드라이브의 게임큐브 게임",
+    "The Wii U's GameCube adapter in GameCube games":
+        "게임큐브 게임에서 Wii U 게임큐브 어댑터",
+    "GameCube mods built with libogc, like Sonic Riders TE":
+        "Sonic Riders TE 같은 libogc 게임큐브 MOD",
+    "WiiWare and VC: launch screen and screenshots":
+        "WiiWare와 VC: 실행 화면과 스크린샷",
+    "Problem reports can be sent again":
+        "문제 보고서를 다시 보낼 수 있습니다",
+    "A smaller RiftWii: half the download":
+        "더 작아진 RiftWii: 다운로드 절반",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5535,18 +5535,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "GameCube games play in Wii mode (trial)":
-        "Les jeux GameCube fonctionnent en mode Wii (essai)",
-    "WiiWare and Virtual Console games on Home":
-        "Jeux WiiWare et Console Virtuelle sur l'Accueil",
-    "A game can have more Home tiles, each with its own mods":
-        "Un jeu peut avoir plusieurs tuiles d'accueil, chacune avec ses mods",
-    "Put the games on Home in your own order":
-        "Rangez les jeux de l'Accueil dans votre ordre",
-    "Indigo: a third built-in theme":
-        "Indigo : un troisième thème intégré",
-    "Saves can be shared with USB Loader GX's emulated NAND":
-        "Les sauvegardes peuvent être partagées avec la NAND émulée d'USB Loader GX",
+    "GameCube games from a USB drive":
+        "Jeux GameCube depuis un USB",
+    "The Wii U's GameCube adapter in GameCube games":
+        "L'adaptateur GameCube de Wii U sur GameCube",
+    "GameCube mods built with libogc, like Sonic Riders TE":
+        "Mods GameCube avec libogc, comme Sonic Riders TE",
+    "WiiWare and VC: launch screen and screenshots":
+        "WiiWare et CV : écran de lancement et captures",
+    "Problem reports can be sent again":
+        "Les rapports de problème fonctionnent à nouveau",
+    "A smaller RiftWii: half the download":
+        "Un RiftWii plus léger : moitié moins à télécharger",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

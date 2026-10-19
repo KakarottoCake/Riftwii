@@ -3243,12 +3243,12 @@ static std::string DiscTileNote()
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"GameCube games play in Wii mode (trial)",
-	"WiiWare and Virtual Console games on Home",
-	"A game can have more Home tiles, each with its own mods",
-	"Put the games on Home in your own order",
-	"Indigo: a third built-in theme",
-	"Saves can be shared with USB Loader GX's emulated NAND",
+	"GameCube games from a USB drive",
+	"The Wii U's GameCube adapter in GameCube games",
+	"GameCube mods built with libogc, like Sonic Riders TE",
+	"WiiWare and VC: launch screen and screenshots",
+	"Problem reports can be sent again",
+	"A smaller RiftWii: half the download",
 };
 
 static std::string WhatsNewText()

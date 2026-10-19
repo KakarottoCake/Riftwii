@@ -2283,23 +2283,23 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "GameCube games play in Wii mode (trial)"
-msgstr "게임큐브 게임을 Wii 모드에서 플레이할 수 있습니다(시험판)"
+msgid "GameCube games from a USB drive"
+msgstr "USB 드라이브의 게임큐브 게임"
 
-msgid "WiiWare and Virtual Console games on Home"
-msgstr "WiiWare와 버추얼 콘솔 게임이 홈에 표시됩니다"
+msgid "The Wii U's GameCube adapter in GameCube games"
+msgstr "게임큐브 게임에서 Wii U 게임큐브 어댑터"
 
-msgid "A game can have more Home tiles, each with its own mods"
-msgstr "한 게임에 홈 타일을 더 만들고 타일마다 다른 MOD를 쓸 수 있습니다"
+msgid "GameCube mods built with libogc, like Sonic Riders TE"
+msgstr "Sonic Riders TE 같은 libogc 게임큐브 MOD"
 
-msgid "Put the games on Home in your own order"
-msgstr "홈의 게임을 원하는 순서로 놓을 수 있습니다"
+msgid "WiiWare and VC: launch screen and screenshots"
+msgstr "WiiWare와 VC: 실행 화면과 스크린샷"
 
-msgid "Indigo: a third built-in theme"
-msgstr "Indigo: 세 번째 기본 테마"
+msgid "Problem reports can be sent again"
+msgstr "문제 보고서를 다시 보낼 수 있습니다"
 
-msgid "Saves can be shared with USB Loader GX's emulated NAND"
-msgstr "세이브를 USB Loader GX의 에뮬레이트 NAND와 공유할 수 있습니다"
+msgid "A smaller RiftWii: half the download"
+msgstr "더 작아진 RiftWii: 다운로드 절반"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
