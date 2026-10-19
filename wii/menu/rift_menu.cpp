@@ -3488,6 +3488,10 @@ static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
 static std::string g_openWhenScanned;  // the tile picked during the scan, by its key
+// Home's rescan: the profiles' pictures are looked for again once it is
+// done. Not before, as the tiles show the pictures read so far while the
+// drives are read (ProfilePictureIfRead).
+static bool g_forgetPicturesAfterScan = false;
 
 static void StartScan()
 {
@@ -3523,6 +3527,10 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	// before anything else (a launch) takes the drives.
 	riftwii::wii::WaitDriveScan();
 	g_scanning = false;
+	if (g_forgetPicturesAfterScan) {
+		riftwii::wii::ForgetProfilePictures();
+		g_forgetPicturesAfterScan = false;
+	}
 	state.usb_catalog = std::move(part.catalog);
 	g_packs = std::move(part.packs);
 	const bool usb = part.ok;
@@ -4546,8 +4554,9 @@ static int MenuSource(FrontendState& state)
 				toast.Show(tr("RiftWii is still reading the drives."), false);
 			} else {
 				// The games stay on Home until the scan's parts replace them;
-				// covers are asked for again once both are in.
-				riftwii::wii::ForgetProfilePictures();
+				// covers and the profiles' pictures are looked for again once
+				// both are in.
+				g_forgetPicturesAfterScan = true;
 				StartScan();
 				showStatus();
 			}
