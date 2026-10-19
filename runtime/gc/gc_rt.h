@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "gc_crash.h"
+#include "gc_layout.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
 #define GC_RT_VERSION 6u                 /* also in gc_entry.S's header */
@@ -417,8 +418,8 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x560u
-typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
+/* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
+typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb);
