@@ -321,6 +321,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
 | `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |
 | `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
+| `dolpack/` | Not a blob: the packed `boot.dol`'s stub (`dolpack.h` has the format), a program of its own at `0x80900000` that unpacks RiftWii's sections with the vendored Zstandard decoder and starts it (`tools/pack_dol.py` makes the DOL) |
 
 Each blob directory holds `<name>_entry.S` (a header of offsets the
 loader reads, the trampolines), `<name>_hook.c`, `<name>_hook.h` (the
@@ -351,6 +352,7 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (menu font, translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
+| `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
