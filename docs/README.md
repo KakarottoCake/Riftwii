@@ -11,6 +11,7 @@ The other pages are for people working on it.
 | [MAP.md](MAP.md) | Every file and folder, and where to start for each feature |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How a launch works, which file owns what, the memory map, the files on the SD card |
 | [DEVELOPING.md](DEVELOPING.md) | Building, tests, Dolphin runs, test scripts, releasing, ground rules |
+| [RELEASING.md](RELEASING.md) | The release workflow step by step: one-time setup, every release, test builds, its checks and errors, how it works |
 | [THEMES.md](THEMES.md) | Making themes, colour keys, picture sizes and music |
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |

@@ -285,7 +285,8 @@ it. Off by default; a GX buffer that filled up is logged either way
 ### The release workflow
 
 `.github/workflows/release.yml` does steps 3 to 5 below on GitHub, from
-main's latest commit, with CI's pinned devkitPPC. Before running it:
+main's latest commit, with CI's pinned devkitPPC ([RELEASING.md](RELEASING.md)
+has every step, check and error in full). Before running it:
 
 1. Bump the version as in step 1 if the release line changes, run the
    checks of step 2, and commit the screenshots (step 4).
