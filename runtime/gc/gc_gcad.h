@@ -61,19 +61,32 @@ struct gc_gcad {
     uint32_t replies;
 };
 
-#ifdef RT_TARGET_PPC
-struct gc_rt_context;
-/* Once a frame, from PADRead: replies handed to the driver, then its tick. */
-void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The adapter's controllers into the game's PADStatus[4] (`status`), on
- * the ports gc_gcad.h's rule gives them. Before gc_bt_fill. */
+ * the ports gc_gcad.h's rule gives them. Before gc_bt_fill. Built into the
+ * host tests too (tests/gcgcad_tests.cpp). */
 void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status);
 /* PADControlMotor(chan, command): the adapter controller playing on that
  * port rumbles (1) or stops (0, 2), when its rumble is on. */
 void gc_gcad_motor(struct gc_gcad* ad, uint32_t chan, uint32_t command);
+
+#ifdef RT_TARGET_PPC
+struct gc_rt_context;
+/* Once a frame, from PADRead: replies handed to the driver, then its tick. */
+void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad);
 /* A reply from IOS: 1 when it is one of the adapter's, marked done for the
  * next poll. */
 int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply);
+#else
+/* The host tests' clock, in the driver's ticks (the Wii's is the timebase). */
+uint32_t gc_gcad_host_now(void);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
