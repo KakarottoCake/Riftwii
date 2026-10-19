@@ -57,6 +57,22 @@ static void test_folder_and_choice() {
     EXPECT_EQ(riftwii::display_title(nullptr, "SB4E01", "usb:/games/SB4E01.iso", "SUPER MARIO GALAXY MORE"),
               std::string("SUPER MARIO GALAXY MORE"));
     EXPECT_EQ(riftwii::display_title(nullptr, "SB4E01", "usb:/games/SB4E01.iso", ""), std::string("SB4E01"));
+
+    // A tester's Double Dash mod: its disc says GM4E01, the original's ID,
+    // and only its folder says what it is. The folder's name wins over the
+    // database's name for the original; a folder with the disc's own ID
+    // still gives way to the database.
+    riftwii::TitleTable gc;
+    gc.add_text("GM4E01 = Mario Kart: Double Dash!!\n");
+    EXPECT_EQ(riftwii::display_title(&gc, "GM4E01", "usb:/games/Mario Kart Double Dash Plus [GM4E05]/game.iso",
+                                     "Mario Kart Double Dash! PLUS! V3.3"),
+              std::string("Mario Kart Double Dash Plus"));
+    EXPECT_EQ(riftwii::display_title(&gc, "GM4E01", "usb:/games/MKDD [GM4E01]/game.iso", "X"),
+              std::string("Mario Kart: Double Dash!!"));
+    EXPECT_EQ(riftwii::display_title(&gc, "GM4E01", "usb:/games/Plain folder/game.iso", "X"),
+              std::string("Mario Kart: Double Dash!!"));
+    EXPECT_EQ(riftwii::display_title(&gc, "GM4E01", "usb:/games/Bad [gm4e0!]/game.iso", "X"),
+              std::string("Mario Kart: Double Dash!!"));
 }
 
 static void test_id_from_path() {
