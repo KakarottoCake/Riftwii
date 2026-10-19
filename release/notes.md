@@ -9,6 +9,9 @@ comments; docs/DEVELOPING.md (Releasing) says how to run it.
                    so ![...]({{SCREENSHOTS}}2610-500-menu.png) shows a
                    screenshot committed before the release
 
+Only what a player notices goes in: leave out CI and workflows, review
+bots (CodeRabbit), tools/, tests, docs and refactors (docs/RELEASING.md).
+
 Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
