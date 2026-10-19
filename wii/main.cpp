@@ -39,6 +39,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "d2xsd.hpp"
+#include "covers.hpp"
 #include "entropy.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -152,6 +153,8 @@ void ExitApp() {
     // theme download is stopped (the next start fetches it again).
     riftwii::wii::NetCancelBackground();
     riftwii::wii::NetWaitForBackground();
+    // The cover loader finishes the file it is on before the card goes.
+    riftwii::wii::CoverLoaderHold();
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();
