@@ -1326,6 +1326,15 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out)
     return true;
 }
 
+bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
+    out = VolumeFile{};
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+        error = "not on the USB drive";
+        return false;
+    }
+    return g_usb_volume->lookup(usb_path.substr(4), out, error);
+}
+
 bool usb_file_pieces(const std::string& usb_path, std::uint64_t& size, std::vector<Fragment>& out,
                      std::string& error) {
     out.clear();

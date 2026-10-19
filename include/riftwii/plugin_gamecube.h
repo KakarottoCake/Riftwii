@@ -32,6 +32,7 @@ typedef struct rwp_gc_pack_entry {
 #define RWP_GC_PIECE_IMAGE 0u
 #define RWP_GC_PIECE_DEVICE 1u
 #define RWP_GC_PIECE_ZERO 2u
+#define RWP_GC_PIECE_USB 3u    /* `source` is a 512-byte sector of the USB drive */
 
 /* The way back (wii/launch/gcplugin.hpp's GcWayBack): kind. */
 #define RWP_GC_WAY_BACK_NONE 0u

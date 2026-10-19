@@ -183,8 +183,12 @@ d2x's `/dev/usb2`, checking that the image's first sector reads back the
 same through it. The plugin reads the image through the host's
 `usb_read`; the blob reads `GC_RUN_USB` runs (and an RVZ's pieces, with
 `extents_on_usb`) through the same fd, 32 KB at a time into the MEM2
-bounce buffer, since d2x's USB driver writes nowhere else. Packs, the
-memory cards, the RVZ's group table and the trace stay on the SD card.
+bounce buffer, since d2x's USB driver writes nowhere else. A pack on the
+drive is planned from the menu's view of it (`GcProvider`'s `usb:`
+files become `UsbDevice` pieces, `RWP_GC_PIECE_USB` in the request, Usb
+runs in the blob); with one, a game on the SD card is launched under d2x
+too (`ready_usb`, checked against the pack's first file). The memory
+cards, the RVZ's group table and the trace stay on the SD card.
 The heartbeat reads the image's first sector when the drive has been
 quiet for 30 s (`gc_usb_keep_alive`), so a hard drive does not spin down
 under a game that has loaded what it needs. A patch-only

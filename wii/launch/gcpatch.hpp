@@ -14,8 +14,8 @@ namespace riftwii::wii {
 
 // Patch-only GameCube mods: VCDIFF (xdelta) patches in sd:/riftwii/patches.
 // A patch is listed as the game it makes when one of the GameCube images
-// found is its original (its first window's checksum says so) and that
-// game is not there already. Starting it prepares the image once, into
+// found, on the SD card or the USB drive, is its original (its first
+// window's checksum says so) and that game is not there already. Starting it prepares the image once, into
 // sd:/games/<ID>/game.iso, from then on an ordinary game.
 constexpr const char* kGcPatchDir = "sd:/riftwii/patches";
 

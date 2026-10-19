@@ -28,8 +28,10 @@ struct GcImage {
     std::string path;  // sd:/games/.../game.iso, or game.rvz; usb:/games/... on the USB drive
     std::string id;    // ID6 from its header
     bool rvz = false;  // the image is an RVZ
-    // On the USB drive: d2x's /dev/usb2 the launch opened (-1: on the SD
-    // card), and the file's pieces in the drive's sectors with its size.
+    // d2x's /dev/usb2 the launch opened (-1: nothing is read from the USB
+    // drive), and, for an image on the drive, the file's pieces in the
+    // drive's sectors with its size (none: the image is on the SD card;
+    // its packs may still be on the drive).
     std::int32_t usb_fd = -1;
     std::vector<Fragment> usb_fragments;
     std::uint64_t usb_bytes = 0;

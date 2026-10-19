@@ -19,12 +19,18 @@ namespace riftwii {
 
 // One piece of a file's new content; a file is its pieces in order.
 struct GcPiece {
-    enum class Kind { Image, Device, Zero };
+    // Device: a pack's bytes on the SD card; UsbDevice: on the USB drive.
+    enum class Kind { Image, Device, Zero, UsbDevice };
     Kind kind = Kind::Zero;
     std::uint64_t length = 0;
-    std::uint64_t source = 0;  // Image: byte offset in the image; Device: 512-byte sector
-    std::uint32_t skip = 0;    // Device: bytes into sector `source` (under 512)
+    std::uint64_t source = 0;  // Image: byte offset in the image; Device, UsbDevice: 512-byte sector
+    std::uint32_t skip = 0;    // Device, UsbDevice: bytes into sector `source` (under 512)
 };
+
+// Whether any of the plan's pieces is on the USB drive (the launch then
+// opens d2x's USB device for it, wherever the image is).
+struct GcOverlayPlan;
+bool gc_plan_uses_usb(const GcOverlayPlan& plan);
 
 struct GcFile {
     std::string disc_path;     // absolute FST path ("/files/x.bin" style, no "files" prefix: "/x.bin")
@@ -72,7 +78,7 @@ struct GcRun {
 // fragments, `image_size` bytes), then, with a plan, its window, the gaps
 // between the window's files as zeros. The image's fragments are sectors
 // of the SD card, or of the USB drive for `image_on_usb` (Usb runs); the
-// packs' own files are always on the card.
+// packs' own files are Sd or Usb runs by where each is.
 bool gc_disc_runs(const std::vector<Fragment>& image, std::uint64_t image_size, const GcOverlayPlan* plan,
                   std::vector<GcRun>& out, std::string& error, bool image_on_usb = false);
 

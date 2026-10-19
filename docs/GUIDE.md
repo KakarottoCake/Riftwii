@@ -384,8 +384,13 @@ listed as a GameCube game.
 
 Games on the SD card need no cIOS. A game on the USB drive runs under a
 d2x cIOS (249, 250 or 251, as USB Wii games do), which reads the drive
-while it plays. Its memory cards, packs and the rest stay on the SD card,
-so a USB game still needs the SD card in. The drive needs 512-byte
+while it plays. Its memory cards and the rest stay on the SD card, so a
+USB game still needs the SD card in. Its packs can be on either drive, as
+a Wii game's can; a game on the SD card with a pack on the USB drive
+runs under d2x too. On an NTFS drive a pack's tiny files (under about
+700 bytes, which NTFS keeps inside its file table) can't be read during
+play: such a pack says so at Start, and plays from the SD card or a
+FAT32 drive. The drive needs 512-byte
 sectors (FAT32 or NTFS, as for Wii games). A hard drive that sleeps when
 idle is read once every 30 seconds while the game is quiet, so it does
 not stop spinning and turn a later load into a disc error. GameCube games
@@ -445,7 +450,7 @@ RiftWii serves their files to the game without changing the image.
 Packs with memory, savegame or shift patches don't start yet, and say
 so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
 `sd:/riftwii/patches/`: it is listed as the game it makes when its
-original is in `sd:/games`, and the first start makes that game as
+original is in `sd:/games` or `usb:/games`, and the first start makes that game as
 `sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary
 game from then on.
 

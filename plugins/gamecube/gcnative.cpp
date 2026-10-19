@@ -1397,7 +1397,7 @@ bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat
     std::memcpy(out.header, rvz.head().disc_header.data(), sizeof(out.header));
     out.extents = extents_of(file);
     if (out.extents.size() > GC_RVZ_MAX_EXTENTS) {
-        const char* drive = image.usb_fd >= 0 ? "USB drive" : "SD card";
+        const char* drive = !image.usb_fragments.empty() ? "USB drive" : "SD card";
         error = "the RVZ is in " + std::to_string(out.extents.size()) + " pieces on the " + drive +
                 ", more than the " + std::to_string(GC_RVZ_MAX_EXTENTS) +
                 " RiftWii can follow during play: copy it to the " + drive + " again";
@@ -1702,7 +1702,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     gc_map controls;
     load_gc_controls(image.id, controls);
     const bool rvz = image.rvz;
-    const bool on_usb = image.usb_fd >= 0;
+    const bool on_usb = !image.usb_fragments.empty();  // the image itself (packs may be on the drive too)
     Fat32File file;
     if (on_usb) {
         // On the USB drive: its pieces as the menu found them, before the
@@ -2177,15 +2177,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // Loading speed option says Fast.
     ctx->drive_timing = image.drive_timing ? 1 : 0;
     ctx->beat_ticks = 30375000;  // half a second of the bus clock / 4
-    // A game on the USB drive: d2x's /dev/usb2, kept open across the
-    // hand-over like the card's handle, and a keep-alive read of the
-    // image's first sector after 30 s without one, so a hard drive that
-    // spins down when idle does not make the game's next read take
-    // seconds (some games call a slow read a disc error).
-    ctx->usb_fd = on_usb ? static_cast<std::uint32_t>(image.usb_fd) : 0xFFFFFFFFu;
-    if (on_usb && !file.fragments.empty()) {
-        ctx->usb_keep_sector = static_cast<std::uint32_t>(file.fragments[0].sector);
-        ctx->usb_keep_ticks = 60 * 30375000u;  // 30 s
+    // A game or a pack on the USB drive: d2x's /dev/usb2, kept open across
+    // the hand-over like the card's handle, and a keep-alive read of the
+    // first sector the game reads there after 30 s without one, so a hard
+    // drive that spins down when idle does not make the game's next read
+    // take seconds (some games call a slow read a disc error).
+    ctx->usb_fd = image.usb_fd >= 0 ? static_cast<std::uint32_t>(image.usb_fd) : 0xFFFFFFFFu;
+    if (image.usb_fd >= 0) {
+        for (std::size_t i = 0; i < placed.size(); ++i) {
+            if (placed[i].kind != GcRun::Kind::Usb) continue;
+            ctx->usb_keep_sector = static_cast<std::uint32_t>(placed[i].sector);
+            ctx->usb_keep_ticks = 60 * 30375000u;  // 30 s
+            break;
+        }
     }
     ctx->di_regs = di_regs;
     std::memset(reinterpret_cast<void*>(di_regs), 0, 0x40);

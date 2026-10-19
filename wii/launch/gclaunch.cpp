@@ -184,6 +184,24 @@ private:
     std::uint64_t offset_, size_;
 };
 
+// A pack's file on the USB drive, read through the menu's view of it;
+// its pieces are the drive's sectors the game reads during play.
+class UsbPackSource final : public ByteSource {
+public:
+    UsbPackSource(const std::string& path, const VolumeFile& file) : path_(path), file_(file) {}
+    std::uint64_t size() const override { return file_.entry.size; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        std::uint64_t size = 0;
+        return read_usb_range(path_, offset, destination, length, size);
+    }
+    const std::string& path() const { return path_; }
+    const VolumeFile& file() const { return file_; }
+
+private:
+    std::string path_;
+    const VolumeFile& file_;
+};
+
 class SdSource final : public ByteSource {
 public:
     explicit SdSource(const Fat32File& file) : file_(file) {}
@@ -197,8 +215,15 @@ private:
     const Fat32File& file_;
 };
 
-// Disc files from the image, the packs' files from the card (read raw,
-// so their sectors are known for the overlay).
+// The USB drive's sector and bytes d2x is checked against before the game
+// runs on it (activate_gamecube_usb): the first of a USB pack's files.
+struct UsbCheck {
+    std::string path;
+    std::uint64_t sector = 0;
+};
+
+// Disc files from the image, the packs' files from the card or the USB
+// drive (read raw, so their sectors are known for the overlay).
 class GcProvider final : public ContentProvider {
 public:
     GcProvider(const ByteSource& iso, const Fst& fst) : iso_(iso), fst_(fst) {}
@@ -220,6 +245,7 @@ public:
     }
 
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out, std::string& error) override {
+        if (sd_path.compare(0, 4, "usb:") == 0) return open_usb(sd_path, out, error);
         std::string abs = sd_path.compare(0, 3, "sd:") == 0 ? sd_path.substr(3) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         const std::string key = "sd:" + abs;
@@ -243,6 +269,23 @@ public:
     }
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
+        if (sd_dir.compare(0, 4, "usb:") == 0) {
+            std::string abs = sd_dir.substr(4);
+            if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+            std::vector<VolumeEntry> listed;
+            if (!list_usb_folder("usb:" + abs, listed)) {
+                error = "cannot list usb:" + abs;
+                return OpenStatus::NotFound;
+            }
+            out.clear();
+            for (const VolumeEntry& e : listed) {
+                ExternalEntry x;
+                x.name = e.name;
+                x.is_directory = e.is_directory;
+                out.push_back(std::move(x));
+            }
+            return OpenStatus::Ok;
+        }
         std::string abs = sd_dir.compare(0, 3, "sd:") == 0 ? sd_dir.substr(3) : sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         std::vector<Fat32Entry> entries;
@@ -259,10 +302,41 @@ public:
         return OpenStatus::Ok;
     }
 
+    const UsbCheck& usb_check() const { return usb_check_; }
+
 private:
+    OpenStatus open_usb(const std::string& usb_path, std::unique_ptr<ByteSource>& out, std::string& error) {
+        std::string abs = usb_path.substr(4);
+        if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        const std::string key = "usb:" + abs;
+        auto found = usb_files_.find(key);
+        if (found == usb_files_.end()) {
+            VolumeFile file;
+            if (!usb_file_lookup(key, file, error)) {
+                const bool missing = error.find("no such ") != std::string::npos;
+                const OpenStatus status = missing ? OpenStatus::NotFound : OpenStatus::IoError;
+                error = "external file '" + usb_path + "' " + to_string(status) + ": " + error;
+                return status;
+            }
+            if (file.entry.is_directory) {
+                error = "'" + key + "' is a directory";
+                return OpenStatus::Invalid;
+            }
+            found = usb_files_.emplace(key, std::move(file)).first;
+            if (usb_check_.path.empty() && !found->second.fragments.empty()) {
+                usb_check_.path = key;
+                usb_check_.sector = found->second.fragments[0].sector;
+            }
+        }
+        out = std::make_unique<UsbPackSource>(key, found->second);
+        return OpenStatus::Ok;
+    }
+
     const ByteSource& iso_;
     const Fst& fst_;
-    std::map<std::string, Fat32File> files_;  // outlives every SdSource
+    std::map<std::string, Fat32File> files_;       // outlives every SdSource
+    std::map<std::string, VolumeFile> usb_files_;  // and every UsbPackSource
+    UsbCheck usb_check_;
 };
 
 // One composed file as overlay pieces: untouched bytes from the image,
@@ -287,10 +361,29 @@ bool to_pieces(const AppliedFile& file, std::vector<GcPiece>& out, std::string& 
             p.source = range->disc_offset() + x.source_offset;
             p.length = x.length;
             out.push_back(p);
+        } else if (const auto* usb = dynamic_cast<const UsbPackSource*>(x.source)) {
+            // A file NTFS keeps inside its file table has no sectors of its
+            // own for the game to read during play.
+            if (usb->file().fragments.empty()) {
+                error = usb->path() + " is kept inside the NTFS drive's file table (a file of a few hundred "
+                        "bytes), where a GameCube game cannot read it: put the pack on the SD card, or on a "
+                        "FAT32 drive";
+                return false;
+            }
+            std::vector<PlacedRun> runs;
+            if (!place_on_fragments(usb->file().fragments, x.source_offset, x.length, runs, error)) return false;
+            for (const PlacedRun& r : runs) {
+                GcPiece p;
+                p.kind = GcPiece::Kind::UsbDevice;
+                p.source = r.source;
+                p.skip = r.skip;
+                p.length = r.length;
+                out.push_back(p);
+            }
         } else {
             const auto* sd = dynamic_cast<const SdSource*>(x.source);
             if (!sd) {
-                error = "a pack's piece is not on the SD card";
+                error = "a pack's piece is not on the SD card or the USB drive";
                 return false;
             }
             std::vector<PlacedRun> runs;
@@ -327,8 +420,9 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
     std::vector<FilePatch> files;
     for (const PackageChoices& pack : packages) {
         const std::string& xml = pack.xml_sd_path;
+        const bool pack_on_usb = xml.compare(0, 5, "usb:/") == 0;
         std::string text;
-        if (!read_text(xml, text)) {
+        if (pack_on_usb ? !read_usb_text(xml, text) : !read_text(xml, text)) {
             error = "cannot open " + xml;
             return false;
         }
@@ -350,6 +444,14 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
         if (!plan_package(package, disc, allowed, plan, error)) {
             error = xml + ": " + error;
             return false;
+        }
+        if (pack_on_usb) {
+            // Its files are on the drive too (as for a Wii game's pack).
+            const auto to_usb = [](std::string& path) {
+                if (!path.empty()) path = std::string("usb:") + (path[0] == '/' ? "" : "/") + path;
+            };
+            for (FilePatch& f : plan.files) to_usb(f.external);
+            for (FolderPatch& f : plan.folders) to_usb(f.external);
         }
         // Never a partly applied mod: what GameCube games cannot take yet
         // stops the launch.
@@ -466,9 +568,18 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
     }
     closedir(games);
     if (found) return true;
-    // A patch that makes it from one of them.
+    // A patch that makes it from one of them, then the USB drive's games
+    // and the patches made from those.
     std::vector<ImageGame> all;
     ScanGcImages(all);
+    ScanUsbGcImages(all);
+    for (const ImageGame& g : all) {
+        if (g.device != ImageDevice::Usb || !g.gc_patch_source.empty() || g.id.compare(0, game.size(), game) != 0)
+            continue;
+        out.path = g.path;
+        out.id = g.id;
+        return true;
+    }
     for (const ImageGame& g : all) {
         if (g.gc_patch_source.empty() || g.id.compare(0, game.size(), game) != 0) continue;
         out.path = g.path;
@@ -554,6 +665,9 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             add_gc_image(dir + "/" + file.name, out);
         }
     }
+    // Patch-only mods whose original is on the drive (the game they make
+    // is written to the SD card when it is first started).
+    ScanGcPatches(out);
 }
 
 namespace {
@@ -561,7 +675,7 @@ namespace {
 // The packs as a plan over the image (riftwii/gcoverlay.hpp): their files
 // read from the image and the card, laid out past the image's end.
 bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& packages, GcOverlayPlan& plan,
-                   std::string& error) {
+                   UsbCheck& usb_check, std::string& error) {
     std::unique_ptr<ByteSource> disc;
     if (!OpenGcDisc(image.path, disc, error)) return false;
     const ByteSource& iso = *disc;
@@ -585,39 +699,53 @@ bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& pack
     std::vector<GcFile> files;
     if (!plan_packs(packages, boot.data(), fst, provider, files, error)) return false;
     if (!plan_gc_overlay(boot, fst_bytes, iso_size, files, plan, error)) return false;
+    usb_check = provider.usb_check();
     logf("GameCube: the packs change %u file(s); the new FST is %u bytes at 0x%llx\n",
          static_cast<unsigned>(files.size()), static_cast<unsigned>(plan.fst.size()),
          static_cast<unsigned long long>(plan.fst_offset));
     return true;
 }
 
-// A game on the USB drive: its pieces through the menu's view of the drive
-// (libogc's USB driver, IOS 58 only), then the reload into a d2x cIOS
-// whose USB device the game's loader reads them through, tried in the
-// order a Wii game on the drive would be (the slot picked for the game,
-// else image_cios_order's). The memory cards and the trace stay on the
-// SD card, so the slot must reach it too (uses_sd).
-bool ready_usb_image(GcImage& image, std::string& error) {
-    if (!usb_file_pieces(image.path, image.usb_bytes, image.usb_fragments, error)) {
-        error = image.path + ": " + error;
-        return false;
+// A game or a pack on the USB drive: the image's pieces through the
+// menu's view of the drive (libogc's USB driver, IOS 58 only), then the
+// reload into a d2x cIOS whose USB device the game's loader reads the
+// drive through, tried in the order a Wii game on the drive would be (the
+// slot picked for the game, else image_cios_order's). d2x is checked
+// against the first sector of the image, or of the first USB pack file
+// (`pack_check`) when the image is on the SD card. The memory cards and
+// the trace stay on the SD card, so the slot must reach it too (uses_sd).
+bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
+    std::string check_path = pack_check.path;
+    std::uint64_t check_sector = pack_check.sector;
+    if (GcImageOnUsb(image.path)) {
+        if (!usb_file_pieces(image.path, image.usb_bytes, image.usb_fragments, error)) {
+            error = image.path + ": " + error;
+            return false;
+        }
+        logf("GameCube: %s is on the USB drive, in %u piece(s) from sector %llu\n", image.path.c_str(),
+             static_cast<unsigned>(image.usb_fragments.size()),
+             static_cast<unsigned long long>(image.usb_fragments[0].sector));
+        check_path = image.path;
+        check_sector = image.usb_fragments[0].sector;
+    } else {
+        logf("GameCube: packs on the USB drive (%s first); the game is on the SD card\n", check_path.c_str());
     }
     std::uint8_t first[32];
     std::uint64_t size = 0;
-    if (!read_usb_range(image.path, 0, first, sizeof(first), size)) {
-        error = "cannot read " + image.path;
+    if (check_path.empty() || !read_usb_range(check_path, 0, first, sizeof(first), size)) {
+        error = "cannot read " + (check_path.empty() ? std::string("the USB drive") : check_path);
         return false;
     }
-    logf("GameCube: %s is on the USB drive, in %u piece(s) from sector %llu\n", image.path.c_str(),
-         static_cast<unsigned>(image.usb_fragments.size()),
-         static_cast<unsigned long long>(image.usb_fragments[0].sector));
     ImageGame game;  // what image_cios_order goes by
     game.device = ImageDevice::Usb;
     game.path = image.path;
     game.id = image.id;
     std::string first_error;
     for (int slot : image_cios_order(game, image.cios_slot, true)) {
-        if (activate_gamecube_usb(first, image.usb_fragments[0].sector, slot, nullptr, error)) return true;
+        if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
+            image.usb_in_use = true;
+            return true;
+        }
         if (reload_terminal_failure()) return false;
         if (first_error.empty()) first_error = error;
     }
@@ -698,8 +826,10 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     // Planned before a USB game's reload, while the menu still reads the drive.
     GcOverlayPlan plan;
     const bool has_packs = !packages.empty();
-    if (has_packs && !plan_gc_packs(image, packages, plan, error)) return false;
-    if (GcImageOnUsb(image.path) && !ready_usb_image(image, error)) return false;
+    UsbCheck usb_check;
+    if (has_packs && !plan_gc_packs(image, packages, plan, usb_check, error)) return false;
+    const bool packs_on_usb = has_packs && gc_plan_uses_usb(plan);
+    if ((GcImageOnUsb(image.path) || packs_on_usb) && !ready_usb(image, usb_check, error)) return false;
     return LaunchGcNative(image, has_packs ? &plan : nullptr, error);
 }
 

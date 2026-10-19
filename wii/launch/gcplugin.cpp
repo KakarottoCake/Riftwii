@@ -154,19 +154,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.language = image.language;
     request.vi_width = image.vi_width;
 
-    // A game on the USB drive: d2x's USB device its launch opened and the
-    // image's pieces (gclaunch.cpp's ready_usb_image). Kept here until the
-    // launch returns: the request points into them.
+    // A game or a pack on the USB drive: d2x's USB device its launch opened
+    // (gclaunch.cpp's ready_usb) and, for a game on it, the image's pieces.
+    // Kept here until the launch returns: the request points into them.
     std::vector<rwp_fragment> usb_fragments;
     request.usb_fd = -1;
-    if (GcImageOnUsb(image.path)) {
-        if (ums::Fd() < 0 || image.usb_fragments.empty()) {
+    if (image.usb_in_use) {
+        if (ums::Fd() < 0 || (GcImageOnUsb(image.path) && image.usb_fragments.empty())) {
             error = "the USB drive was not made ready for the game";
             return false;
         }
-        for (const Fragment& f : image.usb_fragments) usb_fragments.push_back(rwp_fragment{f.sector, f.sector_count});
         request.usb_fd = ums::Fd();
-        request.usb_fragments = usb_fragments.data();
+        for (const Fragment& f : image.usb_fragments) usb_fragments.push_back(rwp_fragment{f.sector, f.sector_count});
+        request.usb_fragments = usb_fragments.empty() ? nullptr : usb_fragments.data();
         request.usb_fragment_count = static_cast<std::uint32_t>(usb_fragments.size());
         request.usb_file_bytes = image.usb_bytes;
     }
@@ -199,7 +199,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     {
         std::int32_t fd = -1, dev = -1;
         std::uint32_t version = 0;
-        if (TakeGcAdapterForGameCube(GcImageOnUsb(image.path), fd, version, dev)) {
+        if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev)) {
             request.adapter_fd = fd;
             request.adapter_version = version;
             request.adapter_dev = dev;

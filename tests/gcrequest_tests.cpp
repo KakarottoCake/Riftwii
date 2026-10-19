@@ -39,7 +39,11 @@ static GcOverlayPlan sample_plan() {
     GcOverlayPlan::Entry zero;  // the padding place() adds, a Zero piece of no length of its own
     zero.vstart = 0x570641F0ull;
     zero.length = 0x10;
-    plan.entries = {image, device, zero};
+    GcOverlayPlan::Entry usb;  // a pack's bytes on the USB drive
+    usb.vstart = 0x57064200ull;
+    usb.length = 0x300;
+    usb.piece = GcPiece{GcPiece::Kind::UsbDevice, 0x300, 0x2345678ull, 0x40};
+    plan.entries = {image, device, zero, usb};
     return plan;
 }
 
@@ -77,10 +81,12 @@ static void test_plan_round_trip() {
     gc_plan_to_request(plan, entries, f.request);
     EXPECT_EQ(f.request.pack_fst_bytes, 64u);
     EXPECT_EQ(f.request.pack_header_bytes, 0x20u);
-    EXPECT_EQ(f.request.pack_entry_count, 3u);
+    EXPECT_EQ(f.request.pack_entry_count, 4u);
     EXPECT_TRUE(f.request.pack_entries == entries.data());
     EXPECT_EQ(entries[1].kind, RWP_GC_PIECE_DEVICE);
     EXPECT_EQ(entries[2].kind, RWP_GC_PIECE_ZERO);
+    EXPECT_EQ(entries[3].kind, RWP_GC_PIECE_USB);
+    EXPECT_TRUE(gc_plan_uses_usb(plan));
     std::string why;
     EXPECT_TRUE(f.check(why));
 
@@ -104,6 +110,11 @@ static void test_plan_round_trip() {
     EXPECT_TRUE(gc_disc_runs_rvz(0x57058000ull, &plan, runs_before, why));
     EXPECT_TRUE(gc_disc_runs_rvz(0x57058000ull, &back, runs_after, why));
     EXPECT_EQ(runs_after.size(), runs_before.size());
+    // The USB piece is a Usb run: its sector, of the drive.
+    bool usb_run = false;
+    for (const GcRun& r : runs_after)
+        if (r.kind == GcRun::Kind::Usb && r.sector == 0x2345678ull && r.skip == 0x40 && r.length == 0x300) usb_run = true;
+    EXPECT_TRUE(usb_run);
     for (std::size_t i = 0; i < runs_after.size() && i < runs_before.size(); ++i) {
         EXPECT_TRUE(runs_after[i].kind == runs_before[i].kind);
         EXPECT_EQ(runs_after[i].disc, runs_before[i].disc);

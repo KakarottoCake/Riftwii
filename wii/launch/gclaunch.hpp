@@ -35,6 +35,9 @@ struct GcImage {
     int cios_slot = 0;
     std::vector<Fragment> usb_fragments{};
     std::uint64_t usb_bytes = 0;
+    // The launch reloaded into d2x and opened its USB device: for an image
+    // or a pack on the USB drive (the request's usb_fd).
+    bool usb_in_use = false;
 };
 
 // Whether the image at `path` is on the USB drive ("usb:/...").

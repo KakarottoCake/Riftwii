@@ -105,7 +105,7 @@ private:
 
 // The image's bytes as a file: on the card, or on the USB drive.
 std::shared_ptr<ByteSource> open_image_file(const GcImage& image) {
-    if (image.usb_fd >= 0) {
+    if (!image.usb_fragments.empty()) {
         std::shared_ptr<UsbDriveFile> usb(new UsbDriveFile(image.usb_fragments, image.usb_bytes));
         return usb->ok() ? usb : nullptr;
     }
