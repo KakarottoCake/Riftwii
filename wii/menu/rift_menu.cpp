@@ -2986,6 +2986,10 @@ static bool InstallWads()
 				tr("{1} of {2}: {3}", {std::to_string(i + 1), std::to_string(files.size()), FlatCapped(name, 40)}));
 			ProgressBar bar(56, 280, 528);
 			box.Add(&bar, 528);
+			// The power button and HOME wait for the install, as for an
+			// update: a card unmounted in the middle left a half-installed
+			// title on the emulated NAND, its undo never run (BUG-03).
+			const riftwii::wii::CardWriteHold hold;
 			ResumeGui();
 			int shown = -1;
 			ok = riftwii::wii::install_wad(path, nand.folder, key, [&](double done) {
@@ -5127,6 +5131,8 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 		box.CenterCancel();  // its only button, in the middle
 		ProgressPanel progress(box, state.game_id);
 		std::string shown;
+		// Minutes of writing: the power button waits for it (BUG-03).
+		const riftwii::wii::CardWriteHold hold;
 		ResumeGui();
 		ok = riftwii::wii::MakeVsdImage(plan, [&](std::uint64_t written, const std::string& path) {
 			if (!path.empty()) shown = path;
