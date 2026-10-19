@@ -24,12 +24,15 @@
 #include "gc_layout.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 6u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 7u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The DI interrupt types a DVDLow callback takes. */
 #define GC_DI_TC 1u     /* transfer complete */
 #define GC_DI_DE 2u     /* device error */
+/* A completion whose callback is this raises the DI interrupt in the DI
+ * stand-in and runs the game's DI interrupt handler (libogc, below). */
+#define GC_CB_DI_RAISE 1u
 
 /* gc_rt_run.kind */
 #define GC_RUN_SD 0u    /* `source` is a 512-byte sector of the card, `skip` bytes into it */
@@ -94,7 +97,25 @@ struct gc_rt_header {
     uint32_t replay_reset_system;
     uint32_t continue_reset_system;
     uint32_t hook_hot_reset;        /* the SDK's reset routine (PI's reset register): gc_on_hot_reset, never returns */
+    uint32_t alarm_entry_ogc;       /* libogc's alarm callback (handle, arg): gc_on_alarm with arg as the alarm */
+    uint32_t di_common;             /* what a DI start slot calls: gc_on_di_start */
+    uint32_t di_slots;              /* GC_DI_SITES slots of GC_DI_SLOT_WORDS words (gc_layout.h), loader-written */
 };
+
+/* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
+ * rebuild compiled with GCC) has no OSSetAlarm and no DVDLow functions to
+ * hook: its alarms are SYS_CreateAlarm(&handle) and SYS_SetAlarm(handle,
+ * const struct timespec*, cb, arg), and its disc code (libogc's dvd.c)
+ * writes the DI's registers itself, many commands of them (the drive's
+ * unlock and firmware ones too). So the DI is answered at its registers:
+ * the game's DI accesses go to the DI stand-in as for any game, each store
+ * that starts a command (DICR, 0xCC00601C, bit 0) jumps to a slot that
+ * makes it and calls gc_on_di_start, which carries the command out from
+ * the card, and at its end the blob sets the stand-in's DISR as the drive
+ * would and runs the game's DI interrupt handler, registered with
+ * IRQ_Request(21, handler, arg). The alarm's buffer (GC_ALARM_BYTES) holds
+ * the handle in its first word and GC_OGC_ALARM_MADE in its second. */
+#define GC_OGC_ALARM_MADE 0x52574F41u  /* "RWOA" */
 
 /* gc_on_fatal's exception numbers (GC_EXCEPTION_EARLY, GC_EXCEPTION_STRAY)
  * and the crash screen are in gc_crash.h. */
@@ -298,8 +319,11 @@ struct gc_rt_context {
     uint32_t sdhc;            /* 1: CMD18 takes a sector, 0: a byte offset */
     uint32_t runs;            /* struct gc_rt_run[run_count] */
     uint32_t run_count;
-    uint32_t set_alarm;       /* the game's OSSetAlarm */
+    uint32_t set_alarm;       /* the game's OSSetAlarm, or libogc's SYS_SetAlarm when ogc_create_alarm is set */
     uint32_t alarm_entry;     /* this blob's alarm handler */
+    uint32_t ogc_create_alarm; /* libogc's SYS_CreateAlarm, 0: the SDK's OSSetAlarm is used */
+    uint32_t ogc_alarm_entry; /* this blob's libogc alarm callback */
+    uint32_t di_handler;      /* libogc: the game's DI interrupt handler (gc_on_di_start), 0: DVDLow hooks */
     uint32_t bounce;          /* 32-byte aligned, bounce_bytes (a multiple of 512) */
     uint32_t bounce_bytes;
     uint32_t delay_ticks;     /* how soon the callback runs */
@@ -488,6 +512,10 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context);
+void gc_on_di_start(struct gc_rt_context* ctx);
+/* Sets `alarm` (GC_ALARM_BYTES) to call the blob `ticks` from now, through
+ * OSSetAlarm or libogc's alarms. Shared with gc_card.c. */
+void gc_set_alarm(struct gc_rt_context* ctx, void* alarm, uint32_t ticks);
 void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_context, uint32_t dsisr, uint32_t dar);
 void gc_on_stray(struct gc_rt_context* ctx, uint32_t os_context, uint32_t ctr);
 /* Shared with gc_bt.c. */

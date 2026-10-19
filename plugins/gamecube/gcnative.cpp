@@ -181,6 +181,146 @@ std::uint32_t bl_target(std::uint32_t at, std::uint32_t w) {
     return at + d;
 }
 
+// The "lis rX,H" whose register later gets "ori rX,rX,L" (L < 0x8000), with
+// nothing between them that branches or gives rX another value: the
+// address of the ori, or 0. Then rX's low half is still zero, so "addi
+// rX,rX,L" gives the same value.
+std::uint32_t later_ori(const Code& code, std::uint32_t at, unsigned reg) {
+    if (reg == 0) return 0;  // "addi r0,r0,L" would read r0 as 0: li r0,L
+    for (std::uint32_t a = at + 4; a <= at + 64 && code.has(a); a += 4) {
+        const std::uint32_t w = code.at(a);
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        if (op == 24 && d == reg && ra == reg) return (w & 0xFFFF) < 0x8000 ? a : 0;
+        if (op == 16 || op == 18 || op == 19) return 0;  // a branch: another path may join here
+        if (op == 31 || (op >= 20 && op <= 30)) {
+            if (ra == reg) return 0;  // logical, rotate and X-form results go to rA
+            if (op == 31 && d == reg) return 0;  // and arithmetic X-forms to rD
+        } else if (d == reg && op != 36 && op != 37 && op != 38 && op != 39 && op != 44 && op != 45 &&
+                   op != 47 && op != 52 && op != 53 && op != 54 && op != 55) {
+            return 0;  // a load or an immediate into rX (stores only read rD)
+        }
+    }
+    return 0;
+}
+
+// Most GameCube games build a hardware register's address as "lis
+// rX,0xCC00" and then use it with an offset (lwz rY,0x6008(rX)) or an
+// addi, which the finders below follow. Sonic Riders Tournament Edition
+// (GXSRTE), built with another compiler, loads 0xCC00 into each register
+// first and ORs the register's offset in later (674 of its 687 such
+// places; a few of a retail game's ~170). For such a game, those ori
+// become the addi that give the same value, so the finders read its code
+// as they read the others'; a retail game's code is left as it is.
+// Returns how many were changed.
+unsigned ori_to_addi(Code& code) {
+    unsigned bases = 0, with_ori = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (!is_lis(w, 0xCC00)) return;
+        ++bases;
+        if (later_ori(code, a, (w >> 21) & 31)) ++with_ori;
+    });
+    if (bases < 20 || with_ori * 2 < bases) return 0;
+    std::vector<std::uint32_t> changes;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w & 0xFC1F0000) != 0x3C000000) return;  // lis rX,H (addis rX,0,H)
+        if (std::uint32_t o = later_ori(code, a, (w >> 21) & 31)) changes.push_back(o);
+    });
+    for (std::uint32_t o : changes) code.put(o, (code.at(o) & 0x03FFFFFF) | (14u << 26));  // ori rA,rS -> addi rD,rA: same fields
+    return static_cast<unsigned>(changes.size());
+}
+
+// libogc (gc_rt.h, "libogc"). Its SYS_SetAlarm(handle, timespec, cb, arg)
+// starts by refusing the null handle (cmpwi r3,-1) and checking the
+// handle's type in its top half (srwi rX,r3,16), where OSSetAlarm takes an
+// OSAlarm's address. find_dvd_low's OSSetAlarm (the timeout alarm the
+// disc code sets) is this in a libogc game.
+bool is_ogc_set_alarm(const Code& code, std::uint32_t fn) {
+    if (fn == 0 || code.at(fn) != 0x2C03FFFF) return false;
+    for (std::uint32_t a = fn + 4; a <= fn + 16; a += 4)
+        if ((code.at(a) & 0xFFE0FFFF) == 0x5460843E) return true;  // rlwinm rX,r3,16,16,31
+    return false;
+}
+
+// libogc's DVD_Init: IRQ_Request(21, __DVDInterruptHandler, NULL), the DI
+// interrupt's handler built into r4 just before, then __UnmaskIrq and
+// SYS_CreateAlarm(&the disc's timeout alarm), its address r13-relative
+// ("addi r3,r13,X"). Both, or false.
+bool find_ogc_di_irq(const Code& code, std::uint32_t& handler, std::uint32_t& create) {
+    bool found = false;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (found || w != 0x38600015) return;  // li r3,21
+        std::uint32_t r4 = 0;
+        bool r4_known = false;
+        for (std::uint32_t b = a - 24; b < a + 24; b += 4) {
+            const std::uint32_t x = code.at(b);
+            const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
+            if (op == 15 && d == 4 && ra == 0) {
+                r4 = (x & 0xFFFF) << 16;
+                r4_known = true;
+            } else if (op == 14 && d == 4 && ra == 4 && r4_known) {
+                r4 += static_cast<std::int16_t>(x & 0xFFFF);
+            } else if (op == 24 && d == 4 && ra == 4 && r4_known) {
+                r4 |= x & 0xFFFF;
+            }
+            if (b <= a || !bl_target(b, x)) continue;
+            // The call: then SYS_CreateAlarm within the next few words.
+            for (std::uint32_t c = b + 4; c < b + 32; c += 4) {
+                if ((code.at(c) & 0xFFFF0000) != 0x386D0000) continue;  // addi r3,r13,X
+                if (std::uint32_t t = bl_target(c + 4, code.at(c + 4))) {
+                    if (r4_known && code.has(r4)) {
+                        handler = r4;
+                        create = t;
+                        found = true;
+                    }
+                }
+                break;
+            }
+            break;
+        }
+    });
+    return found;
+}
+
+// The stores that start a DI command: a word stored at 0xCC00601C (DICR),
+// its address followed through lis, addi, addis and ori within each
+// function. Run before redirect_di_registers moves the bases.
+std::vector<std::uint32_t> find_di_starts(const Code& code) {
+    std::vector<std::uint32_t> sites;
+    std::uint32_t value[32] = {};
+    bool known[32] = {};
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        const std::int32_t imm = static_cast<std::int16_t>(w & 0xFFFF);
+        if (op == 15) {  // lis, addis
+            const bool from = ra != 0 && known[ra];
+            value[d] = (ra == 0 ? 0 : value[ra]) + (static_cast<std::uint32_t>(imm) << 16);
+            known[d] = ra == 0 || from;
+        } else if (op == 14) {  // li, addi
+            value[d] = (ra == 0 ? 0 : value[ra]) + imm;
+            known[d] = ra == 0 || known[ra];
+        } else if (op == 24) {  // ori rA,rS
+            value[ra] = value[d] | (w & 0xFFFF);
+            known[ra] = known[d];
+        } else if ((op == 36 || op == 37) && ra != 0 && known[ra] && value[ra] + imm == 0xCC00601C) {  // stw, stwu
+            sites.push_back(a);
+        } else if ((op >= 32 && op <= 35) || (op >= 40 && op <= 43) || op == 46 || op == 7 || op == 8 ||
+                   op == 12 || op == 13) {
+            known[d] = false;  // a load or an arithmetic immediate into rD
+        } else if (op >= 20 && op <= 29) {
+            known[ra] = false;  // the other logical and rotate forms write rA
+        } else if (op == 31) {
+            known[d] = known[ra] = false;  // X-forms: one of the two
+        }
+        if (op == 37) known[ra] = false;  // stwu moved its base
+        if (bl_target(a, w)) {  // a call: the volatile registers are the callee's
+            known[0] = false;
+            for (unsigned r = 3; r <= 12; ++r) known[r] = false;
+        }
+        if (w == 0x4E800020) std::fill(std::begin(known), std::end(known), false);  // blr
+    });
+    return sites;
+}
+
 // The DVDLow* functions, found by the DI command each one writes (the
 // command words are the drive's, documented on wiibrew and in yagcd).
 struct DvdLow {
@@ -198,16 +338,22 @@ std::uint32_t function_start(const Code& code, std::uint32_t at) {
     return 0;
 }
 
-// Whether one of the four instructions after `at` is "addi rD,`reg`,`value`",
-// before anything else loads `reg`.
+// Whether one of the sixteen instructions after `at` is "addi rD,`reg`,`value`"
+// or "ori rA,`reg`,`value`", before anything else loads `reg`. Most SDK
+// builds add right after the lis; Sonic Riders Tournament Edition (GXSRTE)
+// loads every register's 0xCC00 first and ORs the 0x40 in 9 to 13
+// instructions later.
 bool adds_to_register(const Code& code, std::uint32_t at, unsigned reg, std::uint16_t value) {
-    for (std::uint32_t a = at + 4; a <= at + 16 && code.has(a); a += 4) {
+    for (std::uint32_t a = at + 4; a <= at + 64 && code.has(a); a += 4) {
         const std::uint32_t w = code.at(a);
         const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
         if (op == 14 && ra == reg && (w & 0xFFFF) == value) return true;
+        if (op == 24 && d == reg && (w & 0xFFFF) == value) return true;  // ori: the source is in the D field
         const bool loads = (op >= 32 && op <= 35) || (op >= 40 && op <= 43) || op == 46;
         const bool immediate = op == 7 || (op >= 12 && op <= 15);  // mulli, addic, addi, addis
+        const bool logical = op >= 24 && op <= 29;                  // ori, oris, xori, xoris, andi., andis.
         if (d == reg && (loads || immediate)) return false;  // reg gets another value
+        if (ra == reg && logical) return false;
     }
     return false;
 }
@@ -531,6 +677,9 @@ std::uint32_t find_dsp_stores(const Code& code, const std::vector<std::uint32_t>
         } else if (op == 14 && ra != 0 && known[ra]) {  // addi
             value[d] = value[ra] + imm;
             known[d] = true;
+        } else if (op == 24 && known[d]) {  // ori rA,rS: GCC's way (gc_rt.h, "libogc")
+            value[ra] = value[d] | (w & 0xFFFF);
+            known[ra] = true;
         } else if ((op == 44 || op == 45) && known[ra]) {  // sth, sthu
             const std::uint32_t at = value[ra] + imm;
             for (std::size_t i = 0; i < addresses.size(); ++i)
@@ -568,6 +717,47 @@ std::uint32_t find_pad_read(const Code& code) {
     return best;
 }
 
+// The start of the function holding `at` in GCC's code (gc_rt.h,
+// "libogc"), which puts a function's epilogue and its blr in the middle:
+// the nearest "stwu r1,-N(r1)" before `at` that follows a blr or a b. 0
+// for none within 4 KB (a leaf function without a frame).
+std::uint32_t gcc_function_start(const Code& code, std::uint32_t at) {
+    for (std::uint32_t a = at; code.has(a) && at - a < 0x1000; a -= 4) {
+        if ((code.at(a) & 0xFFFF8000) != 0x94218000) continue;  // stwu r1,-N(r1)
+        const std::uint32_t before = code.at(a - 4);
+        if (before == 0x4E800020 || (before & 0xFC000003) == 0x48000000) return a;
+    }
+    return 0;
+}
+
+// PADRead as GCC builds it (Sonic Riders Tournament Edition): the
+// PADStatus of a port it cannot read is cleared by three word stores (0,
+// 4, 8) and its err byte (10) written, where the SDK's calls memset with
+// 10; the function with the most such places, at least three.
+std::uint32_t find_pad_read_gcc(const Code& code) {
+    std::map<std::uint32_t, unsigned> sites;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w >> 26) != 38 || (w & 0xFFFF) != 10) return;  // stb rE,10(rS)
+        const unsigned status = (w >> 16) & 31;
+        unsigned cleared = 0;
+        for (std::uint32_t b = a - 12; b < a; b += 4) {
+            const std::uint32_t x = code.at(b);
+            const std::uint32_t disp = x & 0xFFFF;
+            if ((x >> 26) == 36 && ((x >> 16) & 31) == status && (disp == 0 || disp == 4 || disp == 8)) ++cleared;
+        }
+        if (cleared == 3)
+            if (std::uint32_t f = gcc_function_start(code, a)) sites[f]++;
+    });
+    std::uint32_t best = 0;
+    unsigned most = 2;
+    for (auto& [f, n] : sites)
+        if (n > most) {
+            most = n;
+            best = f;
+        }
+    return best;
+}
+
 // Sends the game's DI register accesses to `base` (where 0xCC006000 was):
 // each "lis rX,0xCC00" whose register is then only used at 0x6000-0x603F
 // gets `base`'s upper half. Returns how many.
@@ -581,11 +771,14 @@ unsigned redirect_di_registers(Code& code, std::uint32_t base) {
             const std::uint32_t x = code.at(b);
             const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
             const std::uint32_t disp = x & 0xFFFF;
-            if ((op == 14 || (op >= 32 && op <= 47)) && ra == r) {
+            // A D-form with rA = 0 takes 0, not r0 (li, absolute loads):
+            // GCC builds bases in r0 too (gc_rt.h, "libogc").
+            if (((op == 14 || (op >= 32 && op <= 47)) && ra == r && ra != 0) || (op == 24 && d == r)) {
                 if (disp >= 0x6000 && disp < 0x6040) di = true;
                 else other = true;
             }
             if (x == 0x4E800020) break;
+            if (op >= 20 && op <= 29 && ra == r) break;  // an ori or rotate into it (GCC's code, gc_rt.h "libogc")
             if ((op == 14 || op == 15 || (op >= 32 && op <= 43)) && d == r && !(op >= 32 && op <= 43 && ra == r && false))
                 break;  // the register gets another value
         }
@@ -607,14 +800,18 @@ unsigned redirect_wii_blocks(Code& code, unsigned& mixed) {
     std::vector<std::uint32_t> patch;
     mixed = 0;
     code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (!is_lis(w, 0xCC00)) return;
+        // "lis rX,0xCC00", or GCC's "addis rX,rY,0xCC00" that adds the base
+        // to a channel's index (libogc's SI and EXI, gc_rt.h "libogc").
+        if ((w >> 26) != 15 || (w & 0xFFFF) != 0xCC00) return;
         const unsigned r = (w >> 21) & 31;
         bool moved = false, other = false;
         for (std::uint32_t b = a + 4; b < a + 4 * 40 && code.has(b); b += 4) {
             const std::uint32_t x = code.at(b);
             const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
             const std::uint32_t disp = x & 0xFFFF;
-            if ((op == 14 || (op >= 32 && op <= 47)) && ra == r) {
+            // A D-form with rA = 0 takes 0, not r0 (li, absolute loads):
+            // GCC builds bases in r0 too (gc_rt.h, "libogc").
+            if (((op == 14 || (op >= 32 && op <= 47)) && ra == r && ra != 0) || (op == 24 && d == r)) {
                 const bool wii_block = disp >= 0x6400 && disp < 0x7000;
                 if (wii_block) moved = true;
                 else other = true;
@@ -624,6 +821,7 @@ unsigned redirect_wii_blocks(Code& code, unsigned& mixed) {
             }
             if (x == 0x4E800020) break;
             if ((op == 14 || op == 15 || (op >= 32 && op <= 43)) && d == r) break;  // the register gets another value
+            if (op >= 20 && op <= 29 && ra == r) break;  // an ori or rotate into it (GCC's code, gc_rt.h "libogc")
             const unsigned xo = (x >> 1) & 0x1FF;
             if (op == 31 && d == r && (xo == 266 || xo == 40 || xo == 10)) break;  // add, subf, addc into it
         }
@@ -1778,6 +1976,30 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     GcCheats cheats;
     std::string cheats_off;
     if (!plan_gc_cheats(dol, extras, cheats, cheats_off)) logf("Codes are off: %s\n", cheats_off.c_str());
+    if (const unsigned changed = ori_to_addi(code))
+        logf("GameCube: the game ORs its hardware registers' offsets in (another compiler's code): %u ori "
+             "made the addi that give the same value, so the searches below find their places\n",
+             changed);
+    // A libogc game (gc_rt.h, "libogc"): its disc is answered at the DI's
+    // registers instead of through DVDLow hooks.
+    std::uint32_t ogc_di_handler = 0, ogc_create_alarm = 0;
+    std::vector<std::uint32_t> di_starts;
+    const bool ogc = is_ogc_set_alarm(code, low.set_alarm);
+    if (ogc) {
+        if (!find_ogc_di_irq(code, ogc_di_handler, ogc_create_alarm)) {
+            error = "the game is built on libogc, and its DI interrupt handler was not found";
+            return false;
+        }
+        di_starts = find_di_starts(code);
+        if (di_starts.empty() || di_starts.size() > GC_DI_SITES) {
+            error = "the game is built on libogc, and its DI command starts were not found (" +
+                    std::to_string(di_starts.size()) + ")";
+            return false;
+        }
+        logf("GameCube: the game is built on libogc: SYS_SetAlarm 0x%08x, SYS_CreateAlarm 0x%08x, DI interrupt "
+             "handler 0x%08x, %u DI command start(s) answered at the DI's registers instead of DVDLow hooks\n",
+             low.set_alarm, ogc_create_alarm, ogc_di_handler, static_cast<unsigned>(di_starts.size()));
+    }
     logf("GameCube: DVDLowRead 0x%08x, Seek 0x%08x, ReadDiskID 0x%08x, Inquiry 0x%08x, StopMotor 0x%08x, "
          "RequestError 0x%08x, AudioStream 0x%08x, AudioStatus 0x%08x, AudioConfig 0x%08x, Reset 0x%08x, "
          "OSSetAlarm 0x%08x\n",
@@ -1826,7 +2048,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "the GameCube blob's context is smaller than gc_rt_context";
         return false;
     }
-    const std::uint32_t fst_addr = (kMem1Top - fst_max) & ~31u;
+    std::uint32_t fst_addr = (kMem1Top - fst_max) & ~31u;
     enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kMem1Pieces };
     std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
     mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
@@ -1842,7 +2064,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
     const std::uint32_t di_regs = mem1.di_regs;
     const std::uint32_t bi2_addr = mem1.bi2;
-    const std::uint32_t arena_hi = mem1.arena_hi;
+    std::uint32_t arena_hi = mem1.arena_hi;
+    // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034 in
+    // every version: Sonic Riders Tournament Edition's sets its arena's top
+    // to the FST's address less 0x800, so with the FST at MEM1's top its heap
+    // covered the blob, and a 1.4 MB read wrote over it. For such a game the
+    // FST goes below everything else, and the arena ends 0x800 under it:
+    // either way of reading the top leaves the blob, the card and the DI
+    // stand-in alone.
+    if (ogc) {
+        fst_addr = (arena_hi - fst_max) & ~31u;
+        arena_hi = (fst_addr - 0x800) & ~31u;
+    }
     if (arena_hi < kLoaderCeiling) {
         error = "the game's FST is too large";
         return false;
@@ -2248,16 +2481,43 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     memcard->landing[0] = 0x7C0802A6;  // mflr r0
     memcard->landing[1] = branch(card_addr + 4, blob_addr + h.stray_entry) | 1;  // bl gc_stray_entry
 
-    // The hooks, in the staged code.
-    hook(low.read, h.hook_read);
-    hook(low.seek, h.hook_seek);
-    hook(low.disk_id, h.hook_disk_id);
-    hook(low.inquiry, h.hook_inquiry);
-    hook(low.stop_motor, h.hook_cb_r3);
-    hook(low.request_error, h.hook_cb_r3);
-    hook(low.audio_status, h.hook_audio_status);
-    hook(low.audio_config, h.hook_cb_r5);
-    hook(low.audio_stream, h.hook_audio_stream);
+    // The hooks, in the staged code. A libogc game's DI command starts jump
+    // to the slots instead (gc_rt.h, "libogc"): the store, a frame for r0
+    // and LR, gc_di_common, and back.
+    if (ogc) {
+        ctx->ogc_create_alarm = ogc_create_alarm;
+        ctx->ogc_alarm_entry = blob_addr + h.alarm_entry_ogc;
+        ctx->di_handler = ogc_di_handler;
+        for (std::size_t i = 0; i < di_starts.size(); ++i) {
+            const std::uint32_t site = di_starts[i];
+            const std::uint32_t slot = blob_addr + h.di_slots + static_cast<std::uint32_t>(i) * GC_DI_SLOT_WORDS * 4;
+            const std::uint32_t words[GC_DI_SLOT_WORDS] = {
+                code.at(site),
+                0x9421FFF0,  // stwu r1,-16(r1)
+                0x90010008,  // stw r0,8(r1)
+                0x7C0802A6,  // mflr r0
+                0x9001000C,  // stw r0,12(r1)
+                branch(slot + 20, blob_addr + h.di_common) | 1,  // bl gc_di_common
+                0x8001000C,  // lwz r0,12(r1)
+                0x7C0803A6,  // mtlr r0
+                0x80010008,  // lwz r0,8(r1)
+                0x38210010,  // addi r1,r1,16
+                branch(slot + 40, site + 4),  // b back
+            };
+            for (unsigned k = 0; k < GC_DI_SLOT_WORDS; ++k) store32(slot + 4 * k, words[k]);
+            code.put(site, branch(site, slot));
+        }
+    } else {
+        hook(low.read, h.hook_read);
+        hook(low.seek, h.hook_seek);
+        hook(low.disk_id, h.hook_disk_id);
+        hook(low.inquiry, h.hook_inquiry);
+        hook(low.stop_motor, h.hook_cb_r3);
+        hook(low.request_error, h.hook_cb_r3);
+        hook(low.audio_status, h.hook_audio_status);
+        hook(low.audio_config, h.hook_cb_r5);
+        hook(low.audio_stream, h.hook_audio_stream);
+    }
     const unsigned di_patches = redirect_di_registers(code, di_regs);
     unsigned wii_mixed = 0;
     const unsigned wii_blocks = redirect_wii_blocks(code, wii_mixed);
@@ -2280,7 +2540,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     // PADRead: the Wii Remotes are polled from it, and the test presses
     // go in there.
-    const std::uint32_t pad_read = find_pad_read(code);
+    std::uint32_t pad_read = find_pad_read(code);
+    if (pad_read == 0) pad_read = find_pad_read_gcc(code);
     std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);

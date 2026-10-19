@@ -218,6 +218,26 @@ opens `/dev/sdio/slot0` and `/dev/es`
 (IOS keeps both open across the jump), writes low memory as a GameCube's
 start-up leaves it, and jumps to the game.
 
+**Games built with GCC and libogc** (Sonic Riders Tournament Edition, a
+rebuild of the game; `runtime/gc/gc_rt.h`, "libogc"). Nintendo's
+libraries are there, recompiled with GCC, next to libogc's OS, alarms and
+disc code, so the searches above learn GCC's ways. A `lis`/`ori` pair
+becomes the `lis`/`addi` that gives the same value before they run
+(`ori_to_addi`), but only in a game built so. The register walkers also
+follow `ori rA,rS` and `addis rX,rY,0xCC00`, and ignore a D-form whose
+`rA` is 0. A function's start is the `stwu` after the previous `blr`,
+as GCC puts early returns' epilogues mid-function.
+
+libogc's disc code writes the DI's registers itself, many commands of
+them. So the DI is answered at its registers: each store that starts a
+command (DICR) jumps to a slot that calls `gc_on_di_start`. That carries
+the command out from the card. At its end, it sets the stand-in's DISR
+and runs the game's DI handler (its `IRQ_Request(21, …)`). The blob's
+alarms go through `SYS_CreateAlarm`/`SYS_SetAlarm`. The FST goes below
+the blob, as libogc may take its arena's top as the FST less `0x800`.
+The memory card is the console's own through the Wii's EXI: the card on
+the SD card needs libogc's EXI functions found, which is not done yet.
+
 **Cheats.** The game page's Cheats work as for a Wii game (the same
 file, download and code list). After the low-memory clear the loader puts
 the Gecko code handler at `0x80001800`, the GameCube's debugger area, and

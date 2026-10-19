@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 6, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 7, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -34,6 +34,7 @@ _gc_blob_start:
     .long gc_hook_reset_system - _gc_blob_start, gc_replay_reset_system - _gc_blob_start
     .long gc_continue_reset_system - _gc_blob_start
     .long gc_hook_hot_reset - _gc_blob_start
+    .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, gc_di_slots - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -436,6 +437,81 @@ gc_alarm:
     mtlr 0
     addi 1, 1, 0x20
     blr
+
+/* libogc's alarm callback (handle, arg): the arg is the alarm's buffer,
+ * which gc_on_alarm tells the alarms apart by; there is no OSContext. */
+    .globl gc_alarm_ogc
+gc_alarm_ogc:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    li 5, 0
+    bl 3f
+3:  mflr 3
+    addi 3, 3, gc_context_data - 3b
+    bl gc_on_alarm
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+/* Called by a DI start slot (gc_rt.h, "libogc"), in the middle of the
+ * game's code: every register the game may still need is kept (r0 and LR
+ * by the slot), then gc_on_di_start runs. The blob is soft-float, so the
+ * FPRs are not touched. */
+    .globl gc_di_common
+gc_di_common:
+    stwu 1, -0x60(1)
+    mflr 0
+    stw 0, 0x64(1)
+    mfcr 0
+    stw 0, 8(1)
+    mfctr 0
+    stw 0, 12(1)
+    mfxer 0
+    stw 0, 16(1)
+    stw 3, 20(1)
+    stw 4, 24(1)
+    stw 5, 28(1)
+    stw 6, 32(1)
+    stw 7, 36(1)
+    stw 8, 40(1)
+    stw 9, 44(1)
+    stw 10, 48(1)
+    stw 11, 52(1)
+    stw 12, 56(1)
+    bl 4f
+4:  mflr 3
+    addi 3, 3, gc_context_data - 4b
+    bl gc_on_di_start
+    lwz 3, 20(1)
+    lwz 4, 24(1)
+    lwz 5, 28(1)
+    lwz 6, 32(1)
+    lwz 7, 36(1)
+    lwz 8, 40(1)
+    lwz 9, 44(1)
+    lwz 10, 48(1)
+    lwz 11, 52(1)
+    lwz 12, 56(1)
+    lwz 0, 16(1)
+    mtxer 0
+    lwz 0, 12(1)
+    mtctr 0
+    lwz 0, 8(1)
+    mtcr 0
+    lwz 0, 0x64(1)
+    mtlr 0
+    addi 1, 1, 0x60
+    blr
+
+/* The DI start slots, written by the loader: the game's store, then
+ * stwu r1,-16(r1); stw r0,8(r1); mflr r0; stw r0,12(r1); bl gc_di_common;
+ * lwz r0,12(r1); mtlr r0; lwz r0,8(r1); addi r1,r1,16; b back. */
+    .balign 32
+    .globl gc_di_slots
+gc_di_slots:
+    .fill GC_DI_SITES * GC_DI_SLOT_WORDS, 4, 0
 
 /* An exception before the game's OS has its handlers. The loader's stub
  * at the vector has put r3, SRR0, SRR1 and the vector number in SPRG0-3
