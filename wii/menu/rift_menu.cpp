@@ -109,6 +109,7 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "usbprobe.hpp"
+#include "entropy.hpp"
 #include "online.hpp"
 #include "reportsend.hpp"
 #include "modplan.hpp"
@@ -362,6 +363,9 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
+			for (int c = 0; c < 4; ++c)
+				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
