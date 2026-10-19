@@ -1317,11 +1317,17 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 
 bool usb_volume_ready() { return g_usb_volume != nullptr; }
 
-bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out) {
+bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out, std::string* error) {
     out.clear();
-    std::string error;
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
-    if (!g_usb_volume->list(usb_path.substr(4), out, error)) return false;
+    std::string why;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+        if (error) *error = "the USB drive is not mounted";
+        return false;
+    }
+    if (!g_usb_volume->list(usb_path.substr(4), out, why)) {
+        if (error) *error = why;
+        return false;
+    }
     std::sort(out.begin(), out.end(), [](const VolumeEntry& a, const VolumeEntry& b) { return a.name < b.name; });
     return true;
 }

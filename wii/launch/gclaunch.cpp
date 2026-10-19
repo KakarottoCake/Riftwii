@@ -619,6 +619,20 @@ struct SkippedGcFiles {
 void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped) {
     GcHead found;
     if (!read_gc_head(full, found)) {
+        // Not opened at all: the drive's file system says why (a FAT whose
+        // chain ends before the file's size, issue #129), which a tester's
+        // Simpsons: Hit & Run never showed.
+        if (GcImageOnUsb(full)) {
+            VolumeFile file;
+            std::string why;
+            if (!usb_file_lookup(full, file, why)) {
+                skipped.note(full, "it cannot be opened: " + why);
+                return;
+            }
+        } else if (!CardFile(full).ok()) {
+            skipped.note(full, "it cannot be opened on the SD card");
+            return;
+        }
         const bool wii_disc = be32(found.bytes + 0x18) == 0x5D1C9EA3u;
         if (!wii_disc && !found.rvz)
             skipped.note(full, "it has no GameCube disc header (damaged, cut short, or not a GameCube image)");
@@ -688,7 +702,11 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
         if (!folder.is_directory || folder.name.empty() || folder.name[0] == '.') continue;
         const std::string dir = "usb:/games/" + folder.name;
         std::vector<VolumeEntry> files;
-        if (!list_usb_folder(dir, files)) continue;
+        std::string why;
+        if (!list_usb_folder(dir, files, &why)) {
+            skipped.note(dir, "the folder cannot be read: " + why);
+            continue;
+        }
         for (const VolumeEntry& file : files) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
