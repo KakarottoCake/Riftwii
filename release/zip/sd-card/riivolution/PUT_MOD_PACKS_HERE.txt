@@ -1,0 +1,2 @@
+Put unpacked mod packs (each with its own .xml file) in this folder.
+See the README.txt next to the sd-card and usb-drive folders.

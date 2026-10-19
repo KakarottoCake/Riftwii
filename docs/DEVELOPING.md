@@ -282,6 +282,69 @@ it. Off by default; a GX buffer that filled up is logged either way
 
 ## Releasing
 
+### The release workflow
+
+`.github/workflows/release.yml` does steps 3 to 5 below on GitHub, from
+main's latest commit, with CI's pinned devkitPPC ([RELEASING.md](RELEASING.md)
+has every step, check and error in full). Before running it:
+
+1. Bump the version as in step 1 if the release line changes, run the
+   checks of step 2, and commit the screenshots (step 4).
+2. Write `release/notes.md` (the GitHub release notes) and
+   `release/discord.md` (the testers' message), delete the `NOTES NOT
+   WRITTEN YET` line in each, and push them to main. Each file's comment
+   lists the names the workflow fills in (`{{VERSION}}`, `{{TAG}}`,
+   `{{DOL_SHA256}}`, `{{SCREENSHOTS}}`, `{{RELEASE_URL}}`,
+   `{{TESTER_ROLE}}`...). A line in `discord.md` that is only
+   `![...](docs/screenshots/<file>.png)` goes out as an attached picture.
+   The player README in the zip is `release/zip/README.txt`: add the
+   release's line to it as before.
+3. Wait for CI to pass on that commit, then Actions > Release > Run
+   workflow with **dry-run**. It builds everything and publishes nothing:
+   the run's summary shows the filled-in notes and Discord message, and
+   its artifact holds the zip, `riftwii.dol`, `riftwii-update.pack` and
+   both texts, for a last look (and a run in Dolphin) before they go out.
+4. Run it again with **publish**. It makes the release `vYYMM-N`, titled
+   "RiftWii YYMM-N", as the latest release, with the three files; then,
+   unless the Discord box is unticked, it posts the message and its
+   pictures to the testers' channel, pinging the tester role and nobody
+   else. A commit with no new number (already released) is refused.
+
+The workflow refuses, before anything is built or published: a publish
+from a branch other than main, a commit whose CI hasn't passed, notes
+that are unchanged since the last release's tag or still say `NOTES NOT
+WRITTEN YET`, a Discord message over 2000 characters or with more than 10
+pictures (10 MB), and a screenshot that is not committed. If only the
+Discord post fails, "Re-run failed jobs" sees the release already made
+from that commit and posts the message again.
+
+It needs, once, in the repository's Settings:
+
+- **Secrets and variables > Actions > Secrets**: `DISCORD_RELEASE_WEBHOOK`,
+  the channel's webhook URL (Discord: the channel's Edit Channel >
+  Integrations > Webhooks). It never goes in the repository: `ci_rules.py`
+  refuses a commit with one. Putting it in a `release` environment instead
+  (Settings > Environments) keeps it from every other workflow, and the
+  environment can ask for an approval before each publish.
+- **Secrets and variables > Actions > Variables**: `DISCORD_TESTER_ROLE_ID`,
+  the tester role's ID (Discord: Developer Mode on, then right-click the
+  role > Copy Role ID). A publish that posts to Discord refuses to run
+  without it.
+
+`tools/make_release_zip.py` and `tools/release_notes.py` are the
+workflow's two steps and run the same by hand, for a release made the
+old way:
+
+```bash
+make -f Makefile.wii version          # the YYMM-N this commit builds as
+py -3.13 tools/make_release_zip.py --version YYMM-N --dol riftwii.dol \
+    --channel build-channel/installer.dol --plugins build-plugins/plugins \
+    --out riftwii-vYYMM-N.zip
+py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out texts
+```
+
+### By hand
+
 1. Bump the version in `CMakeLists.txt` and `hbc/meta.xml` (`version`,
    `release_date`), then `make -f Makefile.wii clean` and build.
 2. Run the host tests and the Dolphin checks above.
@@ -313,9 +376,10 @@ it. Off by default; a GX buffer that filled up is logged either way
    riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one
    `<name>.<version>.rwp` per plugin, with this release's version. A zip
    without it starts, but every feature that lives in a plugin says the
-   add-on is missing. `tools/make_release_zip.py` (when it is in the tree)
-   copies `build-plugins/plugins/` itself; a zip packed by hand or by an
-   older script needs the folder copied, so check either way.
+   add-on is missing. `tools/make_release_zip.py` copies
+   `build-plugins/plugins/` itself and refuses a folder without the
+   `gamecube` plugin or with another version's; a zip packed by hand
+   needs the folder copied, so check either way.
    Keep `build-plugins/*/*.elf` with `riftwii.elf`: a crash in a plugin
    is named as `plugin <name> +0x...`, an offset into that ELF.
    The theme kit when a picture or a setting changes (a new one in

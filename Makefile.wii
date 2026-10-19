@@ -167,7 +167,7 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) -L$(PROJECT_ROOT)/build-bearssl
 
 export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
-.PHONY: $(BUILD) clean runtime-blob bearssl-lib plugins
+.PHONY: $(BUILD) clean runtime-blob bearssl-lib plugins version print-version
 
 #---------------------------------------------------------------------------------
 # The plugins first (Makefile.plugin), from inside the build so they get
@@ -196,6 +196,17 @@ bearssl-lib:
 clean:
 	@echo clean ...
 	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl build-plugins
+
+#---------------------------------------------------------------------------------
+# The version this checkout builds as (2610-123), without building: the
+# release workflow names the tag and the zip by it. PROJECT_ROOT is the
+# build folder's ".." up here, so the version is read in a make that is
+# told the repository's own folder.
+version:
+	@$(MAKE) --no-print-directory -f Makefile.wii PROJECT_ROOT="$(CURDIR)" print-version
+
+print-version:
+	@echo $(RIFTWII_VERSION)
 
 #---------------------------------------------------------------------------------
 run:
