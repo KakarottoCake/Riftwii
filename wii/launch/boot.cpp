@@ -1998,9 +1998,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                 vsd = VsdHook{};
             } else {
                 // The runtime's reads and saves and the game's own commands
-                // go to the one card: each waits while the other's write is
-                // still being programmed, where a mod read landing then
-                // failed its tries and the game got a disc error (BUG-05).
+                // go to the one card: the runtime's mod, RVZ and savegame
+                // commands wait while the game's write is still being
+                // programmed, and the game's wait for the runtime's, where a
+                // mod read landing then failed its tries and the game got a
+                // disc error (BUG-05).
                 const std::uint32_t runtime_busy =
                     resident.fs_state != 0
                         ? resident.fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, card_busy))
