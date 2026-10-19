@@ -686,12 +686,40 @@ static void gc_set_imm(struct gc_rt_context* ctx, uint32_t value) {
  * The same alarm also carries a read's copy (gc_read_step), so whether it
  * is in the queue is kept in alarm_queued, cleared as it goes off. */
 typedef void (*gc_set_alarm_fn)(void* alarm, uint64_t ticks, uint32_t handler);
+typedef int32_t (*gc_ogc_create_alarm_fn)(uint32_t* handle);
+typedef int32_t (*gc_ogc_set_alarm_fn)(uint32_t handle, const uint32_t* timespec, uint32_t cb, void* arg);
+
+/* OSSetAlarm(alarm, ticks, handler), or with libogc (gc_rt.h, "libogc")
+ * SYS_SetAlarm on the handle kept in the alarm's buffer, made by
+ * SYS_CreateAlarm the first time. libogc takes a struct timespec (a 64-bit
+ * tv_sec, then tv_nsec, as the game's SYS_SetAlarm reads it) and turns it
+ * back into ticks with the clock the loader moved to the Wii's, so the
+ * ticks go out as microseconds of that clock (60.75 a microsecond). */
+void gc_set_alarm(struct gc_rt_context* ctx, void* alarm, uint32_t ticks) {
+    uint32_t* handle = (uint32_t*)alarm;
+    uint32_t timespec[3];
+    uint32_t us;
+    if (ctx->ogc_create_alarm == 0) {
+        ((gc_set_alarm_fn)(uintptr_t)ctx->set_alarm)(alarm, ticks, ctx->alarm_entry);
+        return;
+    }
+    if (handle[1] != GC_OGC_ALARM_MADE) {
+        if (((gc_ogc_create_alarm_fn)(uintptr_t)ctx->ogc_create_alarm)(handle) != 0) return;
+        handle[1] = GC_OGC_ALARM_MADE;
+    }
+    us = ticks / 243u * 4u + (ticks % 243u) * 4u / 243u;
+    if (us == 0) us = 1;
+    timespec[0] = 0;
+    timespec[1] = us / 1000000u;
+    timespec[2] = (us % 1000000u) * 1000u;
+    ((gc_ogc_set_alarm_fn)(uintptr_t)ctx->set_alarm)(handle[0], timespec, ctx->ogc_alarm_entry, alarm);
+}
+
 static void gc_arm(struct gc_rt_context* ctx, uint32_t ticks) {
-    gc_set_alarm_fn set_alarm = (gc_set_alarm_fn)(uintptr_t)ctx->set_alarm;
     const uint32_t msr = gc_irq_off();
     if (!ctx->alarm_queued) {
         ctx->alarm_queued = 1;
-        set_alarm(ctx->alarm, ticks < ctx->delay_ticks ? ctx->delay_ticks : ticks, ctx->alarm_entry);
+        gc_set_alarm(ctx, ctx->alarm, ticks < ctx->delay_ticks ? ctx->delay_ticks : ticks);
     }
     gc_irq_restore(msr);
 }
@@ -733,10 +761,7 @@ static uint32_t gc_drive_ticks(struct gc_rt_context* ctx, uint32_t offset, uint3
 #define GC_READ_PIECE 0x10000u  /* 64 KB a turn of the alarm: one SD request, a few ms */
 
 /* The heartbeat (gc_rt.h): once more, half a second from now. */
-static void gc_beat_arm(struct gc_rt_context* ctx) {
-    gc_set_alarm_fn set_alarm = (gc_set_alarm_fn)(uintptr_t)ctx->set_alarm;
-    set_alarm(ctx->beat_alarm, ctx->beat_ticks, ctx->alarm_entry);
-}
+static void gc_beat_arm(struct gc_rt_context* ctx) { gc_set_alarm(ctx, ctx->beat_alarm, ctx->beat_ticks); }
 
 /* Every DVDLow command: the first starts the heartbeat (the game's OS is
  * up by then, its alarms work), and the first few that are not reads get
@@ -1072,6 +1097,7 @@ static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* sav
 }
 
 typedef void (*gc_callback_fn)(uint32_t type);
+static void gc_di_raise(struct gc_rt_context* ctx, uint32_t type);
 /* An OSContext's saved LR, SRR0 and SRR1 (the SDK's layout). */
 #define GC_OSCONTEXT_LR 0x84u
 #define GC_OSCONTEXT_SRR0 0x198u
@@ -1134,8 +1160,77 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
          * would look as if nothing came: the SDK reads the same block
          * forever. */
         if (type == GC_DI_TC && ctx->di_regs != 0) *(volatile uint32_t*)(uintptr_t)(ctx->di_regs + 0x18) = 0;
-        if (cb != 0) ((gc_callback_fn)(uintptr_t)cb)(type);
+        if (cb == GC_CB_DI_RAISE) gc_di_raise(ctx, type);
+        else if (cb != 0) ((gc_callback_fn)(uintptr_t)cb)(type);
     }
+}
+
+/* ---- The DI at its registers (libogc) ------------------------------ */
+
+/* The DI's registers, as words of the stand-in (yagcd, wiibrew). */
+#define GC_DI_SR 0      /* DISR: BRK 0, DEINTMASK 1, DEINT 2, TCINTMASK 3, TCINT 4, BRKINTMASK 5, BRKINT 6 */
+#define GC_DI_CMD0 2
+#define GC_DI_CMD1 3
+#define GC_DI_CMD2 4
+#define GC_DI_MAR 5
+#define GC_DI_LENGTH 6
+#define GC_DI_CR 7      /* DICR: start 0, DMA 1, write 2 */
+#define GC_DI_IMM 8
+#define GC_DISR_DEINT 0x04u
+#define GC_DISR_TCINT 0x10u
+#define GC_DI_IRQ 21u   /* libogc's IRQ_PI_DI, the handler's first argument */
+
+typedef void (*gc_irq_handler_fn)(uint32_t irq, void* context);
+
+/* The command has finished: DICR's start bit drops, DISR gets the
+ * interrupt the drive would raise (its masks stay as the game set them),
+ * and the game's DI interrupt handler runs, as from the interrupt. */
+static void gc_di_raise(struct gc_rt_context* ctx, uint32_t type) {
+    volatile uint32_t* di = (volatile uint32_t*)(uintptr_t)ctx->di_regs;
+    di[GC_DI_CR] &= ~1u;
+    di[GC_DI_SR] |= type == GC_DI_TC ? GC_DISR_TCINT : GC_DISR_DEINT;
+    if (ctx->di_handler != 0) ((gc_irq_handler_fn)(uintptr_t)ctx->di_handler)(GC_DI_IRQ, 0);
+}
+
+/* A DICR store with the start bit (the slot has made it): the command in
+ * the stand-in's registers, carried out from the card like the DVDLow
+ * hooks' (gc_on_read) and finished from the alarm. Commands that only a
+ * drive's firmware knows (libogc's unlock, firmware writes and calls,
+ * motor control, offsets, extensions, status) finish as done; the drive
+ * information names a Wii's drive, which libogc does not patch. Reads of
+ * an immediate (the error, the audio status) get 0: no error, no stream. */
+void gc_on_di_start(struct gc_rt_context* ctx) {
+    volatile uint32_t* di = (volatile uint32_t*)(uintptr_t)ctx->di_regs;
+    const uint32_t control = di[GC_DI_CR];
+    const uint32_t command = di[GC_DI_CMD0];
+    const uint32_t addr = (di[GC_DI_MAR] & 0x01FFFFFFu) | 0x80000000u;
+    const uint32_t length = di[GC_DI_LENGTH];
+    if (!(control & 1u)) return;
+    switch (command >> 24) {
+    case 0xA8:
+        if ((command & 0xFFu) == 0x40) gc_on_read(ctx, addr, length, 0, GC_CB_DI_RAISE);  /* the disc ID */
+        else gc_on_read(ctx, addr, length, di[GC_DI_CMD1] << 2, GC_CB_DI_RAISE);
+        return;
+    case 0x12: {
+        /* Inquiry: revision 2, device 0, a release date whose month byte
+         * is 05 (a Wii's drive), the rest zero. */
+        uint32_t* info = (uint32_t*)(uintptr_t)addr;
+        uint32_t i;
+        if (length >= 0x20) {
+            info[0] = 0x00020000u;
+            info[1] = 0x20060526u;
+            for (i = 2; i < 8; ++i) info[i] = 0;
+        }
+        di[GC_DI_LENGTH] = 0;
+        break;
+    }
+    default:
+        if (control & 2u) di[GC_DI_LENGTH] = 0;
+        di[GC_DI_IMM] = 0;
+        break;
+    }
+    gc_command_seen(ctx, 1);
+    gc_complete(ctx, GC_CB_DI_RAISE, GC_DI_TC);
 }
 
 /* ---- Disc audio streaming ------------------------------------------ */
