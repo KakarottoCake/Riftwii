@@ -272,6 +272,9 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
         return false;
     }
     const std::string aside = path + ".old";
+    // A write cut between the two renames below left the card only at .old:
+    // it goes back first, never removed as a leftover.
+    if (file_length(path) < 0 && file_length(aside) >= 0) std::rename(aside.c_str(), path.c_str());
     std::remove(aside.c_str());
     const bool had_card = std::rename(path.c_str(), aside.c_str()) == 0;
     if (std::rename(temp.c_str(), path.c_str()) != 0) {
