@@ -230,6 +230,9 @@ struct rtfat_op {
     uint32_t recovery_copy;      /* FAT copy currently being restored after a failed directory extension */
     uint32_t recovery_failed;    /* a recovery transfer failed: poison the volume after all copies were attempted */
     uint32_t entry_zero;         /* the sector at free_lba is past the last entry: zero it before filling */
+    uint32_t end_index;          /* SCAN_CREATE: slot of the end-of-directory entry in scan_lba's sector */
+    uint32_t entry_cluster;      /* cluster holding free_lba, when the new entries are past the end */
+    uint32_t entry_term;         /* the new entries filled their sector past the end: the next one needs an end */
     uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
 };
