@@ -164,11 +164,26 @@ enum gc_trace_word {
     GC_TR_GCAD,
     GC_TR_GCAD_REPORTS,
     GC_TR_GCAD_ERROR,
-    /* A game on the USB drive: d2x's reads, the failed ones, and the
-     * keep-alive reads that kept the drive from spinning down. */
-    GC_TR_USB_REQUESTS,
-    GC_TR_USB_FAILURES,
-    GC_TR_USB_KEEPALIVES,
+    /* A game on the USB drive: d2x's reads (low 16 bits) << 16 | the failed
+     * ones (low 8 bits) << 8 | the keep-alive reads that kept the drive from
+     * spinning down (low 8 bits). One word, as the record is full; each
+     * count only grows, so two records still tell how many came between. */
+    GC_TR_USB,
+    /* The audio hardware as the record found it, for a restart that hangs
+     * on a Wii (Dolphin does not model the DSP's state across it). */
+    GC_TR_DSP_CSR, /* the DSP's control (0x500A) << 16 | the audio DMA's control (0x5036, bit 15: on) */
+    GC_TR_DSP_MAIL, /* the CPU's mail to the DSP, upper half (0x5000) << 16 | the DSP's to the CPU, upper half (0x5004);
+                     * bit 15 of each: mail waiting. The lower halves are not read: reading takes the mail. */
+    GC_TR_AI_CR, /* the audio interface's control (0xCD006C00 in Wii mode) */
+    GC_TR_AR_CONFIG, /* the ARAM interface's size (0x5012) << 16 | its refresh (0x501A) */
+    GC_TR_AUDIO_RESET, /* the last restart's audio reset (gc_audio_reset): the DSP's control before << 16 |
+                        * the waits that ran out << 12 (GC_AUDIO_*_SLOW) | the DSP's control after (low 12 bits) */
+    /* The VI as the record found it, for picture problems only a Wii shows
+     * (colours wrong through an HDMI adapter on 18 Oct; Dolphin ignores
+     * the clock and the cable bit). */
+    GC_TR_VI_DCR_CLOCK, /* the display control (0x02) << 16 | the clock (0x6C; 1: 54 MHz, progressive) */
+    GC_TR_VI_SEL_HSW, /* 0x6E (bit 0: a component cable) << 16 | the frame buffer's width and stride (0x48) */
+    GC_TR_VI_TFBL, /* the top field's frame buffer register (0x1C) as written */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
@@ -190,6 +205,8 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
  * buffers) as eleven words, then 0x48 (the fetch width and scaling) and
  * 0x6c (the clock), each word two 16-bit registers. */
 #define GC_VI_SAVED_WORDS 13u
+/* gc_rt_context.vi_at_jump: the VI's registers 0x00-0x77. */
+#define GC_VI_HANDOVER_WORDS 30u
 
 /* gc_rt_context.flags */
 #define GC_FLAG_PRESS 1u  /* tests without a controller: port 1 presses A, B and Start in turn */
@@ -426,6 +443,17 @@ struct gc_rt_context {
     uint32_t reset_down_since;    /* when it went down (low bit set), 0: up */
     uint32_t reset_request_at;    /* when a press ended (low bit set), 0: none waiting */
     uint32_t reset_asked_before;  /* resets_asked then: the game's own call answers the press */
+    /* The hand-over to the next title (gc_leave): the VI's registers as
+     * RiftWii left them at the jump, the game's TV format interlaced as
+     * libogc set it up, noted by gc_on_trace_now and put back blanked
+     * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
+    uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
+    /* The restart's audio reset (gc_audio_reset): the ARAM interface's
+     * size (0x5012) << 16 | refresh (0x501A) and the audio interface's
+     * control as they were at the jump, which the first start had. */
+    uint32_t ar_config_at_jump;
+    uint32_t ai_cr_at_jump;
+    uint32_t audio_reset;         /* GC_TR_AUDIO_RESET */
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));

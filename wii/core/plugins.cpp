@@ -350,12 +350,18 @@ uint32_t HostVideoFramebuffer() { return reinterpret_cast<uint32_t>(VIDEO_GetCur
 // PAL: red came out blue, yellow cyan. The game's own mode on the frame on
 // screen, two retraces for the handler to apply it, then libogc shut down.
 void HostShutDownForGame(uint32_t tv_mode) {
-    void* const frame = VIDEO_GetCurrentFramebuffer();
-    VIDEO_Configure(tv_mode == RWP_TV_PAL ? &TVPal528IntDf : &TVNtsc480IntDf);
-    VIDEO_SetNextFramebuffer(frame);
-    VIDEO_Flush();
-    VIDEO_WaitVSync();
-    VIDEO_WaitVSync();
+    // RWP_TV_KEEP (a test switch) leaves the encoder as the menu set it.
+    if (tv_mode != RWP_TV_KEEP) {
+        GXRModeObj* mode = &TVNtsc480IntDf;
+        if (tv_mode == RWP_TV_PAL) mode = &TVPal528IntDf;
+        else if (tv_mode == RWP_TV_NTSC_480P) mode = &TVNtsc480Prog;
+        void* const frame = VIDEO_GetCurrentFramebuffer();
+        VIDEO_Configure(mode);
+        VIDEO_SetNextFramebuffer(frame);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+        VIDEO_WaitVSync();
+    }
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
 }
 

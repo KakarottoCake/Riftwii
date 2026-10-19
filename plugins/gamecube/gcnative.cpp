@@ -1252,7 +1252,7 @@ LmLoader find_lm_loader(const std::string& id, const Code& code) {
 // function that then runs on (false: it cannot be hooked).
 template <class ReplayHook>
 static void apply_picture_and_language(const GcImage& image, Code& code, ReplayHook replay_hook, const gc_rt_header& h,
-                                       gc_rt_context* ctx, bool test_no_widen) {
+                                       gc_rt_context* ctx, bool test_no_widen, bool test_no_vi_hook) {
     const GcSramReads sram = find_gc_sram_reads(code.ranges());
     // VIConfigure, hooked once for what changes the mode it is given
     // (gc_on_vi_configure): 480p and the picture width.
@@ -1262,7 +1262,12 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
     bool vi_hooked = false;
     // A 60 Hz game's mode is the game's own: hooked only for the trace's
     // record of the mode it picked.
-    if (progressive || image.vi_width != 0 || image.sixty_hz) {
+    // The test of the picture without it (sd:/riftwii/gc/test/novihook):
+    // 480p is still offered, and the game switches to its own 480p mode,
+    // if it has one, as on a GameCube with a component cable.
+    if (test_no_vi_hook) {
+        logf("GameCube: VIConfigure left as made, as sd:/riftwii/gc/test/novihook asks: the game picks its own modes\n");
+    } else if (progressive || image.vi_width != 0 || image.sixty_hz) {
         vi_configure = find_vi_configure(code);
         vi_hooked = vi_configure != 0 &&
                     replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
@@ -1673,6 +1678,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // its own report layout (gc_pro.h); it takes the test remote's place.
     const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
     const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    // And of the picture with fewer of RiftWii's hooks, for colours that
+    // came out wrong on a Wii through HDMI (18 Oct): VIConfigure as the
+    // game made it, and PADControlMotor not hooked (the only hook the
+    // build that showed it added since the one that did not).
+    const bool test_no_vi_hook = stat("sd:/riftwii/gc/test/novihook", &st_press) == 0;
+    const bool test_no_motor = stat("sd:/riftwii/gc/test/nomotor", &st_press) == 0;
+    // And of the Wii's video encoder at the hand-over, for the same colours
+    // (red and blue swapped, in 480p only so far): set in NTSC 480p, as the
+    // VI will be once the game's 480p starts, or left as the menu set it.
+    const bool test_handover_480p = stat("sd:/riftwii/gc/test/handover480p", &st_press) == 0;
+    const bool test_ave_keep = stat("sd:/riftwii/gc/test/avekeep", &st_press) == 0;
     // The first GameCube line of boot.log names every test switch that is
     // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
     // folder) cannot be mistaken for a player's.
@@ -1690,6 +1706,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_fake_remote, "fakeremote"},
                          {test_fake_pro, "fakepro"},
                          {test_rumble, "rumbletest"},
+                         {test_no_vi_hook, "novihook"},
+                         {test_no_motor, "nomotor"},
+                         {test_handover_480p, "handover480p"},
+                         {test_ave_keep, "avekeep"},
                          {test_reset, "reset"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
@@ -2106,7 +2126,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (first == 16 || first == 18) return false;
         replay_hook(fn, entry, replay, back);
         return true;
-    }, h, ctx, test_no_widen);
+    }, h, ctx, test_no_widen, test_no_vi_hook);
 
     // Luigi's Mansion: its loads allocate from the heap they were queued from.
     const LmLoader lm = find_lm_loader(image.id, code);
@@ -2277,7 +2297,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         std::vector<CodeRange> ranges;
         for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
         std::string motor_error;
-        if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
+        if (test_no_motor)
+            logf("GameCube: PADControlMotor not hooked, as sd:/riftwii/gc/test/nomotor asks: no Wii Remote rumble\n");
+        else if (!find_gc_pad_motor(ranges, motor, motor_error))
+            logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
         if (motor != 0) {
             replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
             if (!extras.rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
@@ -2504,7 +2527,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The Wii's video encoder in the game's region (its own region setting
     // must match the game's picture, or a US game on a PAL Wii shows red as
     // blue), then libogc shut down: RiftWii's shut_down_for_game.
-    plugin::host().shut_down_for_game(tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC);
+    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    if (test_ave_keep) handover = RWP_TV_KEEP;
+    else if (test_handover_480p && handover == RWP_TV_NTSC) handover = RWP_TV_NTSC_480P;
+    plugin::host().shut_down_for_game(handover);
     u32 level;
     _CPU_ISR_Disable(level);
     (void)level;

@@ -67,6 +67,12 @@ typedef struct rwp_sram {
  * region (libogc's TVNtsc480IntDf and TVPal528IntDf). */
 #define RWP_TV_NTSC 0u
 #define RWP_TV_PAL 1u
+/* Test switches only (the GameCube plugin's sd:/riftwii/gc/test/handover480p
+ * and avekeep), for colours a Wii shows swapped in 480p: NTSC 480p
+ * (TVNtsc480Prog), so the encoder is set while the VI is already
+ * progressive; and the encoder left as the menu's own mode set it. */
+#define RWP_TV_NTSC_480P 2u
+#define RWP_TV_KEEP 3u
 
 /* What RiftWii gives a plugin's init. Every pointer is set: a function
  * the loader cannot offer is still there and reports a failure. */
