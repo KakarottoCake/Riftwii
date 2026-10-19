@@ -13,13 +13,20 @@
 #define GC_PAD_STATUS_BYTES 12u
 #define GC_PAD_NO_CONTROLLER 0xFFu  /* PADStatus err -1 */
 
-static uint32_t ad_phys(uint32_t p) { return p & 0x3FFFFFFFu; }
-
 static uint32_t ad_now(void) {
+#ifdef RT_TARGET_PPC
     uint32_t tb;
     __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
     return tb;
+#else
+    return gc_gcad_host_now();
+#endif
 }
+
+/* The driver's environment, its replies and the poll talk to IOS: on the
+ * Wii only. The ports below are built into the host tests too. */
+#ifdef RT_TARGET_PPC
+static uint32_t ad_phys(uint32_t p) { return p & 0x3FFFFFFFu; }
 
 /* --- The driver's environment (rtgcad.h) ----------------------------- */
 
@@ -167,6 +174,10 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
     gc_guard(ctx);
     gc_irq_restore(msr);
 }
+
+#endif /* RT_TARGET_PPC */
+
+/* --- The game's ports ------------------------------------------------- */
 
 void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status) {
     const uint32_t now = ad_now();
