@@ -721,4 +721,15 @@ std::string gc_card_path(const std::string& game_id, bool shared) {
     return "sd:/riftwii/gc/cards/" + file + ".raw";
 }
 
+std::string gc_card_legacy_path(const std::string& game_id, bool shared) {
+    if (shared) return std::string();
+    // The name before MIN-04: the ID's capitals and digits only.
+    std::string file;
+    for (char c : game_id)
+        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) file += c;
+    const std::string legacy = "sd:/riftwii/gc/cards/" + file + ".raw";
+    if (file.empty() || legacy == gc_card_path(game_id, shared)) return std::string();
+    return legacy;
+}
+
 }  // namespace riftwii

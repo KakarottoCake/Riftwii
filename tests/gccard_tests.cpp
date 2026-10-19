@@ -934,6 +934,13 @@ static void test_backup_files() {
     EXPECT_TRUE(gc_card_path("GA-E01", false) != gc_card_path("GA_E01", false));
     EXPECT_TRUE(gc_card_path("", false) != std::string("sd:/riftwii/gc/cards/.raw"));
     EXPECT_EQ(gc_backup_folder("....", false), std::string("sd:/riftwii/gc/backups/x2e2e2e2e"));
+    // The name an odd ID's card had before MIN-04, for a copy at launch:
+    // none for a plain ID (unchanged), a shared card, or an ID with no
+    // capitals or digits.
+    EXPECT_EQ(gc_card_legacy_path("GM/../J", false), std::string("sd:/riftwii/gc/cards/GMJ.raw"));
+    EXPECT_EQ(gc_card_legacy_path("GALE01", false), std::string());
+    EXPECT_EQ(gc_card_legacy_path("....", false), std::string());
+    EXPECT_EQ(gc_card_legacy_path("GM/../J", true), std::string());
 
     // Files that differ only in length, or are missing, are not the same.
     write_file(root / "short.raw", Bytes(199999, 0x5A));
