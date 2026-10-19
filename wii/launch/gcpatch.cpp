@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <new>
 
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -141,8 +142,16 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             std::vector<std::uint8_t> head;
             bool checked = false;
             std::string error;
-            if (!vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60, head, checked, error,
-                             wii_limits())) {
+            // At every start, while the list is made: a damaged patch that
+            // still asked for too much memory must not end RiftWii (BUG-02).
+            bool read_head = false;
+            try {
+                read_head = vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60, head,
+                                        checked, error, wii_limits());
+            } catch (const std::bad_alloc&) {
+                error = "the patch asks for more memory than RiftWii has (is the file damaged?)";
+            }
+            if (!read_head) {
                 why += (why.empty() ? "" : "; ") + g.id + ": " + error;
                 continue;  // not this one's original
             }
