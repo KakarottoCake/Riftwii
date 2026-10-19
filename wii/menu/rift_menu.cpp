@@ -9864,6 +9864,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
 				case kLanguage: {
+					// The scan names the games in the menu's language.
+					WaitForDriveScan(noteTxt);
 					settings.language = StepValue(kLanguages, settings.language, direction);
 					const std::string error = saveSettings();
 					const std::string lang = riftwii::wii::MenuLanguage();
@@ -10207,6 +10209,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						    tr("Cancel"), tr("Reset")) != 1)
 						break;
 					logf("Settings: all reset to the defaults (favorites and game folders kept)\n");
+					// The scan reads the settings (the game folders, downloads):
+					// they are not replaced under it.
+					WaitForDriveScan(noteTxt);
 					settings = riftwii::settings_after_reset(settings);
 					const std::string error = saveSettings();
 					rebuild();
@@ -10214,7 +10219,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(error);
 						break;
 					}
-					WaitForDriveScan(noteTxt);
 					riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Settings reset to the defaults"));
 					note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
 					break;
