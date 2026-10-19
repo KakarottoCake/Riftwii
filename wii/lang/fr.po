@@ -51,6 +51,15 @@ msgstr "Lecture de la carte SD..."
 msgid "Reading the USB drive... (a big drive takes a moment)"
 msgstr "Lecture du stockage USB... (un grand stockage peut prendre un moment)"
 
+msgid "{1} opens once RiftWii has finished reading the drives."
+msgstr "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages."
+
+msgid "RiftWii is still reading the drives."
+msgstr "RiftWii est encore en train de lire les stockages."
+
+msgid "Waiting for RiftWii to finish reading the drives..."
+msgstr "En attente que RiftWii finisse de lire les stockages..."
+
 msgid "Reading the disc..."
 msgstr "Lecture du disque..."
 

@@ -100,6 +100,7 @@
 #include "riftwii/gccrash.hpp"
 #include "gcpatch.hpp"
 #include "vsdmake.hpp"
+#include "homescan.hpp"
 #include "gameextras.hpp"
 #include "gameinfo.hpp"
 #include "i18n.hpp"
@@ -135,8 +136,6 @@ using riftwii::wii::CompileSelection;
 using riftwii::wii::SelectDisc;
 using riftwii::wii::SelectSdGame;
 using riftwii::wii::SelectUsbGame;
-using riftwii::wii::scan_sd_games;
-using riftwii::wii::scan_usb_games;
 using riftwii::wii::tr;
 
 namespace skin = riftwii::wii::skin;
@@ -855,6 +854,9 @@ static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
 static int g_homeFocus = 0;      // the focused tile, kept across screens
 static bool g_focusRestored = false;  // opened on the last game played
+// Which games have packs: every XML in sd:/riivolution, usb:/riivolution
+// and the network packs' cache, by game ID only (the scan reads it,
+// homescan.hpp).
 static riftwii::PackIndex g_packs;
 
 static const char* FilterLabel(Filter f)
@@ -891,20 +893,6 @@ static void LoadFilter()
 	if (it->second == "all") g_filter = Filter::All;
 	else if (it->second == "recent" && riftwii::wii::History().size() != 0) g_filter = Filter::Recent;
 	else if (it->second == "favorites" && !riftwii::wii::Settings().favorites.empty()) g_filter = Filter::Favorites;
-}
-
-// Which games have packs: every XML in sd:/riivolution, usb:/riivolution
-// and the network packs' cache, by game ID only.
-static void LoadPackIndex()
-{
-	g_packs = riftwii::PackIndex();
-	bool limited = false;
-	for (const riftwii::wii::PackFile& pack : riftwii::wii::ListPackFiles(256, limited)) {
-		const std::string text = riftwii::wii::ReadPackText(pack.path);
-		if (!text.empty()) g_packs.add(text);
-	}
-	for (const riftwii::wii::CodeBuildFile& b : riftwii::wii::ListCodeBuilds()) g_packs.add_game(b.game_id);
-	logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(g_packs.size()));
 }
 
 // What the player typed into the search; empty when none. While it is set
@@ -3499,40 +3487,76 @@ static int RequireChannelUpdate()
 	}
 }
 
-static void ScanDrives(FrontendState& state, GuiText& status)
+// Home's look for games runs on a thread of its own (homescan.hpp), so the
+// menu answers while a big USB drive is read: the SD card's games show as
+// soon as the card is read, the drive's after it. Until both are in, Home
+// reads no game image and starts no download, and a game picked meanwhile
+// opens once they are (g_openWhenScanned).
+static bool g_scanning = false;
+static bool g_sdScanOk = false;
+static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
+static std::string g_openWhenScanned;  // the tile picked during the scan, by its key
+// Home's rescan: the profiles' pictures are looked for again once it is
+// done. Not before, as the tiles show the pictures read so far while the
+// drives are read (ProfilePictureIfRead).
+static bool g_forgetPicturesAfterScan = false;
+// The scan was started by Home opening with no drives read (the start, or
+// Settings > Look for games again): Home asks its questions (an old channel,
+// what's new...) once both drives are in, even when Settings was opened
+// meanwhile.
+static bool g_askAfterScan = false;
+// The game names were read again in Settings (a language, a download)
+// while the scan's parts were still out: they are renamed when Home takes
+// them.
+static bool g_renameAfterScan = false;
+
+static void StartScan()
 {
-	std::string error;
-	status.SetText("Reading the SD card...");
-	ResumeGui();
-	const bool sd = scan_sd_games(state.sd_catalog, error);
-	// The GUI thread is drawing: the text changes only while it is halted.
-	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) {
-		HaltGui();
-		status.SetText(line);
-		ResumeGui();
-	});
-	if (!net.empty()) logf("%s\n", net.c_str());
-	HaltGui();
-	riftwii::wii::mem::CheckHeap("after the SD scan");
-	std::string sdError;
-	if (!sd) {
-		logf("SD scan failed: %s\n", error.c_str());
-		state.sd_catalog.status = "SD: " + (error.empty() ? std::string(tr("scan failed")) : error);
-		sdError = error.empty() ? std::string("scan failed") : error;
+	g_sdScanOk = false;
+	g_sdScanError.clear();
+	g_openWhenScanned.clear();
+	g_scanning = true;
+	g_scanned = true;
+	riftwii::wii::StartDriveScan();
+}
+
+// The SD card's part of the scan, with the GUI halted.
+static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part)
+{
+	state.sd_catalog = std::move(part.catalog);
+	state.channels = std::move(part.channels);
+	g_packs = std::move(part.packs);
+	g_sdScanOk = part.ok;
+	if (g_renameAfterScan) riftwii::wii::RenameGames(state.sd_catalog);
+	if (!part.ok) {
+		logf("SD scan failed: %s\n", part.error.c_str());
+		state.sd_catalog.status = "SD: " + (part.error.empty() ? std::string(tr("scan failed")) : part.error);
+		g_sdScanError = part.error.empty() ? std::string("scan failed") : part.error;
 	}
-	error.clear();
-	status.SetText("Reading the USB drive... (a big drive takes a moment)");
-	ResumeGui();
-	const bool usb = scan_usb_games(state.usb_catalog, error);
-	HaltGui();
-	riftwii::wii::mem::CheckHeap("after the USB scan");
-	{
-		std::string channels;
-		riftwii::wii::list_nand_channels(state.channels, channels);
-		// And those USB Loader GX keeps in an emulated NAND on the card.
-		const riftwii::wii::SharedNandLookup emu = riftwii::wii::look_up_channel_nand();
-		if (emu.usable) riftwii::wii::list_emu_channels(emu.folder, state.channels, channels);
+}
+
+// The USB drive's part, the scan's last, with the GUI halted: what the
+// scan found to say is said now, once both drives are in. Without
+// `prompts` (RiftWii is being left) nothing is asked: the popups would
+// only hold up the exit.
+static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part, bool prompts = true)
+{
+	// The thread has handed over its last part and is returning: gone
+	// before anything else (a launch) takes the drives.
+	riftwii::wii::WaitDriveScan();
+	g_scanning = false;
+	if (g_forgetPicturesAfterScan) {
+		riftwii::wii::ForgetProfilePictures();
+		g_forgetPicturesAfterScan = false;
 	}
+	state.usb_catalog = std::move(part.catalog);
+	g_packs = std::move(part.packs);
+	if (g_renameAfterScan) {
+		riftwii::wii::RenameGames(state.usb_catalog);
+		g_renameAfterScan = false;
+	}
+	const bool usb = part.ok;
+	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
 	// with only an adapter pad, OK could not be pressed).
@@ -3540,9 +3564,11 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
-	WarnAboutDrives(sdError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
-	if (wiiuDrive) NoteWiiUDrive();
-	if (sd) ReportCardLog();
+	if (prompts) {
+		WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
+		if (wiiuDrive) NoteWiiUDrive();
+		if (g_sdScanOk) ReportCardLog();
+	}
 	if (wiiuDrive) {
 		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
 		state.usb_catalog.status = WiiUDriveStatus();
@@ -3557,10 +3583,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 				{std::to_string(riftwii::wii::MenuIosLost())});
 		}
 	}
-	// After the USB scan: packs on the drive count too.
-	LoadPackIndex();
-	riftwii::wii::mem::CheckHeap("after the pack index");
-	OfferReport();
+	if (prompts) OfferReport();
 	// A newer release, asked at every start when downloads are on, in the
 	// background: the network takes seconds to come up, and the menu used
 	// to hold every press until it had (Home answers it, TakeUpdateCheck).
@@ -3569,7 +3592,24 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		updateChecked = true;
 		riftwii::wii::StartUpdateCheck();
 	}
-	g_scanned = true;
+}
+
+// Settings while the drives are still being read (Home leaves the scan
+// running when Settings opens): what reads the drives, the NAND or the
+// network, or restarts RiftWii, waits for the scan first. With the GUI
+// halted; `line` says why meanwhile. Home takes the scan's parts when it
+// is back.
+static void WaitForDriveScan(GuiText& line)
+{
+	if (!g_scanning || riftwii::wii::DriveScanDone()) return;
+	logf("Settings: waiting for the scan to finish reading the drives\n");
+	line.SetText(tr("Waiting for RiftWii to finish reading the drives..."));
+	while (!riftwii::wii::DriveScanDone()) {
+		ResumeGui();
+		usleep(50000);
+		HaltGui();
+	}
+	riftwii::wii::WaitDriveScan();
 }
 
 // The start's update check once it has finished: the player is asked
@@ -3751,7 +3791,12 @@ static int MenuSource(FrontendState& state)
 	grid.SetPictureSource([&items](int index) -> const u8* {
 		if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return nullptr;
 		const riftwii::Profile* profile = riftwii::wii::Profiles().find(items[static_cast<std::size_t>(index)].key);
-		return profile ? riftwii::wii::ProfilePicture(profile->key(), profile->art) : nullptr;
+		if (!profile) return nullptr;
+		// While the scan has the drives only a picture read already: a
+		// pack's may be on the USB drive. (The menu sets g_scanning only
+		// with the GUI halted, so a frame sees one value throughout.)
+		if (g_scanning) return riftwii::wii::ProfilePictureIfRead(profile->key());
+		return riftwii::wii::ProfilePicture(profile->key(), profile->art);
 	}, riftwii::wii::kProfilePicture);
 	grid.SetPagePeek(riftwii::wii::Settings().page_peek != "off");
 	grid.SetItems(&items);
@@ -3936,10 +3981,18 @@ static int MenuSource(FrontendState& state)
 	// tile. Other games take those tiles after a refresh (a search, another
 	// view): their banners are looked for again.
 	int bannerPageDone = -1;
-	const auto refresh = [&](bool keepFocus) {
+	// Home's line: while the drives are read, what the scan is reading.
+	std::string shownScanStatus;
+	const auto homeStatusText = [&]() -> std::string {
+		if (!g_scanning) return HomeStatus(state, items);
+		shownScanStatus = riftwii::wii::DriveScanStatus();
+		return shownScanStatus;
+	};
+	const auto showStatus = [&]() { statusTxt.SetText(homeStatusText().c_str()); };
+	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
-		transition::BeginAuto();
+		if (crossfade) transition::BeginAuto();
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
@@ -3947,11 +4000,59 @@ static int MenuSource(FrontendState& state)
 		grid.SetItems(&items);
 		SetHomeMovable(grid, entries);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
-		statusTxt.SetText(HomeStatus(state, items).c_str());
-		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty() && state.channels.empty());
+		showStatus();
+		// Not "no games" while the drives are still being read.
+		emptyNote.SetVisible(!g_scanning && state.sd_catalog.games.empty() && state.usb_catalog.games.empty() &&
+			state.channels.empty());
 	};
-	if (!g_scanned) {
-		ScanDrives(state, statusTxt);  // the GameCube adapter may start from here on
+	// A tile across a refresh: its drive as well as its game (one game on
+	// both the card and the drive has two tiles with the same key), and
+	// "disc" for the disc drive's, which has no key. Read only while
+	// `entries` still matches the catalogs it indexes.
+	const auto tileIdentity = [&](int index) -> std::string {
+		if (index < 0 || static_cast<std::size_t>(index) >= entries.size()) return "";
+		const HomeEntry& entry = entries[static_cast<std::size_t>(index)];
+		if (entry.kind == HomeEntry::Kind::Disc) return "disc";
+		return HomeKey(state, entry);
+	};
+	const auto focusedTile = [&]() { return tileIdentity(grid.FocusedIndex()); };
+	const auto findTile = [&](const std::string& identity) -> int {
+		for (std::size_t i = 0; i < entries.size(); ++i)
+			if (tileIdentity(static_cast<int>(i)) == identity) return static_cast<int>(i);
+		return -1;
+	};
+	// A part of the scan in: the drive's games join in among the card's,
+	// so the focus stays on its tile (`focused`, read before the part
+	// replaced a catalog) rather than on its place.
+	// Not crossfaded: Home takes no press while a crossfade runs, and a
+	// press as the SD card's games came in was lost (Ishtar, in Dolphin).
+	const auto refreshKeepingTile = [&](const std::string& focused) {
+		refresh(true, false);
+		const int index = focused.empty() ? -1 : findTile(focused);
+		if (index >= 0) grid.Focus(index);
+	};
+	// The first time Home shows, it opens on the last game played, with the
+	// SD card's games or the drive's, whichever has it; not once the player
+	// has moved off the tile Home opened on.
+	std::string focusAtOpen;
+	const auto restoreFocus = [&](bool moved, bool lastPart) {
+		if (g_focusRestored) return;
+		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
+		bool found = false;
+		for (std::size_t i = 0; !moved && !recent.empty() && i < items.size() && !found; ++i) {
+			found = items[i].key == recent[0];
+			if (found) grid.Focus(static_cast<int>(i));
+		}
+		if (moved || found) g_focusRestored = true;
+		focusAtOpen = focusedTile();
+		if (lastPart) g_focusRestored = true;
+	};
+	// What Home asks after a look at the drives it opened with (the start,
+	// or Settings > Look for games again), once both drives are in. With
+	// the GUI halted; false when Home has to close at once.
+	const auto askAfterLook = [&]() -> bool {
+		if (!g_askAfterScan) return true;
+		g_askAfterScan = false;
 		// An old channel: nothing of Home until it is updated (the popup
 		// returns with the GUI halted, as this function's end has it).
 		// After the scan, so an adapter's pads can answer it too. Home is
@@ -3959,26 +4060,27 @@ static int MenuSource(FrontendState& state)
 		// shows every element again, the ones Home keeps hidden too (the
 		// plain clock under the Wii look's LCD one).
 		mainWindow->Remove(&w);
-		menu = RequireChannelUpdate();
-		if (menu != MENU_NONE) return menu;
+		const int channelMenu = RequireChannelUpdate();
+		if (channelMenu != MENU_NONE) {
+			menu = channelMenu;
+			return false;
+		}
 		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		TeaseCisoOnce(state.sd_catalog, state.usb_catalog);
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
+		return true;
+	};
+	if (!g_scanned) {
+		// The drives are read while Home runs: their games show as each
+		// drive is done (the GameCube adapter may start once both are).
+		StartScan();
+		g_askAfterScan = true;
 		refresh(true);
-		// The first time Home shows, it opens on the last game played.
-		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
-		if (!g_focusRestored && !recent.empty()) {
-			for (std::size_t i = 0; i < items.size(); ++i) {
-				if (items[i].key != recent[0]) continue;
-				grid.Focus(static_cast<int>(i));
-				break;
-			}
-		}
-		g_focusRestored = true;
+		focusAtOpen = focusedTile();
 	} else {
-		statusTxt.SetText(HomeStatus(state, items).c_str());
+		showStatus();
 	}
 	ResumeGui();
 
@@ -4048,7 +4150,7 @@ static int MenuSource(FrontendState& state)
 				}
 			}
 		}
-		if (grid.Channels() && !g_gcBannersOff && riftwii::wii::Settings().online && !riftwii::wii::NetBackgroundBusy() &&
+		if (!g_scanning && grid.Channels() && !g_gcBannersOff && riftwii::wii::Settings().online && !riftwii::wii::NetBackgroundBusy() &&
 		    !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::GameCubeBannerFetchGame().empty()) {
 			// The page shown, and the next page's column peeking in.
@@ -4071,8 +4173,8 @@ static int MenuSource(FrontendState& state)
 				break;
 			}
 		}
-		// Not while the update check has the network.
-		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		// Not while the update check (or the scan) has the network.
+		if (!g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
 			std::size_t pick = 0;
 			bool onPage = false;
@@ -4096,7 +4198,8 @@ static int MenuSource(FrontendState& state)
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
 		// Once a page's games have all been looked at, it is not looked at again.
-		if (grid.Channels() && grid.PageFirst() != bannerPageDone) {
+		// Not while the scan has the drives.
+		if (!g_scanning && grid.Channels() && grid.PageFirst() != bannerPageDone) {
 			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
 			bool read = false;
 			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) {
@@ -4114,7 +4217,9 @@ static int MenuSource(FrontendState& state)
 		// page's column peeking in), then the next page's, then the last's.
 		std::string iconId;
 		std::unique_ptr<riftwii::wii::BannerPlayer> iconLoaded;
-		if (grid.Channels()) {
+		// Not while the scan has the drives: no read on the menu's thread
+		// waits on the scan's.
+		if (!g_scanning && grid.Channels()) {
 			const int first = grid.PageFirst(), per = GuiGameGrid::kPerPage;
 			const int from[3] = {first, first + per, first - per};
 			const int count[3] = {per + 4, per, per};
@@ -4135,7 +4240,7 @@ static int MenuSource(FrontendState& state)
 		}
 		// The 3D covers view's pictures once the covers are in (a game
 		// without one shows its cover meanwhile): the ones near the focus first.
-		if (coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4146,7 +4251,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4166,6 +4271,41 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		HaltGui();
+		// The scan's parts as they come in: the SD card's games, then the
+		// USB drive's. Not while a game is carried: its grid stays as it is.
+		std::string openNow;
+		if (g_scanning && !grid.Carrying()) {
+			riftwii::wii::DriveScanPart part;
+			if (riftwii::wii::TakeSdScan(part)) {
+				const std::string focused = focusedTile();
+				TakeSdScanPart(state, part);
+				refreshKeepingTile(focused);
+				restoreFocus(focused != focusAtOpen, false);
+			}
+			if (riftwii::wii::TakeUsbScan(part)) {
+				const std::string focused = focusedTile();
+				TakeUsbScanPart(state, part);
+				refreshKeepingTile(focused);
+				restoreFocus(focused != focusAtOpen, true);
+				if (!askAfterLook()) return menu;
+				openNow = g_openWhenScanned;
+				g_openWhenScanned.clear();
+				// Covers, boxes and 3D covers that failed (or were never
+				// tried) are asked for again, for every game now listed.
+				g_coversOff = false;
+				g_coversChecked.clear();
+				g_coverRun.reset();
+				g_boxesOff = false;
+				g_boxesChecked.clear();
+				g_boxRun.reset();
+				g_covers3dOff = false;
+				g_covers3dChecked.clear();
+				g_cover3dRun.reset();
+				queueCovers();
+			}
+		}
+		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
+			showStatus();
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!gcBannerArrived.empty()) {
 			// The disc's picture gives way to the animated banner at the next turn.
@@ -4174,8 +4314,10 @@ static int MenuSource(FrontendState& state)
 		}
 		// The profiles' pictures on the page shown, read here (the GUI
 		// halted) before the grid draws them: a slow SD read then holds
-		// this loop, not a frame. One a turn; read ones are kept.
-		for (int k = grid.PageFirst(); k < grid.PageFirst() + GuiGameGrid::kPerPage && k < static_cast<int>(items.size()); ++k) {
+		// this loop, not a frame. One a turn; read ones are kept. Not while
+		// the scan has the drives: a pack's picture may be on the USB drive.
+		for (int k = grid.PageFirst();
+		     !g_scanning && k < grid.PageFirst() + GuiGameGrid::kPerPage && k < static_cast<int>(items.size()); ++k) {
 			const GridItem& item = items[static_cast<std::size_t>(k)];
 			if (!item.profile) continue;
 			const riftwii::Profile* profile = riftwii::wii::Profiles().find(item.key);
@@ -4188,7 +4330,7 @@ static int MenuSource(FrontendState& state)
 			statusTxt.SetText(coverNote.c_str());
 			coverNoteShown = !g_coversOff;  // a failure stays up
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
-			statusTxt.SetText(HomeStatus(state, items).c_str());
+			showStatus();
 			coverNoteShown = false;
 		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
@@ -4201,8 +4343,12 @@ static int MenuSource(FrontendState& state)
 		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
 		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
-		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items).c_str());
-		riftwii::wii::TakeUpdatePacks();
+		// Not while the scan has the drives and the network: an update
+		// writes to the card and downloads.
+		if (!g_scanning) {
+			if (TakeUpdateCheck() && !coverNoteShown) showStatus();
+			riftwii::wii::TakeUpdatePacks();
+		}
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
@@ -4230,7 +4376,7 @@ static int MenuSource(FrontendState& state)
 		}
 		if (grid.Carrying() != carryNoteShown) {
 			carryNoteShown = grid.Carrying();
-			const std::string note = !carryNoteShown ? HomeStatus(state, items)
+			const std::string note = !carryNoteShown ? homeStatusText()
 				: grid.CarryingWithPointer() ? tr("Let go of A: put it down   At a side: turn the page")
 				: tr("D-pad: move   A: put it down   B: put it back");
 			statusTxt.SetText(note.c_str());
@@ -4245,6 +4391,18 @@ static int MenuSource(FrontendState& state)
 				reopening = clicked >= 0;
 			}
 			g_reopenBanner.clear();
+		}
+		// A game picked while the drives were read opens now that they are.
+		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
+		if (menu != MENU_NONE) clicked = -1;
+		// Opening a game reads its image, which the scan may be mounting:
+		// it waits for the scan, and Home answers meanwhile.
+		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
+			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
+			g_openWhenScanned = tileIdentity(clicked);
+			logf("Home: %s picked while the drives are read; it opens once they are\n", g_openWhenScanned.c_str());
+			toast.Show(tr("{1} opens once RiftWii has finished reading the drives.", {picked.title}), false);
+			clicked = -1;
 		}
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
 			g_homeFocus = clicked;
@@ -4349,7 +4507,7 @@ static int MenuSource(FrontendState& state)
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
 				// The error on a notice of its own; the status line goes back to what it says.
 				toast.Show(shown, true);
-				statusTxt.SetText(HomeStatus(state, items).c_str());
+				showStatus();
 			}
 		}
 		if (menu != MENU_NONE) {
@@ -4433,22 +4591,46 @@ static int MenuSource(FrontendState& state)
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
 			rescanBtn.ResetState();
-			riftwii::wii::ForgetProfilePictures();
-			ScanDrives(state, statusTxt);
-			refresh(true);
-			// Covers, boxes and 3D covers that failed (or were never tried)
-			// are asked for again.
-			g_coversOff = false;
-			g_coversChecked.clear();
-			g_coverRun.reset();
-			g_boxesOff = false;
-			g_boxesChecked.clear();
-			g_boxRun.reset();
-			g_covers3dOff = false;
-			g_covers3dChecked.clear();
-			g_cover3dRun.reset();
-			queueCovers();
+			if (g_scanning) {
+				toast.Show(tr("RiftWii is still reading the drives."), false);
+			} else {
+				// The games stay on Home until the scan's parts replace them;
+				// covers and the profiles' pictures are looked for again once
+				// both are in.
+				g_forgetPicturesAfterScan = true;
+				StartScan();
+				showStatus();
+			}
 		}
+		ResumeGui();
+	}
+
+	// Home closed (HOME > exit, a channel) while the drives are still being
+	// read: what comes next may read them too, so the scan finishes first,
+	// its line kept up to date meanwhile. Settings opens at once: the scan
+	// goes on, what in Settings needs the drives waits for it
+	// (WaitForDriveScan), and Home takes its parts when it is back (a
+	// tester's Settings took 12 s to open behind a 326-game WBFS drive).
+	// A game picked during the scan does not open behind the player's back
+	// once they have gone to Settings.
+	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
+	if (g_scanning && menu != MENU_OPTIONS) {
+		logf("Home: closed while the drives are read; waiting for the scan\n");
+		while (!riftwii::wii::DriveScanDone()) {
+			usleep(50000);
+			HaltGui();
+			if (riftwii::wii::DriveScanStatus() != shownScanStatus) showStatus();
+			ResumeGui();
+		}
+		riftwii::wii::WaitDriveScan();
+		HaltGui();
+		riftwii::wii::DriveScanPart part;
+		if (riftwii::wii::TakeSdScan(part)) TakeSdScanPart(state, part);
+		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part, menu != MENU_EXIT);
+		g_openWhenScanned.clear();
+		g_focusRestored = true;
+		// Not when leaving RiftWii: the popups would only hold it up.
+		if (menu != MENU_EXIT && !askAfterLook()) return menu;
 		ResumeGui();
 	}
 
@@ -9542,10 +9724,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	// New names: the title list again, and the scanned games renamed.
 	bool namesStale = false;
-	const auto renameGames = [&]() {
+	const auto renameGames = [&](GuiText& line) {
+		// The scan reads the title list too.
+		WaitForDriveScan(line);
 		riftwii::wii::ReloadTitles();
 		riftwii::wii::RenameGames(state.usb_catalog);
 		riftwii::wii::RenameGames(state.sd_catalog);
+		if (g_scanning) g_renameAfterScan = true;
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
@@ -9681,6 +9866,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
 				case kLanguage: {
+					// The scan names the games in the menu's language.
+					WaitForDriveScan(noteTxt);
 					settings.language = StepValue(kLanguages, settings.language, direction);
 					const std::string error = saveSettings();
 					const std::string lang = riftwii::wii::MenuLanguage();
@@ -9916,6 +10103,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					logf("Settings: someone tried to turn the clock off\n");
 					if (ShowPopup("Would you look at the time", tr("Nothing o'clock. The clock stays."),
 						    tr("Restart"), tr("Later")) == 0) {
+						WaitForDriveScan(noteTxt);
 						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme,
 							tr("Theme: {1}", {themeName(settings.theme)}));
 						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
@@ -9937,6 +10125,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kOnline:
+					// The scan reads it (the game names' download).
+					WaitForDriveScan(noteTxt);
 					settings.online = !settings.online;
 					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 						: tr("Nothing is downloaded. Names and cheats already on the card are still used."));
@@ -9947,13 +10137,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Downloads are off. Turn on Download names and cheats first."));
 						break;
 					}
+					WaitForDriveScan(noteTxt);
 					note(tr("Downloading game names..."));
 					ResumeGui();
 					std::string error;
 					const bool ok = riftwii::wii::UpdateTitles(riftwii::wii::MenuLanguage(), true, error);
 					HaltGui();
 					if (ok) {
-						renameGames();
+						renameGames(noteTxt);
 						note(tr("Game names updated."));
 					} else {
 						logf("Titles: update failed: %s\n", error.c_str());
@@ -9994,6 +10185,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kGcTest:
+					// The adapter starts once the scan's reads are over (TakeUsbScanPart).
+					WaitForDriveScan(noteTxt);
+					riftwii::wii::GcAdapterMenuAllowStart();
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					ResumeGui();
@@ -10019,6 +10213,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						    tr("Cancel"), tr("Reset")) != 1)
 						break;
 					logf("Settings: all reset to the defaults (favorites and game folders kept)\n");
+					// The scan reads the settings (the game folders, downloads):
+					// they are not replaced under it.
+					WaitForDriveScan(noteTxt);
 					settings = riftwii::settings_after_reset(settings);
 					const std::string error = saveSettings();
 					rebuild();
@@ -10077,10 +10274,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					noteTxt.SetText("The next launch copies every file of its network packs again.");
 					break;
 				case kRescan:
+					WaitForDriveScan(noteTxt);
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;
 				case kWads:
+					// The scan lists the emulated NAND's channels the install writes.
+					WaitForDriveScan(noteTxt);
 					if (InstallWads()) {
 						g_scanned = false;
 						menu = MENU_SOURCE;
@@ -10091,6 +10291,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Downloads are off. Turn on Download names and cheats first."));
 						break;
 					}
+					WaitForDriveScan(noteTxt);
 					note(tr("Asking GitHub..."));
 					ResumeGui();
 					std::string latest, error;
@@ -10113,8 +10314,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kReport:
-					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0)
+					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0) {
+						WaitForDriveScan(noteTxt);
 						SendReport("sent from Settings");
+					}
 					break;
 				case kWiiChannel: {
 					if (!channelCan) {
@@ -10152,6 +10355,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				    tr("Restart"), tr("Later")) == 0) {
 				logf("Settings: theme %s, menu font %s; restarting the menu\n", settings.theme.c_str(),
 					settings.menu_font.c_str());
+				WaitForDriveScan(noteTxt);
 				riftwii::wii::WarmRestart(theme ? riftwii::wii::RestartKind::Theme : riftwii::wii::RestartKind::MenuFont,
 					theme ? tr("Theme: {1}", {themeName(settings.theme)})
 						: tr("Menu font: {1}", {settings.menu_font == "wii" ? tr("Wii Menu") : std::string("RiftWii")}));
@@ -10162,9 +10366,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (menu != MENU_NONE && menu != MENU_EXIT && namesStale) {
 			// The game names in the new language (downloaded if the
 			// Wii is online and the list is not on the card yet).
+			WaitForDriveScan(noteTxt);
 			noteTxt.SetText(tr("Downloading game names..."));
 			ResumeGui();
-			renameGames();
+			renameGames(noteTxt);
 			HaltGui();
 		}
 		ResumeGui();
@@ -10511,6 +10716,11 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
+	// Leaving the menu from Settings while the drives were still being read
+	// (a channel, HOME > exit): the scan is over before anything else takes
+	// the drives.
+	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
+	riftwii::wii::WaitDriveScan();
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL) {
 		// The GUI thread is halted after this; main prints the boot log

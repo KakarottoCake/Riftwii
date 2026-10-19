@@ -64,6 +64,22 @@ T = {
         "USBドライブを読み込んでいます...(大きなドライブは少し時間がかかります)",
         "Lendo a unidade USB... (uma unidade grande demora um pouco)",
         "Lettura dell'unità USB... (un'unità grande richiede un momento)"),
+    # {1} a game's name: picked on Home while the drives were still being read.
+    "{1} opens once RiftWii has finished reading the drives.": (
+        "{1} se abrirá cuando RiftWii termine de leer las unidades.",
+        "{1}は、RiftWiiがドライブを読み終わると開きます。",
+        "{1} abre quando o RiftWii terminar de ler as unidades.",
+        "{1} si aprirà quando RiftWii avrà finito di leggere le unità."),
+    "RiftWii is still reading the drives.": (
+        "RiftWii todavía está leyendo las unidades.",
+        "RiftWiiはまだドライブを読み込んでいます。",
+        "O RiftWii ainda está lendo as unidades.",
+        "RiftWii sta ancora leggendo le unità."),
+    "Waiting for RiftWii to finish reading the drives...": (
+        "Esperando a que RiftWii termine de leer las unidades...",
+        "RiftWiiがドライブを読み終わるのを待っています...",
+        "Esperando o RiftWii terminar de ler as unidades...",
+        "In attesa che RiftWii finisca di leggere le unità..."),
     "Reading the disc...": ("Leyendo el disco...", "ディスクを読み込んでいます...", "Lendo o disco...", "Lettura del disco..."),
     "scan failed": ("error al buscar", "検索に失敗しました", "falha na busca", "ricerca non riuscita"),
     "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)": (
@@ -2254,6 +2270,12 @@ KO = {
         "SD 카드 읽는 중...",
     "Reading the USB drive... (a big drive takes a moment)":
         "USB 드라이브를 읽는 중... (용량이 큰 드라이브는 시간이 다소 걸릴 수 있음)",
+    "{1} opens once RiftWii has finished reading the drives.":
+        "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다.",
+    "RiftWii is still reading the drives.":
+        "RiftWii가 아직 드라이브를 읽는 중입니다.",
+    "Waiting for RiftWii to finish reading the drives...":
+        "RiftWii가 드라이브를 다 읽기를 기다리는 중...",
     "Reading the disc...":
         "디스크 읽는 중...",
     "scan failed":
@@ -4047,6 +4069,12 @@ FR = {
         "Lecture de la carte SD...",
     "Reading the USB drive... (a big drive takes a moment)":
         "Lecture du stockage USB... (un grand stockage peut prendre un moment)",
+    "{1} opens once RiftWii has finished reading the drives.":
+        "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
+    "RiftWii is still reading the drives.":
+        "RiftWii est encore en train de lire les stockages.",
+    "Waiting for RiftWii to finish reading the drives...":
+        "En attente que RiftWii finisse de lire les stockages...",
     "Reading the disc...":
         "Lecture du disque...",
     "scan failed":
@@ -5822,7 +5850,7 @@ def check(repo):
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

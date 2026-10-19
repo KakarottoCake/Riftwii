@@ -512,7 +512,20 @@ bool ensure_usb(std::string& error) {
     // libfat's mount path performs the interface setup that populates the
     // storage capacity/sector-size state. It fails on NTFS, which is fine:
     // the drive is read raw below.
-    if (!g_libfat_mounted) {
+    // A drive a USB loader formatted as WBFS says so in its block 0, and
+    // libfat cannot mount it: on a tester's 326-game WBFS hard drive the
+    // attempt took 7 s before the drive was read raw (PR 158). Such a drive
+    // goes straight to the raw read. Only when the sector size is known
+    // already: libfat's mount is what finds it otherwise.
+    bool wbfs_drive = false;
+    if (!g_libfat_mounted && __io_usbstorage_sector_size == 512) {
+        // Room for a 4 KiB sector all the same: the size is the driver's
+        // word until libfat has asked the drive.
+        static std::uint8_t block0[4096] ATTRIBUTE_ALIGN(32);
+        wbfs_drive = usb_read(0, 1, block0) && classify_drive_block0(block0) == DriveBlock0::Wbfs;
+        if (wbfs_drive) logf("USB: a WBFS drive; read raw without trying libfat\n");
+    }
+    if (!g_libfat_mounted && !wbfs_drive) {
         logf("USB: mounting\n");
         g_usb_io = g_picked.open ? kPickedIo : __io_usbstorage;
         g_usb_io.readSectors = usb_read_sectors;

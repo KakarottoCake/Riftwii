@@ -3,6 +3,7 @@
 #include "log.hpp"
 
 #include <ogc/lwp_watchdog.h>
+#include <ogc/mutex.h>
 #include <unistd.h>
 
 #include <cstdarg>
@@ -20,11 +21,28 @@ u64 g_epoch = 0;  // time base at the first LogOpen: file lines carry ms since t
 bool g_echo = false;
 int g_batch = 0;        // LogBatch scopes alive
 bool g_unsynced = false;  // lines in libfat's cache, not yet on the card
+
+// The menu's scan thread logs while the menu thread does (homescan.hpp),
+// as the network's and the screenshots' threads do: a line's time and its
+// text are two writes, and without the lock two threads' lines came out
+// mixed in session.log. Recursive: logf syncs through LogSync. Made at the
+// first use, which is main's, before any other thread runs. Nothing logs
+// from an interrupt; a crash's report is logged by a thread of its own,
+// which the crash screen stops waiting for after a few seconds.
+mutex_t g_lock = LWP_MUTEX_NULL;
+struct Locked {
+    Locked() {
+        if (g_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_lock, true);
+        LWP_MutexLock(g_lock);
+    }
+    ~Locked() { LWP_MutexUnlock(g_lock); }
+};
 }
 
 void LogEchoToScreen(bool on) { g_echo = on; }
 
 void LogOpen(const char* sd_path, bool append) {
+    Locked lock;
     LogClose();
     if (g_epoch == 0) g_epoch = gettime();
     g_path = sd_path;
@@ -33,30 +51,38 @@ void LogOpen(const char* sd_path, bool append) {
 }
 
 void LogReopen() {
+    Locked lock;
     if (g_file || g_path.empty()) return;
     g_file = std::fopen(g_path.c_str(), "a");
     g_line_start = true;
 }
 
 void LogSync() {
+    Locked lock;
     if (!g_file || !g_unsynced) return;
     fsync(fileno(g_file));
     g_unsynced = false;
 }
 
-LogBatch::LogBatch() { ++g_batch; }
+LogBatch::LogBatch() {
+    Locked lock;
+    ++g_batch;
+}
 
 LogBatch::~LogBatch() {
+    Locked lock;
     if (--g_batch == 0) LogSync();
 }
 
 void LogClose() {
+    Locked lock;
     if (g_file) std::fclose(g_file);
     g_unsynced = false;
     g_file = nullptr;
 }
 
 void logf(const char* format, ...) {
+    Locked lock;
     va_list args;
     if (g_echo) {
         va_start(args, format);

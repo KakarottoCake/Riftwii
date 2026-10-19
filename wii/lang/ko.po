@@ -51,6 +51,15 @@ msgstr "SD 카드 읽는 중..."
 msgid "Reading the USB drive... (a big drive takes a moment)"
 msgstr "USB 드라이브를 읽는 중... (용량이 큰 드라이브는 시간이 다소 걸릴 수 있음)"
 
+msgid "{1} opens once RiftWii has finished reading the drives."
+msgstr "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다."
+
+msgid "RiftWii is still reading the drives."
+msgstr "RiftWii가 아직 드라이브를 읽는 중입니다."
+
+msgid "Waiting for RiftWii to finish reading the drives..."
+msgstr "RiftWii가 드라이브를 다 읽기를 기다리는 중..."
+
 msgid "Reading the disc..."
 msgstr "디스크 읽는 중..."
 
