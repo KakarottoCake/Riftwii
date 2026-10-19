@@ -908,6 +908,24 @@ static void test_backup_files() {
     EXPECT_TRUE(fs::exists(fs::path(folder) / "notes.txt"));
     EXPECT_EQ(gc_backup_list(folder).size(), kGcBackupsKept);
 
+    // A restore of the oldest backup: its undo copy does not prune the very
+    // backup being restored (BUG-18); the next oldest goes instead.
+    {
+        const std::vector<std::string> listed = gc_backup_list(folder);
+        const std::string oldest = listed.back();
+        const std::string next_oldest = listed[listed.size() - 2];
+        bytes.back() = 0x04;
+        write_file(card, bytes);
+        now.day = 24;
+        now.undo = true;
+        made = gc_backup_card(card, folder, now, oldest);
+        now.undo = false;
+        EXPECT_TRUE(made.what == GcBackupResult::What::Made);
+        EXPECT_TRUE(fs::exists(fs::path(folder) / oldest));
+        EXPECT_FALSE(fs::exists(fs::path(folder) / next_oldest));
+        EXPECT_EQ(gc_backup_list(folder).size(), kGcBackupsKept);
+    }
+
     // Files that differ only in length, or are missing, are not the same.
     write_file(root / "short.raw", Bytes(199999, 0x5A));
     EXPECT_FALSE(gc_files_same(card, (root / "short.raw").string()));
@@ -920,6 +938,7 @@ static void test_backup_files() {
     EXPECT_TRUE(read_file(card) == restored);
     EXPECT_TRUE(gc_overwrite_file(card, Bytes(10, 0x22), error));
     EXPECT_EQ(read_file(card).size(), 10u);
+    EXPECT_FALSE(fs::exists(card + ".tmp"));  // put in place, nothing left beside it
 
     // A copy whose source cannot be read leaves nothing behind.
     EXPECT_FALSE(gc_copy_file((root / "missing.raw").string(), (root / "out.raw").string(), error));
