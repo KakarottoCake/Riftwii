@@ -494,15 +494,19 @@ std::uint32_t find_unhandled_exception(const Code& code, const Dol& dol) {
 // the size: the 16 MB every console has, none of the test DMAs.
 std::uint32_t find_aram_check(const Code& code) {
     std::uint32_t check = 0;
-    // __ARChecksize, found by 0xDEADBEEF itself: `lis rX,0xDEAE`, then `addi rY,rX,0xBEEF` within a
-    // few words. The OS's thread code builds 0xDEADBABE the same way, and
+    // __ARChecksize, found by 0xDEADBEEF itself: `lis rX,0xDEAE`, then `addi rY,rX,0xBEEF` within
+    // sixteen words. The OS's thread code builds 0xDEADBABE the same way, and
     // matching only the `lis` picked that function in Super Mario Eclipse,
     // so the real check ran (in Dolphin its test DMAs reach main memory).
+    // Kirby Air Ride's compiler put twelve other instructions between the
+    // two (the `addi` 0x34 bytes on), so with a window of four words its
+    // ARAM addresses were never raised and its sound played from MEM1.
     code.each([&](std::uint32_t a, std::uint32_t w) {
         if (check != 0 || (w & 0xFC1FFFFF) != 0x3C00DEAE) return;  // lis rX,0xDEAE
         const std::uint32_t high = (w >> 21) & 31;
-        for (std::uint32_t b = a + 4; b <= a + 16 && code.has(b); b += 4) {
+        for (std::uint32_t b = a + 4; b <= a + 64 && code.has(b); b += 4) {
             const std::uint32_t x = code.at(b);
+            if (x == 0x4E800020) break;  // blr: the function ended without it
             if ((x >> 26) == 14 && ((x >> 16) & 31) == high && (x & 0xFFFF) == 0xBEEF) {  // addi rY,rX,0xBEEF
                 check = function_start(code, a);
                 return;
@@ -623,6 +627,35 @@ unsigned raise_aram_base(Code& code, std::uint32_t check, std::uint32_t stubs, s
         code.put(a, branch(a, stub));
     }
     return static_cast<unsigned>(words.size() / 3);
+}
+
+// With the ARAM addresses raised (raise_aram_base), a sound engine that
+// keeps its own heap in ARAM from what ARAlloc gives it up to ARGetSize(),
+// at most 16 MB, would end its heap below where it starts: HAL's engine
+// in Kirby Air Ride does `bl ARGetSize`, `lis rX,0x100`, `cmplw r3,rX`
+// and keeps the smaller, found no room for its sounds and waited for good
+// after its save screen (Melee, by the same studio, does not clamp). Such
+// a limit is raised with the addresses: the `lis` gives 0x11000000 and
+// the comparison's operands swap, so the raised limit is always taken
+// (ARAM is 16 MB on every GameCube). ARGetSize is `lwz r3,d(r13)`, `blr`.
+// Returns how many limits were raised.
+unsigned raise_aram_limits(Code& code) {
+    unsigned raised = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        const std::uint32_t target = bl_target(a, w);
+        if (target == 0 || !code.has(target + 4)) return;
+        const bool returns_r13_word = (code.at(target) & 0xFFFF0000) == 0x806D0000 && code.at(target + 4) == 0x4E800020;
+        if (!returns_r13_word || !code.has(a + 8)) return;
+        const std::uint32_t lis = code.at(a + 4);
+        if (!is_lis(lis, 0x0100)) return;
+        const std::uint32_t reg = (lis >> 21) & 31;
+        const std::uint32_t cmplw_r3 = 0x7C030040 | (reg << 11);  // cmplw r3,rX
+        if (code.at(a + 8) != cmplw_r3) return;
+        code.put(a + 4, (lis & 0xFFFF0000) | 0x1100);              // lis rX,0x1100
+        code.put(a + 8, 0x7C000040 | (reg << 16) | (3 << 11));   // cmplw rX,r3
+        ++raised;
+    });
+    return raised;
 }
 
 // __AI_SRC_INIT times the audio interface by switching its disc-stream
@@ -2677,6 +2710,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
     const unsigned aram_raised =
         dsp_patched || keep_aram ? 0 : raise_aram_base(code, find_aram_check(code), stubs_addr, stub_words);
+    const unsigned aram_limits = aram_raised ? raise_aram_limits(code) : 0;
     for (std::size_t i = 0; i < stub_words.size(); ++i) store32(stubs_addr + 4 * i, stub_words[i]);
     DCFlushRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
     ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
@@ -2689,8 +2723,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: ARAM addresses left as the SDK gives them: %s checks them against its own limit "
              "(its sound may play wrong)\n", image.id.c_str());
     else
-        logf("GameCube: ARAM addresses from 0x10004000 (%u place(s)) for the sound program to read MEM2 (%s)\n",
-             aram_raised, on_wii ? "a Wii, the program not one Nintendont's list knows" : "Dolphin");
+        logf("GameCube: ARAM addresses from 0x10004000 (%u place(s), %u sound heap limit(s) raised with them) for the "
+             "sound program to read MEM2 (%s)\n",
+             aram_raised, aram_limits, on_wii ? "a Wii, the program not one Nintendont's list knows" : "Dolphin");
     const bool aram_check_skipped = skip_aram_size_check(code);
     const unsigned ai_waits = skip_ai_stream_waits(code);
     logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
