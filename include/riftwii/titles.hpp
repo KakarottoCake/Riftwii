@@ -48,7 +48,9 @@ std::string folder_title(const std::string& path, const std::string& id);
 // file's name. Empty when the name carries none.
 std::string id_from_image_path(const std::string& path);
 
-// The name to show: database, then folder, then the internal name.
+// The name to show: database, then folder, then the internal name. A
+// folder named for another ID than the disc's (a mod kept under its own
+// ID) comes before the database, whose name is the original game's.
 std::string display_title(const TitleTable* table, const std::string& id, const std::string& path,
                           const std::string& internal);
 
