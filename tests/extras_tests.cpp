@@ -71,24 +71,37 @@ void TestHttp() {
             "[{\"tag_name\":\"v2.0.3-beta\",\"name\":\"RiftWii 2.0.3 Beta\",\"assets\":["
             "{\"id\":1,\"name\":\"riftwii-v2.0.3-beta.zip\",\"uploader\":{\"login\":\"x\"},\"size\":900,"
             "\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\","
-            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii-v2.0.3-beta.zip\"},"
+            "\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii-v2.0.3-beta.zip\"},"
             "{\"id\":2,\"name\" : \"riftwii.dol\",\"uploader\":{\"login\":\"x\",\"id\":5},\"size\": 4526176,"
             "\"digest\":\"sha256:ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"download_count\":3,"
-            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol\"}]}]";
+            "\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii.dol\"}]}]";
         ReleaseAsset dol;
         EXPECT_TRUE(release_asset_from_json(json, "riftwii.dol", dol));
-        EXPECT_EQ(dol.url, "https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol");
+        EXPECT_EQ(dol.url, "https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii.dol");
         EXPECT_EQ(dol.sha256, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
         EXPECT_TRUE(dol.size == 4526176ull);
         ReleaseAsset none;
         EXPECT_FALSE(release_asset_from_json(json, "boot.dol", none));
         // An older answer without digests: the URL alone.
         const std::string old = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"size\":7,\"digest\":null,"
-                                "\"browser_download_url\":\"https://x/riftwii.dol\"}]}]";
+                                "\"browser_download_url\":\"https://github.com/RiftWii/Riftwii/releases/download/v1/riftwii.dol\"}]}]";
         EXPECT_TRUE(release_asset_from_json(old, "riftwii.dol", dol));
-        EXPECT_EQ(dol.url, "https://x/riftwii.dol");
+        EXPECT_EQ(dol.url, "https://github.com/RiftWii/Riftwii/releases/download/v1/riftwii.dol");
         EXPECT_TRUE(dol.sha256.empty());
         EXPECT_TRUE(dol.size == 7ull);
+        // Only RiftWii's own release files are taken (SEC-03): another
+        // repository, another host, plain http, or a path that climbs out.
+        for (const char* url : {"https://github.com/someone/Riftwii/releases/download/v1/riftwii.dol",
+                                "https://evil.example/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                "http://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/../../x/riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/",
+                                "https://github.com.evil.example/KakarottoCake/Riftwii/releases/download/v1/a"}) {
+            const std::string forged = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" +
+                                       std::string(url) + "\"}]}]";
+            EXPECT_FALSE(release_asset_from_json(forged, "riftwii.dol", dol));
+        }
+        EXPECT_TRUE(riftwii_release_asset_url("https://github.com/kakarottocake/RIFTWII/releases/download/v2/a.zip"));
     }
     EXPECT_EQ(compare_versions("v1.0.9-beta", "2.0.0-beta"), -1);
     EXPECT_EQ(compare_versions("2.0.0", "2.0.0-beta"), 1);
@@ -243,6 +256,21 @@ void TestHttp() {
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_host));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_port));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, to_https));
+    // An update's redirects (SEC-03): GitHub's release file servers over
+    // https, nothing else.
+    {
+        HttpUrl release, assets, objects, elsewhere, plain;
+        EXPECT_TRUE(parse_http_url("https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                   release, error));
+        EXPECT_TRUE(parse_http_url("https://release-assets.githubusercontent.com/github-production/x", assets, error));
+        EXPECT_TRUE(parse_http_url("https://objects.githubusercontent.com/x", objects, error));
+        EXPECT_TRUE(parse_http_url("https://evil.example/riftwii.dol", elsewhere, error));
+        EXPECT_TRUE(parse_http_url("http://release-assets.githubusercontent.com/x", plain, error));
+        EXPECT_TRUE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, assets));
+        EXPECT_TRUE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, objects));
+        EXPECT_FALSE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, elsewhere));
+        EXPECT_FALSE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, plain));
+    }
 }
 
 void TestCheats() {

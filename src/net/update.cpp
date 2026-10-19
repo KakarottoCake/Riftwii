@@ -80,6 +80,23 @@ bool release_tag_from_json(const std::string& json, std::string& tag) {
     return true;
 }
 
+bool riftwii_release_asset_url(const std::string& url) {
+    // Owner and repository names are not case-sensitive on GitHub.
+    std::string lowered;
+    for (const char c : url) lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    static const char* const kReleaseFiles[] = {
+        "https://github.com/kakarottocake/riftwii/releases/download/",
+        "https://github.com/riftwii/riftwii/releases/download/",
+    };
+    for (const char* prefix : kReleaseFiles) {
+        const std::size_t n = std::char_traits<char>::length(prefix);
+        // A tag and a file name after the prefix, never another level up.
+        if (lowered.size() > n && lowered.compare(0, n, prefix) == 0 && lowered.find("..", n) == std::string::npos)
+            return true;
+    }
+    return false;
+}
+
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out) {
     // GitHub lists an asset's "name" before its "size", "digest" and
     // "browser_download_url"; nothing of another asset comes between.
@@ -89,6 +106,7 @@ bool release_asset_from_json(const std::string& json, const std::string& name, R
         if (!value_after(json, at + 6, text, bare) || text != name) continue;
         const std::size_t url_at = find_key(json, "browser_download_url", at, json.size());
         if (url_at == std::string::npos || !value_after(json, url_at + 22, text, bare) || text.empty()) return false;
+        if (!riftwii_release_asset_url(text)) return false;
         ReleaseAsset asset;
         asset.url = text;
         const std::size_t digest_at = find_key(json, "digest", at, url_at);

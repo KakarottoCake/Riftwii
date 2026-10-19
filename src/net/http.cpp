@@ -213,6 +213,12 @@ bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const Http
     case HttpRedirects::Follow: return true;
     case HttpRedirects::Never: return false;
     case HttpRedirects::SameHost: break;
+    case HttpRedirects::GitHubRelease: {
+        const std::string host = lower(to.host);
+        return to.tls && to.port == 443 &&
+               (host == "github.com" || host == "release-assets.githubusercontent.com" ||
+                host == "objects.githubusercontent.com");
+    }
     }
     // Host names are not case-sensitive; parse_http_url keeps them as written.
     return lower(from.host) == lower(to.host) && from.port == to.port && from.tls == to.tls;
