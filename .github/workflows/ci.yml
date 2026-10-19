@@ -10,11 +10,12 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  # Every branch, not only main: commits made without a PR are checked
-  # too, and a contributor sees the result on their fork before opening
-  # one. Tags don't start a run.
+  # Only main: a branch with a pull request is already checked by the
+  # pull_request run, and pushing to every branch ran the same jobs twice.
+  # A branch without a PR can be checked by hand with "Run workflow".
+  # Tags don't start a run.
   push:
-    branches: ['**']
+    branches: [main]
   workflow_dispatch:
 
 # Read-only: a PR from a fork can't write anything with this token.
