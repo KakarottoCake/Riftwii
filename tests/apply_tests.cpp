@@ -406,7 +406,7 @@ static void test_compose_create_then_patch() {
     EXPECT_TRUE(got == want);
 }
 
-// The most changes one file takes (BUG-01): 512 layers are read through,
+// The most changes one file takes (BUG-01, CAV-01): 128 layers are read through,
 // one more is refused with the file named, and the output is left alone.
 static void test_compose_layer_cap() {
     MapProvider p;
@@ -428,7 +428,7 @@ static void test_compose_layer_cap() {
     EXPECT_FALSE(riftwii::apply_patches(patches, p, kept, err));
     EXPECT_TRUE(kept == nullptr);
     EXPECT_TRUE(err.find("/a.bin") != std::string::npos);
-    EXPECT_TRUE(err.find("513") != std::string::npos);
+    EXPECT_TRUE(err.find(std::to_string(riftwii::kMaxPatchesPerFile + 1)) != std::string::npos);
 }
 
 static void test_compose_failures_leave_output_untouched() {
