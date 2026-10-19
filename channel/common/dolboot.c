@@ -84,8 +84,12 @@ static void set_argv(const DolHeader* h, const char* path) {
     if (h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
     char* line = (char*)((end + 31) & ~31u);
     const u32 len = strlen(path) + 1;
-    // The line and its closing zero stay below what IOS and the loaders keep.
+    // The line and its closing zero stay below what IOS and the loaders keep,
+    // and off this program, still running (a DOL wholly below it would have
+    // its line written over this code and `path` itself).
+    extern u8 __app_start[], __bss_end[];
     if ((u32)line > MEM1_HI || len + 1 > MEM1_HI - (u32)line) return;
+    if (overlaps((u32)line, (u32)line + len + 1, (u32)__app_start, (u32)__bss_end)) return;
     memcpy(line, path, len);
     line[len] = 0;
     DCFlushRange(line, (len + 32) & ~31u);

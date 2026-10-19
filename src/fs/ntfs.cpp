@@ -763,7 +763,11 @@ bool NtfsVolume::file_of(const DirEntry& d, VolumeFile& out, std::string& error)
     }
     // Larger than the volume: not a size to round up to sectors, where one
     // near 2^64 wrapped to none (MIN-02).
-    if (geo_.cluster_bytes == 0 || data.data_size / geo_.cluster_bytes > geo_.total_clusters) {
+    const std::uint64_t capacity = geo_.cluster_bytes == 0 ? 0
+                                   : geo_.total_clusters > std::numeric_limits<std::uint64_t>::max() / geo_.cluster_bytes
+                                       ? std::numeric_limits<std::uint64_t>::max()
+                                       : geo_.total_clusters * geo_.cluster_bytes;
+    if (geo_.cluster_bytes == 0 || data.data_size > capacity) {
         error = what + " says it is larger than the drive";
         return false;
     }

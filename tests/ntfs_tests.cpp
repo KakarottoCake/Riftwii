@@ -463,6 +463,19 @@ void test_walk(std::uint64_t base) {
     EXPECT_CONTAINS(error, "not written to its end");
     EXPECT_FALSE(vol.lookup("/games/huge.iso", f, error));
     EXPECT_CONTAINS(error, "larger than the drive");
+    {
+        // One byte past the drive: compared in bytes, where whole clusters
+        // let it through.
+        Volume w(base);
+        Record over(1);
+        over.non_resident(0x80, runs({{340, 1}}), 0, 0, kClusters * kCluster + 1);
+        w.record(27, over.finish());
+        NtfsVolume wv;
+        EXPECT_TRUE(NtfsVolume::mount_at(w.reader(), base, wv, error));
+        VolumeFile g;
+        EXPECT_FALSE(wv.lookup("/games/huge.iso", g, error));
+        EXPECT_CONTAINS(error, "larger than the drive");
+    }
     // Kept in its MFT record: its bytes come with the lookup.
     EXPECT_TRUE(vol.lookup("/zz.txt", f, error));
     EXPECT_EQ(f.entry.size, 5u);

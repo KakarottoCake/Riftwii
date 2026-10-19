@@ -949,6 +949,15 @@ static void test_backup_files() {
     EXPECT_EQ(read_file(card).size(), 10u);
     EXPECT_FALSE(fs::exists(card + ".tmp"));  // put in place, nothing left beside it
     EXPECT_FALSE(fs::exists(card + ".old"));  // the old card, moved aside, is gone once the new one is in
+    // A write cut between its two renames left the card only at .old: the
+    // next write puts it back and replaces it, never removes it unread.
+    fs::rename(card, card + ".old");
+    EXPECT_TRUE(gc_overwrite_file(card, Bytes(12, 0x44), error));
+    EXPECT_EQ(read_file(card).size(), 12u);
+    EXPECT_FALSE(fs::exists(card + ".old"));
+    fs::rename(card, card + ".old");
+    EXPECT_TRUE(gc_overwrite_file(card, Bytes(12, 0x55), error));  // as long as the stranded card: still put back first
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
 
     // A copy whose source cannot be read leaves nothing behind.
     EXPECT_FALSE(gc_copy_file((root / "missing.raw").string(), (root / "out.raw").string(), error));
