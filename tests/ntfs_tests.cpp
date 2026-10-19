@@ -587,6 +587,7 @@ void test_partitions() {
         put64(e0 + 0x20, 999);
         e1[0] = 0xA2; e1[1] = 0xA0;                        // any non-zero type GUID
         put64(e1 + 0x20, 4096);
+        put64(e1 + 0x28, 4096 + 100000 - 1);              // its last block: an entry ending before it starts is skipped
         std::unique_ptr<ImageVolume> vol;
         EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error));
         EXPECT_TRUE(vol && std::string(vol->kind()) == "NTFS");

@@ -133,7 +133,9 @@ bool read_wbfs_layout(const UsbContainerSource& c, std::uint32_t slot, std::uint
     if (std::memcmp(h, "WBFS", 4) != 0) { error = "WBFS magic is missing"; return false; }
     hd_count = be32(h + 4);
     const std::uint8_t hd_shift = h[8], wbfs_shift = h[9];
-    if (hd_count == 0 || hd_shift != 9 || wbfs_shift < 15 || wbfs_shift >= 32) {
+    // The block-size shift as parse_wbfs_header bounds it (MIN-05): 31 was
+    // taken here and refused there.
+    if (hd_count == 0 || hd_shift != 9 || wbfs_shift < 15 || wbfs_shift > 30) {
         error = "WBFS has unsupported or invalid sector-size shifts (requires 512-byte hard sectors)"; return false;
     }
     if (h[0x0C + slot] == 0) {
