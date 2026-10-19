@@ -233,6 +233,15 @@ No hook or too many codes: the game starts without them, with a
   port (its LED), or the next free one when a GameCube controller holds
   that, and the LED follows; a remote that reconnects gets its slot back
   by its Bluetooth address.
+- `gc_gcad.c`: the GameCube controller adapter for Wii U, through the
+  same driver as Wii games (`runtime/rtgcad.c`) on the `/dev/usb/hid`
+  handle the menu opened before the hand-over (`TakeGcAdapterForGameCube`
+  in `boot.cpp`, by Wii games' rules on the menu's IOS). Its requests go
+  out polled from `PADRead`, and replies it did not wait for are routed
+  between it and `gc_bt.c` (`gc_ipc_route`). Its state is in MEM2
+  (placed only when the menu passed a handle). Its controllers take
+  ports by `gc_ports.h`'s rule before the Wii Remotes, which then skip
+  the ports they filled.
 - `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
   written back to its file's sectors as the game saves.
 - `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an

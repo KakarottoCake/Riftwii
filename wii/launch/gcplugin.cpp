@@ -174,6 +174,21 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.code_handler = codehandleronly_bin;
     request.code_handler_bytes = codehandleronly_bin_size;
 
+    // The GameCube adapter: opened here, on the menu's IOS the game keeps,
+    // as a Wii game's launch opens it (gc_gcad.h).
+    request.adapter_fd = -1;
+    request.adapter_dev = -1;
+    {
+        std::int32_t fd = -1, dev = -1;
+        std::uint32_t version = 0;
+        if (TakeGcAdapterForGameCube(fd, version, dev)) {
+            request.adapter_fd = fd;
+            request.adapter_version = version;
+            request.adapter_dev = dev;
+            request.adapter_rumble = extras.gc_rumble_off ? 0 : 1;
+        }
+    }
+
     if (g_crash_screen.size() == GC_CRASH_SCREEN_BYTES) {
         request.crash_screen = g_crash_screen.data();
         request.crash_screen_bytes = static_cast<std::uint32_t>(g_crash_screen.size());

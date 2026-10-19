@@ -94,6 +94,12 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 // adapter off.
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why);
 
+// The adapter's /dev/usb/hid handle for the game, with its HID version and
+// the adapter's v5 device id from the USB list (-1: none): the one
+// look_for_gc_adapter opened, else a fresh one once libogc's USB has let
+// go. False, with `why`, when /dev/usb/hid could not be opened.
+bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why);
+
 // Before the <memory> patches, on what find_pad_functions filled in.
 // `arena1_hi` and `arena2_lo` are the arena ends left by the resident
 // runtime (or the game's own without it); the IOS entries are the

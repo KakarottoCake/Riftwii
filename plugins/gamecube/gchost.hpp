@@ -51,6 +51,11 @@ struct GcLaunchExtras {
     const std::uint8_t* crash_screen = nullptr;
     std::size_t crash_screen_bytes = 0;
     bool crash_screen_way_back = false;
+    // The GameCube adapter's handle (-1: none), HID version, v5 device id.
+    std::int32_t adapter_fd = -1;
+    std::uint32_t adapter_version = 0;
+    std::int32_t adapter_dev = -1;
+    bool adapter_rumble = false;
     u64 way_back_title = 0;  // 0: none
     const void* way_back_view = nullptr;
     std::size_t way_back_view_bytes = 0;

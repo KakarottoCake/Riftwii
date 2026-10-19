@@ -131,6 +131,7 @@ struct gc_bt {
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
     uint32_t shakes;          /* shakes that pressed their button, all remotes */
+    uint32_t ctx;             /* struct gc_rt_context, for sending (set at each poll) */
     /* Rumble: what the game last asked of each port through PADControlMotor
      * (1 rumbles, 0 and 2 stop), and the trace's counters. A remote rumbles
      * while the port it plays on is asked to. */
@@ -227,8 +228,8 @@ int gc_bt_home_held(const struct gc_bt* bt);
  * a Wii U Pro Controller's reports instead, steps of their own. */
 void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro);
 /* A reply from IOS that came while another request was being waited
- * for: marked done if it is one of these. */
-void gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);
+ * for: marked done if it is one of these (1), else 0. */
+int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);
 #endif
 
 #endif

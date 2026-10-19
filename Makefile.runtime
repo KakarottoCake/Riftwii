@@ -53,7 +53,8 @@ PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o
 GCSRC   := runtime/gc
 GCOUT   := $(OUT)/gc
 GCBLOB  := $(OUT)/riftwii_gc.bin
-GCOBJS  := $(GCOUT)/gc_entry.o $(GCOUT)/gc_rt.o $(GCOUT)/gc_bt.o $(GCOUT)/gc_card.o
+GCOBJS  := $(GCOUT)/gc_entry.o $(GCOUT)/gc_rt.o $(GCOUT)/gc_bt.o $(GCOUT)/gc_card.o $(GCOUT)/gc_gcad.o \
+           $(GCOUT)/rtgcad.o
 
 # The GameCube blob's RVZ build (docs/RVZ.md, "GameCube games"): the same
 # blob built with RT_RVZ, plus RVZ packing and Zstandard, for GameCube
@@ -63,6 +64,7 @@ GCRVZOUT  := $(OUT)/gcrvz
 GCRVZBLOB := $(OUT)/riftwii_gc_rvz.bin
 GCRVZREL  := $(OUT)/riftwii_gc_rvz.rel
 GCRVZOBJS := $(GCRVZOUT)/gc_entry.o $(GCRVZOUT)/gc_rt.o $(GCRVZOUT)/gc_bt.o $(GCRVZOUT)/gc_card.o \
+             $(GCRVZOUT)/gc_gcad.o $(GCRVZOUT)/rtgcad.o \
              $(GCRVZOUT)/gc_rvz.o $(GCRVZOUT)/rtrvz.o $(GCRVZOUT)/rt_zstd.o
 
 # The in-game screenshot blob (runtime/shot): IOS_IoctlvAsync and PADRead
@@ -189,10 +191,10 @@ $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 $(GCOUT):
 	@mkdir -p $(GCOUT)
 
-$(GCOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
+$(GCOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_video.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h | $(GCOUT)
+$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
 $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
@@ -200,6 +202,12 @@ $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)
 
 $(GCOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(GCOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(GCOUT)/riftwii_gc.elf: $(GCOBJS) $(GCSRC)/gc.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(GCSRC)/gc.ld \
@@ -219,10 +227,10 @@ $(GCBLOB): $(GCOUT)/riftwii_gc.elf $(GCOUT)/riftwii_gc_alt.elf
 $(GCRVZOUT):
 	@mkdir -p $(GCRVZOUT)
 
-$(GCRVZOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_layout.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_video.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_rvz.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_layout.h $(GCSRC)/gc_video.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_gcad.h $(GCSRC)/gc_rvz.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
 $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
@@ -230,6 +238,12 @@ $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCS
 
 $(GCRVZOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<

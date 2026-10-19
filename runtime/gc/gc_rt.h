@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "gc_crash.h"
+#include "gc_layout.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
 #define GC_RT_VERSION 6u                 /* also in gc_entry.S's header */
@@ -155,6 +156,13 @@ enum gc_trace_word {
     GC_TR_RESTARTS = GC_TR_BT_PRO_RANGE + 4, /* restarts done (gc_on_hot_reset) */
     GC_TR_RESETS, /* the game's OSResetSystem calls << 16 | Reset button presses seen */
     GC_TR_RESET_LAST, /* the game's last OSResetSystem: reset << 8 | menu */
+    /* The GameCube adapter (gc_gcad.h): its link (rtgcad.h's GCAD_LINK_*)
+     * << 24 | HID version << 16 | the game ports its controllers filled
+     * << 8 | the device id's low byte; its reports << 16 | the requests
+     * that could not be sent; its last error. */
+    GC_TR_GCAD,
+    GC_TR_GCAD_REPORTS,
+    GC_TR_GCAD_ERROR,
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
@@ -348,6 +356,7 @@ struct gc_rt_context {
     uint32_t guard_copy[64];
     uint32_t bt;              /* struct gc_bt (loader-placed), 0: no Wii Remotes */
     uint32_t card;            /* struct gc_card (loader-placed), 0: the real slot A */
+    uint32_t gcad;            /* struct gc_gcad (loader-placed, gc_gcad.h), 0: no GameCube adapter */
     /* An RVZ game (the blob's RVZ build): the disc's GC_RUN_RVZ runs are
      * read from it. */
     uint32_t rvz;             /* struct gc_rvz (loader-placed), 0: an ISO */
@@ -409,8 +418,8 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x560u
-typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
+/* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
+typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) <= GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb);
@@ -442,8 +451,14 @@ void gc_invalidate(uint32_t address, uint32_t length);
 void gc_guard(struct gc_rt_context* ctx);
 uint32_t gc_irq_off(void);
 void gc_irq_restore(uint32_t msr);
-struct gc_bt;
-int32_t gc_ipc_send(uint32_t phys, struct gc_bt* bt);
+/* A request to IOS (its physical address), sent and taken; the replies
+ * that come meanwhile go to gc_ipc_route. 0, or -1000 when IOS takes
+ * nothing. */
+int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx);
+/* A reply nobody is waiting for: the Wii Remotes' reads (gc_bt.c) or the
+ * GameCube adapter's requests (gc_gcad.c); anything else (left from the
+ * menu) is dropped. */
+void gc_ipc_route(struct gc_rt_context* ctx, uint32_t reply);
 int32_t gc_sd_write(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf);
 int gc_sd_read(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t target);
 uint32_t gc_ipc_take(void);

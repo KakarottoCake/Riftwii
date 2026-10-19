@@ -423,9 +423,12 @@ U Pro Controllers, which play as GameCube controllers: see [Wii Remote
 controls in GameCube games](#wii-remote-controls-in-gamecube-games) for
 the buttons and how to change them. A remote takes the port its light
 shows, or the next free one when a GameCube controller is plugged into
-that port. The [GameCube controller adapter for
-Wii U](#gamecube-controller-adapter-for-wii-u) is not used in GameCube
-games yet.
+that port. Controllers in the [GameCube controller adapter for
+Wii U](#gamecube-controller-adapter-for-wii-u) play too, on the same
+rule: each takes its adapter port's number, or the next free one, before
+the Wii Remotes take what is left. On a Wii U, a Wii Mini and a Family
+Edition Wii, which have no GameCube ports, the adapter is the only way
+to play with GameCube controllers.
 
 **Mods:** Riivolution packs for a GameCube game go in
 `sd:/riivolution/` as for Wii games, and are picked on the game's page.
@@ -745,6 +748,12 @@ ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
 
+GameCube games follow the same setting. They keep the menu's IOS (IOS
+58 unless you changed it), so on a Wii U the adapter works there with
+**Automatic**, and their reads from the SD card do not go through d2x.
+RVZ GameCube games get the adapter too. **GameCube rumble** in Settings
+also reaches the adapter's controllers.
+
 > **Warning for Wii U owners: On can freeze the console.** With **On**,
 > a game from the SD card or a USB drive sometimes freezes at 97% while
 > it starts: the d2x cIOS never answers RiftWii's request for the
@@ -986,8 +995,10 @@ yet confirmed on real Wiis and may not work on yours. The menu marks
 them (a note before the launch, or "Experimental" in the Settings note):
 
 - **The GameCube controller adapter** in games (it works in the menu on a
-  Wii U). It stays off for RVZ games
+  Wii U). It stays off for RVZ Wii games
   ([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)).
+  In GameCube games it has only been tried in Dolphin, which has no
+  adapter.
 - **RVZ games**: if one does not start or play, use a WBFS or ISO copy.
 - **Packs on the USB drive** (`usb:/riivolution`): if the game does not
   start, copy the pack to the SD card.

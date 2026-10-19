@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "gc_bt.h"
+#include "gc_gcad.h"
 #include "gc_card.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
@@ -1827,6 +1828,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t stream_addr = mem2_take(sizeof(gc_rt_stream));
     const std::uint32_t trace_addr = mem2_take(512);
     const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
+    // The GameCube adapter's state (gc_gcad.h), when the menu opened it.
+    const std::uint32_t gcad_addr = extras.adapter_fd >= 0 ? mem2_take(sizeof(gc_gcad)) : 0;
     const std::uint32_t crash_addr = mem2_take(GC_CRASH_SCREEN_BYTES);  // the card, then the strip
     const std::uint32_t runs_addr = mem2_take(runs_bytes);
     // An RVZ's reader: its state and the pieces of the RVZ on the card.
@@ -2172,6 +2175,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // opens the Bluetooth controller at the game's first PADRead.
     ctx->bt = bt_addr;
     static_cast<gc_bt*>(staged(bt_addr))->map = controls;
+    // The GameCube adapter for Wii U: its driver runs from the game's
+    // PADRead on the handle the menu opened (gc_gcad.h); its controllers
+    // take their ports before the Wii Remotes.
+    if (gcad_addr != 0) {
+        auto* ad = static_cast<gc_gcad*>(staged(gcad_addr));
+        ad->fd = extras.adapter_fd;
+        ad->version = extras.adapter_version;
+        ad->known_dev = extras.adapter_dev;
+        ad->ticks_per_ms = 60750;  // the timebase, the bus clock / 4 in Wii mode
+        ad->rumble = extras.adapter_rumble ? 1 : 0;
+        for (std::uint8_t& port : ad->port_of) port = GC_PORT_NONE;
+        ctx->gcad = gcad_addr;
+        logf("GameCube: GameCube adapter on (/dev/usb/hid v%u fd %d, adapter device %d, rumble %s), state 0x%08x\n",
+             static_cast<unsigned>(extras.adapter_version), static_cast<int>(extras.adapter_fd),
+             static_cast<int>(extras.adapter_dev), extras.adapter_rumble ? "on" : "off", gcad_addr);
+    }
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
     // Its landing words (gc_card.h), with the card on or off: a jump to the
