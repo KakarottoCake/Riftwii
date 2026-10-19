@@ -6083,7 +6083,9 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 	// Marked as the undo copy, which the list names "before you restored".
 	riftwii::GcBackupStamp stamp = riftwii::gc_backup_stamp(local);
 	stamp.undo = true;
-	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, stamp);
+	// The copy being restored is not pruned to make room for the undo one.
+	const std::string source = from.substr(from.rfind('/') + 1);
+	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, stamp, source);
 	if (before.what == riftwii::GcBackupResult::What::Failed) {
 		logf("GameCube card %s: not restored, as the card as it is now could not be backed up: %s\n", cardPath.c_str(),
 			before.error.c_str());
