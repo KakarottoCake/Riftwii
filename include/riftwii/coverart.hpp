@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Box art for the menu, from GameTDB (https://www.gametdb.com): the
@@ -41,7 +42,8 @@ int http_answered_status(const std::string& error);
 // answer about the cover.
 bool cover_answer_means_missing(int status);
 
-// How one cover download ended (wii/menu/covers.cpp's FetchCover).
+// How one picture's download ended (wii/menu/covers.cpp's FetchCover, and
+// the same for the shelf's boxes and the 3D covers).
 enum class CoverOutcome {
     Stored,       // downloaded and kept on the SD card
     NotFound,     // GameTDB has none, in any region tried
@@ -49,14 +51,20 @@ enum class CoverOutcome {
     CannotStore,  // downloaded, but the SD card could not take it (full?)
 };
 
-// The cover downloads of one menu session, one after the other. A game
-// GameTDB has no cover for, or one whose download got no answer, is passed
-// over and the rest go on: some titles have no GameTDB entry, and one slow
-// answer is not a dead network (issue #130). Downloads stop only once
+// The downloads of one kind of GameTDB picture (covers, the shelf's boxes,
+// 3D covers) in one menu session, one after the other. A game GameTDB has
+// no picture for, or one whose download got no answer, is passed over and
+// the rest go on: some titles have no GameTDB entry, and one slow answer is
+// not a dead network (issue #130). Downloads stop only once
 // kNoAnswerInARow in a row got no answer, or when the card cannot store one.
 class CoverDownloads {
 public:
     static constexpr unsigned kNoAnswerInARow = 3;
+
+    // `log_name` starts its log lines ("Covers"), `picture` names one of
+    // them in the summary ("cover").
+    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover")
+        : log_name_(std::move(log_name)), picture_(std::move(picture)) {}
 
     // Counts one download; true when the downloads should stop now.
     bool count(CoverOutcome outcome);
@@ -66,13 +74,17 @@ public:
     std::string take_summary();
 
     // A fresh start (Settings > Look for games again).
-    void reset() { *this = CoverDownloads(); }
+    void reset() { *this = CoverDownloads(log_name_, picture_); }
+
+    const std::string& log_name() const { return log_name_; }
 
     unsigned stored() const { return stored_; }
     unsigned not_found() const { return not_found_; }
     unsigned no_answer() const { return no_answer_; }
 
 private:
+    std::string log_name_;
+    std::string picture_;
     unsigned stored_ = 0;
     unsigned not_found_ = 0;
     unsigned no_answer_ = 0;
