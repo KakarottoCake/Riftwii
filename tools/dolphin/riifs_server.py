@@ -7,7 +7,11 @@ Serves ROOT (a folder holding riivolution/*.xml and the packs' files) the
 way docs/RIIFS.md describes, and answers the broadcast ping so the Wii can
 find it. Writes are refused. For real use, any RiiFS server works.
 
-    python tools/dolphin/riifs_server.py ROOT [--port 1137] [--verbose]
+    python tools/dolphin/riifs_server.py ROOT [--port 1137] [--bind 127.0.0.1] [--verbose]
+
+Files are served from 127.0.0.1 only unless --bind says otherwise (Dolphin
+reaches the PC there); the broadcast ping, which only gives the port, is
+answered on every interface.
 """
 import argparse
 import os
@@ -22,10 +26,21 @@ NAME_BYTES = 1024
 
 
 def local_path(root, path):
+    """The file under ROOT a RiiFS path names, or None when it would lie
+    outside ROOT. On Windows a part such as "C:" or "\\\\host" made
+    os.path.join start again from there, out of ROOT (SEC-05): the joined
+    path is resolved and must still be inside ROOT."""
     parts = [p for p in path.replace('\\', '/').split('/') if p not in ('', '.')]
-    if '..' in parts:
+    if '..' in parts or any(':' in p for p in parts):
         return None
-    return os.path.join(root, *parts)
+    full = os.path.realpath(os.path.join(root, *parts))
+    base = os.path.realpath(root)
+    try:
+        if os.path.commonpath([base, full]) != base:
+            return None
+    except ValueError:  # another drive altogether
+        return None
+    return full
 
 
 def stat_bytes(full):
@@ -163,15 +178,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('root')
     parser.add_argument('--port', type=int, default=1137)
+    parser.add_argument('--bind', default='127.0.0.1', help='address to serve files on (0.0.0.0: every interface)')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
-    server = socketserver.ThreadingTCPServer(('', args.port), Connection)
+    server = socketserver.ThreadingTCPServer((args.bind, args.port), Connection)
     server.daemon_threads = True
     server.root = os.path.abspath(args.root)
     server.verbose = args.verbose
     threading.Thread(target=answer_pings, args=(args.port,), daemon=True).start()
-    print('RiiFS test server: %s on port %d' % (server.root, args.port), flush=True)
+    print('RiiFS test server: %s on %s port %d' % (server.root, args.bind, args.port), flush=True)
     server.serve_forever()
 
 
