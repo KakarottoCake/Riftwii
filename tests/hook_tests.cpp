@@ -1932,9 +1932,28 @@ static void TestFsRenameImport() {
     EXPECT_EQ(nand.opens, 3u);
     EXPECT_EQ(st->fs.busy, 0u);
     EXPECT_EQ(log.calls, 0u);
+    // A second import while the job runs, from a thread: refused with
+    // -102, not run over the job's scratch and temp names (BUG-08); and a
+    // clone that comes due waits for a later call.
+    EXPECT_EQ(st->copy_busy, 1u);
+    rt_host_fs_in_thread = 1;
+    rename_args("/tmp/other.bin", prefix + "/other.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+    EXPECT_EQ(st->import_refused, 3u);
+    EXPECT_EQ(st->imports, 5u);
+    st->clone_pending = 1;
+    FsCopyPath(path, "/dev/stm/immediate");
+    args[0] = FsAddr(path); args[1] = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);  // replayed
+    EXPECT_EQ(st->clone_pending, 1u);
+    EXPECT_EQ(st->clones, 0u);
+    st->clone_pending = 0;
+    rt_host_fs_in_thread = 0;
     ios.drain();
     EXPECT_EQ(st->job.active, 0u);
-    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(st->copy_busy, 0u);
+    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    if (ios.delivered.size() == 2) EXPECT_EQ(ios.delivered.front().result, RTFAT_EACCESS);
     EXPECT_EQ(ios.delivered.back().cb, 0x80001000u);
     EXPECT_EQ(ios.delivered.back().ud, 0x80002000u);
     EXPECT_EQ(ios.delivered.back().result, 0);
@@ -2030,7 +2049,7 @@ static void TestFsRenameImport() {
     rename_args("/tmp/again.bin", prefix + "/again.bin");
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    EXPECT_EQ(st->import_refused, 3u);
+    EXPECT_EQ(st->import_refused, 4u);
     EXPECT_EQ(st->imports, 8u);
     ios.drain();
     EXPECT_EQ(ios.delivered.back().result, RTFAT_EACCESS);

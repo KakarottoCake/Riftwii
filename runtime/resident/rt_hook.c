@@ -1663,18 +1663,35 @@ static int32_t rt_fs_copy_in(struct rt_context* ctx, struct rt_fs_state* st, int
     return rt_fs_ioctl_sync(st, fs_fd, RTFS_IOCTL_DELETE, (uint32_t)(uintptr_t)src, RTFS_PATH_BYTES, 0, 0);
 }
 
+/* The synchronous import, the asynchronous import job and the clone share
+ * one set of scratch (st->stats, st->attr, st->path) and the temp names
+ * .rwstage.tmp/.rwback.tmp. A game thread and an IPC callback can both
+ * start one, so the scratch is claimed with interrupts off, and a second
+ * copy is refused rather than run over the first: a GETFILESTATS answer
+ * overwritten mid-import committed a truncated save (BUG-08). */
+static int rt_fs_claim_copy(struct rt_fs_state* st) {
+    const uint32_t msr = rt_interrupts_off();
+    const int claimed = st->copy_busy == 0;
+    if (claimed) st->copy_busy = 1;
+    rt_interrupts_restore(msr);
+    return claimed;
+}
+
+static void rt_fs_release_copy(struct rt_fs_state* st) { st->copy_busy = 0; }
+
 /* A rename from outside the redirected directory into it (rt_hook.h):
  * the NAND file `src` becomes the card file `dst`, then leaves NAND.
  * `fs_fd` is the game's /dev/fs fd the rename came on. */
 static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd, const char* src,
                             const char* dst) {
     int32_t r;
-    if (!rt_fs_has_sync_originals(st)) {
+    if (!rt_fs_has_sync_originals(st) || !rt_fs_claim_copy(st)) {
         st->import_refused++;
         return RTFAT_EACCESS;
     }
     st->imports++;
     r = rt_fs_copy_in(ctx, st, fs_fd, src, dst, 1);
+    rt_fs_release_copy(st);
     if (r < 0) st->import_failures++;
     return r;
 }
@@ -2026,6 +2043,7 @@ static int rt_fs_job_run(struct rt_context* ctx, struct rt_fs_state* st) {
 static void rt_fs_job_end(struct rt_context* ctx, struct rt_fs_state* st) {
     struct rt_fs_job* j = &st->job;
     j->active = 0;
+    rt_fs_release_copy(st);
     j->phase = RT_FS_JOB_IDLE;
     if (j->result < 0) st->import_failures++;
     rt_fs_report_done(ctx, j->result);
@@ -2055,7 +2073,10 @@ static int rt_fs_job_start(struct rt_context* ctx, struct rt_fs_state* st, uint3
     struct rt_fs_job* j = &st->job;
     uint32_t i;
     int32_t r;
-    if (j->active || !rt_fs_has_async_originals(ctx, st)) return 0;
+    if (!rt_fs_has_async_originals(ctx, st)) return 0;
+    /* The scratch is free only while no job is active either (copy_busy is
+     * held from here to rt_fs_job_end). */
+    if (!rt_fs_claim_copy(st)) return 0;
     rt_zero_bytes((uint8_t*)j, sizeof(*j));
     j->active = 1;
     j->tag.kind = RT_FS_OP_JOB;
@@ -2075,6 +2096,7 @@ static int rt_fs_job_start(struct rt_context* ctx, struct rt_fs_state* st, uint3
         if (!rt_fs_internal_path(st, j->stage, stage_name) ||
             !rt_fs_internal_path(st, j->backup, backup_name)) {
             j->active = 0;
+            rt_fs_release_copy(st);
             return 0;
         }
     }
@@ -2137,12 +2159,11 @@ static void rt_fs_clone_unmark(struct rt_context* ctx, struct rt_fs_state* st, i
  * each name copied by rt_fs_copy_in with the same path on both sides
  * (NAND through the original IOS_Open, the card through the engine,
  * which classifies by the game's /dev/fs fd once that is known). */
-static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
+static void rt_fs_clone_run(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t fd, engine_fd, r;
     uint32_t count, i, n;
     int listed = 0;
     char* p = st->path;
-    st->clone_pending = 0;
     if (!rt_fs_has_sync_originals(st) || st->ioctlv_sync == 0) {
         st->clone_failures++;
         return;
@@ -2223,6 +2244,23 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
     }
     if (listed) rt_fs_clone_unmark(ctx, st, engine_fd);
     rt_fs_close_sync(st, fd);
+}
+
+/* The clone runs once, on the first game call that finds both the clone
+ * pending and the copy scratch free; one that finds an import in progress
+ * leaves it pending for a later call. Claimed with interrupts off, so two
+ * threads never both run it (BUG-08). */
+static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
+    const uint32_t msr = rt_interrupts_off();
+    const int claimed = st->clone_pending != 0 && st->copy_busy == 0;
+    if (claimed) {
+        st->clone_pending = 0;
+        st->copy_busy = 1;
+    }
+    rt_interrupts_restore(msr);
+    if (!claimed) return;
+    rt_fs_clone_run(ctx, st);
+    rt_fs_release_copy(st);
 }
 
 /* Whether an ISFS rename crosses the directory's boundary: 1 inward
