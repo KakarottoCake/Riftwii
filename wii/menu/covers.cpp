@@ -53,10 +53,17 @@ bool WriteAll(const std::string& path, const std::vector<std::uint8_t>& bytes) {
     const std::string temp = path + ".part";
     FILE* f = std::fopen(temp.c_str(), "wb");
     if (!f) return false;
-    const bool ok = bytes.empty() || std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
-    std::fclose(f);
+    bool ok = bytes.empty() || std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
+    ok = std::fclose(f) == 0 && ok;
+    // The old file goes only once the new one is whole: a full card used
+    // to cost the picture that was already there (BUG-13). FAT's rename
+    // does not replace a file, so the old one is removed first.
+    if (!ok) {
+        std::remove(temp.c_str());
+        return false;
+    }
     std::remove(path.c_str());
-    if (!ok || std::rename(temp.c_str(), path.c_str()) != 0) {
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
         std::remove(temp.c_str());
         return false;
     }
