@@ -38,7 +38,9 @@ namespace riftwii::wii {
 namespace {
 
 constexpr const char* kTitlesUrl = "http://www.gametdb.com/wiitdb.txt?LANG=";
-constexpr const char* kCheatsUrl = "http://codes.rc24.xyz/txt.php?txt=";
+// Over https: a cheat's code runs inside the game, so nobody on the way
+// may change it (SEC-02; rc24's chain is in tlsroots.c).
+constexpr const char* kCheatsUrl = "https://codes.rc24.xyz/txt.php?txt=";
 constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
@@ -902,7 +904,7 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
     return true;
 }
 
-bool DownloadCheats(const std::string& game_id, std::string& error) {
+bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled) {
     std::vector<std::uint8_t> body;
     // A WiiWare or Virtual Console game is in the archive under its
     // four-letter code (riftwii/nandchannel.hpp's channel_cheat_code).
@@ -926,10 +928,14 @@ bool DownloadCheats(const std::string& game_id, std::string& error) {
     // tester lost theirs to one).
     std::string old = read_cheat_file(game_id);
     std::size_t kept = 0;
+    std::size_t held = 0;
     if (!old.empty()) {
-        const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept);
+        const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept, enabled, &held);
         body.assign(merged.begin(), merged.end());
     }
+    if (held != 0)
+        logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
+             static_cast<unsigned>(held), game_id.c_str());
     if (!write_file(CheatPath(game_id), body, error)) return false;
     logf("Cheats: %u for %s from the GeckoCodes archive, %u of the player's own kept\n",
          static_cast<unsigned>(file.cheats.size()), game_id.c_str(), static_cast<unsigned>(kept));

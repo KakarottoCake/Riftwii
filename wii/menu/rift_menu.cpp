@@ -7532,7 +7532,7 @@ static void MenuCheats(FrontendState& state)
 		std::string error;
 		const std::size_t before = loaded ? file.cheats.size() : 0;
 		const bool hadFile = loaded;
-		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error);
+		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names);
 		HaltGui();
 		if (ok) {
 			load(false);
