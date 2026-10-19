@@ -4063,9 +4063,9 @@ FR = {
     "Reading the USB drive... (a big drive takes a moment)":
         "Lecture du stockage USB... (un grand stockage peut prendre un moment)",
     "{1} opens once RiftWii has finished reading the drives.":
-        "{1} s'ouvrira une fois que RiftWii aura fini de lire les disques.",
+        "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
     "RiftWii is still reading the drives.":
-        "RiftWii est encore en train de lire les disques.",
+        "RiftWii est encore en train de lire les stockages.",
     "Reading the disc...":
         "Lecture du disque...",
     "scan failed":

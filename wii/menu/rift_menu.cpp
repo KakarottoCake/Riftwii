@@ -3514,8 +3514,10 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 }
 
 // The USB drive's part, the scan's last, with the GUI halted: what the
-// scan found to say is said now, once both drives are in.
-static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part)
+// scan found to say is said now, once both drives are in. Without
+// `prompts` (RiftWii is being left) nothing is asked: the popups would
+// only hold up the exit.
+static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part, bool prompts = true)
 {
 	// The thread has handed over its last part and is returning: gone
 	// before anything else (a launch) takes the drives.
@@ -3532,9 +3534,11 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
-	WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
-	if (wiiuDrive) NoteWiiUDrive();
-	if (g_sdScanOk) ReportCardLog();
+	if (prompts) {
+		WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
+		if (wiiuDrive) NoteWiiUDrive();
+		if (g_sdScanOk) ReportCardLog();
+	}
 	if (wiiuDrive) {
 		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
 		state.usb_catalog.status = WiiUDriveStatus();
@@ -3549,7 +3553,7 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 				{std::to_string(riftwii::wii::MenuIosLost())});
 		}
 	}
-	OfferReport();
+	if (prompts) OfferReport();
 	// A newer release, asked at every start when downloads are on, in the
 	// background: the network takes seconds to come up, and the menu used
 	// to hold every press until it had (Home answers it, TakeUpdateCheck).
@@ -4551,7 +4555,7 @@ static int MenuSource(FrontendState& state)
 		HaltGui();
 		riftwii::wii::DriveScanPart part;
 		if (riftwii::wii::TakeSdScan(part)) TakeSdScanPart(state, part);
-		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part);
+		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part, menu != MENU_EXIT);
 		g_openWhenScanned.clear();
 		g_focusRestored = true;
 		// Not when leaving RiftWii: the popups would only hold it up.
