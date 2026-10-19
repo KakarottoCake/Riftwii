@@ -75,6 +75,11 @@ T = {
         "RiftWiiはまだドライブを読み込んでいます。",
         "O RiftWii ainda está lendo as unidades.",
         "RiftWii sta ancora leggendo le unità."),
+    "Waiting for RiftWii to finish reading the drives...": (
+        "Esperando a que RiftWii termine de leer las unidades...",
+        "RiftWiiがドライブを読み終わるのを待っています...",
+        "Esperando o RiftWii terminar de ler as unidades...",
+        "In attesa che RiftWii finisca di leggere le unità..."),
     "Reading the disc...": ("Leyendo el disco...", "ディスクを読み込んでいます...", "Lendo o disco...", "Lettura del disco..."),
     "scan failed": ("error al buscar", "検索に失敗しました", "falha na busca", "ricerca non riuscita"),
     "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)": (
@@ -2269,6 +2274,8 @@ KO = {
         "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다.",
     "RiftWii is still reading the drives.":
         "RiftWii가 아직 드라이브를 읽는 중입니다.",
+    "Waiting for RiftWii to finish reading the drives...":
+        "RiftWii가 드라이브를 다 읽기를 기다리는 중...",
     "Reading the disc...":
         "디스크 읽는 중...",
     "scan failed":
@@ -4066,6 +4073,8 @@ FR = {
         "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
     "RiftWii is still reading the drives.":
         "RiftWii est encore en train de lire les stockages.",
+    "Waiting for RiftWii to finish reading the drives...":
+        "En attente que RiftWii finisse de lire les stockages...",
     "Reading the disc...":
         "Lecture du disque...",
     "scan failed":

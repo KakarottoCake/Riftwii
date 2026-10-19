@@ -3500,6 +3500,15 @@ static std::string g_openWhenScanned;  // the tile picked during the scan, by it
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
 static bool g_forgetPicturesAfterScan = false;
+// The scan was started by Home opening with no drives read (the start, or
+// Settings > Look for games again): Home asks its questions (an old channel,
+// what's new...) once both drives are in, even when Settings was opened
+// meanwhile.
+static bool g_askAfterScan = false;
+// The game names were read again in Settings (a language, a download)
+// while the scan's parts were still out: they are renamed when Home takes
+// them.
+static bool g_renameAfterScan = false;
 
 static void StartScan()
 {
@@ -3518,6 +3527,7 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 	state.channels = std::move(part.channels);
 	g_packs = std::move(part.packs);
 	g_sdScanOk = part.ok;
+	if (g_renameAfterScan) riftwii::wii::RenameGames(state.sd_catalog);
 	if (!part.ok) {
 		logf("SD scan failed: %s\n", part.error.c_str());
 		state.sd_catalog.status = "SD: " + (part.error.empty() ? std::string(tr("scan failed")) : part.error);
@@ -3541,6 +3551,10 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	}
 	state.usb_catalog = std::move(part.catalog);
 	g_packs = std::move(part.packs);
+	if (g_renameAfterScan) {
+		riftwii::wii::RenameGames(state.usb_catalog);
+		g_renameAfterScan = false;
+	}
 	const bool usb = part.ok;
 	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
@@ -3578,6 +3592,24 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 		updateChecked = true;
 		riftwii::wii::StartUpdateCheck();
 	}
+}
+
+// Settings while the drives are still being read (Home leaves the scan
+// running when Settings opens): what reads the drives, the NAND or the
+// network, or restarts RiftWii, waits for the scan first. With the GUI
+// halted; `line` says why meanwhile. Home takes the scan's parts when it
+// is back.
+static void WaitForDriveScan(GuiText& line)
+{
+	if (!g_scanning || riftwii::wii::DriveScanDone()) return;
+	logf("Settings: waiting for the scan to finish reading the drives\n");
+	line.SetText(tr("Waiting for RiftWii to finish reading the drives..."));
+	while (!riftwii::wii::DriveScanDone()) {
+		ResumeGui();
+		usleep(50000);
+		HaltGui();
+	}
+	riftwii::wii::WaitDriveScan();
 }
 
 // The start's update check once it has finished: the player is asked
@@ -4016,10 +4048,9 @@ static int MenuSource(FrontendState& state)
 	// What Home asks after a look at the drives it opened with (the start,
 	// or Settings > Look for games again), once both drives are in. With
 	// the GUI halted; false when Home has to close at once.
-	bool askAfterScan = false;
 	const auto askAfterLook = [&]() -> bool {
-		if (!askAfterScan) return true;
-		askAfterScan = false;
+		if (!g_askAfterScan) return true;
+		g_askAfterScan = false;
 		// An old channel: nothing of Home until it is updated (the popup
 		// returns with the GUI halted, as this function's end has it).
 		// After the scan, so an adapter's pads can answer it too. Home is
@@ -4043,7 +4074,7 @@ static int MenuSource(FrontendState& state)
 		// The drives are read while Home runs: their games show as each
 		// drive is done (the GameCube adapter may start once both are).
 		StartScan();
-		askAfterScan = true;
+		g_askAfterScan = true;
 		refresh(true);
 		focusAtOpen = focusedTile();
 	} else {
@@ -4572,10 +4603,16 @@ static int MenuSource(FrontendState& state)
 		ResumeGui();
 	}
 
-	// Home closed (Settings, HOME > exit) while the drives are still being
+	// Home closed (HOME > exit, a channel) while the drives are still being
 	// read: what comes next may read them too, so the scan finishes first,
-	// its line kept up to date meanwhile.
-	if (g_scanning) {
+	// its line kept up to date meanwhile. Settings opens at once: the scan
+	// goes on, what in Settings needs the drives waits for it
+	// (WaitForDriveScan), and Home takes its parts when it is back (a
+	// tester's Settings took 12 s to open behind a 326-game WBFS drive).
+	// A game picked during the scan does not open behind the player's back
+	// once they have gone to Settings.
+	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
+	if (g_scanning && menu != MENU_OPTIONS) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
 			usleep(50000);
@@ -9685,10 +9722,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	// New names: the title list again, and the scanned games renamed.
 	bool namesStale = false;
-	const auto renameGames = [&]() {
+	const auto renameGames = [&](GuiText& line) {
+		// The scan reads the title list too.
+		WaitForDriveScan(line);
 		riftwii::wii::ReloadTitles();
 		riftwii::wii::RenameGames(state.usb_catalog);
 		riftwii::wii::RenameGames(state.sd_catalog);
+		if (g_scanning) g_renameAfterScan = true;
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
@@ -10059,6 +10099,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					logf("Settings: someone tried to turn the clock off\n");
 					if (ShowPopup("Would you look at the time", tr("Nothing o'clock. The clock stays."),
 						    tr("Restart"), tr("Later")) == 0) {
+						WaitForDriveScan(noteTxt);
 						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme,
 							tr("Theme: {1}", {themeName(settings.theme)}));
 						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
@@ -10090,13 +10131,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Downloads are off. Turn on Download names and cheats first."));
 						break;
 					}
+					WaitForDriveScan(noteTxt);
 					note(tr("Downloading game names..."));
 					ResumeGui();
 					std::string error;
 					const bool ok = riftwii::wii::UpdateTitles(riftwii::wii::MenuLanguage(), true, error);
 					HaltGui();
 					if (ok) {
-						renameGames();
+						renameGames(noteTxt);
 						note(tr("Game names updated."));
 					} else {
 						logf("Titles: update failed: %s\n", error.c_str());
@@ -10137,6 +10179,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kGcTest:
+					// The adapter starts once the scan's reads are over (TakeUsbScanPart).
+					WaitForDriveScan(noteTxt);
+					riftwii::wii::GcAdapterMenuAllowStart();
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					ResumeGui();
@@ -10169,6 +10214,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(error);
 						break;
 					}
+					WaitForDriveScan(noteTxt);
 					riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Settings reset to the defaults"));
 					note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
 					break;
@@ -10220,10 +10266,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					noteTxt.SetText("The next launch copies every file of its network packs again.");
 					break;
 				case kRescan:
+					WaitForDriveScan(noteTxt);
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;
 				case kWads:
+					// The scan lists the emulated NAND's channels the install writes.
+					WaitForDriveScan(noteTxt);
 					if (InstallWads()) {
 						g_scanned = false;
 						menu = MENU_SOURCE;
@@ -10234,6 +10283,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Downloads are off. Turn on Download names and cheats first."));
 						break;
 					}
+					WaitForDriveScan(noteTxt);
 					note(tr("Asking GitHub..."));
 					ResumeGui();
 					std::string latest, error;
@@ -10256,8 +10306,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kReport:
-					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0)
+					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0) {
+						WaitForDriveScan(noteTxt);
 						SendReport("sent from Settings");
+					}
 					break;
 				case kWiiChannel: {
 					if (!channelCan) {
@@ -10295,6 +10347,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				    tr("Restart"), tr("Later")) == 0) {
 				logf("Settings: theme %s, menu font %s; restarting the menu\n", settings.theme.c_str(),
 					settings.menu_font.c_str());
+				WaitForDriveScan(noteTxt);
 				riftwii::wii::WarmRestart(theme ? riftwii::wii::RestartKind::Theme : riftwii::wii::RestartKind::MenuFont,
 					theme ? tr("Theme: {1}", {themeName(settings.theme)})
 						: tr("Menu font: {1}", {settings.menu_font == "wii" ? tr("Wii Menu") : std::string("RiftWii")}));
@@ -10305,9 +10358,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (menu != MENU_NONE && menu != MENU_EXIT && namesStale) {
 			// The game names in the new language (downloaded if the
 			// Wii is online and the list is not on the card yet).
+			WaitForDriveScan(noteTxt);
 			noteTxt.SetText(tr("Downloading game names..."));
 			ResumeGui();
-			renameGames();
+			renameGames(noteTxt);
 			HaltGui();
 		}
 		ResumeGui();
@@ -10654,6 +10708,11 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
+	// Leaving the menu from Settings while the drives were still being read
+	// (a channel, HOME > exit): the scan is over before anything else takes
+	// the drives.
+	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
+	riftwii::wii::WaitDriveScan();
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL) {
 		// The GUI thread is halted after this; main prints the boot log

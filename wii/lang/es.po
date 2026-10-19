@@ -57,6 +57,9 @@ msgstr "{1} se abrirá cuando RiftWii termine de leer las unidades."
 msgid "RiftWii is still reading the drives."
 msgstr "RiftWii todavía está leyendo las unidades."
 
+msgid "Waiting for RiftWii to finish reading the drives..."
+msgstr "Esperando a que RiftWii termine de leer las unidades..."
+
 msgid "Reading the disc..."
 msgstr "Leyendo el disco..."
 

@@ -57,6 +57,9 @@ msgstr "{1}は、RiftWiiがドライブを読み終わると開きます。"
 msgid "RiftWii is still reading the drives."
 msgstr "RiftWiiはまだドライブを読み込んでいます。"
 
+msgid "Waiting for RiftWii to finish reading the drives..."
+msgstr "RiftWiiがドライブを読み終わるのを待っています..."
+
 msgid "Reading the disc..."
 msgstr "ディスクを読み込んでいます..."
 
