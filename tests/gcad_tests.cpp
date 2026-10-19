@@ -993,6 +993,35 @@ static void TestGcPadMotorSearch() {
     EXPECT_EQ(found, 0u);
     EXPECT_TRUE(error.find("branch") != std::string::npos);
 
+    // GCC's PADControlMotor (Sonic Riders Tournament Edition): its early
+    // return's epilogue and blr come before the motor's words, then mflr r0
+    // takes the link register mid-function. The start is the stwu after the
+    // previous function's blr, not the word after the early blr.
+    Asm gcc{0x80200000u, {}};
+    gcc.blr();
+    const std::uint32_t gcc_start = gcc.here();
+    gcc.op(0x9421FFE8u);  // stwu r1,-24(r1)
+    gcc.op(0x93E10014u);  // stw r31,20(r1)
+    gcc.op(0x3BE00000u);  // li r31,0
+    gcc.op(0x7FE9FB78u);  // mr r9,r31
+    gcc.op(0x40820010u);  // bne +16 (to the mflr)
+    gcc.op(0x83E10014u);  // lwz r31,20(r1)
+    gcc.op(0x38210018u);  // addi r1,r1,24
+    gcc.blr();            // the early return
+    gcc.op(0x7C0802A6u);  // mflr r0
+    gcc.op(0x93A1000Cu);  // stw r29,12(r1)
+    gcc.op(0x57A407BEu);  // clrlwi r4,r29,30
+    gcc.op(0x64840040u);  // oris r4,r4,0x40
+    gcc.op(0x60840300u);  // ori r4,r4,0x300
+    gcc.op(0x7FC3F378u);  // mr r3,r30
+    gcc.bl(kSetCommand);
+    gcc.bl(kTransfer);
+    gcc.blr();
+    code = gcc.bytes();
+    text = {{gcc.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, gcc_start);
+
     // Two such functions: refused, not guessed.
     Asm twice{0x80200000u, {}};
     twice.blr();

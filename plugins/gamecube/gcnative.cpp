@@ -717,6 +717,47 @@ std::uint32_t find_pad_read(const Code& code) {
     return best;
 }
 
+// The start of the function holding `at` in GCC's code (gc_rt.h,
+// "libogc"), which puts a function's epilogue and its blr in the middle:
+// the nearest "stwu r1,-N(r1)" before `at` that follows a blr or a b. 0
+// for none within 4 KB (a leaf function without a frame).
+std::uint32_t gcc_function_start(const Code& code, std::uint32_t at) {
+    for (std::uint32_t a = at; code.has(a) && at - a < 0x1000; a -= 4) {
+        if ((code.at(a) & 0xFFFF8000) != 0x94218000) continue;  // stwu r1,-N(r1)
+        const std::uint32_t before = code.at(a - 4);
+        if (before == 0x4E800020 || (before & 0xFC000003) == 0x48000000) return a;
+    }
+    return 0;
+}
+
+// PADRead as GCC builds it (Sonic Riders Tournament Edition): the
+// PADStatus of a port it cannot read is cleared by three word stores (0,
+// 4, 8) and its err byte (10) written, where the SDK's calls memset with
+// 10; the function with the most such places, at least three.
+std::uint32_t find_pad_read_gcc(const Code& code) {
+    std::map<std::uint32_t, unsigned> sites;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w >> 26) != 38 || (w & 0xFFFF) != 10) return;  // stb rE,10(rS)
+        const unsigned status = (w >> 16) & 31;
+        unsigned cleared = 0;
+        for (std::uint32_t b = a - 12; b < a; b += 4) {
+            const std::uint32_t x = code.at(b);
+            const std::uint32_t disp = x & 0xFFFF;
+            if ((x >> 26) == 36 && ((x >> 16) & 31) == status && (disp == 0 || disp == 4 || disp == 8)) ++cleared;
+        }
+        if (cleared == 3)
+            if (std::uint32_t f = gcc_function_start(code, a)) sites[f]++;
+    });
+    std::uint32_t best = 0;
+    unsigned most = 2;
+    for (auto& [f, n] : sites)
+        if (n > most) {
+            most = n;
+            best = f;
+        }
+    return best;
+}
+
 // Sends the game's DI register accesses to `base` (where 0xCC006000 was):
 // each "lis rX,0xCC00" whose register is then only used at 0x6000-0x603F
 // gets `base`'s upper half. Returns how many.
@@ -759,7 +800,9 @@ unsigned redirect_wii_blocks(Code& code, unsigned& mixed) {
     std::vector<std::uint32_t> patch;
     mixed = 0;
     code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (!is_lis(w, 0xCC00)) return;
+        // "lis rX,0xCC00", or GCC's "addis rX,rY,0xCC00" that adds the base
+        // to a channel's index (libogc's SI and EXI, gc_rt.h "libogc").
+        if ((w >> 26) != 15 || (w & 0xFFFF) != 0xCC00) return;
         const unsigned r = (w >> 21) & 31;
         bool moved = false, other = false;
         for (std::uint32_t b = a + 4; b < a + 4 * 40 && code.has(b); b += 4) {
@@ -2497,7 +2540,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     // PADRead: the Wii Remotes are polled from it, and the test presses
     // go in there.
-    const std::uint32_t pad_read = find_pad_read(code);
+    std::uint32_t pad_read = find_pad_read(code);
+    if (pad_read == 0) pad_read = find_pad_read_gcc(code);
     std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);

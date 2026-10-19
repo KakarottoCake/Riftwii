@@ -504,12 +504,29 @@ constexpr std::uint32_t kMotorFunctionBytes = 0x100;      // the function is abo
 // rest of a function with an early return, where a hook would land in the
 // middle.
 bool looks_like_function_start(const std::vector<CodeRange>& text, std::uint32_t start) {
+    // PADControlMotor calls two functions, so it sets up a frame: a stwu
+    // r1,-N(r1) among its first three words (after mflr r0 and its stw in
+    // CodeWarrior's code). A mflr r0 alone is no start: GCC's code takes the
+    // link register after an early return's epilogue, mid-function.
     for (std::uint32_t at = start; at < start + 12; at += 4) {
         if (!inside(text, at)) return false;
-        const std::uint32_t w = word_at(text, at);
-        if (w == 0x7C0802A6u || (w & 0xFFFF8000u) == 0x94218000u) return true;  // mflr r0; stwu r1,-N(r1)
+        if ((word_at(text, at) & 0xFFFF8000u) == 0x94218000u) return true;  // stwu r1,-N(r1)
     }
     return false;
+}
+
+// The start of a function GCC built (Sonic Riders Tournament Edition),
+// whose early return's epilogue and blr sit in its middle: the nearest
+// stwu r1,-N(r1) before `address` that follows a blr or a b. 0 for none.
+std::uint32_t gcc_frame_start(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (std::uint32_t back = 4; back <= kMotorFunctionBytes && address >= back; back += 4) {
+        const std::uint32_t at = address - back;
+        if (!inside(text, at) || !inside(text, at - 4)) return 0;
+        if ((word_at(text, at) & 0xFFFF8000u) != 0x94218000u) continue;
+        const std::uint32_t before = word_at(text, at - 4);
+        return before == kBlr || (before & 0xFC000003u) == 0x48000000u ? at : 0;
+    }
+    return 0;
 }
 
 // Whether any of the function's first four words is a relative branch
@@ -559,8 +576,10 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
                 two_calls = inside(text, call + 4) && is_bl(word_at(text, call)) && is_bl(word_at(text, call + 4));
             }
             if (!two_calls) continue;
-            const std::uint32_t start = after_previous_blr(text, at);
+            std::uint32_t start = after_previous_blr(text, at);
             if (start == 0) continue;
+            if (!looks_like_function_start(text, start))
+                if (const std::uint32_t gcc = gcc_frame_start(text, at)) start = gcc;
             char buf[96];
             if (!looks_like_function_start(text, start)) {
                 std::snprintf(buf, sizeof(buf), "0x%08x does not start like a function", start);
