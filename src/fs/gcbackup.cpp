@@ -256,8 +256,8 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
     }
     // Another length: written whole beside it first, and put in its place
     // only then, so a full card or a cut leaves the old card as it was
-    // (BUG-18). FAT's rename does not replace a file, so the old one goes
-    // just before.
+    // (BUG-18). FAT's rename does not replace a file, so the old one is
+    // moved aside first and comes back if the new one cannot take its place.
     const std::string temp = path + ".tmp";
     std::FILE* f = std::fopen(temp.c_str(), "wb");
     if (!f) {
@@ -271,11 +271,15 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
         error = "The memory card file could not be written (is the SD card full?).";
         return false;
     }
-    std::remove(path.c_str());
+    const std::string aside = path + ".old";
+    std::remove(aside.c_str());
+    const bool had_card = std::rename(path.c_str(), aside.c_str()) == 0;
     if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        if (had_card) std::rename(aside.c_str(), path.c_str());
         error = "The new memory card file could not be put in place; it is at " + temp + ".";
         return false;
     }
+    if (had_card) std::remove(aside.c_str());
     return true;
 }
 
