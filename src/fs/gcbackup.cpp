@@ -273,21 +273,36 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
     }
     const std::string aside = path + ".old";
     // A write cut between the two renames below left the card only at .old:
-    // it goes back first, never removed as a leftover.
-    if (file_length(path) < 0 && file_length(aside) >= 0 && std::rename(aside.c_str(), path.c_str()) != 0) {
+    // it goes back first, never removed as a leftover. Both there: the old
+    // .old goes to .old-kept, not away (NEW-03).
+    const GcCardRecovery recovered = gc_recover_card(path);
+    if (recovered == GcCardRecovery::Failed) {
         std::remove(temp.c_str());
         error = "The memory card file is at " + aside + " and could not be put back; nothing was written.";
         return false;
     }
+    if (recovered == GcCardRecovery::BothKept) {
+        const std::string kept = path + ".old-kept";
+        std::remove(kept.c_str());
+        std::rename(aside.c_str(), kept.c_str());
+    }
     std::remove(aside.c_str());
     const bool had_card = std::rename(path.c_str(), aside.c_str()) == 0;
     if (std::rename(temp.c_str(), path.c_str()) != 0) {
-        if (had_card) std::rename(aside.c_str(), path.c_str());
+        const bool back = had_card && std::rename(aside.c_str(), path.c_str()) == 0;
         error = "The new memory card file could not be put in place; it is at " + temp + ".";
+        if (had_card && !back) error += " The old card is at " + aside + ".";
         return false;
     }
     if (had_card) std::remove(aside.c_str());
     return true;
+}
+
+GcCardRecovery gc_recover_card(const std::string& path) {
+    const std::string aside = path + ".old";
+    if (file_length(aside) < 0) return GcCardRecovery::Nothing;
+    if (file_length(path) >= 0) return GcCardRecovery::BothKept;
+    return std::rename(aside.c_str(), path.c_str()) == 0 ? GcCardRecovery::Restored : GcCardRecovery::Failed;
 }
 
 GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now,

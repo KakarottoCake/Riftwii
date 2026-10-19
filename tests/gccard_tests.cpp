@@ -958,6 +958,20 @@ static void test_backup_files() {
     fs::rename(card, card + ".old");
     EXPECT_TRUE(gc_overwrite_file(card, Bytes(12, 0x55), error));  // as long as the stranded card: still put back first
     EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    // Before a launch (NEW-03): a card only at .old goes back; nothing to do
+    // without one; both there are kept, and the next write moves the old
+    // .old to .old-kept rather than deleting it.
+    EXPECT_TRUE(gc_recover_card(card) == GcCardRecovery::Nothing);
+    fs::rename(card, card + ".old");
+    EXPECT_TRUE(gc_recover_card(card) == GcCardRecovery::Restored);
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    EXPECT_FALSE(fs::exists(card + ".old"));
+    write_file(card + ".old", Bytes(7, 0x66));
+    EXPECT_TRUE(gc_recover_card(card) == GcCardRecovery::BothKept);
+    EXPECT_TRUE(gc_overwrite_file(card, Bytes(9, 0x77), error));
+    EXPECT_TRUE(read_file(card) == Bytes(9, 0x77));
+    EXPECT_TRUE(read_file(card + ".old-kept") == Bytes(7, 0x66));
+    EXPECT_FALSE(fs::exists(card + ".old"));
 
     // A copy whose source cannot be read leaves nothing behind.
     EXPECT_FALSE(gc_copy_file((root / "missing.raw").string(), (root / "out.raw").string(), error));
