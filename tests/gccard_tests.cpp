@@ -709,7 +709,8 @@ static void test_card_paths() {
     EXPECT_EQ(gc_card_path("GMSE01", true), std::string("sd:/riftwii/gc/cards/shared.raw"));
     EXPECT_EQ(gc_card_path("GMSP01", true), std::string("sd:/riftwii/gc/cards/shared.raw"));
     EXPECT_EQ(gc_card_path("GMSJ01", true), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
-    EXPECT_EQ(gc_card_path("GM/../J", false), std::string("sd:/riftwii/gc/cards/GMJ.raw"));
+    // Not a plain ID: by its bytes, so no slash or dot reaches the name.
+    EXPECT_EQ(gc_card_path("GM/../J", false), std::string("sd:/riftwii/gc/cards/x474d2f2e2e2f4a.raw"));
     EXPECT_FALSE(gc_card_shift_jis("GMS"));
 }
 
@@ -743,7 +744,7 @@ static void test_backup_names() {
     EXPECT_EQ(gc_backup_folder("GMSE01", false), std::string("sd:/riftwii/gc/backups/GMSE01"));
     EXPECT_EQ(gc_backup_folder("GMSE01", true), std::string("sd:/riftwii/gc/backups/shared"));
     EXPECT_EQ(gc_backup_folder("GMSJ01", true), std::string("sd:/riftwii/gc/backups/shared-jp"));
-    EXPECT_EQ(gc_backup_folder("GM/../J", false), std::string("sd:/riftwii/gc/backups/GMJ"));
+    EXPECT_EQ(gc_backup_folder("GM/../J", false), std::string("sd:/riftwii/gc/backups/x474d2f2e2e2f4a"));
 
     GcBackupStamp stamp;
     stamp.year = 2026;
@@ -925,6 +926,14 @@ static void test_backup_files() {
         EXPECT_FALSE(fs::exists(fs::path(folder) / next_oldest));
         EXPECT_EQ(gc_backup_list(folder).size(), kGcBackupsKept);
     }
+
+    // Card names (MIN-04): a disc's ID as it is; one with other characters
+    // by its bytes, never empty and never shared with another.
+    EXPECT_EQ(gc_card_path("GALE01", false), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_path("....", false), std::string("sd:/riftwii/gc/cards/x2e2e2e2e.raw"));
+    EXPECT_TRUE(gc_card_path("GA-E01", false) != gc_card_path("GA_E01", false));
+    EXPECT_TRUE(gc_card_path("", false) != std::string("sd:/riftwii/gc/cards/.raw"));
+    EXPECT_EQ(gc_backup_folder("....", false), std::string("sd:/riftwii/gc/backups/x2e2e2e2e"));
 
     // Files that differ only in length, or are missing, are not the same.
     write_file(root / "short.raw", Bytes(199999, 0x5A));
