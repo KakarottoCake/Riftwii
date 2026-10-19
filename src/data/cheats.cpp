@@ -399,12 +399,56 @@ std::string listed_name(const std::string& title, int occurrence) {
     return occurrence > 1 ? title + " (" + std::to_string(occurrence) + ")" : title;
 }
 
+// Whether `block` is, word for word, one of `file`'s blocks.
+bool has_block(const CheatBlocks& file, const std::vector<std::string>& block) {
+    for (const std::vector<std::string>& b : file.blocks) {
+        if (b == block) return true;
+    }
+    return false;
+}
+
+// Names are numbered across the merged file ("Name", "Name (2)"), so a
+// download with one more block of a name before the player's renumbers
+// them, and an enabled name would run the download's code (FU-02, SEC-02).
+// For each revision the list may be read for (every block, each heading's,
+// and one with no heading of its own), an enabled name that named a code in
+// `before` must name the same code in `merged`; where it names another, the
+// download's block it now names is left out, and the names are checked
+// again. A block that is the player's own is never left out.
+void keep_enabled_names(CheatBlocks& merged, const CheatBlocks& before, const std::set<std::string>& enabled,
+                        std::size_t* dropped) {
+    if (enabled.empty()) return;
+    std::set<int> revisions = {kAnyRevision, 1000};  // 1000: a revision no heading names
+    for (int section : before.section) revisions.insert(section);
+    CheatBlocks old = before;  // find_cheat takes a file it may hand out blocks of
+    bool changed = true;
+    for (std::size_t round = 0; changed && round <= merged.blocks.size(); ++round) {
+        changed = false;
+        for (int revision : revisions) {
+            for (const std::string& name : enabled) {
+                const std::vector<std::string>* mine = find_cheat(old, name, revision);
+                if (mine == nullptr) continue;
+                std::vector<std::string>* now = find_cheat(merged, name, revision);
+                if (now == nullptr || codes_of(*now) == codes_of(*mine) || has_block(before, *now)) continue;
+                const std::size_t at = static_cast<std::size_t>(now - merged.blocks.data());
+                merged.blocks.erase(merged.blocks.begin() + static_cast<std::ptrdiff_t>(at));
+                merged.section.erase(merged.section.begin() + static_cast<std::ptrdiff_t>(at));
+                if (dropped) ++*dropped;
+                changed = true;
+                break;
+            }
+            if (changed) break;
+        }
+    }
+}
+
 }  // namespace
 
 std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept,
-                             const std::set<std::string>& enabled, std::size_t* held) {
+                             const std::set<std::string>& enabled, std::size_t* held, std::size_t* dropped) {
     kept = 0;
     if (held) *held = 0;
+    if (dropped) *dropped = 0;
     CheatBlocks merged = split_blocks(fresh);
     const CheatBlocks before = split_blocks(old);
     std::vector<std::size_t> added;  // indexes into before.blocks
@@ -449,6 +493,7 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
         }
     }
     for (std::size_t m : added) insert_in_section(merged, before, m);
+    keep_enabled_names(merged, before, enabled, dropped);
     return join_blocks(merged);
 }
 
