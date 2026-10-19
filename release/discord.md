@@ -12,16 +12,17 @@ instead of as text.
 
 Rewrite it for every release and delete the line below.
 -->
-NOTES NOT WRITTEN YET
-
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
 What changed, in a few lines:
 
-* The first change
+* TEST of the release workflow: this message is a dry run and is never posted
 
 To test, please:
 
 1. The first thing to try
 
 Sending logs (you don't need to take out your SD card anymore): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![What's new](docs/screenshots/2610-whatsnew-libogc.png)
+![Code mod popup](docs/screenshots/2610-461-code-mod-popup.png)
