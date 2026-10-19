@@ -3,6 +3,7 @@
 #include "online.hpp"
 
 #include <network.h>
+#include <ogc/machine/processor.h>
 #include <poll.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -715,8 +716,21 @@ namespace {
 volatile int g_card_writes = 0;
 }  // namespace
 
-CardWriteHold::CardWriteHold() { ++g_card_writes; }
-CardWriteHold::~CardWriteHold() { --g_card_writes; }
+// Holds are taken on the menu thread and the download threads: the count
+// changes with interrupts off, so a thread switch between its load and
+// store cannot lose one.
+CardWriteHold::CardWriteHold() {
+    u32 level;
+    _CPU_ISR_Disable(level);
+    ++g_card_writes;
+    _CPU_ISR_Restore(level);
+}
+CardWriteHold::~CardWriteHold() {
+    u32 level;
+    _CPU_ISR_Disable(level);
+    --g_card_writes;
+    _CPU_ISR_Restore(level);
+}
 bool CardWritesBusy() { return g_card_writes > 0; }
 
 namespace {
