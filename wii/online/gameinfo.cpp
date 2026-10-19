@@ -125,7 +125,13 @@ bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error
     while ((got = std::fread(piece.data(), 1, piece.size(), f)) > 0) {
         scanner.feed(piece.data(), got);
         done += got;
-        if (done > kMaxXml) break;
+        // Cut short, the scan has not seen every game: said as a failure,
+        // or each game after the cut would be cached as not listed (BUG-10).
+        if (done > kMaxXml) {
+            error = path + " is larger than a database would be";
+            ok = false;
+            break;
+        }
         if (progress && !progress(static_cast<double>(done) / total)) {
             error = "stopped";
             ok = false;
