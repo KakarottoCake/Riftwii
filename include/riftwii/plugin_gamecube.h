@@ -79,6 +79,15 @@ typedef struct rwp_gc_launch {
     uint32_t crash_screen_bytes;
     uint32_t crash_screen_way_back; /* its hint promises HOME or A goes back */
 
+    /* The GameCube adapter for Wii U (runtime/gc/gc_gcad.h): the
+     * /dev/usb/hid handle the menu opened for the game (-1: no adapter),
+     * its HID version (4 or 5), the adapter's v5 device id from the USB
+     * list (-1: none), and whether the game's rumble reaches it. */
+    int32_t adapter_fd;
+    uint32_t adapter_version;
+    int32_t adapter_dev;
+    uint32_t adapter_rumble;
+
     /* What holding HOME goes to: the title and its first ticket view
      * (libogc's tikview, 32-byte aligned), or kind NONE. */
     uint64_t way_back_title;

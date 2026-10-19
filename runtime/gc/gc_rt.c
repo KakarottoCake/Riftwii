@@ -6,6 +6,7 @@
 #include "gc_rt.h"
 #include "gc_bt.h"
 #include "gc_card.h"
+#include "gc_gcad.h"
 #include "gc_video.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
@@ -99,24 +100,27 @@ uint32_t gc_ipc_take(void) {
  * (Luigi's Mansion in Dolphin: every disc read timed out, the control
  * register at X1 | Y1). Every reply but a pending request's own is
  * theirs: disc reads and trace writes run one at a time. */
-int32_t gc_ipc_send(uint32_t phys, struct gc_bt* bt) {
+int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx) {
     uint32_t polls;
     gc_write32(GC_IPC_PPCMSG, phys);
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_X1);
     for (polls = 0; (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) == 0; ++polls) {
         const uint32_t reply = gc_ipc_take();
-        if (reply != 0 && bt) gc_bt_on_reply(bt, reply);
+        if (reply != 0) gc_ipc_route(ctx, reply);
         if (polls == GC_IPC_TIMEOUT) return -1000;
     }
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
     return 0;
 }
 
-/* A reply that is not the one being waited for: the Wii Remotes' reads
- * (gc_bt.c), or something left from the menu (dropped). */
-static void gc_ipc_other(struct gc_rt_context* ctx, uint32_t reply) {
-    if (ctx->bt) gc_bt_on_reply((struct gc_bt*)(uintptr_t)ctx->bt, reply);
+void gc_ipc_route(struct gc_rt_context* ctx, uint32_t reply) {
+    if (ctx == 0) return;
+    if (ctx->bt && gc_bt_on_reply((struct gc_bt*)(uintptr_t)ctx->bt, reply)) return;
+    if (ctx->gcad) gc_gcad_on_reply((struct gc_gcad*)(uintptr_t)ctx->gcad, reply);
 }
+
+/* A reply that is not the one being waited for. */
+static void gc_ipc_other(struct gc_rt_context* ctx, uint32_t reply) { gc_ipc_route(ctx, reply); }
 
 /* One ioctlv to IOS and its reply, by polling (the Wii Remotes' reads may
  * be in flight meanwhile; their replies go to gc_bt.c). Returns IOS's
@@ -135,7 +139,7 @@ static int32_t gc_ioctlv(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl,
     rq[5] = out_count;
     rq[6] = gc_physical((uint32_t)(uintptr_t)ctx->vec);
     gc_flush((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    if (gc_ipc_send(phys, (struct gc_bt*)(uintptr_t)ctx->bt) != 0) return -1000;
+    if (gc_ipc_send(phys, ctx) != 0) return -1000;
     for (;;) {
         /* The launch's reply never comes when IOS takes it (it reloads and
          * the PPC is reset): with ipc_no_timeout the wait has no end, as a
@@ -326,7 +330,7 @@ static int32_t gc_ioctl(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, 
     gc_flush(in, in_len);
     gc_flush(out, out_len);
     gc_flush((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
-    if (gc_ipc_send(phys, (struct gc_bt*)(uintptr_t)ctx->bt) != 0) return -1000;
+    if (gc_ipc_send(phys, ctx) != 0) return -1000;
     for (;;) {
         /* The launch's reply never comes when IOS takes it (it reloads and
          * the PPC is reset): with ipc_no_timeout the wait has no end, as a
@@ -526,6 +530,13 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_RESTARTS] = ctx->restarts;
     w[GC_TR_RESETS] = ctx->resets_asked << 16 | (ctx->reset_presses & 0xFFFFu);
     w[GC_TR_RESET_LAST] = ctx->reset_last;
+    if (ctx->gcad) {
+        const struct gc_gcad* ad = (const struct gc_gcad*)(uintptr_t)ctx->gcad;
+        w[GC_TR_GCAD] = (uint32_t)ad->g.link << 24 | (ad->version & 0xFFu) << 16 | (ad->filled & 0xFFu) << 8 |
+                        ((uint32_t)ad->g.dev_id & 0xFFu);
+        w[GC_TR_GCAD_REPORTS] = ad->g.reports << 16 | (ad->send_failures & 0xFFFFu);
+        w[GC_TR_GCAD_ERROR] = (uint32_t)ad->g.last_error;
+    }
     w[GC_TR_AR_WAITS] = ctx->ar_waits;
     w[GC_TR_AR_WAIT_LONGEST] = ctx->ar_wait_longest;
     w[GC_TR_AR_WAIT_TIMEOUTS] = ctx->ar_wait_timeouts;
@@ -1555,6 +1566,7 @@ uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type
  * plays on the port gets it from the next PADRead (gc_bt_poll). */
 void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command) {
     if (ctx->bt) gc_bt_motor((struct gc_bt*)(uintptr_t)ctx->bt, chan, command, (ctx->flags & GC_FLAG_REMOTE_RUMBLE) != 0);
+    if (ctx->gcad) gc_gcad_motor((struct gc_gcad*)(uintptr_t)ctx->gcad, chan, command);
 }
 
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
@@ -1565,6 +1577,13 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (status < 0x80000000u || status > 0x81800000u - 4u * 12u || (status & 1u) != 0) status = 0;
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
+    /* The adapter's controllers first: they take their ports before the
+     * Wii Remotes fill what is left (gc_gcad.h). */
+    if (ctx->gcad && status != 0) {
+        struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
+        gc_gcad_poll(ctx, ad);
+        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status);
+    }
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {

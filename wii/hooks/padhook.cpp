@@ -490,38 +490,49 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x\n", out.read,
          out.read_sites, out.motor);
 
-    // The adapter's device, with the IOS the game will run. The menu's
-    // USB storage left libogc's device-change requests pending: v5 takes
-    // one at a time (Dolphin refuses a second), and their answers would
-    // reach the game. libogc cancels its own; the Shutdown on ours clears
-    // one it re-armed while going.
-    if (g_own_fd >= 0 && g_own_version == 5) {
-        // The launch's own handle (look_for_gc_adapter), never shut down.
-        out.fd = g_own_fd;
-        out.version = 5;
-        out.known_dev = g_own_dev;
-        g_own_fd = -1;  // the game's now
-        logf("GameCube adapter: %s v5 fd %d (opened before libogc's USB), adapter device %d\n", g_usb_path_used,
-             static_cast<int>(out.fd), static_cast<int>(out.known_dev));
-        return true;
-    }
-    std::string devices;
-    ogc_adapter(out.known_dev, devices);  // v5's list goes with libogc's USB
-    logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(out.known_dev));
-    USB_Deinitialize();
-    usleep(50000);
-    // No usb_open_matrix() when this fails: its probes broke the disc's
-    // emulation on d2x (wii/launch/boot.cpp), and the game still reads its disc.
-    if (!open_usb_hid(out.fd, out.version, why)) {
+    if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;
         out.version = 5;
     }
+    return true;
+}
+
+bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why) {
+    // The adapter's device, with the IOS the game will run. The menu's
+    // USB storage left libogc's device-change requests pending: v5 takes
+    // one at a time (Dolphin refuses a second), and their answers would
+    // reach the game. libogc cancels its own; the Shutdown on ours clears
+    // one it re-armed while going.
+    fd = -1;
+    version = 0;
+    known_dev = -1;
+    if (g_own_fd >= 0 && g_own_version == 5) {
+        // The launch's own handle (look_for_gc_adapter), never shut down.
+        fd = g_own_fd;
+        version = 5;
+        known_dev = g_own_dev;
+        g_own_fd = -1;  // the game's now
+        logf("GameCube adapter: %s v5 fd %d (opened before libogc's USB), adapter device %d\n", g_usb_path_used,
+             static_cast<int>(fd), static_cast<int>(known_dev));
+        return true;
+    }
+    std::string devices;
+    ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
+    logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(known_dev));
+    USB_Deinitialize();
+    usleep(50000);
+    // No usb_open_matrix() when this fails: its probes broke the disc's
+    // emulation on d2x (wii/launch/boot.cpp), and the game still reads its disc.
+    if (!open_usb_hid(fd, version, why)) {
+        fd = -1;
+        return false;
+    }
     // No v5 Shutdown on the game's handle: after one, a Wii U's IOS
     // answered -4 to everything on it (libogc's USB closed before this).
-    logf("GameCube adapter: %s v%u fd %d, adapter device %d\n", g_usb_path_used, out.version, static_cast<int>(out.fd),
-         static_cast<int>(out.known_dev));
+    logf("GameCube adapter: %s v%u fd %d, adapter device %d\n", g_usb_path_used, version, static_cast<int>(fd),
+         static_cast<int>(known_dev));
     return true;
 }
 

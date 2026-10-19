@@ -50,6 +50,10 @@ riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     extras.crash_screen = request.crash_screen;
     extras.crash_screen_bytes = request.crash_screen_bytes;
     extras.crash_screen_way_back = request.crash_screen_way_back != 0;
+    extras.adapter_fd = request.adapter_fd;
+    extras.adapter_version = request.adapter_version;
+    extras.adapter_dev = request.adapter_dev;
+    extras.adapter_rumble = request.adapter_rumble != 0;
     if (request.way_back_kind != RWP_GC_WAY_BACK_NONE) {
         extras.way_back_title = request.way_back_title;
         extras.way_back_view = request.way_back_view;
