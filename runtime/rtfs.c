@@ -140,6 +140,23 @@ static int found_open(struct rtfs_context* ctx, const struct rtfs_request* r) {
     return open_entry(ctx, r->fat.found.entry_lba, r->fat.found.entry_index, RTFS_MAX_FDS) != 0;
 }
 
+/* Whether the entry the lookup just found may not be deleted: an open file,
+ * or a folder that is served (the save folder, the card's root) or listed by
+ * an open directory handle. Deleting such a folder freed its cluster while
+ * it was still read and written, and the next file created there landed in
+ * whatever took the cluster (BUG-16). */
+static int found_in_use(struct rtfs_context* ctx, const struct rtfs_request* r) {
+    const struct rtfat_dirent* found = &r->fat.found;
+    uint32_t i;
+    if ((found->attributes & 0x10u) == 0) return found_open(ctx, r);
+    if (found->first_cluster == 0) return 1; /* ".." of a top folder: the root */
+    if (found->first_cluster == ctx->volume.dir_cluster || found->first_cluster == ctx->volume.root_cluster) return 1;
+    for (i = 0; i < RTFS_MAX_DIRS; ++i) {
+        if (ctx->dirs[i].in_use && ctx->dirs[i].cluster == found->first_cluster) return 1;
+    }
+    return 0;
+}
+
 static struct rtfs_file* free_file(struct rtfs_context* ctx, uint32_t* slot) {
     uint32_t i;
     for (i = 0; i < RTFS_MAX_FDS; ++i) {
@@ -703,7 +720,7 @@ static int riivo_after(struct rtfs_context* ctx, struct rtfs_request* r) {
             finish(ctx, r, RTFAT_OK);
             return 0;
         case RTFS_ACTION_R_DELETE_CHECK:
-            if (res != RTFAT_OK || (!is_dir && found_open(ctx, r))) break;
+            if (res != RTFAT_OK || found_in_use(ctx, r)) break;
             start_fat(ctx, r, RTFAT_OP_DELETE, RTFS_ACTION_R_DELETE);
             return 1;
         case RTFS_ACTION_R_CREATEDIR:
@@ -754,7 +771,8 @@ int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* r) {
         /* A rename onto the file's own name (in another case) replaces
          * nothing: rtfat leaves it as it is, open or not. */
         const int self = r->action == RTFS_ACTION_RENAME_CHECK && same_name(r->saved_name, r->fat.name);
-        if (res == RTFAT_OK && !self && found_open(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return RTFAT_DONE; }
+        const int in_use = r->action == RTFS_ACTION_DELETE_CHECK ? found_in_use(ctx, r) : found_open(ctx, r);
+        if (res == RTFAT_OK && !self && in_use) { finish(ctx, r, RTFAT_EACCESS); return RTFAT_DONE; }
         if (r->action == RTFS_ACTION_DELETE_CHECK) {
             if (res != RTFAT_OK) { finish(ctx, r, res); return RTFAT_DONE; }
             r->action = RTFS_ACTION_DELETE;
