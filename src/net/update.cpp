@@ -90,9 +90,14 @@ bool riftwii_release_asset_url(const std::string& url) {
     };
     for (const char* prefix : kReleaseFiles) {
         const std::size_t n = std::char_traits<char>::length(prefix);
-        // A tag and a file name after the prefix, never another level up.
-        if (lowered.size() > n && lowered.compare(0, n, prefix) == 0 && lowered.find("..", n) == std::string::npos)
-            return true;
+        // A tag and a file name after the prefix, both there, nothing more,
+        // and never another level up.
+        if (lowered.size() <= n || lowered.compare(0, n, prefix) != 0) continue;
+        const std::string rest = lowered.substr(n);
+        const std::size_t slash = rest.find('/');
+        if (slash == std::string::npos || slash == 0 || slash + 1 == rest.size()) return false;
+        if (rest.find('/', slash + 1) != std::string::npos || rest.find("..") != std::string::npos) return false;
+        return true;
     }
     return false;
 }

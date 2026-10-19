@@ -96,6 +96,10 @@ void TestHttp() {
                                 "http://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
                                 "https://github.com/KakarottoCake/Riftwii/releases/download/../../x/riftwii.dol",
                                 "https://github.com/KakarottoCake/Riftwii/releases/download/",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1/",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download//riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1/x/riftwii.dol",
                                 "https://github.com.evil.example/KakarottoCake/Riftwii/releases/download/v1/a"}) {
             const std::string forged = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" +
                                        std::string(url) + "\"}]}]";
@@ -355,9 +359,33 @@ void TestCheats() {
         EXPECT_EQ(file.cheats[0].words[1], 0x60000000u);  // turned on: the old code
         EXPECT_EQ(file.cheats[2].name, "New one");        // new to the file: the download's
     }
-    // A repeat's name ("... (2)") counts as the block's own.
+    // Only the listed name counts: the old file has one "infinite health",
+    // so "... (2)" turned on names none of its blocks.
     merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec] (2)"}, &held);
-    EXPECT_EQ(held, 1u);
+    EXPECT_EQ(held, 0u);
+    // Two cheats of one name, the second turned on: each pairs with the
+    // download's block in the same place, and only the second keeps its code.
+    {
+        const std::string two_old =
+            "SB4E01\nSuper Mario Galaxy 2\n\nTwin\n04000000 00000001\n\nTwin\n04000000 00000002\n";
+        const std::string two_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nTwin\n04000000 00000011\n\nTwin\n04000000 00000012\n";
+        const std::string mixed = merge_cheat_text(two_new, two_old, kept, {"Twin (2)"}, &held);
+        EXPECT_EQ(held, 1u);
+        EXPECT_TRUE(parse_cheat_text(mixed, file, error));
+        if (file.cheats.size() == 2) {
+            EXPECT_EQ(file.cheats[0].words[1], 0x00000011u);  // not turned on: the download's
+            EXPECT_EQ(file.cheats[1].words[1], 0x00000002u);  // turned on: the player's
+        }
+    }
+    // Notes alone changing on a turned-on cheat: the download's block.
+    {
+        const std::string noted_old = "SB4E01\nSuper Mario Galaxy 2\n\nNoted\n04000000 00000001\nold note\n";
+        const std::string noted_new = "SB4E01\nSuper Mario Galaxy 2\n\nNoted\n04000000 00000001\nnew note\n";
+        const std::string noted = merge_cheat_text(noted_new, noted_old, kept, {"Noted"}, &held);
+        EXPECT_EQ(held, 0u);
+        EXPECT_TRUE(noted.find("new note") != std::string::npos);
+    }
     // Values filled in on the Wii: the template stays, so they can change.
     std::string valued =
         "SB4E01\nSuper Mario Galaxy 2\n\n"
