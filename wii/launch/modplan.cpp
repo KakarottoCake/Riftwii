@@ -554,6 +554,11 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // game would start to a black screen (Neo Mario Galaxy copied into the
     // wrong folder did). An unreadable one stops the launch.
     std::string missing_value;
+    // Every value and original, those read from valuefiles too: the plan's
+    // budget saw a valuefile as empty, so one selected thousands of times
+    // still asked for gigabytes (FU-04). Never above kMaxPlanMemoryBytes,
+    // so the subtraction below cannot wrap.
+    std::size_t memory_bytes = 0;
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
@@ -576,12 +581,25 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                         std::to_string(kMaxMemoryValueBytes) + " bytes";
                 return false;
             }
+            if (source->size() > kMaxPlanMemoryBytes - memory_bytes) {
+                error = "the selected memory patches carry more than " +
+                        std::to_string(kMaxPlanMemoryBytes >> 20) + " MiB of values in all, counting '" +
+                        m.valuefile + "'";
+                return false;
+            }
             m.value.resize(static_cast<std::size_t>(source->size()));
             if (!source->read(0, m.value.data(), m.value.size())) {
                 error = "cannot read memory patch valuefile '" + m.valuefile + "'";
                 return false;
             }
         }
+        const std::size_t patch_bytes = m.value.size() + m.original.size();
+        if (patch_bytes > kMaxPlanMemoryBytes - memory_bytes) {
+            error = "the selected memory patches carry more than " + std::to_string(kMaxPlanMemoryBytes >> 20) +
+                    " MiB of values in all";
+            return false;
+        }
+        memory_bytes += patch_bytes;
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
