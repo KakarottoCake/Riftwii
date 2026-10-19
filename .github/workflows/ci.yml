@@ -132,14 +132,16 @@ jobs:
         run: |
           make -f Makefile.wii -j"$(nproc)"
           test -s riftwii.dol
+          test -s build_wii/riftwii-unpacked.dol
       # The plugins (docs/PLUGINS.md) next to the DOL: each built with this
       # commit's build stamp and the DOL's API version, whole, and named
       # for this version. The DOL's own build already checks this; here it
       # is checked against the commit CI checked out, so a stale plugin can't
-      # pass.
+      # pass. riftwii.dol is packed (tools/pack_dol.py): the stamp is read
+      # from the unpacked DOL the build keeps.
       - name: Plugins match the DOL
         run: |
-          python3 tools/make_plugin.py check --dol riftwii.dol \
+          python3 tools/make_plugin.py check --dol build_wii/riftwii-unpacked.dol \
             --commit "$(git rev-parse --short=8 HEAD)" build-plugins/plugins/*.rwp
       - name: Build the channel
         run: make -f Makefile.channel -j"$(nproc)"
@@ -192,7 +194,7 @@ jobs:
           # The container's default shell is plain sh: no arrays, no pipefail.
           baseline=""
           if [ -s baseline.json ]; then baseline="--baseline baseline.json"; fi
-          python3 tools/size_report.py --dol riftwii.dol \
+          python3 tools/size_report.py --dol build_wii/riftwii-unpacked.dol \
             --blob build-runtime/riftwii_rt.bin \
             --blob build-runtime/riftwii_rt_rvz.bin \
             --blob build-runtime/riftwii_rt_rvz.rel \

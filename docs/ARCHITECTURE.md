@@ -391,6 +391,7 @@ many saves and blocks the copy holds, comes from its directory alone
 | --- | --- |
 | `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` and its code list to `0x80003000` (in Wii and GameCube games) |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
+| Under `0x80900000`, and `0x80900000`–about `0x80940000` (start-up only) | The packed `boot.dol`: its table and Zstandard frames, then the stub with its workspace and stack (`runtime/dolpack/`, `tools/pack_dol.py`). The stub unpacks every section to its address above, clears the BSS, moves the command line to where a loader would have put it for the unpacked DOL, and jumps to crt0; after that it is free memory |
 | `0x81200000` | The game's apploader, while it runs |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |

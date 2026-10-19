@@ -123,9 +123,38 @@ BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 GCRVZZST := $(OUT)/riftwii_gc_rvz.zst
 
+# The packed DOL's stub (runtime/dolpack, tools/pack_dol.py): a small
+# program of its own at DOLPACK_BASE, not a blob, so linked at its address
+# and not checked for position independence. Its decoder is built -O2: it
+# unpacks the whole menu at every start, and its size hardly matters.
+DPSRC   := runtime/dolpack
+DPOUT   := $(OUT)/dolpack
+DOLPACK := $(OUT)/dolpack.bin
+DPOBJS  := $(DPOUT)/dolpack_start.o $(DPOUT)/dolpack.o $(DPOUT)/dolpack_zstd.o
+
 .PHONY: all clean
 all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
-     $(GCRVZBLOB) $(GCRVZZST)
+     $(GCRVZBLOB) $(GCRVZZST) $(DOLPACK)
+
+$(DPOUT):
+	mkdir -p $@
+
+$(DPOUT)/dolpack_start.o: $(DPSRC)/dolpack_start.S | $(DPOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(DPOUT)/dolpack.o: $(DPSRC)/dolpack.c $(DPSRC)/dolpack.h | $(DPOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(DPOUT)/dolpack_zstd.o: $(DPSRC)/dolpack_zstd.c vendor-zstd/zstddeclib.c | $(DPOUT)
+	$(CC) $(subst -Os,-O2,$(ZSTDFLAGS)) -c -o $@ $<
+
+$(DPOUT)/dolpack.elf: $(DPOBJS) $(DPSRC)/dolpack.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(DPSRC)/dolpack.ld \
+		-o $@ $(DPOBJS) -lgcc
+
+$(DOLPACK): $(DPOUT)/dolpack.elf
+	$(OBJCOPY) -O binary -j .text -j .rodata -j .data $< $@
+	@echo "DOL packer stub: $$(stat -c %s $@) bytes"
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<

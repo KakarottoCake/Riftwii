@@ -25,7 +25,14 @@ tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu
 font, the translations and the GPL text. Python 3 then adds the font,
 the translations and the GPL to `riftwii.dol` as the start-up stash
 (`tools/dol_stash.py`, [MEMORY.md](MEMORY.md)); `riftwii.elf` has no
-stash and stops at the menu font if started directly. It first builds the
+stash and stops at the menu font if started directly. Last, the DOL is
+packed (`tools/pack_dol.py`): its sections Zstandard-compressed behind a
+small stub (`runtime/dolpack/`) that unpacks them when it starts, about
+half the file the in-app update downloads and the Homebrew Channel reads.
+The unpacked DOL stays as `build_wii/riftwii-unpacked.dol`, which the
+plugin check and `tools/size_report.py` read. `make -f Makefile.wii
+PACK=0` leaves `riftwii.dol` unpacked (for bisecting a start-up problem).
+A packed DOL that does not unpack whole turns the screen red and stops. It first builds the
 two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
 the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
 each is position-independent, then embeds them with the font, the
