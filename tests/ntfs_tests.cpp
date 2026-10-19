@@ -395,6 +395,28 @@ void test_walk(std::uint64_t base) {
     EXPECT_TRUE(vol.list("/GAMES", es, error));
     EXPECT_EQ(joined(names(es)), "Big.iso,comp.iso,half.iso,huge.iso,sparse.iso");
 
+    // A folder walked once is kept: listed again it reads nothing, and a
+    // lookup in it reads only the file's own record (BUG-06).
+    {
+        std::size_t reads = 0;
+        const BlockReader inner = v.reader();
+        const BlockReader counting = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+            ++reads;
+            return inner(lba, count, out);
+        };
+        NtfsVolume counted;
+        EXPECT_TRUE(NtfsVolume::mount_at(counting, base, counted, error));
+        std::vector<VolumeEntry> listed;
+        EXPECT_TRUE(counted.list("/games", listed, error));
+        const std::size_t walked = reads;
+        EXPECT_TRUE(counted.list("/GAMES", listed, error));
+        EXPECT_EQ(reads, walked);
+        VolumeFile big;
+        EXPECT_TRUE(counted.lookup("/games/big.ISO", big, error));
+        EXPECT_TRUE(reads > walked && reads <= walked + 2);
+        EXPECT_EQ(big.entry.size, Volume::kBigSize);
+    }
+
     VolumeFile f;
     EXPECT_TRUE(vol.lookup("/games/big.ISO", f, error));
     EXPECT_EQ(f.entry.size, Volume::kBigSize);

@@ -34,6 +34,10 @@ constexpr std::size_t kMaxRuns = 1u << 20;
 constexpr std::size_t kMaxAttributeList = 1u << 22;
 constexpr unsigned kMaxIndexDepth = 16;
 constexpr std::size_t kMaxIndexBlocks = 1u << 16;
+// Index bytes one directory walk may read: 65,536 blocks of 64 KiB were
+// 4 GiB for one crafted folder (BUG-06). A folder of kMaxDirectoryEntries
+// long names fills well under this.
+constexpr std::uint64_t kMaxIndexBytes = std::uint64_t(64) << 20;
 constexpr std::size_t kMaxDirectoryEntries = 100000;
 constexpr std::size_t kMaxPathDepth = 64;
 constexpr std::uint32_t kReadChunkBlocks = 128;
@@ -599,6 +603,7 @@ bool NtfsVolume::walk_directory(std::uint64_t record_number, std::vector<DirEntr
     const std::uint64_t vcn_unit = block_bytes >= geo_.cluster_bytes ? geo_.cluster_bytes : 512;
     std::set<std::uint64_t> visited;
     std::vector<std::uint8_t> block;
+    std::uint64_t index_bytes_read = 0;
 
     // Walks one index node: its entries, and the child node before each
     // entry that has one. `h` is the node's index header.
@@ -632,6 +637,11 @@ bool NtfsVolume::walk_directory(std::uint64_t record_number, std::vector<DirEntr
                 if (!visited.insert(vcn).second || visited.size() > kMaxIndexBlocks ||
                     vcn > std::numeric_limits<std::uint64_t>::max() / vcn_unit) {
                     error = "NTFS index tree loops";
+                    return false;
+                }
+                index_bytes_read += block_bytes;
+                if (index_bytes_read > kMaxIndexBytes) {
+                    error = "NTFS directory index is larger than RiftWii reads (64 MiB)";
                     return false;
                 }
                 std::vector<std::uint8_t> child(block_bytes);
@@ -673,13 +683,30 @@ bool NtfsVolume::walk_directory(std::uint64_t record_number, std::vector<DirEntr
     return walk(root.value.data() + 0x10, root.value.size() - 0x10, 0);
 }
 
+bool NtfsVolume::directory_entries(std::uint64_t record_number, const std::vector<DirEntry>*& out,
+                                   std::string& error) const {
+    const auto cached = dir_cache_.find(record_number);
+    if (cached != dir_cache_.end()) {
+        out = &cached->second;
+        return true;
+    }
+    std::vector<DirEntry> entries;
+    if (!walk_directory(record_number, entries, error)) return false;
+    if (dir_cache_entries_ + entries.size() > kDirCacheEntries) {
+        dir_cache_.clear();
+        dir_cache_entries_ = 0;
+    }
+    dir_cache_entries_ += entries.size();
+    out = &(dir_cache_[record_number] = std::move(entries));
+    return true;
+}
+
 bool NtfsVolume::resolve(const std::string& path, DirEntry& out, std::string& error) const {
     DirEntry cur;
     cur.entry.is_directory = true;
     cur.record = kRootRecord;
     std::size_t depth = 0;
     std::size_t pos = 0;
-    std::vector<DirEntry> entries;
     while (pos < path.size()) {
         std::size_t next = path.find('/', pos);
         if (next == std::string::npos) next = path.size();
@@ -690,9 +717,10 @@ bool NtfsVolume::resolve(const std::string& path, DirEntry& out, std::string& er
             error = "no such file or directory '" + path + "'";
             return false;
         }
-        if (!walk_directory(cur.record, entries, error)) return false;
+        const std::vector<DirEntry>* entries = nullptr;
+        if (!directory_entries(cur.record, entries, error)) return false;
         const DirEntry* hit = nullptr;
-        for (const DirEntry& d : entries) {
+        for (const DirEntry& d : *entries) {
             if (d.entry.name == part) {
                 hit = &d;
                 break;
@@ -790,10 +818,10 @@ bool NtfsVolume::list(const std::string& path, std::vector<VolumeEntry>& out, st
         error = "'" + path + "' is not a directory";
         return false;
     }
-    std::vector<DirEntry> entries;
-    if (!walk_directory(d.record, entries, error)) return false;
+    const std::vector<DirEntry>* entries = nullptr;
+    if (!directory_entries(d.record, entries, error)) return false;
     out.clear();
-    for (DirEntry& e : entries) out.push_back(std::move(e.entry));
+    for (const DirEntry& e : *entries) out.push_back(e.entry);
     error.clear();
     return true;
 }

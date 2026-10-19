@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -80,12 +81,22 @@ private:
     bool find_attribute(std::uint64_t record_number, const std::vector<std::uint8_t>& record, std::uint32_t type,
                         const std::u16string& name, AttrData& out, bool& found, std::string& error) const;
     bool walk_directory(std::uint64_t record_number, std::vector<DirEntry>& out, std::string& error) const;
+    // The listing of a directory, walked once and then kept (BUG-06).
+    bool directory_entries(std::uint64_t record_number, const std::vector<DirEntry>*& out, std::string& error) const;
     bool resolve(const std::string& path, DirEntry& out, std::string& error) const;
     bool file_of(const DirEntry& entry, VolumeFile& out, std::string& error) const;
 
     BlockReader reader_;
     NtfsGeometry geo_;
     std::vector<NtfsRun> mft_runs_;
+    // Listings by MFT record number, dropped whole past kDirCacheEntries:
+    // every lookup walked each folder of its path from the root, every
+    // index block of it, so a pack's thousands of files re-read the same
+    // folders thousands of times. The volume is only read, so a listing
+    // never goes stale. Mutable because lookups are logically const.
+    static constexpr std::size_t kDirCacheEntries = 32768;
+    mutable std::map<std::uint64_t, std::vector<DirEntry>> dir_cache_;
+    mutable std::size_t dir_cache_entries_ = 0;
 };
 
 }  // namespace riftwii
