@@ -230,6 +230,40 @@ static void test_search() {
                                                 "0x80000010, 0x80000018 and 2 more"));
     }
 
+    // A pattern that matches everywhere (BUG-07): the search stops after
+    // its cap and says so, instead of running for good.
+    {
+        FakeMemory zeros;
+        riftwii::MemoryPatch everywhere;
+        everywhere.search = true;
+        everywhere.original = {0x00};
+        everywhere.value = {0x01};
+        everywhere.align = 1;
+        // MEM1's 64 KiB and MEM2's 4 KiB of zeros: 69,632 matches.
+        EXPECT_TRUE(riftwii::apply_memory_patches({everywhere}, {{0x80000000u, 0x10000}, {0x90000000u, 0x1000}},
+                                                  kWritable, zeros, notes, err));
+        EXPECT_TRUE(notes.back().find("stopped after 65536 matches") != std::string::npos);
+        EXPECT_EQ(zeros.str(0x8000FFFFu, 1), std::string("\x01"));
+        EXPECT_EQ(zeros.str(0x90000000u, 1), std::string(1, '\0'));
+    }
+    // A match where nothing may be written is passed over and the others
+    // still written (MIN-07), where it used to fail the launch.
+    {
+        FakeMemory two;
+        two.put(0x80000000u, "hook");
+        two.put(0x80001000u, "hook");
+        riftwii::MemoryPatch q;
+        q.search = true;
+        q.original = Bytes("hook");
+        q.value = Bytes("HOOK");
+        q.align = 4;
+        const std::vector<riftwii::MemoryRegion> only_second = {{0x80001000u, 0x100}};
+        EXPECT_TRUE(riftwii::apply_memory_patches({q}, {{0x80000000u, 0x2000}}, only_second, two, notes, err));
+        EXPECT_EQ(two.str(0x80000000u, 4), std::string("hook"));
+        EXPECT_EQ(two.str(0x80001000u, 4), std::string("HOOK"));
+        EXPECT_TRUE(notes.back().find("1 match(es) where RiftWii keeps its own code") != std::string::npos);
+    }
+
     // A pattern across the chunk boundary is still found (chunks overlap).
     FakeMemory big;
     big.put(0x80000000u + 0x7FFA, "boundary");
