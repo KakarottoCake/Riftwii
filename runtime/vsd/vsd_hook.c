@@ -589,7 +589,9 @@ static int32_t send_command(struct vsd_state* st, const struct rtvsd_request* re
         {
             const int32_t r = transfer_send(st);
             if (r < 0) {
-                /* Not even the first request went out: an error now, no callback. */
+                /* Not even the first request went out: an error now, no
+                 * callback, and no write left marked for the runtime. */
+                st->writing = 0;
                 t->in_use = 0;
                 ++st->gave_up;
                 st->last_error = (uint32_t)r;

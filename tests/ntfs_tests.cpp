@@ -468,7 +468,8 @@ void test_walk(std::uint64_t base) {
         // let it through.
         Volume w(base);
         Record over(1);
-        over.non_resident(0x80, runs({{340, 1}}), 0, 0, kClusters * kCluster + 1);
+        // The volume is one sector short of kClusters, so kClusters - 1 whole clusters.
+        over.non_resident(0x80, runs({{340, 1}}), 0, 0, (kClusters - 1) * kCluster + 1);
         w.record(27, over.finish());
         NtfsVolume wv;
         EXPECT_TRUE(NtfsVolume::mount_at(w.reader(), base, wv, error));

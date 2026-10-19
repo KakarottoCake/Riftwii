@@ -692,11 +692,14 @@ bool NtfsVolume::directory_entries(std::uint64_t record_number, const std::vecto
     }
     std::vector<DirEntry> entries;
     if (!walk_directory(record_number, entries, error)) return false;
-    if (dir_cache_entries_ + entries.size() > kDirCacheEntries) {
+    // Each listing counts one more than its entries, so empty folders are
+    // bounded too.
+    const std::size_t cost = entries.size() + 1;
+    if (dir_cache_entries_ + cost > kDirCacheEntries) {
         dir_cache_.clear();
         dir_cache_entries_ = 0;
     }
-    dir_cache_entries_ += entries.size();
+    dir_cache_entries_ += cost;
     out = &(dir_cache_[record_number] = std::move(entries));
     return true;
 }
