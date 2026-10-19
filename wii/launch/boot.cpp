@@ -3136,6 +3136,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         const char* where = nullptr;
         if (s.address < kChannelProgramStart) where = "in the Wii's low memory";
         else if (s.address >= kMem2Start) where = "in MEM2, where RiftWii's loader does not load programs";
+        // Its end too, not only its start: a channel on an emulated NAND
+        // is a plain file on the card, and a section running past MEM1
+        // faulted in the copy (BUG-14). Compared without adding.
+        else if (s.address >= kMem1End || s.size > kMem1End - s.address) where = "running past the end of MEM1";
         else if (overlaps_loader(s.address, s.size)) where = "where RiftWii itself is";
         if (where == nullptr) continue;
         char text[160];
