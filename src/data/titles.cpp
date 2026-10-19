@@ -98,8 +98,30 @@ std::string folder_title(const std::string& path, const std::string& id) {
     return title;
 }
 
+namespace {
+
+// The title of a "Title [ID]" folder named for another ID than the disc's
+// own: a mod kept under an ID of its own ("Mario Kart Double Dash Plus
+// [GM4E05]" holding a GM4E01 disc), whose name the database's entry for
+// the original would hide. Empty otherwise.
+std::string renamed_folder_title(const std::string& path, const std::string& id) {
+    const std::size_t file_slash = path.find_last_of('/');
+    if (file_slash == std::string::npos || file_slash == 0) return "";
+    const std::size_t dir_slash = path.find_last_of('/', file_slash - 1);
+    if (dir_slash == std::string::npos) return "";
+    const std::string folder = trim(path.substr(dir_slash + 1, file_slash - dir_slash - 1));
+    if (folder.size() < 8 || folder.back() != ']' || folder[folder.size() - 8] != '[') return "";
+    const std::string folder_id = folder.substr(folder.size() - 7, 6);
+    if (!plausible_id(folder_id) || folder_id == id) return "";
+    return folder_title(path, folder_id);
+}
+
+}  // namespace
+
 std::string display_title(const TitleTable* table, const std::string& id, const std::string& path,
                           const std::string& internal) {
+    const std::string renamed = renamed_folder_title(path, id);
+    if (!renamed.empty()) return renamed;
     if (table) {
         if (const std::string* t = table->find(id)) return *t;
     }
