@@ -14,10 +14,11 @@ reviews:
 
   auto_review:
     enabled: true
-    # Work happens on draft PRs long before they are marked ready, so review
-    # them too instead of waiting for "Ready for review".
-    drafts: true
-    # Review every push, not only the first one.
+    # Drafts change too often to spend the hourly review allowance on; the
+    # review starts when a PR is marked "Ready for review".
+    # "@coderabbitai review" still reviews a draft on request.
+    drafts: false
+    # Once a PR is ready, review every push, not only the first one.
     auto_incremental_review: true
     # CodeRabbit stops reviewing on its own after five reviewed commits;
     # long-running drafts get far more pushes than that.
