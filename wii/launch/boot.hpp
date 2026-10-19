@@ -223,6 +223,13 @@ void SetLaunchExtras(LaunchExtras extras);
 // boot_game (a GameCube game's: wii/launch/gcplugin.cpp hands its cheats to
 // the gamecube plugin).
 const LaunchExtras& CurrentLaunchExtras();
+// The GameCube adapter for a GameCube game (runtime/gc/gc_gcad.h), by
+// Settings > GameCube adapter and the rules Wii games follow on the IOS
+// the game keeps (`game_on_usb`: d2x reads the USB drive for it): true
+// with the /dev/usb/hid handle the game takes over, its HID version and
+// the adapter's v5 device id (-1: none); false when the adapter stays off
+// (the reason is in the log).
+bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev);
 // The menu's word on the next launch: a pack keeps its own saves.
 bool LaunchPackKeepsSaves();
 

@@ -2548,6 +2548,31 @@ void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
 
 const LaunchExtras& CurrentLaunchExtras() { return g_extras; }
 
+bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev) {
+    fd = -1;
+    version = 0;
+    known_dev = -1;
+    if (g_extras.gc_adapter == GcAdapterMode::Off) {
+        logf("GameCube adapter: off (the setting is Off)\n");
+        return false;
+    }
+    // Demo's made-up presses are for Wii games' test runs: a GameCube
+    // game takes the adapter as On.
+    if (g_extras.gc_adapter == GcAdapterMode::Demo) g_extras.gc_adapter = GcAdapterMode::On;
+    // A GameCube game keeps the IOS it starts on. From the SD card that is
+    // the menu's, and the game reads the card itself (runtime/gc): a disc
+    // game's rules, no d2x reads. From the USB drive it is the d2x cIOS
+    // the launch reloaded into, which reads the drive as for a USB Wii game.
+    settle_gc_adapter(IOS_GetVersion(), game_on_usb ? 1 : 0, "the game", false);
+    if (g_extras.gc_adapter != GcAdapterMode::On) return false;
+    std::string why;
+    if (!take_adapter_handle(fd, version, known_dev, why)) {
+        logf("GameCube adapter: off: %s\n", why.c_str());
+        return false;
+    }
+    return true;
+}
+
 bool LaunchPackKeepsSaves() { return g_extras.pack_keeps_saves; }
 
 std::vector<std::string> TakeCardLog() {

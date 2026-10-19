@@ -80,26 +80,31 @@ static int bt_claim(struct gc_bt_rq* rq, uint32_t reply) {
     return 1;
 }
 
-void gc_bt_on_reply(struct gc_bt* bt, uint32_t reply) {
+int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply) {
     uint32_t i;
-    if (bt_claim(&bt->write, reply)) return;
+    if (bt_claim(&bt->write, reply)) return 1;
     for (i = 0; i < GC_BT_EVENT_READS; ++i)
-        if (bt_claim(&bt->events[i], reply)) return;
+        if (bt_claim(&bt->events[i], reply)) return 1;
     for (i = 0; i < GC_BT_ACL_READS; ++i)
-        if (bt_claim(&bt->acl[i], reply)) return;
+        if (bt_claim(&bt->acl[i], reply)) return 1;
+    return 0;
 }
 
-/* Takes every reply IOS has ready. */
+/* Takes every reply IOS has ready: these, and the GameCube adapter's
+ * (gc_ipc_route). */
 static void bt_take_replies(struct gc_bt* bt) {
     uint32_t reply;
-    while ((reply = gc_ipc_take()) != 0) gc_bt_on_reply(bt, reply);
+    while ((reply = gc_ipc_take()) != 0) {
+        if (bt->ctx) gc_ipc_route((struct gc_rt_context*)(uintptr_t)bt->ctx, reply);
+        else gc_bt_on_reply(bt, reply);
+    }
 }
 
 static int bt_send(struct gc_bt* bt, struct gc_bt_rq* rq) {
     gc_flush((uint32_t)(uintptr_t)rq, 160);  /* ipc, vec and setup */
     if (rq->data) gc_invalidate(rq->data, rq->length);  /* IOS writes there, or has the flushed bytes */
     rq->state = GC_BT_RQ_SENT;
-    if (gc_ipc_send(bt_phys(rq->ipc), bt) != 0) {
+    if (gc_ipc_send(bt_phys(rq->ipc), (struct gc_rt_context*)(uintptr_t)bt->ctx) != 0) {
         rq->state = GC_BT_RQ_IDLE;
         bt->last_error = -1000;
         return 0;
@@ -767,6 +772,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         return;
     }
     ctx->busy = 1;
+    bt->ctx = (uint32_t)(uintptr_t)ctx;
     bt->polls++;
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
     bt_take_replies(bt);
