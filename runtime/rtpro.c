@@ -652,7 +652,6 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
     uint8_t* p;
     uint32_t n;
     struct rtpro_link* l = report_of(st, acl, size, 0, &p, &n);
-    (void)room;  /* a rebuilt report is never longer than the one it replaces */
     *what = 0;
     if (!l || p[0] != HID_INPUT) return size;
     *what = RTPRO_SEEN;
@@ -690,7 +689,7 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
     if (p[1] >= 0x30u && p[1] <= 0x3Fu) {
         uint32_t offset = 0, mode = l->mode;
         const uint32_t ext = extension_of(p[1], &offset);
-        uint8_t pro[11], classic[6];
+        uint8_t pro[11], classic[6], report[24];
         uint32_t i, rebuilt;
         *what |= RTPRO_DATA;
         /* All eleven of the Pro's bytes, or nothing to translate. */
@@ -711,7 +710,12 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
         }
         rtpro_classic(pro, classic);
         if (mode < 0x30u || (mode > 0x37u && mode != 0x3Du)) mode = RTPRO_MODE;
-        rebuilt = build_report(p, mode, classic, l);
+        /* Built aside, then put in place only if the packet has room: a
+         * short report from the Pro while the game asked for mode 0x37 or
+         * 0x3D made up to 23 bytes over 15 and wrote past it (BUG-15). */
+        rebuilt = build_report(report, mode, classic, l);
+        if (8u + rebuilt > room) return size;
+        for (i = 0; i < rebuilt; ++i) p[i] = report[i];
         set_lengths(acl, rebuilt);
         l->translated++;
         st->translated++;

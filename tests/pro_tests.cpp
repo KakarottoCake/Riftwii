@@ -552,6 +552,24 @@ void test_bad_packets() {
     signalling[6] = 0x01;
     In(st, signalling);
     EXPECT_EQ(signalling[13], 0x03);
+    // A short report (0x34 with just the Pro's eleven bytes, 15 in all)
+    // while the game asked for mode 0x3D, whose report is 23: the packet
+    // has no room for it, so it is left as it came and nothing past it is
+    // written (BUG-15). The bytes after the packet stand for whatever
+    // follows it in memory.
+    Bytes mode3d = Acl(kPro, {0xA2, 0x12, 0x04, 0x3D});
+    Out(st, mode3d);
+    Bytes shortr = {0xA1, 0x34, 0x00, 0x00};
+    const Bytes pro = ProBytes(0x800, 0x800, 0x800, 0x800, 0xFF, 0xEF);
+    shortr.insert(shortr.end(), pro.begin(), pro.end());
+    Bytes packet = Acl(kPro, shortr);
+    const std::uint32_t packet_size = static_cast<std::uint32_t>(packet.size());
+    packet.resize(packet.size() + 16, 0x5A);
+    std::uint32_t what = 0;
+    const std::uint32_t n = rtpro_acl_in(&st, packet.data(), packet_size, packet_size, &what);
+    EXPECT_EQ(n, packet_size);
+    EXPECT_EQ(packet[9], 0x34);
+    for (std::size_t i = packet_size; i < packet.size(); ++i) EXPECT_EQ(packet[i], 0x5A);
 }
 
 }  // namespace
