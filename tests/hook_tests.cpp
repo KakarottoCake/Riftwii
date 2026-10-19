@@ -1455,6 +1455,29 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(st->card_busy, 0u);
         EXPECT_EQ(st->card_waits, waits0 + 2u);
         ios.delivered.clear();
+        // The game's own SD write, through the virtual SD blob beside the
+        // runtime, still programming: a savegame transfer waits for it too
+        // (FU-03), and goes once the blob has seen the card idle.
+        {
+            std::uint32_t* vsd_writing = reinterpret_cast<std::uint32_t*>(data + 0x7000);
+            *vsd_writing = 1;
+            ctx.vsd_writing = FsAddr(vsd_writing);
+            args[0] = fd_a; args[1] = 0; args[2] = 0;
+            EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+            args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001047; args[4] = 0x80002047;
+            EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+            EXPECT_EQ(ios.queue.size(), std::size_t(1));
+            if (!ios.queue.empty()) EXPECT_EQ(ios.queue[0].kind, 2);  // a wait, not the transfer
+            *vsd_writing = 0;
+            ios.complete_one();
+            EXPECT_EQ(ios.queue.size(), std::size_t(1));
+            if (!ios.queue.empty()) EXPECT_EQ(ios.queue[0].kind, 1);  // now the transfer
+            ios.drain();
+            EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+            if (!ios.delivered.empty()) EXPECT_EQ(ios.delivered[0].result, 16);
+            ios.delivered.clear();
+            ctx.vsd_writing = 0;
+        }
         st->card_rca = 0;
         args[0] = fd_a; args[1] = 0; args[2] = 0;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);

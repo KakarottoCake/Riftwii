@@ -996,6 +996,9 @@ static void rt_fs_back_off(struct rt_fs_state* st) {
  * read is in flight on it, or a failure's pause runs. /dev/sdio/slot0
  * only (d2x's device serves one request at a time itself). */
 static int rt_fs_card_blocked(const struct rt_context* ctx, struct rt_fs_state* st) {
+    /* The virtual SD blob's write still programming refuses a savegame
+     * command as it does a mod read (FU-03, BUG-05). */
+    if (rt_vsd_writing(ctx)) return 1;
     return rt_sd_settles(ctx, st) && (rt_mod_reading(ctx) != 0 || rt_fs_backing_off(st));
 }
 
