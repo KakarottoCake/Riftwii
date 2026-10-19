@@ -159,7 +159,17 @@ struct CisoFinds {
     std::vector<std::string> paths;
     std::size_t total = 0;
     void note(const std::string& path);
+    // Adds another scan's finds after these, so the SD card's and the USB
+    // drive's are said together.
+    void merge(const CisoFinds& other);
 };
+
+// Why a file in a GameCube game's own folder (sd:/games/<folder>/ or
+// usb:/games/<folder>/) is not listed, for the scan's log: what it is and
+// what to do. Empty when it is not worth a line: an image RiftWii plays, a
+// hidden name ("._x.iso" from a Mac), a .ciso (Home says so on its own) or
+// a file that only sits beside an image (a cover, a text file).
+std::string gc_folder_skip_reason(const std::string& name);
 
 // Home's popup text: `help` (already translated), a blank line, then the
 // first file found and, when there are more, `and_more` (translated, with

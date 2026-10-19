@@ -481,6 +481,44 @@ void test_ciso_detection() {
     EXPECT_EQ(many.paths.size(), CisoFinds::kPathsKept);
     EXPECT_EQ(ciso_popup_body(many, "Help.", "y {1} más"), std::string("Help.\n\nsd:/games/g0.ciso y 9 más"));
     EXPECT_TRUE(ciso_log_line(many).find("sd:/games/g0.ciso and 9 more (") != std::string::npos);
+
+    // The SD card's finds and the USB drive's, said together: the first
+    // paths in order, every one counted.
+    CisoFinds sd;
+    sd.note("sd:/games/a/a.ciso");
+    CisoFinds usb;
+    for (int i = 0; i < 5; ++i) usb.note("usb:/games/u" + std::to_string(i) + "/game.ciso");
+    sd.merge(usb);
+    EXPECT_EQ(sd.total, static_cast<std::size_t>(6));
+    EXPECT_EQ(sd.paths.size(), CisoFinds::kPathsKept);
+    EXPECT_EQ(sd.paths[0], std::string("sd:/games/a/a.ciso"));
+    EXPECT_EQ(sd.paths[1], std::string("usb:/games/u0/game.ciso"));
+    CisoFinds only_usb;
+    only_usb.merge(usb);
+    EXPECT_EQ(ciso_log_line(only_usb).find("Home: CISO DETECTED: usb:/games/u0/game.ciso and 4 more ("),
+              static_cast<std::size_t>(0));
+}
+
+void test_gc_folder_skip_reason() {
+    // Images RiftWii plays, hidden names, .ciso (reported on its own) and
+    // files beside an image get no line.
+    EXPECT_TRUE(gc_folder_skip_reason("game.iso").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("GAME.GCM").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("game.rvz").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("game.nkit.iso").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("._game.gcz").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("game.ciso").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("cover.PNG").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("readme.txt").empty());
+    EXPECT_TRUE(gc_folder_skip_reason("").empty());
+
+    // The formats players have, each with what to do.
+    EXPECT_EQ(gc_folder_skip_reason("Simpsons.gcz").find("a Dolphin .gcz image"), static_cast<std::size_t>(0));
+    EXPECT_EQ(gc_folder_skip_reason("game.nkit.gcz").find("an NKit image"), static_cast<std::size_t>(0));
+    EXPECT_EQ(gc_folder_skip_reason("game.WIA").find("a .wia image"), static_cast<std::size_t>(0));
+    EXPECT_EQ(gc_folder_skip_reason("game.7z").find("an archive"), static_cast<std::size_t>(0));
+    EXPECT_TRUE(gc_folder_skip_reason("game.gcz").find("Convert File") != std::string::npos);
+    EXPECT_EQ(gc_folder_skip_reason("game.dec"), std::string("not an image RiftWii plays (it plays .iso, .gcm and .rvz)"));
 }
 
 void test_plan_over_usb() {
@@ -613,6 +651,7 @@ int main() {
     test_cios_readiness_note();
     test_plan_over_usb();
     test_ciso_detection();
+    test_gc_folder_skip_reason();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";
     return g_failures == 0 ? 0 : 1;

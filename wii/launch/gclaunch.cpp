@@ -592,11 +592,38 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
 
 namespace {
 
+// A file in a GameCube game's folder that the scan passes over, said in
+// the log so a game that goes missing says why (a tester's .gcz or NKit
+// image left no line at all). The first kSkipLines a scan; the rest are
+// counted and said in one line at its end.
+struct SkippedGcFiles {
+    static constexpr unsigned kSkipLines = 10;
+    unsigned said = 0;
+    unsigned more = 0;
+    void note(const std::string& path, const std::string& why) {
+        if (said < kSkipLines) {
+            logf("%s scan: %s is not listed: %s\n", drive_of(path), path.c_str(), why.c_str());
+            ++said;
+        } else {
+            ++more;
+        }
+    }
+    void finish(const char* drive) const {
+        if (more != 0) logf("%s scan: %u more file(s) in GameCube game folders not listed\n", drive, more);
+    }
+};
+
 // The GameCube image at `full` (on the card or the USB drive) as the list
-// shows it, when it is one.
-void add_gc_image(const std::string& full, std::vector<ImageGame>& out) {
+// shows it, when it is one. A file that is not one is said in `skipped`,
+// unless it is a Wii disc, which the Wii games' scan lists.
+void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped) {
     GcHead found;
-    if (!read_gc_head(full, found)) return;
+    if (!read_gc_head(full, found)) {
+        const bool wii_disc = be32(found.bytes + 0x18) == 0x5D1C9EA3u;
+        if (!wii_disc && !found.rvz)
+            skipped.note(full, "it has no GameCube disc header (damaged, cut short, or not a GameCube image)");
+        return;
+    }
     const std::uint8_t* head = found.bytes;
     ImageGame g;
     g.device = GcImageOnUsb(full) ? ImageDevice::Usb : ImageDevice::Sd;
@@ -627,6 +654,7 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out) {
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     DIR* games = opendir("sd:/games");
     if (!games) return;
+    SkippedGcFiles skipped;
     while (dirent* folder = readdir(games)) {
         if (folder->d_name[0] == '.') continue;
         const std::string dir = std::string("sd:/games/") + folder->d_name;
@@ -634,15 +662,19 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
         if (!inner) continue;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
+            if (file->d_type == DT_DIR) continue;
             if (!is_gc_image_name(name)) {
                 if (ciso && is_ciso_image_name(name)) ciso->note(dir + "/" + name);
+                const std::string why = gc_folder_skip_reason(name);
+                if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out);
+            add_gc_image(dir + "/" + name, out, skipped);
         }
         closedir(inner);
     }
     closedir(games);
+    skipped.finish("SD");
     ScanGcPatches(out);
 }
 
@@ -651,6 +683,7 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     // a folder of its own there, as on the card.
     std::vector<VolumeEntry> folders;
     if (!list_usb_folder("usb:/games", folders)) return;
+    SkippedGcFiles skipped;
     for (const VolumeEntry& folder : folders) {
         if (!folder.is_directory || folder.name.empty() || folder.name[0] == '.') continue;
         const std::string dir = "usb:/games/" + folder.name;
@@ -660,11 +693,14 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
                 if (ciso && is_ciso_image_name(file.name)) ciso->note(dir + "/" + file.name);
+                const std::string why = gc_folder_skip_reason(file.name);
+                if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out);
+            add_gc_image(dir + "/" + file.name, out, skipped);
         }
     }
+    skipped.finish("USB");
     // Patch-only mods whose original is on the drive (the game they make
     // is written to the SD card when it is first started).
     ScanGcPatches(out);

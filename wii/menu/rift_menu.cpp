@@ -3384,19 +3384,23 @@ static bool LoadCisoFace(skin::Tex& tex)
 }
 
 // The maintainer's joke before a release, kept because it also helps: a
-// .ciso (CompactISO) GameCube image the SD scan passed over is never
+// .ciso (CompactISO) GameCube image the scans passed over is never
 // listed, as RiftWii does not play them and will not, so instead of the
 // game going missing without a word, Home teases the player once per start
 // and says how to convert it. The title stays English in every language on
 // purpose: it is the joke's punchline, a shout that reads the same
 // everywhere, so it does not go through tr(). The help below it does.
-static void TeaseCisoOnce(const riftwii::wii::ImageCatalog& sd)
+static void TeaseCisoOnce(const riftwii::wii::ImageCatalog& sd, const riftwii::wii::ImageCatalog& usb)
 {
 	static bool shown = false;
-	if (shown || sd.ciso.total == 0) return;
+	// The SD card's and the USB drive's together: a tester's games on the
+	// drive went missing without a word, as only the card's were said.
+	riftwii::CisoFinds found = sd.ciso;
+	found.merge(usb.ciso);
+	if (shown || found.total == 0) return;
 	shown = true;
-	logf("%s\n", riftwii::ciso_log_line(sd.ciso).c_str());
-	const std::string body = riftwii::ciso_popup_body(sd.ciso,
+	logf("%s\n", riftwii::ciso_log_line(found).c_str());
+	const std::string body = riftwii::ciso_popup_body(found,
 		tr("RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."),
 		tr("and {1} more"));
 	skin::Tex face;
@@ -3952,7 +3956,7 @@ static int MenuSource(FrontendState& state)
 		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
-		TeaseCisoOnce(state.sd_catalog);
+		TeaseCisoOnce(state.sd_catalog, state.usb_catalog);
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.

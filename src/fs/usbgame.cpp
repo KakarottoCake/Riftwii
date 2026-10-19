@@ -349,6 +349,49 @@ void CisoFinds::note(const std::string& path) {
     ++total;
 }
 
+void CisoFinds::merge(const CisoFinds& other) {
+    for (const std::string& path : other.paths) {
+        if (paths.size() >= kPathsKept) break;
+        paths.push_back(path);
+    }
+    total += other.total;
+}
+
+namespace {
+
+// `name` ends in `extension` (lower case, with its dot), in any case.
+bool has_extension(const std::string& name, const char* extension) {
+    const std::size_t length = std::strlen(extension);
+    if (name.size() <= length) return false;
+    for (std::size_t i = 0; i < length; ++i) {
+        const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(name[name.size() - length + i])));
+        if (lower != extension[i]) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+std::string gc_folder_skip_reason(const std::string& name) {
+    if (name.empty() || name[0] == '.') return std::string();
+    static const char* const kPlayed[] = {".iso", ".gcm", ".rvz"};
+    for (const char* extension : kPlayed)
+        if (has_extension(name, extension)) return std::string();
+    if (is_ciso_image_name(name)) return std::string();
+    static const char* const kBeside[] = {".txt", ".png", ".jpg", ".jpeg", ".nfo", ".md5", ".sfv", ".sha1"};
+    for (const char* extension : kBeside)
+        if (has_extension(name, extension)) return std::string();
+
+    const std::string convert = "convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)";
+    if (has_extension(name, ".nkit.gcz")) return "an NKit image, which RiftWii does not play: " + convert;
+    if (has_extension(name, ".gcz")) return "a Dolphin .gcz image, which RiftWii does not play: " + convert;
+    if (has_extension(name, ".wia")) return "a .wia image, which RiftWii does not play: " + convert;
+    if (has_extension(name, ".tgc")) return "a .tgc demo file, which RiftWii does not play";
+    if (has_extension(name, ".zip") || has_extension(name, ".7z") || has_extension(name, ".rar"))
+        return "an archive: unpack the image inside it into this folder";
+    return "not an image RiftWii plays (it plays .iso, .gcm and .rvz)";
+}
+
 std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, const std::string& and_more) {
     if (finds.paths.empty()) return std::string();
     std::string body = help + "\n\n" + finds.paths.front();
