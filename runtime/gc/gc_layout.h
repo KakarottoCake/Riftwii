@@ -9,6 +9,12 @@
  * zeros. Fixed, with spare bytes at the end, so a field added to the
  * struct changes neither this nor the assembly; gc_rt.h checks that the
  * struct still fits. Raise it (a multiple of 32) only when it does not. */
-#define GC_RT_CONTEXT_BYTES 0x600
+#define GC_RT_CONTEXT_BYTES 0x680
+
+/* A game whose disc code is libogc's (gc_rt.h, "libogc"): each store that
+ * starts a DI command jumps to a slot of GC_DI_SLOT_WORDS words, which
+ * makes the store, calls gc_di_common and jumps back. GC_DI_SITES slots. */
+#define GC_DI_SITES 48
+#define GC_DI_SLOT_WORDS 11
 
 #endif

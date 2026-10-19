@@ -20,7 +20,6 @@
 #define GC_CARD_PAGE 128u
 
 typedef void (*gc_exi_callback_fn)(int32_t chan, uint32_t os_context);
-typedef void (*gc_set_alarm_fn)(void* alarm, uint64_t ticks, uint32_t handler);
 
 static struct gc_card* card_of(struct gc_rt_context* ctx) { return (struct gc_card*)(uintptr_t)ctx->card; }
 
@@ -37,10 +36,9 @@ static void card_dirty(struct gc_card* card, uint32_t address, uint32_t length) 
 }
 
 static void card_alarm(struct gc_rt_context* ctx, struct gc_card* card) {
-    gc_set_alarm_fn set_alarm = (gc_set_alarm_fn)(uintptr_t)ctx->set_alarm;
     if (card->alarm_set) return;  /* one in flight runs whatever is pending */
     card->alarm_set = 1;
-    set_alarm(card->alarm, ctx->delay_ticks, ctx->alarm_entry);
+    gc_set_alarm(ctx, card->alarm, ctx->delay_ticks);
 }
 
 /* The four address bytes after a read or program command. */
