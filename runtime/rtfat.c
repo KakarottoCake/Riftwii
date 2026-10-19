@@ -55,6 +55,7 @@ enum {
     S_ENTRY_READ,
     S_ENTRY_FILL,
     S_ENTRY_WRITTEN,
+    S_ENTRY_TERM,
     /* marking entries deleted */
     S_MARK_READ1,
     S_MARK_FILL1,
@@ -623,6 +624,7 @@ static int scan_process(struct rtfat_op* op) {
             reset_lfn(op);
             for (j = i; j < ENTRIES_PER_SECTOR; ++j) note_free(op, op->scan_lba, j);
             op->scan_end = 1;
+            op->end_index = i;
             return 0; /* the caller ends the scan */
         }
         if (e[0] == 0xE5) {
@@ -714,12 +716,14 @@ static int scan_ended(const struct rtfat_volume* vol, struct rtfat_op* op) {
                         if (e[0] == 0x00) past = 1;
                         if (past) e[0] = 0xE5;
                     }
+                    op->entry_cluster = op->scan_cluster;
                     op->state = S_DIR_GAP_WRITTEN;
                     return issue(op, op->scan_lba, 1, 1, op->sector);
                 }
                 op->state = S_DIR_NEXT;
                 return RT_CONT;
             }
+            op->entry_cluster = op->scan_cluster;
             op->state = op->next_state;
             return RT_CONT;
         default:
@@ -1001,6 +1005,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->free_lba = rtfat_cluster_lba(vol, v);
                 op->free_index = 0;
                 op->entry_zero = 1;
+                op->entry_cluster = v;
                 op->state = op->grow_next;
                 return RT_CONT;
             }
@@ -1040,18 +1045,53 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         case S_ENTRY_READ:
             op->state = S_ENTRY_FILL;
             return issue(op, op->free_lba, 1, 0, op->sector);
-        case S_ENTRY_FILL:
+        case S_ENTRY_FILL: {
+            /* Entries written over the end-of-directory entry, or after it,
+             * must leave an end behind them: the slots past them hold
+             * whatever was on the card, and read as entries once the 0x00
+             * before them is gone (BUG-17). In the end entry's own sector
+             * they are zeroed here; when the entries fill the sector, the
+             * next one is given an end (S_ENTRY_TERM). A cluster grown for
+             * them was zeroed whole and needs neither. */
+            const uint32_t after = op->free_index + op->need_entries;
+            const int over_end = op->scan_end && op->free_lba == op->scan_lba && after > op->end_index;
             if (op->entry_zero) zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
             fill_entries(op);
+            if (over_end && after < ENTRIES_PER_SECTOR) {
+                zero_bytes(op->sector + after * ENTRY_BYTES, (ENTRIES_PER_SECTOR - after) * ENTRY_BYTES);
+            }
+            op->entry_term = (over_end || op->entry_zero) && after == ENTRIES_PER_SECTOR && op->entry_cluster != 0;
             op->state = S_ENTRY_WRITTEN;
             return issue(op, op->free_lba, 1, 1, op->sector);
+        }
         case S_ENTRY_WRITTEN:
             /* The first entry makes this extension durable.  A later
              * rename-source delete may fail, but must not detach the new
              * directory cluster that now contains a valid entry. */
             op->dir_txn = 0;
-            op->state = op->next_state;
+            op->state = op->entry_term ? S_ENTRY_TERM : op->next_state;
             return RT_CONT;
+        case S_ENTRY_TERM: {
+            /* The sector after the new entries, zeroed: in the same
+             * cluster, or the first of the next one when the folder's chain
+             * goes on (none when it ends there: the folder ends with it). */
+            const uint32_t first = rtfat_cluster_lba(vol, op->entry_cluster);
+            uint32_t lba;
+            if (op->free_lba + 1 < first + vol->sectors_per_cluster) {
+                lba = op->free_lba + 1;
+            } else {
+                if (!fat_get(vol, op, op->entry_cluster, &v)) return RT_IO;
+                if (v >= 0x0FFFFFF8u || !cluster_valid(vol, v)) {
+                    op->state = op->next_state;
+                    return RT_CONT;
+                }
+                lba = rtfat_cluster_lba(vol, v);
+            }
+            op->entry_term = 0;
+            zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
+            op->state = op->next_state;
+            return issue(op, lba, 1, 1, op->sector);
+        }
 
         /* ---- failed directory extension recovery ---- */
         case S_DIR_RECOVER_PARENT_READ:

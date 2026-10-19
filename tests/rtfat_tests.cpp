@@ -1184,6 +1184,52 @@ static void TestStraddle(Low& low) {
     EXPECT_EQ(hf.entry.short_name, "MIXED~1.CAS");
 }
 
+// New entries over the end-of-directory entry leave an end behind them
+// (BUG-17): the slots after the 0x00 hold whatever was on the card, and
+// read as entries once the 0x00 before them is gone.
+static void TestEndMarker(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    std::uint8_t* dir = fx.img.cluster(3);
+    EXPECT_EQ(dir[13 * 32], 0u);  // the save folder ends at slot 13
+    // Left-over entries past the end: one in the end's own sector, one at
+    // the start of the next.
+    const Bytes ghost_a = short_entry("GHOSTA  BIN", 0x20, 0, 0);
+    const Bytes ghost_b = short_entry("GHOSTB  BIN", 0x20, 0, 0);
+    std::memcpy(dir + 15 * 32, ghost_a.data(), 32);
+    std::memcpy(dir + 16 * 32, ghost_b.data(), 32);
+    riftwii::Fat32File hf;
+    SetName(op.name, "ghosta.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+
+    // The deleted slot 6 taken first, so that what follows goes to the end.
+    SetName(op.name, "new.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_index, 6u);
+
+    // Two entries at slots 13 and 14: slot 15 after them is zeroed.
+    SetName(op.name, "Mixed.cas");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_index, 14u);
+    EXPECT_EQ(dir[15 * 32], 0u);
+    SetName(op.name, "ghosta.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    EXPECT_FALSE(fx.host_lookup("ghosta.bin", hf));
+
+    // One entry at slot 15 fills the sector: the next one gets the end.
+    SetName(op.name, "last.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_lba, std::uint32_t(fx.img.cluster_lba(3)));
+    EXPECT_EQ(op.found.entry_index, 15u);
+    EXPECT_EQ(dir[16 * 32], 0u);
+    SetName(op.name, "ghostb.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    EXPECT_FALSE(fx.host_lookup("ghostb.bin", hf));
+    EXPECT_TRUE(fx.host_lookup("Mixed.cas", hf));
+    EXPECT_TRUE(fx.host_lookup("last.bin", hf));
+}
+
 // ---- list, count, usage -----------------------------------------------------------
 
 static void TestList(Low& low) {
@@ -1521,6 +1567,7 @@ int main() {
     TestCommitGhost(low);
     TestCommitOverExisting(low);
     TestStraddle(low);
+    TestEndMarker(low);
     TestLongNames(low);
     TestList(low);
     TestGeometry(low);
