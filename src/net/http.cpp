@@ -208,9 +208,46 @@ bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to
     return true;
 }
 
+namespace {
+
+// A host on the player's own network or the Wii itself, written as such:
+// "localhost", or an IPv4 address in 0/8, 10/8, 127/8, 169.254/16,
+// 172.16/12 or 192.168/16. A name that only resolves to one is not seen.
+bool local_host(const std::string& name) {
+    const std::string host = lower(name);
+    if (host == "localhost") return true;
+    unsigned parts[4];
+    std::size_t at = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (at >= host.size() || host[at] < '0' || host[at] > '9') return false;
+        unsigned value = 0;
+        std::size_t digits = 0;
+        while (at < host.size() && host[at] >= '0' && host[at] <= '9' && digits < 4) {
+            value = value * 10 + static_cast<unsigned>(host[at] - '0');
+            ++at;
+            ++digits;
+        }
+        if (value > 255) return false;
+        parts[i] = value;
+        if (i < 3) {
+            if (at >= host.size() || host[at] != '.') return false;
+            ++at;
+        }
+    }
+    if (at != host.size()) return false;
+    const unsigned a = parts[0], b = parts[1];
+    return a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && b >= 16 && b <= 31) ||
+           (a == 192 && b == 168);
+}
+
+}  // namespace
+
 bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to) {
     switch (policy) {
-    case HttpRedirects::Follow: return true;
+    // Anywhere, but not from the internet into the player's own network:
+    // a server out there must not make the Wii fetch from the router or a
+    // PC at home (CAV-04, SEC-06). A local server may still send it on.
+    case HttpRedirects::Follow: return local_host(from.host) || !local_host(to.host);
     case HttpRedirects::Never: return false;
     case HttpRedirects::SameHost: break;
     case HttpRedirects::GitHubRelease: {
