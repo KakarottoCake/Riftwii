@@ -41,6 +41,10 @@ const u8* ProfilePicture(const std::string& key, const std::string& art);
 // when it had to read the card this time, false when it was ready or there
 // is none.
 bool ProfilePictureLoad(const std::string& key, const std::string& art);
+// The picture when it was read already, else nullptr: nothing is read
+// (while Home's scan has the drives, a pack's picture may be on the USB
+// drive the scan is reading).
+const u8* ProfilePictureIfRead(const std::string& key);
 
 // Forgets which mods had no picture (leaving the Mods page: one may have
 // been added since). The pictures read stay.

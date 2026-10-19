@@ -3743,7 +3743,12 @@ static int MenuSource(FrontendState& state)
 	grid.SetPictureSource([&items](int index) -> const u8* {
 		if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return nullptr;
 		const riftwii::Profile* profile = riftwii::wii::Profiles().find(items[static_cast<std::size_t>(index)].key);
-		return profile ? riftwii::wii::ProfilePicture(profile->key(), profile->art) : nullptr;
+		if (!profile) return nullptr;
+		// While the scan has the drives only a picture read already: a
+		// pack's may be on the USB drive. (The menu sets g_scanning only
+		// with the GUI halted, so a frame sees one value throughout.)
+		if (g_scanning) return riftwii::wii::ProfilePictureIfRead(profile->key());
+		return riftwii::wii::ProfilePicture(profile->key(), profile->art);
 	}, riftwii::wii::kProfilePicture);
 	grid.SetPagePeek(riftwii::wii::Settings().page_peek != "off");
 	grid.SetItems(&items);
