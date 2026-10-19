@@ -129,6 +129,7 @@ struct ResidentInstall {
     std::array<std::uint32_t, RT_IPC_ENTRIES> hook_sites{};
     unsigned hook_site_count = 0;
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
+    std::uint32_t context_now = 0;    // the blob's rt_context where it is built now (staged or in place)
     std::uint32_t rvz_state = 0;      // struct rt_rvz_state, 0 when not an RVZ game
 };
 

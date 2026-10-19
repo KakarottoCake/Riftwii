@@ -962,6 +962,24 @@ static int rt_fs_backing_off(struct rt_fs_state* st) {
     return 0;
 }
 
+/* The virtual SD blob beside the runtime, passing the card through to the
+ * game, has written to it and not yet seen it idle: the card refuses a read
+ * until it has programmed the write (BUG-05). */
+static int rt_vsd_writing(const struct rt_context* ctx) {
+    return ctx->vsd_writing != 0 && *(volatile const uint32_t*)(uintptr_t)ctx->vsd_writing != 0;
+}
+
+/* Whether the card reads of `rt_issue_sd_chunk` and `rt_rvz_card_read`
+ * wait in null round trips before they go out, and whether one must now. */
+static int rt_card_gated(const struct rt_context* ctx, struct rt_fs_state* fs) {
+    return (fs != 0 && rt_sd_settles(ctx, fs)) || ctx->vsd_writing != 0;
+}
+
+static int rt_card_held(const struct rt_context* ctx, struct rt_fs_state* fs) {
+    if (rt_vsd_writing(ctx)) return 1;
+    return fs != 0 && rt_sd_settles(ctx, fs) && (fs->card_busy || fs->card_wanted || rt_fs_backing_off(fs));
+}
+
 /* Starts the pause after a failed command: the next command waits 2 ms
  * after a first failure, 8 ms after a second, 32 ms after a third, 128
  * after a fourth and 512 ms after every one after that. A command sent
@@ -2832,11 +2850,10 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
          * between. pad_request[0] counts the waits (the request line is
          * only ever flushed, never dropped). */
         struct rt_fs_state* fs = rt_fs_of(ctx);
-        if (fs != 0 && rt_sd_settles(ctx, fs)) {
+        if (rt_card_gated(ctx, fs)) {
             const uint32_t msr = rt_interrupts_off();
             int r;
-            if ((fs->card_busy || fs->card_wanted || rt_fs_backing_off(fs)) &&
-                record->pad_request[0] < RT_SD_CARD_WAITS) {
+            if (rt_card_held(ctx, fs) && record->pad_request[0] < RT_SD_CARD_WAITS) {
                 record->pad_request[0]++;
                 record->phase = RT_PHASE_SD_WAIT;
                 r = rt_sd_wait_trip(ctx, record) < 0 ? -1 : 1;
@@ -3083,11 +3100,10 @@ static int rt_rvz_on_read(struct rt_context* ctx, struct rt_rvz_state* st, uintp
 static int rt_rvz_card_read(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record,
                             uint32_t sector, uint32_t sectors, uint32_t target, uint32_t phase) {
     struct rt_fs_state* fs = rt_fs_of(ctx);
-    if (fs != 0 && rt_sd_settles(ctx, fs)) {
+    if (rt_card_gated(ctx, fs)) {
         const uint32_t msr = rt_interrupts_off();
         int r;
-        if ((fs->card_busy || fs->card_wanted || rt_fs_backing_off(fs)) &&
-            record->pad_request[0] < RT_SD_CARD_WAITS) {
+        if (rt_card_held(ctx, fs) && record->pad_request[0] < RT_SD_CARD_WAITS) {
             record->pad_request[0]++;
             st->wait_sector = sector;
             st->wait_target = target;
