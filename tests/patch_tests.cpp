@@ -450,6 +450,31 @@ static void test_plan_without_order() {
     EXPECT_EQ(plan.memory.size(), std::size_t(1));
     EXPECT_EQ(plan.order.size(), std::size_t(2));
     if (!plan.files.empty()) EXPECT_EQ(plan.files[0].external, std::string("/riivolution/a.bin"));
+
+    // Each selection copies a patch's values again: a 1 MiB value chosen 20
+    // times is past the plan's 16 MiB budget and refused (MIN-09), while 15
+    // times still plans.
+    riftwii::Package big;
+    riftwii::Option many;
+    many.name = "o";
+    many.selected = 1;
+    riftwii::Choice repeated;
+    repeated.name = "c";
+    for (int i = 0; i < 15; ++i) repeated.patches.push_back("big");
+    many.choices.push_back(repeated);
+    big.options.push_back(many);
+    riftwii::Patch heavy;
+    riftwii::MemoryPatch large;
+    large.has_offset = true;
+    large.offset = 0x80001800;
+    large.value.assign(std::size_t(1) << 20, 0x60);
+    heavy.memory.push_back(large);
+    big.patches["big"] = heavy;
+    EXPECT_TRUE(riftwii::plan_package(big, riftwii::DiscIdentity{"ABCDEF", 0, 0}, all, plan, err));
+    EXPECT_EQ(plan.memory.size(), std::size_t(15));
+    for (int i = 15; i < 20; ++i) big.options[0].choices[0].patches.push_back("big");
+    EXPECT_FALSE(riftwii::plan_package(big, riftwii::DiscIdentity{"ABCDEF", 0, 0}, all, plan, err));
+    EXPECT_TRUE(err.find("16 MiB") != std::string::npos);
 }
 
 static void test_select_choice() {
