@@ -13,6 +13,7 @@
 
 #include "bearssl.h"
 #include "log.hpp"
+#include "online.hpp"
 
 namespace riftwii::wii {
 
@@ -27,12 +28,25 @@ mutex_t g_lock = LWP_MUTEX_NULL;
 unsigned char g_pool[kPoolBytes] = {};
 std::uint64_t g_count = 0;
 
+// The seed file is written outside g_lock, so the GUI thread's stirring
+// never waits on the card. This one is held across a seeding and its
+// file's write, so two seedings write their files in the order they were
+// made, and the newest is the one left on the card.
+mutex_t g_file_lock = LWP_MUTEX_NULL;
+
+// Both made on the main thread at start (EntropyStart), before any other
+// thread takes them.
 struct Locked {
-    Locked() {
-        if (g_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_lock, false);
-        LWP_MutexLock(g_lock);
+    explicit Locked(mutex_t& lock = g_lock) : lock_(lock) {
+        if (lock_ == LWP_MUTEX_NULL) LWP_MutexInit(&lock_, false);
+        LWP_MutexLock(lock_);
     }
-    ~Locked() { LWP_MutexUnlock(g_lock); }
+    ~Locked() { LWP_MutexUnlock(lock_); }
+    Locked(const Locked&) = delete;
+    Locked& operator=(const Locked&) = delete;
+
+private:
+    mutex_t& lock_;
 };
 
 // pool = SHA-256(pool, label, count, time base, data). Under the lock.
@@ -59,20 +73,27 @@ void Derive(const char* label, unsigned char out[kPoolBytes]) {
     br_sha256_out(&hash, out);
 }
 
-// A new seed file from the pool. Not the pool itself: what the card holds
-// says nothing about the seedings already given out.
-void RenewSeedFile() {
-    unsigned char next[kPoolBytes];
-    Derive("seed file", next);
-    FILE* f = std::fopen(kSeedFile, "wb");
-    if (!f) return;
-    const bool ok = std::fwrite(next, 1, sizeof(next), f) == sizeof(next);
-    if (std::fclose(f) != 0 || !ok) std::remove(kSeedFile);
+// Writes the next seed file, made from the pool by Derive("seed file")
+// under g_lock: not the pool itself, so what the card holds says nothing
+// about the seedings already given out. Called without g_lock (the GUI
+// thread stirs in the Remotes under it every frame, and a card write could
+// hold a frame back), with g_file_lock held by the caller, and under a
+// card hold, so the power button waits for it rather than unmounting the
+// card mid-write (NEW-02).
+void WriteSeedFile(unsigned char next[kPoolBytes]) {
+    {
+        CardWriteHold hold;
+        if (FILE* f = std::fopen(kSeedFile, "wb")) {
+            const bool ok = std::fwrite(next, 1, kPoolBytes, f) == kPoolBytes;
+            if (std::fclose(f) != 0 || !ok) std::remove(kSeedFile);
+        }
+    }
+    std::memset(next, 0, kPoolBytes);
 }
 
-}  // namespace
-
-void EntropyStart() {
+// The clock, the console's ID and the card's seed file into the pool;
+// `next` gets the seed file that replaces it. Whether there was one.
+bool StirStart(unsigned char next[kPoolBytes]) {
     Locked lock;
     const std::time_t now = std::time(nullptr);
     Stir("start", &now, sizeof(now));
@@ -86,9 +107,37 @@ void EntropyStart() {
     }
     if (had) Stir("seed file", saved, sizeof(saved));
     std::memset(saved, 0, sizeof(saved));
+    Derive("seed file", next);
+    return had;
+}
+
+// `size` bytes of seeding into `to`, each block from a pool that has moved
+// on; `next` gets the seed file that follows them.
+void TakeLocked(unsigned char* to, std::size_t size, unsigned char next[kPoolBytes]) {
+    Locked lock;
+    Stir("take", nullptr, 0);
+    while (size != 0) {
+        unsigned char block[kPoolBytes];
+        Derive("output", block);
+        const std::size_t n = size < sizeof(block) ? size : sizeof(block);
+        std::memcpy(to, block, n);
+        to += n;
+        size -= n;
+        Stir("given", nullptr, 0);
+    }
+    Derive("seed file", next);
+}
+
+}  // namespace
+
+void EntropyStart() {
+    if (g_file_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_file_lock, false);
+    Locked file_lock(g_file_lock);
+    unsigned char next[kPoolBytes];
+    const bool had = StirStart(next);
     // Replaced at once: a start that stops before its first connection
     // must not leave the next start the same file.
-    RenewSeedFile();
+    WriteSeedFile(next);
     logf("TLS: random seed %s\n", had ? "from the card's seed file, the console and the clock"
                                       : "from the console and the clock (no seed file yet; one is made now)");
 }
@@ -99,19 +148,10 @@ void EntropyAdd(const void* data, std::size_t size) {
 }
 
 void EntropyTake(void* out, std::size_t size) {
-    Locked lock;
-    Stir("take", nullptr, 0);
-    unsigned char* to = static_cast<unsigned char*>(out);
-    while (size != 0) {
-        unsigned char block[kPoolBytes];
-        Derive("output", block);
-        const std::size_t n = size < sizeof(block) ? size : sizeof(block);
-        std::memcpy(to, block, n);
-        to += n;
-        size -= n;
-        Stir("given", nullptr, 0);  // each block from a pool that has moved on
-    }
-    RenewSeedFile();
+    Locked file_lock(g_file_lock);
+    unsigned char next[kPoolBytes];
+    TakeLocked(static_cast<unsigned char*>(out), size, next);
+    WriteSeedFile(next);
 }
 
 }  // namespace riftwii::wii

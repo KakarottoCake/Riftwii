@@ -351,7 +351,7 @@ void TestCheats() {
     // the player's (SEC-02), and only that one is counted as held.
     std::size_t held = 0;
     const std::string guarded =
-        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]", "New one"}, &held);
+        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]"}, &held);
     EXPECT_EQ(kept, 3u);
     EXPECT_EQ(held, 1u);
     EXPECT_TRUE(parse_cheat_text(guarded, file, error));
@@ -377,6 +377,53 @@ void TestCheats() {
             EXPECT_EQ(file.cheats[0].words[1], 0x00000011u);  // not turned on: the download's
             EXPECT_EQ(file.cheats[1].words[1], 0x00000002u);  // turned on: the player's
         }
+    }
+    // A download that adds a cheat of a turned-on one's name ahead of it
+    // (FU-02): the player's block would become "Inf (2)" and the name
+    // turned on, "Inf", would run the download's code. The download is not
+    // taken; the old file comes back as it was. Under a heading too, and
+    // the same addition with nothing turned on is taken.
+    {
+        const std::string inf_old =
+            "SB4E01\nSuper Mario Galaxy 2\n\nVersion 1.0\n\nInf\n04000000 00000001\n";
+        const std::string inf_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nInf\nC0000000 00000002\n\nVersion 1.0\n\nInf\n04000000 00000001\n";
+        bool kept_old = false;
+        std::string merged_inf = merge_cheat_text(inf_new, inf_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_TRUE(kept_old);
+        EXPECT_EQ(merged_inf, inf_old);
+        EXPECT_EQ(held, 0u);
+        merged_inf = merge_cheat_text(inf_new, inf_old, kept, {}, &held, &kept_old);
+        EXPECT_FALSE(kept_old);
+        EXPECT_TRUE(merged_inf.find("C0000000 00000002") != std::string::npos);
+        // Before any heading, the new one ahead of the player's: the first
+        // "Inf" pairs with the player's and keeps its code, so the name
+        // still runs it and the rest of the download is taken.
+        const std::string flat_old = "SB4E01\nSuper Mario Galaxy 2\n\nInf\n04000000 00000001\n";
+        const std::string flat_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nInf\nC0000000 00000002\n\nInf\n04000000 00000001\n";
+        merged_inf = merge_cheat_text(flat_new, flat_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_FALSE(kept_old);
+        EXPECT_EQ(held, 1u);
+        EXPECT_TRUE(merged_inf.find("C0000000") == std::string::npos);
+        // A name turned on that the old file has under no revision (kept
+        // from a file for another release): the download would decide its
+        // code, so it is not taken. A name the old file has for one release
+        // may come for another: a download adding that heading is taken.
+        const std::string other_old = "SB4E01\nSuper Mario Galaxy 2\n\nOther\n04000000 00000003\n";
+        merged_inf = merge_cheat_text(flat_new, other_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_TRUE(kept_old);
+        EXPECT_EQ(merged_inf, other_old);
+        const std::string release_new = inf_old + "\nVersion 1.01\n\nInf\nC0000000 00000002\n";
+        merged_inf = merge_cheat_text(release_new, inf_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_FALSE(kept_old);
+        EXPECT_TRUE(merged_inf.find("Version 1.01") != std::string::npos);
+        // The same name added after the player's: its number stays, taken.
+        const std::string after_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nInf\n04000000 00000001\n\nInf\nC0000000 00000002\n";
+        merged_inf = merge_cheat_text(after_new, flat_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_FALSE(kept_old);
+        EXPECT_TRUE(merged_inf.find("C0000000 00000002") != std::string::npos);
     }
     // Notes alone changing on a turned-on cheat: the download's block.
     {

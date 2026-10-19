@@ -755,7 +755,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
         return false;
     }
     std::vector<std::uint8_t> pack;
-    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000)) {
+    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, nullptr, HttpRedirects::GitHubRelease)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
@@ -943,9 +943,17 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     std::string old = read_cheat_file(game_id);
     std::size_t kept = 0;
     std::size_t held = 0;
+    bool kept_old = false;
     if (!old.empty()) {
-        const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept, enabled, &held);
+        const std::string merged =
+            merge_cheat_text(std::string(body.begin(), body.end()), old, kept, enabled, &held, &kept_old);
         body.assign(merged.begin(), merged.end());
+    }
+    if (kept_old) {
+        // The player's file stays as it was; the menu shows why (in 90
+        // characters) and the log says it whole.
+        error = "a new cheat would take the name of one you turned on; turn it off first";
+        return false;
     }
     if (held != 0)
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",

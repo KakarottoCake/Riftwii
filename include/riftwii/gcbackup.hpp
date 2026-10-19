@@ -74,6 +74,18 @@ bool gc_files_same(const std::string& a, const std::string& b);
 // is removed, so a backup is either whole or not there.
 bool gc_copy_file(const std::string& from, const std::string& to, std::string& error);
 
+// A card write of another length moves the old card to `path`.old and the
+// new one into place; a cut between the two leaves no card at `path`.
+// This puts .old back when `path` is missing. Run before a game starts with
+// the card (a game finding none formats a new one) and before every write.
+enum class GcRecovery {
+    Nothing,   // no .old
+    PutBack,   // the card was only at .old; it is back
+    BothKept,  // .old beside a card made since: both stay, `error` says so
+    Failed,    // .old could not be renamed back; `error` says so
+};
+GcRecovery gc_recover_card(const std::string& path, std::string& error);
+
 // Writes `bytes` over the file at `path`. A file of the same length is
 // written in place, keeping its clusters on the SD card (the loader maps
 // the card file's sectors, and a new file could come out in more pieces

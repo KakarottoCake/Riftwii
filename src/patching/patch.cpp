@@ -21,11 +21,6 @@ constexpr std::size_t kMaxString = 4096;
 // cap; the 1 MiB XML cap bounds the total anyway. Names and paths stay at
 // kMaxString: only these two attributes are exempted in CheckAttrLengths.
 constexpr std::size_t kMaxHexChars = kMaxMemoryValueBytes * 2;
-// All the memory-patch bytes (values and originals) a plan may carry. One
-// XML holds at most 1 MiB of them, but each selection of a patch copies
-// them again, and macros can select the same patch thousands of times
-// (MIN-09): gigabytes were asked for before the bad_alloc ended the launch.
-constexpr std::size_t kMaxPlanMemoryBytes = std::size_t(16) << 20;
 constexpr std::size_t kMaxNodes = 8192;
 // What a package may grow to once its macros are cloned and a repeated
 // patch id names all its definitions: patch references across all choices.

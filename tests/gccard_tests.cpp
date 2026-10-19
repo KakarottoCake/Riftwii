@@ -958,6 +958,26 @@ static void test_backup_files() {
     fs::rename(card, card + ".old");
     EXPECT_TRUE(gc_overwrite_file(card, Bytes(12, 0x55), error));  // as long as the stranded card: still put back first
     EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    // The recovery a game's start runs (NEW-03): a card only at .old comes
+    // back; nothing to do without one; a card made since the cut and .old
+    // both stay, and a write then refuses rather than remove the older.
+    fs::rename(card, card + ".old");
+    EXPECT_TRUE(gc_recover_card(card, error) == GcRecovery::PutBack);
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    EXPECT_FALSE(fs::exists(card + ".old"));
+    EXPECT_TRUE(gc_recover_card(card, error) == GcRecovery::Nothing);
+    write_file(card + ".old", Bytes(12, 0x66));  // the card from before a cut
+    EXPECT_TRUE(gc_recover_card(card, error) == GcRecovery::BothKept);
+    EXPECT_TRUE(error.find(".old") != std::string::npos);
+    EXPECT_FALSE(gc_overwrite_file(card, Bytes(14, 0x77), error));
+    EXPECT_TRUE(read_file(card + ".old") == Bytes(12, 0x66));
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    EXPECT_FALSE(fs::exists(card + ".tmp"));
+    // The same length as both, written in place otherwise: refused too.
+    EXPECT_FALSE(gc_overwrite_file(card, Bytes(12, 0x77), error));
+    EXPECT_TRUE(read_file(card + ".old") == Bytes(12, 0x66));
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
+    fs::remove(card + ".old");
 
     // A copy whose source cannot be read leaves nothing behind.
     EXPECT_FALSE(gc_copy_file((root / "missing.raw").string(), (root / "out.raw").string(), error));

@@ -61,4 +61,12 @@ std::uint32_t memory_patch_target(const MemoryPatch& p);
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;
 
+// All the memory-patch bytes (values and originals) one launch may carry.
+// One XML holds at most 1 MiB of them, but each selection of a patch copies
+// them again, and macros can select the same patch thousands of times
+// (MIN-09): gigabytes were asked for before the bad_alloc ended the launch.
+// The plan counts the values written in the XML; the launch counts them
+// again with each valuefile it reads (FU-04).
+constexpr std::size_t kMaxPlanMemoryBytes = std::size_t(16) << 20;
+
 }  // namespace riftwii

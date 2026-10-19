@@ -236,7 +236,33 @@ bool gc_copy_file(const std::string& from, const std::string& to, std::string& e
     return ok;
 }
 
+GcRecovery gc_recover_card(const std::string& path, std::string& error) {
+    const std::string aside = path + ".old";
+    if (file_length(aside) < 0) return GcRecovery::Nothing;
+    if (file_length(path) >= 0) {
+        // Both there: the card at `path` was made after the cut (the game
+        // started with no card and formatted a new one). Neither is the
+        // one to lose, so the older stays where it is for the player.
+        error = "An older memory card file is at " + aside + " beside the one in use; it was left there.";
+        return GcRecovery::BothKept;
+    }
+    if (std::rename(aside.c_str(), path.c_str()) != 0) {
+        error = "The memory card file is at " + aside + " and could not be put back.";
+        return GcRecovery::Failed;
+    }
+    return GcRecovery::PutBack;
+}
+
 bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
+    // A write cut between the two renames below left the card only at .old:
+    // it goes back first, and a .old beside a card is never removed as a
+    // leftover, since the card beside it may be one made after the cut
+    // (NEW-03). Either way nothing is written then, at any length.
+    const GcRecovery recovered = gc_recover_card(path, error);
+    if (recovered == GcRecovery::Failed || recovered == GcRecovery::BothKept) {
+        error += " Nothing was written.";
+        return false;
+    }
     // The same length: written in place, so the card keeps the clusters the
     // game's runtime reads it by (one piece stays one piece); the backup a
     // restore makes first covers a cut in the middle.
@@ -272,18 +298,11 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
         return false;
     }
     const std::string aside = path + ".old";
-    // A write cut between the two renames below left the card only at .old:
-    // it goes back first, never removed as a leftover.
-    if (file_length(path) < 0 && file_length(aside) >= 0 && std::rename(aside.c_str(), path.c_str()) != 0) {
-        std::remove(temp.c_str());
-        error = "The memory card file is at " + aside + " and could not be put back; nothing was written.";
-        return false;
-    }
-    std::remove(aside.c_str());
     const bool had_card = std::rename(path.c_str(), aside.c_str()) == 0;
     if (std::rename(temp.c_str(), path.c_str()) != 0) {
-        if (had_card) std::rename(aside.c_str(), path.c_str());
+        const bool put_back = had_card && std::rename(aside.c_str(), path.c_str()) == 0;
         error = "The new memory card file could not be put in place; it is at " + temp + ".";
+        if (had_card && !put_back) error += " The old one is at " + aside + ".";
         return false;
     }
     if (had_card) std::remove(aside.c_str());
