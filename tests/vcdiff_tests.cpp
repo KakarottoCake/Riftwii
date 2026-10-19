@@ -266,6 +266,45 @@ static void test_checksums_and_refusals() {
     EXPECT_FALSE(apply(patch_of({ahead}), {}, out, error));
     // Not a patch at all.
     EXPECT_FALSE(apply(text("PK\x03\x04 not vcdiff"), {}, out, error));
+    // A short patch whose window claims sections far larger than the file:
+    // refused before anything is allocated (BUG-02). The limits are raised
+    // so only the file's own size can stop it; allocating 256 GiB first
+    // would throw instead of returning.
+    {
+        Bytes huge = {0xD6, 0xC3, 0xC4, 0x00, 0x00, 0x00};
+        Bytes body;
+        put_int(body, 4);           // window length
+        body.push_back(0);          // delta indicator
+        put_int(body, 1ull << 38);  // data section: 256 GiB claimed
+        put_int(body, 2);
+        put_int(body, 0);
+        put_int(huge, body.size() + 6);
+        huge.insert(huge.end(), body.begin(), body.end());
+        VcdiffLimits big;
+        big.max_window = 1ull << 40;
+        bool threw = false;
+        bool ok = true;
+        try {
+            ok = apply(huge, {}, out, error, big);
+        } catch (...) {
+            threw = true;
+        }
+        EXPECT_FALSE(threw);
+        EXPECT_FALSE(ok);
+        EXPECT_TRUE(error.find("past the file's end") != std::string::npos);
+    }
+    // A window whose delta length disagrees with its contents (MIN-08).
+    {
+        Window ok_window;
+        ok_window.add(text("data"));
+        Bytes bad = patch_of({ok_window});
+        // The delta length is the byte after the window indicator; one more
+        // than the truth, with a spare byte after so nothing runs short.
+        bad[6] = std::uint8_t(bad[6] + 1);
+        bad.push_back(0);
+        EXPECT_FALSE(apply(bad, {}, out, error));
+        EXPECT_TRUE(error.find("length does not match") != std::string::npos);
+    }
     // Adler-32 as zlib defines it: "Wikipedia" is 0x11E60398.
     const Bytes wiki = text("Wikipedia");
     EXPECT_EQ(vcdiff_adler32(wiki.data(), wiki.size()), 0x11E60398u);

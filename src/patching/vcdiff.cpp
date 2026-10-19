@@ -171,8 +171,12 @@ public:
         if ((win & kSource) && (win & kTarget)) return fail("a patch window is damaged");
         if ((win & (kSource | kTarget)) && (!integer(seg_len) || !integer(seg_pos)))
             return fail("a patch window is cut short");
-        if (!integer(delta_len) || !integer(window_len) || !byte(delta_ind) || !integer(data_len) ||
-            !integer(inst_len) || !integer(addr_len))
+        if (!integer(delta_len)) return fail("a patch window is cut short");
+        // The delta encoding's length counts every byte after it, up to the
+        // end of the window's three sections (RFC 3284, 4.3).
+        const std::uint64_t delta_start = pos_;
+        if (!integer(window_len) || !byte(delta_ind) || !integer(data_len) || !integer(inst_len) ||
+            !integer(addr_len))
             return fail("a patch window is cut short");
         if (delta_ind != 0) return fail("a patch window's sections are compressed (not supported)");
         const std::uint64_t max = limits_.max_window;
@@ -187,6 +191,7 @@ public:
         }
         if (!section(data_, data_len) || !section(inst_, inst_len) || !section(addr_, addr_len))
             return fail("a patch window runs past the file's end");
+        if (pos_ - delta_start != delta_len) return fail("a patch window's length does not match its contents");
 
         // The copy window: from the original, or from the image made so far.
         seg_pos_ = seg_pos;
@@ -250,8 +255,6 @@ public:
         // own output, and (when it was read whole) the copy window.
         Section data(data_);
         if (!walk(out, nullptr, &data)) return false;
-        const std::uint64_t at = window_len;
-        if (at != window_len) return fail("a patch window makes fewer bytes than it says");
         if (!data.done()) return fail("a patch window has bytes left over");
         if (has_adler_ && vcdiff_adler32(out.data(), out.size()) != adler)
             return fail("a patch window's checksum does not match (is it the right game?)");
@@ -346,7 +349,11 @@ private:
     bool integer(std::uint64_t& out) {
         return read_integer([this](std::uint8_t& b) { return byte(b); }, out);
     }
+    // A section's bytes, its length checked against what is left of the
+    // patch before anything is allocated: a 30-byte patch whose header
+    // claimed 32 MiB a section asked for 100 MB and threw (BUG-02).
     bool section(std::vector<std::uint8_t>& out, std::uint64_t n) {
+        if (n > patch_size_ - std::min(pos_, patch_size_)) return false;
         fresh_size(out, n);
         return n == 0 || take(out.data(), out.size());
     }
