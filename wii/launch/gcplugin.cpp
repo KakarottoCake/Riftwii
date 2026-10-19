@@ -8,6 +8,7 @@
 // is plugins/gamecube/gcnative.cpp.
 #include "gcplugin.hpp"
 
+#include <sys/stat.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 
@@ -126,6 +127,21 @@ void back_up_card(const GcImage& image) {
 // is not started then. A card beside a .old is used, with a log line.
 bool recover_card(const GcImage& image, std::string& error) {
     const std::string path = gc_card_path(image.id, image.shared_card);
+    // A card from before an odd ID got a name of its own (MIN-04): copied
+    // to the new name once, the old file left for any other ID that shared
+    // it.
+    const std::string legacy = gc_card_legacy_path(image.id, image.shared_card);
+    struct stat card_stat;
+    if (!legacy.empty() && stat(path.c_str(), &card_stat) != 0 && stat((path + ".old").c_str(), &card_stat) != 0 &&
+        stat(legacy.c_str(), &card_stat) == 0) {
+        std::string copy_error;
+        if (gc_copy_file(legacy, path, copy_error)) {
+            logf("GameCube: memory card %s copied to %s, this game's card name now\n", legacy.c_str(), path.c_str());
+            forget_sd_layout();
+        } else {
+            logf("GameCube: memory card %s not copied to %s: %s\n", legacy.c_str(), path.c_str(), copy_error.c_str());
+        }
+    }
     std::string why;
     switch (gc_recover_card(path, why)) {
         case GcRecovery::Nothing:

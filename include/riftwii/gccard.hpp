@@ -142,6 +142,10 @@ std::string gc_card_text_utf8(const std::string& raw, bool shift_jis);
 // formats as Shift-JIS), shared-jp.raw. A card holds one encoding's
 // file names, so Western and Japanese games cannot share one file.
 std::string gc_card_path(const std::string& game_id, bool shared);
+// The name gc_card_path gave this game's card before MIN-04 (only the ID's
+// capitals and digits), when it differs from today's and is not empty;
+// "" otherwise. Two odd IDs could share it, so it is copied, never moved.
+std::string gc_card_legacy_path(const std::string& game_id, bool shared);
 
 // Whether the game's card is Shift-JIS (a Japanese game's region letter).
 bool gc_card_shift_jis(const std::string& game_id);
