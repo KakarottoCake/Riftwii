@@ -993,10 +993,13 @@ static void rt_fs_back_off(struct rt_fs_state* st) {
 }
 
 /* Whether a savegame command must wait before it goes to the card: a
- * read is in flight on it, or a failure's pause runs. /dev/sdio/slot0
- * only (d2x's device serves one request at a time itself). */
+ * read is in flight on it, the virtual SD blob beside the runtime has a
+ * write the card is still programming (it refuses a command then,
+ * BUG-05), or a failure's pause runs. /dev/sdio/slot0 only (d2x's
+ * device serves one request at a time itself). */
 static int rt_fs_card_blocked(const struct rt_context* ctx, struct rt_fs_state* st) {
-    return rt_sd_settles(ctx, st) && (rt_mod_reading(ctx) != 0 || rt_fs_backing_off(st));
+    if (!rt_sd_settles(ctx, st)) return 0;
+    return rt_mod_reading(ctx) != 0 || rt_vsd_writing(ctx) || rt_fs_backing_off(st);
 }
 
 /* One turn of an asynchronous wait for the card: a null round trip with
