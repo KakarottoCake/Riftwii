@@ -3016,6 +3016,28 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             logf("Keeping IOS%d for the RVZ on the SD card; reporting IOS%u to the game\n", running_ios, required);
         }
     }
+    // A code build inside an image (rex_.raw) can't share the SD card with
+    // the resident runtime yet (below). When the runtime is there only for
+    // the save redirect (saves on the SD card that d2x's NAND emulation
+    // didn't take), the redirect is dropped and the save stays on the
+    // console, as for a main.dol RiftWii can't hook; a tester's REX failed
+    // with no pack picked at all.
+    if (g_extras.code_build_in_image && effective.install_resident && !effective.savegame_dir.empty()) {
+        const bool pack_needs_runtime = !effective.table_entries.empty() || !effective.relocations.empty() ||
+                                        !effective.replacements.empty() || !effective.virtual_files.empty() ||
+                                        !effective.sd_replacements.empty() || effective.resident_gecko ||
+                                        di::has_partition_resolver();
+        if (!pack_needs_runtime) {
+            logf("Saves: the save stays on the console (NAND), not in %s: the code build inside %s reads the SD "
+                 "card itself, which RiftWii's save code can't share with it yet\n",
+                 effective.savegame_dir.c_str(), g_extras.code_build_image.c_str());
+            effective.install_resident = false;
+            effective.savegame_dir.clear();
+            effective.savegame_clone = false;
+            effective.savegame_clone_empty = false;
+            effective.file_device = false;
+        }
+    }
     SavegameOptions savegame;
     ProgressStage(effective.savegame_dir.empty() ? "Getting the game ready" : "Preparing the save", 60);
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
@@ -3038,7 +3060,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // Code builds inside the virtual SD card (sd.raw): the image served to
     // the game as its SD card by the virtual SD card blob, which needs the
     // card or d2x's USB device (and so the running IOS) at the handoff.
-    // Not with packs yet: the resident runtime reads the same card.
+    // Not with packs yet: the resident runtime reads the same card (a save
+    // redirect alone was dropped above).
     g_vsd = VsdImage{};
     if (g_extras.code_build_in_image) {
         std::string why;
