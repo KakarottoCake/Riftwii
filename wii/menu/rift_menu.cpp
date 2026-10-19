@@ -78,6 +78,8 @@
 #include "credits.hpp"
 #include "gcadapter.hpp"
 #include "skin.hpp"
+#include "ciso_face_png.h"
+#include "riftwii/canvas.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "wiidrc.h"
 #include "menu.h"
@@ -3343,6 +3345,63 @@ static void SuggestDotClean()
 	}
 }
 
+// The picture of the CISO popup (drawn by KakarottoCake, embedded from
+// wii/assets) as a texture in `tex`, which the caller frees. False, and
+// the popup goes without it, when it can't be decoded.
+static bool LoadCisoFace(skin::Tex& tex)
+{
+	const std::vector<std::uint8_t> png(ciso_face_png, ciso_face_png + ciso_face_png_size);
+	std::vector<std::uint8_t> rgba;
+	int width = 0, height = 0;
+	std::string error;
+	if (!riftwii::wii::DecodePngRgba(png, rgba, width, height, error)) {
+		logf("Home: the CISO picture can't be read: %s\n", error.c_str());
+		return false;
+	}
+	const std::size_t bytes = rgba.size();
+	u8* pixels = static_cast<u8*>(memalign(32, bytes));
+	if (!pixels) return false;
+	if (!riftwii::to_gx_rgba8(rgba.data(), width, height, pixels)) {
+		free(pixels);
+		return false;
+	}
+	DCFlushRange(pixels, bytes);
+	tex.data = pixels;
+	tex.w = width;
+	tex.h = height;
+	return true;
+}
+
+// The maintainer's joke before a release, kept because it also helps: a
+// .ciso (CompactISO) GameCube image the SD scan passed over is never
+// listed, as RiftWii does not play them and will not, so instead of the
+// game going missing without a word, Home teases the player once per start
+// and says how to convert it. The title stays English in every language on
+// purpose: it is the joke's punchline, a shout that reads the same
+// everywhere, so it does not go through tr(). The help below it does.
+static void TeaseCisoOnce(const riftwii::wii::ImageCatalog& sd)
+{
+	static bool shown = false;
+	if (shown || sd.ciso.total == 0) return;
+	shown = true;
+	logf("%s\n", riftwii::ciso_log_line(sd.ciso).c_str());
+	const std::string body = riftwii::ciso_popup_body(sd.ciso,
+		tr("RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."),
+		tr("and {1} more"));
+	skin::Tex face;
+	const bool hasFace = LoadCisoFace(face);
+	{
+		PopupBox box("CISO DETECTED", body, tr("OK"));
+		// The face on the right, as the GameCube build popup's covers are,
+		// the text beside it; Add counts Extra() in itself.
+		const int faceX = 584 + box.Extra() - face.w;
+		SkinMark mark(face, faceX, PopupBox::kBodyY + 4, 1.0f);
+		if (hasFace) box.Add(&mark, faceX - 16 - 56);
+		box.Wait();
+	}
+	free(face.data);
+}
+
 // Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
 // answer): the channel can be added, and is not there yet. True to open
 // the installer.
@@ -3882,6 +3941,7 @@ static int MenuSource(FrontendState& state)
 		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
+		TeaseCisoOnce(state.sd_catalog);
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.

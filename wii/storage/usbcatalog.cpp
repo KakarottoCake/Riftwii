@@ -904,7 +904,10 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
                 if (c.games.size() >= kMaxGames) return;
                 std::string p;
                 UsbImageFormat f;
-                if (!image_format(x, inner, f)) continue;
+                if (!image_format(x, inner, f)) {
+                    if (is_ciso_image_name(x) && join(path, x, p)) c.ciso.note(p);
+                    continue;
+                }
                 found_image = true;
                 if (join(path, x, p)) add_game(volume, prefix, device, p, subnames, f, c, failure);
             }
@@ -913,6 +916,7 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
         } else if (!e.is_directory) {
             UsbImageFormat f;
             if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
+            else if (is_ciso_image_name(e.name)) c.ciso.note(path);
         }
     }
 }
@@ -1771,7 +1775,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     scan_own_folders(*g_sd_volume, "sd", ImageDevice::Sd, out, failure);
     const std::string more_gamecube = g_misplaced_gc.rest("SD scan");
     if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
-    ScanGcImages(out.games);
+    ScanGcImages(out.games, &out.ciso);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());

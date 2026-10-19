@@ -98,6 +98,7 @@ The build compiles every folder into one, so no two files share a name.
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
 | `font/` | The menu font's source (`rounded.ttf`, OFL) |
 | `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
+| `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (drawn by KakarottoCake) |
 
 ### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
 

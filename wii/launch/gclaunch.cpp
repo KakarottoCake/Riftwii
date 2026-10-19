@@ -430,7 +430,7 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
     return false;
 }
 
-void ScanGcImages(std::vector<ImageGame>& out) {
+void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     DIR* games = opendir("sd:/games");
     if (!games) return;
     while (dirent* folder = readdir(games)) {
@@ -440,7 +440,10 @@ void ScanGcImages(std::vector<ImageGame>& out) {
         if (!inner) continue;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
-            if (!is_gc_image_name(name)) continue;
+            if (!is_gc_image_name(name)) {
+                if (ciso && is_ciso_image_name(name)) ciso->note(dir + "/" + name);
+                continue;
+            }
             const std::string full = dir + "/" + name;
             GcHead found;
             if (!read_gc_head(full, found)) continue;

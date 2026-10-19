@@ -1329,6 +1329,9 @@ msgstr "Arquivos de um Mac no cartão SD"
 msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
 msgstr "Este cartão SD tem arquivos ocultos que o macOS cria ao copiar (nomes que começam com \"._\"). O RiftWii os ignora, mas eles ocupam espaço e podem confundir outros homebrews. Para removê-los, coloque o cartão no seu Mac, abra o Terminal e digite: dot_clean -m /Volumes/ seguido do nome do cartão. No Windows, apague os arquivos cujos nomes começam com \"._\"."
 
+msgid "RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."
+msgstr "O RiftWii não roda arquivos CISO. Converta para ISO ou RVZ com o Dolphin (clique com o botão direito no jogo, Converter arquivo)."
+
 msgid "This code mod can't start"
 msgstr "Este mod de códigos não pode iniciar"
 

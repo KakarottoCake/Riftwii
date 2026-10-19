@@ -63,6 +63,9 @@ struct ImageCatalog {
     // a user-visible warning that image games cannot boot yet. Presence only:
     // identity is proven by the launch-time d2x probe, not here.
     std::string cios_note;
+    // .ciso files the scan passed over (RiftWii does not play them): Home
+    // says so once per start (riftwii/usbgame.hpp).
+    CisoFinds ciso;
 };
 
 struct LaunchSource {

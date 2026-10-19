@@ -144,6 +144,32 @@ struct CiosSlotState {
 // v11, and the launch-time F9/FA probe remains the real capability gate.
 std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count);
 
+// CompactISO (.ciso) GameCube images, which RiftWii does not play and
+// will not: the GameCube loader reads .iso, .gcm and .rvz. The SD scan
+// notes the ones it passes so Home can say so (and suggest converting
+// them with Dolphin) instead of leaving the game silently missing.
+// True for a name ending in .ciso in any case; hidden names ("._x.ciso"
+// from a Mac) are not images.
+bool is_ciso_image_name(const std::string& name);
+
+// The .ciso files one scan found: the first few paths, in scan order, and
+// how many in all (a card full of them must not grow the list unbounded).
+struct CisoFinds {
+    static constexpr std::size_t kPathsKept = 4;
+    std::vector<std::string> paths;
+    std::size_t total = 0;
+    void note(const std::string& path);
+};
+
+// Home's popup text: `help` (already translated), a blank line, then the
+// first file found and, when there are more, `and_more` (translated, with
+// {1} for how many more) after it. Empty when nothing was found.
+std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, const std::string& and_more);
+
+// The log line for the same, in English: the first file, how many more,
+// and what RiftWii plays instead.
+std::string ciso_log_line(const CisoFinds& finds);
+
 // Nintendo's stub marker, seen in public SysCheck reports as rev 65280: a
 // slot holding this boots but implements nothing, so it can never be d2x.
 inline bool cios_revision_is_stub(std::uint32_t revision) { return revision == 65280; }

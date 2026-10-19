@@ -451,6 +451,38 @@ void test_cios_readiness_note() {
     EXPECT_FALSE(cios_revision_is_stub(5662));   // stock IOS56 revision
 }
 
+void test_ciso_detection() {
+    EXPECT_TRUE(is_ciso_image_name("game.ciso"));
+    EXPECT_TRUE(is_ciso_image_name("Luigi's Mansion [GLME01].CISO"));
+    EXPECT_TRUE(is_ciso_image_name("x.CiSo"));
+    EXPECT_FALSE(is_ciso_image_name("._game.ciso"));  // a Mac's AppleDouble file, not an image
+    EXPECT_FALSE(is_ciso_image_name(".ciso"));
+    EXPECT_FALSE(is_ciso_image_name("game.iso"));
+    EXPECT_FALSE(is_ciso_image_name("game.rvz"));
+    EXPECT_FALSE(is_ciso_image_name("game.ciso.txt"));
+    EXPECT_FALSE(is_ciso_image_name(""));
+
+    CisoFinds none;
+    EXPECT_TRUE(ciso_popup_body(none, "help", "and {1} more").empty());
+    EXPECT_TRUE(ciso_log_line(none).empty());
+
+    CisoFinds one;
+    one.note("sd:/games/Test [GXXE01]/game.ciso");
+    EXPECT_EQ(ciso_popup_body(one, "Convert it.", "and {1} more"),
+              std::string("Convert it.\n\nsd:/games/Test [GXXE01]/game.ciso"));
+    EXPECT_EQ(ciso_log_line(one),
+              std::string("Home: CISO DETECTED: sd:/games/Test [GXXE01]/game.ciso (RiftWii plays .iso, .gcm and "
+                          ".rvz; convert it with Dolphin)"));
+
+    // Many: only the first few paths are kept, the count goes on.
+    CisoFinds many;
+    for (int i = 0; i < 10; ++i) many.note("sd:/games/g" + std::to_string(i) + ".ciso");
+    EXPECT_EQ(many.total, static_cast<std::size_t>(10));
+    EXPECT_EQ(many.paths.size(), CisoFinds::kPathsKept);
+    EXPECT_EQ(ciso_popup_body(many, "Help.", "y {1} más"), std::string("Help.\n\nsd:/games/g0.ciso y 9 más"));
+    EXPECT_TRUE(ciso_log_line(many).find("sd:/games/g0.ciso and 9 more (") != std::string::npos);
+}
+
 void test_plan_over_usb() {
     // XML -> plan -> replacement over a USB-mapped disc source, consumed
     // through the read overlay. File-to-FST mapping is loader-side; here
@@ -580,6 +612,7 @@ int main() {
     test_collect_split_pieces();
     test_cios_readiness_note();
     test_plan_over_usb();
+    test_ciso_detection();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";
     return g_failures == 0 ? 0 : 1;
