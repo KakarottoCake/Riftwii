@@ -136,6 +136,26 @@ void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
 }
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
+    // A card a cut left at .old goes back first, before the game could make
+    // a new empty one in its place (NEW-03).
+    {
+        const std::string card = gc_card_path(image.id, image.shared_card);
+        switch (gc_recover_card(card)) {
+            case GcCardRecovery::Restored:
+                logf("GameCube: memory card %s put back from %s.old, where a cut write had left it\n", card.c_str(),
+                     card.c_str());
+                break;
+            case GcCardRecovery::BothKept:
+                logf("GameCube: memory card %s has a %s.old beside it from a cut write; both kept\n", card.c_str(),
+                     card.c_str());
+                break;
+            case GcCardRecovery::Failed:
+                logf("GameCube: memory card %s.old could not be put back at %s\n", card.c_str(), card.c_str());
+                break;
+            case GcCardRecovery::Nothing:
+                break;
+        }
+    }
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
     if (Settings().gc_backups != "off") back_up_card(image);

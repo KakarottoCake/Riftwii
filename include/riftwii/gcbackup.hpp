@@ -80,6 +80,14 @@ bool gc_copy_file(const std::string& from, const std::string& to, std::string& e
 // than it takes); any other is made anew.
 bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error);
 
+// What a card write cut between gc_overwrite_file's two renames left:
+// the card only at `<path>.old` (put back at `path`, so the game finds it,
+// not a new empty card), or both (kept: which is newer cannot be told, and
+// the next write moves the older aside to `<path>.old-kept`, never deleting
+// it). Run before a game opens its card and before a write (NEW-03).
+enum class GcCardRecovery { Nothing, Restored, BothKept, Failed };
+GcCardRecovery gc_recover_card(const std::string& path);
+
 struct GcBackupResult {
     enum class What { Made, Same, NoCard, Failed };
     What what = What::Failed;
