@@ -78,6 +78,8 @@
 #include "credits.hpp"
 #include "gcadapter.hpp"
 #include "skin.hpp"
+#include "ciso_face_png.h"
+#include "riftwii/canvas.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "wiidrc.h"
 #include "menu.h"
@@ -1311,28 +1313,37 @@ static bool g_coversOff = false;
 // What the downloads came to: a cover GameTDB has none of, or one that got
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
-static riftwii::CoverDownloads g_coverRun;
+static riftwii::CoverDownloads g_coverRun("Covers", "cover");
+// The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
+static std::set<std::string> g_boxesChecked;
+static bool g_boxesOff = false;
+static riftwii::CoverDownloads g_boxRun("Shelf", "full cover");
+// The same for the 3D covers view's pictures (wii/menu/cover3d.hpp).
+static std::set<std::string> g_covers3dChecked;
+static bool g_covers3dOff = false;
+static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
 
-// Counts a cover download; true when the downloads stop with it.
-static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
+// Counts one picture's download in `run`; true when that kind's downloads
+// stop with it.
+static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverFetch got, const std::string& game,
+	const std::string& error)
 {
 	riftwii::CoverOutcome outcome = riftwii::CoverOutcome::Stored;
 	if (got == riftwii::wii::CoverFetch::NotFound) outcome = riftwii::CoverOutcome::NotFound;
 	else if (got == riftwii::wii::CoverFetch::NoAnswer) outcome = riftwii::CoverOutcome::NoAnswer;
 	else if (got == riftwii::wii::CoverFetch::Failed) outcome = riftwii::CoverOutcome::CannotStore;
-	const bool stop = g_coverRun.count(outcome);
-	if (stop) logf("Covers: stopped: %s\n", error.c_str());
+	const char* name = run.log_name().c_str();
+	const bool stop = run.count(outcome);
+	if (stop) logf("%s: downloads stopped: %s\n", name, error.c_str());
 	else if (outcome == riftwii::CoverOutcome::NoAnswer)
-		logf("Covers: passed over %s for now, as its download got no answer (%s); the others go on\n", game.c_str(),
+		logf("%s: passed over %s for now, as its download got no answer (%s); the others go on\n", name, game.c_str(),
 			error.c_str());
 	return stop;
 }
-// The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
-static std::set<std::string> g_boxesChecked;
-static bool g_boxesOff = false;
-// The same for the 3D covers view's pictures (wii/menu/cover3d.hpp).
-static std::set<std::string> g_covers3dChecked;
-static bool g_covers3dOff = false;
+static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
+{
+	return CountPictureFetch(g_coverRun, got, game, error);
+}
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
 // read from its image once and kept on the card. The icons of the page
@@ -3343,6 +3354,63 @@ static void SuggestDotClean()
 	}
 }
 
+// The picture of the CISO popup (drawn by KakarottoCake, embedded from
+// wii/assets) as a texture in `tex`, which the caller frees. False, and
+// the popup goes without it, when it can't be decoded.
+static bool LoadCisoFace(skin::Tex& tex)
+{
+	const std::vector<std::uint8_t> png(ciso_face_png, ciso_face_png + ciso_face_png_size);
+	std::vector<std::uint8_t> rgba;
+	int width = 0, height = 0;
+	std::string error;
+	if (!riftwii::wii::DecodePngRgba(png, rgba, width, height, error)) {
+		logf("Home: the CISO picture can't be read: %s\n", error.c_str());
+		return false;
+	}
+	const std::size_t bytes = rgba.size();
+	u8* pixels = static_cast<u8*>(memalign(32, bytes));
+	if (!pixels) return false;
+	if (!riftwii::to_gx_rgba8(rgba.data(), width, height, pixels)) {
+		free(pixels);
+		return false;
+	}
+	DCFlushRange(pixels, bytes);
+	tex.data = pixels;
+	tex.w = width;
+	tex.h = height;
+	return true;
+}
+
+// The maintainer's joke before a release, kept because it also helps: a
+// .ciso (CompactISO) GameCube image the SD scan passed over is never
+// listed, as RiftWii does not play them and will not, so instead of the
+// game going missing without a word, Home teases the player once per start
+// and says how to convert it. The title stays English in every language on
+// purpose: it is the joke's punchline, a shout that reads the same
+// everywhere, so it does not go through tr(). The help below it does.
+static void TeaseCisoOnce(const riftwii::wii::ImageCatalog& sd)
+{
+	static bool shown = false;
+	if (shown || sd.ciso.total == 0) return;
+	shown = true;
+	logf("%s\n", riftwii::ciso_log_line(sd.ciso).c_str());
+	const std::string body = riftwii::ciso_popup_body(sd.ciso,
+		tr("RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."),
+		tr("and {1} more"));
+	skin::Tex face;
+	const bool hasFace = LoadCisoFace(face);
+	{
+		PopupBox box("CISO DETECTED", body, tr("OK"));
+		// The face on the right, as the GameCube build popup's covers are,
+		// the text beside it; Add counts Extra() in itself.
+		const int faceX = 584 + box.Extra() - face.w;
+		SkinMark mark(face, faceX, PopupBox::kBodyY + 4, 1.0f);
+		if (hasFace) box.Add(&mark, faceX - 16 - 56);
+		box.Wait();
+	}
+	free(face.data);
+}
+
 // Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
 // answer): the channel can be added, and is not there yet. True to open
 // the installer.
@@ -3882,6 +3950,7 @@ static int MenuSource(FrontendState& state)
 		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
+		TeaseCisoOnce(state.sd_catalog);
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
@@ -3939,19 +4008,13 @@ static int MenuSource(FrontendState& state)
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeBoxFetch(boxArrived, boxGot, boxError)) {
-			if (boxGot == riftwii::wii::CoverFetch::Failed) {
-				logf("Shelf: box downloads stopped: %s\n", boxError.c_str());
-				g_boxesOff = true;
-			}
+			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError)) g_boxesOff = true;
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
 		std::string cover3dArrived, cover3dError;
 		riftwii::wii::CoverFetch cover3dGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCover3dFetch(cover3dArrived, cover3dGot, cover3dError)) {
-			if (cover3dGot == riftwii::wii::CoverFetch::Failed) {
-				logf("3D covers: downloads stopped: %s\n", cover3dError.c_str());
-				g_covers3dOff = true;
-			}
+			if (CountPictureFetch(g_cover3dRun, cover3dGot, cover3dArrived, cover3dError)) g_covers3dOff = true;
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
 		// Channels: a GameCube game's animated banner, downloaded on the
@@ -4076,6 +4139,15 @@ static int MenuSource(FrontendState& state)
 				if (!g_boxesChecked.insert(id).second || !riftwii::wii::BoxWanted(id)) continue;
 				riftwii::wii::StartBoxFetch(id);
 				break;
+			}
+		}
+		// None of either started this turn: what the downloads came to so
+		// far, once for each new batch.
+		if (!riftwii::wii::NetBackgroundBusy() && riftwii::wii::BoxFetchGame().empty() &&
+		    riftwii::wii::Cover3dFetchGame().empty()) {
+			for (riftwii::CoverDownloads* run : {&g_boxRun, &g_cover3dRun}) {
+				const std::string summary = run->take_summary();
+				if (!summary.empty()) logf("%s\n", summary.c_str());
 			}
 		}
 		HaltGui();
@@ -4349,10 +4421,17 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::ForgetProfilePictures();
 			ScanDrives(state, statusTxt);
 			refresh(true);
-			// Covers that failed (or were never tried) are asked for again.
+			// Covers, boxes and 3D covers that failed (or were never tried)
+			// are asked for again.
 			g_coversOff = false;
 			g_coversChecked.clear();
 			g_coverRun.reset();
+			g_boxesOff = false;
+			g_boxesChecked.clear();
+			g_boxRun.reset();
+			g_covers3dOff = false;
+			g_covers3dChecked.clear();
+			g_cover3dRun.reset();
 			queueCovers();
 		}
 		ResumeGui();
@@ -8663,8 +8742,10 @@ static int MenuHome(FrontendState& state)
 		{
 			std::string id, error;
 			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
-			if (riftwii::wii::TakeBoxFetch(id, got, error) && got == riftwii::wii::CoverFetch::Stored)
-				riftwii::wii::ForgetBox(id);
+			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
+				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
+				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
+			}
 		}
 
 		const int lit = tileGrid.Selected();

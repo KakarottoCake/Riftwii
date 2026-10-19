@@ -632,8 +632,19 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, bool& missing,
     }
     std::uint64_t capacity = 0;
     for (const Fragment& f : file.fragments) capacity += f.sector_count * kFatBlockBytes;
+    // The FAT ends the file's chain before its size: the volume itself is
+    // damaged (a copy cut short, a drive pulled out before the computer
+    // finished writing its FAT). A loader that reads only the clusters a
+    // game asks for may never notice; the fragment list given to d2x must
+    // cover the whole file, so it is refused, saying by how much.
     if (!file.entry.is_directory && file.entry.size > capacity) {
-        error = "'" + path + "' is larger than its cluster chain";
+        const std::uint64_t clusters_linked = capacity / cluster_bytes;
+        error = "'" + path + "' is larger than its cluster chain: its folder entry says " +
+                std::to_string(file.entry.size) + " bytes (" + std::to_string(needed) + " clusters), but the FAT links " +
+                std::to_string(clusters_linked) + " clusters (" + std::to_string(capacity) +
+                " bytes) from cluster " + std::to_string(file.entry.first_cluster) +
+                ". The drive's file system is damaged: check it on a computer (Windows: the drive's Properties > Tools > "
+                "Check) or copy the file again";
         return false;
     }
     out = std::move(file);

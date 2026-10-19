@@ -114,6 +114,48 @@ bool read_disc_header(const ByteSource& disc, DiscHeader& out, std::string& erro
     return parse_disc_header(buffer.data(), buffer.size(), out, error);
 }
 
+std::string gamecube_folder_example(const std::string& path, const DiscHeader& header) {
+    // A FAT32 name cannot hold these; the title is kept readable without them.
+    static const std::string kNotInNames = "\\/:*?\"<>|";
+    std::string title;
+    for (char c : header.title) {
+        if (kNotInNames.find(c) != std::string::npos) continue;
+        title += c;
+    }
+    while (!title.empty() && (title.back() == ' ' || title.back() == '.')) title.pop_back();
+    const std::string folder = title.empty() ? header.game_id : title + " [" + header.game_id + "]";
+
+    // The image keeps its own kind: an .rvz stays one, as does a .gcm.
+    std::string extension = ".iso";
+    const std::size_t dot = path.rfind('.');
+    const std::size_t slash = path.rfind('/');
+    if (dot != std::string::npos && (slash == std::string::npos || dot > slash)) {
+        extension.clear();
+        for (std::size_t i = dot; i < path.size(); ++i) {
+            const char c = path[i];
+            extension += (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+        }
+    }
+    return "sd:/games/" + folder + "/game" + extension;
+}
+
+std::string MisplacedGameCubeLog::note(const std::string& scan, const std::string& path, const DiscHeader& header) {
+    ++seen_;
+    if (seen_ > kLinesShown) return std::string();
+    // GameCube games play from the SD card only, so one on the USB drive is
+    // told where on the card it goes.
+    const bool on_sd = path.compare(0, 3, "sd:") == 0;
+    const std::string where = on_sd ? "a folder of their own" : "a folder of their own on the SD card";
+    return scan + ": " + path + " is a GameCube game (" + header.game_id + "): RiftWii plays those from " + where +
+           ", e.g. " + gamecube_folder_example(path, header);
+}
+
+std::string MisplacedGameCubeLog::rest(const std::string& scan) const {
+    if (seen_ <= kLinesShown) return std::string();
+    const unsigned more = seen_ - kLinesShown;
+    return scan + ": " + std::to_string(more) + " more GameCube image(s) not in a folder of their own, not listed one by one";
+}
+
 bool read_partition_table(const ByteSource& disc, std::vector<PartitionEntry>& out, std::string& error) {
     std::vector<std::uint8_t> groups;
     if (!read_exact(disc, kPartitionTableOffset, groups, 32, "partition table", error)) return false;
