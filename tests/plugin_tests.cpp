@@ -555,10 +555,11 @@ static void TestTables() {
     EXPECT_TRUE(offsetof(rwp_host, make_directory) < offsetof(rwp_host, sd_file_fragments));
     EXPECT_TRUE(offsetof(rwp_host, sd_hand_over) < offsetof(rwp_host, ios_open));
     EXPECT_TRUE(offsetof(rwp_host, shut_down_for_game) < offsetof(rwp_host, zstd_decompress));
-    EXPECT_EQ(offsetof(rwp_host, zstd_error_name) + sizeof(void*), sizeof(rwp_host));
+    EXPECT_TRUE(offsetof(rwp_host, zstd_error_name) < offsetof(rwp_host, usb_read));
+    EXPECT_EQ(offsetof(rwp_host, usb_read) + sizeof(void*), sizeof(rwp_host));
     // Every entry is one pointer, none skipped: on the Wii (4-byte
-    // pointers) the table is 2 words and 36 functions.
-    EXPECT_EQ(sizeof(rwp_host), 8u + 36u * sizeof(void*));
+    // pointers) the table is 2 words and 37 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 37u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
     EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
     EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
@@ -571,6 +572,10 @@ static void TestTables() {
     // A whole table has every function; one cut before the last has not.
     rwp_host host{};
     host.size = sizeof(rwp_host);
+    EXPECT_TRUE(RWP_HOST_HAS(&host, usb_read));
+    // An API 2 table from before usb_read: still a whole API 2 table.
+    host.size = static_cast<std::uint32_t>(offsetof(rwp_host, usb_read));
+    EXPECT_FALSE(RWP_HOST_HAS(&host, usb_read));
     EXPECT_TRUE(RWP_HOST_HAS(&host, zstd_error_name));
     host.size = static_cast<std::uint32_t>(offsetof(rwp_host, zstd_error_name));
     EXPECT_FALSE(RWP_HOST_HAS(&host, zstd_error_name));

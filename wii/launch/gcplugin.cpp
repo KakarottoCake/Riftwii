@@ -28,6 +28,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcrequest.hpp"
 #include "riftwii/pluginfile.hpp"
+#include "umsdev.hpp"
 #include "riftwii/plugin_gamecube.h"
 #include "sdfile.hpp"
 
@@ -152,6 +153,23 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.sixty_hz = image.sixty_hz ? 1 : 0;
     request.language = image.language;
     request.vi_width = image.vi_width;
+
+    // A game on the USB drive: d2x's USB device its launch opened and the
+    // image's pieces (gclaunch.cpp's ready_usb_image). Kept here until the
+    // launch returns: the request points into them.
+    std::vector<rwp_fragment> usb_fragments;
+    request.usb_fd = -1;
+    if (GcImageOnUsb(image.path)) {
+        if (ums::Fd() < 0 || image.usb_fragments.empty()) {
+            error = "the USB drive was not made ready for the game";
+            return false;
+        }
+        for (const Fragment& f : image.usb_fragments) usb_fragments.push_back(rwp_fragment{f.sector, f.sector_count});
+        request.usb_fd = ums::Fd();
+        request.usb_fragments = usb_fragments.data();
+        request.usb_fragment_count = static_cast<std::uint32_t>(usb_fragments.size());
+        request.usb_file_bytes = image.usb_bytes;
+    }
 
     // Kept here until the launch returns: the request points into them.
     std::vector<rwp_gc_pack_entry> pack_entries;

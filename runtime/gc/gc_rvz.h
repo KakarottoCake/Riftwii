@@ -87,6 +87,7 @@ struct gc_rvz {
     uint32_t dctx_bytes;
     uint32_t extent_count;        /* of `extents` */
     uint32_t table_extent_count;  /* of `table_extents` */
+    uint32_t extents_on_usb;      /* 1: `extents` are sectors of the USB drive (the table stays on the card) */
     struct gc_rvz_slot slots[GC_RVZ_SLOTS];
     uint8_t header[GC_RVZ_HEADER_BYTES];
     /* State. */
@@ -118,9 +119,9 @@ struct gc_rvz {
  * gc_rvz_device_read as it is. */
 int gc_rvz_read(struct gc_rvz* rvz, void* io, uint32_t slot, uint8_t* dst, uint32_t length, uint32_t offset);
 
-/* The caller's: `count` sectors of the card from `sector` into `target`
- * (32-byte aligned). 1: read; 0: failed. */
-int gc_rvz_device_read(void* io, uint32_t sector, uint32_t count, uintptr_t target);
+/* The caller's: `count` sectors of the card (or, for `usb`, of the USB
+ * drive) from `sector` into `target` (32-byte aligned). 1: read; 0: failed. */
+int gc_rvz_device_read(void* io, uint32_t usb, uint32_t sector, uint32_t count, uintptr_t target);
 
 #ifdef __cplusplus
 }

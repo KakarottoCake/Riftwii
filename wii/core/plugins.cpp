@@ -26,6 +26,7 @@
 #include "riftwii/sha256.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
+#include "umsdev.hpp"
 #include "zstd.h"
 
 // libogc's SRAM copies (libogc/system.c), not in its headers: read_sram.
@@ -370,6 +371,10 @@ uint32_t HostZstdIsError(size_t code) { return ZSTD_isError(code) ? 1 : 0; }
 
 const char* HostZstdErrorName(size_t code) { return ZSTD_getErrorName(code); }
 
+int32_t HostUsbRead(uint64_t sector, uint32_t count, void* out) {
+    return ums::Fd() >= 0 && ums::Read(sector, count, static_cast<std::uint8_t*>(out)) ? 1 : 0;
+}
+
 // Every entry in plugin_api.h's order, which a plugin was built against;
 // tests/plugin_tests.cpp checks that order and that none is skipped.
 const rwp_host kHost = {
@@ -412,10 +417,12 @@ const rwp_host kHost = {
     HostZstdFrameSize,
     HostZstdIsError,
     HostZstdErrorName,
+    // After API 2
+    HostUsbRead,
 };
 // A missing initializer would leave the last entries NULL without a word:
 // the count is checked against the struct's size.
-static_assert(sizeof(rwp_host) == 8 + 36 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
+static_assert(sizeof(rwp_host) == 8 + 37 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 
