@@ -1595,6 +1595,20 @@ void TestPlayLogRecord() {
     }
     const std::uint32_t stored = (std::uint32_t(r[0]) << 24) | (std::uint32_t(r[1]) << 16) | (std::uint32_t(r[2]) << 8) | r[3];
     EXPECT_EQ(stored, sum);
+    // Not characters (MIN-06): an overlong '/', a surrogate half written in
+    // UTF-8, and a code point past U+10FFFF each become one '?'; a real
+    // four-byte character stays a surrogate pair.
+    {
+        const std::vector<std::uint8_t> bad =
+            play_log_record("\xC0\xAF" "\xED\xA0\x80" "\xF4\x90\x80\x80" "\xF0\x9F\x98\x80", "RMGE01", 1);
+        const auto unit = [&](int i) { return (bad[4 + 2 * i] << 8) | bad[5 + 2 * i]; };
+        EXPECT_EQ(unit(0), int('?'));
+        EXPECT_EQ(unit(1), int('?'));
+        EXPECT_EQ(unit(2), int('?'));
+        EXPECT_EQ(unit(3), 0xD83D);
+        EXPECT_EQ(unit(4), 0xDE00);
+        EXPECT_EQ(unit(5), 0);
+    }
     // A long name keeps its terminator.
     const std::vector<std::uint8_t> l = play_log_record(std::string(60, 'x'), "RMGE01", 1);
     EXPECT_EQ(l[4 + 2 * 38 + 1], 'x');
