@@ -35,6 +35,7 @@
 #include "rtwlog.h"
 #include "wiidrc.h"
 #include "wpadhook.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -362,18 +363,18 @@ static bool import_gc_crash() {
 
 void ImportGameCrash() {
     if (import_gc_crash()) return;
-    if (ISFS_Initialize() < 0) return;
+    if (NandOpen() < 0) return;
     static u8 record[512] ATTRIBUTE_ALIGN(32);
     const s32 fd = ISFS_Open(kGameCrashRecord, ISFS_OPEN_READ);
     if (fd < 0) {
-        ISFS_Deinitialize();
+        NandClose();
         return;
     }
     const s32 got = ISFS_Read(fd, record, sizeof(record));
     ISFS_Close(fd);
     ISFS_Delete(kGameCrashRecord);
     // /dev/fs is not kept open: an IOS reload with it open damages the heap.
-    ISFS_Deinitialize();
+    NandClose();
     std::string text, error;
     if (got < 0 || !describe_game_fault(record, static_cast<std::size_t>(got), text, error)) {
         logf("Game crash: %s: %s; deleted\n", kGameCrashRecord, got < 0 ? "unreadable" : error.c_str());
@@ -397,10 +398,10 @@ void ImportGameCrash() {
 }
 
 void ImportWpadLog() {
-    if (ISFS_Initialize() < 0) return;
+    if (NandOpen() < 0) return;
     const s32 fd = ISFS_Open(kWpadLogRecord, ISFS_OPEN_READ);
     if (fd < 0) {
-        ISFS_Deinitialize();
+        NandClose();
         return;
     }
     // On the heap for the moment it is read: 82 KB kept for good would
@@ -415,7 +416,7 @@ void ImportWpadLog() {
     ISFS_Close(fd);
     ISFS_Delete(kWpadLogRecord);
     // /dev/fs is not kept open: an IOS reload with it open damages the heap.
-    ISFS_Deinitialize();
+    NandClose();
     std::string text, error;
     const bool described = got >= 0 && describe_wpad_log(record, static_cast<std::size_t>(got), text, error);
     std::free(record);

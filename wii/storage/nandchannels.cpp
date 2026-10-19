@@ -19,6 +19,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "usbcatalog.hpp"
+#include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -196,7 +197,7 @@ bool exists(NandAccess& access, const std::string& path) {
 
 bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     out.clear();
-    if (ISFS_Initialize() < 0) {
+    if (NandOpen() < 0) {
         status = "The Wii's memory could not be read (ISFS).";
         return false;
     }
@@ -392,7 +393,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     files.title_id = title_id;
     files.emu_nand = emu_nand;
     const bool emulated = !emu_nand.empty();
-    if (ISFS_Initialize() < 0) {
+    if (NandOpen() < 0) {
         error = "the Wii's memory could not be read";
         return false;
     }
