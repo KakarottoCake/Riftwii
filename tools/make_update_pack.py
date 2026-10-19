@@ -24,6 +24,7 @@ import sys
 import zipfile
 
 import make_plugin
+import pack_dol
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 THEMES = ROOT / "themes"
@@ -124,6 +125,11 @@ def apps_part(zip_path):
             found.add(path)
             count += 1
         dol = z.read(APPS + "riftwii/boot.dol") if (APPS + "riftwii/boot.dol") in z.namelist() else None
+        # A packed boot.dol (tools/pack_dol.py) keeps its build stamp in a
+        # compressed section: the plugins are matched against it unpacked.
+        unpacked = pack_dol.unpacked_sections(dol) if dol is not None else None
+        if unpacked is not None:
+            dol = b"".join(body for _, body in unpacked)
     # RiftWii's plugins (docs/PLUGINS.md): written by the in-app update
     # next to the running boot.dol. Each must match the zip's boot.dol, or
     # the update would install files that DOL refuses. They come first in

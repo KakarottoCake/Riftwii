@@ -64,6 +64,28 @@ def zstd(args, data, tool):
     return done.stdout
 
 
+def unpacked_sections(data, tool="zstd"):
+    """The sections of a DOL this script packed, decompressed again, as
+    [(address, bytes)]; None for a DOL that is not packed. For the release
+    tools that look inside boot.dol (tools/make_update_pack.py)."""
+    sections = read_dol(data)[0]
+    table = next((body for _, body in sections
+                  if len(body) >= TABLE_HEADER_BYTES and struct.unpack_from(">I", body)[0] == TABLE_MAGIC), None)
+    if table is None:
+        return None
+    _, version, count = struct.unpack_from(">3I", table)
+    if version != TABLE_VERSION:
+        sys.exit("pack_dol: a packed DOL of table version %u, this script knows %u" % (version, TABLE_VERSION))
+    out = []
+    for i in range(count):
+        address, size, at, frame_bytes = struct.unpack_from(">4I", table, TABLE_HEADER_BYTES + SECTION_BYTES * i)
+        body = zstd(["-q", "-d", "-c"], table[at:at + frame_bytes], tool)
+        if len(body) != size:
+            sys.exit("pack_dol: the section at 0x%08x unpacks to %u bytes, not %u" % (address, len(body), size))
+        out.append((address, body))
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("dol")
