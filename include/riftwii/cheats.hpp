@@ -92,10 +92,16 @@ std::vector<std::uint8_t> build_gct(const CheatFile& file, const std::set<std::s
 // (`old`), so a download never loses the player's own work: cheats in
 // `old` that the download does not have (added by hand) go at the end,
 // and a cheat whose placeholders were filled in by hand in `old` stays
-// filled in. Everything else is the download's. `kept` is how many of
-// `old`'s cheats were kept. Text in, text out ("\n" lines). Cheats are
-// matched by name within the same revision heading.
-std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept);
+// filled in. A cheat the player has turned on (`enabled`, names as
+// parse_cheat_text gives them) keeps its own code when the download's
+// differs: an enabled cheat runs at the next start, and a download must not
+// change what it does behind the player's back (SEC-02). Everything else is
+// the download's. `kept` is how many of `old`'s cheats were kept, `held`
+// how many of those were enabled ones whose code the download changed.
+// Text in, text out ("\n" lines). Cheats are matched by name within the
+// same revision heading.
+std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept,
+                             const std::set<std::string>& enabled = {}, std::size_t* held = nullptr);
 
 // The placeholders of cheat `name` (as parse_cheat_text names it) in
 // `text`, in the order they first come. Empty when it has none (or no

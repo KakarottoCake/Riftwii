@@ -85,6 +85,7 @@ and `vendor-*` is third-party code.
 | `Makefile.bearssl` | BearSSL for the Wii (https for the update check and problem reports) |
 | `Makefile.channel` | The Wii Menu channel and its installer |
 | `hbc/` | The Homebrew Channel files: `meta.xml` (name, version), `icon.png`, `music.ogg` (the menu's music) |
+| `release/` | The next release's texts, filled in by `.github/workflows/release.yml` (`docs/DEVELOPING.md`, Releasing): `notes.md` (GitHub's release notes), `discord.md` (the testers' message), `zip/` (the zip's README.txt, SOURCE.txt and folder notes) |
 
 ## `wii/`: the Wii app
 
@@ -108,6 +109,7 @@ The build compiles every folder into one, so no two files share a name.
 | `console.cpp` | libogc's text console, for the launch screen and errors |
 | `crash.cpp` | RiftWii's crash screen and `crash.txt` |
 | `log.cpp` | The log (`session.log`, `boot.log`) |
+| `nanduse.cpp` | The NAND (`/dev/fs`) opened and closed for everyone, counted |
 | `loadersettings.cpp` | Settings as the app reads and writes them |
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
@@ -197,6 +199,7 @@ The build compiles every folder into one, so no two files share a name.
 | `online.cpp` | Downloads (names, covers, cheats, the update check) |
 | `netsock.cpp` | Network sockets |
 | `tls.cpp`, `tlsroots.c` | https with BearSSL, and the certificates it trusts |
+| `entropy.cpp` | the random seed for https: the card's seed file, the console's ID, the Remotes' jitter |
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
 | `gameinfo.cpp` | Game details for the About page: GameTDB's database on the card, its download, the cache |
 
@@ -354,6 +357,7 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (menu font, translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
+| `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |

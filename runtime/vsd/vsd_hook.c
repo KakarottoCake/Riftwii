@@ -582,6 +582,9 @@ static int32_t on_ioctl(struct vsd_state* st, const uint32_t* a, int async) {
     }
 }
 
+/* The most vectors taken in one ioctlv on the card, in and out together. */
+#define VSD_MAX_VECTORS 32u
+
 /* IOS_Ioctlv(Async) on the card: SENDCMD with the command block, the data
  * (when the command has any) and the reply. */
 static int32_t on_ioctlv(struct vsd_state* st, const uint32_t* a, int async) {
@@ -590,7 +593,13 @@ static int32_t on_ioctlv(struct vsd_state* st, const uint32_t* a, int async) {
     const struct vsd_ioctlv* v = (const struct vsd_ioctlv*)(uintptr_t)vec;
     const struct rtvsd_request* req;
     uint32_t data = 0, data_len = 0, reply_out = 0;
-    if (number != RTVSD_IOCTL_SENDCMD || v == 0 || in_count == 0 || v[0].len < sizeof(struct rtvsd_request))
+    /* The counts come from the game and the reply is read at v[in_count]:
+     * counts far past SENDCMD's three vectors (two in, one out) are refused
+     * rather than read from wherever they point (MIN-11). */
+    if (in_count > VSD_MAX_VECTORS || out_count > VSD_MAX_VECTORS - in_count)
+        return async ? deliver(st, callback, user_data, IOS_EINVAL) : IOS_EINVAL;
+    if (number != RTVSD_IOCTL_SENDCMD || v == 0 || in_count == 0 || v[0].data == 0 ||
+        v[0].len < sizeof(struct rtvsd_request))
         return async ? deliver(st, callback, user_data, IOS_EINVAL) : IOS_EINVAL;
     req = (const struct rtvsd_request*)(uintptr_t)v[0].data;
     if (in_count >= 2u) {

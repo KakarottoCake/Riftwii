@@ -1005,6 +1005,45 @@ static void TestLoopingFolder(Low& low) {
     EXPECT_TRUE(dev.reads <= 4096u + 2u * img.fat_sectors);  // 2 MiB of entries, and the FAT
 }
 
+static std::uint32_t ReadFat(const fatimg::Image& img, std::uint32_t c) {
+    const std::uint8_t* p = img.bytes.data() + (std::uint64_t(img.reserved) * 512) + std::uint64_t(c) * 4;
+    return (std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[3]) << 24)) & 0x0FFFFFFFu;
+}
+
+// A folder at FAT's limit (65,536 entries, 2 MiB) is full: a new entry is
+// refused instead of growing it past what every later scan accepts (BUG-09).
+static void TestFullFolder(Low& low) {
+    const std::uint32_t spc = 128;                 // 64 KiB clusters: the limit is 32 of them
+    Image img(512, spc, 0, 64);
+    Device dev(img);
+    std::vector<std::uint32_t> chain;
+    for (std::uint32_t c = 2; c < 2 + 32; ++c) chain.push_back(c);
+    Bytes entries;
+    for (std::uint32_t i = 0; i < 65536; ++i) {
+        char name[12];
+        std::snprintf(name, sizeof name, "F%07uBIN", static_cast<unsigned>(i));
+        cat(entries, short_entry(name, 0x20, 0, 0));
+    }
+    if (!img.write_dir(chain, entries)) g_failures++;
+    rtfat_volume vol{};
+    vol.sectors_per_cluster = spc;
+    vol.fat_lba = img.reserved;
+    vol.fat_count = img.fats;
+    vol.fat_sectors = img.fat_sectors;
+    vol.data_lba = static_cast<std::uint32_t>(img.data_start_sector());
+    vol.cluster_count = img.clusters;
+    vol.dir_cluster = 2;
+    vol.alloc_hint = 40;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "NEW.BIN");
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_CREATE), RTFAT_ENOSPC);
+    EXPECT_EQ(ReadFat(img, 33), 0x0FFFFFFFu);      // the folder still ends where it did
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "F0000007.BIN");
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);  // and is still read
+}
+
 // ---- names longer than NAND allows ----------------------------------------------
 
 // Riivolution keeps saves on the card under any name that fits a path;
@@ -1145,6 +1184,52 @@ static void TestStraddle(Low& low) {
     EXPECT_EQ(hf.entry.short_name, "MIXED~1.CAS");
 }
 
+// New entries over the end-of-directory entry leave an end behind them
+// (BUG-17): the slots after the 0x00 hold whatever was on the card, and
+// read as entries once the 0x00 before them is gone.
+static void TestEndMarker(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    std::uint8_t* dir = fx.img.cluster(3);
+    EXPECT_EQ(dir[13 * 32], 0u);  // the save folder ends at slot 13
+    // Left-over entries past the end: one in the end's own sector, one at
+    // the start of the next.
+    const Bytes ghost_a = short_entry("GHOSTA  BIN", 0x20, 0, 0);
+    const Bytes ghost_b = short_entry("GHOSTB  BIN", 0x20, 0, 0);
+    std::memcpy(dir + 15 * 32, ghost_a.data(), 32);
+    std::memcpy(dir + 16 * 32, ghost_b.data(), 32);
+    riftwii::Fat32File hf;
+    SetName(op.name, "ghosta.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+
+    // The deleted slot 6 taken first, so that what follows goes to the end.
+    SetName(op.name, "new.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_index, 6u);
+
+    // Two entries at slots 13 and 14: slot 15 after them is zeroed.
+    SetName(op.name, "Mixed.cas");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_index, 14u);
+    EXPECT_EQ(dir[15 * 32], 0u);
+    SetName(op.name, "ghosta.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    EXPECT_FALSE(fx.host_lookup("ghosta.bin", hf));
+
+    // One entry at slot 15 fills the sector: the next one gets the end.
+    SetName(op.name, "last.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_lba, std::uint32_t(fx.img.cluster_lba(3)));
+    EXPECT_EQ(op.found.entry_index, 15u);
+    EXPECT_EQ(dir[16 * 32], 0u);
+    SetName(op.name, "ghostb.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    EXPECT_FALSE(fx.host_lookup("ghostb.bin", hf));
+    EXPECT_TRUE(fx.host_lookup("Mixed.cas", hf));
+    EXPECT_TRUE(fx.host_lookup("last.bin", hf));
+}
+
 // ---- list, count, usage -----------------------------------------------------------
 
 static void TestList(Low& low) {
@@ -1270,11 +1355,6 @@ static void TestGeometry(Low& low) {
 }
 
 // ---- atomic-commit ghost: hidden stage renamed visible, old must die ----
-static std::uint32_t ReadFat(const fatimg::Image& img, std::uint32_t c) {
-    const std::uint8_t* p = img.bytes.data() + (std::uint64_t(img.reserved) * 512) + std::uint64_t(c) * 4;
-    return (std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[3]) << 24)) & 0x0FFFFFFFu;
-}
-
 static void TestCommitGhost(Low& low) {
     // Single-sector clusters like the SD card; the save folder grows past
     // one sector during the run, like the 37-entry folder on the card.
@@ -1483,9 +1563,11 @@ int main() {
     TestDeleteFolder(low);
     TestAliases(low);
     TestLoopingFolder(low);
+    TestFullFolder(low);
     TestCommitGhost(low);
     TestCommitOverExisting(low);
     TestStraddle(low);
+    TestEndMarker(low);
     TestLongNames(low);
     TestList(low);
     TestGeometry(low);

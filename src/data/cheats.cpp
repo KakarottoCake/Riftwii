@@ -391,24 +391,55 @@ bool fill_cheat_values(std::string& text, const std::string& name, const std::ve
     return true;
 }
 
-std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept) {
+namespace {
+
+// The name the cheat list gives the `occurrence`-th block titled `title`
+// (1 for the first): repeats get " (2)", " (3)" as find_cheat names them.
+std::string listed_name(const std::string& title, int occurrence) {
+    return occurrence > 1 ? title + " (" + std::to_string(occurrence) + ")" : title;
+}
+
+}  // namespace
+
+std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept,
+                             const std::set<std::string>& enabled, std::size_t* held) {
     kept = 0;
+    if (held) *held = 0;
     CheatBlocks merged = split_blocks(fresh);
     const CheatBlocks before = split_blocks(old);
     std::vector<std::size_t> added;  // indexes into before.blocks
     for (std::size_t m = 0; m < before.blocks.size(); ++m) {
         const std::vector<std::string>& mine = before.blocks[m];
         if (!is_cheat(mine)) continue;
+        // Which of its name this is: among the blocks the list shows with
+        // it (its own heading's and those for every revision, as find_cheat
+        // numbers them "(2)"), and within its heading (paired with the
+        // download's block in the same place).
+        int listed = 1;
+        int in_section = 0;
+        for (std::size_t e = 0; e < m; ++e) {
+            if (!is_cheat(before.blocks[e]) || before.blocks[e][0] != mine[0]) continue;
+            if (before.section[e] == before.section[m]) ++in_section;
+            if (before.section[e] == before.section[m] || before.section[e] == kAnyRevision) ++listed;
+        }
         bool found = false;
+        int match = 0;
         for (std::size_t t = 0; t < merged.blocks.size(); ++t) {
             std::vector<std::string>& theirs = merged.blocks[t];
             // Two releases' cheats of the same name are different codes.
             if (!is_cheat(theirs) || theirs[0] != mine[0] || merged.section[t] != before.section[m]) continue;
+            if (match++ != in_section) continue;
             found = true;
             // Values filled in by hand stay filled in.
             if (has_placeholders(theirs) && !has_placeholders(mine)) {
                 theirs = mine;
                 ++kept;
+            } else if (codes_of(theirs) != codes_of(mine) && enabled.count(listed_name(mine[0], listed))) {
+                // Turned on, and the code changed: the player's code stays
+                // (notes alone changing take the download's).
+                theirs = mine;
+                ++kept;
+                if (held) ++*held;
             }
             break;
         }

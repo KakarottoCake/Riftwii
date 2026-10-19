@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -106,7 +107,9 @@ void EnsureMetaAhbAccess();
 // Fetches the game's cheats into the file, keeping the player's own (cheats
 // added by hand, values filled in). The archive answers with an empty
 // page for a game it has no cheats for: `error` says so.
-bool DownloadCheats(const std::string& game_id, std::string& error);
+// `enabled`: the cheats the player has turned on for it, whose code a
+// download does not change (riftwii/cheats.hpp, merge_cheat_text).
+bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled = {});
 // A GameCube game's animated banner, made by the community and hosted by
 // RiiConnect24, asked for by its full ID and then, for a regional copy of
 // a game (`regional_fallback`, riftwii/gcbanner.hpp's

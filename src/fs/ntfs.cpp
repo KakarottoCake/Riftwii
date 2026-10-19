@@ -459,6 +459,7 @@ bool NtfsVolume::find_attribute(std::uint64_t record_number, const std::vector<s
         }
         if (lowest == 0) {
             out.data_size = le64(a + 0x30);
+            out.initialized_size = le64(a + 0x38);
             out.flags = le16(a + 0x0C);
         }
         return ntfs_decode_runs(a + mp, len - mp, lowest, out.runs, error);
@@ -731,6 +732,19 @@ bool NtfsVolume::file_of(const DirEntry& d, VolumeFile& out, std::string& error)
         out.entry.size = data.value.size();
         out.inline_bytes = data.value;
         return true;
+    }
+    // Larger than the volume: not a size to round up to sectors, where one
+    // near 2^64 wrapped to none (MIN-02).
+    if (geo_.cluster_bytes == 0 || data.data_size / geo_.cluster_bytes > geo_.total_clusters) {
+        error = what + " says it is larger than the drive";
+        return false;
+    }
+    // Written only partly: Windows reads the rest as zeros, but d2x and
+    // RiftWii's own reads would get whatever the sectors held before
+    // (MIN-01). Copying the file again writes it to its end.
+    if (data.initialized_size < data.data_size) {
+        error = what + " was not written to its end on NTFS (copy it to the drive again)";
+        return false;
     }
     out.entry.size = data.data_size;
     const std::uint64_t per_cluster = geo_.cluster_bytes / kBlock;

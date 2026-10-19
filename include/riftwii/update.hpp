@@ -23,8 +23,16 @@ struct ReleaseAsset {
     std::string sha256;
     unsigned long long size = 0;
 };
+// Whether `url` is a file of one of RiftWii's own releases:
+// https://github.com/<owner>/Riftwii/releases/download/..., the owner
+// KakarottoCake or the RiftWii organization (where the repository may move;
+// GitHub then redirects the API, and its answers name the new owner).
+// Anything else in an API answer is not downloaded (SEC-03).
+bool riftwii_release_asset_url(const std::string& url);
+
 // The first asset named `name` in a GitHub API answer (its
-// "browser_download_url", "digest": "sha256:..." and "size").
+// "browser_download_url", "digest": "sha256:..." and "size"). False when
+// there is none or its address is not riftwii_release_asset_url's.
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out);
 
 // Orders versions such as "2.0.0-beta", "v1.0.9-beta" and "2.0.1": the

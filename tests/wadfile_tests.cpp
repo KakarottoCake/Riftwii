@@ -161,6 +161,12 @@ void test_bad_files() {
     tmd.contents[1].size = 0x100000;
     std::vector<WadContentPlace> places;
     EXPECT_TRUE(!wad_content_places(layout, tmd, places, error));
+    // A size so large that rounding it up to 16 leaves it as it is and
+    // adding it to the offset wraps (BUG-12): refused all the same.
+    tmd.contents[1].size = 0xFFFFFFFFFFFFFFF0ull;
+    EXPECT_TRUE(!wad_content_places(layout, tmd, places, error));
+    tmd.contents[1].size = 0xFFFFFFFFFFFFFFFFull;
+    EXPECT_TRUE(!wad_content_places(layout, tmd, places, error));
 }
 
 void test_content_map() {

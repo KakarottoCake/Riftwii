@@ -38,8 +38,11 @@ bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to
 // only to the same server (host, port and scheme). Never: none; a 3xx is
 // an answer like a 404, for a download that must come from the server
 // asked and from the address asked (a GameCube banner: a redirect to
-// another game's banner would show the wrong game).
-enum class HttpRedirects { Follow, SameHost, Never };
+// another game's banner would show the wrong game). GitHubRelease: over
+// https only, to github.com or the servers GitHub keeps release files on
+// (release-assets.githubusercontent.com, objects.githubusercontent.com),
+// for RiftWii's own updates (SEC-03).
+enum class HttpRedirects { Follow, SameHost, Never, GitHubRelease };
 // Whether `policy` lets a GET go on from `from` to `to`.
 bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to);
 

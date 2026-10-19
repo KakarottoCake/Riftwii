@@ -571,6 +571,49 @@ static void test_hostile() {
         EXPECT_EQ(anim.targets.size(), std::size_t(1));
         if (!anim.targets.empty()) EXPECT_EQ(anim.targets[0].tracks.size(), std::size_t(4));
     }
+    // One record listed thousands of times (SEC-04): a layout's materials
+    // and an animation's targets past their caps are refused by count.
+    {
+        const std::size_t n = 5000;
+        Bytes lyt(0x10, 0);
+        puts_(lyt, 0, "RLYT");
+        put16(lyt, 4, 0xFEFF);
+        put16(lyt, 0xC, 0x10);
+        Bytes mat(4 + 4 * n, 0);
+        put16(mat, 0, static_cast<std::uint16_t>(n));
+        const std::uint32_t record = static_cast<std::uint32_t>(8 + mat.size());
+        for (std::size_t i = 0; i < n; ++i) put32(mat, 4 + 4 * i, record);
+        Bytes m(0x44, 0);
+        puts_(m, 0, "M_same");
+        mat.insert(mat.end(), m.begin(), m.end());
+        const std::size_t at = lyt.size();
+        puts_(lyt, at, "mat1");
+        put32(lyt, at + 4, static_cast<std::uint32_t>(8 + mat.size()));
+        lyt.insert(lyt.end(), mat.begin(), mat.end());
+        Layout layout;
+        EXPECT_TRUE(!parse_brlyt(lyt.data(), lyt.size(), layout, error));
+        EXPECT_TRUE(error.find("materials") != std::string::npos);
+
+        Bytes anim = overlapping_brlan(1, 1);
+        // The pai1's target table, rebuilt with n entries naming its one target.
+        Bytes rebuilt(anim.begin(), anim.begin() + 0x10);
+        Bytes pai(anim.begin() + 0x10, anim.end());
+        const std::uint32_t old_target = 0x18;
+        Bytes target(pai.begin() + old_target, pai.end());
+        Bytes head(pai.begin(), pai.begin() + 0x14);
+        put16(head, 0xE, static_cast<std::uint16_t>(n));
+        const std::uint32_t target_at = static_cast<std::uint32_t>(0x14 + 4 * n);
+        for (std::size_t i = 0; i < n; ++i) {
+            head.resize(head.size() + 4);
+            put32(head, head.size() - 4, target_at);
+        }
+        head.insert(head.end(), target.begin(), target.end());
+        put32(head, 4, static_cast<std::uint32_t>(head.size()));
+        rebuilt.insert(rebuilt.end(), head.begin(), head.end());
+        Animation parsed;
+        EXPECT_TRUE(!parse_brlan(rebuilt.data(), rebuilt.size(), parsed, error));
+        EXPECT_TRUE(error.find("animated") != std::string::npos);
+    }
     U8Archive a;
     // A name past 255 bytes.
     {

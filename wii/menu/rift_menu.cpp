@@ -110,6 +110,7 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "usbprobe.hpp"
+#include "entropy.hpp"
 #include "online.hpp"
 #include "reportsend.hpp"
 #include "modplan.hpp"
@@ -361,6 +362,9 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
+			for (int c = 0; c < 4; ++c)
+				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
@@ -2970,6 +2974,10 @@ static bool InstallWads()
 				tr("{1} of {2}: {3}", {std::to_string(i + 1), std::to_string(files.size()), FlatCapped(name, 40)}));
 			ProgressBar bar(56, 280, 528);
 			box.Add(&bar, 528);
+			// The power button and HOME wait for the install, as for an
+			// update: a card unmounted in the middle left a half-installed
+			// title on the emulated NAND, its undo never run (BUG-03).
+			const riftwii::wii::CardWriteHold hold;
 			ResumeGui();
 			int shown = -1;
 			ok = riftwii::wii::install_wad(path, nand.folder, key, [&](double done) {
@@ -5266,6 +5274,8 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 		box.CenterCancel();  // its only button, in the middle
 		ProgressPanel progress(box, state.game_id);
 		std::string shown;
+		// Minutes of writing: the power button waits for it (BUG-03).
+		const riftwii::wii::CardWriteHold hold;
 		ResumeGui();
 		ok = riftwii::wii::MakeVsdImage(plan, [&](std::uint64_t written, const std::string& path) {
 			if (!path.empty()) shown = path;
@@ -6216,7 +6226,9 @@ static bool RestoreGcBackup(const std::string& cardPath, const std::string& fold
 	// Marked as the undo copy, which the list names "before you restored".
 	riftwii::GcBackupStamp stamp = riftwii::gc_backup_stamp(local);
 	stamp.undo = true;
-	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, stamp);
+	// The copy being restored is not pruned to make room for the undo one.
+	const std::string source = from.substr(from.rfind('/') + 1);
+	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, stamp, source);
 	if (before.what == riftwii::GcBackupResult::What::Failed) {
 		logf("GameCube card %s: not restored, as the card as it is now could not be backed up: %s\n", cardPath.c_str(),
 			before.error.c_str());
@@ -7675,7 +7687,7 @@ static void MenuCheats(FrontendState& state)
 		std::string error;
 		const std::size_t before = loaded ? file.cheats.size() : 0;
 		const bool hadFile = loaded;
-		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error);
+		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names);
 		HaltGui();
 		if (ok) {
 			load(false);

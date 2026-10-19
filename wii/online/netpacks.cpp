@@ -8,6 +8,7 @@
 #include <ogc/lwp_watchdog.h>
 #include <strings.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -37,6 +38,11 @@ class CardStore final : public riifs::LocalStore {
 public:
     ~CardStore() override {
         if (file_) std::fclose(file_);
+    }
+    std::uint64_t free_bytes() override {
+        struct statvfs vfs;
+        if (statvfs("sd:/", &vfs) != 0) return UINT64_MAX;
+        return static_cast<std::uint64_t>(vfs.f_bavail) * vfs.f_frsize;
     }
     bool file_size(const std::string& path, std::uint64_t& size, bool& exists) override {
         struct stat st;

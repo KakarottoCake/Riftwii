@@ -93,6 +93,10 @@ struct GcBackupResult {
 // made at `now`: skipped when the card is not there or matches the newest
 // backup byte for byte, then the oldest beyond kGcBackupsKept deleted. An
 // undo copy (`now.undo`, a restore's) counts among the five like any other.
-GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now);
+// `keep` (a backup's file name) is never deleted: a restore of the oldest
+// backup made its undo copy, and the pruning deleted the very backup being
+// restored (BUG-18).
+GcBackupResult gc_backup_card(const std::string& card_path, const std::string& folder, const GcBackupStamp& now,
+                              const std::string& keep = std::string());
 
 }  // namespace riftwii

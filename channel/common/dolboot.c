@@ -43,6 +43,9 @@ static bool in_mem1(u32 address, u32 bytes) {
     return address >= MEM1_LO && address <= MEM1_HI && bytes <= MEM1_HI - address;
 }
 
+// The running program is [__app_start, __bss_end): libogc keeps its main
+// and exception stacks in .bss (default_stacks.o, checked in the forwarder's
+// and installer's link maps), so they are inside it too.
 bool dolboot_valid(const u8* dol, u32 size) {
     extern u8 __app_start[], __bss_end[];
     const u32 self_lo = (u32)__app_start, self_hi = (u32)__bss_end;
@@ -68,6 +71,9 @@ bool dolboot_valid(const u8* dol, u32 size) {
 // block after its entry branch points to the string, placed after its
 // BSS, where libogc keeps its arena clear of it.
 static void set_argv(const DolHeader* h, const char* path) {
+    // A program without a first text section, or one too short for the
+    // block, has no "_arg" block to read (MIN-10): its address may be 0.
+    if (h->size[0] < 8 + sizeof(struct __argv)) return;
     const u32 text0 = h->address[0];
     struct __argv* args = (struct __argv*)(text0 + 8);
     if (*(u32*)(text0 + 4) != ARGV_MAGIC) return;
@@ -78,6 +84,8 @@ static void set_argv(const DolHeader* h, const char* path) {
     if (h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
     char* line = (char*)((end + 31) & ~31u);
     const u32 len = strlen(path) + 1;
+    // The line and its closing zero stay below what IOS and the loaders keep.
+    if ((u32)line > MEM1_HI || len + 1 > MEM1_HI - (u32)line) return;
     memcpy(line, path, len);
     line[len] = 0;
     DCFlushRange(line, (len + 32) & ~31u);

@@ -709,7 +709,8 @@ static void test_card_paths() {
     EXPECT_EQ(gc_card_path("GMSE01", true), std::string("sd:/riftwii/gc/cards/shared.raw"));
     EXPECT_EQ(gc_card_path("GMSP01", true), std::string("sd:/riftwii/gc/cards/shared.raw"));
     EXPECT_EQ(gc_card_path("GMSJ01", true), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
-    EXPECT_EQ(gc_card_path("GM/../J", false), std::string("sd:/riftwii/gc/cards/GMJ.raw"));
+    // Not a plain ID: by its bytes, so no slash or dot reaches the name.
+    EXPECT_EQ(gc_card_path("GM/../J", false), std::string("sd:/riftwii/gc/cards/x474d2f2e2e2f4a.raw"));
     EXPECT_FALSE(gc_card_shift_jis("GMS"));
 }
 
@@ -743,7 +744,7 @@ static void test_backup_names() {
     EXPECT_EQ(gc_backup_folder("GMSE01", false), std::string("sd:/riftwii/gc/backups/GMSE01"));
     EXPECT_EQ(gc_backup_folder("GMSE01", true), std::string("sd:/riftwii/gc/backups/shared"));
     EXPECT_EQ(gc_backup_folder("GMSJ01", true), std::string("sd:/riftwii/gc/backups/shared-jp"));
-    EXPECT_EQ(gc_backup_folder("GM/../J", false), std::string("sd:/riftwii/gc/backups/GMJ"));
+    EXPECT_EQ(gc_backup_folder("GM/../J", false), std::string("sd:/riftwii/gc/backups/x474d2f2e2e2f4a"));
 
     GcBackupStamp stamp;
     stamp.year = 2026;
@@ -908,6 +909,32 @@ static void test_backup_files() {
     EXPECT_TRUE(fs::exists(fs::path(folder) / "notes.txt"));
     EXPECT_EQ(gc_backup_list(folder).size(), kGcBackupsKept);
 
+    // A restore of the oldest backup: its undo copy does not prune the very
+    // backup being restored (BUG-18); the next oldest goes instead.
+    {
+        const std::vector<std::string> listed = gc_backup_list(folder);
+        const std::string oldest = listed.back();
+        const std::string next_oldest = listed[listed.size() - 2];
+        bytes.back() = 0x04;
+        write_file(card, bytes);
+        now.day = 24;
+        now.undo = true;
+        made = gc_backup_card(card, folder, now, oldest);
+        now.undo = false;
+        EXPECT_TRUE(made.what == GcBackupResult::What::Made);
+        EXPECT_TRUE(fs::exists(fs::path(folder) / oldest));
+        EXPECT_FALSE(fs::exists(fs::path(folder) / next_oldest));
+        EXPECT_EQ(gc_backup_list(folder).size(), kGcBackupsKept);
+    }
+
+    // Card names (MIN-04): a disc's ID as it is; one with other characters
+    // by its bytes, never empty and never shared with another.
+    EXPECT_EQ(gc_card_path("GALE01", false), std::string("sd:/riftwii/gc/cards/GALE01.raw"));
+    EXPECT_EQ(gc_card_path("....", false), std::string("sd:/riftwii/gc/cards/x2e2e2e2e.raw"));
+    EXPECT_TRUE(gc_card_path("GA-E01", false) != gc_card_path("GA_E01", false));
+    EXPECT_TRUE(gc_card_path("", false) != std::string("sd:/riftwii/gc/cards/.raw"));
+    EXPECT_EQ(gc_backup_folder("....", false), std::string("sd:/riftwii/gc/backups/x2e2e2e2e"));
+
     // Files that differ only in length, or are missing, are not the same.
     write_file(root / "short.raw", Bytes(199999, 0x5A));
     EXPECT_FALSE(gc_files_same(card, (root / "short.raw").string()));
@@ -920,6 +947,8 @@ static void test_backup_files() {
     EXPECT_TRUE(read_file(card) == restored);
     EXPECT_TRUE(gc_overwrite_file(card, Bytes(10, 0x22), error));
     EXPECT_EQ(read_file(card).size(), 10u);
+    EXPECT_FALSE(fs::exists(card + ".tmp"));  // put in place, nothing left beside it
+    EXPECT_FALSE(fs::exists(card + ".old"));  // the old card, moved aside, is gone once the new one is in
 
     // A copy whose source cannot be read leaves nothing behind.
     EXPECT_FALSE(gc_copy_file((root / "missing.raw").string(), (root / "out.raw").string(), error));

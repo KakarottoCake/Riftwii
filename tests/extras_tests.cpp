@@ -71,24 +71,41 @@ void TestHttp() {
             "[{\"tag_name\":\"v2.0.3-beta\",\"name\":\"RiftWii 2.0.3 Beta\",\"assets\":["
             "{\"id\":1,\"name\":\"riftwii-v2.0.3-beta.zip\",\"uploader\":{\"login\":\"x\"},\"size\":900,"
             "\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\","
-            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii-v2.0.3-beta.zip\"},"
+            "\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii-v2.0.3-beta.zip\"},"
             "{\"id\":2,\"name\" : \"riftwii.dol\",\"uploader\":{\"login\":\"x\",\"id\":5},\"size\": 4526176,"
             "\"digest\":\"sha256:ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"download_count\":3,"
-            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol\"}]}]";
+            "\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii.dol\"}]}]";
         ReleaseAsset dol;
         EXPECT_TRUE(release_asset_from_json(json, "riftwii.dol", dol));
-        EXPECT_EQ(dol.url, "https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol");
+        EXPECT_EQ(dol.url, "https://github.com/KakarottoCake/Riftwii/releases/download/v2.0.3-beta/riftwii.dol");
         EXPECT_EQ(dol.sha256, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
         EXPECT_TRUE(dol.size == 4526176ull);
         ReleaseAsset none;
         EXPECT_FALSE(release_asset_from_json(json, "boot.dol", none));
         // An older answer without digests: the URL alone.
         const std::string old = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"size\":7,\"digest\":null,"
-                                "\"browser_download_url\":\"https://x/riftwii.dol\"}]}]";
+                                "\"browser_download_url\":\"https://github.com/RiftWii/Riftwii/releases/download/v1/riftwii.dol\"}]}]";
         EXPECT_TRUE(release_asset_from_json(old, "riftwii.dol", dol));
-        EXPECT_EQ(dol.url, "https://x/riftwii.dol");
+        EXPECT_EQ(dol.url, "https://github.com/RiftWii/Riftwii/releases/download/v1/riftwii.dol");
         EXPECT_TRUE(dol.sha256.empty());
         EXPECT_TRUE(dol.size == 7ull);
+        // Only RiftWii's own release files are taken (SEC-03): another
+        // repository, another host, plain http, or a path that climbs out.
+        for (const char* url : {"https://github.com/someone/Riftwii/releases/download/v1/riftwii.dol",
+                                "https://evil.example/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                "http://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/../../x/riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1/",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download//riftwii.dol",
+                                "https://github.com/KakarottoCake/Riftwii/releases/download/v1/x/riftwii.dol",
+                                "https://github.com.evil.example/KakarottoCake/Riftwii/releases/download/v1/a"}) {
+            const std::string forged = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" +
+                                       std::string(url) + "\"}]}]";
+            EXPECT_FALSE(release_asset_from_json(forged, "riftwii.dol", dol));
+        }
+        EXPECT_TRUE(riftwii_release_asset_url("https://github.com/kakarottocake/RIFTWII/releases/download/v2/a.zip"));
     }
     EXPECT_EQ(compare_versions("v1.0.9-beta", "2.0.0-beta"), -1);
     EXPECT_EQ(compare_versions("2.0.0", "2.0.0-beta"), 1);
@@ -211,6 +228,15 @@ void TestHttp() {
     EXPECT_TRUE(to.tls);
     EXPECT_EQ(to.host, "cdn.example");
     EXPECT_FALSE(http_redirect(from, "ftp://cdn.example/f", to, error));
+    // A Location with a bare LF, a CR or a space inside would put text of
+    // its own into the request (SEC-06): refused in every form.
+    EXPECT_FALSE(http_redirect(from, "/a\nX-Injected: 1", to, error));
+    EXPECT_FALSE(http_redirect(from, "other\r.dol", to, error));
+    EXPECT_FALSE(http_redirect(from, "/a b", to, error));
+    EXPECT_FALSE(http_redirect(from, "https://cdn.example/f\nX: 1", to, error));
+    EXPECT_FALSE(http_redirect(from, "https://cdn\t.example/f", to, error));
+    EXPECT_FALSE(parse_http_url("http://example.org/a\x7f", url, error));
+    EXPECT_TRUE(http_redirect(from, "/a%0Ab", to, error));  // escaped, it is only text
     HttpUrl plain_from;
     EXPECT_TRUE(parse_http_url("http://www.gametdb.com/x", plain_from, error));
     EXPECT_TRUE(http_redirect(plain_from, "https://www.gametdb.com/x", to, error));  // up to https is fine
@@ -234,6 +260,21 @@ void TestHttp() {
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_host));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, other_port));
     EXPECT_FALSE(http_redirect_allowed(HttpRedirects::SameHost, banner, to_https));
+    // An update's redirects (SEC-03): GitHub's release file servers over
+    // https, nothing else.
+    {
+        HttpUrl release, assets, objects, elsewhere, plain;
+        EXPECT_TRUE(parse_http_url("https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol",
+                                   release, error));
+        EXPECT_TRUE(parse_http_url("https://release-assets.githubusercontent.com/github-production/x", assets, error));
+        EXPECT_TRUE(parse_http_url("https://objects.githubusercontent.com/x", objects, error));
+        EXPECT_TRUE(parse_http_url("https://evil.example/riftwii.dol", elsewhere, error));
+        EXPECT_TRUE(parse_http_url("http://release-assets.githubusercontent.com/x", plain, error));
+        EXPECT_TRUE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, assets));
+        EXPECT_TRUE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, objects));
+        EXPECT_FALSE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, elsewhere));
+        EXPECT_FALSE(http_redirect_allowed(HttpRedirects::GitHubRelease, release, plain));
+    }
 }
 
 void TestCheats() {
@@ -305,6 +346,45 @@ void TestCheats() {
         EXPECT_EQ(file.cheats[2].name, "New one");
         EXPECT_EQ(file.cheats[3].name, "My own cheat");
         EXPECT_EQ(file.cheats[3].notes.size(), 1u);
+    }
+    // The same download with "infinite health" turned on: its code stays
+    // the player's (SEC-02), and only that one is counted as held.
+    std::size_t held = 0;
+    const std::string guarded =
+        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]", "New one"}, &held);
+    EXPECT_EQ(kept, 3u);
+    EXPECT_EQ(held, 1u);
+    EXPECT_TRUE(parse_cheat_text(guarded, file, error));
+    if (file.cheats.size() == 4) {
+        EXPECT_EQ(file.cheats[0].words[1], 0x60000000u);  // turned on: the old code
+        EXPECT_EQ(file.cheats[2].name, "New one");        // new to the file: the download's
+    }
+    // Only the listed name counts: the old file has one "infinite health",
+    // so "... (2)" turned on names none of its blocks.
+    merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec] (2)"}, &held);
+    EXPECT_EQ(held, 0u);
+    // Two cheats of one name, the second turned on: each pairs with the
+    // download's block in the same place, and only the second keeps its code.
+    {
+        const std::string two_old =
+            "SB4E01\nSuper Mario Galaxy 2\n\nTwin\n04000000 00000001\n\nTwin\n04000000 00000002\n";
+        const std::string two_new =
+            "SB4E01\nSuper Mario Galaxy 2\n\nTwin\n04000000 00000011\n\nTwin\n04000000 00000012\n";
+        const std::string mixed = merge_cheat_text(two_new, two_old, kept, {"Twin (2)"}, &held);
+        EXPECT_EQ(held, 1u);
+        EXPECT_TRUE(parse_cheat_text(mixed, file, error));
+        if (file.cheats.size() == 2) {
+            EXPECT_EQ(file.cheats[0].words[1], 0x00000011u);  // not turned on: the download's
+            EXPECT_EQ(file.cheats[1].words[1], 0x00000002u);  // turned on: the player's
+        }
+    }
+    // Notes alone changing on a turned-on cheat: the download's block.
+    {
+        const std::string noted_old = "SB4E01\nSuper Mario Galaxy 2\n\nNoted\n04000000 00000001\nold note\n";
+        const std::string noted_new = "SB4E01\nSuper Mario Galaxy 2\n\nNoted\n04000000 00000001\nnew note\n";
+        const std::string noted = merge_cheat_text(noted_new, noted_old, kept, {"Noted"}, &held);
+        EXPECT_EQ(held, 0u);
+        EXPECT_TRUE(noted.find("new note") != std::string::npos);
     }
     // Values filled in on the Wii: the template stays, so they can change.
     std::string valued =
@@ -1515,6 +1595,20 @@ void TestPlayLogRecord() {
     }
     const std::uint32_t stored = (std::uint32_t(r[0]) << 24) | (std::uint32_t(r[1]) << 16) | (std::uint32_t(r[2]) << 8) | r[3];
     EXPECT_EQ(stored, sum);
+    // Not characters (MIN-06): an overlong '/', a surrogate half written in
+    // UTF-8, and a code point past U+10FFFF each become one '?'; a real
+    // four-byte character stays a surrogate pair.
+    {
+        const std::vector<std::uint8_t> bad =
+            play_log_record("\xC0\xAF" "\xED\xA0\x80" "\xF4\x90\x80\x80" "\xF0\x9F\x98\x80", "RMGE01", 1);
+        const auto unit = [&](int i) { return (bad[4 + 2 * i] << 8) | bad[5 + 2 * i]; };
+        EXPECT_EQ(unit(0), int('?'));
+        EXPECT_EQ(unit(1), int('?'));
+        EXPECT_EQ(unit(2), int('?'));
+        EXPECT_EQ(unit(3), 0xD83D);
+        EXPECT_EQ(unit(4), 0xDE00);
+        EXPECT_EQ(unit(5), 0);
+    }
     // A long name keeps its terminator.
     const std::vector<std::uint8_t> l = play_log_record(std::string(60, 'x'), "RMGE01", 1);
     EXPECT_EQ(l[4 + 2 * 38 + 1], 'x');

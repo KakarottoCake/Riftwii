@@ -102,6 +102,14 @@ std::vector<std::uint16_t> utf16_of(const std::string& s) {
             continue;
         }
         i += 1 + extra;
+        // Well formed but not a character: an overlong form, a surrogate
+        // half written in UTF-8, or past U+10FFFF. Each made UTF-16 the
+        // Wii Menu cannot read (MIN-06).
+        const bool overlong = (extra == 1 && cp < 0x80) || (extra == 2 && cp < 0x800) || (extra == 3 && cp < 0x10000);
+        if (overlong || (cp >= 0xD800 && cp <= 0xDFFF) || cp > 0x10FFFF) {
+            out.push_back('?');
+            continue;
+        }
         if (cp >= 0x10000) {
             cp -= 0x10000;
             out.push_back(static_cast<std::uint16_t>(0xD800 | (cp >> 10)));

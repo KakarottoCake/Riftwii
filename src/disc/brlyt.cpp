@@ -4,6 +4,8 @@
 
 #include <cmath>
 #include <cstring>
+#include <string>
+#include <unordered_map>
 
 namespace riftwii {
 namespace {
@@ -257,6 +259,7 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
     std::size_t pos = be16(data + 0xC);
     int last = -1;                // the pane read last: a pas1 opens its children
     std::vector<int> parents;     // the open pas1s
+    std::size_t group_entries = 0;  // pane names in all grp1s so far
     while (pos + 8 <= size) {
         const std::uint8_t* s = data + pos;
         const std::uint32_t len = be32(s + 4);
@@ -287,6 +290,10 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
                 error = "mat1 too short";
                 return false;
             }
+            if (lyt.materials.size() + n > kMaxLayoutMaterials) {
+                error = "more than " + std::to_string(kMaxLayoutMaterials) + " materials";
+                return false;
+            }
             for (std::uint16_t i = 0; i < n; ++i) {
                 const std::uint32_t off = be32(s + 12 + i * 4);
                 if (off >= len) {
@@ -300,6 +307,10 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
         } else if (magic == "pan1" || magic == "pic1" || magic == "txt1" || magic == "wnd1" || magic == "bnd1") {
             if (len < 0x4C) {
                 error = magic + " too short";
+                return false;
+            }
+            if (lyt.panes.size() >= kMaxLayoutPanes) {
+                error = "more than " + std::to_string(kMaxLayoutPanes) + " panes";
                 return false;
             }
             LytPane p;
@@ -348,6 +359,11 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
                 error = "grp1 runs past it";
                 return false;
             }
+            group_entries += n;
+            if (group_entries > kMaxLayoutGroupEntries) {
+                error = "more than " + std::to_string(kMaxLayoutGroupEntries) + " panes in groups";
+                return false;
+            }
             for (std::uint16_t i = 0; i < n; ++i) g.panes.push_back(fixed_name(s + 0x1C + i * 16, 16));
             lyt.groups.push_back(std::move(g));
         }
@@ -365,6 +381,9 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
 LanguagePanes language_panes(const Layout& layout, const std::string& language) {
     static const char* const kCodes[] = {"JPN", "ENG", "GER", "FRA", "SPA", "ITA", "NED", "CHN", "KOR", "USA", "EUR"};
     LanguagePanes out;
+    // Each name looked up once: the first pane of that name, as find_pane.
+    std::unordered_map<std::string, int> pane_of;
+    for (std::size_t i = layout.panes.size(); i-- > 0;) pane_of[layout.panes[i].name] = static_cast<int>(i);
     std::vector<const LytGroup*> langs;
     for (const LytGroup& g : layout.groups)
         for (const char* c : kCodes)
@@ -377,8 +396,8 @@ LanguagePanes language_panes(const Layout& layout, const std::string& language) 
     if (!pick) pick = langs.front();
     for (const LytGroup* g : langs) {
         for (const std::string& name : g->panes) {
-            const int i = layout.find_pane(name);
-            if (i >= 0) (g == pick ? out.show : out.hide).push_back(i);
+            const auto it = pane_of.find(name);
+            if (it != pane_of.end()) (g == pick ? out.show : out.hide).push_back(it->second);
         }
     }
     return out;

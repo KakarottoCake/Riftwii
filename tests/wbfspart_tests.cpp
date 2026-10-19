@@ -203,6 +203,11 @@ void test_second_partition_and_gpt() {
     const std::vector<DrivePartition> parts = drive_partitions(g.reader(), g.at(0).data());
     EXPECT_EQ(parts.size(), std::size_t(1));
     if (!parts.empty()) EXPECT_EQ(parts[0].blocks, std::uint64_t(100000000));
+
+    // An entry that ends before it starts is left out (MIN-05), instead of
+    // being listed with no size, which read as "size unknown".
+    le64(entries.data() + 0x28, 8000);
+    EXPECT_TRUE(drive_partitions(g.reader(), g.at(0).data()).empty());
 }
 
 // A drive's block 0 before any mount: a Wii U's own drive (encrypted, so
