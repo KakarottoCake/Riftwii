@@ -462,7 +462,7 @@ void FetchPacks() {
     }
     std::vector<std::uint8_t> body;
     std::string error;
-    if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
+    if (!HttpGet(pack.url, body, error, 16u << 20, 30000, nullptr, HttpRedirects::GitHubRelease)) {
         logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
         return;
     }
@@ -810,7 +810,7 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
             progress(std::min(0.99, static_cast<double>(received) / total));
         };
     }
-    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got)) return false;
+    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) return false;
     if (progress) progress(1.0);
     if (note.dol.size != 0 && body.size() != note.dol.size) {
         error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
