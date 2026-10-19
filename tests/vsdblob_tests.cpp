@@ -447,6 +447,47 @@ void TestAsyncWriteSettles() {
     EXPECT_TRUE(ImageMatches(buffer2, 10, 4));
 }
 
+// The resident runtime beside the blob on the same card (BUG-05): while
+// the runtime's write is programmed the blob asks the card's status before
+// a piece, and its own writes are marked for the runtime until the card
+// has programmed them.
+void TestRuntimeBeside() {
+    Blob b = MakeBlob(VSD_BACKEND_SLOT0);
+    const std::uint32_t runtime_busy = Alloc(false, 32);
+    *At<std::uint32_t>(runtime_busy) = 1;
+    b.st->peer_busy = runtime_busy;
+    const std::uint32_t buffer = Alloc(false, 4 * 512);
+    // Async: two CMD13s find the card programming, the third ready, then the read.
+    g_ios.busy_left = 2;
+    EXPECT_EQ(SendAsync(b, MakeCommand(18, 0, 4, buffer), 0xC4, 0xD4), 0);
+    EXPECT_TRUE(g_ios.pieces.empty());
+    PumpAll(b);
+    EXPECT_EQ(g_ios.status_polls, 3u);
+    EXPECT_EQ(g_ios.pieces.size(), 1u);
+    EXPECT_TRUE(ImageMatches(buffer, 0, 4));
+    EXPECT_EQ(g_ios.answers.size(), 1u);
+    if (!g_ios.answers.empty()) EXPECT_EQ(g_ios.answers[0].result, 0);
+    // Sync: the same.
+    g_ios.status_polls = 0;
+    g_ios.busy_left = 1;
+    EXPECT_EQ(SendSync(b, MakeCommand(18, 8 * 512, 4, buffer)), 0);
+    EXPECT_EQ(g_ios.status_polls, 2u);
+    EXPECT_TRUE(ImageMatches(buffer, 8, 4));
+    // The runtime idle: nothing asked before a read.
+    *At<std::uint32_t>(runtime_busy) = 0;
+    g_ios.status_polls = 0;
+    EXPECT_EQ(SendSync(b, MakeCommand(18, 0, 4, buffer)), 0);
+    EXPECT_EQ(g_ios.status_polls, 0u);
+    // A write: "writing" set from its send until the card is seen ready.
+    g_ios.busy_polls = 2;
+    Fill(buffer, 4 * 512, 0x33);
+    EXPECT_EQ(SendAsync(b, MakeCommand(25, 40 * 512, 4, buffer), 0xC5, 0xD5), 0);
+    EXPECT_EQ(b.st->writing, 1u);
+    PumpAll(b);
+    EXPECT_EQ(b.st->writing, 0u);
+    EXPECT_TRUE(ImageMatches(buffer, 40, 4));
+}
+
 void TestSyncWriteSettles() {
     Blob b = MakeBlob(VSD_BACKEND_SLOT0);
     g_ios.busy_polls = 2;
@@ -674,6 +715,7 @@ int main() {
     TestAsyncRead(false);
     TestAsyncWriteSettles();
     TestSyncWriteSettles();
+    TestRuntimeBeside();
     TestRetries();
     TestBusy();
     TestBounce();

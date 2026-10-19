@@ -1996,6 +1996,20 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                options.memory_patches, vsd, why, resident.data_bytes != 0,
                                resident.data_bytes != 0 ? resident.stage_base : 0, known)) {
                 vsd = VsdHook{};
+            } else {
+                // The runtime's reads and saves and the game's own commands
+                // go to the one card: each waits while the other's write is
+                // still being programmed, where a mod read landing then
+                // failed its tries and the game got a disc error (BUG-05).
+                const std::uint32_t runtime_busy =
+                    resident.fs_state != 0
+                        ? resident.fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, card_busy))
+                        : 0;
+                rt_context* runtime = reinterpret_cast<rt_context*>(resident.context_now);
+                runtime->vsd_writing = link_vsd_with_runtime(vsd, runtime_busy);
+                const std::uint32_t line =
+                    static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&runtime->vsd_writing)) & ~31u;
+                DCFlushRange(reinterpret_cast<void*>(line), 64);
             }
         }
         if (!vsd.active) logf("SD card for the game: not passed through: %s\n", why.c_str());

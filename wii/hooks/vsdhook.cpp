@@ -326,6 +326,15 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     return true;
 }
 
+std::uint32_t link_vsd_with_runtime(const VsdHook& hook, std::uint32_t runtime_busy) {
+    vsd_state* st = reinterpret_cast<vsd_state*>(now(hook, hook.state_base));
+    st->peer_busy = runtime_busy;
+    st->writing = 0;
+    const std::uint32_t line = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&st->peer_busy)) & ~31u;
+    DCFlushRange(reinterpret_cast<void*>(line), 64);
+    return hook.state_base + static_cast<std::uint32_t>(offsetof(vsd_state, writing));
+}
+
 bool install_vsd_hook(VsdHook& hook, std::string& why) {
     if (!hook.active) return false;
     const vsd_header& h = header();

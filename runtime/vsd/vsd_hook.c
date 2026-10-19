@@ -235,6 +235,13 @@ static int needs_settle(const struct vsd_state* st) {
     return st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL_ASYNC] != 0;
 }
 
+/* The runtime beside the blob, on the same card, has a write that the card
+ * may still be programming: a command sent now would be refused, so the
+ * blob first waits for the card (BUG-05). Both blobs run on the one CPU. */
+static int peer_busy(const struct vsd_state* st) {
+    return st->peer_busy != 0 && *(volatile const uint32_t*)(uintptr_t)st->peer_busy != 0;
+}
+
 static int still_busy(struct vsd_state* st) {
     uint32_t state;
     invalidate_range((uint32_t)(uintptr_t)st->response, sizeof(st->response));
@@ -280,6 +287,7 @@ static void piece_done(struct vsd_state* st) {
         st->sectors_written += t->chunk;
     }
     t->done += t->chunk;
+    t->waited = 0;
 }
 
 /* The game's reply buffer. */
@@ -293,14 +301,30 @@ static void write_reply(uint32_t out, const uint32_t reply[4]) {
 
 /* ---- The synchronous path --------------------------------------------- */
 
+/* CMD13s on a thread until the card has left the receive and programming
+ * states (or VSD_SETTLE_POLLS of them). */
+static void settle_sync(struct vsd_state* st) {
+    struct vsd_transfer* t = &st->transfer;
+    for (t->polls = 0; t->polls < VSD_SETTLE_POLLS; ++t->polls) {
+        build_status(st);
+        if (os_ioctl(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
+                     (uint32_t)(uintptr_t)st->response, 16) < 0 ||
+            !still_busy(st))
+            break;
+    }
+}
+
 static int32_t transfer_sync(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
+    const int settles = st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL] != 0;
     if (st->original[VSD_IOCTLV] == 0) return IOS_EINVAL;
     while (t->done < t->count) {
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
         int32_t r = -1;
         t->chunk = next_piece(st, &device_sector, &data);
         if (t->chunk == 0) return IOS_EINVAL;
+        if (settles && peer_busy(st)) settle_sync(st);
+        if (t->write && settles) st->writing = 1;
         for (t->tries = 0; t->tries < VSD_TRIES; ++t->tries) {
             number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
             r = os_ioctlv(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec);
@@ -309,18 +333,12 @@ static int32_t transfer_sync(struct vsd_state* st) {
             st->last_error = (uint32_t)r;
         }
         if (r < 0) {
+            st->writing = 0;
             ++st->gave_up;
             return r;
         }
-        if (t->write && st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL] != 0) {
-            for (t->polls = 0; t->polls < VSD_SETTLE_POLLS; ++t->polls) {
-                build_status(st);
-                if (os_ioctl(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
-                             (uint32_t)(uintptr_t)st->response, 16) < 0 ||
-                    !still_busy(st))
-                    break;
-            }
-        }
+        if (t->write && settles) settle_sync(st);
+        st->writing = 0;
         piece_done(st);
     }
     return RTVSD_OK;
@@ -381,7 +399,12 @@ static int32_t deliver(struct vsd_state* st, uint32_t callback, uint32_t user_da
 static int32_t transfer_send(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
     const uint32_t tag = (uint32_t)(uintptr_t)t;
-    if (t->phase == VSD_PHASE_SETTLE) {
+    if (t->phase == VSD_PHASE_DATA && t->tries == 0 && !t->waited && needs_settle(st) && peer_busy(st)) {
+        t->phase = VSD_PHASE_WAIT;
+        t->polls = 0;
+        t->waited = 1;
+    }
+    if (t->phase == VSD_PHASE_SETTLE || t->phase == VSD_PHASE_WAIT) {
         build_status(st);
         return os_ioctl_async(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request,
                               sizeof(st->request), (uint32_t)(uintptr_t)st->response, 16, st->complete, tag);
@@ -399,6 +422,7 @@ static int32_t transfer_send(struct vsd_state* st) {
             data = t->piece_data;
         }
         number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
+        if (t->write && needs_settle(st)) st->writing = 1;
         return os_ioctlv_async(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, st->complete,
                                tag);
     }
@@ -417,6 +441,7 @@ static void transfer_end(struct vsd_state* st, int32_t result, int32_t* out_resu
         st->last_error = (uint32_t)result;
     }
     write_reply(t->reply_out, reply);
+    st->writing = 0;
     *out_result = result < 0 ? result : RTVSD_OK;
     *callback = t->callback;
     *user_data = t->user_data;
@@ -442,10 +467,23 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
     {
         struct vsd_transfer* t = (struct vsd_transfer*)tag;
         int32_t r = *result;
+        if (t->phase == VSD_PHASE_WAIT) {
+            /* The runtime's write: the card seen idle (or long enough
+             * waited), the piece itself goes. */
+            if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
+                if (transfer_send(st) >= 0) return;
+            }
+            t->phase = VSD_PHASE_DATA;
+            r = transfer_send(st);
+            if (r >= 0) return;
+            transfer_end(st, r, result, callback, user_data);
+            return;
+        }
         if (t->phase == VSD_PHASE_SETTLE) {
             if (r >= 0 && still_busy(st) && ++t->polls < VSD_SETTLE_POLLS) {
                 if (transfer_send(st) >= 0) return;
             }
+            st->writing = 0;
             t->phase = VSD_PHASE_DATA;
             piece_done(st);
         } else if (r < 0) {
@@ -458,6 +496,7 @@ void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32
             t->phase = VSD_PHASE_SETTLE;
             t->polls = 0;
             if (transfer_send(st) >= 0) return;
+            st->writing = 0;
             t->phase = VSD_PHASE_DATA;
             piece_done(st);
         } else {
@@ -531,6 +570,7 @@ static int32_t send_command(struct vsd_state* st, const struct rtvsd_request* re
         t->phase = VSD_PHASE_DATA;
         t->tries = 0;
         t->polls = 0;
+        t->waited = 0;
         t->reply_out = reply_out;
         t->reply[0] = a.reply[0];
         t->reply[1] = t->reply[2] = t->reply[3] = 0;

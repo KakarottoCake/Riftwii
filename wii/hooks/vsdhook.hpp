@@ -84,6 +84,13 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
                    bool after_runtime = false, std::uint32_t runtime_stage = 0,
                    const std::uint32_t* known_functions = nullptr);
 
+// The blob passing the SD card through beside the resident runtime: the
+// two drive the one card, so each waits while the other's write is still
+// being programmed (BUG-05). `runtime_busy` is the runtime's card_busy
+// word (0 when it has no savegame state, so never writes); returns the
+// address of the blob's own "writing" word, for the runtime.
+std::uint32_t link_vsd_with_runtime(const VsdHook& hook, std::uint32_t runtime_busy);
+
 // After the patches and the cheats, before the other blobs' hooks.
 bool install_vsd_hook(VsdHook& hook, std::string& why);
 

@@ -684,6 +684,7 @@ struct rt_context {
     uint32_t fs_state;            /* struct rt_fs_state*, 0 = none */
     uint32_t fs_hijacked;         /* synchronous FS calls answered from the card image */
     uint32_t rvz_state;           /* struct rt_rvz_state*, 0 = not an RVZ game (loader-filled) */
+    uint32_t vsd_writing;         /* loader-filled: the virtual SD blob's "writing" word, 0 = no blob beside the runtime */
     struct rt_pending pending[RT_MAX_PENDING];
     /* Retries: a failed request is issued again up to RT_READ_RETRIES times. */
     uint32_t read_retries;        /* failed requests issued again */
