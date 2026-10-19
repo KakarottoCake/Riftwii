@@ -261,6 +261,31 @@ static void test_listing_and_edge_entries() {
     EXPECT_TRUE(riftwii::Fat32Volume::mount(fx.img.reader(), lv, err, tight));
     EXPECT_FALSE(lv.lookup("/empty.bin", f, err));
     EXPECT_CONTAINS(err, "too many entries");
+    // A folder's own chain is followed no further than its largest allowed
+    // listing (MIN-03): with 16 entries of 32 bytes in 512-byte clusters,
+    // two clusters at most, where the whole chain is longer.
+    {
+        // The folder's chain (clusters 3 and 70) run on through two empty
+        // clusters, which end its listing but not its chain.
+        Fixture longer(512, 1, 0);
+        longer.img.set_fat(70, 80);
+        longer.img.set_fat(80, 81);
+        longer.img.set_fat(81, 0x0FFFFFFF);
+        riftwii::Fat32Volume lengthy;
+        EXPECT_TRUE(riftwii::Fat32Volume::mount(longer.img.reader(), lengthy, err));
+        riftwii::Fat32File whole;
+        EXPECT_TRUE(lengthy.lookup("/riivolution", whole, err));
+        std::uint64_t whole_blocks = 0;
+        for (const auto& frag : whole.fragments) whole_blocks += frag.sector_count;
+        EXPECT_EQ(whole_blocks, 4u);
+        tight.max_directory_entries = 16;
+        EXPECT_TRUE(riftwii::Fat32Volume::mount(longer.img.reader(), lv, err, tight));
+        riftwii::Fat32File capped;
+        EXPECT_TRUE(lv.lookup("/riivolution", capped, err));
+        std::uint64_t capped_blocks = 0;
+        for (const auto& frag : capped.fragments) capped_blocks += frag.sector_count;
+        EXPECT_EQ(capped_blocks, 2u);
+    }
 
     // A directory chain that loops is caught too.
     Fixture broken(512, 1, 0);
