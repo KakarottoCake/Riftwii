@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit review settings for RiftWii. Reviewers' rules live in AGENTS.md,
+# which CodeRabbit reads as code guidelines; this file only adds what it
+# can't infer from there.
+language: en-US
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    # Drafts change too often to spend the hourly review allowance on; the
+    # review starts when a PR is marked "Ready for review".
+    # "@coderabbitai review" still reviews a draft on request.
+    drafts: false
+    # Once a PR is ready, review every push, not only the first one.
+    auto_incremental_review: true
+    # CodeRabbit stops reviewing on its own after five reviewed commits;
+    # long-running drafts get far more pushes than that.
+    auto_pause_after_reviewed_commits: 0
+    # Feature branches sometimes target each other, not only the default
+    # branch.
+    base_branches:
+      - ".*"
+
+  path_filters:
+    # Third-party code is kept whole and only changes with a NOTICE.md entry.
+    - "!vendor-*/**"
+    # Build output is never committed, but keep it out if it slips in.
+    - "!build-*/**"
+    - "!**/*.dol"
+    - "!**/*.elf"
+    # Generated from tools/lang_source.py; review the script's tables instead.
+    - "!wii/lang/*.po"
+
+  path_instructions:
+    - path: "runtime/**"
+      instructions: >-
+        This C code runs inside a commercial game: no heap, no libc beyond
+        what the game already has, position-independent and small. Flag any
+        allocation, new libc call, global with an absolute address or
+        noticeable size growth. Functions are prefixed by their module
+        (rtfs_, rtfat_, rtvsd_).
+    - path: "src/net/**"
+      instructions: >-
+        Everything read from the network is untrusted. Check that every size
+        and count is bounded and that no name can climb out of its folder.
+    - path: "src/patching/gxpatches.cpp"
+      instructions: >-
+        Per-game fixes belong here, each with a comment naming the game and
+        the reason. Flag fixes without one.
+    - path: "wii/**"
+      instructions: >-
+        Menu strings must be English, go through tr() and have their six
+        translations in tools/lang_source.py. Players read US spelling
+        ("license"). wii/menu/rift_menu.cpp indents with tabs.
+    - path: "**/*.{c,cpp,h,hpp,py}"
+      instructions: >-
+        New files need the SPDX-FileCopyrightText and SPDX-License-Identifier
+        (GPL-3.0-or-later) lines. RiftWii is a clean-room implementation: never
+        suggest code taken from Riivolution or other projects.
+
+chat:
+  auto_reply: true
