@@ -3,6 +3,7 @@
 #include "entropy.hpp"
 
 #include <gccore.h>
+#include <ogc/conf.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
 
@@ -91,14 +92,38 @@ void WriteSeedFile(unsigned char next[kPoolBytes]) {
     std::memset(next, 0, kPoolBytes);
 }
 
-// The clock, the console's ID and the card's seed file into the pool;
-// `next` gets the seed file that replaces it. Whether there was one.
-bool StirStart(unsigned char next[kPoolBytes]) {
+// What this console's settings hold that another's does not: the
+// addresses of the Wii Remotes paired with it (BT.DINF), its network
+// settings (NET.CTPC: connections, SSIDs, keys) and its nickname. Not
+// secret, but not the clock: with no SD card there is no seed file, and
+// the console's 32-bit ID was all the start had besides the time (CAV-03).
+// Under the lock; returns how many were found.
+unsigned StirConsoleSettings() {
+    unsigned found = 0;
+    if (CONF_Init() < 0) return found;
+    static const char* const kNames[] = {"BT.DINF", "NET.CTPC", "IPL.NIK"};
+    for (const char* name : kNames) {
+        const s32 length = CONF_GetLength(name);
+        if (length <= 0 || length > 0x2000) continue;
+        static unsigned char value[0x2000] ATTRIBUTE_ALIGN(32);
+        if (CONF_Get(name, value, static_cast<u32>(length)) < 0) continue;
+        Stir(name, value, static_cast<std::size_t>(length));
+        std::memset(value, 0, sizeof(value));
+        ++found;
+    }
+    return found;
+}
+
+// The clock, the console's ID and settings and the card's seed file into
+// the pool; `next` gets the seed file that replaces it, `settings` how
+// many of the console's settings went in. Whether there was a seed file.
+bool StirStart(unsigned char next[kPoolBytes], unsigned& settings) {
     Locked lock;
     const std::time_t now = std::time(nullptr);
     Stir("start", &now, sizeof(now));
     u32 console = 0;
     if (ES_GetDeviceID(&console) >= 0) Stir("console", &console, sizeof(console));
+    settings = StirConsoleSettings();
     unsigned char saved[kPoolBytes];
     bool had = false;
     if (FILE* f = std::fopen(kSeedFile, "rb")) {
@@ -134,12 +159,15 @@ void EntropyStart() {
     if (g_file_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_file_lock, false);
     Locked file_lock(g_file_lock);
     unsigned char next[kPoolBytes];
-    const bool had = StirStart(next);
+    unsigned settings = 0;
+    const bool had = StirStart(next, settings);
     // Replaced at once: a start that stops before its first connection
     // must not leave the next start the same file.
     WriteSeedFile(next);
-    logf("TLS: random seed %s\n", had ? "from the card's seed file, the console and the clock"
-                                      : "from the console and the clock (no seed file yet; one is made now)");
+    logf("TLS: random seed %s (%u of the console's settings)\n",
+         had ? "from the card's seed file, the console, its settings and the clock"
+             : "from the console, its settings and the clock (no seed file yet; one is made now)",
+         settings);
 }
 
 void EntropyAdd(const void* data, std::size_t size) {
