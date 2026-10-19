@@ -757,6 +757,23 @@ void TestVideoModes() {
     EXPECT_EQ(copy[403], 2);
 }
 
+// The menu's music settings: menu_music and launch_music (Music while the
+// menu is open, and whether it plays on under a launch or fades out).
+void TestSettingsMusic() {
+    LoaderSettings s;
+    EXPECT_EQ(s.menu_music, "on");
+    s.parse("menu_music = off\n");
+    EXPECT_EQ(s.menu_music, "off");
+    s.parse("menu_music = loud\n");
+    EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.launch_music, "on");
+    s.parse("launch_music = off\n");
+    EXPECT_EQ(s.launch_music, "off");
+    EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
+    s.parse("launch_music = loud\n");
+    EXPECT_EQ(s.launch_music, "off");
+}
+
 void TestSettings() {
     LoaderSettings s;
     s.parse("# c\nlanguage = ja\nvideo_width=704\ndeflicker = bogus\nborders = remove\nonline = off\nfuture = 1\n");
@@ -922,6 +939,77 @@ void TestWfc() {
     LaunchModel back;
     back.restore(m.save());
     EXPECT_EQ(back.game.server, "wiilink");
+}
+
+// Issue #130: a game with no GameTDB cover (some titles have no entry)
+// stopped every download after it. Only a run of downloads with no answer,
+// or a card that cannot store one, stops them now.
+void TestCoverDownloads() {
+    EXPECT_EQ(http_answered_status("art.gametdb.com answered 404"), 404);
+    EXPECT_EQ(http_answered_status("art.gametdb.com answered 301 (a redirect, not followed for this download)"), 301);
+    EXPECT_EQ(http_answered_status("art.gametdb.com answered 503"), 503);
+    EXPECT_EQ(http_answered_status("no answer from art.gametdb.com (TLS error -5)"), 0);
+    EXPECT_EQ(http_answered_status("art.gametdb.com is answering too slowly; given up after 32 s"), 0);
+    EXPECT_EQ(http_answered_status("art.gametdb.com answered 4040"), 0);
+    EXPECT_EQ(http_answered_status("art.gametdb.com answered 40"), 0);
+
+    EXPECT_TRUE(cover_answer_means_missing(404));
+    EXPECT_TRUE(cover_answer_means_missing(403));
+    EXPECT_TRUE(cover_answer_means_missing(410));
+    EXPECT_TRUE(cover_answer_means_missing(302));
+    EXPECT_FALSE(cover_answer_means_missing(408));
+    EXPECT_FALSE(cover_answer_means_missing(429));
+    EXPECT_FALSE(cover_answer_means_missing(500));
+    EXPECT_FALSE(cover_answer_means_missing(0));
+
+    // Missing covers among stored ones never stop the downloads.
+    CoverDownloads run;
+    EXPECT_EQ(run.take_summary(), std::string());
+    EXPECT_FALSE(run.count(CoverOutcome::Stored));
+    EXPECT_FALSE(run.count(CoverOutcome::NotFound));
+    EXPECT_FALSE(run.count(CoverOutcome::NotFound));
+    EXPECT_FALSE(run.count(CoverOutcome::Stored));
+    EXPECT_EQ(run.stored(), 2u);
+    EXPECT_EQ(run.not_found(), 2u);
+
+    // One or two downloads with no answer are passed over; an answer
+    // between them starts the count again.
+    EXPECT_FALSE(run.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(run.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(run.count(CoverOutcome::NotFound));
+    EXPECT_FALSE(run.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(run.count(CoverOutcome::NoAnswer));
+    EXPECT_EQ(run.no_answer(), 4u);
+    EXPECT_EQ(run.take_summary(),
+              std::string("Covers: 2 downloaded this session; GameTDB has no cover for 3 game(s) (asked again in a "
+                          "week); 4 got no answer and were passed over (tried again after Look for games again or a "
+                          "restart)."));
+    EXPECT_EQ(run.take_summary(), std::string());  // said once
+
+    // The third in a row stops them: the network is down.
+    EXPECT_TRUE(run.count(CoverOutcome::NoAnswer));
+
+    // A card that cannot store a cover stops them at once.
+    run.reset();
+    EXPECT_EQ(run.stored(), 0u);
+    EXPECT_TRUE(run.count(CoverOutcome::CannotStore));
+    run.reset();
+    EXPECT_FALSE(run.count(CoverOutcome::Stored));
+    EXPECT_EQ(run.take_summary(), std::string("Covers: 1 downloaded this session; GameTDB has no cover for 0 game(s) "
+                                              "(asked again in a week)."));
+
+    // The shelf's boxes and the 3D covers keep a count of their own, under
+    // their own names, which a reset keeps.
+    CoverDownloads boxes("Shelf", "full cover");
+    EXPECT_FALSE(boxes.count(CoverOutcome::NotFound));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NoAnswer));
+    EXPECT_TRUE(boxes.count(CoverOutcome::NoAnswer));
+    boxes.reset();
+    EXPECT_EQ(boxes.log_name(), std::string("Shelf"));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NotFound));
+    EXPECT_EQ(boxes.take_summary(), std::string("Shelf: 0 downloaded this session; GameTDB has no full cover for 1 "
+                                                "game(s) (asked again in a week)."));
 }
 
 void TestCoverArt() {
@@ -1174,11 +1262,6 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_sounds, "off");
     s.parse("menu_sounds = loud\n");
     EXPECT_EQ(s.menu_sounds, "off");
-    EXPECT_EQ(s.menu_music, "on");
-    s.parse("menu_music = off\n");
-    EXPECT_EQ(s.menu_music, "off");
-    s.parse("menu_music = loud\n");
-    EXPECT_EQ(s.menu_music, "off");
     EXPECT_EQ(s.menu_font, "riftwii");
     EXPECT_EQ(s.clock, "auto");
     s.parse("clock = 24\n");
@@ -1540,9 +1623,11 @@ int main() {
     TestVideoModes();
     TestKeepsPictureWidth();
     TestSettings();
+    TestSettingsMusic();
     TestGameLanguage();
     TestWfc();
     TestCoverArt();
+    TestCoverDownloads();
     TestLang();
     TestHistory();
     if (g_failures != 0) {

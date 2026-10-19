@@ -15,6 +15,7 @@
 #include "log.hpp"
 #include "netsock.hpp"
 #include "memlimits.hpp"
+#include "stash.hpp"
 
 // crt0's pieces (libogc's linker script and tuxedo/common_crt0.S).
 extern "C" {
@@ -65,6 +66,9 @@ RestartNote g_note;
 // before libogc is up: fixed addresses and memcpy only.
 extern "C" void __wrap___CheckARGV() {
     using namespace riftwii::wii;
+    // First: libogc's __CheckARGV moves the command line to the heap's
+    // start, where the start-up stash still lies (stash.hpp).
+    riftwii_take_stash();
     Snapshot* s = snapshot();
     const u32 size = data_size();
     if (size <= kSnapshotMax) {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-FileCopyrightText: 2009 Tantric (libwiigui template) <https://github.com/dborth/libwiigui>
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "drawtrace.hpp"
 #include "skin.hpp"
 
 #include <gccore.h>
@@ -466,6 +467,7 @@ void DrawNine(const Tex& t, float x, float y, float w, float h, float corner, in
 
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float scale) {
     if (!data || alpha <= 0) return;
+    GxTraceTexture(data, w, h, GX_TF_RGB5A3);
     GXTexObj tex;
     GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
                   GX_FALSE);
@@ -514,6 +516,7 @@ void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, f
 void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
                       float dh, GXColor top, GXColor bottom) {
     if (!data || (top.a == 0 && bottom.a == 0)) return;
+    GxTraceTexture(data, w, h, GX_TF_RGB5A3);
     GXTexObj tex;
     GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
                   GX_FALSE);
@@ -613,6 +616,7 @@ void DrawExtended(const Tex& t, float x, float y, float left, float top, float r
 }
 
 void GuiBackdrop::Draw() {
+    DrawTrace trace("the backdrop");
     // The whole screen, also past the menu's 640x480 when it is drawn
     // smaller (widescreen, screen size). The theme's picture is never
     // stretched: it stays where the menu's rows are (Bookshelf paints

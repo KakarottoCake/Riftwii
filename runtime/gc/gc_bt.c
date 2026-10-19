@@ -15,6 +15,8 @@
 #define GC_BT_EP_ACL_IN 0x82u
 #define GC_BT_EP_ACL_OUT 0x02u
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
+#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
+#define GC_BT_EXT_RETRIES 3u
 
 /* HCI opcodes (OGF << 10 | OCF). */
 #define GC_HCI_ACCEPT_CONNECTION 0x0409u
@@ -28,6 +30,7 @@
 
 /* HCI events. */
 #define GC_EV_CONNECTION_COMPLETE 0x03u
+#define GC_EV_AUTHENTICATION_COMPLETE 0x06u
 #define GC_EV_CONNECTION_REQUEST 0x04u
 #define GC_EV_DISCONNECTED 0x05u
 #define GC_EV_COMMAND_COMPLETE 0x0Eu
@@ -237,6 +240,8 @@ static void bt_next_step(struct gc_bt* bt) {
     uint8_t params[7];
     uint32_t i;
     bt->stage_polls = 0;
+    if (bt->stage == GC_BT_STAGE_RESET) bt->progress |= GC_BT_SEEN_RESET;
+    if (bt->stage == GC_BT_STAGE_SCAN) bt->progress |= GC_BT_SEEN_SCAN;
     if (bt->stage == GC_BT_STAGE_RESET) {
         for (i = 0; i < 6; ++i) params[i] = 0;
         params[6] = 1;  /* all of them */
@@ -267,15 +272,20 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         const uint32_t opcode = code == GC_EV_COMMAND_COMPLETE ? bt_le16(p + 1) : bt_le16(p + 2);
         const uint32_t status = code == GC_EV_COMMAND_COMPLETE ? p[3] : p[0];
         bt->credits = code == GC_EV_COMMAND_COMPLETE ? p[0] : p[1];
-        if (code == GC_EV_COMMAND_COMPLETE && status != 0) bt->last_error = (int32_t)(0x10000u | opcode << 8 | status);
+        if (code == GC_EV_COMMAND_COMPLETE && status != 0) {
+            bt->last_error = (int32_t)(0x10000u | opcode << 8 | status);
+            bt->progress |= GC_BT_SEEN_COMMAND_ERROR;
+        }
         if (code == GC_EV_COMMAND_COMPLETE && opcode == bt_step_opcode(bt)) bt_next_step(bt);
         return;
     }
     if (code == GC_EV_RETURN_LINK_KEYS) {
         for (i = 0; i < p[0] && bt->key_count < GC_BT_KEYS; ++i) bt_copy(bt->keys[bt->key_count++], p + 1 + 22 * i, 22);
+        if (bt->key_count != 0) bt->progress |= GC_BT_SEEN_KEYS;
         return;
     }
     if (code == GC_EV_CONNECTION_REQUEST) {
+        bt->progress |= GC_BT_SEEN_CONN_REQUEST;
         bt_copy(reply, p, 6);
         reply[6] = 0x00;  /* become the master: several remotes share this end */
         bt_command(bt, GC_HCI_ACCEPT_CONNECTION, reply, 7);
@@ -284,7 +294,12 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     if (code == GC_EV_CONNECTION_COMPLETE) {
         struct gc_bt_remote* r;
         uint32_t slot;
-        if (p[0] != 0) return;
+        bt->conn_status = p[0];
+        if (p[0] != 0) {
+            bt->progress |= GC_BT_SEEN_CONN_FAILED;
+            return;
+        }
+        bt->progress |= GC_BT_SEEN_CONNECTED;
         slot = gc_ports_slot_for(bt->remotes, p + 3);
         if (slot >= GC_BT_REMOTES) return;  /* four already: it waits for one to leave */
         r = &bt->remotes[slot];
@@ -303,22 +318,38 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     }
     if (code == GC_EV_DISCONNECTED) {
         struct gc_bt_remote* r = bt_by_handle(bt, bt_le16(p + 1) & 0x0FFFu);
-        if (p[0] == 0 && r) r->used = 0;
+        if (p[0] == 0 && r) {
+            r->used = 0;
+            r->rumble = 0;  /* the link is gone and the motor with it; a remote that returns starts still */
+        }
+        bt->disconnect_reason = p[3];
+        bt->progress |= GC_BT_SEEN_DISCONNECT;
+        return;
+    }
+    if (code == GC_EV_AUTHENTICATION_COMPLETE) {
+        /* Only noted: a remote that fails it is dropped by the controller. */
+        bt->auth_status = p[0];
+        bt->progress |= p[0] == 0 ? GC_BT_SEEN_AUTH_OK : GC_BT_SEEN_AUTH_FAILED;
         return;
     }
     if (code == GC_EV_LINK_KEY_REQUEST) {
+        bt->progress |= GC_BT_SEEN_KEY_REQUEST;
         for (i = 0; i < bt->key_count; ++i)
             if (bt_same(bt->keys[i], p, 6)) {
                 bt_copy(reply, bt->keys[i], 22);
                 bt_command(bt, GC_HCI_LINK_KEY_REPLY, reply, 22);
                 return;
             }
+        /* Not among the keys the controller returned: the remote is then
+         * asked for a PIN, which is refused below. */
+        bt->progress |= GC_BT_SEEN_NO_KEY;
         bt_copy(reply, p, 6);
         bt_command(bt, GC_HCI_LINK_KEY_NEGATIVE, reply, 6);
         return;
     }
     if (code == GC_EV_PIN_REQUEST) {
         /* Syncing is the Wii Menu's job; a remote that is not synced is refused. */
+        bt->progress |= GC_BT_SEEN_PIN_REQUEST;
         bt_copy(reply, p, 6);
         bt_command(bt, GC_HCI_PIN_NEGATIVE, reply, 6);
     }
@@ -326,11 +357,15 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
 
 /* --- The remote ----------------------------------------------------- */
 
-/* An output report: 0xA2, then `data`, on the interrupt channel. */
+/* An output report: 0xA2, then `data`, on the interrupt channel. Bit 0 of
+ * the first data byte of every output report is the rumble motor, so each
+ * one carries the remote's current state: a LED or report-mode report must
+ * not stop a rumble the game has on, nor start one. */
 static void bt_report(struct gc_bt* bt, const struct gc_bt_remote* r, const uint8_t* data, uint32_t length) {
     uint8_t packet[24];
     packet[0] = 0xA2;
     bt_copy(packet + 1, data, length);
+    if (length >= 2) packet[2] = (uint8_t)((packet[2] & ~1u) | (r->rumble & 1u));
     bt_acl(bt, r->handle, r->intr_cid, packet, length + 1);
 }
 
@@ -350,14 +385,58 @@ static void bt_ext_write(struct gc_bt* bt, const struct gc_bt_remote* r, uint32_
     bt_report(bt, r, w, sizeof(w));
 }
 
-/* The report mode: buttons only, or buttons and eight extension bytes;
- * sent only when something changes (the remote then reports at once). */
+/* Which of the map's tables a remote plays with (gc_controls.h). A Wii U
+ * Pro Controller has a Classic Controller Pro's buttons and plays with its
+ * table. An extension that is none of these leaves it a Wii Remote alone. */
+static uint32_t bt_kind(const struct gc_bt_remote* r) {
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_CLASSIC) return GC_MAP_CLASSIC;
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_PRO) return GC_MAP_CLASSIC;
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_NUNCHUK) return GC_MAP_NUNCHUK;
+    return GC_MAP_REMOTE;
+}
+
+/* The report mode: the buttons, with eight extension bytes when one is
+ * ready; and the accelerometer too (0x31, or 0x35 with sixteen extension
+ * bytes) when the remote's kind has a shake in the map, since only a shake
+ * needs it. A Pro Controller, whose eleven bytes do not fit in eight and
+ * which has no accelerometer, gets 0x34 (gc_pro.h). Sent only when
+ * something changes (the remote then reports at once). */
 static void bt_set_mode(struct gc_bt* bt, const struct gc_bt_remote* r) {
+    const uint32_t kind = bt_kind(r);
+    const int accel = kind != GC_MAP_CLASSIC && gc_map_wants_shake(&bt->map, kind);
     uint8_t m[3];
     m[0] = 0x12;
     m[1] = 0x00;
-    m[2] = r->ext_step == 4 ? 0x32 : 0x30;
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_PRO) m[2] = GC_PRO_MODE;
+    else if (r->ext_step == 4) m[2] = accel ? 0x35 : 0x32;
+    else m[2] = accel ? 0x31 : 0x30;
+    bt->last_mode = m[2];
+    bt->progress |= GC_BT_SEEN_MODE;
     bt_report(bt, r, m, 3);
+}
+
+/* A reading of the accelerometer: a jolt against the last one is noted for
+ * the next PADRead (gc_controls.h's shake). */
+static void bt_on_accel(struct gc_bt_remote* r, const uint8_t* reading) {
+    if (r->accel_known && gc_shake_jolt(r->accel, reading)) r->jolted = 1;
+    bt_copy(r->accel, reading, 3);
+    r->accel_known = 1;
+}
+
+/* Keeps the lowest and highest raw value each Pro stick axis has sent (the
+ * trace shows them), to measure how far a full push really reaches. */
+static void bt_note_pro_range(struct gc_bt* bt, const uint8_t* pro) {
+    uint32_t axis;
+    for (axis = 0; axis < 4; ++axis) {
+        const uint16_t raw = (uint16_t)(pro[2 * axis] | ((pro[2 * axis + 1] & 0x0Fu) << 8));
+        const uint32_t bit = 1u << axis;
+        if (!(bt->pro_axes_seen & bit)) {
+            bt->pro_axes_seen |= (uint8_t)bit;
+            bt->pro_min[axis] = bt->pro_max[axis] = raw;
+        }
+        if (raw < bt->pro_min[axis]) bt->pro_min[axis] = raw;
+        if (raw > bt->pro_max[axis]) bt->pro_max[axis] = raw;
+    }
 }
 
 static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t* p, uint32_t length) {
@@ -372,12 +451,15 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         /* A status report: the extension may have come or gone. The
          * remote stops reporting until the mode is set again. */
         const uint32_t plugged = p[4] & 0x02u;
+        bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
         if (!plugged) {
             r->ext_step = 0;
             r->ext_kind = GC_BT_EXT_NONE;
+            r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
         if (plugged && r->ext_step == 0) {
             r->ext_step = 1;
+            r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
             return;
         }
@@ -387,14 +469,21 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     if (id == 0x22 && length >= 6 && p[4] == 0x16) {
         if (p[5] != 0) {
-            r->ext_step = 0;  /* unplugged meanwhile: the next status starts again */
+            /* Refused (or unplugged meanwhile): bt_check_extensions starts
+             * it again at the next PADRead. */
+            bt->ext_error = p[5];
+            bt->progress |= GC_BT_SEEN_EXT_ERROR;
+            r->ext_wait = GC_BT_EXT_WAIT;
             return;
         }
+        bt->progress |= GC_BT_SEEN_EXT_WRITE;
+        r->ext_wait = 0;
         if (r->ext_step == 1) {
             r->ext_step = 2;
             bt_ext_write(bt, r, 0xFB, 0x00);
         } else if (r->ext_step == 2) {
             r->ext_step = 3;
+            r->ext_wait = 0;
             q[0] = 0x17;
             q[1] = 0x04;
             q[2] = 0xA4;
@@ -408,20 +497,53 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     if (id == 0x21 && length >= 13 && r->ext_step == 3) {
         /* The extension's ID: ends 00 00 for a Nunchuk, 01 01 for a
-         * Classic Controller (Pro). */
+         * Classic Controller (Pro), 01 20 for a Wii U Pro Controller, which
+         * is no extension but reports as one. */
         const uint32_t kind = p[11] << 8 | p[12];
-        r->ext_kind = kind == 0x0000 ? GC_BT_EXT_NUNCHUK : kind == 0x0101 ? GC_BT_EXT_CLASSIC : GC_BT_EXT_OTHER;
-        r->ext_step = (p[4] & 0x0F) == 0 ? 4 : 0;
+        if ((p[4] & 0x0F) != 0) {
+            /* The read failed: started again, as a refused write is. */
+            bt->ext_error = (uint8_t)(0x80u | (p[4] & 0x0Fu));
+            bt->progress |= GC_BT_SEEN_EXT_ERROR;
+            r->ext_wait = GC_BT_EXT_WAIT;
+            return;
+        }
+        bt->ext_id[0] = p[11];
+        bt->ext_id[1] = p[12];
+        bt->progress |= GC_BT_SEEN_EXT_ID;
+        if (kind == 0x0000) r->ext_kind = GC_BT_EXT_NUNCHUK;
+        else if (kind == 0x0101) r->ext_kind = GC_BT_EXT_CLASSIC;
+        else if (gc_pro_is_id(p[11], p[12])) r->ext_kind = GC_BT_EXT_PRO;
+        else r->ext_kind = GC_BT_EXT_OTHER;
+        r->ext_step = 4;
+        r->ext_retries = 0;
         /* Until the first report with the extension's bytes: sticks in the
          * middle and every button up (active low), not the zeros or another
          * extension's bytes, which read as everything pressed. */
-        r->ext[0] = r->ext[1] = 0x80;
-        r->ext[2] = r->ext[3] = 0x80;
-        r->ext[4] = r->ext[5] = 0xFF;
+        if (r->ext_kind == GC_BT_EXT_PRO) {
+            bt->progress |= GC_BT_SEEN_PRO;
+            gc_pro_rest(r->ext);
+        } else {
+            r->ext[0] = r->ext[1] = 0x80;
+            r->ext[2] = r->ext[3] = 0x80;
+            r->ext[4] = r->ext[5] = 0xFF;
+        }
         bt_set_mode(bt, r);
         return;
     }
+    /* The data reports: 0xA1, the ID, the two button bytes, then the
+     * accelerometer's three (0x31, 0x35) and the extension's bytes (0x34:
+     * a Pro Controller's eleven). */
+    if (id >= 0x30 && id <= 0x3F) {
+        bt->data_reports++;
+        bt->progress |= GC_BT_SEEN_DATA;
+    }
+    if ((id == 0x31 || id == 0x35) && length >= 7) bt_on_accel(r, p + 4);
     if (id == 0x32 && length >= 10) bt_copy(r->ext, p + 4, 6);
+    if (id == 0x35 && length >= 13) bt_copy(r->ext, p + 7, 6);
+    if (id == GC_PRO_MODE && length >= GC_PRO_EXT_OFFSET + GC_PRO_BYTES && r->ext_kind == GC_BT_EXT_PRO) {
+        bt_copy(r->ext, p + GC_PRO_EXT_OFFSET, GC_PRO_BYTES);
+        bt_note_pro_range(bt, r->ext);
+    }
 }
 
 /* The remote's half of the HID channels: it opens both (control, then
@@ -437,6 +559,7 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
             const uint32_t intr = psm == GC_PSM_HID_INTERRUPT;
             const uint32_t ours = GC_BT_LOCAL_CID + 2 * slot + intr;
             const uint32_t known = psm == GC_PSM_HID_CONTROL || intr;
+            bt->progress |= GC_BT_SEEN_L2CAP;
             out[0] = GC_L2_CONNECT_RSP;
             out[1] = (uint8_t)ident;
             bt_put16(out + 2, 8);
@@ -494,6 +617,7 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
         /* Its port's LED, then a status report to learn of an extension. */
         uint8_t led[2];
         r->ready = 1;
+        bt->progress |= GC_BT_SEEN_READY;
         led[0] = 0x11;
         led[1] = (uint8_t)(0x10u << slot);
         r->led_port = (uint8_t)slot;
@@ -509,7 +633,12 @@ static void bt_on_acl(struct gc_bt* bt, const uint8_t* a, uint32_t length) {
     const uint32_t flags = bt_le16(a) >> 12;
     struct gc_bt_remote* r = bt_by_handle(bt, handle);
     uint32_t l2_length, cid, slot;
-    if (length < 8 || r == 0 || (flags & 3u) == 1u) return;  /* continuations: none expected this small */
+    /* Continuations: none expected this small. The biggest report, a Pro
+     * Controller's 0x34, is 23 bytes of L2CAP payload (31 with the ACL and
+     * L2CAP headers), well inside the default 672-byte L2CAP MTU we never
+     * change, the dongle's ACL packets and these 256-byte reads, so it arrives
+     * whole. */
+    if (length < 8 || r == 0 || (flags & 3u) == 1u) return;
     bt->acl_count++;
     l2_length = bt_le16(a + 4);
     cid = bt_le16(a + 6);
@@ -553,11 +682,42 @@ static void bt_open(struct gc_bt* bt) {
         bt->stage = GC_BT_STAGE_FAILED;
         return;
     }
+    bt->progress |= GC_BT_SEEN_OPEN;
     for (i = 0; i < GC_BT_EVENT_READS; ++i) bt_read(bt, &bt->events[i], GC_USB_INTRMSG, GC_BT_EP_EVENTS, bt->event_buf[i]);
     for (i = 0; i < GC_BT_ACL_READS; ++i) bt_read(bt, &bt->acl[i], GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     bt->credits = 1;
     bt_command(bt, GC_HCI_RESET, bt->path, 0);
     bt->stage = GC_BT_STAGE_RESET;
+}
+
+/* An extension whose start stalls (a write refused or never acknowledged,
+ * its ID not read) would leave the remote silent: it sends no buttons until
+ * a report mode is set, and the mode waits for the extension. After a
+ * second it is started again from a status request, up to
+ * GC_BT_EXT_RETRIES times; then the remote is played alone (its buttons, and
+ * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP). */
+static void bt_check_extensions(struct gc_bt* bt) {
+    uint32_t i;
+    for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        uint8_t request[2];
+        if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
+        if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
+        r->ext_wait = 0;
+        r->ext_step = 0;
+        if (r->ext_retries < GC_BT_EXT_RETRIES) {
+            r->ext_retries++;
+            bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            request[0] = 0x15;  /* its status report starts the extension again */
+            request[1] = 0x00;
+            bt_report(bt, r, request, 2);
+        } else {
+            r->ext_kind = GC_BT_EXT_NONE;
+            bt->ext_given_up++;
+            bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            bt_set_mode(bt, r);
+        }
+    }
 }
 
 /* A remote that plays on another port than its LED shows (a GameCube
@@ -578,6 +738,26 @@ static void bt_update_leds(struct gc_bt* bt) {
     }
 }
 
+/* Each ready remote's motor follows the port it plays on: the report
+ * (0x10, whose one byte is the motor bit) goes out only when the state
+ * changes. `send` 0: the test remote has no link, only the state and the
+ * count change. */
+static void bt_update_rumble(struct gc_bt* bt, int send) {
+    uint32_t i;
+    for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        const uint32_t port = bt->port_of[i];
+        const uint8_t want = (uint8_t)(r->used && r->ready && port < GC_PORTS && bt->rumble_want[port] ? 1 : 0);
+        uint8_t report[2];
+        if (!r->used || !r->ready || want == r->rumble) continue;
+        r->rumble = want;
+        bt->rumble_changes++;
+        report[0] = 0x10;
+        report[1] = want;
+        if (send) bt_report(bt, r, report, 2);
+    }
+}
+
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     uint32_t i, msr;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
@@ -590,7 +770,11 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     bt->polls++;
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
     bt_take_replies(bt);
-    if (bt->stage == GC_BT_STAGE_READY) bt_update_leds(bt);
+    if (bt->stage == GC_BT_STAGE_READY) {
+        bt_update_leds(bt);
+        bt_update_rumble(bt, 1);
+        bt_check_extensions(bt);
+    }
     for (i = 0; i < GC_BT_EVENT_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_rq* rq = &bt->events[i];
         if (rq->state != GC_BT_RQ_DONE) continue;
@@ -606,6 +790,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         bt_read(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     }
     if (bt->stage >= GC_BT_STAGE_RESET && bt->stage <= GC_BT_STAGE_SCAN && ++bt->stage_polls == 30) {
+        bt->progress |= GC_BT_SEEN_STEP_TIMEOUT;
         bt->credits = 1;
         bt_next_step(bt);
     }
@@ -618,88 +803,90 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
 /* --- The GameCube side ---------------------------------------------- */
 
 /* PADStatus (12 bytes): buttons, stick x/y, C-stick x/y, L, R, analog A,
- * B, err. */
-#define GC_PAD_LEFT 0x0001u
-#define GC_PAD_RIGHT 0x0002u
-#define GC_PAD_DOWN 0x0004u
-#define GC_PAD_UP 0x0008u
-#define GC_PAD_Z 0x0010u
-#define GC_PAD_R 0x0020u
-#define GC_PAD_L 0x0040u
-#define GC_PAD_A 0x0100u
-#define GC_PAD_B 0x0200u
-#define GC_PAD_X 0x0400u
-#define GC_PAD_Y 0x0800u
-#define GC_PAD_START 0x1000u
+ * B, err. The buttons' bits are gc_controls.h's GC_PAD_*. */
 #define GC_PAD_NO_CONTROLLER 0xFFu  /* err -1 */
-#define GC_STICK_FULL 100
 
 static int32_t bt_clamp(int32_t v) { return v < -127 ? -127 : v > 127 ? 127 : v; }
 
-/* The remote's buttons (first byte: left 0x01, right 0x02, down 0x04,
- * up 0x08, plus 0x10; second: two 0x01, one 0x02, B 0x04, A 0x08, minus
- * 0x10, home 0x80), the D-pad as the remote is held: upright with an
- * extension, sideways (D-pad on the left) without. */
-static void bt_fill_one(const struct gc_bt_remote* r, uint8_t* pad) {
+/* The Wii Remote's own buttons (first byte: left 0x01, right 0x02, down
+ * 0x04, up 0x08, plus 0x10; second: two 0x01, one 0x02, B 0x04, A 0x08,
+ * minus 0x10, home 0x80) as gc_controls.h's inputs, the D-pad as the
+ * remote is held: upright with a Nunchuk, sideways (D-pad on the left, so
+ * its up points left) without. */
+static uint32_t bt_remote_held(const struct gc_bt_remote* r, int sideways) {
     const uint32_t b0 = r->core[0], b1 = r->core[1];
-    uint32_t buttons = 0;
+    uint32_t held = 0;
+    if (b1 & 0x08u) held |= 1u << GC_IN_A;
+    if (b1 & 0x04u) held |= 1u << GC_IN_B;
+    if (b1 & 0x02u) held |= 1u << GC_IN_1;
+    if (b1 & 0x01u) held |= 1u << GC_IN_2;
+    if (b1 & 0x10u) held |= 1u << GC_IN_MINUS;
+    if (b0 & 0x10u) held |= 1u << GC_IN_PLUS;
+    if (b1 & 0x80u) held |= 1u << GC_IN_HOME;
+    if (sideways) {
+        if (b0 & 0x02u) held |= 1u << GC_IN_UP;
+        if (b0 & 0x01u) held |= 1u << GC_IN_DOWN;
+        if (b0 & 0x08u) held |= 1u << GC_IN_LEFT;
+        if (b0 & 0x04u) held |= 1u << GC_IN_RIGHT;
+    } else {
+        if (b0 & 0x08u) held |= 1u << GC_IN_UP;
+        if (b0 & 0x04u) held |= 1u << GC_IN_DOWN;
+        if (b0 & 0x01u) held |= 1u << GC_IN_LEFT;
+        if (b0 & 0x02u) held |= 1u << GC_IN_RIGHT;
+    }
+    return held;
+}
+
+/* One remote as a GameCube controller: its inputs through the map's table
+ * for how it is held, over the analogue parts the map leaves alone. */
+static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, uint8_t* pad) {
+    const uint32_t kind = bt_kind(r);
+    uint32_t held, targets, buttons;
     int32_t sx = 0, sy = 0, cx = 0, cy = 0;
     uint32_t l = 0, rt = 0;
-    if (b0 & 0x10u) buttons |= GC_PAD_START;
-    if (b1 & 0x10u) buttons |= GC_PAD_Z;
-    if (r->ext_kind == GC_BT_EXT_CLASSIC && r->ext_step == 4) {
-        /* Active low; the sticks and triggers packed into the first four bytes. */
-        const uint32_t e4 = ~(uint32_t)r->ext[4] & 0xFFu, e5 = ~(uint32_t)r->ext[5] & 0xFFu;
+    if (r->ext_kind == GC_BT_EXT_PRO && kind == GC_MAP_CLASSIC) {
+        /* Its L and R are buttons only: the triggers stay 0 until the
+         * map's L or R presses them all the way, below. */
+        struct gc_pro_input in;
+        gc_pro_decode(r->ext, &in);
+        held = in.held;
+        sx = in.stick_x;
+        sy = in.stick_y;
+        cx = in.cstick_x;
+        cy = in.cstick_y;
+    } else if (kind == GC_MAP_CLASSIC) {
+        /* The sticks and triggers packed into the first four bytes. */
         const int32_t lx = r->ext[0] & 0x3F, ly = r->ext[1] & 0x3F;
         const int32_t rx = ((r->ext[0] & 0xC0) >> 3) | ((r->ext[1] & 0xC0) >> 5) | ((r->ext[2] & 0x80) >> 7);
         const int32_t ry = r->ext[2] & 0x1F;
         const uint32_t lt = ((r->ext[2] & 0x60u) >> 2) | ((r->ext[3] & 0xE0u) >> 5);
         const uint32_t rtv = r->ext[3] & 0x1Fu;
-        buttons = 0;
-        if (e5 & 0x10u) buttons |= GC_PAD_A;
-        if (e5 & 0x40u) buttons |= GC_PAD_B;
-        if (e5 & 0x08u) buttons |= GC_PAD_X;
-        if (e5 & 0x20u) buttons |= GC_PAD_Y;
-        if (e5 & 0x84u) buttons |= GC_PAD_Z;  /* ZL or ZR */
-        if (e4 & 0x04u) buttons |= GC_PAD_START;
-        if (e4 & 0x20u) buttons |= GC_PAD_L;
-        if (e4 & 0x02u) buttons |= GC_PAD_R;
-        if (e5 & 0x01u) buttons |= GC_PAD_UP;
-        if (e4 & 0x40u) buttons |= GC_PAD_DOWN;
-        if (e5 & 0x02u) buttons |= GC_PAD_LEFT;
-        if (e4 & 0x80u) buttons |= GC_PAD_RIGHT;
+        held = gc_classic_held(r->ext[4], r->ext[5]);
         sx = (lx - 32) * 3;
         sy = (ly - 32) * 3;
         cx = (rx - 16) * 6;
         cy = (ry - 16) * 6;
         l = lt * 8;
         rt = rtv * 8;
-    } else if (r->ext_kind == GC_BT_EXT_NUNCHUK && r->ext_step == 4) {
-        if (b1 & 0x08u) buttons |= GC_PAD_A;
-        if (b1 & 0x04u) buttons |= GC_PAD_B;
-        if (b1 & 0x02u) buttons |= GC_PAD_X;
-        if (b1 & 0x01u) buttons |= GC_PAD_Y;
-        if (!(r->ext[5] & 0x01u)) buttons |= GC_PAD_R;  /* Z, active low */
-        if (!(r->ext[5] & 0x02u)) buttons |= GC_PAD_L;  /* C */
+    } else if (kind == GC_MAP_NUNCHUK) {
+        held = bt_remote_held(r, 0);
+        if (!(r->ext[5] & 0x01u)) held |= 1u << GC_IN_Z;  /* active low */
+        if (!(r->ext[5] & 0x02u)) held |= 1u << GC_IN_C;
         sx = (int32_t)r->ext[0] - 128;
         sy = (int32_t)r->ext[1] - 128;
-        /* The D-pad as the C-stick (the camera in most games). */
-        if (b0 & 0x01u) cx = -GC_STICK_FULL;
-        if (b0 & 0x02u) cx = GC_STICK_FULL;
-        if (b0 & 0x08u) cy = GC_STICK_FULL;
-        if (b0 & 0x04u) cy = -GC_STICK_FULL;
     } else {
-        /* Sideways: 2 is A, 1 is B, the trigger R, A is X, home Y; the
-         * D-pad (its up now points left) is the stick and the D-pad. */
-        if (b1 & 0x01u) buttons |= GC_PAD_A;
-        if (b1 & 0x02u) buttons |= GC_PAD_B;
-        if (b1 & 0x04u) buttons |= GC_PAD_R;
-        if (b1 & 0x08u) buttons |= GC_PAD_X;
-        if (b1 & 0x80u) buttons |= GC_PAD_Y;
-        if (b0 & 0x08u) { buttons |= GC_PAD_LEFT; sx = -GC_STICK_FULL; }
-        if (b0 & 0x04u) { buttons |= GC_PAD_RIGHT; sx = GC_STICK_FULL; }
-        if (b0 & 0x02u) { buttons |= GC_PAD_UP; sy = GC_STICK_FULL; }
-        if (b0 & 0x01u) { buttons |= GC_PAD_DOWN; sy = -GC_STICK_FULL; }
+        held = bt_remote_held(r, 1);
+    }
+    if (kind != GC_MAP_CLASSIC && r->shake_timer > GC_SHAKE_REST) held |= 1u << GC_IN_SHAKE;
+    targets = gc_map_targets(map, kind, held);
+    buttons = targets & GC_PAD_BUTTONS;
+    gc_map_sticks(targets, &sx, &sy, &cx, &cy);
+    if (kind == GC_MAP_CLASSIC) {
+        /* The analogue triggers go with their buttons: a Classic's L or R
+         * mapped away from the GameCube's (R = Y in a controls file) must
+         * not half-press it either, as Sunshine's spray does with R. */
+        if (!gc_map_keeps_trigger(map, GC_IN_L, GC_PAD_L)) l = 0;
+        if (!gc_map_keeps_trigger(map, GC_IN_R, GC_PAD_R)) rt = 0;
     }
     if (buttons & GC_PAD_L) l = 0xFF;
     if (buttons & GC_PAD_R) rt = 0xFF;
@@ -716,11 +903,43 @@ static void bt_fill_one(const struct gc_bt_remote* r, uint8_t* pad) {
     pad[10] = 0;
 }
 
+void gc_bt_motor(struct gc_bt* bt, uint32_t chan, uint32_t command, int allowed) {
+    bt->motor_calls++;
+    if (chan >= GC_PORTS) return;
+    bt->rumble_want[chan] = (uint8_t)(allowed && command == 1 ? 1 : 0);
+}
+
+/* The game is leaving or has crashed: no PADRead is coming to switch the
+ * motors off, so it is done here, now. A remote that cannot be written to
+ * (IOS busy with a request) is left to the link going down, which stops
+ * its motor too. */
+void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt) {
+    uint32_t i, msr;
+    for (i = 0; i < GC_PORTS; ++i) bt->rumble_want[i] = 0;
+    if (bt->stage != GC_BT_STAGE_READY) return;
+    msr = gc_irq_off();
+    if (ctx->busy) {
+        gc_irq_restore(msr);
+        return;
+    }
+    ctx->busy = 1;
+    bt_update_rumble(bt, 1);
+    ctx->busy = 0;
+    gc_guard(ctx);
+    gc_irq_restore(msr);
+}
+
 int gc_bt_home_held(const struct gc_bt* bt) {
     uint32_t i;
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         const struct gc_bt_remote* r = &bt->remotes[i];
         if (!r->used || !r->ready) continue;
+        /* A Pro Controller's HOME is in its own bytes; its core button
+         * bytes carry nothing of its own, so they are not read. */
+        if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_PRO) {
+            if (gc_pro_home_held(r->ext)) return 1;
+            continue;
+        }
         /* A Wii Remote alone is held sideways and its HOME is the game's Y,
          * so it leaves with HOME and - (0x10) held together. */
         const int extension = r->ext_step == 4 && (r->ext_kind == GC_BT_EXT_NUNCHUK || r->ext_kind == GC_BT_EXT_CLASSIC);
@@ -738,12 +957,148 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status) {
      * starting, a transfer error) is a controller there, which keeps it. */
     for (i = 0; i < GC_PORTS; ++i)
         if (status[12 * i + 10] != GC_PAD_NO_CONTROLLER) pads |= 1u << i;
-    for (i = 0; i < GC_BT_REMOTES; ++i)
-        if (bt->remotes[i].used && bt->remotes[i].ready) remotes |= 1u << i;
+    for (i = 0; i < GC_BT_REMOTES; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        if (!r->used || !r->ready) continue;
+        remotes |= 1u << i;
+        /* The shake's press and rest go by PADReads, whatever port the
+         * remote has. */
+        gc_shake_step(&r->shake_timer, &r->jolted);
+        if (r->shake_timer == GC_SHAKE_PRESS + GC_SHAKE_REST) bt->shakes++;
+    }
     gc_ports_assign(pads, remotes, bt->port_of);
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         const uint32_t port = bt->port_of[i];
-        if (port < GC_PORTS) bt_fill_one(&bt->remotes[i], status + 12 * port);
+        if (port < GC_PORTS) bt_fill_one(&bt->map, &bt->remotes[i], status + 12 * port);
     }
     for (i = 0; i < GC_PORTS; ++i) bt->port_err[i] = status[12 * i + 10];
+}
+
+/* The test remote's steps (gc_bt.h), a Wii Remote alone for the first
+ * four, with a Nunchuk for the rest:
+ *   0  nothing held, the remote still
+ *   1  2 held
+ *   2  the remote's own Right held: Up, as it is held sideways
+ *   3  shaken (its X axis swings 64 from one report to the next)
+ *   4  A held and the Nunchuk's stick right
+ *   5  C held
+ *   6  shaken
+ *   7  nothing held, still
+ * The test Pro Controller's steps (`pro`), each on a Pro's own report:
+ *   0  nothing held, both sticks at rest
+ *   1  A held
+ *   2  the left stick all the way right and up
+ *   3  the right stick all the way left
+ *   4  ZR held (Z)
+ *   5  the D-pad's Up held
+ *   6  R held
+ *   7  + held (Start)
+ * Before its first step it is identified as the Bluetooth would, from an
+ * extension ID read that ends 01 20, so the trace shows the Pro seen and
+ * its report mode.
+ * Each step's first word: the buttons the remote's port got from the step's
+ * fifteenth PADRead on (a shake's last press has ended by then), ORed, in
+ * the top half, and how many PADReads had any in the bottom. The second:
+ * its stick's x and y and the C-stick's x mid-step, then the port. */
+
+/* A Pro Controller's 12-bit stick axis, little-endian, at `at`. */
+static void bt_fake_axis(uint8_t* at, uint32_t raw) {
+    at[0] = (uint8_t)raw;
+    at[1] = (uint8_t)(raw >> 8);
+}
+
+/* The test Pro's report (0x34, gc_pro.h's layout) for `step`. */
+static void bt_fake_pro_report(uint8_t* report, uint32_t step) {
+    uint8_t* pro = report + GC_PRO_EXT_OFFSET;
+    const uint32_t full_right = GC_PRO_STICK_CENTRE + GC_PRO_STICK_REACH;
+    const uint32_t full_left = GC_PRO_STICK_CENTRE - GC_PRO_STICK_REACH;
+    report[1] = GC_PRO_MODE;
+    gc_pro_rest(pro);
+    /* The buttons are active low, in a Classic Controller's bits. */
+    if (step == 1) pro[9] &= (uint8_t)~0x10u;  /* A */
+    if (step == 2) {
+        bt_fake_axis(pro + 0, full_right);     /* left stick X */
+        bt_fake_axis(pro + 4, full_right);     /* left stick Y: up */
+    }
+    if (step == 3) bt_fake_axis(pro + 2, full_left);  /* right stick X */
+    if (step == 4) pro[9] &= (uint8_t)~0x04u;  /* ZR */
+    if (step == 5) pro[9] &= (uint8_t)~0x01u;  /* Up */
+    if (step == 6) pro[8] &= (uint8_t)~0x02u;  /* R */
+    if (step == 7) pro[8] &= (uint8_t)~0x04u;  /* + */
+}
+
+/* The test Pro identified as gc_bt.c's extension start does it: the ID
+ * read's answer (0x21, from 0xA400FA, ...01 20). The test has no link, so
+ * nothing may go out meanwhile: the mode report this sends is kept from
+ * IOS by the stage, which the blob's own writes check. */
+static void bt_fake_pro_identify(struct gc_bt* bt, struct gc_bt_remote* r) {
+    const uint32_t stage = bt->stage;
+    uint8_t answer[23];
+    uint32_t i;
+    for (i = 0; i < sizeof(answer); ++i) answer[i] = 0;
+    answer[0] = 0xA1;
+    answer[1] = 0x21;
+    answer[4] = 0x50;  /* six bytes, no error */
+    answer[5] = 0x00;
+    answer[6] = 0xFA;
+    answer[9] = 0xA4;
+    answer[10] = 0x20;
+    answer[11] = 0x01;
+    answer[12] = 0x20;
+    r->ext_step = 3;
+    bt->stage = GC_BT_STAGE_FAILED;
+    bt_on_input(bt, r, answer, sizeof(answer));
+    bt->stage = stage;
+}
+
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro) {
+    struct gc_bt_remote* r = &bt->remotes[0];
+    const uint32_t step = (n / GC_BT_FAKE_FRAMES) % GC_BT_FAKE_STEPS;
+    const uint32_t frame = n % GC_BT_FAKE_FRAMES;
+    const uint32_t nunchuk = step >= 4;
+    uint32_t* log = &bt->fake_log[2 * step];
+    uint8_t report[23];
+    uint32_t i, port;
+    r->used = 1;
+    r->ready = 1;
+    for (i = 0; i < sizeof(report); ++i) report[i] = 0;
+    report[0] = 0xA1;
+    if (pro) {
+        if (r->ext_kind != GC_BT_EXT_PRO || r->ext_step != 4) bt_fake_pro_identify(bt, r);
+        bt_fake_pro_report(report, step);
+    } else {
+        r->ext_kind = nunchuk ? GC_BT_EXT_NUNCHUK : GC_BT_EXT_NONE;
+        r->ext_step = nunchuk ? 4 : 0;
+        report[1] = nunchuk ? 0x35 : 0x31;
+        report[4] = 0x80;  /* still: 1 g on Z */
+        report[5] = 0x80;
+        report[6] = 0x9A;
+        report[7] = 0x80;  /* the Nunchuk's stick in the middle */
+        report[8] = 0x80;
+        report[12] = 0x03; /* C and Z up (active low) */
+        if (step == 1) report[3] = 0x01;
+        if (step == 2) report[2] = 0x02;
+        if (step == 3 || step == 6) report[4] = (frame & 1u) ? 0x60 : 0xA0;
+        if (step == 4) {
+            report[3] = 0x08;
+            report[7] = 0xFF;
+        }
+        if (step == 5) report[12] = 0x01;
+    }
+    bt_on_input(bt, r, report, pro || nunchuk ? 23u : 7u);
+    gc_bt_fill(bt, status);
+    bt_update_rumble(bt, 0);
+    if (frame == 0) {
+        log[0] = 0;
+        log[1] = 0;
+    }
+    port = bt->port_of[0];
+    if (port >= GC_PORTS) return;
+    {
+        const uint8_t* pad = status + 12 * port;
+        const uint32_t buttons = (uint32_t)pad[0] << 8 | pad[1];
+        if (frame >= 15 && buttons != 0) log[0] = (log[0] | buttons << 16) + 1;
+        if (frame == GC_BT_FAKE_FRAMES / 2)
+            log[1] = (uint32_t)pad[2] << 24 | (uint32_t)pad[3] << 16 | (uint32_t)pad[4] << 8 | port;
+    }
 }

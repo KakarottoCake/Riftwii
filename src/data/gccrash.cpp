@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "gc_bt.h"
 #include "gc_rt.h"
 
 namespace riftwii {
@@ -44,7 +45,125 @@ std::string exception_name(std::uint32_t exception) {
     }
 }
 
+// The steps a Wii Remote goes through, in order, with their names in a
+// report. A remote alone skips the extension's three.
+struct BtStep {
+    std::uint32_t bit;
+    const char* name;
+};
+constexpr BtStep kBtSteps[] = {
+    {GC_BT_SEEN_OPEN, "Bluetooth opened"},
+    {GC_BT_SEEN_RESET, "controller reset"},
+    {GC_BT_SEEN_KEYS, "stored link keys read"},
+    {GC_BT_SEEN_SCAN, "waiting for remotes"},
+    {GC_BT_SEEN_CONN_REQUEST, "a remote asked to connect"},
+    {GC_BT_SEEN_CONNECTED, "connected"},
+    {GC_BT_SEEN_AUTH_OK, "authenticated"},
+    {GC_BT_SEEN_L2CAP, "HID channel opened"},
+    {GC_BT_SEEN_READY, "channels ready, LED set"},
+    {GC_BT_SEEN_STATUS, "status report"},
+    {GC_BT_SEEN_EXTENSION, "extension plugged in"},
+    {GC_BT_SEEN_EXT_WRITE, "extension write acknowledged"},
+    {GC_BT_SEEN_EXT_ID, "extension identified"},
+    {GC_BT_SEEN_MODE, "report mode set"},
+    {GC_BT_SEEN_DATA, "buttons reported"},
+};
+// What went wrong on the way, when it did.
+constexpr BtStep kBtProblems[] = {
+    {GC_BT_SEEN_STEP_TIMEOUT, "a start-up step had no reply and was passed"},
+    {GC_BT_SEEN_COMMAND_ERROR, "a command completed with an error"},
+    {GC_BT_SEEN_CONN_FAILED, "a connection failed"},
+    {GC_BT_SEEN_NO_KEY, "a remote had no stored link key"},
+    {GC_BT_SEEN_PIN_REQUEST, "a PIN was asked for (refused: the remote is not synced to this console)"},
+    {GC_BT_SEEN_AUTH_FAILED, "authentication failed"},
+    {GC_BT_SEEN_DISCONNECT, "a remote disconnected"},
+    {GC_BT_SEEN_EXT_ERROR, "the remote refused a step of the extension's start"},
+    {GC_BT_SEEN_EXT_RETRY, "the extension's start was tried again"},
+    {GC_BT_SEEN_EXT_GIVEN_UP, "the extension's start was given up: the remote played alone"},
+};
+
+std::string byte_hex(std::uint32_t v) {
+    char text[8];
+    std::snprintf(text, sizeof(text), "0x%02x", static_cast<unsigned>(v & 0xFFu));
+    return text;
+}
+
+std::string bt_stage_name(std::uint32_t stage) {
+    switch (stage) {
+        case GC_BT_STAGE_CLOSED: return "not opened (no pad read yet)";
+        case GC_BT_STAGE_RESET: return "resetting the controller";
+        case GC_BT_STAGE_KEYS: return "reading stored link keys";
+        case GC_BT_STAGE_SCAN: return "turning on page scan";
+        case GC_BT_STAGE_READY: return "ready for remotes";
+        case GC_BT_STAGE_FAILED: return "given up (the device did not open or a write failed)";
+        default: return "stage " + std::to_string(stage);
+    }
+}
+
 }  // namespace
+
+bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& text) {
+    const std::uint8_t* newest = nullptr;
+    std::uint32_t newest_seq = 0;
+    for (std::size_t at = 0; at + kRecordBytes <= trace.size(); at += kRecordBytes) {
+        const std::uint8_t* record = trace.data() + at;
+        if (word(record, GC_TR_MAGIC) != GC_TRACE_MAGIC) continue;
+        const std::uint32_t seq = word(record, GC_TR_SEQ);
+        if (newest == nullptr || seq > newest_seq) {
+            newest = record;
+            newest_seq = seq;
+        }
+    }
+    if (newest == nullptr) return false;
+    const std::uint32_t progress = word(newest, GC_TR_BT_PROGRESS);
+    const std::uint32_t keys = word(newest, GC_TR_BT_KEYS);
+    const std::uint32_t link = word(newest, GC_TR_BT_LINK);
+    const std::uint32_t ext = word(newest, GC_TR_BT_EXT);
+    const std::uint32_t first_remote = word(newest, GC_TR_BT_REMOTES);
+    text = "Wii Remotes in the last GameCube game (trace record " + std::to_string(newest_seq) + ", after " +
+           std::to_string(word(newest, GC_TR_PAD_READS)) + " pad reads):\n";
+    text += "Bluetooth " + bt_stage_name(word(newest, GC_TR_BT_STAGE)) + ", last error " +
+            hex(word(newest, GC_TR_BT_ERROR)) + ", " + std::to_string(keys >> 16) + " stored link key(s), " +
+            std::to_string(keys & 0xFFFFu) + " connection(s), " + std::to_string(word(newest, GC_TR_BT_REPORTS)) +
+            " button report(s).\n";
+    std::string reached, missing;
+    for (const BtStep& step : kBtSteps) {
+        std::string& list = (progress & step.bit) ? reached : missing;
+        list += list.empty() ? "" : ", ";
+        list += step.name;
+    }
+    text += "Reached: " + (reached.empty() ? std::string("nothing") : reached) + ".\n";
+    if (!missing.empty()) text += "Not reached: " + missing + ".\n";
+    std::string problems;
+    for (const BtStep& problem : kBtProblems) {
+        if (!(progress & problem.bit)) continue;
+        problems += problems.empty() ? "" : "; ";
+        problems += problem.name;
+    }
+    if (!problems.empty()) text += "On the way: " + problems + ".\n";
+    if (progress & GC_BT_SEEN_PRO)
+        text += "A Wii U Pro Controller connected (extension ID 01 20) and played with the Classic Controller's "
+                "controls.\n";
+    if (progress & GC_BT_SEEN_PRO) {
+        // The raw 12-bit range each stick axis reached, to size GC_PRO_STICK_REACH.
+        static const char* const kAxes[4] = {"left X", "right X", "left Y", "right Y"};
+        text += "Pro Controller stick range (raw, lowest-highest):";
+        for (std::uint32_t axis = 0; axis < 4; ++axis) {
+            const std::uint32_t range = word(newest, GC_TR_BT_PRO_RANGE + axis);
+            text += std::string(axis == 0 ? " " : ", ") + kAxes[axis] + " " + std::to_string(range >> 16) + "-" +
+                    std::to_string(range & 0xFFFFu);
+        }
+        text += ".\n";
+    }
+    text += "Last connection status " + byte_hex(link >> 24) + ", authentication status " + byte_hex(link >> 16) +
+            ", disconnect reason " + byte_hex(link >> 8) + ", extension error " + byte_hex(link) + ".\n";
+    text += "Last extension ID " + byte_hex(ext >> 24) + " " + byte_hex(ext >> 16) + ", last report mode " +
+            byte_hex(ext >> 8) + ", extensions given up " + std::to_string(ext & 0xFFu) + "; the first remote: " +
+            "channels " + byte_hex(first_remote >> 24) + ", ready " + std::to_string((first_remote >> 16) & 0xFFu) +
+            ", extension step " + std::to_string((first_remote >> 8) & 0xFFu) + " of 4, kind " +
+            std::to_string(first_remote & 0xFFu) + ".\n";
+    return true;
+}
 
 bool describe_gc_crash(const std::vector<std::uint8_t>& trace, const std::string& game_id, std::string& text) {
     const std::uint8_t* crash = nullptr;

@@ -33,7 +33,38 @@ constexpr const char* kHomebrewCodes[] = {
     "UFTW",  // RiftWii's own channel
 };
 
+// Text a forwarder's program holds to name the app it starts.
+constexpr const char* kForwarderMarkers[] = {"/apps/", "boot.dol", "boot.elf"};
+// The longest stretch of the path shown in the log.
+constexpr std::size_t kMaxShownPath = 60;
+
+bool printable(std::uint8_t c) { return c >= 0x20 && c < 0x7F; }
+
 }  // namespace
+
+bool is_homebrew_code(const std::string& code) {
+    for (const char* homebrew : kHomebrewCodes)
+        if (code == homebrew) return true;
+    return false;
+}
+
+std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size) {
+    if (bytes == nullptr) return "";
+    for (const char* marker : kForwarderMarkers) {
+        const std::size_t length = std::strlen(marker);
+        for (std::size_t at = 0; at + length <= size; ++at) {
+            if (std::memcmp(bytes + at, marker, length) != 0) continue;
+            // Widen to the whole run of printable characters around it, so
+            // the log shows "sd:/apps/Nintendont/boot.dol", not the marker.
+            std::size_t begin = at;
+            while (begin > 0 && at - begin < kMaxShownPath / 2 && printable(bytes[begin - 1])) --begin;
+            std::size_t end = at + length;
+            while (end < size && end - begin < kMaxShownPath && printable(bytes[end])) ++end;
+            return std::string(reinterpret_cast<const char*>(bytes + begin), end - begin);
+        }
+    }
+    return "";
+}
 
 std::string channel_code(std::uint64_t title_id) {
     std::string code;
@@ -52,8 +83,7 @@ ChannelClass classify_channel(std::uint64_t title_id) {
     if (static_cast<std::uint32_t>(title_id >> 32) != kDownloadedChannels) return out;
     const std::string code = channel_code(title_id);
     if (code.empty()) return out;
-    for (const char* homebrew : kHomebrewCodes)
-        if (code == homebrew) return out;
+    if (is_homebrew_code(code)) return out;
     // The first letter of a Shop title's code names what it is. H is
     // Nintendo's own channels (the Shop, Photo, Mii, News...), which are
     // not games and stay out.
@@ -202,11 +232,75 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     return true;
 }
 
+std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end) {
+    // Only MEM1 counts: the blobs' code is in MEM1, and RiftWii's loader
+    // refuses a program with parts in MEM2.
+    constexpr std::uint64_t kMem1Start = 0x80000000;
+    constexpr std::uint64_t kMem1End = 0x81800000;
+    std::uint64_t floor = loader_end;
+    const auto raise_past = [&](std::uint32_t address, std::uint32_t size) {
+        if (size == 0 || address < kMem1Start || address >= kMem1End) return;
+        const std::uint64_t end = static_cast<std::uint64_t>(address) + size;
+        if (end > floor) floor = end;
+    };
+    for (const DolSection& section : program.sections) {
+        if (section.used()) raise_past(section.address, section.size);
+    }
+    raise_past(program.bss_address, program.bss_size);
+    const std::uint64_t aligned = (floor + 31) & ~std::uint64_t{31};
+    return aligned > kMem1End ? static_cast<std::uint32_t>(kMem1End) : static_cast<std::uint32_t>(aligned);
+}
+
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) {
     char path[64];
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),
                   static_cast<unsigned>(title_id & 0xFFFFFFFFu), static_cast<unsigned>(content_id));
     return path;
+}
+
+ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
+                                      const std::vector<ContentStart>& starts) {
+    ChannelVerdict verdict;
+    verdict.left_out = true;
+    if (is_homebrew_code(code)) {
+        verdict.reason = "its code belongs to a known homebrew channel";
+        return verdict;
+    }
+    const TmdContent* boot = tmd_content_by_index(tmd, tmd.boot_index);
+    const ContentStart* boot_start = nullptr;
+    for (const ContentStart& start : starts)
+        if (start.index == tmd.boot_index && !start.head.empty()) boot_start = &start;
+    if (boot == nullptr || (boot->type & 0x8000) != 0 || boot_start == nullptr) {
+        verdict.reason = "its program is not on the Wii (or could not be read), so it cannot start";
+        return verdict;
+    }
+
+    // The program the loader would start; a loader's own first stage is not
+    // the one that says where the channel puts itself.
+    ChannelProgram program;
+    std::string error;
+    if (choose_channel_program(tmd, starts, program, error) && program.format == "DOL") {
+        for (const DolSection& section : program.dol.sections) {
+            if (!section.used() || section.address < kHomebrewLoadAddress) continue;
+            char text[96];
+            std::snprintf(text, sizeof text, "a homebrew loader (its program loads at 0x%08x)",
+                          static_cast<unsigned>(section.address));
+            verdict.reason = text;
+            return verdict;
+        }
+    }
+
+    // An inject carries a whole emulator and a game; only a small program
+    // can be a forwarder.
+    if (boot->size != 0 && boot->size <= kForwarderMaxBytes) {
+        const std::string path = forwarder_app_path(boot_start->head.data(), boot_start->head.size());
+        if (!path.empty()) {
+            verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
+            return verdict;
+        }
+    }
+    verdict.left_out = false;
+    return verdict;
 }
 
 }  // namespace riftwii

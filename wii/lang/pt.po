@@ -855,6 +855,18 @@ msgstr "Experimental. Num jogo, segure 1 e aperte HOME (controle de GameCube: se
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii."
 
+msgid "Launch music"
+msgstr "Música ao iniciar"
+
+msgid "Keep playing"
+msgstr "Continuar tocando"
+
+msgid "Fade out"
+msgstr "Diminuir aos poucos"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música."
 
@@ -1316,6 +1328,9 @@ msgstr "Arquivos de um Mac no cartão SD"
 
 msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
 msgstr "Este cartão SD tem arquivos ocultos que o macOS cria ao copiar (nomes que começam com \"._\"). O RiftWii os ignora, mas eles ocupam espaço e podem confundir outros homebrews. Para removê-los, coloque o cartão no seu Mac, abra o Terminal e digite: dot_clean -m /Volumes/ seguido do nome do cartão. No Windows, apague os arquivos cujos nomes começam com \"._\"."
+
+msgid "RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."
+msgstr "O RiftWii não roda arquivos CISO. Converta para ISO ou RVZ com o Dolphin (clique com o botão direito no jogo, Converter arquivo)."
 
 msgid "This code mod can't start"
 msgstr "Este mod de códigos não pode iniciar"
@@ -2331,6 +2346,9 @@ msgstr "Wii Remote"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Controle Pro do Wii U"
+
 msgid "Classic Controller"
 msgstr "Classic Controller"
 
@@ -2627,3 +2645,42 @@ msgstr "\"{1}\" sai do início, com seus próprios mods e configurações, e a i
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" removido. Esta página voltou a ser a do jogo."
+
+msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
+msgstr "Falta uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo."
+
+msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
+msgstr "Uma parte do RiftWii está danificada (o complemento {1}). Atualize o RiftWii de novo."
+
+msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
+msgstr "O complemento {1} é de outro RiftWii ({2}; este é {3}). Atualize o RiftWii de novo."
+
+msgid "There was not enough memory for the {1} add-on. Restart RiftWii and try again."
+msgstr "Não havia memória suficiente para o complemento {1}. Reinicie o RiftWii e tente de novo."
+
+msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
+msgstr "O complemento {1} não iniciou. Envie um relatório de problema para que isso seja corrigido."
+
+msgid "Sharper picture"
+msgstr "Imagem mais nítida"
+
+msgid "Off (as made)"
+msgstr "Não (como foi feito)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Tira o leve desfoque que alguns jogos colocam."
+
+msgid "Game speed"
+msgstr "Velocidade do jogo"
+
+msgid "Smoother (60 Hz)"
+msgstr "Mais suave (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "Como foi feito (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim."

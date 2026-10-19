@@ -91,6 +91,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "launch_music") {
+            if (value == "on" || value == "off") launch_music = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_source") {
@@ -175,6 +177,7 @@ std::string LoaderSettings::serialize() const {
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "launch_music = " + launch_music + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
@@ -289,6 +292,13 @@ bool parse_cios_choice(const std::string& s, int& slot) {
     if (n < kFirstGameCios || n > kLastGameCios) return false;
     slot = n;
     return true;
+}
+
+LoaderSettings settings_after_reset(const LoaderSettings& before) {
+    LoaderSettings after;
+    after.favorites = before.favorites;
+    after.game_folders = before.game_folders;
+    return after;
 }
 
 }  // namespace riftwii

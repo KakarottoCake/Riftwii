@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Box art for the menu, from GameTDB (https://www.gametdb.com): the
@@ -27,6 +28,69 @@ constexpr std::size_t kCoverFileSize = kCoverHeaderSize + kCoverPixelBytes;
 // EN, US and JA.
 std::vector<std::string> cover_regions(const std::string& game_id, const std::string& menu_language);
 std::string cover_url(const std::string& region, const std::string& game_id);
+
+// The status a server answered with, read from a failed download's error
+// as wii/online/online.cpp's HttpGet words it ("<host> answered 404", or
+// "<host> answered 301 (a redirect, ...)"); 0 when the error is not an
+// answer at all (no connection, TLS, a timeout).
+int http_answered_status(const std::string& error);
+
+// Whether GameTDB answering `status` for a cover's address means it keeps
+// no cover there, so the next region is tried: a 404 or any other refusal
+// (4xx), or a redirect the download does not follow. Not 408 or 429 (the
+// server asks to come back later) nor 5xx (its own trouble): those are no
+// answer about the cover.
+bool cover_answer_means_missing(int status);
+
+// How one picture's download ended (wii/menu/covers.cpp's FetchCover, and
+// the same for the shelf's boxes and the 3D covers).
+enum class CoverOutcome {
+    Stored,       // downloaded and kept on the SD card
+    NotFound,     // GameTDB has none, in any region tried
+    NoAnswer,     // no answer about it: no connection, TLS, a timeout, a server in trouble
+    CannotStore,  // downloaded, but the SD card could not take it (full?)
+};
+
+// The downloads of one kind of GameTDB picture (covers, the shelf's boxes,
+// 3D covers) in one menu session, one after the other. A game GameTDB has
+// no picture for, or one whose download got no answer, is passed over and
+// the rest go on: some titles have no GameTDB entry, and one slow answer is
+// not a dead network (issue #130). Downloads stop only once
+// kNoAnswerInARow in a row got no answer, or when the card cannot store one.
+class CoverDownloads {
+public:
+    static constexpr unsigned kNoAnswerInARow = 3;
+
+    // `log_name` starts its log lines ("Covers"), `picture` names one of
+    // them in the summary ("cover").
+    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover")
+        : log_name_(std::move(log_name)), picture_(std::move(picture)) {}
+
+    // Counts one download; true when the downloads should stop now.
+    bool count(CoverOutcome outcome);
+
+    // A plain sentence on the downloads counted since the last one, for the
+    // log once the queue is empty; empty when none were counted.
+    std::string take_summary();
+
+    // A fresh start (Settings > Look for games again).
+    void reset() { *this = CoverDownloads(log_name_, picture_); }
+
+    const std::string& log_name() const { return log_name_; }
+
+    unsigned stored() const { return stored_; }
+    unsigned not_found() const { return not_found_; }
+    unsigned no_answer() const { return no_answer_; }
+
+private:
+    std::string log_name_;
+    std::string picture_;
+    unsigned stored_ = 0;
+    unsigned not_found_ = 0;
+    unsigned no_answer_ = 0;
+    unsigned no_answer_in_a_row_ = 0;
+    bool counted_since_summary_ = false;
+};
 
 // An RGBA image (rows, 4 bytes a pixel) resized to dw x dh, each target
 // pixel the average of the source area it covers.

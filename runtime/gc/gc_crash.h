@@ -15,7 +15,7 @@
  * The digits go on a grid of equal cells, so the dump's columns line up as
  * in a fixed-width font.
  *
- * Shared by the blob (gc_rt.c), the loader (wii/launch/gcnative.cpp, the
+ * Shared by the blob (gc_rt.c), the loader (plugins/gamecube/gcnative.cpp, the
  * menu's MakeGcCrashCard) and the host tests, so the functions here are
  * plain arithmetic: no tables (the blob has no .rodata) and no pointers
  * kept anywhere. */

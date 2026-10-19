@@ -7,7 +7,8 @@
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: StopGXKeepPicture, the frame buffer accessors,
- * the display scale and the camera.
+ * the display scale and the camera, the GX trace's texture hook and
+ * Menu_Render's step for the GUI watch.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef _VIDEO_H_
@@ -51,6 +52,13 @@ void ResetVideo_Menu();
 void Menu_Render();
 void Menu_DrawImg(f32 xpos, f32 ypos, u16 width, u16 height, u8 data[], f32 degrees, f32 scaleX, f32 scaleY, u8 alphaF );
 void Menu_DrawRectangle(f32 x, f32 y, f32 width, f32 height, GXColor color, u8 filled);
+
+// RiftWii: told of each picture drawn, when set (the GX trace, settings.txt
+// debug_gx; wii/menu/drawtrace.hpp). Null otherwise.
+extern void (*Menu_TextureHook)(const void* data, u16 width, u16 height, u8 format);
+// RiftWii: what Menu_Render waits for ("GX_DrawDone", "vsync", or "" when
+// it is not in it), read by the menu's watchdog thread.
+extern const char* volatile menuRenderStep;
 
 extern int screenheight;
 extern int screenwidth;

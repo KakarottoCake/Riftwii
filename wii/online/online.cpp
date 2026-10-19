@@ -22,6 +22,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
+#include "plugins.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
 #include "riftwii/nandchannel.hpp"
@@ -29,6 +30,7 @@
 #include "riftwii/dol.hpp"
 #include "riftwii/gcbanner.hpp"
 #include "riftwii/http.hpp"
+#include "riftwii/pluginfile.hpp"
 #include "riftwii/themepack.hpp"
 #include "riftwii/update.hpp"
 
@@ -221,6 +223,9 @@ struct UpdateNote {
     std::time_t checked = 0;
     std::string latest;
     ReleaseAsset dol;
+    // The release's riftwii-update.pack: the in-app update writes its
+    // plugins before the DOL (WriteUpdatePlugins).
+    ReleaseAsset pack;
     std::string installed;
 };
 
@@ -236,6 +241,9 @@ UpdateNote ReadUpdateNote() {
             if (text.rfind("dol ", 0) == 0) note.dol.url = text.substr(4);
             if (text.rfind("sha256 ", 0) == 0) note.dol.sha256 = text.substr(7);
             if (text.rfind("size ", 0) == 0) note.dol.size = std::strtoull(text.c_str() + 5, nullptr, 10);
+            if (text.rfind("pack ", 0) == 0) note.pack.url = text.substr(5);
+            if (text.rfind("pack_sha256 ", 0) == 0) note.pack.sha256 = text.substr(12);
+            if (text.rfind("pack_size ", 0) == 0) note.pack.size = std::strtoull(text.c_str() + 10, nullptr, 10);
             if (text.rfind("installed ", 0) == 0) note.installed = text.substr(10);
         }
         std::fclose(f);
@@ -249,6 +257,10 @@ void WriteUpdateNote(const UpdateNote& note) {
         if (!note.dol.url.empty()) {
             std::fprintf(f, "dol %s\nsha256 %s\nsize %llu\n", note.dol.url.c_str(), note.dol.sha256.c_str(),
                          note.dol.size);
+        }
+        if (!note.pack.url.empty()) {
+            std::fprintf(f, "pack %s\npack_sha256 %s\npack_size %llu\n", note.pack.url.c_str(),
+                         note.pack.sha256.c_str(), note.pack.size);
         }
         if (!note.installed.empty()) std::fprintf(f, "installed %s\n", note.installed.c_str());
         std::fclose(f);
@@ -362,6 +374,8 @@ bool CheckLatestRelease(bool force, std::string& latest, bool& newer, std::strin
         note.latest = tag;
         note.dol = ReleaseAsset{};
         release_asset_from_json(json, "riftwii.dol", note.dol);
+        note.pack = ReleaseAsset{};
+        release_asset_from_json(json, kUpdatePackAsset, note.pack);
         WriteUpdateNote(note);
         logf("Update check: newest release %s, this is %s%s\n", latest.c_str(), RIFTWII_VERSION,
              note.dol.url.empty() ? " (it has no riftwii.dol)" : "");
@@ -498,11 +512,49 @@ void MarkDone(const char* path) {
     }
 }
 
-// What the apps pack may write: the channel installer's folder and
-// RiftWii's icon. RiftWii's boot.dol and meta.xml are the update's own,
+// What the apps pack may write: the channel installer's folder, RiftWii's
+// icon and its plugins (riftwii/plugins/<name>.<version>.rwp, nothing else
+// in that folder). RiftWii's boot.dol and meta.xml are the update's own,
 // and a player's music.ogg stays.
+constexpr char kPluginsPrefix[] = "riftwii/plugins/";
+
+bool PluginFileAllowed(const std::string& path) {
+    const std::size_t prefix = sizeof(kPluginsPrefix) - 1;
+    if (path.compare(0, prefix, kPluginsPrefix) != 0) return false;
+    const std::string file = path.substr(prefix);
+    std::string name;
+    std::string version;
+    // A plugin file of some version: "<name>.<version>.rwp", no folders.
+    return file.find('/') == std::string::npos && plugin_file_parse(file, name, version);
+}
+
 bool AppsFileAllowed(const std::string& path) {
-    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png";
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || PluginFileAllowed(path);
+}
+
+// The folder the plugins are written to: next to the boot.dol that is
+// running (plugin::Directory), the folder it reads them from, even when
+// RiftWii was renamed or moved; sd:/apps/riftwii/plugins/ when that is not
+// on the SD card, which is all the packs write.
+std::string PluginTargetDirectory() {
+    const std::string directory = plugin::Directory();
+    if (directory.compare(0, 4, "sd:/") != 0) return std::string("sd:/apps/") + kPluginsPrefix;
+    return directory;
+}
+
+// Where an apps pack file goes: sd:/apps/<path>, except the plugins
+// (PluginTargetDirectory).
+std::string AppsFileTarget(const std::string& path) {
+    if (!PluginFileAllowed(path)) return "sd:/apps/" + path;
+    return PluginTargetDirectory() + path.substr(sizeof(kPluginsPrefix) - 1);
+}
+
+// Each folder on the way to `path` ("sd:/apps/riftwii/plugins/x.rwp" is
+// three deep below the card's root).
+void MakeFoldersFor(const std::string& path) {
+    for (std::size_t slash = path.find('/', 4); slash != std::string::npos; slash = path.find('/', slash + 1)) {
+        mkdir(path.substr(0, slash).c_str(), 0777);
+    }
 }
 
 // The card brought up to a pack: sd:/riftwii/themes (its themes' files
@@ -534,8 +586,8 @@ void ApplyPack(PackKind& k) {
             logf("%s: %s skipped\n", k.label, f.path.c_str());
             continue;
         }
-        const std::string path = root + f.path;
-        mkdir((root + f.path.substr(0, f.path.find('/'))).c_str(), 0777);
+        const std::string path = themes ? root + f.path : AppsFileTarget(f.path);
+        MakeFoldersFor(path);
         if (SameFile(path, bytes + f.offset, f.size)) {
             ++same;
             continue;
@@ -560,6 +612,9 @@ void ApplyPack(PackKind& k) {
     }
     logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
          failed ? " (some could not be written; tried again next start)" : "");
+    // This version's plugins are all there now: the ones from before the
+    // update are never loaded again, so they go.
+    if (!themes && !failed) plugin::RemoveOtherVersions();
     if (!failed) MarkDone(k.done);
 }
 
@@ -662,6 +717,73 @@ CardWriteHold::CardWriteHold() { ++g_card_writes; }
 CardWriteHold::~CardWriteHold() { --g_card_writes; }
 bool CardWritesBusy() { return g_card_writes > 0; }
 
+namespace {
+
+// The release's plugins, written before its DOL (docs/PLUGINS.md, "Updates:
+// plugins first"), so the new RiftWii's GameCube loader is on the card
+// from its first start: riftwii-update.pack downloaded and checked as the
+// DOL is, its apps part's plugin files (the new version's names, beside
+// the old version's, which the old DOL keeps using until the swap) written
+// next to the running DOL. False, with `error`, when one could not be: the
+// update then stops before the DOL is touched. The rest of the pack (the
+// themes, the channel installer) waits for the new DOL's first start.
+bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const std::string& dol_path,
+                        std::string& error) {
+    if (note.pack.url.empty()) {
+        logf("Update: %s has no %s, so no plugins are written before its DOL\n", latest.c_str(), kUpdatePackAsset);
+        return true;
+    }
+    if (note.pack.sha256.empty()) {
+        error = std::string("GitHub gives no SHA-256 for this release's ") + kUpdatePackAsset +
+                ", so its plugins cannot be checked. Download it from " + kReleasesPage + " instead";
+        return false;
+    }
+    std::vector<std::uint8_t> pack;
+    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000)) {
+        error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
+        return false;
+    }
+    if ((note.pack.size != 0 && pack.size() != note.pack.size) || Sha256Hex(pack) != note.pack.sha256) {
+        error = std::string("the update's ") + kUpdatePackAsset + " does not match GitHub's SHA-256";
+        return false;
+    }
+    // The themes part ends where the apps part, with the plugins, starts.
+    ThemePack themes;
+    std::size_t split = 0;
+    ThemePack apps;
+    if (!parse_theme_pack(pack.data(), pack.size(), themes, error, kThemePackHeader, &split) ||
+        !parse_theme_pack(pack.data() + split, pack.size() - split, apps, error, kAppsPackHeader)) {
+        error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
+        return false;
+    }
+    std::vector<UpdateWrite> writes;
+    if (!plan_update_writes(apps, latest, PluginTargetDirectory(), dol_path, writes, error)) return false;
+    const std::uint8_t* const bytes = pack.data() + split;
+    unsigned written = 0;
+    unsigned same = 0;
+    // A file half written is worse than none: the power button waits.
+    const CardWriteHold hold;
+    for (const UpdateWrite& w : writes) {
+        if (w.dol) break;  // the caller's, last
+        MakeFoldersFor(w.path);
+        if (SameFile(w.path, bytes + w.offset, w.size)) {
+            ++same;
+            continue;
+        }
+        const std::vector<std::uint8_t> data(bytes + w.offset, bytes + w.offset + w.size);
+        if (!write_file(w.path, data, error)) {
+            error = "the update's plugin " + w.path + " could not be written (" + error + "); RiftWii was not changed";
+            return false;
+        }
+        ++written;
+    }
+    logf("Update: %u plugin(s) of %s written to %s before its DOL, %u already there\n", written, latest.c_str(),
+         PluginTargetDirectory().c_str(), same);
+    return true;
+}
+
+}  // namespace
+
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
                    const std::function<void(double done)>& progress) {
     UpdateNote note = ReadUpdateNote();
@@ -713,6 +835,9 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         error = "the download is shorter than its DOL header says";
         return false;
     }
+    // The plugins before anything of the DOL: a cut after them leaves the
+    // old DOL, which still has its own plugins.
+    if (!WriteUpdatePlugins(note, latest, where, error)) return false;
     // New file first, then the swap; the old one stays as boot.dol.old.
     // Nothing may stop it half way (the power button waits for it).
     const CardWriteHold hold;

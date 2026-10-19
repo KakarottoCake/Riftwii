@@ -11,7 +11,7 @@ an `SPDX-FileCopyrightText` line at the top; this table has the detail
 | --- | --- | --- | --- |
 | pugixml | `vendor-pugixml/` | 1.15, https://github.com/zeux/pugixml | MIT (`vendor-pugixml/LICENSE.md`) |
 | libwiigui | `vendor-libgui/source/libwiigui/`, `video.cpp`, `input.cpp`, `audio.cpp`, `gettext.cpp` (not built; `wii/core/i18n.cpp` replaces it), `filebrowser.cpp`, `menu.cpp` (template) | 1.07 snapshot by Tantric, https://github.com/dborth/libwiigui | GPL (version unspecified upstream; used under GPL-3.0-or-later). Three of RiftWii's files grew from the template and name Tantric as a holder: `wii/menu/rift_menu.cpp` (from `menu.cpp`: the GUI thread with `HaltGui`/`ResumeGui`/`UpdateGUI`, `MainMenu` and the menu loops), `wii/main.cpp` (from `demo.cpp`: the start-up order and `ExitApp`) and `wii/menu/skin.cpp` (`DrawRgb5a3`, after `Menu_DrawImg` in `video.cpp`). |
-| FreeTypeGX | `vendor-libgui/source/FreeTypeGX.*` | Armin Tamzarian, bundled with libwiigui | GPL-3.0-or-later (header in file). RiftWii changed `charToWideChar` to decode UTF-8 (for the translations and game names), adds only the FreeType modules the menu font needs, and lets `InitFreeType` take a font collection's face and report a font it can't read (Settings > Menu font), adds `FontHasChar` (a Korean menu needs a font with Hangul), and adds `RenderTextCoverage`, which draws text into a plain bitmap through a size of its own, centred or left-aligned and narrowed for a 16:9 TV (a GameCube game's crash screen, drawn without GX). |
+| FreeTypeGX | `vendor-libgui/source/FreeTypeGX.*` | Armin Tamzarian, bundled with libwiigui | GPL-3.0-or-later (header in file). RiftWii changed `charToWideChar` to decode UTF-8 (for the translations and game names), adds only the FreeType modules the menu font needs, and lets `InitFreeType` take a font collection's face and report a font it can't read (Settings > Menu font), adds `FontHasChar` (a Korean menu needs a font with Hangul), and adds `RenderTextCoverage`, which draws text into a plain bitmap through a size of its own, centred or left-aligned and narrowed for a 16:9 TV (a GameCube game's crash screen, drawn without GX), and tells the menu's GX trace of each glyph it draws (`Menu_TextureHook`, settings.txt `debug_gx`). |
 | WiiDRC (Wii U GamePad) | `vendor-libgui/source/wiidrc.*`, `vendor-libgui/source/input.cpp` (GamePad scan) | FIX94, 2017 (MIT header in file) | MIT. Direct-I2C GamePad reads; no IOS calls, safe no-op on plain Wii and under Dolphin. |
 | oggplayer | `vendor-libgui/source/oggplayer.*` | Francisco Munoz "Hermes", 2008 | BSD-3-Clause (header in file) |
 | PNGU | `vendor-libgui/source/pngu.*` | frontier (frontier-dev.net), modified by Tantric | No license text in the vendored files; distributed inside the libwiigui package. Not compiled: `Makefile.wii` excludes `pngu.c`, and the covers read PNGs with RiftWii's own `src/art/pngdecode.cpp`. |
@@ -162,7 +162,7 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   RiftWii's reading of what those fields are for. No code from Dolphin,
   Nintendont, libogc or any other project was used.
   The formatted card itself (`gc_card_format`, moved there from
-  `wii/launch/gcnative.cpp`) keeps the layout recorded for the GameCube
+  `plugins/gamecube/gcnative.cpp`) keeps the layout recorded for the GameCube
   loader in the table above.
 - A GameCube disc's banner (`src/disc/gcbanner.cpp`): the BNR1/BNR2
   layout (the 96x32 RGB5A3 picture at 0x20, the 0x140-byte records of
@@ -171,7 +171,7 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   Its text goes through the memory card's Shift-JIS and Windows-1252
   conversion. The frame RiftWii draws the picture in is its own.
 - A GameCube game's 480p, 16:9 and language options (`apply_picture_and_language`
-  and its searches in `wii/launch/gcnative.cpp`, `gc_on_vi_configure` and
+  and its searches in `plugins/gamecube/gcnative.cpp`, `gc_on_vi_configure` and
   `gc_on_projection` in `runtime/gc/gc_rt.c`, their hooks in
   `runtime/gc/gc_entry.S`). Facts: YAGCD's SRAM layout (the language byte
   and its numbers, the flags byte with progressive scan in bit 7) and its

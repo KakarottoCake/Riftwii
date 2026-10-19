@@ -35,6 +35,7 @@ struct LoaderSettings {
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
+    std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
@@ -60,6 +61,15 @@ struct LoaderSettings {
     void parse(const std::string& text);
     std::string serialize() const;
 };
+
+// What "Reset all settings" leaves: every setting back to how RiftWii
+// comes, except what the question promises to keep and what finding the
+// games depends on. Favorites are the player's own picks, not a setting;
+// game_folders say where the games are, and without them Home would
+// empty. Unknown keys (`other`) are reset with the rest. Games' own pages,
+// play history, order, profiles and mods live in files of their own that
+// a reset never touches.
+LoaderSettings settings_after_reset(const LoaderSettings& before);
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out

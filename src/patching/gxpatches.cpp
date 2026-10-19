@@ -229,6 +229,15 @@ bool gc_keeps_aram_addresses(const std::string& id) { return id_is(id, "GMP"); }
 // after the key, PAL) and in Dolphin with reads at the SD card's speed.
 bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); }
 
+// Super Mario Sunshine (USA, GMSE01) and Super Mario Eclipse (GMSE04):
+// restarted twice in a row in Dolphin, the OS's own restart (reset 0) and
+// then a hot reset, each back to the start-up logos and on. Exact IDs
+// only: the restart calls OSResetSystem from the game's pad read, which a
+// game not run with it might not take, so the European and Japanese
+// Sunshine wait for a run of their own. Luigi's Mansion PAL hung after
+// its restart in Dolphin, cause not found yet, so it is not here.
+bool gc_restart_known_to_work(const std::string& id) { return id == "GMSE01" || id == "GMSE04"; }
+
 // A tester's City Folk from a USB drive ran on a base-58 d2x and took no
 // keyboard (2610-412).
 bool game_uses_usb_keyboard(const std::string& id) { return id_is(id, "RUU") || id_is(id, "RMH"); }

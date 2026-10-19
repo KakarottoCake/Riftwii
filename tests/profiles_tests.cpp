@@ -207,6 +207,30 @@ static void test_keyed_files() {
     EXPECT_TRUE(back.favorites == settings.favorites);
 }
 
+static void test_settings_after_reset() {
+    LoaderSettings before;
+    before.theme = "night";
+    before.home_sort = "recent";
+    before.online = false;
+    before.riitag_key = "secret";
+    before.favorites = {"RMCE01", "SMNE01@retro"};
+    before.game_folders = {"/Wii Games"};
+    before.other["debug_off"] = "x";
+    const LoaderSettings after = settings_after_reset(before);
+    EXPECT_EQ(after.theme, std::string("default"));
+    EXPECT_EQ(after.home_sort, std::string("az"));
+    EXPECT_TRUE(after.online);
+    EXPECT_TRUE(after.riitag_key.empty());
+    EXPECT_TRUE(after.other.empty());
+    EXPECT_TRUE(after.favorites == before.favorites);
+    EXPECT_TRUE(after.game_folders == before.game_folders);
+    // What is written back is what a fresh start plus the kept parts reads as.
+    LoaderSettings reread;
+    reread.parse(after.serialize());
+    EXPECT_TRUE(reread.favorites == before.favorites);
+    EXPECT_EQ(reread.theme, std::string("default"));
+}
+
 int main() {
     test_keys();
     test_names_and_slugs();
@@ -215,6 +239,7 @@ int main() {
     test_keyed_files();
     test_tiles_for();
     test_launched_choices_key();
+    test_settings_after_reset();
     if (g_failures == 0) std::cout << "profiles tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
