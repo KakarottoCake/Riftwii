@@ -699,8 +699,24 @@ std::string gc_card_path(const std::string& game_id, bool shared) {
     if (shared) {
         file = gc_card_shift_jis(game_id) ? "shared-jp" : "shared";
     } else {
+        // A disc's ID as it is, six capitals and digits; anything else (a
+        // homebrew disc, a damaged header) by its bytes in hex: keeping
+        // only the letters made "...." an empty name, ".raw", and IDs that
+        // differed elsewhere one shared card (MIN-04).
+        bool plain = game_id.size() == 6;
         for (char c : game_id)
-            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) file += c;
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) plain = false;
+        if (plain) {
+            file = game_id;
+        } else {
+            static const char kHex[] = "0123456789abcdef";
+            file = "x";
+            for (char c : game_id) {
+                const unsigned char u = static_cast<unsigned char>(c);
+                file += kHex[u >> 4];
+                file += kHex[u & 15];
+            }
+        }
     }
     return "sd:/riftwii/gc/cards/" + file + ".raw";
 }
