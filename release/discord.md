@@ -10,6 +10,9 @@ A line that is only an image, ![what it shows](docs/screenshots/<file>.png),
 is sent as an attachment under the message (up to 10, 10 MB in all)
 instead of as text.
 
+Only what a player notices goes in: leave out CI and workflows, review
+bots (CodeRabbit), tools/, tests, docs and refactors (docs/RELEASING.md).
+
 Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
