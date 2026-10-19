@@ -188,14 +188,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       # Kept with the run: the files to check by hand after a dry run, and
       # the ELFs that name a crash's offsets (docs/DEVELOPING.md).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: riftwii-v${{ steps.version.outputs.version }}
           path: |
             out/
             texts/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: riftwii-v${{ steps.version.outputs.version }}-elf
           path: |
@@ -220,7 +220,7 @@ jobs:
       TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: riftwii-v${{ needs.build.outputs.version }}
           path: release-files
