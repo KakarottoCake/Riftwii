@@ -973,6 +973,10 @@ static void test_backup_files() {
     EXPECT_TRUE(read_file(card + ".old") == Bytes(12, 0x66));
     EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
     EXPECT_FALSE(fs::exists(card + ".tmp"));
+    // The same length as both, written in place otherwise: refused too.
+    EXPECT_FALSE(gc_overwrite_file(card, Bytes(12, 0x77), error));
+    EXPECT_TRUE(read_file(card + ".old") == Bytes(12, 0x66));
+    EXPECT_TRUE(read_file(card) == Bytes(12, 0x55));
     fs::remove(card + ".old");
 
     // A copy whose source cannot be read leaves nothing behind.

@@ -254,6 +254,15 @@ GcRecovery gc_recover_card(const std::string& path, std::string& error) {
 }
 
 bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
+    // A write cut between the two renames below left the card only at .old:
+    // it goes back first, and a .old beside a card is never removed as a
+    // leftover, since the card beside it may be one made after the cut
+    // (NEW-03). Either way nothing is written then, at any length.
+    const GcRecovery recovered = gc_recover_card(path, error);
+    if (recovered == GcRecovery::Failed || recovered == GcRecovery::BothKept) {
+        error += " Nothing was written.";
+        return false;
+    }
     // The same length: written in place, so the card keeps the clusters the
     // game's runtime reads it by (one piece stays one piece); the backup a
     // restore makes first covers a cut in the middle.
@@ -289,16 +298,6 @@ bool gc_overwrite_file(const std::string& path, const std::vector<std::uint8_t>&
         return false;
     }
     const std::string aside = path + ".old";
-    // A write cut between the two renames below left the card only at .old:
-    // it goes back first, and a .old beside a card is never removed as a
-    // leftover, since the card beside it may be one made after the cut
-    // (NEW-03).
-    const GcRecovery recovered = gc_recover_card(path, error);
-    if (recovered == GcRecovery::Failed || recovered == GcRecovery::BothKept) {
-        std::remove(temp.c_str());
-        error += " Nothing was written.";
-        return false;
-    }
     const bool had_card = std::rename(path.c_str(), aside.c_str()) == 0;
     if (std::rename(temp.c_str(), path.c_str()) != 0) {
         const bool put_back = had_card && std::rename(aside.c_str(), path.c_str()) == 0;

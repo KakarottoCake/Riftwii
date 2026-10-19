@@ -351,7 +351,7 @@ void TestCheats() {
     // the player's (SEC-02), and only that one is counted as held.
     std::size_t held = 0;
     const std::string guarded =
-        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]", "New one"}, &held);
+        merge_cheat_text(fresh_text, old_text, kept, {"infinite health [wiiztec]"}, &held);
     EXPECT_EQ(kept, 3u);
     EXPECT_EQ(held, 1u);
     EXPECT_TRUE(parse_cheat_text(guarded, file, error));
@@ -406,6 +406,18 @@ void TestCheats() {
         EXPECT_FALSE(kept_old);
         EXPECT_EQ(held, 1u);
         EXPECT_TRUE(merged_inf.find("C0000000") == std::string::npos);
+        // A name turned on that the old file has under no revision (kept
+        // from a file for another release): the download would decide its
+        // code, so it is not taken. A name the old file has for one release
+        // may come for another: a download adding that heading is taken.
+        const std::string other_old = "SB4E01\nSuper Mario Galaxy 2\n\nOther\n04000000 00000003\n";
+        merged_inf = merge_cheat_text(flat_new, other_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_TRUE(kept_old);
+        EXPECT_EQ(merged_inf, other_old);
+        const std::string release_new = inf_old + "\nVersion 1.01\n\nInf\nC0000000 00000002\n";
+        merged_inf = merge_cheat_text(release_new, inf_old, kept, {"Inf"}, &held, &kept_old);
+        EXPECT_FALSE(kept_old);
+        EXPECT_TRUE(merged_inf.find("Version 1.01") != std::string::npos);
         // The same name added after the player's: its number stays, taken.
         const std::string after_new =
             "SB4E01\nSuper Mario Galaxy 2\n\nInf\n04000000 00000001\n\nInf\nC0000000 00000002\n";

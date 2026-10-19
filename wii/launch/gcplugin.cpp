@@ -122,22 +122,27 @@ void back_up_card(const GcImage& image) {
 
 // A card write cut between its two renames left the card at .old: it is
 // put back before the game starts, which would otherwise find no card and
-// format a new one (NEW-03).
-void recover_card(const GcImage& image) {
+// format a new one (NEW-03). False when it is still only at .old: the game
+// is not started then. A card beside a .old is used, with a log line.
+bool recover_card(const GcImage& image, std::string& error) {
     const std::string path = gc_card_path(image.id, image.shared_card);
-    std::string error;
-    switch (gc_recover_card(path, error)) {
+    std::string why;
+    switch (gc_recover_card(path, why)) {
         case GcRecovery::Nothing:
-            break;
+            return true;
         case GcRecovery::PutBack:
             logf("GameCube: memory card %s was left at .old by a write cut short; put back\n", path.c_str());
             forget_sd_layout();  // a renamed file changes the folder the raw lookups cache
-            break;
+            return true;
         case GcRecovery::BothKept:
+            logf("GameCube: %s\n", why.c_str());
+            return true;
         case GcRecovery::Failed:
-            logf("GameCube: %s\n", error.c_str());
             break;
     }
+    logf("GameCube: %s\n", why.c_str());
+    error = why + " The game was not started, so it cannot make a new card in its place.";
+    return false;
 }
 
 }  // namespace
@@ -158,7 +163,7 @@ void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
-    recover_card(image);
+    if (!recover_card(image, error)) return false;
     if (Settings().gc_backups != "off") back_up_card(image);
 
     rwp_gc_launch request{};

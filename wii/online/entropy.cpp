@@ -29,7 +29,9 @@ unsigned char g_pool[kPoolBytes] = {};
 std::uint64_t g_count = 0;
 
 // The seed file is written outside g_lock, so the GUI thread's stirring
-// never waits on the card; this one keeps two writers of it apart.
+// never waits on the card. This one is held across a seeding and its
+// file's write, so two seedings write their files in the order they were
+// made, and the newest is the one left on the card.
 mutex_t g_file_lock = LWP_MUTEX_NULL;
 
 // Both made on the main thread at start (EntropyStart), before any other
@@ -75,12 +77,12 @@ void Derive(const char* label, unsigned char out[kPoolBytes]) {
 // under g_lock: not the pool itself, so what the card holds says nothing
 // about the seedings already given out. Called without g_lock (the GUI
 // thread stirs in the Remotes under it every frame, and a card write could
-// hold a frame back), and under a card hold, so the power button waits for
-// it rather than unmounting the card mid-write (NEW-02).
+// hold a frame back), with g_file_lock held by the caller, and under a
+// card hold, so the power button waits for it rather than unmounting the
+// card mid-write (NEW-02).
 void WriteSeedFile(unsigned char next[kPoolBytes]) {
     {
         CardWriteHold hold;
-        Locked file_lock(g_file_lock);
         if (FILE* f = std::fopen(kSeedFile, "wb")) {
             const bool ok = std::fwrite(next, 1, kPoolBytes, f) == kPoolBytes;
             if (std::fclose(f) != 0 || !ok) std::remove(kSeedFile);
@@ -130,6 +132,7 @@ void TakeLocked(unsigned char* to, std::size_t size, unsigned char next[kPoolByt
 
 void EntropyStart() {
     if (g_file_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_file_lock, false);
+    Locked file_lock(g_file_lock);
     unsigned char next[kPoolBytes];
     const bool had = StirStart(next);
     // Replaced at once: a start that stops before its first connection
@@ -145,6 +148,7 @@ void EntropyAdd(const void* data, std::size_t size) {
 }
 
 void EntropyTake(void* out, std::size_t size) {
+    Locked file_lock(g_file_lock);
     unsigned char next[kPoolBytes];
     TakeLocked(static_cast<unsigned char*>(out), size, next);
     WriteSeedFile(next);
