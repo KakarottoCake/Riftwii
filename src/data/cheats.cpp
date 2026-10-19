@@ -391,8 +391,24 @@ bool fill_cheat_values(std::string& text, const std::string& name, const std::ve
     return true;
 }
 
-std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept) {
+namespace {
+
+// Whether a block named `title` is among the enabled cheats: by its name,
+// or by the "(2)", "(3)" names repeats of it get (find_cheat).
+bool enabled_block(const std::set<std::string>& enabled, const std::string& title) {
+    if (enabled.count(title)) return true;
+    const std::string numbered = title + " (";
+    for (const std::string& name : enabled)
+        if (name.compare(0, numbered.size(), numbered) == 0) return true;
+    return false;
+}
+
+}  // namespace
+
+std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept,
+                             const std::set<std::string>& enabled, std::size_t* held) {
     kept = 0;
+    if (held) *held = 0;
     CheatBlocks merged = split_blocks(fresh);
     const CheatBlocks before = split_blocks(old);
     std::vector<std::size_t> added;  // indexes into before.blocks
@@ -409,6 +425,10 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
             if (has_placeholders(theirs) && !has_placeholders(mine)) {
                 theirs = mine;
                 ++kept;
+            } else if (theirs != mine && enabled_block(enabled, mine[0])) {
+                theirs = mine;
+                ++kept;
+                if (held) ++*held;
             }
             break;
         }
