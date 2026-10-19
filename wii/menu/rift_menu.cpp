@@ -10123,6 +10123,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kOnline:
+					// The scan reads it (the game names' download).
+					WaitForDriveScan(noteTxt);
 					settings.online = !settings.online;
 					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 						: tr("Nothing is downloaded. Names and cheats already on the card are still used."));
