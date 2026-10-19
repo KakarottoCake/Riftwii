@@ -103,6 +103,17 @@ is dropped when the files are filled in. Both also carry a line
 `NOTES NOT WRITTEN YET`: delete it once the text is written, because the
 workflow refuses a file that still has it.
 
+**Only what a player notices goes in either text.** A change belongs in
+the notes when it changes what RiftWii does on a Wii or in Dolphin: the
+menu, a launch, a game, saves, controllers, the logs and problem reports a
+player sends, the files in the download. Leave out everything that only
+changes how RiftWii is made: CI and other GitHub Actions workflows (this
+release workflow included), review bots such as the CodeRabbit config,
+`tools/` scripts, tests, docs, refactors with no visible effect and
+changes to the release process. Commit subjects describe all of these
+the same way, so read what each commit changes rather than listing them
+all. When none is left, there is nothing to release yet.
+
 **`release/notes.md`**, the GitHub release notes. Keep the structure of
 the earlier releases:
 
