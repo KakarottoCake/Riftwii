@@ -181,6 +181,53 @@ std::uint32_t bl_target(std::uint32_t at, std::uint32_t w) {
     return at + d;
 }
 
+// The "lis rX,H" whose register later gets "ori rX,rX,L" (L < 0x8000), with
+// nothing between them that branches or gives rX another value: the
+// address of the ori, or 0. Then rX's low half is still zero, so "addi
+// rX,rX,L" gives the same value.
+std::uint32_t later_ori(const Code& code, std::uint32_t at, unsigned reg) {
+    for (std::uint32_t a = at + 4; a <= at + 64 && code.has(a); a += 4) {
+        const std::uint32_t w = code.at(a);
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        if (op == 24 && d == reg && ra == reg) return (w & 0xFFFF) < 0x8000 ? a : 0;
+        if (op == 16 || op == 18 || op == 19) return 0;  // a branch: another path may join here
+        if (op == 31 || (op >= 20 && op <= 30)) {
+            if (ra == reg) return 0;  // logical, rotate and X-form results go to rA
+            if (op == 31 && d == reg) return 0;  // and arithmetic X-forms to rD
+        } else if (d == reg && op != 36 && op != 37 && op != 38 && op != 39 && op != 44 && op != 45 &&
+                   op != 47 && op != 52 && op != 53 && op != 54 && op != 55) {
+            return 0;  // a load or an immediate into rX (stores only read rD)
+        }
+    }
+    return 0;
+}
+
+// Most GameCube games build a hardware register's address as "lis
+// rX,0xCC00" and then use it with an offset (lwz rY,0x6008(rX)) or an
+// addi, which the finders below follow. Sonic Riders Tournament Edition
+// (GXSRTE), built with another compiler, loads 0xCC00 into each register
+// first and ORs the register's offset in later (674 of its 687 such
+// places; a few of a retail game's ~170). For such a game, those ori
+// become the addi that give the same value, so the finders read its code
+// as they read the others'; a retail game's code is left as it is.
+// Returns how many were changed.
+unsigned ori_to_addi(Code& code) {
+    unsigned bases = 0, with_ori = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (!is_lis(w, 0xCC00)) return;
+        ++bases;
+        if (later_ori(code, a, (w >> 21) & 31)) ++with_ori;
+    });
+    if (bases < 20 || with_ori * 2 < bases) return 0;
+    std::vector<std::uint32_t> changes;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w & 0xFC1F0000) != 0x3C000000) return;  // lis rX,H (addis rX,0,H)
+        if (std::uint32_t o = later_ori(code, a, (w >> 21) & 31)) changes.push_back(o);
+    });
+    for (std::uint32_t o : changes) code.put(o, (code.at(o) & 0x03FFFFFF) | (14u << 26));  // ori rA,rS -> addi rD,rA: same fields
+    return static_cast<unsigned>(changes.size());
+}
+
 // The DVDLow* functions, found by the DI command each one writes (the
 // command words are the drive's, documented on wiibrew and in yagcd).
 struct DvdLow {
@@ -198,16 +245,22 @@ std::uint32_t function_start(const Code& code, std::uint32_t at) {
     return 0;
 }
 
-// Whether one of the four instructions after `at` is "addi rD,`reg`,`value`",
-// before anything else loads `reg`.
+// Whether one of the sixteen instructions after `at` is "addi rD,`reg`,`value`"
+// or "ori rA,`reg`,`value`", before anything else loads `reg`. Most SDK
+// builds add right after the lis; Sonic Riders Tournament Edition (GXSRTE)
+// loads every register's 0xCC00 first and ORs the 0x40 in 9 to 13
+// instructions later.
 bool adds_to_register(const Code& code, std::uint32_t at, unsigned reg, std::uint16_t value) {
-    for (std::uint32_t a = at + 4; a <= at + 16 && code.has(a); a += 4) {
+    for (std::uint32_t a = at + 4; a <= at + 64 && code.has(a); a += 4) {
         const std::uint32_t w = code.at(a);
         const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
         if (op == 14 && ra == reg && (w & 0xFFFF) == value) return true;
+        if (op == 24 && d == reg && (w & 0xFFFF) == value) return true;  // ori: the source is in the D field
         const bool loads = (op >= 32 && op <= 35) || (op >= 40 && op <= 43) || op == 46;
         const bool immediate = op == 7 || (op >= 12 && op <= 15);  // mulli, addic, addi, addis
+        const bool logical = op >= 24 && op <= 29;                  // ori, oris, xori, xoris, andi., andis.
         if (d == reg && (loads || immediate)) return false;  // reg gets another value
+        if (ra == reg && logical) return false;
     }
     return false;
 }
@@ -1778,6 +1831,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     GcCheats cheats;
     std::string cheats_off;
     if (!plan_gc_cheats(dol, extras, cheats, cheats_off)) logf("Codes are off: %s\n", cheats_off.c_str());
+    if (const unsigned changed = ori_to_addi(code))
+        logf("GameCube: the game ORs its hardware registers' offsets in (another compiler's code): %u ori "
+             "made the addi that give the same value, so the searches below find their places\n",
+             changed);
     logf("GameCube: DVDLowRead 0x%08x, Seek 0x%08x, ReadDiskID 0x%08x, Inquiry 0x%08x, StopMotor 0x%08x, "
          "RequestError 0x%08x, AudioStream 0x%08x, AudioStatus 0x%08x, AudioConfig 0x%08x, Reset 0x%08x, "
          "OSSetAlarm 0x%08x\n",
