@@ -640,6 +640,14 @@ void TestErrors() {
     Blob ro = MakeBlob(VSD_BACKEND_SLOT0, true);
     EXPECT_EQ(SendSync(ro, MakeCommand(25, 0, 1, buffer)), RTVSD_EINVAL);
     EXPECT_TRUE(g_ios.pieces.empty());
+    // Vector counts past what an ioctlv carries, and a command block with no
+    // address, are refused before any vector is read (MIN-11).
+    const Command wild = MakeCommand(18, 0, 1, buffer);
+    EXPECT_EQ(Call(b, VSD_IOCTLV, {VSD_FAKE_FD, RTVSD_IOCTL_SENDCMD, 0x40000000u, 1, wild.vec}), -4);
+    EXPECT_EQ(Call(b, VSD_IOCTLV, {VSD_FAKE_FD, RTVSD_IOCTL_SENDCMD, 2, 0xFFFFFFFFu, wild.vec}), -4);
+    At<vsd_ioctlv>(wild.vec)[0].data = 0;
+    EXPECT_EQ(Call(b, VSD_IOCTLV, {VSD_FAKE_FD, RTVSD_IOCTL_SENDCMD, 2, 1, wild.vec}), -4);
+    EXPECT_TRUE(g_ios.pieces.empty());
     // No state: nothing hooked.
     vsd_context bare{};
     std::uint32_t a[8] = {Path("/dev/sdio/slot0"), 0};
