@@ -74,6 +74,12 @@ bool gc_keeps_aram_addresses(const std::string& game_id);
 // the heap current where it was queued (gcnative.cpp's find_lm_loader).
 bool gc_loads_use_queued_heap(const std::string& game_id);
 
+// GameCube games whose restart (Reset, riftwii/gcreset.hpp) is known to
+// work: MEM1 put back as it was at the jump and the game started at its
+// entry again. Every other game goes back to RiftWii on Reset, as holding
+// HOME does, until its restart has been seen to work.
+bool gc_restart_known_to_work(const std::string& game_id);
+
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,
 // 0 for none. Started through main.dol, Madden NFL 08 from an RVZ stopped

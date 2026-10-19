@@ -127,6 +127,52 @@ static void test_disc_header() {
     EXPECT_FALSE(riftwii::read_disc_header(tiny, out, err));
 }
 
+// GameCube ISOs put straight into sd:/games (a player's report): the scan
+// says, per image and capped, where RiftWii wants them.
+static void test_misplaced_gamecube_log() {
+    Bytes gc = Disc();
+    PutStr(gc, 0, "GXXE01");
+    Put32(gc, 0x18, 0);
+    Put32(gc, 0x1C, riftwii::kGameCubeMagic);
+    std::memset(gc.data() + 0x20, 0, 0x40);
+    PutStr(gc, 0x20, "Foo: The Game?");
+    riftwii::DiscHeader h;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_disc_header(gc.data(), gc.size(), h, err));
+    EXPECT_TRUE(h.gamecube_magic);
+    EXPECT_FALSE(h.wii_magic);
+
+    // The title loses what FAT32 names cannot hold; the extension is kept.
+    EXPECT_EQ(riftwii::gamecube_folder_example("sd:/games/Foo.iso", h),
+              std::string("sd:/games/Foo The Game [GXXE01]/game.iso"));
+    EXPECT_EQ(riftwii::gamecube_folder_example("sd:/games/Foo.RVZ", h),
+              std::string("sd:/games/Foo The Game [GXXE01]/game.rvz"));
+    EXPECT_EQ(riftwii::gamecube_folder_example("sd:/wbfs/Foo [GXXE01]/GXXE01.gcm", h),
+              std::string("sd:/games/Foo The Game [GXXE01]/game.gcm"));
+    riftwii::DiscHeader untitled = h;
+    untitled.title = "";
+    EXPECT_EQ(riftwii::gamecube_folder_example("sd:/games/x.iso", untitled), std::string("sd:/games/GXXE01/game.iso"));
+
+    riftwii::MisplacedGameCubeLog log;
+    EXPECT_EQ(log.rest("SD scan"), std::string());
+    EXPECT_EQ(log.note("SD scan", "sd:/games/Foo.iso", h),
+              std::string("SD scan: sd:/games/Foo.iso is a GameCube game (GXXE01): RiftWii plays those from a folder "
+                          "of their own, e.g. sd:/games/Foo The Game [GXXE01]/game.iso"));
+    EXPECT_EQ(log.note("USB scan", "usb:/games/Foo.iso", h),
+              std::string("USB scan: usb:/games/Foo.iso is a GameCube game (GXXE01): RiftWii plays those from a "
+                          "folder of their own on the SD card, e.g. sd:/games/Foo The Game [GXXE01]/game.iso"));
+    // Ten lines, then a count of the rest.
+    for (unsigned i = 2; i < riftwii::MisplacedGameCubeLog::kLinesShown; ++i)
+        EXPECT_FALSE(log.note("SD scan", "sd:/games/Foo.iso", h).empty());
+    EXPECT_EQ(log.rest("SD scan"), std::string());
+    EXPECT_TRUE(log.note("SD scan", "sd:/games/Foo.iso", h).empty());
+    EXPECT_TRUE(log.note("SD scan", "sd:/games/Foo.iso", h).empty());
+    EXPECT_EQ(log.rest("SD scan"),
+              std::string("SD scan: 2 more GameCube image(s) not in a folder of their own, not listed one by one"));
+    log.reset();
+    EXPECT_FALSE(log.note("SD scan", "sd:/games/Foo.iso", h).empty());
+}
+
 static void test_partition_table() {
     riftwii::MemorySource disc(Disc());
     std::vector<riftwii::PartitionEntry> table;
@@ -286,6 +332,7 @@ static void test_partition_data() {
 
 int main() {
     test_disc_header();
+    test_misplaced_gamecube_log();
     test_partition_table();
     test_partition_header_and_tmd();
     test_partition_data();

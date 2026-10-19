@@ -61,6 +61,21 @@ int main() {
         EXPECT_EQ(pack.files[0].path, "riftwii_channel/boot.dol");
         EXPECT_TRUE(!parse(apps, pack, error));
     }
+    // The apps pack carries the plugins one folder deeper (docs/PLUGINS.md);
+    // the themes part still may not, and neither may leave its folders.
+    {
+        const auto apps = [&](const std::string& text) {
+            return riftwii::parse_theme_pack(reinterpret_cast<const std::uint8_t*>(text.data()), text.size(), pack,
+                                             error, riftwii::kAppsPackHeader);
+        };
+        EXPECT_TRUE(apps("RIFTWII APPS 1\nfile riftwii/plugins/selftest.2610-460.rwp 2\nab\nend\n"));
+        EXPECT_EQ(pack.files[0].path, "riftwii/plugins/selftest.2610-460.rwp");
+        EXPECT_TRUE(!apps("RIFTWII APPS 1\nfile riftwii/plugins/x/y.rwp 1\na\nend\n"));
+        EXPECT_TRUE(!apps("RIFTWII APPS 1\nfile riftwii/../x.rwp 1\na\nend\n"));
+        EXPECT_TRUE(!apps("RIFTWII APPS 1\nfile riftwii/.hidden/x.rwp 1\na\nend\n"));
+        EXPECT_TRUE(!apps("RIFTWII APPS 1\nfile ../plugins/x.rwp 1\na\nend\n"));
+        EXPECT_TRUE(!parse("RIFTWII THEMES 1\nfile riftwii/plugins/x.rwp 1\na\nend\n", pack, error));
+    }
     // riftwii-update.pack: the themes part, then the apps part.
     {
         const std::string both = "RIFTWII THEMES 1\nfile A/b.png 1\nx\nend\nRIFTWII APPS 1\nend\n";

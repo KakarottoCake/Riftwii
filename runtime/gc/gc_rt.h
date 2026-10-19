@@ -23,7 +23,7 @@
 #include "gc_crash.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 4u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 6u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The DI interrupt types a DVDLow callback takes. */
@@ -85,6 +85,13 @@ struct gc_rt_header {
     uint32_t hook_load_alloc;       /* its loading thread's alloc(length, alignment) for a buffer: gc_on_load_alloc */
     uint32_t hook_load_callbacks;   /* its loading thread's group(id) before a load's callbacks: gc_on_load_callbacks */
     uint32_t hook_load_callbacks_done; /* and group(old) after them: gc_on_load_callbacks_done */
+    uint32_t hook_pad_motor;  /* PADControlMotor(chan, command): the original, then gc_on_pad_motor */
+    uint32_t replay_pad_motor;
+    uint32_t continue_pad_motor;
+    uint32_t hook_reset_system;     /* OSResetSystem(reset, code, menu): gc_on_reset_system, then the original */
+    uint32_t replay_reset_system;
+    uint32_t continue_reset_system;
+    uint32_t hook_hot_reset;        /* the SDK's reset routine (PI's reset register): gc_on_hot_reset, never returns */
 };
 
 /* gc_on_fatal's exception numbers (GC_EXCEPTION_EARLY, GC_EXCEPTION_STRAY)
@@ -116,7 +123,8 @@ enum gc_trace_word {
     GC_TR_CARD_FLUSHES, GC_TR_CARD_DIRTY, GC_TR_CARD_ERROR,
     GC_TR_CARD_LAST, /* the last command << 24 | accesses */
     GC_TR_VI_CONFIGURES,
-    GC_TR_VI_MODE, /* the last VIConfigure: the game's viTVMode << 8 | the one it got */
+    GC_TR_VI_MODE, /* the last VIConfigure: the game's viTVMode << 8 | the one it got; 0x10000: the
+                    * picture width asked for was kept, the frame buffer being wider (gc_video.h) */
     GC_TR_PROJECTIONS, /* perspective projections seen with 16:9 on (widened unless GC_FLAG_WIDEN is off) */
     GC_TR_STREAM_STARVED, GC_TR_STREAM_FETCH_BUSY,
     GC_TR_STREAM_BUFFERED, /* ADPCM bytes in the ring ahead of the decoder */
@@ -124,7 +132,8 @@ enum gc_trace_word {
     GC_TR_AR_WAITS, /* ARAM transfers whose interrupt was waited for (gc_after_ar_dma) */
     GC_TR_AR_WAIT_LONGEST, /* the longest of those waits, timebase ticks */
     GC_TR_AR_WAIT_TIMEOUTS, /* waits given up: the interrupt did not show in time */
-    GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers */
+    GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers; with the test remote
+                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log) */
     /* An RVZ game (gc_rvz.h): groups decoded, the time spent serving its
      * reads (card and decoding, timebase ticks, wraps), and its last
      * error << 24 | failures. */
@@ -133,6 +142,19 @@ enum gc_trace_word {
     GC_TR_RVZ_ERROR,
     GC_TR_BT_PORTS, /* each remote slot's port (gc_ports.h), a byte each from slot 0 in the top byte; 0xFF none */
     GC_TR_PAD_ERRS, /* each port's err as the game got it after the remotes' fill, port 1 in the top byte; 0xFF none */
+    GC_TR_BT_SHAKES, /* shakes that pressed their button (gc_controls.h), all remotes */
+    GC_TR_BT_PROGRESS, /* how far the Bluetooth got: gc_bt.h's GC_BT_SEEN_* bits */
+    GC_TR_BT_LINK, /* the last Connection_Complete status << 24 | Authentication_Complete status << 16 |
+                    * disconnect reason << 8 | the extension's last error (0x80 | n: its ID read failed) */
+    GC_TR_BT_EXT, /* the last extension ID << 16 | the last report mode << 8 | extensions given up */
+    GC_TR_BT_REPORTS, /* data reports from every remote */
+    GC_TR_BT_RUMBLE, /* PADControlMotor calls << 16 | motor switches << 8 | each remote slot's motor (bit 4-7: slot 0-3 on)
+                      * | the ports the game wants rumbling (bits 0-3) */
+    GC_TR_BT_PRO_RANGE, /* 4 words, one per Wii U Pro Controller stick axis (left X, right X, left Y, right Y):
+                         * the lowest raw 12-bit value seen << 16 | the highest; 0 when no Pro was seen */
+    GC_TR_RESTARTS = GC_TR_BT_PRO_RANGE + 4, /* restarts done (gc_on_hot_reset) */
+    GC_TR_RESETS, /* the game's OSResetSystem calls << 16 | Reset button presses seen */
+    GC_TR_RESET_LAST, /* the game's last OSResetSystem: reset << 8 | menu */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
@@ -146,6 +168,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_FATAL 7u   /* the game crashed: beat_pc/lr/msr are the crash's SRR0, LR, SRR1 */
 #define GC_TRACE_COMMAND 8u /* a DVDLow command that is not a read */
 #define GC_TRACE_LEAVE 9u   /* the player held HOME: ES_LaunchTitle is next */
+#define GC_TRACE_RESTART 10u /* the game is restarted (Reset): MEM1 goes back as it was at the jump */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -159,11 +182,17 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_CRASH 4u  /* tests of the crash screen: the 600th pad read takes a program exception */
 #define GC_FLAG_LEAVE 2u  /* tests of the way back: port 1 holds L, R, Z and Start from the 1800th pad read;
                            * with GC_FLAG_CRASH, the crash screen takes A after twenty seconds */
+#define GC_FLAG_REMOTE_RUMBLE 256u  /* Settings' Wii Remote rumble (and the game's own) is on: PADControlMotor rumbles a remote */
+#define GC_FLAG_RUMBLE_TEST 512u  /* tests in Dolphin (with the test remote): the game's own PADControlMotor is called
+                                   * for the test remote's port, rumble then stop, every 240 pad reads */
+#define GC_FLAG_FAKE_REMOTE 2048u  /* tests in Dolphin: a made-up Wii Remote instead of the Bluetooth (gc_bt_fake) */
+#define GC_FLAG_FAKE_PRO 1024u  /* with GC_FLAG_FAKE_REMOTE: the made-up controller is a Wii U Pro Controller */
 #define GC_FLAG_CRASH_BLACK 64u  /* with GC_FLAG_CRASH: the screen is blanked first, as VISetBlack does (no active lines) */
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */
 #define GC_FLAG_PROGRESSIVE 8u  /* 480p: VIConfigure's NTSC interlaced modes become progressive (gc_on_vi_configure) */
+#define GC_FLAG_RESET_TEST 128u  /* tests of the restart: a Reset press at the 1500th pad read and at the 3600th */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
-                            * hook on, the test of the hook alone (sd:/riftwii/gc/nowiden): copied, not widened */
+                            * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
 
 /* The callers of GXSetProjection that gc_on_projection notes for the
  * trace, the first ones seen: four words each, the return address, the
@@ -208,6 +237,21 @@ struct gc_rt_stream {
     uint32_t ended;           /* the last stream is all in the ring: playing stops when it is decoded */
     uint32_t pad[1];
 };
+
+/* The restart (Reset): MEM1 as the loader left it at the jump, kept in
+ * MEM2 (riftwii/gcreset.hpp's plan_gc_restart), put back region by region
+ * in order. `source` 0: the region is zeroed. */
+struct gc_restart_region {
+    uint32_t address;
+    uint32_t length;
+    uint32_t source;
+};
+#define GC_RESTART_REGIONS 24u
+
+/* OSResetSystem's `reset`. */
+#define GC_OS_RESET_RESTART 0u
+#define GC_OS_RESET_HOTRESET 1u
+#define GC_OS_RESET_SHUTDOWN 2u
 
 /* Luigi's Mansion's loads remembered with the heap they were queued from. */
 #define GC_LOAD_SLOTS 8u
@@ -308,6 +352,7 @@ struct gc_rt_context {
      * read from it. */
     uint32_t rvz;             /* struct gc_rvz (loader-placed), 0: an ISO */
     uint32_t rvz_ticks;       /* timebase ticks spent in its reads (card and decoding), wraps */
+    uint32_t test_motor;      /* GC_FLAG_RUMBLE_TEST: the game's PADControlMotor (hooked), 0: not found */
     /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
      * leave_hold ticks launches the title in leave_buf through /dev/es. */
     uint32_t leave_fd;        /* /dev/es, opened by the loader; 0xFFFFFFFF: no way back */
@@ -335,9 +380,26 @@ struct gc_rt_context {
     uint32_t ar_waits;
     uint32_t ar_wait_longest;
     uint32_t ar_wait_timeouts;
-    uint32_t vi_copy[16];     /* the progressive copy of the game's GXRenderModeObj (0x3C bytes) */
+    uint32_t vi_width;        /* Picture width (gc_video.h's vi_width): 0 the game's own */
+    uint32_t vi_copy[16];     /* the copy of the game's GXRenderModeObj VIConfigure gets (0x3C bytes, gc_video.h) */
     uint32_t projection[16];  /* the widened copy of the game's projection matrix */
     uint32_t projection_callers[GC_PROJECTION_CALLERS * 4];
+    /* The restart (Reset, gc_on_hot_reset), loader-filled: the game's
+     * entry, the regions to put back (struct gc_restart_region in MEM2,
+     * 0: no restart) and the game's OSResetSystem. */
+    uint32_t entry;
+    uint32_t restart_regions;
+    uint32_t restart_count;
+    uint32_t restart_stack;       /* the stack the putting back runs on (MEM2): the game's own is in what is put back */
+    uint32_t reset_system;
+    uint32_t restarts;
+    uint32_t resets_asked;        /* the game's OSResetSystem calls */
+    uint32_t reset_last;          /* GC_TR_RESET_LAST */
+    /* The Reset button as gc_reset_check sees it at each pad read. */
+    uint32_t reset_presses;
+    uint32_t reset_down_since;    /* when it went down (low bit set), 0: up */
+    uint32_t reset_request_at;    /* when a press ended (low bit set), 0: none waiting */
+    uint32_t reset_asked_before;  /* resets_asked then: the game's own call answers the press */
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
@@ -347,7 +409,7 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x520u
+#define GC_RT_CONTEXT_BYTES 0x560u
 typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC
@@ -365,7 +427,10 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where);
 uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, uint32_t aram, uint32_t length);
 void gc_after_ar_dma(struct gc_rt_context* ctx);
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result);
+void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command);
 uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
+void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
+void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context);

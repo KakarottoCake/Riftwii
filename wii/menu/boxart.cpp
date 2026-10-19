@@ -67,10 +67,11 @@ CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
         std::string why;
         // A full cover is around a megabyte.
         if (!HttpGet(coverfull_url(region, game_id), png, why, 3u << 20, 15000)) {
-            static const std::string kMissing = " answered 404";
-            if (why.size() >= kMissing.size() && why.compare(why.size() - kMissing.size(), kMissing.size(), kMissing) == 0) continue;
+            // A refusal means none in this region (the covers' rule,
+            // riftwii/coverart.hpp); anything else is no answer at all.
+            if (cover_answer_means_missing(http_answered_status(why))) continue;
             error = why;
-            return CoverFetch::Failed;
+            return CoverFetch::NoAnswer;
         }
         std::vector<std::uint8_t> rgba;
         int w = 0, h = 0;

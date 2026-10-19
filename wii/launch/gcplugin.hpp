@@ -16,7 +16,9 @@ namespace riftwii::wii {
 // by runtime/gc (served from the card's sectors), and RiftWii jumps to it.
 // No disc drive. `pack`, when given, is the packs' plan: their files are
 // served from its window past the image's end (riftwii/gcoverlay.hpp).
-// Returns only on failure.
+// The loader itself is the gamecube plugin (plugins/gamecube/,
+// docs/PLUGINS.md), loaded here on first use; when it cannot be, `error`
+// says so in the player's language. Returns only on failure.
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error);
 
 // Where holding HOME in a GameCube game, and HOME or A on its crash

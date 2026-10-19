@@ -10,7 +10,7 @@
 #include "usbcatalog.hpp"
 
 // GameCube games on the SD card, started in Wii mode by RiftWii's own
-// loader (gcnative.hpp). Patch-only mods (gcpatch.hpp) are listed as the
+// loader (gcplugin.hpp, the gamecube plugin). Patch-only mods (gcpatch.hpp) are listed as the
 // game they make. Packs are applied without touching the image: their
 // files are served from a window past its end (riftwii/gcoverlay.hpp).
 namespace riftwii::wii {
@@ -24,6 +24,9 @@ struct GcImage {
     bool progressive = false;  // 480p (the game's 480p picture option)
     bool widescreen = false;   // 3D drawn for 16:9 (its Widescreen option)
     int language = -1;         // the SRAM language the game reads (its Game language option); -1: the console's
+    bool sharp = false;        // every line copied without the game's blur (its Sharper picture option)
+    bool sixty_hz = false;     // a European game told the TV takes 60 Hz (its Game speed option)
+    std::uint32_t vi_width = 0;  // its Picture width, as the blob takes it (riftwii/gcvideo.hpp); 0: the game's own
 };
 
 // A GameCube image on the SD card in games/<folder>/ (.iso, .gcm or .rvz)
@@ -33,7 +36,9 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
 // Every GameCube image in sd:/games/<folder>/ (.iso, .gcm or .rvz), for
 // the game list: opened (header read), never needing d2x. An RVZ carries
 // check_rvz's verdict (refused ones are listed, and say why at Start).
-void ScanGcImages(std::vector<ImageGame>& out);
+// The .ciso files beside them, which RiftWii does not play, are noted in
+// `ciso` when given (the same walk, so the card is not read twice).
+void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso = nullptr);
 
 // Whether the image at `path` is an RVZ (by its name, as the scan lists it).
 bool GcImageIsRvz(const std::string& path);

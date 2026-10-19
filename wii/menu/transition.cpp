@@ -11,6 +11,7 @@
 #include <cmath>
 
 #include "log.hpp"
+#include "drawtrace.hpp"
 #include "skin.hpp"
 #include "video.h"
 
@@ -172,6 +173,8 @@ void Pose(const Running& r, Affine& live, Affine& old, float& oldAlpha, float& b
 void DrawPicture(int index, const Affine& a, float alpha, const Rect* clip = nullptr) {
     const u8 al = static_cast<u8>(std::lround(Clamp01(alpha) * 255));
     if (al == 0 || !g_pic[index]) return;
+    DrawTrace trace("the old screen's picture");
+    GxTraceTexture(g_pic[index], g_w, g_h, GX_TF_RGBA8);
     // The frame's corners in menu units, then where `a` puts them, as
     // EFB pixels (the display scale from video.cpp's own conversion, so
     // the spot is exact: a slow zoom does not shimmer).

@@ -78,6 +78,21 @@ struct PadSymbols {
 // when the game has none.
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error);
 
+// PADControlMotor(chan, command) in a GameCube game's own SDK (the one the
+// game was linked with, not the Wii's): after its checks it keeps the
+// command's two low bits (`rlwinm rX, rY, 0, 30, 31`), ORs them into the
+// analog mode with 0x40 in the top half (`oris rA, rB, 0x40`, the serial
+// interface's motor command) and calls SISetCommand and SITransferCommands,
+// two `bl` in a row. The function runs from the word after the previous
+// `blr`, and is only taken when that word starts like a function (`mflr r0`
+// or `stwu r1,-N(r1)` within three words, else an early return's `blr`
+// could put a hook mid-function) and none of its first four words, which
+// the hook's replay slot runs from elsewhere, is a relative branch. The
+// same in Super Mario Sunshine and Luigi's Mansion. `out` is 0 with `error`
+// empty when the game has none, and 0 with `error` set when several
+// functions match or the one found is not safe to hook.
+bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, std::string& error);
+
 // The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
 // every exception the game has no handler of its own for ends up, and
 // the game's own crash screens (installed with OSSetErrorHandler) are

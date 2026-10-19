@@ -3,8 +3,10 @@
 #include "riftwii/usbgame.hpp"
 
 #include "riftwii/disc.hpp"
+#include "riftwii/langfile.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <limits>
 
@@ -328,6 +330,40 @@ std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count) {
     }
     note += ". USB games need d2x (v11 beta3 is the latest) and will not boot until it is installed.";
     return note;
+}
+
+bool is_ciso_image_name(const std::string& name) {
+    static const char kExtension[] = ".ciso";
+    const std::size_t extension_length = sizeof(kExtension) - 1;
+    if (name.empty() || name[0] == '.' || name.size() <= extension_length) return false;
+    const std::size_t start = name.size() - extension_length;
+    for (std::size_t i = 0; i < extension_length; ++i) {
+        const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(name[start + i])));
+        if (lower != kExtension[i]) return false;
+    }
+    return true;
+}
+
+void CisoFinds::note(const std::string& path) {
+    if (paths.size() < kPathsKept) paths.push_back(path);
+    ++total;
+}
+
+std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, const std::string& and_more) {
+    if (finds.paths.empty()) return std::string();
+    std::string body = help + "\n\n" + finds.paths.front();
+    const std::size_t more = finds.total - 1;
+    if (more > 0) body += " " + fill_placeholders(and_more, {std::to_string(more)});
+    return body;
+}
+
+std::string ciso_log_line(const CisoFinds& finds) {
+    if (finds.paths.empty()) return std::string();
+    std::string line = "Home: CISO DETECTED: " + finds.paths.front();
+    const std::size_t more = finds.total - 1;
+    if (more > 0) line += " and " + std::to_string(more) + " more";
+    line += " (RiftWii plays .iso, .gcm and .rvz; convert it with Dolphin)";
+    return line;
 }
 
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error) {

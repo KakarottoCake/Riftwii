@@ -46,6 +46,7 @@
 
 #include "libwiigui/gui.h"
 #include "transition.hpp"
+#include "drawtrace.hpp"
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
@@ -77,6 +78,8 @@
 #include "credits.hpp"
 #include "gcadapter.hpp"
 #include "skin.hpp"
+#include "ciso_face_png.h"
+#include "riftwii/canvas.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "wiidrc.h"
 #include "menu.h"
@@ -92,7 +95,7 @@
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
 #include "gclaunch.hpp"
-#include "gcnative.hpp"
+#include "gcplugin.hpp"
 #include "gc_crash.h"
 #include "riftwii/gccrash.hpp"
 #include "gcpatch.hpp"
@@ -137,6 +140,12 @@ using riftwii::wii::tr;
 
 namespace skin = riftwii::wii::skin;
 
+// Where the left and right pill of a two-button row sit (x of the 244 wide
+// glass; centred on 320). The hovered pill grows to 110%, 12 more on each
+// side, so the 36 gap keeps it clear of its neighbour (a 12 gap, as the
+// pills had at 70 and 326, closed up and covered the other one).
+constexpr int kPairLeftX = 58, kPairRightX = 338;
+
 // For the session log: which screen the user reached last.
 static const char* ScreenName(int menu)
 {
@@ -151,6 +160,7 @@ static const char* ScreenName(int menu)
 		case MENU_SOURCE: return "home";
 		case MENU_CHANNEL: return "channel";
 		case MENU_NEEDS_SD: return "needs an SD card";
+		case MENU_PLAY_CHANNEL: return "launch (Wii channel)";
 		default: return "?";
 	}
 }
@@ -160,6 +170,12 @@ static skin::GuiBackdrop * backdrop = nullptr;
 static GuiSound * soundOver = nullptr;
 static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
+// Set by the GUI thread itself while it waits at the top of its loop for
+// ResumeGui. Being suspended is not enough to call it halted: GX also
+// suspends it in the middle of a frame while the GPU catches up (UpdateGUI).
+static std::atomic<bool> guiParked{false};
+// The menu's own thread, for the GUI watch (it is the one that called InitGUIThreads).
+static lwp_t menuthread = LWP_THREAD_NULL;
 static std::atomic<bool> hidePointers{false};
 
 // The Wii's screen burn-in reduction (Wii Settings): while it is on, the
@@ -275,14 +291,25 @@ static void ResumeGui()
 	// reload) was the menu's own work, and it is done.
 	riftwii::wii::CoverLoaderRelease();
 	guiHalt = false;
-	LWP_ResumeThread(guithread);
+	// Only from its park at the top of its loop: in the middle of a frame
+	// GX may be holding it until the GPU catches up, and woken there it
+	// would write on over commands the GPU has not read yet (UpdateGUI).
+	if (guiParked)
+		LWP_ResumeThread(guithread);
+}
+
+// Halted: parked at the top of its loop, its frame finished. Not merely
+// suspended, which GX also does in the middle of a frame (UpdateGUI).
+static bool GuiParked()
+{
+	return guiParked && LWP_ThreadIsSuspended(guithread);
 }
 
 static void HaltGui()
 {
 	g_menuTick = gettime();
 	guiHalt = true;
-	while(!LWP_ThreadIsSuspended(guithread))
+	while(!GuiParked())
 		usleep(THREAD_SLEEP);
 }
 
@@ -302,14 +329,38 @@ UpdateGUI(void *arg)
 	(void)arg;
 	int i;
 
+	// GX stops the thread that draws when its command buffer (the FIFO,
+	// 256 KB, read by the GPU while the CPU writes) is nearly full, and lets
+	// it go on once the GPU has read half of it. The thread it stops is
+	// the "GX thread", by default the one that called GX_Init: the menu's
+	// own thread, not this one. A frame that ran more than 240 KB ahead of
+	// the GPU then suspended the menu's thread while this one wrote on,
+	// round the ring and over commands the GPU had not read yet; a real
+	// GPU reads that as garbage and never finishes the frame (GX_DrawDone
+	// waits for ever), and the menu's thread stays suspended. Dolphin's GPU
+	// keeps up, so it never showed there. A tester's Wii froze just so on a
+	// game's page with the Indigo theme (both threads stopped, the GUI in
+	// GX_DrawDone, the menu's thread outside HaltGui): most likely the
+	// theme's full-screen picture under the page's outlined text, every
+	// glyph a texture load, kept the GPU behind long enough. GX now stops
+	// this thread instead, the one writing.
+	GX_SetCurrentGXThread();
+
 	while(1)
 	{
 		if(guiHalt)
 		{
-			LWP_SuspendThread(LWP_GetSelf());
+			guiParked = true;
+			// Again if something wakes it while the menu still holds it
+			// (GX lets "its" thread go when the GPU catches up, even one
+			// suspended here).
+			while(guiHalt)
+				LWP_SuspendThread(LWP_GetSelf());
+			guiParked = false;
 		}
 		else
 		{
+			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
@@ -330,11 +381,15 @@ UpdateGUI(void *arg)
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			if (swallowInput && !AnyHeld()) swallowInput = false;
+			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();
+			riftwii::wii::GuiPhase("drawing the windows");
 			mainWindow->Draw();
+			riftwii::wii::GuiPhase("transition end");
 			// The old screen over the new one while it comes in, and this
 			// frame kept for the next change (before the pointers).
 			riftwii::wii::transition::FrameEnd();
+			riftwii::wii::GuiPhase("pointers");
 
 			for(i = 3; i >= 0; i--)
 			{
@@ -348,13 +403,17 @@ UpdateGUI(void *arg)
 			if (const int flash = riftwii::wii::ScreenshotFlash())
 				Menu_FillWholeScreen((GXColor){255, 255, 255, static_cast<u8>(flash)});
 
+			riftwii::wii::GuiPhase("rendering (GX_DrawDone, vsync)");
 			Menu_Render();
+			riftwii::wii::GuiPhase("after the frame");
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 			riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
+			riftwii::wii::GuiPhase("updating the windows");
 			if (!idle && !swallowInput && !riftwii::wii::transition::Busy())
 				for(i = 0; i < 4; i++)
 					mainWindow->Update(&userInput[i]);
+			riftwii::wii::GuiPhase("frame done");
 
 			// An exit waits while the update's files are being swapped on
 			// the card: the menu keeps drawing until they are.
@@ -409,10 +468,73 @@ static void ResetPressed(u32, void*)
 	g_resetPressed = true;
 }
 
+// For a minute after DrawTraceArm, and when the frames stop, with
+// settings.txt's debug_gx on: once a second, whether the GUI thread
+// is drawing frames, where it is, and whether GX has the menu's thread
+// waiting (wii/menu/drawtrace.hpp).
+static void LogGuiWatch()
+{
+	static u64 lastSample = 0;
+	static u32 lastFrame = 0;
+	static bool stallLogged = false;
+	const u64 now = gettime();
+	if (lastSample != 0 && diff_msec(lastSample, now) < 1000) return;
+	const bool firstSample = lastSample == 0;
+	const u32 frame = FrameTimer;
+	const u32 framesSince = frame - lastFrame;
+	lastSample = now;
+	lastFrame = frame;
+
+	const bool armed = riftwii::wii::g_drawTraceUntil != 0 && now <= riftwii::wii::g_drawTraceUntil;
+	const bool stalled = !firstSample && framesSince == 0 && !guiHalt;
+	if (!stalled) stallLogged = false;
+	const bool newStall = riftwii::wii::g_gxWatch && stalled && !stallLogged;
+	if (!armed && !newStall) return;
+
+	const char* gui = GuiParked() ? "halted" : LWP_ThreadIsSuspended(guithread) ? "suspended by GX in a frame" : "running";
+	const char* menu = menuthread == LWP_THREAD_NULL ? "unknown"
+		: LWP_ThreadIsSuspended(menuthread) ? "suspended" : "not suspended";
+	logf("GUI watch: frame %u (%u since the last line), halted %s, GUI thread %s, in \"%s\" (render step \"%s\"), "
+	     "element \"%s\", menu tick %d ms ago, menu thread %s, GX FIFO overflows %u\n",
+	     static_cast<unsigned>(frame), static_cast<unsigned>(framesSince), guiHalt ? "yes" : "no", gui,
+	     riftwii::wii::g_guiPhase, menuRenderStep, riftwii::wii::g_guiElement,
+	     static_cast<int>(diff_msec(g_menuTick, now)), menu, static_cast<unsigned>(GX_GetOverflowCount()));
+	if (!riftwii::wii::g_gxTrace) return;
+	// The elements last started, newest first: with the GUI waiting for the
+	// GPU after each one, the first is the one the GPU stopped in.
+	riftwii::wii::GxDrawRecord records[8];
+	const int count = riftwii::wii::GxTraceLast(records, newStall ? 8 : 1);
+	for (int i = 0; i < count; ++i) {
+		const riftwii::wii::GxDrawRecord& r = records[i];
+		logf("GX trace %d: frame %u, element %s \"%s\", last picture %p, %ux%u %s\n", i + 1,
+		     static_cast<unsigned>(r.frame), r.kind, r.name, r.texture, static_cast<unsigned>(r.width),
+		     static_cast<unsigned>(r.height), r.texture ? riftwii::wii::GxFormatName(r.format) : "-");
+	}
+	if (newStall) stallLogged = true;
+}
+
+// GX's command FIFO filling up (UpdateGUI): the GUI thread then waits for
+// the GPU. Said in the log, at most once a minute, for problem reports.
+static void LogGxOverflows()
+{
+	static u32 told = 0;
+	static u64 toldAt = 0;
+	const u32 count = GX_GetOverflowCount();
+	if (count == told) return;
+	const u64 now = gettime();
+	if (told != 0 && diff_sec(toldAt, now) < 60) return;
+	logf("Graphics: the menu's drawing ran ahead of the GPU %u time(s) so far; each time the command buffer filled up "
+	     "and the GUI thread waited for the GPU to catch up\n", static_cast<unsigned>(count));
+	told = count;
+	toldAt = now;
+}
+
 static void* MenuWatchdog(void*)
 {
 	while (g_watchdogOn) {
 		usleep(200000);
+		LogGuiWatch();
+		LogGxOverflows();
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -423,7 +545,7 @@ static void* MenuWatchdog(void*)
 		// short (the power button waits for it, as the GUI's exit does).
 		if (riftwii::wii::CardWritesBusy()) continue;
 		bool home = false;
-		if (LWP_ThreadIsSuspended(guithread)) {
+		if (GuiParked()) {
 			// Nobody else reads the Remotes now.
 			WPAD_ScanPads();
 			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
@@ -447,6 +569,8 @@ void InitGUIThreads()
 	SYS_SetPowerCallback(PowerPressed);
 	SYS_SetResetCallback(ResetPressed);
 	WPAD_SetPowerButtonCallback(RemotePowerPressed);
+	menuthread = LWP_GetSelf();
+	riftwii::wii::GxTraceStart();
 	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
@@ -1186,12 +1310,40 @@ private:
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
+// What the downloads came to: a cover GameTDB has none of, or one that got
+// no answer, is passed over; only several in a row with no answer, or a
+// full card, stop them (riftwii/coverart.hpp, issue #130).
+static riftwii::CoverDownloads g_coverRun("Covers", "cover");
 // The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
 static std::set<std::string> g_boxesChecked;
 static bool g_boxesOff = false;
+static riftwii::CoverDownloads g_boxRun("Shelf", "full cover");
 // The same for the 3D covers view's pictures (wii/menu/cover3d.hpp).
 static std::set<std::string> g_covers3dChecked;
 static bool g_covers3dOff = false;
+static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
+
+// Counts one picture's download in `run`; true when that kind's downloads
+// stop with it.
+static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverFetch got, const std::string& game,
+	const std::string& error)
+{
+	riftwii::CoverOutcome outcome = riftwii::CoverOutcome::Stored;
+	if (got == riftwii::wii::CoverFetch::NotFound) outcome = riftwii::CoverOutcome::NotFound;
+	else if (got == riftwii::wii::CoverFetch::NoAnswer) outcome = riftwii::CoverOutcome::NoAnswer;
+	else if (got == riftwii::wii::CoverFetch::Failed) outcome = riftwii::CoverOutcome::CannotStore;
+	const char* name = run.log_name().c_str();
+	const bool stop = run.count(outcome);
+	if (stop) logf("%s: downloads stopped: %s\n", name, error.c_str());
+	else if (outcome == riftwii::CoverOutcome::NoAnswer)
+		logf("%s: passed over %s for now, as its download got no answer (%s); the others go on\n", name, game.c_str(),
+			error.c_str());
+	return stop;
+}
+static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
+{
+	return CountPictureFetch(g_coverRun, got, game, error);
+}
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
 // read from its image once and kept on the card. The icons of the page
@@ -1462,13 +1614,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	// The two pills sit 36 apart: the hovered one grows to 110% (12 more
-	// on each side), which closed the old 12 gap and covered its neighbour.
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 338, 384, tr("Start"),
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
-	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 58, 384, tr("Settings"),
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kPairLeftX, 384, tr("Settings"),
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
@@ -1967,6 +2117,7 @@ public:
 	}
 	void Draw() override {
 		if (!IsVisible()) return;
+		riftwii::wii::DrawTrace trace("the status line");
 		const int pillsLeft = prompts_.LeftEdge();
 		if (pillsLeft != laidOutFor_) Layout(pillsLeft);
 		for (std::size_t i = 0; i < lines_.size(); ++i) {
@@ -2104,15 +2255,26 @@ public:
 	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
 	// The body ends a little above the buttons: at 16 points a line is 22.
 	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
+	// `safeFirst`: for a question whose second button does something that
+	// cannot be undone. The first button (the safe one) takes A, B and HOME
+	// as hotkeys, so a press that is not aimed at the second button never
+	// answers it; the second is pressed only by pointing at it and
+	// pressing A, or by + (START on a GameCube controller).
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
-		 const std::string& cancel = "")
+		 const std::string& cancel = "", bool safeFirst = false)
 		: extra(PopupExtra()), panel(skin::popup, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
-		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, kButtonY, ok.c_str(),
-			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
-		  cancelBtn(skin::pill, skin::pillOver, 4, 326, kButtonY, cancel.c_str(),
-			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
-			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
+		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : kPairLeftX, kButtonY, ok.c_str(),
+			safeFirst ? (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B |
+				     WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME)
+				  : (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A),
+			safeFirst ? (PAD_BUTTON_A | PAD_BUTTON_B) : PAD_BUTTON_A,
+			safeFirst ? (WIIDRC_BUTTON_A | WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME) : WIIDRC_BUTTON_A),
+		  cancelBtn(skin::pill, skin::pillOver, 4, kPairRightX, kButtonY, cancel.c_str(),
+			safeFirst ? (WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS)
+				  : (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME),
+			safeFirst ? PAD_BUTTON_START : PAD_BUTTON_B,
+			safeFirst ? WIIDRC_BUTTON_PLUS : (WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME)),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
@@ -2142,6 +2304,14 @@ public:
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e) { w.Append(e); }
+	// The text centred across the top of the room, in at most `lines`
+	// lines, for a box with something of its own below it (the code mod's
+	// two choices): centred in the middle, it ran under them.
+	void BodyAtTop(int lines)
+	{
+		Place(bodyTxt, 0, kBodyY, true);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, lines);
+	}
 	// The second button alone, in the middle (as the first is when alone).
 	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
 	// How much wider than 4:3 the box is on each side (PopupExtra).
@@ -2241,6 +2411,16 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	return box.Wait();
 }
 
+// A question whose second answer cannot be undone: 0 the first (safe)
+// button, which A, B and HOME press, 1 the second, which needs the pointer
+// on it (or +). See PopupBox's `safeFirst`.
+static int ShowPopupSafeFirst(const std::string& title, const std::string& body, const std::string& safe,
+	const std::string& risky)
+{
+	PopupBox box(title, body, safe, risky, true);
+	return box.Wait();
+}
+
 // A code mod is switched on for the next start.
 static bool CodeModOn(const FrontendState& state)
 {
@@ -2261,13 +2441,16 @@ static bool PickCodeModStart(FrontendState& state)
 		tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."),
 		"", tr("Back"));
 	box.CenterCancel();
+	// The text's three lines at most (from y 158, 22 apart) end at 224,
+	// above the choices; the choices end above Back's pill (y 300).
+	box.BodyAtTop(3);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& t : tiles) {
-		t.y = 226;
+		t.y = 230;
 		t.w = 252;
-		t.h = 64;
+		t.h = 62;
 	}
 	tiles[0].label = tr("With extras");
 	tiles[0].value = tr("Crash reports, back to RiftWii");
@@ -3171,6 +3354,63 @@ static void SuggestDotClean()
 	}
 }
 
+// The picture of the CISO popup (drawn by KakarottoCake, embedded from
+// wii/assets) as a texture in `tex`, which the caller frees. False, and
+// the popup goes without it, when it can't be decoded.
+static bool LoadCisoFace(skin::Tex& tex)
+{
+	const std::vector<std::uint8_t> png(ciso_face_png, ciso_face_png + ciso_face_png_size);
+	std::vector<std::uint8_t> rgba;
+	int width = 0, height = 0;
+	std::string error;
+	if (!riftwii::wii::DecodePngRgba(png, rgba, width, height, error)) {
+		logf("Home: the CISO picture can't be read: %s\n", error.c_str());
+		return false;
+	}
+	const std::size_t bytes = rgba.size();
+	u8* pixels = static_cast<u8*>(memalign(32, bytes));
+	if (!pixels) return false;
+	if (!riftwii::to_gx_rgba8(rgba.data(), width, height, pixels)) {
+		free(pixels);
+		return false;
+	}
+	DCFlushRange(pixels, bytes);
+	tex.data = pixels;
+	tex.w = width;
+	tex.h = height;
+	return true;
+}
+
+// The maintainer's joke before a release, kept because it also helps: a
+// .ciso (CompactISO) GameCube image the SD scan passed over is never
+// listed, as RiftWii does not play them and will not, so instead of the
+// game going missing without a word, Home teases the player once per start
+// and says how to convert it. The title stays English in every language on
+// purpose: it is the joke's punchline, a shout that reads the same
+// everywhere, so it does not go through tr(). The help below it does.
+static void TeaseCisoOnce(const riftwii::wii::ImageCatalog& sd)
+{
+	static bool shown = false;
+	if (shown || sd.ciso.total == 0) return;
+	shown = true;
+	logf("%s\n", riftwii::ciso_log_line(sd.ciso).c_str());
+	const std::string body = riftwii::ciso_popup_body(sd.ciso,
+		tr("RiftWii doesn't play CISO files. Convert it to ISO or RVZ with Dolphin (right-click the game, Convert File)."),
+		tr("and {1} more"));
+	skin::Tex face;
+	const bool hasFace = LoadCisoFace(face);
+	{
+		PopupBox box("CISO DETECTED", body, tr("OK"));
+		// The face on the right, as the GameCube build popup's covers are,
+		// the text beside it; Add counts Extra() in itself.
+		const int faceX = 584 + box.Extra() - face.w;
+		SkinMark mark(face, faceX, PopupBox::kBodyY + 4, 1.0f);
+		if (hasFace) box.Add(&mark, faceX - 16 - 56);
+		box.Wait();
+	}
+	free(face.data);
+}
+
 // Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
 // answer): the channel can be added, and is not there yet. True to open
 // the installer.
@@ -3515,18 +3755,23 @@ static int MenuSource(FrontendState& state)
 	const bool dip = !skin::BarBump();
 	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
 	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	// The room each label has beside the dip; 0 on a bar that bumps, where
+	// the view's own cut-off below applies and the page has no limit.
+	int sideW = 0;
 	if (dip) {
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
 		// From the overscan's edges inwards (x 36 and 604, 4 inside the safe
 		// area), over the round buttons under them; one line, clear of the dip.
-		const int sideW = dipLeft - 10 - (36 - wide);  // a widescreen menu's start further out, at its own edge
+		// That leaves 320 - 185 - 10 - 36 = 89 px on a 4:3 menu (about 134 on
+		// a widescreen one). "Page 1 of 28" at 14 px is wider than that, so
+		// the old cut ended it in "...".
+		sideW = dipLeft - 10 - (36 - wide);  // a widescreen menu's start further out, at its own edge
 		viewTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		viewTxt.SetPosition(36 - wide, 354);
 		viewTxt.SetMaxWidth(sideW);
 		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 		pageTxt.SetPosition(-36 + wide, 354);
-		pageTxt.SetMaxWidth(sideW);
 	} else {
 		Place(pageTxt, 40 - wide, 300);
 		// The view in use, always on screen (the status line below gives way to notices).
@@ -3641,12 +3886,34 @@ static int MenuSource(FrontendState& state)
 		g_homeNoticeShown = true;
 	}
 
+	// The page number is never cut: a page count has to be read whole. When
+	// "Page 1 of 28" (or its translation) is wider than the room beside the
+	// dip, it is shown as "1 / 28", which needs no translation.
+	const auto setPageText = [&](int page, int pages) {
+		const std::string full = tr("Page {1} of {2}", {std::to_string(page), std::to_string(pages)});
+		pageTxt.SetText(full.c_str());
+		if (sideW > 0 && pageTxt.GetTextWidth() > sideW) {
+			const std::string compact = std::to_string(page) + " / " + std::to_string(pages);
+			pageTxt.SetText(compact.c_str());
+		}
+	};
+	// The view's name, shrunk a size at a time (never below 12 px) before
+	// it would be cut: "Todos los juegos" is wider than the 89 px of a
+	// 4:3 menu at 14 px, and a name reads better small than ended in "...".
+	const auto setViewText = [&](const std::string& text) {
+		viewTxt.SetText(text.c_str());
+		if (sideW <= 0) return;
+		for (int size = 14; size >= 12; --size) {
+			viewTxt.SetFontSize(size);
+			if (viewTxt.GetTextWidth() <= sideW) break;
+		}
+	};
 	const auto showView = [&] {
 		// A search lists every game whatever the filter, so it is the view.
 		// Over the view's own round button on a bar that dips: its name is enough.
 		const std::string name = g_search.empty() ? std::string(tr(dip ? FilterShortLabel(g_filter) : FilterLabel(g_filter)))
 			: tr("Search \"{1}\"", {g_search});
-		viewTxt.SetText((dip ? name : std::string(tr("View")) + ": " + name).c_str());
+		setViewText(dip ? name : std::string(tr("View")) + ": " + name);
 		// While a search is on, the round button's first press ends it.
 		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
 	};
@@ -3683,6 +3950,7 @@ static int MenuSource(FrontendState& state)
 		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
+		TeaseCisoOnce(state.sd_catalog);
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
@@ -3730,8 +3998,7 @@ static int MenuSource(FrontendState& state)
 		std::string arrived, coverError;
 		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
-			if (got == riftwii::wii::CoverFetch::Failed) {
-				logf("Covers: stopped: %s\n", coverError.c_str());
+			if (CountCoverFetch(got, arrived, coverError)) {
 				g_coversOff = true;
 				coverQueue.clear();
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(coverError, 60)});
@@ -3741,19 +4008,13 @@ static int MenuSource(FrontendState& state)
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeBoxFetch(boxArrived, boxGot, boxError)) {
-			if (boxGot == riftwii::wii::CoverFetch::Failed) {
-				logf("Shelf: box downloads stopped: %s\n", boxError.c_str());
-				g_boxesOff = true;
-			}
+			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError)) g_boxesOff = true;
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
 		std::string cover3dArrived, cover3dError;
 		riftwii::wii::CoverFetch cover3dGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCover3dFetch(cover3dArrived, cover3dGot, cover3dError)) {
-			if (cover3dGot == riftwii::wii::CoverFetch::Failed) {
-				logf("3D covers: downloads stopped: %s\n", cover3dError.c_str());
-				g_covers3dOff = true;
-			}
+			if (CountPictureFetch(g_cover3dRun, cover3dGot, cover3dArrived, cover3dError)) g_covers3dOff = true;
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
 		// Channels: a GameCube game's animated banner, downloaded on the
@@ -3811,6 +4072,11 @@ static int MenuSource(FrontendState& state)
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
+		}
+		// The queue done (or stopped): what came of it, once.
+		if (coverQueue.empty() && riftwii::wii::CoverFetchGame().empty()) {
+			const std::string summary = g_coverRun.take_summary();
+			if (!summary.empty()) logf("%s\n", summary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
@@ -3875,6 +4141,15 @@ static int MenuSource(FrontendState& state)
 				break;
 			}
 		}
+		// None of either started this turn: what the downloads came to so
+		// far, once for each new batch.
+		if (!riftwii::wii::NetBackgroundBusy() && riftwii::wii::BoxFetchGame().empty() &&
+		    riftwii::wii::Cover3dFetchGame().empty()) {
+			for (riftwii::CoverDownloads* run : {&g_boxRun, &g_cover3dRun}) {
+				const std::string summary = run->take_summary();
+				if (!summary.empty()) logf("%s\n", summary.c_str());
+			}
+		}
 		HaltGui();
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!gcBannerArrived.empty()) {
@@ -3917,8 +4192,11 @@ static int MenuSource(FrontendState& state)
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
 			// The shelf has no pages: Minus and Plus move it by 12 games.
-			const std::string page = shownPages > 1 && !grid.Shelf() ? tr("Page {1} of {2}", {std::to_string(shownPage + 1), std::to_string(shownPages)}) : "";
-			pageTxt.SetText(page.c_str());
+			if (shownPages > 1 && !grid.Shelf()) {
+				setPageText(shownPage + 1, shownPages);
+			} else {
+				pageTxt.SetText("");
+			}
 		}
 		std::string nowClock, nowDate;
 		ClockText(nowClock, nowDate);
@@ -4143,9 +4421,17 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::ForgetProfilePictures();
 			ScanDrives(state, statusTxt);
 			refresh(true);
-			// Covers that failed (or were never tried) are asked for again.
+			// Covers, boxes and 3D covers that failed (or were never tried)
+			// are asked for again.
 			g_coversOff = false;
 			g_coversChecked.clear();
+			g_coverRun.reset();
+			g_boxesOff = false;
+			g_boxesChecked.clear();
+			g_boxRun.reset();
+			g_covers3dOff = false;
+			g_covers3dChecked.clear();
+			g_cover3dRun.reset();
 			queueCovers();
 		}
 		ResumeGui();
@@ -4168,6 +4454,7 @@ public:
 	static constexpr int kHeight = 120;
 	GameBanner(GXColor hue, std::string id = "", bool disc = false) : hue(hue), id(std::move(id)), disc(disc) {}
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's band");
 		UpdateArt();
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
 		const int plainAlpha = static_cast<int>(255 * (1.0f - artShown));
@@ -4261,6 +4548,7 @@ public:
 		Place(text, x, y);
 	}
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's text");
 		text.SetColor((GXColor){0, 0, 0, 255});
 		// The shadow, softer and lower; then the outline: every offset
 		// within its radius (8 at 1, 20 at 2).
@@ -4333,7 +4621,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -4710,6 +4998,30 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			rows.push_back(widescreen);
 			refs.push_back({W::GcWidescreen});
 		}
+		FlowRow sharp;
+		sharp.kind = FlowRow::Kind::Option;
+		sharp.label = tr("Sharper picture");
+		sharp.on = game.gc_sharp == "on";
+		sharp.value = sharp.on ? tr("On") : tr("Off (as made)");
+		rows.push_back(sharp);
+		refs.push_back({W::GcSharp});
+		FlowRow width;
+		width.kind = FlowRow::Kind::Option;
+		width.label = tr("Picture width");
+		width.on = game.gc_width != "global";
+		width.value = GameValue(game.gc_width, global.video_width, WidthName);
+		rows.push_back(width);
+		refs.push_back({W::GcWidth});
+		// 50 or 60 Hz is a European game's question only.
+		if (riftwii::gc_pal_game(state.game_id)) {
+			FlowRow speed;
+			speed.kind = FlowRow::Kind::Option;
+			speed.label = tr("Game speed");
+			speed.on = game.gc_speed == "60";
+			speed.value = speed.on ? tr("Smoother (60 Hz)") : tr("As made (50 Hz)");
+			rows.push_back(speed);
+			refs.push_back({W::GcSpeed});
+		}
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
 		language.label = tr("Game language");
@@ -5004,7 +5316,7 @@ static bool PrepareGcGameInMenu(FrontendState& state)
 // The controllers a game can see, connected now (PadsConnectedNow, with
 // About this game).
 struct ConnectedPads {
-	bool remote = false, nunchuk = false, classic = false, gamecube = false, board = false;
+	bool remote = false, nunchuk = false, classic = false, pro = false, gamecube = false, board = false;
 };
 static ConnectedPads PadsConnectedNow();
 
@@ -5148,6 +5460,10 @@ static std::vector<GcControlsCard> GcControlsCards()
 		cards.push_back({tr("Classic Controller"),
 			{{"a", "A"}, {"b", "B"}, {"x", "X"}, {"y", "Y"}, {"L", "L"}, {"R", "R"}, {"ZL ZR", "Z"}, {"+", "Start"},
 				{"LS", tr("Stick")}, {"RS", tr("C-stick")}}, leaveHome});
+	if (pads.pro)
+		cards.push_back({tr("Wii U Pro Controller"),
+			{{"a", "A"}, {"b", "B"}, {"x", "X"}, {"y", "Y"}, {"L", "L"}, {"R", "R"}, {"ZL ZR", "Z"}, {"+", "Start"},
+				{"LS", tr("Stick")}, {"RS", tr("C-stick")}}, leaveHome});
 	if (pads.nunchuk)
 		cards.push_back({tr("Wii Remote and Nunchuk"),
 			{{"A", "A"}, {"B", "B"}, {"1", "X"}, {"2", "Y"}, {"C", "L"}, {"Z", "R"}, {"-", "Z"}, {"+", "Start"},
@@ -5249,8 +5565,6 @@ static std::string GcLeaveLine()
 	return cards.empty() ? std::string(tr("Hold HOME for two seconds to leave the game.")) : cards.front().leave;
 }
 
-// 480p picked while the Wii's own 480p setting is off: said once, as the
-// setting being off may mean no cable takes it. True: Turn on.
 // Before a game's memory card changes between its own and the shared one.
 static bool AskGcCardSwitch()
 {
@@ -5258,6 +5572,8 @@ static bool AskGcCardSwitch()
 		tr("Switch"), tr("Cancel")) == 0;
 }
 
+// 480p picked with no component cable seen: said once, as the TV may not
+// take it. True: Turn on.
 static bool AskGc480p()
 {
 	const std::string body = std::string(tr("Only with a component or HDMI cable: without one the picture stays black.")) +
@@ -6140,7 +6456,7 @@ static void MenuGcCard(FrontendState& state)
 	RunRowPage(shared ? tr("Shared Memory Card") : tr("Memory Card"), GameTitle(state), rows, note, act, space);
 }
 
-// A GameCube game's crash screen (gcnative.hpp's SetGcCrashScreen, laid
+// A GameCube game's crash screen (gcplugin.hpp's SetGcCrashScreen, laid
 // out as runtime/gc/gc_crash.h says), in the menu's own font and language,
 // made here as the launch screen cannot show translations: a header line,
 // a hint saying which button goes where, and the pieces the blob puts the
@@ -6442,9 +6758,13 @@ static ConnectedPads PadsConnectedNow()
 		const WPADData* d = WPAD_Data(i);
 		if (!d) continue;
 		if (d->exp.type == WPAD_EXP_NUNCHUK) pads.nunchuk = true;
-		// A Wii U Pro Controller reads as a Classic Controller here, but
-		// games do not take it.
-		if (d->exp.type == WPAD_EXP_CLASSIC && d->exp.classic.type != CLASSIC_TYPE_WIIU) pads.classic = true;
+		// A Wii U Pro Controller reads as a Classic Controller here. A
+		// GameCube game takes it with the Classic Controller's buttons
+		// (runtime/gc/gc_pro.h), so it gets a card of its own.
+		if (d->exp.type == WPAD_EXP_CLASSIC) {
+			if (d->exp.classic.type == CLASSIC_TYPE_WIIU) pads.pro = true;
+			else pads.classic = true;
+		}
 	}
 	u32 boardType = 0;
 	if (WPAD_Probe(WPAD_BALANCE_BOARD, &boardType) == WPAD_ERR_NONE) pads.board = true;
@@ -6619,6 +6939,7 @@ public:
 	HeroCover& operator=(const HeroCover&) = delete;
 	~HeroCover() override { free(rounded); }
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's cover");
 		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
 		if (const u8* art = RoundedArt()) {
 			// A drop shadow, as if the box stood a little off the page, lit
@@ -7877,6 +8198,9 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.gc_progressive != "global") ++changed;
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
+	if (g.gc_sharp == "on") ++changed;
+	if (g.gc_width != "global") ++changed;
+	if (g.gc_speed == "60") ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -8061,10 +8385,19 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Save to a card for this game alone, or to one card shared by all your games."));
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
 				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
+				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
+				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
 			else if (ref.what == RowRef::What::GcProgressive)
 				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
 			else if (ref.what == RowRef::What::GcWidescreen)
 				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
+			else if (ref.what == RowRef::What::GcSharp)
+				say(tr("Turns off the soft blur some games add."));
+			else if (ref.what == RowRef::What::GcWidth)
+				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+			else if (ref.what == RowRef::What::GcSpeed)
+				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -8121,17 +8454,21 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcProgressive) {
 				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
-				// The Wii's own 480p setting off says nothing about the cable:
+				// Without a component cable seen nothing says the TV takes
+				// 480p (the Wii's own setting may be from another cable):
 				// asked once, when 480p is picked; Cancel goes on past it.
 				riftwii::GameSettings picked = game;
 				picked.gc_progressive = next;
 				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
-				if (!console.wii_progressive && riftwii::gc_progressive_on(picked, state.game_id, console) &&
+				if (!console.component_cable && riftwii::gc_progressive_on(picked, state.game_id, console) &&
 				    !AskGc480p())
 					next = StepValue(kGcProgressiveChoices, next, direction);
 				game.gc_progressive = next;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
+			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
+			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
+			else if (ref.what == RowRef::What::GcSpeed) game.gc_speed = game.gc_speed == "60" ? "50" : "60";
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);
@@ -8178,6 +8515,14 @@ static int MenuHome(FrontendState& state)
 	// the card and the rows worked out with the GUI going (none of it is
 	// on screen), which stopped the banner otherwise. The widgets are made
 	// with it halted, as ever.
+	// A tester's Wii froze here with the Indigo theme. With settings.txt's
+	// debug_gx on, the page's steps are logged and, for the next minute,
+	// the menu watchdog logs where the GUI thread is once a second
+	// (wii/menu/drawtrace.hpp).
+	if (riftwii::wii::g_gxWatch) {
+		riftwii::wii::DrawTraceArm(60);
+		logf("Game page: building\n");
+	}
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
 	std::string scanStatus;
@@ -8200,6 +8545,7 @@ static int MenuHome(FrontendState& state)
 	std::vector<TileSpec> tiles;
 	std::vector<GameTile> tileWhat;
 	BuildGameTiles(state, tiles, tileWhat);
+	if (riftwii::wii::g_gxWatch) logf("Game page: tiles built\n");
 	if (buildBehindBanner) HaltGui();
 	// A channel's page shows its icon (HeroCover): loaded here when Home's
 	// Channels view did not, its banner stored from the Wii first if need be.
@@ -8249,6 +8595,7 @@ static int MenuHome(FrontendState& state)
 	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
 
+	if (riftwii::wii::g_gxWatch) logf("Game page: texts made\n");
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
@@ -8310,6 +8657,7 @@ static int MenuHome(FrontendState& state)
 	// Start is handled. Off, not hidden: GuiWindow::SetVisible(true) would
 	// show every element again, the ones the page keeps hidden too.
 	if (!bannerHeld) mainWindow->Append(&w);
+	if (riftwii::wii::g_gxWatch) logf("Game page: shown, the GUI runs\n");
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
@@ -8367,15 +8715,15 @@ static int MenuHome(FrontendState& state)
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(id);
 				if (id != state.game_id) {
 					// One Home started before this page opened.
-					if (got == riftwii::wii::CoverFetch::Failed) {
-						logf("Covers: stopped: %s\n", error.c_str());
-						g_coversOff = true;
-					}
+					if (CountCoverFetch(got, id, error)) g_coversOff = true;
 				} else {
+					// Counted like Home's, unless the player asked for it: that
+					// one never turns the downloads off, its failure is only said
+					// to them (below).
+					const bool stop = !coverAsked && CountCoverFetch(got, id, error);
 					if (got == riftwii::wii::CoverFetch::Stored) {
 						g_coversOff = false;
-					} else if (got == riftwii::wii::CoverFetch::Failed && !coverAsked) {
-						logf("Covers: stopped: %s\n", error.c_str());
+					} else if (stop) {
 						g_coversOff = true;
 					}
 					if (coverAsked) {
@@ -8394,8 +8742,10 @@ static int MenuHome(FrontendState& state)
 		{
 			std::string id, error;
 			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
-			if (riftwii::wii::TakeBoxFetch(id, got, error) && got == riftwii::wii::CoverFetch::Stored)
-				riftwii::wii::ForgetBox(id);
+			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
+				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
+				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
+			}
 		}
 
 		const int lit = tileGrid.Selected();
@@ -8505,8 +8855,7 @@ static int MenuHome(FrontendState& state)
 					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
 					logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
 					riftwii::wii::SetChannelToStart(channel);
-					g_leave = riftwii::wii::kLeaveToChannel;
-					menu = MENU_EXIT;
+					menu = MENU_PLAY_CHANNEL;
 				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
@@ -8599,11 +8948,10 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
-	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
+	if (menu != MENU_LAUNCH && menu != MENU_BOOT && menu != MENU_PLAY_CHANNEL) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not, and
 	// with a channel's.
-	const bool channelStart = menu == MENU_EXIT && state.use_channel && g_leave == riftwii::wii::kLeaveToChannel;
-	if (menu == MENU_LAUNCH || menu == MENU_BOOT || channelStart) {
+	if (menu == MENU_LAUNCH || menu == MENU_BOOT || menu == MENU_PLAY_CHANNEL) {
 		// The page is gone: a banner still on screen plays on meanwhile
 		// (cheats and settings read, the play recorded, all on the card).
 		const bool playing = g_lingerBanner != nullptr;
@@ -8899,7 +9247,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
 		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -8996,6 +9344,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
+		option(tr("Launch music"), settings.launch_music == "off" ? tr("Fade out") : tr("Keep playing"),
+			settings.launch_music != "off", kLaunchMusic);
+		// Without menu music there is nothing to keep or fade.
+		if (settings.menu_music == "off") rows.back().dim = true;
 		FlowRow ios;
 		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
 		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
@@ -9129,7 +9481,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
 				case kOnline: case kNames: case kServer: case kUpdate:
@@ -9234,6 +9586,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
+			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -9445,6 +9798,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					saveAndNote((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
 					rebuild();
 					break;
+				case kLaunchMusic:
+					settings.launch_music = settings.launch_music == "off" ? "on" : "off";
+					saveAndNote(tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."));
+					rebuild();
+					break;
 				case kHomeTiles:
 					settings.home_tiles = settings.home_tiles == "covers" ? "covers3d" : settings.home_tiles == "covers3d" ? "carousel"
 						: settings.home_tiles == "carousel" ? "shelf"
@@ -9631,12 +9989,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					ShowWhatsNew();
 					break;
 				case kResetAll: {
-					if (ShowPopup(tr("Reset all settings?"),
+					// Cancel is the first button: A, B and HOME all answer it, so
+					// a stray press never resets (Jack, on a real Wii).
+					if (ShowPopupSafeFirst(tr("Reset all settings?"),
 						    tr("Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."),
-						    tr("Reset"), tr("Cancel")) != 0)
+						    tr("Cancel"), tr("Reset")) != 1)
 						break;
-					logf("Settings: all reset to the defaults\n");
-					settings = riftwii::LoaderSettings{};
+					logf("Settings: all reset to the defaults (favorites and game folders kept)\n");
+					settings = riftwii::settings_after_reset(settings);
 					const std::string error = saveSettings();
 					rebuild();
 					if (!error.empty()) {
@@ -9966,10 +10326,10 @@ static int MenuNeedsSd()
 	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
 	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);
-	SkinButton exitBtn(skin::pill, skin::pillOver, 4, canRetry ? 70 : 198, 412, tr("Exit"),
+	SkinButton exitBtn(skin::pill, skin::pillOver, 4, canRetry ? kPairLeftX : 198, 412, tr("Exit"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
-	SkinButton retryBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 412, tr("Try again"),
+	SkinButton retryBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 412, tr("Try again"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 	retryBtn.text.SetColor(skin::kAccentInk);
 
@@ -10012,7 +10372,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: action == MENU_CHANNEL ? tr("Opening the installer for") : tr("Starting");
 	// The game page's band in the game's colour, as the page it starts from.
 	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id),
-		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd);
+		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd && !state.use_channel);
 	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
 	Place(doingTxt, 40, 10);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
@@ -10088,7 +10448,7 @@ int MainMenu(int menu, FrontendState& state)
 	ResumeGui();
 
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
-		currentMenu != MENU_CHANNEL)
+		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		skin::SetOnHome(currentMenu == MENU_SOURCE);
@@ -10128,7 +10488,8 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
-	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL) {
+	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
+		currentMenu == MENU_PLAY_CHANNEL) {
 		// The GUI thread is halted after this; main prints the boot log
 		// into the card of the frame left on screen.
 		ShowLaunchFrame(state, currentMenu);

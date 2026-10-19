@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "gc_bt.h"
 #include "gc_rt.h"
 #include "riftwii/gccrash.hpp"
 
@@ -81,6 +82,52 @@ void test_crash() {
     EXPECT_TRUE(text.find("GZLE01 crashed: a jump into RiftWii's own data at SRR0 (DAR holds CTR)\n") !=
                 std::string::npos);
     EXPECT_TRUE(text.find("DAR 0x817de860") != std::string::npos);
+}
+
+// A tester's trace says how far the Wii Remotes got: here a Classic
+// Controller whose start was refused, tried again and given up.
+void test_remotes() {
+    std::string text;
+    EXPECT_TRUE(!riftwii::describe_gc_remotes({}, text));
+    std::vector<std::uint8_t> trace(512 * 4, 0);
+    record(trace, 0, 1, GC_TRACE_JUMP);
+    record(trace, 2, 7, GC_TRACE_PAD);  // the newest
+    const std::uint32_t reached = GC_BT_SEEN_OPEN | GC_BT_SEEN_RESET | GC_BT_SEEN_KEYS | GC_BT_SEEN_SCAN |
+                                  GC_BT_SEEN_CONN_REQUEST | GC_BT_SEEN_CONNECTED | GC_BT_SEEN_AUTH_OK |
+                                  GC_BT_SEEN_L2CAP | GC_BT_SEEN_READY | GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION |
+                                  GC_BT_SEEN_EXT_ERROR | GC_BT_SEEN_EXT_RETRY | GC_BT_SEEN_EXT_GIVEN_UP |
+                                  GC_BT_SEEN_MODE | GC_BT_SEEN_DATA;
+    put(trace, 2, GC_TR_BT_PROGRESS, reached);
+    put(trace, 2, GC_TR_BT_STAGE, GC_BT_STAGE_READY);
+    put(trace, 2, GC_TR_BT_KEYS, 3u << 16 | 1u);
+    put(trace, 2, GC_TR_BT_LINK, 0x00000007u);
+    put(trace, 2, GC_TR_BT_EXT, 0x00003001u);
+    put(trace, 2, GC_TR_BT_REPORTS, 420);
+    put(trace, 2, GC_TR_PAD_READS, 900);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
+    EXPECT_TRUE(text.find("trace record 7, after 900 pad reads") != std::string::npos);
+    EXPECT_TRUE(text.find("Bluetooth ready for remotes") != std::string::npos);
+    EXPECT_TRUE(text.find("3 stored link key(s), 1 connection(s), 420 button report(s)") != std::string::npos);
+    EXPECT_TRUE(text.find("Not reached: extension write acknowledged, extension identified.") != std::string::npos);
+    EXPECT_TRUE(text.find("the extension's start was given up") != std::string::npos);
+    EXPECT_TRUE(text.find("extension error 0x07") != std::string::npos);
+    EXPECT_TRUE(text.find("last report mode 0x30, extensions given up 1") != std::string::npos);
+    EXPECT_TRUE(text.find("Wii U Pro Controller") == std::string::npos);
+    // A Wii U Pro Controller identified: its own line, its ID and mode 0x34.
+    put(trace, 2, GC_TR_BT_PROGRESS, reached | GC_BT_SEEN_PRO);
+    put(trace, 2, GC_TR_BT_EXT, 0x01203400u);
+    put(trace, 2, GC_TR_BT_PRO_RANGE + 0, 0x0120u << 16 | 0x0E80u);
+    put(trace, 2, GC_TR_BT_PRO_RANGE + 3, 0x0100u << 16 | 0x0F00u);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
+    EXPECT_TRUE(text.find("A Wii U Pro Controller connected (extension ID 01 20)") != std::string::npos);
+    EXPECT_TRUE(text.find("Last extension ID 0x01 0x20, last report mode 0x34") != std::string::npos);
+    EXPECT_TRUE(text.find("left X 288-3712, right X 0-0, left Y 0-0, right Y 256-3840.") != std::string::npos);
+    // Nothing at all: the device never opened.
+    std::vector<std::uint8_t> early(512, 0);
+    record(early, 0, 1, GC_TRACE_JUMP);
+    EXPECT_TRUE(riftwii::describe_gc_remotes(early, text));
+    EXPECT_TRUE(text.find("Reached: nothing.") != std::string::npos);
+    EXPECT_TRUE(text.find("not opened") != std::string::npos);
 }
 
 // The crash screen's blue is RGB (0, 120, 215) in BT.601's studio range,
@@ -265,6 +312,7 @@ void test_compose() {
 int main() {
     test_no_crash();
     test_crash();
+    test_remotes();
     test_blue();
     test_names();
     test_pack();

@@ -112,6 +112,9 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
         File patch(path);
         if (!patch.f) continue;
         bool listed = false;
+        // Why each GameCube game was not its original, for the log: a
+        // tester's patch matched none and the log could not say why.
+        std::string why;
         for (const ImageGame& g : games) {
             if (!g.gamecube || !g.gc_patch_source.empty() || g.device != ImageDevice::Sd) continue;
             // A patch is applied to an ISO's bytes as they are on the card,
@@ -123,8 +126,10 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             bool checked = false;
             std::string error;
             if (!vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60, head, checked, error,
-                             wii_limits()))
+                             wii_limits())) {
+                why += (why.empty() ? "" : "; ") + g.id + ": " + error;
                 continue;  // not this one's original
+            }
             if (!checked) {
                 logf("GameCube patch %s: no checksum to tell its original by; not listed\n", path.c_str());
                 break;
@@ -150,7 +155,9 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             listed = true;
             break;
         }
-        if (!listed) logf("GameCube patch %s: none of the GameCube games is its original\n", path.c_str());
+        if (!listed)
+            logf("GameCube patch %s: none of the GameCube games is its original (%s)\n", path.c_str(),
+                 why.empty() ? "no GameCube ISO on the SD card" : why.c_str());
     }
     for (ImageGame& x : found) games.push_back(std::move(x));
 }

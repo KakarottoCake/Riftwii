@@ -1,0 +1,152 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Builds RiftWii's plugins (docs/PLUGINS.md) with devkitPPC: one .rwp per
+# folder in PLUGINS, from plugins/<name>/*.c, *.cpp and *.S, plus, for a
+# C++ plugin, the runtime (plugins/common/rwpruntime.cpp) and its own
+# copies of the src/ files it calls (<name>_SRC). Makefile.wii runs it
+# before the DOL is linked and passes the version and build stamp the DOL
+# is built with, so the two always match:
+#
+#   make -f Makefile.wii plugins
+#
+# Each plugin is linked twice, at 0 (with --emit-relocs) and at another
+# base; tools/make_plugin.py takes both, as Makefile.runtime and
+# tools/rtreloc.py do for the RVZ blob, and refuses a plugin with an
+# undefined symbol, a forbidden section, more memory than the arena, or a
+# relocation list that does not turn the one link into the other. Out:
+#
+#   build-plugins/<name>.rwp                       for the size report
+#   build-plugins/plugins/<name>.<version>.rwp     sd:/apps/riftwii/plugins/
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+ifeq ($(strip $(RIFTWII_VERSION)),)
+$(error "Makefile.plugin is run by Makefile.wii, which passes RIFTWII_VERSION and RIFTWII_BUILD_STAMP: make -f Makefile.wii plugins")
+endif
+ifeq ($(strip $(RIFTWII_BUILD_STAMP)),)
+$(error "Makefile.plugin is run by Makefile.wii, which passes RIFTWII_VERSION and RIFTWII_BUILD_STAMP: make -f Makefile.wii plugins")
+endif
+
+PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
+CC      := $(PREFIX)gcc
+CXX     := $(PREFIX)g++
+PYTHON  ?= python3
+LIBOGC_INC ?= $(DEVKITPRO)/libogc/include
+
+PLUGINS := selftest gamecube
+.DEFAULT_GOAL := all
+OUT     := build-plugins
+SDDIR   := $(OUT)/plugins
+ALT_BASE := 0x12340000
+# Where Makefile.runtime leaves the in-game blobs a plugin may carry.
+RUNTIME_OUT := build-runtime
+
+# The GameCube loader (docs/PLUGINS.md, "Stage (b)"): its own copies of the
+# platform-free code it calls. --gc-sections keeps only what it reaches, so
+# a file of which it uses one function brings that function.
+gamecube_SRC := src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp \
+                src/patching/gcvideo.cpp src/data/gccontrols.cpp src/patching/gcoverlay.cpp \
+                src/patching/gcrequest.cpp src/fs/gccard.cpp src/fs/rvz.cpp src/data/sha1.cpp \
+                src/patching/symsearch.cpp src/patching/codehook.cpp src/patching/hook.cpp \
+                src/fs/fragments.cpp src/patching/gxpatches.cpp src/patching/launch.cpp runtime/rtrvz.c
+gamecube_CXX := yes
+
+# What libstdc++'s headers leave out of line for std::map and no plugin
+# source defines: the red-black tree's balancing, libstdc++'s tree.o, taken
+# out of the toolchain's library alone. Linking the whole library would
+# bring whatever else matches a name (its streams, its own throws). Its
+# unwinding table goes: the balancing calls nothing and throws nothing,
+# and a plugin has no unwinder to read it (plugins/plugin.ld refuses one).
+LIBSTDCXX := $(shell $(CXX) -mcpu=750 -meabi -mhard-float -print-file-name=libstdc++.a)
+TREE_OBJ := $(OUT)/libstdcxx/tree.o
+$(TREE_OBJ): $(LIBSTDCXX)
+	@mkdir -p $(dir $@)
+	@cd $(dir $@) && $(PREFIX)ar x $(LIBSTDCXX) tree.o
+	@$(PREFIX)objcopy --remove-section=.eh_frame $@
+
+# Makefile.runtime's freestanding flags, with the loader's floating point
+# (hard: a plugin runs in RiftWii, not in a game) and data sections, so
+# --gc-sections keeps only what the entry points reach.
+CFLAGS  := -Os -mcpu=750 -meabi -mhard-float -msdata=none \
+           -ffreestanding -nostdlib -fno-builtin \
+           -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -fno-exceptions \
+           -fno-stack-protector -fno-common -ffunction-sections -fdata-sections -std=c99 \
+           -Wall -Wextra -Wpedantic -Werror -Iinclude
+# C++ plugins: the same code generation, no exceptions, RTTI or
+# thread-safe statics (nothing to unwind with, no threads of their own),
+# libogc's headers for types and inline code only (its functions are
+# reached through rwp_host), and the runtime's folder.
+CXXFLAGS := -Os -mcpu=750 -meabi -mhard-float -msdata=none -DGEKKO -DHW_RVL \
+            -fno-exceptions -fno-rtti -fno-threadsafe-statics \
+            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
+            -fno-stack-protector -fno-common -ffunction-sections -fdata-sections -std=c++17 \
+            -Wall -Wextra -Werror -Iinclude -Iplugins/common -Iruntime -Iruntime/resident -Iruntime/gc \
+            -Ivendor-zstd -I$(LIBOGC_INC)
+ASFLAGS := -mcpu=750 -meabi -mregnames -Wa,-I$(RUNTIME_OUT)
+LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections \
+           -Wl,--undefined=rwp_init -Wl,--undefined=rwp_exports -T plugins/plugin.ld
+
+.PHONY: all clean
+all: $(foreach p,$(PLUGINS),$(SDDIR)/$(p).$(RIFTWII_VERSION).rwp)
+
+# The stamp the plugins are sealed with; rewritten only when it changes,
+# so a new commit re-seals them without compiling them again.
+STAMP_FILE := $(OUT)/build-stamp.txt
+$(shell mkdir -p $(OUT) && [ "$$(cat $(STAMP_FILE) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(STAMP_FILE))
+
+define plugin_rules
+$(OUT)/$(1)/%.o: plugins/$(1)/%.c include/riftwii/plugin_api.h
+	@mkdir -p $$(dir $$@)
+	$$(CC) $$(CFLAGS) -c -o $$@ $$<
+
+$(OUT)/$(1)/%.o: plugins/$(1)/%.cpp include/riftwii/plugin_api.h
+	@mkdir -p $$(dir $$@)
+	$$(CXX) $$(CXXFLAGS) -MMD -MP -c -o $$@ $$<
+
+$(OUT)/$(1)/%.o: plugins/$(1)/%.S $(wildcard $(RUNTIME_OUT)/*)
+	@mkdir -p $$(dir $$@)
+	$$(CC) $$(ASFLAGS) -x assembler-with-cpp -c -o $$@ $$<
+
+# The C++ runtime and the src/ copies, under the plugin's own folder.
+$(OUT)/$(1)/common/%.o: plugins/common/%.cpp include/riftwii/plugin_api.h
+	@mkdir -p $$(dir $$@)
+	$$(CXX) $$(CXXFLAGS) -MMD -MP -c -o $$@ $$<
+
+$(OUT)/$(1)/ext/%.o: %.cpp
+	@mkdir -p $$(dir $$@)
+	$$(CXX) $$(CXXFLAGS) -MMD -MP -c -o $$@ $$<
+
+$(OUT)/$(1)/ext/%.o: %.c
+	@mkdir -p $$(dir $$@)
+	$$(CC) $$(CFLAGS) -Iruntime -MMD -MP -c -o $$@ $$<
+
+$(1)_OBJS := $$(patsubst plugins/$(1)/%.c,$(OUT)/$(1)/%.o,$$(wildcard plugins/$(1)/*.c)) \
+             $$(patsubst plugins/$(1)/%.cpp,$(OUT)/$(1)/%.o,$$(wildcard plugins/$(1)/*.cpp)) \
+             $$(patsubst plugins/$(1)/%.S,$(OUT)/$(1)/%.o,$$(wildcard plugins/$(1)/*.S)) \
+             $$(if $$($(1)_CXX),$$(patsubst plugins/common/%.cpp,$(OUT)/$(1)/common/%.o,$$(wildcard plugins/common/*.cpp))) \
+             $$(patsubst %.cpp,$(OUT)/$(1)/ext/%.o,$$(filter %.cpp,$$($(1)_SRC))) \
+             $$(patsubst %.c,$(OUT)/$(1)/ext/%.o,$$(filter %.c,$$($(1)_SRC))) \
+             $$(if $$($(1)_CXX),$(TREE_OBJ))
+-include $$($(1)_OBJS:.o=.d)
+
+$(OUT)/$(1)/$(1).elf: $$($(1)_OBJS) plugins/plugin.ld
+	$$(CC) $$(CFLAGS) $$(LDFLAGS) -Wl,--emit-relocs -Wl,-Map,$(OUT)/$(1)/$(1).map -Wl,--defsym,RWP_BASE=0 \
+		-o $$@ $$($(1)_OBJS) -lgcc
+
+$(OUT)/$(1)/$(1)_alt.elf: $$($(1)_OBJS) plugins/plugin.ld
+	$$(CC) $$(CFLAGS) $$(LDFLAGS) -Wl,--defsym,RWP_BASE=$(ALT_BASE) -o $$@ $$($(1)_OBJS) -lgcc
+
+# Other versions' files of this plugin leave the output folder, so it
+# holds exactly what the zip carries.
+$(OUT)/$(1).rwp $(SDDIR)/$(1).$(RIFTWII_VERSION).rwp: $(OUT)/$(1)/$(1).elf $(OUT)/$(1)/$(1)_alt.elf \
+		tools/make_plugin.py include/riftwii/plugin_api.h $(STAMP_FILE)
+	@mkdir -p $(SDDIR)
+	@rm -f $(SDDIR)/$(1).*.rwp
+	@$$(PYTHON) tools/make_plugin.py build --elf $(OUT)/$(1)/$(1).elf --alt-elf $(OUT)/$(1)/$(1)_alt.elf \
+		--alt-base $(ALT_BASE) --name $(1) --stamp $(RIFTWII_BUILD_STAMP) --out $(OUT)/$(1).rwp
+	@cp $(OUT)/$(1).rwp $(SDDIR)/$(1).$(RIFTWII_VERSION).rwp
+endef
+$(foreach p,$(PLUGINS),$(eval $(call plugin_rules,$(p))))
+
+clean:
+	@rm -rf $(OUT)

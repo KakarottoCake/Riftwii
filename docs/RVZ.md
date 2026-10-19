@@ -144,7 +144,7 @@ for a Wii game. A GameCube RVZ elsewhere (`sd:/wbfs`, the top of `sd:/games`, th
 is listed refused, with a pointer to the folder it goes in. Patch-only
 mods (`sd:/riftwii/patches`) are made from ISOs only.
 
-At launch (`wii/launch/gcnative.cpp`) the loader reads boot.bin, bi2.bin,
+At launch (`plugins/gamecube/gcnative.cpp`) the loader reads boot.bin, bi2.bin,
 the FST and the DOL from the RVZ, writes the group table for the disc to
 `sd:/riftwii/rvz/<ID>.groups` (8 bytes a group, as for Wii games) and
 starts the game with the blob's RVZ build, `riftwii_gc_rvz.bin`: the usual
