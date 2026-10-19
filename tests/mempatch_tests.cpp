@@ -245,6 +245,30 @@ static void test_search() {
         EXPECT_TRUE(notes.back().find("stopped after 65536 matches") != std::string::npos);
         EXPECT_EQ(zeros.str(0x8000FFFFu, 1), std::string("\x01"));
         EXPECT_EQ(zeros.str(0x90000000u, 1), std::string(1, '\0'));
+        // The matches come from the chunk in hand: a few reads of 32 KiB,
+        // where each match read one again (CAV-02).
+        EXPECT_TRUE(zeros.reads < 16u);
+    }
+    // Searches without end through macros (CAV-02): one launch's searches
+    // read at most 1 GiB of game memory in all, then the launch stops with
+    // a sentence, never half way through for good.
+    {
+        FakeMemory plain;
+        riftwii::MemoryPatch absent;
+        absent.search = true;
+        absent.original = Bytes("none");
+        absent.value = Bytes("NONE");
+        absent.align = 4;
+        // 68 KiB a search: 16,000 of them are past 1 GiB.
+        const std::vector<riftwii::MemoryPatch> many(16000, absent);
+        std::vector<std::string> many_notes;
+        EXPECT_FALSE(riftwii::apply_memory_patches(many, {{0x80000000u, 0x10000}, {0x90000000u, 0x1000}}, kWritable,
+                                                   plain, many_notes, err));
+        EXPECT_TRUE(err.find("1024 MiB") != std::string::npos);
+        // A hundred are fine.
+        const std::vector<riftwii::MemoryPatch> some(100, absent);
+        EXPECT_TRUE(riftwii::apply_memory_patches(some, {{0x80000000u, 0x10000}, {0x90000000u, 0x1000}}, kWritable,
+                                                  plain, many_notes, err));
     }
     // A match where nothing may be written is passed over and the others
     // still written (MIN-07), where it used to fail the launch.
