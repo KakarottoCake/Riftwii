@@ -68,7 +68,9 @@ bool wad_content_places(const WadLayout& layout, const TmdContents& tmd, std::ve
         place.content = c;
         place.offset = at;
         place.stored = (c.size + 15) & ~std::uint64_t(15);
-        if (c.size == 0 || place.stored < c.size || at + place.stored > end) {
+        // Compared without adding to `at`: a size near 2^64 rounds to itself
+        // and `at + stored` wrapped below `end` (BUG-12).
+        if (c.size == 0 || place.stored < c.size || at > end || place.stored > end - at) {
             char text[64];
             std::snprintf(text, sizeof text, "content %08x runs past the WAD's data", static_cast<unsigned>(c.id));
             error = text;
