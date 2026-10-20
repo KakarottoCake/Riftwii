@@ -233,6 +233,22 @@ void Drain() {
                      static_cast<unsigned>((s >> 8) & 0xFF), static_cast<unsigned>(s & 0xFF));
                 break;
             }
+            case GCAD_EV_ORIGIN: {
+                // Where each stick's middle was taken: a problem report
+                // with a drifting stick shows whether the origin was off.
+                const std::uint32_t sticks = static_cast<std::uint32_t>(e.b);
+                const std::uint32_t how = (e.a >> 8) & 0xFF;
+                const char* const what = how == GCAD_ORIGIN_PASSED   ? "first reading not at rest, not taken as the centre"
+                                         : how == GCAD_ORIGIN_MIDDLE ? "centre from the middle (held off it at the start)"
+                                         : how == GCAD_ORIGIN_RECAL  ? "centre from X+Y+Start"
+                                                                     : "centre from the pad at rest";
+                logf("GameCube adapter: port %u %s: stick %u,%u, C-stick %u,%u, triggers %u,%u\n",
+                     static_cast<unsigned>(e.a & 0xFF) + 1, what, static_cast<unsigned>(sticks >> 24),
+                     static_cast<unsigned>((sticks >> 16) & 0xFF), static_cast<unsigned>((sticks >> 8) & 0xFF),
+                     static_cast<unsigned>(sticks & 0xFF), static_cast<unsigned>((e.a >> 16) & 0xFF),
+                     static_cast<unsigned>(e.a >> 24));
+                break;
+            }
             case GCAD_EV_BAD_REPORT:
                 if (ErrorLine()) {
                     logf("GameCube adapter: odd report (first byte 0x%02x, result %d)\n", static_cast<unsigned>(e.a),
