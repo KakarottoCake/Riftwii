@@ -49,6 +49,39 @@ Ports assign(std::uint32_t pads, std::uint32_t remotes) {
     return ports;
 }
 
+// F-Zero disables its native ports after identifying them. Its err -1
+// must survive filling so its reset checker can bring the pad back.
+void test_disabled_native_ports() {
+    std::uint32_t types[GC_PORTS] = {8, 8, 8, 8};
+    std::uint8_t status[12 * GC_PORTS] = {};
+    for (unsigned port = 0; port < GC_PORTS; ++port) status[12 * port + 10] = 0xFF;
+    EXPECT_EQ(gc_ports_native(nullptr), 0);
+    EXPECT_EQ(gc_ports_native(types), 0);
+    EXPECT_EQ(gc_ports_taken(status, 0), 0);
+    for (unsigned native_port = 0; native_port < GC_PORTS; ++native_port) {
+        types[native_port] = 0x09000000u;
+        const std::uint32_t native = gc_ports_native(types);
+        EXPECT_EQ(native, 1u << native_port);
+        const Ports ports = assign(gc_ports_taken(status, native), kAllPorts);
+        for (unsigned slot = 0; slot < GC_PORTS; ++slot)
+            EXPECT_EQ(ports.of[slot] == native_port, 0);
+        EXPECT_EQ(status[12 * native_port + 10], 0xFF);
+        types[native_port] = 8;  // a subsequent reset found no controller
+        EXPECT_EQ(assign(gc_ports_taken(status, gc_ports_native(types)), kAllPorts).of[native_port], native_port);
+    }
+    // Wireless flags do not change the controller class; errors and
+    // other SI devices must not reserve otherwise empty ports.
+    types[0] = 0xA9000000u;
+    types[1] = 0x09000080u;
+    types[2] = 0x08000000u;
+    types[3] = 0x09000008u;
+    EXPECT_EQ(gc_ports_native(types), kPort1);
+    status[12 + 10] = 0xFE;      // a port still resetting
+    status[2 * 12 + 10] = 0xFD;  // a transfer error
+    status[3 * 12 + 10] = 0;     // a USB-adapter controller filled first
+    EXPECT_EQ(gc_ports_taken(status, gc_ports_native(types)), kAllPorts);
+}
+
 // One Wii Remote and nothing in the GameCube ports: port 1, as before.
 void test_remote_only() {
     const Ports ports = assign(0, kSlot1);
@@ -191,6 +224,7 @@ void test_slot_for_new_remotes() {
 }  // namespace
 
 int main() {
+    test_disabled_native_ports();
     test_remote_only();
     test_gamecube_only();
     test_remote_and_gamecube_in_port_1();

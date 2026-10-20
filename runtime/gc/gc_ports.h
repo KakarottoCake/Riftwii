@@ -30,6 +30,35 @@
 /* One remote slot per port: a slot's own port is its number. */
 typedef char gc_ports_one_slot_each[(GC_BT_REMOTES == GC_PORTS) ? 1 : -1];
 
+/* The ports where the SDK's own SI type table (`types`, four words) says
+ * a GameCube controller, wired or wireless, is plugged in. The table keeps
+ * that even after PADSetAnalogMode switches a port off and PADRead answers
+ * err -1 for it (F-Zero GX), so such a port is still the controller's: a
+ * Wii Remote filled into it would hide the -1 the game waits for before it
+ * resets the port, and the controller would never be heard. A type with an
+ * error or BUSY bit, or another SI device, is not a controller. The SI
+ * registers themselves are not read: that would take the game's replies. */
+static inline uint32_t gc_ports_native(const volatile uint32_t* types) {
+    uint32_t pads = 0, port;
+    if (types == 0) return 0;
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint32_t type = types[port];
+        if ((type & 0x190000FFu) == 0x09000000u) pads |= 1u << port;
+    }
+    return pads;
+}
+
+/* The ports a Wii Remote or the adapter must leave alone: `native`, plus
+ * every port whose err in the game's PADStatus[4] (`status`) is anything
+ * but -1, as a controller still starting or a transfer error is a
+ * controller there too. */
+static inline uint32_t gc_ports_taken(const uint8_t* status, uint32_t native) {
+    uint32_t port;
+    for (port = 0; port < GC_PORTS; ++port)
+        if (status[12 * port + 10] != 0xFFu) native |= 1u << port;
+    return native;
+}
+
 /* `pads`: bit p set when a GameCube controller answers in port p.
  * `remotes`: bit s set when the Wii Remote in slot s is ready to play.
  * `port_of[s]`: the port slot s's remote plays on, GC_PORT_NONE when

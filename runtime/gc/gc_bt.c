@@ -810,7 +810,6 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
 
 /* PADStatus (12 bytes): buttons, stick x/y, C-stick x/y, L, R, analog A,
  * B, err. The buttons' bits are gc_controls.h's GC_PAD_*. */
-#define GC_PAD_NO_CONTROLLER 0xFFu  /* err -1 */
 
 static int32_t bt_clamp(int32_t v) { return v < -127 ? -127 : v > 127 ? 127 : v; }
 
@@ -956,13 +955,9 @@ int gc_bt_home_held(const struct gc_bt* bt) {
     return 0;
 }
 
-void gc_bt_fill(struct gc_bt* bt, uint8_t* status) {
-    uint32_t pads = 0, remotes = 0, i;
-    /* The game's PADRead has just read every port: err is -1 where no
-     * GameCube controller answered. Any other err (a controller still
-     * starting, a transfer error) is a controller there, which keeps it. */
-    for (i = 0; i < GC_PORTS; ++i)
-        if (status[12 * i + 10] != GC_PAD_NO_CONTROLLER) pads |= 1u << i;
+void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native) {
+    const uint32_t pads = gc_ports_taken(status, native);
+    uint32_t remotes = 0, i;
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         struct gc_bt_remote* r = &bt->remotes[i];
         if (!r->used || !r->ready) continue;
@@ -1057,7 +1052,7 @@ static void bt_fake_pro_identify(struct gc_bt* bt, struct gc_bt_remote* r) {
     bt->stage = stage;
 }
 
-void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro) {
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native) {
     struct gc_bt_remote* r = &bt->remotes[0];
     const uint32_t step = (n / GC_BT_FAKE_FRAMES) % GC_BT_FAKE_STEPS;
     const uint32_t frame = n % GC_BT_FAKE_FRAMES;
@@ -1092,7 +1087,7 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro) {
         if (step == 5) report[12] = 0x01;
     }
     bt_on_input(bt, r, report, pro || nunchuk ? 23u : 7u);
-    gc_bt_fill(bt, status);
+    gc_bt_fill(bt, status, native);
     bt_update_rumble(bt, 0);
     if (frame == 0) {
         log[0] = 0;

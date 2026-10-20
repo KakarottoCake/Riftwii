@@ -285,6 +285,13 @@ non-NTSC paths and other game regions keep their own behavior.
   port (its LED), or the next free one when a GameCube controller holds
   that, and the LED follows; a remote that reconnects gets its slot back
   by its Bluetooth address.
+  A port where a GameCube controller is plugged in stays that
+  controller's even while the game has switched it off: F-Zero GX's
+  `PADSetAnalogMode` disables the port and its next `PADRead` says "no
+  controller", which the game answers with a reset that brings the
+  controller back; a Wii Remote filled in there kept the game from ever
+  resetting it. Which ports hold a controller comes from the SDK's own
+  table of SI device types (found through `PADRead`'s `SIGetStatus`).
 - `gc_gcad.c`: the GameCube controller adapter for Wii U, through the
   same driver as Wii games (`runtime/rtgcad.c`) on the `/dev/usb/hid`
   handle the menu opened before the hand-over (`TakeGcAdapterForGameCube`

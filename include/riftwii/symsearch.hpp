@@ -93,6 +93,13 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
 // functions match or the one found is not safe to hook.
 bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, std::string& error);
 
+// The SDK's four SI type words, found through PADRead's SIGetStatus call:
+// it reads SISR, selects the channel byte, and on NOREP writes 8 to the
+// channel's cached type unless BUSY is set. Returns 0 for an unsupported
+// instruction layout or conflicting tables. The caller must also check
+// that all 16 bytes belong to the game's data or BSS before reading them.
+std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uint32_t pad_read);
+
 // The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
 // every exception the game has no handler of its own for ends up, and
 // the game's own crash screens (installed with OSSetErrorHandler) are
