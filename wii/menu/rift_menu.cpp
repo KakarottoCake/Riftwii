@@ -2331,6 +2331,9 @@ public:
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
 		g_popupClosedAt = gettime();
+		// ResumeGui also calls CoverLoaderRelease, a side effect for a close.
+		// Harmless here: nothing holds the cover loader while a popup is up
+		// with the GUI running, so the release finds nothing to let go.
 		if (guiWasRunning) ResumeGui();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
@@ -2966,6 +2969,8 @@ public:
 		     static_cast<const void*>(watched), when, static_cast<unsigned>(now), static_cast<unsigned>(word));
 	}
 private:
+	// One static slot: this assumes Home never nests (MenuSource), since an
+	// inner Home would clear the outer one's watch.
 	static const GuiWindow* watched;
 	static u32 word;
 	static bool reported;
