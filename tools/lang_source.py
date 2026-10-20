@@ -1393,6 +1393,9 @@ T = {
     "It replaces the {1} there now.": ("Reemplaza el {1} que hay ahora.", "今ある{1}を置き換えます。", "Substitui o {1} que está lá agora.", "Sostituisce il {1} che c'è ora."),
     "Make an SD image?": ("¿Crear una imagen SD?", "SDイメージを作りますか?", "Criar uma imagem SD?", "Creare un'immagine SD?"),
     "Make it": ("Crearla", "作成", "Criar", "Creala"),
+    "The SD card is too fragmented": ("La tarjeta SD está demasiado fragmentada", "SDカードの断片化がひどすぎます", "O cartão SD está fragmentado demais", "La scheda SD è troppo frammentata"),
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.": ("El espacio libre de la tarjeta SD está demasiado disperso. {1} se escribiría en más de {2} fragmentos, más de los que RiftWii puede seguir, así que el juego no arrancaría con ella. Libera espacio o formatea la tarjeta SD (copia antes sus archivos) y vuelve a intentarlo. O créala de todos modos.", "SDカードの空き領域が細かく散らばりすぎています。{1}は{2}個を超える断片に書き込まれ、RiftWiiが扱える数を超えるため、ゲームは起動しません。空き容量を作るかSDカードをフォーマットして(先にファイルをコピーしてください)、もう一度お試しください。このまま作成することもできます。", "O espaço livre do cartão SD está disperso demais. {1} seria gravada em mais de {2} pedaços, mais do que o RiftWii consegue seguir, então o jogo não iniciaria com ela. Libere espaço ou formate o cartão SD (copie os arquivos antes) e tente de novo. Ou crie assim mesmo.", "Lo spazio libero della scheda SD è troppo sparso. {1} verrebbe scritta in più di {2} pezzi, più di quelli che RiftWii può seguire, quindi il gioco non partirebbe. Libera spazio o formatta la scheda SD (prima copia i suoi file) e riprova. Oppure creala comunque."),
+    "Build anyway": ("Crear igualmente", "このまま作成", "Criar mesmo assim", "Crea comunque"),
     "Making {1}": ("Creando {1}", "{1}を作成中", "Criando {1}", "Creazione di {1}"),
     "Stop": ("Detener", "中止", "Parar", "Interrompi"),
     "{1} minutes left": ("Faltan {1} minutos", "残り{1}分", "Faltam {1} minutos", "Mancano {1} minuti"),
@@ -3178,6 +3181,12 @@ KO = {
         "SD 이미지를 만들까요?",
     "Make it":
         "만들기",
+    "The SD card is too fragmented":
+        "SD 카드가 너무 단편화되어 있습니다",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "SD 카드의 빈 공간이 너무 흩어져 있습니다. {1}은(는) {2}개가 넘는 조각으로 기록되어 RiftWii가 따라갈 수 있는 수를 넘으므로 게임이 시작되지 않습니다. 공간을 확보하거나 SD 카드를 포맷한 뒤(먼저 파일을 복사해 두세요) 다시 시도하세요. 또는 그대로 만들 수도 있습니다.",
+    "Build anyway":
+        "그래도 만들기",
     "Making {1}":
         "{1} 만들기",
     "Stop":
@@ -5155,6 +5164,12 @@ FR = {
         "Créer une image SD ?",
     "Make it":
         "Créer",
+    "The SD card is too fragmented":
+        "La carte SD est trop fragmentée",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "L'espace libre de la carte SD est trop dispersé. {1} serait écrite en plus de {2} morceaux, plus que RiftWii ne peut en suivre, donc le jeu ne démarrerait pas. Libérez de la place ou formatez la carte SD (copiez d'abord ses fichiers), puis réessayez. Ou créez-la quand même.",
+    "Build anyway":
+        "Créer quand même",
     "Making {1}":
         "Création de {1}",
     "Stop":

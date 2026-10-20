@@ -222,7 +222,7 @@ Blob MakeBlob(std::uint32_t backend, bool read_only = false) {
         g_ios.device[i] = static_cast<std::uint8_t>((i * 7) ^ (i >> 9));
     Blob b;
     b.ctx = At<vsd_context>(Alloc(true, sizeof(vsd_context)));
-    b.st = At<vsd_state>(Alloc(true, sizeof(vsd_state)));
+    b.st = At<vsd_state>(Alloc(true, vsd_state_bytes(2)));
     b.ctx->magic = VSD_CONTEXT_MAGIC;
     b.ctx->state = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(b.st));
     vsd_state* st = b.st;
@@ -234,8 +234,8 @@ Blob MakeBlob(std::uint32_t backend, bool read_only = false) {
     st->sdhc = g_ios.sdhc;
     st->rca = backend == VSD_BACKEND_SLOT0 ? 0x1234 : 0;
     st->card.sectors = kImageSectors;
-    st->card.extents[0] = {0, 100, 1000};
-    st->card.extents[1] = {1000, 3000, 2000};
+    rtvsd_extents(&st->card)[0] = {0, 100, 1000};
+    rtvsd_extents(&st->card)[1] = {1000, 3000, 2000};
     st->card.extent_count = 2;
     st->card.read_only = read_only ? 1 : 0;
     EXPECT_EQ(rtvsd_reset(&st->card), 0);

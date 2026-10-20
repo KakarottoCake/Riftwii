@@ -58,6 +58,23 @@ struct Fat32File {
     std::vector<Fragment> fragments;  // absolute device blocks, coalesced, whole clusters
 };
 
+// What reading the free space of a volume says about writing a file of a
+// given size into it (Fat32Volume::free_pieces).
+enum class FreeSpaceVerdict {
+    Fits,             // the file would lie in `pieces` pieces, within the allowed number
+    TooFragmented,    // it would need more than the allowed number of pieces
+    NotEnoughSpace,   // the free space is smaller than the file
+    Unchecked,        // the read was cut off at its bound before it could tell
+};
+
+struct FreeSpaceReport {
+    FreeSpaceVerdict verdict = FreeSpaceVerdict::Unchecked;
+    std::uint64_t pieces = 0;          // Fits: the pieces needed; TooFragmented: at least this many
+    std::uint64_t free_clusters = 0;   // free clusters seen up to where the read stopped
+    std::uint64_t fat_blocks_read = 0; // 512-byte blocks of the FAT read
+    std::uint32_t cluster_bytes = 0;
+};
+
 struct Fat32Limits {
     std::uint32_t max_depth = 64;              // path components
     std::uint32_t max_directory_entries = 65536;
@@ -95,6 +112,18 @@ public:
     // Reads file bytes through the fragment list (a test oracle and the
     // basis of an SD-backed ByteSource). Fails past the end of the file.
     bool read(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const;
+    // How many pieces a file of `file_bytes` would lie in if it were written
+    // into this volume's free space now, taking the free runs in cluster
+    // order, the way a FAT driver hands space out (libfat starts from where
+    // it last allocated and wraps, so the real count can differ a little).
+    // `also_free`: device blocks (whole clusters, as lookup() gives them)
+    // counted as free as well, such as an old copy of the file that is
+    // deleted first. Read-only. The FAT is read in order and the read stops
+    // as soon as it knows: the file fits, the pieces pass `max_pieces`, or
+    // `max_fat_blocks` blocks were read (verdict Unchecked): a card of
+    // hundreds of GB has a FAT of tens of MB.
+    bool free_pieces(std::uint64_t file_bytes, std::uint64_t max_pieces, std::uint64_t max_fat_blocks,
+                     const std::vector<Fragment>& also_free, FreeSpaceReport& out, std::string& error) const;
     // Drops the FAT window and the directory listings kept from earlier
     // lookups; needed once something else (libfat) has written the volume.
     void forget_cached() const;

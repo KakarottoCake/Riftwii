@@ -154,10 +154,13 @@ on the device holding the image, through the game's own IPC functions:
 the SD slot the loader selected (with CMD13 polls after writes), d2x's
 `/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
 image on the USB drive (opened before the game partition, so for a game
-on the USB drive only). The code and its state (the image's extents, a
-32 KB bounce buffer for USB) go to the bottom of the MEM2 arena, staged
-at its top and copied down at the jump; the game reaches them through
-veneers at `0x80002300`, the code handler's list room a code build
+on the USB drive only). The code and its state (a 32 KB bounce buffer for
+USB, then the image's extent table, 12 bytes a piece of the image file on
+its device, up to 16384 pieces: sized to the image, so three pieces cost 36
+bytes and an image scattered by a well-used card up to 192 KB, found by a
+binary search) go to the bottom of the MEM2 arena, staged at its top and
+copied down at the jump; the game reaches them through veneers at
+`0x80002300`, the code handler's list room a code build
 leaves free (below the MEM1 arena's top without it). Not with the
 resident runtime yet.
 
@@ -423,7 +426,7 @@ changed when the game writes its header.
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |

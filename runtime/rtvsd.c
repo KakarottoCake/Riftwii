@@ -124,7 +124,7 @@ int rtvsd_reset(struct rtvsd_card* card) {
     for (i = 0; i < 64u; ++i) card->hcr[i] = 0;
     if (card->sectors == 0 || card->extent_count == 0 || card->extent_count > RTVSD_MAX_EXTENTS) return -1;
     for (i = 0; i < card->extent_count; ++i) {
-        const struct rtvsd_extent* e = &card->extents[i];
+        const struct rtvsd_extent* e = &rtvsd_extents(card)[i];
         if (e->file_sector != next || e->count == 0 || e->device_sector + e->count < e->device_sector) return -1;
         next += e->count;
         if (next < e->count) return -1;
@@ -138,11 +138,11 @@ uint32_t rtvsd_map(const struct rtvsd_card* card, uint32_t sector, uint32_t coun
     if (count > card->sectors - sector) count = card->sectors - sector;
     while (hi - lo > 1u) {
         const uint32_t mid = lo + ((hi - lo) >> 1);
-        if (card->extents[mid].file_sector <= sector) lo = mid;
+        if (rtvsd_extents(card)[mid].file_sector <= sector) lo = mid;
         else hi = mid;
     }
     {
-        const struct rtvsd_extent* e = &card->extents[lo];
+        const struct rtvsd_extent* e = &rtvsd_extents(card)[lo];
         const uint32_t into = sector - e->file_sector;
         uint32_t run;
         if (sector < e->file_sector || into >= e->count) return 0;

@@ -1425,6 +1425,15 @@ msgstr "¿Crear una imagen SD?"
 msgid "Make it"
 msgstr "Crearla"
 
+msgid "The SD card is too fragmented"
+msgstr "La tarjeta SD está demasiado fragmentada"
+
+msgid "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway."
+msgstr "El espacio libre de la tarjeta SD está demasiado disperso. {1} se escribiría en más de {2} fragmentos, más de los que RiftWii puede seguir, así que el juego no arrancaría con ella. Libera espacio o formatea la tarjeta SD (copia antes sus archivos) y vuelve a intentarlo. O créala de todos modos."
+
+msgid "Build anyway"
+msgstr "Crear igualmente"
+
 msgid "Making {1}"
 msgstr "Creando {1}"
 

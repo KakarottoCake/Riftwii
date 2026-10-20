@@ -39,7 +39,13 @@ extern "C" {
 #endif
 
 #define RTVSD_SECTOR_BYTES 512u
-#define RTVSD_MAX_EXTENTS 512u          /* pieces of the image file on its device */
+/* Pieces of the image file on its device. The table is not part of the
+ * card's struct: it follows the struct in memory and the loader sizes it to
+ * the image (rtvsd_state_extent_bytes), so an image in 3 pieces costs 36
+ * bytes of the game's MEM2 and the most (192 KB) only a very scattered one.
+ * 16384 covers an 8.9 GB image written to a well-used card (11796 pieces
+ * seen); the lookup is a binary search, so the count costs 14 steps at most. */
+#define RTVSD_MAX_EXTENTS 16384u
 #define RTVSD_SDSC_MAX_SECTORS 0x400000u /* 2 GiB: up to here a standard-capacity card */
 
 /* /dev/sdio/slot0 ioctls (wiibrew). */
@@ -150,8 +156,14 @@ struct rtvsd_card {
     uint32_t read_only;     /* writes fail (the image could not be written) */
     uint32_t extent_count;
     uint32_t hcr[64];       /* host controller registers 0x00-0xFF, one byte each, packed 4 to a word */
-    struct rtvsd_extent extents[RTVSD_MAX_EXTENTS];
+    /* Then, directly after this struct, `extent_count` struct rtvsd_extent:
+     * see rtvsd_extents. */
 };
+
+/* The extent table, right behind the card. Whoever allocates a card
+ * reserves sizeof(struct rtvsd_card) + rtvsd_extent_bytes(count). */
+#define rtvsd_extents(card) ((struct rtvsd_extent*)((card) + 1))
+#define rtvsd_extent_bytes(count) ((uint32_t)(count) * (uint32_t)sizeof(struct rtvsd_extent))
 
 /* After the loader filled `sectors` and the extents: the card as IOS
  * leaves it at power-up. Returns 0 when the extents cover the image from
