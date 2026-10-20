@@ -89,7 +89,7 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     }
     // The game's own SD card passed through beside the runtime (wii/launch/boot.cpp).
     if (runtime && !protected_game && !whole_mem1)
-        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(sizeof(vsd_state)));
+        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(1)));
     if (!protected_game && !whole_mem1) {
         b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")

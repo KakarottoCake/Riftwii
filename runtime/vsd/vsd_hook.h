@@ -175,9 +175,16 @@ struct vsd_state {
     uint32_t response[8] __attribute__((aligned(32)));
     struct vsd_ioctlv vec[4] __attribute__((aligned(32)));
     uint32_t words[8] __attribute__((aligned(32)));      /* d2x: the sector and the count */
-    struct rtvsd_card card __attribute__((aligned(32)));
     uint8_t bounce[VSD_BOUNCE_BYTES] __attribute__((aligned(32)));
+    /* Last: the card's extent table follows it in memory (rtvsd_extents),
+     * so the state is vsd_state_bytes(extent count) long, not sizeof. */
+    struct rtvsd_card card __attribute__((aligned(32)));
 };
+
+/* The bytes of a state holding `extents` pieces of the image. Counts the
+ * struct whole (with its tail padding) plus the table, which starts inside
+ * that padding: a few bytes more than needed, never fewer. */
+#define vsd_state_bytes(extents) ((uint32_t)sizeof(struct vsd_state) + rtvsd_extent_bytes(extents))
 
 /* The blob's C entry points (vsd_entry.S calls them). */
 int vsd_on_ipc(struct vsd_context* ctx, uint32_t entry, uint32_t* args, int32_t* result);

@@ -27,6 +27,12 @@ struct VsdMakePlan {
     bool replaces = false;           // an image of that name is there already
     unsigned parts = 0;              // 0: one file
     bool beside = false;             // room to write it beside the image it replaces
+    // The card's free space read before building (a virtual SD image the
+    // game follows is only usable in at most RTVSD_MAX_EXTENTS pieces).
+    bool fragmentation_checked = false;
+    bool too_fragmented = false;     // it would be in more pieces than that
+    std::uint64_t pieces = 0;        // the pieces expected (at least, when too_fragmented)
+    std::uint64_t max_pieces = 0;    // the most RiftWii follows
     // The key the build will have in the image: "Project+.raw/Project+/codes/RSBE01.gct".
     std::string image_key() const { return image + "/" + key; }
 };
