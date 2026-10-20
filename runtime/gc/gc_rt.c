@@ -1669,7 +1669,7 @@ void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args) {
 #define GC_EXEC_LAUNCH_0 0x2D2D6C61u /* "--la" */
 #define GC_EXEC_LAUNCH_1 0x756E6368u /* "unch" */
 #define GC_EXEC_ARG_BYTES 160u  /* of each argument kept */
-#define GC_EXEC_ARGS 8u
+#define GC_EXEC_ARGS 32u  /* Sonic Gems Collection passes 12; the sector holds the rest */
 static uint32_t gc_exec_bytes(uint8_t* buf, uint32_t at, uint32_t word, uint32_t n) {
     uint32_t i;
     for (i = 0; i < n && at < GC_SECTOR - 2u; ++i) buf[at++] = (uint8_t)(word >> (24u - 8u * i));
