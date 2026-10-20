@@ -1346,6 +1346,18 @@ static void test_flash_id() {
     }
 }
 
+// A blank card (an erased image) is formatted with SRAM's ID, and the
+// launch then hands that same ID back to the SRAM setter, so a bad SRAM
+// checksum is repaired before the first launch: the ID must come back whole.
+static void test_flash_id_of_blank_card() {
+    const GcCardFormat format = sample_format(false);
+    Bytes card(kGcCardSystemBlocks * kGcCardBlockBytes, 0xFF);
+    gc_card_format(card, format);
+    std::array<std::uint8_t, 12> recovered{};
+    EXPECT_TRUE(gc_card_flash_id(card, recovered));
+    EXPECT_TRUE(recovered == format.flash_id);
+}
+
 int main() {
     test_backup_undo();
     test_dolphin_import();
@@ -1356,6 +1368,7 @@ int main() {
     test_card_paths();
     test_icon_texture();
     test_flash_id();
+    test_flash_id_of_blank_card();
     test_format();
     test_import_export_delete();
     test_directory_full();
