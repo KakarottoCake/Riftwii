@@ -22,7 +22,6 @@ struct GcFontPatch {
 // Only Japanese game IDs receive patches; other formats and cached values
 // keep their original paths. Both original CC00 and relocated CD00 VI
 // bases are accepted. Unknown or incomplete shapes are left alone.
-std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text,
-                                           const std::string& game_id);
+std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text, const std::string& game_id);
 
 }  // namespace riftwii
