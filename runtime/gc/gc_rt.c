@@ -7,6 +7,7 @@
 #include "gc_bt.h"
 #include "gc_card.h"
 #include "gc_gcad.h"
+#include "gc_ports.h"
 #include "gc_video.h"
 #include "gc_load.h"
 #ifdef RT_RVZ
@@ -2082,6 +2083,7 @@ void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command)
 
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
     const uint32_t n = ctx->pad_reads++;
+    const uint32_t native = gc_ports_native((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache);
     /* The four PADStatus (12 bytes each) the game asked for, read and
      * written below: anything else (a function found as PADRead that takes
      * other arguments) is left alone rather than followed. */
@@ -2093,15 +2095,15 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (ctx->gcad && status != 0) {
         struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
         gc_gcad_poll(ctx, ad);
-        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status);
+        gc_gcad_fill(ad, (uint8_t*)(uintptr_t)status, native);
     }
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
-            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0);
+            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native);
         } else {
             gc_bt_poll(ctx, bt);
-            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);
+            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
         }
     }
     if (n % 300 == 0) gc_trace(ctx, GC_TRACE_PAD);

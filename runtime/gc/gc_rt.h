@@ -489,6 +489,7 @@ struct gc_rt_context {
      * sector of sd:/riftwii/gc/exec.txt, loader-made; 0: switches run as
      * the game makes them. */
     uint32_t exec_sector;
+    uint32_t si_type_cache;   /* the game's four SI type words, structurally found; 0: unavailable */
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));

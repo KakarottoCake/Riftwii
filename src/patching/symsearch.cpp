@@ -605,4 +605,80 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
     return error.empty();
 }
 
+namespace {
+
+// The SIGetStatus body as instruction fields, with registers taken from
+// the candidate. This follows the register data flow, not game addresses.
+std::uint32_t si_status_type_cache(const std::vector<CodeRange>& text, std::uint32_t at) {
+    std::uint32_t words[16];
+    for (unsigned i = 0; i < 16; ++i) words[i] = word_at(text, at + 4 * i);
+    const auto rd = [](std::uint32_t w) { return (w >> 21) & 31u; };
+    const auto ra = [](std::uint32_t w) { return (w >> 16) & 31u; };
+    const unsigned hardware = rd(words[0]);
+    const unsigned shift = rd(words[1]);
+    const unsigned channel = ra(words[1]);
+    const unsigned status = rd(words[2]);
+    const unsigned scratch = ra(words[5]);
+    const unsigned high = rd(words[7]);
+    const unsigned index = ra(words[8]);
+    const unsigned base = rd(words[9]);
+    const unsigned entry = rd(words[10]);
+    const unsigned type = rd(words[11]);
+    const unsigned busy = ra(words[12]);
+    // D-form memory operands with rA=0 mean absolute addressing.
+    if (hardware == 0 || high == 0 || entry == 0) return 0;
+    if (hardware == channel || shift == channel || status == channel || scratch == channel || high == channel ||
+        shift == hardware || shift == status || index == high || base == index || type == entry || busy == entry) return 0;
+    const std::uint32_t io_high = words[0] & 0xFFFFu;
+    if (io_high != 0xCC00u && io_high != 0xCD00u) return 0;
+    const std::uint32_t expected[] = {
+        0x3C000000u | (hardware << 21) | io_high,              // lis hardware,CC00/CD00
+        0x20000003u | (shift << 21) | (channel << 16),         // subfic shift,channel,3
+        0x80006438u | (status << 21) | (hardware << 16),       // lwz status,SISR(hardware)
+        0x54001838u | (shift << 21) | (shift << 16),          // slwi shift,shift,3
+        0x7C000430u | (status << 21) | (status << 16) | (shift << 11),
+        0x54000739u | (status << 21) | (scratch << 16),       // NOREP (bit 3)
+        0x41820028u,                                         // beq past the cache update
+        0x3C000000u | (high << 21) | (words[7] & 0xFFFFu),
+        0x5400103Au | (channel << 21) | (index << 16),        // channel * sizeof(u32)
+        0x38000000u | (base << 21) | (high << 16) | (words[9] & 0xFFFFu),
+        0x7C000214u | (entry << 21) | (base << 16) | (index << 11),
+        0x80000000u | (type << 21) | (entry << 16),
+        0x54000631u | (type << 21) | (busy << 16),            // BUSY (bit 7)
+        0x4082000Cu,                                         // bne past the store
+        li(type, 8),
+        0x90000000u | (type << 21) | (entry << 16),
+    };
+    for (unsigned i = 0; i < 16; ++i)
+        if (words[i] != expected[i]) return 0;
+    const std::uint32_t cache = ((words[7] & 0xFFFFu) << 16) +
+                                static_cast<std::int16_t>(words[9] & 0xFFFFu);
+    if ((cache & 3u) != 0 || cache < 0x80003100u || cache > 0x81800000u - 16u) return 0;
+    return cache;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
+    std::set<std::uint32_t> caches;
+    // Only PADRead's direct callees qualify. Stop at the function's end;
+    // an unrelated SDK copy elsewhere must not select a different table.
+    for (std::uint32_t offset = 0; offset < 0x600; offset += 4) {
+        const std::uint32_t call = pad_read + offset;
+        if (!inside(text, call)) return 0;
+        const std::uint32_t word = word_at(text, call);
+        if (word == 0x4E800020u) return caches.size() == 1 ? *caches.begin() : 0;
+        if (!is_bl(word)) continue;
+        const std::uint32_t target = bl_target(call, word);
+        for (std::uint32_t step = 0; step < 0x40; step += 4) {
+            if (!inside(text, target + step) || word_at(text, target + step) == 0x4E800020u) break;
+            const std::uint32_t cache = si_status_type_cache(text, target + step);
+            if (cache != 0) caches.insert(cache);
+        }
+    }
+    return 0;
+}
+
+
 }  // namespace riftwii

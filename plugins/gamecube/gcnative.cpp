@@ -2653,6 +2653,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // go in there.
     std::uint32_t pad_read = find_pad_read(code);
     if (pad_read == 0) pad_read = find_pad_read_gcc(code);
+    const std::uint32_t si_types = find_gc_si_type_cache(code.ranges(), pad_read);
+    // A structural match must name a complete array in the game's own
+    // data/BSS. Never follow an inferred pointer into code or free memory.
+    bool si_types_in_data = dol.bss_size >= 16 && si_types >= dol.bss &&
+                            si_types - dol.bss <= dol.bss_size - 16;
+    for (const Section& section : dol.data) {
+        if (section.bytes.size() >= 16 && si_types >= section.address &&
+            si_types - section.address <= section.bytes.size() - 16) si_types_in_data = true;
+    }
+    ctx->si_type_cache = si_types_in_data ? si_types : 0;
     std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
@@ -2926,6 +2936,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
          test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+    if (pad_read != 0) {
+        if (ctx->si_type_cache != 0)
+            logf("GameCube: a port with a GameCube controller plugged in stays the controller's, even while the game "
+                 "has it switched off (the SDK's controller types at 0x%08x), so a Wii Remote never takes it over\n",
+                 ctx->si_type_cache);
+        else
+            logf("GameCube: the SDK's controller types were not found: a Wii Remote takes any port where the game's "
+                 "own read finds no controller, as before\n");
+    }
     logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
          motor == 0 ? " (not found: a Wii Remote does not rumble)"
          : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"

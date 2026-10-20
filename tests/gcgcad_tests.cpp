@@ -79,7 +79,7 @@ void test_own_ports() {
     gc_gcad ad;
     set_up(ad, 0x5u);  // adapter ports 1 and 3
     Status status;
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     EXPECT_EQ(ad.filled, 0x5u);
     EXPECT_EQ(status.err(0), 0);
     EXPECT_EQ(status.err(2), 0);
@@ -101,12 +101,34 @@ void test_real_pad_keeps_its_port() {
     Status status;
     status.err(0) = 0;
     status.bytes[1] = 0x10;  // the real controller presses Z
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     EXPECT_EQ(ad.port_of[0], 1);
     EXPECT_EQ(ad.filled, 0x2u);
     EXPECT_EQ(status.bytes[1], 0x10);
     EXPECT_EQ(status.buttons(1), GCAD_PAD_A);
     EXPECT_EQ(status.err(1), 0);
+}
+
+// A disabled native controller is still identified by SI: neither the
+// adapter nor the remotes may hide the err -1 its game needs to reset it.
+void test_disabled_native_pad_keeps_its_port() {
+    for (unsigned port = 0; port < GC_PORTS; ++port) {
+        gc_gcad ad;
+        set_up(ad, 0xFu);
+        Status status;
+        std::uint8_t original[kStatusBytes];
+        std::memcpy(original, status.bytes + port * kStatusBytes, sizeof(original));
+        const std::uint32_t native = 1u << port;
+        gc_gcad_fill(&ad, status.bytes, native);
+        EXPECT_EQ(std::memcmp(original, status.bytes + port * kStatusBytes, sizeof(original)), 0);
+        EXPECT_EQ(ad.filled, 0xFu & ~native);
+        EXPECT_EQ(ad.port_of[port], GC_PORT_NONE);
+        // The next fill sees the adapter's three controllers too, leaving
+        // no place for a Wii Remote while the native pad resets.
+        std::uint8_t remote_ports[GC_PORTS];
+        gc_ports_assign(gc_ports_taken(status.bytes, native), 1u, remote_ports);
+        EXPECT_EQ(remote_ports[0], GC_PORT_NONE);
+    }
 }
 
 // Four real controllers: no port left, nothing written.
@@ -115,7 +137,7 @@ void test_all_ports_taken() {
     set_up(ad, 0xFu);
     Status status;
     for (int port = 0; port < 4; ++port) status.err(port) = 0;
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     EXPECT_EQ(ad.filled, 0u);
     for (int port = 0; port < 4; ++port) EXPECT_EQ(status.buttons(port), 0);
 }
@@ -127,7 +149,7 @@ void test_stale_reports() {
     set_up(ad, 0x1u);
     ad.g.data_time = g_now - 10000u * kTicksPerMs;
     Status status;
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     EXPECT_EQ(ad.filled, 0u);
     EXPECT_EQ(status.err(0), kNoController);
 }
@@ -138,7 +160,7 @@ void test_not_inited() {
     set_up(ad, 0x1u);
     ad.inited = 0;
     Status status;
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     EXPECT_EQ(status.err(0), kNoController);
 }
 
@@ -149,7 +171,7 @@ void test_motor() {
     set_up(ad, 0x1u);
     Status status;
     status.err(0) = 0;  // a real controller: the adapter's moves to port 2
-    gc_gcad_fill(&ad, status.bytes);
+    gc_gcad_fill(&ad, status.bytes, 0);
     gc_gcad_motor(&ad, 0, 1);  // port 1 is the real controller's
     EXPECT_EQ(ad.g.rumble_want[0], 0);
     gc_gcad_motor(&ad, 1, 1);
@@ -163,7 +185,7 @@ void test_motor() {
     gc_gcad wavebird;
     set_up(wavebird, 0x1u, true);
     Status free_ports;
-    gc_gcad_fill(&wavebird, free_ports.bytes);
+    gc_gcad_fill(&wavebird, free_ports.bytes, 0);
     gc_gcad_motor(&wavebird, 0, 1);
     EXPECT_EQ(wavebird.g.rumble_want[0], 0);
 }
@@ -188,6 +210,7 @@ void gcad_env_invalidate(gcad*, void*, std::uint32_t) {}
 void gcad_env_event(gcad*, std::uint32_t, std::uint32_t, std::int32_t) {}
 
 int main() {
+    test_disabled_native_pad_keeps_its_port();
     test_own_ports();
     test_real_pad_keeps_its_port();
     test_all_ports_taken();

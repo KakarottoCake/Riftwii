@@ -79,6 +79,9 @@ const char* const kCredits[] = {
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
     "",
+    "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
+    "read as documentation; no code copied.",
+    "",
     "libwbfs by Kwiirk and contributors, as in Wiimm's WBFS tools: the layout of a WBFS drive. "
     "Friivolution by december: the launch argument other loaders pass. Both read as documentation, "
     "nothing copied.",
