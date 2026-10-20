@@ -528,6 +528,30 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         store_words(hook_site[e], &branch, 1);
         sync_code(hook_site[e], kHookStubBytes);
     }
+    // The game's own restart: OSRestart tells the runtime first, then runs
+    // from the replay slot (its first word, the jump back to its second).
+    if (reset_keep && options.reset_os_restart != 0 && !code_in_mem2) {
+        const std::uint32_t site = options.reset_os_restart;
+        const std::uint32_t first = *reinterpret_cast<const volatile std::uint32_t*>(site);
+        std::string why;
+        std::uint32_t branch = 0;
+        if (!displaceable(first, kContinueScratchRegister, why)) {
+            logf("Resident: OSRestart at 0x%08x not hooked: its first word %s\n", site, why.c_str());
+        } else if (!encode_branch(site, place.code_base + blob.reset_offsets[RT_RESET_OS_RESTART], branch)) {
+            logf("Resident: OSRestart at 0x%08x is out of a branch's reach; not hooked\n", site);
+        } else {
+            const std::uint32_t replay = place.code_base + blob.reset_offsets[RT_RESET_OS_RESTART_REPLAY];
+            const std::uint32_t nop = 0x60000000u;
+            const std::uint32_t replay_words[4] = {first, nop, nop, nop};
+            store_words(replay, replay_words, 4);
+            const auto resume = encode_absolute_jump(kContinueScratchRegister, site + 4);
+            store_words(replay + 16, resume.data(), 4);
+            sync_code(replay, 32);
+            store_words(site, &branch, 1);
+            sync_code(site, 4);
+            out.reset_os_restart_hooked = true;
+        }
+    }
 
     out.code_base = place.code_base;
     out.code_bytes = place.code_bytes;

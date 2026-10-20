@@ -70,7 +70,8 @@ static Bytes MakeBlob() {
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 4, 0x604);  // savegame completion entry
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 8, 0x608);  // IOS_Open's undo words
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 12, 0x610);
-    for (std::uint32_t i = 0; i < 4; ++i) Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16 + i * 4, 0x620 + i * 8);  // the restart's
+    for (std::uint32_t i = 0; i < 6; ++i) Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16 + i * 4, 0x620 + i * 8);  // the restart's
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16 + 5 * 4, 0x660);  // OSRestart's replay slot, 16-byte aligned
     Put32(b, 0x800, RT_CONTEXT_MAGIC);
     return b;
 }
@@ -92,6 +93,7 @@ static void TestBlob() {
     EXPECT_EQ(rb.open_undo_offsets[1], 0x610u);
     EXPECT_EQ(rb.reset_offsets[RT_RESET_APP_ENTRY], 0x620u);
     EXPECT_EQ(rb.reset_offsets[RT_RESET_START], 0x638u);
+    EXPECT_EQ(rb.reset_offsets[RT_RESET_OS_RESTART_REPLAY], 0x660u);
     EXPECT_EQ(RT_IPC_ASYNC(1), 0u);
     EXPECT_EQ(RT_IPC_ASYNC(7), 6u);
     EXPECT_EQ(RT_IPC_SYNC(1), 7u);
@@ -130,6 +132,9 @@ static void TestBlob() {
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16, 0x622);  // a stand-in not on a word
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16 + 5 * 4, 0x668);  // OSRestart's replay slot off its 16 bytes
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x800, 0);  // context magic

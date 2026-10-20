@@ -39,6 +39,9 @@ struct rtrst_state {
     uint32_t start_wrapper;
     uint32_t app_main;      /* the apploader's own main and close, learned at its entry */
     uint32_t app_close;
+    uint32_t ios;           /* the IOS the game was told it runs (0x80003188 >> 16 at the launch) */
+    uint32_t pending;       /* the game called OSRestart; cleared when its apploader runs */
+    uint32_t ios_answers;   /* the restart's ES calls for that IOS answered without IOS */
     uint32_t restarts;      /* apploader entries seen (the game reading its apploader again) */
     uint32_t restored;      /* restarts into the game itself, the list written back */
     uint32_t other;         /* restarts into another executable, left alone */

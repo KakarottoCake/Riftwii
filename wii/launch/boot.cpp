@@ -1412,10 +1412,15 @@ bool keep_launch_for_restart(const ResetKeepInputs& in) {
     ctx->reset.game_entry = in.game_entry;
     ctx->reset.arena1_hi = load32(0x80000034);
     ctx->reset.mem1_end = load32(0x80003110);
+    // The IOS the game was told it runs: the one its restart reloads.
+    ctx->reset.ios = read32(0x80003188) >> 16;
     DCFlushRange(ctx, sizeof(*ctx));
     logf("Reset: the game's own Reset keeps the packs and RiftWii's changes: %u record(s) (%u in main.dol), "
-         "%u bytes at 0x%08x; the MEM2 arena starts at 0x%08x\n",
-         static_cast<unsigned>(records.size()), static_cast<unsigned>(code_records), total, base, end);
+         "%u bytes at 0x%08x; the MEM2 arena starts at 0x%08x; its reload of IOS%u is %s\n",
+         static_cast<unsigned>(records.size()), static_cast<unsigned>(code_records), total, base, end,
+         static_cast<unsigned>(ctx->reset.ios),
+         in.resident->reset_os_restart_hooked ? "answered by the runtime (OSRestart hooked)"
+                                               : "left to IOS (OSRestart not found), which drops the runtime's card");
     return true;
 }
 
@@ -2104,6 +2109,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         ro.rvz = rvz;
         ro.retail_bca = options.retail_bca;
         ro.reset_app_entry = reset_off == nullptr ? apploader.entry : 0;
+        if (reset_off == nullptr) {
+            // The restart reloads the IOS the game's TMD names before it
+            // reads the apploader; with OSRestart hooked the runtime answers
+            // that reload instead of IOS (rt_reset_answer_es).
+            std::vector<CodeRange> text;
+            for (std::size_t i = 0; i < kDolTextSections; ++i) {
+                const DolSection& s = dol.sections[i];
+                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+            }
+            ro.reset_os_restart = find_os_restart(text);
+        }
         ro.mem1_floor = mem1_floor;
         // A code build (Project+) sizes the game's heaps to all of MEM1;
         // its list is placed elsewhere, so the handler's own list room is

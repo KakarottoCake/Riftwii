@@ -85,7 +85,9 @@ static bool reset_offsets_fit(const ResidentBlob& b) {
     for (std::uint32_t offset : b.reset_offsets) {
         if (!slot_fits(offset, 4, b.size) || (offset & 3) != 0 || offset < sizeof(rt_blob_header)) return false;
     }
-    return true;
+    // OSRestart's replay slot: four words, then its four-word continuation.
+    const std::uint32_t replay = b.reset_offsets[RT_RESET_OS_RESTART_REPLAY];
+    return slot_fits(replay, 32, b.size) && (replay & 15) == 0;
 }
 
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error) {
@@ -107,7 +109,7 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     b.complete_fs_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 4);
     b.open_undo_offsets[0] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 8);
     b.open_undo_offsets[1] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 12);
-    for (std::uint32_t i = 0; i < 4; ++i) b.reset_offsets[i] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 16 + i * 4);
+    for (std::uint32_t i = 0; i < 6; ++i) b.reset_offsets[i] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 16 + i * 4);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;

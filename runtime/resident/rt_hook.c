@@ -2680,7 +2680,10 @@ int rt_answer_bca(struct rt_context* ctx, uintptr_t* args) {
     return 1;
 }
 
+static int rt_reset_answer_es(struct rt_context* ctx, uintptr_t* args, uint32_t* result);
+
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    if (ctx->reset.pending && entry_index == RT_IPC_SYNC(7u) && rt_reset_answer_es(ctx, args, result)) return 1;
     if (entry_index == RT_IPC_ASYNC_IOCTL) {
         /* Disc reads and seeks keep their hook; every other async ioctl
          * joins the savegame path. ISFS request numbers never collide
@@ -3572,8 +3575,62 @@ static void rt_reset_rearm(struct rt_context* ctx) {
     if (ctx->reset.hooks != 0) (void)rtrst_apply((const uint8_t*)(uintptr_t)ctx->reset.hooks, 0);
 }
 
+void rt_reset_on_os_restart(struct rt_context* ctx) {
+    ctx->reset.pending = 1;
+    rt_reset_report(ctx, 'R', ctx->reset.ios);
+}
+
+/* ES's requests in the SDK's restart (wiibrew /dev/es): the ticket views
+ * of the IOS the game's TMD names and the launch of that IOS, a reload.
+ * RiftWii keeps the IOS it launched the game under (the SD card's, d2x
+ * for a game on the USB drive or the card) and tells the game it is that
+ * one; a reload would drop the runtime's card and drive handles and d2x's
+ * disc with them. While a restart is pending, requests for exactly the
+ * IOS the game was told it runs are answered as done: one view, zeroed,
+ * and the launch as if the IOS had come back. A game that asks for
+ * another IOS, or for this one outside a restart, reaches IOS as before.
+ * Dolphin's NAND holds no IOS tickets, so there the views were refused
+ * and the SDK gave up the restart. */
+#define RT_ES_LAUNCH_TITLE 0x08u
+#define RT_ES_GET_VIEW_COUNT 0x12u
+#define RT_ES_GET_VIEWS 0x13u
+#define RT_ES_TICKET_VIEW_BYTES 0xD8u
+
+static int rt_reset_answer_es(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
+    const uint32_t ioctl = (uint32_t)args[1];
+    const uint32_t in_count = (uint32_t)args[2];
+    const uint32_t io_count = (uint32_t)args[3];
+    const struct rt_ioctlv* vec = (const struct rt_ioctlv*)args[4];
+    const uint32_t* title;
+    if (ioctl != RT_ES_LAUNCH_TITLE && ioctl != RT_ES_GET_VIEW_COUNT && ioctl != RT_ES_GET_VIEWS) return 0;
+    if (vec == 0 || in_count == 0 || vec[0].len != 8u || vec[0].data == 0) return 0;
+    title = (const uint32_t*)(uintptr_t)vec[0].data;
+    if (title[0] != 1u || title[1] != ctx->reset.ios || ctx->reset.ios == 0) return 0;
+    if (ioctl == RT_ES_GET_VIEW_COUNT) {
+        uint32_t* count;
+        if (in_count != 1u || io_count != 1u || vec[1].len < 4u || vec[1].data == 0) return 0;
+        count = (uint32_t*)(uintptr_t)vec[1].data;
+        *count = 1u;
+        rt_flush_range((uintptr_t)count, 4u);
+    } else if (ioctl == RT_ES_GET_VIEWS) {
+        uint8_t* views;
+        uint32_t i;
+        if (in_count != 2u || io_count != 1u || vec[2].len < RT_ES_TICKET_VIEW_BYTES || vec[2].data == 0) return 0;
+        views = (uint8_t*)(uintptr_t)vec[2].data;
+        for (i = 0; i < RT_ES_TICKET_VIEW_BYTES; ++i) views[i] = 0;
+        rt_flush_range((uintptr_t)views, RT_ES_TICKET_VIEW_BYTES);
+    } else if (in_count != 2u || io_count != 0u) {
+        return 0;
+    }
+    ctx->reset.ios_answers++;
+    rt_reset_report(ctx, 'I', ioctl);
+    *result = 0;
+    return 1;
+}
+
 void rt_reset_on_app_entry(struct rt_context* ctx, uint32_t* init, uint32_t* main, uint32_t* close) {
     struct rtrst_state* st = &ctx->reset;
+    st->pending = 0;  /* the restart is past its IOS: from here on IOS answers ES again */
     st->restarts++;
     rt_reset_report(ctx, 'A', st->restarts);
     ((rt_app_entry_fn)(uintptr_t)st->app_entry)(init, main, close);

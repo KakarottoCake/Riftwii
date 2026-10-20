@@ -100,6 +100,10 @@ struct ResidentOptions {
     // The disc apploader's entry; the runtime answers the header's entry
     // field (kApploaderEntryOffset) with its stand-in, which calls this one.
     std::uint32_t reset_app_entry = 0;
+    // The game's OSRestart (riftwii/resetkeep.hpp find_os_restart), 0: not
+    // found. Hooked so the runtime knows a restart is pending and answers
+    // its IOS reload (rt_reset_answer_es) instead of letting IOS do it.
+    std::uint32_t reset_os_restart = 0;
 };
 
 struct ResidentInstall {
@@ -135,6 +139,7 @@ struct ResidentInstall {
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
     std::uint32_t context_now = 0;    // the blob's rt_context where it is built now (staged or in place)
     std::uint32_t rvz_state = 0;      // struct rt_rvz_state, 0 when not an RVZ game
+    bool reset_os_restart_hooked = false;  // OSRestart notes a pending restart in the runtime
 };
 
 // The MEM1 arena end the game's OSInit will take (0x34, else the FST

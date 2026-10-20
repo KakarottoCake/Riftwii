@@ -140,17 +140,20 @@ struct rt_blob_header {
      * function's frame is then undone, and the replay makes it again. */
     uint32_t open_undo_offset[2];
     /* The game's own restart (runtime/rtreset.h): the stand-ins for the
-     * apploader's entry, main and close, and the entry point the restart
-     * jumps to (RT_RESET_*). */
-    uint32_t reset_offset[4];
+     * apploader's entry, main and close, the entry point the restart jumps
+     * to, and OSRestart's hook with its 16-byte replay slot, whose
+     * continuation follows it (RT_RESET_*). */
+    uint32_t reset_offset[6];
 };
 
 #define RT_RESET_APP_ENTRY 0u
 #define RT_RESET_APP_MAIN 1u
 #define RT_RESET_APP_CLOSE 2u
 #define RT_RESET_START 3u
+#define RT_RESET_OS_RESTART 4u
+#define RT_RESET_OS_RESTART_REPLAY 5u
 
-typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 216u) ? 1 : -1];
+typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 224u) ? 1 : -1];
 
 /* /dev/sdio/slot0 SENDCMD request (wiibrew, libogc wiisd.c). 36 bytes. */
 struct rt_sdio_request {
@@ -775,6 +778,8 @@ uint32_t rt_reset_on_app_close(struct rt_context* ctx);
 /* At the blob's entry point: the restore list written back and the MEM1
  * arena kept below the blobs; returns the game's own entry point. */
 uint32_t rt_reset_on_start(struct rt_context* ctx);
+/* The game called OSRestart: a restart is pending until its apploader runs. */
+void rt_reset_on_os_restart(struct rt_context* ctx);
 
 /* Exposed for the host tests. */
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);

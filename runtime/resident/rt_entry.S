@@ -23,6 +23,7 @@ _rt_blob_start:
     .long rt_open_undo_0 - _rt_blob_start, rt_open_undo_1 - _rt_blob_start
     .long rt_reset_app_entry - _rt_blob_start, rt_reset_app_main - _rt_blob_start
     .long rt_reset_app_close - _rt_blob_start, rt_reset_start - _rt_blob_start
+    .long rt_reset_os_restart - _rt_blob_start, rt_reset_os_restart_replay - _rt_blob_start
 
 /* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
     .macro RT_HOOK n
@@ -278,6 +279,39 @@ rt_reset_start:
     bl rt_reset_on_start
     addi 1, 1, 0x10
     mtctr 3
+    bctr
+
+/* OSRestart(resetCode)'s first word goes here: the restart is noted as
+ * pending, then the function runs from its replay slot (its displaced
+ * first word, then the jump back to its second, loader-filled), with
+ * every register as the caller left it. Frame: 0 back chain, 4 LR,
+ * 8 r3. */
+    .globl rt_reset_os_restart
+rt_reset_os_restart:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    bl 9f
+9:  mflr 3
+    addi 3, 3, rt_context_data - 9b
+    bl rt_reset_on_os_restart
+    lwz 3, 0x08(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    b rt_reset_os_restart_replay
+
+    .balign 16
+    .globl rt_reset_os_restart_replay
+rt_reset_os_restart_replay:
+    nop
+    nop
+    nop
+    nop
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
     bctr
 
     .balign 32
