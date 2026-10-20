@@ -171,7 +171,8 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
 }
 
 // A launch file: the arguments one per line, "--launch" first. Only the
-// first kMaxLaunchFileBytes are read, and a file written a sector at a time
+// first kMaxLaunchFileBytes are read (a longer file is not a launch: its cut
+// end could be a shortened path), and a file written a sector at a time
 // ends in NULs (kGcExecFile, kRestartFile).
 bool read_launch_lines(const std::string& path, std::vector<std::string>& args) {
     args.clear();
@@ -180,6 +181,7 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
     std::string text(kMaxLaunchFileBytes, '\0');
     file.read(&text[0], static_cast<std::streamsize>(text.size()));
     text.resize(static_cast<std::size_t>(file.gcount()));
+    if (text.size() == kMaxLaunchFileBytes && file.peek() != std::ifstream::traits_type::eof()) return false;
     return launch_lines_from_text(text, args);
 }
 

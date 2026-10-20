@@ -3559,6 +3559,13 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
  * sector takes. */
 #define RT_RESTART_SETTLE_TICKS 3037500u
 
+/* Waits for the card to finish programming a sector it has accepted. */
+static void rt_restart_settle(void) {
+    const uint32_t start = rt_fs_ticks();
+    while (rt_fs_ticks() - start < RT_RESTART_SETTLE_TICKS) {
+    }
+}
+
 static int32_t rt_restart_call(struct rt_restart* rs, uint32_t fd, uint32_t ioctl, uint32_t in_count,
                                uint32_t out_count, struct rt_ioctlv* vec) {
 #ifdef RT_TARGET_PPC
@@ -3653,7 +3660,6 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
 #else
     struct rt_restart_block* blk = rs->block != 0 ? rt_host_restart_block : 0;
 #endif
-    uint32_t start;
     int32_t result;
     rs->asked++;
     rt_restart_report(ctx, 'R', rs->asked);
@@ -3670,13 +3676,14 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     if (result < 0) {
         rs->last_result = (uint32_t)result;
         rs->refused++;
-        (void)rt_restart_write(ctx, rs, blk, blk->idle);  /* in case part of it landed */
+        /* In case part of it landed; the game's own restart that follows can
+         * take the card down while it still programs this sector, so wait
+         * as after the armed write. */
+        if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
         return;
     }
     rs->written++;
-    start = rt_fs_ticks();
-    while (rt_fs_ticks() - start < RT_RESTART_SETTLE_TICKS) {
-    }
+    rt_restart_settle();
     result = rt_restart_launch(rs, blk);
     /* Still here: IOS said no (the channel went, or its ticket). The request
      * goes back to idle, so no later start of RiftWii takes it up, and the
@@ -3684,5 +3691,5 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     rt_restart_report(ctx, 'L', (uint32_t)result);
     rs->last_result = (uint32_t)result;
     rs->refused++;
-    if (!rs->keep) (void)rt_restart_write(ctx, rs, blk, blk->idle);
+    if (!rs->keep && rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
 }

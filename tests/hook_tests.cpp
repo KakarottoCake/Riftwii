@@ -3934,22 +3934,33 @@ static void TestRestart() {
     RestartContext(ctx, block, 0, 4000);
     ctx.restart.block = 0;
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 0);
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 4000);
     ctx.restart.es_fd = RT_RESTART_NONE;
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 4000);
     ctx.restart.ioctlv_sync = 0;
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 4000);
     ctx.sdio_fd = RT_RESTART_NONE;
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 4000);
     rt_host_fs_in_thread = 0;
     rt_reset_on_os_restart(&ctx);
     rt_host_fs_in_thread = 1;
     EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
     RestartDone();
 }
 

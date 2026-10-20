@@ -1260,7 +1260,10 @@ constexpr std::size_t kRestartSector = 512;
 // not have (IOS refuses it), and the request stays armed, which is what the
 // channel's start would find: boot RiftWii again and it starts the game.
 constexpr u64 kRestartTestTitle = 0x0001000152494654ull;  // 00010001-RIFT
-bool restart_test_keep() { return Settings().other.count("debug_reset_keep") != 0; }
+bool restart_test_keep() {
+    const auto it = Settings().other.find("debug_reset_keep");
+    return it != Settings().other.end() && it->second == "on";
+}
 
 struct RestartRequest {
     std::uint32_t lba = 0;             // 0: the Reset is left alone
@@ -1291,8 +1294,9 @@ void prepare_restart_request(const BootOptions& options) {
         return;
     }
     std::FILE* file = std::fopen(kRestartFile, "wb");
-    const bool written = file != nullptr && std::fwrite(request.idle.data(), 1, kRestartSector, file) == kRestartSector;
-    if (file != nullptr) std::fclose(file);
+    bool written = file != nullptr && std::fwrite(request.idle.data(), 1, kRestartSector, file) == kRestartSector;
+    // The close is what flushes the sector to the card, so a failed close is a failed write.
+    if (file != nullptr) written = std::fclose(file) == 0 && written;
     if (!written) {
         logf("Reset: the game's own Reset restarts it without its packs: %s could not be made\n", kRestartFile);
         return;
@@ -2047,7 +2051,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // Test switch: settings.txt "debug_gecko = on" has the runtime report
         // its reads over the USB Gecko in slot B on any launch (Dolphin's
         // emulated one: SlotB = 7, TCP port 55020).
-        ro.gecko = options.resident_gecko || Settings().other.count("debug_gecko") != 0;
+        const auto gecko = Settings().other.find("debug_gecko");
+        ro.gecko = options.resident_gecko || (gecko != Settings().other.end() && gecko->second == "on");
         ro.pieces = std::move(pieces);
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
         ro.virtual_start_words = relocates ? static_cast<std::uint32_t>(kVirtualWindowStart >> 2) : 0;
