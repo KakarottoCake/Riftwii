@@ -238,6 +238,16 @@ bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); 
 // its restart in Dolphin, cause not found yet, so it is not here.
 bool gc_restart_known_to_work(const std::string& id) { return id == "GMSE01" || id == "GMSE04"; }
 
+std::vector<GcCodeFix> gc_code_fixes(const std::string& id) {
+    std::vector<GcCodeFix> fixes;
+    if (id == "GEDE01") {
+        // li r5,1 (OS_MESSAGE_BLOCK) before the callback's call of OSReceiveMessage.
+        fixes.push_back({0x801EB0E8u, 0x38A00001u, 0x38A00000u,
+                         "the draw-done callback no longer blocks in OSReceiveMessage inside the interrupt"});
+    }
+    return fixes;
+}
+
 // A tester's City Folk from a USB drive ran on a base-58 d2x and took no
 // keyboard (2610-412).
 bool game_uses_usb_keyboard(const std::string& id) { return id_is(id, "RUU") || id_is(id, "RMH"); }
