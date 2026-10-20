@@ -11,20 +11,28 @@
 # "dry-run" (the default) publishes nothing: the three files and the
 # filled-in texts come out as an artifact, and the run's summary shows both
 # texts, so a release can be checked before it goes out.
+#
+# "discord-repost" builds and publishes nothing: it posts an earlier
+# release's Discord message again, filled in from that release's tag with
+# today's tester role (for a post that went out wrong; delete that one first).
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "dry-run builds and shows the release; publish puts it out"
+        description: "dry-run builds and shows the release; publish puts it out; discord-repost posts a published release's Discord message again"
         type: choice
-        options: [dry-run, publish]
+        options: [dry-run, publish, discord-repost]
         default: dry-run
       discord:
         description: "Post release/discord.md to the testers' channel after publishing"
         type: boolean
         default: true
+      version:
+        description: "discord-repost only: the release to post again, e.g. 2610-541"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -37,6 +45,7 @@ concurrency:
 jobs:
   check:
     name: Ready to release
+    if: inputs.mode != 'discord-repost'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -251,3 +260,53 @@ jobs:
         run: |
           python3 tools/release_notes.py post --dir release-files/texts --role-id "$TESTER_ROLE_ID"
           echo "Posted the testers' message to Discord." >> "$GITHUB_STEP_SUMMARY"
+
+  # A published release's Discord message, posted again: the texts are
+  # filled in from that release's tag and its riftwii.dol, with the tester
+  # role as it is set now, so a post that went out with a wrong role ID (or
+  # none) can be replaced. The release itself is left as it is.
+  repost:
+    name: Post to Discord again
+    if: inputs.mode == 'discord-repost'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: release
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      TESTER_ROLE_ID: ${{ vars.DISCORD_TESTER_ROLE_ID }}
+    steps:
+      - name: A published release
+        run: |
+          if ! echo "$VERSION" | grep -Eq '^[0-9]{4}-[0-9]+$'; then
+            echo "::error::'$VERSION' is not a YYMM-N version: give the release to post again, e.g. 2610-541."
+            exit 1
+          fi
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::There is no published release v$VERSION to post again."
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+        with:
+          ref: v${{ inputs.version }}
+      # The DOL fills in the same SHA-256 and size as the first post's text.
+      - name: Fill in the message
+        run: |
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern riftwii.dol --dir release-dol
+          python3 tools/release_notes.py render --version "$VERSION" --dol release-dol/riftwii.dol \
+            --repo "$GITHUB_REPOSITORY" --role-id "$TESTER_ROLE_ID" --require-role --out texts
+          {
+            echo "## RiftWii $VERSION: Discord message posted again"
+            echo
+            echo '````'
+            cat texts/discord.md
+            echo '````'
+            echo
+            echo "Attached: $(ls texts/discord-images | tr '\n' ' ')"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: python3 tools/release_notes.py post --dir texts --role-id "$TESTER_ROLE_ID"
