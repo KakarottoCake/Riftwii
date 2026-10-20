@@ -44,7 +44,7 @@ RUNTIME_OUT := build-runtime
 # The GameCube loader (docs/PLUGINS.md, "Stage (b)"): its own copies of the
 # platform-free code it calls. --gc-sections keeps only what it reaches, so
 # a file of which it uses one function brings that function.
-gamecube_SRC := src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp src/patching/gcaram.cpp \
+gamecube_SRC := src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp src/patching/gcload.cpp src/patching/gcaram.cpp \
                 src/patching/gcvideo.cpp src/patching/gcfont.cpp src/patching/gcdsp.cpp src/data/gccontrols.cpp src/patching/gcoverlay.cpp \
                 src/patching/gcrequest.cpp src/fs/gccard.cpp src/fs/rvz.cpp src/data/sha1.cpp \
                 src/patching/symsearch.cpp src/patching/codehook.cpp src/patching/hook.cpp \

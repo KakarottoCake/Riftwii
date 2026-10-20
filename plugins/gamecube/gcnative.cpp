@@ -33,6 +33,7 @@
 #include "riftwii/gcdsp.hpp"
 #include "riftwii/gcfont.hpp"
 #include "riftwii/gclayout.hpp"
+#include "riftwii/gcload.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
@@ -1382,7 +1383,9 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
 // Then, further on in the thread, its callbacks: lbz r3,0x80(r30); bl
 // group (replaced: gc_on_load_callbacks), and after them mr r3,r29; bl
 // group (replaced: gc_on_load_callbacks_done). The current heap's place
-// is alloc's first lwz rX,d(r13). Only the games gxpatches.hpp's
+// is alloc's first lwz rX,d(r13). Callback steering additionally needs
+// find_gc_load_heaps: callbacks on a main heap keep the game's choice.
+// Only the games gxpatches.hpp's
 // gc_loads_use_queued_heap names are looked at.
 struct LmLoader {
     std::uint32_t group = 0, align = 0, alloc = 0, alloc_site = 0, post = 0;
@@ -2453,21 +2456,37 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
     }
 
-    // Luigi's Mansion: its loads allocate from the heap they were queued from.
+    // Luigi's Mansion: buffers use the queued heap, callbacks escape only
+    // temporary heaps so a scene-queued archive can still live persistently.
     const LmLoader lm = find_lm_loader(image.id, code);
     if (lm.heap_offset != 0) {
+        const GcLoadHeaps heaps = find_gc_load_heaps(code.ranges(), lm.group,
+                                                   static_cast<std::int32_t>(lm.heap_offset));
         ctx->load_post = lm.post;
         ctx->load_group = lm.group;
         ctx->load_alloc = lm.alloc;
         ctx->load_heap_offset = lm.heap_offset;
         for (std::uint32_t site : lm.post_sites) code.put(site, branch(site, blob_addr + h.hook_load_queued) | 1);  // bl
         code.put(lm.alloc_site, branch(lm.alloc_site, blob_addr + h.hook_load_alloc) | 1);
-        code.put(lm.callbacks_site, branch(lm.callbacks_site, blob_addr + h.hook_load_callbacks) | 1);
-        code.put(lm.callbacks_done_site, branch(lm.callbacks_done_site, blob_addr + h.hook_load_callbacks_done) | 1);
-        logf("GameCube: the file loader's buffers and callbacks use the heap each load was queued from (post 0x%08x "
+        logf("GameCube: the file loader's buffers use the heap each load was queued from (post 0x%08x "
              "from %u place(s), alloc 0x%08x, current heap at r13%+d)\n",
              static_cast<unsigned>(lm.post), static_cast<unsigned>(lm.post_sites.size()),
              static_cast<unsigned>(lm.alloc), static_cast<int>(static_cast<std::int32_t>(lm.heap_offset)));
+        if (heaps.found) {
+            for (unsigned i = 0; i < heaps.offsets.size(); ++i) {
+                ctx->load_root_heap_offsets[i] = static_cast<std::uint32_t>(heaps.offsets[i]);
+            }
+            code.put(lm.callbacks_site, branch(lm.callbacks_site, blob_addr + h.hook_load_callbacks) | 1);
+            code.put(lm.callbacks_done_site, branch(lm.callbacks_done_site, blob_addr + h.hook_load_callbacks_done) | 1);
+            logf("GameCube: the file loader's callbacks keep the current heap when it is one of the game's main "
+                 "heaps at r13%+d and r13%+d or JKRHeap's system and root heaps at r13%+d and r13%+d; "
+                 "otherwise they use the queued heap to avoid a temporary heap\n",
+                 static_cast<int>(heaps.offsets[0]), static_cast<int>(heaps.offsets[1]),
+                 static_cast<int>(heaps.offsets[2]), static_cast<int>(heaps.offsets[3]));
+        } else {
+            logf("GameCube: the file loader's callback heaps were not identified; callbacks keep the game's "
+                 "current heap, so only read buffers are protected from temporary heaps\n");
+        }
     } else if (gc_loads_use_queued_heap(image.id)) {
         logf("GameCube: Luigi's Mansion's file loader was not found; it allocates from whichever heap is current\n");
     }
