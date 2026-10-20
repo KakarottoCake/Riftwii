@@ -177,6 +177,44 @@ void os_restart_is_found() {
     EXPECT_EQ(riftwii::find_os_restart(one_range(doubled)), 0u);
 }
 
+// VIWaitForRetrace's shape: its frame, interrupts off, the retrace count
+// read, the sleep on the queue until the count changes.
+std::vector<std::uint32_t> vi_wait_shape() {
+    return {
+        0x4E800020,  // the function before ends
+        0x9421FFF0,  // stwu r1,-16(r1)
+        0x7C0802A6,  // mflr r0
+        0x90010014,  // stw r0,20(r1)
+        0x93E1000C,  // stw r31,12(r1)
+        0x48000001,  // bl (interrupts off)
+        0x7C7F1B78,  // mr r31,r3
+        0x83CD9FE4,  // lwz r30,-0x601C(r13): the count
+        0x386D9FC0,  // addi r3,r13,-0x6040: the queue
+        0x48000001,  // bl (sleep)
+        0x800D9FE4,  // lwz r0,-0x601C(r13)
+        0x7C1E0040,  // cmplw r30,r0
+        0x4182FFF0,  // beq back to the addi
+        0x7FE3FB78,  // mr r3,r31
+        0x48000001,  // bl (interrupts back)
+        0x4E800020,
+    };
+}
+
+void vi_wait_for_retrace_is_found() {
+    const Bytes text = words_to_bytes(vi_wait_shape());
+    EXPECT_EQ(riftwii::find_vi_wait_for_retrace(one_range(text)), kBase + 4);
+    // The second read from another variable: not the loop.
+    std::vector<std::uint32_t> words = vi_wait_shape();
+    words[10] = 0x800D9FE8;
+    const Bytes other = words_to_bytes(words);
+    EXPECT_EQ(riftwii::find_vi_wait_for_retrace(one_range(other)), 0u);
+    // The compare with another register: not it either.
+    words = vi_wait_shape();
+    words[11] = 0x7C1D0040;
+    const Bytes other_reg = words_to_bytes(words);
+    EXPECT_EQ(riftwii::find_vi_wait_for_retrace(one_range(other_reg)), 0u);
+}
+
 void the_trigger_stub() {
     constexpr std::uint32_t kStub = 0x80001200;
     constexpr std::uint32_t kPadRead = 0x801B0000;
@@ -212,6 +250,7 @@ int main() {
     ranges_are_whole_words();
     the_runtime_writes_the_list_back();
     os_restart_is_found();
+    vi_wait_for_retrace_is_found();
     the_trigger_stub();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

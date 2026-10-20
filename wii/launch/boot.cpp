@@ -1248,7 +1248,7 @@ void apply_debug_crash(const DolHeader& dol) {
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
 // itself, as the HOME Menu's Reset does (OSRestart(0)), at the Nth call
-// of its PADRead (about N/60 seconds in), so a restart can be tried in
+// of its PADRead, else of its VIWaitForRetrace (once a frame), so it can be tried in
 // Dolphin without driving a controller (riftwii/resetkeep.hpp). The stub
 // sits at 0x80001200, between vectors the CPU never takes, after the
 // cheats' next-executable stub (0x80001000). Never leave it in a
@@ -1267,10 +1267,13 @@ void apply_debug_reset(const DolHeader& dol) {
     }
     PadSymbols pad;
     std::string error;
-    const std::uint32_t pad_read = find_pad_symbols(text, pad, error) ? pad.read : 0;
+    // PADRead, else VIWaitForRetrace (New Super Mario Bros. Wii links no PADRead).
+    std::uint32_t pad_read = find_pad_symbols(text, pad, error) ? pad.read : 0;
+    if (pad_read == 0) pad_read = find_vi_wait_for_retrace(text);
     const std::uint32_t os_restart = find_os_restart(text);
     if (calls == 0 || pad_read == 0 || os_restart == 0) {
-        logf("debug_reset: not set up (%u calls, PADRead 0x%08x, OSRestart 0x%08x)\n", calls, pad_read, os_restart);
+        logf("debug_reset: not set up (%u calls, PADRead or VIWaitForRetrace 0x%08x, OSRestart 0x%08x)\n", calls,
+             pad_read, os_restart);
         return;
     }
     const std::uint32_t displaced = load32(pad_read);
@@ -1286,9 +1289,9 @@ void apply_debug_reset(const DolHeader& dol) {
     std::memcpy(reinterpret_cast<void*>(pad_read), &branch, 4);
     DCFlushRange(reinterpret_cast<void*>(pad_read & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(pad_read & ~31u), 32);
-    logf("debug_reset: the game restarts itself (OSRestart 0x%08x) at PADRead's (0x%08x) call %u; "
+    logf("debug_reset: the game restarts itself (OSRestart 0x%08x) at call %u of 0x%08x (PADRead or VIWaitForRetrace); "
          "the count is at 0x%08x\n",
-         os_restart, pad_read, calls, kRestartTriggerStub + kRestartTriggerCountOffset);
+         os_restart, calls, pad_read, kRestartTriggerStub + kRestartTriggerCountOffset);
 }
 
 // The game's own restart (HOME Menu > Reset) keeping the launch

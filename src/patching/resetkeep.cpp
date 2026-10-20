@@ -94,6 +94,41 @@ std::vector<std::uint8_t> serialize_reset_list(const std::vector<ResetRecord>& r
     return out;
 }
 
+std::uint32_t find_vi_wait_for_retrace(const std::vector<CodeRange>& text) {
+    constexpr std::uint32_t kAddiR3R13 = 0x386D0000u;  // addi r3,r13,d
+    constexpr std::uint32_t kLwzR0R13 = 0x800D0000u;   // lwz r0,d(r13)
+    constexpr std::uint32_t kBeqBack16 = 0x4182FFF0u;  // beq -0x10
+    std::uint32_t found = 0;
+    unsigned matches = 0;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i + 6 <= words; ++i) {
+            const std::uint8_t* at = r.bytes + 4 * i;
+            const std::uint32_t first_read = be32(at);
+            const bool reads_from_r13 = (first_read >> 26) == 32 && ((first_read >> 16) & 31u) == 13;
+            if (!reads_from_r13) continue;
+            const std::uint32_t count_reg = (first_read >> 21) & 31u;
+            const std::uint32_t compare = 0x7C000040u | (count_reg << 16);  // cmplw rA,r0
+            if ((be32(at + 4) & 0xFFFF0000u) != kAddiR3R13 || (be32(at + 8) & 0xFC000003u) != 0x48000001u ||
+                be32(at + 12) != (kLwzR0R13 | (first_read & 0xFFFFu)) || be32(at + 16) != compare ||
+                be32(at + 20) != kBeqBack16) {
+                continue;
+            }
+            std::uint32_t start = 0;
+            for (std::size_t back = 1; back <= kPrologueWithin && back <= i && start == 0; ++back) {
+                if ((be32(at - 4 * back) & kStwuR1Mask) == kStwuR1) {
+                    start = r.address + static_cast<std::uint32_t>(4 * (i - back));
+                }
+            }
+            if (start == 0) continue;
+            found = start;
+            ++matches;
+        }
+    }
+    return matches == 1 ? found : 0;
+}
+
 std::uint32_t find_os_restart(const std::vector<CodeRange>& text) {
     std::uint32_t found = 0;
     unsigned matches = 0;
