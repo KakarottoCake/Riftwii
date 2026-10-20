@@ -5325,7 +5325,9 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 			static_cast<unsigned long long>(plan.max_pieces));
 		const std::string fragmented = tr("The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.",
 			{plan.image, std::to_string(plan.max_pieces)});
-		if (ShowPopup(tr("The SD card is too fragmented"), fragmented, tr("Build anyway"), tr("Cancel")) != 0) return false;
+		// Cancel first and safe: a stray A must not start a build the game
+		// could not follow (and that may delete the old image first).
+		if (ShowPopupSafeFirst(tr("The SD card is too fragmented"), fragmented, tr("Cancel"), tr("Build anyway")) != 1) return false;
 	}
 	std::string what;
 	for (std::size_t i = 0; i < plan.tops.size(); ++i)
