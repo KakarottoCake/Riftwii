@@ -92,6 +92,9 @@ public:
         }
     }
     bool begin_file(const std::string& path) override {
+        // A file replaced gives its space back: counted again when asked.
+        struct stat st;
+        if (stat(path.c_str(), &st) == 0) free_known_ = false;
         if (file_) std::fclose(file_);
         path_ = path;
         file_ = std::fopen(path.c_str(), "wb");
@@ -106,7 +109,10 @@ public:
         if (!file_) return false;
         const bool closed = std::fclose(file_) == 0;
         file_ = nullptr;
-        if (!keep || !closed) unlink(path_.c_str());
+        if (!keep || !closed) {
+            unlink(path_.c_str());
+            free_known_ = false;  // its space is back
+        }
         return closed;
     }
     bool remove(const std::string& path) override {
