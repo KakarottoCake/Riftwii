@@ -2694,6 +2694,36 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool aram_check_skipped = skip_aram_size_check(code);
     const unsigned ai_waits = skip_ai_stream_waits(code);
     logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
+    // Colour-indexed textures (C4/C8/C14X2) get their palettes through
+    // GXInitTlutObj, whose old SDK builds the load word from the old
+    // word's top bits (riftwii/gcvideo.hpp): harmless on a GameCube,
+    // which ignores addresses past its 24 MB, but in Wii mode the GPU is
+    // sent to MEM2 or nowhere and Mario Party 4 comes out in the wrong
+    // colours.
+    const GcTlutSites tlut = find_gc_tlut_sites(code.ranges());
+    for (std::uint32_t at : tlut.stale) code.put(at, gc_tlut_li_for(code.at(at)));
+    if (!tlut.stale.empty()) {
+        const std::uint32_t first_fn = function_start(code, tlut.stale.front());
+        const std::uint32_t where = first_fn != 0 ? first_fn : tlut.stale.front();
+        if (tlut.stale.size() == 1) {
+            logf("GameCube: GXInitTlutObj 0x%08x builds its palette address from the new pointer alone (it kept "
+                 "stale bits that, in Wii mode, point the GPU at the wrong memory: wrong colours on paletted "
+                 "textures)\n",
+                 static_cast<unsigned>(where));
+        } else {
+            logf("GameCube: %u GXInitTlutObj site(s), first at 0x%08x, build their palette addresses from the new "
+                 "pointer alone (they kept stale bits that, in Wii mode, point the GPU at the wrong memory: wrong "
+                 "colours on paletted textures)\n",
+                 static_cast<unsigned>(tlut.stale.size()), static_cast<unsigned>(where));
+        }
+    } else if (!tlut.clean.empty()) {
+        logf("GameCube: GXInitTlutObj already builds its palette address from the new pointer alone (%u site(s) "
+             "already clean)\n",
+             static_cast<unsigned>(tlut.clean.size()));
+    } else {
+        logf("GameCube: no GXInitTlutObj keeping stale palette address bits found (none in this game, or another "
+             "SDK's that the search does not know): its palettes load as the game builds them\n");
+    }
     const GcClocks clocks = match_game_to_clocks(code, dol);
     logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
          aram_check_skipped ? "skipped" : "not found");

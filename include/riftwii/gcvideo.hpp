@@ -68,4 +68,49 @@ GcSramReads find_gc_sram_reads(const std::vector<CodeRange>& text);
 // line, centred.
 std::uint32_t gc_vi_width(const std::string& name);
 
+// GXInitTlutObj's palette address. One SDK generation builds the TLUT
+// load word (the GXTlutObj word at offset 4, BP register 0x64) from the
+// old contents of that word: `lwz rA,4(r3)` reads the old word, then
+// `rlwinm rA,rA,0,0,10` keeps the old word's top 11 bits and ORs the new
+// address's low 21 in. Those top bits are whatever the caller's stack
+// object held (Mario Party 4's copy keeps 0x54840014 there), so bits 8-10
+// of the old word stay in the palette's address, adding 0x04000000 to
+// 0x1C000000 to it. A GameCube ignores address bits above its 24 MB, so
+// the wrong address still reaches the right palette; Dolphin in GameCube
+// mode masks them with 0x01FFFFFF for the same reason (its note names
+// Wind Waker and Mario Kart: Double Dash as games that set those bits).
+// In Wii mode the high bits are honoured, so the GPU loads the palette
+// from MEM2 or unmapped memory and every colour-indexed (C4/C8/C14X2)
+// texture comes out wrong: Mario Party 4 (GMPE01) shows silver/swirly
+// stars, a green text window instead of dark blue, noise and streaks,
+// while Dolphin's texture dumps prove the texture data itself is
+// identical and only the palette differs. Nintendont replaces this
+// function for every game for the same reason (named here only as
+// provenance; the fix below is RiftWii's own).
+struct GcTlutSites {
+    std::vector<std::uint32_t> stale;  // `rlwinm` words that keep the old word's bits
+    std::vector<std::uint32_t> clean;  // already `li rA,0`: nothing to change
+};
+
+// The GXInitTlutObj sites in `text`: an `lwz rA,4(r3)` followed within
+// the next 2 words by `rlwinm rA,rA,0,0,10` (same register, shift 0,
+// mask 0-10), with an `oris rX,rX,0x6400` (any register, same source and
+// target) and an `sth r6,8(r3)` within the following 12 words. Registers
+// are matched by field, so another compiler's choice still matches; a
+// shape missing any of the four parts is refused. The stale list holds
+// the `rlwinm` addresses to rebuild from the new pointer alone; the
+// clean list holds the `li` addresses where that was already done.
+GcTlutSites find_gc_tlut_sites(const std::vector<CodeRange>& text);
+
+// `li rA,0` (`addi rA,0,0`) for the register the `rlwinm` word keeps:
+// what the loader writes over each stale address.
+std::uint32_t gc_tlut_li_for(std::uint32_t rlwinm_word);
+
+// Patches the stale sites in place (`text` points at writable code, as
+// the loader's sections are) by writing each `li`, and returns the
+// `rlwinm` addresses changed. Host tests use this; the loader itself
+// finds the sites and writes through its own Code so the change is
+// flushed with the rest.
+std::vector<std::uint32_t> patch_gc_tlut(const std::vector<CodeRange>& text);
+
 }  // namespace riftwii

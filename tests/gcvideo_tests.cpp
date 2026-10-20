@@ -118,6 +118,21 @@ std::uint32_t lwz(unsigned rd, unsigned ra, std::uint16_t offset) { return (32u 
 std::uint32_t take_bit(unsigned ra, unsigned rs, unsigned shift) {
     return (21u << 26) | (rs << 21) | (ra << 16) | (shift << 11) | (31u << 6) | (31u << 1);
 }
+// rlwinm rDest,rSrc,shift,first,last, built from its fields.
+std::uint32_t rlwinm_word(unsigned dest, unsigned src, unsigned shift, unsigned first, unsigned last) {
+    return (21u << 26) | (src << 21) | (dest << 16) | (shift << 11) | (first << 6) | (last << 1);
+}
+std::uint32_t oris_word(unsigned dest, unsigned src, std::uint16_t value) {
+    return (25u << 26) | (src << 21) | (dest << 16) | value;
+}
+std::uint32_t sth_word(unsigned src, unsigned base, std::uint16_t offset) {
+    return (44u << 26) | (src << 21) | (base << 16) | offset;
+}
+
+std::uint32_t word_at_bytes(const std::vector<std::uint8_t>& bytes, std::size_t index) {
+    return (std::uint32_t(bytes[4 * index]) << 24) | (std::uint32_t(bytes[4 * index + 1]) << 16) |
+           (std::uint32_t(bytes[4 * index + 2]) << 8) | bytes[4 * index + 3];
+}
 
 // A getter of the console's settings, as the SDK's are built: the copy's
 // address (lis/addi), the lock (lwz r0,0x48 and addi r4,0x48), the byte,
@@ -245,12 +260,112 @@ void test_video_pick() {
     EXPECT_EQ(riftwii::gc_vi_width("1080"), 0u);
 }
 
+// GXInitTlutObj's stale palette address (riftwii/gcvideo.hpp): every word
+// built from its fields, never copied from a game.
+void test_tlut() {
+    // Mario Party 4's shape: the `lwz` and the `rlwinm` that keeps the old
+    // word's top bits, then the `oris` with 0x6400 and the `sth` of the
+    // entry count, at the same spacing as the game's function (other words
+    // plain nops, with the function's two other masks as decoys beside).
+    auto add_mp4 = [](Text& t) {
+        for (int i = 0; i < 8; ++i) t.add(kNop);
+        t.add(lwz(4, 3, 4));                      // index 8
+        t.add(rlwinm_word(4, 4, 0, 0, 10));       // index 9: keeps the old top 11 bits
+        t.add(rlwinm_word(0, 4, 27, 7, 31));      // a decoy mask from the same function
+        t.add(rlwinm_word(4, 7, 0, 22, 19));      // another decoy mask
+        t.add(kNop);
+        t.add(kNop);
+        t.add(oris_word(0, 0, 0x6400));           // index 14
+        t.add(kNop);
+        t.add(sth_word(6, 3, 8));                 // index 16
+        t.add(kBlr);
+    };
+    {
+        Text t;
+        add_mp4(t);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 1u);
+        EXPECT_EQ(sites.clean.size(), 0u);
+        if (sites.stale.size() == 1) EXPECT_EQ(sites.stale[0], kBase + 4 * 9);
+        EXPECT_EQ(riftwii::gc_tlut_li_for(word_at_bytes(t.bytes, 9)), addi(4, 0, 0));
+        const std::vector<std::uint32_t> patched = riftwii::patch_gc_tlut(ranges);
+        EXPECT_EQ(patched.size(), 1u);
+        EXPECT_EQ(word_at_bytes(t.bytes, 9), 0x38800000u);
+        EXPECT_EQ(word_at_bytes(t.bytes, 14), oris_word(0, 0, 0x6400));
+        const riftwii::GcTlutSites after = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(after.stale.size(), 0u);
+        EXPECT_EQ(after.clean.size(), 1u);
+    }
+    {
+        // Another compiler's registers: the shape matches by field, and the
+        // replacement clears the same register the load read.
+        Text t;
+        t.add(lwz(9, 3, 4));
+        t.add(rlwinm_word(9, 9, 0, 0, 10));
+        t.add(kNop);
+        t.add(oris_word(7, 7, 0x6400));
+        t.add(kNop);
+        t.add(sth_word(6, 3, 8));
+        t.add(kBlr);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 1u);
+        EXPECT_EQ(riftwii::gc_tlut_li_for(word_at_bytes(t.bytes, 1)), addi(9, 0, 0));
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 1u);
+        EXPECT_EQ(word_at_bytes(t.bytes, 1), addi(9, 0, 0));
+    }
+    {
+        // Already clean: the load is followed by `li` instead of the keep.
+        Text t;
+        t.add(lwz(4, 3, 4));
+        t.add(addi(4, 0, 0));
+        t.add(kNop);
+        t.add(oris_word(0, 0, 0x6400));
+        t.add(sth_word(6, 3, 8));
+        t.add(kBlr);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 0u);
+        EXPECT_EQ(sites.clean.size(), 1u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // No `oris` with 0x6400 nearby: not this function.
+        Text t;
+        add_mp4(t);
+        t.words[14] = oris_word(0, 0, 0x6300);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // Another mask (last bit 11, not 10): the old word is not kept.
+        Text t;
+        add_mp4(t);
+        t.words[9] = rlwinm_word(4, 4, 0, 0, 11);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // The load reads another word of the object: not the address word.
+        Text t;
+        add_mp4(t);
+        t.words[8] = lwz(4, 3, 8);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+}
+
 }  // namespace
 
 int main() {
     test_copy_filter();
     test_video_pick();
     test_sram_reads();
+    test_tlut();
     if (g_failures == 0) std::cout << "gcvideo tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

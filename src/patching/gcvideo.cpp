@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcvideo.hpp"
 
+#include <algorithm>
 #include <map>
 
 #include "gc_video.h"
@@ -172,6 +173,114 @@ std::uint32_t gc_vi_width(const std::string& name) {
     if (name == "704") return 704;
     if (name == "720") return GC_VI_LINE;
     return 0;
+}
+
+namespace {
+
+// GXInitTlutObj's stale word: `rlwinm rA,rA,0,0,10` keeps the old load
+// word's top 11 bits, so its low half is shift 0, first 0, last 10.
+constexpr std::uint32_t kTlutRlwinmLow = (0u << 11) | (0u << 6) | (10u << 1);
+// The TLUT load word's BP register tag, ORed into the word's top half.
+constexpr std::uint16_t kTlutRegisterTag = 0x6400;
+// How far past the `lwz` the `oris` and the `sth` may be: Mario Party 4
+// keeps them 6 and 8 words on.
+constexpr std::uint32_t kTlutReach = 12 * 4;
+
+bool is_tlut_load(std::uint32_t w, unsigned& kept) {
+    if (opcode(w) != 32 || reg_a(w) != 3 || immediate(w) != 4) return false;  // lwz rA,4(r3)
+    kept = reg_d(w);
+    return true;
+}
+
+bool is_tlut_keep(std::uint32_t w, unsigned kept) {
+    return opcode(w) == 21 && reg_d(w) == kept && reg_a(w) == kept &&
+           immediate(w) == kTlutRlwinmLow;  // rlwinm rA,rA,0,0,10
+}
+
+bool is_tlut_cleared(std::uint32_t w, unsigned kept) {
+    return opcode(w) == 14 && reg_d(w) == kept && reg_a(w) == 0 &&
+           immediate(w) == 0;  // li rA,0
+}
+
+bool is_tlut_tag(std::uint32_t w) {
+    return opcode(w) == 25 && reg_d(w) == reg_a(w) &&
+           immediate(w) == kTlutRegisterTag;  // oris rX,rX,0x6400
+}
+
+bool is_tlut_store(std::uint32_t w) {
+    return opcode(w) == 44 && reg_d(w) == 6 && reg_a(w) == 3 &&
+           immediate(w) == 8;  // sth r6,8(r3)
+}
+
+void dedupe(std::vector<std::uint32_t>& addresses) {
+    std::sort(addresses.begin(), addresses.end());
+    addresses.erase(std::unique(addresses.begin(), addresses.end()), addresses.end());
+}
+
+}  // namespace
+
+GcTlutSites find_gc_tlut_sites(const std::vector<CodeRange>& text) {
+    const Words code(text);
+    GcTlutSites sites;
+    code.each([&](std::uint32_t load_at, std::uint32_t load) {
+        unsigned kept = 32;
+        if (!is_tlut_load(load, kept)) return;
+        std::uint32_t stale_at = 0;
+        std::uint32_t clean_at = 0;
+        for (std::uint32_t at = load_at + 4; at <= load_at + 8; at += 4) {
+            if (!code.has(at)) continue;
+            const std::uint32_t word = code.at(at);
+            if (stale_at == 0 && is_tlut_keep(word, kept)) stale_at = at;
+            if (clean_at == 0 && is_tlut_cleared(word, kept)) clean_at = at;
+        }
+        if (stale_at == 0 && clean_at == 0) return;
+        bool tagged = false;
+        bool stored = false;
+        for (std::uint32_t at = load_at + 4; at <= load_at + kTlutReach; at += 4) {
+            if (!code.has(at)) continue;
+            const std::uint32_t word = code.at(at);
+            if (!tagged && is_tlut_tag(word)) tagged = true;
+            if (!stored && is_tlut_store(word)) stored = true;
+            if (tagged && stored) break;
+        }
+        if (!tagged || !stored) return;
+        if (stale_at != 0)
+            sites.stale.push_back(stale_at);
+        else
+            sites.clean.push_back(clean_at);
+    });
+    dedupe(sites.stale);
+    dedupe(sites.clean);
+    // A site already counted as stale is not also clean when two loads
+    // share one word (back to back copies of the function).
+    for (std::uint32_t at : sites.stale)
+        sites.clean.erase(std::remove(sites.clean.begin(), sites.clean.end(), at), sites.clean.end());
+    return sites;
+}
+
+std::uint32_t gc_tlut_li_for(std::uint32_t rlwinm_word) {
+    const unsigned kept = reg_d(rlwinm_word);
+    return (14u << 26) | (kept << 21);  // addi rA,0,0
+}
+
+std::vector<std::uint32_t> patch_gc_tlut(const std::vector<CodeRange>& text) {
+    const GcTlutSites sites = find_gc_tlut_sites(text);
+    for (std::uint32_t at : sites.stale) {
+        for (const CodeRange& range : text) {
+            if (at < range.address || at + 4 > range.address + range.size) continue;
+            std::uint8_t* bytes = const_cast<std::uint8_t*>(range.bytes + (at - range.address));
+            const std::uint32_t old =
+                (std::uint32_t(bytes[0]) << 24) | (std::uint32_t(bytes[1]) << 16) |
+                (std::uint32_t(bytes[2]) << 8) | bytes[3];
+            const std::uint32_t patched = gc_tlut_li_for(old);
+            bytes[0] = static_cast<std::uint8_t>(patched >> 24);
+            bytes[1] = static_cast<std::uint8_t>(patched >> 16);
+            bytes[2] = static_cast<std::uint8_t>(patched >> 8);
+            bytes[3] = static_cast<std::uint8_t>(patched);
+            break;
+        }
+    }
+    return sites.stale;
 }
 
 }  // namespace riftwii
