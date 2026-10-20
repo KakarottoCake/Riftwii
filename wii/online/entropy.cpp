@@ -4,6 +4,7 @@
 
 #include <gccore.h>
 #include <ogc/conf.h>
+#include <ogc/isfs.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
 
@@ -14,6 +15,7 @@
 
 #include "bearssl.h"
 #include "log.hpp"
+#include "nanduse.hpp"
 #include "online.hpp"
 
 namespace riftwii::wii {
@@ -92,16 +94,38 @@ void WriteSeedFile(unsigned char next[kPoolBytes]) {
     std::memset(next, 0, kPoolBytes);
 }
 
+// The Wii's network connections as the Wii Menu saved them (three
+// profiles: SSIDs, keys, addresses), the NAND's own file, not SYSCONF.
+// Whether it was read.
+bool StirNetworkConfig() {
+    constexpr u32 kConfigBytes = 0x1B5C;
+    if (NandOpen() < 0) return false;
+    bool read = false;
+    const s32 fd = ISFS_Open("/shared2/sys/net/02/config.dat", ISFS_OPEN_READ);
+    if (fd >= 0) {
+        static unsigned char config[kConfigBytes] ATTRIBUTE_ALIGN(32);
+        const s32 got = ISFS_Read(fd, config, kConfigBytes);
+        ISFS_Close(fd);
+        if (got > 0) {
+            Stir("network config", config, static_cast<std::size_t>(got));
+            read = true;
+        }
+        std::memset(config, 0, sizeof(config));
+    }
+    NandClose();
+    return read;
+}
+
 // What this console's settings hold that another's does not: the
-// addresses of the Wii Remotes paired with it (BT.DINF), its network
-// settings (NET.CTPC: connections, SSIDs, keys) and its nickname. Not
+// addresses of the Wii Remotes paired with it (SYSCONF's BT.DINF), its
+// nickname (IPL.NIK) and its network connections (StirNetworkConfig). Not
 // secret, but not the clock: with no SD card there is no seed file, and
 // the console's 32-bit ID was all the start had besides the time (CAV-03).
 // Under the lock; returns how many were found.
 unsigned StirConsoleSettings() {
-    unsigned found = 0;
+    unsigned found = StirNetworkConfig() ? 1 : 0;
     if (CONF_Init() < 0) return found;
-    static const char* const kNames[] = {"BT.DINF", "NET.CTPC", "IPL.NIK"};
+    static const char* const kNames[] = {"BT.DINF", "IPL.NIK"};
     for (const char* name : kNames) {
         const s32 length = CONF_GetLength(name);
         if (length <= 0 || length > 0x2000) continue;
