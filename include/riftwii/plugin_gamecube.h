@@ -106,6 +106,18 @@ typedef struct rwp_gc_launch {
     const void* way_back_view;
     uint32_t way_back_view_bytes;
 
+    /* A switch to another program on the disc, carried out by starting
+     * the image again (runtime/gc's gc_on_boot_dol, exec.txt): exec set,
+     * the program's offset on the disc (0: the disc's own), the restart
+     * code the game passed, and its arguments, exec_arg_count strings one
+     * after another, each ending in a NUL. */
+    uint32_t exec;
+    uint32_t exec_dol;
+    uint32_t exec_restart;
+    const char* exec_args;
+    uint32_t exec_args_bytes;
+    uint32_t exec_arg_count;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;

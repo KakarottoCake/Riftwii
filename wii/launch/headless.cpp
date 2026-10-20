@@ -23,6 +23,11 @@ namespace {
 
 constexpr const char* kLogPath = "sd:/riftwii/boot.log";
 constexpr const char* kLaunchFile = "sd:/riftwii/launch.txt";
+// A GameCube game's switch to another program (runtime/gc's gc_on_boot_dol):
+// the GameCube loader makes it at every launch, "--idle--" and the image,
+// and the blob turns it into a launch when the game switches. One sector,
+// written by the blob as raw bytes: NULs after the text.
+constexpr const char* kGcExecFile = "sd:/riftwii/gc/exec.txt";
 
 bool same_path(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -166,6 +171,8 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
     if (!file) return false;
     std::string line;
     while (std::getline(file, line) && args.size() < 64) {
+        // A file written a sector at a time ends in NULs (kGcExecFile).
+        if (const std::size_t nul = line.find('\0'); nul != std::string::npos) line.resize(nul);
         while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
         if (!line.empty()) args.push_back(line);
     }
@@ -183,6 +190,16 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
             error = "xml=all and code builds are not supported for GameCube games yet";
             return false;
         }
+        if (h.gc_exec) {
+            gc.exec = true;
+            gc.exec_dol = h.gc_dol;
+            gc.exec_restart = h.gc_restart;
+            gc.exec_args = h.gc_args;
+            logf("GameCube: the game switches to the program at disc offset 0x%08x (restart code 0x%08x, %u "
+                 "argument(s)): the image starts again with it\n",
+                 static_cast<unsigned>(h.gc_dol), static_cast<unsigned>(h.gc_restart),
+                 static_cast<unsigned>(h.gc_args.size()));
+        }
         std::vector<PackageChoices> packs;
         for (const std::string& x : h.xmls) {
             PackageChoices p;
@@ -190,6 +207,10 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
             packs.push_back(p);
         }
         return LaunchGcGame(gc, packs, error);
+    }
+    if (h.gc_exec) {
+        error = "a GameCube program switch for an image that is not a GameCube game on the SD card";
+        return false;
     }
     FrontendState state;
     InitializeFrontend(state);
@@ -255,8 +276,15 @@ bool HeadlessArguments(std::vector<std::string>& args) {
     // without any) writes them to a file instead, one per line. It is
     // read once: deleted before the launch, so a failed one never repeats.
     args.clear();
-    if (!read_launch_lines(kLaunchFile, args)) return false;
-    std::remove(kLaunchFile);
+    if (read_launch_lines(kLaunchFile, args)) {
+        std::remove(kLaunchFile);
+        return true;
+    }
+    // A GameCube game's switch to another program, taken up once: the file
+    // goes, and the loader makes it again for the next game.
+    args.clear();
+    if (!read_launch_lines(kGcExecFile, args)) return false;
+    std::remove(kGcExecFile);
     return true;
 }
 

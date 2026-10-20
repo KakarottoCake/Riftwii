@@ -24,7 +24,7 @@
 #include "gc_layout.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 7u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 8u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The DI interrupt types a DVDLow callback takes. */
@@ -100,6 +100,9 @@ struct gc_rt_header {
     uint32_t alarm_entry_ogc;       /* libogc's alarm callback (handle, arg): gc_on_alarm with arg as the alarm */
     uint32_t di_common;             /* what a DI start slot calls: gc_on_di_start */
     uint32_t di_slots;              /* GC_DI_SITES slots of GC_DI_SLOT_WORDS words (gc_layout.h), loader-written */
+    uint32_t hook_boot_dol;         /* __OSBootDolSimple(...): gc_on_boot_dol, then the original */
+    uint32_t replay_boot_dol;
+    uint32_t continue_boot_dol;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -219,6 +222,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_COMMAND 8u /* a DVDLow command that is not a read */
 #define GC_TRACE_LEAVE 9u   /* the player held HOME: ES_LaunchTitle is next */
 #define GC_TRACE_RESTART 10u /* the game is restarted (Reset): MEM1 goes back as it was at the jump */
+#define GC_TRACE_EXEC 11u   /* the game switches to another program: exec.txt written, the way back next */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -243,6 +247,8 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */
 #define GC_FLAG_PROGRESSIVE 8u  /* 480p: VIConfigure's NTSC interlaced modes become progressive (gc_on_vi_configure) */
 #define GC_FLAG_RESET_TEST 128u  /* tests of the restart: a Reset press at the 1500th pad read and at the 3600th */
+#define GC_FLAG_EXEC_TEST 4096u  /* tests of a program switch (gc_on_boot_dol) in a game without one: at the 1500th
+                                  * pad read, to the disc's own program with one argument, "rwtest" */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
 
@@ -478,6 +484,10 @@ struct gc_rt_context {
     uint32_t ar_config_at_jump;
     uint32_t ai_cr_at_jump;
     uint32_t audio_reset;         /* GC_TR_AUDIO_RESET */
+    /* A switch to another program on the disc (gc_on_boot_dol): the one
+     * sector of sd:/riftwii/gc/exec.txt, loader-made; 0: switches run as
+     * the game makes them. */
+    uint32_t exec_sector;
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
@@ -509,6 +519,7 @@ void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command)
 uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);
+void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context);

@@ -1504,6 +1504,20 @@ void TestHeadlessArguments() {
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
     EXPECT_TRUE(error.find("speed") != std::string::npos);
+    // A GameCube program switch, as the blob writes it (exec.txt).
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=sd:/games/Sonic Gems Collection [G2XE8P]/Game.iso",
+                                       "game=G2XE8P", "gc_dol=123456768", "gc_restart=3221225472", "gc_arg=cd",
+                                       "gc_arg=-x 1"},
+                                      h, error));
+    EXPECT_TRUE(h.gc_exec);
+    EXPECT_EQ(h.gc_dol, 123456768u);
+    EXPECT_EQ(h.gc_restart, 3221225472u);
+    EXPECT_EQ(h.gc_args.size(), static_cast<std::size_t>(2));
+    EXPECT_EQ(h.gc_args[1], std::string("-x 1"));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=G2XE8P", "gc_dol=4294967296"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=G2XE8P", "gc_dol=-1"}, h, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01"}, h, error));
+    EXPECT_FALSE(h.gc_exec);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
     // An image by its path, a four-character ID, packs by file name or all.
