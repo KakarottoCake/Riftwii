@@ -189,6 +189,30 @@ bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, cons
     return true;
 }
 
+// classify_channel passes over a known homebrew code without a word, so a
+// report could not say why such a channel is not on Home. Says it.
+void log_known_homebrew(std::uint64_t title_id, const std::string& where) {
+    if (static_cast<std::uint32_t>(title_id >> 32) != kDownloadedChannels) return;
+    const std::string code = channel_code(title_id);
+    if (code.empty() || !is_homebrew_code(code)) return;
+    logf("Wii channels: %s left out%s (rule 1 of 4): its code belongs to a known homebrew channel\n", code.c_str(),
+         where.c_str());
+}
+
+// Why a channel's program cannot start, for the log: the program content's
+// record or file was not reachable, or the game data really was removed.
+std::string program_unavailable_reason(const TmdContent* program) {
+    if (program == nullptr) return "its TMD lists no program content for the boot index";
+    char id[16];
+    std::snprintf(id, sizeof id, "%08x", static_cast<unsigned>(program->id));
+    if ((program->type & 0x8000) != 0)
+        return std::string("its program content ") + id + " is shared, so it is not among the title's own files";
+    // The Wii only says the file could not be opened: removed game data is
+    // the usual cause, a refused read the other.
+    return std::string("its program content ") + id +
+           " could not be opened (the game data was removed from the Wii, or the Wii refused the read)";
+}
+
 bool card_file_exists(const std::string& path) {
     struct stat st;
     return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
@@ -226,7 +250,10 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
         NandChannel channel;
         channel.title_id = titles[i];
         channel.kind = classify_channel(channel.title_id);
-        if (channel.kind.kind == ChannelKind::None) continue;
+        if (channel.kind.kind == ChannelKind::None) {
+            log_known_homebrew(channel.title_id, "");
+            continue;
+        }
         channel.code = channel_code(channel.title_id);
         // Homebrew forwarders take Shop-like codes too (Nintendont's is
         // WWND), and custom injects take made-up ones GameTDB does not list.
@@ -264,9 +291,8 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
             ++missing;
             // Shown on Home with a note, not hidden; the log says why it
             // cannot start and which content is gone.
-            logf("Wii channels: %s kept on Home but cannot start: its game data was removed from the Wii "
-                 "(program content %08x is missing)\n",
-                 channel.code.c_str(), program ? static_cast<unsigned>(program->id) : 0u);
+            logf("Wii channels: %s kept on Home but cannot start: %s\n", channel.code.c_str(),
+                 program_unavailable_reason(program).c_str());
         }
         out.push_back(std::move(channel));
     }
@@ -298,7 +324,10 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         channel.emu_nand = folder;
         channel.title_id = (std::uint64_t(kDownloadedChannels) << 32) | std::strtoul(name.c_str(), nullptr, 16);
         channel.kind = classify_channel(channel.title_id);
-        if (channel.kind.kind == ChannelKind::None) continue;
+        if (channel.kind.kind == ChannelKind::None) {
+            log_known_homebrew(channel.title_id, " in " + folder);
+            continue;
+        }
         channel.code = channel_code(channel.title_id);
         const bool not_in_list = GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty();
         // The Wii's own copy, when it can start, is the one shown. One whose
