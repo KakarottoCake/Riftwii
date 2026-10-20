@@ -684,7 +684,7 @@ bool NtfsVolume::walk_directory(std::uint64_t record_number, std::vector<DirEntr
 }
 
 bool NtfsVolume::directory_entries(std::uint64_t record_number, const std::vector<DirEntry>*& out,
-                                   std::string& error) const {
+                                   std::vector<DirEntry>& scratch, std::string& error) const {
     const auto cached = dir_cache_.find(record_number);
     if (cached != dir_cache_.end()) {
         out = &cached->second;
@@ -694,11 +694,12 @@ bool NtfsVolume::directory_entries(std::uint64_t record_number, const std::vecto
     if (!walk_directory(record_number, entries, error)) return false;
     // What the listing holds: each entry and its name, and the listing
     // itself, so empty folders are bounded too.
-    std::size_t cost = sizeof(std::vector<DirEntry>) + 64;
-    for (const DirEntry& e : entries) cost += sizeof(DirEntry) + e.entry.name.size();
+    entries.shrink_to_fit();
+    std::size_t cost = sizeof(std::vector<DirEntry>) + 64 + entries.capacity() * sizeof(DirEntry);
+    for (const DirEntry& e : entries) cost += e.entry.name.capacity();
     if (cost > kDirCacheBytes) {
-        uncached_ = std::move(entries);
-        out = &uncached_;
+        scratch = std::move(entries);
+        out = &scratch;
         return true;
     }
     if (dir_cache_bytes_ + cost > kDirCacheBytes) {
@@ -727,7 +728,8 @@ bool NtfsVolume::resolve(const std::string& path, DirEntry& out, std::string& er
             return false;
         }
         const std::vector<DirEntry>* entries = nullptr;
-        if (!directory_entries(cur.record, entries, error)) return false;
+        std::vector<DirEntry> scratch;
+        if (!directory_entries(cur.record, entries, scratch, error)) return false;
         const DirEntry* hit = nullptr;
         for (const DirEntry& d : *entries) {
             if (d.entry.name == part) {
@@ -832,7 +834,8 @@ bool NtfsVolume::list(const std::string& path, std::vector<VolumeEntry>& out, st
         return false;
     }
     const std::vector<DirEntry>* entries = nullptr;
-    if (!directory_entries(d.record, entries, error)) return false;
+    std::vector<DirEntry> scratch;
+    if (!directory_entries(d.record, entries, scratch, error)) return false;
     out.clear();
     for (const DirEntry& e : *entries) out.push_back(e.entry);
     error.clear();
