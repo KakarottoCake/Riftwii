@@ -31,6 +31,7 @@ constexpr const char* kHomebrewCodes[] = {
     "LULZ",  // the Homebrew Channel
     "JODI",  // the Homebrew Channel, older
     "UFTW",  // RiftWii's own channel
+    "CORD",  // the Discross channel (a tester's Wii showed it as a game)
 };
 
 // Text a forwarder's program holds to name the app it starts.
@@ -263,6 +264,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     ChannelVerdict verdict;
     verdict.left_out = true;
     if (is_homebrew_code(code)) {
+        verdict.rule = 1;
         verdict.reason = "its code belongs to a known homebrew channel";
         return verdict;
     }
@@ -271,6 +273,8 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     for (const ContentStart& start : starts)
         if (start.index == tmd.boot_index && !start.head.empty()) boot_start = &start;
     if (boot == nullptr || (boot->type & 0x8000) != 0 || boot_start == nullptr) {
+        verdict.rule = 2;
+        if (boot != nullptr) verdict.unread_content_id = boot->id;
         verdict.reason = "its program is not on the Wii (or could not be read), so it cannot start";
         return verdict;
     }
@@ -285,6 +289,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
             char text[96];
             std::snprintf(text, sizeof text, "a homebrew loader (its program loads at 0x%08x)",
                           static_cast<unsigned>(section.address));
+            verdict.rule = 3;
             verdict.reason = text;
             return verdict;
         }
@@ -295,6 +300,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     if (boot->size != 0 && boot->size <= kForwarderMaxBytes) {
         const std::string path = forwarder_app_path(boot_start->head.data(), boot_start->head.size());
         if (!path.empty()) {
+            verdict.rule = 4;
             verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
             return verdict;
         }

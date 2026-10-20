@@ -151,8 +151,13 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
         file_sector += f.sector_count;
     }
     if (out.extents.size() > RTVSD_MAX_EXTENTS) {
-        why = "it is in " + std::to_string(out.extents.size()) + " pieces (at most " +
-              std::to_string(RTVSD_MAX_EXTENTS) + "); copy it to a freshly formatted drive";
+        // Name the file, the drive, the count and the limit, and the fix: a
+        // tester saw only "11796 pieces" and could not tell what to do.
+        const std::string drive = out.on_usb ? "USB drive" : "SD card";
+        const std::string files = parts.size() > 1 ? name + " (all " + std::to_string(parts.size()) + " part files)" : name;
+        why = files + " on the " + drive + " is scattered in " + std::to_string(out.extents.size()) +
+              " pieces and RiftWii can follow at most " + std::to_string(RTVSD_MAX_EXTENTS) +
+              "; copy the file(s) to a freshly formatted " + drive + ", or defragment it, then try again";
         return false;
     }
     out.sectors = static_cast<std::uint32_t>(size / RTVSD_SECTOR_BYTES);

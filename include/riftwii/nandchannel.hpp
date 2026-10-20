@@ -76,6 +76,12 @@ constexpr std::uint32_t kHomebrewLoadAddress = 0x80A00000;
 struct ChannelVerdict {
     bool left_out = false;  // not listed on Home
     std::string reason;     // for the log, when left out
+    // Which rule of judge_unlisted_channel decided it (1 to 4), 0 when it
+    // is shown; the log names it so a report says why a channel was hidden.
+    int rule = 0;
+    // The content ID of the boot content that could not be read, when that
+    // was the reason (rule 2); 0 otherwise.
+    std::uint32_t unread_content_id = 0;
 };
 
 // One of a TMD's content records.

@@ -622,7 +622,8 @@ struct SkippedGcFiles {
 // The GameCube image at `full` (on the card or the USB drive) as the list
 // shows it, when it is one. A file that is not one is said in `skipped`,
 // unless it is a Wii disc, which the Wii games' scan lists.
-void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped) {
+void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedGcFiles& skipped,
+                  CisoFinds* ciso) {
     GcHead found;
     if (!read_gc_head(full, found)) {
         // Not read at all: the drive's file system says why when it can (a
@@ -643,8 +644,17 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
             return;
         }
         const bool wii_disc = be32(found.bytes + 0x18) == 0x5D1C9EA3u;
-        if (!wii_disc && !found.rvz)
-            skipped.note(full, "it has no GameCube disc header (damaged, cut short, or not a GameCube image)");
+        if (wii_disc || found.rvz) return;
+        // A container renamed to .iso: name what it is by its first bytes.
+        const GcContainer container = gc_container_by_magic(found.bytes, sizeof(found.bytes));
+        if (container == GcContainer::None) {
+            skipped.note(full, "it has no GameCube disc header (damaged, cut short, or not a GameCube image; "
+                               "NKit and other trimmed images are not played)");
+            return;
+        }
+        skipped.note(full, gc_container_skip_reason(container));
+        // A CISO found by what is in it gets the same popup as a .ciso name.
+        if (container == GcContainer::Ciso && ciso) ciso->note(full);
         return;
     }
     const std::uint8_t* head = found.bytes;
@@ -702,7 +712,7 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out, skipped);
+            add_gc_image(dir + "/" + name, out, skipped, ciso);
         }
         closedir(inner);
     }
@@ -734,7 +744,7 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out, skipped);
+            add_gc_image(dir + "/" + file.name, out, skipped, ciso);
         }
     }
     skipped.finish("USB");
