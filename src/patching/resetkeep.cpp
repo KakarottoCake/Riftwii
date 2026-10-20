@@ -33,6 +33,21 @@ constexpr std::size_t kPrologueWithin = 32;             // words back to the fun
 
 bool is_conditional_branch(std::uint32_t insn) { return (insn >> 26) == 16; }
 
+// The function holding word `i` of `r`: its `stwu r1` frame, found going
+// back, or the word after the `blr` that ends the function before it. The
+// second is how a function whose first word is already hooked (a branch
+// to the runtime, as OSRestart's is once the restart is kept) is found
+// again. 0 when neither is close enough.
+std::uint32_t function_start(const CodeRange& r, std::size_t i) {
+    constexpr std::uint32_t kBlr = 0x4E800020u;
+    for (std::size_t back = 1; back <= kPrologueWithin && back <= i; ++back) {
+        const std::uint32_t insn = be32(r.bytes + 4 * (i - back));
+        if ((insn & kStwuR1Mask) == kStwuR1) return r.address + static_cast<std::uint32_t>(4 * (i - back));
+        if (insn == kBlr) return r.address + static_cast<std::uint32_t>(4 * (i - back + 1));
+    }
+    return 0;
+}
+
 }  // namespace
 
 void add_reset_differences(std::uint32_t address, const std::uint8_t* before, const std::uint8_t* after,
@@ -119,12 +134,7 @@ std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text) {
             bool waiting = false;
             for (std::size_t back = 1; back <= 4 && !waiting; ++back) waiting = be32(at - 4 * back) == kLiR0Waiting;
             if (!waiting) continue;
-            std::uint32_t start = 0;
-            for (std::size_t back = 1; back <= kPrologueWithin && back <= i && start == 0; ++back) {
-                if ((be32(at - 4 * back) & kStwuR1Mask) == kStwuR1) {
-                    start = r.address + static_cast<std::uint32_t>(4 * (i - back));
-                }
-            }
+            const std::uint32_t start = function_start(r, i);
             if (start == 0) continue;
             found = start;
             ++matches;
@@ -150,12 +160,7 @@ std::uint32_t find_os_restart(const std::vector<CodeRange>& text) {
                 disc_compare = be32(r.bytes + 4 * j) == kCmplwiR0Disc;
             }
             if (!disc_compare) continue;
-            std::uint32_t start = 0;
-            for (std::size_t back = 1; back <= kPrologueWithin && back <= i && start == 0; ++back) {
-                if ((be32(at - 4 * back) & kStwuR1Mask) == kStwuR1) {
-                    start = r.address + static_cast<std::uint32_t>(4 * (i - back));
-                }
-            }
+            const std::uint32_t start = function_start(r, i);
             if (start == 0) continue;
             found = start;
             ++matches;

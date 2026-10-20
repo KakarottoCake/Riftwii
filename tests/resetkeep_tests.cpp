@@ -169,6 +169,13 @@ void os_restart_is_found() {
     const Bytes no_disc = words_to_bytes(words);
     EXPECT_EQ(riftwii::find_os_restart(one_range(no_disc)), 0u);
 
+    // Hooked for the kept restart (its first word a branch to the runtime),
+    // as the test switch then sees it: still found, at the same address.
+    std::vector<std::uint32_t> hooked = os_restart_shape();
+    hooked[1] = 0x48000000u | ((0x817E37E0u - (kBase + 4)) & 0x03FFFFFCu);
+    const Bytes hooked_text = words_to_bytes(hooked);
+    EXPECT_EQ(riftwii::find_os_restart(one_range(hooked_text)), kBase + 4);
+
     // Two of them: neither is taken.
     std::vector<std::uint32_t> twice = os_restart_shape();
     const std::vector<std::uint32_t> again = os_restart_shape();
