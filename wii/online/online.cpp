@@ -157,16 +157,19 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     if (!NetStart(error)) return false;
     HttpUrl parsed;
     if (!parse_http_url(url, parsed, error)) return false;
-    // Whether the first server is itself on this network: one there may
-    // send the download on to another there, one out on the internet not.
+    // Whether the server that sent this hop is itself on this network: one
+    // there may send the download on to another there, one out on the
+    // internet not. Asked again at every hop, so a local server that sends
+    // it out to the internet cannot have that one send it back in
+    // (CodeRabbit on #169).
     bool local_ok = true;
     for (int hop = 0; hop < 4; ++hop) {
         HttpResponse response;
         std::uint32_t resolved = 0;
-        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress,
-                      hop == 0 || local_ok, &resolved))
+        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress, local_ok,
+                      &resolved))
             return false;
-        if (hop == 0) local_ok = http_local_ipv4(resolved);
+        local_ok = http_local_ipv4(resolved);
         if (response.status >= 300 && response.status < 400 && response.headers.count("location")) {
             // A redirect this download does not take is the server's
             // answer, worded as any other ("answered"), so the caller
