@@ -164,9 +164,12 @@ bool open_gc_tgc(const ByteSource& f, const std::vector<std::uint8_t>& disc_boot
                  std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& bi2, std::vector<std::uint8_t>& fst,
                  std::string& error) {
     const std::uint32_t disc_fst_size = be32(&disc_boot[0x428]);
+    if (disc_fst_size == 0 || disc_fst_size > kGcTgcFstLimit) {
+        error = "the disc's FST size is not one a disc has, so its TGC image cannot be found";
+        return false;
+    }
     std::vector<std::uint8_t> disc_fst(disc_fst_size);
-    if (disc_fst_size > kGcTgcFstLimit || disc_fst.empty() ||
-        !read_at(f, be32(&disc_boot[0x424]), disc_fst.data(), disc_fst.size())) {
+    if (!read_at(f, be32(&disc_boot[0x424]), disc_fst.data(), disc_fst.size())) {
         error = "cannot read the disc's FST to find its TGC image";
         return false;
     }
@@ -2801,12 +2804,21 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
         const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
         const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
-        const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch;
+        // A game from a TGC image: exec.txt names programs by their offset
+        // on the outer disc and starts them with its boot.bin and FST, not
+        // the TGC's, so its own switches run as made (not seen in a game).
+        const bool from_tgc = image.tgc_offset != 0;
+        const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
+        const bool exec_test_on = test_exec && !boot_dol_branch;
+        const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
+                                         : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
+                                                           "cannot name"
+                                                         : nullptr;
         const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
         std::string why_not;
-        if (!boot_dol_hookable && !test_exec && tgcs.empty())
-            why_not = boot_dol_branch ? "its first word is a branch"
-                                      : "the game has no switch to another program (__OSBootDolSimple not found)";
+        if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
+            why_not = boot_dol_off != nullptr ? boot_dol_off
+                                              : "the game has no switch to another program (__OSBootDolSimple not found)";
         else if (!on_sd) why_not = "only for a game on the SD card so far";
         else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
         else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
@@ -2826,21 +2838,21 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             else if (why_not.empty())
                 why_not = "sd:/riftwii/gc/exec.txt could not be made";
         }
-        if (exec_sector != 0 && test_exec) ctx->flags |= GC_FLAG_EXEC_TEST;
+        if (exec_sector != 0 && exec_test_on) ctx->flags |= GC_FLAG_EXEC_TEST;
         if (exec_sector != 0 && boot_dol_hookable) {
             replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
             ctx->exec_sector = exec_sector;
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
                  "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
                  boot_dol, exec_sector);
-        } else if (exec_sector != 0 && test_exec) {
+        } else if (exec_sector != 0 && exec_test_on) {
             ctx->exec_sector = exec_sector;
             logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
                  exec_sector);
         }
         if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
-                 boot_dol, boot_dol_branch ? "its first word is a branch" : why_not.c_str());
+                 boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
         }
         // The TGC images' programs, whose reads the blob watches. A sector
         // word of their own, so a disc with TGCs alone keeps the restart a

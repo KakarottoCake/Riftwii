@@ -408,8 +408,8 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   TGC image on its disc, with a loader of its own. The loader finds the
   disc's `.tgc` files in its FST and their headers (`src/disc/gctgc.cpp`,
   up to eight), and gives the blob where each TGC's program lies on the
-  disc. The menu's first read of one (`gc_on_tgc_read`, before the read
-  is served) writes `gc_tgc=<the TGC file's offset>`. The next start
+  disc. The menu's first read of one (`gc_on_tgc_read`, which leaves
+  before the read is served) writes `gc_tgc=<the TGC file's offset>`. The next start
   takes the game from the TGC instead of the disc: its packed boot.bin
   and BI2, its DOL, and its FST with every file's offset moved onto the
   outer disc (the FST counts from the header's virtual file-area start;
@@ -418,7 +418,9 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   the packed boot.bin's ID (`disc_id_offset`). The offset in exec.txt
   must be the start of a file of the disc's own FST, and every size and
   offset the TGC's header and FST give must lie inside that file, or the
-  launch stops with the reason. Packs are left off for such a game.
+  launch stops with the reason. Packs are left off for such a game, and
+  its own OSExec switches run as made: exec.txt cannot name a program
+  inside a TGC.
 Only for an image on the SD card, with a way back. If IOS refuses to
 leave, exec.txt goes back to `--idle--` and the start runs as the game
 made it.

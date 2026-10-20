@@ -1766,12 +1766,13 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * own and jumps to it. That program would run with none of RiftWii's
  * patches, its disc reads unanswered, and the screen stayed black. So the
  * menu's first read of a TGC's program (the loader found where each lies,
- * tgc_dol_start/end) is taken as the start of that game: the read is not
- * served, exec.txt (gc_on_boot_dol's file) becomes a launch with
+ * tgc_dol_start/end) is taken as the start of that game: exec.txt
+ * (gc_on_boot_dol's file) becomes a launch with
  * gc_tgc=<the TGC's offset on the disc>, and the game leaves as holding
- * HOME does. RiftWii's next start launches the image again with that
- * TGC's game. Returns when that could not be done; the watch then ends
- * and the menu's own start runs as it would have. */
+ * HOME does, before the read is served. RiftWii's next start launches the
+ * image again with that TGC's game. Returns when that could not be done;
+ * the watch then ends, the read is served, and the menu's own start runs
+ * as it would have. */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length) {
     uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
     uint32_t tgc = 0, at, i, msr;
@@ -1783,7 +1784,9 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
         if (found) tgc = ctx->tgc_offset[i];
     }
     if (!found) return;
-    if (ctx->busy) return;  /* an SD request under way: the menu's next read of it tries again */
+    /* An SD request under way: a later read of the program tries again,
+     * but a program loaded in one read starts as the menu makes it. */
+    if (ctx->busy) return;
     if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
         ctx->tgc_count = 0;
         return;

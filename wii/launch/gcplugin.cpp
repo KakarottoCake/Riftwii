@@ -200,11 +200,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.sixty_hz = image.sixty_hz ? 1 : 0;
     request.language = image.language;
     request.vi_width = image.vi_width;
+    // A game packed in a TGC image, started from the disc's menu last time.
+    request.tgc_offset = image.tgc_offset;
 
     // A game or a pack on the USB drive: d2x's USB device its launch opened
     // (gclaunch.cpp's ready_usb) and, for a game on it, the image's pieces.
-    request.tgc_offset = image.tgc_offset;
-
     // Kept here until the launch returns: the request points into them.
     std::vector<rwp_fragment> usb_fragments;
     request.usb_fd = -1;
