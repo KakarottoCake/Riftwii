@@ -2312,10 +2312,26 @@ public:
 	}
 	~PopupBox()
 	{
+		Close();
+	}
+	// Takes the box off the screen; the destructor does it otherwise.
+	// Always with the GUI thread halted, so it is never in the middle of
+	// drawing or updating the box when it leaves mainWindow, and left as
+	// it was found (running or halted). Things shown in the box but made
+	// after it (a progress bar, a ProgressPanel) end before it does: they
+	// close the box first, so the GUI thread never reaches a part that is
+	// gone.
+	void Close()
+	{
+		if (closed) return;
+		closed = true;
+		const bool guiWasRunning = !guiHalt;
+		if (guiWasRunning) HaltGui();
 		transition::Begin(transition::Kind::PopClose);
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
 		g_popupClosedAt = gettime();
+		if (guiWasRunning) ResumeGui();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
 	// Something more in the box, over its whole width (it must outlive the box).
@@ -2417,6 +2433,7 @@ private:
 	SkinButton cancelBtn;
 	bool hasOk, hasCancel;
 	bool chained;  // before w, which it sets up
+	bool closed = false;
 	ShiftWindow w;
 };
 
@@ -2569,7 +2586,7 @@ private:
 class ProgressPanel {
 public:
 	ProgressPanel(PopupBox& box, const std::string& coverId)
-		: left(56 - box.Extra()), right(584 + box.Extra()),
+		: owner(box), left(56 - box.Extra()), right(584 + box.Extra()),
 		  cover(coverId, left, PopupBox::kBodyY, kCoverW, kCoverH), percentTxt("0%", 36, skin::kInk),
 		  bar(left + kCoverW + 24, PopupBox::kBodyY + 46, right - (left + kCoverW + 24)), timeTxt("", 15, skin::kInkSoft),
 		  stageTxt("", 15, skin::kInkSoft), start(gettime())
@@ -2605,8 +2622,12 @@ public:
 		timeTxt.SetText(time.c_str());
 	}
 	void SetStage(const std::string& stage) { stageTxt.SetText(stage.c_str()); }
+	// The panel's parts are in the box's window and end before the box
+	// (the panel is made after it): the box leaves the screen first.
+	~ProgressPanel() { owner.Close(); }
 private:
 	static constexpr int kCoverW = 80, kCoverH = 112;
+	PopupBox& owner;
 	int left, right;
 	SmallCover cover;
 	GuiText percentTxt;
@@ -2923,9 +2944,11 @@ static void RunUpdate(const std::string& latest)
 	std::string where, error;
 	bool ok;
 	{
+		// The bar before the box: it is drawn in the box's window, so it
+		// must last until the box is off the screen.
+		ProgressBar bar(56, 280, 528);
 		PopupBox box(tr("Updating RiftWii"),
 			tr("RiftWii {1} is out. Downloading and installing it now; this takes a minute...", {latest}));
-		ProgressBar bar(56, 280, 528);
 		box.Add(&bar, 528);
 		ResumeGui();
 		int shown = -1;
@@ -2938,10 +2961,13 @@ static void RunUpdate(const std::string& latest)
 			bar.Set(done);
 			ResumeGui();
 		});
+		// Said before the popup closes, so a problem report shows whether
+		// anything went wrong in the download or after it.
+		if (!ok) logf("Update: %s\n", error.c_str());
 		HaltGui();
+		box.Close();
 	}
 	if (!ok) {
-		logf("Update: %s\n", error.c_str());
 		ShowPopup(tr("Update failed"),
 			tr("RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}",
 				{latest, FlatCapped(error, 140), riftwii::wii::kReleasesPage}),
@@ -2992,9 +3018,10 @@ static bool InstallWads()
 		std::string code, error;
 		bool ok;
 		{
+			// The bar before the box, so it lasts until the box is off the screen.
+			ProgressBar bar(56, 280, 528);
 			PopupBox box(tr("Installing WAD files"),
 				tr("{1} of {2}: {3}", {std::to_string(i + 1), std::to_string(files.size()), FlatCapped(name, 40)}));
-			ProgressBar bar(56, 280, 528);
 			box.Add(&bar, 528);
 			// The power button and HOME wait for the install, as for an
 			// update: a card unmounted in the middle left a half-installed
