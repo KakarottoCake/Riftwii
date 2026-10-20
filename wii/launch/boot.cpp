@@ -1247,8 +1247,8 @@ void apply_debug_crash(const DolHeader& dol) {
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
-// itself, as the HOME Menu's Reset does (OSRestart(0)), at the Nth call
-// of its PADRead, else of its VIWaitForRetrace (once a frame), so it can be tried in
+// itself, as the HOME Menu's Reset does (OSRestart(0)), N seconds after
+// its main thread first sleeps (1 to 60), so the Reset can be tried in
 // Dolphin without driving a controller (riftwii/resetkeep.hpp). The stub
 // sits at 0x80001200, between vectors the CPU never takes, after the
 // cheats' next-executable stub (0x80001000). Never leave it in a
@@ -1259,39 +1259,37 @@ static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "
 void apply_debug_reset(const DolHeader& dol) {
     const auto it = Settings().other.find("debug_reset");
     if (it == Settings().other.end()) return;
-    const std::uint32_t calls = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 10));
+    const std::uint32_t seconds = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 10));
     std::vector<CodeRange> text;
     for (std::size_t i = 0; i < kDolTextSections; ++i) {
         const DolSection& s = dol.sections[i];
         if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
-    PadSymbols pad;
-    std::string error;
-    // PADRead, else VIWaitForRetrace (New Super Mario Bros. Wii links no PADRead).
-    std::uint32_t pad_read = find_pad_symbols(text, pad, error) ? pad.read : 0;
-    if (pad_read == 0) pad_read = find_vi_wait_for_retrace(text);
+    const std::uint32_t sleep_thread = find_os_sleep_thread(text);
     const std::uint32_t os_restart = find_os_restart(text);
-    if (calls == 0 || pad_read == 0 || os_restart == 0) {
-        logf("debug_reset: not set up (%u calls, PADRead or VIWaitForRetrace 0x%08x, OSRestart 0x%08x)\n", calls,
-             pad_read, os_restart);
+    // The stub compares 32-bit time base values, which wrap after 70 s.
+    if (seconds == 0 || seconds > 60 || sleep_thread == 0 || os_restart == 0) {
+        logf("debug_reset: not set up (%u s, OSSleepThread 0x%08x, OSRestart 0x%08x)\n", seconds, sleep_thread,
+             os_restart);
         return;
     }
-    const std::uint32_t displaced = load32(pad_read);
-    const std::vector<std::uint32_t> stub = restart_trigger_stub(kRestartTriggerStub, pad_read, displaced, calls, os_restart);
+    const std::uint32_t displaced = load32(sleep_thread);
+    const std::vector<std::uint32_t> stub = restart_trigger_stub(
+        kRestartTriggerStub, sleep_thread, displaced, seconds * kTimeBaseTicksPerSecond, os_restart);
     if (stub.empty()) {
-        logf("debug_reset: PADRead's first instruction 0x%08x cannot be moved\n", displaced);
+        logf("debug_reset: OSSleepThread's first instruction 0x%08x cannot be moved\n", displaced);
         return;
     }
     std::memcpy(reinterpret_cast<void*>(kRestartTriggerStub), stub.data(), stub.size() * 4);
     DCFlushRange(reinterpret_cast<void*>(kRestartTriggerStub), kRestartTriggerBytes);
     ICInvalidateRange(reinterpret_cast<void*>(kRestartTriggerStub), kRestartTriggerBytes);
-    const std::uint32_t branch = encode_b(pad_read, kRestartTriggerStub);
-    std::memcpy(reinterpret_cast<void*>(pad_read), &branch, 4);
-    DCFlushRange(reinterpret_cast<void*>(pad_read & ~31u), 32);
-    ICInvalidateRange(reinterpret_cast<void*>(pad_read & ~31u), 32);
-    logf("debug_reset: the game restarts itself (OSRestart 0x%08x) at call %u of 0x%08x (PADRead or VIWaitForRetrace); "
-         "the count is at 0x%08x\n",
-         os_restart, calls, pad_read, kRestartTriggerStub + kRestartTriggerCountOffset);
+    const std::uint32_t branch = encode_b(sleep_thread, kRestartTriggerStub);
+    std::memcpy(reinterpret_cast<void*>(sleep_thread), &branch, 4);
+    DCFlushRange(reinterpret_cast<void*>(sleep_thread & ~31u), 32);
+    ICInvalidateRange(reinterpret_cast<void*>(sleep_thread & ~31u), 32);
+    logf("debug_reset: the game restarts itself (OSRestart 0x%08x) %u s after its main thread first sleeps "
+         "(OSSleepThread 0x%08x); the stub's words are at 0x%08x\n",
+         os_restart, seconds, sleep_thread, kRestartTriggerStub + kRestartTriggerDataOffset);
 }
 
 // The game's own restart (HOME Menu > Reset) keeping the launch

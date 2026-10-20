@@ -265,11 +265,11 @@ hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 game crashes a few steps later instead. The next RiftWii start writes
 `sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
 
-`debug_reset = N` in the same file has the game restart itself at the
-Nth call of its PADRead, else of its VIWaitForRetrace (once a frame: N/60 seconds in), through its own
+`debug_reset = N` in the same file has the game restart itself N seconds
+(1 to 60) after its main thread first sleeps, through its own
 OSRestart(0) as the HOME Menu's Reset does, so the Reset can be tried in
-Dolphin without driving a controller (the stub at 0x80001200;
-`apply_debug_reset` in `wii/launch/boot.cpp`). `debug_gecko = on` has the
+Dolphin without driving a controller (a stub at 0x80001200 on the game's
+OSSleepThread; `apply_debug_reset` in `wii/launch/boot.cpp`). `debug_gecko = on` has the
 runtime report every disc read it sees over the USB Gecko in slot B
 (Dolphin's: `SlotB = 7`, TCP port 55020, `tools/dolphin/gecko_log.py`):
 `R<word offset>:<length>@<buffer>`, `M...` for a read it changed, and

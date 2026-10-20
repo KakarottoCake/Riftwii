@@ -94,27 +94,31 @@ std::vector<std::uint8_t> serialize_reset_list(const std::vector<ResetRecord>& r
     return out;
 }
 
-std::uint32_t find_vi_wait_for_retrace(const std::vector<CodeRange>& text) {
-    constexpr std::uint32_t kAddiR3R13 = 0x386D0000u;  // addi r3,r13,d
-    constexpr std::uint32_t kLwzR0R13 = 0x800D0000u;   // lwz r0,d(r13)
-    constexpr std::uint32_t kBeqBack16 = 0x4182FFF0u;  // beq -0x10
+std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text) {
+    constexpr std::uint32_t kLiR0Waiting = 0x38000004u;  // li r0,4 (OS_THREAD_STATE_WAITING)
+    constexpr std::uint32_t kStateOffset = 0x2C8;        // OSThread.state, past its OSContext
+    constexpr std::uint32_t kQueueOffset = 0x2DC;        // OSThread.queue
     std::uint32_t found = 0;
     unsigned matches = 0;
     for (const CodeRange& r : text) {
         if (r.bytes == nullptr) continue;
         const std::size_t words = r.size / 4;
-        for (std::size_t i = 0; i + 6 <= words; ++i) {
+        for (std::size_t i = 4; i + 2 <= words; ++i) {
             const std::uint8_t* at = r.bytes + 4 * i;
-            const std::uint32_t first_read = be32(at);
-            const bool reads_from_r13 = (first_read >> 26) == 32 && ((first_read >> 16) & 31u) == 13;
-            if (!reads_from_r13) continue;
-            const std::uint32_t count_reg = (first_read >> 21) & 31u;
-            const std::uint32_t compare = 0x7C000040u | (count_reg << 16);  // cmplw rA,r0
-            if ((be32(at + 4) & 0xFFFF0000u) != kAddiR3R13 || (be32(at + 8) & 0xFC000003u) != 0x48000001u ||
-                be32(at + 12) != (kLwzR0R13 | (first_read & 0xFFFFu)) || be32(at + 16) != compare ||
-                be32(at + 20) != kBeqBack16) {
+            const std::uint32_t state_store = be32(at);
+            // sth r0,0x2C8(rT)
+            if ((state_store >> 26) != 44 || ((state_store >> 21) & 31u) != 0 || (state_store & 0xFFFFu) != kStateOffset) {
                 continue;
             }
+            const std::uint32_t thread_reg = (state_store >> 16) & 31u;
+            const std::uint32_t queue_store = be32(at + 4);  // stw rQ,0x2DC(rT)
+            if ((queue_store >> 26) != 36 || ((queue_store >> 16) & 31u) != thread_reg ||
+                (queue_store & 0xFFFFu) != kQueueOffset) {
+                continue;
+            }
+            bool waiting = false;
+            for (std::size_t back = 1; back <= 4 && !waiting; ++back) waiting = be32(at - 4 * back) == kLiR0Waiting;
+            if (!waiting) continue;
             std::uint32_t start = 0;
             for (std::size_t back = 1; back <= kPrologueWithin && back <= i && start == 0; ++back) {
                 if ((be32(at - 4 * back) & kStwuR1Mask) == kStwuR1) {
@@ -160,49 +164,54 @@ std::uint32_t find_os_restart(const std::vector<CodeRange>& text) {
     return matches == 1 ? found : 0;
 }
 
-std::vector<std::uint32_t> restart_trigger_stub(std::uint32_t stub_address, std::uint32_t pad_read,
-                                                std::uint32_t displaced, std::uint32_t calls,
+std::vector<std::uint32_t> restart_trigger_stub(std::uint32_t stub_address, std::uint32_t sleep_thread,
+                                                std::uint32_t displaced, std::uint32_t ticks,
                                                 std::uint32_t os_restart) {
     const std::uint32_t opcode = displaced >> 26;
-    const std::uint32_t replay_at = stub_address + 0x30;
-    // Another blob's hook already on PADRead (the screenshots', the
-    // GameCube adapter's) is a plain `b`: the stub goes there instead.
-    const bool plain_branch = opcode == 18 && (displaced & 3u) == 0;
-    std::uint32_t replay = displaced;
-    if (plain_branch) {
-        std::int32_t offset = static_cast<std::int32_t>(displaced & 0x03FFFFFCu);
-        if (offset & 0x02000000) offset -= 0x04000000;
-        const std::int64_t to = std::int64_t(pad_read) + offset - std::int64_t(replay_at);
-        if (to < -0x2000000 || to >= 0x2000000) return {};
-        replay = 0x48000000u | (static_cast<std::uint32_t>(to) & 0x03FFFFFCu);
-    } else if (opcode == 18 || opcode == 16 || (displaced & 0xFC1FFFFFu) == 0x7C0802A6u) {
-        // bl and bc are relative to where they sit, and mflr would see
-        // the stub's link: they cannot run from the stub.
-        return {};
-    }
-    const std::uint32_t resume = pad_read + 4;
-    const std::int64_t delta = std::int64_t(resume) - std::int64_t(replay_at + 4);
+    // b/bl and bc are relative to where they sit, and mflr would see the
+    // stub's link: none of them can run from the stub.
+    if (opcode == 18 || opcode == 16 || (displaced & 0xFC1FFFFFu) == 0x7C0802A6u) return {};
+    constexpr std::uint32_t kReplay = 0x74;
+    const std::uint32_t resume = sleep_thread + 4;
+    const std::int64_t delta = std::int64_t(resume) - std::int64_t(stub_address + kReplay + 4);
     if (delta < -0x2000000 || delta >= 0x2000000) return {};
+    constexpr std::uint32_t d = kRestartTriggerDataOffset;
     std::vector<std::uint32_t> w(kRestartTriggerBytes / 4, 0);
-    const std::uint32_t hi = stub_address >> 16;
-    const std::uint32_t lo = stub_address & 0xFFFFu;
-    w[0] = 0x3D800000u | hi;                                // lis r12,stub@h
-    w[1] = 0x618C0000u | lo;                                // ori r12,r12,stub@l
-    w[2] = 0x816C0000u | kRestartTriggerCountOffset;        // lwz r11,count(r12)
-    w[3] = 0x396B0001u;                                     // addi r11,r11,1
-    w[4] = 0x916C0000u | kRestartTriggerCountOffset;        // stw r11,count(r12)
-    w[5] = 0x814C0000u | (kRestartTriggerCountOffset + 4);  // lwz r10,target(r12)
-    w[6] = 0x7C0B5040u;                                     // cmplw r11,r10
-    w[7] = 0x40820014u;                                     // bne +0x14 (the replay)
-    w[8] = 0x818C0000u | (kRestartTriggerCountOffset + 8);  // lwz r12,OSRestart(r12)
-    w[9] = 0x7D8903A6u;                                     // mtctr r12
-    w[10] = 0x38600000u;                                    // li r3,0
-    w[11] = 0x4E800420u;                                    // bctr
-    w[12] = replay;
-    w[13] = 0x48000000u | (static_cast<std::uint32_t>(delta) & 0x03FFFFFCu);  // b PADRead+4
-    w[kRestartTriggerCountOffset / 4] = 0;
-    w[kRestartTriggerCountOffset / 4 + 1] = calls;
-    w[kRestartTriggerCountOffset / 4 + 2] = os_restart;
+    w[0x00 / 4] = 0x3D800000u | (stub_address >> 16);     // lis r12,stub@h
+    w[0x04 / 4] = 0x618C0000u | (stub_address & 0xFFFFu); // ori r12,r12,stub@l
+    w[0x08 / 4] = 0x3D608000u;                            // lis r11,0x8000
+    w[0x0C / 4] = 0x814B00E4u;                            // lwz r10,0xE4(r11): the running thread
+    w[0x10 / 4] = 0x816B00D8u;                            // lwz r11,0xD8(r11): the default (main) thread
+    w[0x14 / 4] = 0x7C0A5840u;                            // cmplw r10,r11
+    w[0x18 / 4] = 0x4082005Cu;                            // bne the replay
+    w[0x1C / 4] = 0x7D6C42E6u;                            // mftb r11
+    w[0x20 / 4] = 0x814C0000u | d;                        // lwz r10,start(r12)
+    w[0x24 / 4] = 0x2C0A0000u;                            // cmpwi r10,0
+    w[0x28 / 4] = 0x4082000Cu;                            // bne +0xC
+    w[0x2C / 4] = 0x916C0000u | d;                        // stw r11,start(r12): the first sleep
+    w[0x30 / 4] = 0x48000044u;                            // b the replay
+    w[0x34 / 4] = 0x7D4A5850u;                            // subf r10,r10,r11: ticks since
+    w[0x38 / 4] = 0x816C0000u | (d + 4);                  // lwz r11,ticks(r12)
+    w[0x3C / 4] = 0x7C0A5840u;                            // cmplw r10,r11
+    w[0x40 / 4] = 0x41800034u;                            // blt the replay
+    w[0x44 / 4] = 0x814C0000u | (d + 12);                 // lwz r10,fired(r12)
+    w[0x48 / 4] = 0x2C0A0000u;                            // cmpwi r10,0
+    w[0x4C / 4] = 0x40820028u;                            // bne the replay: once only
+    w[0x50 / 4] = 0x39400001u;                            // li r10,1
+    w[0x54 / 4] = 0x914C0000u | (d + 12);                 // stw r10,fired(r12)
+    w[0x58 / 4] = 0x7D6000A6u;                            // mfmsr r11
+    w[0x5C / 4] = 0x616B8000u;                            // ori r11,r11,0x8000: interrupts on, as
+    w[0x60 / 4] = 0x7D600124u;                            // mtmsr r11  the HOME Menu's Reset has them
+    w[0x64 / 4] = 0x818C0000u | (d + 8);                  // lwz r12,OSRestart(r12)
+    w[0x68 / 4] = 0x7D8903A6u;                            // mtctr r12
+    w[0x6C / 4] = 0x38600000u;                            // li r3,0
+    w[0x70 / 4] = 0x4E800420u;                            // bctr
+    w[kReplay / 4] = displaced;                           // OSSleepThread's own first word
+    w[kReplay / 4 + 1] = 0x48000000u | (static_cast<std::uint32_t>(delta) & 0x03FFFFFCu);  // b OSSleepThread+4
+    w[d / 4] = 0;
+    w[d / 4 + 1] = ticks;
+    w[d / 4 + 2] = os_restart;
+    w[d / 4 + 3] = 0;
     return w;
 }
 

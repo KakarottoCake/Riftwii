@@ -63,27 +63,30 @@ std::uint32_t reset_list_bytes(const std::vector<ResetRecord>& records);
 // or 0 when there is not exactly one. Found in Mario Kart Wii.
 std::uint32_t find_os_restart(const std::vector<CodeRange>& text);
 
-// The SDK's VIWaitForRetrace, for a game without PADRead (New Super Mario
-// Bros. Wii): the one function whose loop reads the retrace count from
-// the small data area (`lwz rA,C(r13)`), sleeps on the retrace queue
-// (`addi r3,r13,Q; bl OSSleepThread`), reads the count again
-// (`lwz r0,C(r13)`) and goes round while it is the same
-// (`cmplw rA,r0; beq -0x10`). Its address (the function's `stwu`), or 0.
-// Found in Mario Kart Wii.
-std::uint32_t find_vi_wait_for_retrace(const std::vector<CodeRange>& text);
+// The SDK's OSSleepThread(queue): the one function that marks the running
+// thread waiting (`li r0,4`, `sth r0,0x2C8(rT)`: OSThread.state past its
+// OSContext) and stores the queue in it (`stw rQ,0x2DC(rT)`). Its address
+// (the function's `stwu`), or 0. Found in Mario Kart Wii.
+std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text);
 
 // Test switch (settings.txt `debug_reset = N`): the game restarts itself
-// as the HOME Menu's Reset does, at the Nth call of a function its main
-// thread calls every frame (PADRead, else VIWaitForRetrace), so Dolphin
-// can show a restart with no controller driven. The stub at
-// `stub_address` counts the calls, calls OSRestart(0) at the Nth and
-// otherwise runs `displaced` (the function's first instruction) and goes
-// on at `pad_read` + 4. Empty when `displaced` cannot run elsewhere.
-std::vector<std::uint32_t> restart_trigger_stub(std::uint32_t stub_address, std::uint32_t pad_read,
-                                                std::uint32_t displaced, std::uint32_t calls,
+// as the HOME Menu's Reset does, N seconds after its main thread first
+// sleeps, so Dolphin can show a restart with no controller driven. The
+// main thread (the OS's default thread, 0x800000D8, running: 0x800000E4)
+// sleeps every frame, waiting for the retrace or its next message. The
+// stub at `stub_address`, entered from OSSleepThread's first word, notes
+// the time base at the first such call; once `ticks` have passed it turns
+// interrupts on and calls OSRestart(0), once; otherwise it runs
+// `displaced` (OSSleepThread's first instruction) and goes on at
+// `sleep_thread` + 4. Empty when `displaced` cannot run elsewhere.
+std::vector<std::uint32_t> restart_trigger_stub(std::uint32_t stub_address, std::uint32_t sleep_thread,
+                                                std::uint32_t displaced, std::uint32_t ticks,
                                                 std::uint32_t os_restart);
-// Where the stub keeps its count, from its start.
-constexpr std::uint32_t kRestartTriggerCountOffset = 0x40;
-constexpr std::uint32_t kRestartTriggerBytes = 0x4C;
+// The stub's words from its start: the first sleep's time base, the ticks
+// to wait, OSRestart, and whether it has fired.
+constexpr std::uint32_t kRestartTriggerDataOffset = 0x80;
+constexpr std::uint32_t kRestartTriggerBytes = 0x90;
+// The Wii's time base: the bus clock (243 MHz) over 4.
+constexpr std::uint32_t kTimeBaseTicksPerSecond = 60750000;
 
 }  // namespace riftwii
