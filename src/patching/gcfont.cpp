@@ -128,6 +128,19 @@ bool has_cache_guard(const Words& words, std::size_t start, std::uint32_t cache)
     return false;
 }
 
+// The decision after the cache guard, 18 words as the SDK builds it
+// (registers vary; the branch offsets are in bytes):
+//    0 lis   tv,0x8000          9 beq    +12 (bit clear: ANSI)
+//    1 lwz   fmt,0xCC(tv)      10 li     enc,1 (Shift-JIS)
+//    2 cmplwi fmt,0            11 b      +8
+//    3 beq   +12 (NTSC)        12 li     enc,0
+//    4 blt   +44 (to word 15)  13 stw    enc,cache
+//    5 b     +40 (to word 15)  14 b      +12
+//    6 lis   vi,0xCC00/0xCD00  15 li     enc,0
+//    7 lhz   dtv,0x206E(vi)    16 stw    enc,cache
+//    8 rlwinm./andi. dtv,2     17 lwz    ...,cache
+// Word 7 is the one replaced. The guard before it either returns the
+// cached value (blelr) or, inlined, jumps 19 words ahead past the decision.
 bool matches_decision(const Words& words, std::size_t start) {
     const Words decision = words.after(start);
     const unsigned tv_base = reg_d(decision[0]);
@@ -181,8 +194,7 @@ bool matches_decision(const Words& words, std::size_t start) {
 
 }  // namespace
 
-std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text,
-                                           const std::string& game_id) {
+std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text, const std::string& game_id) {
     std::vector<GcFontPatch> patches;
     if (game_id.size() < 4 || game_id[3] != 'J') {
         return patches;
