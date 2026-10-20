@@ -58,10 +58,20 @@ constexpr const char* kAppsDone = "sd:/riftwii/apps_updated.txt";
 // tester) costs one timeout and not one per download.
 std::vector<std::string> g_unreachable;
 
+// `local_ok` false: a redirect from a server on the internet, which must
+// not lead to the player's own network even by a name that resolves there
+// (CAV-04). `resolved` gets the address the host's name came to.
 bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& response, std::string& error,
-              std::size_t max_bytes, int timeout_ms, const HttpProgress& progress = nullptr) {
+              std::size_t max_bytes, int timeout_ms, const HttpProgress& progress = nullptr, bool local_ok = true,
+              std::uint32_t* resolved = nullptr) {
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
+    if (resolved) *resolved = server.ip;
+    if (!local_ok && http_local_ipv4(server.ip)) {
+        error = "a redirect to " + url.host + " (" + server.label() +
+                "), an address on this network, from a server on the internet; not followed";
+        return false;
+    }
     // By address: GameTDB's names and covers come from one server under
     // two names.
     const std::string where = server.label();
@@ -147,9 +157,16 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     if (!NetStart(error)) return false;
     HttpUrl parsed;
     if (!parse_http_url(url, parsed, error)) return false;
+    // Whether the first server is itself on this network: one there may
+    // send the download on to another there, one out on the internet not.
+    bool local_ok = true;
     for (int hop = 0; hop < 4; ++hop) {
         HttpResponse response;
-        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress)) return false;
+        std::uint32_t resolved = 0;
+        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress,
+                      hop == 0 || local_ok, &resolved))
+            return false;
+        if (hop == 0) local_ok = http_local_ipv4(resolved);
         if (response.status >= 300 && response.status < 400 && response.headers.count("location")) {
             // A redirect this download does not take is the server's
             // answer, worded as any other ("answered"), so the caller
