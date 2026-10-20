@@ -28,6 +28,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
+#include "riftwii/gcdsp.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
@@ -869,31 +870,13 @@ unsigned redirect_wii_blocks(Code& code, unsigned& mixed) {
 // to ARAM addresses below 16 MB and has the DSP read them back from
 // there; in Wii mode the blob keeps ARAM at the start of MEM2 (its ARAM
 // DMA moves nothing there), but the DSP's own reads below 0x10000000 go
-// to MEM1, so it plays the game's code and data as sound. Each sound program (DSP microcode) the game
-// carries is patched to set that bit in the address it reads samples
-// from: a call to a few words of free space that do "ori $AC0.M,
-// #0x1000" and then the two instructions the call replaced. Which
-// programs, and where, follows Nintendont's DSP patches (kernel/Patch.c,
-// FIX94 and the Nintendont contributors, used with permission): the
-// program is recognised by its first words, its length and its SHA-1.
-// Used on a Wii (see the choice in LaunchGcNative): in Dolphin the
-// game's ARAM addresses are raised instead (raise_aram_base).
-struct DspFix {
-    const char* name;
-    std::uint32_t length;     // bytes
-    std::uint8_t sha1[20];
-    std::uint16_t free_at;    // DSP word address of six unused words
-    std::uint16_t calls[2];   // where the address is loaded (two places, the same two instructions)
-};
-
-constexpr DspFix kDspFixes[] = {
-    {"Super Mario Sunshine", 0x1CE0,
-     {0x21, 0xD0, 0xC0, 0xEE, 0x25, 0x3D, 0x8C, 0x9E, 0x02, 0x58, 0x66, 0x7F, 0x3C, 0x1B, 0x11, 0xBC, 0x90, 0x1F, 0x33, 0xE2},
-     0x0E66, {0x0531, 0x057C}},
-    {"Luigi's Mansion", 0x17E0,
-     {0x09, 0xF1, 0x6B, 0x48, 0x57, 0x15, 0xEB, 0x3F, 0x67, 0x3E, 0x19, 0xEF, 0x7A, 0xCF, 0xE3, 0x60, 0x7D, 0x2E, 0x4F, 0x02},
-     0x0BE8, {0x00BE, 0x0109}},
-};
+// to MEM1, so it plays the game's code and data as sound. Each known
+// sound program (DSP microcode) the game carries is patched to look in
+// MEM2 (riftwii/gcdsp.hpp): the simple kind gets a call to free words
+// doing "ori $AC0.M, #0x1000", the AX kind a rewrite that sets the MEM2
+// bit for the sample format each sound uses. Used on a Wii (see the
+// choice in LaunchGcNative): in Dolphin the game's ARAM addresses are
+// raised instead (raise_aram_base).
 
 // Patches every known sound program in the executable; returns how many.
 // Unknown ones are left alone (their sound plays from the wrong memory).
@@ -901,38 +884,20 @@ unsigned patch_dsp_programs(Dol& dol) {
     unsigned patched = 0;
     auto patch_in = [&](Section& sec) {
         std::vector<std::uint8_t>& b = sec.bytes;
-        for (std::size_t i = 0; i + 16 <= b.size(); i += 4) {
-            // A sound program starts with a jump table: "jmp" words
-            // (0x029F) and "halt" words (0x02FF) at its first entries.
-            if (b[i] != 0x02 || b[i + 1] != 0x9F || b[i + 8] != 0x02 || b[i + 9] != 0xFF) continue;
-            for (const DspFix& fix : kDspFixes) {
-                if (i + fix.length > b.size()) continue;
-                const Sha1Digest digest = sha1(&b[i], fix.length);
-                if (std::memcmp(digest.data(), fix.sha1, 20) != 0) continue;
-                auto word = [&](std::uint32_t at) -> std::uint8_t* { return &b[i + 2 * at]; };
-                auto put = [&](std::uint32_t at, std::uint16_t v) {
-                    word(at)[0] = v >> 8;
-                    word(at)[1] = v & 0xFF;
-                };
-                const std::uint8_t* original = word(fix.calls[0]);
-                const std::uint16_t first = (original[0] << 8) | original[1];
-                const std::uint16_t second = (original[2] << 8) | original[3];
-                put(fix.free_at + 0, 0x0260);  // ori $AC0.M, #0x1000
-                put(fix.free_at + 1, 0x1000);
-                put(fix.free_at + 2, first);   // the two instructions the calls replace
-                put(fix.free_at + 3, second);
-                put(fix.free_at + 4, 0x02DF);  // ret
-                put(fix.free_at + 5, 0x02DF);
-                for (std::uint16_t at : fix.calls) {
-                    put(at, 0x02BF);  // call free_at
-                    put(at + 1, fix.free_at);
-                }
-                logf("GameCube: the %s sound program at 0x%08x reads its samples from MEM2 now\n", fix.name,
-                     sec.address + static_cast<std::uint32_t>(i));
-                ++patched;
-                i += fix.length - 4;
-                break;
+        for (std::size_t i = 0; i + 16 <= b.size();) {
+            const GcDspFix* fix = gcdsp_find(&b[i], b.size() - i);
+            if (fix == nullptr) {
+                i += 2;
+                continue;
             }
+            if (!gcdsp_apply(*fix, &b[i], b.size() - i)) {
+                i += 2;
+                continue;
+            }
+            logf("GameCube: the %s sound program at 0x%08x reads its samples from MEM2 now\n", fix->name,
+                 sec.address + static_cast<std::uint32_t>(i));
+            ++patched;
+            i += fix->length - 2;
         }
     };
     for (Section& sec : dol.text) patch_in(sec);

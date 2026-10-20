@@ -62,8 +62,10 @@ bool game_needs_most_of_mem2(const std::string& game_id);
 // sound program to read MEM2, breaks a check of their own. Mario Party 4's
 // sound manager (msmSysInit, its ARAM end fixed at 0x808000) tests
 // ARGetBaseAddress() plus its sound data's size against that end, sees no
-// room and stops in an endless loop before the first frame. Their sound
-// program then reads its samples from MEM1 (wrong sound), but they run.
+// room and stops in an endless loop before the first frame. Their
+// addresses are never raised: in Dolphin, where the sound program is left
+// alone, their sound still plays from MEM1, but on a Wii Mario Party 4's
+// program is itself patched (its AX entry in riftwii/gcdsp.hpp), so it reads MEM2 and sounds right. Either way they run.
 bool gc_keeps_aram_addresses(const std::string& game_id);
 
 // GameCube games whose file loader thread takes a queued load as soon as a
