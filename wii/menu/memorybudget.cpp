@@ -88,8 +88,13 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
               data + (whole_mem1 ? code : 0));
     }
     // The game's own SD card passed through beside the runtime (wii/launch/boot.cpp).
+    // The extent table costs 12 bytes a piece of the image file, and the piece
+    // count is only known at the launch (vsdhook.cpp walks the card's cluster
+    // chain then). The menu has no cached count, and a scan here would read
+    // the card on the menu thread, so this counts one piece: a scattered image
+    // (up to 192 KB of table) loses more than shown.
     if (runtime && !protected_game && !whole_mem1)
-        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(sizeof(vsd_state)));
+        b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(1)));
     if (!protected_game && !whole_mem1) {
         b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")

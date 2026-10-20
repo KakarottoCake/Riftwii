@@ -728,7 +728,59 @@ static void test_active_fat_when_not_mirrored() {
     EXPECT_EQ(f.fragments[0].sector_count, 2 * fx.bpc());
 }
 
+// Free space as pieces of a new file: every third cluster used, so the
+// free clusters lie in runs of two.
+static void test_free_pieces() {
+    fatimg::Image img(512, 1, 0, 2000);
+    for (std::uint32_t c = 3; c <= 2001; ++c) {
+        if (c % 3 == 0) img.set_fat(c, 0x0FFFFFFF);
+    }
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(img.reader(), v, err));
+    const std::uint64_t cluster = 512;
+    riftwii::FreeSpaceReport r;
+    const std::vector<riftwii::Fragment> none;
+
+    // 10 clusters take five runs of two.
+    EXPECT_TRUE(v.free_pieces(10 * cluster, 100, 1000, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::Fits);
+    EXPECT_EQ(r.pieces, std::uint64_t(5));
+    // One byte past a whole number of clusters takes the next one.
+    EXPECT_TRUE(v.free_pieces(9 * cluster + 1, 100, 1000, none, r, err));
+    EXPECT_EQ(r.pieces, std::uint64_t(5));
+    EXPECT_TRUE(v.free_pieces(8 * cluster, 100, 1000, none, r, err));
+    EXPECT_EQ(r.pieces, std::uint64_t(4));
+    // More pieces than allowed: said, with the count it stopped at.
+    EXPECT_TRUE(v.free_pieces(10 * cluster, 4, 1000, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::TooFragmented);
+    EXPECT_EQ(r.pieces, std::uint64_t(5));
+    EXPECT_TRUE(v.free_pieces(1000 * cluster, 100, 1000, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::TooFragmented);
+    // Room for them but over a large allowance.
+    EXPECT_TRUE(v.free_pieces(1000 * cluster, 1000, 1000, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::Fits);
+    EXPECT_EQ(r.pieces, std::uint64_t(500));
+    // More than the card has free.
+    EXPECT_TRUE(v.free_pieces(1990 * cluster, 100000, 1000, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::NotEnoughSpace);
+    // A read cut off at its bound cannot tell.
+    EXPECT_TRUE(v.free_pieces(1000 * cluster, 100000, 0, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::Unchecked);
+    EXPECT_EQ(r.fat_blocks_read, std::uint64_t(0));
+    // A file the size of nothing fits in nothing.
+    EXPECT_TRUE(v.free_pieces(0, 0, 0, none, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::Fits);
+    // An old copy let go first: clusters 3..52 as a single run, whatever is
+    // used there now, so 40 clusters take one piece.
+    const std::vector<riftwii::Fragment> old_copy{{img.cluster_lba(3), 50}};
+    EXPECT_TRUE(v.free_pieces(40 * cluster, 100, 1000, old_copy, r, err));
+    EXPECT_TRUE(r.verdict == riftwii::FreeSpaceVerdict::Fits);
+    EXPECT_EQ(r.pieces, std::uint64_t(1));
+}
+
 int main() {
+    test_free_pieces();
     test_chain_capped_by_size();
     test_file_of_four_gib();
     test_reserved_bits_and_end_marks();
