@@ -163,7 +163,21 @@ std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::ve
             break;
         }
     });
-    return functions.size() == 1 ? *functions.begin() : 0;
+    // The one of them that keeps its seventh argument.
+    std::uint32_t found = 0;
+    unsigned keeping = 0;
+    for (std::uint32_t f : functions) {
+        bool keeps_argv = false;
+        for (std::uint32_t a = f; a < f + 24 * 4 && code.has(a) && !keeps_argv; a += 4) {
+            const std::uint32_t w = code.at(a);
+            keeps_argv = opcode(w) == 31 && ((w >> 21) & 31) == 9 && ((w >> 11) & 31) == 9 && ((w >> 1) & 1023) == 444;
+        }
+        if (keeps_argv) {
+            found = f;
+            ++keeping;
+        }
+    }
+    return keeping == 1 ? found : 0;
 }
 
 bool gc_pack_exec_args(std::vector<std::uint8_t>& bi2, const std::vector<std::string>& args) {
