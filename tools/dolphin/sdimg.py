@@ -9,6 +9,7 @@ rebuilding gigabytes at every boot and syncing them back at every close.
   sdimg.py <image> get <path> [local]        prints a file or saves it
   sdimg.py <image> put <local> <path>        writes a file (replaced or new)
   sdimg.py <image> rm <path>                 deletes a file
+  sdimg.py <image> mkdir <path>              makes a folder
 
 Paths are from the card's root, without a leading slash (Git Bash turns
 "/riftwii" into a Windows path). The folder of a new file must exist. Only for Dolphin's images: the
@@ -275,6 +276,54 @@ def remove(fs, path):
         fs.write(at, b"\xe5")
 
 
+def make_dir(fs, path):
+    folder, entry = fs.find(path.rstrip("/"))
+    if entry is not None:
+        raise SystemExit(path + " exists")
+    name = path.rstrip("/").split("/")[-1]
+    if not name:
+        raise SystemExit("no folder " + path)
+    taken = {e[3][0:11] for e in fs.dir_entries(folder)}
+    short = short_name_for(name, taken)
+    start = fs.allocate(1)[0]
+    dot = bytearray(32)
+    dot[0:11] = b".          "
+    dot[11] = 0x10
+    struct.pack_into("<H", dot, 20, start >> 16)
+    struct.pack_into("<H", dot, 26, start & 0xFFFF)
+    dotdot = bytearray(32)
+    dotdot[0:11] = b"..         "
+    dotdot[11] = 0x10
+    struct.pack_into("<H", dotdot, 20, folder >> 16)
+    struct.pack_into("<H", dotdot, 26, folder & 0xFFFF)
+    fs.write(fs.cluster_offset(start), bytes(dot) + bytes(dotdot) + bytes(fs.cluster_bytes - 64))
+    units = name.encode("utf-16-le")
+    pieces = [units[i:i + 26] for i in range(0, len(units), 26)]
+    if len(pieces[-1]) < 26:
+        pieces[-1] = (pieces[-1] + b"\x00\x00").ljust(26, b"\xff")
+    slots = fs.free_slots(folder, len(pieces) + 1)
+    checksum = lfn_checksum(short)
+    for index, piece in enumerate(pieces):
+        order = index + 1
+        if order == len(pieces):
+            order |= 0x40
+        slot = bytearray(32)
+        slot[0] = order
+        slot[1:11] = piece[0:10]
+        slot[11] = 0x0F
+        slot[13] = checksum
+        slot[14:26] = piece[10:22]
+        slot[28:32] = piece[22:26]
+        # The last piece of the name comes first in the folder.
+        fs.write(slots[len(pieces) - 1 - index], bytes(slot))
+    raw = bytearray(32)
+    raw[0:11] = short
+    raw[11] = 0x10
+    struct.pack_into("<H", raw, 20, start >> 16)
+    struct.pack_into("<H", raw, 26, start & 0xFFFF)
+    fs.write(slots[-1], bytes(raw))
+
+
 def main():
     if len(sys.argv) < 4:
         raise SystemExit(__doc__)
@@ -305,6 +354,8 @@ def main():
         put(fs, sys.argv[3], sys.argv[4])
     elif command == "rm":
         remove(fs, sys.argv[3])
+    elif command == "mkdir":
+        make_dir(fs, sys.argv[3])
     else:
         raise SystemExit(__doc__)
     fs.flush()
