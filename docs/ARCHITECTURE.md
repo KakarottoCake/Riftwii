@@ -503,8 +503,13 @@ read through the runtime too (a pack's rewritten table, which the
 restart's apploader places as at the launch); the close answers the game's
 entry point with the runtime's, which writes the list back
 (`runtime/rtreset.c`), keeps the MEM1 arena's end below the blobs and
-jumps to the game. An executable other than main.dol (OSExec) is left
-alone. Not kept, with the reason in `boot.log`: a pack's own main.dol
+jumps to the game. The SDK's restart first reloads the IOS its TMD names; RiftWii
+keeps the IOS it launched under (the SD card's, d2x's) and tells the game
+it is the TMD's, and a reload would drop the runtime's card and drive
+handles. OSRestart is hooked, and until the restart's apploader runs the
+runtime answers ES's ticket views and launch of exactly that IOS as done
+(`rt_reset_answer_es`); any other ES request reaches IOS. An executable
+other than main.dol (OSExec) is left alone. Not kept, with the reason in `boot.log`: a pack's own main.dol
 (the restart loads the disc's), a game that starts a second executable,
 code builds, games that check their code or clear MEM1's top, launches
 without the runtime (cheats or memory patches alone), and a list the
