@@ -96,6 +96,10 @@ struct ResidentOptions {
     // The game is an image without a retail BCA: the runtime answers
     // DVDLowReadDiskBca with one (RT_FLAG_BCA).
     bool retail_bca = false;
+    // Non-zero: the game's own restart keeps the launch (riftwii/resetkeep.hpp).
+    // The disc apploader's entry; the runtime answers the header's entry
+    // field (kApploaderEntryOffset) with its stand-in, which calls this one.
+    std::uint32_t reset_app_entry = 0;
 };
 
 struct ResidentInstall {

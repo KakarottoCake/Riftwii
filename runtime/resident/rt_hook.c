@@ -618,12 +618,16 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         ctx->last_di_word_offset = word_offset;
         ctx->last_di_length = length;
         if (ctx->flags & RT_FLAG_GECKO) {
-            /* "R<word offset>:<length>\n", hex, no literals. */
+            /* "R<word offset>:<length>@<buffer>\n", hex, no literals: where
+             * a read lands tells a restart's loads apart (main.dol's
+             * sections, the file table). */
             const uint32_t msr = rt_interrupts_off();
             rt_gecko_putc(ctx, 'R');
             rt_gecko_hex(ctx, word_offset);
             rt_gecko_putc(ctx, ':');
             rt_gecko_hex(ctx, length);
+            rt_gecko_putc(ctx, '@');
+            rt_gecko_hex(ctx, (uint32_t)args[4]);
             rt_gecko_putc(ctx, '\n');
             rt_interrupts_restore(msr);
         }
@@ -3535,4 +3539,91 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
         rt_interrupts_restore(msr);
     }
     record->in_use = 0;
+}
+
+/* --- the game's own restart ---------------------------------------------- */
+/* include/riftwii/resetkeep.hpp has the whole story. The game's OS runs the
+ * disc's apploader again from its own code, which the apploader's loads
+ * overwrite with the disc's bytes as they go; these run in between, from
+ * the blob, which no load reaches. */
+
+typedef void (*rt_app_entry_fn)(uint32_t* init, uint32_t* main, uint32_t* close);
+typedef int32_t (*rt_app_main_fn)(uint32_t* destination, uint32_t* length, uint32_t* offset);
+typedef uint32_t (*rt_app_close_fn)(void);
+
+/* "X<what>:<value>\n" over the Gecko, for a restart's steps. */
+static void rt_reset_report(struct rt_context* ctx, uint32_t what, uint32_t value) {
+    uint32_t msr;
+    if ((ctx->flags & RT_FLAG_GECKO) == 0) return;
+    msr = rt_interrupts_off();
+    rt_gecko_putc(ctx, 'X');
+    rt_gecko_putc(ctx, what);
+    rt_gecko_putc(ctx, ':');
+    rt_gecko_hex(ctx, value);
+    rt_gecko_putc(ctx, '\n');
+    rt_interrupts_restore(msr);
+}
+
+/* The IPC hooks as the launch left them. The load of main.dol's code
+ * replaced them with the disc's instructions; put back, the next loads
+ * (the file table among them) are read through the runtime again, so a
+ * pack's rewritten table is what the restart gets. */
+static void rt_reset_rearm(struct rt_context* ctx) {
+    if (ctx->reset.hooks != 0) (void)rtrst_apply((const uint8_t*)(uintptr_t)ctx->reset.hooks, 0);
+}
+
+void rt_reset_on_app_entry(struct rt_context* ctx, uint32_t* init, uint32_t* main, uint32_t* close) {
+    struct rtrst_state* st = &ctx->reset;
+    st->restarts++;
+    rt_reset_report(ctx, 'A', st->restarts);
+    ((rt_app_entry_fn)(uintptr_t)st->app_entry)(init, main, close);
+    /* No list (it did not fit at the launch): the restart goes on as the
+     * game's own, as it would without RiftWii. */
+    if (st->list == 0 || main == 0 || close == 0) return;
+    st->app_main = *main;
+    st->app_close = *close;
+    *main = st->main_wrapper;
+    *close = st->close_wrapper;
+}
+
+int32_t rt_reset_on_app_main(struct rt_context* ctx, uint32_t* destination, uint32_t* length, uint32_t* offset) {
+    rt_reset_rearm(ctx);
+    return ((rt_app_main_fn)(uintptr_t)ctx->reset.app_main)(destination, length, offset);
+}
+
+uint32_t rt_reset_on_app_close(struct rt_context* ctx) {
+    struct rtrst_state* st = &ctx->reset;
+    const uint32_t entry = ((rt_app_close_fn)(uintptr_t)st->app_close)();
+    rt_reset_rearm(ctx);
+    if (entry != st->game_entry) {
+        /* Another executable (OSExec): nothing of the launch is its. */
+        st->other++;
+        rt_reset_report(ctx, 'O', entry);
+        return entry;
+    }
+    rt_reset_report(ctx, 'C', entry);
+    return st->start_wrapper;
+}
+
+uint32_t rt_reset_on_start(struct rt_context* ctx) {
+    struct rtrst_state* st = &ctx->reset;
+#ifdef RT_TARGET_PPC
+    volatile uint32_t* const arena1_hi = (volatile uint32_t*)0x80000034u;
+    volatile uint32_t* const mem1_end = (volatile uint32_t*)0x80003110u;
+    /* Where the restart's apploader put the file table and the arena's end. */
+    rt_reset_report(ctx, '4', *arena1_hi);
+    rt_reset_report(ctx, '8', *(volatile uint32_t*)0x80000038u);
+    rt_reset_report(ctx, 'F', *(volatile uint32_t*)0x8000003Cu);
+    rt_reset_report(ctx, 'M', *mem1_end);
+    rt_reset_report(ctx, 'L', (uint32_t)rtrst_apply((const uint8_t*)(uintptr_t)st->list, 0));
+    /* The blobs sit at the top of the MEM1 arena, below the file table: an
+     * apploader that placed the table at the top again ends the arena at
+     * the table, over them. The launch's end is kept then. */
+    if (*arena1_hi > st->arena1_hi) *arena1_hi = st->arena1_hi;
+    if (*mem1_end > st->mem1_end) *mem1_end = st->mem1_end;
+    rt_flush_range(0x80000020u, 0x20u);
+    rt_flush_range(0x80003100u, 0x20u);
+#endif
+    st->restored++;
+    return st->game_entry;
 }

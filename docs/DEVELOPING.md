@@ -236,7 +236,8 @@ fades out before the reload either way). `identify` lets a
 WiiWare or Virtual Console game start with RiftWii's loader even when ES
 won't run it as its own title (only for testing in Dolphin, whose ES
 refuses that to anything but the Wii Menu; the game's saves may not open).
-`boot.log` names each one left out. Start with all of them,
+`resetkeep` the restore list that keeps a pack and RiftWii's changes
+across the game's own Reset (HOME Menu > Reset). `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
@@ -263,6 +264,20 @@ hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 `build-dolphin/felk-run.sh`), or the bad read is only a warning and the
 game crashes a few steps later instead. The next RiftWii start writes
 `sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
+
+`debug_reset = N` in the same file has the game restart itself at the
+Nth call of its PADRead (about N/60 seconds in), through its own
+OSRestart(0) as the HOME Menu's Reset does, so the Reset can be tried in
+Dolphin without driving a controller (the stub at 0x80001200;
+`apply_debug_reset` in `wii/launch/boot.cpp`). `debug_gecko = on` has the
+runtime report every disc read it sees over the USB Gecko in slot B
+(Dolphin's: `SlotB = 7`, TCP port 55020, `tools/dolphin/gecko_log.py`):
+`R<word offset>:<length>@<buffer>`, `M...` for a read it changed, and
+`X...` for the steps of a restart (`XA` the apploader's entry, `XC` the
+close answered with the runtime's entry, `X4`/`X8`/`XF`/`XM` 0x34, 0x38,
+0x3C and 0x3110 as the restart's apploader left them, `XL` the records
+written back, `XO` another executable). Never leave either in a tester's
+settings.
 
 ## A menu that freezes only on a console
 

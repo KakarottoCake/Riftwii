@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "resident.hpp"
 
+#include "riftwii/resetkeep.hpp"
+
 #include <gccore.h>
 #include <ogc/cache.h>
 #include <ogc/machine/processor.h>
@@ -190,7 +192,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     //    the savegame state (riftwii/hook.hpp: the top stays the game's).
     //    The data is built at the staging area with its final addresses;
     //    the loader copies it down just before the jump.
-    const bool has_table = !options.pieces.empty();
+    // The game's own restart answers the apploader header's entry from the
+    // table (riftwii/resetkeep.hpp), so a launch keeping it has one.
+    const bool reset_keep = options.reset_app_entry != 0;
+    const bool has_table = !options.pieces.empty() || reset_keep;
     const bool has_sd = options.pieces.needs_sd();
     if (has_sd && symbols.ioctlv_async == 0) {
         error = "SD-backed replacements need the game's IOS_IoctlvAsync, which was not found";
@@ -296,6 +301,16 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // SDK keeps above its arena at the address in 0x38. Every byte kept
     // out of the MEM2 arena is one the game's heaps keep.
     PayloadPieces pieces = options.pieces;
+    // Its value, the blob's stand-in, is known once the blob is placed:
+    // four bytes now, the address below.
+    std::size_t reset_piece = SIZE_MAX;
+    if (reset_keep) {
+        MemReplacement entry;
+        entry.virtual_offset = kApploaderEntryOffset;
+        entry.bytes.assign(4, 0);
+        reset_piece = pieces.mem.size();
+        pieces.mem.push_back(std::move(entry));
+    }
     const std::uint32_t fst_address = read32(kFstAddressField);
     const std::uint32_t fst_bytes = read32(kFstSizeField);
     std::uint32_t in_place_bytes = 0;
@@ -324,6 +339,12 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         return false;
     }
     const std::uint32_t payload_address = place.data_base + (code_in_mem2 ? blob.size : 0);
+    if (reset_piece != SIZE_MAX) {
+        const std::uint32_t stand_in = place.code_base + blob.reset_offsets[RT_RESET_APP_ENTRY];
+        std::vector<std::uint8_t>& bytes = pieces.mem[reset_piece].bytes;
+        bytes = {static_cast<std::uint8_t>(stand_in >> 24), static_cast<std::uint8_t>(stand_in >> 16),
+                 static_cast<std::uint8_t>(stand_in >> 8), static_cast<std::uint8_t>(stand_in)};
+    }
     if (has_table && !build_payload(pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
@@ -377,6 +398,15 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // read of the card was refused and the game stayed black.
     ctx->ioctlv_async = original(RT_IPC_ASYNC(7)) != 0 ? original(RT_IPC_ASYNC(7)) : symbols.ioctlv_async;
     ctx->di_read_entry = original(RT_IPC_ASYNC_IOCTL);  // the unhooked IOS_IoctlAsync
+    if (reset_keep) {
+        // The restore list and the game's entry come from the loader at
+        // the end of the launch (wii/launch/boot.cpp); without them the
+        // stand-in only passes the apploader's own functions on.
+        ctx->reset.app_entry = options.reset_app_entry;
+        ctx->reset.main_wrapper = place.code_base + blob.reset_offsets[RT_RESET_APP_MAIN];
+        ctx->reset.close_wrapper = place.code_base + blob.reset_offsets[RT_RESET_APP_CLOSE];
+        ctx->reset.start_wrapper = place.code_base + blob.reset_offsets[RT_RESET_START];
+    }
     for (std::uint32_t i = 0; i < RT_MAX_PENDING; ++i) {
         ctx->pending[i].bounce = bounce_bytes != 0 ? bounce_address + i * RT_BOUNCE_BYTES : 0;
     }

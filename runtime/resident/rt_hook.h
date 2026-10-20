@@ -62,6 +62,7 @@
 
 #include "rtable.h"
 #include "rtfs.h"
+#include "rtreset.h"
 #include "rtrvz.h"
 
 #ifdef __cplusplus
@@ -69,7 +70,7 @@ extern "C" {
 #endif
 
 #define RT_BLOB_MAGIC 0x5257484Bu    /* 'RWHK' */
-#define RT_BLOB_VERSION 5u
+#define RT_BLOB_VERSION 6u
 #define RT_CONTEXT_MAGIC 0x52574358u /* 'RWCX' */
 
 /* The resident table always has these entries, even when a game's DOL did
@@ -138,9 +139,18 @@ struct rt_blob_header {
      * enters at +4, Pulsar's IOS_Open "OpenFix", arrives too): the
      * function's frame is then undone, and the replay makes it again. */
     uint32_t open_undo_offset[2];
+    /* The game's own restart (runtime/rtreset.h): the stand-ins for the
+     * apploader's entry, main and close, and the entry point the restart
+     * jumps to (RT_RESET_*). */
+    uint32_t reset_offset[4];
 };
 
-typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 200u) ? 1 : -1];
+#define RT_RESET_APP_ENTRY 0u
+#define RT_RESET_APP_MAIN 1u
+#define RT_RESET_APP_CLOSE 2u
+#define RT_RESET_START 3u
+
+typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 216u) ? 1 : -1];
 
 /* /dev/sdio/slot0 SENDCMD request (wiibrew, libogc wiisd.c). 36 bytes. */
 struct rt_sdio_request {
@@ -694,6 +704,9 @@ struct rt_context {
      * whole cache lines of their own). */
     uint32_t bca_answers;
     uint8_t bca_sink[RT_BCA_BYTES + 32u];
+    /* The game's own restart with the launch's changes kept (loader-filled
+     * addresses; runtime/rtreset.h). */
+    struct rtrst_state reset;
 };
 
 typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
@@ -748,6 +761,20 @@ int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc
  */
 void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pending* record,
                        uintptr_t* callback, uintptr_t* user_data);
+
+/* The game's own restart (rt_entry.S's rt_reset_* stand-ins call these;
+ * include/riftwii/resetkeep.hpp). The apploader's entry: the real one
+ * runs, and its main and close are swapped for the blob's. */
+void rt_reset_on_app_entry(struct rt_context* ctx, uint32_t* init, uint32_t* main, uint32_t* close);
+/* Each step of the apploader: the IPC hooks put back (the step before may
+ * have loaded main.dol's code over them), then the apploader's own main. */
+int32_t rt_reset_on_app_main(struct rt_context* ctx, uint32_t* destination, uint32_t* length, uint32_t* offset);
+/* The apploader's close: the game's entry point is answered with the
+ * blob's (rt_reset_start), another executable's is left as it is. */
+uint32_t rt_reset_on_app_close(struct rt_context* ctx);
+/* At the blob's entry point: the restore list written back and the MEM1
+ * arena kept below the blobs; returns the game's own entry point. */
+uint32_t rt_reset_on_start(struct rt_context* ctx);
 
 /* Exposed for the host tests. */
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);

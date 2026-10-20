@@ -423,7 +423,7 @@ changed when the game writes its header.
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the restore list for the game's own Reset (what the launch changed; a few KB plus the packs' memory patches outside main.dol) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
@@ -476,6 +476,39 @@ restart shuts libogc down, copies that back and jumps to `__app_start`:
 the program starts exactly as it did from the Homebrew Channel. A
 handoff record next to the copy says why; the new start reloads IOS (so
 no handle of the old run survives) and shows the reason on Home.
+
+**A Wii game's own Reset.** The HOME Menu's Reset (and the console's
+Reset button) has the game restart itself: its OSRestart shuts the
+devices down and, for a disc game, reads the disc's apploader again,
+which loads main.dol and the file table over the running game, then jumps
+to the entry point. RiftWii is not there to load it, so before #139 every
+change of the launch was gone afterwards: the runtime's hooks (a pack's
+files), the memory patches, the cheats' hook.
+
+At the launch, the loader keeps a copy of main.dol's sections as the
+apploader loads them and, once every change is made, a restore list
+(`keep_launch_for_restart` in `wii/launch/boot.cpp`,
+`src/patching/resetkeep.cpp`): the words of the sections that differ
+from the disc's, the packs' memory patches outside them, the low memory
+it writes after the apploader (the code handler and its codes when
+cheats are on) and the MEM2 arena's ends. It goes at the bottom of the
+MEM2 arena, above the blobs' state; the arena starts after it. The
+runtime serves the apploader header's entry field (0x2450 in the
+partition) from its table with its own stand-in (`rt_reset_*`,
+`runtime/resident/rt_entry.S` and `rt_hook.c`). The restart then runs
+through the runtime: the stand-in calls the apploader's entry and hands
+out its own main and close; each step of the apploader puts the IPC hooks
+back, which the load of main.dol's code replaced, so the file table is
+read through the runtime too (a pack's rewritten table, which the
+restart's apploader places as at the launch); the close answers the game's
+entry point with the runtime's, which writes the list back
+(`runtime/rtreset.c`), keeps the MEM1 arena's end below the blobs and
+jumps to the game. An executable other than main.dol (OSExec) is left
+alone. Not kept, with the reason in `boot.log`: a pack's own main.dol
+(the restart loads the disc's), a game that starts a second executable,
+code builds, games that check their code or clear MEM1's top, launches
+without the runtime (cheats or memory patches alone), and a list the
+arena has no room for. `debug_off = resetkeep` turns it off.
 
 Two things restart:
 - a launch that fails (A on the error screen, or two minutes untouched);
