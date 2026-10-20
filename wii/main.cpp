@@ -429,7 +429,11 @@ int main() {
     timed("settings and language");
 
     InitVideo();
+    // Logged either side: with four Wii Remotes connected the menu froze on a
+    // Wii (#138), and the last line of the log names how far it got.
+    riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
+    riftwii::wii::logf("Pads: started\n");
     InitAudio();
     timed("video, pads and audio");
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
