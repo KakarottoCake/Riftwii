@@ -263,8 +263,9 @@ non-NTSC paths and other game regions keep their own behavior.
   window), with polled IPC and the game's own `OSSetAlarm` for the
   callbacks, the SD card read from the alarm once `DVDLowRead` has
   returned, as a drive works while the game runs on; a GameCube drive's
-  timing unless Disc reads is Fast; Luigi's Mansion's loader steered to
-  the heap each load was queued from; disc
+  timing unless Disc reads is Fast; Luigi's Mansion's read buffers steered
+  to the heap each load was queued from, and its callbacks steered only
+  when they interrupt a temporary heap (see below); disc
   audio streaming mixed into the game's AI DMA; ARAM kept in MEM2 at
   `0x90000000` (a Wii's ARAM DMA moves nothing in Wii mode), with the
   game's ARAM addresses raised so its own sound program reads MEM2
@@ -298,6 +299,31 @@ non-NTSC paths and other game regions keep their own behavior.
 - `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
+
+**Luigi's Mansion's loader.** The game has one current heap for all its
+threads. At the SD card's speed its loader thread can wake while another
+thread has made a small, full heap current for a moment (a 512 KB solid
+heap for a room's models), and its allocation then gets nothing. So each
+load's read buffer comes from the heap that was current when the load was
+queued. A load's callbacks are steered the same way only when they find
+such a temporary heap current; when it is one of the game's two main
+heaps or JKRHeap's system or root heap, they keep it, as the game would.
+That matters because a callback can make something that outlives its
+buffer: `/Game/game_usa.szp` is queued with the scene heap current, but
+the game switches to the persistent heap straight after, and that is
+where its callback should build the game's global archive. Built on the
+scene heap instead, the archive was freed at the next scene change while
+the game still used it, and Luigi's Mansion crashed to black after
+choosing progressive scan.
+
+`src/patching/gcload.cpp` finds the main-heap globals from the loader's group
+function and the system/root globals from JKRHeap's constructor comparisons
+and exchange setters, checked against the loader's current-heap global.
+The blob reads their values at each callback, including after a restart.
+Only the `gc_loads_use_queued_heap` game list enables this policy. If all
+four globals cannot be identified unambiguously, callback hooks are left
+out and the log says that only read buffers are protected. Neither game
+addresses nor archive paths are used to select behavior.
 
 **Clock speed** (`match_game_to_clocks` in `plugins/gamecube/gcnative.cpp`,
 `src/patching/gcclock.cpp`). A GameCube runs its CPU at 486 MHz and its
