@@ -81,6 +81,25 @@ void test_classify() {
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "LULZ")).kind == ChannelKind::None);
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "JODI")).kind == ChannelKind::None);
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "UFTW")).kind == ChannelKind::None);
+    // A custom inject's code (a tester's "TIME") is its own kind, still to be
+    // judged by the unlisted-channel rules.
+    EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "TIME")).kind == ChannelKind::Other);
+    EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "TIME")).system.empty());
+    // Nintendo's own channels, whatever follows the H.
+    for (const char* code : {"HAAA", "HABA", "HACA", "HADA", "HAEA", "HAFA", "HAGA", "HCFA", "HAYA", "HCCA"})
+        EXPECT_TRUE(classify_channel(title(kDownloadedChannels, code)).kind == ChannelKind::None);
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "HABA")).substr(0, 29),
+              std::string("its code starts with H, which"));
+    EXPECT_TRUE(channel_left_out_reason(title(kDownloadedChannels, "LULZ")).find("homebrew") != std::string::npos);
+    EXPECT_TRUE(channel_left_out_reason(title(kDownloadedChannels, "ab12")).find("four") != std::string::npos);
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "TIME")), std::string(""));
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "WBME")), std::string(""));
+    // System channels (00010002), disc channels (00010004), DLC (00010005)
+    // and hidden titles (00010008) are never scanned.
+    for (std::uint32_t high : {0x00010002u, 0x00010004u, 0x00010005u, 0x00010008u}) {
+        EXPECT_TRUE(classify_channel(title(high, "TIME")).kind == ChannelKind::None);
+        EXPECT_EQ(channel_left_out_reason(title(high, "TIME")), std::string(""));
+    }
     // Not a downloaded channel: a disc's data (00010000) or a system
     // channel (00010002) with a game-like code.
     EXPECT_TRUE(classify_channel(title(0x00010000, "WBME")).kind == ChannelKind::None);
@@ -287,6 +306,16 @@ void test_unlisted_verdict() {
     const ChannelVerdict fwd = judge_unlisted_channel("WWND", small, {{1, forwarder.size(), forwarder}});
     EXPECT_TRUE(fwd.left_out);
     EXPECT_TRUE(fwd.reason.find("sd:/apps/Nintendont/boot.dol") != std::string::npos);
+
+    // TIME, a tester's custom inject: a small low-loading DOL with no
+    // forwarder text passes every rule and is listed; a known homebrew code
+    // is left out by rule 1 whatever its program holds.
+    const std::vector<std::uint8_t> inject_program = dol_at(0x80004000);
+    const TmdContents inject = one_program_channel(inject_program.size());
+    EXPECT_TRUE(!judge_unlisted_channel("TIME", inject, {{1, inject_program.size(), inject_program}}).left_out);
+    const ChannelVerdict homebrew = judge_unlisted_channel("LULZ", inject, {{1, inject_program.size(), inject_program}});
+    EXPECT_TRUE(homebrew.left_out);
+    EXPECT_TRUE(homebrew.rule == 1);
 
     // A missing program: nothing read for the boot content, a boot index the
     // TMD does not list, or a shared one. Left out, whatever the code.

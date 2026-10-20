@@ -31,7 +31,13 @@ enum class ChannelKind {
     None,           // not a game: a Nintendo channel, a homebrew channel, RiftWii's own
     WiiWare,
     VirtualConsole,
+    Other,          // a custom inject or hand-made channel whose code starts with none of the letters above
 };
+
+// The first letter of Nintendo's own channels' codes (HAA Photo, HAB Shop,
+// HAC Mii, HAD Forecast, HAE, HAF, HAG, HCF, HAY, HCC...). None is a game, so
+// the whole letter stays out; this is the one place that says so.
+constexpr char kNintendoChannelLetter = 'H';
 
 struct ChannelClass {
     ChannelKind kind = ChannelKind::None;
@@ -45,10 +51,18 @@ struct ChannelClass {
 std::string channel_code(std::uint64_t title_id);
 
 // Whether a title is a game RiftWii lists as a channel, by its upper half
-// and the first letter of its code. Known homebrew channels whose codes
-// start with a Virtual Console letter (the Homebrew Channel's LULZ and
-// JODI, RiftWii's UFTW) are left out.
+// and the first letter of its code. Known homebrew channels (the Homebrew
+// Channel's LULZ and JODI, RiftWii's UFTW) and Nintendo's own channels
+// (H...) are left out. A code with any other first letter is ChannelKind::Other,
+// which the caller still judges with judge_unlisted_channel.
 ChannelClass classify_channel(std::uint64_t title_id);
+
+// Why a title in the downloaded-channels folder (00010001) that
+// classify_channel passes over is left out, as a clause for the log
+// ("its code starts with H, ..."); empty for a title that is listed or that
+// is not in that folder at all (system, disc, DLC and hidden titles are
+// never scanned).
+std::string channel_left_out_reason(std::uint64_t title_id);
 
 // Whether `code` is one of the known homebrew channels' (the Homebrew
 // Channel's LULZ and JODI, RiftWii's UFTW).

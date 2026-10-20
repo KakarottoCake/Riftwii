@@ -189,14 +189,20 @@ bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, cons
     return true;
 }
 
-// classify_channel passes over a known homebrew code without a word, so a
-// report could not say why such a channel is not on Home. Says it.
-void log_known_homebrew(std::uint64_t title_id, const std::string& where) {
-    if (static_cast<std::uint32_t>(title_id >> 32) != kDownloadedChannels) return;
-    const std::string code = channel_code(title_id);
-    if (code.empty() || !is_homebrew_code(code)) return;
-    logf("Wii channels: %s left out%s (rule 1 of 4): its code belongs to a known homebrew channel\n", code.c_str(),
-         where.c_str());
+// classify_channel passes over some titles without a word, so a report
+// could not say why such a channel is not on Home. Says it.
+void log_left_out_title(std::uint64_t title_id, const std::string& where) {
+    const std::string reason = channel_left_out_reason(title_id);
+    if (reason.empty()) return;
+    std::string code = channel_code(title_id);
+    if (code.empty()) {
+        char hex[16];
+        std::snprintf(hex, sizeof hex, "%08x", static_cast<unsigned>(title_id & 0xFFFFFFFFu));
+        code = hex;
+    }
+    const bool homebrew = is_homebrew_code(code);
+    logf("Wii channels: %s left out%s%s: %s\n", code.c_str(), where.c_str(), homebrew ? " (rule 1 of 4)" : "",
+         reason.c_str());
 }
 
 // Why a channel's program cannot start, for the log: the program content's
@@ -251,14 +257,17 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
         channel.title_id = titles[i];
         channel.kind = classify_channel(channel.title_id);
         if (channel.kind.kind == ChannelKind::None) {
-            log_known_homebrew(channel.title_id, "");
+            log_left_out_title(channel.title_id, "");
             continue;
         }
         channel.code = channel_code(channel.title_id);
         // Homebrew forwarders take Shop-like codes too (Nintendont's is
         // WWND), and custom injects take made-up ones GameTDB does not list.
         // A code its list lacks is judged below from the title itself.
-        const bool not_in_list = GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty();
+        // A code with no Shop letter (a custom inject's) is always judged,
+        // even before GameTDB's list has loaded.
+        const bool not_in_list = channel.kind.kind == ChannelKind::Other ||
+                                 (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty());
         std::string why;
         if (!read_stored_tmd(channel.title_id, channel.tmd, why)) {
             logf("Wii channels: %s left out: %s\n", channel.code.c_str(), why.c_str());
@@ -297,7 +306,7 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
         out.push_back(std::move(channel));
     }
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
-    status = std::to_string(out.size()) + " WiiWare and Virtual Console game(s) on the Wii";
+    status = std::to_string(out.size()) + " WiiWare, Virtual Console and other channel game(s) on the Wii";
     if (missing) status += ", " + std::to_string(missing) + " of them with their game data removed (they cannot start)";
     if (unlisted) status += "; " + std::to_string(unlisted) + " unlisted channel(s) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
@@ -325,11 +334,14 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         channel.title_id = (std::uint64_t(kDownloadedChannels) << 32) | std::strtoul(name.c_str(), nullptr, 16);
         channel.kind = classify_channel(channel.title_id);
         if (channel.kind.kind == ChannelKind::None) {
-            log_known_homebrew(channel.title_id, " in " + folder);
+            log_left_out_title(channel.title_id, " in " + folder);
             continue;
         }
         channel.code = channel_code(channel.title_id);
-        const bool not_in_list = GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty();
+        // A code with no Shop letter (a custom inject's) is always judged,
+        // even before GameTDB's list has loaded.
+        const bool not_in_list = channel.kind.kind == ChannelKind::Other ||
+                                 (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty());
         // The Wii's own copy, when it can start, is the one shown. One whose
         // game data was removed from the Wii (it keeps only the ticket, the
         // TMD and the save; a tester had 30 of 31 so, all whole in the
@@ -384,7 +396,7 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
     }
     closedir(dir);
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
-    status = std::to_string(found) + " WiiWare and Virtual Console game(s) in " + folder;
+    status = std::to_string(found) + " WiiWare, Virtual Console and other channel game(s) in " + folder;
     if (twice) status += "; " + std::to_string(twice) + " the Wii has itself listed once";
     if (instead)
         status += "; " + std::to_string(instead) + " shown from here instead of the Wii's copy, whose game data was removed";
