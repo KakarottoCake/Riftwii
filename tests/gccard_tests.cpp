@@ -1276,6 +1276,48 @@ static void test_dolphin_limits() {
     EXPECT_FALSE(count.full);
 }
 
+// Re-signing a card for another console's flash ID (gc_card_resign): a
+// card formatted with one flash ID gets the other's serial, with a valid
+// checksum and nothing else touched; once re-signed it already matches.
+static void test_resign() {
+    GcCardFormat format = sample_format(false);
+    std::array<std::uint8_t, 12> flash_a = format.flash_id;
+    std::array<std::uint8_t, 12> flash_b{};
+    for (unsigned i = 0; i < flash_b.size(); ++i) flash_b[i] = std::uint8_t(0xA0 + i * 7);
+
+    Bytes card;
+    gc_card_format(card, format);
+    const Bytes before = card;
+
+    EXPECT_TRUE(gc_card_resign(card, flash_b));
+    EXPECT_FALSE(std::memcmp(card.data(), before.data(), 12) == 0);
+    // Everything past the serial is untouched except the checksum pair.
+    EXPECT_TRUE(std::memcmp(card.data() + 12, before.data() + 12, 0x1FC - 12) == 0);
+    EXPECT_TRUE(std::memcmp(card.data() + 0x200, before.data() + 0x200, card.size() - 0x200) == 0);
+    std::uint8_t computed[4];
+    gc_card_checksum(card.data(), 0x1FC, computed);
+    EXPECT_TRUE(std::memcmp(computed, card.data() + 0x1FC, 4) == 0);
+    EXPECT_TRUE(read_ok(card).saves.empty());
+
+    // Already signed for B: nothing changes; still signed for A on a copy
+    // means a change back.
+    const Bytes signed_b = card;
+    EXPECT_FALSE(gc_card_resign(card, flash_b));
+    EXPECT_TRUE(card == signed_b);
+    Bytes back_to_a = card;
+    EXPECT_TRUE(gc_card_resign(back_to_a, flash_a));
+    EXPECT_TRUE(std::memcmp(back_to_a.data(), before.data(), 12) == 0);
+    EXPECT_TRUE(std::memcmp(back_to_a.data() + 12, before.data() + 12, 0x1FC - 12) == 0);
+
+    // Too small for a header: refused, unchanged.
+    Bytes tiny(0x1FF, 0);
+    const Bytes tiny_before = tiny;
+    EXPECT_FALSE(gc_card_resign(tiny, flash_b));
+    EXPECT_TRUE(tiny == tiny_before);
+    Bytes empty;
+    EXPECT_FALSE(gc_card_resign(empty, flash_b));
+}
+
 int main() {
     test_backup_undo();
     test_dolphin_import();
@@ -1285,6 +1327,7 @@ int main() {
     test_card_text();
     test_card_paths();
     test_icon_texture();
+    test_resign();
     test_format();
     test_import_export_delete();
     test_directory_full();

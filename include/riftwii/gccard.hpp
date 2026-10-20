@@ -42,6 +42,16 @@ struct GcCardFormat {
 // directories and two empty block tables. `card` is resized to the card.
 void gc_card_format(std::vector<std::uint8_t>& card, const GcCardFormat& format);
 
+// Re-signs a card's header for this console: when its serial was made with
+// another console's flash ID, the SDK's card library (VerifyID) reads the
+// card as damaged, so the mount copies the card's own flash ID into SRAM
+// first. RiftWii's emulated card reports itself unlocked, so the game
+// checks against SRAM as it is: the header gets the serial this console's
+// flash ID gives under the card's own format time, with its checksum pair
+// recomputed. True when the header changed, false when the serial already
+// matched or the image is too small for a header (then nothing changes).
+bool gc_card_resign(std::vector<std::uint8_t>& card, const std::array<std::uint8_t, 12>& flash_id);
+
 // The card's 16-bit checksum pair over `bytes` (an even count), stored as
 // two big-endian words at `out`: the sum of the words and the sum of
 // their complements, each 0xFFFF written as 0.

@@ -403,7 +403,11 @@ picked back over the card, after a backup of the card as it is now, so a
 restore can be undone the same way: that copy's name ends in `-undo`, and
 the list marks it "(before you restored)". Each row's second line, how
 many saves and blocks the copy holds, comes from its directory alone
-(`gc_card_space`).
+(`gc_card_space`). A card made with another console's flash ID is re-signed
+for this Wii in memory before the game runs (`gc_card_resign`): its serial
+is remade under the card's own format time, as a GameCube's own mount
+would, so the game does not read it as damaged; the file itself is only
+changed when the game writes its header.
 
 ## Memory
 

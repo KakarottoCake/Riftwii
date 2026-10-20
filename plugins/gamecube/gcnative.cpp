@@ -11,6 +11,7 @@
 #include <ogc/machine/processor.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -2308,6 +2309,30 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             ready = f && std::fwrite(card_image.data(), 1, card_image.size(), f) == card_image.size();
             if (f) std::fclose(f);
             forget_sd_layout();
+        }
+        // A card made with another console's flash ID reads as damaged:
+        // the SDK's VerifyID checks the header's serial against SRAM as it
+        // is, since the emulated card reports itself unlocked. A GameCube's
+        // own mount copies the card's flash ID into SRAM first, so the game
+        // is given the header re-signed for this Wii instead. Only the
+        // in-memory image changes; the file keeps its own until the game
+        // itself writes block 0 (runtime/gc/gc_card.c only writes back
+        // sectors its dirty bitmap saw programmed or erased, so an
+        // untouched header never reaches the file).
+        if (ready && !blank && !other_size) {
+            rwp_sram sram;
+            plugin::host().read_sram(&sram);
+            std::array<std::uint8_t, 12> flash_id{};
+            static_assert(sizeof(sram.flash_id_a) == sizeof(flash_id),
+                          "rwp_sram's flash ID is not a card's");
+            std::memcpy(flash_id.data(), sram.flash_id_a, flash_id.size());
+            if (gc_card_resign(card_image, flash_id)) {
+                logf("GameCube: %s was made with another card ID than this Wii's (its serial does not match the "
+                     "console's SRAM, which games read as a damaged card): the game gets it re-signed for this Wii, "
+                     "as a GameCube's own mount would do; the file is unchanged until the game itself writes its "
+                     "header\n",
+                     path.c_str());
+            }
         }
         Fat32File cf;
         std::string why;
