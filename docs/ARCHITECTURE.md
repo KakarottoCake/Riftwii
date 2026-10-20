@@ -154,12 +154,13 @@ on the device holding the image, through the game's own IPC functions:
 the SD slot the loader selected (with CMD13 polls after writes), d2x's
 `/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
 image on the USB drive (opened before the game partition, so for a game
-on the USB drive only). The code and its state (a 32 KB bounce buffer for USB, then the image's extent table, 12 bytes a piece
-of the image file on its device, up to 16384 pieces: sized to the image, so
-three pieces cost 36 bytes and an image scattered by a well-used card
-up to 192 KB, found by a binary search) go to the bottom of the MEM2 arena, staged
-at its top and copied down at the jump; the game reaches them through
-veneers at `0x80002300`, the code handler's list room a code build
+on the USB drive only). The code and its state (a 32 KB bounce buffer for
+USB, then the image's extent table, 12 bytes a piece of the image file on
+its device, up to 16384 pieces: sized to the image, so three pieces cost 36
+bytes and an image scattered by a well-used card up to 192 KB, found by a
+binary search) go to the bottom of the MEM2 arena, staged at its top and
+copied down at the jump; the game reaches them through veneers at
+`0x80002300`, the code handler's list room a code build
 leaves free (below the MEM1 arena's top without it). Not with the
 resident runtime yet.
 
