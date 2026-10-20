@@ -499,6 +499,29 @@ void test_ciso_detection() {
               static_cast<std::size_t>(0));
 }
 
+void test_gc_container_by_magic() {
+    const std::uint8_t ciso[] = {'C', 'I', 'S', 'O', 0, 0, 0x20, 0};
+    const std::uint8_t gcz[] = {0x01, 0xC0, 0x0B, 0xB1, 0, 0, 0, 0};
+    const std::uint8_t wia[] = {'W', 'I', 'A', 0x01, 0, 0, 0, 0};
+    const std::uint8_t rvz[] = {'R', 'V', 'Z', 0x01, 0, 0, 0, 0};
+    const std::uint8_t plain[] = {'G', 'A', 'L', 'E', '0', '1', 0, 0};
+    EXPECT_TRUE(gc_container_by_magic(ciso, sizeof ciso) == GcContainer::Ciso);
+    EXPECT_TRUE(gc_container_by_magic(gcz, sizeof gcz) == GcContainer::Gcz);
+    EXPECT_TRUE(gc_container_by_magic(wia, sizeof wia) == GcContainer::Wia);
+    EXPECT_TRUE(gc_container_by_magic(rvz, sizeof rvz) == GcContainer::Rvz);
+    EXPECT_TRUE(gc_container_by_magic(plain, sizeof plain) == GcContainer::None);
+    EXPECT_TRUE(gc_container_by_magic(ciso, 3) == GcContainer::None);
+    EXPECT_TRUE(gc_container_by_magic(nullptr, 8) == GcContainer::None);
+
+    // Each says what it is and what to do; CISO is never played.
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::None).empty());
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::Ciso).find("CISO image named like an ISO") != std::string::npos);
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::Ciso).find("does not play CISO") != std::string::npos);
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::Gcz).find("Convert File") != std::string::npos);
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::Wia).find("WIA image") != std::string::npos);
+    EXPECT_TRUE(gc_container_skip_reason(GcContainer::Rvz).find(".rvz") != std::string::npos);
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -652,6 +675,7 @@ int main() {
     test_plan_over_usb();
     test_ciso_detection();
     test_gc_folder_skip_reason();
+    test_gc_container_by_magic();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";
     return g_failures == 0 ? 0 : 1;

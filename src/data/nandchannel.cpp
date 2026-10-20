@@ -31,6 +31,7 @@ constexpr const char* kHomebrewCodes[] = {
     "LULZ",  // the Homebrew Channel
     "JODI",  // the Homebrew Channel, older
     "UFTW",  // RiftWii's own channel
+    "CORD",  // the Discross channel (a tester's Wii showed it as a game)
 };
 
 // Text a forwarder's program holds to name the app it starts.
@@ -84,9 +85,7 @@ ChannelClass classify_channel(std::uint64_t title_id) {
     const std::string code = channel_code(title_id);
     if (code.empty()) return out;
     if (is_homebrew_code(code)) return out;
-    // The first letter of a Shop title's code names what it is. H is
-    // Nintendo's own channels (the Shop, Photo, Mii, News...), which are
-    // not games and stay out.
+    // The first letter of a Shop title's code names what it is.
     switch (code[0]) {
         case 'W': out.kind = ChannelKind::WiiWare; break;
         case 'F': out.system = "NES"; break;
@@ -99,10 +98,27 @@ ChannelClass classify_channel(std::uint64_t title_id) {
         case 'E': out.system = "Neo Geo"; break;
         case 'C': out.system = "Commodore 64"; break;
         case 'X': out.system = "MSX"; break;
-        default: break;
+        // Nintendo's own channels (the Shop, Photo, Mii, News...) are not
+        // games and stay out.
+        case kNintendoChannelLetter: break;
+        // Anything else is a custom inject or a channel made by hand
+        // (a tester's "TIME"): listed like WiiWare once judge_unlisted_channel
+        // finds it is not a homebrew loader.
+        default: out.kind = ChannelKind::Other; break;
     }
     if (!out.system.empty()) out.kind = ChannelKind::VirtualConsole;
     return out;
+}
+
+std::string channel_left_out_reason(std::uint64_t title_id) {
+    if (static_cast<std::uint32_t>(title_id >> 32) != kDownloadedChannels) return "";
+    const std::string code = channel_code(title_id);
+    if (code.empty()) return "its code is not four capital letters or digits";
+    if (is_homebrew_code(code)) return "its code belongs to a known homebrew channel";
+    if (code[0] == kNintendoChannelLetter)
+        return std::string("its code starts with ") + kNintendoChannelLetter +
+               ", which is Nintendo's own channels (Shop, Photo, Mii, News...), not games";
+    return "";
 }
 
 std::string channel_cheat_code(const std::string& game_id) {
@@ -110,7 +126,9 @@ std::string channel_cheat_code(const std::string& game_id) {
     std::uint32_t lower = 0;
     for (int i = 0; i < 4; ++i) lower = (lower << 8) | static_cast<std::uint8_t>(game_id[i]);
     const std::uint64_t as_title = (std::uint64_t(kDownloadedChannels) << 32) | lower;
-    if (classify_channel(as_title).kind == ChannelKind::None) return "";
+    // Only Shop codes: a disc's ID (RSBE) would otherwise pass as "other".
+    const ChannelKind kind = classify_channel(as_title).kind;
+    if (kind != ChannelKind::WiiWare && kind != ChannelKind::VirtualConsole) return "";
     return game_id.substr(0, 4);
 }
 
@@ -263,6 +281,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     ChannelVerdict verdict;
     verdict.left_out = true;
     if (is_homebrew_code(code)) {
+        verdict.rule = 1;
         verdict.reason = "its code belongs to a known homebrew channel";
         return verdict;
     }
@@ -271,6 +290,8 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     for (const ContentStart& start : starts)
         if (start.index == tmd.boot_index && !start.head.empty()) boot_start = &start;
     if (boot == nullptr || (boot->type & 0x8000) != 0 || boot_start == nullptr) {
+        verdict.rule = 2;
+        if (boot != nullptr) verdict.unread_content_id = boot->id;
         verdict.reason = "its program is not on the Wii (or could not be read), so it cannot start";
         return verdict;
     }
@@ -285,6 +306,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
             char text[96];
             std::snprintf(text, sizeof text, "a homebrew loader (its program loads at 0x%08x)",
                           static_cast<unsigned>(section.address));
+            verdict.rule = 3;
             verdict.reason = text;
             return verdict;
         }
@@ -295,6 +317,7 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     if (boot->size != 0 && boot->size <= kForwarderMaxBytes) {
         const std::string path = forwarder_app_path(boot_start->head.data(), boot_start->head.size());
         if (!path.empty()) {
+            verdict.rule = 4;
             verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
             return verdict;
         }

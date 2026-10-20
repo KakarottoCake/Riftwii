@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcreset.hpp"
 
+#include <algorithm>
+#include <cstring>
 #include <set>
 
 namespace riftwii {
@@ -132,6 +134,89 @@ GcResetFunctions find_gc_reset_functions(const std::vector<CodeRange>& text) {
     out.reset_system = reset_system;
     out.hardware_reset = routine;
     return out;
+}
+
+std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data) {
+    static const char kNewApploaderDate[] = "2004/02/01";
+    const std::size_t date_bytes = sizeof(kNewApploaderDate) - 1;
+    std::uint32_t date = 0;
+    for (const CodeRange& r : data) {
+        for (std::size_t i = 0; date == 0 && i + date_bytes <= r.size; ++i)
+            if (std::memcmp(r.bytes + i, kNewApploaderDate, date_bytes) == 0)
+                date = r.address + static_cast<std::uint32_t>(i);
+    }
+    if (date == 0) return 0;
+    // lis takes the upper half rounded for addi's signed lower half.
+    const std::uint16_t low = static_cast<std::uint16_t>(date & 0xFFFF);
+    const std::uint16_t high = static_cast<std::uint16_t>((date >> 16) + ((low & 0x8000) ? 1 : 0));
+    const Words code(text);
+    std::set<std::uint32_t> functions;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        const bool lis = opcode(w) == 15 && ((w >> 16) & 31) == 0 && (w & 0xFFFF) == high;
+        if (!lis) return;
+        const unsigned reg = (w >> 21) & 31;
+        for (std::uint32_t b = a + 4; b <= a + 64 && code.has(b); b += 4) {
+            const std::uint32_t next = code.at(b);
+            const bool addi = opcode(next) == 14 && ((next >> 16) & 31) == reg && (next & 0xFFFF) == low;
+            if (!addi) continue;
+            if (const std::uint32_t f = function_start(code, a)) functions.insert(f);
+            break;
+        }
+    });
+    // The one of them that keeps its seventh argument.
+    std::uint32_t found = 0;
+    unsigned keeping = 0;
+    for (std::uint32_t f : functions) {
+        bool keeps_argv = false;
+        for (std::uint32_t a = f; a < f + 24 * 4 && code.has(a) && !keeps_argv; a += 4) {
+            const std::uint32_t w = code.at(a);
+            keeps_argv = opcode(w) == 31 && ((w >> 21) & 31) == 9 && ((w >> 11) & 31) == 9 && ((w >> 1) & 1023) == 444;
+        }
+        if (keeps_argv) {
+            found = f;
+            ++keeping;
+        }
+    }
+    return keeping == 1 ? found : 0;
+}
+
+bool gc_pack_exec_args(std::vector<std::uint8_t>& bi2, const std::vector<std::string>& args) {
+    constexpr std::size_t kBi2Bytes = 0x2000;
+    constexpr std::size_t kUpperHalf = 0x1000;
+    if (bi2.size() != kBi2Bytes) return false;
+    auto put32 = [&](std::size_t at, std::uint32_t v) {
+        bi2[at] = static_cast<std::uint8_t>(v >> 24);
+        bi2[at + 1] = static_cast<std::uint8_t>(v >> 16);
+        bi2[at + 2] = static_cast<std::uint8_t>(v >> 8);
+        bi2[at + 3] = static_cast<std::uint8_t>(v);
+    };
+    if (args.empty()) {
+        put32(8, 0);
+        return true;
+    }
+    std::vector<std::uint8_t> packed(kBi2Bytes - kUpperHalf, 0);
+    // The strings from the top down, the last first, as the SDK does.
+    std::size_t at = kBi2Bytes;
+    std::vector<std::uint32_t> offsets(args.size());
+    for (std::size_t i = args.size(); i-- > 0;) {
+        const std::size_t need = args[i].size() + 1;
+        if (at < kUpperHalf + need) return false;
+        at -= need;
+        offsets[i] = static_cast<std::uint32_t>(at);
+    }
+    // Then, word aligned below them, argc and the list ending in 0.
+    std::size_t list = (at & ~std::size_t(3)) - 4 * (args.size() + 1);
+    if (list < kUpperHalf + 4 || list > kBi2Bytes) return false;
+    const std::size_t argc_at = list - 4;
+    std::fill(bi2.begin() + kUpperHalf, bi2.end(), 0);
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        std::copy(args[i].begin(), args[i].end(), bi2.begin() + offsets[i]);
+        put32(list + 4 * i, offsets[i]);
+    }
+    put32(list + 4 * args.size(), 0);
+    put32(argc_at, static_cast<std::uint32_t>(args.size()));
+    put32(8, static_cast<std::uint32_t>(argc_at));
+    return true;
 }
 
 GcRestartPlan plan_gc_restart(const std::vector<GcRestartPiece>& pieces, std::uint32_t window,

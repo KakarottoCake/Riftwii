@@ -394,6 +394,36 @@ std::string gc_folder_skip_reason(const std::string& name) {
     return "not an image RiftWii plays (it plays .iso, .gcm and .rvz)";
 }
 
+GcContainer gc_container_by_magic(const std::uint8_t* head, std::size_t size) {
+    if (head == nullptr || size < 4) return GcContainer::None;
+    const std::uint32_t magic = (std::uint32_t(head[0]) << 24) | (std::uint32_t(head[1]) << 16) |
+                                (std::uint32_t(head[2]) << 8) | head[3];
+    // Dolphin's GCZ stores its magic 0xB10BC001 little-endian, so the file
+    // starts 01 C0 0B B1.
+    const std::uint32_t gcz_magic_as_read = 0x01C00BB1u;
+    if (magic == 0x4349534Fu) return GcContainer::Ciso;  // "CISO"
+    if (magic == gcz_magic_as_read) return GcContainer::Gcz;
+    if (magic == 0x57494101u) return GcContainer::Wia;   // "WIA" 01
+    if (magic == 0x52565A01u) return GcContainer::Rvz;   // "RVZ" 01
+    return GcContainer::None;
+}
+
+std::string gc_container_skip_reason(GcContainer container) {
+    const std::string convert = "convert it in Dolphin (right-click the game, Convert File)";
+    switch (container) {
+        case GcContainer::Ciso:
+            return "it is a CISO image named like an ISO: RiftWii does not play CISO, " + convert + " to ISO or RVZ";
+        case GcContainer::Gcz:
+            return "it is a GCZ image named like an ISO: RiftWii plays ISO, GCM and RVZ; " + convert;
+        case GcContainer::Wia:
+            return "it is a WIA image named like an ISO: RiftWii plays ISO, GCM and RVZ; " + convert;
+        case GcContainer::Rvz:
+            return "it is an RVZ image named like an ISO: rename it to end in .rvz and RiftWii plays it";
+        case GcContainer::None: break;
+    }
+    return std::string();
+}
+
 std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, const std::string& and_more) {
     if (finds.paths.empty()) return std::string();
     std::string body = help + "\n\n" + finds.paths.front();

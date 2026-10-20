@@ -429,7 +429,11 @@ int main() {
     timed("settings and language");
 
     InitVideo();
+    // Logged either side: with four Wii Remotes connected the menu froze on a
+    // Wii (#138), and the last line of the log names how far it got.
+    riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
+    riftwii::wii::logf("Pads: started\n");
     InitAudio();
     timed("video, pads and audio");
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
@@ -477,6 +481,7 @@ int main() {
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();
+    riftwii::wii::mem::LogUsage("threads started");
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     // The plugin test switch (docs/DEVELOPING.md): only with
     // sd:/riftwii/plugin_test.txt on the card; nothing loads at a plain
