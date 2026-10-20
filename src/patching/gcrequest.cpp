@@ -112,6 +112,17 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
               " bytes, not " + std::to_string(crash_screen_bytes);
         return false;
     }
+    // A program switch's arguments: whole strings, as many as said.
+    if (request->exec_arg_count != 0) {
+        std::uint32_t ends = 0;
+        const bool sized_ok = request->exec_args != nullptr && request->exec_args_bytes <= 0x1000;
+        for (std::uint32_t i = 0; sized_ok && i < request->exec_args_bytes; ++i)
+            if (request->exec_args[i] == '\0') ++ends;
+        if (!sized_ok || ends != request->exec_arg_count || request->exec_args[request->exec_args_bytes - 1] != '\0') {
+            why = "the launch request's program arguments are not whole";
+            return false;
+        }
+    }
     if (request->way_back_kind > RWP_GC_WAY_BACK_HBC ||
         (request->way_back_kind != RWP_GC_WAY_BACK_NONE && request->way_back_view == nullptr)) {
         why = "the launch request's way back is not whole";
