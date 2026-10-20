@@ -14,7 +14,6 @@
 #include <cstring>
 
 #include "log.hpp"
-#include "memlimits.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -138,10 +137,7 @@ bool NetRunInBackground(void (*job)(), bool cancellable) {
     g_job_cancellable = cancellable;
     g_job_done = false;
     // TLS keeps its state on the heap; 32 KiB covers its RSA and EC math.
-    // The stack from MEM2: 32 KiB from libogc's kernel heap left the
-    // Bluetooth stack too little for a fourth Wii Remote.
-    static u8* stack = nullptr;
-    if (LWP_CreateThread(&g_job_thread, run_job, nullptr, riftwii::wii::mem::ThreadStack(stack, 32768), 32768, 40) < 0) {
+    if (LWP_CreateThread(&g_job_thread, run_job, nullptr, nullptr, 32768, 40) < 0) {
         g_job_thread = LWP_THREAD_NULL;
         g_job_done = true;
         job();

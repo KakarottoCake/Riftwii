@@ -120,11 +120,6 @@ void LogLimits() {
 // stack of their own, and the Bluetooth stack's Wii Remote state.
 extern "C" u32 __lwp_wkspace_heapfree(void);
 
-u8* ThreadStack(u8*& slot, std::size_t bytes) {
-    if (slot == nullptr) slot = skin::Mem2Alloc(bytes);
-    return slot;
-}
-
 u32 KernelHeapFree() { return __lwp_wkspace_heapfree(); }
 
 void LogUsage(const char* when) {
