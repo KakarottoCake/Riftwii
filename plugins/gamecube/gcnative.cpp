@@ -2963,7 +2963,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->pending_type = 0;
     ctx->read_state = 0;  // GC_READ_NONE (gc_rt.c)
     ctx->alarm_queued = 0;
-    if (ctx->card != 0) reinterpret_cast<gc_card*>(ctx->card)->alarm_set = 0;
+    // These resets come after the big flush above, so flush the exact
+    // ranges they touch: if the game's start-up invalidates the data cache,
+    // a dirty line that never reached memory would undo the reset.
+    if (ctx->card != 0) {
+        auto* card = reinterpret_cast<gc_card*>(ctx->card);
+        card->alarm_set = 0;
+        DCFlushRange(card, sizeof(*card));
+    }
+    DCFlushRange(ctx, sizeof(*ctx));
     reinterpret_cast<void (*)()>(dol.entry)();
     return false;
 }
