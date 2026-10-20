@@ -2069,6 +2069,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     if (ok && image.tgc_offset != 0) {
         const std::vector<std::uint8_t> disc_boot = boot;  // the disc's own, for its FST
         ok = open_gc_tgc(f, disc_boot, image.tgc_offset, tgc, boot, bi2, tgc_fst, error);
+        // boot may hold the packed header's unchecked FST size; leave before it
+        // sizes an allocation, so the TGC reason in error reaches the player.
+        if (!ok) return false;
     }
     // A switch to another program on the disc (gc_on_boot_dol): that one,
     // with its arguments in BI2 where its start-up code reads them.
