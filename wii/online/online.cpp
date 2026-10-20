@@ -845,6 +845,11 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         };
     }
     if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) return false;
+    // A tester's Wii crashed half a minute into an update with nothing
+    // after the line above: this one tells the DOL's download from the
+    // update pack's and the writes that follow it.
+    logf("Update: riftwii.dol downloaded (%u bytes); checking it and fetching the update pack next\n",
+         static_cast<unsigned>(body.size()));
     if (progress) progress(1.0);
     if (note.dol.size != 0 && body.size() != note.dol.size) {
         error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
