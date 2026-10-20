@@ -1256,7 +1256,9 @@ void apply_debug_crash(const DolHeader& dol) {
 constexpr std::uint32_t kRestartTriggerStub = 0x80001200;
 static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "the restart trigger must end before 0x80001300");
 
-void apply_debug_reset(const DolHeader& dol) {
+// `known_os_restart`: OSRestart as found before the kept restart hooked
+// it (0: not hooked), the address the switch calls then.
+void apply_debug_reset(const DolHeader& dol, std::uint32_t known_os_restart) {
     const auto it = Settings().other.find("debug_reset");
     if (it == Settings().other.end()) return;
     const std::uint32_t seconds = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 10));
@@ -1266,7 +1268,7 @@ void apply_debug_reset(const DolHeader& dol) {
         if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
     const std::uint32_t sleep_thread = find_os_sleep_thread(text);
-    const std::uint32_t os_restart = find_os_restart(text);
+    const std::uint32_t os_restart = known_os_restart != 0 ? known_os_restart : find_os_restart(text);
     // The stub compares 32-bit time base values, which wrap after 70 s.
     if (seconds == 0 || seconds > 60 || sleep_thread == 0 || os_restart == 0) {
         logf("debug_reset: not set up (%u s, OSSleepThread 0x%08x, OSRestart 0x%08x)\n", seconds, sleep_thread,
@@ -2080,6 +2082,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
+    std::uint32_t hooked_os_restart = 0;  // for the debug_reset switch
     // The runtime's code goes above this loader (which ends at arena 1's
     // top) and the apploader image, both still in use until the game starts.
     const std::uint32_t mem1_floor =
@@ -2119,6 +2122,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                 if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
             }
             ro.reset_os_restart = find_os_restart(text);
+            hooked_os_restart = ro.reset_os_restart;
         }
         ro.mem1_floor = mem1_floor;
         // A code build (Project+) sizes the game's heaps to all of MEM1;
@@ -2564,7 +2568,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
-    apply_debug_reset(dol);
+    apply_debug_reset(dol, resident.reset_os_restart_hooked ? hooked_os_restart : 0);
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).

@@ -175,6 +175,18 @@ void os_restart_is_found() {
     hooked[1] = 0x48000000u | ((0x817E37E0u - (kBase + 4)) & 0x03FFFFFCu);
     const Bytes hooked_text = words_to_bytes(hooked);
     EXPECT_EQ(riftwii::find_os_restart(one_range(hooked_text)), kBase + 4);
+    // With padding between the function before and the hooked first word
+    // (New Super Mario Bros. Wii's OSRestart): the padding is not the start.
+    std::vector<std::uint32_t> padded = os_restart_shape();
+    padded[1] = 0x48000000u | ((0x817E37E0u - (kBase + 8)) & 0x03FFFFFCu);
+    padded.insert(padded.begin() + 1, 0x00000000u);
+    const Bytes padded_text = words_to_bytes(padded);
+    EXPECT_EQ(riftwii::find_os_restart(one_range(padded_text)), kBase + 8);
+    // Not hooked, the frame wins over the padding.
+    std::vector<std::uint32_t> padded_plain = os_restart_shape();
+    padded_plain.insert(padded_plain.begin() + 1, 0x60000000u);
+    const Bytes padded_plain_text = words_to_bytes(padded_plain);
+    EXPECT_EQ(riftwii::find_os_restart(one_range(padded_plain_text)), kBase + 8);
 
     // Two of them: neither is taken.
     std::vector<std::uint32_t> twice = os_restart_shape();
