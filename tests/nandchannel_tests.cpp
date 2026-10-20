@@ -292,6 +292,8 @@ void test_unlisted_verdict() {
     // TMD does not list, or a shared one. Left out, whatever the code.
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).left_out);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).reason.find("not on the Wii") != std::string::npos);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).rule == 2);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).unread_content_id != 0);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, 0, {}}}).left_out);  // read, but empty
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{0, 0x40000, dol_at(0x80004000)}}).left_out);  // only the banner
     TmdContents no_boot = small;
@@ -353,6 +355,13 @@ void test_unlisted_verdict() {
     // Known homebrew codes, whatever the program.
     EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
     EXPECT_TRUE(is_homebrew_code("UFTW"));
+    // The Discross channel: a small, plain program that no section rule catches.
+    EXPECT_TRUE(is_homebrew_code("CORD"));
+    {
+        const ChannelVerdict cord = judge_unlisted_channel("CORD", small, {{1, plain.size(), plain}});
+        EXPECT_TRUE(cord.left_out);
+        EXPECT_TRUE(cord.rule == 1);
+    }
     // A GameTDB-listed game never reaches the verdict, and its code is no homebrew's.
     EXPECT_TRUE(!is_homebrew_code("WBME"));
 

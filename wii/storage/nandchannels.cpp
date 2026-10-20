@@ -176,8 +176,16 @@ bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, cons
     std::string name;
     for (const std::string& banner_name : channel.names)
         if (name.empty()) name = banner_name;
-    logf("Wii channels: %s%s%s%s left out%s: %s\n", channel.code.c_str(), name.empty() ? "" : " (",
-         name.c_str(), name.empty() ? "" : ")", where.c_str(), verdict.reason.c_str());
+    std::string unread;
+    if (verdict.unread_content_id != 0) {
+        char id[48];
+        std::snprintf(id, sizeof id, "; content %08x could not be read",
+                      static_cast<unsigned>(verdict.unread_content_id));
+        unread = id;
+    }
+    logf("Wii channels: %s%s%s%s left out%s (rule %d of 4): %s%s\n", channel.code.c_str(),
+         name.empty() ? "" : " (", name.c_str(), name.empty() ? "" : ")", where.c_str(), verdict.rule,
+         verdict.reason.c_str(), unread.c_str());
     return true;
 }
 
@@ -252,7 +260,14 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
         // programs are their own.
         channel.playable = program && !(program->type & 0x8000) &&
                            exists(access, nand_content_path(channel.title_id, program->id));
-        if (!channel.playable) ++missing;
+        if (!channel.playable) {
+            ++missing;
+            // Shown on Home with a note, not hidden; the log says why it
+            // cannot start and which content is gone.
+            logf("Wii channels: %s kept on Home but cannot start: its game data was removed from the Wii "
+                 "(program content %08x is missing)\n",
+                 channel.code.c_str(), program ? static_cast<unsigned>(program->id) : 0u);
+        }
         out.push_back(std::move(channel));
     }
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
