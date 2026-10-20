@@ -724,6 +724,8 @@ static void TestV4() {
     rep[1 + 2 * 9 + 1] = 0x01;
     rep[1 + 2 * 9 + 3] = 128;
     rep[1 + 2 * 9 + 4] = 128;
+    rep[1 + 2 * 9 + 5] = 128;  // the C-stick at rest too
+    rep[1 + 2 * 9 + 6] = 128;
     EXPECT_TRUE(Deliver(rep));
     rep[1 + 2 * 9 + 1] = 0x02;
     EXPECT_TRUE(Deliver(rep));
@@ -743,6 +745,87 @@ static void TestV4() {
     EXPECT_TRUE(gcad_idle(g));
     EXPECT_TRUE(hid.waiting_list.empty());
     EXPECT_TRUE(hid.waiting_in.empty());
+}
+
+static unsigned OriginEvents(const Driver& d, std::uint32_t port, std::uint32_t how) {
+    const std::string prefix = std::to_string(GCAD_EV_ORIGIN) + ":";
+    unsigned count = 0;
+    for (const std::string& e : d.events) {
+        if (e.compare(0, prefix.size(), prefix) != 0) continue;
+        const std::uint32_t a = static_cast<std::uint32_t>(std::stoul(e.substr(prefix.size())));
+        if ((a & 0xFF) == port && ((a >> 8) & 0xFF) == how) ++count;
+    }
+    return count;
+}
+
+// The origin comes only from the pad at rest: a reading far off (a stick
+// pinned to a corner at RiftWii's start on a Wii U) is passed over and the
+// port reads empty until one at rest; a pad held off the middle gets the
+// middle for those axes after GCAD_ORIGIN_WAIT_MS.
+static void TestOriginAtRest() {
+    FakeHid hid;
+    hid.dev_id = 2;
+    Driver d;
+    Start(hid, d, 4);
+    gcad* g = d.g;
+    gcad_pad pad{};
+
+    // Sticks at 0 in the pad's first reading: no origin from it.
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 0, 0)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 0u);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_PASSED), 1u);  // logged once
+    // The next reading, at rest, is the origin.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 1u);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 231, 125)));
+    ExpectPort(g, 0, 0, 100, d.now);
+
+    // Plugged in again with the stick held right: empty while it waits.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += GCAD_ORIGIN_WAIT_MS - 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    // Still held at the end of the wait: x takes the middle, y (at rest)
+    // its reading, so the stick reads as held, and centred once let go.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    ExpectPort(g, 0, 0, 102, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), 1u);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_PASSED), 2u);  // once for the whole wait, not per reading
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    ExpectPort(g, 0, 0, 0, d.now);
+
+    // A trigger held at the start: it takes 0, the rest their readings.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 126, 128, 200, 30)));
+    d.now += GCAD_ORIGIN_WAIT_MS;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 126, 128, 200, 30)));
+    EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
+    EXPECT_EQ(static_cast<int>(pad.stick_x), 0);
+    EXPECT_EQ(static_cast<int>(pad.trigger_l), 200);
+    EXPECT_EQ(static_cast<int>(pad.trigger_r), 0);
+
+    // X+Y+Start still takes the reading as it is, as the pad does.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0x0C, 0x01, 200, 128)));
+    d.now += GCAD_RECAL_MS;
+    EXPECT_TRUE(Deliver(Report(0x14, 0x0C, 0x01, 200, 128)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 200, 128)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RECAL), 1u);
 }
 
 static void TestNoAdapter() {
@@ -1178,6 +1261,7 @@ int main() {
     TestV5SetProtocolRefused();
     TestV5KnownDevice();
     TestV4();
+    TestOriginAtRest();
     TestNoAdapter();
     TestTransferErrorRelinks();
     TestListErrorRetries();

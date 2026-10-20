@@ -153,8 +153,47 @@ static void set_stale(gcad* g) {
     for (i = 0; i < GCAD_PORTS; ++i) {
         g->raw[i][0] = 0;
         g->origin_valid[i] = 0;
+        g->origin_waiting[i] = 0;
         g->recal_active[i] = 0;
     }
+}
+
+/* Whether one of a report's six analog bytes (stick x, y, substick x, y,
+ * L, R) reads as a pad at rest: a stick near the middle, a trigger let
+ * go. */
+static int axis_at_rest(uint32_t axis, uint8_t value) {
+    if (axis >= 4) return value <= GCAD_ORIGIN_TRIGGER_MAX;
+    return value >= 128 - GCAD_ORIGIN_SPREAD && value <= 128 + GCAD_ORIGIN_SPREAD;
+}
+
+static int pad_at_rest(const uint8_t analog[6]) {
+    uint32_t axis;
+    for (axis = 0; axis < 6; ++axis) {
+        if (!axis_at_rest(axis, analog[axis])) return 0;
+    }
+    return 1;
+}
+
+static void origin_event(gcad* g, uint32_t port, uint32_t how, const uint8_t analog[6]) {
+    const uint32_t triggers = (uint32_t)analog[4] << 16 | (uint32_t)analog[5] << 24;
+    const uint32_t sticks =
+        (uint32_t)analog[0] << 24 | (uint32_t)analog[1] << 16 | (uint32_t)analog[2] << 8 | analog[3];
+    gcad_env_event(g, GCAD_EV_ORIGIN, port | how << 8 | triggers, (int32_t)sticks);
+}
+
+/* `how` is GCAD_ORIGIN_*: with GCAD_ORIGIN_MIDDLE an axis not at rest
+ * takes the middle (a trigger 0) instead of its reading. */
+static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t how) {
+    uint32_t axis;
+    uint8_t* origin = g->origin[port];
+    for (axis = 0; axis < 6; ++axis) {
+        const uint8_t middle = axis < 4 ? 128 : 0;
+        const int off = how == GCAD_ORIGIN_MIDDLE && !axis_at_rest(axis, analog[axis]);
+        origin[axis] = off ? middle : analog[axis];
+    }
+    g->origin_valid[port] = 1;
+    g->origin_waiting[port] = 0;
+    origin_event(g, port, how, origin);
 }
 
 static void submit_change(gcad* g, uint32_t now) {
@@ -324,12 +363,30 @@ static void take_report(gcad* g, uint32_t now) {
         if (was != is) gcad_env_event(g, GCAD_EV_PORT, i, src[0]);
         if (!is) {
             g->origin_valid[i] = 0;
+            g->origin_waiting[i] = 0;
             g->recal_active[i] = 0;
             continue;
         }
+        /* The origin comes only from a reading of the pad at rest. A
+         * reading far off taken as the origin pinned the stick to a
+         * corner until the adapter was replugged (seen at RiftWii's
+         * start on a Wii U, 2610-541); the port stays empty while it
+         * waits. A pad held off the middle for GCAD_ORIGIN_WAIT_MS gets
+         * the middle for those axes, where its own origin would make
+         * the stick drift once let go. */
         if (!g->origin_valid[i]) {
-            for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
-            g->origin_valid[i] = 1;
+            const int at_rest = pad_at_rest(src + 3);
+            if (!g->origin_waiting[i]) {
+                g->origin_waiting[i] = 1;
+                g->origin_since[i] = now;
+                /* Once per wait, so a log shows what was passed over. */
+                if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
+            }
+            if (at_rest) {
+                set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
+            } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
+                set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
+            }
         }
         /* X+Y+Start held: a new origin, as the pad itself does. */
         if ((src[1] & 0x0C) == 0x0C && (src[2] & 0x01)) {
@@ -337,7 +394,7 @@ static void take_report(gcad* g, uint32_t now) {
                 g->recal_active[i] = 1;
                 g->recal_since[i] = now;
             } else if (g->recal_active[i] == 1 && elapsed(now, g->recal_since[i]) >= ms(g, GCAD_RECAL_MS)) {
-                for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
+                set_origin(g, i, src + 3, GCAD_ORIGIN_RECAL);
                 g->recal_active[i] = 2;  /* once per hold */
             }
         } else {

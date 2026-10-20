@@ -45,6 +45,9 @@ extern "C" {
 #define GCAD_RESCAN_MS 2000u      /* a device another handle owns, or a failed device list */
 #define GCAD_RECAL_MS 3000u       /* X+Y+Start held this long takes a new origin, like the pad */
 #define GCAD_ACTIVE_STEP 10       /* a stick or trigger moving this far between reads is a player (gcad_pad_moved) */
+#define GCAD_ORIGIN_SPREAD 48     /* a stick at rest reads within this of the middle (128) */
+#define GCAD_ORIGIN_TRIGGER_MAX 80 /* a trigger at rest reads no more than this */
+#define GCAD_ORIGIN_WAIT_MS 500u  /* no reading at rest this long: the axes still off take the middle */
 #define GCAD_CTRL_MS 100u         /* SET_PROTOCOL unanswered this long: init anyway */
 #define GCAD_SETTLE_MS 500u       /* v5: a newly listed adapter is set up this long after the change */
 
@@ -98,6 +101,13 @@ extern "C" {
 #define GCAD_EV_PORT 7u      /* a = port, b = status byte (connected or not) */
 #define GCAD_EV_BAD_REPORT 8u /* a = first byte, b = result */
 #define GCAD_EV_FIRST_REPORT 9u /* a = device id, b = the four ports' status bytes, port 1 highest */
+#define GCAD_EV_ORIGIN 10u   /* a = port | how << 8 | L << 16 | R << 24, b = stick x, y, substick x, y (x highest) */
+
+/* How a port's origin was taken (GCAD_EV_ORIGIN). */
+#define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
+#define GCAD_ORIGIN_MIDDLE 1u  /* nothing at rest for GCAD_ORIGIN_WAIT_MS: the axes still off took the middle */
+#define GCAD_ORIGIN_RECAL 2u   /* X+Y+Start held */
+#define GCAD_ORIGIN_PASSED 3u  /* not taken: the pad's first reading was not at rest (the values are that reading) */
 
 /* Steps inside the slots, for the log. */
 #define GCAD_STEP_CHANGE 0u
@@ -164,7 +174,9 @@ typedef struct gcad {
     uint8_t raw[GCAD_PORTS][9];
     uint8_t origin[GCAD_PORTS][6]; /* stick x, y, substick x, y, L, R */
     uint8_t origin_valid[GCAD_PORTS];
+    uint8_t origin_waiting[GCAD_PORTS]; /* a pad is there, no reading at rest yet */
     uint8_t recal_active[GCAD_PORTS];
+    uint32_t origin_since[GCAD_PORTS];  /* when the wait for a reading at rest began */
     uint32_t recal_since[GCAD_PORTS];
 
     /* Rumble: what the game wants and what the adapter last took. */
