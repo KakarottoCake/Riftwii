@@ -16,27 +16,23 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Kirby Air Ride and Melee get their sound back, Home shows the SD card's games without waiting for the USB drive, and fixes from your reports and a code audit. Every RiftWii offers this update by itself (Settings > Check for a new version).
-
-![A mod kept in a folder named with its own ID shows on Home under the folder name]({{SCREENSHOTS}}2610-541-mod-folder.png)
+**RiftWii {{VERSION}}.** GameCube colors and saves get fixed, more games get their sound on a Wii, and the four-Remote freeze gets logging to find it. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
 ## What changed
 
-- **Kirby Air Ride's sound plays clean instead of static, and Melee gets its music back.** RiftWii didn't find where Kirby's sound engine sets up its sound memory, so the sound chip played the wrong memory, and both games kept their sound in too small a space: Kirby stopped after its save screen and Melee played almost nothing. Tested in Dolphin only (Kirby reaches a race with no static, Melee plays its music). On a Wii the sound is likely still wrong; we couldn't test it on one yet.
-- **Home reads the SD card and the USB drive in the background.** The menu answers while they are read: the SD card's games and the Wii's channels show as soon as the card is done, and the USB drive's games join them. Settings opens at once instead of waiting for the scan (12 seconds behind a tester's 326-game WBFS drive), and a WBFS drive is read sooner. Checked in Dolphin; please try it on a Wii.
-- **REX starts again with saves on the SD card turned on.** RiftWii refused it as "don't work together with Riivolution packs yet" even with no pack picked. Now REX starts and keeps its save on the Wii for now, and `boot.log` says so. A Riivolution pack's files with a code build are still refused, as before. We couldn't test this on a Wii yet.
-- **A mod in a folder named with its own ID shows under that folder's name.** For example, `usb:/games/Mario Kart Double Dash Plus [GM4E05]/game.iso` holds a disc that still says GM4E01, the original game's ID, so Home showed it as Mario Kart: Double Dash!!. Home now uses the folder's name when its ID isn't the disc's. Covers and saves still follow the disc's ID.
-- **When a GameCube game doesn't show up, the log says why.** `session.log` names each file in a game's folder that RiftWii can't use and what to do about it: a Dolphin `.gcz`, a `.wia`, an NKit image or an archive (convert it with Dolphin, or unpack it), a file that isn't a GameCube disc, or one the drive can't read. `.ciso` files on a USB drive now get Home's popup on how to convert them, as the SD card's do.
-- **Cheats and updates are safer to download.** Cheats come over https, and a new download no longer changes the code of a cheat you turned on. The in-app update downloads only RiftWii's own release files from GitHub.
-- **Fewer ways to lose a save, a cover or an install.** POWER and HOME wait for a WAD install to finish writing; restoring the oldest GameCube memory card backup no longer deletes it; a cover that fails to write keeps the old one; a damaged GameCube patch no longer stops RiftWii at every start; and the game's saves on the SD card are kept safe from several rare file system mistakes. Most of these can't be shown in Dolphin and weren't tested on a Wii.
+- **Mario Party 4 and Sonic Gems Collection get their true colors in Wii mode.** Paletted textures now use their own colors: Mario Party 4 no longer draws silver stars, a green text window, noise on the envelope, and streaks on the Mini-Game Mode curtain, and Sonic Gems Collection's Yes/No prompt keeps its capitals. Checked in Dolphin.
+- **A GameCube memory card copied from another console or emulator no longer reads as damaged.** RiftWii now re-signs the copy the game sees with this Wii's ID, so a tester's shared card no longer says Slot A is damaged in Sonic Gems Collection. The file itself keeps its own header until the game writes. Checked in Dolphin.
+- **More GameCube games should play their sound right on a Wii:** Melee, Mario Party 4 and 5, Sonic Mega Collection, Star Fox Assault, Beyond Good and Evil and Paper Mario: The Thousand-Year Door. Their sound program is now patched to read from the Wii's memory; before, only simpler ones like Sunshine's and Luigi's Mansion's were, so Mario Party 4 played noise on a tester's Wii U. Dolphin cannot hear this difference; not tested on a Wii yet.
+- **A GameCube game with an unusual disc ID finds its old memory card again.** A card saved under the old ID-only name is copied to its new name at launch when that is not there yet.
+- **The freeze with four Wii Remotes (#138) gets diagnostics.** `session.log` now says when the Wii Remote stack starts, which Remotes are connected, and how much memory it has left when one connects or leaves. No behavior change.
+- **A pack that changes one disc file too many times is refused, naming the file.** The limit is now 128 changes to one file (it was 512, which could run the Wii out of stack), far more than any real pack makes.
 
 ## What to test
 
-1. Kirby Air Ride and Melee on a Wii: is the sound clean, and does Melee play its music?
-2. Home with games on both the SD card and a USB drive: do the SD card's games show first, and does Settings open at once?
-3. REX (or another code build) with saves on the SD card turned on: does it start, and does `boot.log` say where the save is?
-4. A mod in a `Title [ID]` folder (like Mario Kart Double Dash Plus `[GM4E05]`): does Home show the folder's name?
-5. A GameCube game that didn't show up before: does `session.log` now say why?
+1. If you saw the menu freeze with four Wii Remotes (#138): connect four Remotes again. If it freezes, turn the Wii off, start RiftWii and send a problem report, saying it was the four-Remote freeze.
+2. Mario Party 4 and Sonic Gems Collection on a Wii: are the colors right, and does the sound play?
+3. Melee, Sonic Mega Collection, Mario Party 5, Star Fox Assault, Beyond Good and Evil, and Paper Mario: The Thousand-Year Door on a Wii: does the sound play?
+4. A GameCube memory card copied from another console or emulator: does it load instead of reading as damaged?
 
 ## Known issues
 
