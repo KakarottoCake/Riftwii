@@ -93,6 +93,23 @@ int gcad_decode(const uint8_t raw[9], const uint8_t origin[6], gcad_pad* out) {
     return 1;
 }
 
+int gcad_pad_moved(const gcad_pad* before, const gcad_pad* now) {
+    /* Newer SDKs take 10 steps for a GameCube controller's sticks and
+     * triggers, older ones a change of 9 in the value squared; 10 is the
+     * newer rule, and the same for every game. One loop over the six
+     * axes keeps the in-game blob small. */
+    const int32_t was[6] = {before->stick_x,    before->stick_y,   before->substick_x,
+                            before->substick_y, before->trigger_l, before->trigger_r};
+    const int32_t is[6] = {now->stick_x, now->stick_y, now->substick_x, now->substick_y, now->trigger_l, now->trigger_r};
+    uint32_t axis;
+    if (now->buttons != before->buttons) return 1;
+    for (axis = 0; axis < 6; ++axis) {
+        const int32_t distance = is[axis] > was[axis] ? is[axis] - was[axis] : was[axis] - is[axis];
+        if (distance >= GCAD_ACTIVE_STEP) return 1;
+    }
+    return 0;
+}
+
 static uint32_t tag_value(gcad* g, uint32_t tag) { return tag | (g->generation << 4); }
 
 static void failed(gcad* g, uint32_t step, int32_t result) {

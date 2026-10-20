@@ -44,6 +44,7 @@ extern "C" {
 #define GCAD_RELINK_MS 1000u      /* a failed link is tried again after this */
 #define GCAD_RESCAN_MS 2000u      /* a device another handle owns, or a failed device list */
 #define GCAD_RECAL_MS 3000u       /* X+Y+Start held this long takes a new origin, like the pad */
+#define GCAD_ACTIVE_STEP 10       /* a stick or trigger moving this far between reads is a player (gcad_pad_moved) */
 #define GCAD_CTRL_MS 100u         /* SET_PROTOCOL unanswered this long: init anyway */
 #define GCAD_SETTLE_MS 500u       /* v5: a newly listed adapter is set up this long after the change */
 
@@ -230,6 +231,11 @@ int32_t gcad_find_v4(const uint8_t* list, uint32_t list_bytes);
 int32_t gcad_find_v5(const uint8_t* list, uint32_t count);
 /* A report's port: 1 and `out` when a controller is plugged in. */
 int gcad_decode(const uint8_t raw[9], const uint8_t origin[6], gcad_pad* out);
+/* 1 when `now` differs from `before` the way the SDK's PADRead counts a
+ * pad in a console port as in use, which keeps the screen from dimming:
+ * a button changed, or a stick or trigger moved GCAD_ACTIVE_STEP or more.
+ * A resting stick's wobble of a few steps is not a player. */
+int gcad_pad_moved(const gcad_pad* before, const gcad_pad* now);
 
 #ifdef __cplusplus
 }

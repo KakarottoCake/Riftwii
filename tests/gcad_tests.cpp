@@ -472,6 +472,35 @@ static void TestHelpers() {
     EXPECT_EQ(gcad_find_v5(v5.data(), 1), -1);
 }
 
+// What keeps the screen lit: a button, or a stick or trigger moved
+// GCAD_ACTIVE_STEP or more since the last read; a resting stick's wobble
+// does not.
+static void TestPadMoved() {
+    gcad_pad before{};
+    before.stick_x = 3;
+    before.stick_y = -2;
+    before.trigger_l = 12;
+    gcad_pad now = before;
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+    now.buttons = GCAD_PAD_A;
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.stick_x = static_cast<std::int8_t>(before.stick_x + GCAD_ACTIVE_STEP - 1);  // wobble
+    now.stick_y = static_cast<std::int8_t>(before.stick_y - GCAD_ACTIVE_STEP + 1);
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+    now.stick_x = static_cast<std::int8_t>(before.stick_x + GCAD_ACTIVE_STEP);
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.substick_y = -GCAD_ACTIVE_STEP;  // down counts as much as up
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.trigger_r = GCAD_ACTIVE_STEP;
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.wireless = 1;  // not something the player does
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+}
+
 static void ExpectPort(gcad* g, std::uint32_t port, std::uint16_t buttons, int stick_x, std::uint32_t now) {
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, port, &pad, now));
@@ -889,6 +918,108 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
+// The screen-dimming reset: li r0,0, then the store and li r3,1 in the
+// order `store_first` gives, then blr. Returns its address.
+static std::uint32_t idle_reset_function(Asm& a, std::int16_t sda_offset, bool store_first) {
+    const std::uint32_t start = a.here();
+    const std::uint32_t store = 0x900D0000u | static_cast<std::uint16_t>(sda_offset);  // stw r0,d(r13)
+    a.op(0x38000000u);  // li r0,0
+    a.op(store_first ? store : 0x38600001u);
+    a.op(store_first ? 0x38600001u : store);
+    a.blr();
+    return start;
+}
+
+static void TestIdleResetSearch() {
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    std::vector<std::uint8_t> code;
+    std::vector<riftwii::CodeRange> text;
+    riftwii::PadSymbols pad;
+    std::string error;
+
+    // Called from PADRead itself (Mario Kart Wii, Tatsunoko vs. Capcom),
+    // next to the video code's other reset, which the Wii Remote side calls.
+    Asm inside{0x80200000u, {}};
+    inside.blr();
+    const std::uint32_t remotes = idle_reset_function(inside, -0x6034, false);
+    const std::uint32_t ports = idle_reset_function(inside, -0x6038, false);
+    inside.prologue();
+    for (unsigned k = 0; k < 3; ++k) inside.pad_error(27, 19, kMemset);
+    inside.bl(ports);
+    inside.blr();
+    code = inside.bytes();
+    text = {{inside.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_TRUE(pad.read != 0);
+    EXPECT_EQ(pad.idle_reset, ports);
+    EXPECT_TRUE(pad.idle_reset != remotes);
+
+    // Called from the status helper linked after PADRead (Brawl), with the
+    // store before the return value (Kamen Rider).
+    Asm helper{0x80200000u, {}};
+    helper.blr();
+    const std::uint32_t store_first = idle_reset_function(helper, -0x69B8, true);
+    helper.prologue();
+    for (unsigned k = 0; k < 3; ++k) helper.pad_error(27, 19, kMemset);
+    helper.blr();
+    helper.prologue();
+    helper.op(0x60000000u);
+    helper.bl(store_first);
+    helper.blr();
+    code = helper.bytes();
+    text = {{helper.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, store_first);
+
+    // A call past the window is someone else's: none found.
+    Asm distant{0x80200000u, {}};
+    distant.blr();
+    const std::uint32_t distant_reset = idle_reset_function(distant, -0x6038, false);
+    const std::uint32_t distant_read = distant.here();
+    distant.prologue();
+    for (unsigned k = 0; k < 3; ++k) distant.pad_error(27, 19, kMemset);
+    distant.blr();
+    while (distant.here() < distant_read + 0x1000) distant.op(0x60000000u);
+    distant.bl(distant_reset);
+    code = distant.bytes();
+    text = {{distant.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.read, distant_read);
+    EXPECT_EQ(pad.idle_reset, 0u);
+
+    // Two different resets called near PADRead: unsure, so none.
+    Asm two{0x80200000u, {}};
+    two.blr();
+    const std::uint32_t first = idle_reset_function(two, -0x6034, false);
+    const std::uint32_t second = idle_reset_function(two, -0x6038, false);
+    two.prologue();
+    for (unsigned k = 0; k < 3; ++k) two.pad_error(27, 19, kMemset);
+    two.bl(first);
+    two.bl(second);
+    two.blr();
+    code = two.bytes();
+    text = {{two.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, 0u);
+
+    // Clearing a flag but returning 0 is not the reset.
+    Asm other{0x80200000u, {}};
+    other.blr();
+    const std::uint32_t returns_zero = other.here();
+    other.op(0x38000000u);  // li r0,0
+    other.op(0x900D9FC8u);  // stw r0,-24632(r13)
+    other.op(0x38600000u);  // li r3,0
+    other.blr();
+    other.prologue();
+    for (unsigned k = 0; k < 3; ++k) other.pad_error(27, 19, kMemset);
+    other.bl(returns_zero);
+    other.blr();
+    code = other.bytes();
+    text = {{other.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, 0u);
+}
+
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
 // 0x40 in the top half, then SISetCommand and SITransferCommands in a row.
 static void gc_motor_function(Asm& a, std::uint32_t set_command, std::uint32_t transfer, bool second_call) {
@@ -1040,6 +1171,7 @@ int main() {
     EXPECT_EQ(offsetof(gcad, out_data) % 32, 0u);
     EXPECT_EQ(offsetof(gcad, env) % 32, 0u);
     TestHelpers();
+    TestPadMoved();
     TestV5();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
@@ -1050,6 +1182,7 @@ int main() {
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
+    TestIdleResetSearch();
     TestGcPadMotorSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
