@@ -2937,6 +2937,43 @@ static void OfferBurnedDisc(std::string& error)
 	error = tr("RiftWii could not restart. Start it again from the Homebrew Channel.");
 }
 
+// Diagnostics for a tester's crash in the middle of an update (2610-489):
+// the GUI thread found Home's own window, on the menu thread's stack, with
+// its first word (the vtable pointer) zeroed. Home keeps that word here
+// while it is up; the update checks it while it downloads and after, and
+// logs once if it changed, so the next report says when it happened.
+// Log-only: nothing is repaired.
+class HomeWindowWatch {
+public:
+	explicit HomeWindowWatch(const GuiWindow& window)
+	{
+		watched = &window;
+		std::memcpy(&word, &window, sizeof(word));
+		reported = false;
+	}
+	~HomeWindowWatch() { watched = nullptr; }
+	HomeWindowWatch(const HomeWindowWatch&) = delete;
+	HomeWindowWatch& operator=(const HomeWindowWatch&) = delete;
+	static void Check(const char* when)
+	{
+		if (!watched || reported) return;
+		u32 now = 0;
+		std::memcpy(&now, watched, sizeof(now));
+		if (now == word) return;
+		reported = true;
+		logf("Memory: Home's window at %p was overwritten %s (its first word is %08x, was %08x); "
+		     "something wrote over the menu's stack\n",
+		     static_cast<const void*>(watched), when, static_cast<unsigned>(now), static_cast<unsigned>(word));
+	}
+private:
+	static const GuiWindow* watched;
+	static u32 word;
+	static bool reported;
+};
+const GuiWindow* HomeWindowWatch::watched = nullptr;
+u32 HomeWindowWatch::word = 0;
+bool HomeWindowWatch::reported = false;
+
 // Downloads and installs a newer release (riftwii::wii::InstallUpdate),
 // then offers to leave so the Homebrew Channel starts it.
 static void RunUpdate(const std::string& latest)
@@ -2952,15 +2989,18 @@ static void RunUpdate(const std::string& latest)
 		box.Add(&bar, 528);
 		ResumeGui();
 		int shown = -1;
+		HomeWindowWatch::Check("before the update's download");
 		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](double done) {
 			// Only whole percents, so the GUI is not halted for every chunk.
 			const int percent = static_cast<int>(done * 100);
 			if (percent == shown) return;
 			shown = percent;
+			HomeWindowWatch::Check("during the update's download");
 			HaltGui();
 			bar.Set(done);
 			ResumeGui();
 		});
+		HomeWindowWatch::Check("by the end of the update's download and install");
 		// Said before the popup closes, so a problem report shows whether
 		// anything went wrong in the download or after it.
 		if (!ok) logf("Update: %s\n", error.c_str());
@@ -3962,6 +4002,7 @@ static int MenuSource(FrontendState& state)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	const HomeWindowWatch homeWatch(w);
 	w.Append(&grid);
 	w.Append(&emptyNote);
 	w.Append(&bar);
