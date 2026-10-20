@@ -32,6 +32,19 @@ bool parse_title(std::string s, std::uint64_t& out) {
     return out != 0;
 }
 
+// A 32-bit number in decimal, as the blob writes it.
+bool parse_decimal32(const std::string& s, std::uint32_t& out) {
+    if (s.empty() || s.size() > 10) return false;
+    std::uint64_t value = 0;
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
+        value = value * 10 + static_cast<std::uint64_t>(c - '0');
+    }
+    if (value > 0xFFFFFFFFull) return false;
+    out = static_cast<std::uint32_t>(value);
+    return true;
+}
+
 }  // namespace
 
 bool is_headless_launch(const std::vector<std::string>& args) {
@@ -118,6 +131,18 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "return_to") {
             out.return_to_menu = value == "menu";
             ok = out.return_to_menu || parse_title(value, out.return_to);
+        } else if (key == "gc_dol") {
+            out.gc_exec = true;
+            ok = parse_decimal32(value, out.gc_dol);
+        } else if (key == "gc_restart") {
+            out.gc_exec = true;
+            ok = parse_decimal32(value, out.gc_restart);
+        } else if (key == "gc_arg") {
+            // As many as the SDK's argument block holds (8 KB, half of it
+            // the list): a game's own are a handful of short words.
+            out.gc_exec = true;
+            ok = out.gc_args.size() < 32 && value.size() < 256;
+            out.gc_args.push_back(value);
         } else {
             error = "unknown argument '" + key + "'";
             return false;

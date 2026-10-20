@@ -43,6 +43,11 @@ struct GcImage {
     bool sharp = false;
     bool sixty_hz = false;
     std::uint32_t vi_width = 0;
+    // A switch to another program on the disc (rwp_gc_launch's exec).
+    bool exec = false;
+    std::uint32_t exec_dol = 0;
+    std::uint32_t exec_restart = 0;
+    std::vector<std::string> exec_args;
 };
 
 // What the launch read from the settings, the launch's extras, the crash

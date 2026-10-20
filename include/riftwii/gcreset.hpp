@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "riftwii/symsearch.hpp"
@@ -38,6 +39,32 @@ struct GcResetFunctions {
 // in its first words (`mr rN,r3`) and compares that register with 2 and
 // with 1.
 GcResetFunctions find_gc_reset_functions(const std::vector<CodeRange>& text);
+
+// A switch to another program on the disc. The SDK's OSExec (Sonic Gems
+// Collection starts Sonic CD, Sonic R and Sonic the Fighters this way) and
+// a restart into a program the game named both end in
+// __OSBootDolSimple(doloffset, restartCode, regionStart, regionEnd,
+// argsUseDefault, argc, argv), which loads the disc's apploader and runs
+// it. It tells the apploaders after 2004 from older ones by comparing the
+// apploader's date with "2004/02/01": the function loads the string's
+// address (`lis` of its upper half, then `addi` of its lower half within
+// 16 words) and, taking seven arguments, keeps argv (r9) in a register of
+// its own within its first 24 words (`mr rN,r9`). The SDK's own helper for
+// the date (IsNewApploader) loads the string too, and some builds keep it
+// as a function of its own (Sonic Gems Collection's sonicr.dol), but takes
+// one argument. 0 when the string is not in the game's data, or not
+// exactly one function is both (an SDK before 2004 has neither the string
+// nor the function).
+std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data);
+
+// The program a switch starts gets its arguments where the SDK's start-up
+// code (__start) reads them: in BI2 (0x2000 bytes, its address at
+// 0x800000F4), whose word at 8 is the offset of argc, followed by argc + 1
+// offsets of the strings (the last 0), all from BI2's start, the strings
+// at its end. The SDK's OSExec packs them the same way and keeps the
+// list in BI2's upper half. `bi2` is the disc's copy; its word at 8 is
+// set (0 with no arguments). False when they do not fit in the upper half.
+bool gc_pack_exec_args(std::vector<std::uint8_t>& bi2, const std::vector<std::string>& args);
 
 // The restart puts MEM1 back as the loader left it at the jump, from a
 // copy kept in MEM2 (the blob's gc_restart_region table, runtime/gc), then

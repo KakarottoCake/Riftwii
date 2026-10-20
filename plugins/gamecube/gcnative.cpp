@@ -51,6 +51,9 @@ constexpr std::uint32_t kMem1Top = 0x81800000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // RiftWii's own image (Makefile.wii)
 constexpr std::uint32_t kLoaderCeiling = 0x81200000;  // its heap's top (memlimits.hpp)
 constexpr std::uint32_t kGameFloor = 0x80003100;
+// Where in BI2's copy a switched-to program's OSExecParams go: below the
+// arguments (gc_pack_exec_args keeps those in the upper half).
+constexpr std::uint32_t kGcExecParamsOffset = 0xF00;
 constexpr std::uint32_t kBounceBytes = 0x8000;
 constexpr std::uint32_t kBi2Bytes = 0x2000;
 // The blob's data buffers in MEM2 (the layout in LaunchGcNative): after
@@ -1860,6 +1863,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
     // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
     const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
+    // And of a program switch, in a game that has none (gc_on_boot_dol).
+    const bool test_exec = stat("sd:/riftwii/gc/test/exec", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
@@ -1907,7 +1912,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_no_motor, "nomotor"},
                          {test_handover_480p, "handover480p"},
                          {test_ave_keep, "avekeep"},
-                         {test_reset, "reset"}};
+                         {test_reset, "reset"},
+                         {test_exec, "exec"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
         switches += switches.empty() ? " [test switches: " : ", ";
@@ -1952,7 +1958,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     Dol dol;
     bool ok = read_at(f, 0, boot.data(), boot.size()) && read_at(f, 0x440, bi2.data(), bi2.size());
     if (!ok) error = "cannot read " + image.path;
-    ok = ok && read_dol(f, be32(&boot[0x420]), dol, error);
+    // A switch to another program on the disc (gc_on_boot_dol): that one,
+    // with its arguments in BI2 where its start-up code reads them.
+    const std::uint32_t dol_offset = image.exec && image.exec_dol != 0 ? image.exec_dol : be32(&boot[0x420]);
+    if (ok && image.exec)
+        logf("GameCube: the program at disc offset 0x%08x (the game switched to it; the disc's own is at 0x%08x), "
+             "%u argument(s), restart code 0x%08x\n",
+             static_cast<unsigned>(dol_offset), static_cast<unsigned>(be32(&boot[0x420])),
+             static_cast<unsigned>(image.exec_args.size()), static_cast<unsigned>(image.exec_restart));
+    ok = ok && read_dol(f, dol_offset, dol, error);
+    if (ok && image.exec && !gc_pack_exec_args(bi2, image.exec_args)) {
+        error = "the program's arguments do not fit where the game reads them";
+        ok = false;
+    }
     // With packs, the header and FST are the plan's (the files moved to
     // its window), and the game reads that FST from memory.
     if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
@@ -2651,6 +2669,56 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: Reset goes back to RiftWii, as holding HOME: OSResetSystem and the reset routine were not "
              "found\n");
     }
+    // A switch to another program on the disc (OSExec, or a restart into a
+    // named program) goes back through RiftWii, which starts the image
+    // again with that program (gc_on_boot_dol): sd:/riftwii/gc/exec.txt,
+    // "--idle--" and the image, is the launch the blob fills in. Only for
+    // an image on the SD card, whose headless launch RiftWii carries out
+    // at its next start, and with a way back to leave by.
+    {
+        std::vector<CodeRange> data_ranges;
+        for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
+        const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
+        const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
+        std::string why_not;
+        if (boot_dol == 0 && !test_exec) why_not = "the game has no switch to another program (__OSBootDolSimple not found)";
+        else if (boot_dol != 0 && (first == 16 || first == 18)) why_not = "its first word is a branch";
+        else if (!on_sd) why_not = "only for a game on the SD card so far";
+        else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
+        else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
+        std::uint32_t exec_sector = 0;
+        if (why_not.empty()) {
+            static const char kExec[] = "sd:/riftwii/gc/exec.txt";
+            std::vector<std::uint8_t> sector(512, 0);
+            const std::string text = "--idle--\npath=" + image.path + "\ngame=" + image.id + "\n";
+            std::copy(text.begin(), text.end(), sector.begin());
+            std::FILE* e = std::fopen(kExec, "wb");
+            const bool written = e && std::fwrite(sector.data(), 1, sector.size(), e) == sector.size();
+            if (e) std::fclose(e);
+            forget_sd_layout();
+            Fat32File ef;
+            if (written && resolve_sd_file(kExec, ef, why_not) && !ef.fragments.empty())
+                exec_sector = static_cast<std::uint32_t>(ef.fragments[0].sector);
+            else if (why_not.empty())
+                why_not = "sd:/riftwii/gc/exec.txt could not be made";
+        }
+        if (exec_sector != 0 && test_exec) ctx->flags |= GC_FLAG_EXEC_TEST;
+        if (exec_sector != 0 && boot_dol == 0) {
+            ctx->exec_sector = exec_sector;
+            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 exec_sector);
+        } else if (exec_sector != 0) {
+            replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
+            ctx->exec_sector = exec_sector;
+            logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
+                 "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 boot_dol, exec_sector);
+        } else if (boot_dol != 0) {
+            logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
+                 boot_dol, why_not.c_str());
+        }
+    }
     // The memory card: the EXI functions to the blob (gc_card.h).
     if (!card_image.empty()) {
         std::uint32_t exi[GC_EXI_HOOKS];
@@ -2880,6 +2948,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     store32(0x800000EC, kMem1Top);
     store32(0x800000F0, 0x01800000);
     store32(0x800000F4, bi2_addr);
+    // A switched-to program's OSInit reads how it was started from the
+    // block 0x800030F0 points to (the SDK's OSExecParams): valid, the
+    // restart code its OSGetResetCode answers with, the program's offset,
+    // no region kept (0, 0: its arena is cleared whole), its arguments in
+    // BI2 (argsUseDefault). Kept in BI2's lower half, which the game's
+    // arena never reaches.
+    if (image.exec) {
+        const std::uint32_t params = bi2_addr + kGcExecParamsOffset;
+        const std::uint32_t words[7] = {1, image.exec_restart, dol_offset, 0, 0, 1, 0};
+        for (std::uint32_t i = 0; i < 7; ++i) store32(params + 4 * i, words[i]);
+        DCFlushRange(reinterpret_cast<void*>(params), sizeof(words));
+        store32(0x800030F0, params);
+    }
     store32(0x800000F8, clocks.bus);
     store32(0x800000FC, clocks.cpu);
     // After the clear above, which would have taken them.

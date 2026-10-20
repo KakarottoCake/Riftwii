@@ -1625,6 +1625,11 @@ void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args) {
     ctx->resets_asked++;
     ctx->reset_last = args[0] << 8 | (args[2] & 0xFFu);
     if (args[0] == GC_OS_RESET_SHUTDOWN) return;  /* the OS shuts down and the game goes on: as made */
+    /* A restart in a game that switches programs (Sonic Gems Collection):
+     * the SDK boots the program the game named (OSSetBootDol) through
+     * __OSBootDolSimple, which gc_on_boot_dol takes, or else resets the
+     * hardware, which gc_on_hot_reset takes back to RiftWii. */
+    if (args[0] == GC_OS_RESET_RESTART && args[2] == 0 && ctx->exec_sector != 0 && ctx->restart_count == 0) return;
     if (ctx->restart_count == 0) {
         /* No restart for this game: back to RiftWii, rather than the
          * hardware reset that would stop the console. Returns only when
@@ -1639,6 +1644,117 @@ void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args) {
         args[2] = 0;
     }
     args[0] = GC_OS_RESET_HOTRESET;
+}
+
+/* A switch to another program on the disc: the SDK's OSExec (Sonic Gems
+ * Collection starts Sonic CD, Sonic R and Sonic the Fighters, each a
+ * program of its own, this way) and its restart into a named program both
+ * end in __OSBootDolSimple. That loads the disc's apploader and runs a
+ * small program after it, which reads the disc with code of its own: none
+ * of it is RiftWii's, and the next program would run unpatched. So the
+ * switch goes back through RiftWii, which starts the same image again
+ * with that program: sd:/riftwii/gc/exec.txt (one sector, loader-made)
+ * holds "--idle--" and the image's path and ID, one per line; its first
+ * line becomes "--launch" and the program, the restart code and the
+ * arguments are added, a headless launch (docs/HEADLESS.md) that
+ * RiftWii's next start carries out. Then the game leaves as holding HOME
+ * does. args: doloffset, restartCode, regionStart, regionEnd,
+ * argsUseDefault, argc, argv. A doloffset of 0xFFFFFFFF (from OSExec and
+ * the restart, through __OSBootDol) is "the program after the
+ * apploader", which takes the real one from argv[0] in decimal. */
+/* The text, from words: the blob has no constant data (Makefile.wii
+ * checks), so each key is its characters in immediates, big-endian. */
+#define GC_EXEC_IDLE_0 0x2D2D6964u   /* "--id" */
+#define GC_EXEC_IDLE_1 0x6C652D2Du   /* "le--" */
+#define GC_EXEC_LAUNCH_0 0x2D2D6C61u /* "--la" */
+#define GC_EXEC_LAUNCH_1 0x756E6368u /* "unch" */
+#define GC_EXEC_ARG_BYTES 160u  /* of each argument kept */
+#define GC_EXEC_ARGS 32u  /* Sonic Gems Collection passes 12; the sector holds the rest */
+static uint32_t gc_exec_bytes(uint8_t* buf, uint32_t at, uint32_t word, uint32_t n) {
+    uint32_t i;
+    for (i = 0; i < n && at < GC_SECTOR - 2u; ++i) buf[at++] = (uint8_t)(word >> (24u - 8u * i));
+    return at;
+}
+static uint32_t gc_exec_word(const uint8_t* buf, uint32_t at) {
+    return (uint32_t)buf[at] << 24 | (uint32_t)buf[at + 1] << 16 | (uint32_t)buf[at + 2] << 8 | buf[at + 3];
+}
+static uint32_t gc_exec_text(uint8_t* buf, uint32_t at, const char* text) {
+    uint32_t i;
+    for (i = 0; text[i] != 0 && i < GC_EXEC_ARG_BYTES && at < GC_SECTOR - 2u; ++i) {
+        const char c = text[i];
+        buf[at++] = (uint8_t)(c >= ' ' && c <= '~' ? c : '?');  /* one line each, printable */
+    }
+    return at;
+}
+static uint32_t gc_exec_number(uint8_t* buf, uint32_t at, uint32_t value) {
+    uint8_t digits[11];
+    uint32_t n = 0;
+    do {
+        digits[n++] = (uint8_t)('0' + value % 10u);
+        value /= 10u;
+    } while (value != 0);
+    while (n > 0 && at < GC_SECTOR - 2u) buf[at++] = digits[--n];
+    return at;
+}
+static uint32_t gc_exec_end_line(uint8_t* buf, uint32_t at) {
+    if (at < GC_SECTOR - 1u) buf[at++] = '\n';
+    return at;
+}
+void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
+    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
+    const char* const* argv = (const char* const*)(uintptr_t)args[6];
+    const uint32_t argc = args[4] == 0 && argv != 0 ? args[5] : 0;
+    uint32_t target = args[0], first = 0, at, i;
+    uint32_t msr;
+    int read;
+    if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu || ctx->busy) return;
+    if (target == 0xFFFFFFFFu) {
+        const char* p = argc != 0 ? argv[0] : 0;
+        if (p == 0 || *p < '0' || *p > '9') return;  /* not a program RiftWii can name */
+        for (target = 0; *p >= '0' && *p <= '9'; ++p) target = target * 10u + (uint32_t)(*p - '0');
+        first = 1;
+    }
+    msr = gc_irq_off();  /* the trace's buffer is this one: no heartbeat in between */
+    ctx->busy = 1;
+    read = gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
+    if (!read || gc_exec_word(buf, 0) != GC_EXEC_IDLE_0 || gc_exec_word(buf, 4) != GC_EXEC_IDLE_1) {
+        ctx->busy = 0;
+        gc_irq_restore(msr);
+        return;
+    }
+    (void)gc_exec_bytes(buf, 0, GC_EXEC_LAUNCH_0, 4);
+    (void)gc_exec_bytes(buf, 4, GC_EXEC_LAUNCH_1, 4);
+    for (at = 0; at < GC_SECTOR && buf[at] != 0; ++at) {
+    }
+    at = gc_exec_bytes(buf, at, 0x67635F64u, 4);  /* "gc_dol=" */
+    at = gc_exec_bytes(buf, at, 0x6F6C3D00u, 3);
+    at = gc_exec_end_line(buf, gc_exec_number(buf, at, target));
+    at = gc_exec_bytes(buf, at, 0x67635F72u, 4);  /* "gc_restart=" */
+    at = gc_exec_bytes(buf, at, 0x65737461u, 4);
+    at = gc_exec_bytes(buf, at, 0x72743D00u, 3);
+    at = gc_exec_end_line(buf, gc_exec_number(buf, at, args[1]));
+    for (i = first; i < argc && i - first < GC_EXEC_ARGS; ++i) {
+        if (argv[i] == 0) continue;
+        at = gc_exec_bytes(buf, at, 0x67635F61u, 4);  /* "gc_arg=" */
+        at = gc_exec_bytes(buf, at, 0x72673D00u, 3);
+        at = gc_exec_end_line(buf, gc_exec_text(buf, at, argv[i]));
+    }
+    (void)gc_sd_write_locked(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
+    ctx->busy = 0;
+    gc_trace(ctx, GC_TRACE_EXEC);
+    gc_irq_restore(msr);
+    gc_leave(ctx);
+    /* Still here: IOS said no. The file back to idle, so no later start
+     * of RiftWii takes the switch up, and the game's own goes on. */
+    msr = gc_irq_off();
+    ctx->busy = 1;
+    if (gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf)) {
+        (void)gc_exec_bytes(buf, 0, GC_EXEC_IDLE_0, 4);
+        (void)gc_exec_bytes(buf, 4, GC_EXEC_IDLE_1, 4);
+        (void)gc_sd_write_locked(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
+    }
+    ctx->busy = 0;
+    gc_irq_restore(msr);
 }
 
 #define GC_CP_SR 0xCC000000u
@@ -1803,8 +1919,13 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     (void)code;  /* the game reads PI's reset register for it, which stays as it was at the first start */
     (void)gc_irq_off();
     if (ctx->restart_count == 0) {
+        /* No restart for this game: back to RiftWii, as holding HOME, where
+         * the routine would stop the console. A game that switches
+         * programs lets OSResetSystem's restart through to here
+         * (gc_on_reset_system) when it names no program to boot. */
+        if (ctx->leave_buf != 0 && ctx->leave_fd != 0xFFFFFFFFu) gc_leave(ctx);
         for (;;) {
-        }  /* never hooked so: stopped, as the routine itself would be */
+        }  /* IOS said no: stopped, as the routine itself would be */
     }
     ctx->restarts++;
     gc_trace(ctx, GC_TRACE_RESTART);
@@ -1973,6 +2094,32 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     }
     if (status != 0) gc_leave_check(ctx, (const uint8_t*)(uintptr_t)status);
     gc_reset_check(ctx, n);
+    if ((ctx->flags & GC_FLAG_EXEC_TEST) && n == 1500) {
+        /* As OSExec("", {"rwtest"}) would: __OSBootDol's "0" (the disc's
+         * own program) first, the restart code OSExec passes. Built a
+         * character at a time: the blob has no constant data. */
+        char program[2], argument[7];
+        uint32_t argv[3], args[7];
+        program[0] = '0';
+        program[1] = 0;
+        argument[0] = 'r';
+        argument[1] = 'w';
+        argument[2] = 't';
+        argument[3] = 'e';
+        argument[4] = 's';
+        argument[5] = 't';
+        argument[6] = 0;
+        argv[0] = (uint32_t)(uintptr_t)program;
+        argv[1] = (uint32_t)(uintptr_t)argument;
+        argv[2] = 0;
+        args[0] = 0xFFFFFFFFu;
+        args[1] = 0xC0000000u;
+        args[2] = args[3] = 0;
+        args[4] = 0;
+        args[5] = 2;
+        args[6] = (uint32_t)(uintptr_t)argv;
+        gc_on_boot_dol(ctx, args);
+    }
     if ((ctx->flags & GC_FLAG_CRASH) && n == 600) {
         /* The crash screen's test on a blanked screen: no active lines, as
          * the SDK has from VIInit to the game's first frame. */

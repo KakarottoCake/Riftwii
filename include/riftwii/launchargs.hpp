@@ -37,6 +37,16 @@ struct HeadlessLaunch {
     std::string gct;                 // cheat codes file; "none": no cheats; empty: RiftWii's own
     std::uint64_t return_to = 0;     // the title the Wii Menu button starts; 0: RiftWii's choice
     bool return_to_menu = false;     // return_to=menu: the Wii Menu, as the game has it
+    // A GameCube game switching to another program on its disc (the SDK's
+    // OSExec), which RiftWii's blob writes as a launch file
+    // (sd:/riftwii/gc/exec.txt, runtime/gc's gc_on_boot_dol): the
+    // program's offset on the disc (gc_dol=, 0: the disc's own), the
+    // restart code the game passed (gc_restart=) and its arguments
+    // (gc_arg=, one each, in order).
+    bool gc_exec = false;
+    std::uint32_t gc_dol = 0;
+    std::uint32_t gc_restart = 0;
+    std::vector<std::string> gc_args;
 };
 
 // True when `args` (argv without the program's path) ask for a headless

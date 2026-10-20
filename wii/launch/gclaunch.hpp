@@ -38,6 +38,13 @@ struct GcImage {
     // The launch reloaded into d2x and opened its USB device: for an image
     // or a pack on the USB drive (the request's usb_fd).
     bool usb_in_use = false;
+    // A switch to another program on the disc, which the game asked for
+    // last time (headless.cpp's exec.txt): that program's offset on the
+    // disc (0: the disc's own), the restart code and the arguments it gets.
+    bool exec = false;
+    std::uint32_t exec_dol = 0;
+    std::uint32_t exec_restart = 0;
+    std::vector<std::string> exec_args{};
 };
 
 // Whether the image at `path` is on the USB drive ("usb:/...").
