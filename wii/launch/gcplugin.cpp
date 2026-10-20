@@ -139,7 +139,12 @@ bool recover_card(const GcImage& image, std::string& error) {
             logf("GameCube: memory card %s copied to %s, this game's card name now\n", legacy.c_str(), path.c_str());
             forget_sd_layout();
         } else {
+            // Not started: the game would make a new empty card at the new
+            // name, and the old one would never be copied over it.
             logf("GameCube: memory card %s not copied to %s: %s\n", legacy.c_str(), path.c_str(), copy_error.c_str());
+            error = "The game's memory card at " + legacy + " could not be copied to " + path + ": " + copy_error +
+                    " The game was not started, so it cannot make a new card in its place.";
+            return false;
         }
     }
     std::string why;
