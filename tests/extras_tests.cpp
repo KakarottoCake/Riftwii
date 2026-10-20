@@ -1518,6 +1518,19 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=G2XE8P", "gc_dol=-1"}, h, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01"}, h, error));
     EXPECT_FALSE(h.gc_exec);
+    EXPECT_EQ(h.gc_tgc, 0u);
+    // A bonus disc's menu starting a game from a TGC (exec.txt): the
+    // TGC's offset, never 0, and not mixed with an OSExec switch.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=sd:/games/Zelda Bonus [D43E01]/game.iso", "game=D43E01",
+                                       "gc_tgc=1610612736"},
+                                      h, error));
+    EXPECT_EQ(h.gc_tgc, 1610612736u);
+    EXPECT_FALSE(h.gc_exec);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=0"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=0x6000"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4294967296"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=D43E01", "gc_tgc=4096", "gc_dol=0"}, h, error));
+    EXPECT_TRUE(error.find("gc_tgc") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
     // An image by its path, a four-character ID, packs by file name or all.

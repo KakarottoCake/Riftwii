@@ -143,6 +143,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             out.gc_exec = true;
             ok = out.gc_args.size() < 32 && value.size() < 256;
             out.gc_args.push_back(value);
+        } else if (key == "gc_tgc") {
+            // Offset 0 is the disc's own header, never a TGC.
+            ok = parse_decimal32(value, out.gc_tgc) && out.gc_tgc != 0;
         } else {
             error = "unknown argument '" + key + "'";
             return false;
@@ -158,6 +161,12 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
     }
     if (out.game.empty() && out.path.empty() && out.from != "disc") {
         error = "no game= argument";
+        return false;
+    }
+    // A TGC's program is started as the menu starts it, not through
+    // OSExec: the two ways are not mixed.
+    if (out.gc_tgc != 0 && out.gc_exec) {
+        error = "gc_tgc= cannot be given with gc_dol=, gc_restart= or gc_arg=";
         return false;
     }
     return true;
