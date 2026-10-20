@@ -27,7 +27,6 @@
 #include <cstring>
 #include <ctime>
 #include <malloc.h>
-#include <memory>
 #include <utility>
 #include <vector>
 
@@ -61,8 +60,9 @@
 #include "riftwii/extrasbudget.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/gxpatches.hpp"
+#include "riftwii/launchargs.hpp"
+#include "riftwii/osrestart.hpp"
 #include "riftwii/playhistory.hpp"
-#include "riftwii/resetkeep.hpp"
 #include "riftwii/returnto.hpp"
 #include "d2xsave.hpp"
 #include "channel.hpp"
@@ -1246,18 +1246,129 @@ void apply_debug_crash(const DolHeader& dol) {
     }
 }
 
+// A Wii game's own Reset (the HOME Menu's, the console button's) starts the
+// game again through RiftWii instead of letting the SDK reload it without
+// the packs (riftwii/osrestart.hpp). Two halves: before the IOS reload,
+// with the card mounted, sd:/riftwii/restart.txt is made, one sector of the
+// request as "--idle--" (RiftWii's start skips it) and the sector's place on
+// the card found; after it, the runtime is given the same request as
+// "--launch", the channel's title with its ticket view, and OSRestart.
+constexpr const char* kRestartFile = "sd:/riftwii/restart.txt";
+constexpr std::size_t kRestartSector = 512;
+// Test switch: settings.txt "debug_reset_keep = on" lets a Dolphin without
+// the RiftWii channel show the request. The launch goes to a title it does
+// not have (IOS refuses it), and the request stays armed, which is what the
+// channel's start would find: boot RiftWii again and it starts the game.
+constexpr u64 kRestartTestTitle = 0x0001000152494654ull;  // 00010001-RIFT
+bool restart_test_keep() { return Settings().other.count("debug_reset_keep") != 0; }
+
+struct RestartRequest {
+    std::uint32_t lba = 0;             // 0: the Reset is left alone
+    std::vector<std::uint8_t> armed;   // the sector the Reset writes
+    std::vector<std::uint8_t> idle;    // the sector as the file holds it
+};
+RestartRequest g_restart_request;
+
+// Makes the file and finds its sector. Logs why the Reset cannot be taken
+// whenever a request was made but cannot be kept; says nothing when none was.
+void prepare_restart_request(const BootOptions& options) {
+    g_restart_request = RestartRequest{};
+    if (g_extras.restart_args.empty() || !options.install_resident) return;
+    if (debug_off("reset")) {
+        logf("Reset: debug_off: the game's own Reset is left to the game\n");
+        return;
+    }
+    if (ChannelTitle() == 0 && !restart_test_keep()) {
+        logf("Reset: the game's own Reset restarts it without its packs: the RiftWii channel is not installed, and it "
+             "is what starts RiftWii again\n");
+        return;
+    }
+    RestartRequest request;
+    std::string why;
+    if (!launch_request_sector(g_extras.restart_args, true, kRestartSector, request.armed, why) ||
+        !launch_request_sector(g_extras.restart_args, false, kRestartSector, request.idle, why)) {
+        logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
+        return;
+    }
+    std::FILE* file = std::fopen(kRestartFile, "wb");
+    const bool written = file != nullptr && std::fwrite(request.idle.data(), 1, kRestartSector, file) == kRestartSector;
+    if (file != nullptr) std::fclose(file);
+    if (!written) {
+        logf("Reset: the game's own Reset restarts it without its packs: %s could not be made\n", kRestartFile);
+        return;
+    }
+    forget_sd_layout();
+    Fat32File placed;
+    if (!resolve_sd_file(kRestartFile, placed, why) || placed.fragments.empty() ||
+        placed.fragments.front().sector_count == 0 || placed.fragments.front().sector == 0 ||
+        placed.fragments.front().sector > 0xFFFFFFFFu) {
+        logf("Reset: the game's own Reset restarts it without its packs: %s has no sector to write (%s)\n",
+             kRestartFile, why.empty() ? "not on the card" : why.c_str());
+        return;
+    }
+    request.lba = static_cast<std::uint32_t>(placed.fragments.front().sector);
+    g_restart_request = std::move(request);
+}
+
+// After the IOS reload: the channel's ticket view and /dev/es, OSRestart,
+// into the runtime's options. Logs why not whenever the request was made.
+void fill_restart_options(const DolHeader& dol, bool game_checks_its_code, ResidentOptions& ro) {
+    if (g_restart_request.lba == 0) return;
+    if (game_checks_its_code) {
+        logf("Reset: the game's own Reset restarts it without its packs: the game checks its own code, and the hook "
+             "on OSRestart would change it\n");
+        return;
+    }
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    const std::uint32_t os_restart = find_os_restart(text);
+    if (os_restart == 0) {
+        logf("Reset: the game's own Reset restarts it without its packs: its OSRestart was not found\n");
+        return;
+    }
+    u64 title = ChannelTitle();
+    static tikview view ATTRIBUTE_ALIGN(32);
+    u32 views = 0;
+    if (title == 0 && restart_test_keep()) {
+        title = kRestartTestTitle;  // a title nothing has: IOS refuses the launch, the request stays
+        std::memset(&view, 0, sizeof(view));
+        logf("Reset: debug_reset_keep: the launch goes to %08x-%08x, which IOS refuses, and the request stays armed\n",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
+        ro.restart.keep = true;
+    } else if (ES_GetNumTicketViews(title, &views) < 0 || views == 0 || ES_GetTicketViews(title, &view, 1) < 0) {
+        logf("Reset: the game's own Reset restarts it without its packs: the RiftWii channel has no ticket\n");
+        return;
+    }
+    const s32 es = IOS_Open("/dev/es", 0);
+    if (es < 0) {
+        logf("Reset: the game's own Reset restarts it without its packs: /dev/es did not open (%d)\n", es);
+        return;
+    }
+    ro.restart.os_restart = os_restart;
+    ro.restart.request_lba = g_restart_request.lba;
+    ro.restart.armed = g_restart_request.armed;
+    ro.restart.idle = g_restart_request.idle;
+    ro.restart.title = title;
+    ro.restart.view.assign(reinterpret_cast<const std::uint8_t*>(&view),
+                           reinterpret_cast<const std::uint8_t*>(&view) + sizeof(view));
+    ro.restart.es_fd = es;
+}
+
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
 // itself, as the HOME Menu's Reset does (OSRestart(0)), N seconds after
 // its main thread first sleeps (1 to 60), so the Reset can be tried in
-// Dolphin without driving a controller (riftwii/resetkeep.hpp). The stub
+// Dolphin without driving a controller (riftwii/osrestart.hpp). The stub
 // sits at 0x80001200, between vectors the CPU never takes, after the
 // cheats' next-executable stub (0x80001000). Never leave it in a
 // tester's settings.
 constexpr std::uint32_t kRestartTriggerStub = 0x80001200;
 static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "the restart trigger must end before 0x80001300");
 
-// `known_os_restart`: OSRestart as found before the kept restart hooked
-// it (0: not hooked), the address the switch calls then.
+// `known_os_restart`: OSRestart as found before the runtime hooked it (0:
+// not hooked), the address the switch calls then.
 void apply_debug_reset(const DolHeader& dol, std::uint32_t known_os_restart) {
     const auto it = Settings().other.find("debug_reset");
     if (it == Settings().other.end()) return;
@@ -1292,138 +1403,6 @@ void apply_debug_reset(const DolHeader& dol, std::uint32_t known_os_restart) {
     logf("debug_reset: the game restarts itself (OSRestart 0x%08x) %u s after its main thread first sleeps "
          "(OSSleepThread 0x%08x); the stub's words are at 0x%08x\n",
          os_restart, seconds, sleep_thread, kRestartTriggerStub + kRestartTriggerDataOffset);
-}
-
-// The game's own restart (HOME Menu > Reset) keeping the launch
-// (riftwii/resetkeep.hpp): main.dol's sections as the apploader loaded
-// them from the disc, kept until the launch's changes are known. Each in
-// the loader's heap; malloc, so a big DOL that does not fit only turns
-// the feature off.
-struct PristineSection {
-    std::uint32_t address = 0;
-    std::uint32_t length = 0;
-    std::unique_ptr<std::uint8_t, decltype(&std::free)> bytes{nullptr, &std::free};
-};
-
-// Why the launch cannot be kept across the game's own restart, or nullptr.
-const char* reset_keep_off_reason(const BootOptions& options, bool start_file, bool code_build, bool gx_protected,
-                                  bool clears_mem1_top) {
-    if (debug_off("resetkeep")) return "debug_off";
-    if (!options.install_resident) return "nothing of a pack's needs the runtime, which carries the restart";
-    if (!options.main_dol.empty()) return "a pack's own main.dol, which the restart would load from the disc instead";
-    if (start_file) return "the game starts a second executable, which the restart would not";
-    if (code_build) return "a code build, whose codes run once before the game starts";
-    if (gx_protected) return "the game checks its own code";
-    if (clears_mem1_top) return "the game clears the memory the runtime is in";
-    return nullptr;
-}
-
-struct ResetKeepInputs {
-    const std::vector<PristineSection>* pristine = nullptr;
-    const std::vector<MemoryRegion>* patch_writes = nullptr;  // what the packs' memory patches wrote
-    bool cheats = false;                                      // the code handler and its list are in low memory
-    bool ios_fields = false;                                  // 0x3140 and 0x3188 were written for the game
-    const ResidentInstall* resident = nullptr;
-    std::vector<MemoryRegion> keep_clear;                     // MEM2 the loader still needs until the jump
-    std::uint32_t game_entry = 0;
-};
-
-bool regions_overlap(std::uint32_t a, std::uint32_t a_len, std::uint32_t b, std::uint32_t b_len) {
-    return a < b + b_len && b < a + a_len;
-}
-
-bool inside_any(const std::vector<PristineSection>& sections, std::uint32_t address, std::uint32_t length) {
-    for (const PristineSection& s : sections) {
-        if (address >= s.address && address + length <= s.address + s.length) return true;
-    }
-    return false;
-}
-
-// Builds the restore list and the hooks' list, puts them at the bottom
-// of the game's MEM2 arena (which then starts above them) and points the
-// runtime at them. Logs either way; returns whether the restart keeps the
-// launch.
-bool keep_launch_for_restart(const ResetKeepInputs& in) {
-    std::vector<ResetRecord> records;
-    for (const PristineSection& s : *in.pristine) {
-        add_reset_differences(s.address, s.bytes.get(), reinterpret_cast<const std::uint8_t*>(s.address), s.length,
-                              records);
-    }
-    const std::size_t code_records = records.size();
-    for (const MemoryRegion& w : *in.patch_writes) {
-        if (inside_any(*in.pristine, w.address, w.length)) continue;  // among the differences
-        add_reset_range(w.address, reinterpret_cast<const std::uint8_t*>(w.address), w.length, records);
-    }
-    // Low memory as the launch left it: the system software's globals this
-    // loader writes after the apploader (which the restart's apploader
-    // writes again), the code handler and its codes, the MEM2 arena.
-    add_reset_range(0x80000020, reinterpret_cast<const std::uint8_t*>(0x80000020), 0x10, records);
-    add_reset_range(0x800000EC, reinterpret_cast<const std::uint8_t*>(0x800000EC), 8, records);
-    add_reset_range(0x800000F8, reinterpret_cast<const std::uint8_t*>(0x800000F8), 8, records);
-    if (in.cheats) {
-        add_reset_range(kCodeHandlerAddress, reinterpret_cast<const std::uint8_t*>(kCodeHandlerAddress),
-                        kCodeListEnd - kCodeHandlerAddress, records);
-    }
-    if (in.ios_fields) {
-        add_reset_range(0x80003140, reinterpret_cast<const std::uint8_t*>(0x80003140), 4, records);
-        add_reset_range(0x80003188, reinterpret_cast<const std::uint8_t*>(0x80003188), 4, records);
-    }
-    // 0x3124 and 0x3128 last: the arena's start moves above the list.
-    const std::size_t arena_record = records.size();
-    add_reset_range(0x80003124, reinterpret_cast<const std::uint8_t*>(0x80003124), 8, records);
-
-    std::vector<ResetRecord> hooks;
-    for (unsigned i = 0; i < in.resident->hook_site_count; ++i) {
-        const std::uint32_t site = in.resident->hook_sites[i];
-        add_reset_range(site, reinterpret_cast<const std::uint8_t*>(site), kHookStubBytes, hooks);
-    }
-    const std::uint32_t list_bytes = (reset_list_bytes(records) + 31) & ~31u;
-    const std::uint32_t total = list_bytes + ((reset_list_bytes(hooks) + 31) & ~31u);
-    const std::uint32_t base = (read32(0x80003124) + 31) & ~31u;
-    const std::uint32_t end = base + total;
-    const char* why = nullptr;
-    if (end > read32(0x80003128)) why = "the MEM2 arena has no room";
-    for (const MemoryRegion& r : in.keep_clear) {
-        if (why == nullptr && regions_overlap(base, total, r.address, r.length)) why = "the loader still uses that MEM2";
-    }
-    for (const MemoryRegion& w : *in.patch_writes) {
-        if (why == nullptr && regions_overlap(base, total, w.address, w.length)) why = "a pack's memory patch is there";
-    }
-    if (why != nullptr) {
-        logf("Reset: the game's own Reset will start it without the packs: %s (the list takes %u bytes at 0x%08x)\n",
-             why, total, base);
-        return false;
-    }
-    // The game's MEM2 arena starts after the list, after the restart too.
-    const std::uint8_t arena_words[8] = {static_cast<std::uint8_t>(end >> 24), static_cast<std::uint8_t>(end >> 16),
-                                         static_cast<std::uint8_t>(end >> 8), static_cast<std::uint8_t>(end),
-                                         records[arena_record].bytes[4], records[arena_record].bytes[5],
-                                         records[arena_record].bytes[6], records[arena_record].bytes[7]};
-    records[arena_record].bytes.assign(arena_words, arena_words + 8);
-    const std::vector<std::uint8_t> list = serialize_reset_list(records);
-    const std::vector<std::uint8_t> hook_list = serialize_reset_list(hooks);
-    std::memcpy(reinterpret_cast<void*>(base), list.data(), list.size());
-    std::memcpy(reinterpret_cast<void*>(base + list_bytes), hook_list.data(), hook_list.size());
-    DCFlushRange(reinterpret_cast<void*>(base), total);
-    // IOS's own field (as the arena's other writes): uncached.
-    write32(0x80003124, end);
-
-    rt_context* ctx = reinterpret_cast<rt_context*>(in.resident->context_now);
-    ctx->reset.list = base;
-    ctx->reset.hooks = base + list_bytes;
-    ctx->reset.game_entry = in.game_entry;
-    ctx->reset.arena1_hi = load32(0x80000034);
-    ctx->reset.mem1_end = load32(0x80003110);
-    // The IOS the game was told it runs: the one its restart reloads.
-    ctx->reset.ios = read32(0x80003188) >> 16;
-    DCFlushRange(ctx, sizeof(*ctx));
-    logf("Reset: the game's own Reset keeps the packs and RiftWii's changes: %u record(s) (%u in main.dol), "
-         "%u bytes at 0x%08x; the MEM2 arena starts at 0x%08x; its reload of IOS%u is %s\n",
-         static_cast<unsigned>(records.size()), static_cast<unsigned>(code_records), total, base, end,
-         static_cast<unsigned>(ctx->reset.ios),
-         in.resident->reset_os_restart_hooked ? "answered by the runtime (OSRestart hooked)"
-                                               : "left to IOS (OSRestart not found), which drops the runtime's card");
-    return true;
 }
 
 // The part of the boot that runs after the SD card and the log are gone.
@@ -1728,15 +1707,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     init(apploader_report);
     std::vector<MemoryRegion> loaded;  // what the apploader filled, in load order
-    // The game's own restart (riftwii/resetkeep.hpp): the sections as the
-    // disc has them, copied as they are loaded, to tell the launch's
-    // changes from them at the end.
-    const bool code_build_launch =
-        (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) || !g_extras.code_builds.empty();
-    const char* reset_off = reset_keep_off_reason(options, start_file_offset != 0, code_build_launch,
-                                                  gx_protected_game(probe.header.game_id),
-                                                  game_clears_mem1_top(probe.header.game_id));
-    std::vector<PristineSection> pristine;
     // For the progress bar: the DOL (up to the FST, when it follows) and
     // the FST are most of what the apploader reads.
     const std::uint64_t dol_span = layout.data_header.fst_offset > layout.data_header.dol_offset &&
@@ -1830,23 +1800,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if ((std::uint64_t(woff) << 2) != header.fst_offset &&
             dest < reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi())) {
             loaded.push_back(MemoryRegion{dest, len});
-            if (reset_off == nullptr) {
-                PristineSection copy;
-                copy.address = dest;
-                copy.length = len & ~3u;
-                copy.bytes.reset(static_cast<std::uint8_t*>(std::malloc(copy.length)));
-                if (copy.bytes == nullptr) {
-                    reset_off = "no memory for a copy of main.dol";
-                    pristine.clear();
-                } else {
-                    std::memcpy(copy.bytes.get(), destination, copy.length);
-                    pristine.push_back(std::move(copy));
-                }
-            }
         }
-    }
-    if (reset_off != nullptr && options.install_resident) {
-        logf("Reset: the game's own Reset will start it without the packs: %s\n", reset_off);
     }
     void (*game_entry)(void) = close();
     if (!game_entry) {
@@ -2111,19 +2065,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         ro.savegame.file_device = file_device && card.fd >= 0;
         ro.rvz = rvz;
         ro.retail_bca = options.retail_bca;
-        ro.reset_app_entry = reset_off == nullptr ? apploader.entry : 0;
-        if (reset_off == nullptr) {
-            // The restart reloads the IOS the game's TMD names before it
-            // reads the apploader; with OSRestart hooked the runtime answers
-            // that reload instead of IOS (rt_reset_answer_es).
-            std::vector<CodeRange> text;
-            for (std::size_t i = 0; i < kDolTextSections; ++i) {
-                const DolSection& s = dol.sections[i];
-                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
-            }
-            ro.reset_os_restart = find_os_restart(text);
-            hooked_os_restart = ro.reset_os_restart;
-        }
+        fill_restart_options(dol, gx_protected, ro);
+        hooked_os_restart = ro.restart.os_restart;
         ro.mem1_floor = mem1_floor;
         // A code build (Project+) sizes the game's heaps to all of MEM1;
         // its list is placed elsewhere, so the handler's own list room is
@@ -2143,6 +2086,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ro.mem2_top = true;
         }
         if (!install_resident(dol, ro, resident, error)) return false;
+        if (ro.restart.es_fd >= 0 && !resident.restart_hooked) IOS_Close(ro.restart.es_fd);
+        if (resident.restart_hooked) {
+            logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with "
+                 "its packs and choices: the request is in sector %u of the card (%s)\n", ro.restart.os_restart,
+                 ro.restart.request_lba, kRestartFile);
+        }
     }
     // The virtual SD card: in the resident runtime's place (never with it).
     VsdHook vsd;
@@ -2401,17 +2350,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // land anywhere in MEM1 except this loader, the runtime's code and its
     // hook stub, and in MEM2 outside the runtime's data and its staging
     // area (the staged bytes are copied down after these patches).
-    std::vector<MemoryRegion> patch_writes;  // for the game's own restart
     if (!options.memory_patches.empty()) {
         struct WiiMemory final : MemoryAccess {
-            std::vector<MemoryRegion>* writes = nullptr;
             bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
                 std::memcpy(out, reinterpret_cast<const void*>(address), length);
                 return true;
             }
             bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
                 std::memcpy(reinterpret_cast<void*>(address), bytes, length);
-                if (writes != nullptr) writes->push_back(MemoryRegion{address, static_cast<std::uint32_t>(length)});
                 const std::uint32_t start = address & ~31u;
                 const std::uint32_t end = (address + static_cast<std::uint32_t>(length) + 31) & ~31u;
                 DCFlushRange(reinterpret_cast<void*>(start), end - start);
@@ -2419,7 +2365,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                 return true;
             }
         } wii_memory;
-        wii_memory.writes = &patch_writes;
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         std::vector<MemoryRegion> writable;
         writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
@@ -2535,7 +2480,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
-    bool cheats_on = false;
     if (!g_extras.cheat_gct.empty()) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
@@ -2545,12 +2489,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why)) {
-            logf("Codes are off: %s\n", why.c_str());
-        } else {
-            codes_first = !g_extras.code_builds.empty();
-            cheats_on = true;
-        }
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        else codes_first = !g_extras.code_builds.empty();
     }
     if (!gx_protected) {
         GxReport gx;
@@ -2568,7 +2508,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
-    apply_debug_reset(dol, resident.reset_os_restart_hooked ? hooked_os_restart : 0);
+    apply_debug_reset(dol, resident.restart_hooked ? hooked_os_restart : 0);
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
@@ -2582,27 +2522,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
     else apply_return_to(loaded, return_to, return_stub);
     install_wpad_log_last(extras);
-    // Last of the launch's changes: the game's own restart puts them back.
-    if (reset_off == nullptr) {
-        ResetKeepInputs keep;
-        keep.pristine = &pristine;
-        keep.patch_writes = &patch_writes;
-        keep.cheats = cheats_on;
-        keep.ios_fields = force_ios_fields;
-        keep.resident = &resident;
-        keep.game_entry = reinterpret_cast<std::uint32_t>(game_entry);
-        keep.keep_clear.push_back(MemoryRegion{mem::kRestartArea, mem::kRestartBytes});
-        keep.keep_clear.push_back(MemoryRegion{mem::kStashArea, stash::ReservedEnd() - mem::kStashArea});
-        for (const auto& piece : mem::HeapPieces()) {
-            if (piece.second > piece.first) keep.keep_clear.push_back(MemoryRegion{piece.first, piece.second - piece.first});
-        }
-        if (resident.data_bytes != 0 && resident.stage_base != resident.data_base) {
-            keep.keep_clear.push_back(MemoryRegion{resident.stage_base, resident.data_bytes});
-        }
-        if (vsd.active) keep.keep_clear.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
-        keep_launch_for_restart(keep);
-    }
-    pristine.clear();
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -3327,6 +3246,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             logf("Riivolution's \"file\" device is off: %s\n", why.c_str());
         }
     }
+
+    prepare_restart_request(effective);
 
     // Code builds inside the virtual SD card (sd.raw): the image served to
     // the game as its SD card by the virtual SD card blob, which needs the

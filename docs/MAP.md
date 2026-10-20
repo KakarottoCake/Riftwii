@@ -63,7 +63,7 @@ and `vendor-*` is third-party code.
 | A game's About page (GameTDB's details) | `wii/menu/rift_menu.cpp` (`MenuAbout`), `wii/online/gameinfo.cpp`, `src/data/gametdb.cpp` |
 | Downloads: game names, covers, cheats, updates | `wii/online/online.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp`, `wii/online/tls.cpp`, `src/data/titles.cpp`, `src/art/coverart.cpp`, `src/net/update.cpp` |
 | Packs served from a PC (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
-| A Wii game's own Reset keeping the packs | `src/patching/resetkeep.cpp`, `keep_launch_for_restart` in `wii/launch/boot.cpp`, `runtime/rtreset.c`, `rt_reset_*` in `runtime/resident/` |
+| A Wii game's own Reset (HOME Menu > Reset) starting the game again through RiftWii | `prepare_restart_request` and `fill_restart_options` in `wii/launch/boot.cpp`, `RestartArguments` in `wii/menu/gameextras.cpp`, `src/patching/launchargs.cpp` (the request), `src/patching/osrestart.cpp` (OSRestart), `rt_reset_*` in `runtime/resident/`, `HeadlessArguments` in `wii/launch/headless.cpp`, [HEADLESS.md](HEADLESS.md) |
 | Returning to RiftWii (or another title) when a game exits | `src/patching/returnto.cpp`, `apply_return_to` in `wii/launch/boot.cpp`, `wii/core/restart.cpp` |
 | GameCube games (RiftWii's own loader, in Wii mode) | `wii/launch/gclaunch.cpp`, `wii/launch/gcplugin.cpp` (the DOL's side: the request, the way back, the crash screen, the card's backup), the `gamecube` plugin (`plugins/gamecube/gcnative.cpp`, `gcentry.cpp`, `gchost.cpp`; `include/riftwii/plugin_gamecube.h` and `src/patching/gcrequest.cpp` for its request), `wii/launch/gcpatch.cpp`, `runtime/gc/`, `src/patching/vcdiff.cpp`, `src/patching/gcoverlay.cpp`, `src/patching/gclayout.cpp`, `src/patching/gcclock.cpp`, `src/patching/gcvideo.cpp`, `src/patching/gcreset.cpp`, `src/fs/gccard.cpp`, `src/fs/gcbackup.cpp`; their Channels banners: `src/disc/gcbanner.cpp`, `wii/menu/banners.cpp` |
 | Wii Remote controls in GameCube games (the map, `sd:/riftwii/gc/controls/` files, shake) | `src/data/gccontrols.cpp`, `load_gc_controls` in `plugins/gamecube/gcnative.cpp`, `runtime/gc/gc_controls.h`, `runtime/gc/gc_pro.h` (a Wii U Pro Controller's reports), `runtime/gc/gc_bt.c` |
@@ -232,7 +232,7 @@ document it.
 | `gamelang` | The game language |
 | `wpadlog` | The Wii Remote log: the game's empty print functions, its HOME Menu exit, and the saved log as text |
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
-| `resetkeep` | A Wii game's own Reset: the restore list the runtime writes back, OSRestart for the `debug_reset` test switch |
+| `osrestart` | A Wii game's own Reset: finding OSRestart and OSSleepThread, the `debug_reset` test switch's stub |
 | `returnto` | Returning to RiftWii from a game |
 | `launchargs` | Arguments from another loader |
 | `vcdiff` | Applying VCDIFF (xdelta) patches |
@@ -323,7 +323,6 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports), `gc_gcad.c` (the GameCube controller adapter for Wii U, driving `runtime/rtgcad.c`; its port filling and rumble are host-tested in `tests/gcgcad_tests.cpp`) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
 | `pad/`, `rtgcad.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu) |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
-| `rtreset.c` | Writes the restore list back at a Wii game's own Reset (the resident runtime's) |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
 | `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |

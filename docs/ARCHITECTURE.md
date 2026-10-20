@@ -423,7 +423,7 @@ changed when the game writes its header.
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the restore list for the game's own Reset (what the launch changed; a few KB plus the packs' memory patches outside main.dol) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
@@ -481,39 +481,39 @@ no handle of the old run survives) and shows the reason on Home.
 Reset button) has the game restart itself: its OSRestart shuts the
 devices down and, for a disc game, reads the disc's apploader again,
 which loads main.dol and the file table over the running game, then jumps
-to the entry point. RiftWii is not there to load it, so before #139 every
-change of the launch was gone afterwards: the runtime's hooks (a pack's
-files), the memory patches, the cheats' hook.
+to the entry point. RiftWii is not there to load it, so every change of
+the launch would be gone: the runtime's hooks (a pack's files), the
+memory patches, the cheats' hook. Putting each of them back from inside
+the restart means standing in for pieces of the SDK (its IOS reload, the
+apploader), and a game on a USB drive or the card depends on d2x
+surviving the reload, which only a Wii can show. So the restart goes
+through RiftWii instead, by the paths that already exist, the same shape
+as the GameCube program switch (`gc_on_boot_dol`).
 
-At the launch, the loader keeps a copy of main.dol's sections as the
-apploader loads them and, once every change is made, a restore list
-(`keep_launch_for_restart` in `wii/launch/boot.cpp`,
-`src/patching/resetkeep.cpp`): the words of the sections that differ
-from the disc's, the packs' memory patches outside them, the low memory
-it writes after the apploader (the code handler and its codes when
-cheats are on) and the MEM2 arena's ends. It goes at the bottom of the
-MEM2 arena, above the blobs' state; the arena starts after it. The
-runtime serves the apploader header's entry field (0x2450 in the
-partition) from its table with its own stand-in (`rt_reset_*`,
-`runtime/resident/rt_entry.S` and `rt_hook.c`). The restart then runs
-through the runtime: the stand-in calls the apploader's entry and hands
-out its own main and close; each step of the apploader puts the IPC hooks
-back, which the load of main.dol's code replaced, so the file table is
-read through the runtime too (a pack's rewritten table, which the
-restart's apploader places as at the launch); the close answers the game's
-entry point with the runtime's, which writes the list back
-(`runtime/rtreset.c`), keeps the MEM1 arena's end below the blobs and
-jumps to the game. The SDK's restart first reloads the IOS its TMD names; RiftWii
-keeps the IOS it launched under (the SD card's, d2x's) and tells the game
-it is the TMD's, and a reload would drop the runtime's card and drive
-handles. OSRestart is hooked, and until the restart's apploader runs the
-runtime answers ES's ticket views and launch of exactly that IOS as done
-(`rt_reset_answer_es`); any other ES request reaches IOS. An executable
-other than main.dol (OSExec) is left alone. Not kept, with the reason in `boot.log`: a pack's own main.dol
-(the restart loads the disc's), a game that starts a second executable,
-code builds, games that check their code or clear MEM1's top, launches
-without the runtime (cheats or memory patches alone), and a list the
-arena has no room for. `debug_off = resetkeep` turns it off.
+At the launch the loader makes `sd:/riftwii/restart.txt`
+(`prepare_restart_request` in `wii/launch/boot.cpp`): one sector holding
+the headless launch (`docs/HEADLESS.md`, `headless_launch_arguments` in
+`src/patching/launchargs.cpp`) that starts this game again, built by the
+menu from what it launched with (`RestartArguments` in
+`wii/menu/gameextras.cpp`), with `--idle--` first. After the IOS reload it
+reads the RiftWii channel's ticket view, opens `/dev/es`, finds OSRestart
+(`find_os_restart`, `src/patching/osrestart.cpp`) and gives the runtime
+the sector's place on the card, a copy of the sector with `--launch` first
+and the title and view (`struct rt_restart_block` in `rt_hook.h`, at the
+bottom of the MEM2 arena with the runtime's data). The runtime hooks
+OSRestart (`rt_reset_os_restart` in `rt_entry.S`, with a replay slot for
+the displaced word as the IPC hooks have). When the game calls it
+(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime writes the sector
+(a CMD25 on `/dev/sdio/slot0`, or d2x's sector write, through the game's
+own synchronous IOS_Ioctlv, built as the savegame engine builds a write),
+waits 50 ms for the card, and launches the channel through ES. That does
+not return when IOS takes it; RiftWii's next start reads `restart.txt`
+once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
+again. When the write or the launch is refused the sector goes back to
+`--idle--` and the function runs from the replay slot, the game's own
+restart. Not hooked, with the reason in `boot.log`: no channel installed,
+a game that checks its own code, a runtime placed in MEM2, no card handle,
+a launch that does not fit a sector. `debug_off = reset` turns it off.
 
 Two things restart:
 - a launch that fails (A on the error screen, or two minutes untouched);

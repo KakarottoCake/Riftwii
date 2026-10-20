@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "riftwii/resetkeep.hpp"
-
-#include "rtreset.h"
+#include "riftwii/osrestart.hpp"
 
 namespace riftwii {
 namespace {
@@ -10,17 +8,6 @@ namespace {
 std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
 }
-
-void put32(std::vector<std::uint8_t>& out, std::uint32_t v) {
-    out.push_back(static_cast<std::uint8_t>(v >> 24));
-    out.push_back(static_cast<std::uint8_t>(v >> 16));
-    out.push_back(static_cast<std::uint8_t>(v >> 8));
-    out.push_back(static_cast<std::uint8_t>(v));
-}
-
-// Two unchanged words between two changed ones cost what a new record's
-// header does: up to that many are carried in the record instead.
-constexpr std::uint32_t kMergeGapWords = 2;
 
 constexpr std::uint32_t kStwuR1Mask = 0xFFFF0000u;
 constexpr std::uint32_t kStwuR1 = 0x94210000u;          // stwu r1,d(r1)
@@ -38,7 +25,7 @@ bool is_conditional_branch(std::uint32_t insn) { return (insn >> 26) == 16; }
 // it, past the padding between functions (zeros and nops: New Super Mario
 // Bros. Wii has one before OSRestart, and a call into it hung the game).
 // The second is how a function whose first word is already hooked (a
-// branch to the runtime, as OSRestart's is once the restart is kept) is
+// branch to the runtime, as OSRestart's is once the Reset is taken) is
 // found again. 0 when neither is close enough.
 std::uint32_t function_start(const CodeRange& r, std::size_t i) {
     constexpr std::uint32_t kBlr = 0x4E800020u;
@@ -55,65 +42,6 @@ std::uint32_t function_start(const CodeRange& r, std::size_t i) {
 }
 
 }  // namespace
-
-void add_reset_differences(std::uint32_t address, const std::uint8_t* before, const std::uint8_t* after,
-                           std::uint32_t length, std::vector<ResetRecord>& out) {
-    const std::uint32_t words = length / 4;
-    std::uint32_t w = 0;
-    while (w < words) {
-        if (be32(before + 4 * w) == be32(after + 4 * w)) {
-            ++w;
-            continue;
-        }
-        // A run of changed words, carried across short unchanged gaps.
-        const std::uint32_t first = w;
-        std::uint32_t last = w;  // the last changed word of the run
-        std::uint32_t probe = w + 1;
-        while (probe < words && probe - last <= kMergeGapWords + 1) {
-            if (be32(before + 4 * probe) != be32(after + 4 * probe)) last = probe;
-            ++probe;
-        }
-        ResetRecord record;
-        record.address = address + 4 * first;
-        record.bytes.assign(after + 4 * first, after + 4 * (last + 1));
-        out.push_back(std::move(record));
-        w = last + 1;
-    }
-}
-
-void add_reset_range(std::uint32_t address, const std::uint8_t* bytes, std::uint32_t length,
-                     std::vector<ResetRecord>& out) {
-    if (length == 0) return;
-    // Whole words: the bytes around the range as they are now are part of
-    // the record, so `bytes` must start at `address` and the caller passes
-    // memory, not a patch's value.
-    const std::uint32_t start = address & ~3u;
-    const std::uint32_t end = (address + length + 3) & ~3u;
-    const std::uint8_t* from = bytes - (address - start);
-    ResetRecord record;
-    record.address = start;
-    record.bytes.assign(from, from + (end - start));
-    out.push_back(std::move(record));
-}
-
-std::uint32_t reset_list_bytes(const std::vector<ResetRecord>& records) {
-    std::uint32_t bytes = 8;
-    for (const ResetRecord& r : records) bytes += 8 + static_cast<std::uint32_t>(r.bytes.size());
-    return bytes;
-}
-
-std::vector<std::uint8_t> serialize_reset_list(const std::vector<ResetRecord>& records) {
-    std::vector<std::uint8_t> out;
-    out.reserve(reset_list_bytes(records));
-    put32(out, RTRST_MAGIC);
-    put32(out, static_cast<std::uint32_t>(records.size()));
-    for (const ResetRecord& r : records) {
-        put32(out, r.address);
-        put32(out, static_cast<std::uint32_t>(r.bytes.size()));
-        out.insert(out.end(), r.bytes.begin(), r.bytes.end());
-    }
-    return out;
-}
 
 std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text) {
     constexpr std::uint32_t kLiR0Waiting = 0x38000004u;  // li r0,4 (OS_THREAD_STATE_WAITING)

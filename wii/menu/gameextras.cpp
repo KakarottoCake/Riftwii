@@ -233,6 +233,84 @@ std::vector<std::uint8_t> CheatGct(const FrontendState& state, std::size_t& coun
     return gct;
 }
 
+// A pack by the name a launch file gives it: the file's name when it is in
+// sd:/riivolution (shorter, and a sector holds little), else its path.
+std::string pack_name_for_request(const std::string& path) {
+    constexpr const char* kFolder = "sd:/riivolution/";
+    const std::size_t folder = std::char_traits<char>::length(kFolder);
+    if (path.compare(0, folder, kFolder) == 0 && path.find('/', folder) == std::string::npos) {
+        return path.substr(folder);
+    }
+    return path;
+}
+
+// The launch that starts the game again after its own Reset: what the
+// menu (or the loader that started RiftWii) launched it with, written as
+// the headless launch that makes the same choices. Empty, with the reason
+// logged, when there is no such launch to make: a WiiWare or Virtual
+// Console game (the channel loader starts those), a code build started
+// without RiftWii's extras, or a request that RiftWii itself would refuse.
+std::vector<std::string> RestartArguments(const FrontendState& state, const LaunchExtras& extras,
+                                          const HeadlessLaunch* headless) {
+    if (state.use_channel || state.game_id.empty()) return {};
+    if (extras.code_build_plain) {
+        logf("Reset: the game's own Reset restarts it without its packs: the code build started without RiftWii's "
+             "extras\n");
+        return {};
+    }
+    HeadlessLaunch h;
+    h.game = state.game_id;
+    h.reset = true;
+    const ImageGame* image = nullptr;
+    if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) {
+        h.from = "usb";
+        image = &state.usb_catalog.games[state.usb_index];
+    } else if (state.use_sd && state.sd_index < state.sd_catalog.games.size()) {
+        h.from = "sd";
+        image = &state.sd_catalog.games[state.sd_index];
+    } else {
+        h.from = "disc";
+    }
+    if (image != nullptr && (image->path.compare(0, 4, "sd:/") == 0 || image->path.compare(0, 5, "usb:/") == 0)) {
+        h.path = image->path;
+    }
+    const std::string folder = std::string(kChoicesDir) + "/";
+    if (state.choices_path.compare(0, folder.size(), folder) == 0) h.choices = state.choices_path.substr(folder.size());
+    h.packs_given = true;
+    for (const LaunchPackage& p : state.model.packages) {
+        if (!p.enabled) continue;
+        if (p.code_build()) h.code_builds.push_back(p.path);
+        else h.xmls.push_back(pack_name_for_request(p.path));
+    }
+    // Only the settings a launch file has keys for; the rest come back from
+    // the choices file (the model restores the game's own settings from it).
+    const GameSettings& game = state.model.game;
+    h.settings.video_mode = game.video_mode;
+    h.settings.video_width = game.video_width;
+    h.settings.deflicker = game.deflicker;
+    h.settings.borders = game.borders;
+    h.settings.language = game.language;
+    h.settings.cios = game.cios;
+    h.settings.server = game.server;
+    if (extras.server == WfcServer::Custom) h.wfc_domain = extras.wfc_domain;
+    if (headless != nullptr) {
+        h.gct = headless->gct;
+        h.return_to = headless->return_to;
+        h.return_to_menu = headless->return_to_menu;
+    }
+    std::vector<std::string> args = headless_launch_arguments(h);
+    // The same check the next start makes of it, so a launch it would refuse
+    // is not offered.
+    HeadlessLaunch again;
+    std::string why;
+    if (!parse_headless_launch(args, again, why)) {
+        logf("Reset: the game's own Reset restarts it without its packs: the launch it would make is refused (%s)\n",
+             why.c_str());
+        return {};
+    }
+    return args;
+}
+
 }  // namespace
 
 bool CheckCodeBuilds(const FrontendState& state, std::string& error) {
@@ -312,6 +390,7 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
         extras.return_to = headless->return_to;
         extras.return_to_menu = headless->return_to_menu;
     }
+    extras.restart_args = RestartArguments(state, extras, headless);
     SetLaunchExtras(std::move(extras));
 }
 

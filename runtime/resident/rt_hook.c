@@ -377,6 +377,7 @@ int32_t (*rt_host_fs_read_async)(int32_t fd, uint32_t buffer, uint32_t length, u
 int32_t (*rt_host_fs_ioctl_async)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
                                    uint32_t out_len, uint32_t callback, void* tag) = 0;
 int rt_host_fs_in_thread = 1;
+struct rt_restart_block* rt_host_restart_block = 0;
 void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
 static int32_t rt_fs_open_async(struct rt_fs_state* st, const char* path, uint32_t mode, void* tag) {
     return rt_host_fs_open_async == 0 ? -1 : rt_host_fs_open_async(path, mode, st->complete_fs, tag);
@@ -619,8 +620,8 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         ctx->last_di_length = length;
         if (ctx->flags & RT_FLAG_GECKO) {
             /* "R<word offset>:<length>@<buffer>\n", hex, no literals: where
-             * a read lands tells a restart's loads apart (main.dol's
-             * sections, the file table). */
+             * a read lands tells a game's loads apart (main.dol's sections,
+             * the file table). */
             const uint32_t msr = rt_interrupts_off();
             rt_gecko_putc(ctx, 'R');
             rt_gecko_hex(ctx, word_offset);
@@ -2680,10 +2681,7 @@ int rt_answer_bca(struct rt_context* ctx, uintptr_t* args) {
     return 1;
 }
 
-static int rt_reset_answer_es(struct rt_context* ctx, uintptr_t* args, uint32_t* result);
-
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
-    if (ctx->reset.pending && entry_index == RT_IPC_SYNC(7u) && rt_reset_answer_es(ctx, args, result)) return 1;
     if (entry_index == RT_IPC_ASYNC_IOCTL) {
         /* Disc reads and seeks keep their hook; every other async ioctl
          * joins the savegame path. ISFS request numbers never collide
@@ -3544,18 +3542,35 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
     record->in_use = 0;
 }
 
-/* --- the game's own restart ---------------------------------------------- */
-/* include/riftwii/resetkeep.hpp has the whole story. The game's OS runs the
- * disc's apploader again from its own code, which the apploader's loads
- * overwrite with the disc's bytes as they go; these run in between, from
- * the blob, which no load reaches. */
+/* --- the game's own Reset ------------------------------------------------ */
+/* riftwii/osrestart.hpp has the whole story: instead of the SDK's restart,
+ * which would load the disc's main.dol over the game and take every change
+ * RiftWii made with it, the Reset leaves a launch request on the card and
+ * goes to the RiftWii channel, which starts RiftWii, which starts the game
+ * again with the same packs. Both steps are IOS calls from the game's
+ * thread, through the game's own synchronous IOS_Ioctlv. */
 
-typedef void (*rt_app_entry_fn)(uint32_t* init, uint32_t* main, uint32_t* close);
-typedef int32_t (*rt_app_main_fn)(uint32_t* destination, uint32_t* length, uint32_t* offset);
-typedef uint32_t (*rt_app_close_fn)(void);
+#define RT_ES_LAUNCH_TITLE 0x08u
+#define RT_ES_TITLE_BYTES 8u
+#define RT_ES_VIEW_BYTES 0xD8u
+/* The card goes on programming the sector after its write is accepted; the
+ * title launch that follows ends with IOS being reloaded, which would
+ * reset the card. 50 ms of the time base (60.75 MHz) is far longer than a
+ * sector takes. */
+#define RT_RESTART_SETTLE_TICKS 3037500u
 
-/* "X<what>:<value>\n" over the Gecko, for a restart's steps. */
-static void rt_reset_report(struct rt_context* ctx, uint32_t what, uint32_t value) {
+static int32_t rt_restart_call(struct rt_restart* rs, uint32_t fd, uint32_t ioctl, uint32_t in_count,
+                               uint32_t out_count, struct rt_ioctlv* vec) {
+#ifdef RT_TARGET_PPC
+    return ((rt_ioctlv_sync_fn)(uintptr_t)rs->ioctlv_sync)(fd, ioctl, in_count, out_count, vec);
+#else
+    (void)rs;
+    return rt_host_fs_ioctlv_sync == 0 ? -1 : rt_host_fs_ioctlv_sync((int32_t)fd, ioctl, in_count, out_count, vec);
+#endif
+}
+
+/* "X<what>:<value>\n" over the Gecko, for the Reset's steps. */
+static void rt_restart_report(struct rt_context* ctx, uint32_t what, uint32_t value) {
     uint32_t msr;
     if ((ctx->flags & RT_FLAG_GECKO) == 0) return;
     msr = rt_interrupts_off();
@@ -3567,120 +3582,107 @@ static void rt_reset_report(struct rt_context* ctx, uint32_t what, uint32_t valu
     rt_interrupts_restore(msr);
 }
 
-/* The IPC hooks as the launch left them. The load of main.dol's code
- * replaced them with the disc's instructions; put back, the next loads
- * (the file table among them) are read through the runtime again, so a
- * pack's rewritten table is what the restart gets. */
-static void rt_reset_rearm(struct rt_context* ctx) {
-    if (ctx->reset.hooks != 0) (void)rtrst_apply((const uint8_t*)(uintptr_t)ctx->reset.hooks, 0);
+/* One sector of the card, from `sector` (a line-aligned 512 bytes of the
+ * block), written as the savegame engine writes one (rt_fs_build_sendcmd):
+ * a CMD25 of one block on /dev/sdio/slot0, or d2x's sector and count. */
+static int32_t rt_restart_write(struct rt_context* ctx, struct rt_restart* rs, struct rt_restart_block* blk,
+                                const uint8_t* sector) {
+    struct rt_sdio_request* rq = &blk->request;
+    uint32_t ioctl;
+    uint32_t in_count;
+    uint32_t out_count;
+    if (ctx->sdio_fd == RT_RESTART_NONE) return RTFAT_EIO;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        rq->cmd = rs->lba;
+        rq->cmd_type = 1u;
+        blk->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
+        blk->vec[0].len = 4;
+        blk->vec[1].data = (uint32_t)(uintptr_t)&rq->cmd_type;
+        blk->vec[1].len = 4;
+        blk->vec[2].data = (uint32_t)(uintptr_t)sector;
+        blk->vec[2].len = RT_SECTOR_BYTES;
+        ioctl = RT_SDHC_WRITE;
+        in_count = 3u;
+        out_count = 0u;
+    } else {
+        uint32_t i;
+        rq->cmd = RT_SD_CMD_WRITEMULTIBLOCK;
+        rq->cmd_type = RT_SD_CMDTYPE_AC;
+        rq->rsp_type = RT_SD_RESPONSE_R1;
+        rq->arg = ctx->sdio_sdhc ? rs->lba : rs->lba * RT_SECTOR_BYTES;
+        rq->blk_cnt = 1u;
+        rq->blk_size = RT_SECTOR_BYTES;
+        rq->dma_addr = (uint32_t)(uintptr_t)sector;
+        rq->isdma = 1u;
+        rq->pad0 = 0;
+        for (i = 0; i < 4u; ++i) blk->response[i] = 0;
+        blk->vec[0].data = (uint32_t)(uintptr_t)rq;
+        blk->vec[0].len = sizeof(*rq);
+        blk->vec[1].data = (uint32_t)(uintptr_t)sector;
+        blk->vec[1].len = RT_SECTOR_BYTES;
+        blk->vec[2].data = (uint32_t)(uintptr_t)blk->response;
+        blk->vec[2].len = 16;
+        ioctl = RT_SDIO_SENDCMD;
+        in_count = 2u;
+        out_count = 1u;
+        rt_flush_range((uintptr_t)blk->response, sizeof(blk->response));
+    }
+    rt_flush_range((uintptr_t)rq, sizeof(*rq));
+    rt_flush_range((uintptr_t)blk->vec, sizeof(blk->vec));
+    rt_flush_range((uintptr_t)sector, RT_SECTOR_BYTES);
+    return rt_restart_call(rs, ctx->sdio_fd, ioctl, in_count, out_count, blk->vec);
+}
+
+/* ES_LaunchTitle of the channel: the title ID and its ticket view the
+ * loader left in the block. Does not return when IOS takes it. */
+static int32_t rt_restart_launch(struct rt_restart* rs, struct rt_restart_block* blk) {
+    blk->vec[0].data = (uint32_t)(uintptr_t)blk->title;
+    blk->vec[0].len = RT_ES_TITLE_BYTES;
+    blk->vec[1].data = (uint32_t)(uintptr_t)blk->view;
+    blk->vec[1].len = RT_ES_VIEW_BYTES;
+    rt_flush_range((uintptr_t)blk->title, sizeof(blk->title));
+    rt_flush_range((uintptr_t)blk->view, sizeof(blk->view));
+    rt_flush_range((uintptr_t)blk->vec, sizeof(blk->vec));
+    return rt_restart_call(rs, rs->es_fd, RT_ES_LAUNCH_TITLE, 2, 0, blk->vec);
 }
 
 void rt_reset_on_os_restart(struct rt_context* ctx) {
-    ctx->reset.pending = 1;
-    rt_reset_report(ctx, 'R', ctx->reset.ios);
-}
-
-/* ES's requests in the SDK's restart (wiibrew /dev/es): the ticket views
- * of the IOS the game's TMD names and the launch of that IOS, a reload.
- * RiftWii keeps the IOS it launched the game under (the SD card's, d2x
- * for a game on the USB drive or the card) and tells the game it is that
- * one; a reload would drop the runtime's card and drive handles and d2x's
- * disc with them. While a restart is pending, requests for exactly the
- * IOS the game was told it runs are answered as done: one view, zeroed,
- * and the launch as if the IOS had come back. A game that asks for
- * another IOS, or for this one outside a restart, reaches IOS as before.
- * Dolphin's NAND holds no IOS tickets, so there the views were refused
- * and the SDK gave up the restart. */
-#define RT_ES_LAUNCH_TITLE 0x08u
-#define RT_ES_GET_VIEW_COUNT 0x12u
-#define RT_ES_GET_VIEWS 0x13u
-#define RT_ES_TICKET_VIEW_BYTES 0xD8u
-
-static int rt_reset_answer_es(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
-    const uint32_t ioctl = (uint32_t)args[1];
-    const uint32_t in_count = (uint32_t)args[2];
-    const uint32_t io_count = (uint32_t)args[3];
-    const struct rt_ioctlv* vec = (const struct rt_ioctlv*)args[4];
-    const uint32_t* title;
-    if (ioctl != RT_ES_LAUNCH_TITLE && ioctl != RT_ES_GET_VIEW_COUNT && ioctl != RT_ES_GET_VIEWS) return 0;
-    if (vec == 0 || in_count == 0 || vec[0].len != 8u || vec[0].data == 0) return 0;
-    title = (const uint32_t*)(uintptr_t)vec[0].data;
-    if (title[0] != 1u || title[1] != ctx->reset.ios || ctx->reset.ios == 0) return 0;
-    if (ioctl == RT_ES_GET_VIEW_COUNT) {
-        uint32_t* count;
-        if (in_count != 1u || io_count != 1u || vec[1].len < 4u || vec[1].data == 0) return 0;
-        count = (uint32_t*)(uintptr_t)vec[1].data;
-        *count = 1u;
-        rt_flush_range((uintptr_t)count, 4u);
-    } else if (ioctl == RT_ES_GET_VIEWS) {
-        uint8_t* views;
-        uint32_t i;
-        if (in_count != 2u || io_count != 1u || vec[2].len < RT_ES_TICKET_VIEW_BYTES || vec[2].data == 0) return 0;
-        views = (uint8_t*)(uintptr_t)vec[2].data;
-        for (i = 0; i < RT_ES_TICKET_VIEW_BYTES; ++i) views[i] = 0;
-        rt_flush_range((uintptr_t)views, RT_ES_TICKET_VIEW_BYTES);
-    } else if (in_count != 2u || io_count != 0u) {
-        return 0;
-    }
-    ctx->reset.ios_answers++;
-    rt_reset_report(ctx, 'I', ioctl);
-    *result = 0;
-    return 1;
-}
-
-void rt_reset_on_app_entry(struct rt_context* ctx, uint32_t* init, uint32_t* main, uint32_t* close) {
-    struct rtrst_state* st = &ctx->reset;
-    st->pending = 0;  /* the restart is past its IOS: from here on IOS answers ES again */
-    st->restarts++;
-    rt_reset_report(ctx, 'A', st->restarts);
-    ((rt_app_entry_fn)(uintptr_t)st->app_entry)(init, main, close);
-    /* No list (it did not fit at the launch): the restart goes on as the
-     * game's own, as it would without RiftWii. */
-    if (st->list == 0 || main == 0 || close == 0) return;
-    st->app_main = *main;
-    st->app_close = *close;
-    *main = st->main_wrapper;
-    *close = st->close_wrapper;
-}
-
-int32_t rt_reset_on_app_main(struct rt_context* ctx, uint32_t* destination, uint32_t* length, uint32_t* offset) {
-    rt_reset_rearm(ctx);
-    return ((rt_app_main_fn)(uintptr_t)ctx->reset.app_main)(destination, length, offset);
-}
-
-uint32_t rt_reset_on_app_close(struct rt_context* ctx) {
-    struct rtrst_state* st = &ctx->reset;
-    const uint32_t entry = ((rt_app_close_fn)(uintptr_t)st->app_close)();
-    rt_reset_rearm(ctx);
-    if (entry != st->game_entry) {
-        /* Another executable (OSExec): nothing of the launch is its. */
-        st->other++;
-        rt_reset_report(ctx, 'O', entry);
-        return entry;
-    }
-    rt_reset_report(ctx, 'C', entry);
-    return st->start_wrapper;
-}
-
-uint32_t rt_reset_on_start(struct rt_context* ctx) {
-    struct rtrst_state* st = &ctx->reset;
+    struct rt_restart* rs = &ctx->restart;
 #ifdef RT_TARGET_PPC
-    volatile uint32_t* const arena1_hi = (volatile uint32_t*)0x80000034u;
-    volatile uint32_t* const mem1_end = (volatile uint32_t*)0x80003110u;
-    /* Where the restart's apploader put the file table and the arena's end. */
-    rt_reset_report(ctx, '4', *arena1_hi);
-    rt_reset_report(ctx, '8', *(volatile uint32_t*)0x80000038u);
-    rt_reset_report(ctx, 'F', *(volatile uint32_t*)0x8000003Cu);
-    rt_reset_report(ctx, 'M', *mem1_end);
-    rt_reset_report(ctx, 'L', (uint32_t)rtrst_apply((const uint8_t*)(uintptr_t)st->list, 0));
-    /* The blobs sit at the top of the MEM1 arena, below the file table: an
-     * apploader that placed the table at the top again ends the arena at
-     * the table, over them. The launch's end is kept then. */
-    if (*arena1_hi > st->arena1_hi) *arena1_hi = st->arena1_hi;
-    if (*mem1_end > st->mem1_end) *mem1_end = st->mem1_end;
-    rt_flush_range(0x80000020u, 0x20u);
-    rt_flush_range(0x80003100u, 0x20u);
+    struct rt_restart_block* blk = (struct rt_restart_block*)(uintptr_t)rs->block;
+#else
+    struct rt_restart_block* blk = rs->block != 0 ? rt_host_restart_block : 0;
 #endif
-    st->restored++;
-    return st->game_entry;
+    uint32_t start;
+    int32_t result;
+    rs->asked++;
+    rt_restart_report(ctx, 'R', rs->asked);
+    /* Nothing to go by (the loader leaves the Reset alone when the card, the
+     * channel or the game's IOS calls are missing), a thread that cannot
+     * wait for IOS (an interrupt handler), or a launch IOS already refused:
+     * the game's own restart goes on, as it would without RiftWii. */
+    if (blk == 0 || rs->lba == 0 || rs->es_fd == RT_RESTART_NONE || rs->ioctlv_sync == 0 || rs->refused != 0 ||
+        !rt_fs_in_thread()) {
+        return;
+    }
+    result = rt_restart_write(ctx, rs, blk, blk->armed);
+    rt_restart_report(ctx, 'W', (uint32_t)result);
+    if (result < 0) {
+        rs->last_result = (uint32_t)result;
+        rs->refused++;
+        (void)rt_restart_write(ctx, rs, blk, blk->idle);  /* in case part of it landed */
+        return;
+    }
+    rs->written++;
+    start = rt_fs_ticks();
+    while (rt_fs_ticks() - start < RT_RESTART_SETTLE_TICKS) {
+    }
+    result = rt_restart_launch(rs, blk);
+    /* Still here: IOS said no (the channel went, or its ticket). The request
+     * goes back to idle, so no later start of RiftWii takes it up, and the
+     * game's own restart goes on. */
+    rt_restart_report(ctx, 'L', (uint32_t)result);
+    rs->last_result = (uint32_t)result;
+    rs->refused++;
+    if (!rs->keep) (void)rt_restart_write(ctx, rs, blk, blk->idle);
 }

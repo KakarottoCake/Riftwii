@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* ABI v6: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13;
- * the game's own restart's four stand-ins follow IOS_Open's undo words. */
+ * the game's own Reset (OSRestart's hook and replay slot) follows IOS_Open's undo words. */
     .section .text.rt_entry, "ax", @progbits
     .globl _rt_blob_start
 _rt_blob_start:
@@ -21,8 +21,6 @@ _rt_blob_start:
     .long rt_complete_di - _rt_blob_start
     .long rt_complete_fs - _rt_blob_start
     .long rt_open_undo_0 - _rt_blob_start, rt_open_undo_1 - _rt_blob_start
-    .long rt_reset_app_entry - _rt_blob_start, rt_reset_app_main - _rt_blob_start
-    .long rt_reset_app_close - _rt_blob_start, rt_reset_start - _rt_blob_start
     .long rt_reset_os_restart - _rt_blob_start, rt_reset_os_restart_replay - _rt_blob_start
 
 /* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
@@ -212,80 +210,12 @@ rt_complete_fs:
     mtctr 12
     bctr
 
-/* The game's own restart (runtime/rtreset.h, rt_reset_on_* in rt_hook.c).
- * The game's OS calls the apploader's entry, main and close as plain C
- * functions; the runtime serves the apploader's header with
- * rt_reset_app_entry as its entry, which hands out the other two. Each
- * finds the context, moves the arguments up one register and calls its
- * C half, which returns the answer in r3. Frame: 0 back chain, 4 LR. */
-    .globl rt_reset_app_entry
-rt_reset_app_entry:
-    stwu 1, -0x10(1)
-    mflr 0
-    stw 0, 0x14(1)
-    mr 6, 5
-    mr 5, 4
-    mr 4, 3
-    bl 5f
-5:  mflr 3
-    addi 3, 3, rt_context_data - 5b
-    bl rt_reset_on_app_entry
-    lwz 0, 0x14(1)
-    mtlr 0
-    addi 1, 1, 0x10
-    blr
-
-    .globl rt_reset_app_main
-rt_reset_app_main:
-    stwu 1, -0x10(1)
-    mflr 0
-    stw 0, 0x14(1)
-    mr 6, 5
-    mr 5, 4
-    mr 4, 3
-    bl 6f
-6:  mflr 3
-    addi 3, 3, rt_context_data - 6b
-    bl rt_reset_on_app_main
-    lwz 0, 0x14(1)
-    mtlr 0
-    addi 1, 1, 0x10
-    blr
-
-    .globl rt_reset_app_close
-rt_reset_app_close:
-    stwu 1, -0x10(1)
-    mflr 0
-    stw 0, 0x14(1)
-    bl 7f
-7:  mflr 3
-    addi 3, 3, rt_context_data - 7b
-    bl rt_reset_on_app_close
-    lwz 0, 0x14(1)
-    mtlr 0
-    addi 1, 1, 0x10
-    blr
-
-/* The entry point the restart jumps to ("mtctr; bctr", interrupts off,
- * main.dol just loaded from the disc): the list written back on the
- * restart's own stack, then on to the game's entry point as the loader
- * jumps to it at the launch. Nothing to return to. */
-    .globl rt_reset_start
-rt_reset_start:
-    stwu 1, -0x10(1)
-    bl 8f
-8:  mflr 3
-    addi 3, 3, rt_context_data - 8b
-    bl rt_reset_on_start
-    addi 1, 1, 0x10
-    mtctr 3
-    bctr
-
-/* OSRestart(resetCode)'s first word goes here: the restart is noted as
- * pending, then the function runs from its replay slot (its displaced
- * first word, then the jump back to its second, loader-filled), with
- * every register as the caller left it. Frame: 0 back chain, 4 LR,
- * 8 r3. */
+/* OSRestart(resetCode)'s first word goes here: the runtime writes the
+ * launch request and leaves for the RiftWii channel (rt_reset_on_os_restart,
+ * rt_hook.c), which does not return. When it does (it could not), the
+ * function runs from its replay slot (its displaced first word, then the
+ * jump back to its second, loader-filled), every register as the caller
+ * left it. Frame: 0 back chain, 4 LR, 8 r3. */
     .globl rt_reset_os_restart
 rt_reset_os_restart:
     stwu 1, -0x20(1)

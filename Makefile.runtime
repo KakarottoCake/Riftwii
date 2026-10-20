@@ -39,7 +39,7 @@ CFLAGS  := -Os -mcpu=750 -meabi -msoft-float -msdata=none \
 # validator and CRC only run in the loader; the host tests use the rest).
 LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(SRC)/rt.ld
 
-OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(OUT)/rtfs.o $(OUT)/rtreset.o
+OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(OUT)/rtfs.o
 
 # The GameCube adapter blob (runtime/pad): PADRead and PADControlMotor
 # hooks with the WUP-028 driver, installed only when the option is on.
@@ -104,7 +104,7 @@ RVZOUT  := $(OUT)/rvz
 RVZBLOB := $(OUT)/riftwii_rt_rvz.bin
 RVZREL  := $(OUT)/riftwii_rt_rvz.rel
 RVZOBJS := $(RVZOUT)/rt_entry.o $(RVZOUT)/rt_hook.o $(RVZOUT)/rtable.o $(RVZOUT)/rtfat.o $(RVZOUT)/rtfs.o \
-           $(RVZOUT)/rtrvz.o $(RVZOUT)/rt_zstd.o $(RVZOUT)/rtreset.o
+           $(RVZOUT)/rtrvz.o $(RVZOUT)/rt_zstd.o
 # Zstandard is vendored code: its own warnings are not ours to fix, and
 # -Os keeps it near 46 KB (libgcc supplies its register save and
 # restore routines and 64-bit shifts, all position independent).
@@ -165,7 +165,7 @@ $(OUT):
 $(OUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h runtime/rtreset.h | $(OUT)
+$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(OUT)
@@ -175,9 +175,6 @@ $(OUT)/rtfat.o: runtime/rtfat.c runtime/rtfat.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(OUT)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OUT)/rtreset.o: runtime/rtreset.c runtime/rtreset.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/riftwii_rt.elf: $(OBJS) $(SRC)/rt.ld
@@ -419,7 +416,7 @@ $(RVZOUT):
 $(RVZOUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
-$(RVZOUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h runtime/rtrvz.h runtime/rtreset.h | $(RVZOUT)
+$(RVZOUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h runtime/rtrvz.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(RVZOUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(RVZOUT)
@@ -429,9 +426,6 @@ $(RVZOUT)/rtfat.o: runtime/rtfat.c runtime/rtfat.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(RVZOUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(RVZOUT)
-	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
-
-$(RVZOUT)/rtreset.o: runtime/rtreset.c runtime/rtreset.h | $(RVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(RVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(RVZOUT)
