@@ -2695,11 +2695,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const unsigned ai_waits = skip_ai_stream_waits(code);
     logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
     // Colour-indexed textures (C4/C8/C14X2) get their palettes through
-    // GXInitTlutObj, whose old SDK builds the load word from the old
-    // word's top bits (riftwii/gcvideo.hpp): harmless on a GameCube,
-    // which ignores addresses past its 24 MB, but in Wii mode the GPU is
-    // sent to MEM2 or nowhere and Mario Party 4 comes out in the wrong
-    // colours.
+    // GXInitTlutObj, whose older SDK builds the load word from the old
+    // word's top bits and whose newer one keeps its low bits instead
+    // (riftwii/gcvideo.hpp): harmless on a GameCube, which ignores
+    // addresses past its 24 MB, but in Wii mode the GPU is sent to MEM2
+    // or nowhere and Mario Party 4 comes out in the wrong colours, Sonic
+    // Gems Collection without its capitals.
     const GcTlutSites tlut = find_gc_tlut_sites(code.ranges());
     for (std::uint32_t at : tlut.stale) code.put(at, gc_tlut_li_for(code.at(at)));
     if (!tlut.stale.empty()) {

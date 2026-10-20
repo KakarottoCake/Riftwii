@@ -128,6 +128,13 @@ std::uint32_t oris_word(unsigned dest, unsigned src, std::uint16_t value) {
 std::uint32_t sth_word(unsigned src, unsigned base, std::uint16_t offset) {
     return (44u << 26) | (src << 21) | (base << 16) | offset;
 }
+std::uint32_t stw_word(unsigned src, unsigned base, std::uint16_t offset) {
+    return (36u << 26) | (src << 21) | (base << 16) | offset;
+}
+// rlwimi rDest,rSrc,shift,first,last, built from its fields.
+std::uint32_t rlwimi_word(unsigned dest, unsigned src, unsigned shift, unsigned first, unsigned last) {
+    return (20u << 26) | (src << 21) | (dest << 16) | (shift << 11) | (first << 6) | (last << 1);
+}
 
 std::uint32_t word_at_bytes(const std::vector<std::uint8_t>& bytes, std::size_t index) {
     return (std::uint32_t(bytes[4 * index]) << 24) | (std::uint32_t(bytes[4 * index + 1]) << 16) |
@@ -353,6 +360,101 @@ void test_tlut() {
         Text t;
         add_mp4(t);
         t.words[8] = lwz(4, 3, 8);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    // Sonic Gems Collection's shape: the `lwz` of the old word immediately
+    // followed by `rlwimi rA,rB,27,11,31`, with an `rlwimi rX,rY,24,0,7`
+    // and the `sth` of the entry count within the next 8 words. The word
+    // replaced is the `lwz` itself, so the insert builds from zero.
+    auto add_gems = [](Text& t) {
+        t.add(addi(0, 0, 0));                 // index 0: li r0,0
+        t.add(stw_word(0, 3, 0));              // index 1
+        t.add(addi(0, 0, 0x64));               // index 2: li r0,0x64
+        t.add(lwz(7, 3, 0));                   // index 3
+        t.add(rlwimi_word(7, 5, 10, 20, 21));  // index 4
+        t.add(stw_word(7, 3, 0));              // index 5
+        t.add(lwz(5, 3, 4));                   // index 6: the old word
+        t.add(rlwimi_word(5, 4, 27, 11, 31));  // index 7
+        t.add(stw_word(5, 3, 4));              // index 8
+        t.add(lwz(4, 3, 4));                   // index 9
+        t.add(rlwimi_word(4, 0, 24, 0, 7));    // index 10
+        t.add(stw_word(4, 3, 4));              // index 11
+        t.add(sth_word(6, 3, 8));              // index 12
+        t.add(kBlr);                           // index 13
+    };
+    {
+        Text t;
+        add_gems(t);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 1u);
+        EXPECT_EQ(sites.clean.size(), 0u);
+        if (sites.stale.size() == 1) EXPECT_EQ(sites.stale[0], kBase + 4 * 6);
+        EXPECT_EQ(riftwii::gc_tlut_li_for(word_at_bytes(t.bytes, 6)), addi(5, 0, 0));
+        const std::vector<std::uint32_t> patched = riftwii::patch_gc_tlut(ranges);
+        EXPECT_EQ(patched.size(), 1u);
+        EXPECT_EQ(word_at_bytes(t.bytes, 6), 0x38A00000u);
+        const riftwii::GcTlutSites after = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(after.stale.size(), 0u);
+        EXPECT_EQ(after.clean.size(), 1u);
+    }
+    {
+        // Another compiler's registers: the shape matches by field, and the
+        // replacement clears the same register the load read.
+        Text t;
+        t.add(lwz(9, 3, 4));
+        t.add(rlwimi_word(9, 6, 27, 11, 31));
+        t.add(stw_word(9, 3, 4));
+        t.add(rlwimi_word(2, 8, 24, 0, 7));
+        t.add(sth_word(6, 3, 8));
+        t.add(kBlr);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 1u);
+        EXPECT_EQ(sites.clean.size(), 0u);
+        if (sites.stale.size() == 1) EXPECT_EQ(sites.stale[0], kBase);
+        EXPECT_EQ(riftwii::gc_tlut_li_for(word_at_bytes(t.bytes, 0)), addi(9, 0, 0));
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 1u);
+        EXPECT_EQ(word_at_bytes(t.bytes, 0), addi(9, 0, 0));
+    }
+    {
+        // Already clean: `li` stands where the `lwz` was, before the same
+        // insert and the same neighbours.
+        Text t;
+        add_gems(t);
+        t.words[6] = addi(5, 0, 0);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        const riftwii::GcTlutSites sites = riftwii::find_gc_tlut_sites(ranges);
+        EXPECT_EQ(sites.stale.size(), 0u);
+        EXPECT_EQ(sites.clean.size(), 1u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // Another insert mask (last bit 30, not 31): the old word is kept
+        // differently.
+        Text t;
+        add_gems(t);
+        t.words[7] = rlwimi_word(5, 4, 27, 11, 30);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // No `rlwimi ...,24,0,7` nearby: not this function.
+        Text t;
+        add_gems(t);
+        t.words[10] = rlwimi_word(4, 0, 24, 0, 8);
+        std::vector<riftwii::CodeRange> ranges = t.ranges();
+        EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
+        EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
+    }
+    {
+        // No `sth r6,8(r3)` nearby: not this function.
+        Text t;
+        add_gems(t);
+        t.words[12] = sth_word(6, 3, 10);
         std::vector<riftwii::CodeRange> ranges = t.ranges();
         EXPECT_EQ(riftwii::find_gc_tlut_sites(ranges).stale.size(), 0u);
         EXPECT_EQ(riftwii::patch_gc_tlut(ranges).size(), 0u);
