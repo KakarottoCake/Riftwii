@@ -184,7 +184,8 @@ void test_boot_dol() {
     const std::uint32_t boot_dol = t.here();
     t.add(kMflrR0);
     t.add(0x9421FFC0);  // stwu r1,-0x40(r1)
-    for (int i = 0; i < 6; ++i) t.add(kNop);
+    t.add(0x7D3E4B78);  // mr r30,r9: argv, its seventh argument, kept
+    for (int i = 0; i < 5; ++i) t.add(kNop);
     t.add(0x3C80803F);  // lis r4,0x803F
     t.add(kNop);
     t.add(0x38848F58);  // addi r4,r4,-0x70a8
@@ -202,8 +203,18 @@ void test_boot_dol() {
     const std::vector<riftwii::CodeRange> no_date{riftwii::CodeRange{data_base, other.data(), other.size()}};
     EXPECT_EQ(riftwii::find_gc_boot_dol(t.ranges(), no_date), 0u);
 
-    // Two functions loading it: not trusted.
+    // The SDK's date helper kept as a function of its own, loading it too
+    // but keeping no argv (Sonic Gems Collection's sonicr.dol): passed over.
     t.add(kMflrR0);
+    t.add(0x3C80803F);  // lis r4,0x803F
+    t.add(0x38848F58);  // addi r4,r4,-0x70a8
+    t.add(0x38A0000A);  // li r5,10
+    t.add(kBlr);
+    EXPECT_EQ(riftwii::find_gc_boot_dol(t.ranges(), data_ranges), boot_dol);
+
+    // Two functions that load it and keep argv: not trusted.
+    t.add(kMflrR0);
+    t.add(0x7D3F4B78);  // mr r31,r9
     t.add(0x3CC0803F);  // lis r6,0x803F
     t.add(0x38C68F58);  // addi r6,r6,-0x70a8
     t.add(kBlr);

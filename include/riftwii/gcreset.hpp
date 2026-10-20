@@ -46,11 +46,15 @@ GcResetFunctions find_gc_reset_functions(const std::vector<CodeRange>& text);
 // __OSBootDolSimple(doloffset, restartCode, regionStart, regionEnd,
 // argsUseDefault, argc, argv), which loads the disc's apploader and runs
 // it. It tells the apploaders after 2004 from older ones by comparing the
-// apploader's date with "2004/02/01", the one place that string is used:
-// the function is the one that loads the string's address (`lis` of its
-// upper half, then `addi` of its lower half within 16 words). 0 when the
-// string is not in the game's data, or more than one function loads it
-// (an SDK before 2004 has neither the string nor the function).
+// apploader's date with "2004/02/01": the function loads the string's
+// address (`lis` of its upper half, then `addi` of its lower half within
+// 16 words) and, taking seven arguments, keeps argv (r9) in a register of
+// its own within its first 24 words (`mr rN,r9`). The SDK's own helper for
+// the date (IsNewApploader) loads the string too, and some builds keep it
+// as a function of its own (Sonic Gems Collection's sonicr.dol), but takes
+// one argument. 0 when the string is not in the game's data, or not
+// exactly one function is both (an SDK before 2004 has neither the string
+// nor the function).
 std::uint32_t find_gc_boot_dol(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data);
 
 // The program a switch starts gets its arguments where the SDK's start-up
