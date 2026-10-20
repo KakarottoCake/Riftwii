@@ -386,6 +386,17 @@ static void test_ocarina() {
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, {{0x80004000u, 0x14}}, kWritable, mem, notes, err));
     EXPECT_EQ(notes.size(), before + 1);
     if (notes.size() == before + 1) EXPECT_EQ(notes.back(), std::string("ocarina: match at 0x80004000 but no blr after it"));
+    // The whole of MEM1's 64 KiB with no blr after the match: read a chunk
+    // at a time, not a word at a time (CodeRabbit on #168).
+    {
+        FakeMemory nothing;
+        nothing.put_word(0x80000000, 0x7C0802A6);
+        riftwii::MemoryPatch far = p;
+        far.offset = 0x80005000;
+        EXPECT_TRUE(riftwii::apply_memory_patches({far}, {{0x80000000u, 0x10000}}, kWritable, nothing, notes, err));
+        EXPECT_EQ(notes.back(), std::string("ocarina: match at 0x80000000 but no blr after it"));
+        EXPECT_TRUE(nothing.reads < 8u);
+    }
     p.value = {0x11, 0x22, 0x33, 0x44};
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
     EXPECT_EQ(notes.back(), std::string("ocarina: no match for 4 bytes"));

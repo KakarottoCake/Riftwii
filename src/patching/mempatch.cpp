@@ -228,13 +228,31 @@ bool apply_ocarina(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded
     }
     const MemoryRegion& r = loaded[region];
     const std::uint64_t region_end = static_cast<std::uint64_t>(r.address) + r.length;
+    // The blr after it, read a chunk at a time from the launch's search
+    // budget, where each word was read on its own and charged to nothing:
+    // a match near a region's start could read the whole region for every
+    // ocarina patch (CodeRabbit on #168, CAV-02).
     std::uint64_t scan = at;
+    std::vector<std::uint8_t> chunk;
+    std::uint64_t chunk_start = 0;
     for (; scan + 4 <= region_end; scan += 4) {
-        std::uint8_t word[4];
-        if (!memory.read(static_cast<std::uint32_t>(scan), word, 4)) {
-            error = "memory read failed at " + hex32(static_cast<std::uint32_t>(scan));
-            return false;
+        if (chunk.empty() || scan + 4 > chunk_start + chunk.size()) {
+            const std::size_t want =
+                static_cast<std::size_t>(std::min<std::uint64_t>(kSearchChunk, (region_end - scan) & ~std::uint64_t(3)));
+            if (want > state.budget) {
+                error = "the pack's memory searches read more than " + std::to_string(kMaxSearchBytes >> 20) +
+                        " MiB of the game's memory in all";
+                return false;
+            }
+            state.budget -= want;
+            chunk.resize(want);
+            chunk_start = scan;
+            if (!memory.read(static_cast<std::uint32_t>(scan), chunk.data(), want)) {
+                error = "memory read failed at " + hex32(static_cast<std::uint32_t>(scan));
+                return false;
+            }
         }
+        const std::uint8_t* word = chunk.data() + (scan - chunk_start);
         const std::uint32_t v = (std::uint32_t(word[0]) << 24) | (std::uint32_t(word[1]) << 16) |
                                 (std::uint32_t(word[2]) << 8) | std::uint32_t(word[3]);
         if (v != kBlr) continue;
