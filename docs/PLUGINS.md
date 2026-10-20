@@ -146,9 +146,9 @@ Appending the SRAM setter preserves API 2 and all existing offsets; the
 the SRAM lock so the plugin can also repair an invalid checksum when the
 ID already matches. Call it before `shut_down_for_game`, while libogc's
 EXI and interrupts work: the host waits up to one second for a deferred
-write to reach RTC SRAM. A failure stops the GameCube launch before the
-jump; a host without this entry logs the limitation and continues with
-the card unchanged. The game reads RTC SRAM through its own SDK over EXI,
+write to reach RTC SRAM. A failure is logged and the GameCube launch goes
+on, so the game may report the card as damaged; a host without this entry
+logs the limitation and continues with the card unchanged. The game reads RTC SRAM through its own SDK over EXI,
 so updating only libogc's cached copy would not suffice.
 
 The cache entries of API 1 (`flush_range`, `sync_code`) replace

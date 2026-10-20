@@ -2317,7 +2317,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // are disabled, so the host can commit over libogc's working EXI; the
         // game's own SDK later reads that RTC through EXI without libogc.
         // A later format_card reads the new SRAM ID too, consistently.
-        if (ready && !blank && !other_size) {
+        // A card formatted just above takes this path as well: format_card
+        // copied only SRAM's ID, so if SRAM's checksum is bad the SDK would
+        // still call the new card damaged. The setter then finds the ID
+        // equal and repairs only the checksum.
+        if (ready && !other_size) {
             std::array<std::uint8_t, 12> flash_id{};
             const rwp_host& host = plugin::host();
             if (!gc_card_flash_id(card_image, flash_id)) {
@@ -2332,7 +2336,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                 // lock, including a bad checksum with an already equal ID.
                 const int32_t written = host.set_sram_flash_id_a(flash_id.data());
                 // A failed write leaves things as they were before: the
-                // game still starts, and at worst calls the card damaged.
+                // launch goes on, and at worst the game calls the card damaged.
                 if (written < 0) {
                     logf("GameCube: SRAM's card ID for %s could not be written, so the game may report the "
                          "unchanged card as damaged\n", path.c_str());

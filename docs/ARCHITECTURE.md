@@ -412,11 +412,14 @@ serial stay byte exact, preserving saves bound to that identity. Invalid
 headers stay unchanged for the game to report as damaged. The host checks
 both SRAM fields and changes only those 13 bytes when needed. This runs
 while libogc's EXI and interrupts still work, before `shut_down_for_game`;
-the host waits for a deferred RTC write before returning success, and a
-commit failure stops the launch. The game's own SDK later reads the RTC
+the host waits for a deferred RTC write before returning success. A
+commit failure is logged and the launch goes on, so the game may report
+the card as damaged. The game's own SDK later reads the RTC
 over EXI, independently of libogc's cached SRAM. A host without the setter
-logs that limitation and continues. A later newly formatted card reads
-SRAM's current ID, including this change, consistently.
+logs that limitation and continues. A newly formatted card copies SRAM's
+ID into its header, so it takes the same path and only a bad SRAM
+checksum gets repaired. A later newly formatted card reads SRAM's current
+ID, including this change, consistently.
 
 ## Memory
 

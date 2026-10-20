@@ -192,7 +192,8 @@ typedef struct rwp_host {
 
     /* Added after usb_read (check RWP_HOST_HAS). Changes only slot A's
      * 12-byte flash ID and its checksum in SRAM-ex, when either differs.
-     * 1 written to RTC SRAM, 0 already matched, -1 unable to commit.
+     * 1 written to RTC SRAM, 0 already matched, -1 unable to commit (the
+     * caller logs it and carries on; the game may report the card damaged).
      * Call before shut_down_for_game, while libogc's EXI still works. */
     int32_t (*set_sram_flash_id_a)(const uint8_t flash_id[12]);
 } rwp_host;
