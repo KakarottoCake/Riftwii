@@ -235,12 +235,16 @@ bool local_host(const std::string& name) {
         }
     }
     if (at != host.size()) return false;
-    const unsigned a = parts[0], b = parts[1];
-    return a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && b >= 16 && b <= 31) ||
-           (a == 192 && b == 168);
+    return http_local_ipv4(parts[0] << 24 | parts[1] << 16 | parts[2] << 8 | parts[3]);
 }
 
 }  // namespace
+
+bool http_local_ipv4(std::uint32_t ip) {
+    const unsigned a = ip >> 24, b = (ip >> 16) & 0xFF;
+    return a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && b >= 16 && b <= 31) ||
+           (a == 192 && b == 168);
+}
 
 bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to) {
     switch (policy) {

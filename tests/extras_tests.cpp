@@ -268,6 +268,12 @@ void TestHttp() {
             EXPECT_FALSE(http_redirect_allowed(HttpRedirects::Follow, banner, local));
             EXPECT_TRUE(http_redirect_allowed(HttpRedirects::Follow, local, local));  // from a local server: fine
         }
+        // The same test on an address a name resolved to.
+        EXPECT_TRUE(http_local_ipv4(0xC0A80101u));   // 192.168.1.1
+        EXPECT_TRUE(http_local_ipv4(0x7F000001u));   // 127.0.0.1
+        EXPECT_TRUE(http_local_ipv4(0xAC1F0001u));   // 172.31.0.1
+        EXPECT_FALSE(http_local_ipv4(0xAC200001u));  // 172.32.0.1
+        EXPECT_FALSE(http_local_ipv4(0x08080808u));  // 8.8.8.8
         for (const char* url : {"http://172.32.0.1/", "http://192.169.0.1/", "http://11.0.0.1/",
                                 "http://10.0.0.1.example.com/", "http://1270.0.0.1/"}) {
             EXPECT_TRUE(parse_http_url(url, local, error));
