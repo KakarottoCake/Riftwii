@@ -281,6 +281,27 @@ static bool AnyHeld()
 	return false;
 }
 
+// A Wii Remote connecting or going away: which channels have one, with what
+// is left of libogc's kernel heap. A tester's freeze with a fourth Remote
+// can then be placed from the log (the menu watchdog names the stuck step).
+static void LogRemotesChanged()
+{
+	static int lastCount = -1;
+	int count = 0;
+	char channels[5] = "----";
+	for (int i = 0; i < 4; ++i) {
+		u32 type = 0;
+		if (WPAD_Probe(i, &type) != WPAD_ERR_NONE) continue;
+		++count;
+		channels[i] = static_cast<char>('1' + i);
+	}
+	const int state = count * 16 + (channels[0] != '-') + 2 * (channels[1] != '-') + 4 * (channels[2] != '-') + 8 * (channels[3] != '-');
+	if (state == lastCount) return;
+	logf("Wii Remotes connected: %d (channels %s); kernel heap %u KiB free\n", count, channels,
+	     riftwii::wii::mem::KernelHeapFree() / 1024);
+	lastCount = state;
+}
+
 // The menu's own loops tick here (HaltGui and ResumeGui, every frame).
 static volatile u64 g_menuTick = 0;
 
@@ -362,6 +383,7 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			LogRemotesChanged();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
