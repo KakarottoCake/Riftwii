@@ -72,6 +72,19 @@ bool TestConsoleTypeAsWii();
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();
 void LogUsage(const char* when);
+
+// A stack for LWP_CreateThread, taken from MEM2 once and kept in `slot`
+// (a second call returns the same block, so a thread that is started again
+// reuses it). Passed in place of a null stack, which makes libogc take the
+// stack from its 64 KiB kernel heap: that heap also holds the Bluetooth
+// stack's per-Wii-Remote state and buffers, and RiftWii's threads left it
+// too full for a fourth Wii Remote's (a freeze with four controllers).
+// Null when MEM2 has no room; the caller then passes null and takes the
+// kernel heap's stack as before.
+u8* ThreadStack(u8*& slot, std::size_t bytes);
+
+// The kernel heap's free bytes, for the log lines that follow its use.
+u32 KernelHeapFree();
 // Walks every chunk of the heap after logging `when`: their sizes, and a
 // free chunk's links and end. A damaged heap is logged there (the chunk,
 // the one before it, and the bytes around as hex and text: an overrun

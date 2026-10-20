@@ -20,6 +20,7 @@
 
 #include "libwiigui/gui.h"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "riftwii/shotfile.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
@@ -245,7 +246,10 @@ void ScreenshotsStart() {
     // Busy from now: the import uses g_frame, and the GUI thread must not
     // copy a frame into it before the worker has even started.
     g_busy = true;
-    if (LWP_CreateThread(&g_thread, Worker, nullptr, nullptr, 16384, 30) < 0) {
+    // The stack from MEM2: libogc's kernel heap is also the Bluetooth
+    // stack's, and a fourth Wii Remote needs room in it.
+    static u8* stack = nullptr;
+    if (LWP_CreateThread(&g_thread, Worker, nullptr, riftwii::wii::mem::ThreadStack(stack, 16384), 16384, 30) < 0) {
         g_thread = LWP_THREAD_NULL;
         g_busy = false;
     }

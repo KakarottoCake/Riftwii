@@ -116,6 +116,17 @@ void LogLimits() {
     if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
 }
 
+// libogc's kernel heap (lwp_wkspace.c), 64 KiB: thread stacks without a
+// stack of their own, and the Bluetooth stack's Wii Remote state.
+extern "C" u32 __lwp_wkspace_heapfree(void);
+
+u8* ThreadStack(u8*& slot, std::size_t bytes) {
+    if (slot == nullptr) slot = skin::Mem2Alloc(bytes);
+    return slot;
+}
+
+u32 KernelHeapFree() { return __lwp_wkspace_heapfree(); }
+
 void LogUsage(const char* when) {
     const u32 mem1_lo = Address(SYS_GetArena1Lo());
     const u32 mem1_hi = Address(SYS_GetArena1Hi());
@@ -127,6 +138,7 @@ void LogUsage(const char* when) {
     logf("Memory (%s): MEM1 %u KiB taken, %u KiB free; MEM2 %u KiB taken, %u KiB free\n", when,
          Kib(mem1_lo - g_mem1_floor), Kib(mem1_hi > mem1_lo ? mem1_hi - mem1_lo : 0),
          Kib(mem2_lo > kMem2Floor ? mem2_lo - kMem2Floor : 0), Kib(mem2_hi > mem2_lo ? mem2_hi - mem2_lo : 0));
+    logf("Memory (%s): kernel heap %u KiB free of 64\n", when, Kib(__lwp_wkspace_heapfree()));
     if (mem1_hi > kMem1Ceiling || mem2_lo < kMem2Floor) {
         logf("Memory: LIMITS BROKEN: arena 1 ends at 0x%08x, arena 2 starts at 0x%08x\n", mem1_hi, mem2_lo);
     }

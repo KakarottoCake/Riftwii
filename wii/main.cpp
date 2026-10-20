@@ -477,6 +477,7 @@ int main() {
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();
+    riftwii::wii::mem::LogUsage("threads started");
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     // The plugin test switch (docs/DEVELOPING.md): only with
     // sd:/riftwii/plugin_test.txt on the card; nothing loads at a plain

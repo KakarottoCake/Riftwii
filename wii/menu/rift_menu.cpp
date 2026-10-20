@@ -281,6 +281,23 @@ static bool AnyHeld()
 	return false;
 }
 
+// A Wii Remote connecting or going away, with what is left of libogc's kernel
+// heap (the Bluetooth stack's memory for a Remote comes from it): the log
+// that shows whether a fourth Remote had room.
+static void LogRemotesChanged()
+{
+	static int lastCount = -1;
+	int count = 0;
+	for (int i = 0; i < 4; ++i) {
+		u32 type = 0;
+		if (WPAD_Probe(i, &type) == WPAD_ERR_NONE) ++count;
+	}
+	if (count == lastCount) return;
+	logf("Wii Remotes connected: %d; kernel heap %u KiB free\n", count,
+	     riftwii::wii::mem::KernelHeapFree() / 1024);
+	lastCount = count;
+}
+
 // The menu's own loops tick here (HaltGui and ResumeGui, every frame).
 static volatile u64 g_menuTick = 0;
 
@@ -362,6 +379,7 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			LogRemotesChanged();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
@@ -574,11 +592,16 @@ void InitGUIThreads()
 	WPAD_SetPowerButtonCallback(RemotePowerPressed);
 	menuthread = LWP_GetSelf();
 	riftwii::wii::GxTraceStart();
-	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
+	// Stacks from MEM2, not libogc's 64 KiB kernel heap: the Bluetooth stack
+	// takes its per-Wii-Remote memory from there, and a fourth Remote froze
+	// the menu when the threads had left too little of it.
+	static u8* guiStack = nullptr;
+	static u8* watchdogStack = nullptr;
+	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, riftwii::wii::mem::ThreadStack(guiStack, 24576), 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
 	g_watchdogOn = true;
-	LWP_CreateThread(&g_watchdog, MenuWatchdog, nullptr, nullptr, 8192, 80);
+	LWP_CreateThread(&g_watchdog, MenuWatchdog, nullptr, riftwii::wii::mem::ThreadStack(watchdogStack, 8192), 8192, 80);
 }
 
 // A text at a fixed spot, left-aligned or centred on the screen.
