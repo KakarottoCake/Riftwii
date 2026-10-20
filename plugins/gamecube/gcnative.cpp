@@ -30,6 +30,7 @@
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
 #include "riftwii/gcdsp.hpp"
+#include "riftwii/gcfont.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
@@ -2383,6 +2384,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         replay_hook(fn, entry, replay, back);
         return true;
     }, h, ctx, test_no_widen, test_no_vi_hook);
+
+    // Giftpia and Kururin Squash choose their IPL font from the Japanese
+    // console strap (VI DTV bit 0x2), which Western Wiis/Wii Us lack. Patch
+    // every recognized getter, including inlined copies, for Japanese IDs.
+    // The 480p patch above only matches low-two-bit reads, not these bit-0x2
+    // tests; replacing this load also prevents later 480p matching it.
+    if (image.id.size() > 3 && image.id[3] == 'J') {
+        const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id);
+        for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
+        if (!fonts.empty()) {
+            logf("GameCube: patched %u font encoding decision(s), first at 0x%08x, to select Shift-JIS on NTSC "
+                 "for this Japanese game.\n", static_cast<unsigned>(fonts.size()), fonts.front().address);
+        } else {
+            logf("GameCube: no recognized font encoding decision was found for this Japanese game.\n");
+        }
+    }
 
     // Luigi's Mansion: its loads allocate from the heap they were queued from.
     const LmLoader lm = find_lm_loader(image.id, code);
