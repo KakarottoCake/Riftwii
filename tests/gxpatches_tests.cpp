@@ -65,12 +65,15 @@ void test_protected() {
     EXPECT_TRUE(game_needs_most_of_mem2("SMNE01"));
     EXPECT_TRUE(game_needs_most_of_mem2("SMNP01"));
     EXPECT_FALSE(game_needs_most_of_mem2("RMCE01"));
-    // Mario Party 4 in every region keeps its ARAM addresses; Mario Party 5
-    // and Super Mario Sunshine have them raised.
+    // Mario Party 4 to 7 and DDR Mario Mix, in every region, keep their
+    // ARAM addresses; Super Mario Sunshine and Melee have them raised.
     EXPECT_TRUE(gc_keeps_aram_addresses("GMPE01"));
     EXPECT_TRUE(gc_keeps_aram_addresses("GMPP01"));
     EXPECT_TRUE(gc_keeps_aram_addresses("GMPJ01"));
-    EXPECT_FALSE(gc_keeps_aram_addresses("GP5E01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GP5E01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GP6P01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GP7J01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GWZE01"));
     EXPECT_FALSE(gc_keeps_aram_addresses("GMSE01"));
     {
         const std::vector<GcCodeFix> fixes = gc_code_fixes("GEDE01");
@@ -83,6 +86,7 @@ void test_protected() {
         EXPECT_TRUE(gc_code_fixes("GEDP01").empty());  // other regions: their addresses are not known
         EXPECT_TRUE(gc_code_fixes("GMSE01").empty());
     }
+    EXPECT_FALSE(gc_keeps_aram_addresses("GALE01"));
     EXPECT_TRUE(gc_loads_use_queued_heap("GLMP01"));
     EXPECT_TRUE(gc_loads_use_queued_heap("GLME01"));
     EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));

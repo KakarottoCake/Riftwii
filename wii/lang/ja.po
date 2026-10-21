@@ -942,8 +942,26 @@ msgstr "このままでは動きません。{1}はUSBドライブにあります
 msgid "Updating RiftWii"
 msgstr "RiftWiiを更新しています"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1}が出ています。インストールしています。数分かかります。"
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "RiftWiiをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "RiftWiiをダウンロード中..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "プラグインをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "プラグインをダウンロード中..."
+
+msgid "Checking the download..."
+msgstr "ダウンロードを確認中..."
+
+msgid "Writing to the SD card..."
+msgstr "SDカードに書き込み中..."
 
 msgid "Update failed"
 msgstr "更新に失敗しました"
