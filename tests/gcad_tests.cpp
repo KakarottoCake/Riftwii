@@ -1038,9 +1038,10 @@ static void TestIdleResetSearch() {
     EXPECT_TRUE(pad.idle_reset != remotes);
 
     // Called from the status helper linked after PADRead (Brawl), with the
-    // store before the return value (Kamen Rider).
+    // store before the return value (Kamen Rider), after its Wii Remote twin.
     Asm helper{0x80200000u, {}};
     helper.blr();
+    idle_reset_function(helper, -0x69B4, true);
     const std::uint32_t store_first = idle_reset_function(helper, -0x69B8, true);
     helper.prologue();
     for (unsigned k = 0; k < 3; ++k) helper.pad_error(27, 19, kMemset);
@@ -1057,6 +1058,7 @@ static void TestIdleResetSearch() {
     // A call past the window is someone else's: none found.
     Asm distant{0x80200000u, {}};
     distant.blr();
+    idle_reset_function(distant, -0x6034, false);
     const std::uint32_t distant_reset = idle_reset_function(distant, -0x6038, false);
     const std::uint32_t distant_read = distant.here();
     distant.prologue();
@@ -1070,11 +1072,14 @@ static void TestIdleResetSearch() {
     EXPECT_EQ(pad.read, distant_read);
     EXPECT_EQ(pad.idle_reset, 0u);
 
-    // Two different resets called near PADRead: unsure, so none.
+    // Two different resets (each after its twin) called near PADRead:
+    // unsure, so none.
     Asm two{0x80200000u, {}};
     two.blr();
-    const std::uint32_t first = idle_reset_function(two, -0x6034, false);
-    const std::uint32_t second = idle_reset_function(two, -0x6038, false);
+    idle_reset_function(two, -0x6034, false);
+    const std::uint32_t first = idle_reset_function(two, -0x6038, false);
+    idle_reset_function(two, -0x5034, false);
+    const std::uint32_t second = idle_reset_function(two, -0x5038, false);
     two.prologue();
     for (unsigned k = 0; k < 3; ++k) two.pad_error(27, 19, kMemset);
     two.bl(first);
@@ -1084,6 +1089,24 @@ static void TestIdleResetSearch() {
     text = {{two.base, code.data(), code.size()}};
     EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
     EXPECT_EQ(pad.idle_reset, 0u);
+
+    // The right shape but alone, or after a twin for a flag that isn't next
+    // to it: some other function, not the video library's pair.
+    for (int twin_flag : {0, -0x7000}) {  // 0: no twin before it
+        Asm lone{0x80200000u, {}};
+        lone.blr();
+        if (twin_flag != 0) idle_reset_function(lone, static_cast<std::int16_t>(twin_flag), false);
+        const std::uint32_t reset = idle_reset_function(lone, -0x6038, false);
+        lone.prologue();
+        for (unsigned k = 0; k < 3; ++k) lone.pad_error(27, 19, kMemset);
+        lone.bl(reset);
+        lone.blr();
+        code = lone.bytes();
+        text = {{lone.base, code.data(), code.size()}};
+        EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+        EXPECT_TRUE(pad.read != 0);
+        EXPECT_EQ(pad.idle_reset, 0u);
+    }
 
     // Clearing a flag but returning 0 is not the reset.
     Asm other{0x80200000u, {}};

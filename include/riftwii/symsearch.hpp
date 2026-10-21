@@ -75,7 +75,9 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
 //    `li r3, 1` in either order, then `blr`). Its call sits in PADRead
 //    itself or, in older SDKs, in the status helper linked right after
 //    it, so only calls in the kIdleResetWindow bytes from PADRead's start
-//    count, and they must all reach the same function. Found in Brawl
+//    count, and they must all reach the same function. It must also follow
+//    the Wii Remotes' reset, the same four words for the flag 4 bytes
+//    above, as the video library lays the two out. Found in Brawl
 //    (the helper, PADRead + 0xB14), Mario Kart Wii, Tatsunoko vs. Capcom:
 //    Ultimate All-Stars, Naruto: Clash of Ninja Revolution 3 (PADRead +
 //    0x410) and Kamen Rider: Super Climax Heroes (+ 0x414).
