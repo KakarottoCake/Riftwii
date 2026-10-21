@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace riftwii::wii {
@@ -20,6 +21,12 @@ public:
     GcRealCard(const GcRealCard&) = delete;
     GcRealCard& operator=(const GcRealCard&) = delete;
 
+    // Called after each 512-byte read with the bytes read so far and the
+    // total, so a long read (a 16 MB card is 32,768 of them) can show how
+    // far it is. It runs on the reading thread; keep it cheap.
+    using Progress = std::function<void(unsigned done, unsigned total)>;
+    void SetProgress(Progress progress) { progress_ = std::move(progress); }
+
     int Open(int slot);
     void Close();
     int Read(std::vector<std::uint8_t>& raw);
@@ -32,6 +39,7 @@ private:
     int slot_ = -1;
     unsigned bytes_ = 0;
     unsigned latency_ = 0;
+    Progress progress_;
 };
 
 }  // namespace riftwii::wii

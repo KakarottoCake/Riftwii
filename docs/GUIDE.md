@@ -447,8 +447,11 @@ removal or replacement before the final check cancels the operation.
 `.raw` image in `sd:/riftwii/gc/backups/real/`, named by date/time. These
 manual backups are kept until you remove them. This requires a formatted,
 readable card; RiftWii does not repair an unreadable card. Both copy tools
-never write to the physical card. Mounting also updates the card ID cached
-in the Wii's SRAM; see ARCHITECTURE.md for the mount side effects.
+read the card and never write to it. Mounting a card (in slot A or B) does
+make the Wii note the card's ID in its own settings memory (SRAM), as a
+GameCube does; that is the console's memory, not the card's, and RiftWii
+logs a line when it changes. Reading a card is shown with a progress bar:
+a 16 MB card takes a while. See ARCHITECTURE.md for the mount side effects.
 
 In real-card mode the SD tools are dimmed, and the page explains where
 the game's saves live; the copy tools remain available. On Wii U they

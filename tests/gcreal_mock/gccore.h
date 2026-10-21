@@ -31,6 +31,14 @@ constexpr int EXI_SPEED16MHZ = 4;
 constexpr int EXI_READ = 0;
 constexpr int EXI_WRITE = 1;
 
+// libogc's SRAM-ex copy (libogc/system.c), as wii/storage/gcrealcard.cpp
+// declares it: the card IDs the Wii keeps for slots A and B.
+struct syssramex {
+    u8 flash_id[2][12];
+};
+extern "C" syssramex* __SYS_LockSramEx(void);
+extern "C" u32 __SYS_UnlockSramEx(u32 write);
+
 #define _CPU_ISR_Disable(level) ((level) = 0)
 #define _CPU_ISR_Restore(level) static_cast<void>(level)
 

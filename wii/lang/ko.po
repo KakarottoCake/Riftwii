@@ -2751,8 +2751,8 @@ msgstr "슬롯 A"
 msgid "Slot B"
 msgstr "슬롯 B"
 
-msgid "Choose which saves to copy. The card in the Wii is never written to."
-msgstr "복사할 저장 데이터를 선택하세요. Wii에 꽂힌 카드에는 쓰지 않습니다."
+msgid "Choose which saves to copy. Nothing is written to the card."
+msgstr "복사할 저장 데이터를 선택하세요. 카드에는 아무것도 쓰지 않습니다."
 
 msgid "This game's saves"
 msgstr "이 게임의 저장 데이터"
@@ -2763,8 +2763,8 @@ msgstr "모든 저장 데이터"
 msgid "Copy"
 msgstr "복사"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
-msgstr "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii에 꽂힌 카드에는 쓰지 않습니다."
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card."
+msgstr "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? 카드에는 아무것도 쓰지 않습니다."
 
 msgid "Copied to {1}."
 msgstr "{1}에 복사했습니다."
@@ -2793,8 +2793,8 @@ msgstr "SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합�
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다."
 
-msgid "The card in the Wii is never written to. Copies go to the SD card."
-msgstr "Wii에 꽂힌 카드에는 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다."
+msgid "Nothing is written to the card. Copies go to the SD card."
+msgstr "카드에는 아무것도 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다."
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다."
@@ -2804,6 +2804,12 @@ msgstr "이 게임의 SD 카드 사용"
 
 msgid "Wii U has no GameCube memory card slots."
 msgstr "Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다."
+
+msgid "Reading the memory card"
+msgstr "메모리 카드 읽는 중"
+
+msgid "Keep the card in its slot. Nothing is written to it."
+msgstr "카드를 슬롯에 그대로 두세요. 아무것도 쓰지 않습니다."
 
 msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
 msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다."

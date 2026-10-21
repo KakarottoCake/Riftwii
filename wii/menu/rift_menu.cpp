@@ -6860,6 +6860,36 @@ static std::string GcRealError(int result)
 	return tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.");
 }
 
+// Reads the whole card with a bar: a 16 MB card is 32,768 reads of 512
+// bytes on this thread, which would otherwise look like a freeze. The bar
+// moves in whole percents, so the GUI is not halted for every sector.
+static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<std::uint8_t>& raw)
+{
+	int result;
+	{
+		// The bar before the box: it is drawn in the box's window, so it
+		// must last until the box is off the screen.
+		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Reading the memory card"), tr("Keep the card in its slot. Nothing is written to it."));
+		box.Add(&bar, 528);
+		ResumeGui();
+		int shown = -1;
+		physical.SetProgress([&](unsigned done, unsigned total) {
+			const int percent = static_cast<int>(static_cast<unsigned long long>(done) * 100 / total);
+			if (percent == shown) return;
+			shown = percent;
+			HaltGui();
+			bar.Set(percent / 100.0);
+			ResumeGui();
+		});
+		result = physical.Read(raw);
+		physical.SetProgress(nullptr);
+		HaltGui();
+		box.Close();
+	}
+	return result;
+}
+
 static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 {
 	const int slot = ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
@@ -6883,7 +6913,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
 			return;
 		}
-		result = physical.Read(raw);
+		result = ReadRealCardWithBar(physical, raw);
 	}
 	if (result < 0) {
 		ShowPopup(tr("Memory card"), GcRealError(result), tr("OK"));
@@ -6911,7 +6941,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	};
 	if (wholeCard) {
 		if (ShowPopup(tr("Save a copy of the whole card"),
-			tr("Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.",
+			tr("Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.",
 				{std::to_string(source.saves.size())}), tr("Copy"), tr("Cancel")) != 0) return;
 		mkdir("sd:/riftwii/gc/backups", 0777);
 		const std::string folder = "sd:/riftwii/gc/backups/real";
@@ -6929,7 +6959,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		return;
 	}
 	const int choice = ChooseTwo(tr("Copy from a memory card in the Wii"),
-		tr("Choose which saves to copy. The card in the Wii is never written to."),
+		tr("Choose which saves to copy. Nothing is written to the card."),
 		tr("This game's saves"), state.game_id, tr("Every save"), tr("Shared"));
 	if (choice < 0) return;
 	const bool shared = choice == 1;
@@ -7020,7 +7050,7 @@ static void MenuGcCard(FrontendState& state)
 	const auto note = [&](int row) -> std::string {
 		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
 		if (real) return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
-		return tr("The card in the Wii is never written to. Copies go to the SD card.");
+		return tr("Nothing is written to the card. Copies go to the SD card.");
 	};
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
 		if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });

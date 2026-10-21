@@ -492,8 +492,12 @@ already-unlocked card skips that exchange and checks only SRAM's cached
 flash-ID byte sum. RiftWii validates the header and layout with `gccard.cpp`
 and does not write or repair the physical card. Mounting a card is not passive:
 libogc clears its status, unlocks it when necessary, and records its flash
-ID in that slot's SRAM cache, including slot B. None of these operations
-writes the card's flash.
+ID in that slot's SRAM cache, including slot B. `Open` logs a line when that
+SRAM ID changes. None of these operations writes the card's flash. A copy
+asks `gc_real_have_room` for the card's copy, the SD image and the plan's
+working image before reading (the DOL has no exceptions, so a failed vector
+growth would abort the menu), and `Read` reports progress after each 512-byte
+sector for the menu's bar.
 
 `gc_real_plan` selects the exact game code plus maker for this game's own
 image, or every save for the source encoding's shared image. It exports
