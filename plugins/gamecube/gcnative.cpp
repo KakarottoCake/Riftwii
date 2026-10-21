@@ -2795,8 +2795,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
     // the Wind Waker demo disc) starts its games another way: each is a
     // whole disc packed in a TGC image, whose program the menu reads with
-    // its own loader and jumps to, unpatched. Its first read of a TGC's
-    // program goes back through RiftWii the same way (gc_on_tgc_read).
+    // its own loader and jumps to, unpatched. Its read of a TGC's header
+    // or of its program goes back through RiftWii the same way
+    // (gc_on_tgc_read, runtime/gc/gc_tgc.h).
     // Not with packs, which move the disc's files.
     const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
     // A game from a TGC image reads its own disc ID, the packed header's.

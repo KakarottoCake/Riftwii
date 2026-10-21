@@ -7,6 +7,7 @@
 #include "gc_bt.h"
 #include "gc_card.h"
 #include "gc_gcad.h"
+#include "gc_tgc.h"
 #include "gc_video.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
@@ -611,6 +612,13 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
         const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
         gc_copy((uint8_t*)&w[GC_TR_PROJECTION_CALLERS], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
+    } else if (ctx->projections == 0) {
+        /* No projection seen (16:9 off): the words would stay zero, so
+         * they carry the VI's registers 0x00-0x3F instead, the timing
+         * the TV locks onto. A TV that lost the signal on a Wii (the
+         * Collector's Edition menu in 480p, 21 Oct) says nothing in
+         * Dolphin, which takes any timing. */
+        for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = gc_read32(GC_VI_BASE + 4u * i);
     }
 #ifdef RT_RVZ
     if (ctx->rvz) {
@@ -1765,8 +1773,9 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
  * image, and the menu reads the chosen one's program with a loader of its
  * own and jumps to it. That program would run with none of RiftWii's
  * patches, its disc reads unanswered, and the screen stayed black. So the
- * menu's first read of a TGC's program (the loader found where each lies,
- * tgc_dol_start/end) is taken as the start of that game: exec.txt
+ * menu's read of a TGC's header, or its first read of a TGC's program
+ * (the loader found where each lies, tgc_offset and tgc_dol_start/end;
+ * gc_tgc.h says why both) is taken as the start of that game: exec.txt
  * (gc_on_boot_dol's file) becomes a launch with
  * gc_tgc=<the TGC's offset on the disc>, and the game leaves as holding
  * HOME does, before the read is served. RiftWii's next start launches the
@@ -1778,9 +1787,8 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     uint32_t tgc = 0, at, i, msr;
     int found = 0, read;
     for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX && !found; ++i) {
-        const uint32_t start = ctx->tgc_dol_start[i];
-        /* The read and the program overlap; no sum that could wrap. */
-        found = offset >= start ? offset < ctx->tgc_dol_end[i] : start - offset < length;
+        /* The TGC's header or its program (gc_tgc.h). */
+        found = gc_tgc_read_starts_game(ctx->tgc_offset[i], ctx->tgc_dol_start[i], ctx->tgc_dol_end[i], offset, length);
         if (found) tgc = ctx->tgc_offset[i];
     }
     if (!found) return;

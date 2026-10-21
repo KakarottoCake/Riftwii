@@ -407,9 +407,13 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   D43E01, the Wind Waker demo disc PZLE01) starting a game packed in a
   TGC image on its disc, with a loader of its own. The loader finds the
   disc's `.tgc` files in its FST and their headers (`src/disc/gctgc.cpp`,
-  up to eight), and gives the blob where each TGC's program lies on the
-  disc. The menu's first read of one (`gc_on_tgc_read`, which leaves
-  before the read is served) writes `gc_tgc=<the TGC file's offset>`. The next start
+  up to eight), and gives the blob where each TGC and its program lie on
+  the disc. The menu's read of a TGC's header, or its first read of a
+  TGC's program (`gc_on_tgc_read`, rule in `runtime/gc/gc_tgc.h`, which
+  leaves before the read is served) writes `gc_tgc=<the TGC file's
+  offset>`. The header counts because the Collector's Edition menu reads
+  the program with a loader of its own (`execD.img`) that drives the
+  disc interface itself, past the blob's DVDLowRead hook. The next start
   takes the game from the TGC instead of the disc: its packed boot.bin
   and BI2, its DOL, and its FST with every file's offset moved onto the
   outer disc (the FST counts from the header's virtual file-area start;

@@ -90,7 +90,7 @@ if(BUILD_TESTING)
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             target_compile_options(${suite}_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
         endif()
-        if(suite STREQUAL "gccrash" OR suite STREQUAL "gcrvz" OR suite STREQUAL "gcports" OR suite STREQUAL "gccontrols" OR suite STREQUAL "gcvideo" OR suite STREQUAL "gcgcad")
+        if(suite STREQUAL "gccrash" OR suite STREQUAL "gcrvz" OR suite STREQUAL "gcports" OR suite STREQUAL "gccontrols" OR suite STREQUAL "gcvideo" OR suite STREQUAL "gcgcad" OR suite STREQUAL "gctgc")
             target_include_directories(${suite}_tests PRIVATE runtime/gc)
         endif()
         # The adapter's ports in a GameCube game: its port-filling half

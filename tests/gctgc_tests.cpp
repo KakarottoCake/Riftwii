@@ -6,6 +6,8 @@
 // field in the format's layout.
 #include "riftwii/gctgc.hpp"
 
+#include "gc_tgc.h"
+
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -229,9 +231,37 @@ void test_find_files() {
     EXPECT_TRUE(!riftwii::find_gc_fst_file_at(fst, 0x400004, file));
 }
 
+// The blob's rule for which menu reads start a TGC's game (gc_tgc.h),
+// with the Ocarina of Time TGC of the Collector's Edition disc (PZLE01):
+// the file at 0x1f968000, its program at 0x1fa70600 to 0x1fb649a0.
+void test_read_starts_game() {
+    const std::uint32_t tgc = 0x1f968000, dol = 0x1fa70600, dol_end = 0x1fb649a0;
+    // The menu's TGCOpen: the 64-byte header at the file's start.
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, tgc, 0x40), 1);
+    // Reads of the program: its start, inside it, its last byte, and one
+    // that begins before it and reaches into it.
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, dol, 0x100), 1);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0x1fb00000, 0x8000), 1);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, dol_end - 1, 1), 1);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, dol - 0x20, 0x21), 1);
+    // Not: the menu's own files before the TGC (its music,
+    // AudioRes/Stream/64zelda_gc.ast, streams from 0x0ab70c58), the TGC's
+    // packed boot.bin after the header, a read that ends where the program
+    // starts, the first byte past it, and an empty read.
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0x0ad8f0d8, 0x4ee0), 0);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, tgc + 0x8000, 0x440), 0);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, dol - 0x20, 0x20), 0);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, dol_end, 0x20), 0);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, tgc, 0), 0);
+    // Offsets near the top of the 32-bit range do not wrap.
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0xFFFFFFF0u, 0x20), 0);
+    EXPECT_EQ(gc_tgc_read_starts_game(tgc, dol, dol_end, 0, 0xFFFFFFFFu), 1);
+}
+
 }  // namespace
 
 int main() {
+    test_read_starts_game();
     test_parse();
     test_dol_fits();
     test_rebase();

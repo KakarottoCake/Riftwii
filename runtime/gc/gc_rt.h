@@ -159,7 +159,8 @@ enum gc_trace_word {
     GC_TR_AR_WAIT_LONGEST, /* the longest of those waits, timebase ticks */
     GC_TR_AR_WAIT_TIMEOUTS, /* waits given up: the interrupt did not show in time */
     GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers; with the test remote
-                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log) */
+                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log);
+                               * with no projection seen (projections 0), the VI's registers 0x00-0x3F */
     /* An RVZ game (gc_rvz.h): groups decoded, the time spent serving its
      * reads (card and decoding, timebase ticks, wraps), and its last
      * error << 24 | failures. */
