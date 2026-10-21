@@ -6906,13 +6906,12 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	int result = physical.Open(slot);
 	std::vector<std::uint8_t> raw;
 	if (result >= 0) {
-		// A 16 MB card is held whole, then beside the SD image and the
-		// plan's copy of it. Ask for all of that now (the build has no
-		// exceptions, so a vector that cannot grow would abort the menu).
+		// A 16 MB card is held whole. Ask for it now (the build has no
+		// exceptions, so a vector that cannot grow would abort the menu);
+		// the SD image a saves copy goes to is checked once it is chosen.
 		const std::size_t card = physical.Bytes();
-		const std::size_t image = static_cast<std::size_t>(riftwii::kGcDolphinMaxRawBytes);
-		const std::size_t needed[] = {card, riftwii::kGcRealSlack, image, image};
-		if (!riftwii::gc_real_have_room(needed, wholeCard ? 2 : 4)) {
+		const std::size_t needed[] = {card, riftwii::kGcRealSlack};
+		if (!riftwii::gc_real_have_room(needed, 2)) {
 			logf("Memory card: not enough free memory to copy the %u KB card in slot %c; nothing was read or copied.\n",
 				static_cast<unsigned>(card >> 10), 'A' + slot);
 			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
@@ -6985,7 +6984,21 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	}
 	std::vector<std::uint8_t> target;
 	struct stat status;
-	if (stat(path.c_str(), &status) == 0) {
+	const bool targetExists = stat(path.c_str(), &status) == 0;
+	// Beside the card already read: the SD image and the plan's copy of
+	// it, at the image's own size (a new one may be formatted up to the
+	// largest a card can be).
+	const std::size_t imageBytes = targetExists && status.st_size > 0
+		? static_cast<std::size_t>(status.st_size)
+		: static_cast<std::size_t>(riftwii::kGcDolphinMaxRawBytes);
+	const std::size_t imageRoom[] = {imageBytes, imageBytes, riftwii::kGcRealSlack};
+	if (!riftwii::gc_real_have_room(imageRoom, 3)) {
+		logf("Memory card: not enough free memory to copy saves into %s (%u KB); nothing was copied.\n",
+			path.c_str(), static_cast<unsigned>(imageBytes >> 10));
+		ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+		return;
+	}
+	if (targetExists) {
 		if (!ReadSmallFile(path, riftwii::kGcDolphinMaxRawBytes, target)) {
 			logf("GameCube: %s could not be read before the copy.\n", path.c_str());
 			ShowPopup(tr("Memory card"), tr("RiftWii could not read {1}.", {path}), tr("OK"));
