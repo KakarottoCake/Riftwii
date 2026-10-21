@@ -1276,6 +1276,88 @@ static void test_dolphin_limits() {
     EXPECT_FALSE(count.full);
 }
 
+// Recovering a card's ID must preserve the identity used by serial-bound
+// saves and must never turn a corrupt header into an apparently valid one.
+static void test_flash_id() {
+    GcCardFormat format = sample_format(false);
+    Bytes card;
+    gc_card_format(card, format);
+    // Stand in for a save bound to the header's original serial. The
+    // whole image, including this stored identity, must stay byte exact.
+    std::memcpy(card.data() + kGcCardSystemBlocks * kGcCardBlockBytes, card.data(), 32);
+    const Bytes before = card;
+    std::array<std::uint8_t, 12> recovered{};
+    EXPECT_TRUE(gc_card_flash_id(card, recovered));
+    EXPECT_TRUE(recovered == format.flash_id);
+    EXPECT_TRUE(card == before);
+
+    format.flash_id = recovered;
+    Bytes reformatted;
+    gc_card_format(reformatted, format);
+    EXPECT_TRUE(std::memcmp(card.data(), reformatted.data(), 12) == 0);
+
+    // Recovery needs only the complete header, not the save area.
+    const Bytes header(card.begin(), card.begin() + 0x200);
+    EXPECT_TRUE(gc_card_flash_id(header, recovered));
+    EXPECT_TRUE(recovered == format.flash_id);
+
+    // Every refusal leaves both the image and the caller's output alone.
+    const auto refused = [](const Bytes& input) {
+        const Bytes unchanged = input;
+        std::array<std::uint8_t, 12> output;
+        output.fill(0xA5);
+        const auto original_id = output;
+        EXPECT_FALSE(gc_card_flash_id(input, output));
+        EXPECT_TRUE(output == original_id);
+        EXPECT_TRUE(input == unchanged);
+    };
+    Bytes damaged = card;
+    damaged[19] ^= 1;  // format time changed without updating its checksum
+    refused(damaged);
+    damaged = card;
+    damaged[24] ^= 1;  // a non-serial, non-time header field
+    refused(damaged);
+    damaged = card;
+    damaged[0x1FF] ^= 1;  // the inverse checksum matters too
+    refused(damaged);
+    refused(Bytes(0x200, 0xFF));
+    refused(Bytes(0x200, 0));
+    refused(Bytes(card.begin(), card.begin() + 0x1FF));
+    refused(Bytes{});
+
+    // A matching checksum alone does not make an unformatted card valid.
+    Bytes unformatted(0x200, 0xFF);
+    gc_card_checksum(unformatted.data(), 0x1FC, unformatted.data() + 0x1FC);
+    refused(unformatted);
+    Bytes bad_encoding = header;
+    poke16(bad_encoding.data() + 0x24, 2);
+    gc_card_checksum(bad_encoding.data(), 0x1FC, bad_encoding.data() + 0x1FC);
+    refused(bad_encoding);
+
+    // Exercise subtraction's byte wrap and both format-time boundaries.
+    for (const std::uint64_t time : {0ull, 0xFFFFFFFFFFFFFFFFull}) {
+        format.format_time = time;
+        for (unsigned i = 0; i < format.flash_id.size(); ++i) {
+            format.flash_id[i] = i % 2 == 0 ? 0 : 0xFF;
+        }
+        gc_card_format(card, format);
+        EXPECT_TRUE(gc_card_flash_id(card, recovered));
+        EXPECT_TRUE(recovered == format.flash_id);
+    }
+}
+
+// A blank card (an erased image) is formatted with SRAM's ID, and the
+// launch then hands that same ID back to the SRAM setter, so a bad SRAM
+// checksum is repaired before the first launch: the ID must come back whole.
+static void test_flash_id_of_blank_card() {
+    const GcCardFormat format = sample_format(false);
+    Bytes card(kGcCardSystemBlocks * kGcCardBlockBytes, 0xFF);
+    gc_card_format(card, format);
+    std::array<std::uint8_t, 12> recovered{};
+    EXPECT_TRUE(gc_card_flash_id(card, recovered));
+    EXPECT_TRUE(recovered == format.flash_id);
+}
+
 int main() {
     test_backup_undo();
     test_dolphin_import();
@@ -1285,6 +1367,8 @@ int main() {
     test_card_text();
     test_card_paths();
     test_icon_texture();
+    test_flash_id();
+    test_flash_id_of_blank_card();
     test_format();
     test_import_export_delete();
     test_directory_full();

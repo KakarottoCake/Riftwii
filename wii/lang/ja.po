@@ -420,6 +420,12 @@ msgstr "ゲーム名とチートをダウンロード"
 msgid "Get the latest game names"
 msgstr "最新のゲーム名を取得"
 
+msgid "Download missing covers"
+msgstr "足りないカバーをダウンロード"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "ホームに戻ると、足りないカバーをダウンロードします。"
+
 msgid "Update"
 msgstr "更新"
 
@@ -630,11 +636,14 @@ msgstr "メニューの言語です。「Wii」は本体の設定に合わせま
 msgid "Downloads the newest game names from GameTDB."
 msgstr "GameTDBから最新のゲーム名をダウンロードします。"
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。"
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "接続タップのコントローラで押しているボタンをその場で表示します。"
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "SDカードとUSBドライブをもう一度読み込みます。"
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。"
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。"
@@ -804,8 +813,8 @@ msgstr "終了したNintendoのサーバーの代わりにゲームが使うオ�
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "GameTDBからカバーを取得中: 残り{1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。"
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。"
 
 msgid "Cover"
 msgstr "カバー"
@@ -933,8 +942,26 @@ msgstr "このままでは動きません。{1}はUSBドライブにあります
 msgid "Updating RiftWii"
 msgstr "RiftWiiを更新しています"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1}が出ています。インストールしています。数分かかります。"
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "RiftWiiをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "RiftWiiをダウンロード中..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "プラグインをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "プラグインをダウンロード中..."
+
+msgid "Checking the download..."
+msgstr "ダウンロードを確認中..."
+
+msgid "Writing to the SD card..."
+msgstr "SDカードに書き込み中..."
 
 msgid "Update failed"
 msgstr "更新に失敗しました"
@@ -1424,6 +1451,15 @@ msgstr "SDイメージを作りますか?"
 
 msgid "Make it"
 msgstr "作成"
+
+msgid "The SD card is too fragmented"
+msgstr "SDカードの断片化がひどすぎます"
+
+msgid "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway."
+msgstr "SDカードの空き領域が細かく散らばりすぎています。{1}は{2}個を超える断片に書き込まれ、RiftWiiが扱える数を超えるため、ゲームは起動しません。空き容量を作るかSDカードをフォーマットして(先にファイルをコピーしてください)、もう一度お試しください。このまま作成することもできます。"
+
+msgid "Build anyway"
+msgstr "このまま作成"
 
 msgid "Making {1}"
 msgstr "{1}を作成中"

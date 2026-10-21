@@ -17,22 +17,20 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-GameCube sound, a faster Home, and fixes from your reports:
+GameCube colors, saves, and sound:
 
-* Kirby Air Ride plays clean instead of static, and Melee's music is back (Dolphin only; likely still wrong on a Wii)
-* Home reads the SD card and USB drive in the background: SD games show first, USB games join them, Settings opens at once
-* REX starts again with saves on the SD card turned on (its save stays on the Wii for now)
-* A mod in a "Title [ID]" folder shows on Home under the folder's name
-* When a GameCube game doesn't show up, session.log says why; .ciso on USB gets the popup too
-* Cheats download over https and never change a cheat you turned on; updates come only from RiftWii's own release files
-* POWER/HOME wait for a WAD install, the oldest GameCube card backup survives a restore, a failed cover keeps the old one
+* Mario Party 4 and Sonic Gems get their true colors in Wii mode (checked in Dolphin)
+* A memory card copied from elsewhere no longer reads as damaged (checked in Dolphin)
+* Melee, Mario Party 4 and 5, Sonic Mega Collection, Star Fox Assault, Beyond Good and Evil and Paper Mario TTYD should play their sound right on a Wii (not tested on one yet)
+* A game with an unusual disc ID finds its old card again
+* Logging for the four-Remote freeze (#138): session.log tracks the Remote stack and memory, no behavior change
+* A pack changing one file over 128 times is refused with the file named
 
 To test, please:
 
-1. Kirby Air Ride and Melee on a Wii: clean sound? Melee's music?
-2. Home with games on both SD and USB: do SD games show first?
-3. REX with SD saves, and mods in "Title [ID]" folders
+1. Saw the freeze with four Remotes? Connect four again; if it freezes, turn off, start RiftWii and send a problem report
+2. Mario Party 4 / Sonic Gems on a Wii: colors and sound?
+3. Melee and the other listed games on a Wii: sound?
+4. A memory card copied from elsewhere: does it load?
 
 Sending logs (you don't need to take out your SD card anymore): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
-
-![A mod kept in a folder named with its own ID shows on Home under the folder name](docs/screenshots/2610-541-mod-folder.png)

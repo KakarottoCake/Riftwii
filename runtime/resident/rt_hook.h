@@ -69,7 +69,7 @@ extern "C" {
 #endif
 
 #define RT_BLOB_MAGIC 0x5257484Bu    /* 'RWHK' */
-#define RT_BLOB_VERSION 5u
+#define RT_BLOB_VERSION 6u
 #define RT_CONTEXT_MAGIC 0x52574358u /* 'RWCX' */
 
 /* The resident table always has these entries, even when a game's DOL did
@@ -138,9 +138,13 @@ struct rt_blob_header {
      * enters at +4, Pulsar's IOS_Open "OpenFix", arrives too): the
      * function's frame is then undone, and the replay makes it again. */
     uint32_t open_undo_offset[2];
+    /* The game's own Reset: OSRestart's hook, and its 32-byte replay slot
+     * (four displaced words, then the continuation), loader-filled. */
+    uint32_t os_restart_offset;
+    uint32_t os_restart_replay_offset;
 };
 
-typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 200u) ? 1 : -1];
+typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 208u) ? 1 : -1];
 
 /* /dev/sdio/slot0 SENDCMD request (wiibrew, libogc wiisd.c). 36 bytes. */
 struct rt_sdio_request {
@@ -643,6 +647,39 @@ uint32_t rt_zstd_init(uint32_t workspace, uint32_t bytes);
 int32_t rt_zstd_decode(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length);
 
 /* At most 2048 bytes, the slot rt_entry.S reserves. */
+/* The game's own Reset (the HOME Menu's, the console button's): instead of
+ * letting the SDK reload the game, which would drop every change RiftWii
+ * made, the runtime writes a launch request to a sector of the card and
+ * starts the RiftWii channel, which starts RiftWii, which reads the request
+ * and starts the same game again (docs/HEADLESS.md, riftwii/osrestart.hpp).
+ * The loader makes sd:/riftwii/restart.txt (a sector of "--idle--" and the
+ * request after it, which RiftWii's start skips) and builds the sector the
+ * Reset leaves there: the same text with "--launch" for its first line. */
+#define RT_RESTART_NONE 0xFFFFFFFFu
+struct rt_restart_block {
+    uint8_t armed[RT_SECTOR_BYTES];  /* the request as the Reset leaves it */
+    uint8_t idle[RT_SECTOR_BYTES];   /* what the sector held; back there when the launch is refused */
+    uint8_t title[0x20];             /* the channel's title ID, big-endian, at 0 */
+    uint8_t view[0xE0];              /* its ticket view (0xD8 bytes) */
+    struct rt_sdio_request request __attribute__((aligned(32)));
+    uint32_t pad_request[7];
+    uint32_t response[8] __attribute__((aligned(32)));
+    struct rt_ioctlv vec[3] __attribute__((aligned(32)));
+    uint32_t pad_vec[2];
+} __attribute__((aligned(32)));
+
+struct rt_restart {
+    uint32_t block;        /* loader-filled: a struct rt_restart_block; 0: the game's Reset is left alone */
+    uint32_t lba;          /* the request's sector on the card */
+    uint32_t es_fd;        /* /dev/es, opened by the loader (RT_RESTART_NONE: none) */
+    uint32_t ioctlv_sync;  /* the game's IOS_Ioctlv, as the runtime may call it */
+    uint32_t keep;         /* test switch (debug_reset_keep): a launch IOS refused leaves the request armed */
+    uint32_t asked;        /* calls of OSRestart seen */
+    uint32_t written;      /* requests written to the card */
+    uint32_t refused;      /* requests undone: the write or the launch was refused */
+    uint32_t last_result;  /* the last IOS result that was not a success */
+};
+
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
     uint32_t flags;               /* RT_FLAG_* */
@@ -694,6 +731,8 @@ struct rt_context {
      * whole cache lines of their own). */
     uint32_t bca_answers;
     uint8_t bca_sink[RT_BCA_BYTES + 32u];
+    /* The game's own Reset, taken by the runtime (loader-filled). */
+    struct rt_restart restart;
 };
 
 typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
@@ -749,6 +788,11 @@ int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc
 void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pending* record,
                        uintptr_t* callback, uintptr_t* user_data);
 
+/* The game called OSRestart (rt_entry.S's rt_reset_os_restart calls this):
+ * the request is written and the RiftWii channel started. Returns only
+ * when that was not possible, and the game's own restart then goes on. */
+void rt_reset_on_os_restart(struct rt_context* ctx);
+
 /* Exposed for the host tests. */
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);
 uint32_t rt_checksum(const uint8_t* bytes, uint32_t length); /* h = h * 31 + byte */
@@ -791,6 +835,9 @@ extern int32_t (*rt_host_fs_close_async)(int32_t fd, uint32_t callback, void* ta
 extern int32_t (*rt_host_fs_read_async)(int32_t fd, uint32_t buffer, uint32_t length, uint32_t callback, void* tag);
 extern int32_t (*rt_host_fs_ioctl_async)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
                                           uint32_t out_len, uint32_t callback, void* tag);
+/* The game's own Reset (rt_reset_on_os_restart): the console finds its block
+ * at rt_restart.block, a 32-bit address; a host test points here instead. */
+extern struct rt_restart_block* rt_host_restart_block;
 extern int rt_host_fs_in_thread; /* 1: hooks run as on a thread (interrupts on); 0: as from an IPC callback */
 extern void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data);
 #endif

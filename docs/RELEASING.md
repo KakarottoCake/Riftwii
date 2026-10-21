@@ -269,6 +269,15 @@ skips it, and posts the message. To post nothing, do nothing: the release
 stands on its own. The message text is also in the artifact
 (`texts/discord.md`) to paste by hand.
 
+**When the Discord post went out wrong** (for example `@unknown-role`
+because `DISCORD_TESTER_ROLE_ID` held a wrong ID), re-running the publish
+job doesn't help: the role was filled into the text when the release was
+built, and a new build stops at the existing tag. Fix the cause, delete the
+wrong post in Discord, then run Actions > Release > Run workflow on main
+with mode **discord-repost** and the release's version (`2610-541`). It
+fills in that tag's `release/discord.md` again with the role as it is set
+now and posts it, with its pictures. It builds and publishes nothing.
+
 **A wrong release** can be fixed on GitHub: edit its notes, or delete the
 release *and* its tag and publish again from a new commit. Players who
 already updated keep that build, so prefer a new release with the fix.
@@ -276,8 +285,9 @@ already updated keep that build, so prefer a new release with the fix.
 ## How the workflow works
 
 `.github/workflows/release.yml`, started only by hand
-(`workflow_dispatch`), with two inputs: `mode` (`dry-run` or `publish`)
-and `discord` (true or false). Runs never overlap (`concurrency: release`).
+(`workflow_dispatch`), with three inputs: `mode` (`dry-run`, `publish` or
+`discord-repost`), `discord` (true or false) and `version` (only for
+`discord-repost`). Runs never overlap (`concurrency: release`).
 The workflow's token is read-only except in the publish job.
 
 **Job `check`** (Ubuntu): refuses a publish not on main; asks the GitHub
@@ -323,6 +333,12 @@ tag is this commit, goes on, otherwise refuses an existing one; runs
 `gh release create vYYMM-N --target <commit> --title "RiftWii YYMM-N"
 --notes-file texts/notes.md --latest` with the three files; then, if
 `discord` is ticked, `tools/release_notes.py post`.
+
+**Job `repost`** (Ubuntu, only in `discord-repost` mode, environment
+`release`, read-only token; `check`, `build` and `publish` are skipped):
+refuses a version that isn't a published release, checks out its tag,
+downloads its `riftwii.dol`, runs `release_notes.py render` with the
+tester role as it is set now (`--require-role`) and `post`.
 
 **The Discord post** (`release_notes.py post`): reads the webhook from
 the `DISCORD_WEBHOOK_URL` environment variable (the secret) and checks it

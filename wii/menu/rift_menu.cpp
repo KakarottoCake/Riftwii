@@ -186,6 +186,10 @@ static std::atomic<bool> hidePointers{false};
 #endif
 static bool dimAllowed = false;
 static u64 lastActive = 0;
+// An update is running (RunUpdate): its card writes can last longer than the
+// dim time without a progress call, so the screen stays lit for all of it.
+// Single core, one writer: volatile is enough.
+static volatile bool updateRunning = false;
 static int dimAlpha = 0;
 static bool swallowInput = false;
 static int pointerX[4], pointerY[4];
@@ -281,6 +285,27 @@ static bool AnyHeld()
 	return false;
 }
 
+// A Wii Remote connecting or going away: which channels have one, with what
+// is left of libogc's kernel heap. A tester's freeze with a fourth Remote
+// can then be placed from the log (the menu watchdog names the stuck step).
+static void LogRemotesChanged()
+{
+	static int lastCount = -1;
+	int count = 0;
+	char channels[5] = "----";
+	for (int i = 0; i < 4; ++i) {
+		u32 type = 0;
+		if (WPAD_Probe(i, &type) != WPAD_ERR_NONE) continue;
+		++count;
+		channels[i] = static_cast<char>('1' + i);
+	}
+	const int state = count * 16 + (channels[0] != '-') + 2 * (channels[1] != '-') + 4 * (channels[2] != '-') + 8 * (channels[3] != '-');
+	if (state == lastCount) return;
+	logf("Wii Remotes connected: %d (channels %s); kernel heap %u KiB free\n", count, channels,
+	     riftwii::wii::mem::KernelHeapFree() / 1024);
+	lastCount = state;
+}
+
 // The menu's own loops tick here (HaltGui and ResumeGui, every frame).
 static volatile u64 g_menuTick = 0;
 
@@ -362,6 +387,7 @@ UpdateGUI(void *arg)
 		{
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
+			LogRemotesChanged();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
@@ -377,7 +403,7 @@ UpdateGUI(void *arg)
 				dimLogged = false;
 				lastActive = now;
 			}
-			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			const bool idle = dimAllowed && !updateRunning && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
 			if (idle && !dimLogged) {
 				LogDimmed(now);
 				dimLogged = true;
@@ -1316,6 +1342,24 @@ static riftwii::CoverDownloads g_boxRun("Shelf", "full cover");
 static std::set<std::string> g_covers3dChecked;
 static bool g_covers3dOff = false;
 static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
+// Settings leaves the retry for Home, where the picture queues are built.
+static bool g_retryMissingCovers = false;
+
+// A rescan or an explicit retry gives every missing picture another chance.
+static void ResetCoverDownloads()
+{
+	g_coversOff = false;
+	g_coversChecked.clear();
+	g_coverRun.reset();
+
+	g_boxesOff = false;
+	g_boxesChecked.clear();
+	g_boxRun.reset();
+
+	g_covers3dOff = false;
+	g_covers3dChecked.clear();
+	g_cover3dRun.reset();
+}
 
 // Counts one picture's download in `run`; true when that kind's downloads
 // stop with it.
@@ -2290,10 +2334,29 @@ public:
 	}
 	~PopupBox()
 	{
+		Close();
+	}
+	// Takes the box off the screen; the destructor does it otherwise.
+	// Always with the GUI thread halted, so it is never in the middle of
+	// drawing or updating the box when it leaves mainWindow, and left as
+	// it was found (running or halted). Things shown in the box but made
+	// after it (a progress bar, a ProgressPanel) end before it does: they
+	// close the box first, so the GUI thread never reaches a part that is
+	// gone.
+	void Close()
+	{
+		if (closed) return;
+		closed = true;
+		const bool guiWasRunning = !guiHalt;
+		if (guiWasRunning) HaltGui();
 		transition::Begin(transition::Kind::PopClose);
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
 		g_popupClosedAt = gettime();
+		// ResumeGui also calls CoverLoaderRelease, a side effect for a close.
+		// Harmless here: nothing holds the cover loader while a popup is up
+		// with the GUI running, so the release finds nothing to let go.
+		if (guiWasRunning) ResumeGui();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
 	// Something more in the box, over its whole width (it must outlive the box).
@@ -2395,6 +2458,7 @@ private:
 	SkinButton cancelBtn;
 	bool hasOk, hasCancel;
 	bool chained;  // before w, which it sets up
+	bool closed = false;
 	ShiftWindow w;
 };
 
@@ -2547,7 +2611,7 @@ private:
 class ProgressPanel {
 public:
 	ProgressPanel(PopupBox& box, const std::string& coverId)
-		: left(56 - box.Extra()), right(584 + box.Extra()),
+		: owner(box), left(56 - box.Extra()), right(584 + box.Extra()),
 		  cover(coverId, left, PopupBox::kBodyY, kCoverW, kCoverH), percentTxt("0%", 36, skin::kInk),
 		  bar(left + kCoverW + 24, PopupBox::kBodyY + 46, right - (left + kCoverW + 24)), timeTxt("", 15, skin::kInkSoft),
 		  stageTxt("", 15, skin::kInkSoft), start(gettime())
@@ -2583,8 +2647,12 @@ public:
 		timeTxt.SetText(time.c_str());
 	}
 	void SetStage(const std::string& stage) { stageTxt.SetText(stage.c_str()); }
+	// The panel's parts are in the box's window and end before the box
+	// (the panel is made after it): the box leaves the screen first.
+	~ProgressPanel() { owner.Close(); }
 private:
 	static constexpr int kCoverW = 80, kCoverH = 112;
+	PopupBox& owner;
 	int left, right;
 	SmallCover cover;
 	GuiText percentTxt;
@@ -2894,6 +2962,80 @@ static void OfferBurnedDisc(std::string& error)
 	error = tr("RiftWii could not restart. Start it again from the Homebrew Channel.");
 }
 
+// Diagnostics for a tester's crash in the middle of an update (2610-489):
+// the GUI thread found Home's own window, on the menu thread's stack, with
+// its first word (the vtable pointer) zeroed. Home keeps that word here
+// while it is up; the update checks it while it downloads and after, and
+// logs once if it changed, so the next report says when it happened.
+// Log-only: nothing is repaired.
+class HomeWindowWatch {
+public:
+	explicit HomeWindowWatch(const GuiWindow& window)
+	{
+		watched = &window;
+		std::memcpy(&word, &window, sizeof(word));
+		reported = false;
+	}
+	~HomeWindowWatch() { watched = nullptr; }
+	HomeWindowWatch(const HomeWindowWatch&) = delete;
+	HomeWindowWatch& operator=(const HomeWindowWatch&) = delete;
+	static void Check(const char* when)
+	{
+		if (!watched || reported) return;
+		u32 now = 0;
+		std::memcpy(&now, watched, sizeof(now));
+		if (now == word) return;
+		reported = true;
+		logf("Memory: Home's window at %p was overwritten %s (its first word is %08x, was %08x); "
+		     "something wrote over the menu's stack\n",
+		     static_cast<const void*>(watched), when, static_cast<unsigned>(now), static_cast<unsigned>(word));
+	}
+private:
+	// One static slot: this assumes Home never nests (MenuSource), since an
+	// inner Home would clear the outer one's watch.
+	static const GuiWindow* watched;
+	static u32 word;
+	static bool reported;
+};
+const GuiWindow* HomeWindowWatch::watched = nullptr;
+u32 HomeWindowWatch::word = 0;
+bool HomeWindowWatch::reported = false;
+
+// Megabytes with one decimal ("3.5"), as the update's text shows them.
+static std::string MegabytesText(std::uint64_t bytes)
+{
+	const std::uint64_t tenths = (bytes * 10 + (1 << 19)) >> 20;
+	return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
+}
+
+// The update popup's text: the step in progress, so no wait looks frozen.
+static std::string UpdateStepBody(const std::string& latest, const riftwii::wii::UpdateProgress& p)
+{
+	using riftwii::wii::UpdateStep;
+	std::string line;
+	switch (p.step) {
+	case UpdateStep::DownloadingDol:
+		line = p.total != 0
+			? tr("Downloading RiftWii ({1} of {2} MB)", {MegabytesText(p.received), MegabytesText(p.total)})
+			: tr("Downloading RiftWii...");
+		break;
+	case UpdateStep::DownloadingPlugins:
+		line = p.total != 0
+			? tr("Downloading plugins ({1} of {2} MB)", {MegabytesText(p.received), MegabytesText(p.total)})
+			: tr("Downloading plugins...");
+		break;
+	case UpdateStep::CheckingDol:
+	case UpdateStep::CheckingPlugins:
+		line = tr("Checking the download...");
+		break;
+	case UpdateStep::WritingPlugins:
+	case UpdateStep::WritingDol:
+		line = tr("Writing to the SD card...");
+		break;
+	}
+	return tr("RiftWii {1} is out. Installing it now; this takes a few minutes.", {latest}) + "\n" + line;
+}
+
 // Downloads and installs a newer release (riftwii::wii::InstallUpdate),
 // then offers to leave so the Homebrew Channel starts it.
 static void RunUpdate(const std::string& latest)
@@ -2901,25 +3043,42 @@ static void RunUpdate(const std::string& latest)
 	std::string where, error;
 	bool ok;
 	{
-		PopupBox box(tr("Updating RiftWii"),
-			tr("RiftWii {1} is out. Downloading and installing it now; this takes a minute...", {latest}));
+		// The bar before the box: it is drawn in the box's window, so it
+		// must last until the box is off the screen.
 		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Updating RiftWii"), UpdateStepBody(latest, riftwii::wii::UpdateProgress{}));
 		box.Add(&bar, 528);
+		updateRunning = true;
 		ResumeGui();
 		int shown = -1;
-		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](double done) {
-			// Only whole percents, so the GUI is not halted for every chunk.
-			const int percent = static_cast<int>(done * 100);
-			if (percent == shown) return;
+		riftwii::wii::UpdateStep shownStep = riftwii::wii::UpdateStep::DownloadingDol;
+		HomeWindowWatch::Check("before the update's download");
+		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](const riftwii::wii::UpdateProgress& p) {
+			// The screen stays lit through updateRunning, not here: this
+			// runs on the menu thread while the GUI thread reads
+			// lastActive, and a 64-bit write could be read torn.
+			// Only whole percents (and each new step), so the GUI is not
+			// halted for every chunk.
+			const int percent = static_cast<int>(p.share * 100);
+			if (percent == shown && p.step == shownStep) return;
 			shown = percent;
+			shownStep = p.step;
+			HomeWindowWatch::Check("during the update's download");
 			HaltGui();
-			bar.Set(done);
+			bar.Set(p.share);
+			box.SetBody(UpdateStepBody(latest, p));
 			ResumeGui();
 		});
+		HomeWindowWatch::Check("by the end of the update's download and install");
+		// Said before the popup closes, so a problem report shows whether
+		// anything went wrong in the download or after it.
+		if (!ok) logf("Update: %s\n", error.c_str());
 		HaltGui();
+		updateRunning = false;
+		lastActive = gettime();  // the dim time starts over after the update
+		box.Close();
 	}
 	if (!ok) {
-		logf("Update: %s\n", error.c_str());
 		ShowPopup(tr("Update failed"),
 			tr("RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}",
 				{latest, FlatCapped(error, 140), riftwii::wii::kReleasesPage}),
@@ -2970,9 +3129,10 @@ static bool InstallWads()
 		std::string code, error;
 		bool ok;
 		{
+			// The bar before the box, so it lasts until the box is off the screen.
+			ProgressBar bar(56, 280, 528);
 			PopupBox box(tr("Installing WAD files"),
 				tr("{1} of {2}: {3}", {std::to_string(i + 1), std::to_string(files.size()), FlatCapped(name, 40)}));
-			ProgressBar bar(56, 280, 528);
 			box.Add(&bar, 528);
 			// The power button and HOME wait for the install, as for an
 			// update: a card unmounted in the middle left a half-installed
@@ -3913,6 +4073,7 @@ static int MenuSource(FrontendState& state)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	const HomeWindowWatch homeWatch(w);
 	w.Append(&grid);
 	w.Append(&emptyNote);
 	w.Append(&bar);
@@ -4096,6 +4257,20 @@ static int MenuSource(FrontendState& state)
 				coverQueue.push_back(item.id);
 		}
 	};
+	if (g_retryMissingCovers) {
+		// Asked for by name, so even the games GameTDB had no picture for
+		// in the last week are asked again (it may have one by now).
+		for (const GridItem& item : items) {
+			riftwii::wii::ForgetCoverMiss(item.id);
+			riftwii::wii::ForgetBoxMiss(item.id);
+			riftwii::wii::ForgetCover3dMiss(item.id);
+		}
+		ResetCoverDownloads();
+		g_retryMissingCovers = false;
+		logf("Covers: downloading the missing covers, boxes and 3D covers again for %u game(s), "
+		     "including those GameTDB had none for (Settings > Online > Download missing covers)\n",
+		     static_cast<unsigned>(items.size()));
+	}
 	queueCovers();
 
 	SetHomeMovable(grid, entries);
@@ -4117,7 +4292,7 @@ static int MenuSource(FrontendState& state)
 			if (CountCoverFetch(got, arrived, coverError)) {
 				g_coversOff = true;
 				coverQueue.clear();
-				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(coverError, 60)});
+				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
@@ -4292,15 +4467,7 @@ static int MenuSource(FrontendState& state)
 				g_openWhenScanned.clear();
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
-				g_coversOff = false;
-				g_coversChecked.clear();
-				g_coverRun.reset();
-				g_boxesOff = false;
-				g_boxesChecked.clear();
-				g_boxRun.reset();
-				g_covers3dOff = false;
-				g_covers3dChecked.clear();
-				g_cover3dRun.reset();
+				ResetCoverDownloads();
 				queueCovers();
 			}
 		}
@@ -5295,6 +5462,17 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 	if (!ok) {
 		ShowPopup(tr("No SD image made"), error, tr("OK"));
 		return false;
+	}
+	// Before anything is written: a card whose free space is in too many
+	// runs makes an image the game cannot follow (it would not start).
+	if (plan.too_fragmented) {
+		logf("Image: warning shown, %s would lie in more than %llu pieces\n", plan.image.c_str(),
+			static_cast<unsigned long long>(plan.max_pieces));
+		const std::string fragmented = tr("The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.",
+			{plan.image, std::to_string(plan.max_pieces)});
+		// Cancel first and safe: a stray A must not start a build the game
+		// could not follow (and that may delete the old image first).
+		if (ShowPopupSafeFirst(tr("The SD card is too fragmented"), fragmented, tr("Cancel"), tr("Build anyway")) != 1) return false;
 	}
 	std::string what;
 	for (std::size_t i = 0; i < plan.tops.size(); ++i)
@@ -9453,7 +9631,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
-		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -9603,6 +9781,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
+		FlowRow covers;
+		covers.kind = FlowRow::Kind::Action;
+		covers.label = tr("Download missing covers");
+		covers.value = tr("Download");
+		covers.dim = !settings.online;
+		rows.push_back(covers);
+		actions.push_back(kMissingCovers);
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -9689,7 +9874,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kServer: case kUpdate:
+				case kOnline: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -9801,6 +9986,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
+			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
@@ -9821,7 +10007,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
-			case kRescan: return tr("Reads the SD card and the USB drive again.");
+			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
@@ -10152,6 +10338,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					break;
 				}
+				case kMissingCovers:
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						break;
+					}
+					g_retryMissingCovers = true;
+					note(tr("Missing covers will be downloaded when you go back to Home."));
+					break;
 				case kGcRumble:
 					settings.gc_rumble = settings.gc_rumble == "off" ? "on" : "off";
 					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."));

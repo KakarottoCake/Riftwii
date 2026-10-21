@@ -70,6 +70,8 @@ static Bytes MakeBlob() {
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 4, 0x604);  // savegame completion entry
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 8, 0x608);  // IOS_Open's undo words
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 12, 0x610);
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16, 0x620);  // OSRestart's hook
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 20, 0x640);  // its replay slot, 16-byte aligned
     Put32(b, 0x800, RT_CONTEXT_MAGIC);
     return b;
 }
@@ -89,6 +91,8 @@ static void TestBlob() {
     EXPECT_EQ(rb.complete_fs_offset, 0x604u);
     EXPECT_EQ(rb.open_undo_offsets[0], 0x608u);
     EXPECT_EQ(rb.open_undo_offsets[1], 0x610u);
+    EXPECT_EQ(rb.os_restart_offset, 0x620u);
+    EXPECT_EQ(rb.os_restart_replay_offset, 0x640u);
     EXPECT_EQ(RT_IPC_ASYNC(1), 0u);
     EXPECT_EQ(RT_IPC_ASYNC(7), 6u);
     EXPECT_EQ(RT_IPC_SYNC(1), 7u);
@@ -121,6 +125,15 @@ static void TestBlob() {
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 8, 0x10);  // an undo word inside the header
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16, 0x1000);  // OSRestart's hook past the end
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 16, 0x622);  // a hook not on a word
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 20, 0x648);  // the replay slot off its 16 bytes
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x800, 0);  // context magic
@@ -3767,7 +3780,192 @@ void TestRetailBca() {
     EXPECT_EQ(ctx.bca_answers, 1u);
 }
 
+// ---- the game's own Reset (rt_reset_on_os_restart) -------------------------
+
+namespace {
+
+struct RestartCall {
+    int32_t fd;
+    std::uint32_t ioctl, in_count, out_count;
+    bool armed_sector;   // the vector's data was the block's armed sector
+    bool idle_sector;
+    std::uint32_t arg, blocks, cmd;
+    std::uint32_t vec_len[3];
+};
+std::vector<RestartCall> g_restart_calls;
+rt_restart_block* g_restart_block = nullptr;
+int32_t g_restart_write_result = 0;
+int32_t g_restart_launch_result = -1;  // IOS refuses; success never returns
+
+int32_t RestartIoctlvSync(int32_t fd, std::uint32_t request, std::uint32_t in_count, std::uint32_t out_count,
+                          rt_ioctlv* vec) {
+    RestartCall c{};
+    c.fd = fd;
+    c.ioctl = request;
+    c.in_count = in_count;
+    c.out_count = out_count;
+    for (int i = 0; i < 3; ++i) c.vec_len[i] = vec[i].len;
+    // Truncated host pointers compare as truncated: the same on both sides.
+    const std::uint32_t armed = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_restart_block->armed));
+    const std::uint32_t idle = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_restart_block->idle));
+    c.armed_sector = vec[1].data == armed || vec[2].data == armed;
+    c.idle_sector = vec[1].data == idle || vec[2].data == idle;
+    c.arg = g_restart_block->request.arg;
+    c.blocks = g_restart_block->request.blk_cnt;
+    c.cmd = g_restart_block->request.cmd;
+    g_restart_calls.push_back(c);
+    if (request == 8u) return g_restart_launch_result;
+    return g_restart_write_result;
+}
+
+// A context ready to take the Reset: the card at sector `lba`, the channel
+// launched through /dev/es (fd 9).
+void RestartContext(rt_context& ctx, rt_restart_block& block, std::uint32_t sdhc, std::uint32_t lba) {
+    std::memset(&ctx, 0, sizeof(ctx));
+    std::memset(&block, 0, sizeof(block));
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.sdio_fd = 5;
+    ctx.sdio_sdhc = sdhc;
+    ctx.restart.block = 0x90001000u;  // any non-zero: the host test points rt_host_restart_block at the block
+    ctx.restart.lba = lba;
+    ctx.restart.es_fd = 9;
+    ctx.restart.ioctlv_sync = 0x80100000u;
+    std::memcpy(block.armed, "--launch\ngame=SMNP03\n", 21);
+    std::memcpy(block.idle, "--idle--\ngame=SMNP03\n", 21);
+    block.title[7] = 0x44;
+    g_restart_block = &block;
+    rt_host_restart_block = &block;
+    rt_host_fs_ioctlv_sync = RestartIoctlvSync;
+    g_restart_calls.clear();
+    g_restart_write_result = 0;
+    g_restart_launch_result = -1;
+}
+
+void RestartDone() {
+    rt_host_restart_block = nullptr;
+    rt_host_fs_ioctlv_sync = nullptr;
+    g_restart_block = nullptr;
+}
+
+}  // namespace
+
+static void TestRestart() {
+    static rt_context ctx;
+    alignas(32) static rt_restart_block block;
+
+    // SDSC card: a CMD25 of one block at byte 512 * lba with the armed
+    // sector, then the title launch; IOS refuses the launch, so the idle
+    // sector goes back and the game's own restart goes on.
+    RestartContext(ctx, block, 0, 4000);
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 3u);
+    if (g_restart_calls.size() == 3) {
+        const RestartCall& write = g_restart_calls[0];
+        EXPECT_EQ(write.fd, 5);
+        EXPECT_EQ(write.ioctl, 7u);  // SENDCMD
+        EXPECT_EQ(write.in_count, 2u);
+        EXPECT_EQ(write.out_count, 1u);
+        EXPECT_EQ(write.cmd, 0x19u);  // CMD25
+        EXPECT_EQ(write.arg, 4000u * 512u);
+        EXPECT_EQ(write.blocks, 1u);
+        EXPECT_EQ(write.vec_len[1], 512u);
+        EXPECT_TRUE(write.armed_sector && !write.idle_sector);
+        const RestartCall& launch = g_restart_calls[1];
+        EXPECT_EQ(launch.fd, 9);
+        EXPECT_EQ(launch.ioctl, 8u);  // ES_LaunchTitle
+        EXPECT_EQ(launch.in_count, 2u);
+        EXPECT_EQ(launch.out_count, 0u);
+        EXPECT_EQ(launch.vec_len[0], 8u);     // the title ID
+        EXPECT_EQ(launch.vec_len[1], 0xD8u);  // its ticket view
+        const RestartCall& undo = g_restart_calls[2];
+        EXPECT_EQ(undo.ioctl, 7u);
+        EXPECT_EQ(undo.arg, 4000u * 512u);
+        EXPECT_TRUE(undo.idle_sector && !undo.armed_sector);
+    }
+    EXPECT_EQ(ctx.restart.asked, 1u);
+    EXPECT_EQ(ctx.restart.written, 1u);
+    EXPECT_EQ(ctx.restart.refused, 1u);
+    EXPECT_EQ(ctx.restart.last_result, 0xFFFFFFFFu);
+    // A launch IOS refused is not tried again on the next call.
+    g_restart_calls.clear();
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.asked, 2u);
+
+    // The test switch (debug_reset_keep): the refused launch leaves the
+    // request armed, with no write of the idle sector after it.
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.keep = 1;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 2u);
+    EXPECT_EQ(ctx.restart.refused, 1u);
+
+    // SDHC: the sector number itself. d2x's /dev/sdio/sdhc: sector and count
+    // as ioctlv inputs, the data as the third vector.
+    RestartContext(ctx, block, 1, 4000);
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_TRUE(!g_restart_calls.empty() && g_restart_calls[0].arg == 4000u);
+    RestartContext(ctx, block, RT_SD_D2X, 4000);
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_TRUE(g_restart_calls.size() == 3u);
+    if (g_restart_calls.size() == 3) {
+        EXPECT_EQ(g_restart_calls[0].ioctl, static_cast<std::uint32_t>(RT_SDHC_WRITE));
+        EXPECT_EQ(g_restart_calls[0].in_count, 3u);
+        EXPECT_EQ(g_restart_calls[0].out_count, 0u);
+        EXPECT_EQ(g_restart_calls[0].cmd, 4000u);  // d2x's request word 0 is the sector
+        EXPECT_EQ(g_restart_calls[0].vec_len[2], 512u);
+        EXPECT_TRUE(g_restart_calls[0].armed_sector);
+    }
+
+    // The write refused: no launch is made, the idle sector goes back (part
+    // of it may have landed), and the game's own restart goes on.
+    RestartContext(ctx, block, 0, 4000);
+    g_restart_write_result = -1;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 2u);
+    for (const RestartCall& c : g_restart_calls) EXPECT_EQ(c.ioctl, 7u);
+    EXPECT_TRUE(g_restart_calls.size() == 2u && g_restart_calls[1].idle_sector);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    EXPECT_EQ(ctx.restart.refused, 1u);
+
+    // Left alone: no block (the loader found no channel, card or OSRestart
+    // to go with it), no sector, no /dev/es, no synchronous IOS_Ioctlv, or a
+    // caller that cannot wait for IOS (an interrupt handler).
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.block = 0;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartContext(ctx, block, 0, 0);
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.es_fd = RT_RESTART_NONE;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.ioctlv_sync = 0;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartContext(ctx, block, 0, 4000);
+    ctx.sdio_fd = RT_RESTART_NONE;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartContext(ctx, block, 0, 4000);
+    rt_host_fs_in_thread = 0;
+    rt_reset_on_os_restart(&ctx);
+    rt_host_fs_in_thread = 1;
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    RestartDone();
+}
+
 int main() {
+    TestRestart();
     TestBlob();
     TestJumpAndDisplace();
     TestResidentRelocs();

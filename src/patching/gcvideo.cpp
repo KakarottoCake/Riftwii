@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcvideo.hpp"
 
+#include <algorithm>
 #include <map>
 
 #include "gc_video.h"
@@ -172,6 +173,173 @@ std::uint32_t gc_vi_width(const std::string& name) {
     if (name == "704") return 704;
     if (name == "720") return GC_VI_LINE;
     return 0;
+}
+
+namespace {
+
+// GXInitTlutObj's stale word: `rlwinm rA,rA,0,0,10` keeps the old load
+// word's top 11 bits, so its low half is shift 0, first 0, last 10.
+constexpr std::uint32_t kTlutRlwinmLow = (0u << 11) | (0u << 6) | (10u << 1);
+// The newer SDK's insert instead: `rlwimi rA,rB,27,11,31` keeps the old
+// word's low 11 bits (bits 0-10), ORing the new address's low 21 in above
+// them. Sonic Gems Collection builds the word this way, then merges 0x64
+// into its top byte with `rlwimi rX,rY,24,0,7`, so the same stale bits
+// 8-10 survive there instead.
+constexpr std::uint32_t kTlutInsertLow = (27u << 11) | (11u << 6) | (31u << 1);
+constexpr std::uint32_t kTlutTag24Low = (24u << 11) | (0u << 6) | (7u << 1);
+// The TLUT load word's BP register tag, ORed into the word's top half.
+constexpr std::uint16_t kTlutRegisterTag = 0x6400;
+// How far past the `lwz` the `oris` and the `sth` may be: Mario Party 4
+// keeps them 6 and 8 words on.
+constexpr std::uint32_t kTlutReach = 12 * 4;
+// How far past the second shape's `lwz` its `rlwimi ...,24,0,7` and the
+// `sth` may be: Sonic Gems Collection keeps them 4 and 6 words on.
+constexpr std::uint32_t kTlutSecondReach = 8 * 4;
+
+bool is_tlut_load(std::uint32_t w, unsigned& kept) {
+    if (opcode(w) != 32 || reg_a(w) != 3 || immediate(w) != 4) return false;  // lwz rA,4(r3)
+    kept = reg_d(w);
+    return true;
+}
+
+bool is_tlut_keep(std::uint32_t w, unsigned kept) {
+    return opcode(w) == 21 && reg_d(w) == kept && reg_a(w) == kept &&
+           immediate(w) == kTlutRlwinmLow;  // rlwinm rA,rA,0,0,10
+}
+
+bool is_tlut_cleared(std::uint32_t w, unsigned kept) {
+    return opcode(w) == 14 && reg_d(w) == kept && reg_a(w) == 0 &&
+           immediate(w) == 0;  // li rA,0
+}
+
+bool is_tlut_li(std::uint32_t w, unsigned& kept) {
+    if (opcode(w) != 14 || reg_a(w) != 0 || immediate(w) != 0) return false;  // li rA,0
+    kept = reg_d(w);
+    return true;
+}
+
+bool is_tlut_insert(std::uint32_t w, unsigned kept) {
+    return opcode(w) == 20 && reg_a(w) == kept &&
+           immediate(w) == kTlutInsertLow;  // rlwimi rA,rB,27,11,31
+}
+
+bool is_tlut_tag24(std::uint32_t w) {
+    return opcode(w) == 20 && immediate(w) == kTlutTag24Low;  // rlwimi rX,rY,24,0,7
+}
+
+bool is_tlut_tag(std::uint32_t w) {
+    return opcode(w) == 25 && reg_d(w) == reg_a(w) &&
+           immediate(w) == kTlutRegisterTag;  // oris rX,rX,0x6400
+}
+
+bool is_tlut_store(std::uint32_t w) {
+    return opcode(w) == 44 && reg_d(w) == 6 && reg_a(w) == 3 &&
+           immediate(w) == 8;  // sth r6,8(r3)
+}
+
+void dedupe(std::vector<std::uint32_t>& addresses) {
+    std::sort(addresses.begin(), addresses.end());
+    addresses.erase(std::unique(addresses.begin(), addresses.end()), addresses.end());
+}
+
+}  // namespace
+
+GcTlutSites find_gc_tlut_sites(const std::vector<CodeRange>& text) {
+    const Words code(text);
+    GcTlutSites sites;
+    code.each([&](std::uint32_t load_at, std::uint32_t load) {
+        unsigned kept = 32;
+        const bool is_load = is_tlut_load(load, kept);
+        unsigned kept_li = 32;
+        const bool is_li = !is_load && is_tlut_li(load, kept_li);
+        if (is_load) {
+            std::uint32_t stale_at = 0;
+            std::uint32_t clean_at = 0;
+            for (std::uint32_t at = load_at + 4; at <= load_at + 8; at += 4) {
+                if (!code.has(at)) continue;
+                const std::uint32_t word = code.at(at);
+                if (stale_at == 0 && is_tlut_keep(word, kept)) stale_at = at;
+                if (clean_at == 0 && is_tlut_cleared(word, kept)) clean_at = at;
+            }
+            if (stale_at != 0 || clean_at != 0) {
+                bool tagged = false;
+                bool stored = false;
+                for (std::uint32_t at = load_at + 4; at <= load_at + kTlutReach; at += 4) {
+                    if (!code.has(at)) continue;
+                    const std::uint32_t word = code.at(at);
+                    if (!tagged && is_tlut_tag(word)) tagged = true;
+                    if (!stored && is_tlut_store(word)) stored = true;
+                    if (tagged && stored) break;
+                }
+                if (!tagged || !stored) return;
+                if (stale_at != 0)
+                    sites.stale.push_back(stale_at);
+                else
+                    sites.clean.push_back(clean_at);
+                return;
+            }
+            // No first-shape keep or clear beside the load: it may still
+            // open the second shape below.
+        } else if (!is_li) {
+            return;
+        }
+        // The second shape: `lwz rA,4(r3)` (or an already patched `li
+        // rA,0` in its place) immediately followed by `rlwimi
+        // rA,rB,27,11,31`, with an `rlwimi rX,rY,24,0,7` and an `sth
+        // r6,8(r3)` within the next 8 words. The word to replace is the
+        // load itself, so the insert builds from zero.
+        const unsigned second_kept = is_load ? kept : kept_li;
+        if (!code.has(load_at + 4) || !is_tlut_insert(code.at(load_at + 4), second_kept)) return;
+        bool tagged24 = false;
+        bool stored = false;
+        for (std::uint32_t at = load_at + 8; at <= load_at + kTlutSecondReach; at += 4) {
+            if (!code.has(at)) continue;
+            const std::uint32_t word = code.at(at);
+            if (!tagged24 && is_tlut_tag24(word)) tagged24 = true;
+            if (!stored && is_tlut_store(word)) stored = true;
+            if (tagged24 && stored) break;
+        }
+        if (!tagged24 || !stored) return;
+        if (is_load)
+            sites.stale.push_back(load_at);
+        else
+            sites.clean.push_back(load_at);
+    });
+    dedupe(sites.stale);
+    dedupe(sites.clean);
+    // A site already counted as stale is not also clean when two loads
+    // share one word (back to back copies of the function).
+    for (std::uint32_t at : sites.stale)
+        sites.clean.erase(std::remove(sites.clean.begin(), sites.clean.end(), at), sites.clean.end());
+    return sites;
+}
+
+std::uint32_t gc_tlut_li_for(std::uint32_t stale_word) {
+    // The stale word holds its register in the D field either way: the
+    // first shape's `rlwinm rA,rA,...` (source, same as its target) and
+    // the second shape's `lwz rA,4(r3)` (target).
+    const unsigned kept = reg_d(stale_word);
+    return (14u << 26) | (kept << 21);  // addi rA,0,0
+}
+
+std::vector<std::uint32_t> patch_gc_tlut(const std::vector<CodeRange>& text) {
+    const GcTlutSites sites = find_gc_tlut_sites(text);
+    for (std::uint32_t at : sites.stale) {
+        for (const CodeRange& range : text) {
+            if (at < range.address || at + 4 > range.address + range.size) continue;
+            std::uint8_t* bytes = const_cast<std::uint8_t*>(range.bytes + (at - range.address));
+            const std::uint32_t old =
+                (std::uint32_t(bytes[0]) << 24) | (std::uint32_t(bytes[1]) << 16) |
+                (std::uint32_t(bytes[2]) << 8) | bytes[3];
+            const std::uint32_t patched = gc_tlut_li_for(old);
+            bytes[0] = static_cast<std::uint8_t>(patched >> 24);
+            bytes[1] = static_cast<std::uint8_t>(patched >> 16);
+            bytes[2] = static_cast<std::uint8_t>(patched >> 8);
+            bytes[3] = static_cast<std::uint8_t>(patched);
+            break;
+        }
+    }
+    return sites.stale;
 }
 
 }  // namespace riftwii

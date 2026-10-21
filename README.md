@@ -116,6 +116,8 @@ contains theirs names them in its file header, and
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
+- **Mario Party 4 community decompilation**: documentation of GameCube font
+  encoding behavior (read only; no code copied).
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
   **oggplayer** by Hermes: the menu's toolkit, text and music player.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.

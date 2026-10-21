@@ -218,6 +218,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         request.usb_file_bytes = image.usb_bytes;
     }
 
+    // A program switch's arguments, each ending in a NUL; kept here until
+    // the launch returns.
+    std::string exec_args;
+    if (image.exec) {
+        request.exec = 1;
+        request.exec_dol = image.exec_dol;
+        request.exec_restart = image.exec_restart;
+        for (const std::string& a : image.exec_args) exec_args.append(a).push_back('\0');
+        request.exec_args = exec_args.empty() ? nullptr : exec_args.data();
+        request.exec_args_bytes = static_cast<std::uint32_t>(exec_args.size());
+        request.exec_arg_count = static_cast<std::uint32_t>(image.exec_args.size());
+    }
+
     // Kept here until the launch returns: the request points into them.
     std::vector<rwp_gc_pack_entry> pack_entries;
     if (pack != nullptr) gc_plan_to_request(*pack, pack_entries, request);

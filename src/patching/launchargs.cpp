@@ -3,6 +3,7 @@
 #include "riftwii/launchargs.hpp"
 
 #include <cstdlib>
+#include <utility>
 
 #include "riftwii/gamelang.hpp"
 #include "riftwii/settingsfile.hpp"
@@ -32,7 +33,84 @@ bool parse_title(std::string s, std::uint64_t& out) {
     return out != 0;
 }
 
+// A pack choices file's name: letters, digits and . _ + - only, ending in
+// ".txt", not starting with a dot. It is joined to sd:/riftwii/choices.
+bool choices_name_ok(const std::string& name) {
+    if (name.size() < 5 || name.size() > 64 || name[0] == '.') return false;
+    if (name.compare(name.size() - 4, 4, ".txt") != 0) return false;
+    for (char c : name) {
+        const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
+                        c == '_' || c == '+' || c == '-';
+        if (!ok) return false;
+    }
+    return name.find("..") == std::string::npos;
+}
+
+// A 32-bit number in decimal, as the blob writes it.
+bool parse_decimal32(const std::string& s, std::uint32_t& out) {
+    if (s.empty() || s.size() > 10) return false;
+    std::uint64_t value = 0;
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
+        value = value * 10 + static_cast<std::uint64_t>(c - '0');
+    }
+    if (value > 0xFFFFFFFFull) return false;
+    out = static_cast<std::uint32_t>(value);
+    return true;
+}
+
 }  // namespace
+
+bool launch_path_stays_put(const std::string& value) {
+    std::size_t start = 0;
+    while (start <= value.size()) {
+        std::size_t end = value.find_first_of("/\\", start);
+        if (end == std::string::npos) end = value.size();
+        if (value.compare(start, end - start, "..") == 0) return false;
+        start = end + 1;
+    }
+    return true;
+}
+
+bool launch_lines_from_text(const std::string& text, std::vector<std::string>& args) {
+    args.clear();
+    std::size_t start = 0;
+    while (start < text.size()) {
+        std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(start, end - start);
+        start = end + 1;
+        // A sector's NULs after the text.
+        if (const std::size_t nul = line.find('\0'); nul != std::string::npos) line.resize(nul);
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+        if (line.empty()) continue;
+        if (line.size() > kMaxLaunchLineBytes || args.size() >= kMaxLaunchLines) {
+            args.clear();
+            return false;
+        }
+        args.push_back(line);
+    }
+    if (!is_headless_launch(args)) {
+        args.clear();
+        return false;
+    }
+    return true;
+}
+
+bool launch_request_sector(const std::vector<std::string>& args, bool armed, std::size_t sector_bytes,
+                           std::vector<std::uint8_t>& sector, std::string& why) {
+    std::string text;
+    for (std::size_t i = 0; i < args.size(); ++i) text += (i == 0 && !armed ? std::string("--idle--") : args[i]) + "\n";
+    if (text.size() >= sector_bytes) {
+        why = "the launch is " + std::to_string(text.size()) + " bytes, and a sector holds " +
+              std::to_string(sector_bytes - 1);
+        return false;
+    }
+    sector.assign(sector_bytes, 0);
+    sector.insert(sector.begin(), text.begin(), text.end());
+    sector.resize(sector_bytes);
+    return true;
+}
 
 bool is_headless_launch(const std::vector<std::string>& args) {
     return !args.empty() && args[0] == "--launch";
@@ -53,6 +131,15 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         }
         const std::string key = arg.substr(0, eq);
         const std::string value = arg.substr(eq + 1);
+        if (value.size() > kMaxLaunchValueBytes) {
+            error = "the value of " + key + " is longer than " + std::to_string(kMaxLaunchValueBytes) + " bytes";
+            return false;
+        }
+        // Names that climb out of their folder are not a launch's to give.
+        if ((key == "path" || key == "xml" || key == "code_build" || key == "gct") && !launch_path_stays_put(value)) {
+            error = "'" + value + "' climbs out of its folder (\"..\")";
+            return false;
+        }
         VideoMode mode;
         VideoWidth width;
         Deflicker deflicker;
@@ -76,8 +163,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
                 out.all_packs = true;
             } else if (value != "none") {
                 // A path, or a file name in a riivolution folder.
-                ok = value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0 ||
-                     (!value.empty() && value.find_first_of(":/\\") == std::string::npos);
+                ok = out.xmls.size() < kMaxLaunchPacks &&
+                     (value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0 ||
+                      (!value.empty() && value.find_first_of(":/\\") == std::string::npos));
                 out.xmls.push_back(value);
             }
         } else if (key == "code_build") {
@@ -85,8 +173,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             // folder name at its top, or a path from the top without the
             // drive ("pm.raw/Project+/RSBE01.gct" inside an SD image).
             out.packs_given = true;
-            ok = value.compare(0, 4, "sd:/") == 0 ||
-                 (!value.empty() && value.find_first_of(":\\") == std::string::npos && value[0] != '/');
+            ok = out.code_builds.size() < kMaxLaunchCodeBuilds &&
+                 (value.compare(0, 4, "sd:/") == 0 ||
+                  (!value.empty() && value.find_first_of(":\\") == std::string::npos && value[0] != '/'));
             out.code_builds.push_back(value);
         } else if (key == "video_mode") {
             ok = parse_video_mode(value, mode);
@@ -118,6 +207,24 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "return_to") {
             out.return_to_menu = value == "menu";
             ok = out.return_to_menu || parse_title(value, out.return_to);
+        } else if (key == "gc_dol") {
+            out.gc_exec = true;
+            ok = parse_decimal32(value, out.gc_dol);
+        } else if (key == "gc_restart") {
+            out.gc_exec = true;
+            ok = parse_decimal32(value, out.gc_restart);
+        } else if (key == "gc_arg") {
+            // As many as the SDK's argument block holds (8 KB, half of it
+            // the list): a game's own are a handful of short words.
+            out.gc_exec = true;
+            ok = out.gc_args.size() < 32 && value.size() < 256;
+            out.gc_args.push_back(value);
+        } else if (key == "choices") {
+            ok = choices_name_ok(value);
+            out.choices = value;
+        } else if (key == "reset") {
+            ok = value == "1";
+            out.reset = ok;
         } else {
             error = "unknown argument '" + key + "'";
             return false;
@@ -136,6 +243,43 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         return false;
     }
     return true;
+}
+
+std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h) {
+    std::vector<std::string> args = {"--launch"};
+    if (!h.game.empty()) args.push_back("game=" + h.game);
+    if (!h.from.empty()) args.push_back("from=" + h.from);
+    if (!h.path.empty()) args.push_back("path=" + h.path);
+    if (!h.choices.empty()) args.push_back("choices=" + h.choices);
+    if (h.packs_given) {
+        if (h.all_packs) args.push_back("xml=all");
+        for (const std::string& xml : h.xmls) args.push_back("xml=" + xml);
+        // Code builds are a pack choice of their own: any named turns the
+        // other packs off, so a launch with none of either says so.
+        if (!h.all_packs && h.xmls.empty() && h.code_builds.empty()) args.push_back("xml=none");
+        for (const std::string& build : h.code_builds) args.push_back("code_build=" + build);
+    }
+    const GameSettings& g = h.settings;
+    const std::pair<const char*, const std::string*> settings[] = {
+        {"video_mode", &g.video_mode}, {"video_width", &g.video_width}, {"deflicker", &g.deflicker},
+        {"borders", &g.borders},       {"language", &g.language},       {"cios", &g.cios},
+        {"server", &g.server},
+    };
+    for (const auto& [key, value] : settings) {
+        if (*value != "global") args.push_back(std::string(key) + "=" + *value);
+    }
+    if (!h.wfc_domain.empty()) args.push_back("wfc_domain=" + h.wfc_domain);
+    if (!h.gct.empty()) args.push_back("gct=" + h.gct);
+    if (h.return_to_menu) {
+        args.push_back("return_to=menu");
+    } else if (h.return_to != 0) {
+        static const char kDigits[] = "0123456789abcdef";
+        std::string title;
+        for (int shift = 60; shift >= 0; shift -= 4) title += kDigits[(h.return_to >> shift) & 15];
+        args.push_back("return_to=" + title);
+    }
+    if (h.reset) args.push_back("reset=1");
+    return args;
 }
 
 namespace {

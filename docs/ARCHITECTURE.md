@@ -154,10 +154,13 @@ on the device holding the image, through the game's own IPC functions:
 the SD slot the loader selected (with CMD13 polls after writes), d2x's
 `/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
 image on the USB drive (opened before the game partition, so for a game
-on the USB drive only). The code and its state (the image's extents, a
-32 KB bounce buffer for USB) go to the bottom of the MEM2 arena, staged
-at its top and copied down at the jump; the game reaches them through
-veneers at `0x80002300`, the code handler's list room a code build
+on the USB drive only). The code and its state (a 32 KB bounce buffer for
+USB, then the image's extent table, 12 bytes a piece of the image file on
+its device, up to 16384 pieces: sized to the image, so three pieces cost 36
+bytes and an image scattered by a well-used card up to 192 KB, found by a
+binary search) go to the bottom of the MEM2 arena, staged at its top and
+copied down at the jump; the game reaches them through veneers at
+`0x80002300`, the code handler's list room a code build
 leaves free (below the MEM1 arena's top without it). Not with the
 resident runtime yet.
 
@@ -249,13 +252,20 @@ patch, and put in only after all of them, if its `blr` is still there.
 No hook or too many codes: the game starts without them, with a
 `boot.log` line.
 
+Japanese GameCube IDs select the Shift-JIS IPL font on NTSC through the
+recognized `OSGetFontEncode` decisions and their inlined copies
+(`src/patching/gcfont.cpp`), replacing only their VI DTV loads so a Western
+console's missing Japanese strap does not select ANSI; cached encodings,
+non-NTSC paths and other game regions keep their own behavior.
+
 **The blob** (`runtime/gc/`, position independent, no heap or libc):
 - `gc_rt.c`: disc reads from the image's SD sectors (and the packs'
   window), with polled IPC and the game's own `OSSetAlarm` for the
   callbacks, the SD card read from the alarm once `DVDLowRead` has
   returned, as a drive works while the game runs on; a GameCube drive's
-  timing unless Disc reads is Fast; Luigi's Mansion's loader steered to
-  the heap each load was queued from; disc
+  timing unless Disc reads is Fast; Luigi's Mansion's read buffers steered
+  to the heap each load was queued from, and its callbacks steered only
+  when they interrupt a temporary heap (see below); disc
   audio streaming mixed into the game's AI DMA; ARAM kept in MEM2 at
   `0x90000000` (a Wii's ARAM DMA moves nothing in Wii mode), with the
   game's ARAM addresses raised so its own sound program reads MEM2
@@ -285,10 +295,41 @@ No hook or too many codes: the game starts without them, with a
   ports by `gc_ports.h`'s rule before the Wii Remotes, which then skip
   the ports they filled.
 - `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
-  written back to its file's sectors as the game saves.
+  written back to its file's sectors as the game saves. The SDK's EXI
+  functions are found by `src/patching/gcexi.cpp`, through their shared
+  control blocks and call relationships. `EXIGetID` identifies the bus
+  selector when two routines set the same selected-state bit (Pokemon
+  Channel). The clock/SRAM on channel 0 device 1, slot B and the serial
+  port pass through to the game's original functions and the hardware;
+  only channel 0 device 0 is answered by the card image.
 - `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
+
+**Luigi's Mansion's loader.** The game has one current heap for all its
+threads. At the SD card's speed its loader thread can wake while another
+thread has made a small, full heap current for a moment (a 512 KB solid
+heap for a room's models), and its allocation then gets nothing. So each
+load's read buffer comes from the heap that was current when the load was
+queued. A load's callbacks are steered the same way only when they find
+such a temporary heap current; when it is one of the game's two main
+heaps or JKRHeap's system or root heap, they keep it, as the game would.
+That matters because a callback can make something that outlives its
+buffer: `/Game/game_usa.szp` is queued with the scene heap current, but
+the game switches to the persistent heap straight after, and that is
+where its callback should build the game's global archive. Built on the
+scene heap instead, the archive was freed at the next scene change while
+the game still used it, and Luigi's Mansion crashed to black after
+choosing progressive scan.
+
+`src/patching/gcload.cpp` finds the main-heap globals from the loader's group
+function and the system/root globals from JKRHeap's constructor comparisons
+and exchange setters, checked against the loader's current-heap global.
+The blob reads their values at each callback, including after a restart.
+Only the `gc_loads_use_queued_heap` game list enables this policy. If all
+four globals cannot be identified unambiguously, callback hooks are left
+out and the log says that only read buffers are protected. Neither game
+addresses nor archive paths are used to select behavior.
 
 **Clock speed** (`match_game_to_clocks` in `plugins/gamecube/gcnative.cpp`,
 `src/patching/gcclock.cpp`). A GameCube runs its CPU at 486 MHz and its
@@ -376,8 +417,12 @@ the console (PI's reset register) or reboot the disc through the
 apploader, the blob puts MEM1 back as the loader left it at the jump,
 from a copy kept in MEM2, and starts the game at its entry again
 (`gc_on_hot_reset`). The memory card is written back first; the Wii
-Remotes stay connected. The blob also watches the button itself (PI's
-bit 16) at each pad read: a press the game has not answered with its own
+Remotes stay connected. The VI goes back on as the first start found
+it, in the game's TV format and blanked: the SDK's hot reset switches it
+off, which on a GameCube the IPL undoes, and a VIInit that finds it off
+sets it up as NTSC (Doshin the Giant PAL then waited for a retrace that
+never came). The blob also watches the button itself (PI's bit 16) at
+each pad read: a press the game has not answered with its own
 OSResetSystem within two seconds is answered by calling it for the game.
 OSResetSystem asked for the start-up menu goes back to RiftWii instead.
 The restart is used only for games it is known to work in
@@ -403,7 +448,23 @@ picked back over the card, after a backup of the card as it is now, so a
 restore can be undone the same way: that copy's name ends in `-undo`, and
 the list marks it "(before you restored)". Each row's second line, how
 many saves and blocks the copy holds, comes from its directory alone
-(`gc_card_space`).
+(`gc_card_space`). Before mounting an existing card, `gc_card_flash_id`
+validates the header's stored checksum pair and formatted fields, then
+recovers its flash ID by subtracting the format-time sequence from its
+serial. The host stores that ID and its complemented byte-sum checksum
+in slot A's SRAM, as a GameCube's mount does; the card image and its
+serial stay byte exact, preserving saves bound to that identity. Invalid
+headers stay unchanged for the game to report as damaged. The host checks
+both SRAM fields and changes only those 13 bytes when needed. This runs
+while libogc's EXI and interrupts still work, before `shut_down_for_game`;
+the host waits for a deferred RTC write before returning success. A
+commit failure is logged and the launch goes on, so the game may report
+the card as damaged. The game's own SDK later reads the RTC
+over EXI, independently of libogc's cached SRAM. A host without the setter
+logs that limitation and continues. A newly formatted card copies SRAM's
+ID into its header, so it takes the same path and only a bad SRAM
+checksum gets repaired. A later newly formatted card reads SRAM's current
+ID, including this change, consistently.
 
 ## Memory
 
@@ -419,7 +480,7 @@ many saves and blocks the copy holds, comes from its directory alone
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
 | From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB plus 12 bytes for each piece of the image on its card), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB), then the Reset's request block (about 1.5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
@@ -473,6 +534,44 @@ the program starts exactly as it did from the Homebrew Channel. A
 handoff record next to the copy says why; the new start reloads IOS (so
 no handle of the old run survives) and shows the reason on Home.
 
+**A Wii game's own Reset.** The HOME Menu's Reset (and the console's
+Reset button) has the game restart itself: its OSRestart shuts the
+devices down and, for a disc game, reads the disc's apploader again,
+which loads main.dol and the file table over the running game, then jumps
+to the entry point. RiftWii is not there to load it, so every change of
+the launch would be gone: the runtime's hooks (a pack's files), the
+memory patches, the cheats' hook. Putting each of them back from inside
+the restart means standing in for pieces of the SDK (its IOS reload, the
+apploader), and a game on a USB drive or the card depends on d2x
+surviving the reload, which only a Wii can show. So the restart goes
+through RiftWii instead, by the paths that already exist, the same shape
+as the GameCube program switch (`gc_on_boot_dol`).
+
+At the launch the loader makes `sd:/riftwii/restart.txt`
+(`prepare_restart_request` in `wii/launch/boot.cpp`): one sector holding
+the headless launch (`docs/HEADLESS.md`, `headless_launch_arguments` in
+`src/patching/launchargs.cpp`) that starts this game again, built by the
+menu from what it launched with (`RestartArguments` in
+`wii/menu/gameextras.cpp`), with `--idle--` first. After the IOS reload it
+reads the RiftWii channel's ticket view, opens `/dev/es`, finds OSRestart
+(`find_os_restart`, `src/patching/osrestart.cpp`) and gives the runtime
+the sector's place on the card, a copy of the sector with `--launch` first
+and the title and view (`struct rt_restart_block` in `rt_hook.h`, at the
+bottom of the MEM2 arena with the runtime's data). The runtime hooks
+OSRestart (`rt_reset_os_restart` in `rt_entry.S`, with a replay slot for
+the displaced word as the IPC hooks have). When the game calls it
+(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime writes the sector
+(a CMD25 on `/dev/sdio/slot0`, or d2x's sector write, through the game's
+own synchronous IOS_Ioctlv, built as the savegame engine builds a write),
+waits 50 ms for the card, and launches the channel through ES. That does
+not return when IOS takes it; RiftWii's next start reads `restart.txt`
+once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
+again. When the write or the launch is refused the sector goes back to
+`--idle--` and the function runs from the replay slot, the game's own
+restart. Not hooked, with the reason in `boot.log`: no channel installed,
+a game that checks its own code, a runtime placed in MEM2, no card handle,
+a launch that does not fit a sector. `debug_off = reset` turns it off.
+
 Two things restart:
 - a launch that fails (A on the error screen, or two minutes untouched);
 - a crash. `wii/core/crash.cpp` replaces libogc's panic function: it notes
@@ -520,7 +619,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
-| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, and two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0) |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

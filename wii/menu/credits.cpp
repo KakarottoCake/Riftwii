@@ -58,6 +58,8 @@ const char* const kCredits[] = {
     "Nintendont by FIX94 and contributors: the USB HID driver and the GameCube sound program patches, used "
     "with its developers' permission.",
     "",
+    "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
+    "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",

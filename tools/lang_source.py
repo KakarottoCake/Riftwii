@@ -362,6 +362,13 @@ T = {
                                   "Scarica nomi e trucchi"),
     "Get the latest game names": ("Actualizar nombres de juegos", "最新のゲーム名を取得", "Atualizar nomes dos jogos",
                                   "Aggiorna i nomi dei giochi"),
+    "Download missing covers": ("Descargar portadas que faltan", "足りないカバーをダウンロード", "Baixar capas que faltam",
+                                "Scarica le copertine mancanti"),
+    "Missing covers will be downloaded when you go back to Home.": (
+        "Las portadas que faltan se descargarán cuando vuelvas a Inicio.",
+        "ホームに戻ると、足りないカバーをダウンロードします。",
+        "As capas que faltam serão baixadas quando você voltar ao Início.",
+        "Le copertine mancanti verranno scaricate quando torni alla Home."),
     "Update": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
     "Menu IOS": ("IOS del menú", "メニューのIOS", "IOS do menu", "IOS del menu"),
     "Menu IOS: IOS 58 (no d2x cIOS found)": ("IOS del menú: IOS 58 (no hay cIOS d2x)", "メニューのIOS: IOS 58 (d2x cIOSなし)",
@@ -571,16 +578,21 @@ T = {
         "GameTDBから最新のゲーム名をダウンロードします。",
         "Baixa os nomes de jogos mais recentes do GameTDB.",
         "Scarica i nomi dei giochi più recenti da GameTDB."),
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.": (
+        "Descarga de GameTDB las portadas, cajas y portadas 3D que faltan en Inicio. Si GameTDB no tiene imagen de un juego, seguirá sin ella.",
+        "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。",
+        "Baixa do GameTDB as capas, caixas e capas 3D que ainda faltam no Início. Um jogo sem imagem no GameTDB continua sem ela.",
+        "Scarica da GameTDB le copertine, le custodie e le copertine 3D che mancano nella Home. Un gioco senza immagini su GameTDB resta senza."),
     "Shows live what the controllers in the adapter are pressing.": (
         "Muestra en directo lo que pulsan los mandos del adaptador.",
         "接続タップのコントローラで押しているボタンをその場で表示します。",
         "Mostra ao vivo o que os controles do adaptador estão apertando.",
         "Mostra in tempo reale cosa premono i controller dell'adattatore."),
-    "Reads the SD card and the USB drive again.": (
-        "Vuelve a leer la tarjeta SD y la unidad USB.",
-        "SDカードとUSBドライブをもう一度読み込みます。",
-        "Lê o cartão SD e a unidade USB de novo.",
-        "Rilegge la scheda SD e l'unità USB."),
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.": (
+        "Vuelve a leer la tarjeta SD y la unidad USB, e intenta descargar de nuevo las portadas, cajas y portadas 3D que faltan.",
+        "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。",
+        "Lê o cartão SD e a unidade USB de novo e tenta baixar novamente as capas, caixas e capas 3D que faltam.",
+        "Rilegge la scheda SD e l'unità USB e riprova a scaricare le copertine, le custodie e le copertine 3D mancanti."),
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
         "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
         "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
@@ -706,11 +718,11 @@ T = {
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
         "Scaricamento copertine da GameTDB: ne mancano {1}"),
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.": (
-        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo.",
-        "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。",
-        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo.",
-        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."),
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.": (
+        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > En línea > Descargar portadas que faltan.",
+        "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Online > Baixar capas que faltam.",
+        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."),
     "Cover": ("Portada", "カバー", "Capa", "Copertina"),
     "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
     "Downloads this game's box art from GameTDB now.": (
@@ -865,11 +877,26 @@ T = {
         "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB durante una partita solo se anche il gioco è lì. Metti il gioco sull'unità USB, oppure metti {1} nella cartella riftwii della SD."),
     # Updates (the pop-ups at start, and the Settings row)
     "Updating RiftWii": ("Actualizando RiftWii", "RiftWiiを更新しています", "Atualizando a RiftWii", "Aggiornamento di RiftWii"),
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...": (
-        "Ya salió RiftWii {1}. Se está descargando e instalando; tarda un minuto...",
-        "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります...",
-        "Saiu a RiftWii {1}. Baixando e instalando agora; leva um minuto...",
-        "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."),
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.": (
+        "Ya salió RiftWii {1}. Se está instalando; tarda unos minutos.",
+        "RiftWii {1}が出ています。インストールしています。数分かかります。",
+        "Saiu a RiftWii {1}. Instalando agora; leva alguns minutos.",
+        "È uscita RiftWii {1}. La sto installando; ci vogliono alcuni minuti."),
+    # {1} megabytes so far, {2} megabytes in all.
+    "Downloading RiftWii ({1} of {2} MB)": (
+        "Descargando RiftWii ({1} de {2} MB)", "RiftWiiをダウンロード中 ({1} / {2} MB)",
+        "Baixando a RiftWii ({1} de {2} MB)", "Scaricamento di RiftWii ({1} di {2} MB)"),
+    "Downloading RiftWii...": (
+        "Descargando RiftWii...", "RiftWiiをダウンロード中...", "Baixando a RiftWii...", "Scaricamento di RiftWii..."),
+    "Downloading plugins ({1} of {2} MB)": (
+        "Descargando complementos ({1} de {2} MB)", "プラグインをダウンロード中 ({1} / {2} MB)",
+        "Baixando plugins ({1} de {2} MB)", "Scaricamento dei plugin ({1} di {2} MB)"),
+    "Downloading plugins...": (
+        "Descargando complementos...", "プラグインをダウンロード中...", "Baixando plugins...", "Scaricamento dei plugin..."),
+    "Checking the download...": (
+        "Comprobando la descarga...", "ダウンロードを確認中...", "Verificando o download...", "Controllo del download..."),
+    "Writing to the SD card...": (
+        "Escribiendo en la tarjeta SD...", "SDカードに書き込み中...", "Gravando no cartão SD...", "Scrittura sulla scheda SD..."),
     "Update failed": ("La actualización falló", "更新に失敗しました", "A atualização falhou", "Aggiornamento non riuscito"),
     # {1} the new version, {2} why, {3} where to get it.
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}": (
@@ -1393,6 +1420,9 @@ T = {
     "It replaces the {1} there now.": ("Reemplaza el {1} que hay ahora.", "今ある{1}を置き換えます。", "Substitui o {1} que está lá agora.", "Sostituisce il {1} che c'è ora."),
     "Make an SD image?": ("¿Crear una imagen SD?", "SDイメージを作りますか?", "Criar uma imagem SD?", "Creare un'immagine SD?"),
     "Make it": ("Crearla", "作成", "Criar", "Creala"),
+    "The SD card is too fragmented": ("La tarjeta SD está demasiado fragmentada", "SDカードの断片化がひどすぎます", "O cartão SD está fragmentado demais", "La scheda SD è troppo frammentata"),
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.": ("El espacio libre de la tarjeta SD está demasiado disperso. {1} se escribiría en más de {2} fragmentos, más de los que RiftWii puede seguir, así que el juego no arrancaría con ella. Libera espacio o formatea la tarjeta SD (copia antes sus archivos) y vuelve a intentarlo. O créala de todos modos.", "SDカードの空き領域が細かく散らばりすぎています。{1}は{2}個を超える断片に書き込まれ、RiftWiiが扱える数を超えるため、ゲームは起動しません。空き容量を作るかSDカードをフォーマットして(先にファイルをコピーしてください)、もう一度お試しください。このまま作成することもできます。", "O espaço livre do cartão SD está disperso demais. {1} seria gravada em mais de {2} pedaços, mais do que o RiftWii consegue seguir, então o jogo não iniciaria com ela. Libere espaço ou formate o cartão SD (copie os arquivos antes) e tente de novo. Ou crie assim mesmo.", "Lo spazio libero della scheda SD è troppo sparso. {1} verrebbe scritta in più di {2} pezzi, più di quelli che RiftWii può seguire, quindi il gioco non partirebbe. Libera spazio o formatta la scheda SD (prima copia i suoi file) e riprova. Oppure creala comunque."),
+    "Build anyway": ("Crear igualmente", "このまま作成", "Criar mesmo assim", "Crea comunque"),
     "Making {1}": ("Creando {1}", "{1}を作成中", "Criando {1}", "Creazione di {1}"),
     "Stop": ("Detener", "中止", "Parar", "Interrompi"),
     "{1} minutes left": ("Faltan {1} minutos", "残り{1}分", "Faltam {1} minutos", "Mancano {1} minuti"),
@@ -2502,6 +2532,10 @@ KO = {
         "이름 및 치트 다운로드",
     "Get the latest game names":
         "최신 게임 이름 확인",
+    "Download missing covers":
+        "없는 커버 다운로드",
+    "Missing covers will be downloaded when you go back to Home.":
+        "홈으로 돌아가면 없는 커버를 다운로드합니다.",
     "Update":
         "업데이트",
     "Menu IOS":
@@ -2630,10 +2664,12 @@ KO = {
         "메뉴 언어입니다. Wii는 본체 자체 설정을 따릅니다.",
     "Downloads the newest game names from GameTDB.":
         "GameTDB에서 최신 게임 이름을 다운로드합니다.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "홈에 아직 없는 커버, 박스 및 3D 커버를 GameTDB에서 다운로드합니다. GameTDB에 이미지가 없는 게임은 이미지 없이 남습니다.",
     "Shows live what the controllers in the adapter are pressing.":
         "어댑터에 연결된 컨트롤러의 입력 상태를 실시간으로 보여줍니다.",
-    "Reads the SD card and the USB drive again.":
-        "SD 카드와 USB 드라이브를 다시 읽습니다.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "SD 카드와 USB 드라이브를 다시 읽고, 없는 커버, 박스 및 3D 커버 다운로드를 다시 시도합니다.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "슬롯 248~252에서 d2x cIOS가 발견되지 않아 메뉴가 IOS 58로 실행됩니다. SD 카드나 USB로 게임을 플레이하려면 d2x를 설치하세요.",
     "Check for a new version":
@@ -2746,8 +2782,8 @@ KO = {
         "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다.",
     "Getting covers from GameTDB: {1} left":
         "GameTDB에서 커버 가져오는 중: {1} 개 남음",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "커버 이미지를 ({1})에서 다운로드할 수 없습니다. 다시 시도하려면 설정 > 게임 다시 찾기를 이용하세요.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "커버를 다운로드할 수 없습니다 ({1}). 다시 시도하려면 설정 > 온라인 > 없는 커버 다운로드를 이용하세요.",
     "Cover":
         "커버",
     "Download again":
@@ -2824,8 +2860,20 @@ KO = {
         "이 방법은 작동하지 않습니다: {1} 파일이 USB 드라이브에 있는데, RiftWii는 게임 파일도 해당 USB 드라이브에 있을 때만 게임 실행 중 USB 드라이브를 읽어오기 때문입니다. 게임을 USB 드라이브로 옮기거나, SD 카드의 riftwii 폴더에 {1} 파일을 넣으세요.",
     "Updating RiftWii":
         "RiftWii 업데이트",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1}이(가) 출시되었습니다. 지금 다운로드 및 설치 중이고, 시간이 조금 걸리는 중...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1}이(가) 출시되었습니다. 지금 설치 중이며 몇 분 걸립니다.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "RiftWii 다운로드 중 ({1} / {2} MB)",
+    "Downloading RiftWii...":
+        "RiftWii 다운로드 중...",
+    "Downloading plugins ({1} of {2} MB)":
+        "플러그인 다운로드 중 ({1} / {2} MB)",
+    "Downloading plugins...":
+        "플러그인 다운로드 중...",
+    "Checking the download...":
+        "다운로드 확인 중...",
+    "Writing to the SD card...":
+        "SD 카드에 쓰는 중...",
     "Update failed":
         "업데이트 실패",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
@@ -3178,6 +3226,12 @@ KO = {
         "SD 이미지를 만들까요?",
     "Make it":
         "만들기",
+    "The SD card is too fragmented":
+        "SD 카드가 너무 단편화되어 있습니다",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "SD 카드의 빈 공간이 너무 흩어져 있습니다. {1}은(는) {2}개가 넘는 조각으로 기록되어 RiftWii가 따라갈 수 있는 수를 넘으므로 게임이 시작되지 않습니다. 공간을 확보하거나 SD 카드를 포맷한 뒤(먼저 파일을 복사해 두세요) 다시 시도하세요. 또는 그대로 만들 수도 있습니다.",
+    "Build anyway":
+        "그래도 만들기",
     "Making {1}":
         "{1} 만들기",
     "Stop":
@@ -4301,6 +4355,10 @@ FR = {
         "Télécharger noms et codes de triche",
     "Get the latest game names":
         "Obtenir les derniers noms de jeux",
+    "Download missing covers":
+        "Télécharger les jaquettes manquantes",
+    "Missing covers will be downloaded when you go back to Home.":
+        "Les jaquettes manquantes seront téléchargées au retour à l'accueil.",
     "Update":
         "Mettre à jour",
     "Menu IOS":
@@ -4429,10 +4487,12 @@ FR = {
         "Langue du menu. \"Wii\" utilise le paramètre de la console.",
     "Downloads the newest game names from GameTDB.":
         "Télécharge les derniers noms de jeux depuis GameTDB.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "Télécharge depuis GameTDB les jaquettes, boîtiers et jaquettes 3D qui manquent à l'accueil. Un jeu sans image sur GameTDB reste sans image.",
     "Shows live what the controllers in the adapter are pressing.":
         "Affiche en direct les entrées des manettes branchées sur l'adaptateur.",
-    "Reads the SD card and the USB drive again.":
-        "Relance la lecture de la carte SD et du stockage USB.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "Relit la carte SD et le stockage USB, et réessaie de télécharger les jaquettes, boîtiers et jaquettes 3D manquants.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB.",
     "Check for a new version":
@@ -4545,8 +4605,8 @@ FR = {
         "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
     "Getting covers from GameTDB: {1} left":
         "Récupération des jacquettes GameTDB : {1} restante(s)",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes.",
     "Cover":
         "Jacquette",
     "Download again":
@@ -4623,8 +4683,20 @@ FR = {
         "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB en jeu que si le jeu y est aussi stocké. Mettez le jeu sur l'USB, ou placez {1} dans le dossier riftwii de votre SD.",
     "Updating RiftWii":
         "Mise à jour de RiftWii",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1} est disponible. Téléchargement et installation en cours...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1} est disponible. Installation en cours; cela prend quelques minutes.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "Téléchargement de RiftWii ({1} sur {2} Mo)",
+    "Downloading RiftWii...":
+        "Téléchargement de RiftWii...",
+    "Downloading plugins ({1} of {2} MB)":
+        "Téléchargement des plugins ({1} sur {2} Mo)",
+    "Downloading plugins...":
+        "Téléchargement des plugins...",
+    "Checking the download...":
+        "Vérification du téléchargement...",
+    "Writing to the SD card...":
+        "Écriture sur la carte SD...",
     "Update failed":
         "Échec de la mise à jour",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
@@ -5155,6 +5227,12 @@ FR = {
         "Créer une image SD ?",
     "Make it":
         "Créer",
+    "The SD card is too fragmented":
+        "La carte SD est trop fragmentée",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "L'espace libre de la carte SD est trop dispersé. {1} serait écrite en plus de {2} morceaux, plus que RiftWii ne peut en suivre, donc le jeu ne démarrerait pas. Libérez de la place ou formatez la carte SD (copiez d'abord ses fichiers), puis réessayez. Ou créez-la quand même.",
+    "Build anyway":
+        "Créer quand même",
     "Making {1}":
         "Création de {1}",
     "Stop":
