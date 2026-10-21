@@ -8,8 +8,9 @@
 /* The room gc_entry.S keeps for struct gc_rt_context: the magic, then
  * zeros. Fixed, with spare bytes at the end, so a field added to the
  * struct changes neither this nor the assembly; gc_rt.h checks that the
- * struct still fits. Raise it (a multiple of 32) only when it does not. */
-#define GC_RT_CONTEXT_BYTES 0x680
+ * struct still fits. The native-controller state and the TGC watch from
+ * #192 together need 0x6C0 bytes on PowerPC. */
+#define GC_RT_CONTEXT_BYTES 0x6C0
 
 /* A game whose disc code is libogc's (gc_rt.h, "libogc"): each store that
  * starts a DI command jumps to a slot of GC_DI_SLOT_WORDS words, which
