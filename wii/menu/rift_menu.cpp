@@ -6216,6 +6216,9 @@ static int ChooseTwo(const std::string& title, const std::string& body, const st
 {
 	PopupBox box(title, body, "", tr("Back"));
 	box.CenterCancel();
+	// The body at the top: centred, a short one sat under the tiles
+	// (Dolphin: "Choose the slot holding the memory card" hidden by them).
+	box.BodyAtTop(2);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
