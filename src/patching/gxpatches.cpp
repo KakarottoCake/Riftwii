@@ -221,8 +221,14 @@ bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 
 // Mario Party 4 (GMP), every region: its sound manager's ARAM check
 // (gxpatches.hpp), learned from the game's decompilation (marioparty4's
-// src/msm/msmsys.c and src/game/audio.c).
-bool gc_keeps_aram_addresses(const std::string& id) { return id_is(id, "GMP"); }
+// src/msm/msmsys.c and src/game/audio.c). Mario Party 5 (GP5), 6 (GP6),
+// 7 (GP7) and Dance Dance Revolution: Mario Mix (GWZ) start the same
+// sound manager the same way (marioparty5 and marioparty6's
+// src/game/audio.c: skipARInit, ARAM end 0x808000) and stopped in it, in
+// HuAudInit's endless loop, after reading its two headers (Dolphin, 2610-564).
+bool gc_keeps_aram_addresses(const std::string& id) {
+    return id_is(id, "GMP") || id_is(id, "GP5") || id_is(id, "GP6") || id_is(id, "GP7") || id_is(id, "GWZ");
+}
 
 // Luigi's Mansion (GLM), every region: its loader thread's heap race
 // (gxpatches.hpp), found on a real Wii (an ISI through "JKRT" going upstairs

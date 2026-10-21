@@ -48,6 +48,8 @@ struct GcImage {
     std::uint32_t exec_dol = 0;
     std::uint32_t exec_restart = 0;
     std::vector<std::string> exec_args;
+    // A game packed in a TGC image on the disc (rwp_gc_launch's tgc_offset).
+    std::uint32_t tgc_offset = 0;
 };
 
 // What the launch read from the settings, the launch's extras, the crash

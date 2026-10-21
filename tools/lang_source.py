@@ -877,11 +877,26 @@ T = {
         "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB durante una partita solo se anche il gioco è lì. Metti il gioco sull'unità USB, oppure metti {1} nella cartella riftwii della SD."),
     # Updates (the pop-ups at start, and the Settings row)
     "Updating RiftWii": ("Actualizando RiftWii", "RiftWiiを更新しています", "Atualizando a RiftWii", "Aggiornamento di RiftWii"),
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...": (
-        "Ya salió RiftWii {1}. Se está descargando e instalando; tarda un minuto...",
-        "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります...",
-        "Saiu a RiftWii {1}. Baixando e instalando agora; leva um minuto...",
-        "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."),
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.": (
+        "Ya salió RiftWii {1}. Se está instalando; tarda unos minutos.",
+        "RiftWii {1}が出ています。インストールしています。数分かかります。",
+        "Saiu a RiftWii {1}. Instalando agora; leva alguns minutos.",
+        "È uscita RiftWii {1}. La sto installando; ci vogliono alcuni minuti."),
+    # {1} megabytes so far, {2} megabytes in all.
+    "Downloading RiftWii ({1} of {2} MB)": (
+        "Descargando RiftWii ({1} de {2} MB)", "RiftWiiをダウンロード中 ({1} / {2} MB)",
+        "Baixando a RiftWii ({1} de {2} MB)", "Scaricamento di RiftWii ({1} di {2} MB)"),
+    "Downloading RiftWii...": (
+        "Descargando RiftWii...", "RiftWiiをダウンロード中...", "Baixando a RiftWii...", "Scaricamento di RiftWii..."),
+    "Downloading plugins ({1} of {2} MB)": (
+        "Descargando complementos ({1} de {2} MB)", "プラグインをダウンロード中 ({1} / {2} MB)",
+        "Baixando plugins ({1} de {2} MB)", "Scaricamento dei plugin ({1} di {2} MB)"),
+    "Downloading plugins...": (
+        "Descargando complementos...", "プラグインをダウンロード中...", "Baixando plugins...", "Scaricamento dei plugin..."),
+    "Checking the download...": (
+        "Comprobando la descarga...", "ダウンロードを確認中...", "Verificando o download...", "Controllo del download..."),
+    "Writing to the SD card...": (
+        "Escribiendo en la tarjeta SD...", "SDカードに書き込み中...", "Gravando no cartão SD...", "Scrittura sulla scheda SD..."),
     "Update failed": ("La actualización falló", "更新に失敗しました", "A atualização falhou", "Aggiornamento non riuscito"),
     # {1} the new version, {2} why, {3} where to get it.
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}": (
@@ -2845,8 +2860,20 @@ KO = {
         "이 방법은 작동하지 않습니다: {1} 파일이 USB 드라이브에 있는데, RiftWii는 게임 파일도 해당 USB 드라이브에 있을 때만 게임 실행 중 USB 드라이브를 읽어오기 때문입니다. 게임을 USB 드라이브로 옮기거나, SD 카드의 riftwii 폴더에 {1} 파일을 넣으세요.",
     "Updating RiftWii":
         "RiftWii 업데이트",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1}이(가) 출시되었습니다. 지금 다운로드 및 설치 중이고, 시간이 조금 걸리는 중...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1}이(가) 출시되었습니다. 지금 설치 중이며 몇 분 걸립니다.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "RiftWii 다운로드 중 ({1} / {2} MB)",
+    "Downloading RiftWii...":
+        "RiftWii 다운로드 중...",
+    "Downloading plugins ({1} of {2} MB)":
+        "플러그인 다운로드 중 ({1} / {2} MB)",
+    "Downloading plugins...":
+        "플러그인 다운로드 중...",
+    "Checking the download...":
+        "다운로드 확인 중...",
+    "Writing to the SD card...":
+        "SD 카드에 쓰는 중...",
     "Update failed":
         "업데이트 실패",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
@@ -4656,8 +4683,20 @@ FR = {
         "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB en jeu que si le jeu y est aussi stocké. Mettez le jeu sur l'USB, ou placez {1} dans le dossier riftwii de votre SD.",
     "Updating RiftWii":
         "Mise à jour de RiftWii",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1} est disponible. Téléchargement et installation en cours...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1} est disponible. Installation en cours; cela prend quelques minutes.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "Téléchargement de RiftWii ({1} sur {2} Mo)",
+    "Downloading RiftWii...":
+        "Téléchargement de RiftWii...",
+    "Downloading plugins ({1} of {2} MB)":
+        "Téléchargement des plugins ({1} sur {2} Mo)",
+    "Downloading plugins...":
+        "Téléchargement des plugins...",
+    "Checking the download...":
+        "Vérification du téléchargement...",
+    "Writing to the SD card...":
+        "Écriture sur la carte SD...",
     "Update failed":
         "Échec de la mise à jour",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":

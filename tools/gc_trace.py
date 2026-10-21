@@ -11,7 +11,8 @@ gc_trace_word enum in gc_rt.h, so this reader follows the header.
 Without --all, words that are zero in every record are left out. In a run
 with the test remote (sd:/riftwii/gc/test/fakeremote, or fakepro for a
 Wii U Pro Controller) the projection_callers words hold its results instead
-(gc_bt.h's fake_log).
+(gc_bt.h's fake_log). In a record with projections 0 (16:9 off) they hold
+the VI's registers 0x00-0x3F, two to a word.
 """
 import argparse
 import os

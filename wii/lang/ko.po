@@ -942,8 +942,26 @@ msgstr "이 방법은 작동하지 않습니다: {1} 파일이 USB 드라이브�
 msgid "Updating RiftWii"
 msgstr "RiftWii 업데이트"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1}이(가) 출시되었습니다. 지금 다운로드 및 설치 중이고, 시간이 조금 걸리는 중..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1}이(가) 출시되었습니다. 지금 설치 중이며 몇 분 걸립니다."
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "RiftWii 다운로드 중 ({1} / {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "RiftWii 다운로드 중..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "플러그인 다운로드 중 ({1} / {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "플러그인 다운로드 중..."
+
+msgid "Checking the download..."
+msgstr "다운로드 확인 중..."
+
+msgid "Writing to the SD card..."
+msgstr "SD 카드에 쓰는 중..."
 
 msgid "Update failed"
 msgstr "업데이트 실패"

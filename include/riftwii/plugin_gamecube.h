@@ -118,6 +118,11 @@ typedef struct rwp_gc_launch {
     uint32_t exec_args_bytes;
     uint32_t exec_arg_count;
 
+    /* A game packed in a TGC image on the disc, which a bonus disc's menu
+     * started (runtime/gc's gc_on_tgc_read, exec.txt's gc_tgc): the TGC
+     * file's offset on the disc; 0: the disc's own program. */
+    uint32_t tgc_offset;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;

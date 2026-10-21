@@ -61,6 +61,21 @@ struct RvzResidentOptions {
     std::int32_t usb_fd = -1;
 };
 
+// The game's own Reset (riftwii/osrestart.hpp): the runtime takes OSRestart,
+// writes the launch request to its sector of the card and starts the
+// RiftWii channel. The loader fills everything in; the runtime hooks the
+// function only when all of it is there.
+struct RestartOptions {
+    std::uint32_t os_restart = 0;     // the game's OSRestart (find_os_restart); 0: the Reset is left alone
+    std::uint32_t request_lba = 0;    // the card's sector of sd:/riftwii/restart.txt
+    std::vector<std::uint8_t> armed;  // that sector as the Reset leaves it: the request, "--launch" first
+    std::vector<std::uint8_t> idle;   // as the loader made it, "--idle--" first; put back when the launch is refused
+    std::uint64_t title = 0;          // the RiftWii channel
+    std::vector<std::uint8_t> view;   // its ticket view (0xD8 bytes)
+    std::int32_t es_fd = -1;          // /dev/es, open
+    bool keep = false;                // test switch: a launch IOS refused leaves the request armed
+};
+
 struct ResidentOptions {
     bool gecko = false;  // report each DI read over the USB Gecko in slot B
     // The redirect table's content (riftwii/hook.hpp). The table and the
@@ -96,6 +111,7 @@ struct ResidentOptions {
     // The game is an image without a retail BCA: the runtime answers
     // DVDLowReadDiskBca with one (RT_FLAG_BCA).
     bool retail_bca = false;
+    RestartOptions restart;
 };
 
 struct ResidentInstall {
@@ -131,11 +147,19 @@ struct ResidentInstall {
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
     std::uint32_t context_now = 0;    // the blob's rt_context where it is built now (staged or in place)
     std::uint32_t rvz_state = 0;      // struct rt_rvz_state, 0 when not an RVZ game
+    bool restart_hooked = false;      // OSRestart goes to the runtime, which starts the game again through RiftWii
 };
 
 // The MEM1 arena end the game's OSInit will take (0x34, else the FST
 // address), below the BI2 when the apploader put it there.
 std::uint32_t game_arena1_hi();
+
+// Whether install_resident will be able to hook `os_restart` for the
+// game's own Reset: the checks it makes on the game's code (IOS_Ioctlv
+// found and hookable, OSRestart's first word movable), made earlier, while
+// boot.log is still open, so the log can say what the Reset will do.
+// `why` says what is missing when it cannot.
+bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, std::string& why);
 
 // `dol` describes the sections the apploader has already loaded; the text
 // sections are searched in place.

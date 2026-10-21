@@ -127,11 +127,25 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   The lookup tables themselves are not in RiftWii: the loader finds each
   game's own (`find_extension_tables` in `src/patching/wpadlog.cpp`) and the
   translator uses them where they are.
+- TGC images on GameCube bonus discs (`src/disc/gctgc.cpp`, `gc_on_tgc_read` in
+  `runtime/gc/gc_rt.c`): the header's fields (the magic, the header's size,
+  the FST's, the DOL's and the file area's real and virtual offsets) and
+  how a file's offset in the packed FST maps onto the TGC follow Dolphin's
+  TGC reader (GPL-2.0-or-later, `Source/Core/DiscIO/TGCBlob.cpp` and
+  `TGCBlob.h` at commit 239330017c97fa3f6b4b2670ab570e822d6affb0, the last one
+  to change either file; master was cf5cb7ef81c3e8e7af5c9d566334219ffda9f68b on
+  2026-10-20), read for behaviour only. Dolphin
+  presents a TGC as a disc of its own; RiftWii instead moves the files onto
+  the outer disc and bounds every field, and its code is its own.
 - The GameCube loader's per-game list `gc_keeps_aram_addresses`
   (`src/patching/gxpatches.cpp`) rests on Mario Party 4's sound manager as
   its community decompilation shows it (https://github.com/mariopartyrd/marioparty4,
   `src/msm/msmsys.c` and `src/game/audio.c`, main as of 2026-10-17): what
-  the game checks, read for behaviour only; no code was used.
+  the game checks, read for behaviour only; no code was used. Mario Party 5
+  and 6 joined it from their own decompilations
+  (https://github.com/mariopartyrd/marioparty5, `config/GP5E01_00/symbols.txt`
+  for the hang's function, at 5324654; https://github.com/mariopartyrd/marioparty6,
+  `src/game/audio.c`, at a56adea): the same sound manager set up the same way.
 - Game banners and channel icons (`src/disc/bnr.cpp`, `src/disc/tpl.cpp`,
   `src/disc/brlyt.cpp`, `src/disc/brlan.cpp`, `src/disc/wiicrypt.cpp`, `wii/menu/banners.*`,
   `wii/menu/bannerplay.*`, `wii/menu/otpkey.*`, `src/disc/bnrsound.cpp`, `wii/menu/bannersound.*`)

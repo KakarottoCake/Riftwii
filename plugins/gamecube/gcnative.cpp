@@ -31,10 +31,12 @@
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
 #include "riftwii/gcdsp.hpp"
+#include "riftwii/gcexi.hpp"
 #include "riftwii/gcfont.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcload.hpp"
 #include "riftwii/gcreset.hpp"
+#include "riftwii/gctgc.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -141,6 +143,103 @@ bool read_dol(const ByteSource& f, std::uint32_t at, Dol& out, std::string& erro
         return false;
     }
     return !out.text.empty();
+}
+
+std::string hex32(std::uint32_t value) {
+    char text[12];
+    std::snprintf(text, sizeof(text), "%08x", static_cast<unsigned>(value));
+    return text;
+}
+
+void set_be32(std::uint8_t* p, std::uint32_t value) {
+    p[0] = static_cast<std::uint8_t>(value >> 24);
+    p[1] = static_cast<std::uint8_t>(value >> 16);
+    p[2] = static_cast<std::uint8_t>(value >> 8);
+    p[3] = static_cast<std::uint8_t>(value);
+}
+
+// A game packed in a TGC image, which the disc's menu started last time
+// (exec.txt's gc_tgc, gc_on_tgc_read): the TGC must be a file of the
+// disc's own FST, so the offset from the SD card names nothing else, and
+// everything its header gives is bounded by that file (gctgc.hpp). Gives
+// the TGC's boot.bin, with the program's and FST's places made the outer
+// disc's, its BI2, and its FST with the files' offsets on the outer disc.
+bool open_gc_tgc(const ByteSource& f, const std::vector<std::uint8_t>& disc_boot, std::uint32_t tgc_offset, GcTgc& tgc,
+                 std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& bi2, std::vector<std::uint8_t>& fst,
+                 std::string& error) {
+    const std::uint32_t disc_fst_size = be32(&disc_boot[0x428]);
+    if (disc_fst_size == 0 || disc_fst_size > kGcTgcFstLimit) {
+        error = "the disc's FST size is not one a disc has, so its TGC image cannot be found";
+        return false;
+    }
+    std::vector<std::uint8_t> disc_fst(disc_fst_size);
+    if (!read_at(f, be32(&disc_boot[0x424]), disc_fst.data(), disc_fst.size())) {
+        error = "cannot read the disc's FST to find its TGC image";
+        return false;
+    }
+    GcFstFile file;
+    if (!find_gc_fst_file_at(disc_fst, tgc_offset, file)) {
+        error = "no file of the disc starts at the TGC image's offset 0x" + hex32(tgc_offset);
+        return false;
+    }
+    std::uint8_t header[kGcTgcHeaderBytes];
+    std::string why;
+    if (!read_at(f, tgc_offset, header, sizeof(header)) ||
+        !parse_gc_tgc(header, sizeof(header), file.offset, file.size, f.size(), tgc, why)) {
+        error = "the TGC image at 0x" + hex32(tgc_offset) + " cannot be started: " + (why.empty() ? "unreadable" : why);
+        return false;
+    }
+    std::uint8_t dol_header[0x100];
+    if (!read_at(f, tgc.dol_at(), dol_header, sizeof(dol_header)) ||
+        !gc_tgc_dol_fits(dol_header, sizeof(dol_header), tgc.dol_size, why)) {
+        error = "the TGC image's program cannot be started: " + (why.empty() ? "unreadable" : why);
+        return false;
+    }
+    fst.assign(tgc.fst_size, 0);
+    if (!read_at(f, tgc.boot_at(), boot.data(), boot.size()) || !read_at(f, tgc.bi2_at(), bi2.data(), bi2.size()) ||
+        !read_at(f, tgc.fst_at(), fst.data(), fst.size())) {
+        error = "cannot read the TGC image's header, BI2 or FST";
+        return false;
+    }
+    if (!gc_tgc_rebase_fst(fst, tgc, why)) {
+        error = "the TGC image's FST cannot be used: " + why;
+        return false;
+    }
+    // Where the loader below takes the program and the FST from, as for a
+    // disc of its own. The packed boot.bin has the TGC's own numbers there.
+    set_be32(&boot[0x420], tgc.dol_at());
+    set_be32(&boot[0x424], tgc.fst_at());
+    set_be32(&boot[0x428], tgc.fst_size);
+    set_be32(&boot[0x42C], tgc.fst_max);
+    logf("GameCube: the game packed in the TGC image at disc offset 0x%08x (%u bytes): %.6s, its program at 0x%08x "
+         "(%u bytes), its FST at 0x%08x (%u bytes, its files moved by %d bytes onto the disc)\n",
+         tgc.disc_offset, tgc.bytes, reinterpret_cast<const char*>(boot.data()), tgc.dol_at(), tgc.dol_size,
+         tgc.fst_at(), tgc.fst_size,
+         static_cast<int>(std::int64_t(tgc.disc_offset) + tgc.file_area_offset - tgc.file_area_virtual));
+    return true;
+}
+
+// The TGC images among the disc's files (`fst`, as the game will have it),
+// at most GC_TGC_MAX, each with a header that stays within its file: the
+// ones a bonus disc's menu can start a game from. One that does not parse
+// is left as the disc has it, and the log says why.
+std::vector<GcTgc> find_gc_tgc_starts(const ByteSource& f, const std::vector<std::uint8_t>& fst) {
+    std::vector<GcTgc> starts;
+    for (const GcFstFile& file : find_gc_tgc_files(fst, GC_TGC_MAX)) {
+        std::uint8_t header[kGcTgcHeaderBytes];
+        GcTgc tgc;
+        std::string why = "unreadable";
+        if (read_at(f, file.offset, header, sizeof(header)) &&
+            parse_gc_tgc(header, sizeof(header), file.offset, file.size, f.size(), tgc, why)) {
+            logf("GameCube: a TGC image at disc offset 0x%08x (%u bytes), its program at 0x%08x to 0x%08x\n",
+                 tgc.disc_offset, tgc.bytes, tgc.dol_at(), tgc.dol_end());
+            starts.push_back(tgc);
+        } else {
+            logf("GameCube: the file at disc offset 0x%08x is named as a TGC image but is left as it is: %s\n",
+                 file.offset, why.c_str());
+        }
+    }
+    return starts;
 }
 
 // The game's code as words by address, for the search below.
@@ -1066,168 +1165,6 @@ void format_card(std::vector<std::uint8_t>& card, bool shift_jis) {
     gc_card_format(card, format);
 }
 
-// The SDK's EXI functions (gc_card.h's order), found through the EXI
-// control blocks they all index (an array of 0x40-byte blocks, one per
-// channel, its state word at 12) and what each does to that state word:
-// select sets 4 and deselect clears it, lock sets 16 and unlock clears
-// it, attach sets 8 (and probes). EXIImm keeps its buffer and length at 16 and 20;
-// EXIDma calls the same interrupt clear as EXIImm without storing them;
-// EXIGetID reads the probe times at 0x800030C0 and calls lock, select,
-// EXIImm, then EXISync; EXIProbe and EXIProbeEx call the probe select
-// uses and EXIGetID, EXIProbeEx returning -1 too. Returns the control
-// blocks' address, 0 when anything is missing or doubtful.
-//
-// The 2001 SDK (Luigi's Mansion USA) differs: its blocks are 0x38 bytes,
-// indexed with mulli by 0x38; its EXIGetID does not read the probe times
-// (it is the one function calling lock, select and EXIImm); and it has no
-// EXIProbeEx, its EXIProbe being the probe select calls. EXIProbeEx is then
-// left 0, and the other ten are hooked.
-//
-// One block size: `index_word` is the instruction that turns a channel
-// into its block's offset.
-std::uint32_t find_exi_functions_by(const Code& code, std::uint32_t index_word, std::uint32_t (&out)[GC_EXI_HOOKS]) {
-    std::fill(std::begin(out), std::end(out), 0);
-    // The control blocks: lis/addi pairs near the index instruction at a
-    // function's start.
-    std::map<std::uint32_t, unsigned> bases;
-    std::map<std::uint32_t, std::uint32_t> base_of;  // function -> its base
-    code.each([&](std::uint32_t a, std::uint32_t w) {
-        if ((w & 0xFC00FFFF) != index_word) return;
-        const std::uint32_t f = function_start(code, a);
-        if (f == 0 || a - f > 0x40) return;
-        std::uint32_t hi[32] = {};
-        bool known[32] = {};
-        for (std::uint32_t b = f; b < f + 0x50; b += 4) {
-            const std::uint32_t x = code.at(b);
-            const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
-            if (op == 15 && ra == 0) {
-                hi[d] = (x & 0xFFFF) << 16;
-                known[d] = true;
-            } else if (op == 14 && ra != 0 && known[ra]) {
-                const std::uint32_t value = hi[ra] + static_cast<std::uint32_t>(static_cast<std::int16_t>(x & 0xFFFF));
-                if (value >= 0x80000000 && value < 0x81800000) {
-                    bases[value]++;
-                    base_of[f] = value;
-                    return;
-                }
-            }
-        }
-    });
-    std::uint32_t ecb = 0;
-    unsigned most = 7;
-    for (auto& [b, n] : bases)
-        if (n > most) {
-            most = n;
-            ecb = b;
-        }
-    if (ecb == 0) return 0;
-    struct Fn {
-        std::uint32_t start = 0, size = 0;
-        bool sets[32] = {}, clears[32] = {}, stores_16_20 = false, minus_one = false, probe_times = false;
-        bool dma_start = false;  // ori rX,rX,3: a DMA transfer's control word
-        std::vector<std::uint32_t> calls;
-    };
-    std::vector<Fn> fns;
-    for (auto& [f, b] : base_of) {
-        if (b != ecb) continue;
-        Fn fn;
-        fn.start = f;
-        bool st16 = false, st20 = false;
-        for (std::uint32_t a = f; code.has(a) && a < f + 0x800; a += 4) {
-            const std::uint32_t x = code.at(a);
-            const unsigned op = x >> 26;
-            if (op == 24 && ((x >> 21) & 31) == ((x >> 16) & 31) && (x & 0xFFFF) < 32 && (x & 0xFFFF) != 0)
-                for (unsigned bit = 0; bit < 5; ++bit)
-                    if ((x & 0xFFFF) == (1u << bit)) fn.sets[bit] = true;  // ori rX,rX,1<<bit
-            if (op == 24 && ((x >> 21) & 31) == ((x >> 16) & 31) && (x & 0xFFFF) == 3) fn.dma_start = true;
-            if (op == 21 && ((x >> 11) & 31) == 0) {  // rlwinm rA,rS,0,MB,ME clearing one bit
-                const unsigned mb = (x >> 6) & 31, me = (x >> 1) & 31;
-                if (mb == (me + 2) % 32) fn.clears[31 - ((me + 1) % 32)] = true;
-            }
-            if (op == 36 && (x & 0xFFFF) == 16) st16 = true;
-            if (op == 36 && (x & 0xFFFF) == 20) st20 = true;
-            if (x == 0x3860FFFF) fn.minus_one = true;  // li r3,-1
-            if (op == 14 && (x & 0xFFFF) == 0x30C0) fn.probe_times = true;
-            if (std::uint32_t t = bl_target(a, x)) fn.calls.push_back(t);
-            if (x == 0x4E800020) {
-                fn.size = a + 4 - f;
-                break;
-            }
-        }
-        fn.stores_16_20 = st16 && st20;
-        fns.push_back(fn);
-    }
-    auto only = [&](auto test) -> std::uint32_t {
-        std::uint32_t found = 0;
-        for (const Fn& fn : fns)
-            if (test(fn)) {
-                if (found) return 0;  // two: doubtful
-                found = fn.start;
-            }
-        return found;
-    };
-    auto calls = [](const Fn& fn, std::uint32_t target) {
-        return target != 0 && std::find(fn.calls.begin(), fn.calls.end(), target) != fn.calls.end();
-    };
-    out[GC_EXI_SELECT] = only([](const Fn& fn) { return fn.sets[2] && !fn.sets[4]; });
-    out[GC_EXI_DESELECT] = only([](const Fn& fn) { return fn.clears[2]; });
-    out[GC_EXI_LOCK] = only([](const Fn& fn) { return fn.sets[4]; });
-    out[GC_EXI_IMM] = only([](const Fn& fn) { return fn.stores_16_20 && fn.sets[1]; });
-    out[GC_EXI_GET_ID] = only([&](const Fn& fn) {
-        return fn.probe_times && calls(fn, out[GC_EXI_LOCK]) && calls(fn, out[GC_EXI_SELECT]);
-    });
-    if (out[GC_EXI_GET_ID] == 0)  // the 2001 SDK's, which does not read the probe times
-        out[GC_EXI_GET_ID] = only([&](const Fn& fn) {
-            return calls(fn, out[GC_EXI_LOCK]) && calls(fn, out[GC_EXI_SELECT]) && calls(fn, out[GC_EXI_IMM]);
-        });
-    const std::uint32_t get_id = out[GC_EXI_GET_ID];
-    // EXIGetID unlocks (and attaches) too: never taken for those.
-    out[GC_EXI_UNLOCK] = only([&](const Fn& fn) { return fn.clears[4] && !fn.probe_times && fn.start != get_id; });
-    // The probe select calls (in the control blocks' functions).
-    std::uint32_t probe = 0;
-    for (const Fn& fn : fns)
-        if (fn.start == out[GC_EXI_SELECT])
-            for (std::uint32_t t : fn.calls)
-                for (const Fn& g : fns)
-                    if (g.start == t && probe == 0) probe = t;
-    out[GC_EXI_ATTACH] = only(
-        [&](const Fn& fn) { return fn.sets[3] && calls(fn, probe) && !fn.probe_times && fn.start != get_id; });
-    out[GC_EXI_PROBE] = only([&](const Fn& fn) {
-        return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && !fn.minus_one && !fn.sets[3] && fn.size < 0x100;
-    });
-    out[GC_EXI_PROBE_EX] = only([&](const Fn& fn) {
-        return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && fn.minus_one && !fn.sets[3];
-    });
-    // The 2001 SDK: no EXIProbe around the probe, and no EXIProbeEx.
-    const bool old_sdk = index_word == 0x1C000038;  // the 0x38-byte blocks
-    const bool old_probe = old_sdk && out[GC_EXI_PROBE] == 0 && out[GC_EXI_PROBE_EX] == 0 && probe != 0;
-    if (old_probe) out[GC_EXI_PROBE] = probe;
-    // EXIDma: the other one that starts a transfer, with DMA and start
-    // set in the control word.
-    out[GC_EXI_DMA] = only([&](const Fn& fn) { return fn.dma_start && fn.start != out[GC_EXI_IMM]; });
-    // EXISync: what EXIGetID calls right after its first EXIImm.
-    for (const Fn& fn : fns)
-        if (fn.start == out[GC_EXI_GET_ID])
-            for (std::size_t i = 0; i + 1 < fn.calls.size(); ++i)
-                if (fn.calls[i] == out[GC_EXI_IMM]) {
-                    out[GC_EXI_SYNC] = fn.calls[i + 1];
-                    break;
-                }
-    for (unsigned i = 0; i < GC_EXI_HOOKS; ++i)
-        if (out[i] == 0 && !(i == GC_EXI_PROBE_EX && old_probe)) return 0;
-    return ecb;
-}
-
-// The 0x40-byte blocks first ("slwi rX,rY,6"), then the 2001 SDK's 0x38-byte
-// ones ("mulli rX,rY,0x38"), each kept only if all the functions are found
-// on it: in Luigi's Mansion (USA) a table of the game's own has more
-// slwi-by-6 users than anything else, and in Twilight Princess another has
-// more mulli-by-0x38 users than its EXI blocks.
-std::uint32_t find_exi_functions(const Code& code, std::uint32_t (&out)[GC_EXI_HOOKS]) {
-    if (const std::uint32_t ecb = find_exi_functions_by(code, 0x54003032, out)) return ecb;
-    return find_exi_functions_by(code, 0x1C000038, out);
-}
-
 // Instruction fields, for the searches below.
 unsigned opcode(std::uint32_t w) { return w >> 26; }
 unsigned reg_d(std::uint32_t w) { return (w >> 21) & 31; }
@@ -1901,9 +1838,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_no_vi_hook = stat("sd:/riftwii/gc/test/novihook", &st_press) == 0;
     const bool test_no_motor = stat("sd:/riftwii/gc/test/nomotor", &st_press) == 0;
     // And of the Wii's video encoder at the hand-over, for the same colours
-    // (red and blue swapped, in 480p only so far): set in NTSC 480p, as the
-    // VI will be once the game's 480p starts, or left as the menu set it.
+    // (red and blue swapped, in 480p only so far): set in NTSC 480p even
+    // for a game without 480p, set in NTSC 480i even for one with it (the
+    // hand-over of earlier builds), or left as the menu set it.
     const bool test_handover_480p = stat("sd:/riftwii/gc/test/handover480p", &st_press) == 0;
+    const bool test_handover_480i = stat("sd:/riftwii/gc/test/handover480i", &st_press) == 0;
     const bool test_ave_keep = stat("sd:/riftwii/gc/test/avekeep", &st_press) == 0;
     // The first GameCube line of boot.log names every test switch that is
     // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
@@ -1925,6 +1864,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_no_vi_hook, "novihook"},
                          {test_no_motor, "nomotor"},
                          {test_handover_480p, "handover480p"},
+                         {test_handover_480i, "handover480i"},
                          {test_ave_keep, "avekeep"},
                          {test_reset, "reset"},
                          {test_exec, "exec"}};
@@ -1956,6 +1896,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const RvzDiscSource* rvz_disc = nullptr;
     if (!open_gc_disc(image, disc, rvz_disc, error)) return false;
     const ByteSource& f = *disc;
+    // A game packed in a TGC image (a bonus disc's menu started it, and
+    // exec.txt named the TGC's offset). Zero again below when no TGC the
+    // disc has starts there: the disc's own program then starts.
+    std::uint32_t tgc_offset = image.tgc_offset;
+    // The packs were made for the disc's own FST, not the TGC's.
+    if (tgc_offset != 0 && pack != nullptr) {
+        logf("GameCube: the packs are left off for the game packed in a TGC image: they change the disc's own files\n");
+        pack = nullptr;
+    }
     // The game's view of the disc: the image, then the packs' window
     // (gcoverlay.hpp) when there are packs. An RVZ's bytes are read from it
     // by their offset in the image (the blob's RVZ build).
@@ -1972,6 +1921,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     Dol dol;
     bool ok = read_at(f, 0, boot.data(), boot.size()) && read_at(f, 0x440, bi2.data(), bi2.size());
     if (!ok) error = "cannot read " + image.path;
+    // A game packed in a TGC image: its own boot.bin, BI2, program and
+    // FST, from the TGC, with the FST's files where they are on the disc.
+    GcTgc tgc;
+    std::vector<std::uint8_t> tgc_fst;
+    if (ok && tgc_offset != 0) {
+        const std::vector<std::uint8_t> disc_boot = boot;  // the disc's own, for its FST
+        std::string tgc_error;
+        if (!open_gc_tgc(f, disc_boot, tgc_offset, tgc, boot, bi2, tgc_fst, tgc_error)) {
+            // exec.txt named no TGC the disc has (a hand-made or stale
+            // file, or another disc's): the disc starts as itself, its
+            // menu back on screen, rather than stopping. boot and BI2 are
+            // the disc's again, as open_gc_tgc may have half-filled them
+            // with the packed disc's (whose FST size is unchecked).
+            logf("GameCube: no game packed in a TGC image started: %s; the disc's own program starts instead\n",
+                 tgc_error.c_str());
+            tgc_offset = 0;
+            tgc = GcTgc();
+            tgc_fst.clear();
+            boot = disc_boot;
+            ok = read_at(f, 0x440, bi2.data(), bi2.size());
+            if (!ok) error = "cannot read " + image.path;
+        }
+    }
     // A switch to another program on the disc (gc_on_boot_dol): that one,
     // with its arguments in BI2 where its start-up code reads them.
     const std::uint32_t dol_offset = image.exec && image.exec_dol != 0 ? image.exec_dol : be32(&boot[0x420]);
@@ -1993,6 +1965,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
         fst = pack->fst;
+    } else if (tgc_offset != 0) {
+        fst = tgc_fst;
     } else if (ok && (fst.empty() || !read_at(f, be32(&boot[0x424]), fst.data(), fst.size()))) {
         error = "cannot read the game's FST";
         ok = false;
@@ -2768,15 +2742,37 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // "--idle--" and the image, is the launch the blob fills in. Only for
     // an image on the SD card, whose headless launch RiftWii carries out
     // at its next start, and with a way back to leave by.
+    // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
+    // the Wind Waker demo disc) starts its games another way: each is a
+    // whole disc packed in a TGC image, whose program the menu reads with
+    // its own loader and jumps to, unpatched. Its read of a TGC's header
+    // or of its program goes back through RiftWii the same way
+    // (gc_on_tgc_read, runtime/gc/gc_tgc.h).
+    // Not with packs, which move the disc's files.
+    const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
+    // A game from a TGC image reads its own disc ID, the packed header's.
+    if (tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
     {
         std::vector<CodeRange> data_ranges;
         for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
         const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
         const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
+        const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
+        // A game from a TGC image: exec.txt names programs by their offset
+        // on the outer disc and starts them with its boot.bin and FST, not
+        // the TGC's, so its own switches run as made (not seen in a game).
+        const bool from_tgc = tgc_offset != 0;
+        const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
+        const bool exec_test_on = test_exec && !boot_dol_branch;
+        const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
+                                         : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
+                                                           "cannot name"
+                                                         : nullptr;
         const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
         std::string why_not;
-        if (boot_dol == 0 && !test_exec) why_not = "the game has no switch to another program (__OSBootDolSimple not found)";
-        else if (boot_dol != 0 && (first == 16 || first == 18)) why_not = "its first word is a branch";
+        if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
+            why_not = boot_dol_off != nullptr ? boot_dol_off
+                                              : "the game has no switch to another program (__OSBootDolSimple not found)";
         else if (!on_sd) why_not = "only for a game on the SD card so far";
         else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
         else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
@@ -2796,26 +2792,46 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             else if (why_not.empty())
                 why_not = "sd:/riftwii/gc/exec.txt could not be made";
         }
-        if (exec_sector != 0 && test_exec) ctx->flags |= GC_FLAG_EXEC_TEST;
-        if (exec_sector != 0 && boot_dol == 0) {
-            ctx->exec_sector = exec_sector;
-            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                 exec_sector);
-        } else if (exec_sector != 0) {
+        if (exec_sector != 0 && exec_test_on) ctx->flags |= GC_FLAG_EXEC_TEST;
+        if (exec_sector != 0 && boot_dol_hookable) {
             replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
             ctx->exec_sector = exec_sector;
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
                  "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
                  boot_dol, exec_sector);
-        } else if (boot_dol != 0) {
+        } else if (exec_sector != 0 && exec_test_on) {
+            ctx->exec_sector = exec_sector;
+            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 exec_sector);
+        }
+        if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
-                 boot_dol, why_not.c_str());
+                 boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
+        }
+        // The TGC images' programs, whose reads the blob watches. A sector
+        // word of their own, so a disc with TGCs alone keeps the restart a
+        // game without a program switch has (gc_on_reset_system).
+        if (exec_sector != 0 && !tgcs.empty()) {
+            ctx->tgc_sector = exec_sector;
+            ctx->tgc_count = static_cast<std::uint32_t>(tgcs.size());
+            for (std::size_t i = 0; i < tgcs.size(); ++i) {
+                ctx->tgc_offset[i] = tgcs[i].disc_offset;
+                ctx->tgc_dol_start[i] = tgcs[i].dol_at();
+                ctx->tgc_dol_end[i] = tgcs[i].dol_end();
+            }
+            logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
+                 "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 static_cast<unsigned>(tgcs.size()), exec_sector);
+        } else if (!tgcs.empty()) {
+            logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
+                 why_not.c_str());
         }
     }
     // The memory card: the EXI functions to the blob (gc_card.h).
     if (!card_image.empty()) {
-        std::uint32_t exi[GC_EXI_HOOKS];
-        const std::uint32_t ecb = find_exi_functions(code, exi);
+        const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges());
+        const auto& exi = found_exi.hooks;
+        const std::uint32_t ecb = found_exi.blocks;
         bool branches = false;
         for (std::uint32_t f : exi)
             if (f != 0 && ((code.at(f) >> 26) == 18 || (code.at(f) >> 26) == 16)) branches = true;
@@ -2990,6 +3006,25 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     } else {
         mem2_image.swap(mem2_stage);
     }
+    const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
+    // The picture the game is handed: the Wii's video encoder in the game's
+    // region (its own region setting must match the game's picture, or a US
+    // game on a PAL Wii shows red as blue), and for a game given 480p the
+    // VI already in NTSC 480p at 54 MHz, as a GameCube with a component
+    // cable has it when a game starts. Handed over in 480i, a game that
+    // then went to 480p came out with red and blue swapped, its picture
+    // doubled side by side and running slowly (Super Mario Sunshine on a
+    // Wii U, a Wii through HDMI): an educated guess that the game's own
+    // VI set-up leaves the clock at 27 MHz, or that the switch back and
+    // forth loses the TV's or the HDMI adapter's lock. Untested on a Wii.
+    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    const bool handover_480p = handover == RWP_TV_NTSC && (image.progressive || test_handover_480p) && !test_handover_480i;
+    if (test_ave_keep) handover = RWP_TV_KEEP;
+    else if (handover_480p) handover = RWP_TV_NTSC_480P;
+    logf("GameCube: handed over in %s\n", handover == RWP_TV_KEEP          ? "the menu's own video mode (avekeep)"
+                                          : handover == RWP_TV_NTSC_480P ? "NTSC 480p"
+                                          : handover == RWP_TV_PAL       ? "PAL 576i"
+                                                                         : "NTSC 480i");
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     rwp_sd_card card{};
@@ -2998,11 +3033,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->sdhc = card.sdhc ? 1 : 0;
     ctx->card_rca = card.rca;
 
-    const std::uint32_t tv_mode = image.id.size() > 3 && (image.id[3] == 'P' || image.id[3] == 'D' ||
-                                                          image.id[3] == 'F' || image.id[3] == 'S' ||
-                                                          image.id[3] == 'I' || image.id[3] == 'X')
-                                      ? 1  // PAL
-                                      : 0;
     logf("GameCube: entry 0x%08x, FST 0x%08x, blob 0x%08x (%u bytes), %u run(s), arena top 0x%08x, card fd %d %s\n",
          dol.entry, fst_addr, blob_addr, static_cast<unsigned>(h.size), static_cast<unsigned>(placed.size()),
          arena_hi, card.fd, card.sdhc ? "SDHC" : "SDSC");
@@ -3018,12 +3048,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->xfb = xfb;
     ctx->xfb_bytes = xfb_bytes;
     DCFlushRange(ctx, sizeof(*ctx));
-    // The Wii's video encoder in the game's region (its own region setting
-    // must match the game's picture, or a US game on a PAL Wii shows red as
-    // blue), then libogc shut down: RiftWii's shut_down_for_game.
-    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
-    if (test_ave_keep) handover = RWP_TV_KEEP;
-    else if (test_handover_480p && handover == RWP_TV_NTSC) handover = RWP_TV_NTSC_480P;
+    // The picture chosen above, then libogc shut down: RiftWii's
+    // shut_down_for_game.
     plugin::host().shut_down_for_game(handover);
     u32 level;
     _CPU_ISR_Disable(level);

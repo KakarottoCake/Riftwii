@@ -8,6 +8,7 @@
 #include "gc_card.h"
 #include "gc_gcad.h"
 #include "gc_ports.h"
+#include "gc_tgc.h"
 #include "gc_video.h"
 #include "gc_load.h"
 #ifdef RT_RVZ
@@ -626,6 +627,13 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
         const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
         gc_copy((uint8_t*)&w[GC_TR_PROJECTION_CALLERS], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
+    } else if (ctx->projections == 0) {
+        /* No projection seen (16:9 off): the words would stay zero, so
+         * they carry the VI's registers 0x00-0x3F instead, the timing
+         * the TV locks onto. A TV that lost the signal on a Wii (the
+         * Collector's Edition menu in 480p, 21 Oct) says nothing in
+         * Dolphin, which takes any timing. */
+        for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = gc_read32(GC_VI_BASE + 4u * i);
     }
 #ifdef RT_RVZ
     if (ctx->rvz) {
@@ -816,7 +824,9 @@ static void gc_stream_fetch(struct gc_rt_context* ctx);
  * thread (priority 10) called a load's completion function at 0x80020104,
  * which the queuing code stores at 0x80020428 only after queuing the load
  * at 0x800203ec, and jumped to whatever the heap had there. */
+static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length);
 uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
+    if (ctx->tgc_count != 0) gc_on_tgc_read(ctx, offset, length);
     gc_command_seen(ctx, 0);
     ctx->reads++;
     ctx->read_bytes += length;
@@ -864,6 +874,16 @@ static void gc_read_step(struct gc_rt_context* ctx) {
             gc_arm(ctx, ctx->delay_ticks);
             return;
         }
+        /* Before the read's first piece, the TGC watch once more: at the
+         * read's start (gc_on_read) the card may have been busy with a
+         * request this read's interrupt had broken into (the music
+         * ring's top-up), and the watch then let the read by. The
+         * Collector's Edition menu reads a TGC's header only once, so
+         * that start would otherwise run unpatched. Here the card is
+         * free; a read the watch has seen already, or one of no TGC,
+         * is let by again at once. */
+        if (ctx->tgc_count != 0 && ctx->read_offset == ctx->last_offset)
+            gc_on_tgc_read(ctx, ctx->read_offset, ctx->read_length);
         if (gc_read_disc(ctx, (uint8_t*)(uintptr_t)ctx->read_addr, piece, ctx->read_offset, 0)) {
             ctx->read_addr += piece;
             ctx->read_offset += piece;
@@ -989,7 +1009,7 @@ uint32_t gc_on_load_callbacks_done(struct gc_rt_context* ctx, uint32_t group) {
 
 uint32_t gc_on_disk_id(struct gc_rt_context* ctx, uint32_t id, uint32_t cb) {
     gc_command_seen(ctx, 1);
-    gc_complete(ctx, cb, gc_read_disc(ctx, (uint8_t*)(uintptr_t)id, 0x20, 0, 0) ? GC_DI_TC : GC_DI_DE);
+    gc_complete(ctx, cb, gc_read_disc(ctx, (uint8_t*)(uintptr_t)id, 0x20, ctx->disc_id_offset, 0) ? GC_DI_TC : GC_DI_DE);
     return 1;
 }
 
@@ -1270,7 +1290,7 @@ void gc_on_di_start(struct gc_rt_context* ctx) {
     if (!(control & 1u)) return;
     switch (command >> 24) {
     case 0xA8:
-        if ((command & 0xFFu) == 0x40) gc_on_read(ctx, addr, length, 0, GC_CB_DI_RAISE);  /* the disc ID */
+        if ((command & 0xFFu) == 0x40) gc_on_read(ctx, addr, length, ctx->disc_id_offset, GC_CB_DI_RAISE);  /* the disc ID */
         else gc_on_read(ctx, addr, length, di[GC_DI_CMD1] << 2, GC_CB_DI_RAISE);
         return;
     case 0x12: {
@@ -1814,6 +1834,78 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
         (void)gc_exec_bytes(buf, 0, GC_EXEC_IDLE_0, 4);
         (void)gc_exec_bytes(buf, 4, GC_EXEC_IDLE_1, 4);
         (void)gc_sd_write_locked(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
+    }
+    ctx->busy = 0;
+    gc_irq_restore(msr);
+}
+
+/* A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
+ * the Wind Waker demo disc) does not switch programs through
+ * __OSBootDolSimple: each game it offers is a whole disc packed in a TGC
+ * image, and the menu reads the chosen one's program with a loader of its
+ * own and jumps to it. That program would run with none of RiftWii's
+ * patches, its disc reads unanswered, and the screen stayed black. So the
+ * menu's read of a TGC's header, or its first read of a TGC's program
+ * (the loader found where each lies, tgc_offset and tgc_dol_start/end;
+ * gc_tgc.h says why both) is taken as the start of that game: exec.txt
+ * (gc_on_boot_dol's file) becomes a launch with
+ * gc_tgc=<the TGC's offset on the disc>, and the game leaves as holding
+ * HOME does, before the read is served. RiftWii's next start launches the
+ * image again with that TGC's game. Returns when that could not be done;
+ * the watch then ends, the read is served, and the menu's own start runs
+ * as it would have. */
+static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length) {
+    uint8_t* const buf = (uint8_t*)(uintptr_t)ctx->trace_buf;
+    uint32_t tgc = 0, at, i, msr;
+    int found = 0, read;
+    for (i = 0; i < ctx->tgc_count && i < GC_TGC_MAX && !found; ++i) {
+        /* The TGC's header or its program (gc_tgc.h). */
+        found = gc_tgc_read_starts_game(ctx->tgc_offset[i], ctx->tgc_dol_start[i], ctx->tgc_dol_end[i], offset, length);
+        if (found) tgc = ctx->tgc_offset[i];
+    }
+    if (!found) return;
+    /* An SD request under way (this read broke into it): the read's first
+     * piece (gc_read_step) asks again once the card is free. */
+    if (ctx->busy) return;
+    if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
+        ctx->tgc_count = 0;
+        return;
+    }
+    msr = gc_irq_off();  /* the trace's buffer is this one: no heartbeat in between */
+    ctx->busy = 1;
+    read = gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf);
+    if (!read || gc_exec_word(buf, 0) != GC_EXEC_IDLE_0 || gc_exec_word(buf, 4) != GC_EXEC_IDLE_1) {
+        ctx->busy = 0;
+        ctx->tgc_count = 0;
+        gc_irq_restore(msr);
+        return;
+    }
+    (void)gc_exec_bytes(buf, 0, GC_EXEC_LAUNCH_0, 4);
+    (void)gc_exec_bytes(buf, 4, GC_EXEC_LAUNCH_1, 4);
+    for (at = 0; at < GC_SECTOR && buf[at] != 0; ++at) {
+    }
+    at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc=" */
+    at = gc_exec_bytes(buf, at, 0x67633D00u, 3);
+    (void)gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
+    if (gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf) < 0) {
+        ctx->tgc_count = 0;
+        ctx->busy = 0;
+        gc_irq_restore(msr);
+        return;
+    }
+    ctx->busy = 0;
+    gc_trace(ctx, GC_TRACE_EXEC);
+    gc_irq_restore(msr);
+    gc_leave(ctx);
+    /* Still here: IOS said no. The file back to idle, so no later start
+     * of RiftWii takes the start up, and the menu's own goes on. */
+    ctx->tgc_count = 0;
+    msr = gc_irq_off();
+    ctx->busy = 1;
+    if (gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf)) {
+        (void)gc_exec_bytes(buf, 0, GC_EXEC_IDLE_0, 4);
+        (void)gc_exec_bytes(buf, 4, GC_EXEC_IDLE_1, 4);
+        (void)gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf);
     }
     ctx->busy = 0;
     gc_irq_restore(msr);
