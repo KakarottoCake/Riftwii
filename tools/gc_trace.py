@@ -21,7 +21,11 @@ import struct
 HEADER = os.path.join(os.path.dirname(__file__), '..', 'runtime', 'gc', 'gc_rt.h')
 MAGIC = 0x52575452  # "RWTR"
 RECORD_BYTES = 512
-WHERE = {1: 'read', 2: 'pad', 3: 'ai', 4: 'ar', 5: 'jump', 6: 'beat', 7: 'fatal', 8: 'command', 9: 'leave', 10: 'restart'}
+WHERE = {1: 'read', 2: 'pad', 3: 'ai', 4: 'ar', 5: 'jump', 6: 'beat', 7: 'fatal', 8: 'command', 9: 'leave',
+         10: 'restart', 11: 'exec', 12: 'pad_si'}
+PAD_SI_WHERE = 12
+PAD_SI_NAMES = ['si_type_1', 'si_type_2', 'si_type_3', 'si_type_4', 'sisr', 'pad_enabled_before',
+                'pad_enabled_after', 'pad_raw_errs', 'pad_native']
 # Counters read better in decimal; everything else (addresses, registers) in hex.
 # gc_video.h's GC_VI_WIDTH_KEPT, set in the vi_mode word.
 VI_WIDTH_KEPT = 0x10000
@@ -56,6 +60,16 @@ def word_names():
     return [n.replace('GC_TR_', '').lower() for n in names]
 
 
+def record_names(names, where):
+    """New pad records reuse crash-only words; older pad and fatal records do not."""
+    if where != PAD_SI_WHERE:
+        return names
+    overlaid = list(names)
+    first = names.index('crash_r1')
+    overlaid[first:first + len(PAD_SI_NAMES)] = PAD_SI_NAMES
+    return overlaid
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('trace')
@@ -72,14 +86,29 @@ def main():
     records.sort(key=lambda words: words[1])
     print('%d record(s)' % len(records))
 
-    shown = [i for i, name in enumerate(names)
-             if name not in ('magic', 'tbu') and (args.all or any(r[i] for r in records))]
+    where_index = names.index('where')
+    named_records = []
+    nonzero_names = set()
     for record in records:
+        labels = record_names(names, record[where_index])
+        named_records.append((record, labels))
+        for name, value in zip(labels, record):
+            if value:
+                nonzero_names.add(name)
+    for record, labels in named_records:
         fields = []
-        for i in shown:
-            name, value = names[i], record[i]
+        for name, value in zip(labels, record):
+            if name in ('magic', 'tbu') or (not args.all and name not in nonzero_names):
+                continue
             if name == 'where':
                 fields.append('where=%s' % WHERE.get(value, value))
+            elif name == 'sisr':
+                no_response = sum(((value >> (27 - 8 * port)) & 1) << port for port in range(4))
+                fields.append('sisr=0x%08x si_norep=0x%x' % (value, no_response))
+            elif name == 'pad_native':
+                fields.append('pad_native=0x%x si_types_known=%d' % (value & 0xF, bool(value & 0x100)))
+            elif name in ('pad_enabled_before', 'pad_enabled_after') and value == 0xFFFFFFFF:
+                fields.append('%s=unknown' % name)
             elif name in DECIMAL:
                 fields.append('%s=%d' % (name, value))
             elif name == 'vi_mode' and value & VI_WIDTH_KEPT:

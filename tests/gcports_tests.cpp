@@ -82,6 +82,56 @@ void test_disabled_native_ports() {
     EXPECT_EQ(gc_ports_taken(status, gc_ports_native(types)), kAllPorts);
 }
 
+// A real Wii can replace a disabled port's cached type with NOREP. The
+// original -1 must still reach F-Zero so its own reset can recover the pad.
+void test_native_lifecycle() {
+    for (unsigned port = 0; port < GC_PORTS; ++port) {
+        std::uint32_t types[GC_PORTS] = {8, 8, 8, 8};
+        std::uint8_t status[12 * GC_PORTS] = {};
+        for (unsigned index = 0; index < GC_PORTS; ++index) status[12 * index + 10] = 0xFF;
+        const std::uint32_t bit = 1u << port;
+        const std::uint32_t enabled = 0x80000000u >> port;
+        std::uint32_t native = gc_ports_native_update(types, status, 0, 0);
+        EXPECT_EQ(native, 0);
+        EXPECT_EQ(assign(native, bit).of[port], port);  // remote only, including disabled ports
+
+        types[port] = 0x09000000u;  // late identification
+        native = gc_ports_native_update(types, status, 0, native);
+        EXPECT_EQ(native, bit);
+        types[port] = 8;  // PADSetAnalogMode disabled it; SIGetStatus reported NOREP
+        native = gc_ports_native_update(types, status, 0, native);
+        EXPECT_EQ(native, bit);
+        EXPECT_EQ(assign(gc_ports_taken(status, native), bit).of[port] == port, 0);
+        EXPECT_EQ(status[12 * port + 10], 0xFF);
+
+        // BUSY, transfer errors and a wireless receiver waiting for its
+        // controller are not a confirmed unplug on an enabled port.
+        types[port] = 0x80;
+        EXPECT_EQ(gc_ports_native_update(types, status, enabled, native), bit);
+        types[port] = 8;
+        status[12 * port + 10] = 0xFD;
+        EXPECT_EQ(gc_ports_native_update(types, status, enabled, native), bit);
+        status[12 * port + 10] = 0;
+        EXPECT_EQ(gc_ports_native_update(types, status, enabled, native), bit);
+
+        // The SDK clears EnabledBits on an unplug before its read returns.
+        // The input is the PRE-read mask; the post-read zero must not be used.
+        status[12 * port + 10] = 0xFF;
+        native = gc_ports_native_update(types, status, enabled, native);
+        EXPECT_EQ(native, 0);
+        EXPECT_EQ(assign(native, bit).of[port], port);
+
+        // Other enabled channels cannot release this controller's port.
+        EXPECT_EQ(gc_ports_native_update(types, status, 0xF0000000u & ~enabled, bit), bit);
+        EXPECT_EQ(gc_ports_native_update(types, nullptr, enabled, bit), bit);
+        EXPECT_EQ(gc_ports_native_update(types, status, GC_PORTS_ENABLED_UNKNOWN, bit), 0);
+        EXPECT_EQ(gc_ports_native_update(nullptr, status, enabled, bit), 0);
+        types[port] = 0xA9000000u;  // a wireless controller identifies again
+        EXPECT_EQ(gc_ports_native_update(types, status, enabled, 0), bit);
+        EXPECT_EQ(gc_ports_native_update(types, status, GC_PORTS_ENABLED_UNKNOWN, 0), bit);
+    }
+}
+
 // One Wii Remote and nothing in the GameCube ports: port 1, as before.
 void test_remote_only() {
     const Ports ports = assign(0, kSlot1);
@@ -225,6 +275,7 @@ void test_slot_for_new_remotes() {
 
 int main() {
     test_disabled_native_ports();
+    test_native_lifecycle();
     test_remote_only();
     test_gamecube_only();
     test_remote_and_gamecube_in_port_1();

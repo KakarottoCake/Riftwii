@@ -680,5 +680,54 @@ std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uin
     return 0;
 }
 
+std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
+    std::set<std::int32_t> offsets;
+    for (std::uint32_t step = 0; step < 0x600; step += 4) {
+        const std::uint32_t at = pad_read + step;
+        const std::uint32_t load = word_at(text, at);
+        if (!inside(text, at)) return 0;
+        if (load == 0x4E800020u) return offsets.size() == 1 ? *offsets.begin() : 0;
+        if ((load & 0xFC1F0000u) != 0x800D0000u) continue;  // lwz enabled,d(r13)
+        const unsigned enabled = (load >> 21) & 31u;
+        const std::uint32_t test = word_at(text, at + 4);
+        const unsigned mask = (test >> 11) & 31u;
+        const std::uint32_t error = word_at(text, at + 12);
+        const unsigned error_reg = (error >> 21) & 31u;
+        const std::uint32_t store = word_at(text, at + 16);
+        const unsigned status = (store >> 16) & 31u;
+        if (status == 0 || status == error_reg || enabled == mask) continue;
+        const std::uint32_t expected[] = {
+            load,
+            0x7C000039u | (enabled << 21) | (enabled << 16) | (mask << 11),
+            0x40820020u,  // bne past the disabled-port block
+            li(error_reg, 0xFFFFu),
+            0x9800000Au | (error_reg << 21) | (status << 16),
+            0x38600000u | (status << 16),  // addi r3,status,0
+            li(4, 0),
+            li(5, 10),
+        };
+        bool matches = true;
+        for (unsigned i = 0; i < 8; ++i) {
+            if (word_at(text, at + 4 * i) != expected[i]) matches = false;
+        }
+        if (!matches || !is_bl(word_at(text, at + 32))) continue;
+        // Verify the mask's source within this PADRead, rather than taking
+        // an arbitrary small-data word tested on the no-controller path.
+        bool channel_mask = false;
+        for (std::uint32_t source = pad_read; source < at; source += 4) {
+            const std::uint32_t shift = word_at(text, source);
+            if ((shift & 0xFC1F07FFu) != (0x7C000430u | (mask << 16))) continue;
+            const unsigned high = (shift >> 21) & 31u;
+            for (std::uint32_t init = pad_read; init < source; init += 4) {
+                if (word_at(text, init) == (0x3C008000u | (high << 21))) channel_mask = true;
+            }
+        }
+        const std::int32_t offset = static_cast<std::int16_t>(load & 0xFFFFu);
+        if (channel_mask && offset != 0 && (offset & 3) == 0) offsets.insert(offset);
+    }
+    return 0;
+}
+
 
 }  // namespace riftwii

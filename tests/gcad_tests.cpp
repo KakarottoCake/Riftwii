@@ -1095,6 +1095,58 @@ static void TestGcSiTypeCacheSearch() {
     EXPECT_EQ(riftwii::find_gc_si_type_cache({}, 0), 0u);
 }
 
+// Self-authored disabled-port block, with a shifted channel mask and
+// register allocation distinct from F-Zero's executable.
+static void pad_enabled_block(Asm& code, std::int16_t offset) {
+    code.op(0x3D408000u);  // lis r10,0x8000
+    code.op(0x7D494C30u);  // srw r9,r10,r9
+    code.op(0x80AD0000u | static_cast<std::uint16_t>(offset));  // lwz r5,d(r13)
+    code.op(0x7CA54839u);  // and. r5,r5,r9
+    code.op(0x40820020u);
+    code.op(0x38C0FFFFu);  // li r6,-1
+    code.op(0x98DE000Au);  // stb r6,10(r30)
+    code.op(0x387E0000u);  // addi r3,r30,0
+    code.op(0x38800000u);
+    code.op(0x38A0000Au);
+    code.bl(code.base + 0x500);
+}
+
+static void TestGcPadEnabledSearch() {
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_enabled_offset({{input.base, bytes.data(), bytes.size()}}, input.base);
+    };
+    for (const std::int16_t offset : {-0x7134, 0x1234}) {
+        Asm code{0x80004000u, {}};
+        pad_enabled_block(code, offset);
+        code.blr();
+        EXPECT_EQ(find(code), static_cast<std::int32_t>(offset));
+        for (unsigned index = 0; index < 11; ++index) {
+            Asm changed = code;
+            std::uint32_t changed_field = 4u;
+            if (index == 2) changed_field = 0x10000u;
+            if (index == 10) changed_field = 1u;
+            changed.words[index] ^= changed_field;
+            EXPECT_EQ(find(changed), 0);
+        }
+        Asm truncated = code;
+        truncated.words.resize(9);
+        EXPECT_EQ(find(truncated), 0);
+        Asm conflict = code;
+        conflict.words.pop_back();
+        pad_enabled_block(conflict, offset + 4);
+        conflict.blr();
+        EXPECT_EQ(find(conflict), 0);
+    }
+    for (const std::int16_t offset : {0, 3}) {
+        Asm invalid{0x80004000u, {}};
+        pad_enabled_block(invalid, offset);
+        invalid.blr();
+        EXPECT_EQ(find(invalid), 0);
+    }
+    EXPECT_EQ(riftwii::find_gc_pad_enabled_offset({}, 0), 0);
+}
+
 int main() {
     EXPECT_EQ(sizeof(gcad) % 4, 0u);
     EXPECT_EQ(offsetof(gcad, setup_in) % 32, 0u);
@@ -1114,6 +1166,7 @@ int main() {
     TestPadSearch();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
+    TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

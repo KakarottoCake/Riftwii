@@ -100,6 +100,12 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
 // that all 16 bytes belong to the game's data or BSS before reading them.
 std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uint32_t pad_read);
 
+// PADRead's EnabledBits load relative to r13, followed by its channel-mask
+// test and disabled-port err -1/zero-status path. The mask must be formed
+// by shifting 0x80000000 right by the channel. Zero means unsupported or
+// ambiguous; callers must validate the resulting small-data address.
+std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read);
+
 // The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
 // every exception the game has no handler of its own for ends up, and
 // the game's own crash screens (installed with OSSetErrorHandler) are

@@ -519,6 +519,19 @@ typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC
 static uint32_t gc_read16(uint32_t address) { return *(volatile uint16_t*)(uintptr_t)address; }
 static void gc_write16(uint32_t address, uint32_t value) { *(volatile uint16_t*)(uintptr_t)address = (uint16_t)value; }
 
+/* Read the game's EnabledBits without depending on its startup r13 value.
+ * The loader recognises the offset in PADRead; an unfamiliar layout or
+ * an invalid small-data address disables the remembered-ownership rule. */
+static uint32_t gc_pad_enabled(const struct gc_rt_context* ctx) {
+    uint32_t r13, address;
+    if (ctx->pad_enabled_offset == 0) return GC_PORTS_ENABLED_UNKNOWN;
+    __asm__ volatile("mr %0,13" : "=r"(r13));
+    address = r13 + (uint32_t)ctx->pad_enabled_offset;
+    if (address < 0x80003100u || address > 0x81800000u - 4u || (address & 3u) != 0)
+        return GC_PORTS_ENABLED_UNKNOWN;
+    return gc_read32(address);
+}
+
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
 static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
@@ -667,6 +680,19 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_PI_MASK] = gc_read32(0xCC003004u);
     w[GC_TR_HW_IRQ_FLAG] = gc_read32(0xCD000030u);
     w[GC_TR_HW_IRQ_MASK] = gc_read32(0xCD000034u);
+    if (where == GC_TRACE_PAD_SI) {
+        const volatile uint32_t* types = (const volatile uint32_t*)(uintptr_t)ctx->si_type_cache;
+        for (i = 0; i < GC_PORTS; ++i) w[GC_TR_PAD_SI_TYPES + i] = types != 0 ? types[i] : 0;
+        /* SISR is safe to read: its errors clear on a write of one, and
+         * RDST clears on input-buffer reads, which we never make here.
+         * It describes past transfers, not continuous physical presence. */
+        w[GC_TR_PAD_SISR] = gc_read32(0xCD006438u);
+        w[GC_TR_PAD_ENABLED_BEFORE] = ctx->pad_enabled_before;
+        w[GC_TR_PAD_ENABLED_AFTER] = gc_pad_enabled(ctx);
+        w[GC_TR_PAD_RAW_ERRS] = ctx->pad_raw_errs;
+        w[GC_TR_PAD_NATIVE] = ctx->native_ports | (types != 0 ? 0x100u : 0u);
+        w[GC_TR_PAD_ERRS] = ctx->pad_filled_errs;
+    }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
     ctx->busy = 0;
@@ -1836,6 +1862,10 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
     ctx->leave_since = 0;
     ctx->reset_down_since = 0;
     ctx->reset_request_at = 0;
+    ctx->native_ports = 0;
+    ctx->pad_enabled_before = GC_PORTS_ENABLED_UNKNOWN;
+    ctx->pad_raw_errs = 0xFFFFFFFFu;
+    ctx->pad_filled_errs = 0xFFFFFFFFu;
     if (ctx->stream) {
         struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
         st->playing = 0;
@@ -2081,13 +2111,35 @@ void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command)
     if (ctx->gcad) gc_gcad_motor((struct gc_gcad*)(uintptr_t)ctx->gcad, chan, command);
 }
 
+/* The enabled state must be sampled before the SDK's read: its unplug
+ * path clears EnabledBits as well as replacing the cached type with 8. */
+void gc_before_pad_read(struct gc_rt_context* ctx) {
+    const uint32_t msr = gc_irq_off();
+    ctx->pad_enabled_before = gc_pad_enabled(ctx);
+    ctx->native_ports |= gc_ports_native((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache);
+    gc_irq_restore(msr);
+}
+
+static uint32_t gc_pad_errors(const uint8_t* status) {
+    uint32_t port, errors = 0;
+    if (status == 0) return 0xFFFFFFFFu;
+    for (port = 0; port < GC_PORTS; ++port) errors = errors << 8 | status[12 * port + 10];
+    return errors;
+}
+
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
     const uint32_t n = ctx->pad_reads++;
-    const uint32_t native = gc_ports_native((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache);
+    const uint32_t previous_native = ctx->native_ports;
+    const uint32_t previous_errors = ctx->pad_raw_errs;
+    uint32_t native;
     /* The four PADStatus (12 bytes each) the game asked for, read and
      * written below: anything else (a function found as PADRead that takes
      * other arguments) is left alone rather than followed. */
     if (status < 0x80000000u || status > 0x81800000u - 4u * 12u || (status & 1u) != 0) status = 0;
+    ctx->pad_raw_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
+    native = gc_ports_native_update((const volatile uint32_t*)(uintptr_t)ctx->si_type_cache,
+                                    (const uint8_t*)(uintptr_t)status, ctx->pad_enabled_before, previous_native);
+    ctx->native_ports = native;
     gc_guard(ctx);  /* once a frame: IOS rewrites its counter there all the time */
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
     /* The adapter's controllers first: they take their ports before the
@@ -2106,7 +2158,9 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
             gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
         }
     }
-    if (n % 300 == 0) gc_trace(ctx, GC_TRACE_PAD);
+    ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
+    if (n % 300 == 0 || native != previous_native || ctx->pad_raw_errs != previous_errors ||
+        ctx->pad_enabled_before != gc_pad_enabled(ctx)) gc_trace(ctx, GC_TRACE_PAD_SI);
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
     if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
