@@ -219,6 +219,7 @@ document it.
 | Name | What |
 | --- | --- |
 | `patch` | Riivolution XML: parsing, and a plan for one disc (choices, params, placeholders) |
+| `patchstream` | `read_package` from a `std::istream`, for the host tests only (left out of the Wii build so no stream code is linked) |
 | `apply`, `overlay`, `source` | Composing replaced files from byte sources |
 | `expand` | Folder patches into file patches against the disc's file table |
 | `redirect` | The table of where each replaced file's bytes come from |
