@@ -4,7 +4,8 @@
 
 #include <algorithm>
 #include <cctype>
-#include <sstream>
+
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -124,10 +125,10 @@ struct CheatBlocks {
 
 CheatBlocks split_blocks(const std::string& text) {
     CheatBlocks out;
-    std::istringstream in(text);
+    LineReader in(text);
     std::string raw;
     std::vector<std::string> lines;
-    while (std::getline(in, raw)) lines.push_back(trim(raw));
+    while (in.next(raw)) lines.push_back(trim(raw));
     if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0] = lines[0].substr(3);
     std::size_t i = 0;
     // As parse_cheat_text reads the header.
@@ -495,10 +496,10 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
 
 bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& error, int revision) {
     out = CheatFile{};
-    std::istringstream in(text);
+    LineReader in(text);
     std::string raw;
     std::vector<std::string> lines;
-    while (std::getline(in, raw)) lines.push_back(trim(raw));
+    while (in.next(raw)) lines.push_back(trim(raw));
     // A UTF-8 byte order mark from a PC editor.
     if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0] = lines[0].substr(3);
     std::size_t i = 0;

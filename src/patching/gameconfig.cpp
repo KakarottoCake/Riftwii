@@ -3,7 +3,8 @@
 #include "riftwii/gameconfig.hpp"
 
 #include <cctype>
-#include <sstream>
+
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -62,10 +63,11 @@ bool call_args(const std::string& line, const std::string& name, std::vector<std
     if (lower(line.substr(0, name.size())) != name) return false;
     const std::string rest = trim(line.substr(name.size()));
     if (rest.size() < 2 || rest.front() != '(' || rest.back() != ')') return false;
-    std::stringstream parts(rest.substr(1, rest.size() - 2));
+    const std::string inside = rest.substr(1, rest.size() - 2);
+    LineReader parts(inside, ',');
     std::string part;
     args.clear();
-    while (std::getline(parts, part, ',')) {
+    while (parts.next(part)) {
         std::uint32_t v = 0;
         if (!parse_hex(part, v)) return false;
         args.push_back(v);
@@ -78,9 +80,9 @@ bool call_args(const std::string& line, const std::string& name, std::vector<std
 GameConfig parse_gameconfig(const std::string& text, const std::string& game_id) {
     GameConfig out;
     bool in_game = false;
-    std::stringstream lines(text);
+    LineReader lines(text);
     std::string raw;
-    while (std::getline(lines, raw)) {
+    while (lines.next(raw)) {
         const std::size_t hash = raw.find('#');
         const std::string line = trim(hash == std::string::npos ? raw : raw.substr(0, hash));
         if (line.empty()) continue;

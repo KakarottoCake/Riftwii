@@ -4,9 +4,9 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <sstream>
 
 #include "riftwii/profiles.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -19,14 +19,15 @@ bool plausible_id(const std::string& id) { return valid_tile_key(id); }
 
 void PlayHistory::parse(const std::string& text) {
     games_.clear();
-    std::istringstream in(text);
+    LineReader in(text);
     std::string line;
-    while (std::getline(in, line)) {
+    while (in.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() || line[0] == '#') continue;
-        std::istringstream fields(line);
+        // The ID and the count end at a tab; the time is the rest of the line.
+        LineReader fields(line);
         std::string id, count, last;
-        if (!std::getline(fields, id, '\t') || !std::getline(fields, count, '\t') || !std::getline(fields, last)) continue;
+        if (!fields.next(id, '\t') || !fields.next(count, '\t') || !fields.next(last)) continue;
         if (!plausible_id(id)) continue;
         char* end = nullptr;
         const unsigned long c = std::strtoul(count.c_str(), &end, 10);

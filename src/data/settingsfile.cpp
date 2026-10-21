@@ -6,9 +6,9 @@
 
 #include <algorithm>
 #include <cctype>
-#include <sstream>
 
 #include "riftwii/gamelang.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -26,9 +26,9 @@ std::string trim(const std::string& s) {
 }  // namespace
 
 void LoaderSettings::parse(const std::string& text) {
-    std::istringstream in(text);
+    LineReader in(text);
     std::string line;
-    while (std::getline(in, line)) {
+    while (in.next(line)) {
         line = trim(line);
         if (line.empty() || line[0] == '#') continue;
         const std::size_t eq = line.find('=');

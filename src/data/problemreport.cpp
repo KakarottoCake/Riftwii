@@ -3,9 +3,9 @@
 #include "riftwii/problemreport.hpp"
 
 #include "riftwii/cheats.hpp"
+#include "riftwii/textlines.hpp"
 
 #include <algorithm>
-#include <sstream>
 
 namespace riftwii {
 namespace {
@@ -193,9 +193,9 @@ std::string launched_game_id(const std::string& boot_log) {
     const std::size_t at = first.find(": launch ");
     if (at != std::string::npos) return game_id_at(first.substr(at + 9));
     // A boot without packs: the disc line, the first one only.
-    std::istringstream lines(boot_log);
+    LineReader lines(boot_log);
     std::string line;
-    while (std::getline(lines, line)) {
+    while (lines.next(line)) {
         const std::size_t disc = line.find("] Disc: ");
         if (disc != std::string::npos) return game_id_at(line.substr(disc + 8));
         if (line.compare(0, 6, "Disc: ") == 0) return game_id_at(line.substr(6));
@@ -205,9 +205,9 @@ std::string launched_game_id(const std::string& boot_log) {
 
 std::vector<std::string> enabled_pack_files(const std::string& choices) {
     std::vector<std::string> out;
-    std::istringstream lines(choices);
+    LineReader lines(choices);
     std::string line;
-    while (std::getline(lines, line)) {
+    while (lines.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const std::size_t t1 = line.find('\t');
         if (t1 == std::string::npos || line.find('\t', t1 + 1) != std::string::npos) continue;
@@ -222,9 +222,9 @@ std::string picked_cheats_report(const std::string& choices, const std::string& 
     std::vector<std::string> picked;
     bool on = false;
     {
-        std::istringstream lines(choices);
+        LineReader lines(choices);
         std::string line;
-        while (std::getline(lines, line)) {
+        while (lines.next(line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line == "*riftwii*\tcheats\ton") on = true;
             const std::string prefix = "*riftwii*\tcheat\t";
@@ -239,9 +239,9 @@ std::string picked_cheats_report(const std::string& choices, const std::string& 
     // up to a blank line.
     std::vector<std::vector<std::string>> blocks(1);
     {
-        std::istringstream lines(cheat_text);
+        LineReader lines(cheat_text);
         std::string line;
-        while (std::getline(lines, line)) {
+        while (lines.next(line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             if (trim(line).empty()) {
                 if (!blocks.back().empty()) blocks.emplace_back();
