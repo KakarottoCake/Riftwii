@@ -6985,6 +6985,14 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	std::vector<std::uint8_t> target;
 	struct stat status;
 	const bool targetExists = stat(path.c_str(), &status) == 0;
+	// An image larger than any card would be refused by the read below:
+	// say so, rather than asking for memory it will never use.
+	if (targetExists && static_cast<unsigned long long>(status.st_size) > riftwii::kGcDolphinMaxRawBytes) {
+		logf("GameCube: %s is %llu bytes, larger than any memory card (%llu); nothing was copied.\n", path.c_str(),
+			static_cast<unsigned long long>(status.st_size), static_cast<unsigned long long>(riftwii::kGcDolphinMaxRawBytes));
+		ShowPopup(tr("Memory card"), tr("RiftWii could not read {1}.", {path}), tr("OK"));
+		return;
+	}
 	// Beside the card already read: the SD image and the plan's copy of
 	// it, at the image's own size (a new one may be formatted up to the
 	// largest a card can be).
