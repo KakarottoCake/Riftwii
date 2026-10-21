@@ -309,6 +309,9 @@ the tiles.
   motion may shear slightly. Some games and mods may still not work with
   it: turn it off for those.
 - **Download names and cheats**, and **Get the latest game names**.
+- **Download missing covers** (Settings > Online): retries the covers, boxes
+  and 3D covers Home is missing when you return to Home, with downloads on.
+  Games GameTDB has no picture for stay without one.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.

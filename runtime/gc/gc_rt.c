@@ -9,6 +9,7 @@
 #include "gc_gcad.h"
 #include "gc_tgc.h"
 #include "gc_video.h"
+#include "gc_load.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -882,17 +883,27 @@ static void gc_read_step(struct gc_rt_context* ctx) {
  * 0x801ca9c4); on a Wii a buffer freed with that heap stayed in use (an
  * ISI through a vtable of "JKRT" text). So each load remembers the heap
  * current where it was queued, and the loading thread allocates its
- * buffer and runs its callbacks with that heap current, as when it was
- * idle and took the request at once, then puts back the one it found. */
+ * buffer with that heap current, then puts back the one it found.
+ * Callbacks escape temporary heaps in the same way, but keep the game's
+ * choice on its two main heaps and JKRHeap's root/system heaps. A load's
+ * callback can have a longer lifetime than its buffer: game_usa.szp is
+ * queued on the scene heap, but its global archive belongs on the
+ * persistent heap the game selects after queueing it. Forcing that
+ * callback onto the scene heap leaves a destroyed archive in use after
+ * the scene's group cleanup (the progressive prompt exposed this). */
 typedef uint32_t (*gc_game_fn0)(void);
 typedef uint32_t (*gc_game_fn1)(uint32_t);
 typedef uint32_t (*gc_game_fn2)(uint32_t, uint32_t);
 
-/* JKRHeap's current heap, a global in the game's small data (r13). */
-static volatile uint32_t* gc_current_heap(const struct gc_rt_context* ctx) {
+/* A heap global in the game's small data (r13), found by the loader. */
+static volatile uint32_t* gc_heap_global(uint32_t offset) {
     uint32_t r13;
     __asm__ volatile("mr %0,13" : "=r"(r13));
-    return (volatile uint32_t*)(uintptr_t)(r13 + ctx->load_heap_offset);
+    return (volatile uint32_t*)(uintptr_t)(r13 + offset);
+}
+
+static volatile uint32_t* gc_current_heap(const struct gc_rt_context* ctx) {
+    return gc_heap_global(ctx->load_heap_offset);
 }
 
 /* The remembered heap of `request`, 0: none. */
@@ -932,12 +943,19 @@ uint32_t gc_on_load_alloc(struct gc_rt_context* ctx, uint32_t length, uint32_t a
 
 /* In place of its group(id) before the load's callbacks. */
 uint32_t gc_on_load_callbacks(struct gc_rt_context* ctx, uint32_t group, uint32_t unused, uint32_t request) {
-    const uint32_t heap = gc_load_heap(ctx, request);
+    volatile uint32_t* current = gc_current_heap(ctx);
+    const uint32_t found = *current;
+    uint32_t roots[GC_LOAD_ROOT_HEAPS];
+    uint32_t heap;
+    uint32_t i;
     (void)unused;  /* the game's r4 */
     ctx->load_saved_heap = 0;
+    for (i = 0; i < GC_LOAD_ROOT_HEAPS; ++i) {
+        roots[i] = *gc_heap_global(ctx->load_root_heap_offsets[i]);
+    }
+    heap = gc_load_callback_heap(found, gc_load_heap(ctx, request), roots);
     if (heap != 0) {
-        volatile uint32_t* current = gc_current_heap(ctx);
-        ctx->load_saved_heap = *current;
+        ctx->load_saved_heap = found;
         *current = heap;
     }
     return ((gc_game_fn1)(uintptr_t)ctx->load_group)(group);
@@ -1104,6 +1122,23 @@ static void gc_vi_hand_over(const struct gc_rt_context* ctx, uint32_t* saved) {
 static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* saved) {
     if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;
     gc_vi_write_all(saved);
+}
+/* The restart (gc_on_hot_reset): the VI as the first start found it, on,
+ * in the game's TV format, blanked. The SDK's hot reset switches the VI
+ * off (display control 0) before it resets, and on a GameCube the IPL then
+ * sets it up again; here nothing does, so VIInit found it off and set it
+ * up as NTSC, writing NTSC into 0x800000CC as well. Doshin the Giant PAL,
+ * restarted through its own OSResetSystem(0) (made a hot reset by
+ * gc_on_reset_system), then never got a retrace interrupt and waited in
+ * VIWaitForRetrace for good, the screen black (Dolphin). With the VI on,
+ * VIInit keeps it as at the first start. */
+static void gc_vi_restart(const struct gc_rt_context* ctx) {
+    uint32_t mode[GC_VI_HANDOVER_WORDS];
+    uint32_t i;
+    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = ctx->vi_at_jump[i];
+    gc_vi_blank(mode);
+    gc_vi_write_all(mode);
 }
 
 typedef void (*gc_callback_fn)(uint32_t type);
@@ -2019,7 +2054,8 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     } while ((*(volatile uint16_t*)(uintptr_t)GC_CP_SR & GC_CP_SR_IDLE) != GC_CP_SR_IDLE &&
              now - start < GC_GP_IDLE_TICKS);
     gc_audio_reset(ctx);
-    gc_trace(ctx, GC_TRACE_RESTART);  /* the audio as the restarted game finds it */
+    gc_vi_restart(ctx);
+    gc_trace(ctx, GC_TRACE_RESTART);  /* the audio and the VI as the restarted game finds them */
     gc_forget_game(ctx);
     __asm__ volatile("mr 1,%0\n\tmr 3,%1\n\tb gc_restore_and_start" : : "r"(ctx->restart_stack), "r"(ctx) : "memory");
     for (;;) {

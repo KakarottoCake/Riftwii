@@ -16,6 +16,9 @@ namespace riftwii::wii {
 // True when the game has no stored cover and GameTDB was not found
 // without one in the last week.
 bool CoverWanted(const std::string& game_id);
+// Forgets that GameTDB had no cover for the game, so the next look asks
+// again instead of waiting out the week (Settings > Download missing covers).
+void ForgetCoverMiss(const std::string& game_id);
 // True when the game's cover is on the card.
 bool CoverStored(const std::string& game_id);
 

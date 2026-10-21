@@ -252,13 +252,20 @@ patch, and put in only after all of them, if its `blr` is still there.
 No hook or too many codes: the game starts without them, with a
 `boot.log` line.
 
+Japanese GameCube IDs select the Shift-JIS IPL font on NTSC through the
+recognized `OSGetFontEncode` decisions and their inlined copies
+(`src/patching/gcfont.cpp`), replacing only their VI DTV loads so a Western
+console's missing Japanese strap does not select ANSI; cached encodings,
+non-NTSC paths and other game regions keep their own behavior.
+
 **The blob** (`runtime/gc/`, position independent, no heap or libc):
 - `gc_rt.c`: disc reads from the image's SD sectors (and the packs'
   window), with polled IPC and the game's own `OSSetAlarm` for the
   callbacks, the SD card read from the alarm once `DVDLowRead` has
   returned, as a drive works while the game runs on; a GameCube drive's
-  timing unless Disc reads is Fast; Luigi's Mansion's loader steered to
-  the heap each load was queued from; disc
+  timing unless Disc reads is Fast; Luigi's Mansion's read buffers steered
+  to the heap each load was queued from, and its callbacks steered only
+  when they interrupt a temporary heap (see below); disc
   audio streaming mixed into the game's AI DMA; ARAM kept in MEM2 at
   `0x90000000` (a Wii's ARAM DMA moves nothing in Wii mode), with the
   game's ARAM addresses raised so its own sound program reads MEM2
@@ -288,10 +295,41 @@ No hook or too many codes: the game starts without them, with a
   ports by `gc_ports.h`'s rule before the Wii Remotes, which then skip
   the ports they filled.
 - `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
-  written back to its file's sectors as the game saves.
+  written back to its file's sectors as the game saves. The SDK's EXI
+  functions are found by `src/patching/gcexi.cpp`, through their shared
+  control blocks and call relationships. `EXIGetID` identifies the bus
+  selector when two routines set the same selected-state bit (Pokemon
+  Channel). The clock/SRAM on channel 0 device 1, slot B and the serial
+  port pass through to the game's original functions and the hardware;
+  only channel 0 device 0 is answered by the card image.
 - `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
+
+**Luigi's Mansion's loader.** The game has one current heap for all its
+threads. At the SD card's speed its loader thread can wake while another
+thread has made a small, full heap current for a moment (a 512 KB solid
+heap for a room's models), and its allocation then gets nothing. So each
+load's read buffer comes from the heap that was current when the load was
+queued. A load's callbacks are steered the same way only when they find
+such a temporary heap current; when it is one of the game's two main
+heaps or JKRHeap's system or root heap, they keep it, as the game would.
+That matters because a callback can make something that outlives its
+buffer: `/Game/game_usa.szp` is queued with the scene heap current, but
+the game switches to the persistent heap straight after, and that is
+where its callback should build the game's global archive. Built on the
+scene heap instead, the archive was freed at the next scene change while
+the game still used it, and Luigi's Mansion crashed to black after
+choosing progressive scan.
+
+`src/patching/gcload.cpp` finds the main-heap globals from the loader's group
+function and the system/root globals from JKRHeap's constructor comparisons
+and exchange setters, checked against the loader's current-heap global.
+The blob reads their values at each callback, including after a restart.
+Only the `gc_loads_use_queued_heap` game list enables this policy. If all
+four globals cannot be identified unambiguously, callback hooks are left
+out and the log says that only read buffers are protected. Neither game
+addresses nor archive paths are used to select behavior.
 
 **Clock speed** (`match_game_to_clocks` in `plugins/gamecube/gcnative.cpp`,
 `src/patching/gcclock.cpp`). A GameCube runs its CPU at 486 MHz and its
@@ -379,8 +417,12 @@ the console (PI's reset register) or reboot the disc through the
 apploader, the blob puts MEM1 back as the loader left it at the jump,
 from a copy kept in MEM2, and starts the game at its entry again
 (`gc_on_hot_reset`). The memory card is written back first; the Wii
-Remotes stay connected. The blob also watches the button itself (PI's
-bit 16) at each pad read: a press the game has not answered with its own
+Remotes stay connected. The VI goes back on as the first start found
+it, in the game's TV format and blanked: the SDK's hot reset switches it
+off, which on a GameCube the IPL undoes, and a VIInit that finds it off
+sets it up as NTSC (Doshin the Giant PAL then waited for a retrace that
+never came). The blob also watches the button itself (PI's bit 16) at
+each pad read: a press the game has not answered with its own
 OSResetSystem within two seconds is answered by calling it for the game.
 OSResetSystem asked for the start-up menu goes back to RiftWii instead.
 The restart is used only for games it is known to work in
@@ -443,11 +485,23 @@ picked back over the card, after a backup of the card as it is now, so a
 restore can be undone the same way: that copy's name ends in `-undo`, and
 the list marks it "(before you restored)". Each row's second line, how
 many saves and blocks the copy holds, comes from its directory alone
-(`gc_card_space`). A card made with another console's flash ID is re-signed
-for this Wii in memory before the game runs (`gc_card_resign`): its serial
-is remade under the card's own format time, as a GameCube's own mount
-would, so the game does not read it as damaged; the file itself is only
-changed when the game writes its header.
+(`gc_card_space`). Before mounting an existing card, `gc_card_flash_id`
+validates the header's stored checksum pair and formatted fields, then
+recovers its flash ID by subtracting the format-time sequence from its
+serial. The host stores that ID and its complemented byte-sum checksum
+in slot A's SRAM, as a GameCube's mount does; the card image and its
+serial stay byte exact, preserving saves bound to that identity. Invalid
+headers stay unchanged for the game to report as damaged. The host checks
+both SRAM fields and changes only those 13 bytes when needed. This runs
+while libogc's EXI and interrupts still work, before `shut_down_for_game`;
+the host waits for a deferred RTC write before returning success. A
+commit failure is logged and the launch goes on, so the game may report
+the card as damaged. The game's own SDK later reads the RTC
+over EXI, independently of libogc's cached SRAM. A host without the setter
+logs that limitation and continues. A newly formatted card copies SRAM's
+ID into its header, so it takes the same path and only a bad SRAM
+checksum gets repaired. A later newly formatted card reads SRAM's current
+ID, including this change, consistently.
 
 ## Memory
 

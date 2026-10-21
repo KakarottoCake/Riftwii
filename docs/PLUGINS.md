@@ -139,6 +139,17 @@ what the loader needs:
 | System | `ios_open`, `read_sram` (`rwp_sram`: the clock bias, the language, slot A's flash ID), `video_framebuffer`, `shut_down_for_game` (the TV mode as a number, `RWP_TV_NTSC` or `RWP_TV_PAL`, and for test switches `RWP_TV_NTSC_480P` or `RWP_TV_KEEP`; configures the video encoder, two retraces, `SYS_ResetSystem(SYS_SHUTDOWN)`) | `IOS_Open`, `__SYS_LockSram*`, `VIDEO_*` with `TVNtsc480IntDf`/`TVPal528IntDf` (`TVNtsc480Prog` for the test), `SYS_ResetSystem` |
 | Zstandard | `zstd_decompress`, `zstd_frame_size`, `zstd_is_error` | the three `ZSTD_*` the RVZ reader and the RVZ blob need |
 | The USB drive, after API 2 | `usb_read` (512-byte sectors through d2x's `/dev/usb2`, once a GameCube game's launch has opened it; checked with `RWP_HOST_HAS`) | `ums::Read` |
+| Slot A's card ID, after `usb_read` | `set_sram_flash_id_a` (12 ID bytes; compares ID and complemented byte-sum checksum, changes only those 13 bytes in SRAM-ex; 1 committed to RTC SRAM, 0 already matched, -1 unable to commit; checked with `RWP_HOST_HAS`) | `__SYS_LockSramEx`, `__SYS_UnlockSramEx(1)`, `__SYS_SyncSram` |
+
+Appending the SRAM setter preserves API 2 and all existing offsets; the
+`rwp_sram` read structure is unchanged. The host checks the checksum under
+the SRAM lock so the plugin can also repair an invalid checksum when the
+ID already matches. Call it before `shut_down_for_game`, while libogc's
+EXI and interrupts work: the host waits up to one second for a deferred
+write to reach RTC SRAM. A failure is logged and the GameCube launch goes
+on, so the game may report the card as damaged; a host without this entry
+logs the limitation and continues with the card unchanged. The game reads RTC SRAM through its own SDK over EXI,
+so updating only libogc's cached copy would not suffice.
 
 The cache entries of API 1 (`flush_range`, `sync_code`) replace
 `DCFlushRange` and `ICInvalidateRange`, and `mem1_alloc` and `mem1_free`
