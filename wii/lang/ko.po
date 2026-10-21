@@ -2825,3 +2825,42 @@ msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
+
+msgid "Homebrew"
+msgstr "홈브류"
+
+msgid "1 app"
+msgstr "앱 1개"
+
+msgid "{1} apps"
+msgstr "앱 {1}개"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요."
+
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요."
+
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
+msgstr "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요."
+
+msgid "It cannot start: {1}."
+msgstr "시작할 수 없습니다: {1}."
+
+msgid "The app will start when ready."
+msgstr "앱은 준비되면 시작됩니다."
+
+msgid "Start {1}?"
+msgstr "{1}을(를) 시작할까요?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "{3}의 {1} ({2})을(를) 시작할까요?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "{1} ({2})을(를) 시작할까요?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "{2}의 {1}을(를) 시작할까요?"
+
+msgid "Would you like to start {1}?"
+msgstr "{1}을(를) 시작할까요?"

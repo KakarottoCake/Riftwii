@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "homebrew.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "screenshot.hpp"
@@ -508,7 +509,7 @@ int main() {
         riftwii::wii::logf("Menu closed: the background job is done\n");
         // The launch frame said it was waiting; it is not any more.
         if (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_DUMP || action == MENU_CHANNEL ||
-            action == MENU_PLAY_CHANNEL)
+            action == MENU_PLAY_CHANNEL || action == MENU_HOMEBREW)
             RefreshLaunchFrame(state, action);
     }
     // Before the adapter stops: what the player had plugged in, for the
@@ -587,6 +588,17 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         StartChannel(riftwii::wii::ChannelToStart());
+    } else if (action == MENU_HOMEBREW) {
+        const riftwii::wii::HomebrewApp app = riftwii::wii::HomebrewToStart();
+        riftwii::wii::LogOpen("sd:/riftwii/boot.log");
+        riftwii::wii::logf("RiftWii %s: start homebrew %s (%s)\n", RIFTWII_VERSION, app.name.c_str(), app.program.c_str());
+        riftwii::wii::LogDeclinedUpdate();
+        std::string error;
+        riftwii::wii::StartHomebrew(app, error);
+        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The app did not start: " + error);
+        riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        std::exit(0);
     } else if (action == MENU_CHANNEL) {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.

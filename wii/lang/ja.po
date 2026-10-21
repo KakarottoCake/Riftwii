@@ -2825,3 +2825,42 @@ msgstr "スロットAに読み込めるメモリーカードがありません�
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
+
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1個のアプリ"
+
+msgid "{1} apps"
+msgstr "{1}個のアプリ"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "「{1}」に一致するHomebrewはありません。1で表示を切り替えます。"
+
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Homebrewがまだありません。各アプリはsd:/appsまたはusb:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。"
+
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
+msgstr "アプリのフォルダ（sd:/appsとusb:/apps）を読めませんでした。1で表示を切り替えます。"
+
+msgid "It cannot start: {1}."
+msgstr "起動できません: {1}。"
+
+msgid "The app will start when ready."
+msgstr "アプリは準備ができると起動します。"
+
+msgid "Start {1}?"
+msgstr "{1}を起動しますか?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "{3}の{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "{2}の{1}を起動しますか?"
+
+msgid "Would you like to start {1}?"
+msgstr "{1}を起動しますか?"
