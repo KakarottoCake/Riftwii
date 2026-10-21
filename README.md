@@ -123,7 +123,9 @@ contains theirs names them in its file header, and
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
 - **d2x cIOS**: the USB and SD game loading interface.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
-  Martin, Sven Peter and others): the toolchain and the Wii library.
+  Martin, Sven Peter and others): the toolchain and the Wii library;
+  libogc also documents the physical GameCube card read protocol, SRAM behavior
+  and MEM1-only EXI DMA.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
   **libruntimeiospatch**: how the Wii, IOS and the patch format behave
   (read as documentation); Dolphin also for how the Wii Remote extension's

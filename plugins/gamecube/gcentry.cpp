@@ -5,6 +5,7 @@
 // launch takes the DOL's rwp_gc_launch, checks it, turns it back into the
 // loader's C++ (GcImage, GcOverlayPlan, GcLaunchExtras) and starts the
 // game; it returns only when the game could not be started.
+#include <algorithm>
 #include <cstdio>
 
 #include "gc_crash.h"
@@ -26,6 +27,8 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.path = request.path;
     image.id = request.id;
     image.rvz = request.is_rvz != 0;
+    image.real_card = request.real_card != 0;
+    std::copy_n(request.real_card_flash_id, image.real_card_flash_id.size(), image.real_card_flash_id.begin());
     image.shared_card = request.shared_card != 0;
     image.drive_timing = request.drive_timing != 0;
     image.progressive = request.progressive != 0;

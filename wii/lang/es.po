@@ -2729,3 +2729,81 @@ msgstr "Más fluido juega a 60 Hz en los juegos que tienen un modo de 60 Hz, en 
 
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "Predeterminado activa 480p cuando la Wii está en 480p y se detecta un cable por componentes; elige Sí (480p) si tu televisor lo admite de todos modos."
+
+msgid "Real card in slot A"
+msgstr "Tarjeta real en la ranura A"
+
+msgid "Copy from a memory card in the Wii"
+msgstr "Copiar de una tarjeta de memoria de Wii"
+
+msgid "Save a copy of the whole card"
+msgstr "Guardar una copia de toda la tarjeta"
+
+msgid "Choose the slot holding the memory card."
+msgstr "Elige la ranura donde está la tarjeta de memoria."
+
+msgid "Slot A"
+msgstr "Ranura A"
+
+msgid "Slot B"
+msgstr "Ranura B"
+
+msgid "Choose which saves to copy. The card in the Wii is only read."
+msgstr "Elige las partidas que copiar. La tarjeta de Wii solo se lee."
+
+msgid "This game's saves"
+msgstr "Partidas de este juego"
+
+msgid "Every save"
+msgstr "Todas las partidas"
+
+msgid "Copy"
+msgstr "Copiar"
+
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read."
+msgstr "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? La tarjeta de Wii solo se lee."
+
+msgid "Copied to {1}."
+msgstr "Copia guardada en {1}."
+
+msgid "Found {1} matching saves. Destination: {2}."
+msgstr "Se encontraron {1} partidas coincidentes. Destino: {2}."
+
+msgid "To copy: {1}. Already present: {2}. Unusable: {3}."
+msgstr "Por copiar: {1}. Ya presentes: {2}. No utilizables: {3}."
+
+msgid "No memory card was found in this slot. Check slot A or slot B."
+msgstr "No se encontró una tarjeta en esta ranura. Comprueba la ranura A o B."
+
+msgid "This card uses the other text encoding. Japanese and Western cards cannot be mixed."
+msgstr "Esta tarjeta usa la otra codificación de texto. No se pueden mezclar tarjetas japonesas y occidentales."
+
+msgid "The memory card is unformatted or damaged. It was left unchanged."
+msgstr "La tarjeta no tiene formato o está dañada. No se ha modificado."
+
+msgid "The memory card could not be read. It may have changed or been removed. Nothing was copied."
+msgstr "No se pudo leer la tarjeta. Puede haberse cambiado o retirado. No se ha copiado nada."
+
+msgid "The SD image is damaged or uses the other text encoding. Nothing was copied."
+msgstr "La imagen de SD está dañada o usa la otra codificación de texto. No se ha copiado nada."
+
+msgid "Copy failed. The card in the Wii was left unchanged."
+msgstr "La copia falló. La tarjeta de Wii no se ha modificado."
+
+msgid "The card in the Wii is only read. Copies go to the SD card."
+msgstr "La tarjeta de Wii solo se lee. Las copias van a la tarjeta SD."
+
+msgid "This game uses the real card in slot A. Its saves are not on the SD card."
+msgstr "Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD."
+
+msgid "Use this game's SD card"
+msgstr "Usar la tarjeta SD de este juego"
+
+msgid "Wii U has no GameCube memory card slots."
+msgstr "Wii U no tiene ranuras para tarjetas de memoria de GameCube."
+
+msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
+msgstr "La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A."
+
+msgid "The real card could not be prepared. Check the card and try again."
+msgstr "No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo."

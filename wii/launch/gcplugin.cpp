@@ -7,12 +7,16 @@
 // card's backup, which the menu's own card tools share. The loader itself
 // is plugins/gamecube/gcnative.cpp.
 #include "gcplugin.hpp"
+#include "i18n.hpp"
+#include "gcrealcard.hpp"
 
 #include <sys/stat.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <new>
 #include <utility>
@@ -184,14 +188,39 @@ void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
-    if (!recover_card(image, error)) return false;
-    if (Settings().gc_backups != "off") back_up_card(image);
+    std::array<std::uint8_t, 12> physical_id{};
+    if (image.real_card) {
+        GcRealCard physical;
+        std::vector<std::uint8_t> system;
+        GcCardSpace space;
+        if (physical.Open(0) < 0 || physical.ReadSystem(system) < 0 ||
+            !gc_card_space(system, physical.Bytes(), space, error) || !gc_card_flash_id(system, physical_id)) {
+            error = tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.");
+            return false;
+        }
+        if ((system[0x25] != 0) != gc_card_shift_jis(image.id)) {
+            error = tr("This card uses the other text encoding. Japanese and Western cards cannot be mixed.");
+            return false;
+        }
+        // The game's SDK may check the header against SRAM. An earlier
+        // emulated-card launch may have left an SD ID there. libogc's mount
+        // only checks the cached ID's byte sum, not the header identity.
+        // Pass this physical header's ID, preserving its serial/saves.
+        logf("GameCube: the game will use the real memory card in slot A because its Memory card option selects it.\n");
+    } else {
+        if (!recover_card(image, error)) return false;
+        if (Settings().gc_backups != "off") back_up_card(image);
+        logf("GameCube: the game will use %s because its Memory card option selects an SD image.\n",
+             gc_card_path(image.id, image.shared_card).c_str());
+    }
 
     rwp_gc_launch request{};
     request.size = sizeof(request);
     request.path = image.path.c_str();
     request.id = image.id.c_str();
     request.is_rvz = GcImageIsRvz(image.path) ? 1 : 0;
+    request.real_card = image.real_card ? 1 : 0;
+    std::copy(physical_id.begin(), physical_id.end(), request.real_card_flash_id);
     request.shared_card = image.shared_card ? 1 : 0;
     request.drive_timing = image.drive_timing ? 1 : 0;
     request.progressive = image.progressive ? 1 : 0;
@@ -300,7 +329,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         error = message;
         return false;
     }
-    error = reason[0] != '\0' ? reason : "the gamecube plugin did not start the game";
+    if (std::strcmp(reason, "The real memory card's ID could not be written to SRAM.") == 0) {
+        logf("GameCube: the real card could not be prepared because its ID could not be written to SRAM.\n");
+        error = tr("The real card could not be prepared. Check the card and try again.");
+    } else {
+        error = reason[0] != '\0' ? reason : "the gamecube plugin did not start the game";
+    }
     return false;
 }
 

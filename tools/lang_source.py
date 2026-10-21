@@ -5913,6 +5913,94 @@ FR = {
 
 # Languages kept in tables of their own: written after LANGS, every msgid
 # of T with its text here (an empty msgstr, English on screen, when none).
+# Real GameCube memory cards: the saves tools and slot-A launch choice.
+T.update({
+    'Real card in slot A': ('Tarjeta real en la ranura A', 'スロットAの実物カード', 'Cartão real no slot A', 'Scheda reale nello slot A'),
+    'Copy from a memory card in the Wii': ('Copiar de una tarjeta de memoria de Wii', 'Wiiのメモリーカードからコピー', 'Copiar de um cartão de memória no Wii', 'Copia da una scheda di memoria nel Wii'),
+    'Save a copy of the whole card': ('Guardar una copia de toda la tarjeta', 'カード全体をコピーして保存', 'Salvar uma cópia do cartão inteiro', 'Salva una copia di tutta la scheda'),
+    'Choose the slot holding the memory card.': ('Elige la ranura donde está la tarjeta de memoria.', 'メモリーカードが入っているスロットを選んでください。', 'Escolha o slot que contém o cartão de memória.', 'Scegli lo slot che contiene la scheda di memoria.'),
+    'Slot A': ('Ranura A', 'スロットA', 'Slot A', 'Slot A'),
+    'Slot B': ('Ranura B', 'スロットB', 'Slot B', 'Slot B'),
+    'Choose which saves to copy. The card in the Wii is only read.': ('Elige las partidas que copiar. La tarjeta de Wii solo se lee.', 'コピーするセーブを選んでください。Wiiのカードには書き込みません。', 'Escolha os saves a copiar. O cartão no Wii é apenas lido.', 'Scegli i salvataggi da copiare. La scheda nel Wii viene solo letta.'),
+    "This game's saves": ('Partidas de este juego', 'このゲームのセーブ', 'Saves deste jogo', 'Salvataggi di questo gioco'),
+    'Every save': ('Todas las partidas', 'すべてのセーブ', 'Todos os saves', 'Tutti i salvataggi'),
+    'Copy': ('Copiar', 'コピー', 'Copiar', 'Copia'),
+    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': ('¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? La tarjeta de Wii solo se lee.', '{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードには書き込みません。', 'Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? O cartão no Wii é apenas lido.', 'Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? La scheda nel Wii viene solo letta.'),
+    'Copied to {1}.': ('Copia guardada en {1}.', '{1}にコピーしました。', 'Copiado para {1}.', 'Copiato in {1}.'),
+    'Found {1} matching saves. Destination: {2}.': ('Se encontraron {1} partidas coincidentes. Destino: {2}.', '対象のセーブは{1}個です。コピー先：{2}。', 'Encontrados {1} saves correspondentes. Destino: {2}.', 'Trovati {1} salvataggi corrispondenti. Destinazione: {2}.'),
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': ('Por copiar: {1}. Ya presentes: {2}. No utilizables: {3}.', 'コピー予定：{1}個。コピー済み：{2}個。使用不可：{3}個。', 'A copiar: {1}. Já presentes: {2}. Inutilizáveis: {3}.', 'Da copiare: {1}. Già presenti: {2}. Inutilizzabili: {3}.'),
+    'No memory card was found in this slot. Check slot A or slot B.': ('No se encontró una tarjeta en esta ranura. Comprueba la ranura A o B.', 'このスロットにメモリーカードがありません。スロットAかBを確認してください。', 'Nenhum cartão encontrado neste slot. Verifique o slot A ou B.', 'Nessuna scheda trovata in questo slot. Controlla lo slot A o B.'),
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': ('Esta tarjeta usa la otra codificación de texto. No se pueden mezclar tarjetas japonesas y occidentales.', 'このカードは文字コードが異なります。日本と欧米のカードは一緒に使えません。', 'Este cartão usa outra codificação de texto. Cartões japoneses e ocidentais não podem ser misturados.', "Questa scheda usa l'altra codifica del testo. Le schede giapponesi e occidentali non possono essere mescolate."),
+    'The memory card is unformatted or damaged. It was left unchanged.': ('La tarjeta no tiene formato o está dañada. No se ha modificado.', 'メモリーカードが未初期化か破損しています。変更していません。', 'O cartão não está formatado ou está danificado. Ele não foi alterado.', 'La scheda non è formattata o è danneggiata. Non è stata modificata.'),
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': ('No se pudo leer la tarjeta. Puede haberse cambiado o retirado. No se ha copiado nada.', 'メモリーカードを読み込めません。交換されたか抜かれた可能性があります。コピーしていません。', 'Não foi possível ler o cartão. Ele pode ter sido trocado ou removido. Nada foi copiado.', 'Impossibile leggere la scheda. Potrebbe essere stata cambiata o rimossa. Nulla è stato copiato.'),
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': ('La imagen de SD está dañada o usa la otra codificación de texto. No se ha copiado nada.', 'SDのイメージが破損しているか文字コードが異なります。コピーしていません。', 'A imagem no SD está danificada ou usa outra codificação. Nada foi copiado.', "L'immagine su SD è danneggiata o usa l'altra codifica. Nulla è stato copiato."),
+    'Copy failed. The card in the Wii was left unchanged.': ('La copia falló. La tarjeta de Wii no se ha modificado.', 'コピーできませんでした。Wiiのカードは変更していません。', 'A cópia falhou. O cartão no Wii não foi alterado.', 'Copia non riuscita. La scheda nel Wii non è stata modificata.'),
+    'The card in the Wii is only read. Copies go to the SD card.': ('La tarjeta de Wii solo se lee. Las copias van a la tarjeta SD.', 'Wiiのカードは読み込み専用です。SDカードにコピーします。', 'O cartão no Wii é apenas lido. As cópias vão para o cartão SD.', 'La scheda nel Wii viene solo letta. Le copie vanno sulla scheda SD.'),
+    'This game uses the real card in slot A. Its saves are not on the SD card.': ('Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD.', 'このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。', 'Este jogo usa o cartão real no slot A. Seus saves não estão no cartão SD.', 'Questo gioco usa la scheda reale nello slot A. I salvataggi non sono sulla scheda SD.'),
+    "Use this game's SD card": ('Usar la tarjeta SD de este juego', 'このゲームのSDカードを使う', 'Usar o cartão SD deste jogo', 'Usa la scheda SD di questo gioco'),
+    'Wii U has no GameCube memory card slots.': ('Wii U no tiene ranuras para tarjetas de memoria de GameCube.', 'Wii Uにはゲームキューブのメモリーカードスロットがありません。', 'O Wii U não tem slots para cartões de memória do GameCube.', 'Wii U non ha slot per schede di memoria GameCube.'),
+})
+KO.update({
+    'Real card in slot A': '슬롯 A의 실제 카드',
+    'Copy from a memory card in the Wii': 'Wii의 메모리 카드에서 복사',
+    'Save a copy of the whole card': '카드 전체 사본 저장',
+    'Choose the slot holding the memory card.': '메모리 카드가 있는 슬롯을 선택하세요.',
+    'Slot A': '슬롯 A',
+    'Slot B': '슬롯 B',
+    'Choose which saves to copy. The card in the Wii is only read.': '복사할 저장 데이터를 선택하세요. Wii의 카드는 읽기만 합니다.',
+    "This game's saves": '이 게임의 저장 데이터',
+    'Every save': '모든 저장 데이터',
+    'Copy': '복사',
+    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': '저장 데이터 {1}개와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii의 카드는 읽기만 합니다.',
+    'Copied to {1}.': '{1}에 복사했습니다.',
+    'Found {1} matching saves. Destination: {2}.': '일치하는 저장 데이터 {1}개를 찾았습니다. 대상: {2}.',
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': '복사 예정: {1}. 이미 있음: {2}. 사용 불가: {3}.',
+    'No memory card was found in this slot. Check slot A or slot B.': '이 슬롯에서 메모리 카드를 찾지 못했습니다. 슬롯 A 또는 B를 확인하세요.',
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': '이 카드는 다른 문자 인코딩을 사용합니다. 일본과 서양 카드를 혼합할 수 없습니다.',
+    'The memory card is unformatted or damaged. It was left unchanged.': '메모리 카드가 포맷되지 않았거나 손상되었습니다. 변경하지 않았습니다.',
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': '메모리 카드를 읽지 못했습니다. 교체되거나 제거되었을 수 있습니다. 복사하지 않았습니다.',
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': 'SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합니다. 복사하지 않았습니다.',
+    'Copy failed. The card in the Wii was left unchanged.': '복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다.',
+    'The card in the Wii is only read. Copies go to the SD card.': 'Wii의 카드는 읽기만 합니다. 사본은 SD 카드에 저장됩니다.',
+    'This game uses the real card in slot A. Its saves are not on the SD card.': '이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다.',
+    "Use this game's SD card": '이 게임의 SD 카드 사용',
+    'Wii U has no GameCube memory card slots.': 'Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다.',
+})
+FR.update({
+    'Real card in slot A': 'Carte réelle dans le port A',
+    'Copy from a memory card in the Wii': 'Copier depuis une carte mémoire dans la Wii',
+    'Save a copy of the whole card': 'Sauvegarder toute la carte',
+    'Choose the slot holding the memory card.': 'Choisissez le port contenant la carte mémoire.',
+    'Slot A': 'Port A',
+    'Slot B': 'Port B',
+    'Choose which saves to copy. The card in the Wii is only read.': 'Choisissez les sauvegardes à copier. La carte dans la Wii est seulement lue.',
+    "This game's saves": 'Sauvegardes de ce jeu',
+    'Every save': 'Toutes les sauvegardes',
+    'Copy': 'Copier',
+    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': 'Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? La carte dans la Wii est seulement lue.',
+    'Copied to {1}.': 'Copié vers {1}.',
+    'Found {1} matching saves. Destination: {2}.': '{1} sauvegardes correspondantes trouvées. Destination : {2}.',
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': 'À copier : {1}. Déjà présentes : {2}. Inutilisables : {3}.',
+    'No memory card was found in this slot. Check slot A or slot B.': 'Aucune carte mémoire dans ce port. Vérifiez le port A ou B.',
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': "Cette carte utilise l'autre encodage. Les cartes japonaises et occidentales ne peuvent pas être mélangées.",
+    'The memory card is unformatted or damaged. It was left unchanged.': 'La carte mémoire est non formatée ou endommagée. Elle reste inchangée.',
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': "Impossible de lire la carte. Elle a peut-être été changée ou retirée. Rien n'a été copié.",
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': "L'image SD est endommagée ou utilise l'autre encodage. Rien n'a été copié.",
+    'Copy failed. The card in the Wii was left unchanged.': 'Échec de la copie. La carte dans la Wii reste inchangée.',
+    'The card in the Wii is only read. Copies go to the SD card.': 'La carte dans la Wii est seulement lue. Les copies vont sur la carte SD.',
+    'This game uses the real card in slot A. Its saves are not on the SD card.': 'Ce jeu utilise la carte réelle du port A. Ses sauvegardes ne sont pas sur la carte SD.',
+    "Use this game's SD card": 'Utiliser la carte SD de ce jeu',
+    'Wii U has no GameCube memory card slots.': "La Wii U n'a pas de ports pour cartes mémoire GameCube.",
+})
+
+T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
+KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
+FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'
+
+T['The real card could not be prepared. Check the card and try again.'] = ('No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo.', '実物のカードを準備できませんでした。カードを確認してもう一度お試しください。', 'Não foi possível preparar o cartão real. Verifique o cartão e tente novamente.', 'Impossibile preparare la scheda reale. Controlla la scheda e riprova.')
+KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
+FR['The real card could not be prepared. Check the card and try again.'] = 'Impossible de préparer la carte réelle. Vérifiez la carte et réessayez.'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
@@ -5925,7 +6013,7 @@ def escape(s):
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
