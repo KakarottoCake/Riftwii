@@ -2939,14 +2939,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
     if (pad_read != 0) {
         if (ctx->si_type_cache != 0 && ctx->pad_enabled_offset != 0) {
-            logf("GameCube: Identified controllers keep their ports while disabled. SI types are at 0x%08x; "
-                 "PAD enabled bits are at r13%+d. An enabled read with no response releases the port.\n",
+            logf("GameCube: a port where the game found a GameCube controller stays the controller's, even while the "
+                 "game has it switched off, until a read finds it unplugged, so a Wii Remote never takes it over "
+                 "(the SDK's controller types at 0x%08x, its enabled ports at r13%+d)\n",
                  ctx->si_type_cache, ctx->pad_enabled_offset);
         } else if (ctx->si_type_cache != 0) {
-            logf("GameCube: PAD enabled bits were not found. Native ports use the current SI types at 0x%08x.\n",
+            logf("GameCube: the game's enabled ports were not found, so a port is kept for a GameCube controller "
+                 "only while the SDK's controller types (0x%08x) show one there; a port the game switches off may "
+                 "go to a Wii Remote\n",
                  ctx->si_type_cache);
         } else {
-            logf("GameCube: SI types were not found. Native ports use PADRead's errors.\n");
+            logf("GameCube: the SDK's controller types were not found, so a port is kept for a GameCube controller "
+                 "only while the game reads one there\n");
         }
     }
     logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
