@@ -33,14 +33,12 @@
 #include <cstring>
 #include <atomic>
 #include <ctime>
-#include <fstream>
 #include <functional>
 #include <initializer_list>
 #include <memory>
 #include <new>
 #include <set>
 #include <unordered_map>
-#include <sstream>
 #include <wiiuse/wpad.h>
 #include <ogc/lwp_watchdog.h>
 
@@ -122,6 +120,7 @@
 #include "riitagsend.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/textlines.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "sharednandfind.hpp"
@@ -986,9 +985,9 @@ static bool NamesGameCube(const std::string& word)
 // may name the GameCube instead.
 static bool WordsMatch(const std::string& typed, const std::string& name, const std::string& id, bool gamecube = false)
 {
-	std::istringstream words(typed);
+	riftwii::WordReader words(typed);
 	std::string word;
-	while (words >> word) {
+	while (words.next(word)) {
 		if (gamecube && NamesGameCube(word)) continue;
 		if (!strcasestr(name.c_str(), word.c_str()) && !strcasestr(id.c_str(), word.c_str())) return false;
 	}

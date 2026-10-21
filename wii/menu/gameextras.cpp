@@ -5,9 +5,6 @@
 #include <cstdio>
 #include <ctime>
 #include <algorithm>
-#include <fstream>
-#include <iterator>
-#include <sstream>
 #include <sys/stat.h>
 
 #include "boot.hpp"
@@ -374,8 +371,10 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
             extras.cheat_gct.clear();
             extras.cheat_count = 0;
         } else if (no_build && !headless->gct.empty()) {
-            std::ifstream in(headless->gct, std::ios::binary);
-            std::vector<std::uint8_t> gct((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            // A missing file reads as empty, which the magic check refuses.
+            std::string file;
+            ReadWholeFile(headless->gct, file);
+            std::vector<std::uint8_t> gct(file.begin(), file.end());
             // A GCT starts 00D0C0DE 00D0C0DE and ends F0000000 00000000.
             static const std::uint8_t kMagic[8] = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE};
             if (gct.size() >= 16 && gct.size() % 8 == 0 && std::equal(kMagic, kMagic + 8, gct.begin())) {
