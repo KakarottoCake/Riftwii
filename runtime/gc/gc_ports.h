@@ -30,14 +30,10 @@
 /* One remote slot per port: a slot's own port is its number. */
 typedef char gc_ports_one_slot_each[(GC_BT_REMOTES == GC_PORTS) ? 1 : -1];
 
-/* The ports where the SDK's own SI type table (`types`, four words) says
- * a GameCube controller, wired or wireless, is plugged in. The table keeps
- * that even after PADSetAnalogMode switches a port off and PADRead answers
- * err -1 for it (F-Zero GX), so such a port is still the controller's: a
- * Wii Remote filled into it would hide the -1 the game waits for before it
- * resets the port, and the controller would never be heard. A type with an
- * error or BUSY bit, or another SI device, is not a controller. The SI
- * registers themselves are not read: that would take the game's replies. */
+/* Controllers currently identified by the SDK's four SI type words.
+ * Wireless flags do not change the controller class; errors and BUSY do.
+ * SIGetStatus can replace even a disabled port's type with NOREP, so this
+ * classification alone does not preserve ownership across PADSetAnalogMode. */
 static inline uint32_t gc_ports_native(const volatile uint32_t* types) {
     uint32_t pads = 0, port;
     if (types == 0) return 0;
@@ -46,6 +42,33 @@ static inline uint32_t gc_ports_native(const volatile uint32_t* types) {
         if ((type & 0x190000FFu) == 0x09000000u) pads |= 1u << port;
     }
     return pads;
+}
+
+/* The SDK uses the high four bits for EnabledBits. The remaining bits
+ * are zero, so this sentinel means its layout was not recognised. */
+#define GC_PORTS_ENABLED_UNKNOWN 0xFFFFFFFFu
+
+/* Remember an identified controller through a disabled/resetting interval.
+ * Only NOREP returned for a port that was enabled BEFORE PADRead releases
+ * it: PADRead itself disables an unplugged port before returning. Requiring
+ * its original err -1 also preserves a wireless receiver's waiting state.
+ * A port never identified as a controller remains available to a remote.
+ * Unsupported SDK layouts retain the current-type rule without guessing. */
+static inline uint32_t gc_ports_native_update(const volatile uint32_t* types, const uint8_t* status,
+                                               uint32_t enabled_before, uint32_t previous) {
+    uint32_t port;
+    if (types == 0 || enabled_before == GC_PORTS_ENABLED_UNKNOWN) return gc_ports_native(types);
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint32_t type = types[port];
+        const uint32_t bit = 1u << port;
+        if ((type & 0x190000FFu) == 0x09000000u) {
+            previous |= bit;
+        } else if (type == 8u && (enabled_before & (0x80000000u >> port)) != 0 &&
+                   status != 0 && status[12 * port + 10] == 0xFFu) {
+            previous &= ~bit;
+        }
+    }
+    return previous & 0xFu;
 }
 
 /* The ports a Wii Remote or the adapter must leave alone: `native`, plus

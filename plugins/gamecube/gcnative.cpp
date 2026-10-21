@@ -2663,6 +2663,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             si_types - section.address <= section.bytes.size() - 16) si_types_in_data = true;
     }
     ctx->si_type_cache = si_types_in_data ? si_types : 0;
+    ctx->pad_enabled_offset = find_gc_pad_enabled_offset(code.ranges(), pad_read);
     std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
@@ -2937,13 +2938,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
          test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
     if (pad_read != 0) {
-        if (ctx->si_type_cache != 0)
-            logf("GameCube: a port with a GameCube controller plugged in stays the controller's, even while the game "
-                 "has it switched off (the SDK's controller types at 0x%08x), so a Wii Remote never takes it over\n",
+        if (ctx->si_type_cache != 0 && ctx->pad_enabled_offset != 0) {
+            logf("GameCube: Identified controllers keep their ports while disabled. SI types are at 0x%08x; "
+                 "PAD enabled bits are at r13%+d. An enabled read with no response releases the port.\n",
+                 ctx->si_type_cache, ctx->pad_enabled_offset);
+        } else if (ctx->si_type_cache != 0) {
+            logf("GameCube: PAD enabled bits were not found. Native ports use the current SI types at 0x%08x.\n",
                  ctx->si_type_cache);
-        else
-            logf("GameCube: the SDK's controller types were not found: a Wii Remote takes any port where the game's "
-                 "own read finds no controller, as before\n");
+        } else {
+            logf("GameCube: SI types were not found. Native ports use PADRead's errors.\n");
+        }
     }
     logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
          motor == 0 ? " (not found: a Wii Remote does not rumble)"

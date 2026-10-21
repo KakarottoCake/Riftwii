@@ -212,6 +212,15 @@ enum gc_trace_word {
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
+/* Pad records with SI diagnostics reuse nine crash-only words. A distinct
+ * where value keeps older traces readable without treating crash registers
+ * as SI data. All four type words are stored without losing error bits. */
+#define GC_TR_PAD_SI_TYPES GC_TR_CRASH_R1  /* four words, ports 1-4 */
+#define GC_TR_PAD_SISR (GC_TR_CRASH_R1 + 4)
+#define GC_TR_PAD_ENABLED_BEFORE (GC_TR_CRASH_R1 + 5)
+#define GC_TR_PAD_ENABLED_AFTER (GC_TR_CRASH_R1 + 6)
+#define GC_TR_PAD_RAW_ERRS (GC_TR_CRASH_R1 + 7)
+#define GC_TR_PAD_NATIVE (GC_TR_CRASH_R1 + 8) /* bits 0-3 reserved; bit 8: type table available */
 /* where: what wrote the record */
 #define GC_TRACE_READ 1u
 #define GC_TRACE_PAD 2u
@@ -224,6 +233,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_LEAVE 9u   /* the player held HOME: ES_LaunchTitle is next */
 #define GC_TRACE_RESTART 10u /* the game is restarted (Reset): MEM1 goes back as it was at the jump */
 #define GC_TRACE_EXEC 11u   /* the game switches to another program: exec.txt written, the way back next */
+#define GC_TRACE_PAD_SI 12u /* a pad record with the crash-word overlay above */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -490,6 +500,11 @@ struct gc_rt_context {
      * the game makes them. */
     uint32_t exec_sector;
     uint32_t si_type_cache;   /* the game's four SI type words, structurally found; 0: unavailable */
+    int32_t pad_enabled_offset; /* EnabledBits relative to the game's r13; 0: unsupported */
+    uint32_t pad_enabled_before; /* before the original PADRead, or GC_PORTS_ENABLED_UNKNOWN */
+    uint32_t native_ports;      /* controllers identified earlier, until an enabled read finds an unplug */
+    uint32_t pad_raw_errs;      /* original PADRead errors, a byte per port, port 1 first */
+    uint32_t pad_filled_errs;   /* errors after adapter and remote filling */
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
@@ -521,6 +536,7 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where);
 uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, uint32_t aram, uint32_t length);
 void gc_after_ar_dma(struct gc_rt_context* ctx);
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result);
+void gc_before_pad_read(struct gc_rt_context* ctx);
 void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command);
 uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
