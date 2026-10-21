@@ -30,6 +30,7 @@
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
 #include "riftwii/gcdsp.hpp"
+#include "riftwii/gcfont.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
@@ -2421,6 +2422,26 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         replay_hook(fn, entry, replay, back);
         return true;
     }, h, ctx, test_no_widen, test_no_vi_hook);
+
+    // A Japanese game picks its IPL font (Shift-JIS or ANSI) from the
+    // Japanese console strap, VI DTV bit 0x2, which a Western Wii or Wii U
+    // leaves clear: Giftpia's and Kururin Squash's system text came out as
+    // gaps and stray letters. Every recognized decision, inlined copies
+    // too, is told the strap is set (riftwii/gcfont.hpp). The 480p patch
+    // above matches only reads of the low two bits, never this bit test,
+    // and once the load is replaced nothing later can match it either.
+    if (image.id.size() > 3 && image.id[3] == 'J') {
+        const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id);
+        for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
+        if (!fonts.empty()) {
+            logf("GameCube: %u font choice(s) (OSGetFontEncode, first at 0x%08x) see a Japanese console, so the "
+                 "game's system text uses the Shift-JIS font\n",
+                 static_cast<unsigned>(fonts.size()), fonts.front().address);
+        } else {
+            logf("GameCube: no font choice (OSGetFontEncode) found: on a Western console this Japanese game's "
+                 "system text may come out garbled\n");
+        }
+    }
 
     // Luigi's Mansion: its loads allocate from the heap they were queued from.
     const LmLoader lm = find_lm_loader(image.id, code);

@@ -252,6 +252,12 @@ patch, and put in only after all of them, if its `blr` is still there.
 No hook or too many codes: the game starts without them, with a
 `boot.log` line.
 
+Japanese GameCube IDs select the Shift-JIS IPL font on NTSC through the
+recognized `OSGetFontEncode` decisions and their inlined copies
+(`src/patching/gcfont.cpp`), replacing only their VI DTV loads so a Western
+console's missing Japanese strap does not select ANSI; cached encodings,
+non-NTSC paths and other game regions keep their own behavior.
+
 **The blob** (`runtime/gc/`, position independent, no heap or libc):
 - `gc_rt.c`: disc reads from the image's SD sectors (and the packs'
   window), with polled IPC and the game's own `OSSetAlarm` for the
