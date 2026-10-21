@@ -11,19 +11,24 @@
 
 namespace {
 
-// What a sound that could not be unpacked plays: one DSP block of silence.
-alignas(32) const u8 kSilence[64] = {};
+// What a sound that could not be unpacked plays: one DSP block of silence,
+// one each, because GuiSound and the theme's sounds tell the four apart by
+// their address (a shared one would play a theme's hover tick for all).
+alignas(32) const u8 kOverSilence[64] = {};
+alignas(32) const u8 kClickSilence[64] = {};
+alignas(32) const u8 kOpenSilence[64] = {};
+alignas(32) const u8 kCloseSilence[64] = {};
 
 }  // namespace
 
-const u8* button_over_pcm = kSilence;
-u32 button_over_pcm_size = sizeof(kSilence);
-const u8* button_click_pcm = kSilence;
-u32 button_click_pcm_size = sizeof(kSilence);
-const u8* home_open_pcm = kSilence;
-u32 home_open_pcm_size = sizeof(kSilence);
-const u8* home_close_pcm = kSilence;
-u32 home_close_pcm_size = sizeof(kSilence);
+const u8* button_over_pcm = kOverSilence;
+u32 button_over_pcm_size = sizeof(kOverSilence);
+const u8* button_click_pcm = kClickSilence;
+u32 button_click_pcm_size = sizeof(kClickSilence);
+const u8* home_open_pcm = kOpenSilence;
+u32 home_open_pcm_size = sizeof(kOpenSilence);
+const u8* home_close_pcm = kCloseSilence;
+u32 home_close_pcm_size = sizeof(kCloseSilence);
 
 namespace riftwii::wii {
 namespace {
