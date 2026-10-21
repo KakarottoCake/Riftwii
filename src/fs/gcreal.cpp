@@ -19,21 +19,18 @@ bool gc_real_dma_range(std::uintptr_t address, std::size_t bytes) {
            bytes != 0 && (bytes & 31u) == 0 && bytes <= mem1_end - address;
 }
 
-bool gc_real_have_room(const std::vector<std::size_t>& sizes, GcRealAllocate allocate) {
+bool gc_real_have_room(const std::size_t* sizes, std::size_t count, GcRealAllocate allocate) {
     if (allocate == nullptr) allocate = std::malloc;
-    std::vector<void*> held;
-    held.reserve(sizes.size());
-    bool room = true;
-    for (const std::size_t bytes : sizes) {
-        void* block = allocate(bytes);
-        if (block == nullptr) {
-            room = false;
-            break;
-        }
-        held.push_back(block);
+    if (count > kGcRealMaxBlocks) return false;
+    void* held[kGcRealMaxBlocks];
+    std::size_t taken = 0;
+    while (taken < count) {
+        void* block = allocate(sizes[taken]);
+        if (block == nullptr) break;
+        held[taken++] = block;
     }
-    for (void* block : held) std::free(block);
-    return room;
+    for (std::size_t i = 0; i < taken; ++i) std::free(held[i]);
+    return taken == count;
 }
 
 bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std::uint8_t>& target,
@@ -54,7 +51,8 @@ bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std
     }
     // The private image is a copy of the target; export copies of single
     // saves come on top of it.
-    if (!gc_real_have_room({target.size(), kGcRealSlack}, allocate)) {
+    const std::size_t plan_room[] = {target.size(), kGcRealSlack};
+    if (!gc_real_have_room(plan_room, 2, allocate)) {
         out.out_of_memory = true;
         error = "There is not enough free memory to plan the copy.";
         return false;
@@ -80,7 +78,8 @@ bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std
 bool gc_real_commit(const std::string& path, const std::vector<std::uint8_t>& image,
                     const std::function<bool()>& source_unchanged, std::string& error,
                     GcRealAllocate allocate) {
-    if (!gc_real_have_room({image.size(), kGcRealSlack}, allocate)) {
+    const std::size_t commit_room[] = {image.size(), kGcRealSlack};
+    if (!gc_real_have_room(commit_room, 2, allocate)) {
         error = "There is not enough free memory to write the copy.";
         return false;
     }

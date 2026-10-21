@@ -303,14 +303,17 @@ int main(int argc, char**) {
     CHECK(g_log.find("changed the card ID the Wii keeps in its SRAM for that slot") != std::string::npos);
     // The progress callback sees every 512-byte read, ending at the total.
     CHECK(card.Open(0) == 0);
-    unsigned calls = 0, last_done = 0, last_total = 0;
-    card.SetProgress([&](unsigned done, unsigned total) {
-        ++calls;
-        last_done = done;
-        last_total = total;
-    });
+    struct Seen {
+        unsigned calls = 0, done = 0, total = 0;
+    } seen;
+    card.SetProgress([](unsigned done, unsigned total, void* context) {
+        Seen& seen = *static_cast<Seen*>(context);
+        ++seen.calls;
+        seen.done = done;
+        seen.total = total;
+    }, &seen);
     CHECK(card.ReadSystem(raw) == 0);
-    CHECK(calls == raw.size() / 512 && last_done == raw.size() && last_total == raw.size());
+    CHECK(seen.calls == raw.size() / 512 && seen.done == raw.size() && seen.total == raw.size());
     card.Close();
     CHECK(g_log.find("libogc said -6") != std::string::npos);
     CHECK(g_log.find("failed its flash read") != std::string::npos);

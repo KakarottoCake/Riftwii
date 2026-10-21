@@ -6873,17 +6873,21 @@ static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<s
 		PopupBox box(tr("Reading the memory card"), tr("Keep the card in its slot. Nothing is written to it."));
 		box.Add(&bar, 528);
 		ResumeGui();
-		int shown = -1;
-		physical.SetProgress([&](unsigned done, unsigned total) {
-			const int percent = static_cast<int>(static_cast<unsigned long long>(done) * 100 / total);
-			if (percent == shown) return;
-			shown = percent;
+		struct Bar {
+			ProgressBar* bar;
+			unsigned shown;
+		} state = {&bar, 101};
+		physical.SetProgress([](unsigned done, unsigned total, void* context) {
+			Bar& state = *static_cast<Bar*>(context);
+			const unsigned percent = static_cast<unsigned>(static_cast<unsigned long long>(done) * 100 / total);
+			if (percent == state.shown) return;
+			state.shown = percent;
 			HaltGui();
-			bar.Set(percent / 100.0);
+			state.bar->Set(percent / 100.0);
 			ResumeGui();
-		});
+		}, &state);
 		result = physical.Read(raw);
-		physical.SetProgress(nullptr);
+		physical.SetProgress(nullptr, nullptr);
 		HaltGui();
 		box.Close();
 	}
@@ -6904,10 +6908,8 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		// exceptions, so a vector that cannot grow would abort the menu).
 		const std::size_t card = physical.Bytes();
 		const std::size_t image = static_cast<std::size_t>(riftwii::kGcDolphinMaxRawBytes);
-		const std::vector<std::size_t> needed = wholeCard
-			? std::vector<std::size_t>{card, riftwii::kGcRealSlack}
-			: std::vector<std::size_t>{card, image, image, riftwii::kGcRealSlack};
-		if (!riftwii::gc_real_have_room(needed)) {
+		const std::size_t needed[] = {card, riftwii::kGcRealSlack, image, image};
+		if (!riftwii::gc_real_have_room(needed, wholeCard ? 2 : 4)) {
 			logf("Memory card: not enough free memory to copy the %u KB card in slot %c; nothing was read or copied.\n",
 				static_cast<unsigned>(card >> 10), 'A' + slot);
 			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));

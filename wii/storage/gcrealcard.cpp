@@ -220,7 +220,7 @@ int GcRealCard::ReadBlocks(unsigned bytes, std::vector<std::uint8_t>& out) {
             break;
         }
         std::memcpy(out.data() + at, buffer, CARD_READSIZE);
-        if (progress_) progress_(at + CARD_READSIZE, bytes);
+        if (progress_) progress_(at + CARD_READSIZE, bytes, progress_context_);
     }
     if (result < 0) {
         out.clear();

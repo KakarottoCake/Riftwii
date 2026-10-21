@@ -3,7 +3,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <vector>
 
 namespace riftwii::wii {
@@ -24,8 +23,13 @@ public:
     // Called after each 512-byte read with the bytes read so far and the
     // total, so a long read (a 16 MB card is 32,768 of them) can show how
     // far it is. It runs on the reading thread; keep it cheap.
-    using Progress = std::function<void(unsigned done, unsigned total)>;
-    void SetProgress(Progress progress) { progress_ = std::move(progress); }
+    // A plain function and its context, not a std::function: the DOL has
+    // little room to spare.
+    using Progress = void (*)(unsigned done, unsigned total, void* context);
+    void SetProgress(Progress progress, void* context) {
+        progress_ = progress;
+        progress_context_ = context;
+    }
 
     int Open(int slot);
     void Close();
@@ -39,7 +43,8 @@ private:
     int slot_ = -1;
     unsigned bytes_ = 0;
     unsigned latency_ = 0;
-    Progress progress_;
+    Progress progress_ = nullptr;
+    void* progress_context_ = nullptr;
 };
 
 }  // namespace riftwii::wii

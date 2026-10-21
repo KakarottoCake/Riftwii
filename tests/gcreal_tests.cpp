@@ -189,10 +189,12 @@ static void refuses_without_memory() {
         return calls_allowed-- > 0 ? std::malloc(bytes) : nullptr;
     };
     calls_allowed = 5;
-    CHECK(gc_real_have_room({100, 200, 300}));
-    CHECK(gc_real_have_room({100, 200, 300}, nth_fails));
+    const std::size_t three[] = {100, 200, 300};
+    CHECK(gc_real_have_room(three, 3));
+    CHECK(gc_real_have_room(three, 3, nth_fails));
     calls_allowed = 2;
-    CHECK(!gc_real_have_room({100, 200, 300}, nth_fails));  // the third says no; the first two are freed
+    CHECK(!gc_real_have_room(three, 3, nth_fails));
+    CHECK(!gc_real_have_room(three, kGcRealMaxBlocks + 1));  // the third says no; the first two are freed
 
     const Bytes source = card();
     const Bytes target = card();
