@@ -1914,6 +1914,41 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
 #define GC_CP_SR 0xCC000000u
 #define GC_CP_SR_IDLE 0x000Cu       /* the GP idle for reading and for commands */
 #define GC_GP_IDLE_TICKS 6075000u   /* 100 ms */
+#define GC_CP_CR 0xCC000002u        /* the GP's FIFO reads, link, breakpoint and their interrupts */
+#define GC_CP_CLEAR 0xCC000004u     /* written 3: the FIFO's overflow and underflow cleared */
+#define GC_PI_FIFO_RESET 0xCC003018u
+#define GC_GP_ABORT_TICKS 607u      /* 10 us of the timebase */
+
+static void gc_spin_ticks(uint32_t ticks) {
+    uint32_t start, now;
+    __asm__ volatile("mftb %0" : "=r"(start));
+    do {
+        __asm__ volatile("mftb %0" : "=r"(now));
+    } while (now - start < ticks);
+}
+
+/* The graphics chip as the first start found it (gc_on_hot_reset). A
+ * GameCube's reset resets the GP with the rest of the console; here it
+ * keeps running, still set up for the old game's FIFO. Before the first
+ * start RiftWii's menu stops GX with GX_AbortFrame, which resets the
+ * GP's command processor through PI's FIFO reset register, and nothing
+ * did so before a restart. Super Mario Sunshine parks the GP at a FIFO
+ * breakpoint several times a frame (its draw sync manager) and, restarted
+ * on a Wii, slept for good in its first frame's GXDrawDone: no VIConfigure
+ * and no picture followed, while its loading thread read the whole
+ * nintendo.szs (21 Oct, 2610-564 and 2610-611), where Doshin the Giant
+ * restarted fine on the same build. So the GP's FIFO reads, link,
+ * breakpoint and interrupts go off, the command processor is reset and
+ * the FIFO's overflow and underflow are cleared; the game's GXInit then
+ * sets up its own FIFO on a GP as fresh as at the first start. */
+static void gc_gp_abort(void) {
+    *(volatile uint16_t*)(uintptr_t)GC_CP_CR = 0;
+    gc_write32(GC_PI_FIFO_RESET, 1);
+    gc_spin_ticks(GC_GP_ABORT_TICKS);
+    gc_write32(GC_PI_FIFO_RESET, 0);
+    gc_spin_ticks(GC_GP_ABORT_TICKS);
+    *(volatile uint16_t*)(uintptr_t)GC_CP_CLEAR = 3;
+}
 
 static void gc_icache_invalidate(uint32_t address, uint32_t length) {
     uint32_t a = address & ~31u;
@@ -2024,6 +2059,7 @@ static void gc_restore_and_start(struct gc_rt_context* ctx) {
 #define GC_AUDIO_DMA_SLOW 1u          /* an ARAM transfer was still going */
 #define GC_AUDIO_INIT_SLOW 2u         /* the DSP was still taking boot code */
 #define GC_AUDIO_RESET_SLOW 4u        /* the DSP's reset did not finish */
+#define GC_RESTART_GP_SLOW 8u         /* the GP was still busy when it was reset (gc_gp_abort) */
 /* Waits until `mask` of the DSP's control register reads 0; 1 when it
  * did in time. */
 static int gc_dsp_wait_clear(uint32_t mask) {
@@ -2074,6 +2110,7 @@ static void gc_audio_reset(struct gc_rt_context* ctx) {
  * goes back as it was at the jump and the game starts again. */
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     uint32_t i, start, now;
+    int gp_idle;
     (void)code;  /* the game reads PI's reset register for it, which stays as it was at the first start */
     (void)gc_irq_off();
     if (ctx->restart_count == 0) {
@@ -2093,13 +2130,17 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
         struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
         for (i = 0; i < 3 && card->dirty_count != 0; ++i) gc_card_flush(ctx, card, 1);
     }
-    /* The GP's last commands done before the game sets up a new FIFO. */
+    /* The GP's last commands done, then the GP reset, before the game
+     * sets up a new FIFO. Whether it was still busy goes into the trace,
+     * with the audio reset's waits. */
     __asm__ volatile("mftb %0" : "=r"(start));
     do {
+        gp_idle = (*(volatile uint16_t*)(uintptr_t)GC_CP_SR & GC_CP_SR_IDLE) == GC_CP_SR_IDLE;
         __asm__ volatile("mftb %0" : "=r"(now));
-    } while ((*(volatile uint16_t*)(uintptr_t)GC_CP_SR & GC_CP_SR_IDLE) != GC_CP_SR_IDLE &&
-             now - start < GC_GP_IDLE_TICKS);
+    } while (!gp_idle && now - start < GC_GP_IDLE_TICKS);
+    gc_gp_abort();
     gc_audio_reset(ctx);
+    if (!gp_idle) ctx->audio_reset |= GC_RESTART_GP_SLOW << 12;
     gc_vi_restart(ctx);
     gc_trace(ctx, GC_TRACE_RESTART);  /* the audio and the VI as the restarted game finds them */
     gc_forget_game(ctx);

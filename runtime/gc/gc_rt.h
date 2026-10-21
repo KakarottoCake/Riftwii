@@ -203,7 +203,8 @@ enum gc_trace_word {
     GC_TR_AI_CR, /* the audio interface's control (0xCD006C00 in Wii mode) */
     GC_TR_AR_CONFIG, /* the ARAM interface's size (0x5012) << 16 | its refresh (0x501A) */
     GC_TR_AUDIO_RESET, /* the last restart's audio reset (gc_audio_reset): the DSP's control before << 16 |
-                        * the waits that ran out << 12 (GC_AUDIO_*_SLOW) | the DSP's control after (low 12 bits) */
+                        * the waits that ran out << 12 (GC_AUDIO_*_SLOW; 8: the GP was still busy,
+                        * GC_RESTART_GP_SLOW) | the DSP's control after (low 12 bits) */
     /* The VI as the record found it, for picture problems only a Wii shows
      * (colours wrong through an HDMI adapter on 18 Oct; Dolphin ignores
      * the clock and the cable bit). */
