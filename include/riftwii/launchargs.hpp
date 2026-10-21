@@ -47,6 +47,12 @@ struct HeadlessLaunch {
     std::uint32_t gc_dol = 0;
     std::uint32_t gc_restart = 0;
     std::vector<std::string> gc_args;
+    // A GameCube bonus disc's menu starting a game packed in a TGC image
+    // on its disc (runtime/gc's gc_on_tgc_read, the same exec.txt): the
+    // TGC file's offset on the disc (gc_tgc=, in decimal; 0: none). The
+    // loader starts the TGC's own program, with its files where the TGC
+    // has them.
+    std::uint32_t gc_tgc = 0;
     // The pack choices file to read instead of the game's own (a file name
     // in sd:/riftwii/choices, "SMNP01.txt" or a profile's): the choices the
     // menu launched the game with, for a launch RiftWii makes for itself.

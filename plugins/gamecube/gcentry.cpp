@@ -45,6 +45,7 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
         at += static_cast<std::uint32_t>(arg.size()) + 1;
         image.exec_args.push_back(arg);
     }
+    image.tgc_offset = request.tgc_offset;
     image.usb_fd = request.usb_fd;
     if (request.usb_fd >= 0) {
         for (std::uint32_t i = 0; i < request.usb_fragment_count; ++i) {

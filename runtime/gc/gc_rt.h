@@ -160,7 +160,8 @@ enum gc_trace_word {
     GC_TR_AR_WAIT_LONGEST, /* the longest of those waits, timebase ticks */
     GC_TR_AR_WAIT_TIMEOUTS, /* waits given up: the interrupt did not show in time */
     GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers; with the test remote
-                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log) */
+                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log);
+                               * with no projection seen (projections 0), the VI's registers 0x00-0x3F */
     /* An RVZ game (gc_rvz.h): groups decoded, the time spent serving its
      * reads (card and decoding, timebase ticks, wraps), and its last
      * error << 24 | failures. */
@@ -318,6 +319,9 @@ struct gc_restart_region {
 /* The OSAlarm the callbacks run from: the SDK's is 0x28 bytes. */
 #define GC_ALARM_BYTES 0x40u
 #define GC_IPC_TIMEOUT 50000000u  /* polls of the IPC registers before giving up */
+
+/* TGC images a bonus disc's menu can start a game from (gc_on_tgc_read). */
+#define GC_TGC_MAX 8u
 
 struct gc_rt_context {
     uint32_t magic;
@@ -489,6 +493,18 @@ struct gc_rt_context {
      * sector of sd:/riftwii/gc/exec.txt, loader-made; 0: switches run as
      * the game makes them. */
     uint32_t exec_sector;
+    /* A bonus disc's menu starting a game packed in a TGC image on the
+     * disc (gc_on_tgc_read): exec.txt's sector again (0: such starts run
+     * as the menu makes them), and for each TGC its offset on the disc and
+     * where its program lies there, loader-found from the disc's FST. */
+    uint32_t tgc_sector;
+    uint32_t tgc_count;
+    uint32_t tgc_offset[GC_TGC_MAX];
+    uint32_t tgc_dol_start[GC_TGC_MAX];
+    uint32_t tgc_dol_end[GC_TGC_MAX];
+    /* Where the disc ID is read from (DVDLowReadDiskID): 0, or the packed
+     * disc's header when the game is one from a TGC image. */
+    uint32_t disc_id_offset;
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
