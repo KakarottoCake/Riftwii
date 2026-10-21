@@ -125,6 +125,11 @@ gc_hook_pad_read:
     mflr 0
     stw 0, 0x24(1)
     stw 3, 0x08(1)
+    bl 4f
+4:  mflr 3
+    addi 3, 3, gc_context_data - 4b
+    bl gc_before_pad_read
+    lwz 3, 0x08(1)
     bl gc_replay_pad_read
     mr 5, 3
     lwz 4, 0x08(1)

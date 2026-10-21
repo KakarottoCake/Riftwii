@@ -67,8 +67,9 @@ extern "C" {
 
 /* The adapter's controllers into the game's PADStatus[4] (`status`), on
  * the ports gc_gcad.h's rule gives them. Before gc_bt_fill. Built into the
- * host tests too (tests/gcgcad_tests.cpp). */
-void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status);
+ * host tests too (tests/gcgcad_tests.cpp). `native`: SI-identified ports,
+ * reserved even when the game's own err is -1. */
+void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native);
 /* PADControlMotor(chan, command): the adapter controller playing on that
  * port rumbles (1) or stops (0, 2), when its rumble is on. */
 void gc_gcad_motor(struct gc_gcad* ad, uint32_t chan, uint32_t command);

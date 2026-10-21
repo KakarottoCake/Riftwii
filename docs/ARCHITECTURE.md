@@ -285,6 +285,28 @@ non-NTSC paths and other game regions keep their own behavior.
   port (its LED), or the next free one when a GameCube controller holds
   that, and the LED follows; a remote that reconnects gets its slot back
   by its Bluetooth address.
+  A port where a GameCube controller is plugged in stays that
+  controller's even while the game has switched it off: F-Zero GX's
+  `PADSetAnalogMode` disables the port and its next `PADRead` says "no
+  controller", which the game answers with a reset that brings the
+  controller back; a Wii Remote filled in there kept the game from ever
+  resetting it. The SDK's SI type table (found through `PADRead`'s
+  `SIGetStatus`) identifies controllers, but real SI can replace a disabled
+  port's type with NOREP too. The runtime remembers identified controllers
+  through that interval. It releases a remembered port only when the
+  original `PADRead` returns err -1 and type 8 (NOREP) for a port that was
+  enabled before the read. `PADRead` disables an unplugged port itself,
+  so a hook before it samples EnabledBits (found structurally relative to
+  the game's r13). Ports never identified remain free for Wii Remotes;
+  late identification reserves the port on the next read. An unplug while
+  disabled remains reserved until an enabled read confirms absence. If the
+  enabled-state layout is unsupported, the current-type rule remains.
+  Pad trace records (`where=pad_si`, value 12) reuse nine crash-only words
+  for the four full SI types, SISR, enabled bits before/after the read,
+  original errors and the reserved-port mask. Existing `pad_errs` records
+  the errors after filling, even without Bluetooth. SISR is read without
+  writing it or consuming SI input buffers; its latched NOREP bits describe
+  past transfers and are diagnostic, not proof of current presence.
 - `gc_gcad.c`: the GameCube controller adapter for Wii U, through the
   same driver as Wii games (`runtime/rtgcad.c`) on the `/dev/usb/hid`
   handle the menu opened before the hand-over (`TakeGcAdapterForGameCube`
