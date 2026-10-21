@@ -130,7 +130,11 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   (`src/patching/gxpatches.cpp`) rests on Mario Party 4's sound manager as
   its community decompilation shows it (https://github.com/mariopartyrd/marioparty4,
   `src/msm/msmsys.c` and `src/game/audio.c`, main as of 2026-10-17): what
-  the game checks, read for behaviour only; no code was used.
+  the game checks, read for behaviour only; no code was used. Mario Party 5
+  and 6 joined it from their own decompilations
+  (https://github.com/mariopartyrd/marioparty5, `config/GP5E01_00/symbols.txt`
+  for the hang's function, at 5324654; https://github.com/mariopartyrd/marioparty6,
+  `src/game/audio.c`, at a56adea): the same sound manager set up the same way.
 - Game banners and channel icons (`src/disc/bnr.cpp`, `src/disc/tpl.cpp`,
   `src/disc/brlyt.cpp`, `src/disc/brlan.cpp`, `src/disc/wiicrypt.cpp`, `wii/menu/banners.*`,
   `wii/menu/bannerplay.*`, `wii/menu/otpkey.*`, `src/disc/bnrsound.cpp`, `wii/menu/bannersound.*`)
