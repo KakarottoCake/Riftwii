@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
-#include <sstream>
 #include <vector>
 
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "online.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -72,9 +72,9 @@ void LoadCache(const std::string& lang) {
     if (at != std::string::npos) {
         const std::size_t start = at + std::char_traits<char>::length(kNotListedLine);
         const std::size_t end = text.find('\n', start);
-        std::istringstream ids(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
+        WordReader ids(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
         std::string id;
-        while (ids >> id && g_cache.not_listed.size() < 4096) g_cache.not_listed.insert(id);
+        while (ids.next(id) && g_cache.not_listed.size() < 4096) g_cache.not_listed.insert(id);
     }
     g_cache.written = st.st_mtime;
 }

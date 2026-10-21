@@ -14,14 +14,13 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <map>
-#include <sstream>
 
 #include "d2xsd.hpp"
 #include "frontend.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
+#include "textfile.hpp"
 #include "riftwii/riifs_sync.hpp"
 
 namespace riftwii::wii {
@@ -143,10 +142,9 @@ std::string read_text(const std::string& path) {
         read_usb_text(path, text);
         return text;
     }
-    std::ifstream in(path, std::ios::binary);
-    std::stringstream text;
-    if (in) text << in.rdbuf();
-    return text.str();
+    std::string text;
+    ReadWholeFile(path, text);
+    return text;
 }
 
 // The .xml files directly in `dir`, sorted, hidden ones (macOS "._x.xml")

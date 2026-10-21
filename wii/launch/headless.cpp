@@ -7,7 +7,6 @@
 
 #include <cctype>
 #include <cstdio>
-#include <fstream>
 
 #include "autorun.hpp"
 #include "frontend.hpp"
@@ -176,12 +175,13 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
 // ends in NULs (kGcExecFile, kRestartFile).
 bool read_launch_lines(const std::string& path, std::vector<std::string>& args) {
     args.clear();
-    std::ifstream file(path, std::ios::binary);
+    FILE* file = std::fopen(path.c_str(), "rb");
     if (!file) return false;
     std::string text(kMaxLaunchFileBytes, '\0');
-    file.read(&text[0], static_cast<std::streamsize>(text.size()));
-    text.resize(static_cast<std::size_t>(file.gcount()));
-    if (text.size() == kMaxLaunchFileBytes && file.peek() != std::ifstream::traits_type::eof()) return false;
+    text.resize(std::fread(&text[0], 1, text.size(), file));
+    const bool longer = text.size() == kMaxLaunchFileBytes && std::fgetc(file) != EOF;
+    std::fclose(file);
+    if (longer) return false;
     return launch_lines_from_text(text, args);
 }
 

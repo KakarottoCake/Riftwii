@@ -45,6 +45,10 @@ EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-l
 # DOL; the host tests still build these (CMakeLists.txt).
 EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp src/patching/gcexi.cpp src/patching/gcload.cpp src/patching/gcaram.cpp \
 				src/patching/gcfont.cpp src/data/gccontrols.cpp src/disc/gctgc.cpp
+# read_package's stream overload is for the host tests; with it, or with
+# pugixml's own stream functions (PUGIXML_NO_STL below), libstdc++'s locale
+# and iostream code (over 500 KiB) would be linked into the DOL.
+EXCLUDES	+=	src/patching/patchstream.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
@@ -55,6 +59,10 @@ DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-lib
 #---------------------------------------------------------------------------------
 CFLAGS		=	-g -O2 -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
 CXXFLAGS	=	$(CFLAGS) -std=c++17
+# pugixml without its std::string and stream functions, which RiftWii never
+# calls: their std::istream references alone kept libstdc++'s locale code
+# (about 20 KiB of it) in the DOL. The host build keeps them.
+CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
 LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue
