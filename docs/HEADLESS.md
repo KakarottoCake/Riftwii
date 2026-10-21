@@ -78,7 +78,7 @@ game itself, so it is checked before anything is read or started:
 - No `path`, `xml`, `code_build` or `gct` has `..` in it, between slashes
   or backslashes or alone, so a name cannot climb out of its folder. An
   `xml` that is a bare file name has no slash or colon at all, and
-  `choices` is a plain file name (letters, digits and `. _ + -`, ending in
+  `choices` is a plain file name (letters, digits and `. _ + - @`, ending in
   `.txt`, no leading dot, no `..`) that RiftWii joins to
   `sd:/riftwii/choices`.
 - At most 32 `xml` and 16 `code_build` keys.

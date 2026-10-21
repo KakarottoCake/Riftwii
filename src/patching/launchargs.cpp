@@ -33,14 +33,17 @@ bool parse_title(std::string s, std::uint64_t& out) {
     return out != 0;
 }
 
-// A pack choices file's name: letters, digits and . _ + - only, ending in
-// ".txt", not starting with a dot. It is joined to sd:/riftwii/choices.
+// A pack choices file's name: letters, digits and . _ + - @ only, ending in
+// ".txt", not starting with a dot. It is joined to sd:/riftwii/choices. The
+// '@' is there because a game's extra Home tile keeps its choices in
+// "<ID>@<tile>.txt" (at most 6 + 1 + 24 + 4 characters, well inside the bound),
+// and the game's own Reset passes that name back. No separator or ".." gets in.
 bool choices_name_ok(const std::string& name) {
     if (name.size() < 5 || name.size() > 64 || name[0] == '.') return false;
     if (name.compare(name.size() - 4, 4, ".txt") != 0) return false;
     for (char c : name) {
         const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
-                        c == '_' || c == '+' || c == '-';
+                        c == '_' || c == '+' || c == '-' || c == '@';
         if (!ok) return false;
     }
     return name.find("..") == std::string::npos;
