@@ -1145,6 +1145,24 @@ static void gc_vi_blank(uint32_t* words) {
         gc_vi_set_register(words, r, before_field ? now + 2u * lines - 2u : now + 2u);
     }
 }
+/* The screen blank from the jump to the game's first picture, in the
+ * mode noted at the jump: the blanking registers first, the VTR last, so
+ * the retrace interrupts keep their lines. Left showing, RiftWii's last
+ * frame went green for about a second before Super Mario Sunshine's first
+ * picture on Jack's Wii in 480p (21 Oct): the game clears that memory
+ * before it blanks the screen itself, and memory of zeros is green in
+ * YUYV. In 480i the TV's re-sync to the game's mode hid it. A Wii game's
+ * launch blanks the screen the same way (VIDEO_SetBlack). */
+static void gc_vi_blank_now(const struct gc_rt_context* ctx) {
+    uint32_t mode[GC_VI_HANDOVER_WORDS];
+    uint32_t r;
+    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (r = 0; r < GC_VI_HANDOVER_WORDS; ++r) mode[r] = ctx->vi_at_jump[r];
+    gc_vi_blank(mode);
+    for (r = 0x12u / 2u; r >= 0x0Cu / 2u; --r)
+        *(volatile uint16_t*)(uintptr_t)(GC_VI_BASE + 2u * r) = (uint16_t)gc_vi_register(mode, r);
+    *(volatile uint16_t*)(uintptr_t)GC_VI_VTR = (uint16_t)gc_vi_register(mode, 0u);
+}
 /* Before ES_LaunchTitle: RiftWii's own mode back, blank. `saved` gets the
  * game's registers, for gc_vi_take_back when IOS says no. */
 static void gc_vi_hand_over(const struct gc_rt_context* ctx, uint32_t* saved) {
@@ -2464,13 +2482,15 @@ void gc_after_ar_dma(struct gc_rt_context* ctx) {
  * the blob's own IPC, as the game will use it. */
 void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where) {
     /* The jump's: the VI shows RiftWii's last frame, in the game's TV
-     * format, until the game's VIInit. */
+     * format; its registers are noted as they are, then the screen goes
+     * blank until the game's own picture. */
     if (where == GC_TRACE_JUMP) {
         gc_vi_note(ctx);
         gc_vi_read_all(ctx->vi_at_jump);  /* for the hand-over (gc_vi_hand_over) */
         /* and the audio hardware as the first start has it (gc_audio_reset) */
         ctx->ar_config_at_jump = gc_read16(GC_AR_SIZE) << 16 | gc_read16(GC_AR_REFRESH);
         ctx->ai_cr_at_jump = gc_read32(GC_AI_CR);
+        gc_vi_blank_now(ctx);
     }
     gc_trace(ctx, where);
 }
