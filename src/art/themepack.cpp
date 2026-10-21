@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/themepack.hpp"
 
-#include <sstream>
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 
@@ -59,16 +59,18 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
             return true;
         }
         if (text.compare(0, 7, "retire ") == 0) {
-            std::istringstream in(text.substr(7));
+            WordReader in(text.substr(7));
             RetiredTheme r;
-            in >> r.name >> r.replacement;
+            // As a stream: once the name is missing, the replacement is too.
+            in.next(r.name);
+            in.next(r.replacement);
             if (!theme_pack_name_ok(r.name, false) ||
                 (r.replacement != "-" && !theme_pack_name_ok(r.replacement, false))) {
                 error = "a retired theme with a bad name: " + text;
                 return false;
             }
             if (r.replacement == "-") r.replacement.clear();
-            for (std::string f; in >> f;) {
+            for (std::string f; in.next(f);) {
                 if (!theme_pack_name_ok(f, true)) {
                     error = "a retired theme's file with a bad name: " + f;
                     return false;
