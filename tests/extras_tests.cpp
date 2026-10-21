@@ -1624,6 +1624,10 @@ void TestResetRequest() {
     EXPECT_FALSE(launch_path_stays_put("../a"));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03", "choices=SMNP03.txt"}, back, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03", "choices=prof+1_a-b.txt"}, back, error));
+    // A game's extra Home tile keeps its choices in <ID>@<tile>.txt; the Reset restart passes that name.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=SUPE01", "choices=SUPE01@combined.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SUPE01", "choices=SUPE01@a/b.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SUPE01", "choices=SUPE01@..x.txt"}, back, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=../SMNP03.txt"}, back, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=sd:/x.txt"}, back, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=a/b.txt"}, back, error));
