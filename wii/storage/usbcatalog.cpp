@@ -1726,9 +1726,12 @@ bool cios_reaches_front_ports(const ImageGame& game, int cios_slot) {
     if (cios_slot == 0 && game_uses_usb_keyboard(game.id)) return false;
     // Only a base read from a slot counts: wii_u_adapter_slot's fallbacks
     // (where Check each cIOS saw the adapter, or slot 251 by default) say
-    // nothing about the front ports.
+    // nothing about the front ports. The launch also skips a slot without a
+    // ticket to start it (image_cios_check), and its own order puts only the
+    // first base-58 slot first, so that slot decides: when it is skipped the
+    // note stays, even if a later slot turns out to be base 58 too.
     for (const D2xSlot& s : d2x_slots()) {
-        if (s.base == 58 && (cios_slot == 0 || s.slot == cios_slot)) return true;
+        if (s.base == 58 && (cios_slot == 0 || s.slot == cios_slot)) return slot_has_ticket(s.slot);
     }
     return false;
 }
