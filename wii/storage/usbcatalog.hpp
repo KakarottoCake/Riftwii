@@ -238,8 +238,8 @@ int wii_u_adapter_slot(std::string* why = nullptr);
 
 // On a Wii U, whether `game` started with `cios_slot` (0: the launch's
 // own order) reaches the GameCube adapter in a front USB port: only a d2x
-// whose base was read as 58 does. A game that reads a USB keyboard starts
-// on another slot first, so never.
+// whose base was read as 58 and that has a ticket to start it does. A game
+// that reads a USB keyboard starts on another slot first, so never.
 bool cios_reaches_front_ports(const ImageGame& game, int cios_slot);
 
 // The transition after the GUI has stopped. It leaves d2x owning the selected
