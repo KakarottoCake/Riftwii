@@ -6,6 +6,7 @@
 #include "riftwii/launch.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -180,8 +181,46 @@ static void transaction() {
     std::filesystem::remove(folder);
 }
 
+// The Wii has no exceptions: when memory is short the plan and the commit
+// must say no, and the commit must leave the destination untouched.
+static void refuses_without_memory() {
+    static int calls_allowed;
+    const auto nth_fails = [](std::size_t bytes) -> void* {
+        return calls_allowed-- > 0 ? std::malloc(bytes) : nullptr;
+    };
+    calls_allowed = 5;
+    CHECK(gc_real_have_room({100, 200, 300}));
+    CHECK(gc_real_have_room({100, 200, 300}, nth_fails));
+    calls_allowed = 2;
+    CHECK(!gc_real_have_room({100, 200, 300}, nth_fails));  // the third says no; the first two are freed
+
+    const Bytes source = card();
+    const Bytes target = card();
+    GcRealPlan plan;
+    std::string error;
+    calls_allowed = 0;
+    CHECK(!gc_real_plan(source, target, "GALE01", true, plan, error, nth_fails));
+    CHECK(plan.out_of_memory && plan.image.empty());
+    calls_allowed = 100;
+    CHECK(gc_real_plan(source, target, "GALE01", true, plan, error, nth_fails));
+    CHECK(!plan.out_of_memory);
+
+    const auto folder = std::filesystem::temp_directory_path() / "riftwii-real-card-memory-tests";
+    std::filesystem::create_directories(folder);
+    const std::string path = (folder / "card.raw").string();
+    CHECK(gc_overwrite_file(path, source, error));
+    Bytes changed = source;
+    changed[100] ^= 1;
+    calls_allowed = 0;
+    CHECK(!gc_real_commit(path, changed, [] { return true; }, error, nth_fails));
+    CHECK(read_file(path) == source && !std::filesystem::exists(path + ".real-new"));
+    std::filesystem::remove(path);
+    std::filesystem::remove(folder);
+}
+
 int main() {
     dma_addressing();
+    refuses_without_memory();
     foreign_identity();
     planning();
     transaction();

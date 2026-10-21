@@ -6868,7 +6868,23 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	riftwii::wii::GcRealCard physical;
 	int result = physical.Open(slot);
 	std::vector<std::uint8_t> raw;
-	if (result >= 0) result = physical.Read(raw);
+	if (result >= 0) {
+		// A 16 MB card is held whole, then beside the SD image and the
+		// plan's copy of it. Ask for all of that now (the build has no
+		// exceptions, so a vector that cannot grow would abort the menu).
+		const std::size_t card = physical.Bytes();
+		const std::size_t image = static_cast<std::size_t>(riftwii::kGcDolphinMaxRawBytes);
+		const std::vector<std::size_t> needed = wholeCard
+			? std::vector<std::size_t>{card, riftwii::kGcRealSlack}
+			: std::vector<std::size_t>{card, image, image, riftwii::kGcRealSlack};
+		if (!riftwii::gc_real_have_room(needed)) {
+			logf("Memory card: not enough free memory to copy the %u KB card in slot %c; nothing was read or copied.\n",
+				static_cast<unsigned>(card >> 10), 'A' + slot);
+			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+			return;
+		}
+		result = physical.Read(raw);
+	}
 	if (result < 0) {
 		ShowPopup(tr("Memory card"), GcRealError(result), tr("OK"));
 		return;
@@ -6950,6 +6966,10 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	riftwii::GcRealPlan plan;
 	if (!riftwii::gc_real_plan(raw, target, state.game_id, shared, plan, error)) {
 		logf("GameCube: saves from slot %c were not planned: %s\n", 'A' + slot, error.c_str());
+		if (plan.out_of_memory) {
+			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+			return;
+		}
 		ShowPopup(tr("Memory card"), tr("The SD image is damaged or uses the other text encoding. Nothing was copied."), tr("OK"));
 		return;
 	}
