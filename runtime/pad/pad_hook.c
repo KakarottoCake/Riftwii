@@ -153,8 +153,14 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         s[10] = 0;
         mask |= 1u << i;
         if (!pad.wireless) motor |= 0x80000000u >> i;  /* PADRead's "has a motor" bits */
-        if (gcad_pad_moved(&c->last[i], &pad)) keep_screen_lit(c);
-        c->last[i] = pad;
+        /* Against the pad as it was when it last counted, not the last
+         * read: a stick moved slowly, a few steps a read, still counts
+         * once it has gone GCAD_ACTIVE_STEP, and a resting stick's wobble
+         * never adds up to that. */
+        if (gcad_pad_moved(&c->last[i], &pad)) {
+            keep_screen_lit(c);
+            c->last[i] = pad;
+        }
     }
     c->overlay_mask = mask;
     ++c->reads;

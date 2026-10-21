@@ -338,6 +338,23 @@ bool is_idle_reset(const std::vector<CodeRange>& text, std::uint32_t address) {
            word_at(text, address + 12) == kBlr;
 }
 
+// The small-data offset an idle reset clears (its stw r0, d(r13)).
+std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
+    const std::uint32_t second = word_at(text, address + 4);
+    const std::uint32_t store = is_stw_r0_sda(second) ? second : word_at(text, address + 8);
+    return static_cast<std::int16_t>(store & 0xFFFFu);
+}
+
+// The video library defines the controller ports' reset right after the
+// Wii Remotes' one, the same four words for the flag next to it (4 bytes
+// above), in every game checked (Brawl, Mario Kart Wii, Tatsunoko vs.
+// Capcom, Clash of Ninja Revolution 3, Kamen Rider): a call near PADRead
+// to a lone function of that shape is something else.
+bool has_remote_twin(const std::vector<CodeRange>& text, std::uint32_t address) {
+    const std::uint32_t twin = address - 16;
+    return is_idle_reset(text, twin) && idle_reset_flag(text, twin) == idle_reset_flag(text, address) + 4;
+}
+
 // The idle reset PADRead (or the status helper after it) calls; 0 when no
 // call in the window reaches one, or calls reach two different ones.
 std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
@@ -347,7 +364,7 @@ std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t 
         const std::uint32_t w = word_at(text, at);
         if (!is_bl(w)) continue;
         const std::uint32_t target = bl_target(at, w);
-        if (!is_idle_reset(text, target)) continue;
+        if (!is_idle_reset(text, target) || !has_remote_twin(text, target)) continue;
         if (found != 0 && found != target) return 0;
         found = target;
     }

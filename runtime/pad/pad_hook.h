@@ -58,7 +58,7 @@ struct rt_pad_context {
     uint32_t flags;            /* RT_PAD_FLAG_* (loader-filled) */
     int32_t known_dev;         /* the adapter's device id from the menu's USB list, -1: none */
     uint32_t idle_reset;       /* the game's screen-dimming reset for its controller ports, 0: not found */
-    gcad_pad last[GCAD_PORTS]; /* each port as the last PADRead filled it from the adapter */
+    gcad_pad last[GCAD_PORTS]; /* each port as it was when it last counted as in use (gcad_pad_moved) */
 };
 
 #ifdef RT_TARGET_PPC

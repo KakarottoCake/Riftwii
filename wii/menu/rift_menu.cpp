@@ -1863,6 +1863,12 @@ static bool CursedEngineGame(const FrontendState& state)
 	return GameIdIs(state, "STS") || GameIdIs(state, "SQI");
 }
 
+static bool FrontPortsReached(const FrontendState& state)
+{
+	const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
+	return riftwii::wii::cios_reaches_front_ports(source.game, source.cios_slot);
+}
+
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
@@ -1900,12 +1906,13 @@ static std::string LaunchNote(const FrontendState& state)
 	// adapter in use (image_cios_order); on any other d2x the adapter works
 	// from the rear ports only. Which port the adapter is in cannot be told
 	// from IOS's device ID yet, so the note comes whenever the game will not
-	// start on base 58: none installed, or another cIOS picked for it. A
+	// start on a slot whose base was read as 58: none installed, the bases
+	// unreadable, another cIOS picked for it, or a USB-keyboard game. A
 	// tester's Brawl, Mario Kart Wii and Kamen Rider played from a front
 	// port on IOS251 (base 58) with 2610-541.
 	if ((state.use_usb || state.use_sd) && riftwii::wii::GcAdapterRunning() &&
 	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
-	    !riftwii::wii::cios_reaches_front_ports(riftwii::wii::SelectedSource(state).cios_slot)) {
+	    !FrontPortsReached(state)) {
 		if (!note.empty()) note += " ";
 		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
 	}
