@@ -207,12 +207,15 @@ launch code gave the most). A few files keep `-O2` because the CPU, not
 the card, the drive or the player, waits on their loops: the software
 AES and SHA-1 (WAD contents, banners from a USB or SD image), the RVZ
 junk generator (`rtrvz.c`), the launch's scans of the game's code
-(`symsearch.cpp`, `codehook.cpp`) and the menu's painters and PNG
-decoder (`skinpaint.cpp`, `canvas.cpp`, `pngdecode.cpp`). They cost about
-48 KiB together; the list and the reason for each are in the comment
-above it in `Makefile.wii`. Measured in Dolphin: with everything `-Os`
-the menu's art took 1009 ms to draw at start instead of 850 ms; with
-the list at `-O2` it is back to 850 ms.
+(`symsearch.cpp`, `codehook.cpp`, and after the hand-over
+`videopatch.cpp`, `gamelang.cpp`, `gxpatches.cpp`) and the menu's
+painters and PNG decoder (`skinpaint.cpp`, `canvas.cpp`,
+`pngdecode.cpp`). They cost about 73 KiB together; the list and the
+reason for each are in the comment above it in `Makefile.wii`. Measured
+in Dolphin: with everything `-Os` the menu's art took 1009 ms to draw at
+start instead of 850 ms, and a Brawl launch from disc ended 122 ms
+later; with the list at `-O2` both are as fast as with `-O2` for
+everything.
 
 ### The MEM2 copy
 
