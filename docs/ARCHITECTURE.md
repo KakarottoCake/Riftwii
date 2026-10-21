@@ -205,7 +205,10 @@ window (`PrepareGcGameInMenu` in `wii/menu/rift_menu.cpp`).
 `gamecube` plugin's `plugins/gamecube/gcnative.cpp`, loaded on first use;
 [PLUGINS.md](PLUGINS.md)). The
 loader reads the game's choices file into a `GcImage` (disc reads, memory
-card, 480p, 16:9, language), plans its Riivolution packs as a window past
+card, 480p, 16:9, language). The plain-C `rwp_gc_launch` carries
+`real_card` separately from `shared_card`, with the twelve-byte physical
+header ID verified by the DOL; `gc_request_check` rejects conflicting
+choices. The loader plans its Riivolution packs as a window past
 the image's end with a rewritten FST (`src/patching/gcoverlay.cpp`), and
 reads the DOL. It finds the SDK functions it needs by their
 instructions, not by per-game addresses: `DVDLow*`, `PADRead`,
@@ -316,9 +319,12 @@ non-NTSC paths and other game regions keep their own behavior.
   (placed only when the menu passed a handle). Its controllers take
   ports by `gc_ports.h`'s rule before the Wii Remotes, which then skip
   the ports they filled.
-- `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
+- `gc_card.c`: emulated memory card slot A, from an image in MEM2 at `0x91000000`
   written back to its file's sectors as the game saves. The SDK's EXI
-  functions are found by `src/patching/gcexi.cpp`, through their shared
+  functions are found only for SD-image launches; **Real card in slot A**
+  leaves every card EXI function unhooked, so channel 0/device 0 reaches
+  the hardware. Slot B, SRAM/clock and the serial port pass through in
+  either mode. The functions are found by `src/patching/gcexi.cpp`, through their shared
   control blocks and call relationships. `EXIGetID` identifies the bus
   selector when two routines set the same selected-state bit (Pokemon
   Channel). The clock/SRAM on channel 0 device 1, slot B and the serial
@@ -455,6 +461,67 @@ holding HOME does. Cheats start again with the game: their handler and
 list are in the debugger area (`0x80001800`–`0x80003000`), inside the
 low memory that is put back, so keep them there. The test switch is
 `sd:/riftwii/gc/test/reset`: two presses made by the blob.
+
+**Physical memory cards** (`wii/storage/gcrealcard.cpp`,
+`src/fs/gcreal.cpp`): the Saves page has read-only tools for either Wii
+slot, including slot B with no card in A. libogc CARD mounts/unlocks the
+card; RiftWii reads its flash with synchronous 512-byte EXI read commands.
+`InitGcRealCards` reserves one 40 KiB, 32-byte-aligned MEM1 workarea before
+the menu allocates its heap. Mount and raw reads share it: libogc's
+`EXI_Dma` masks the pointer with `0x03FFFFE0`, so an ordinary MEM2 heap
+allocation would DMA over unrelated MEM1 and leave its own buffer unread.
+`gc_real_dma_range` rejects a misaligned, overflowing or non-MEM1 range
+before any DMA starts. A missing early reservation fails safely.
+Every transfer finishes before its aligned DMA buffer is reused, including
+on removal. Sizes are bounded to ordinary 4–128 Mbit cards with 8 KiB
+sectors. No physical-card write, format or repair operation is called.
+The detach callback stays sticky for the whole session. The five system
+blocks are read again after the confirmation and SD staging; removal or a
+changed header/directory/BAT cancels before the target image changes.
+Only an owned mount is unmounted. An existing EXI attachment or transfer
+is refused; close restores the previous EXI callback and leaves other
+devices' locks alone. If SRAM holds channel A at close, detachment waits
+for its unlock callback. The workarea stays allocated until process exit,
+including after removal or a failed mount, so callbacks cannot outlive it.
+
+libogc 3.1.0's mount validates directory/BAT checksums and BAT free counts;
+it does not compare the formatted header's flash ID with the console's.
+A card formatted on another console is accepted. A locked physical card
+still needs libogc's DSP-assisted unlock before normal flash reads. An
+already-unlocked card skips that exchange and checks only SRAM's cached
+flash-ID byte sum. RiftWii validates the header and layout with `gccard.cpp`
+and does not write or repair the physical card. Mounting a card is not passive:
+libogc clears its status, unlocks it when necessary, and records its flash
+ID in that slot's SRAM cache, including slot B. None of these operations
+writes the card's flash.
+
+`gc_real_plan` selects the exact game code plus maker for this game's own
+image, or every save for the source encoding's shared image. It exports
+64-byte entries plus save blocks as GCI data and uses `gc_import_one`:
+collisions stay untouched, bad chains are counted, and block/directory
+limits stop further additions. Encoding mismatches are refused. The menu
+previews selected/added/skipped/unusable counts and the destination, backs
+up an existing target through `gc_backup_card`, then stages a complete new
+image. `gc_real_commit` checks the source again before renaming the old
+image to `.old` and the staged image into place; existing `.old` recovery
+rules apply. A new image can be created before its first game launch.
+Whole-card backups preserve every flash byte, including unused blocks, in
+`sd:/riftwii/gc/backups/real/<date>_<time>.raw`; these explicit backups are
+not pruned automatically. Unformatted/unmountable cards cannot be dumped.
+
+With **Real card in slot A**, the menu checks slot A before launching and
+offers the game's own SD card if it cannot mount/validate the real card or
+its encoding differs. Accepting changes the Memory card choice to its own
+SD image; Cancel stays in the menu. The launch checks again (also for
+headless starts), passes the physical header ID in the request, and stops
+on failure. The plugin restores that ID and its checksum to SRAM and
+requires the write to finish. This handles an already-unlocked real card
+after an emulated-card launch left another ID in SRAM; the physical
+header/serial never changes. A locked card's normal SDK unlock still runs.
+No SD image is loaded, backed up, formatted, or hooked for this mode.
+vWii skips the real choice when cycling options and dims the physical-copy
+tools with an explanation; a persisted real choice offers the SD fallback.
+The Saves page explains that real-card saves are outside the SD image.
 
 **Switching programs.** A program the game starts after itself would run
 with none of the loader's patches, so every such start goes back through
@@ -676,6 +743,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/patches/*.xdelta` | Patch-only GameCube mods, built into `sd:/games/<ID>/` once |
 | `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw` | GameCube memory cards |
 | `sd:/riftwii/gc/saves/*.gci` | GameCube saves copied out, or to add to a card |
+| `sd:/riftwii/gc/backups/real/` | Explicit whole physical-card `.raw` backups, not pruned |
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
