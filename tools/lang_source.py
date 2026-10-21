@@ -57,6 +57,21 @@ T = {
         "ゲームが見つかりません (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
         "Nenhum jogo encontrado (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
         "Nessun gioco trovato (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"),
+    "No games found (usb:/wbfs, usb:/games)": (
+        "No se encontraron juegos (usb:/wbfs, usb:/games)",
+        "ゲームが見つかりません (usb:/wbfs, usb:/games)",
+        "Nenhum jogo encontrado (usb:/wbfs, usb:/games)",
+        "Nessun gioco trovato (usb:/wbfs, usb:/games)"),
+    "No games found (sd:/wbfs, sd:/games)": (
+        "No se encontraron juegos (sd:/wbfs, sd:/games)",
+        "ゲームが見つかりません (sd:/wbfs, sd:/games)",
+        "Nenhum jogo encontrado (sd:/wbfs, sd:/games)",
+        "Nessun gioco trovato (sd:/wbfs, sd:/games)"),
+    "No games found": (
+        "No se encontraron juegos",
+        "ゲームが見つかりません",
+        "Nenhum jogo encontrado",
+        "Nessun gioco trovato"),
     "Reading the SD card...": ("Leyendo la tarjeta SD...", "SDカードを読み込んでいます...", "Lendo o cartão SD...",
                                "Lettura della scheda SD..."),
     "Reading the USB drive... (a big drive takes a moment)": (
@@ -2307,6 +2322,12 @@ KO = {
         "아직 sd:/riivolution에 팩이 포함된 게임이 없습니다. 모든 게임을 보려면 1번을 누르세요.",
     "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)":
         "게임을 찾을 수 없음 (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
+    "No games found (usb:/wbfs, usb:/games)":
+        "게임을 찾을 수 없음 (usb:/wbfs, usb:/games)",
+    "No games found (sd:/wbfs, sd:/games)":
+        "게임을 찾을 수 없음 (sd:/wbfs, sd:/games)",
+    "No games found":
+        "게임을 찾을 수 없음",
     "Reading the SD card...":
         "SD 카드 읽는 중...",
     "Reading the USB drive... (a big drive takes a moment)":
@@ -4130,6 +4151,12 @@ FR = {
         "Aucun jeu ici n'a de pack dans sd:/riivolution. Appuyez sur 1 pour voir tous les jeux.",
     "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)":
         "Aucun jeu trouvé (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
+    "No games found (usb:/wbfs, usb:/games)":
+        "Aucun jeu trouvé (usb:/wbfs, usb:/games)",
+    "No games found (sd:/wbfs, sd:/games)":
+        "Aucun jeu trouvé (sd:/wbfs, sd:/games)",
+    "No games found":
+        "Aucun jeu trouvé",
     "Reading the SD card...":
         "Lecture de la carte SD...",
     "Reading the USB drive... (a big drive takes a moment)":

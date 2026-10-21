@@ -1152,7 +1152,12 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 {
 	items.clear();
 	entries.clear();
-	{
+	// The Disc drive tile belongs to Home's own views (Mods and All games),
+	// as the disc channel does on the Wii Menu. A search, Recently played
+	// and Favorites list particular games, so a tile that is none of them
+	// was only noise there.
+	const bool discViews = g_search.empty() && (g_filter == Filter::Mods || g_filter == Filter::All);
+	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
 		disc.badge = "DISC";
@@ -1196,7 +1201,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	// Settings > Disc Channel off: the tile goes (an empty view keeps its
 	// note under the clock: Press 1 for all games).
-	if (riftwii::wii::Settings().home_disc == "off") {
+	if (discViews && riftwii::wii::Settings().home_disc == "off") {
 		items.erase(items.begin());
 		entries.erase(entries.begin());
 	}
@@ -1992,7 +1997,14 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (item.badge != "DISC") shownGames.insert(item.id);
 	const std::size_t games = shownGames.size();
 	std::string status;
-	for (const std::string& p : {ShortSourceProblem("SD", state.sd_catalog), ShortSourceProblem("USB", state.usb_catalog)}) {
+	// A drive Settings > Games from leaves out is not a problem to report:
+	// "SD: no games" has no meaning when Home lists the USB drive only.
+	const std::string& source = riftwii::wii::Settings().home_source;
+	const bool sdListed = source == "all" || source == "sd" || source == "gamecube";
+	const bool usbListed = source == "all" || source == "usb" || source == "gamecube";
+	const std::string sdProblem = sdListed ? ShortSourceProblem("SD", state.sd_catalog) : "";
+	const std::string usbProblem = usbListed ? ShortSourceProblem("USB", state.usb_catalog) : "";
+	for (const std::string& p : {sdProblem, usbProblem}) {
 		if (p.empty()) continue;
 		status += (status.empty() ? "" : "   ") + p;
 	}
@@ -2008,7 +2020,14 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
-	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
+	if (games == 0) {
+		// Only the folders of the drives Games from lists (none for the
+		// Wii's own channels), each a whole sentence for the translations.
+		if (usbListed && sdListed) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
+		if (usbListed) return "No games found (usb:/wbfs, usb:/games)";
+		if (sdListed) return "No games found (sd:/wbfs, sd:/games)";
+		return "No games found";
+	}
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	// What B does here: letters in A to Z order (GuiGameGrid::LetterKeys),
 	// and with A it picks a game up where games can be moved.
