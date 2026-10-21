@@ -2040,9 +2040,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const RvzDiscSource* rvz_disc = nullptr;
     if (!open_gc_disc(image, disc, rvz_disc, error)) return false;
     const ByteSource& f = *disc;
-    // A game packed in a TGC image (a bonus disc's menu started it): the
-    // packs were made for the disc's own FST, not the TGC's.
-    if (image.tgc_offset != 0 && pack != nullptr) {
+    // A game packed in a TGC image (a bonus disc's menu started it, and
+    // exec.txt named the TGC's offset). Zero again below when no TGC the
+    // disc has starts there: the disc's own program then starts.
+    std::uint32_t tgc_offset = image.tgc_offset;
+    // The packs were made for the disc's own FST, not the TGC's.
+    if (tgc_offset != 0 && pack != nullptr) {
         logf("GameCube: the packs are left off for the game packed in a TGC image: they change the disc's own files\n");
         pack = nullptr;
     }
@@ -2066,12 +2069,24 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // FST, from the TGC, with the FST's files where they are on the disc.
     GcTgc tgc;
     std::vector<std::uint8_t> tgc_fst;
-    if (ok && image.tgc_offset != 0) {
+    if (ok && tgc_offset != 0) {
         const std::vector<std::uint8_t> disc_boot = boot;  // the disc's own, for its FST
-        ok = open_gc_tgc(f, disc_boot, image.tgc_offset, tgc, boot, bi2, tgc_fst, error);
-        // boot may hold the packed header's unchecked FST size; leave before it
-        // sizes an allocation, so the TGC reason in error reaches the player.
-        if (!ok) return false;
+        std::string tgc_error;
+        if (!open_gc_tgc(f, disc_boot, tgc_offset, tgc, boot, bi2, tgc_fst, tgc_error)) {
+            // exec.txt named no TGC the disc has (a hand-made or stale
+            // file, or another disc's): the disc starts as itself, its
+            // menu back on screen, rather than stopping. boot and BI2 are
+            // the disc's again, as open_gc_tgc may have half-filled them
+            // with the packed disc's (whose FST size is unchecked).
+            logf("GameCube: no game packed in a TGC image started: %s; the disc's own program starts instead\n",
+                 tgc_error.c_str());
+            tgc_offset = 0;
+            tgc = GcTgc();
+            tgc_fst.clear();
+            boot = disc_boot;
+            ok = read_at(f, 0x440, bi2.data(), bi2.size());
+            if (!ok) error = "cannot read " + image.path;
+        }
     }
     // A switch to another program on the disc (gc_on_boot_dol): that one,
     // with its arguments in BI2 where its start-up code reads them.
@@ -2094,7 +2109,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
         fst = pack->fst;
-    } else if (image.tgc_offset != 0) {
+    } else if (tgc_offset != 0) {
         fst = tgc_fst;
     } else if (ok && (fst.empty() || !read_at(f, be32(&boot[0x424]), fst.data(), fst.size()))) {
         error = "cannot read the game's FST";
@@ -2801,7 +2816,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // Not with packs, which move the disc's files.
     const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
     // A game from a TGC image reads its own disc ID, the packed header's.
-    if (image.tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
+    if (tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
     {
         std::vector<CodeRange> data_ranges;
         for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
@@ -2811,7 +2826,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // A game from a TGC image: exec.txt names programs by their offset
         // on the outer disc and starts them with its boot.bin and FST, not
         // the TGC's, so its own switches run as made (not seen in a game).
-        const bool from_tgc = image.tgc_offset != 0;
+        const bool from_tgc = tgc_offset != 0;
         const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
         const bool exec_test_on = test_exec && !boot_dol_branch;
         const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"

@@ -422,7 +422,7 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   the packed boot.bin's ID (`disc_id_offset`). The offset in exec.txt
   must be the start of a file of the disc's own FST, and every size and
   offset the TGC's header and FST give must lie inside that file, or the
-  launch stops with the reason. Packs are left off for such a game, and
+  disc starts as itself (its menu), the reason in the log. Packs are left off for such a game, and
   its own OSExec switches run as made: exec.txt cannot name a program
   inside a TGC.
 Only for an image on the SD card, with a way back. If IOS refuses to
