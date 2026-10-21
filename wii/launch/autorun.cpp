@@ -12,10 +12,10 @@
 #include <strings.h>
 #include <sys/stat.h>
 
+#include <cctype>
+#include <climits>
 #include <cstdio>
-#include <fstream>
-#include <iterator>
-#include <sstream>
+#include <cstdlib>
 
 #include "boot.hpp"
 #include "channel.hpp"
@@ -45,6 +45,70 @@ std::string trim(const std::string& s) {
     return s.substr(b, e - b + 1);
 }
 
+// A whole file's bytes, however large (a replacement can be megabytes).
+// False when it cannot be opened; a read that stops early keeps what it
+// got, which the callers' size checks catch.
+bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out) {
+    out.clear();
+    FILE* file = std::fopen(path.c_str(), "rb");
+    if (file == nullptr) return false;
+    std::uint8_t chunk[4096];
+    std::size_t got = 0;
+    while ((got = std::fread(chunk, 1, sizeof(chunk), file)) > 0) out.insert(out.end(), chunk, chunk + got);
+    std::fclose(file);
+    return true;
+}
+
+// One autorun.txt line taken apart word by word, as an istringstream's >>
+// did: words end at white space; a number is read in decimal, 0 when
+// there is none (and nothing after it is read); a word asked for past the
+// end stays empty. rest() is what follows the words read so far.
+class Words {
+public:
+    explicit Words(const std::string& line) : line_(line) {}
+
+    Words& operator>>(std::string& word) {
+        if (!SkipSpace()) return *this;
+        const std::size_t start = at_;
+        while (at_ < line_.size() && !IsSpace(line_[at_])) ++at_;
+        word = line_.substr(start, at_ - start);
+        return *this;
+    }
+
+    Words& operator>>(int& number) {
+        if (!SkipSpace()) return *this;
+        const char* start = line_.c_str() + at_;
+        char* end = nullptr;
+        const long value = std::strtol(start, &end, 10);
+        if (end == start) {
+            number = 0;
+            failed_ = true;
+            return *this;
+        }
+        // Out of range: the nearest int, as the stream gave.
+        number = value > INT_MAX ? INT_MAX : value < INT_MIN ? INT_MIN : static_cast<int>(value);
+        at_ +=static_cast<std::size_t>(end - start);
+        return *this;
+    }
+
+    std::string rest() const { return failed_ ? "" : line_.substr(at_); }
+
+private:
+    static bool IsSpace(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
+
+    // False, and nothing more is read, at the line's end or after a failure.
+    bool SkipSpace() {
+        if (failed_) return false;
+        while (at_ < line_.size() && IsSpace(line_[at_])) ++at_;
+        if (at_ == line_.size()) failed_ = true;
+        return !failed_;
+    }
+
+    const std::string& line_;
+    std::size_t at_ = 0;
+    bool failed_ = false;
+};
+
 std::string basename_of(const std::string& disc_path) {
     const auto slash = disc_path.find_last_of('/');
     return slash == std::string::npos ? disc_path : disc_path.substr(slash + 1);
@@ -64,17 +128,18 @@ void SetCtgpDefaults(const std::string& app) {
     const char* path = "sd:/ctgpr/config.ini";
     std::string text;
     {
-        std::ifstream in(path, std::ios::binary);
-        if (in) text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        std::vector<std::uint8_t> bytes;
+        if (ReadWholeFile(path, bytes)) text.assign(bytes.begin(), bytes.end());
     }
     if (!riftwii::ctgp_config_defaults(text)) {
         logf("CTGP: config.ini already has disable_ios_exploit, left as it is\n");
         return;
     }
     {
-        std::ofstream out(path, std::ios::binary | std::ios::trunc);
-        out.write(text.data(), static_cast<std::streamsize>(text.size()));
-        if (!out) {
+        FILE* out = std::fopen(path, "wb");
+        const bool written = out != nullptr && std::fwrite(text.data(), 1, text.size(), out) == text.size();
+        const bool closed = out != nullptr && std::fclose(out) == 0;
+        if (!written || !closed) {
             logf("CTGP: could not write %s\n", path);
             return;
         }
@@ -260,12 +325,10 @@ bool LoadReplacement(const OpenedPartition& partition, const std::string& disc_p
         error = "'" + disc_path + "' is a directory";
         return false;
     }
-    std::ifstream file(sd_path, std::ios::binary);
-    if (!file) {
+    if (!ReadWholeFile(sd_path, out.bytes)) {
         error = "cannot open " + sd_path;
         return false;
     }
-    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     if (out.bytes.size() != entry.size) {
         error = sd_path + " is " + std::to_string(out.bytes.size()) + " bytes but '" + disc_path + "' is " +
                 std::to_string(entry.size) + " (only same-size replacements yet)";
@@ -296,12 +359,10 @@ bool LoadVirtualFile(const OpenedPartition& partition, const std::string& disc_p
         error = "cannot name '" + disc_path + "'";
         return false;
     }
-    std::ifstream file(sd_path, std::ios::binary);
-    if (!file) {
+    if (!ReadWholeFile(sd_path, out.bytes)) {
         error = "cannot open " + sd_path;
         return false;
     }
-    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     logf("Grow %s (%u bytes at 0x%llx) to %u bytes from %s\n", out.disc_path.c_str(), entry.size,
          static_cast<unsigned long long>(entry.offset), static_cast<unsigned>(out.bytes.size()), sd_path.c_str());
     error.clear();
@@ -641,10 +702,22 @@ void RunAutorun() {
     mem::LogUsage("autorun");
     std::vector<std::string> script_lines;
     {
-        std::ifstream script(kAutorunPath);
+        // Read whole and closed before any command runs: never retain an
+        // SD FILE across a USB IOS reload. Lines end at '\n'; a last line
+        // without one counts too.
+        std::vector<std::uint8_t> script;
+        ReadWholeFile(kAutorunPath, script);
         std::string loaded;
-        while (std::getline(script, loaded)) script_lines.push_back(std::move(loaded));
-    }  // Never retain an SD FILE across a USB IOS reload.
+        for (const std::uint8_t byte : script) {
+            if (byte == '\n') {
+                script_lines.push_back(std::move(loaded));
+                loaded.clear();
+            } else {
+                loaded.push_back(static_cast<char>(byte));
+            }
+        }
+        if (!loaded.empty()) script_lines.push_back(std::move(loaded));
+    }
     LaunchSource source;
     Session s(source, kAutorunLogPath);
     bool allow_fallback = true;
@@ -674,7 +747,7 @@ void RunAutorun() {
         ++line_number;
         line = trim(line);
         if (line.empty() || line[0] == '#') continue;
-        std::istringstream words(line);
+        Words words(line);
         std::string cmd;
         words >> cmd;
         logf("> %s\n", line.c_str());
@@ -848,9 +921,7 @@ void RunAutorun() {
             // (option as "Option" or "Section/Option"; an empty choice or
             // "disabled" turns the option off), then everything is
             // recompiled.
-            std::string rest;
-            std::getline(words, rest);
-            rest = trim(rest);
+            const std::string rest = trim(words.rest());
             const std::size_t eq = rest.find('=');
             if (packages.empty() || eq == std::string::npos) {
                 ok = false;
