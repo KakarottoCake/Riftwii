@@ -11,7 +11,6 @@
 #define GC_IOS_IOCTL 6u
 #define GC_IOS_IOCTLV 7u
 #define GC_PAD_STATUS_BYTES 12u
-#define GC_PAD_NO_CONTROLLER 0xFFu  /* PADStatus err -1 */
 
 static uint32_t ad_now(void) {
 #ifdef RT_TARGET_PPC
@@ -179,15 +178,12 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
 
 /* --- The game's ports ------------------------------------------------- */
 
-void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status) {
+void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native) {
     const uint32_t now = ad_now();
     gcad_pad pads[GCAD_PORTS];
-    uint32_t i, present = 0, taken = 0;
+    uint32_t i, present = 0;
+    const uint32_t taken = gc_ports_taken(status, native);
     if (!ad->inited) return;
-    /* A port whose err is anything but "no controller" (one starting, a
-     * transfer error) has a GameCube controller in it, which keeps it. */
-    for (i = 0; i < GC_PORTS; ++i)
-        if (status[GC_PAD_STATUS_BYTES * i + 10] != GC_PAD_NO_CONTROLLER) taken |= 1u << i;
     for (i = 0; i < GCAD_PORTS; ++i)
         if (gcad_port(&ad->g, i, &pads[i], now)) present |= 1u << i;
     gc_ports_assign(taken, present, ad->port_of);

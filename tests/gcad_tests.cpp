@@ -1033,6 +1033,120 @@ static void TestGcPadMotorSearch() {
     EXPECT_TRUE(error.find("PADControlMotor") != std::string::npos);
 }
 
+// A self-authored SIGetStatus-shaped function with a different register
+// allocation and a cache whose signed low half requires a high-half carry.
+static void si_status_function(Asm& code, std::uint32_t cache, bool wii) {
+    code.prologue();
+    code.op(0x3D200000u | (wii ? 0xCD00u : 0xCC00u));  // lis r9,MMIO
+    code.op(0x21430003u);  // subfic r10,r3,3
+    code.op(0x81696438u);  // lwz r11,0x6438(r9)
+    code.op(0x554A1838u);  // slwi r10,r10,3
+    code.op(0x7D6B5430u);  // srw r11,r11,r10
+    code.op(0x55600739u);  // rlwinm. r0,r11,0,28,28
+    code.op(0x41820028u);  // beq past update
+    code.op(0x3D800000u | ((cache + 0x8000u) >> 16));  // lis r12,ha(cache)
+    code.op(0x5469103Au);  // slwi r9,r3,2
+    code.op(0x398C0000u | (cache & 0xFFFFu));  // addi r12,r12,lo(cache)
+    code.op(0x7D8C4A14u);  // add r12,r12,r9
+    code.op(0x812C0000u);  // lwz r9,0(r12)
+    code.op(0x55200631u);  // rlwinm. r0,r9,0,24,24
+    code.op(0x4082000Cu);  // bne past store
+    code.op(0x39200008u);  // li r9,8
+    code.op(0x912C0000u);  // stw r9,0(r12)
+    code.blr();
+}
+
+static void TestGcSiTypeCacheSearch() {
+    constexpr std::uint32_t kCache = 0x8034ABC0u;
+    for (const bool wii : {false, true}) {
+        Asm code{0x80004000u, {}};
+        code.bl(code.base + 12);
+        code.bl(code.base + 12);  // repeated calls to one table agree
+        code.blr();
+        si_status_function(code, kCache, wii);
+        const auto find = [&](const Asm& input) {
+            const auto bytes = input.bytes();
+            return riftwii::find_gc_si_type_cache({{input.base, bytes.data(), bytes.size()}}, input.base);
+        };
+        EXPECT_EQ(find(code), kCache);
+        // Neither a different hardware block, a mismatched channel
+        // index, a different error bit nor an incomplete update qualifies.
+        for (unsigned index : {2u, 3u, 4u, 5u, 6u, 7u, 8u, 10u, 12u, 13u, 14u, 15u, 16u, 17u}) {
+            Asm changed = code;
+            changed.words[3 + index] ^= 4u;
+            EXPECT_EQ(find(changed), 0u);
+        }
+        Asm truncated = code;
+        truncated.words.resize(truncated.words.size() - 2);
+        EXPECT_EQ(find(truncated), 0u);
+        Asm unrelated = code;
+        unrelated.words[0] = 0x60000000u;
+        unrelated.words[1] = 0x60000000u;
+        EXPECT_EQ(find(unrelated), 0u);
+        Asm invalid = code;
+        invalid.words[3 + 7] = 0x3D80CD00u;  // hardware address in place of RAM
+        EXPECT_EQ(find(invalid), 0u);
+        Asm conflict = code;
+        const std::uint32_t second = conflict.here();
+        si_status_function(conflict, kCache + 16, wii);
+        conflict.words[1] = 0x48000001u | ((second - (conflict.base + 4)) & 0x03FFFFFCu);
+        EXPECT_EQ(find(conflict), 0u);
+    }
+    EXPECT_EQ(riftwii::find_gc_si_type_cache({}, 0), 0u);
+}
+
+// Self-authored disabled-port block, with a shifted channel mask and
+// register allocation distinct from F-Zero's executable.
+static void pad_enabled_block(Asm& code, std::int16_t offset) {
+    code.op(0x3D408000u);  // lis r10,0x8000
+    code.op(0x7D494C30u);  // srw r9,r10,r9
+    code.op(0x80AD0000u | static_cast<std::uint16_t>(offset));  // lwz r5,d(r13)
+    code.op(0x7CA54839u);  // and. r5,r5,r9
+    code.op(0x40820020u);
+    code.op(0x38C0FFFFu);  // li r6,-1
+    code.op(0x98DE000Au);  // stb r6,10(r30)
+    code.op(0x387E0000u);  // addi r3,r30,0
+    code.op(0x38800000u);
+    code.op(0x38A0000Au);
+    code.bl(code.base + 0x500);
+}
+
+static void TestGcPadEnabledSearch() {
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_enabled_offset({{input.base, bytes.data(), bytes.size()}}, input.base);
+    };
+    for (const std::int16_t offset : {-0x7134, 0x1234}) {
+        Asm code{0x80004000u, {}};
+        pad_enabled_block(code, offset);
+        code.blr();
+        EXPECT_EQ(find(code), static_cast<std::int32_t>(offset));
+        for (unsigned index = 0; index < 11; ++index) {
+            Asm changed = code;
+            std::uint32_t changed_field = 4u;
+            if (index == 2) changed_field = 0x10000u;
+            if (index == 10) changed_field = 1u;
+            changed.words[index] ^= changed_field;
+            EXPECT_EQ(find(changed), 0);
+        }
+        Asm truncated = code;
+        truncated.words.resize(9);
+        EXPECT_EQ(find(truncated), 0);
+        Asm conflict = code;
+        conflict.words.pop_back();
+        pad_enabled_block(conflict, offset + 4);
+        conflict.blr();
+        EXPECT_EQ(find(conflict), 0);
+    }
+    for (const std::int16_t offset : {0, 3}) {
+        Asm invalid{0x80004000u, {}};
+        pad_enabled_block(invalid, offset);
+        invalid.blr();
+        EXPECT_EQ(find(invalid), 0);
+    }
+    EXPECT_EQ(riftwii::find_gc_pad_enabled_offset({}, 0), 0);
+}
+
 int main() {
     EXPECT_EQ(sizeof(gcad) % 4, 0u);
     EXPECT_EQ(offsetof(gcad, setup_in) % 32, 0u);
@@ -1051,6 +1165,8 @@ int main() {
     TestListErrorRetries();
     TestPadSearch();
     TestGcPadMotorSearch();
+    TestGcSiTypeCacheSearch();
+    TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
