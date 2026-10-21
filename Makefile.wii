@@ -53,7 +53,7 @@ DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-lib
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-CFLAGS		=	-g -O2 -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
+CFLAGS		=	-g -Os -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
 CXXFLAGS	=	$(CFLAGS) -std=c++17
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
@@ -330,28 +330,21 @@ licence.zst : $(PROJECT_ROOT)/LICENSE
 	@echo $(notdir $<)
 	$(bin2o)
 
-# The menu's own Zstandard (RVZ headers and the apploader's reads) is
-# built for size, like the runtime's: it decodes a few MB per launch.
-zstddeclib.o: CFLAGS += -Os
-
-# The SD image maker waits on the card, not the CPU: built for size too.
-vsdbuild.o vsdmake.o: CXXFLAGS += -Os
-
-# The menu's screens wait on the player: built for size too, which
-# leaves room for the transitions (keep the DOL's end below 0x81041980).
-rift_menu.o: CXXFLAGS += -Os
-
-# Card management runs before a game starts. Favor space here so physical
-# CARD support and its menu still fit below the apploader's MEM1 boundary.
-gccard.o gcbackup.o gcimport.o gcreal.o gcrealcard.o gcplugin.o: CXXFLAGS += -Os
-
-# What waits on the network or the card, or runs once a launch: for size
-# as well (the room the DOL keeps under 0x81041980 is the menu's margin).
-online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
-
-# The plugin loader waits on the card too, and is the price of every MEM1
-# saving a plugin brings: for size.
-plugins.o pluginfile.o sha256.o: CXXFLAGS += -Os
+# Everything is built for size (CFLAGS above): the DOL, its start-up stash
+# and its heap must all fit below the apploader at 0x81200000, and -O2 for
+# the whole program had brought the stash to within 3 KiB of it (21 Oct
+# 2026; -Os gives back about 1.4 MiB). The few files whose loops the CPU,
+# not the card, the drive or the player, waits on keep -O2 (a later -O
+# wins); together they cost about 48 KiB:
+# - wiicrypt (software AES) and sha1 run over every byte of a WAD's
+#   contents and of the banners read from a USB or SD image's partition;
+# - rtrvz rebuilds an RVZ's junk data byte by byte. rvz itself only finds
+#   groups and copies them, and its Zstandard was already -Os;
+# - symsearch and codehook scan the whole of a game's code at each launch;
+# - skinpaint, canvas and pngdecode paint and decode the menu's pictures
+#   pixel by pixel (all -Os drew the menu's art 0.16 s later in Dolphin).
+wiicrypt.o sha1.o symsearch.o codehook.o skinpaint.o canvas.o pngdecode.o: CXXFLAGS += -O2
+rtrvz.o: CFLAGS += -O2
 
 # RiftWii's own sources build with -Werror, as the runtime and channel do;
 # the vendored ones (pugixml's known warning, libgui, zstd) do not.

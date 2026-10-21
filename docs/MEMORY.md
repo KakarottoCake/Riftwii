@@ -188,12 +188,31 @@ holds for an unpacked DOL (`make -f Makefile.wii PACK=0`, and
 
 So the build fails when the stash would end past `STASH_LIMIT` in
 `Makefile.wii`, which is `0x81200000`, the same line as the heap ceiling.
-Today the stash ends at `0x811BC520`, where the program used to end, so
-loaders see the same highest address they already accepted. The 270 KiB
-left under the line is all the code and BSS growth can use before the
-build stops. After that, something has to leave the DOL (files or
-plugins), or the limit has to be measured on the Homebrew Channel and
-raised.
+When the stash came in it ended at `0x811BC520`, where the program used
+to end, so loaders saw the same highest address they already accepted.
+By 21 Oct 2026 code and BSS growth had brought it to `0x811FF500`, 2.8
+KiB under the line, which stopped pull requests that added code. The DOL
+is now built with `-Os` (below), and the stash ends at `0x810A7380`
+(build 2610-589), about 1.3 MiB under the line. Room under the line is
+what code and BSS growth can use before the build stops. When it runs
+out again, something has to leave the DOL (files or plugins), or the
+limit has to be measured on the Homebrew Channel and raised.
+
+### Built for size
+
+`Makefile.wii` compiles the whole DOL with `-Os`. Against `-O2` for
+everything, that took the stash's end from `0x811FF500` to `0x8109BC00`
+(1.4 MiB; `pugixml.o`, `usbcatalog.o`, `patch.o`, `boot.o` and the
+launch code gave the most). A few files keep `-O2` because the CPU, not
+the card, the drive or the player, waits on their loops: the software
+AES and SHA-1 (WAD contents, banners from a USB or SD image), the RVZ
+junk generator (`rtrvz.c`), the launch's scans of the game's code
+(`symsearch.cpp`, `codehook.cpp`) and the menu's painters and PNG
+decoder (`skinpaint.cpp`, `canvas.cpp`, `pngdecode.cpp`). They cost about
+48 KiB together; the list and the reason for each are in the comment
+above it in `Makefile.wii`. Measured in Dolphin: with everything `-Os`
+the menu's art took 1009 ms to draw at start instead of 850 ms; with
+the list at `-O2` it is back to 850 ms.
 
 ### The MEM2 copy
 
