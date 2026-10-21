@@ -2328,28 +2328,41 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             if (f) std::fclose(f);
             forget_sd_layout();
         }
-        // A card made with another console's flash ID reads as damaged:
-        // the SDK's VerifyID checks the header's serial against SRAM as it
-        // is, since the emulated card reports itself unlocked. A GameCube's
-        // own mount copies the card's flash ID into SRAM first, so the game
-        // is given the header re-signed for this Wii instead. Only the
-        // in-memory image changes; the file keeps its own until the game
-        // itself writes block 0 (runtime/gc/gc_card.c only writes back
-        // sectors its dirty bitmap saw programmed or erased, so an
-        // untouched header never reaches the file).
-        if (ready && !blank && !other_size) {
-            rwp_sram sram;
-            plugin::host().read_sram(&sram);
+        // The unlocked emulated card makes the SDK check SRAM's flash ID
+        // and its checksum before VerifyID. Store the card's ID there as
+        // a GameCube's mount does, preserving the serial that saves bind
+        // to. This runs before shut_down_for_game and before interrupts
+        // are disabled, so the host can commit over libogc's working EXI; the
+        // game's own SDK later reads that RTC through EXI without libogc.
+        // A later format_card reads the new SRAM ID too, consistently.
+        // A card formatted just above takes this path as well: format_card
+        // copied only SRAM's ID, so if SRAM's checksum is bad the SDK would
+        // still call the new card damaged. The setter then finds the ID
+        // equal and repairs only the checksum.
+        if (ready && !other_size) {
             std::array<std::uint8_t, 12> flash_id{};
-            static_assert(sizeof(sram.flash_id_a) == sizeof(flash_id),
-                          "rwp_sram's flash ID is not a card's");
-            std::memcpy(flash_id.data(), sram.flash_id_a, flash_id.size());
-            if (gc_card_resign(card_image, flash_id)) {
-                logf("GameCube: %s was made with another card ID than this Wii's (its serial does not match the "
-                     "console's SRAM, which games read as a damaged card): the game gets it re-signed for this Wii, "
-                     "as a GameCube's own mount would do; the file is unchanged until the game itself writes its "
-                     "header\n",
+            const rwp_host& host = plugin::host();
+            if (!gc_card_flash_id(card_image, flash_id)) {
+                logf("GameCube: %s has an invalid header and is left unchanged for the game to report as damaged\n",
                      path.c_str());
+            } else if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a) {
+                logf("GameCube: this host cannot set SRAM's card ID for %s, so the game may report the unchanged "
+                     "card as damaged\n",
+                     path.c_str());
+            } else {
+                // The host compares both ID and checksum under the SRAM
+                // lock, including a bad checksum with an already equal ID.
+                const int32_t written = host.set_sram_flash_id_a(flash_id.data());
+                // A failed write leaves things as they were before: the
+                // launch goes on, and at worst the game calls the card damaged.
+                if (written < 0) {
+                    logf("GameCube: SRAM's card ID for %s could not be written, so the game may report the "
+                         "unchanged card as damaged\n", path.c_str());
+                } else if (written > 0) {
+                    logf("GameCube: %s needed another card ID or a repaired ID checksum in this Wii's SRAM; "
+                         "SRAM now holds the card's ID as on a GameCube mount so the game can verify it, "
+                         "and the card itself is unchanged\n", path.c_str());
+                }
             }
         }
         Fat32File cf;

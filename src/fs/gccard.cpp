@@ -445,16 +445,22 @@ void gc_card_format(std::vector<std::uint8_t>& card, const GcCardFormat& format)
     }
 }
 
-bool gc_card_resign(std::vector<std::uint8_t>& card, const std::array<std::uint8_t, 12>& flash_id) {
+bool gc_card_flash_id(const std::vector<std::uint8_t>& card, std::array<std::uint8_t, 12>& flash_id) {
     if (card.size() < kHeaderChecksum + 4) return false;
-    std::uint8_t* header = card.data();
+    const std::uint8_t* header = card.data();
+    // Never interpret corruption as a different card's identity. In
+    // particular, a damaged format time gives a completely different ID.
+    if (!checksum_holds(header, kHeaderChecksum, header + kHeaderChecksum)) return false;
+    if (!known_size(be16(header + 0x22)) || be16(header + 0x24) > 1) return false;
+
     const std::uint64_t format_time =
         (std::uint64_t(be32(header + 12)) << 32) | be32(header + 16);
-    std::array<std::uint8_t, 12> wanted{};
-    card_serial(flash_id, format_time, wanted.data());
-    if (std::memcmp(header, wanted.data(), wanted.size()) == 0) return false;
-    std::memcpy(header, wanted.data(), wanted.size());
-    gc_card_checksum(header, kHeaderChecksum, header + kHeaderChecksum);
+    const std::array<std::uint8_t, 12> zero_id{};
+    std::array<std::uint8_t, 12> offsets{};
+    card_serial(zero_id, format_time, offsets.data());
+    for (unsigned i = 0; i < flash_id.size(); ++i) {
+        flash_id[i] = static_cast<std::uint8_t>(header[i] - offsets[i]);
+    }
     return true;
 }
 

@@ -406,11 +406,23 @@ picked back over the card, after a backup of the card as it is now, so a
 restore can be undone the same way: that copy's name ends in `-undo`, and
 the list marks it "(before you restored)". Each row's second line, how
 many saves and blocks the copy holds, comes from its directory alone
-(`gc_card_space`). A card made with another console's flash ID is re-signed
-for this Wii in memory before the game runs (`gc_card_resign`): its serial
-is remade under the card's own format time, as a GameCube's own mount
-would, so the game does not read it as damaged; the file itself is only
-changed when the game writes its header.
+(`gc_card_space`). Before mounting an existing card, `gc_card_flash_id`
+validates the header's stored checksum pair and formatted fields, then
+recovers its flash ID by subtracting the format-time sequence from its
+serial. The host stores that ID and its complemented byte-sum checksum
+in slot A's SRAM, as a GameCube's mount does; the card image and its
+serial stay byte exact, preserving saves bound to that identity. Invalid
+headers stay unchanged for the game to report as damaged. The host checks
+both SRAM fields and changes only those 13 bytes when needed. This runs
+while libogc's EXI and interrupts still work, before `shut_down_for_game`;
+the host waits for a deferred RTC write before returning success. A
+commit failure is logged and the launch goes on, so the game may report
+the card as damaged. The game's own SDK later reads the RTC
+over EXI, independently of libogc's cached SRAM. A host without the setter
+logs that limitation and continues. A newly formatted card copies SRAM's
+ID into its header, so it takes the same path and only a bad SRAM
+checksum gets repaired. A later newly formatted card reads SRAM's current
+ID, including this change, consistently.
 
 ## Memory
 
