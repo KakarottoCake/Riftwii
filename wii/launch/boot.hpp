@@ -180,6 +180,7 @@ enum class GcAdapterMode { Off, On, Auto, Demo };
 
 struct LaunchExtras {
     std::string game_id;
+    bool gc_card_fallback = false;  // this launch uses the game's SD card instead of the missing real card
     GcAdapterMode gc_adapter = GcAdapterMode::Off;
     bool gc_adapter_forced = false;     // the setting is On: the adapter is tried where Automatic leaves it off
     VideoSettings video;  // its target is set at boot, from its mode

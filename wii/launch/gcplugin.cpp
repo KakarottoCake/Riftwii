@@ -329,7 +329,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         error = message;
         return false;
     }
-    if (std::strcmp(reason, "The real memory card's ID could not be written to SRAM.") == 0) {
+    if (std::strcmp(reason, RWP_GC_REAL_CARD_SRAM_ERROR) == 0) {
         logf("GameCube: the real card could not be prepared because its ID could not be written to SRAM.\n");
         error = tr("The real card could not be prepared. Check the card and try again.");
     } else {

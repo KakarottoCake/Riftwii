@@ -1527,7 +1527,12 @@ T = {
     "Saves go to the shared memory card on the SD card: {1}.": ("Las partidas van a la tarjeta de memoria compartida de la tarjeta SD: {1}.", "セーブはSDカード上の共有メモリーカードに保存されます: {1}", "Os saves vão para o cartão de memória compartilhado no cartão SD: {1}.", "I salvataggi vanno nella Memory Card condivisa sulla scheda SD: {1}."),
     "Memory card": ("Tarjeta de memoria", "メモリーカード", "Cartão de memória", "Memory Card"),
     "About this": ("Acerca de esto", "説明", "Sobre isto", "Informazioni"),
-    "Save to a card for this game alone, or to one card shared by all your games.": ("Guarda las partidas en una tarjeta solo para este juego, o en una tarjeta compartida por todos tus juegos.", "このゲームだけのカードか、すべてのゲームで共有する1枚のカードにセーブします。", "Salva em um cartão só para este jogo, ou em um cartão compartilhado por todos os seus jogos.", "Salva su una scheda solo per questo gioco, oppure su una scheda condivisa da tutti i tuoi giochi."),
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": (
+        "Guarda en la tarjeta SD de este juego, una SD compartida o una tarjeta real en la ranura A (solo Wii original).",
+        "このゲームのSDカード、共有SDカード、またはスロットAの実物のカードにセーブします（初代Wiiのみ）。",
+        "Salva no cartão SD deste jogo, em um SD compartilhado ou em um cartão real no slot A (só no Wii original).",
+        "Salva sulla scheda SD del gioco, su una SD condivisa o su una scheda reale nello slot A (solo Wii originale).",
+    ),
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.": ("Al cambiar no se copian partidas: se quedan en la otra tarjeta. Muévelas con Copiar a la tarjeta SD y Añadir una partida desde la tarjeta SD en la página de partidas. Los juegos japoneses tienen su propia tarjeta compartida.", "切り替えてもセーブはコピーされず、もう一方のカードに残ります。セーブのページの「SDカードにコピー」と「SDカードからセーブを追加」で移せます。日本のゲームは専用の共有カードを使います。", "Trocar não copia saves: eles ficam no outro cartão. Mova-os com Copiar para o cartão SD e Adicionar um save do cartão SD na página de saves. Os jogos japoneses têm o seu próprio cartão compartilhado.", "Cambiando non si copia nulla: i salvataggi restano sull'altra scheda. Spostali con Copia sulla scheda SD e Aggiungi un salvataggio dalla scheda SD nella pagina dei salvataggi. I giochi giapponesi hanno la loro scheda condivisa."),
     "Switch": ("Cambiar", "切り替える", "Trocar", "Cambia"),
     "Shared": ("Compartida", "共有", "Compartilhado", "Condivisa"),
@@ -2262,6 +2267,12 @@ T = {
         "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。",
         "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim.",
         "Predefinito attiva i 480p quando la Wii è impostata su 480p e viene rilevato un cavo component; scegli Sì (480p) se il televisore li accetta comunque."),
+    "There is not enough memory to copy this card. Nothing was copied.": (
+        "No hay suficiente memoria para copiar esta tarjeta. No se ha copiado nada.",
+        "このカードをコピーするメモリが足りません。何もコピーしていません。",
+        "Não há memória suficiente para copiar este cartão. Nada foi copiado.",
+        "Memoria insufficiente per copiare questa scheda. Non è stato copiato nulla.",
+    ),
 }
 
 
@@ -3440,8 +3451,7 @@ KO = {
         "메모리 카드",
     "About this":
         "설명",
-    "Save to a card for this game alone, or to one card shared by all your games.":
-        "이 게임 전용 카드나 모든 게임이 함께 쓰는 카드 한 장에 저장합니다.",
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": "이 게임의 SD 카드, 공용 SD 카드 또는 슬롯 A의 실제 카드에 저장합니다(초기 Wii 전용).",
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.":
         "바꿔도 저장 데이터는 복사되지 않고 다른 카드에 남습니다. 저장 페이지의 SD 카드에 복사와 SD 카드에서 저장 데이터 추가로 옮길 수 있습니다. 일본 게임은 별도의 공유 카드를 씁니다.",
     "Switch":
@@ -4086,6 +4096,7 @@ KO = {
         "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
     "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
         "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요.",
+    "There is not enough memory to copy this card. Nothing was copied.": "이 카드를 복사할 메모리가 부족합니다. 아무것도 복사하지 않았습니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -5441,8 +5452,7 @@ FR = {
         "Carte mémoire",
     "About this":
         "À propos",
-    "Save to a card for this game alone, or to one card shared by all your games.":
-        "Enregistre sur une carte réservée à ce jeu, ou sur une carte partagée par tous vos jeux.",
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": "Sauvegardez sur la carte SD du jeu, une SD partagée ou une carte réelle dans le port A (Wii originale uniquement).",
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.":
         "Changer ne copie aucune sauvegarde : elles restent sur l'autre carte. Déplacez-les avec Copier sur la carte SD et Ajouter une sauvegarde depuis la carte SD dans la page des sauvegardes. Les jeux japonais ont leur propre carte partagée.",
     "Switch":
@@ -5909,6 +5919,7 @@ FR = {
         "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
     "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
         "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même.",
+    "There is not enough memory to copy this card. Nothing was copied.": "La mémoire disponible ne suffit pas pour copier cette carte. Rien n'a été copié.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
@@ -5921,11 +5932,21 @@ T.update({
     'Choose the slot holding the memory card.': ('Elige la ranura donde está la tarjeta de memoria.', 'メモリーカードが入っているスロットを選んでください。', 'Escolha o slot que contém o cartão de memória.', 'Scegli lo slot che contiene la scheda di memoria.'),
     'Slot A': ('Ranura A', 'スロットA', 'Slot A', 'Slot A'),
     'Slot B': ('Ranura B', 'スロットB', 'Slot B', 'Slot B'),
-    'Choose which saves to copy. The card in the Wii is only read.': ('Elige las partidas que copiar. La tarjeta de Wii solo se lee.', 'コピーするセーブを選んでください。Wiiのカードには書き込みません。', 'Escolha os saves a copiar. O cartão no Wii é apenas lido.', 'Scegli i salvataggi da copiare. La scheda nel Wii viene solo letta.'),
+    "Choose which saves to copy. The card in the Wii is never written to.": (
+        "Elige qué partidas copiar. Nunca se escribe en la tarjeta de la Wii.",
+        "コピーするセーブを選びます。Wiiのカードに書き込むことはありません。",
+        "Escolha quais saves copiar. O cartão no Wii nunca é gravado.",
+        "Scegli quali salvataggi copiare. La scheda nella Wii non viene mai scritta.",
+    ),
     "This game's saves": ('Partidas de este juego', 'このゲームのセーブ', 'Saves deste jogo', 'Salvataggi di questo gioco'),
     'Every save': ('Todas las partidas', 'すべてのセーブ', 'Todos os saves', 'Tutti i salvataggi'),
     'Copy': ('Copiar', 'コピー', 'Copiar', 'Copia'),
-    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': ('¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? La tarjeta de Wii solo se lee.', '{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードには書き込みません。', 'Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? O cartão no Wii é apenas lido.', 'Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? La scheda nel Wii viene solo letta.'),
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": (
+        "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? Nunca se escribe en la tarjeta de la Wii.",
+        "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードに書き込むことはありません。",
+        "Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? O cartão no Wii nunca é gravado.",
+        "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? La scheda nella Wii non viene mai scritta.",
+    ),
     'Copied to {1}.': ('Copia guardada en {1}.', '{1}にコピーしました。', 'Copiado para {1}.', 'Copiato in {1}.'),
     'Found {1} matching saves. Destination: {2}.': ('Se encontraron {1} partidas coincidentes. Destino: {2}.', '対象のセーブは{1}個です。コピー先：{2}。', 'Encontrados {1} saves correspondentes. Destino: {2}.', 'Trovati {1} salvataggi corrispondenti. Destinazione: {2}.'),
     'To copy: {1}. Already present: {2}. Unusable: {3}.': ('Por copiar: {1}. Ya presentes: {2}. No utilizables: {3}.', 'コピー予定：{1}個。コピー済み：{2}個。使用不可：{3}個。', 'A copiar: {1}. Já presentes: {2}. Inutilizáveis: {3}.', 'Da copiare: {1}. Già presenti: {2}. Inutilizzabili: {3}.'),
@@ -5935,7 +5956,12 @@ T.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': ('No se pudo leer la tarjeta. Puede haberse cambiado o retirado. No se ha copiado nada.', 'メモリーカードを読み込めません。交換されたか抜かれた可能性があります。コピーしていません。', 'Não foi possível ler o cartão. Ele pode ter sido trocado ou removido. Nada foi copiado.', 'Impossibile leggere la scheda. Potrebbe essere stata cambiata o rimossa. Nulla è stato copiato.'),
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': ('La imagen de SD está dañada o usa la otra codificación de texto. No se ha copiado nada.', 'SDのイメージが破損しているか文字コードが異なります。コピーしていません。', 'A imagem no SD está danificada ou usa outra codificação. Nada foi copiado.', "L'immagine su SD è danneggiata o usa l'altra codifica. Nulla è stato copiato."),
     'Copy failed. The card in the Wii was left unchanged.': ('La copia falló. La tarjeta de Wii no se ha modificado.', 'コピーできませんでした。Wiiのカードは変更していません。', 'A cópia falhou. O cartão no Wii não foi alterado.', 'Copia non riuscita. La scheda nel Wii non è stata modificata.'),
-    'The card in the Wii is only read. Copies go to the SD card.': ('La tarjeta de Wii solo se lee. Las copias van a la tarjeta SD.', 'Wiiのカードは読み込み専用です。SDカードにコピーします。', 'O cartão no Wii é apenas lido. As cópias vão para o cartão SD.', 'La scheda nel Wii viene solo letta. Le copie vanno sulla scheda SD.'),
+    "The card in the Wii is never written to. Copies go to the SD card.": (
+        "Nunca se escribe en la tarjeta de la Wii. Las copias van a la tarjeta SD.",
+        "Wiiのカードに書き込むことはありません。コピーはSDカードに保存します。",
+        "O cartão no Wii nunca é gravado. As cópias vão para o cartão SD.",
+        "La scheda nella Wii non viene mai scritta. Le copie vanno sulla scheda SD.",
+    ),
     'This game uses the real card in slot A. Its saves are not on the SD card.': ('Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD.', 'このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。', 'Este jogo usa o cartão real no slot A. Seus saves não estão no cartão SD.', 'Questo gioco usa la scheda reale nello slot A. I salvataggi non sono sulla scheda SD.'),
     "Use this game's SD card": ('Usar la tarjeta SD de este juego', 'このゲームのSDカードを使う', 'Usar o cartão SD deste jogo', 'Usa la scheda SD di questo gioco'),
     'Wii U has no GameCube memory card slots.': ('Wii U no tiene ranuras para tarjetas de memoria de GameCube.', 'Wii Uにはゲームキューブのメモリーカードスロットがありません。', 'O Wii U não tem slots para cartões de memória do GameCube.', 'Wii U non ha slot per schede di memoria GameCube.'),
@@ -5947,11 +5973,11 @@ KO.update({
     'Choose the slot holding the memory card.': '메모리 카드가 있는 슬롯을 선택하세요.',
     'Slot A': '슬롯 A',
     'Slot B': '슬롯 B',
-    'Choose which saves to copy. The card in the Wii is only read.': '복사할 저장 데이터를 선택하세요. Wii의 카드는 읽기만 합니다.',
+    "Choose which saves to copy. The card in the Wii is never written to.": "복사할 저장 데이터를 선택하세요. Wii에 꽂힌 카드에는 쓰지 않습니다.",
     "This game's saves": '이 게임의 저장 데이터',
     'Every save': '모든 저장 데이터',
     'Copy': '복사',
-    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': '저장 데이터 {1}개와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii의 카드는 읽기만 합니다.',
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii에 꽂힌 카드에는 쓰지 않습니다.",
     'Copied to {1}.': '{1}에 복사했습니다.',
     'Found {1} matching saves. Destination: {2}.': '일치하는 저장 데이터 {1}개를 찾았습니다. 대상: {2}.',
     'To copy: {1}. Already present: {2}. Unusable: {3}.': '복사 예정: {1}. 이미 있음: {2}. 사용 불가: {3}.',
@@ -5961,7 +5987,7 @@ KO.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': '메모리 카드를 읽지 못했습니다. 교체되거나 제거되었을 수 있습니다. 복사하지 않았습니다.',
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': 'SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합니다. 복사하지 않았습니다.',
     'Copy failed. The card in the Wii was left unchanged.': '복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다.',
-    'The card in the Wii is only read. Copies go to the SD card.': 'Wii의 카드는 읽기만 합니다. 사본은 SD 카드에 저장됩니다.',
+    "The card in the Wii is never written to. Copies go to the SD card.": "Wii에 꽂힌 카드에는 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다.",
     'This game uses the real card in slot A. Its saves are not on the SD card.': '이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다.',
     "Use this game's SD card": '이 게임의 SD 카드 사용',
     'Wii U has no GameCube memory card slots.': 'Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다.',
@@ -5973,11 +5999,11 @@ FR.update({
     'Choose the slot holding the memory card.': 'Choisissez le port contenant la carte mémoire.',
     'Slot A': 'Port A',
     'Slot B': 'Port B',
-    'Choose which saves to copy. The card in the Wii is only read.': 'Choisissez les sauvegardes à copier. La carte dans la Wii est seulement lue.',
+    "Choose which saves to copy. The card in the Wii is never written to.": "Choisissez les sauvegardes à copier. Rien n'est écrit sur la carte dans la Wii.",
     "This game's saves": 'Sauvegardes de ce jeu',
     'Every save': 'Toutes les sauvegardes',
     'Copy': 'Copier',
-    'Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.': 'Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? La carte dans la Wii est seulement lue.',
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": "Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? Rien n'est écrit sur la carte dans la Wii.",
     'Copied to {1}.': 'Copié vers {1}.',
     'Found {1} matching saves. Destination: {2}.': '{1} sauvegardes correspondantes trouvées. Destination : {2}.',
     'To copy: {1}. Already present: {2}. Unusable: {3}.': 'À copier : {1}. Déjà présentes : {2}. Inutilisables : {3}.',
@@ -5987,7 +6013,7 @@ FR.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': "Impossible de lire la carte. Elle a peut-être été changée ou retirée. Rien n'a été copié.",
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': "L'image SD est endommagée ou utilise l'autre encodage. Rien n'a été copié.",
     'Copy failed. The card in the Wii was left unchanged.': 'Échec de la copie. La carte dans la Wii reste inchangée.',
-    'The card in the Wii is only read. Copies go to the SD card.': 'La carte dans la Wii est seulement lue. Les copies vont sur la carte SD.',
+    "The card in the Wii is never written to. Copies go to the SD card.": "Rien n'est écrit sur la carte dans la Wii. Les copies vont sur la carte SD.",
     'This game uses the real card in slot A. Its saves are not on the SD card.': 'Ce jeu utilise la carte réelle du port A. Ses sauvegardes ne sont pas sur la carte SD.',
     "Use this game's SD card": 'Utiliser la carte SD de ce jeu',
     'Wii U has no GameCube memory card slots.': "La Wii U n'a pas de ports pour cartes mémoire GameCube.",

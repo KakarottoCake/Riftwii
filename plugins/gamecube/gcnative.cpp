@@ -2156,7 +2156,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         const rwp_host& host = plugin::host();
         if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
             host.set_sram_flash_id_a(image.real_card_flash_id.data()) < 0) {
-            error = "The real memory card's ID could not be written to SRAM.";
+            error = RWP_GC_REAL_CARD_SRAM_ERROR;
             return false;
         }
         // No image means no EXI card hooks below. The game's SDK sees the

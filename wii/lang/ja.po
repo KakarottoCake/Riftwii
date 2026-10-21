@@ -1773,8 +1773,8 @@ msgstr "メモリーカード"
 msgid "About this"
 msgstr "説明"
 
-msgid "Save to a card for this game alone, or to one card shared by all your games."
-msgstr "このゲームだけのカードか、すべてのゲームで共有する1枚のカードにセーブします。"
+msgid "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."
+msgstr "このゲームのSDカード、共有SDカード、またはスロットAの実物のカードにセーブします（初代Wiiのみ）。"
 
 msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
 msgstr "切り替えてもセーブはコピーされず、もう一方のカードに残ります。セーブのページの「SDカードにコピー」と「SDカードからセーブを追加」で移せます。日本のゲームは専用の共有カードを使います。"
@@ -2730,6 +2730,9 @@ msgstr "60 Hzモードがあるゲームは、対応するテレビで60 Hzで�
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。"
 
+msgid "There is not enough memory to copy this card. Nothing was copied."
+msgstr "このカードをコピーするメモリが足りません。何もコピーしていません。"
+
 msgid "Real card in slot A"
 msgstr "スロットAの実物カード"
 
@@ -2748,8 +2751,8 @@ msgstr "スロットA"
 msgid "Slot B"
 msgstr "スロットB"
 
-msgid "Choose which saves to copy. The card in the Wii is only read."
-msgstr "コピーするセーブを選んでください。Wiiのカードには書き込みません。"
+msgid "Choose which saves to copy. The card in the Wii is never written to."
+msgstr "コピーするセーブを選びます。Wiiのカードに書き込むことはありません。"
 
 msgid "This game's saves"
 msgstr "このゲームのセーブ"
@@ -2760,8 +2763,8 @@ msgstr "すべてのセーブ"
 msgid "Copy"
 msgstr "コピー"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read."
-msgstr "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードには書き込みません。"
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
+msgstr "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードに書き込むことはありません。"
 
 msgid "Copied to {1}."
 msgstr "{1}にコピーしました。"
@@ -2790,8 +2793,8 @@ msgstr "SDのイメージが破損しているか文字コードが異なりま�
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "コピーできませんでした。Wiiのカードは変更していません。"
 
-msgid "The card in the Wii is only read. Copies go to the SD card."
-msgstr "Wiiのカードは読み込み専用です。SDカードにコピーします。"
+msgid "The card in the Wii is never written to. Copies go to the SD card."
+msgstr "Wiiのカードに書き込むことはありません。コピーはSDカードに保存します。"
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。"
