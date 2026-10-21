@@ -488,14 +488,10 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     out.read_sites = pad.read_sites;
     out.motor = pad.control_motor;
     out.idle_reset = pad.idle_reset;
-    logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x\n", out.read,
-         out.read_sites, out.motor);
-    if (out.idle_reset != 0) {
-        logf("GameCube adapter: the screen-dimming reset is at 0x%08x, so adapter pads keep the screen lit\n",
-             out.idle_reset);
-    } else {
-        logf("GameCube adapter: no screen-dimming reset found; with burn-in reduction on, adapter-only play may dim the screen\n");
-    }
+    // A screen-dimming reset of 0 means none was found: with the Wii's
+    // burn-in reduction on, adapter-only play may then dim the screen.
+    logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
+         out.read, out.read_sites, out.motor, out.idle_reset);
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
         if (!demo) return false;
