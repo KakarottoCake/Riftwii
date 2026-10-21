@@ -3036,10 +3036,9 @@ static void RunUpdate(const std::string& latest)
 		riftwii::wii::UpdateStep shownStep = riftwii::wii::UpdateStep::DownloadingDol;
 		HomeWindowWatch::Check("before the update's download");
 		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](const riftwii::wii::UpdateProgress& p) {
-			// An update in progress is activity: the screen must not dim
-			// over a download of minutes (before the filter below, so
-			// every chunk counts).
-			lastActive = gettime();
+			// The screen stays lit through updateRunning, not here: this
+			// runs on the menu thread while the GUI thread reads
+			// lastActive, and a 64-bit write could be read torn.
 			// Only whole percents (and each new step), so the GUI is not
 			// halted for every chunk.
 			const int percent = static_cast<int>(p.share * 100);
