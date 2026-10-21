@@ -2654,6 +2654,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
     }
     if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
+    // The game's own code words that need a different value in Wii mode
+    // (gc_code_fixes, riftwii/gxpatches.hpp). Each is checked against the
+    // word it expects first, so another version of the game is left as it is.
+    for (const GcCodeFix& fix : gc_code_fixes(image.id)) {
+        if (!code.has(fix.address) || code.at(fix.address) != fix.expected) {
+            logf("GameCube: game fix at 0x%08x not applied, the game's code is not what it was made for (%s)\n",
+                 static_cast<unsigned>(fix.address), fix.what);
+            continue;
+        }
+        code.put(fix.address, fix.replacement);
+        logf("GameCube: game fix at 0x%08x: %s\n", static_cast<unsigned>(fix.address), fix.what);
+    }
     // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
     // game's OSResetSystem and its reset routine go to the blob, and MEM1's
     // pieces as they are at the jump are kept in MEM2 to be put back, in

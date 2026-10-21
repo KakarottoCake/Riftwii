@@ -82,6 +82,29 @@ bool gc_loads_use_queued_heap(const std::string& game_id);
 // HOME does, until its restart has been seen to work.
 bool gc_restart_known_to_work(const std::string& game_id);
 
+// A word of a GameCube game's code that is replaced for Wii mode, where the
+// game is checked to hold `expected` at `address` first (the address is that
+// game's own: no search finds a mistake like this). `what` is the log line.
+struct GcCodeFix {
+    std::uint32_t address;
+    std::uint32_t expected;
+    std::uint32_t replacement;
+    const char* what;
+};
+
+// The code fixes of a GameCube game, by its exact ID (empty for most).
+// Eternal Darkness (USA, GEDE01) froze on its opening quote in Wii mode:
+// its GX draw-done callback (0x801eb09c, run from the GX finish interrupt)
+// does OSReceiveMessage(queue, 0, OS_MESSAGE_BLOCK) on a one-message queue
+// that the main loop posts to just after GXSetDrawDone. When the interrupt
+// came first, the queue was empty, the callback went to sleep inside the
+// interrupt, and with it the interrupted main thread, the only poster:
+// nothing woke it again. The fix makes that receive not block (`li r5,0`,
+// the game ignores the result), so a message that has not been posted yet
+// is taken by the next draw-done instead. Found from the game's code and
+// a Dolphin run (the freeze at the first callback, gone with the change).
+std::vector<GcCodeFix> gc_code_fixes(const std::string& game_id);
+
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,
 // 0 for none. Started through main.dol, Madden NFL 08 from an RVZ stopped

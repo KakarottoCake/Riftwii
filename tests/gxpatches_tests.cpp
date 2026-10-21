@@ -72,6 +72,17 @@ void test_protected() {
     EXPECT_TRUE(gc_keeps_aram_addresses("GMPJ01"));
     EXPECT_FALSE(gc_keeps_aram_addresses("GP5E01"));
     EXPECT_FALSE(gc_keeps_aram_addresses("GMSE01"));
+    {
+        const std::vector<GcCodeFix> fixes = gc_code_fixes("GEDE01");
+        EXPECT_EQ(fixes.size(), 1u);
+        if (fixes.size() == 1u) {
+            EXPECT_EQ(fixes[0].address, 0x801EB0E8u);
+            EXPECT_EQ(fixes[0].expected, 0x38A00001u);     // li r5,1
+            EXPECT_EQ(fixes[0].replacement, 0x38A00000u);  // li r5,0
+        }
+        EXPECT_TRUE(gc_code_fixes("GEDP01").empty());  // other regions: their addresses are not known
+        EXPECT_TRUE(gc_code_fixes("GMSE01").empty());
+    }
     EXPECT_TRUE(gc_loads_use_queued_heap("GLMP01"));
     EXPECT_TRUE(gc_loads_use_queued_heap("GLME01"));
     EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));
