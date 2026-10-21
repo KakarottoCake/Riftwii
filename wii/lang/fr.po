@@ -420,6 +420,12 @@ msgstr "Télécharger noms et codes de triche"
 msgid "Get the latest game names"
 msgstr "Obtenir les derniers noms de jeux"
 
+msgid "Download missing covers"
+msgstr "Télécharger les jaquettes manquantes"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "Les jaquettes manquantes seront téléchargées au retour à l'accueil."
+
 msgid "Update"
 msgstr "Mettre à jour"
 
@@ -630,11 +636,14 @@ msgstr "Langue du menu. \"Wii\" utilise le paramètre de la console."
 msgid "Downloads the newest game names from GameTDB."
 msgstr "Télécharge les derniers noms de jeux depuis GameTDB."
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "Télécharge depuis GameTDB les jaquettes, boîtiers et jaquettes 3D qui manquent à l'accueil. Un jeu sans image sur GameTDB reste sans image."
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Affiche en direct les entrées des manettes branchées sur l'adaptateur."
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "Relance la lecture de la carte SD et du stockage USB."
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "Relit la carte SD et le stockage USB, et réessaie de télécharger les jaquettes, boîtiers et jaquettes 3D manquants."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB."
@@ -804,8 +813,8 @@ msgstr "Serveur de remplacement pour le jeu en ligne officiel désormais fermé.
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Récupération des jacquettes GameTDB : {1} restante(s)"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes."
 
 msgid "Cover"
 msgstr "Jacquette"

@@ -134,6 +134,10 @@ std::set<std::string> g_absent;  // not on the card (or unreadable)
 
 }  // namespace
 
+void ForgetCover3dMiss(const std::string& game_id) {
+    if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());
+}
+
 bool Cover3dWanted(const std::string& game_id) {
     if (!ValidId(game_id)) return false;
     struct stat st;

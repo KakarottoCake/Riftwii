@@ -420,6 +420,12 @@ msgstr "Baixar nomes e trapaças"
 msgid "Get the latest game names"
 msgstr "Atualizar nomes dos jogos"
 
+msgid "Download missing covers"
+msgstr "Baixar capas que faltam"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "As capas que faltam serão baixadas quando você voltar ao Início."
+
 msgid "Update"
 msgstr "Atualizar"
 
@@ -630,11 +636,14 @@ msgstr "O idioma do menu. Wii segue a configuração do console."
 msgid "Downloads the newest game names from GameTDB."
 msgstr "Baixa os nomes de jogos mais recentes do GameTDB."
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "Baixa do GameTDB as capas, caixas e capas 3D que ainda faltam no Início. Um jogo sem imagem no GameTDB continua sem ela."
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Mostra ao vivo o que os controles do adaptador estão apertando."
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "Lê o cartão SD e a unidade USB de novo."
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "Lê o cartão SD e a unidade USB de novo e tenta baixar novamente as capas, caixas e capas 3D que faltam."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Nenhum cIOS d2x foi encontrado nos slots 248 a 252, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB."
@@ -804,8 +813,8 @@ msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi deslig
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Baixando capas do GameTDB: faltam {1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Online > Baixar capas que faltam."
 
 msgid "Cover"
 msgstr "Capa"
