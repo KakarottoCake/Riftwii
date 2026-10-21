@@ -186,6 +186,10 @@ static std::atomic<bool> hidePointers{false};
 #endif
 static bool dimAllowed = false;
 static u64 lastActive = 0;
+// An update is running (RunUpdate): its card writes can last longer than the
+// dim time without a progress call, so the screen stays lit for all of it.
+// Single core, one writer: volatile is enough.
+static volatile bool updateRunning = false;
 static int dimAlpha = 0;
 static bool swallowInput = false;
 static int pointerX[4], pointerY[4];
@@ -399,7 +403,7 @@ UpdateGUI(void *arg)
 				dimLogged = false;
 				lastActive = now;
 			}
-			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			const bool idle = dimAllowed && !updateRunning && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
 			if (idle && !dimLogged) {
 				LogDimmed(now);
 				dimLogged = true;
@@ -3026,6 +3030,7 @@ static void RunUpdate(const std::string& latest)
 		ProgressBar bar(56, 280, 528);
 		PopupBox box(tr("Updating RiftWii"), UpdateStepBody(latest, riftwii::wii::UpdateProgress{}));
 		box.Add(&bar, 528);
+		updateRunning = true;
 		ResumeGui();
 		int shown = -1;
 		riftwii::wii::UpdateStep shownStep = riftwii::wii::UpdateStep::DownloadingDol;
@@ -3052,6 +3057,8 @@ static void RunUpdate(const std::string& latest)
 		// anything went wrong in the download or after it.
 		if (!ok) logf("Update: %s\n", error.c_str());
 		HaltGui();
+		updateRunning = false;
+		lastActive = gettime();  // the dim time starts over after the update
 		box.Close();
 	}
 	if (!ok) {

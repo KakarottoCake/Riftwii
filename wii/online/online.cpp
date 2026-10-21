@@ -783,13 +783,12 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     logf("Update: downloading %s (%u bytes) for the plugins\n", kUpdatePackAsset,
          static_cast<unsigned>(note.pack.size));
     report(UpdateStep::DownloadingPlugins, 0, note.pack.size);
-    HttpProgress got;
-    if (note.pack.size != 0) {
-        const std::uint64_t total = note.pack.size;
-        got = [&report, total](std::size_t received) {
-            report(UpdateStep::DownloadingPlugins, std::min<std::uint64_t>(received, total), total);
-        };
-    }
+    // Set even when the release gives no size (total 0), so the text and
+    // the screen's activity still follow the bytes.
+    const std::uint64_t total = note.pack.size;
+    const HttpProgress got = [&report, total](std::size_t received) {
+        report(UpdateStep::DownloadingPlugins, total != 0 ? std::min<std::uint64_t>(received, total) : received, total);
+    };
     if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
@@ -879,12 +878,11 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     std::vector<std::uint8_t> body;
     // GitHub's redirect answers are small; the DOL is the bulk (headers
     // make the count a hair early, so it is capped at the size).
-    HttpProgress got;
-    if (dol_total != 0) {
-        got = [&report, dol_total](std::size_t received) {
-            report(UpdateStep::DownloadingDol, std::min<std::uint64_t>(received, dol_total), dol_total);
-        };
-    }
+    // Set even when the release gives no size (total 0), as for the pack.
+    const HttpProgress got = [&report, dol_total](std::size_t received) {
+        report(UpdateStep::DownloadingDol, dol_total != 0 ? std::min<std::uint64_t>(received, dol_total) : received,
+               dol_total);
+    };
     if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) return false;
     // A tester's Wii crashed half a minute into an update with nothing
     // after the line above: this one tells the DOL's download from the
