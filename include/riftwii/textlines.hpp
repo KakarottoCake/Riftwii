@@ -60,7 +60,10 @@ public:
 
     // What is left of the line after the words read so far, its white
     // space kept, as std::getline on the stream gives it. False (and
-    // `rest` as it was) after a failed read or with nothing left.
+    // `rest` as it was) after a failed read or with nothing left; getline
+    // would clear `rest` when nothing is left on a stream not yet at its
+    // end, which no caller relies on (autorun's `set` reads one line after
+    // its command, where the end has already been reached).
     bool rest(std::string& rest);
 
     // False once a read has failed.
