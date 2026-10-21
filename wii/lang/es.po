@@ -45,6 +45,15 @@ msgstr "Ningún juego tiene packs en sd:/riivolution todavía. Pulsa 1 para ver 
 msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 msgstr "No se encontraron juegos (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 
+msgid "No games found (usb:/wbfs, usb:/games)"
+msgstr "No se encontraron juegos (usb:/wbfs, usb:/games)"
+
+msgid "No games found (sd:/wbfs, sd:/games)"
+msgstr "No se encontraron juegos (sd:/wbfs, sd:/games)"
+
+msgid "No games found"
+msgstr "No se encontraron juegos"
+
 msgid "Reading the SD card..."
 msgstr "Leyendo la tarjeta SD..."
 

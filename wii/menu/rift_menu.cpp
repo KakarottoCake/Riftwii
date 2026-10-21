@@ -1985,11 +1985,11 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (games == 0) {
 		// Only the folders of the drives Games from lists (none for the
-		// Wii's own channels).
-		std::string folders;
-		if (usbListed) folders = "usb:/wbfs, usb:/games";
-		if (sdListed) folders += std::string(folders.empty() ? "" : ", ") + "sd:/wbfs, sd:/games";
-		return folders.empty() ? std::string("No games found") : "No games found (" + folders + ")";
+		// Wii's own channels), each a whole sentence for the translations.
+		if (usbListed && sdListed) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
+		if (usbListed) return "No games found (usb:/wbfs, usb:/games)";
+		if (sdListed) return "No games found (sd:/wbfs, sd:/games)";
+		return "No games found";
 	}
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	// What B does here: letters in A to Z order (GuiGameGrid::LetterKeys),
