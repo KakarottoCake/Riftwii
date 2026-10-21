@@ -1536,6 +1536,152 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "xml=../ctgp.xml"}, h, error));
 }
 
+// A Wii game's own Reset (docs/HEADLESS.md): the launch RiftWii leaves for
+// itself, written by headless_launch_arguments and read back by the same
+// parser every other launch goes through.
+void TestResetRequest() {
+    HeadlessLaunch h;
+    h.game = "SMNP03";
+    h.from = "usb";
+    h.path = "usb:/wbfs/Newer SMBW [SMNP03]/SMNP03.wbfs";
+    h.choices = "SMNP03.txt";
+    h.packs_given = true;
+    h.xmls = {"NewerSMBW.xml", "sd:/riftwii/riifs/extra pack.xml"};
+    h.settings.video_mode = "pal60";
+    h.settings.cios = "249";
+    h.settings.server = "custom";
+    h.wfc_domain = "wfc.example.org";
+    h.gct = "sd:/codes/SMNP03.gct";
+    h.return_to = 0x0001000147584C44ULL;
+    h.reset = true;
+    const std::vector<std::string> args = headless_launch_arguments(h);
+    EXPECT_EQ(args.front(), std::string("--launch"));
+    EXPECT_TRUE(is_headless_launch(args));
+    HeadlessLaunch back;
+    std::string error;
+    EXPECT_TRUE(parse_headless_launch(args, back, error));
+    EXPECT_EQ(back.game, h.game);
+    EXPECT_EQ(back.from, h.from);
+    EXPECT_EQ(back.path, h.path);
+    EXPECT_EQ(back.choices, h.choices);
+    EXPECT_TRUE(back.packs_given);
+    EXPECT_FALSE(back.all_packs);
+    EXPECT_TRUE(back.xmls == h.xmls);
+    EXPECT_EQ(back.settings.video_mode, std::string("pal60"));
+    EXPECT_EQ(back.settings.cios, std::string("249"));
+    EXPECT_EQ(back.settings.server, std::string("custom"));
+    EXPECT_EQ(back.settings.language, std::string("global"));  // unset keys stay unset
+    EXPECT_EQ(back.wfc_domain, h.wfc_domain);
+    EXPECT_EQ(back.gct, h.gct);
+    EXPECT_TRUE(back.return_to == h.return_to);
+    EXPECT_TRUE(back.reset);
+    // And the same arguments again from what was read.
+    EXPECT_TRUE(headless_launch_arguments(back) == args);
+
+    // No pack on says so (xml=none), or the saved choices would come back;
+    // a code build alone is the whole choice.
+    HeadlessLaunch plain;
+    plain.game = "RSBE01";
+    plain.from = "disc";
+    plain.packs_given = true;
+    plain.return_to_menu = true;
+    HeadlessLaunch plain_back;
+    EXPECT_TRUE(parse_headless_launch(headless_launch_arguments(plain), plain_back, error));
+    EXPECT_TRUE(plain_back.packs_given);
+    EXPECT_TRUE(plain_back.xmls.empty());
+    EXPECT_TRUE(plain_back.return_to_menu);
+    EXPECT_FALSE(plain_back.reset);
+    plain.code_builds = {"sd:/projectplus"};
+    EXPECT_TRUE(parse_headless_launch(headless_launch_arguments(plain), plain_back, error));
+    EXPECT_TRUE(plain_back.code_builds.size() == 1u && plain_back.xmls.empty());
+
+    // Checked like any other launch input: names that climb out of their
+    // folder, values and counts past a bound, a choices file that is not a
+    // file name, a reset that is not 1.
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "path=sd:/games/../../x.iso"}, back, error));
+    EXPECT_TRUE(error.find("..") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "xml=sd:/riivolution/../../x.xml"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "xml=sd:/riivolution\\..\\x.xml"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "code_build=sd:/a/../b"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "gct=sd:/codes/../x.gct"}, back, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03", "xml=sd:/riivolution/my..pack.xml"}, back, error));
+    EXPECT_TRUE(launch_path_stays_put("sd:/a/b..c/d"));
+    EXPECT_FALSE(launch_path_stays_put(".."));
+    EXPECT_FALSE(launch_path_stays_put("a/.."));
+    EXPECT_FALSE(launch_path_stays_put("../a"));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03", "choices=SMNP03.txt"}, back, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03", "choices=prof+1_a-b.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=../SMNP03.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=sd:/x.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=a/b.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=.hidden.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=x..y.txt"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "choices=SMNP03"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "reset=0"}, back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "reset=yes"}, back, error));
+    const std::string long_path = "sd:/" + std::string(kMaxLaunchValueBytes, 'a');
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SMNP03", "xml=" + long_path}, back, error));
+    EXPECT_TRUE(error.find("longer") != std::string::npos);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=SMNP03",
+                                       "xml=sd:/" + std::string(kMaxLaunchValueBytes - 4, 'a')}, back, error));
+    std::vector<std::string> many = {"--launch", "game=SMNP03"};
+    for (std::size_t i = 0; i < kMaxLaunchPacks; ++i) many.push_back("xml=pack" + std::to_string(i) + ".xml");
+    EXPECT_TRUE(parse_headless_launch(many, back, error));
+    EXPECT_EQ(back.xmls.size(), kMaxLaunchPacks);
+    many.push_back("xml=one-too-many.xml");
+    EXPECT_FALSE(parse_headless_launch(many, back, error));
+    std::vector<std::string> builds = {"--launch", "game=SMNP03"};
+    for (std::size_t i = 0; i < kMaxLaunchCodeBuilds + 1; ++i) builds.push_back("code_build=build" + std::to_string(i));
+    EXPECT_FALSE(parse_headless_launch(builds, back, error));
+
+    // The sector the loader makes and the Reset arms: the same text, "--idle--"
+    // or "--launch" first, NUL-filled. The next start takes up only the second.
+    std::vector<std::uint8_t> idle, armed;
+    std::string why;
+    EXPECT_TRUE(launch_request_sector(args, false, 512, idle, why));
+    EXPECT_TRUE(launch_request_sector(args, true, 512, armed, why));
+    EXPECT_EQ(idle.size(), static_cast<std::size_t>(512));
+    EXPECT_EQ(armed.size(), static_cast<std::size_t>(512));
+    EXPECT_EQ(std::memcmp(idle.data(), "--idle--\n", 9), 0);
+    EXPECT_EQ(std::memcmp(armed.data(), "--launch\n", 9), 0);
+    EXPECT_EQ(std::memcmp(idle.data() + 8, armed.data() + 8, 120), 0);  // after the first line: the same
+    std::vector<std::string> read_back;
+    EXPECT_FALSE(launch_lines_from_text(std::string(idle.begin(), idle.end()), read_back));
+    EXPECT_TRUE(read_back.empty());
+    EXPECT_TRUE(launch_lines_from_text(std::string(armed.begin(), armed.end()), read_back));
+    EXPECT_TRUE(read_back == args);
+    // A launch too long for one sector is not made.
+    std::vector<std::string> huge = {"--launch"};
+    for (int i = 0; i < 20; ++i) huge.push_back("xml=sd:/riivolution/" + std::string(40, 'a' + i % 20) + ".xml");
+    EXPECT_FALSE(launch_request_sector(huge, true, 512, armed, why));
+    EXPECT_TRUE(why.find("sector holds 511") != std::string::npos);
+    // A made-up Newer request, the longest kind in practice: a path on USB,
+    // two packs, settings and a custom server.
+    HeadlessLaunch newer;
+    newer.game = "SMNP03";
+    newer.from = "usb";
+    newer.path = "usb:/wbfs/New Super Mario Bros. Wii - Newer Super Mario Bros. Wii [SMNP03]/SMNP03.wbfs";
+    newer.choices = "SMNP03.txt";
+    newer.packs_given = true;
+    newer.xmls = {"NewerSMBW.xml", "NewerSMBW-widescreen.xml"};
+    newer.settings.video_mode = "pal60";
+    newer.settings.language = "en";
+    newer.settings.cios = "249";
+    newer.return_to_menu = true;
+    newer.reset = true;
+    EXPECT_TRUE(launch_request_sector(headless_launch_arguments(newer), true, 512, armed, why));
+    // The reader takes the lines of a file as a real file has them.
+    EXPECT_TRUE(launch_lines_from_text("--launch\r\ngame=SMNP03  \n\n  \nfrom=disc\n", read_back));
+    EXPECT_EQ(read_back.size(), static_cast<std::size_t>(3));
+    EXPECT_EQ(read_back[1], std::string("game=SMNP03"));
+    EXPECT_FALSE(launch_lines_from_text("game=SMNP03\n", read_back));  // no "--launch"
+    EXPECT_FALSE(launch_lines_from_text("--launch\ngame=" + std::string(kMaxLaunchLineBytes, 'A') + "\n", read_back));
+    std::string lines = "--launch\n";
+    for (std::size_t i = 0; i < kMaxLaunchLines; ++i) lines += "xml=a.xml\n";
+    EXPECT_FALSE(launch_lines_from_text(lines, read_back));
+    EXPECT_TRUE(read_back.empty());
+}
+
 // Friivolution's FRIIV_CFG, laid out the way a loader builds it.
 std::vector<std::uint8_t> FriivConfig(std::uint32_t flags, const char* id, const char* path, const char* xml) {
     std::vector<std::uint8_t> b(384, 0);
@@ -1792,6 +1938,7 @@ int main() {
     TestPlayLogRecord();
     TestReturnTo();
     TestHeadlessArguments();
+    TestResetRequest();
     TestFriivolutionArguments();
     TestHttp();
     TestCheats();
