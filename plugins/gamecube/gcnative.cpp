@@ -917,10 +917,32 @@ unsigned patch_dsp_programs(Dol& dol) {
 constexpr std::uint32_t kIosCounter = 0x800031A0;
 constexpr std::uint32_t kMovedBytes = 0x100;
 
+// Whether a relative b or bl anywhere in the code lands on `target`.
+bool is_branch_target(const Code& code, std::uint32_t target) {
+    for (const CodeRange& range : code.ranges()) {
+        for (std::size_t offset = 0; offset + 4 <= range.size; offset += 4) {
+            const std::uint8_t* b = range.bytes + offset;
+            const std::uint32_t w = std::uint32_t(b[0]) << 24 | std::uint32_t(b[1]) << 16 | std::uint32_t(b[2]) << 8 | b[3];
+            if ((w >> 26) != 18 || (w & 2) != 0) continue;
+            std::int32_t displacement = static_cast<std::int32_t>(w & 0x03FFFFFC);
+            if (displacement & 0x02000000) displacement -= 0x04000000;
+            if (range.address + static_cast<std::uint32_t>(offset) + displacement == target) return true;
+        }
+    }
+    return false;
+}
+
 bool move_out_of_ios(Code& code, std::uint32_t moved_addr, std::vector<std::uint32_t>& moved) {
     if (!code.has(kIosCounter)) return false;
     const std::uint32_t start = function_start(code, kIosCounter);
     if (start == 0 || start == kIosCounter) return false;
+    // Only a function something calls. A game built with MetroTRK (Pikmin
+    // 2) has the debugger's exception vector table there instead, from
+    // 0x80003154: data InitMetroTRK copies, which nothing branches to. A
+    // branch written over its first word sent Pikmin 2's start into the
+    // blob's disc read with nonsense arguments, before its OSInit, and the
+    // game waited forever for the read that followed (Dolphin).
+    if (!is_branch_target(code, start)) return false;
     // Up to the function's blr. A longer function is copied as far as the
     // copy has room for, and its last word jumps back to the rest: without
     // that, it ran on past the copy into whatever followed.
