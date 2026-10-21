@@ -28,7 +28,12 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
     return true;
 }
 
-bool ReadWholeFile(const std::string& path, std::string& out) {
+namespace {
+
+// ReadWholeFile for a string or a byte vector: both hold the file as it is.
+template <typename Buffer>
+bool read_whole(const std::string& path, Buffer& out) {
+    using Byte = typename Buffer::value_type;
     out.clear();
     FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) return false;
@@ -45,7 +50,7 @@ bool ReadWholeFile(const std::string& path, std::string& out) {
     constexpr std::size_t kChunk = 4096;
     int next = std::fgetc(f);
     while (next != EOF) {
-        out.push_back(static_cast<char>(next));
+        out.push_back(static_cast<Byte>(next));
         const std::size_t had = out.size();
         out.resize(had + kChunk);
         out.resize(had + std::fread(&out[had], 1, kChunk, f));
@@ -54,6 +59,12 @@ bool ReadWholeFile(const std::string& path, std::string& out) {
     std::fclose(f);
     return true;
 }
+
+}  // namespace
+
+bool ReadWholeFile(const std::string& path, std::string& out) { return read_whole(path, out); }
+
+bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out) { return read_whole(path, out); }
 
 bool WriteWholeFile(const std::string& path, const void* data, std::size_t size) {
     FILE* f = std::fopen(path.c_str(), "wb");

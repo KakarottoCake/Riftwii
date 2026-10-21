@@ -5,6 +5,7 @@
 #include "d2xsave.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
+#include "riftwii/textlines.hpp"
 
 #include <fat.h>
 #include <gccore.h>
@@ -12,10 +13,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-#include <cctype>
-#include <climits>
 #include <cstdio>
-#include <cstdlib>
 
 #include "boot.hpp"
 #include "channel.hpp"
@@ -32,6 +30,7 @@
 #include "netpacks.hpp"
 #include "sdfile.hpp"
 #include "sharednandfind.hpp"
+#include "textfile.hpp"
 #include "umsdev.hpp"
 #include "usbprobe.hpp"
 
@@ -44,70 +43,6 @@ std::string trim(const std::string& s) {
     const auto e = s.find_last_not_of(" \t\r\n");
     return s.substr(b, e - b + 1);
 }
-
-// A whole file's bytes, however large (a replacement can be megabytes).
-// False when it cannot be opened; a read that stops early keeps what it
-// got, which the callers' size checks catch.
-bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out) {
-    out.clear();
-    FILE* file = std::fopen(path.c_str(), "rb");
-    if (file == nullptr) return false;
-    std::uint8_t chunk[4096];
-    std::size_t got = 0;
-    while ((got = std::fread(chunk, 1, sizeof(chunk), file)) > 0) out.insert(out.end(), chunk, chunk + got);
-    std::fclose(file);
-    return true;
-}
-
-// One autorun.txt line taken apart word by word, as an istringstream's >>
-// did: words end at white space; a number is read in decimal, 0 when
-// there is none (and nothing after it is read); a word asked for past the
-// end stays empty. rest() is what follows the words read so far.
-class Words {
-public:
-    explicit Words(const std::string& line) : line_(line) {}
-
-    Words& operator>>(std::string& word) {
-        if (!SkipSpace()) return *this;
-        const std::size_t start = at_;
-        while (at_ < line_.size() && !IsSpace(line_[at_])) ++at_;
-        word = line_.substr(start, at_ - start);
-        return *this;
-    }
-
-    Words& operator>>(int& number) {
-        if (!SkipSpace()) return *this;
-        const char* start = line_.c_str() + at_;
-        char* end = nullptr;
-        const long value = std::strtol(start, &end, 10);
-        if (end == start) {
-            number = 0;
-            failed_ = true;
-            return *this;
-        }
-        // Out of range: the nearest int, as the stream gave.
-        number = value > INT_MAX ? INT_MAX : value < INT_MIN ? INT_MIN : static_cast<int>(value);
-        at_ +=static_cast<std::size_t>(end - start);
-        return *this;
-    }
-
-    std::string rest() const { return failed_ ? "" : line_.substr(at_); }
-
-private:
-    static bool IsSpace(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
-
-    // False, and nothing more is read, at the line's end or after a failure.
-    bool SkipSpace() {
-        if (failed_) return false;
-        while (at_ < line_.size() && IsSpace(line_[at_])) ++at_;
-        if (at_ == line_.size()) failed_ = true;
-        return !failed_;
-    }
-
-    const std::string& line_;
-    std::size_t at_ = 0;
-    bool failed_ = false;
-};
 
 std::string basename_of(const std::string& disc_path) {
     const auto slash = disc_path.find_last_of('/');
@@ -126,23 +61,16 @@ void SetCtgpDefaults(const std::string& app) {
     struct stat st;
     if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return;
     const char* path = "sd:/ctgpr/config.ini";
+    // No file yet: the defaults go into an empty one.
     std::string text;
-    {
-        std::vector<std::uint8_t> bytes;
-        if (ReadWholeFile(path, bytes)) text.assign(bytes.begin(), bytes.end());
-    }
+    ReadWholeFile(path, text);
     if (!riftwii::ctgp_config_defaults(text)) {
         logf("CTGP: config.ini already has disable_ios_exploit, left as it is\n");
         return;
     }
-    {
-        FILE* out = std::fopen(path, "wb");
-        const bool written = out != nullptr && std::fwrite(text.data(), 1, text.size(), out) == text.size();
-        const bool closed = out != nullptr && std::fclose(out) == 0;
-        if (!written || !closed) {
-            logf("CTGP: could not write %s\n", path);
-            return;
-        }
+    if (!WriteWholeFile(path, text.data(), text.size())) {
+        logf("CTGP: could not write %s\n", path);
+        return;
     }
     forget_sd_layout();
     logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
@@ -705,18 +633,11 @@ void RunAutorun() {
         // Read whole and closed before any command runs: never retain an
         // SD FILE across a USB IOS reload. Lines end at '\n'; a last line
         // without one counts too.
-        std::vector<std::uint8_t> script;
+        std::string script;
         ReadWholeFile(kAutorunPath, script);
+        LineReader lines(script);
         std::string loaded;
-        for (const std::uint8_t byte : script) {
-            if (byte == '\n') {
-                script_lines.push_back(std::move(loaded));
-                loaded.clear();
-            } else {
-                loaded.push_back(static_cast<char>(byte));
-            }
-        }
-        if (!loaded.empty()) script_lines.push_back(std::move(loaded));
+        while (lines.next(loaded)) script_lines.push_back(std::move(loaded));
     }
     LaunchSource source;
     Session s(source, kAutorunLogPath);
@@ -747,13 +668,13 @@ void RunAutorun() {
         ++line_number;
         line = trim(line);
         if (line.empty() || line[0] == '#') continue;
-        Words words(line);
+        WordReader words(line);
         std::string cmd;
-        words >> cmd;
+        words.next(cmd);
         logf("> %s\n", line.c_str());
         bool ok = true;
         if (cmd == "usb") {
-            std::string wanted; int slot=0; words >> wanted >> slot;
+            std::string wanted; int slot=0; words.next(wanted); words.next(slot);
             UsbCatalog catalog; std::string scan_error;
             if (wanted.empty() || !scan_usb_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"usb needs a path or ID6":scan_error; }
             else {
@@ -763,7 +684,7 @@ void RunAutorun() {
                 else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Usb; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
         } else if (cmd == "sd") {
-            std::string wanted; int slot=0; words >> wanted >> slot;
+            std::string wanted; int slot=0; words.next(wanted); words.next(slot);
             ImageCatalog catalog; std::string scan_error;
             if (wanted.empty() || !scan_sd_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"sd needs a path or ID6":scan_error; }
             else {
@@ -775,7 +696,7 @@ void RunAutorun() {
         } else if (cmd == "rvz") {
             // Dolphin only: boot the RVZ's stub as the disc and read the
             // partitions from the RVZ on the card (d2x does this on a Wii).
-            std::string path; words >> path;
+            std::string path; words.next(path);
             if (path.empty()) { ok=false; error="rvz needs an sd:/ path"; }
             else if (!serve_disc_from_rvz(path, error)) ok=false;
         } else if (cmd == "disc") {
@@ -796,12 +717,13 @@ void RunAutorun() {
             ok = s.ensure_layout(error);
         } else if (cmd == "meta") {
             std::string dir;
-            words >> dir;
+            words.next(dir);
             if (dir.empty()) dir = "sd:/riftwii/dump";
             ok = s.ensure_layout(error) && dump_metadata(s.probe, s.partition, dir, error);
         } else if (cmd == "dump") {
             std::string disc_path, sd_path;
-            words >> disc_path >> sd_path;
+            words.next(disc_path);
+            words.next(sd_path);
             if (disc_path.empty()) {
                 ok = false;
                 error = "dump needs a disc path";
@@ -811,7 +733,7 @@ void RunAutorun() {
             }
         } else if (cmd == "dol") {
             std::string sd_path;
-            words >> sd_path;
+            words.next(sd_path);
             if (sd_path.empty()) sd_path = "sd:/riftwii/dump/main.dol";
             ok = s.ensure_layout(error) && dump_dol(s.partition, sd_path, error);
         } else if (cmd == "nofallback") {
@@ -821,7 +743,8 @@ void RunAutorun() {
         } else if (cmd == "replace") {
             // E3: `replace <disc path> <sd path>`, same size as the FST entry.
             std::string disc_path, sd_path;
-            words >> disc_path >> sd_path;
+            words.next(disc_path);
+            words.next(sd_path);
             MemReplacement r;
             ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
                  LoadReplacement(s.partition, disc_path, sd_path, r, error);
@@ -835,7 +758,8 @@ void RunAutorun() {
             // E5: `grow <disc path> <sd path>`, any size; the file moves to
             // the virtual window.
             std::string disc_path, sd_path;
-            words >> disc_path >> sd_path;
+            words.next(disc_path);
+            words.next(sd_path);
             VirtualFile v;
             ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
                  LoadVirtualFile(s.partition, disc_path, sd_path, v, error);
@@ -849,7 +773,8 @@ void RunAutorun() {
             // E4: `sdreplace <disc path> <sd path>`, same size as the FST
             // entry, served from the card's sectors by the runtime.
             std::string disc_path, sd_path;
-            words >> disc_path >> sd_path;
+            words.next(disc_path);
+            words.next(sd_path);
             SdReplacement r;
             ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
                  LoadSdReplacement(s.partition, disc_path, sd_path, r, error);
@@ -864,7 +789,7 @@ void RunAutorun() {
             // with its own disc bytes, which the runtime fetches with a
             // DVDLowRead of its own.
             std::string disc_path;
-            words >> disc_path;
+            words.next(disc_path);
             VirtualFile v;
             v.original = true;
             ok = !disc_path.empty() && s.ensure_layout(error);
@@ -889,7 +814,8 @@ void RunAutorun() {
             // E4+E5: `sdgrow <disc path> <sd path>`, any size, served from
             // the card through the virtual window.
             std::string disc_path, sd_path;
-            words >> disc_path >> sd_path;
+            words.next(disc_path);
+            words.next(sd_path);
             VirtualFile v;
             ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
                  LoadSdVirtualFile(s.partition, disc_path, sd_path, v, error);
@@ -905,7 +831,7 @@ void RunAutorun() {
             // together (later ones on top of earlier ones) so the log
             // shows the combined result each time.
             std::string sd_path;
-            words >> sd_path;
+            words.next(sd_path);
             if (sd_path.empty()) {
                 ok = false;
                 error = "xml needs an SD path";
@@ -921,7 +847,9 @@ void RunAutorun() {
             // (option as "Option" or "Section/Option"; an empty choice or
             // "disabled" turns the option off), then everything is
             // recompiled.
-            const std::string rest = trim(words.rest());
+            std::string rest;
+            words.rest(rest);
+            rest = trim(rest);
             const std::size_t eq = rest.find('=');
             if (packages.empty() || eq == std::string::npos) {
                 ok = false;

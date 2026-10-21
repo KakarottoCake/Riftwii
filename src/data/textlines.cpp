@@ -60,6 +60,23 @@ bool WordReader::next(std::string& word) {
     return true;
 }
 
+bool WordReader::rest(std::string& rest) {
+    if (failed_ || at_ >= text_.size()) {
+        failed_ = true;
+        return false;
+    }
+    // getline stops at a line break, and drops it.
+    const std::size_t end = text_.find('\n', at_);
+    if (end == std::string::npos) {
+        rest = text_.substr(at_);
+        at_ = text_.size();
+    } else {
+        rest = text_.substr(at_, end - at_);
+        at_ = end + 1;
+    }
+    return true;
+}
+
 bool WordReader::next(int& value) {
     if (!skip_space()) return false;
     // The characters a stream takes for a decimal integer: they are used

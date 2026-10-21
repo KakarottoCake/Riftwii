@@ -167,6 +167,50 @@ static void TestFloatStopsAtLetters() {
     EXPECT_EQ(big, -FLT_MAX);
 }
 
+// autorun.txt's lines: a command, words and numbers, then the rest of the
+// line as std::getline gives it ("option Section/Option = choice").
+static void TestRestMatchesGetline() {
+    const std::vector<std::string> lines = {
+        "option Speed/Laps = 5 laps", "option", "option   ", "option  a =  b  ", "usb RMCE01 2 tail",
+        "usb RMCE01", "usb RMCE01 x tail", "usb", "usb RMCE01 99999999999 tail", "usb\tA\t3\t\tz",
+        "usb A -", "usb A 7", "usb A 7 ",
+    };
+    for (const std::string& line : lines) {
+        // Command and rest.
+        {
+            std::istringstream stream(line);
+            riftwii::WordReader reader(line);
+            std::string c1, c2, r1 = "none", r2 = "none";
+            stream >> c1;
+            reader.next(c2);
+            const bool s = static_cast<bool>(std::getline(stream, r1));
+            const bool r = reader.rest(r2);
+            EXPECT_EQ(c1, c2);
+            EXPECT_EQ(s, r);
+            EXPECT_EQ(r1, r2);
+        }
+        // Command, word, number and rest.
+        {
+            std::istringstream stream(line);
+            riftwii::WordReader reader(line);
+            std::string c1, c2, w1, w2, r1 = "none", r2 = "none";
+            int n1 = 0, n2 = 0;
+            stream >> c1 >> w1 >> n1;
+            reader.next(c2);
+            reader.next(w2);
+            reader.next(n2);
+            const bool s = static_cast<bool>(std::getline(stream, r1));
+            const bool r = reader.rest(r2);
+            EXPECT_EQ(c1, c2);
+            EXPECT_EQ(w1, w2);
+            EXPECT_EQ(n1, n2);
+            EXPECT_EQ(s, r);
+            if (r1 != r2) std::cerr << "rest differs for \"" << line << "\": \"" << r1 << "\" vs \"" << r2 << "\"" << std::endl;
+            EXPECT_EQ(r1, r2);
+        }
+    }
+}
+
 // Play history's fields: an ID and a count each end at a tab, the time is
 // the rest of the line, and the last line needs no line break.
 static void TestPlayHistoryFields() {
@@ -208,6 +252,7 @@ int main() {
     TestWordsMatchStream();
     TestNumbersMatchStream();
     TestFloatStopsAtLetters();
+    TestRestMatchesGetline();
     TestPlayHistoryFields();
     TestThemePackRetire();
     if (g_failures == 0) std::cout << "textlines: all passed" << std::endl;

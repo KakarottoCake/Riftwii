@@ -3,7 +3,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace riftwii::wii {
 
@@ -17,9 +19,11 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap = k
 
 // A file read whole, however large, as std::ifstream and rdbuf() read it
 // before (the file streams brought libstdc++'s locale code into the DOL).
-// For the callers that never had a cap: a pack's XML, a title list, a GCT.
+// For the callers that never had a cap: a pack's XML, a title list, a GCT,
+// a disc file's replacement (megabytes, so read straight into its bytes).
 // False only when the file cannot be opened; a read error keeps what came.
 bool ReadWholeFile(const std::string& path, std::string& out);
+bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out);
 
 // `size` bytes written to `path` in place of what it held. True only when
 // the file opened, every byte was written and it closed cleanly.

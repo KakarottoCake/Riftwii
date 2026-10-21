@@ -58,6 +58,11 @@ public:
     // failure; too large: the largest float and a failure.
     bool next(float& value);
 
+    // What is left of the line after the words read so far, its white
+    // space kept, as std::getline on the stream gives it. False (and
+    // `rest` as it was) after a failed read or with nothing left.
+    bool rest(std::string& rest);
+
     // False once a read has failed.
     explicit operator bool() const { return !failed_; }
 

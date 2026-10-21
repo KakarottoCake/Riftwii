@@ -701,11 +701,8 @@ bool open_rvz_reads(const ImageVolume* volume, const std::string& path, std::str
 }
 
 bool write_if_changed(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
-    std::string old;
-    const bool same = ReadWholeFile(path, old) && old.size() == bytes.size() &&
-                      std::equal(bytes.begin(), bytes.end(), old.begin(),
-                                 [](std::uint8_t a, char b) { return a == static_cast<std::uint8_t>(b); });
-    if (same) return true;
+    std::vector<std::uint8_t> old;
+    if (ReadWholeFile(path, old) && old == bytes) return true;
     if (!WriteWholeFile(path, bytes.data(), bytes.size())) {
         error = "cannot write " + path;
         return false;
