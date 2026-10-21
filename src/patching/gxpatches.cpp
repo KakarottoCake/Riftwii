@@ -236,7 +236,14 @@ bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); 
 // game not run with it might not take, so the European and Japanese
 // Sunshine wait for a run of their own. Luigi's Mansion PAL hung after
 // its restart in Dolphin, cause not found yet, so it is not here.
-bool gc_restart_known_to_work(const std::string& id) { return id == "GMSE01" || id == "GMSE04"; }
+// Doshin the Giant PAL (GKDP01) restarts itself with OSResetSystem(0, 0, 0)
+// when Reset is pressed and released, and from its error screen. (Its
+// restart 0.2 s into every start was such an error, "Cant alloc snd
+// Stream", from the ARAM limit gcaram.hpp now raises.) The other regions
+// wait for a run of their own.
+bool gc_restart_known_to_work(const std::string& id) {
+    return id == "GMSE01" || id == "GMSE04" || id == "GKDP01";
+}
 
 std::vector<GcCodeFix> gc_code_fixes(const std::string& id) {
     std::vector<GcCodeFix> fixes;

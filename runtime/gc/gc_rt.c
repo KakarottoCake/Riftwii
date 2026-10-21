@@ -1095,6 +1095,23 @@ static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* sav
     if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;
     gc_vi_write_all(saved);
 }
+/* The restart (gc_on_hot_reset): the VI as the first start found it, on,
+ * in the game's TV format, blanked. The SDK's hot reset switches the VI
+ * off (display control 0) before it resets, and on a GameCube the IPL then
+ * sets it up again; here nothing does, so VIInit found it off and set it
+ * up as NTSC, writing NTSC into 0x800000CC as well. Doshin the Giant PAL,
+ * restarted through its own OSResetSystem(0) (made a hot reset by
+ * gc_on_reset_system), then never got a retrace interrupt and waited in
+ * VIWaitForRetrace for good, the screen black (Dolphin). With the VI on,
+ * VIInit keeps it as at the first start. */
+static void gc_vi_restart(const struct gc_rt_context* ctx) {
+    uint32_t mode[GC_VI_HANDOVER_WORDS];
+    uint32_t i;
+    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = ctx->vi_at_jump[i];
+    gc_vi_blank(mode);
+    gc_vi_write_all(mode);
+}
 
 typedef void (*gc_callback_fn)(uint32_t type);
 static void gc_di_raise(struct gc_rt_context* ctx, uint32_t type);
@@ -1942,7 +1959,8 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     } while ((*(volatile uint16_t*)(uintptr_t)GC_CP_SR & GC_CP_SR_IDLE) != GC_CP_SR_IDLE &&
              now - start < GC_GP_IDLE_TICKS);
     gc_audio_reset(ctx);
-    gc_trace(ctx, GC_TRACE_RESTART);  /* the audio as the restarted game finds it */
+    gc_vi_restart(ctx);
+    gc_trace(ctx, GC_TRACE_RESTART);  /* the audio and the VI as the restarted game finds them */
     gc_forget_game(ctx);
     __asm__ volatile("mr 1,%0\n\tmr 3,%1\n\tb gc_restore_and_start" : : "r"(ctx->restart_stack), "r"(ctx) : "memory");
     for (;;) {

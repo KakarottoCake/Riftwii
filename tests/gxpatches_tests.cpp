@@ -88,6 +88,9 @@ void test_protected() {
     EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));
     EXPECT_TRUE(gc_restart_known_to_work("GMSE01"));
     EXPECT_TRUE(gc_restart_known_to_work("GMSE04"));
+    EXPECT_TRUE(gc_restart_known_to_work("GKDP01"));
+    EXPECT_FALSE(gc_restart_known_to_work("GKDJ01"));  // no restart run for these regions
+    EXPECT_FALSE(gc_restart_known_to_work("GKDE01"));
     EXPECT_FALSE(gc_restart_known_to_work("GLMP01"));
     EXPECT_FALSE(gc_restart_known_to_work("GMSP01"));  // not run with it yet
     EXPECT_FALSE(gc_restart_known_to_work("GMSJ01"));

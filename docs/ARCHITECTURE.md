@@ -385,8 +385,12 @@ the console (PI's reset register) or reboot the disc through the
 apploader, the blob puts MEM1 back as the loader left it at the jump,
 from a copy kept in MEM2, and starts the game at its entry again
 (`gc_on_hot_reset`). The memory card is written back first; the Wii
-Remotes stay connected. The blob also watches the button itself (PI's
-bit 16) at each pad read: a press the game has not answered with its own
+Remotes stay connected. The VI goes back on as the first start found
+it, in the game's TV format and blanked: the SDK's hot reset switches it
+off, which on a GameCube the IPL undoes, and a VIInit that finds it off
+sets it up as NTSC (Doshin the Giant PAL then waited for a retrace that
+never came). The blob also watches the button itself (PI's bit 16) at
+each pad read: a press the game has not answered with its own
 OSResetSystem within two seconds is answered by calling it for the game.
 OSResetSystem asked for the start-up menu goes back to RiftWii instead.
 The restart is used only for games it is known to work in
