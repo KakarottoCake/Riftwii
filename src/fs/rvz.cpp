@@ -10,8 +10,67 @@
 #include "riftwii/sha1.hpp"
 #include "zstd.h"
 
+#if defined(GEKKO) && defined(RIFTWII_TEST_LIMITS)
+// The DOL and the GameCube plugin both provide this logger. Keeping the
+// declaration here leaves ordinary host builds independent of Wii code.
+namespace riftwii::wii {
+void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
+}
+#endif
+
 namespace riftwii {
 namespace {
+
+// The Wii decoder strips Zstandard's error strings. Keep the useful
+// failure classes readable without depending on those optional strings.
+const char* zstd_error_name(ZSTD_ErrorCode code) {
+    switch (code) {
+    case ZSTD_error_GENERIC: return "unspecified failure";
+    case ZSTD_error_prefix_unknown: return "unrecognized frame";
+    case ZSTD_error_version_unsupported: return "unsupported version";
+    case ZSTD_error_frameParameter_unsupported: return "unsupported frame parameter";
+    case ZSTD_error_frameParameter_windowTooLarge: return "window too large";
+    case ZSTD_error_corruption_detected: return "corruption detected";
+    case ZSTD_error_checksum_wrong: return "checksum mismatch";
+    case ZSTD_error_literals_headerWrong: return "invalid literals header";
+    case ZSTD_error_dictionary_corrupted: return "corrupt dictionary";
+    case ZSTD_error_dictionary_wrong: return "wrong dictionary";
+    case ZSTD_error_stage_wrong: return "wrong decoder stage";
+    case ZSTD_error_init_missing: return "decoder not initialized";
+    case ZSTD_error_memory_allocation: return "allocation failed";
+    case ZSTD_error_workSpace_tooSmall: return "workspace too small";
+    case ZSTD_error_dstSize_tooSmall: return "output capacity too small";
+    case ZSTD_error_srcSize_wrong: return "wrong input size";
+    case ZSTD_error_dstBuffer_null: return "null output buffer";
+    default: return "unmapped error";
+    }
+}
+
+#if defined(GEKKO) && defined(RIFTWII_TEST_LIMITS)
+bool test_rvz_hash_enabled() {
+    // Check once before the first decode's read, so there is no extra SD
+    // traffic between reading the compressed bytes and decoding them.
+    static const bool enabled = [] {
+        FILE* file = std::fopen("sd:/riftwii/test_rvz_hash", "rb");
+        if (file == nullptr) return false;
+        std::fclose(file);
+        return true;
+    }();
+    return enabled;
+}
+
+std::uint32_t test_rvz_input_hash(const void* input, std::size_t length) {
+    // Volatile byte reads measure the PPC's view of the actual input,
+    // including its data cache, rather than a debugger's view of RAM.
+    const volatile std::uint8_t* bytes = static_cast<const volatile std::uint8_t*>(input);
+    std::uint32_t hash = 2166136261u;
+    for (std::size_t i = 0; i < length; ++i) {
+        hash ^= bytes[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+#endif
 
 constexpr std::uint32_t kSector = 0x8000;
 constexpr std::uint32_t kSectorData = 0x7C00;
@@ -360,6 +419,9 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
 
 bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool compressed, std::uint32_t expected,
                       std::vector<std::uint8_t>& out) const {
+#if defined(GEKKO) && defined(RIFTWII_TEST_LIMITS)
+    const bool trace = compressed && test_rvz_hash_enabled();
+#endif
     if (file_offset > file_->size() || stored > file_->size() - file_offset) {
         return fail("data at " + std::to_string(file_offset) + " runs past the end of the file");
     }
@@ -378,9 +440,31 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
         capacity = static_cast<std::size_t>(known);
     }
     out.resize(capacity);
+#if defined(GEKKO) && defined(RIFTWII_TEST_LIMITS)
+    const std::uint32_t input_hash = trace ? test_rvz_input_hash(stored_.data(), stored_.size()) : 0;
+#endif
     const std::size_t got =
         ZSTD_decompressDCtx(static_cast<ZSTD_DCtx*>(dctx_), out.data(), out.size(), stored_.data(), stored_.size());
-    if (ZSTD_isError(got)) return fail(std::string("Zstandard: ") + ZSTD_getErrorName(got));
+    const ZSTD_ErrorCode code = ZSTD_getErrorCode(got);
+#if defined(GEKKO) && defined(RIFTWII_TEST_LIMITS)
+    if (trace) {
+        const char* what = "group";
+        if (file_offset == head_.group_table_offset) what = "group table";
+        else if (file_offset == head_.raw_table_offset) what = "raw data table";
+        // Log only after decoding: writing the log must not disturb the
+        // SD/cache boundary between the CPU hash and the decoder.
+        wii::logf("RVZ test: decoded %s at file offset %llu, input %u bytes at %p, FNV-1a32 %08x, "
+                  "output capacity %u bytes; result %u, Zstandard error %u (%s).\n",
+                  what, static_cast<unsigned long long>(file_offset), static_cast<unsigned>(stored_.size()),
+                  static_cast<void*>(stored_.data()), static_cast<unsigned>(input_hash),
+                  static_cast<unsigned>(out.size()), static_cast<unsigned>(got), static_cast<unsigned>(code),
+                  code == ZSTD_error_no_error ? "success" : zstd_error_name(code));
+    }
+#endif
+    if (ZSTD_isError(got)) {
+        return fail("Zstandard error " + std::to_string(static_cast<unsigned>(code)) +
+                    " (" + zstd_error_name(code) + ")");
+    }
     out.resize(got);
     return true;
 }
