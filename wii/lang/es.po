@@ -1773,8 +1773,8 @@ msgstr "Tarjeta de memoria"
 msgid "About this"
 msgstr "Acerca de esto"
 
-msgid "Save to a card for this game alone, or to one card shared by all your games."
-msgstr "Guarda las partidas en una tarjeta solo para este juego, o en una tarjeta compartida por todos tus juegos."
+msgid "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."
+msgstr "Guarda en la tarjeta SD de este juego, una SD compartida o una tarjeta real en la ranura A (solo Wii original)."
 
 msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
 msgstr "Al cambiar no se copian partidas: se quedan en la otra tarjeta. Muévelas con Copiar a la tarjeta SD y Añadir una partida desde la tarjeta SD en la página de partidas. Los juegos japoneses tienen su propia tarjeta compartida."
@@ -2730,6 +2730,9 @@ msgstr "Más fluido juega a 60 Hz en los juegos que tienen un modo de 60 Hz, en 
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "Predeterminado activa 480p cuando la Wii está en 480p y se detecta un cable por componentes; elige Sí (480p) si tu televisor lo admite de todos modos."
 
+msgid "There is not enough memory to copy this card. Nothing was copied."
+msgstr "No hay suficiente memoria para copiar esta tarjeta. No se ha copiado nada."
+
 msgid "Real card in slot A"
 msgstr "Tarjeta real en la ranura A"
 
@@ -2748,8 +2751,8 @@ msgstr "Ranura A"
 msgid "Slot B"
 msgstr "Ranura B"
 
-msgid "Choose which saves to copy. The card in the Wii is only read."
-msgstr "Elige las partidas que copiar. La tarjeta de Wii solo se lee."
+msgid "Choose which saves to copy. The card in the Wii is never written to."
+msgstr "Elige qué partidas copiar. Nunca se escribe en la tarjeta de la Wii."
 
 msgid "This game's saves"
 msgstr "Partidas de este juego"
@@ -2760,8 +2763,8 @@ msgstr "Todas las partidas"
 msgid "Copy"
 msgstr "Copiar"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read."
-msgstr "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? La tarjeta de Wii solo se lee."
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
+msgstr "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? Nunca se escribe en la tarjeta de la Wii."
 
 msgid "Copied to {1}."
 msgstr "Copia guardada en {1}."
@@ -2790,8 +2793,8 @@ msgstr "La imagen de SD está dañada o usa la otra codificación de texto. No s
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "La copia falló. La tarjeta de Wii no se ha modificado."
 
-msgid "The card in the Wii is only read. Copies go to the SD card."
-msgstr "La tarjeta de Wii solo se lee. Las copias van a la tarjeta SD."
+msgid "The card in the Wii is never written to. Copies go to the SD card."
+msgstr "Nunca se escribe en la tarjeta de la Wii. Las copias van a la tarjeta SD."
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD."

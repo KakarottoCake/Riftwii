@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <iostream>
 #include <string>
 
@@ -39,7 +40,7 @@ bool wii_u = false;
 unsigned dma_calls = 0;
 unsigned mount_calls = 0;
 unsigned unmount_calls = 0;
-std::string log;
+std::string g_log;
 
 void reset_faults() {
     probe_result = mount_result = 0;
@@ -74,7 +75,7 @@ void logf(const char* format, ...) {
     va_start(args, format);
     std::vsnprintf(line, sizeof(line), format, args);
     va_end(args);
-    log += line;
+    g_log += line;
 }
 }  // namespace riftwii::wii
 
@@ -287,8 +288,8 @@ int main(int argc, char**) {
     closed(1);
     CHECK(card.Open(0) == 0);
     card.Close();
-    CHECK(log.find("libogc said -6") != std::string::npos);
-    CHECK(log.find("failed its flash read") != std::string::npos);
-    CHECK(log.find("in MEM1") != std::string::npos);
+    CHECK(g_log.find("libogc said -6") != std::string::npos);
+    CHECK(g_log.find("failed its flash read") != std::string::npos);
+    CHECK(g_log.find("in MEM1") != std::string::npos);
     return failures == 0 ? 0 : 1;
 }

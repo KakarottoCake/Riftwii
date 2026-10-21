@@ -468,7 +468,10 @@ A card formatted on another console is accepted. A locked physical card
 still needs libogc's DSP-assisted unlock before normal flash reads. An
 already-unlocked card skips that exchange and checks only SRAM's cached
 flash-ID byte sum. RiftWii validates the header and layout with `gccard.cpp`
-and does not write or repair the physical card.
+and does not write or repair the physical card. Mounting a card is not passive:
+libogc clears its status, unlocks it when necessary, and records its flash
+ID in that slot's SRAM cache, including slot B. None of these operations
+writes the card's flash.
 
 `gc_real_plan` selects the exact game code plus maker for this game's own
 image, or every save for the source encoding's shared image. It exports

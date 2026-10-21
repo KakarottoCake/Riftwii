@@ -323,6 +323,7 @@ bool CheckCodeBuilds(const FrontendState& state, std::string& error) {
 void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headless) {
     LaunchExtras extras;
     extras.game_id = state.game_id;
+    extras.gc_card_fallback = state.gc_card_fallback;
     extras.video = effective_video(state.model.game, Settings());
     extras.language = effective_game_language(state.model.game, Settings());
     extras.server = effective_wfc_server(state.model.game, Settings());

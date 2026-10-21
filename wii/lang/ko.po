@@ -1773,8 +1773,8 @@ msgstr "메모리 카드"
 msgid "About this"
 msgstr "설명"
 
-msgid "Save to a card for this game alone, or to one card shared by all your games."
-msgstr "이 게임 전용 카드나 모든 게임이 함께 쓰는 카드 한 장에 저장합니다."
+msgid "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."
+msgstr "이 게임의 SD 카드, 공용 SD 카드 또는 슬롯 A의 실제 카드에 저장합니다(초기 Wii 전용)."
 
 msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
 msgstr "바꿔도 저장 데이터는 복사되지 않고 다른 카드에 남습니다. 저장 페이지의 SD 카드에 복사와 SD 카드에서 저장 데이터 추가로 옮길 수 있습니다. 일본 게임은 별도의 공유 카드를 씁니다."
@@ -2730,6 +2730,9 @@ msgstr "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 �
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요."
 
+msgid "There is not enough memory to copy this card. Nothing was copied."
+msgstr "이 카드를 복사할 메모리가 부족합니다. 아무것도 복사하지 않았습니다."
+
 msgid "Real card in slot A"
 msgstr "슬롯 A의 실제 카드"
 
@@ -2748,8 +2751,8 @@ msgstr "슬롯 A"
 msgid "Slot B"
 msgstr "슬롯 B"
 
-msgid "Choose which saves to copy. The card in the Wii is only read."
-msgstr "복사할 저장 데이터를 선택하세요. Wii의 카드는 읽기만 합니다."
+msgid "Choose which saves to copy. The card in the Wii is never written to."
+msgstr "복사할 저장 데이터를 선택하세요. Wii에 꽂힌 카드에는 쓰지 않습니다."
 
 msgid "This game's saves"
 msgstr "이 게임의 저장 데이터"
@@ -2760,8 +2763,8 @@ msgstr "모든 저장 데이터"
 msgid "Copy"
 msgstr "복사"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read."
-msgstr "저장 데이터 {1}개와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii의 카드는 읽기만 합니다."
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
+msgstr "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii에 꽂힌 카드에는 쓰지 않습니다."
 
 msgid "Copied to {1}."
 msgstr "{1}에 복사했습니다."
@@ -2790,8 +2793,8 @@ msgstr "SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합�
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다."
 
-msgid "The card in the Wii is only read. Copies go to the SD card."
-msgstr "Wii의 카드는 읽기만 합니다. 사본은 SD 카드에 저장됩니다."
+msgid "The card in the Wii is never written to. Copies go to the SD card."
+msgstr "Wii에 꽂힌 카드에는 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다."
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다."
