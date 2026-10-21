@@ -93,23 +93,6 @@ int gcad_decode(const uint8_t raw[9], const uint8_t origin[6], gcad_pad* out) {
     return 1;
 }
 
-int gcad_pad_moved(const gcad_pad* before, const gcad_pad* now) {
-    /* Newer SDKs take 10 steps for a GameCube controller's sticks and
-     * triggers, older ones a change of 9 in the value squared; 10 is the
-     * newer rule, and the same for every game. One loop over the six
-     * axes keeps the in-game blob small. */
-    const int32_t was[6] = {before->stick_x,    before->stick_y,   before->substick_x,
-                            before->substick_y, before->trigger_l, before->trigger_r};
-    const int32_t is[6] = {now->stick_x, now->stick_y, now->substick_x, now->substick_y, now->trigger_l, now->trigger_r};
-    uint32_t axis;
-    if (now->buttons != before->buttons) return 1;
-    for (axis = 0; axis < 6; ++axis) {
-        const int32_t distance = is[axis] > was[axis] ? is[axis] - was[axis] : was[axis] - is[axis];
-        if (distance >= GCAD_ACTIVE_STEP) return 1;
-    }
-    return 0;
-}
-
 static uint32_t tag_value(gcad* g, uint32_t tag) { return tag | (g->generation << 4); }
 
 static void failed(gcad* g, uint32_t step, int32_t result) {
@@ -153,47 +136,8 @@ static void set_stale(gcad* g) {
     for (i = 0; i < GCAD_PORTS; ++i) {
         g->raw[i][0] = 0;
         g->origin_valid[i] = 0;
-        g->origin_waiting[i] = 0;
         g->recal_active[i] = 0;
     }
-}
-
-/* Whether one of a report's six analog bytes (stick x, y, substick x, y,
- * L, R) reads as a pad at rest: a stick near the middle, a trigger let
- * go. */
-static int axis_at_rest(uint32_t axis, uint8_t value) {
-    if (axis >= 4) return value <= GCAD_ORIGIN_TRIGGER_MAX;
-    return value >= 128 - GCAD_ORIGIN_SPREAD && value <= 128 + GCAD_ORIGIN_SPREAD;
-}
-
-static int pad_at_rest(const uint8_t analog[6]) {
-    uint32_t axis;
-    for (axis = 0; axis < 6; ++axis) {
-        if (!axis_at_rest(axis, analog[axis])) return 0;
-    }
-    return 1;
-}
-
-static void origin_event(gcad* g, uint32_t port, uint32_t how, const uint8_t analog[6]) {
-    const uint32_t triggers = (uint32_t)analog[4] << 16 | (uint32_t)analog[5] << 24;
-    const uint32_t sticks =
-        (uint32_t)analog[0] << 24 | (uint32_t)analog[1] << 16 | (uint32_t)analog[2] << 8 | analog[3];
-    gcad_env_event(g, GCAD_EV_ORIGIN, port | how << 8 | triggers, (int32_t)sticks);
-}
-
-/* `how` is GCAD_ORIGIN_*: with GCAD_ORIGIN_MIDDLE an axis not at rest
- * takes the middle (a trigger 0) instead of its reading. */
-static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t how) {
-    uint32_t axis;
-    uint8_t* origin = g->origin[port];
-    for (axis = 0; axis < 6; ++axis) {
-        const uint8_t middle = axis < 4 ? 128 : 0;
-        const int off = how == GCAD_ORIGIN_MIDDLE && !axis_at_rest(axis, analog[axis]);
-        origin[axis] = off ? middle : analog[axis];
-    }
-    g->origin_valid[port] = 1;
-    g->origin_waiting[port] = 0;
-    origin_event(g, port, how, origin);
 }
 
 static void submit_change(gcad* g, uint32_t now) {
@@ -363,30 +307,12 @@ static void take_report(gcad* g, uint32_t now) {
         if (was != is) gcad_env_event(g, GCAD_EV_PORT, i, src[0]);
         if (!is) {
             g->origin_valid[i] = 0;
-            g->origin_waiting[i] = 0;
             g->recal_active[i] = 0;
             continue;
         }
-        /* The origin comes only from a reading of the pad at rest. A
-         * reading far off taken as the origin pinned the stick to a
-         * corner until the adapter was replugged (seen at RiftWii's
-         * start on a Wii U, 2610-541); the port stays empty while it
-         * waits. A pad held off the middle for GCAD_ORIGIN_WAIT_MS gets
-         * the middle for those axes, where its own origin would make
-         * the stick drift once let go. */
         if (!g->origin_valid[i]) {
-            const int at_rest = pad_at_rest(src + 3);
-            if (!g->origin_waiting[i]) {
-                g->origin_waiting[i] = 1;
-                g->origin_since[i] = now;
-                /* Once per wait, so a log shows what was passed over. */
-                if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
-            }
-            if (at_rest) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
-            } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
-            }
+            for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
+            g->origin_valid[i] = 1;
         }
         /* X+Y+Start held: a new origin, as the pad itself does. */
         if ((src[1] & 0x0C) == 0x0C && (src[2] & 0x01)) {
@@ -394,7 +320,7 @@ static void take_report(gcad* g, uint32_t now) {
                 g->recal_active[i] = 1;
                 g->recal_since[i] = now;
             } else if (g->recal_active[i] == 1 && elapsed(now, g->recal_since[i]) >= ms(g, GCAD_RECAL_MS)) {
-                set_origin(g, i, src + 3, GCAD_ORIGIN_RECAL);
+                for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
                 g->recal_active[i] = 2;  /* once per hold */
             }
         } else {

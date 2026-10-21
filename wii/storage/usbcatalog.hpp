@@ -236,12 +236,6 @@ CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd = fal
 // else 251, where the vWii d2x installer puts base 58. `why` says which.
 int wii_u_adapter_slot(std::string* why = nullptr);
 
-// On a Wii U, whether a game started with `cios_slot` (0: the launch's
-// own order, which puts wii_u_adapter_slot first with the adapter in use)
-// reaches the GameCube adapter in a front USB port: only a d2x on base 58
-// does.
-bool cios_reaches_front_ports(int cios_slot);
-
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is
 // caller-owned memory that must outlive d2x configuration and the game boot.
