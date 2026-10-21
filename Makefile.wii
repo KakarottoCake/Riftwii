@@ -57,7 +57,7 @@ DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-lib
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-CFLAGS		=	-g -O2 -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
+CFLAGS		=	-g -Os -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
 CXXFLAGS	=	$(CFLAGS) -std=c++17
 # pugixml without its std::string and stream functions, which RiftWii never
 # calls: their std::istream references alone kept libstdc++'s locale code
@@ -281,7 +281,9 @@ $(OFILES_SOURCES): $(HFILES)
 # update to itself), and make does not see a changed -D. The version
 # changes with every commit, so only the sources that use it are rebuilt:
 # they depend on a stamp rewritten when the version differs.
-$(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
+# Every object also depends on this Makefile, so a changed -O or other
+# flag (the per-file -O2 list below) rebuilds the objects it applies to.
+$(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt $(PROJECT_ROOT)/Makefile.wii
 VERSION_STAMP := riftwii_version.stamp
 VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_VERSION -e RIFTWII_BUILD_STAMP $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
 $(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(VERSION_STAMP))
@@ -338,28 +340,24 @@ licence.zst : $(PROJECT_ROOT)/LICENSE
 	@echo $(notdir $<)
 	$(bin2o)
 
-# The menu's own Zstandard (RVZ headers and the apploader's reads) is
-# built for size, like the runtime's: it decodes a few MB per launch.
-zstddeclib.o: CFLAGS += -Os
-
-# The SD image maker waits on the card, not the CPU: built for size too.
-vsdbuild.o vsdmake.o: CXXFLAGS += -Os
-
-# The menu's screens wait on the player: built for size too, which
-# leaves room for the transitions (keep the DOL's end below 0x81041980).
-rift_menu.o: CXXFLAGS += -Os
-
-# Card management runs before a game starts. Favor space here so physical
-# CARD support and its menu still fit below the apploader's MEM1 boundary.
-gccard.o gcbackup.o gcimport.o gcreal.o gcrealcard.o gcplugin.o: CXXFLAGS += -Os
-
-# What waits on the network or the card, or runs once a launch: for size
-# as well (the room the DOL keeps under 0x81041980 is the menu's margin).
-online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
-
-# The plugin loader waits on the card too, and is the price of every MEM1
-# saving a plugin brings: for size.
-plugins.o pluginfile.o sha256.o: CXXFLAGS += -Os
+# Everything is built for size (CFLAGS above): the DOL, its start-up stash
+# and its heap must all fit below the apploader at 0x81200000, and -O2 for
+# the whole program had brought the stash to within 3 KiB of it (21 Oct
+# 2026; -Os gives back about 1.4 MiB). The few files whose loops the CPU,
+# not the card, the drive or the player, waits on keep -O2 (a later -O
+# wins); together they cost about 73 KiB:
+# - wiicrypt (software AES) and sha1 run over every byte of a WAD's
+#   contents and of the banners read from a USB or SD image's partition;
+# - rtrvz rebuilds an RVZ's junk data byte by byte. rvz itself only finds
+#   groups and copies them, and its Zstandard was already -Os;
+# - symsearch and codehook scan the whole of a game's code at each launch,
+#   and so do videopatch, gamelang and gxpatches (the video-mode, language
+#   and 480p-fix searches after the hand-over: 22 ms more at -Os in
+#   grantendo's Dolphin timing of Brawl, about 25 KiB to keep at -O2);
+# - skinpaint, canvas and pngdecode paint and decode the menu's pictures
+#   pixel by pixel (all -Os drew the menu's art 0.16 s later in Dolphin).
+wiicrypt.o sha1.o symsearch.o codehook.o videopatch.o gamelang.o gxpatches.o skinpaint.o canvas.o pngdecode.o: CXXFLAGS += -O2
+rtrvz.o: CFLAGS += -O2
 
 # RiftWii's own sources build with -Werror, as the runtime and channel do;
 # the vendored ones (pugixml's known warning, libgui, zstd) do not.
