@@ -239,6 +239,7 @@ document it.
 | `gclayout` | The GameCube loader's MEM1 layout: the game's stack top and ArenaLo found in its code, RiftWii's pieces packed under the FST around the DI registers' stand-in (built into the `gamecube` plugin only, not the DOL: `Makefile.wii`'s `EXCLUDES`) |
 | `gcclock` | The GameCube loader's clocks: the speed read from HW_CLOCKS, and GameCube clock values built into a game's code moved to the Wii's (built into the `gamecube` plugin only, not the DOL: `Makefile.wii`'s `EXCLUDES`) |
 | `gcvideo` | GameCube games' picture settings: the Sharper picture's switch in GXSetCopyFilter, and the mode VIConfigure gets for 480p and the Picture width (`runtime/gc/gc_video.h`) |
+| `gcload` | Luigi's Mansion's main-heap globals found structurally, and its callback heap policy (`runtime/gc/gc_load.h`): keep archive lifetimes while avoiding temporary model heaps |
 | `gcreset` | GameCube games' Reset: OSResetSystem and the SDK's reset routine as the loader finds them, and the restart's copy of MEM1 laid out in MEM2 (built into the `gamecube` plugin only, not the DOL: `Makefile.wii`'s `EXCLUDES`) |
 | `gcaram` | A sound engine's ARAM pool clamped to ARGetSize() in MusyX's shape, found so the GameCube loader can raise the limit with the game's ARAM addresses (built into the `gamecube` plugin only, not the DOL: `Makefile.wii`'s `EXCLUDES`) |
 | `gcrvz` | GameCube RVZs: a synthetic disc written as an RVZ and read back byte for byte through `RvzDiscSource` and the blob's reader (`runtime/gc/gc_rvz.c`) |

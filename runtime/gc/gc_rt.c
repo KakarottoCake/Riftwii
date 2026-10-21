@@ -8,6 +8,7 @@
 #include "gc_card.h"
 #include "gc_gcad.h"
 #include "gc_video.h"
+#include "gc_load.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -872,17 +873,27 @@ static void gc_read_step(struct gc_rt_context* ctx) {
  * 0x801ca9c4); on a Wii a buffer freed with that heap stayed in use (an
  * ISI through a vtable of "JKRT" text). So each load remembers the heap
  * current where it was queued, and the loading thread allocates its
- * buffer and runs its callbacks with that heap current, as when it was
- * idle and took the request at once, then puts back the one it found. */
+ * buffer with that heap current, then puts back the one it found.
+ * Callbacks escape temporary heaps in the same way, but keep the game's
+ * choice on its two main heaps and JKRHeap's root/system heaps. A load's
+ * callback can have a longer lifetime than its buffer: game_usa.szp is
+ * queued on the scene heap, but its global archive belongs on the
+ * persistent heap the game selects after queueing it. Forcing that
+ * callback onto the scene heap leaves a destroyed archive in use after
+ * the scene's group cleanup (the progressive prompt exposed this). */
 typedef uint32_t (*gc_game_fn0)(void);
 typedef uint32_t (*gc_game_fn1)(uint32_t);
 typedef uint32_t (*gc_game_fn2)(uint32_t, uint32_t);
 
-/* JKRHeap's current heap, a global in the game's small data (r13). */
-static volatile uint32_t* gc_current_heap(const struct gc_rt_context* ctx) {
+/* A heap global in the game's small data (r13), found by the loader. */
+static volatile uint32_t* gc_heap_global(uint32_t offset) {
     uint32_t r13;
     __asm__ volatile("mr %0,13" : "=r"(r13));
-    return (volatile uint32_t*)(uintptr_t)(r13 + ctx->load_heap_offset);
+    return (volatile uint32_t*)(uintptr_t)(r13 + offset);
+}
+
+static volatile uint32_t* gc_current_heap(const struct gc_rt_context* ctx) {
+    return gc_heap_global(ctx->load_heap_offset);
 }
 
 /* The remembered heap of `request`, 0: none. */
@@ -922,12 +933,19 @@ uint32_t gc_on_load_alloc(struct gc_rt_context* ctx, uint32_t length, uint32_t a
 
 /* In place of its group(id) before the load's callbacks. */
 uint32_t gc_on_load_callbacks(struct gc_rt_context* ctx, uint32_t group, uint32_t unused, uint32_t request) {
-    const uint32_t heap = gc_load_heap(ctx, request);
+    volatile uint32_t* current = gc_current_heap(ctx);
+    const uint32_t found = *current;
+    uint32_t roots[GC_LOAD_ROOT_HEAPS];
+    uint32_t heap;
+    uint32_t i;
     (void)unused;  /* the game's r4 */
     ctx->load_saved_heap = 0;
+    for (i = 0; i < GC_LOAD_ROOT_HEAPS; ++i) {
+        roots[i] = *gc_heap_global(ctx->load_root_heap_offsets[i]);
+    }
+    heap = gc_load_callback_heap(found, gc_load_heap(ctx, request), roots);
     if (heap != 0) {
-        volatile uint32_t* current = gc_current_heap(ctx);
-        ctx->load_saved_heap = *current;
+        ctx->load_saved_heap = found;
         *current = heap;
     }
     return ((gc_game_fn1)(uintptr_t)ctx->load_group)(group);

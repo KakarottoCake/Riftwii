@@ -73,7 +73,13 @@ bool gc_keeps_aram_addresses(const std::string& game_id);
 // with reads at the SD card's speed it can wake while another thread has
 // made a small, full heap current (Luigi's Mansion: a 512 KB solid heap for
 // a room's models) and gets nothing. The native loader makes each load use
-// the heap current where it was queued (gcnative.cpp's find_lm_loader).
+// the heap current where it was queued for its read buffer. Callbacks use
+// that heap only when the current heap is temporary; on the game's two
+// main heaps or JKRHeap's root/system heaps they keep the game's choice
+// (gcnative.cpp's find_lm_loader, gcload.hpp). A callback's archive can
+// outlive its buffer: forcing game_usa.szp's callback onto its queued
+// scene heap destroyed the global archive during scene cleanup after
+// the progressive prompt.
 bool gc_loads_use_queued_heap(const std::string& game_id);
 
 // GameCube games whose restart (Reset, riftwii/gcreset.hpp) is known to
