@@ -68,22 +68,10 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
 // Verified on Super Smash Bros. Brawl and Mario Kart Wii; none of Super
 // Mario Galaxy 2, Kirby's Epic Yarn or Wario Land: Shake It! (no
 // GameCube controller support) has either.
-//  - The screen-dimming reset for the controller ports (__VIResetSIIdle):
-//    when a pad's buttons or sticks change, PADRead tells the video code
-//    the ports are in use by calling a four-word function that clears a
-//    small-data flag and returns 1 (`li r0, 0`, `stw r0, d(r13)` and
-//    `li r3, 1` in either order, then `blr`). Its call sits in PADRead
-//    itself or, in older SDKs, in the status helper linked right after
-//    it, so only calls in the kIdleResetWindow bytes from PADRead's start
-//    count, and they must all reach the same function. Found in Brawl
-//    (the helper, PADRead + 0xB14), Mario Kart Wii, Tatsunoko vs. Capcom:
-//    Ultimate All-Stars, Naruto: Clash of Ninja Revolution 3 (PADRead +
-//    0x410) and Kamen Rider: Super Climax Heroes (+ 0x414).
 struct PadSymbols {
     std::uint32_t read = 0;           // 0: the game has no PADRead
     unsigned read_sites = 0;
     std::uint32_t control_motor = 0;  // 0: not found (no rumble)
-    std::uint32_t idle_reset = 0;     // 0: not found (adapter pads don't keep the screen lit)
 };
 
 // False with `error` when the matches are ambiguous; true with read == 0
