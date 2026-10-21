@@ -1719,19 +1719,16 @@ int wii_u_adapter_slot(std::string* why) {
 }
 
 bool cios_reaches_front_ports(const ImageGame& game, int cios_slot) {
-    int slot = cios_slot;
-    if (slot == 0) {
-        // The launch's own order: the adapter's slot first, except for a
-        // game that reads a USB keyboard, whose order starts with a slot
-        // that has a keyboard driver (keyboard_slots_first), never base 58.
-        if (game_uses_usb_keyboard(game.id)) return false;
-        slot = wii_u_adapter_slot();
-    }
-    // Only a base read from the slot itself counts: wii_u_adapter_slot's
-    // fallbacks (where Check each cIOS saw the adapter, or slot 251 by
-    // default) say nothing about the front ports.
+    // The launch's own order (slot 0) starts on a base-58 slot when there
+    // is one (wii_u_adapter_slot), except for a game that reads a USB
+    // keyboard: its order starts with a slot that has a keyboard driver
+    // (keyboard_slots_first), never base 58.
+    if (cios_slot == 0 && game_uses_usb_keyboard(game.id)) return false;
+    // Only a base read from a slot counts: wii_u_adapter_slot's fallbacks
+    // (where Check each cIOS saw the adapter, or slot 251 by default) say
+    // nothing about the front ports.
     for (const D2xSlot& s : d2x_slots()) {
-        if (s.slot == slot) return s.base == 58;
+        if (s.base == 58 && (cios_slot == 0 || s.slot == cios_slot)) return true;
     }
     return false;
 }

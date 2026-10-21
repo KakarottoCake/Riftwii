@@ -325,38 +325,33 @@ constexpr std::uint32_t kLiR3One = 0x38600001u;      // li r3, 1
 
 bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }  // stw r0, d(r13)
 
-// The SDK's screen-dimming reset for the controller ports: clear a
-// small-data flag, return 1. Compilers put the store and the return value
-// in either order.
-bool is_idle_reset(const std::vector<CodeRange>& text, std::uint32_t address) {
-    if (!inside(text, address) || !inside(text, address + 12)) return false;
-    const std::uint32_t second = word_at(text, address + 4);
-    const std::uint32_t third = word_at(text, address + 8);
-    const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
-    const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
-    return word_at(text, address) == kLiR0Zero && (store_then_return || return_then_store) &&
-           word_at(text, address + 12) == kBlr;
-}
-
-// The small-data offset an idle reset clears (its stw r0, d(r13)).
+// The SDK's screen-dimming resets: clear a small-data flag, return 1
+// (compilers put the store and the return value in either order). The
+// flag's offset from r13 for a function of that shape, else kNoIdleReset
+// (offsets fit 16 bits).
+constexpr std::int32_t kNoIdleReset = 0x10000;
 std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
-    const std::uint32_t second = word_at(text, address + 4);
-    const std::uint32_t store = is_stw_r0_sda(second) ? second : word_at(text, address + 8);
-    return static_cast<std::int16_t>(store & 0xFFFFu);
-}
-
-// The video library defines the controller ports' reset right after the
-// Wii Remotes' one, the same four words for the flag next to it (4 bytes
-// above), in every game checked (Brawl, Mario Kart Wii, Tatsunoko vs.
-// Capcom, Clash of Ninja Revolution 3, Kamen Rider): a call near PADRead
-// to a lone function of that shape is something else.
-bool has_remote_twin(const std::vector<CodeRange>& text, std::uint32_t address) {
-    const std::uint32_t twin = address - 16;
-    return is_idle_reset(text, twin) && idle_reset_flag(text, twin) == idle_reset_flag(text, address) + 4;
+    for (const CodeRange& r : text) {
+        if (address < r.address || address - r.address + 16 > r.size) continue;
+        const std::uint8_t* words = r.bytes + (address - r.address);
+        const std::uint32_t second = be32(words + 4);
+        const std::uint32_t third = be32(words + 8);
+        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
+            return kNoIdleReset;
+        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    }
+    return kNoIdleReset;
 }
 
 // The idle reset PADRead (or the status helper after it) calls; 0 when no
-// call in the window reaches one, or calls reach two different ones.
+// call in the window reaches one, or calls reach two different ones. The
+// video library defines the controller ports' reset right after the Wii
+// Remotes' one, for the flag 4 bytes above, in every game checked (Brawl,
+// Mario Kart Wii, Tatsunoko vs. Capcom, Clash of Ninja Revolution 3, Kamen
+// Rider): a call near PADRead to a lone function of that shape is
+// something else.
 std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
     std::uint32_t found = 0;
     for (std::uint32_t at = pad_read; at < pad_read + kIdleResetWindow; at += 4) {
@@ -364,7 +359,8 @@ std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t 
         const std::uint32_t w = word_at(text, at);
         if (!is_bl(w)) continue;
         const std::uint32_t target = bl_target(at, w);
-        if (!is_idle_reset(text, target) || !has_remote_twin(text, target)) continue;
+        const std::int32_t flag = idle_reset_flag(text, target);
+        if (flag == kNoIdleReset || idle_reset_flag(text, target - 16) != flag + 4) continue;
         if (found != 0 && found != target) return 0;
         found = target;
     }

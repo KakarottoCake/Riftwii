@@ -174,7 +174,6 @@ typedef struct gcad {
     uint8_t raw[GCAD_PORTS][9];
     uint8_t origin[GCAD_PORTS][6]; /* stick x, y, substick x, y, L, R */
     uint8_t origin_valid[GCAD_PORTS];
-    uint8_t origin_waiting[GCAD_PORTS]; /* a pad is there, no reading at rest yet */
     uint8_t recal_active[GCAD_PORTS];
     uint32_t origin_since[GCAD_PORTS];  /* when the wait for a reading at rest began */
     uint32_t recal_since[GCAD_PORTS];

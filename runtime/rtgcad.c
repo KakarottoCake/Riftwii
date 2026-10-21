@@ -153,7 +153,6 @@ static void set_stale(gcad* g) {
     for (i = 0; i < GCAD_PORTS; ++i) {
         g->raw[i][0] = 0;
         g->origin_valid[i] = 0;
-        g->origin_waiting[i] = 0;
         g->recal_active[i] = 0;
     }
 }
@@ -192,7 +191,6 @@ static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t
         origin[axis] = off ? middle : analog[axis];
     }
     g->origin_valid[port] = 1;
-    g->origin_waiting[port] = 0;
     origin_event(g, port, how, origin);
 }
 
@@ -363,7 +361,6 @@ static void take_report(gcad* g, uint32_t now) {
         if (was != is) gcad_env_event(g, GCAD_EV_PORT, i, src[0]);
         if (!is) {
             g->origin_valid[i] = 0;
-            g->origin_waiting[i] = 0;
             g->recal_active[i] = 0;
             continue;
         }
@@ -376,8 +373,10 @@ static void take_report(gcad* g, uint32_t now) {
          * the stick drift once let go. */
         if (!g->origin_valid[i]) {
             const int at_rest = pad_at_rest(src + 3);
-            if (!g->origin_waiting[i]) {
-                g->origin_waiting[i] = 1;
+            /* The wait starts as the pad appears: every way an origin is
+             * dropped (the port emptied, the link lost) also empties the
+             * port, so the next report shows it appearing again. */
+            if (!was) {
                 g->origin_since[i] = now;
                 /* Once per wait, so a log shows what was passed over. */
                 if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
