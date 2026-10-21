@@ -2806,11 +2806,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     } else {
         mem2_image.swap(mem2_stage);
     }
-    const std::uint32_t tv_mode = image.id.size() > 3 && (image.id[3] == 'P' || image.id[3] == 'D' ||
-                                                          image.id[3] == 'F' || image.id[3] == 'S' ||
-                                                          image.id[3] == 'I' || image.id[3] == 'X')
-                                      ? 1  // PAL
-                                      : 0;
+    const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
     // The picture the game is handed: the Wii's video encoder in the game's
     // region (its own region setting must match the game's picture, or a US
     // game on a PAL Wii shows red as blue), and for a game given 480p the
