@@ -1860,7 +1860,12 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     at = gc_exec_bytes(buf, at, 0x67635F74u, 4);  /* "gc_tgc=" */
     at = gc_exec_bytes(buf, at, 0x67633D00u, 3);
     (void)gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
-    (void)gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf);
+    if (gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf) < 0) {
+        ctx->tgc_count = 0;
+        ctx->busy = 0;
+        gc_irq_restore(msr);
+        return;
+    }
     ctx->busy = 0;
     gc_trace(ctx, GC_TRACE_EXEC);
     gc_irq_restore(msr);
