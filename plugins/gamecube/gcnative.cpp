@@ -2054,8 +2054,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         blob_bytes = rvz_blob.data();
         blob_size = rvz_blob.size();
     }
-    const gc_rt_header& h = *reinterpret_cast<const gc_rt_header*>(blob_bytes);
-    if (blob_size < sizeof(h) || h.magic != GC_RT_MAGIC || h.version != GC_RT_VERSION || h.size > blob_size) {
+    if (blob_size < sizeof(gc_rt_header)) {
+        error = "the GameCube blob is damaged";
+        return false;
+    }
+    // Keep the header by value: the MEM2 move may overwrite the heap the
+    // RVZ blob was decompressed into. Pikmin 2 jumped through a header
+    // word read after that move, reaching the read hook before OSInit.
+    const gc_rt_header h = *reinterpret_cast<const gc_rt_header*>(blob_bytes);
+    if (h.magic != GC_RT_MAGIC || h.version != GC_RT_VERSION || h.size > blob_size) {
         error = "the GameCube blob is damaged";
         return false;
     }
@@ -3037,6 +3044,28 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     DCFlushRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
     ICInvalidateRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
+    // A guard against anything done before the game's OSInit leaving the
+    // blob believing an alarm is queued: OSInitAlarm empties the game's
+    // queue, so the blob would never set that alarm again. Pikmin 2 showed
+    // this when the overwritten RVZ header sent the jump trace to the read
+    // hook before OSInit; its first real disc command then waited forever.
+    // The same state a restart forgets (gc_rt.c, gc_forget_game).
+    ctx->commands = 0;  // the first command after OSInit starts the heartbeat
+    ctx->reads = 0;
+    ctx->read_bytes = 0;
+    ctx->pending_cb = 0;
+    ctx->pending_type = 0;
+    ctx->read_state = 0;  // GC_READ_NONE (gc_rt.c)
+    ctx->alarm_queued = 0;
+    // These resets come after the big flush above, so flush the exact
+    // ranges they touch: if the game's start-up invalidates the data cache,
+    // a dirty line that never reached memory would undo the reset.
+    if (ctx->card != 0) {
+        auto* card = reinterpret_cast<gc_card*>(ctx->card);
+        card->alarm_set = 0;
+        DCFlushRange(card, sizeof(*card));
+    }
+    DCFlushRange(ctx, sizeof(*ctx));
     reinterpret_cast<void (*)()>(dol.entry)();
     return false;
 }
