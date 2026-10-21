@@ -467,6 +467,7 @@ RiftWii's next start reads it once. Two kinds of start are caught:
   disc starts as itself (its menu), the reason in the log. Packs are left off for such a game, and
   its own OSExec switches run as made: exec.txt cannot name a program
   inside a TGC.
+
 Only for an image on the SD card, with a way back. If IOS refuses to
 leave, exec.txt goes back to `--idle--` and the start runs as the game
 made it.
