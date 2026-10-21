@@ -449,7 +449,11 @@ Remotes stay connected. The VI goes back on as the first start found
 it, in the game's TV format and blanked: the SDK's hot reset switches it
 off, which on a GameCube the IPL undoes, and a VIInit that finds it off
 sets it up as NTSC (Doshin the Giant PAL then waited for a retrace that
-never came). The blob also watches the button itself (PI's bit 16) at
+never came). The graphics chip is reset too (PI's FIFO reset register,
+as the menu's GX_AbortFrame does before the first start): a GameCube's
+reset resets it, and Super Mario Sunshine, which parks it at FIFO
+breakpoints every frame, slept in its first GXDrawDone after a restart
+on a Wii. The blob also watches the button itself (PI's bit 16) at
 each pad read: a press the game has not answered with its own
 OSResetSystem within two seconds is answered by calling it for the game.
 OSResetSystem asked for the start-up menu goes back to RiftWii instead.

@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <map>
 #include <set>
-#include <sstream>
 
 #include "riftwii/profiles.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -49,9 +49,9 @@ std::string home_order_key(const std::string& place, const std::string& game_id,
 std::vector<std::string> parse_home_order(const std::string& text) {
     std::vector<std::string> order;
     std::set<std::string> seen;
-    std::istringstream in(text);
+    LineReader in(text);
     std::string line;
-    while (order.size() < kHomeOrderMaxGames && std::getline(in, line)) {
+    while (order.size() < kHomeOrderMaxGames && in.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         while (!line.empty() && (line.back() == ' ' || line.back() == '\t')) line.pop_back();
         if (line.empty() || line[0] == '#') continue;

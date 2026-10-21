@@ -16,11 +16,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <memory>
 #include <set>
 #include <sys/stat.h>
-#include <sstream>
 
 #include "d2xsd.hpp"
 #include "gclaunch.hpp"
@@ -50,6 +48,7 @@
 #include "netsock.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -702,17 +701,9 @@ bool open_rvz_reads(const ImageVolume* volume, const std::string& path, std::str
 }
 
 bool write_if_changed(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
-    {
-        std::ifstream in(path, std::ios::binary);
-        if (in) {
-            std::vector<std::uint8_t> old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            if (old == bytes) return true;
-        }
-    }
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    out.close();
-    if (!out) {
+    std::vector<std::uint8_t> old;
+    if (ReadWholeFile(path, old) && old == bytes) return true;
+    if (!WriteWholeFile(path, bytes.data(), bytes.size())) {
         error = "cannot write " + path;
         return false;
     }
@@ -1030,11 +1021,9 @@ const TitleTable* titles() {
     if (lang != "en") paths.push_back(TitlesPath("en"));
     for (const char* p : kTitleFiles) paths.push_back(p);
     for (const std::string& path : paths) {
-        std::ifstream in(path, std::ios::binary);
-        if (!in) continue;
-        std::stringstream text;
-        text << in.rdbuf();
-        g_titles.add_text(text.str());
+        std::string text;
+        if (!ReadWholeFile(path, text)) continue;
+        g_titles.add_text(text);
         if (g_titles.size() == 0) continue;
         g_titles_from = path;
         logf("Titles: %u game names from %s\n", static_cast<unsigned>(g_titles.size()), path.c_str());

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
 
-#include <sstream>
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -472,9 +472,9 @@ void LaunchModel::restore(const std::string& text) {
     // one-choice convenience existed; normalize that exact shape after all
     // records are known, regardless of their line ordering.
     std::vector<int> restored_enabled(packages.size(), -1);
-    std::istringstream lines(text);
+    LineReader lines(text);
     std::string line;
-    while (std::getline(lines, line)) {
+    while (lines.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
         const std::size_t t1 = line.find('\t');
