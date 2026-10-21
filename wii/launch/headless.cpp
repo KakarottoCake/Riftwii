@@ -202,8 +202,8 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
         }
         if (h.gc_tgc != 0) {
             gc.tgc_offset = h.gc_tgc;
-            logf("GameCube: the disc's menu started the game packed in the TGC image at disc offset 0x%08x: the "
-                 "image starts again with that game\n",
+            logf("GameCube: exec.txt names the game packed in a TGC image at disc offset 0x%08x (the disc's menu "
+                 "started it): the image starts again with that game once the disc shows a TGC there\n",
                  static_cast<unsigned>(h.gc_tgc));
         }
         std::vector<PackageChoices> packs;
