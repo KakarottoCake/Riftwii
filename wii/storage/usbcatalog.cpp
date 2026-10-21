@@ -1718,16 +1718,6 @@ int wii_u_adapter_slot(std::string* why) {
     return 0;
 }
 
-bool cios_reaches_front_ports(int cios_slot) {
-    const int adapter_slot = wii_u_adapter_slot();
-    if (adapter_slot == 0) return false;
-    if (cios_slot == 0 || cios_slot == adapter_slot) return true;
-    for (const D2xSlot& s : d2x_slots()) {
-        if (s.slot == cios_slot) return s.base == 58;
-    }
-    return false;
-}
-
 std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd) {
     if (chosen != 0) return {chosen};
     std::vector<int> order;

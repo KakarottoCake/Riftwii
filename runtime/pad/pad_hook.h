@@ -17,8 +17,6 @@
 
 #include <stdint.h>
 
-#include "rtgcad.h"
-
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
 #define RT_PAD_VERSION 2u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
@@ -57,8 +55,6 @@ struct rt_pad_context {
     uint32_t replies;
     uint32_t flags;            /* RT_PAD_FLAG_* (loader-filled) */
     int32_t known_dev;         /* the adapter's device id from the menu's USB list, -1: none */
-    uint32_t idle_reset;       /* the game's screen-dimming reset for its controller ports, 0: not found */
-    gcad_pad last[GCAD_PORTS]; /* each port as the last PADRead filled it from the adapter */
 };
 
 #ifdef RT_TARGET_PPC

@@ -487,15 +487,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     out.read = pad.read;
     out.read_sites = pad.read_sites;
     out.motor = pad.control_motor;
-    out.idle_reset = pad.idle_reset;
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x\n", out.read,
          out.read_sites, out.motor);
-    if (out.idle_reset != 0) {
-        logf("GameCube adapter: the screen-dimming reset is at 0x%08x, so adapter pads keep the screen lit\n",
-             out.idle_reset);
-    } else {
-        logf("GameCube adapter: no screen-dimming reset found; with burn-in reduction on, adapter-only play may dim the screen\n");
-    }
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
         if (!demo) return false;
@@ -656,7 +649,6 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->inited = 0;
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
-    ctx->idle_reset = out.idle_reset;
     out.active = true;
     logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s\n", h.size, out.code_base,
          out.state_bytes, out.state_base, demo ? " (demo)" : "",

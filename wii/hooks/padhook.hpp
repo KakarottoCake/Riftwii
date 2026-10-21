@@ -43,7 +43,6 @@ struct PadHook {
     std::uint32_t read = 0;          // PADRead
     unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
-    std::uint32_t idle_reset = 0;    // the screen-dimming reset PADRead calls, 0: adapter pads don't keep the screen lit
     std::uint32_t code_base = 0;     // the blob (MEM1)
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;    // the driver state (MEM2)
