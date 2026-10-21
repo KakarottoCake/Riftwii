@@ -1838,9 +1838,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_no_vi_hook = stat("sd:/riftwii/gc/test/novihook", &st_press) == 0;
     const bool test_no_motor = stat("sd:/riftwii/gc/test/nomotor", &st_press) == 0;
     // And of the Wii's video encoder at the hand-over, for the same colours
-    // (red and blue swapped, in 480p only so far): set in NTSC 480p, as the
-    // VI will be once the game's 480p starts, or left as the menu set it.
+    // (red and blue swapped, in 480p only so far): set in NTSC 480p even
+    // for a game without 480p, set in NTSC 480i even for one with it (the
+    // hand-over of earlier builds), or left as the menu set it.
     const bool test_handover_480p = stat("sd:/riftwii/gc/test/handover480p", &st_press) == 0;
+    const bool test_handover_480i = stat("sd:/riftwii/gc/test/handover480i", &st_press) == 0;
     const bool test_ave_keep = stat("sd:/riftwii/gc/test/avekeep", &st_press) == 0;
     // The first GameCube line of boot.log names every test switch that is
     // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
@@ -1862,6 +1864,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_no_vi_hook, "novihook"},
                          {test_no_motor, "nomotor"},
                          {test_handover_480p, "handover480p"},
+                         {test_handover_480i, "handover480i"},
                          {test_ave_keep, "avekeep"},
                          {test_reset, "reset"},
                          {test_exec, "exec"}};
@@ -2976,6 +2979,25 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     } else {
         mem2_image.swap(mem2_stage);
     }
+    const std::uint32_t tv_mode = gc_pal_game(image.id) ? 1 : 0;  // PAL or NTSC
+    // The picture the game is handed: the Wii's video encoder in the game's
+    // region (its own region setting must match the game's picture, or a US
+    // game on a PAL Wii shows red as blue), and for a game given 480p the
+    // VI already in NTSC 480p at 54 MHz, as a GameCube with a component
+    // cable has it when a game starts. Handed over in 480i, a game that
+    // then went to 480p came out with red and blue swapped, its picture
+    // doubled side by side and running slowly (Super Mario Sunshine on a
+    // Wii U, a Wii through HDMI): an educated guess that the game's own
+    // VI set-up leaves the clock at 27 MHz, or that the switch back and
+    // forth loses the TV's or the HDMI adapter's lock. Untested on a Wii.
+    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    const bool handover_480p = handover == RWP_TV_NTSC && (image.progressive || test_handover_480p) && !test_handover_480i;
+    if (test_ave_keep) handover = RWP_TV_KEEP;
+    else if (handover_480p) handover = RWP_TV_NTSC_480P;
+    logf("GameCube: handed over in %s\n", handover == RWP_TV_KEEP          ? "the menu's own video mode (avekeep)"
+                                          : handover == RWP_TV_NTSC_480P ? "NTSC 480p"
+                                          : handover == RWP_TV_PAL       ? "PAL 576i"
+                                                                         : "NTSC 480i");
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     rwp_sd_card card{};
@@ -2984,11 +3006,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->sdhc = card.sdhc ? 1 : 0;
     ctx->card_rca = card.rca;
 
-    const std::uint32_t tv_mode = image.id.size() > 3 && (image.id[3] == 'P' || image.id[3] == 'D' ||
-                                                          image.id[3] == 'F' || image.id[3] == 'S' ||
-                                                          image.id[3] == 'I' || image.id[3] == 'X')
-                                      ? 1  // PAL
-                                      : 0;
     logf("GameCube: entry 0x%08x, FST 0x%08x, blob 0x%08x (%u bytes), %u run(s), arena top 0x%08x, card fd %d %s\n",
          dol.entry, fst_addr, blob_addr, static_cast<unsigned>(h.size), static_cast<unsigned>(placed.size()),
          arena_hi, card.fd, card.sdhc ? "SDHC" : "SDSC");
@@ -3004,12 +3021,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->xfb = xfb;
     ctx->xfb_bytes = xfb_bytes;
     DCFlushRange(ctx, sizeof(*ctx));
-    // The Wii's video encoder in the game's region (its own region setting
-    // must match the game's picture, or a US game on a PAL Wii shows red as
-    // blue), then libogc shut down: RiftWii's shut_down_for_game.
-    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
-    if (test_ave_keep) handover = RWP_TV_KEEP;
-    else if (test_handover_480p && handover == RWP_TV_NTSC) handover = RWP_TV_NTSC_480P;
+    // The picture chosen above, then libogc shut down: RiftWii's
+    // shut_down_for_game.
     plugin::host().shut_down_for_game(handover);
     u32 level;
     _CPU_ISR_Disable(level);
