@@ -7,6 +7,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcbackup.hpp"
 #include <cstdio>
+#include <cstdlib>
 #include <sys/stat.h>
 
 namespace riftwii {
@@ -18,8 +19,23 @@ bool gc_real_dma_range(std::uintptr_t address, std::size_t bytes) {
            bytes != 0 && (bytes & 31u) == 0 && bytes <= mem1_end - address;
 }
 
+bool gc_real_have_room(const std::size_t* sizes, std::size_t count, GcRealAllocate allocate) {
+    if (allocate == nullptr) allocate = std::malloc;
+    if (count > kGcRealMaxBlocks) return false;
+    void* held[kGcRealMaxBlocks];
+    std::size_t taken = 0;
+    while (taken < count) {
+        void* block = allocate(sizes[taken]);
+        if (block == nullptr) break;
+        held[taken++] = block;
+    }
+    for (std::size_t i = 0; i < taken; ++i) std::free(held[i]);
+    return taken == count;
+}
+
 bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std::uint8_t>& target,
-                  const std::string& game_id, bool every_save, GcRealPlan& out, std::string& error) {
+                  const std::string& game_id, bool every_save, GcRealPlan& out, std::string& error,
+                  GcRealAllocate allocate) {
     out = GcRealPlan{};
     GcCardInfo from;
     GcCardInfo to;
@@ -31,6 +47,14 @@ bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std
     }
     if (!every_save && game_id.size() != 6) {
         error = "The game needs a six-character ID.";
+        return false;
+    }
+    // The private image is a copy of the target; export copies of single
+    // saves come on top of it.
+    const std::size_t plan_room[] = {target.size(), kGcRealSlack};
+    if (!gc_real_have_room(plan_room, 2, allocate)) {
+        out.out_of_memory = true;
+        error = "There is not enough free memory to plan the copy.";
         return false;
     }
     // All mutations stay in a private image, including partial imports when
@@ -52,7 +76,13 @@ bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std
 }
 
 bool gc_real_commit(const std::string& path, const std::vector<std::uint8_t>& image,
-                    const std::function<bool()>& source_unchanged, std::string& error) {
+                    const std::function<bool()>& source_unchanged, std::string& error,
+                    GcRealAllocate allocate) {
+    const std::size_t commit_room[] = {image.size(), kGcRealSlack};
+    if (!gc_real_have_room(commit_room, 2, allocate)) {
+        error = "There is not enough free memory to write the copy.";
+        return false;
+    }
     const GcRecovery recovered = gc_recover_card(path, error);
     if (recovered == GcRecovery::Failed || recovered == GcRecovery::BothKept) return false;
     const std::string staged = path + ".real-new";

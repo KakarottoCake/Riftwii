@@ -224,7 +224,8 @@ typedef struct rwp_plugin {
 #define RWP_LAUNCH_FAILED 1     /* the reason is in the request's error */
 #define RWP_LAUNCH_NO_MEMORY 2  /* the loader's heap had no room */
 
-/* Shared with the loader's translated real-card preparation error. */
+/* The text of the gamecube plugin's real-card SRAM failure, for its log and
+ * the request's error text; the DOL acts on rwp_gc_launch's error_code. */
 #define RWP_GC_REAL_CARD_SRAM_ERROR "The real memory card's ID could not be written to SRAM."
 
 /* rwp_plugin.flags and the header's flags. */

@@ -6271,6 +6271,9 @@ static int ChooseTwo(const std::string& title, const std::string& body, const st
 {
 	PopupBox box(title, body, "", tr("Back"));
 	box.CenterCancel();
+	// The body at the top: centred, a short one sat under the tiles
+	// (Dolphin: "Choose the slot holding the memory card" hidden by them).
+	box.BodyAtTop(2);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
@@ -6915,6 +6918,40 @@ static std::string GcRealError(int result)
 	return tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.");
 }
 
+// Reads the whole card with a bar: a 16 MB card is 32,768 reads of 512
+// bytes on this thread, which would otherwise look like a freeze. The bar
+// moves in whole percents, so the GUI is not halted for every sector.
+static int ReadRealCardWithBar(riftwii::wii::GcRealCard& physical, std::vector<std::uint8_t>& raw)
+{
+	int result;
+	{
+		// The bar before the box: it is drawn in the box's window, so it
+		// must last until the box is off the screen.
+		ProgressBar bar(56, 280, 528);
+		PopupBox box(tr("Reading the memory card"), tr("Keep the card in its slot. Nothing is written to it."));
+		box.Add(&bar, 528);
+		ResumeGui();
+		struct Bar {
+			ProgressBar* bar;
+			unsigned shown;
+		} state = {&bar, 101};
+		physical.SetProgress([](unsigned done, unsigned total, void* context) {
+			Bar& state = *static_cast<Bar*>(context);
+			const unsigned percent = static_cast<unsigned>(static_cast<unsigned long long>(done) * 100 / total);
+			if (percent == state.shown) return;
+			state.shown = percent;
+			HaltGui();
+			state.bar->Set(percent / 100.0);
+			ResumeGui();
+		}, &state);
+		result = physical.Read(raw);
+		physical.SetProgress(nullptr, nullptr);
+		HaltGui();
+		box.Close();
+	}
+	return result;
+}
+
 static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 {
 	const int slot = ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
@@ -6923,7 +6960,20 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	riftwii::wii::GcRealCard physical;
 	int result = physical.Open(slot);
 	std::vector<std::uint8_t> raw;
-	if (result >= 0) result = physical.Read(raw);
+	if (result >= 0) {
+		// A 16 MB card is held whole. Ask for it now (the build has no
+		// exceptions, so a vector that cannot grow would abort the menu);
+		// the SD image a saves copy goes to is checked once it is chosen.
+		const std::size_t card = physical.Bytes();
+		const std::size_t needed[] = {card, riftwii::kGcRealSlack};
+		if (!riftwii::gc_real_have_room(needed, 2)) {
+			logf("Memory card: not enough free memory to copy the %u KB card in slot %c; nothing was read or copied.\n",
+				static_cast<unsigned>(card >> 10), 'A' + slot);
+			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+			return;
+		}
+		result = ReadRealCardWithBar(physical, raw);
+	}
 	if (result < 0) {
 		ShowPopup(tr("Memory card"), GcRealError(result), tr("OK"));
 		return;
@@ -6950,7 +7000,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	};
 	if (wholeCard) {
 		if (ShowPopup(tr("Save a copy of the whole card"),
-			tr("Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.",
+			tr("Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.",
 				{std::to_string(source.saves.size())}), tr("Copy"), tr("Cancel")) != 0) return;
 		mkdir("sd:/riftwii/gc/backups", 0777);
 		const std::string folder = "sd:/riftwii/gc/backups/real";
@@ -6968,7 +7018,7 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 		return;
 	}
 	const int choice = ChooseTwo(tr("Copy from a memory card in the Wii"),
-		tr("Choose which saves to copy. The card in the Wii is never written to."),
+		tr("Choose which saves to copy. Nothing is written to the card."),
 		tr("This game's saves"), state.game_id, tr("Every save"), tr("Shared"));
 	if (choice < 0) return;
 	const bool shared = choice == 1;
@@ -6989,7 +7039,29 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	}
 	std::vector<std::uint8_t> target;
 	struct stat status;
-	if (stat(path.c_str(), &status) == 0) {
+	const bool targetExists = stat(path.c_str(), &status) == 0;
+	// An image larger than any card would be refused by the read below:
+	// say so, rather than asking for memory it will never use.
+	if (targetExists && static_cast<unsigned long long>(status.st_size) > riftwii::kGcDolphinMaxRawBytes) {
+		logf("GameCube: %s is %llu bytes, larger than any memory card (%llu); nothing was copied.\n", path.c_str(),
+			static_cast<unsigned long long>(status.st_size), static_cast<unsigned long long>(riftwii::kGcDolphinMaxRawBytes));
+		ShowPopup(tr("Memory card"), tr("RiftWii could not read {1}.", {path}), tr("OK"));
+		return;
+	}
+	// Beside the card already read: the SD image and the plan's copy of
+	// it, at the image's own size (a new one may be formatted up to the
+	// largest a card can be).
+	const std::size_t imageBytes = targetExists && status.st_size > 0
+		? static_cast<std::size_t>(status.st_size)
+		: static_cast<std::size_t>(riftwii::kGcDolphinMaxRawBytes);
+	const std::size_t imageRoom[] = {imageBytes, imageBytes, riftwii::kGcRealSlack};
+	if (!riftwii::gc_real_have_room(imageRoom, 3)) {
+		logf("Memory card: not enough free memory to copy saves into %s (%u KB); nothing was copied.\n",
+			path.c_str(), static_cast<unsigned>(imageBytes >> 10));
+		ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+		return;
+	}
+	if (targetExists) {
 		if (!ReadSmallFile(path, riftwii::kGcDolphinMaxRawBytes, target)) {
 			logf("GameCube: %s could not be read before the copy.\n", path.c_str());
 			ShowPopup(tr("Memory card"), tr("RiftWii could not read {1}.", {path}), tr("OK"));
@@ -7005,6 +7077,10 @@ static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
 	riftwii::GcRealPlan plan;
 	if (!riftwii::gc_real_plan(raw, target, state.game_id, shared, plan, error)) {
 		logf("GameCube: saves from slot %c were not planned: %s\n", 'A' + slot, error.c_str());
+		if (plan.out_of_memory) {
+			ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+			return;
+		}
 		ShowPopup(tr("Memory card"), tr("The SD image is damaged or uses the other text encoding. Nothing was copied."), tr("OK"));
 		return;
 	}
@@ -7055,7 +7131,7 @@ static void MenuGcCard(FrontendState& state)
 	const auto note = [&](int row) -> std::string {
 		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
 		if (real) return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
-		return tr("The card in the Wii is never written to. Copies go to the SD card.");
+		return tr("Nothing is written to the card. Copies go to the SD card.");
 	};
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
 		if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });
@@ -9089,10 +9165,14 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
+					// Own and shared are valid on a Wii U; only the step that
+					// would reach "real" is skipped, and only that says why.
 					if (game.gc_card == "own") game.gc_card = "shared";
 					else if (game.gc_card == "shared" && !riftwii::wii::is_wii_u()) game.gc_card = "real";
-					else game.gc_card = "own";
-					if (riftwii::wii::is_wii_u()) say(tr("Wii U has no GameCube memory card slots."));
+					else {
+						if (game.gc_card == "shared") say(tr("Wii U has no GameCube memory card slots."));
+						game.gc_card = "own";
+					}
 				}
 				else changed = false;
 			}

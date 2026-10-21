@@ -41,6 +41,9 @@ unsigned dma_calls = 0;
 unsigned mount_calls = 0;
 unsigned unmount_calls = 0;
 std::string g_log;
+// What libogc's SRAM holds for each slot's card, and whether a mount changes it.
+syssramex fake_sram{};
+bool mount_changes_sram_id = false;
 
 void reset_faults() {
     probe_result = mount_result = 0;
@@ -91,8 +94,11 @@ int CARD_ProbeEx(int, s32* mbits, s32* sector) {
     *sector = 8192;
     return probe_result;
 }
+extern "C" syssramex* __SYS_LockSramEx(void) { return &fake_sram; }
+extern "C" u32 __SYS_UnlockSramEx(u32) { return 1; }
 int CARD_Mount(int slot, void* buffer, cardcallback detach) {
     ++mount_calls;
+    if (mount_changes_sram_id) ++fake_sram.flash_id[slot][0];
     CHECK(buffer == workarea.data());
     buses[slot].flags |= EXI_FLAG_ATTACH;
     buses[slot].detach = detach;
@@ -287,6 +293,27 @@ int main(int argc, char**) {
     }
     closed(1);
     CHECK(card.Open(0) == 0);
+    card.Close();
+    // The SRAM's card ID is logged when a mount changes it, and only then.
+    CHECK(g_log.find("card ID the Wii keeps in its SRAM") == std::string::npos);
+    mount_changes_sram_id = true;
+    CHECK(card.Open(1) == 0);
+    card.Close();
+    mount_changes_sram_id = false;
+    CHECK(g_log.find("changed the card ID the Wii keeps in its SRAM for that slot") != std::string::npos);
+    // The progress callback sees every 512-byte read, ending at the total.
+    CHECK(card.Open(0) == 0);
+    struct Seen {
+        unsigned calls = 0, done = 0, total = 0;
+    } seen;
+    card.SetProgress([](unsigned done, unsigned total, void* context) {
+        Seen& seen = *static_cast<Seen*>(context);
+        ++seen.calls;
+        seen.done = done;
+        seen.total = total;
+    }, &seen);
+    CHECK(card.ReadSystem(raw) == 0);
+    CHECK(seen.calls == raw.size() / 512 && seen.done == raw.size() && seen.total == raw.size());
     card.Close();
     CHECK(g_log.find("libogc said -6") != std::string::npos);
     CHECK(g_log.find("failed its flash read") != std::string::npos);

@@ -72,6 +72,9 @@ static void test_layout() {
     EXPECT_TRUE(offsetof(rwp_gc_launch, pack_entry_count) < offsetof(rwp_gc_launch, rumble_off));
     EXPECT_TRUE(offsetof(rwp_gc_launch, code_handler_bytes) < offsetof(rwp_gc_launch, crash_screen));
     EXPECT_TRUE(offsetof(rwp_gc_launch, way_back_view_bytes) < offsetof(rwp_gc_launch, error));
+    // The out code is last, and a request is checked against the whole struct, so a DOL
+    // and a plugin of different builds still refuse each other.
+    EXPECT_EQ(offsetof(rwp_gc_launch, error_code) + sizeof(void*), sizeof(rwp_gc_launch));
 }
 
 static void test_plan_round_trip() {

@@ -2760,8 +2760,8 @@ msgstr "Slot A"
 msgid "Slot B"
 msgstr "Slot B"
 
-msgid "Choose which saves to copy. The card in the Wii is never written to."
-msgstr "Scegli quali salvataggi copiare. La scheda nella Wii non viene mai scritta."
+msgid "Choose which saves to copy. Nothing is written to the card."
+msgstr "Scegli quali salvataggi copiare. Sulla scheda non viene scritto nulla."
 
 msgid "This game's saves"
 msgstr "Salvataggi di questo gioco"
@@ -2772,8 +2772,8 @@ msgstr "Tutti i salvataggi"
 msgid "Copy"
 msgstr "Copia"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
-msgstr "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? La scheda nella Wii non viene mai scritta."
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card."
+msgstr "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? Sulla scheda non viene scritto nulla."
 
 msgid "Copied to {1}."
 msgstr "Copiato in {1}."
@@ -2802,8 +2802,8 @@ msgstr "L'immagine su SD è danneggiata o usa l'altra codifica. Nulla è stato c
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "Copia non riuscita. La scheda nel Wii non è stata modificata."
 
-msgid "The card in the Wii is never written to. Copies go to the SD card."
-msgstr "La scheda nella Wii non viene mai scritta. Le copie vanno sulla scheda SD."
+msgid "Nothing is written to the card. Copies go to the SD card."
+msgstr "Sulla scheda non viene scritto nulla. Le copie vanno sulla scheda SD."
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "Questo gioco usa la scheda reale nello slot A. I salvataggi non sono sulla scheda SD."
@@ -2813,6 +2813,12 @@ msgstr "Usa la scheda SD di questo gioco"
 
 msgid "Wii U has no GameCube memory card slots."
 msgstr "Wii U non ha slot per schede di memoria GameCube."
+
+msgid "Reading the memory card"
+msgstr "Lettura della scheda di memoria"
+
+msgid "Keep the card in its slot. Nothing is written to it."
+msgstr "Lascia la scheda nello slot. Non viene scritto nulla."
 
 msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
 msgstr "Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A."
