@@ -303,8 +303,10 @@ bool CopyFile(const std::string& from, const std::string& to) {
     std::size_t got = 0;
     while (ok && (got = std::fread(buffer, 1, sizeof buffer, in)) > 0)
         ok = std::fwrite(buffer, 1, got, out) == got;
+    if (std::ferror(in)) ok = false;
     std::fclose(in);
-    if (out) std::fclose(out);
+    if (out && std::fclose(out) != 0) ok = false;
+    if (!ok) std::remove(to.c_str());
     return ok;
 }
 
@@ -367,10 +369,12 @@ void RotateSessionLog() {
     mkdir(folder.c_str(), 0777);
     const std::string archived = folder + "/session.log";
     MoveFile(kSessionLog, archived);
-    MoveFile("sd:/riftwii/boot.log", folder + "/boot.log");
-    MoveFile(kCrashFile, folder + "/crash.txt");
-    MoveFile(kGameCrashFile, folder + "/gamecrash.txt");
-    MoveFile(kWpadLogFile, folder + "/wpadlog.txt");
+    // The report and crash importer still need the most recent files at
+    // their original paths after the session has been archived.
+    CopyFile("sd:/riftwii/boot.log", folder + "/boot.log");
+    CopyFile(kCrashFile, folder + "/crash.txt");
+    CopyFile(kGameCrashFile, folder + "/gamecrash.txt");
+    CopyFile(kWpadLogFile, folder + "/wpadlog.txt");
     std::remove(kPreviousLog);
     CopyFile(archived, kPreviousLog);
     PruneLogFolders();

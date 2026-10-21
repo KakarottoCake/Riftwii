@@ -1010,6 +1010,10 @@ static std::string GameName(const riftwii::wii::ImageGame& g)
 // (a drive, or the Wii's own channels) and its ID.
 static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 {
+	if (entry.kind == HomeEntry::Kind::App) {
+		const auto& apps = riftwii::wii::HomebrewApps();
+		return entry.index < apps.size() ? "app:" + apps[entry.index].folder : std::string();
+	}
 	if (entry.kind == HomeEntry::Kind::Channel)
 		return riftwii::home_order_key("wii", state.channels[entry.index].game_id, 0);
 	const bool usb = entry.kind == HomeEntry::Kind::Usb;
@@ -1981,15 +1985,15 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	if (!status.empty()) return status;
 	if (!g_search.empty()) {
 		if (games == 0)
-			return g_filter == Filter::Homebrew ? tr("No homebrew matches \"{1}\". Press 1 for all games.", {g_search})
+			return g_filter == Filter::Homebrew ? tr("No homebrew matches \"{1}\". Press 1 to change the view.", {g_search})
 				: tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
 		return tr("Search \"{1}\"", {g_search}) + ": " + ShownCount(g_filter, games) + "\n" + tr("1: all games");
 	}
 	if (g_filter == Filter::Mods && games == 0) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
 	if (g_filter == Filter::Homebrew && games == 0)
 		return riftwii::wii::HomebrewFoldersRead()
-			? tr("No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games.")
-			: tr("The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games.");
+			? tr("No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view.")
+			: tr("The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view.");
 	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
@@ -4181,6 +4185,7 @@ static int MenuSource(FrontendState& state)
 	// tile. Other games take those tiles after a refresh (a search, another
 	// view): their banners are looked for again.
 	int bannerPageDone = -1;
+	std::time_t bannerRetryAt = 0;
 	// Home's line: while the drives are read, what the scan is reading.
 	std::string shownScanStatus;
 	const auto homeStatusText = [&]() -> std::string {
@@ -4328,8 +4333,11 @@ static int MenuSource(FrontendState& state)
 				sdMisses = 0;
 			} else if (++sdMisses >= 2) {
 				sdMisses = 0;
+				HaltGui();
 				WaitForSdCard();
-				return MENU_EXIT;
+				menu = MENU_EXIT;
+				ResumeGui();
+				break;
 			}
 		}
 		std::string coverNote;
@@ -4423,21 +4431,37 @@ static int MenuSource(FrontendState& state)
 		// (a moment each, once: they are kept on the card).
 		// Once a page's games have all been looked at, it is not looked at again.
 		// Not while the scan has the drives.
+		if (bannerRetryAt != 0 && std::time(nullptr) >= bannerRetryAt) {
+			bannerPageDone = -1;
+			bannerRetryAt = 0;
+		}
 		if (!g_scanning && grid.Channels() && grid.PageFirst() != bannerPageDone) {
 			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
 			bool read = false;
+			bool retryPending = false;
 			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) {
 				const HomeEntry& e = entries[k];
 				if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App ||
-				    !g_bannersTried.insert(items[k].id).second)
+				    g_bannersTried.count(items[k].id))
 					continue;
-				if (!riftwii::wii::BannerWanted(items[k].id)) continue;
+				if (!riftwii::wii::BannerWanted(items[k].id)) {
+					retryPending = retryPending || riftwii::wii::BannerRetryPending(items[k].id);
+					continue;
+				}
 				std::string why;
-				if (StoreEntryBanner(state, e, why)) g_bannerAbsent.erase(items[k].id);
+				if (StoreEntryBanner(state, e, why)) {
+					g_bannerAbsent.erase(items[k].id);
+					g_bannersTried.insert(items[k].id);
+				} else if (!riftwii::wii::BannerRetryPending(items[k].id)) {
+					g_bannersTried.insert(items[k].id);
+				}
 				read = true;
 				break;
 			}
-			if (!read) bannerPageDone = grid.PageFirst();
+			if (!read) {
+				bannerPageDone = grid.PageFirst();
+				if (retryPending) bannerRetryAt = std::time(nullptr) + 20;
+			}
 		}
 		// Channels: one icon a turn, the page shown's first (with the next
 		// page's column peeking in), then the next page's, then the last's.
@@ -4525,6 +4549,20 @@ static int MenuSource(FrontendState& state)
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
 			showStatus();
+		// Homebrew icons are loaded once per turn, after the scan has
+		// released the drives and while the GUI cannot read the cache.
+		if (!g_scanning && grid.Channels()) {
+			const auto& apps = riftwii::wii::HomebrewApps();
+			const int first = grid.PageFirst();
+			for (int k = std::max(0, first); k < first + GuiGameGrid::kPerPage + 4 && k < static_cast<int>(entries.size()); ++k) {
+				const HomeEntry& entry = entries[static_cast<std::size_t>(k)];
+				if (entry.kind != HomeEntry::Kind::App || entry.index >= apps.size()) continue;
+				const std::string& folder = apps[entry.index].folder;
+				if (!riftwii::wii::AppIconWanted(folder)) continue;
+				riftwii::wii::LoadAppIcon(folder);
+				break;
+			}
+		}
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!gcBannerArrived.empty()) {
 			// The disc's picture gives way to the animated banner at the next turn.
@@ -5117,11 +5155,11 @@ static std::string ChannelSaveChoiceName(const std::string& value) {
 static std::string ChannelSaveChoiceNote(const FrontendState& state) {
 	const bool wii_copy = state.model.game.nand_source == "real";
 	if (state.model.game.channel_save == "wii") {
-		if (wii_copy) return tr("The Wii's copy along with it's own save starts");
+		if (wii_copy) return tr("The Wii's own copy starts with its save.");
 		return tr("The Wii's save is copied into the emulated NAND to be used.");
 	}
-	return wii_copy ? tr("Saves stay on the Wii with it's own copy booting up.")
-					: tr("Saves stay on the emulated NAND with it's own copy booting up.");
+	return wii_copy ? tr("Saves stay on the Wii when its own copy starts.")
+					: tr("Saves stay in the emulated NAND when its copy starts.");
 }
 
 static void CycleChannelNand(FrontendState& state) {
@@ -11106,6 +11144,7 @@ static void WaitForSdCard()
 		statusTxt.SetText(tr("The card did not mount. Take it out, check it, and put it back in."));
 		ResumeGui();
 	}
+	HaltGui();
 	mainWindow->Remove(&w);
 	ExitRequested = 1;  // back to the Homebrew Channel, or out to the Wii Menu
 }

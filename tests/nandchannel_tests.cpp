@@ -179,6 +179,45 @@ std::vector<std::uint8_t> dol_head(std::uint32_t text) {
     return h;
 }
 
+void test_program_compression() {
+    std::string error;
+    for (std::uint8_t type : {0x10, 0x11}) {
+        // An asymmetric extended size distinguishes little-endian from
+        // big-endian without needing a large allocation in this test.
+        std::vector<std::uint8_t> packed = {type, 0, 0, 0, 3, 0, 0, 0, 0, 'D', 'O', 'L'};
+        EXPECT_TRUE(channel_program_compressed(packed.data(), packed.size()));
+        std::vector<std::uint8_t> decoded = packed;
+        EXPECT_TRUE(unpack_channel_program(decoded, error));
+        EXPECT_TRUE((decoded == std::vector<std::uint8_t>{'D', 'O', 'L'}));
+
+        std::vector<std::uint8_t> wrapped = {'L', 'Z', '7', '7'};
+        wrapped.insert(wrapped.end(), packed.begin(), packed.end());
+        EXPECT_TRUE(channel_program_compressed(wrapped.data(), wrapped.size()));
+        EXPECT_TRUE(unpack_channel_program(wrapped, error));
+        EXPECT_TRUE(wrapped == decoded);
+
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), 7));
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), 8));
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size(), 2));
+        packed[4] = 0;
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size()));
+        packed[7] = 2;  // 32 MiB is above the default program limit.
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size()));
+    }
+    EXPECT_TRUE(!channel_program_compressed(nullptr, 0));
+
+    // A first byte alone must not let an invalid compressed content 1
+    // displace the actual program in another content.
+    TmdContents tmd;
+    tmd.boot_index = 1;
+    tmd.contents = {{1, 1, 1, 0x1000}, {2, 2, 1, 0x3000}};
+    const std::vector<std::uint8_t> invalid = {0x11, 0, 0, 0, 0, 0, 0, 0};
+    ChannelProgram program;
+    EXPECT_TRUE(choose_channel_program(tmd, {{1, 0x1000, invalid}, {2, 0x3000, dol_head(0x2000)}},
+                                       program, error));
+    EXPECT_EQ(program.index, 2);
+}
+
 void test_program() {
     TmdContents tmd;
     tmd.boot_index = 1;
@@ -408,6 +447,7 @@ int main() {
     test_tmd();
     test_paths();
     test_program();
+    test_program_compression();
     test_cheat_code();
     test_unlisted_verdict();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;

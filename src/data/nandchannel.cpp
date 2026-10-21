@@ -43,29 +43,40 @@ constexpr std::size_t kMaxShownPath = 60;
 
 bool printable(std::uint8_t c) { return c >= 0x20 && c < 0x7F; }
 
-bool lz77_nand(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& out,
-               std::size_t max_out, std::string& error) {
-    if (size < 4) {
+bool nand_lz_header(const std::uint8_t* data, std::size_t size, std::size_t max_out,
+                    std::size_t& at, std::size_t& want, std::string& error) {
+    if (data == nullptr || size < 4) {
         error = "the compression header ends early";
         return false;
     }
-    const std::uint8_t type = data[0];
-    std::size_t at = 4;
-    std::size_t want = static_cast<std::size_t>(data[1]) | (static_cast<std::size_t>(data[2]) << 8) |
-                       (static_cast<std::size_t>(data[3]) << 16);
-    if (type == 0x11 && want == 0) {
+    if (data[0] != 0x10 && data[0] != 0x11) {
+        error = "it is not LZ77-compressed";
+        return false;
+    }
+    at = 4;
+    want = static_cast<std::size_t>(data[1]) | (static_cast<std::size_t>(data[2]) << 8) |
+           (static_cast<std::size_t>(data[3]) << 16);
+    if (want == 0) {
         if (size < 8) {
             error = "the compression header ends early";
             return false;
         }
-        want = (static_cast<std::size_t>(data[4]) << 24) | (static_cast<std::size_t>(data[5]) << 16) |
-               (static_cast<std::size_t>(data[6]) << 8) | data[7];
+        want = static_cast<std::size_t>(data[4]) | (static_cast<std::size_t>(data[5]) << 8) |
+               (static_cast<std::size_t>(data[6]) << 16) | (static_cast<std::size_t>(data[7]) << 24);
         at = 8;
     }
     if (want == 0 || want > max_out) {
         error = "it unpacks to " + std::to_string(want) + " bytes, not a size a program can be";
         return false;
     }
+    return true;
+}
+
+bool lz77_nand(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& out,
+               std::size_t max_out, std::string& error) {
+    std::size_t at = 0, want = 0;
+    if (!nand_lz_header(data, size, max_out, at, want, error)) return false;
+    const std::uint8_t type = data[0];
     std::vector<std::uint8_t> unpacked;
     while (unpacked.size() < want) {
         if (at >= size) {
@@ -139,6 +150,17 @@ bool lz77_nand(const std::uint8_t* data, std::size_t size, std::vector<std::uint
 
 }  // namespace
 
+bool channel_program_compressed(const std::uint8_t* data, std::size_t size, std::size_t max_out) {
+    if (data == nullptr || size < 4) return false;
+    if (std::memcmp(data, "LZ77", 4) == 0) {
+        data += 4;
+        size -= 4;
+    }
+    std::size_t payload = 0, unpacked = 0;
+    std::string error;
+    return nand_lz_header(data, size, max_out, payload, unpacked, error) && size > payload;
+}
+
 bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error, std::size_t max_out) {
     if (data.size() < 4) {
         error = "it is too short to be a program";
@@ -146,7 +168,7 @@ bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error,
     }
     std::vector<std::uint8_t> unpacked;
     if (std::memcmp(data.data(), "LZ77", 4) == 0) {
-        if (!lz77_decompress(data.data(), data.size(), unpacked, error, max_out)) return false;
+        if (!lz77_nand(data.data() + 4, data.size() - 4, unpacked, max_out, error)) return false;
     } else if (data[0] == 0x10 || data[0] == 0x11) {
         if (!lz77_nand(data.data(), data.size(), unpacked, max_out, error)) return false;
     } else {
@@ -351,9 +373,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         const TmdContent* record = tmd_content_by_index(tmd, start.index);
         const bool shared = record && (record->type & 0x8000) != 0;
         if (!record || shared || start.index == 0) continue;
-        const bool compressed = start.head.size() >= 4 &&
-                                (start.head[0] == 0x10 || start.head[0] == 0x11 ||
-                                 std::memcmp(start.head.data(), "LZ77", 4) == 0);
+        const bool compressed = channel_program_compressed(start.head.data(), start.head.size());
         DolHeader dol;
         std::string why;
         std::string format;

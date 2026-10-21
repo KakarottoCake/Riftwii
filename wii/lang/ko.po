@@ -2737,7 +2737,7 @@ msgid "Transparent"
 msgstr "투명"
 
 msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
-msgstr "흰은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다."
+msgstr "흰색은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다."
 
 msgid "Network Test"
 msgstr "네트워크 테스트"
@@ -2772,17 +2772,17 @@ msgstr "게임과 함께"
 msgid "The Wii's save"
 msgstr "Wii 본체의 세이브"
 
-msgid "The Wii's copy along with it's own save starts"
-msgstr "Wii 본체의 사본이 자체 세이브와 함께 시작됩니다"
+msgid "The Wii's own copy starts with its save."
+msgstr "Wii 본체의 사본이 자체 저장 데이터와 함께 시작됩니다."
 
 msgid "The Wii's save is copied into the emulated NAND to be used."
 msgstr "Wii 본체의 세이브는 사용하기 위해 에뮬레이트 NAND로 복사됩니다."
 
-msgid "Saves stay on the Wii with it's own copy booting up."
-msgstr "세이브는 Wii 본체에 남고 자체 사본이 부팅됩니다."
+msgid "Saves stay on the Wii when its own copy starts."
+msgstr "Wii 본체의 사본을 시작하면 저장 데이터는 Wii 본체에 남습니다."
 
-msgid "Saves stay on the emulated NAND with it's own copy booting up."
-msgstr "세이브는 에뮬레이트 NAND에 남고 자체 사본이 부팅됩니다."
+msgid "Saves stay in the emulated NAND when its copy starts."
+msgstr "에뮬레이트 NAND의 사본을 시작하면 저장 데이터는 그곳에 남습니다."
 
 msgid "Where this game's save will live."
 msgstr "이 게임의 세이브가 저장될 위치입니다."
@@ -2811,14 +2811,14 @@ msgstr "앱 1개"
 msgid "{1} apps"
 msgstr "앱 {1}개"
 
-msgid "No homebrew matches \"{1}\". Press 1 for all games."
-msgstr "\"{1}\"와 일치하는 홈브류가 없습니다. 모든 게임을 보려면 1번을 누르세요."
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요."
 
-msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games."
-msgstr "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 모든 게임을 보려면 1번을 누르세요."
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요."
 
-msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games."
-msgstr "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 모든 게임을 보려면 1번을 누르세요."
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
+msgstr "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요."
 
 msgid "It cannot start: {1}."
 msgstr "시작할 수 없습니다: {1}."
@@ -2833,7 +2833,7 @@ msgid "Real NAND (not here)"
 msgstr "실제 NAND (여기 없음)"
 
 msgid "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel."
-msgstr "RiftWii는 설정, 로그, 표지를 SD 카드에 보관하기 때문에 카드 없이는 메뉴를 안전하게 계속할 수 없습니다. 카드를 다시 넣고 A를 누르면 RiftWii가 카드에서 다시 시작합니다. 돌아오지 않으면 종료를 선택해 홈브루 채널로 이동하세요."
+msgstr "RiftWii는 설정, 로그, 표지를 SD 카드에 보관하기 때문에 카드 없이는 메뉴를 안전하게 계속할 수 없습니다. 카드를 다시 넣고 A를 누르면 RiftWii가 카드에서 다시 시작합니다. 돌아오지 않으면 종료를 선택해 홈브류 채널로 이동하세요."
 
 msgid "Show all channels even if they aren't detected as a game."
 msgstr "게임으로 감지되지 않은 채널도 모두 표시합니다."

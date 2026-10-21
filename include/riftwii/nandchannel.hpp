@@ -175,6 +175,11 @@ struct ChannelProgram {
 bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
                             std::string& error);
 
+// A complete LZ10/LZ11 header, with a bounded output size and some payload.
+// Used both while choosing a content and after reading it in full.
+bool channel_program_compressed(const std::uint8_t* data, std::size_t size,
+                                 std::size_t max_out = 24u << 20);
+
 bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error,
                             std::size_t max_out = 24u << 20);
 

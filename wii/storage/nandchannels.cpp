@@ -572,9 +572,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         const bool program_read = emulated ? read_card_file(emu_nand + program_path, kMaxProgramBytes, files.dol, error)
                                            : read_whole(access, program_path, kMaxProgramBytes, files.dol, error);
         if (!program_read) return false;
-        const bool compressed = files.dol.size() >= 4 &&
-                                (std::memcmp(files.dol.data(), "LZ77", 4) == 0 ||
-                                 files.dol[0] == 0x10 || files.dol[0] == 0x11);
+        const bool compressed = channel_program_compressed(files.dol.data(), files.dol.size());
         if (compressed) {
             std::vector<std::uint8_t> packed = files.dol;
             if (!unpack_channel_program(files.dol, why)) {

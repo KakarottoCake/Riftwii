@@ -319,7 +319,7 @@ bool copy_wii_save_into(const std::string& dir, std::uint64_t title_id, bool& co
     return true;
 }
 
-bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted) {
+bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted, bool full_nand) {
     if (dir.compare(0, 4, "sd:/") != 0) {
         error = "not a folder of the SD card";
         return false;
@@ -327,7 +327,6 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_rem
     static char path[256] ATTRIBUTE_ALIGN(32);
     std::snprintf(path, sizeof(path), "%s", dir.c_str() + 3);
     static u32 mode ATTRIBUTE_ALIGN(32) = kModeSd;
-    const bool full_nand = is_dir(dir + "/sys") && is_dir(dir + "/title");
     // libfat's writes reach the card before d2x reads its FAT.
     LogClose();
     fatUnmount("sd:");

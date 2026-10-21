@@ -801,7 +801,8 @@ T = {
         "Este juego necesita casi toda la memoria de la Wii, y los bloques de {1} KiB de este RVZ ocupan unos {2} KB durante el juego: así se colgaba Newer Super Mario Bros. Wii. Si se cuelga, vuelve a convertir el RVZ en Dolphin con un tamaño de bloque de 32 KiB.",
         "このゲームはWiiのメモリをほぼすべて使います。このRVZの{1} KiBのブロックはゲーム中に約{2} KBを使うため、Newer Super Mario Bros. Wiiはこれで止まりました。止まる場合は、DolphinでRVZをブロックサイズ32 KiBで変換し直してください。",
         "Este jogo precisa de quase toda a memória do Wii, e os blocos de {1} KiB deste RVZ ocupam cerca de {2} KB dela durante o jogo: foi assim que o Newer Super Mario Bros. Wii travou. Se travar, converta o RVZ de novo no Dolphin com um tamanho de bloco de 32 KiB.",
-        "Questo gioco usa quasi tutta la memoria del Wii, e i blocchi da {1} KiB di questo RVZ ne occupano circa {2} KB durante il gioco: Newer Super Mario Bros. Wii si bloccava così. Se si blocca, riconverti l'RVZ in Dolphin con una dimensione dei blocchi di 32 KiB."),
+        "Questo gioco usa quasi tutta la memoria della Wii, e i blocchi da {1} KiB di questo RVZ ne occupano circa {2} KB durante il gioco: Newer Super Mario Bros. Wii si bloccava così. Se si blocca, riconverti l'RVZ in Dolphin con una dimensione dei blocchi di 32 KiB.",
+    ),
     # Packs on USB
     "Packs on USB are experimental; if it fails, copy them to SD.": (
         "Los packs en USB son experimentales; si falla, cópialos a la SD.",
@@ -1894,10 +1895,11 @@ T = {
         "Qual porta?",
         "Quale porta?"),
     "Wii Remote rumble": (
-        "Vibración del Wii Remote",
+        "Vibración de la Wii Remote",
         "Wiiリモコンの振動",
         "Vibração do Wii Remote",
-        "Vibrazione del Wii Remote"),
+        "Vibrazione della Wii Remote",
+    ),
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.": (
         "settings.txt desactiva partes de RiftWii para pruebas (debug_off = {1}). Quítalas salvo que los desarrolladores de RiftWii te pidieran mantenerlas.",
         "settings.txtがテスト用にRiftWiiの一部をオフにしています (debug_off = {1})。RiftWiiの開発者に残すよう言われていなければ外してください。",
@@ -2270,7 +2272,6 @@ T = {
         "Branco põe uma caixa atrás dos banners dos canais no menu para que eles não fiquem transparentes.",
         "Bianco mette una cornice dietro i banner dei canali nel menu, così non diventano trasparenti."),
     "Network Test": ("Prueba de red", "ネットワークテスト", "Teste de rede", "Test di rete"),
-    "Test": ("Probar", "テスト", "Testar", "Prova"),
     "Testing the network...": ("Probando la red...", "ネットワークをテストしています...", "Testando a rede...", "Test della rete in corso..."),
     "Offline": ("Sin conexión", "オフライン", "Offline", "Offline"),
     "Checks if network is online.": (
@@ -2283,7 +2284,7 @@ T = {
         "ゲーム以外のチャンネルを表示",
         "Mostrar canais que não são jogos",
         "Mostra i canali non di gioco"),
-        "Nintendo's own channels are listed on Home now.": (
+    "Nintendo's own channels are listed on Home now.": (
         "Los canales de Nintendo ya se listan en el inicio.",
         "任天堂のチャンネルをホームに表示するようにしました。",
         "Os canais da Nintendo já aparecem no início.",
@@ -2296,34 +2297,48 @@ T = {
     "Boot from": ("Iniciar desde", "起動元", "Iniciar de", "Avvia da"),
     "Boot": ("Iniciar", "起動", "Iniciar", "Avvia"),
     "With the game": ("Con el juego", "ゲームに合わせる", "Com o jogo", "Con il gioco"),
-    "The Wii's save": ("La partida del Wii", "Wii本体のセーブ", "O save do Wii", "Il salvataggio del Wii"),
-    "The Wii's copy along with it's own save starts": (
-        "Se inicia la copia del Wii con su propia partida",
-        "Wii本体のコピーが、そのセーブとともに起動します",
-        "A cópia do Wii inicia junto com o próprio save",
-        "Si avvia la copia del Wii con il suo salvataggio"),
+    "The Wii's save": (
+        "La partida de la Wii",
+        "Wii本体のセーブ",
+        "O save do Wii",
+        "Il salvataggio della Wii",
+    ),
+    "The Wii's own copy starts with its save.": (
+        "La copia de la Wii se inicia con su partida.",
+        "Wii本体のコピーが、そのセーブとともに起動します。",
+        "A cópia do Wii inicia com o próprio save.",
+        "La copia della Wii si avvia con il suo salvataggio.",
+    ),
     "The Wii's save is copied into the emulated NAND to be used.": (
-        "La partida del Wii se copia al NAND emulado para usarse.",
+        "La partida de la Wii se copia a la NAND emulada para usarse.",
         "Wii本体のセーブは、使うためにエミュレートNANDへコピーされます。",
-        "O save do Wii é copiado para o NAND emulado para ser usado.",
-        "Il salvataggio del Wii viene copiato nel NAND emulato per essere usato."),
-    "Saves stay on the Wii with it's own copy booting up.": (
-        "Las partidas se quedan en el Wii con su propia copia iniciándose.",
-        "セーブはWii本体に残り、そのコピーが起動します。",
-        "Os saves ficam no Wii com a própria cópia iniciando.",
-        "I salvataggi restano sul Wii con la sua copia che si avvia."),
-    "Saves stay on the emulated NAND with it's own copy booting up.": (
-        "Las partidas se quedan en el NAND emulado con su propia copia iniciándose.",
-        "セーブはエミュレートNANDに残り、そのコピーが起動します。",
-        "Os saves ficam no NAND emulado com a própria cópia iniciando.",
-        "I salvataggi restano nel NAND emulato con la sua copia che si avvia."),
+        "O save do Wii é copiado para a NAND emulada para ser usado.",
+        "Il salvataggio della Wii viene copiato nella NAND emulata per essere usato.",
+    ),
+    "Saves stay on the Wii when its own copy starts.": (
+        "Las partidas se quedan en la Wii cuando se inicia su copia.",
+        "Wii本体のコピーが起動すると、セーブはWii本体に残ります。",
+        "Os saves ficam no Wii quando a própria cópia inicia.",
+        "I salvataggi restano sulla Wii quando si avvia la sua copia.",
+    ),
+    "Saves stay in the emulated NAND when its copy starts.": (
+        "Las partidas se quedan en la NAND emulada cuando se inicia su copia.",
+        "エミュレートNANDのコピーが起動すると、セーブはそこに残ります。",
+        "Os saves ficam na NAND emulada quando sua cópia inicia.",
+        "I salvataggi restano nella NAND emulata quando si avvia la sua copia.",
+    ),
     "Where this game's save will live.": (
         "Dónde se guardará la partida de este juego.",
         "このゲームのセーブの保存先です。",
         "Onde o save deste jogo vai ficar.",
         "Dove verrà salvato il salvataggio di questo gioco."),
     "Real NAND": ("NAND real", "実NAND", "NAND real", "NAND reale"),
-    "Emulated NAND": ("NAND emulado", "エミュレートNAND", "NAND emulado", "NAND emulato"),
+    "Emulated NAND": (
+        "NAND emulada",
+        "エミュレートNAND",
+        "NAND emulada",
+        "NAND emulata",
+    ),
     "Where the game will boot from. If set to Automatic, RiftWii will guess.": (
         "Desde dónde se iniciará el juego. Con Automático, RiftWii lo deduce.",
         "ゲームをどこから起動するかです。自動にすると、RiftWiiが判断します。",
@@ -2336,37 +2351,51 @@ T = {
         "O IOS com que o RiftWii inicia o canal.",
         "L'IOS con cui RiftWii avvia il canale."),
     # Home's Homebrew view (the apps in sd:/apps and usb:/apps)
-    "Homebrew": ("Homebrew", "ホームブリュー", "Homebrew", "Homebrew"),
+    "Homebrew": (
+        "Homebrew",
+        "Homebrew",
+        "Homebrew",
+        "Homebrew",
+    ),
     "1 app": ("1 app", "1個のアプリ", "1 app", "1 app"),
     "{1} apps": ("{1} apps", "{1}個のアプリ", "{1} apps", "{1} app"),
-    "No homebrew matches \"{1}\". Press 1 for all games.": (
-        "Ningún homebrew coincide con «{1}». Pulsa 1 para ver todos los juegos.",
-        "「{1}」に一致するホームブリューはありません。1ですべてのゲームを表示します。",
-        "Nenhum homebrew corresponde a \"{1}\". Aperte 1 para ver todos os jogos.",
-        "Nessun homebrew corrisponde a \"{1}\". Premi 1 per tutti i giochi."),
-    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games.": (
-        "Aún no hay homebrew: cada app es una carpeta en sd:/apps o usb:/apps con su boot.dol y su meta.xml. Pulsa 1 para ver todos los juegos.",
-        "ホームブリューがまだありません。各アプリはsd:/appsまたはusb:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1ですべてのゲームを表示します。",
-        "Ainda não há homebrew: cada app é uma pasta em sd:/apps ou usb:/apps com seu boot.dol e seu meta.xml. Aperte 1 para ver todos os jogos.",
-        "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps o usb:/apps con il suo boot.dol e il suo meta.xml. Premi 1 per tutti i giochi."),
-    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games.": (
-        "No se pudieron leer las carpetas de apps (sd:/apps y usb:/apps). Pulsa 1 para ver todos los juegos.",
-        "アプリのフォルダ (sd:/appsとusb:/apps) を読めませんでした。1ですべてのゲームを表示します。",
-        "Não foi possível ler as pastas de apps (sd:/apps e usb:/apps). Aperte 1 para ver todos os jogos.",
-        "Non è stato possibile leggere le cartelle delle app (sd:/apps e usb:/apps). Premi 1 per tutti i giochi."),
+    "No homebrew matches \"{1}\". Press 1 to change the view.": (
+        "Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista.",
+        "「{1}」に一致するHomebrewはありません。1で表示を切り替えます。",
+        "Nenhum homebrew corresponde a \"{1}\". Aperte 1 para mudar a vista.",
+        "Nessun homebrew corrisponde a \"{1}\". Premi 1 per cambiare vista.",
+    ),
+    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view.": (
+        "Aún no hay homebrew: cada app es una carpeta en sd:/apps o usb:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista.",
+        "Homebrewがまだありません。各アプリはsd:/appsまたはusb:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。",
+        "Ainda não há homebrew: cada app é uma pasta em sd:/apps ou usb:/apps com seu boot.dol e meta.xml. Aperte 1 para mudar a vista.",
+        "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps o usb:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista.",
+    ),
+    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view.": (
+        "No se pudieron leer las carpetas de apps (sd:/apps y usb:/apps). Pulsa 1 para cambiar la vista.",
+        "アプリのフォルダ（sd:/appsとusb:/apps）を読めませんでした。1で表示を切り替えます。",
+        "As pastas de apps (sd:/apps e usb:/apps) não puderam ser lidas. Aperte 1 para mudar a vista.",
+        "Impossibile leggere le cartelle delle app (sd:/apps e usb:/apps). Premi 1 per cambiare vista.",
+    ),
             "It cannot start: {1}.": ("No puede iniciarse: {1}.", "起動できません: {1}。", "Não pode ser iniciado: {1}.", "Non può avviarsi: {1}."),
         "The app will start when ready.": (
         "La app se iniciará cuando esté lista.",
         "アプリは準備ができると起動します。",
         "O app inicia quando estiver pronto.",
         "L'app si avvierà quando è pronta."),
-    "Emulated NAND (not here)": ("NAND emulado (no aquí)", "エミュレートNAND (ここにはありません)", "NAND emulado (não aqui)", "NAND emulato (non qui)"),
+    "Emulated NAND (not here)": (
+        "NAND emulada (no aquí)",
+        "エミュレートNAND (ここにはありません)",
+        "NAND emulada (não aqui)",
+        "NAND emulata (non qui)",
+    ),
     "Real NAND (not here)": ("NAND real (no aquí)", "実NAND (ここにはありません)", "NAND real (não aqui)", "NAND reale (non qui)"),
     "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel.": (
-        "RiftWii guarda sus ajustes, registros y carátulas en la tarjeta SD, así que el menú no puede continuar sin ella. Vuelve a poner la tarjeta y pulsa A: RiftWii se reiniciará desde ella. Si no vuelve, elige Salir para ir al Canal Homebrew.",
-        "RiftWiiは設定、ログ、カバーをSDカードに保存しているため、カードがないとメニューを安全に続けられません。カードを入れ直してAを押すと、RiftWiiはカードから再起動します。戻らない場合は「終了」を選ぶとホームブルーチャンネルへ移動します。",
-        "O RiftWii guarda as configurações, os registros e as capas no cartão SD, então o menu não pode continuar sem ele. Coloque o cartão de volta e aperte A: o RiftWii vai reiniciar a partir dele. Se não voltar, escolha Sair para ir ao Canal Homebrew.",
-        "RiftWii tiene le impostazioni, i registri e le copertine sulla scheda SD, quindi il menu non può continuare senza. Rimetti la scheda e premi A: RiftWii si riavvierà da lì. Se non torna, scegli Esci per andare al Canale Homebrew."),
+        "RiftWii guarda sus ajustes, registros y carátulas en la tarjeta SD, así que el menú no puede continuar sin ella. Vuelve a poner la tarjeta y pulsa A: RiftWii se reiniciará desde ella. Si no vuelve, elige Salir para ir al Homebrew Channel.",
+        "RiftWiiは設定、ログ、カバーをSDカードに保存しているため、カードがないとメニューを安全に続けられません。カードを入れ直してAを押すと、RiftWiiはカードから再起動します。戻らない場合は「終了」を選ぶとHomebrew Channelへ移動します。",
+        "O RiftWii guarda as configurações, os registros e as capas no cartão SD, então o menu não pode continuar sem ele. Coloque o cartão de volta e aperte A: o RiftWii vai reiniciar a partir dele. Se não voltar, escolha Sair para ir ao Homebrew Channel.",
+        "RiftWii tiene le impostazioni, i registri e le copertine sulla scheda SD, quindi il menu non può continuare senza. Rimetti la scheda e premi A: RiftWii si riavvierà da lì. Se non torna, scegli Esci per andare al Homebrew Channel.",
+    ),
     "Show all channels even if they aren't detected as a game.": (
         "Mostrar todos los canales aunque no se detecten como juego.",
         "ゲームとして検出されないチャンネルもすべて表示します。",
@@ -2377,15 +2406,17 @@ T = {
     "Take it out, then put it back in": ("Sácala y vuelve a ponerla", "抜いてから、もう一度入れてください", "Tire e coloque de novo", "Toglila e rimettila"),
     "The SD card was removed": ("Se quitó la tarjeta SD", "SDカードが抜かれました", "O cartão SD foi removido", "La scheda SD è stata rimossa"),
     "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": (
-        "El Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige el NAND emulado o instala el juego ahí.",
+        "La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí.",
         "Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。",
-        "O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha o NAND emulado ou instale o jogo lá.",
-        "Il Wii non ha una copia di questo gioco che possa avviarsi. Scegli il NAND emulato o installa il gioco lì."),
+        "O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha a NAND emulada ou instale o jogo lá.",
+        "La Wii non ha una copia di questo gioco che possa avviarsi. Scegli la NAND emulata o installa il gioco lì.",
+    ),
     "The Wii's own copy starts, and saves stay on the Wii.": (
-        "Se inicia la copia del propio Wii y las partidas se quedan en el Wii.",
+        "Se inicia la copia del propio Wii y las partidas se quedan en la Wii.",
         "Wii本体のコピーが起動し、セーブはWii本体に残ります。",
         "A cópia do próprio Wii inicia e os saves ficam no Wii.",
-        "Si avvia la copia del Wii e i salvataggi restano sul Wii."),
+        "Si avvia la copia della Wii e i salvataggi restano sulla Wii.",
+    ),
     "The card did not mount. Take it out, check it, and put it back in.": (
         "No se pudo montar la tarjeta. Sácala, revísala y vuelve a ponerla.",
         "カードをマウントできませんでした。抜いて確認し、もう一度入れてください。",
@@ -2407,15 +2438,17 @@ T = {
         "Inicia a cópia em {1} e os saves ficam lá, no cartão SD.",
         "Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD."),
     "The emulated NAND's copy starts; its save is on the SD card in {1}.": (
-        "Se inicia la copia del NAND emulado; su partida está en la tarjeta SD, en {1}.",
+        "Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}.",
         "エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。",
-        "Inicia a cópia do NAND emulado; o save está no cartão SD em {1}.",
-        "Si avvia la copia del NAND emulato; il salvataggio è sulla scheda SD in {1}."),
+        "Inicia a cópia da NAND emulada; o save está no cartão SD em {1}.",
+        "Si avvia la copia della NAND emulata; il salvataggio è sulla scheda SD in {1}.",
+    ),
     "This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND.": (
-        "Faltan los archivos de este juego en el Wii: solo están su ticket y su partida. Instálalo de nuevo o pon su WAD en el NAND emulado.",
+        "Faltan los archivos de este juego en la Wii: solo están su ticket y su partida. Instálalo de nuevo o pon su WAD en la NAND emulada.",
         "Wii本体にこのゲームのファイルがありません。チケットとセーブだけがあります。もう一度インストールするか、WADをエミュレートNANDに入れてください。",
-        "Faltam os arquivos deste jogo no Wii: só estão o ticket e o save. Instale-o de novo ou coloque o WAD no NAND emulado.",
-        "Mancano i file di questo gioco sul Wii: ci sono solo il ticket e il salvataggio. Installalo di nuovo o metti il suo WAD nel NAND emulato."),
+        "Faltam os arquivos deste jogo no Wii: só estão o ticket e o save. Instale-o de novo ou coloque o WAD na NAND emulada.",
+        "Mancano i file di questo gioco sulla Wii: ci sono solo il ticket e il salvataggio. Installalo di nuovo o metti il suo WAD nella NAND emulata.",
+    ),
     "This game's files are missing from {1}: only its ticket and save are there. Install it again with its WAD.": (
         "Faltan los archivos de este juego en {1}: solo están su ticket y su partida. Instálalo de nuevo con su WAD.",
         "{1}にこのゲームのファイルがありません。チケットとセーブだけがあります。WADを使って、もう一度インストールしてください。",
@@ -2930,19 +2963,16 @@ KO = {
         "투명",
     "Network Test":
         "네트워크 테스트",
-    "Test":
-        "테스트",
     "Testing the network...":
         "네트워크를 테스트하는 중...",
     "Offline":
         "오프라인",
     "Checks if network is online.":
         "네트워크가 온라인인지 확인합니다.",
-    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.":
-        "흰은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다.",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "흰색은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다.",
     "Show non-game channels":
         "게임이 아닌 채널 표시",
-        "Nintendo's own channels are listed on Home now.":
+    "Nintendo's own channels are listed on Home now.":
         "닌텐도 채널이 이제 홈에 표시됩니다.",
     "Only games are listed on Home now.":
         "이제 홈에는 게임만 표시됩니다.",
@@ -2954,14 +2984,11 @@ KO = {
         "게임과 함께",
     "The Wii's save":
         "Wii 본체의 세이브",
-    "The Wii's copy along with it's own save starts":
-        "Wii 본체의 사본이 자체 세이브와 함께 시작됩니다",
+    "The Wii's own copy starts with its save.": "Wii 본체의 사본이 자체 저장 데이터와 함께 시작됩니다.",
     "The Wii's save is copied into the emulated NAND to be used.":
         "Wii 본체의 세이브는 사용하기 위해 에뮬레이트 NAND로 복사됩니다.",
-    "Saves stay on the Wii with it's own copy booting up.":
-        "세이브는 Wii 본체에 남고 자체 사본이 부팅됩니다.",
-    "Saves stay on the emulated NAND with it's own copy booting up.":
-        "세이브는 에뮬레이트 NAND에 남고 자체 사본이 부팅됩니다.",
+    "Saves stay on the Wii when its own copy starts.": "Wii 본체의 사본을 시작하면 저장 데이터는 Wii 본체에 남습니다.",
+    "Saves stay in the emulated NAND when its copy starts.": "에뮬레이트 NAND의 사본을 시작하면 저장 데이터는 그곳에 남습니다.",
     "Where this game's save will live.":
         "이 게임의 세이브가 저장될 위치입니다.",
     "Real NAND":
@@ -4315,12 +4342,9 @@ KO = {
         "앱 1개",
     "{1} apps":
         "앱 {1}개",
-    "No homebrew matches \"{1}\". Press 1 for all games.":
-        "\"{1}\"와 일치하는 홈브류가 없습니다. 모든 게임을 보려면 1번을 누르세요.",
-    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games.":
-        "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 모든 게임을 보려면 1번을 누르세요.",
-    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games.":
-        "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 모든 게임을 보려면 1번을 누르세요.",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요.",
+    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view.": "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요.",
             "It cannot start: {1}.":
         "시작할 수 없습니다: {1}.",
         "The app will start when ready.":
@@ -4329,8 +4353,7 @@ KO = {
         "에뮬레이트 NAND (여기 없음)",
     "Real NAND (not here)":
         "실제 NAND (여기 없음)",
-    "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel.":
-        "RiftWii는 설정, 로그, 표지를 SD 카드에 보관하기 때문에 카드 없이는 메뉴를 안전하게 계속할 수 없습니다. 카드를 다시 넣고 A를 누르면 RiftWii가 카드에서 다시 시작합니다. 돌아오지 않으면 종료를 선택해 홈브루 채널로 이동하세요.",
+    "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel.": "RiftWii는 설정, 로그, 표지를 SD 카드에 보관하기 때문에 카드 없이는 메뉴를 안전하게 계속할 수 없습니다. 카드를 다시 넣고 A를 누르면 RiftWii가 카드에서 다시 시작합니다. 돌아오지 않으면 종료를 선택해 홈브류 채널로 이동하세요.",
     "Show all channels even if they aren't detected as a game.":
         "게임으로 감지되지 않은 채널도 모두 표시합니다.",
     "Start again":
@@ -4864,8 +4887,6 @@ FR = {
         "Transparent",
     "Network Test":
         "Test réseau",
-    "Test":
-        "Tester",
     "Testing the network...":
         "Test du réseau...",
     "Offline":
@@ -4876,7 +4897,7 @@ FR = {
         "Blanc place un cadre derrière les bannières des chaînes affichées dans le menu pour éviter qu'elles ne deviennent transparentes.",
     "Show non-game channels":
         "Afficher les chaînes non-jeu",
-        "Nintendo's own channels are listed on Home now.":
+    "Nintendo's own channels are listed on Home now.":
         "Les chaînes Nintendo sont maintenant sur l'accueil.",
     "Only games are listed on Home now.":
         "Seuls les jeux sont désormais listés sur l'accueil.",
@@ -4888,20 +4909,15 @@ FR = {
         "Avec le jeu",
     "The Wii's save":
         "La sauvegarde de la Wii",
-    "The Wii's copy along with it's own save starts":
-        "La copie de la Wii démarre avec sa propre sauvegarde",
-    "The Wii's save is copied into the emulated NAND to be used.":
-        "La sauvegarde de la Wii est copiée dans le NAND émulé pour être utilisée.",
-    "Saves stay on the Wii with it's own copy booting up.":
-        "Les sauvegardes restent sur la Wii, sa propre copie démarre.",
-    "Saves stay on the emulated NAND with it's own copy booting up.":
-        "Les sauvegardes restent dans le NAND émulé, sa propre copie démarre.",
+    "The Wii's own copy starts with its save.": "La copie de la Wii démarre avec sa sauvegarde.",
+    "The Wii's save is copied into the emulated NAND to be used.": "La sauvegarde de la Wii est copiée dans la NAND émulée pour être utilisée.",
+    "Saves stay on the Wii when its own copy starts.": "Les sauvegardes restent sur la Wii quand sa copie démarre.",
+    "Saves stay in the emulated NAND when its copy starts.": "Les sauvegardes restent dans la NAND émulée quand sa copie démarre.",
     "Where this game's save will live.":
         "Où sera enregistrée la sauvegarde de ce jeu.",
     "Real NAND":
         "NAND réelle",
-    "Emulated NAND":
-        "NAND émulé",
+    "Emulated NAND": "NAND émulée",
     "Where the game will boot from. If set to Automatic, RiftWii will guess.":
         "D'où le jeu démarrera. En Automatique, RiftWii devinera.",
     "Game IOS":
@@ -6249,18 +6265,14 @@ FR = {
         "1 appli",
     "{1} apps":
         "{1} applis",
-    "No homebrew matches \"{1}\". Press 1 for all games.":
-        "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour tous les jeux.",
-    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games.":
-        "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps ou usb:/apps avec son boot.dol et son meta.xml. Appuyez sur 1 pour tous les jeux.",
-    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games.":
-        "Les dossiers d'applis (sd:/apps et usb:/apps) n'ont pas pu être lus. Appuyez sur 1 pour tous les jeux.",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue.",
+    "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps ou usb:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue.",
+    "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view.": "Les dossiers des applis (sd:/apps et usb:/apps) n'ont pas pu être lus. Appuyez sur 1 pour changer de vue.",
             "It cannot start: {1}.":
         "Impossible de le lancer : {1}.",
         "The app will start when ready.":
         "L'appli démarrera lorsqu'elle sera prête.",
-    "Emulated NAND (not here)":
-        "NAND émulé (pas ici)",
+    "Emulated NAND (not here)": "NAND émulée (pas ici)",
     "Real NAND (not here)":
         "NAND réelle (pas ici)",
     "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel.":
@@ -6275,8 +6287,7 @@ FR = {
         "Retirez-la, puis remettez-la",
     "The SD card was removed":
         "La carte SD a été retirée",
-    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.":
-        "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez le NAND émulé, ou installez-y le jeu.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu.",
     "The Wii's own copy starts, and saves stay on the Wii.":
         "La copie de la Wii démarre et les sauvegardes restent sur la Wii.",
     "The card did not mount. Take it out, check it, and put it back in.":
@@ -6287,10 +6298,8 @@ FR = {
         "La copie que RiftWii affiche démarre, avec sa propre sauvegarde.",
     "The copy in {1} starts, and saves stay there on the SD card.":
         "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD.",
-    "The emulated NAND's copy starts; its save is on the SD card in {1}.":
-        "La copie du NAND émulé démarre ; sa sauvegarde est sur la carte SD dans {1}.",
-    "This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND.":
-        "Les fichiers de ce jeu manquent sur la Wii : seuls son ticket et sa sauvegarde sont là. Installez-le de nouveau, ou mettez son WAD dans le NAND émulé.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}.",
+    "This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND.": "Les fichiers de ce jeu manquent sur la Wii : seuls son ticket et sa sauvegarde sont là. Installez-le de nouveau, ou mettez son WAD dans la NAND émulée.",
     "This game's files are missing from {1}: only its ticket and save are there. Install it again with its WAD.":
         "Les fichiers de ce jeu manquent dans {1} : seuls son ticket et sa sauvegarde sont là. Installez-le de nouveau avec son WAD.",
     "Would you like to start {1} ({2}) by {3}?":

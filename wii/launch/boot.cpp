@@ -3412,8 +3412,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     if (!files.emu_nand.empty() && files.wii_save) {
         bool copied = false;
         std::string save_error;
-        if (!copy_wii_save_into(files.emu_nand, files.title_id, copied, save_error))
-            logf("Wii channels: the Wii's save was not copied in: %s\n", save_error.c_str());
+        if (!copy_wii_save_into(files.emu_nand, files.title_id, copied, save_error)) {
+            error = "the Wii's save was not copied in: " + save_error;
+            return false;
+        }
     }
 
     // As for a disc game: the Wii Remotes, the log and the card go before
@@ -3452,7 +3454,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (!files.emu_nand.empty()) {
             std::string emu_error;
             bool remounted = true;
-            const bool emulation_enabled = enable_d2x_saves(files.emu_nand, emu_error, &remounted);
+            const bool emulation_enabled = enable_d2x_saves(files.emu_nand, emu_error, &remounted, true);
             card = remounted;
             if (!emulation_enabled) {
                 if (!remounted) {

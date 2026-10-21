@@ -2158,7 +2158,7 @@ msgid "Which port?"
 msgstr "¿Qué puerto?"
 
 msgid "Wii Remote rumble"
-msgstr "Vibración del Wii Remote"
+msgstr "Vibración de la Wii Remote"
 
 msgid "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them."
 msgstr "settings.txt desactiva partes de RiftWii para pruebas (debug_off = {1}). Quítalas salvo que los desarrolladores de RiftWii te pidieran mantenerlas."
@@ -2770,19 +2770,19 @@ msgid "With the game"
 msgstr "Con el juego"
 
 msgid "The Wii's save"
-msgstr "La partida del Wii"
+msgstr "La partida de la Wii"
 
-msgid "The Wii's copy along with it's own save starts"
-msgstr "Se inicia la copia del Wii con su propia partida"
+msgid "The Wii's own copy starts with its save."
+msgstr "La copia de la Wii se inicia con su partida."
 
 msgid "The Wii's save is copied into the emulated NAND to be used."
-msgstr "La partida del Wii se copia al NAND emulado para usarse."
+msgstr "La partida de la Wii se copia a la NAND emulada para usarse."
 
-msgid "Saves stay on the Wii with it's own copy booting up."
-msgstr "Las partidas se quedan en el Wii con su propia copia iniciándose."
+msgid "Saves stay on the Wii when its own copy starts."
+msgstr "Las partidas se quedan en la Wii cuando se inicia su copia."
 
-msgid "Saves stay on the emulated NAND with it's own copy booting up."
-msgstr "Las partidas se quedan en el NAND emulado con su propia copia iniciándose."
+msgid "Saves stay in the emulated NAND when its copy starts."
+msgstr "Las partidas se quedan en la NAND emulada cuando se inicia su copia."
 
 msgid "Where this game's save will live."
 msgstr "Dónde se guardará la partida de este juego."
@@ -2791,7 +2791,7 @@ msgid "Real NAND"
 msgstr "NAND real"
 
 msgid "Emulated NAND"
-msgstr "NAND emulado"
+msgstr "NAND emulada"
 
 msgid "Where the game will boot from. If set to Automatic, RiftWii will guess."
 msgstr "Desde dónde se iniciará el juego. Con Automático, RiftWii lo deduce."
@@ -2811,14 +2811,14 @@ msgstr "1 app"
 msgid "{1} apps"
 msgstr "{1} apps"
 
-msgid "No homebrew matches \"{1}\". Press 1 for all games."
-msgstr "Ningún homebrew coincide con «{1}». Pulsa 1 para ver todos los juegos."
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista."
 
-msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games."
-msgstr "Aún no hay homebrew: cada app es una carpeta en sd:/apps o usb:/apps con su boot.dol y su meta.xml. Pulsa 1 para ver todos los juegos."
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Aún no hay homebrew: cada app es una carpeta en sd:/apps o usb:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista."
 
-msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games."
-msgstr "No se pudieron leer las carpetas de apps (sd:/apps y usb:/apps). Pulsa 1 para ver todos los juegos."
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
+msgstr "No se pudieron leer las carpetas de apps (sd:/apps y usb:/apps). Pulsa 1 para cambiar la vista."
 
 msgid "It cannot start: {1}."
 msgstr "No puede iniciarse: {1}."
@@ -2827,13 +2827,13 @@ msgid "The app will start when ready."
 msgstr "La app se iniciará cuando esté lista."
 
 msgid "Emulated NAND (not here)"
-msgstr "NAND emulado (no aquí)"
+msgstr "NAND emulada (no aquí)"
 
 msgid "Real NAND (not here)"
 msgstr "NAND real (no aquí)"
 
 msgid "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel."
-msgstr "RiftWii guarda sus ajustes, registros y carátulas en la tarjeta SD, así que el menú no puede continuar sin ella. Vuelve a poner la tarjeta y pulsa A: RiftWii se reiniciará desde ella. Si no vuelve, elige Salir para ir al Canal Homebrew."
+msgstr "RiftWii guarda sus ajustes, registros y carátulas en la tarjeta SD, así que el menú no puede continuar sin ella. Vuelve a poner la tarjeta y pulsa A: RiftWii se reiniciará desde ella. Si no vuelve, elige Salir para ir al Homebrew Channel."
 
 msgid "Show all channels even if they aren't detected as a game."
 msgstr "Mostrar todos los canales aunque no se detecten como juego."
@@ -2851,10 +2851,10 @@ msgid "The SD card was removed"
 msgstr "Se quitó la tarjeta SD"
 
 msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
-msgstr "El Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige el NAND emulado o instala el juego ahí."
+msgstr "La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí."
 
 msgid "The Wii's own copy starts, and saves stay on the Wii."
-msgstr "Se inicia la copia del propio Wii y las partidas se quedan en el Wii."
+msgstr "Se inicia la copia del propio Wii y las partidas se quedan en la Wii."
 
 msgid "The card did not mount. Take it out, check it, and put it back in."
 msgstr "No se pudo montar la tarjeta. Sácala, revísala y vuelve a ponerla."
@@ -2869,10 +2869,10 @@ msgid "The copy in {1} starts, and saves stay there on the SD card."
 msgstr "Se inicia la copia en {1} y las partidas se quedan ahí, en la tarjeta SD."
 
 msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
-msgstr "Se inicia la copia del NAND emulado; su partida está en la tarjeta SD, en {1}."
+msgstr "Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}."
 
 msgid "This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND."
-msgstr "Faltan los archivos de este juego en el Wii: solo están su ticket y su partida. Instálalo de nuevo o pon su WAD en el NAND emulado."
+msgstr "Faltan los archivos de este juego en la Wii: solo están su ticket y su partida. Instálalo de nuevo o pon su WAD en la NAND emulada."
 
 msgid "This game's files are missing from {1}: only its ticket and save are there. Install it again with its WAD."
 msgstr "Faltan los archivos de este juego en {1}: solo están su ticket y su partida. Instálalo de nuevo con su WAD."

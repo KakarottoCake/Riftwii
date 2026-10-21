@@ -3,8 +3,8 @@
 #include "online.hpp"
 
 #include <network.h>
-#include <ogc/machine/processor.h>
 #include <poll.h>
+#include <ogc/machine/processor.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -163,21 +163,23 @@ bool icmp_echo(const std::string& address, int timeout_ms, std::string& why) {
     bool replied = false;
     const u64 started = gettime();
     while (!replied && ticks_to_millisecs(gettime() - started) < static_cast<unsigned>(timeout_ms)) {
-        pollfd waiting;
-        waiting.fd = raw;
+        pollsd waiting;
+        waiting.socket = raw;
         waiting.events = POLLIN;
         waiting.revents = 0;
-        if (poll(&waiting, 1, 50) <= 0) continue;
+        if (net_poll(&waiting, 1, 50) <= 0 || (waiting.revents & POLLIN) == 0) continue;
         std::uint8_t answer[128];
-        sockaddr_in from;
+        sockaddr_in from{};
         socklen_t from_len = sizeof(from);
         const s32 got = net_recvfrom(raw, answer, sizeof(answer), 0, reinterpret_cast<sockaddr*>(&from), &from_len);
-        if (got < 0) continue;
+        if (got < 20 || from_len < sizeof(from) || from.sin_addr.s_addr != to.sin_addr.s_addr ||
+            (answer[0] >> 4) != 4)
+            continue;
         const std::size_t ip_header = std::size_t(answer[0] & 0x0F) * 4;
-        if (got < static_cast<s32>(ip_header + 8)) continue;
+        if (ip_header < 20 || got < static_cast<s32>(ip_header + 8) || answer[9] != 1) continue;
         const std::uint8_t* icmp = answer + ip_header;
-        if (icmp[0] == 0 && icmp[4] == static_cast<std::uint8_t>(echo_id >> 8) &&
-            icmp[5] == static_cast<std::uint8_t>(echo_id & 0xFF))
+        if (icmp[0] == 0 && icmp[1] == 0 && icmp[4] == static_cast<std::uint8_t>(echo_id >> 8) &&
+            icmp[5] == static_cast<std::uint8_t>(echo_id & 0xFF) && icmp[6] == request[6] && icmp[7] == request[7])
             replied = true;
     }
     net_close(raw);
@@ -262,6 +264,7 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
 NetworkTest TestNetwork() {
     NetworkTest out;
     const u64 started = gettime();
+    if (!NetStart(out.error)) return out;
     std::string why;
     const bool pinged = icmp_echo("1.1.1.1", 1000, why);
     std::vector<std::uint8_t> body;
@@ -269,6 +272,13 @@ NetworkTest TestNetwork() {
         out.online = true;
     } else {
         logf("Network test: no ping to 1.1.1.1 (%s); asking example.com over http\n", why.c_str());
+        // A diagnostic is an explicit retry, including after the player
+        // repairs the connection. Downloads keep their session cache.
+        NetServer server;
+        if (ResolveServer("example.com", 80, server, why)) {
+            const std::string where = server.label();
+            g_unreachable.erase(std::remove(g_unreachable.begin(), g_unreachable.end(), where), g_unreachable.end());
+        }
         out.online = HttpGet("http://example.com/", body, out.error, 16u << 10, 8000);
     }
     out.ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));

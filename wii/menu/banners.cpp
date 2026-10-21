@@ -101,6 +101,11 @@ bool BannerWanted(const std::string& game_id) {
     return std::time(nullptr) - failed->second.when >= kBannerRetrySeconds;
 }
 
+bool BannerRetryPending(const std::string& game_id) {
+    const auto failed = g_failed.find(game_id);
+    return failed != g_failed.end() && failed->second.attempts < kMaxBannerAttempts;
+}
+
 namespace {
 
 // Checks a banner read for `id` and writes it as sd:/riftwii/banners/<ID>.bnr.

@@ -2772,17 +2772,17 @@ msgstr "ゲームに合わせる"
 msgid "The Wii's save"
 msgstr "Wii本体のセーブ"
 
-msgid "The Wii's copy along with it's own save starts"
-msgstr "Wii本体のコピーが、そのセーブとともに起動します"
+msgid "The Wii's own copy starts with its save."
+msgstr "Wii本体のコピーが、そのセーブとともに起動します。"
 
 msgid "The Wii's save is copied into the emulated NAND to be used."
 msgstr "Wii本体のセーブは、使うためにエミュレートNANDへコピーされます。"
 
-msgid "Saves stay on the Wii with it's own copy booting up."
-msgstr "セーブはWii本体に残り、そのコピーが起動します。"
+msgid "Saves stay on the Wii when its own copy starts."
+msgstr "Wii本体のコピーが起動すると、セーブはWii本体に残ります。"
 
-msgid "Saves stay on the emulated NAND with it's own copy booting up."
-msgstr "セーブはエミュレートNANDに残り、そのコピーが起動します。"
+msgid "Saves stay in the emulated NAND when its copy starts."
+msgstr "エミュレートNANDのコピーが起動すると、セーブはそこに残ります。"
 
 msgid "Where this game's save will live."
 msgstr "このゲームのセーブの保存先です。"
@@ -2803,7 +2803,7 @@ msgid "The IOS RiftWii starts the channel under."
 msgstr "RiftWiiがこのチャンネルを起動するIOSです。"
 
 msgid "Homebrew"
-msgstr "ホームブリュー"
+msgstr "Homebrew"
 
 msgid "1 app"
 msgstr "1個のアプリ"
@@ -2811,14 +2811,14 @@ msgstr "1個のアプリ"
 msgid "{1} apps"
 msgstr "{1}個のアプリ"
 
-msgid "No homebrew matches \"{1}\". Press 1 for all games."
-msgstr "「{1}」に一致するホームブリューはありません。1ですべてのゲームを表示します。"
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "「{1}」に一致するHomebrewはありません。1で表示を切り替えます。"
 
-msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games."
-msgstr "ホームブリューがまだありません。各アプリはsd:/appsまたはusb:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1ですべてのゲームを表示します。"
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Homebrewがまだありません。各アプリはsd:/appsまたはusb:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。"
 
-msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games."
-msgstr "アプリのフォルダ (sd:/appsとusb:/apps) を読めませんでした。1ですべてのゲームを表示します。"
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
+msgstr "アプリのフォルダ（sd:/appsとusb:/apps）を読めませんでした。1で表示を切り替えます。"
 
 msgid "It cannot start: {1}."
 msgstr "起動できません: {1}。"
@@ -2833,7 +2833,7 @@ msgid "Real NAND (not here)"
 msgstr "実NAND (ここにはありません)"
 
 msgid "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel."
-msgstr "RiftWiiは設定、ログ、カバーをSDカードに保存しているため、カードがないとメニューを安全に続けられません。カードを入れ直してAを押すと、RiftWiiはカードから再起動します。戻らない場合は「終了」を選ぶとホームブルーチャンネルへ移動します。"
+msgstr "RiftWiiは設定、ログ、カバーをSDカードに保存しているため、カードがないとメニューを安全に続けられません。カードを入れ直してAを押すと、RiftWiiはカードから再起動します。戻らない場合は「終了」を選ぶとHomebrew Channelへ移動します。"
 
 msgid "Show all channels even if they aren't detected as a game."
 msgstr "ゲームとして検出されないチャンネルもすべて表示します。"

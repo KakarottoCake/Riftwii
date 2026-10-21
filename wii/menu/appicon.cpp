@@ -7,8 +7,8 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
+#include <set>
 #include <vector>
 
 #include "covers.hpp"
@@ -29,10 +29,12 @@ struct Slot {
     std::string folder;
     u8* data = nullptr;
     unsigned used = 0;
+    bool ready = false;
 };
 
 Slot g_slots[kSlots];
 unsigned g_clock = 0;
+std::set<std::string> g_failed;
 
 bool read_png(const std::string& path, std::vector<std::uint8_t>& out) {
     if (path.compare(0, 5, "usb:/") == 0) {
@@ -59,50 +61,65 @@ bool read_png(const std::string& path, std::vector<std::uint8_t>& out) {
 bool AppIcon(const std::string& folder, skin::Tex& out) {
     out = skin::Tex{};
     if (folder.empty()) return false;
-    Slot* victim = &g_slots[0];
     for (Slot& slot : g_slots) {
-        if (slot.data != nullptr && slot.folder == folder) {
+        if (slot.ready && slot.folder == folder) {
             slot.used = ++g_clock;
             out.data = slot.data;
             out.w = kIconW;
             out.h = kIconH;
             return true;
         }
-        if (slot.used < victim->used) victim = &slot;
     }
+    return false;
+}
+
+bool AppIconWanted(const std::string& folder) {
+    if (folder.empty() || g_failed.count(folder)) return false;
+    for (const Slot& slot : g_slots)
+        if (slot.ready && slot.folder == folder) return false;
+    return true;
+}
+
+void LoadAppIcon(const std::string& folder) {
+    if (!AppIconWanted(folder)) return;
+    Slot* victim = &g_slots[0];
+    for (Slot& slot : g_slots)
+        if (slot.used < victim->used) victim = &slot;
+    // Remember failures too: a missing or damaged PNG must not be read
+    // and decoded on every menu turn until the next rescan.
+    g_failed.insert(folder);
     std::vector<std::uint8_t> png, rgba;
     int w = 0, h = 0;
     std::string error;
     if (!read_png(folder + "/icon.png", png) || !DecodePngRgba(png, rgba, w, h, error)) {
         if (!error.empty()) logf("Homebrew: %s/icon.png: %s\n", folder.c_str(), error.c_str());
-        return false;
+        return;
     }
     std::vector<std::uint8_t>().swap(png);
     const std::vector<std::uint8_t> box = riftwii::fit_art(rgba.data(), w, h, kIconW, kIconH);
     std::vector<std::uint8_t>().swap(rgba);
     if (!victim->data) victim->data = skin::Mem2Alloc(static_cast<std::size_t>(kIconW) * kIconH * 4);
     if (victim->data == nullptr || !riftwii::to_gx_rgba8(box.data(), kIconW, kIconH, victim->data)) {
-        if (victim->data) {
-            std::free(victim->data);
-            victim->data = nullptr;
-        }
-        return false;
+        victim->ready = false;
+        return;
     }
     DCFlushRange(victim->data, static_cast<std::size_t>(kIconW) * kIconH * 4);
     victim->folder = folder;
     victim->used = ++g_clock;
-    out.data = victim->data;
-    out.w = kIconW;
-    out.h = kIconH;
-    return true;
+    victim->ready = true;
+    g_failed.erase(folder);
 }
 
 void ForgetAppIcons() {
     for (Slot& slot : g_slots) {
-        if (slot.data) std::free(slot.data);
-        slot = Slot{};
+        // MEM2 textures come from a bump allocator. Keep their buffers
+        // for reuse; neither free() nor allocating replacements is valid.
+        slot.folder.clear();
+        slot.used = 0;
+        slot.ready = false;
     }
     g_clock = 0;
+    g_failed.clear();
 }
 
 }  // namespace riftwii::wii

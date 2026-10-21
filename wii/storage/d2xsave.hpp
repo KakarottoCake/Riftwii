@@ -50,6 +50,8 @@ bool copy_wii_save_into(const std::string& dir, std::uint64_t title_id, bool& co
 // (d2x refuses it once a title runs): the card is unmounted (libfat
 // flushes), d2x mounts it and serves the NAND from `dir`, the card is
 // mounted again (libfat reads it afresh), the log around that.
-bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted = nullptr);
+// Only the channel caller supplies a whole NAND; disc-game save folders use partial mode.
+bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted = nullptr,
+                      bool full_nand = false);
 
 }  // namespace riftwii::wii
