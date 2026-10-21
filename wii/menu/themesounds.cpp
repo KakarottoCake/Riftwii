@@ -25,22 +25,22 @@ constexpr unsigned kMaxSeconds = 5;
 
 struct Slot {
     const char* file;  // in the theme's folder
-    const u8* builtin;  // RiftWii's own, which GuiSound is given
+    const u8* const* builtin;  // RiftWii's own, which GuiSound is given (set at start: menusounds.hpp)
     const u8* data = nullptr;  // the theme's, stereo 16-bit in MEM2
     s32 bytes = 0;
     s32 rate = 0;
 };
 
 Slot g_slots[] = {
-    {"hover.wav", button_over_pcm},
-    {"click.wav", button_click_pcm},
-    {"home_open.wav", home_open_pcm},
-    {"home_close.wav", home_close_pcm},
+    {"hover.wav", &button_over_pcm},
+    {"click.wav", &button_click_pcm},
+    {"home_open.wav", &home_open_pcm},
+    {"home_close.wav", &home_close_pcm},
 };
 
 void Substitute(const u8*& sound, s32& length, s32& rate) {
     for (const Slot& s : g_slots) {
-        if (sound == s.builtin && s.data) {
+        if (sound == *s.builtin && s.data) {
             sound = s.data;
             length = s.bytes;
             rate = s.rate;

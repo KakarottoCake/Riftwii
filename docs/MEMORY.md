@@ -119,7 +119,7 @@ Japanese with RiftWii's font.
 | Menu font (`wii/font/rounded.ttf`, zstd) | 750 | Once at start (and after a warm restart), unpacked to MEM2 | **Start-up stash** (built) | 747 |
 | Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
-| Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
+| Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM, zstd) | 226 | Played from memory by the DSP whenever the menu makes a sound | **Start-up stash** (built, 21 Oct 2026): 140 KiB there, unpacked once at start into 226 KiB of MEM2 (`wii/menu/menusounds.cpp`), where the DSP plays them as it plays a theme's. libwiigui's `filelist.h` takes their names from `menusounds.hpp`, now pointers | 84 under the limit (the stash's 140 KiB still loads below it) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
 The **start-up stash** keeps these files in `boot.dol`, so the DOL alone
@@ -188,10 +188,12 @@ holds for an unpacked DOL (`make -f Makefile.wii PACK=0`, and
 
 So the build fails when the stash would end past `STASH_LIMIT` in
 `Makefile.wii`, which is `0x81200000`, the same line as the heap ceiling.
-Today the stash ends at `0x811BC520`, where the program used to end, so
-loaders see the same highest address they already accepted. The 270 KiB
-left under the line is all the code and BSS growth can use before the
-build stops. After that, something has to leave the DOL (files or
+When the stash came in it ended at `0x811BC520`, where the program used
+to end, so loaders saw the same highest address they already accepted.
+Code and BSS growth used that room up: by 21 Oct 2026 the stash ended at
+`0x811FF500`, under 3 KiB from the line, and moving the menu sounds into
+the stash (above) brought it back to about `0x811EA500`, 86 KiB under it.
+That room is all the code and BSS growth can use before the build stops. After that, something has to leave the DOL (files or
 plugins), or the limit has to be measured on the Homebrew Channel and
 raised.
 

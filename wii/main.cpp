@@ -18,6 +18,7 @@
 #include "boot.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
+#include "menusounds.hpp"
 #include "screenshot.hpp"
 #include "FreeTypeGX.h"
 #include "audio.h"
@@ -480,6 +481,8 @@ int main() {
                            riftwii::wii::MenuLanguage().c_str());
         SetHomeNotice(riftwii::wii::kKoreanNeedsFont);
     }
+    riftwii::wii::UnpackMenuSounds();
+    timed("menu sounds unpacked");
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();

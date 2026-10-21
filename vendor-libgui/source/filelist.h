@@ -19,10 +19,9 @@
 
 // Sounds
 #include "bg_music_ogg.h"
-#include "button_over_pcm.h"
-#include "button_click_pcm.h"
-#include "home_open_pcm.h"
-#include "home_close_pcm.h"
+// RiftWii: the four sound effects come from the start-up stash, not the
+// linked files (wii/menu/menusounds.hpp); same names, now pointers.
+#include "menusounds.hpp"
 
 // Images
 #include "button_png.h"
