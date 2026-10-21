@@ -847,6 +847,16 @@ static void gc_read_step(struct gc_rt_context* ctx) {
             gc_arm(ctx, ctx->delay_ticks);
             return;
         }
+        /* Before the read's first piece, the TGC watch once more: at the
+         * read's start (gc_on_read) the card may have been busy with a
+         * request this read's interrupt had broken into (the music
+         * ring's top-up), and the watch then let the read by. The
+         * Collector's Edition menu reads a TGC's header only once, so
+         * that start would otherwise run unpatched. Here the card is
+         * free; a read the watch has seen already, or one of no TGC,
+         * is let by again at once. */
+        if (ctx->tgc_count != 0 && ctx->read_offset == ctx->last_offset)
+            gc_on_tgc_read(ctx, ctx->read_offset, ctx->read_length);
         if (gc_read_disc(ctx, (uint8_t*)(uintptr_t)ctx->read_addr, piece, ctx->read_offset, 0)) {
             ctx->read_addr += piece;
             ctx->read_offset += piece;
@@ -1827,8 +1837,8 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
         if (found) tgc = ctx->tgc_offset[i];
     }
     if (!found) return;
-    /* An SD request under way: a later read of the program tries again,
-     * but a program loaded in one read starts as the menu makes it. */
+    /* An SD request under way (this read broke into it): the read's first
+     * piece (gc_read_step) asks again once the card is free. */
     if (ctx->busy) return;
     if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
         ctx->tgc_count = 0;
