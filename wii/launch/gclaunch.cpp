@@ -879,6 +879,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         choices.restore(text.str());
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
         image.shared_card = choices.game.gc_card == "shared";
+        image.real_card = choices.game.gc_card == "real";
         // "global" follows Settings and the Wii's own settings, as a Wii
         // game's rows do.
         const GcConsoleSettings console = GcConsoleNow();

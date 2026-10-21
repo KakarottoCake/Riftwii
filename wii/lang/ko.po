@@ -2729,3 +2729,81 @@ msgstr "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 �
 
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요."
+
+msgid "Real card in slot A"
+msgstr "슬롯 A의 실제 카드"
+
+msgid "Copy from a memory card in the Wii"
+msgstr "Wii의 메모리 카드에서 복사"
+
+msgid "Save a copy of the whole card"
+msgstr "카드 전체 사본 저장"
+
+msgid "Choose the slot holding the memory card."
+msgstr "메모리 카드가 있는 슬롯을 선택하세요."
+
+msgid "Slot A"
+msgstr "슬롯 A"
+
+msgid "Slot B"
+msgstr "슬롯 B"
+
+msgid "Choose which saves to copy. The card in the Wii is only read."
+msgstr "복사할 저장 데이터를 선택하세요. Wii의 카드는 읽기만 합니다."
+
+msgid "This game's saves"
+msgstr "이 게임의 저장 데이터"
+
+msgid "Every save"
+msgstr "모든 저장 데이터"
+
+msgid "Copy"
+msgstr "복사"
+
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read."
+msgstr "저장 데이터 {1}개와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii의 카드는 읽기만 합니다."
+
+msgid "Copied to {1}."
+msgstr "{1}에 복사했습니다."
+
+msgid "Found {1} matching saves. Destination: {2}."
+msgstr "일치하는 저장 데이터 {1}개를 찾았습니다. 대상: {2}."
+
+msgid "To copy: {1}. Already present: {2}. Unusable: {3}."
+msgstr "복사 예정: {1}. 이미 있음: {2}. 사용 불가: {3}."
+
+msgid "No memory card was found in this slot. Check slot A or slot B."
+msgstr "이 슬롯에서 메모리 카드를 찾지 못했습니다. 슬롯 A 또는 B를 확인하세요."
+
+msgid "This card uses the other text encoding. Japanese and Western cards cannot be mixed."
+msgstr "이 카드는 다른 문자 인코딩을 사용합니다. 일본과 서양 카드를 혼합할 수 없습니다."
+
+msgid "The memory card is unformatted or damaged. It was left unchanged."
+msgstr "메모리 카드가 포맷되지 않았거나 손상되었습니다. 변경하지 않았습니다."
+
+msgid "The memory card could not be read. It may have changed or been removed. Nothing was copied."
+msgstr "메모리 카드를 읽지 못했습니다. 교체되거나 제거되었을 수 있습니다. 복사하지 않았습니다."
+
+msgid "The SD image is damaged or uses the other text encoding. Nothing was copied."
+msgstr "SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합니다. 복사하지 않았습니다."
+
+msgid "Copy failed. The card in the Wii was left unchanged."
+msgstr "복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다."
+
+msgid "The card in the Wii is only read. Copies go to the SD card."
+msgstr "Wii의 카드는 읽기만 합니다. 사본은 SD 카드에 저장됩니다."
+
+msgid "This game uses the real card in slot A. Its saves are not on the SD card."
+msgstr "이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다."
+
+msgid "Use this game's SD card"
+msgstr "이 게임의 SD 카드 사용"
+
+msgid "Wii U has no GameCube memory card slots."
+msgstr "Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다."
+
+msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
+msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다."
+
+msgid "The real card could not be prepared. Check the card and try again."
+msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."

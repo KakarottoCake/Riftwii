@@ -69,6 +69,10 @@
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
+#include "riftwii/gcreal.hpp"
+#include "gcrealcard.hpp"
+#include "sdfile.hpp"
+#include <ogc/card.h>
 #include "riftwii/gccard.hpp"
 #include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
@@ -5333,8 +5337,11 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow card;
 		card.kind = FlowRow::Kind::Option;
 		card.label = tr("Memory card");
-		card.value = game.gc_card == "shared" ? tr("Shared") : tr("This game's own");
-		card.on = game.gc_card == "shared";
+		if (game.gc_card == "real") card.value = tr("Real card in slot A");
+		else if (game.gc_card == "shared") card.value = tr("Shared");
+		else card.value = tr("This game's own");
+		card.on = game.gc_card != "own";
+		card.dim = game.gc_card == "real" && riftwii::wii::is_wii_u();
 		rows.push_back(card);
 		refs.push_back({W::GcCard});
 		FlowRow progressive;
@@ -6024,6 +6031,7 @@ static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space
 
 static bool GcCardFull(const FrontendState& state)
 {
+	if (state.model.game.gc_card == "real") return false;
 	riftwii::GcCardSpace space;
 	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
 }
@@ -6625,7 +6633,7 @@ static bool GcDolphinImport(const FrontendState& state, const std::string& cardP
 }
 
 // The game's memory card: its saves, how full it is, and adding a save.
-static void MenuGcCard(FrontendState& state)
+static void MenuGcSdCard(FrontendState& state)
 {
 	const std::string path = GcCardPath(state);
 	const bool shared = GcCardShared(state);
@@ -6839,6 +6847,166 @@ static void MenuGcCard(FrontendState& state)
 	RunRowPage(shared ? tr("Shared Memory Card") : tr("Memory Card"), GameTitle(state), rows, note, act, space);
 }
 
+// Hardware errors stay distinct from SD-image errors: the physical card is
+// never formatted, repaired or written by these tools.
+static std::string GcRealError(int result)
+{
+	if (result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE)
+		return tr("No memory card was found in this slot. Check slot A or slot B.");
+	if (result == CARD_ERROR_ENCODING)
+		return tr("This card uses the other text encoding. Japanese and Western cards cannot be mixed.");
+	if (result == CARD_ERROR_BROKEN)
+		return tr("The memory card is unformatted or damaged. It was left unchanged.");
+	return tr("The memory card could not be read. It may have changed or been removed. Nothing was copied.");
+}
+
+static void CopyRealGcCard(const FrontendState& state, bool wholeCard)
+{
+	const int slot = ChooseTwo(tr("Memory card"), tr("Choose the slot holding the memory card."),
+		tr("Slot A"), "", tr("Slot B"), "");
+	if (slot < 0) return;
+	riftwii::wii::GcRealCard physical;
+	int result = physical.Open(slot);
+	std::vector<std::uint8_t> raw;
+	if (result >= 0) result = physical.Read(raw);
+	if (result < 0) {
+		ShowPopup(tr("Memory card"), GcRealError(result), tr("OK"));
+		return;
+	}
+	riftwii::GcCardInfo source;
+	std::string error;
+	if (!riftwii::gc_card_read(raw, source, error)) {
+		logf("Memory card: the card in slot %c was read but is not a card RiftWii can use: %s\n", 'A' + slot,
+			error.c_str());
+		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_BROKEN), tr("OK"));
+		return;
+	}
+	mkdir("sd:/riftwii", 0777);
+	mkdir("sd:/riftwii/gc", 0777);
+	const time_t now = time(nullptr);
+	struct tm local;
+	localtime_r(&now, &local);
+	const riftwii::GcBackupStamp stamp = riftwii::gc_backup_stamp(local);
+	bool sourceChanged = false;
+	const auto unchanged = [&] {
+		const bool same = physical.Unchanged(raw);
+		if (!same) sourceChanged = true;
+		return same;
+	};
+	if (wholeCard) {
+		if (ShowPopup(tr("Save a copy of the whole card"),
+			tr("Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is only read.",
+				{std::to_string(source.saves.size())}), tr("Copy"), tr("Cancel")) != 0) return;
+		mkdir("sd:/riftwii/gc/backups", 0777);
+		const std::string folder = "sd:/riftwii/gc/backups/real";
+		mkdir(folder.c_str(), 0777);
+		const std::string path = folder + "/" + riftwii::gc_backup_new_name(riftwii::gc_backup_list(folder), stamp);
+		if (!riftwii::gc_real_commit(path, raw, unchanged, error)) {
+			logf("GameCube: the whole card in slot %c was not copied: %s\n", 'A' + slot, error.c_str());
+			ShowPopup(tr("Memory card"), sourceChanged ? GcRealError(CARD_ERROR_IOERROR)
+				: tr("Copy failed. The card in the Wii was left unchanged."), tr("OK"));
+			return;
+		}
+		riftwii::wii::forget_sd_layout();
+		logf("GameCube: the whole card in slot %c was copied to %s without writing to the physical card.\n", 'A' + slot, path.c_str());
+		ShowPopup(tr("Memory card"), tr("Copied to {1}.", {path}), tr("OK"));
+		return;
+	}
+	const int choice = ChooseTwo(tr("Copy from a memory card in the Wii"),
+		tr("Choose which saves to copy. The card in the Wii is only read."),
+		tr("This game's saves"), state.game_id, tr("Every save"), tr("Shared"));
+	if (choice < 0) return;
+	const bool shared = choice == 1;
+	// A whole card goes to the shared image for its own encoding, even when
+	// opened from a game of the other region. A game's saves go to its own image.
+	std::string targetId = state.game_id;
+	if (shared) targetId = source.shift_jis ? "GXXJ00" : "GXXE00";
+	if (!shared && source.shift_jis != riftwii::gc_card_shift_jis(targetId)) {
+		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_ENCODING), tr("OK"));
+		return;
+	}
+	const std::string path = riftwii::gc_card_path(targetId, shared);
+	const riftwii::GcRecovery recovered = riftwii::gc_recover_card(path, error);
+	if (recovered == riftwii::GcRecovery::Failed || recovered == riftwii::GcRecovery::BothKept) {
+		ShowPopup(tr("Memory card"), tr("Copy failed. The card in the Wii was left unchanged."), tr("OK"));
+		return;
+	}
+	std::vector<std::uint8_t> target;
+	struct stat status;
+	if (stat(path.c_str(), &status) == 0) {
+		if (!ReadSmallFile(path, riftwii::kGcDolphinMaxRawBytes, target)) {
+			ShowPopup(tr("Memory card"), tr("RiftWii could not write {1}.", {path}), tr("OK"));
+			return;
+		}
+	} else {
+		riftwii::GcCardFormat format;
+		format.shift_jis = source.shift_jis;
+		format.format_time = gettime();
+		riftwii::gc_card_flash_id(raw, format.flash_id);
+		riftwii::gc_card_format(target, format);
+	}
+	riftwii::GcRealPlan plan;
+	if (!riftwii::gc_real_plan(raw, target, state.game_id, shared, plan, error)) {
+		logf("GameCube: saves from slot %c were not planned: %s\n", 'A' + slot, error.c_str());
+		ShowPopup(tr("Memory card"), tr("The SD image is damaged or uses the other text encoding. Nothing was copied."), tr("OK"));
+		return;
+	}
+	std::string preview = tr("Found {1} matching saves. Destination: {2}.", {std::to_string(plan.selected), path})
+		+ " " + tr("To copy: {1}. Already present: {2}. Unusable: {3}.",
+			{std::to_string(plan.count.added), std::to_string(plan.count.skipped), std::to_string(plan.count.unusable)});
+	if (plan.count.full) preview += std::string(" ") + tr("The memory card is full, so the rest did not fit.");
+	if (plan.count.added == 0) {
+		ShowPopup(tr("Nothing new to add"), preview, tr("OK"));
+		return;
+	}
+	if (ShowPopup(tr("Copy from a memory card in the Wii"), preview, tr("Copy"), tr("Cancel")) != 0) return;
+	if (!unchanged()) {
+		ShowPopup(tr("Memory card"), GcRealError(CARD_ERROR_IOERROR), tr("OK"));
+		return;
+	}
+	const auto backup = riftwii::gc_backup_card(path, riftwii::gc_backup_folder(targetId, shared), stamp);
+	if (backup.what == riftwii::GcBackupResult::What::Failed) {
+		ShowPopup(tr("Saves not brought"),
+			tr("RiftWii could not keep a copy of the memory card, so it was not changed: {1}", {FlatCapped(backup.error, 120)}), tr("OK"));
+		return;
+	}
+	mkdir("sd:/riftwii/gc/cards", 0777);
+	if (!riftwii::gc_real_commit(path, plan.image, unchanged, error)) {
+		logf("GameCube: saves from slot %c were not copied to %s: %s\n", 'A' + slot, path.c_str(), error.c_str());
+		ShowPopup(tr("Memory card"), sourceChanged ? GcRealError(CARD_ERROR_IOERROR)
+			: tr("Copy failed. The card in the Wii was left unchanged."), tr("OK"));
+		return;
+	}
+	riftwii::wii::forget_sd_layout();
+	logf("GameCube: %u saves from the real card in slot %c were copied to %s; %u duplicates were kept as they were.\n",
+		plan.count.added, 'A' + slot, path.c_str(), plan.count.skipped);
+	ShowPopup(tr("Memory card"), GcDolphinSummary(plan.count, false), tr("OK"));
+}
+
+static void MenuGcCard(FrontendState& state)
+{
+	const bool real = state.model.game.gc_card == "real";
+	const bool noSlots = riftwii::wii::is_wii_u();
+	std::vector<FlowRow> rows(3);
+	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
+	rows[0].label = tr("Memory Card");
+	rows[0].value = "SD";
+	rows[0].dim = real;
+	rows[1].label = tr("Copy from a memory card in the Wii");
+	rows[2].label = tr("Save a copy of the whole card");
+	rows[1].dim = rows[2].dim = noSlots;
+	const auto note = [&](int row) -> std::string {
+		if (row > 0 && noSlots) return tr("Wii U has no GameCube memory card slots.");
+		if (real) return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
+		return tr("The card in the Wii is only read. Copies go to the SD card.");
+	};
+	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
+		if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });
+		else if (row > 0 && !noSlots) aside([&] { CopyRealGcCard(state, row == 2); });
+		return false;
+	});
+}
+
 // A GameCube game's crash screen (gcplugin.hpp's SetGcCrashScreen, laid
 // out as runtime/gc/gc_crash.h says), in the menu's own font and language,
 // made here as the launch screen cannot show translations: a header line,
@@ -6962,10 +7130,36 @@ static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
 
 // Before a GameCube game starts: its controls the first time, and its
 // crash screen. False: Back.
-static bool ReadyGcStart(const FrontendState& state)
+static bool ReadyGcStart(FrontendState& state)
 {
 	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
 	if (!game) return true;
+	if (state.model.game.gc_card == "real") {
+		riftwii::wii::GcRealCard physical;
+		int result = physical.Open(0);
+		std::vector<std::uint8_t> system;
+		riftwii::GcCardSpace space;
+		std::array<std::uint8_t, 12> flashId{};
+		std::string error;
+		if (result >= 0) result = physical.ReadSystem(system);
+		if (result >= 0 && (!riftwii::gc_card_space(system, physical.Bytes(), space, error) ||
+			!riftwii::gc_card_flash_id(system, flashId))) {
+			logf("Memory card: the card in slot A cannot be played with: %s\n",
+				error.empty() ? "its header holds no card ID" : error.c_str());
+			result = CARD_ERROR_BROKEN;
+		}
+		if (result >= 0 && ((system[0x25] != 0) != riftwii::gc_card_shift_jis(state.game_id)))
+			result = CARD_ERROR_ENCODING;
+		if (result < 0) {
+			std::string why = GcRealError(result);
+			if (riftwii::wii::is_wii_u()) why = tr("Wii U has no GameCube memory card slots.");
+			else if (result == CARD_ERROR_NOCARD || result == CARD_ERROR_WRONGDEVICE)
+				why = tr("Slot A has no readable memory card. A card in slot B cannot be used as slot A.");
+			if (ShowPopup(tr("Real card in slot A"), why, tr("Use this game's SD card"), tr("Cancel")) != 0) return false;
+			state.model.game.gc_card = "own";
+			logf("GameCube: the player chose this game's SD card because slot A could not be mounted.\n");
+		}
+	}
 	if (!ShowGcControlsOnce(state)) return false;
 	MakeGcCrashCard(*game);
 	return true;
@@ -8534,6 +8728,7 @@ static std::string PlayTileNote(const FrontendState& state)
 // The Saves tile's note for a GameCube game.
 static std::string GcSaveNote(const FrontendState& state)
 {
+	if (state.model.game.gc_card == "real") return tr("This game uses the real card in slot A. Its saves are not on the SD card.");
 	const std::string card = GcCardPath(state);
 	const std::string where = GcCardShared(state)
 		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
@@ -8577,7 +8772,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.region_video == "on") ++changed;
 	if (g.region_strings == "on") ++changed;
 	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
-	if (g.gc_card == "shared") ++changed;
+	if (g.gc_card != "own") ++changed;
 	if (g.gc_progressive != "global") ++changed;
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
@@ -8625,6 +8820,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// save mode. Its cheats are picked as a Wii game's are.
 	const bool cardFull = gamecube && GcCardFull(state);
 	const std::string saves = cardFull ? std::string(tr("Memory card full"))
+		: gamecube && state.model.game.gc_card == "real" ? std::string(tr("Real card in slot A"))
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		: std::string(tr(SaveLabel(state.model.save_mode).c_str()));
@@ -8827,7 +9023,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcDiscReads) game.gc_disc_reads = game.gc_disc_reads == "fast" ? "drive" : "fast";
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
-				if (AskGcCardSwitch()) game.gc_card = game.gc_card == "shared" ? "own" : "shared";
+				if (AskGcCardSwitch()) {
+					if (game.gc_card == "own") game.gc_card = "shared";
+					else if (game.gc_card == "shared" && !riftwii::wii::is_wii_u()) game.gc_card = "real";
+					else game.gc_card = "own";
+					if (riftwii::wii::is_wii_u()) say(tr("Wii U has no GameCube memory card slots."));
+				}
 				else changed = false;
 			}
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id)) {

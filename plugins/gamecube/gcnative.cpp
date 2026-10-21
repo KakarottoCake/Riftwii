@@ -2152,7 +2152,18 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<gc_card_run> card_runs;
     // (The memory card's backup, sd:/riftwii/gc/backups/, is made by the
     // DOL before the plugin starts: wii/launch/gcplugin.cpp.)
-    {
+    if (image.real_card) {
+        const rwp_host& host = plugin::host();
+        if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
+            host.set_sram_flash_id_a(image.real_card_flash_id.data()) < 0) {
+            error = "The real memory card's ID could not be written to SRAM.";
+            return false;
+        }
+        // No image means no EXI card hooks below. The game's SDK sees the
+        // hardware, including its unlock protocol, and can write its saves.
+        logf("GameCube: the game saves to the real memory card in slot A (its Memory card option), not to an image "
+             "on the SD card; SRAM holds that card's own ID, so a card formatted on another console is accepted\n");
+    } else {
         const std::string path = gc_card_path(image.id, image.shared_card);
         card_image.assign(GC_CARD_BYTES, 0xFF);
         bool ready = false;

@@ -90,6 +90,10 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         why = "the launch request has no room for a reason";
         return false;
     }
+    if (request->real_card > 1 || (request->real_card && request->shared_card)) {
+        why = "the launch request has conflicting memory card choices";
+        return false;
+    }
     const bool has_packs = request->pack_fst != nullptr;
     if (has_packs) {
         const bool header_whole = request->pack_header != nullptr && request->pack_header_bytes == kPlanHeaderBytes;
