@@ -90,6 +90,38 @@ std::uint32_t game_arena1_hi() {
     return arena1_hi;
 }
 
+bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, std::string& why) {
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    // The same search install_resident makes: the runtime writes the
+    // request and starts the channel through the game's own IOS_Ioctlv,
+    // which it reaches through that function's hook.
+    IpcSymbols symbols;
+    IpcApi api;
+    std::string search_error;
+    if (!find_ipc_symbols(text, symbols, search_error) || !find_ipc_api(text, symbols, api, search_error) ||
+        api.sync[7] == 0) {
+        why = "the game's IOS_Ioctlv was not found";
+        return false;
+    }
+    // Each hook moves its function's first instruction to a replay slot.
+    std::string word_why;
+    const std::uint32_t ioctlv_first = *reinterpret_cast<const volatile std::uint32_t*>(api.sync[7]);
+    if (!displaceable(ioctlv_first, kContinueScratchRegister, word_why)) {
+        why = "the game's IOS_Ioctlv cannot be hooked (its first word " + word_why + ")";
+        return false;
+    }
+    const std::uint32_t restart_first = *reinterpret_cast<const volatile std::uint32_t*>(os_restart);
+    if (!displaceable(restart_first, kContinueScratchRegister, word_why)) {
+        why = "OSRestart cannot be hooked (its first word " + word_why + ")";
+        return false;
+    }
+    return true;
+}
+
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,
                       std::string& error) {
     const bool rvz = options.rvz.enabled;

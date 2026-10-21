@@ -116,7 +116,13 @@ Without the RiftWii channel installed (or without a ticket for it), with a
 game that checks its own code, with no runtime in the launch, with a launch
 that does not fit one sector (511 bytes) or one RiftWii would refuse, the
 `OSRestart` hook is not installed, `boot.log` says why in a `Reset:` line,
-and the Reset restarts the game without its packs, as before. The
+and the Reset restarts the game without its packs, as before. When the
+hook goes in, its `Reset:` line says that, with OSRestart's address and
+the request's sector. Either way the line is decided and written while
+the log is still open (`plan_restart`, before the card goes to the
+runtime and the log ends); a launch that reloads the IOS ends the log
+earlier, so its line only says the request is ready and the rest is on
+screen. The
 channel's title is the RiftWii channel whatever Settings > Return to
 says: it is where RiftWii starts. `debug_off = reset` leaves the Reset to
 the game ([DEVELOPING.md](DEVELOPING.md)).

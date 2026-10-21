@@ -154,6 +154,13 @@ struct ResidentInstall {
 // address), below the BI2 when the apploader put it there.
 std::uint32_t game_arena1_hi();
 
+// Whether install_resident will be able to hook `os_restart` for the
+// game's own Reset: the checks it makes on the game's code (IOS_Ioctlv
+// found and hookable, OSRestart's first word movable), made earlier, while
+// boot.log is still open, so the log can say what the Reset will do.
+// `why` says what is missing when it cannot.
+bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, std::string& why);
+
 // `dol` describes the sections the apploader has already loaded; the text
 // sections are searched in place.
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,

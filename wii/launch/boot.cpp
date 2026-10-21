@@ -1276,7 +1276,12 @@ RestartRequest g_restart_request;
 // whenever a request was made but cannot be kept; says nothing when none was.
 void prepare_restart_request(const BootOptions& options) {
     g_restart_request = RestartRequest{};
-    if (g_extras.restart_args.empty() || !options.install_resident) return;
+    if (g_extras.restart_args.empty()) return;
+    if (!options.install_resident) {
+        logf("Reset: the game's own Reset restarts it as it always does: no RiftWii runtime goes into this game, "
+             "and the runtime is what takes the Reset\n");
+        return;
+    }
     if (debug_off("reset")) {
         logf("Reset: debug_off: the game's own Reset is left to the game\n");
         return;
@@ -1312,15 +1317,40 @@ void prepare_restart_request(const BootOptions& options) {
     }
     request.lba = static_cast<std::uint32_t>(placed.fragments.front().sector);
     g_restart_request = std::move(request);
+    // The rest is decided once the game's code is loaded, which, with an
+    // IOS reload, is after this log has ended (the reload takes the card).
+    if (!options.preserve_current_ios) {
+        logf("Reset: the request is ready in sector %u of the card (%s); whether the game's own Reset can take it "
+             "is decided after the IOS reload, on screen only\n", g_restart_request.lba, kRestartFile);
+    }
 }
 
-// After the IOS reload: the channel's ticket view and /dev/es, OSRestart,
-// into the runtime's options. Logs why not whenever the request was made.
-void fill_restart_options(const DolHeader& dol, bool game_checks_its_code, ResidentOptions& ro) {
+// After the game's code is loaded, while boot.log is still open: the
+// channel's ticket view and /dev/es, OSRestart, and the runtime's own
+// conditions (install_resident's), into `out`. Every outcome is logged
+// here, the hook included, because the log ends when the card goes to the
+// runtime, before install_resident runs: on a Wii without a USB Gecko a
+// line written after that is seen on screen only (#176's first Wii run
+// had no Reset: line at all). `runtime_in_mem2`: the runtime's code goes
+// to MEM2 (ro.mem1_veneers); `card_for_runtime`: the SD card is opened
+// for it (the request is written there).
+void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_in_mem2, bool card_for_runtime,
+                  RestartOptions& out) {
+    out = RestartOptions{};
     if (g_restart_request.lba == 0) return;
     if (game_checks_its_code) {
         logf("Reset: the game's own Reset restarts it without its packs: the game checks its own code, and the hook "
              "on OSRestart would change it\n");
+        return;
+    }
+    if (runtime_in_mem2) {
+        logf("Reset: the game's own Reset restarts it without its packs: the runtime's code is in MEM2, out of a "
+             "branch's reach from OSRestart\n");
+        return;
+    }
+    if (!card_for_runtime) {
+        logf("Reset: the game's own Reset restarts it without its packs: the runtime does not hold the SD card in "
+             "this launch (nothing of the packs or saves is read from it), and the request is written there\n");
         return;
     }
     std::vector<CodeRange> text;
@@ -1333,6 +1363,11 @@ void fill_restart_options(const DolHeader& dol, bool game_checks_its_code, Resid
         logf("Reset: the game's own Reset restarts it without its packs: its OSRestart was not found\n");
         return;
     }
+    std::string why;
+    if (!resident_can_hook_restart(dol, os_restart, why)) {
+        logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
+        return;
+    }
     u64 title = ChannelTitle();
     static tikview view ATTRIBUTE_ALIGN(32);
     u32 views = 0;
@@ -1341,7 +1376,7 @@ void fill_restart_options(const DolHeader& dol, bool game_checks_its_code, Resid
         std::memset(&view, 0, sizeof(view));
         logf("Reset: debug_reset_keep: the launch goes to %08x-%08x, which IOS refuses, and the request stays armed\n",
              static_cast<u32>(title >> 32), static_cast<u32>(title));
-        ro.restart.keep = true;
+        out.keep = true;
     } else if (ES_GetNumTicketViews(title, &views) < 0 || views == 0 || ES_GetTicketViews(title, &view, 1) < 0) {
         logf("Reset: the game's own Reset restarts it without its packs: the RiftWii channel has no ticket\n");
         return;
@@ -1351,14 +1386,17 @@ void fill_restart_options(const DolHeader& dol, bool game_checks_its_code, Resid
         logf("Reset: the game's own Reset restarts it without its packs: /dev/es did not open (%d)\n", es);
         return;
     }
-    ro.restart.os_restart = os_restart;
-    ro.restart.request_lba = g_restart_request.lba;
-    ro.restart.armed = g_restart_request.armed;
-    ro.restart.idle = g_restart_request.idle;
-    ro.restart.title = title;
-    ro.restart.view.assign(reinterpret_cast<const std::uint8_t*>(&view),
-                           reinterpret_cast<const std::uint8_t*>(&view) + sizeof(view));
-    ro.restart.es_fd = es;
+    out.os_restart = os_restart;
+    out.request_lba = g_restart_request.lba;
+    out.armed = g_restart_request.armed;
+    out.idle = g_restart_request.idle;
+    out.title = title;
+    out.view.assign(reinterpret_cast<const std::uint8_t*>(&view),
+                    reinterpret_cast<const std::uint8_t*>(&view) + sizeof(view));
+    out.es_fd = es;
+    logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with its "
+         "packs and choices: the request is in sector %u of the card (%s)\n", os_restart, out.request_lba,
+         kRestartFile);
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
@@ -2010,6 +2048,22 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return false;
     }
     bool file_device = savegame.file_device && options.install_resident;
+    // Where the runtime's code goes (set into ro.mem1_veneers below): a code
+    // build that moved its code list sizes the game's heaps to all of MEM1,
+    // and a game that clears MEM1's top (Resident Evil 4) would wipe it.
+    const bool runtime_code_in_mem2 =
+        code_build || (clears_mem1_top && !game_runs_no_mem2_code(probe.header.game_id));
+    // The game's own Reset, decided now: boot.log ends when the card goes
+    // to the runtime, just below. /dev/es, opened for it, is closed again
+    // unless the runtime takes it.
+    RestartOptions restart_plan;
+    plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
+    struct EsCleanup {
+        RestartOptions& plan;
+        ~EsCleanup() {
+            if (plan.es_fd >= 0) IOS_Close(plan.es_fd);
+        }
+    } es_cleanup{restart_plan};
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements, savegame redirection and RVZ games need the resident runtime";
@@ -2070,13 +2124,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         ro.savegame.file_device = file_device && card.fd >= 0;
         ro.rvz = rvz;
         ro.retail_bca = options.retail_bca;
-        fill_restart_options(dol, gx_protected, ro);
+        ro.restart = restart_plan;
         hooked_os_restart = ro.restart.os_restart;
         ro.mem1_floor = mem1_floor;
         // A code build (Project+) sizes the game's heaps to all of MEM1;
         // its list is placed elsewhere, so the handler's own list room is
         // free for the veneers and the runtime's code goes to MEM2.
-        if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) ro.mem1_veneers = kCodeVeneers;
+        if (code_build) ro.mem1_veneers = kCodeVeneers;
         // Resident Evil 4 clears MEM1 up to its FST and keeps its audio RAM
         // at the bottom of MEM2 (0x90004000): an RVZ of it, whose reads the
         // runtime serves, stayed black (the runtime's code and data both
@@ -2091,11 +2145,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ro.mem2_top = true;
         }
         if (!install_resident(dol, ro, resident, error)) return false;
-        if (ro.restart.es_fd >= 0 && !resident.restart_hooked) IOS_Close(ro.restart.es_fd);
         if (resident.restart_hooked) {
-            logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with "
-                 "its packs and choices: the request is in sector %u of the card (%s)\n", ro.restart.os_restart,
-                 ro.restart.request_lba, kRestartFile);
+            restart_plan.es_fd = -1;  // the runtime's now
+        } else if (restart_plan.os_restart != 0) {
+            // Past the end of boot.log: only on screen (and the Gecko).
+            logf("Reset: not hooked after all: the game's own Reset restarts it without its packs\n");
         }
     }
     // The virtual SD card: in the resident runtime's place (never with it).
