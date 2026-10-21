@@ -1338,6 +1338,24 @@ static riftwii::CoverDownloads g_boxRun("Shelf", "full cover");
 static std::set<std::string> g_covers3dChecked;
 static bool g_covers3dOff = false;
 static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
+// Settings leaves the retry for Home, where the picture queues are built.
+static bool g_retryMissingCovers = false;
+
+// A rescan or an explicit retry gives every missing picture another chance.
+static void ResetCoverDownloads()
+{
+	g_coversOff = false;
+	g_coversChecked.clear();
+	g_coverRun.reset();
+
+	g_boxesOff = false;
+	g_boxesChecked.clear();
+	g_boxRun.reset();
+
+	g_covers3dOff = false;
+	g_covers3dChecked.clear();
+	g_cover3dRun.reset();
+}
 
 // Counts one picture's download in `run`; true when that kind's downloads
 // stop with it.
@@ -4191,6 +4209,20 @@ static int MenuSource(FrontendState& state)
 				coverQueue.push_back(item.id);
 		}
 	};
+	if (g_retryMissingCovers) {
+		// Asked for by name, so even the games GameTDB had no picture for
+		// in the last week are asked again (it may have one by now).
+		for (const GridItem& item : items) {
+			riftwii::wii::ForgetCoverMiss(item.id);
+			riftwii::wii::ForgetBoxMiss(item.id);
+			riftwii::wii::ForgetCover3dMiss(item.id);
+		}
+		ResetCoverDownloads();
+		g_retryMissingCovers = false;
+		logf("Covers: downloading the missing covers, boxes and 3D covers again for %u game(s), "
+		     "including those GameTDB had none for (Settings > Online > Download missing covers)\n",
+		     static_cast<unsigned>(items.size()));
+	}
 	queueCovers();
 
 	SetHomeMovable(grid, entries);
@@ -4212,7 +4244,7 @@ static int MenuSource(FrontendState& state)
 			if (CountCoverFetch(got, arrived, coverError)) {
 				g_coversOff = true;
 				coverQueue.clear();
-				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(coverError, 60)});
+				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
@@ -4387,15 +4419,7 @@ static int MenuSource(FrontendState& state)
 				g_openWhenScanned.clear();
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
-				g_coversOff = false;
-				g_coversChecked.clear();
-				g_coverRun.reset();
-				g_boxesOff = false;
-				g_boxesChecked.clear();
-				g_boxRun.reset();
-				g_covers3dOff = false;
-				g_covers3dChecked.clear();
-				g_cover3dRun.reset();
+				ResetCoverDownloads();
 				queueCovers();
 			}
 		}
@@ -9559,7 +9583,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
-		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -9709,6 +9733,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
+		FlowRow covers;
+		covers.kind = FlowRow::Kind::Action;
+		covers.label = tr("Download missing covers");
+		covers.value = tr("Download");
+		covers.dim = !settings.online;
+		rows.push_back(covers);
+		actions.push_back(kMissingCovers);
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -9795,7 +9826,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kServer: case kUpdate:
+				case kOnline: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -9907,6 +9938,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
+			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
@@ -9927,7 +9959,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
-			case kRescan: return tr("Reads the SD card and the USB drive again.");
+			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
@@ -10258,6 +10290,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					break;
 				}
+				case kMissingCovers:
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						break;
+					}
+					g_retryMissingCovers = true;
+					note(tr("Missing covers will be downloaded when you go back to Home."));
+					break;
 				case kGcRumble:
 					settings.gc_rumble = settings.gc_rumble == "off" ? "on" : "off";
 					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."));

@@ -420,6 +420,12 @@ msgstr "ゲーム名とチートをダウンロード"
 msgid "Get the latest game names"
 msgstr "最新のゲーム名を取得"
 
+msgid "Download missing covers"
+msgstr "足りないカバーをダウンロード"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "ホームに戻ると、足りないカバーをダウンロードします。"
+
 msgid "Update"
 msgstr "更新"
 
@@ -630,11 +636,14 @@ msgstr "メニューの言語です。「Wii」は本体の設定に合わせま
 msgid "Downloads the newest game names from GameTDB."
 msgstr "GameTDBから最新のゲーム名をダウンロードします。"
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。"
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "接続タップのコントローラで押しているボタンをその場で表示します。"
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "SDカードとUSBドライブをもう一度読み込みます。"
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。"
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。"
@@ -804,8 +813,8 @@ msgstr "終了したNintendoのサーバーの代わりにゲームが使うオ�
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "GameTDBからカバーを取得中: 残り{1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。"
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。"
 
 msgid "Cover"
 msgstr "カバー"

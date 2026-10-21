@@ -420,6 +420,12 @@ msgstr "Descargar nombres y trucos"
 msgid "Get the latest game names"
 msgstr "Actualizar nombres de juegos"
 
+msgid "Download missing covers"
+msgstr "Descargar portadas que faltan"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "Las portadas que faltan se descargarán cuando vuelvas a Inicio."
+
 msgid "Update"
 msgstr "Actualizar"
 
@@ -630,11 +636,14 @@ msgstr "El idioma del menú. Wii sigue el ajuste de la consola."
 msgid "Downloads the newest game names from GameTDB."
 msgstr "Descarga los nombres de juegos más recientes de GameTDB."
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "Descarga de GameTDB las portadas, cajas y portadas 3D que faltan en Inicio. Si GameTDB no tiene imagen de un juego, seguirá sin ella."
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Muestra en directo lo que pulsan los mandos del adaptador."
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "Vuelve a leer la tarjeta SD y la unidad USB."
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "Vuelve a leer la tarjeta SD y la unidad USB, e intenta descargar de nuevo las portadas, cajas y portadas 3D que faltan."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB."
@@ -804,8 +813,8 @@ msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cer
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Descargando portadas de GameTDB: faltan {1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > En línea > Descargar portadas que faltan."
 
 msgid "Cover"
 msgstr "Portada"

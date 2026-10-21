@@ -362,6 +362,13 @@ T = {
                                   "Scarica nomi e trucchi"),
     "Get the latest game names": ("Actualizar nombres de juegos", "最新のゲーム名を取得", "Atualizar nomes dos jogos",
                                   "Aggiorna i nomi dei giochi"),
+    "Download missing covers": ("Descargar portadas que faltan", "足りないカバーをダウンロード", "Baixar capas que faltam",
+                                "Scarica le copertine mancanti"),
+    "Missing covers will be downloaded when you go back to Home.": (
+        "Las portadas que faltan se descargarán cuando vuelvas a Inicio.",
+        "ホームに戻ると、足りないカバーをダウンロードします。",
+        "As capas que faltam serão baixadas quando você voltar ao Início.",
+        "Le copertine mancanti verranno scaricate quando torni alla Home."),
     "Update": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
     "Menu IOS": ("IOS del menú", "メニューのIOS", "IOS do menu", "IOS del menu"),
     "Menu IOS: IOS 58 (no d2x cIOS found)": ("IOS del menú: IOS 58 (no hay cIOS d2x)", "メニューのIOS: IOS 58 (d2x cIOSなし)",
@@ -571,16 +578,21 @@ T = {
         "GameTDBから最新のゲーム名をダウンロードします。",
         "Baixa os nomes de jogos mais recentes do GameTDB.",
         "Scarica i nomi dei giochi più recenti da GameTDB."),
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.": (
+        "Descarga de GameTDB las portadas, cajas y portadas 3D que faltan en Inicio. Si GameTDB no tiene imagen de un juego, seguirá sin ella.",
+        "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。",
+        "Baixa do GameTDB as capas, caixas e capas 3D que ainda faltam no Início. Um jogo sem imagem no GameTDB continua sem ela.",
+        "Scarica da GameTDB le copertine, le custodie e le copertine 3D che mancano nella Home. Un gioco senza immagini su GameTDB resta senza."),
     "Shows live what the controllers in the adapter are pressing.": (
         "Muestra en directo lo que pulsan los mandos del adaptador.",
         "接続タップのコントローラで押しているボタンをその場で表示します。",
         "Mostra ao vivo o que os controles do adaptador estão apertando.",
         "Mostra in tempo reale cosa premono i controller dell'adattatore."),
-    "Reads the SD card and the USB drive again.": (
-        "Vuelve a leer la tarjeta SD y la unidad USB.",
-        "SDカードとUSBドライブをもう一度読み込みます。",
-        "Lê o cartão SD e a unidade USB de novo.",
-        "Rilegge la scheda SD e l'unità USB."),
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.": (
+        "Vuelve a leer la tarjeta SD y la unidad USB, e intenta descargar de nuevo las portadas, cajas y portadas 3D que faltan.",
+        "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。",
+        "Lê o cartão SD e a unidade USB de novo e tenta baixar novamente as capas, caixas e capas 3D que faltam.",
+        "Rilegge la scheda SD e l'unità USB e riprova a scaricare le copertine, le custodie e le copertine 3D mancanti."),
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
         "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
         "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
@@ -706,11 +718,11 @@ T = {
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
         "Scaricamento copertine da GameTDB: ne mancano {1}"),
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.": (
-        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo.",
-        "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。",
-        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo.",
-        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."),
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.": (
+        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > En línea > Descargar portadas que faltan.",
+        "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Online > Baixar capas que faltam.",
+        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."),
     "Cover": ("Portada", "カバー", "Capa", "Copertina"),
     "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
     "Downloads this game's box art from GameTDB now.": (
@@ -2505,6 +2517,10 @@ KO = {
         "이름 및 치트 다운로드",
     "Get the latest game names":
         "최신 게임 이름 확인",
+    "Download missing covers":
+        "없는 커버 다운로드",
+    "Missing covers will be downloaded when you go back to Home.":
+        "홈으로 돌아가면 없는 커버를 다운로드합니다.",
     "Update":
         "업데이트",
     "Menu IOS":
@@ -2633,10 +2649,12 @@ KO = {
         "메뉴 언어입니다. Wii는 본체 자체 설정을 따릅니다.",
     "Downloads the newest game names from GameTDB.":
         "GameTDB에서 최신 게임 이름을 다운로드합니다.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "홈에 아직 없는 커버, 박스 및 3D 커버를 GameTDB에서 다운로드합니다. GameTDB에 이미지가 없는 게임은 이미지 없이 남습니다.",
     "Shows live what the controllers in the adapter are pressing.":
         "어댑터에 연결된 컨트롤러의 입력 상태를 실시간으로 보여줍니다.",
-    "Reads the SD card and the USB drive again.":
-        "SD 카드와 USB 드라이브를 다시 읽습니다.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "SD 카드와 USB 드라이브를 다시 읽고, 없는 커버, 박스 및 3D 커버 다운로드를 다시 시도합니다.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "슬롯 248~252에서 d2x cIOS가 발견되지 않아 메뉴가 IOS 58로 실행됩니다. SD 카드나 USB로 게임을 플레이하려면 d2x를 설치하세요.",
     "Check for a new version":
@@ -2749,8 +2767,8 @@ KO = {
         "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다.",
     "Getting covers from GameTDB: {1} left":
         "GameTDB에서 커버 가져오는 중: {1} 개 남음",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "커버 이미지를 ({1})에서 다운로드할 수 없습니다. 다시 시도하려면 설정 > 게임 다시 찾기를 이용하세요.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "커버를 다운로드할 수 없습니다 ({1}). 다시 시도하려면 설정 > 온라인 > 없는 커버 다운로드를 이용하세요.",
     "Cover":
         "커버",
     "Download again":
@@ -4310,6 +4328,10 @@ FR = {
         "Télécharger noms et codes de triche",
     "Get the latest game names":
         "Obtenir les derniers noms de jeux",
+    "Download missing covers":
+        "Télécharger les jaquettes manquantes",
+    "Missing covers will be downloaded when you go back to Home.":
+        "Les jaquettes manquantes seront téléchargées au retour à l'accueil.",
     "Update":
         "Mettre à jour",
     "Menu IOS":
@@ -4438,10 +4460,12 @@ FR = {
         "Langue du menu. \"Wii\" utilise le paramètre de la console.",
     "Downloads the newest game names from GameTDB.":
         "Télécharge les derniers noms de jeux depuis GameTDB.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "Télécharge depuis GameTDB les jaquettes, boîtiers et jaquettes 3D qui manquent à l'accueil. Un jeu sans image sur GameTDB reste sans image.",
     "Shows live what the controllers in the adapter are pressing.":
         "Affiche en direct les entrées des manettes branchées sur l'adaptateur.",
-    "Reads the SD card and the USB drive again.":
-        "Relance la lecture de la carte SD et du stockage USB.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "Relit la carte SD et le stockage USB, et réessaie de télécharger les jaquettes, boîtiers et jaquettes 3D manquants.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB.",
     "Check for a new version":
@@ -4554,8 +4578,8 @@ FR = {
         "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
     "Getting covers from GameTDB: {1} left":
         "Récupération des jacquettes GameTDB : {1} restante(s)",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes.",
     "Cover":
         "Jacquette",
     "Download again":
