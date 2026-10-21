@@ -1032,9 +1032,6 @@ msgstr "Wii Uのドライブ"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。"
-
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
 
@@ -1998,21 +1995,6 @@ msgstr "ホームのディスクドライブのタイルです。ディスクか
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。"
 
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. 本体の端に近いUSBポートを使ってください。"
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32かNTFS (またはWBFSドライブ)。"
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. ゲームはwbfsかgamesフォルダに。"
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. スロット249、250、251のいずれかにd2x cIOS。"
-
 msgid "A to Z"
 msgstr "A〜Z"
 
@@ -2825,3 +2807,21 @@ msgstr "スロットAに読み込めるメモリーカードがありません�
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。"
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. 本体の端に近いUSBポートを使ってください。"
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
+
+msgid "3. Format to FAT32 (Recommended) or NTFS."
+msgstr "3. FAT32 (推奨) かNTFSでフォーマットしてください。"
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. ゲームは/wbfsか/gamesフォルダに。"
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"
