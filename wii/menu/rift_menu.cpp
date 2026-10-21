@@ -1955,7 +1955,14 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (item.badge != "DISC") shownGames.insert(item.id);
 	const std::size_t games = shownGames.size();
 	std::string status;
-	for (const std::string& p : {ShortSourceProblem("SD", state.sd_catalog), ShortSourceProblem("USB", state.usb_catalog)}) {
+	// A drive Settings > Games from leaves out is not a problem to report:
+	// "SD: no games" has no meaning when Home lists the USB drive only.
+	const std::string& source = riftwii::wii::Settings().home_source;
+	const bool sdListed = source == "all" || source == "sd" || source == "gamecube";
+	const bool usbListed = source == "all" || source == "usb" || source == "gamecube";
+	const std::string sdProblem = sdListed ? ShortSourceProblem("SD", state.sd_catalog) : "";
+	const std::string usbProblem = usbListed ? ShortSourceProblem("USB", state.usb_catalog) : "";
+	for (const std::string& p : {sdProblem, usbProblem}) {
 		if (p.empty()) continue;
 		status += (status.empty() ? "" : "   ") + p;
 	}
