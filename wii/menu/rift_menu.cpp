@@ -1983,7 +1983,14 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
-	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
+	if (games == 0) {
+		// Only the folders of the drives Games from lists (none for the
+		// Wii's own channels).
+		std::string folders;
+		if (usbListed) folders = "usb:/wbfs, usb:/games";
+		if (sdListed) folders += std::string(folders.empty() ? "" : ", ") + "sd:/wbfs, sd:/games";
+		return folders.empty() ? std::string("No games found") : "No games found (" + folders + ")";
+	}
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	// What B does here: letters in A to Z order (GuiGameGrid::LetterKeys),
 	// and with A it picks a game up where games can be moved.
