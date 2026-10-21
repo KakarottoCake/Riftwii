@@ -729,19 +729,56 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 	return flat;
 }
 
-// Hard-wrapped rows for a flow list: XML errors can hold long runs
-// without spaces, which word wrapping never breaks.
-static std::vector<std::string> Chunks(const std::string& text, std::size_t width, std::size_t maxRows)
+// Pixels a 15-point note row in the 540-wide lists has for its text: the card's
+// width less the paddings and, with scroll arrows showing, their room (482).
+static constexpr int kNoteRowPixels = 470;
+
+// The same wrapping by what the font draws instead of by byte count: a note
+// row has about 480 pixels, which is some 65 Latin letters at 15 points but
+// only a dozen Japanese ones, so a count tuned for one is wrong for the other
+// (a tester: lines broke where the text still fit, half the page empty).
+// Lines end at a space when there is one in their back half; the last row
+// ends in "..." when the text did not all fit.
+static std::vector<std::string> ChunksFitting(const std::string& text, int pixelWidth, int fontSize,
+	std::size_t maxRows)
 {
+	GuiText probe(nullptr, fontSize, skin::kInk);
+	const auto widthOf = [&](const std::string& s) {
+		probe.SetText(s.c_str());
+		return probe.GetTextWidth();
+	};
+	// The end of the longest start of `s` that fits `room` pixels, always at
+	// least one character so a narrow room never loops.
+	const auto fitEnd = [&](const std::string& s, int room) {
+		std::size_t end = 0;
+		while (end < s.size()) {
+			std::size_t next = end + 1;
+			while (next < s.size() && (static_cast<unsigned char>(s[next]) & 0xC0) == 0x80) ++next;
+			if (end > 0 && widthOf(s.substr(0, next)) > room) break;
+			end = next;
+		}
+		return end;
+	};
+
 	std::vector<std::string> rows;
-	std::string flat = FlatCapped(text, width * maxRows);
-	while (!flat.empty() && rows.size() < maxRows) {
-		std::size_t cut = flat.size() <= width ? flat.size() : flat.rfind(' ', width);
-		if (cut == std::string::npos || cut < width / 2) cut = std::min(width, flat.size());
-		while (cut > 1 && cut < flat.size() && (static_cast<unsigned char>(flat[cut]) & 0xC0) == 0x80) --cut;
-		rows.push_back(flat.substr(0, cut));
-		flat = flat.substr(cut);
-		while (!flat.empty() && flat.front() == ' ') flat.erase(0, 1);
+	std::string rest = FlatCapped(text, 90 * maxRows);
+	while (!rest.empty() && rows.size() < maxRows) {
+		const bool lastRow = rows.size() + 1 == maxRows;
+		std::size_t cut = fitEnd(rest, pixelWidth);
+		if (cut < rest.size()) {
+			if (lastRow) {
+				// Room for the dots, then no half character before them.
+				cut = fitEnd(rest, pixelWidth - widthOf("..."));
+				while (cut > 1 && cut < rest.size() && (static_cast<unsigned char>(rest[cut]) & 0xC0) == 0x80) --cut;
+				rows.push_back(rest.substr(0, cut) + "...");
+				return rows;
+			}
+			const std::size_t space = rest.rfind(' ', cut);
+			if (space != std::string::npos && space >= cut / 2) cut = space;
+		}
+		rows.push_back(rest.substr(0, cut));
+		rest.erase(0, cut);
+		while (!rest.empty() && rest.front() == ' ') rest.erase(0, 1);
 	}
 	return rows;
 }
@@ -7200,7 +7237,7 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 		head.dim = !p.valid;
 		add(head, {RowRef::What::Pack, i});
 		if (!p.valid) {
-			for (const std::string& line : Chunks(p.detail, 44, 3)) {
+			for (const std::string& line : ChunksFitting(p.detail, kNoteRowPixels, 15, 3)) {
 				FlowRow note;
 				note.label = line;
 				note.dim = true;
@@ -8005,7 +8042,7 @@ static void MenuCheats(FrontendState& state)
 		rows.push_back(download);
 		refs.push_back({Act::Download, 0});
 		if (!loaded) {
-			for (const std::string& line : Chunks(status, 44, 3)) {
+			for (const std::string& line : ChunksFitting(status, kNoteRowPixels, 15, 3)) {
 				FlowRow note;
 				note.label = line;
 				note.dim = true;
