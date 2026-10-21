@@ -16,27 +16,56 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** GameCube colors and saves get fixed, more games get their sound on a Wii, and the four-Remote freeze gets logging to find it. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Real GameCube memory cards, the Zelda bonus discs, a HOME Menu Reset that keeps a Wii game's mods, and a long list of GameCube game fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
+
+![A GameCube game's Memory Card page: copy from a memory card in the Wii, or save a copy of the whole card]({{SCREENSHOTS}}2610-587-real-memory-card.png)
+![Settings, Online: Download missing covers]({{SCREENSHOTS}}2610-587-missing-covers.png)
 
 ## What changed
 
-- **Mario Party 4 and Sonic Gems Collection get their true colors in Wii mode.** Paletted textures now use their own colors: Mario Party 4 no longer draws silver stars, a green text window, noise on the envelope, and streaks on the Mini-Game Mode curtain, and Sonic Gems Collection's Yes/No prompt keeps its capitals. Checked in Dolphin.
-- **A GameCube memory card copied from another console or emulator no longer reads as damaged.** RiftWii now re-signs the copy the game sees with this Wii's ID, so a tester's shared card no longer says Slot A is damaged in Sonic Gems Collection. The file itself keeps its own header until the game writes. Checked in Dolphin.
-- **More GameCube games should play their sound right on a Wii:** Melee, Mario Party 4 and 5, Sonic Mega Collection, Star Fox Assault, Beyond Good and Evil and Paper Mario: The Thousand-Year Door. Their sound program is now patched to read from the Wii's memory; before, only simpler ones like Sunshine's and Luigi's Mansion's were, so Mario Party 4 played noise on a tester's Wii U. Dolphin cannot hear this difference; not tested on a Wii yet.
-- **A GameCube game with an unusual disc ID finds its old memory card again.** A card saved under the old ID-only name is copied to its new name at launch when that is not there yet.
-- **The freeze with four Wii Remotes (#138) gets diagnostics.** `session.log` now says when the Wii Remote stack starts, which Remotes are connected, and how much memory it has left when one connects or leaves. No behavior change.
-- **A pack that changes one disc file too many times is refused, naming the file.** The limit is now 128 changes to one file (it was 512, which could run the Wii out of stack), far more than any real pack makes.
+### GameCube
+
+- **Real GameCube memory cards, on a Wii with GameCube slots.** A game's Saves page copies saves from a card in slot A or B into its SD card, and backs up a whole card to `sd:/riftwii/gc/backups/real/` without writing to it. Memory card > "Real card in slot A" lets the game save to the card itself; if no card answers, RiftWii offers the SD card for that launch only. A Wii U doesn't show these options. Checked in Dolphin; not tested on a real Wii yet.
+- **The Zelda bonus discs start their games.** Collector's Edition and the Ocarina of Time / Master Quest disc go back through RiftWii when you pick a game from their menu, which starts it with the usual patches, instead of a black screen. Checked in Dolphin; not tested on a real Wii yet.
+- **Sonic Gems Collection's Sonic CD, Sonic R and Sonic the Fighters** start the same way, through RiftWii, instead of staying black. Not tested with the game itself yet.
+- **Mario Party 5, 6 and 7 and DDR Mario Mix start** instead of hanging with no picture.
+- **Japanese games show their Japanese text on a Western Wii or Wii U**, instead of gaps and stray letters in their system and memory card messages.
+- **Memory cards formatted on another console are accepted,** the way a GameCube accepts them, without changing the card.
+- **Pikmin 2 from an RVZ starts** instead of staying black.
+- **Doshin the Giant (PAL) and NBA Courtside 2002 start,** and Doshin's Reset brings it back.
+- **Eternal Darkness no longer freezes on its opening quote.**
+- **F-Zero GX keeps a GameCube controller's port** while a Wii Remote is connected too. Checked in Dolphin; not tested on a real Wii yet.
+- **Luigi's Mansion no longer goes black after you choose progressive scan.**
+- **Pokémon Channel's memory card is RiftWii's again.** The game itself still stops on The Pokémon Company logo; that's a separate problem.
+- **480p games are handed over already in 480p**, our best guess at Super Mario Sunshine's wrong colors and speed on a Wii U. Not tested on a Wii U yet.
+- **A CISO, GCZ, WIA or RVZ renamed to .iso** is now named in the log with what to do about it, and a CISO gets the CISO DETECTED popup, instead of the game just not showing up.
+
+### Everything else
+
+- **HOME Menu > Reset in a Wii game with mods keeps the mods.** The game starts again through RiftWii with its packs, cheats and choices. Checked in Dolphin; not tested on a real Wii yet.
+- **The in-app update shows every step:** one bar for all the downloads and writes, the step's name, and the screen no longer dims while it works.
+- **Settings > Online > Download missing covers** asks again for every cover, box and 3D cover Home is missing, including ones GameTDB didn't have last time.
+- **Virtual SD card images on a well-used SD card start,** and RiftWii warns before building one on a card whose free space is too scattered.
+- **Custom inject channels such as TIME show on Home,** Discross no longer does, and the log says why each channel is left off.
+- **Safer popups during an update,** after a tester's crash. The cause isn't certain yet, so the update now logs more to place it.
 
 ## What to test
 
-1. If you saw the menu freeze with four Wii Remotes (#138): connect four Remotes again. If it freezes, turn the Wii off, start RiftWii and send a problem report, saying it was the four-Remote freeze.
-2. Mario Party 4 and Sonic Gems Collection on a Wii: are the colors right, and does the sound play?
-3. Melee, Sonic Mega Collection, Mario Party 5, Star Fox Assault, Beyond Good and Evil, and Paper Mario: The Thousand-Year Door on a Wii: does the sound play?
-4. A GameCube memory card copied from another console or emulator: does it load instead of reading as damaged?
+1. **The Zelda bonus discs** (Collector's Edition, Ocarina of Time / Master Quest): pick each game from the disc's menu. It should start, not go black. On a real Wii with 480p on, report any "No Signal" after the rumble screen, with `sd:/riftwii/boot.log` and `sd:/riftwii/gc/trace.bin`.
+2. **HOME Menu > Reset in a Wii game with mods:** the game should restart with its mods still on. The interesting games are the ones that used to lose them, like Wii Party. Also try the console's own Reset button.
+3. **Real GameCube memory cards** (a Wii with GameCube slots only): on a game's Saves page, copy saves from a card in slot A, then slot B, and load them in the game. Back up a whole card. Set Memory card to "Real card in slot A" and save in the game. With slot A empty, the SD card offer should be for that launch only. Pulling the card out during a copy shouldn't hang.
+4. **F-Zero GX** with only a GameCube controller while a Wii Remote is also connected; unplug and replug the controller during a race.
+5. **The GameCube fixes:** Mario Party 5, 6 and 7, DDR Mario Mix, a Japanese game's text, a card from another console, Pikmin 2 from an RVZ, Doshin's Reset, Eternal Darkness past its opening, Luigi's Mansion with progressive scan, Sunshine on a Wii U.
+6. **The update to this release:** every step with a moving bar, and the screen shouldn't dim.
+7. **Settings > Online > Download missing covers.**
 
 ## Known issues
 
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
+- **Super Mario Sunshine's in-game Reset goes black** on a real Wii (#198).
+- **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
+- **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
+- **Pokémon Channel** stops on The Pokémon Company logo.
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 

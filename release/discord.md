@@ -17,20 +17,27 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-GameCube colors, saves, and sound:
+Real GameCube memory cards, the Zelda bonus discs, and lots of GameCube fixes:
 
-* Mario Party 4 and Sonic Gems get their true colors in Wii mode (checked in Dolphin)
-* A memory card copied from elsewhere no longer reads as damaged (checked in Dolphin)
-* Melee, Mario Party 4 and 5, Sonic Mega Collection, Star Fox Assault, Beyond Good and Evil and Paper Mario TTYD should play their sound right on a Wii (not tested on one yet)
-* A game with an unusual disc ID finds its old card again
-* Logging for the four-Remote freeze (#138): session.log tracks the Remote stack and memory, no behavior change
-* A pack changing one file over 128 times is refused with the file named
+* Real GameCube memory cards (Wii with GameCube slots): copy saves from one, back up a whole card, or play with "Real card in slot A"
+* The Zelda bonus discs start their games instead of going black
+* HOME Menu > Reset in a Wii game with mods keeps the mods
+* Start now: Mario Party 5/6/7, DDR Mario Mix, Pikmin 2 from an RVZ, Doshin the Giant, NBA Courtside 2002
+* Fixed: Eternal Darkness's opening, Luigi's Mansion with progressive scan, Japanese text on a Western Wii, cards from another console, F-Zero GX's controller ports
+* The update shows every step and the screen stays lit; Settings > Online > Download missing covers
+
+Cards, bonus discs, Reset and F-Zero GX are checked in Dolphin only.
 
 To test, please:
 
-1. Saw the freeze with four Remotes? Connect four again; if it freezes, turn off, start RiftWii and send a problem report
-2. Mario Party 4 / Sonic Gems on a Wii: colors and sound?
-3. Melee and the other listed games on a Wii: sound?
-4. A memory card copied from elsewhere: does it load?
+1. Zelda bonus discs: pick each game. On a real Wii at 480p, report any "No Signal" with boot.log and gc/trace.bin
+2. HOME Menu > Reset with mods (Wii Party is a good one), and the console's Reset button
+3. Real cards: copy from slot A, then B; back up a card; play on "Real card in slot A"
+4. F-Zero GX with a GameCube controller and a Wii Remote; replug the controller mid-race
+5. The other GameCube fixes, and Sunshine on a Wii U
+6. The update itself, then Download missing covers
 
 Sending logs (you don't need to take out your SD card anymore): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![A GameCube game's Memory Card page with the real card options](docs/screenshots/2610-587-real-memory-card.png)
+![Settings, Online: Download missing covers](docs/screenshots/2610-587-missing-covers.png)
