@@ -43,7 +43,7 @@ EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-l
 # What only the GameCube loader uses lives in the gamecube plugin
 # (Makefile.plugin's gamecube_SRC, docs/PLUGINS.md "Stage (b)"), not in the
 # DOL; the host tests still build these (CMakeLists.txt).
-EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp \
+EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp src/patching/gcaram.cpp \
 				src/patching/gcfont.cpp src/data/gccontrols.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common

@@ -26,6 +26,7 @@
 #include "gcblobs.h"
 #include "riftwii/codehook.hpp"
 #include "riftwii/fat32.hpp"
+#include "riftwii/gcaram.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
@@ -644,9 +645,18 @@ unsigned raise_aram_base(Code& code, std::uint32_t check, std::uint32_t stubs, s
 // a limit is raised with the addresses: the `lis` gives 0x11000000 and
 // the comparison's operands swap, so the raised limit is always taken
 // (ARAM is 16 MB on every GameCube). ARGetSize is `lwz r3,d(r13)`, `blr`.
-// Returns how many limits were raised.
+// MusyX clamps its pool's top to ARGetSize() in another shape (Doshin the
+// Giant PAL could allocate no sound stream, and restarted itself through
+// its error screen 0.2 s in, again and again; riftwii/gcaram.hpp): both of
+// that clamp's calls answer the raised end instead. Returns how many
+// limits were raised.
 unsigned raise_aram_limits(Code& code) {
     unsigned raised = 0;
+    for (const GcAramClamp& clamp : find_gc_aram_size_clamps(code.ranges())) {
+        code.put(clamp.first_call, kGcAramRaisedEndWord);
+        code.put(clamp.second_call, kGcAramRaisedEndWord);
+        ++raised;
+    }
     code.each([&](std::uint32_t a, std::uint32_t w) {
         const std::uint32_t target = bl_target(a, w);
         if (target == 0 || !code.has(target + 4)) return;
