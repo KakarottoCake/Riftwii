@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 
@@ -22,6 +23,13 @@
 #include "log.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcreal.hpp"
+
+// libogc's SRAM copy (libogc/system.c), not in its headers: the card IDs the
+// Wii keeps for slots A and B.
+extern "C" {
+syssramex* __SYS_LockSramEx(void);
+u32 __SYS_UnlockSramEx(u32 write);
+}
 
 namespace riftwii::wii {
 namespace {
@@ -49,6 +57,19 @@ s32 close_session(s32 slot, s32) {
     session_slot = -1;
     _CPU_ISR_Restore(level);
     return 1;
+}
+
+// The card ID the Wii keeps in its SRAM for `slot`. CARD_Mount updates it
+// to the mounted card's, for slot B as well as A: the card is not written,
+// the console's own memory is.
+// False when the SRAM copy is locked elsewhere: then it is not unlocked
+// here either, which would release the other holder's lock.
+bool sram_card_id(int slot, std::array<u8, 12>& id) {
+    syssramex* sram = __SYS_LockSramEx();
+    if (sram == nullptr) return false;
+    std::memcpy(id.data(), sram->flash_id[slot], id.size());
+    __SYS_UnlockSramEx(0);
+    return true;
 }
 
 // A synchronous, read-only EXI transaction. Each DMA transfers a fixed 512
@@ -146,6 +167,8 @@ int GcRealCard::Open(int slot) {
     session_slot = slot;
     slot_ = slot;
     previous_exi_callback = EXI_RegisterEXICallback(slot, nullptr);
+    std::array<u8, 12> sram_id_before{};
+    const bool sram_read_before = sram_card_id(slot, sram_id_before);
     const s32 mounted = CARD_Mount(slot, card_workarea, detached);
     if (mounted < 0) {
         logf("Memory card: the %d Mbit card in slot %c could not be mounted (libogc said %d; the DMA workarea is %p in MEM1).\n",
@@ -158,6 +181,10 @@ int GcRealCard::Open(int slot) {
         Close();
         return CARD_ERROR_NOCARD;
     }
+    std::array<u8, 12> sram_id_after{};
+    if (sram_read_before && sram_card_id(slot, sram_id_after) && sram_id_after != sram_id_before)
+        logf("Memory card: mounting the card in slot %c changed the card ID the Wii keeps in its SRAM for that slot; the card itself was not written to.\n",
+             slot_name);
     latency_ = 4u << ((device_id >> 8) & 7u);
     bytes_ = static_cast<unsigned>(mbits) << 17;
     logf("Memory card: the %d Mbit card in slot %c was mounted with its DMA workarea at %p in MEM1 (libogc said %d).\n",
@@ -197,6 +224,7 @@ int GcRealCard::ReadBlocks(unsigned bytes, std::vector<std::uint8_t>& out) {
             break;
         }
         std::memcpy(out.data() + at, buffer, CARD_READSIZE);
+        if (progress_) progress_(at + CARD_READSIZE, bytes, progress_context_);
     }
     if (result < 0) {
         out.clear();

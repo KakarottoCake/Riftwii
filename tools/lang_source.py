@@ -5959,20 +5959,20 @@ T.update({
     'Choose the slot holding the memory card.': ('Elige la ranura donde está la tarjeta de memoria.', 'メモリーカードが入っているスロットを選んでください。', 'Escolha o slot que contém o cartão de memória.', 'Scegli lo slot che contiene la scheda di memoria.'),
     'Slot A': ('Ranura A', 'スロットA', 'Slot A', 'Slot A'),
     'Slot B': ('Ranura B', 'スロットB', 'Slot B', 'Slot B'),
-    "Choose which saves to copy. The card in the Wii is never written to.": (
-        "Elige qué partidas copiar. Nunca se escribe en la tarjeta de la Wii.",
-        "コピーするセーブを選びます。Wiiのカードに書き込むことはありません。",
-        "Escolha quais saves copiar. O cartão no Wii nunca é gravado.",
-        "Scegli quali salvataggi copiare. La scheda nella Wii non viene mai scritta.",
+    "Choose which saves to copy. Nothing is written to the card.": (
+        "Elige qué partidas copiar. No se escribe nada en la tarjeta.",
+        "コピーするセーブを選びます。カードには何も書き込みません。",
+        "Escolha quais saves copiar. Nada é gravado no cartão.",
+        "Scegli quali salvataggi copiare. Sulla scheda non viene scritto nulla.",
     ),
     "This game's saves": ('Partidas de este juego', 'このゲームのセーブ', 'Saves deste jogo', 'Salvataggi di questo gioco'),
     'Every save': ('Todas las partidas', 'すべてのセーブ', 'Todos os saves', 'Tutti i salvataggi'),
     'Copy': ('Copiar', 'コピー', 'Copiar', 'Copia'),
-    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": (
-        "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? Nunca se escribe en la tarjeta de la Wii.",
-        "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードに書き込むことはありません。",
-        "Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? O cartão no Wii nunca é gravado.",
-        "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? La scheda nella Wii non viene mai scritta.",
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": (
+        "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? No se escribe nada en la tarjeta.",
+        "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？カードには何も書き込みません。",
+        "Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? Nada é gravado no cartão.",
+        "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? Sulla scheda non viene scritto nulla.",
     ),
     'Copied to {1}.': ('Copia guardada en {1}.', '{1}にコピーしました。', 'Copiado para {1}.', 'Copiato in {1}.'),
     'Found {1} matching saves. Destination: {2}.': ('Se encontraron {1} partidas coincidentes. Destino: {2}.', '対象のセーブは{1}個です。コピー先：{2}。', 'Encontrados {1} saves correspondentes. Destino: {2}.', 'Trovati {1} salvataggi corrispondenti. Destinazione: {2}.'),
@@ -5983,11 +5983,11 @@ T.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': ('No se pudo leer la tarjeta. Puede haberse cambiado o retirado. No se ha copiado nada.', 'メモリーカードを読み込めません。交換されたか抜かれた可能性があります。コピーしていません。', 'Não foi possível ler o cartão. Ele pode ter sido trocado ou removido. Nada foi copiado.', 'Impossibile leggere la scheda. Potrebbe essere stata cambiata o rimossa. Nulla è stato copiato.'),
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': ('La imagen de SD está dañada o usa la otra codificación de texto. No se ha copiado nada.', 'SDのイメージが破損しているか文字コードが異なります。コピーしていません。', 'A imagem no SD está danificada ou usa outra codificação. Nada foi copiado.', "L'immagine su SD è danneggiata o usa l'altra codifica. Nulla è stato copiato."),
     'Copy failed. The card in the Wii was left unchanged.': ('La copia falló. La tarjeta de Wii no se ha modificado.', 'コピーできませんでした。Wiiのカードは変更していません。', 'A cópia falhou. O cartão no Wii não foi alterado.', 'Copia non riuscita. La scheda nel Wii non è stata modificata.'),
-    "The card in the Wii is never written to. Copies go to the SD card.": (
-        "Nunca se escribe en la tarjeta de la Wii. Las copias van a la tarjeta SD.",
-        "Wiiのカードに書き込むことはありません。コピーはSDカードに保存します。",
-        "O cartão no Wii nunca é gravado. As cópias vão para o cartão SD.",
-        "La scheda nella Wii non viene mai scritta. Le copie vanno sulla scheda SD.",
+    "Nothing is written to the card. Copies go to the SD card.": (
+        "No se escribe nada en la tarjeta. Las copias van a la tarjeta SD.",
+        "カードには何も書き込みません。コピーはSDカードに保存します。",
+        "Nada é gravado no cartão. As cópias vão para o cartão SD.",
+        "Sulla scheda non viene scritto nulla. Le copie vanno sulla scheda SD.",
     ),
     'This game uses the real card in slot A. Its saves are not on the SD card.': ('Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD.', 'このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。', 'Este jogo usa o cartão real no slot A. Seus saves não estão no cartão SD.', 'Questo gioco usa la scheda reale nello slot A. I salvataggi non sono sulla scheda SD.'),
     "Use this game's SD card": ('Usar la tarjeta SD de este juego', 'このゲームのSDカードを使う', 'Usar o cartão SD deste jogo', 'Usa la scheda SD di questo gioco'),
@@ -6000,11 +6000,11 @@ KO.update({
     'Choose the slot holding the memory card.': '메모리 카드가 있는 슬롯을 선택하세요.',
     'Slot A': '슬롯 A',
     'Slot B': '슬롯 B',
-    "Choose which saves to copy. The card in the Wii is never written to.": "복사할 저장 데이터를 선택하세요. Wii에 꽂힌 카드에는 쓰지 않습니다.",
+    "Choose which saves to copy. Nothing is written to the card.": "복사할 저장 데이터를 선택하세요. 카드에는 아무것도 쓰지 않습니다.",
     "This game's saves": '이 게임의 저장 데이터',
     'Every save': '모든 저장 데이터',
     'Copy': '복사',
-    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? Wii에 꽂힌 카드에는 쓰지 않습니다.",
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? 카드에는 아무것도 쓰지 않습니다.",
     'Copied to {1}.': '{1}에 복사했습니다.',
     'Found {1} matching saves. Destination: {2}.': '일치하는 저장 데이터 {1}개를 찾았습니다. 대상: {2}.',
     'To copy: {1}. Already present: {2}. Unusable: {3}.': '복사 예정: {1}. 이미 있음: {2}. 사용 불가: {3}.',
@@ -6014,7 +6014,7 @@ KO.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': '메모리 카드를 읽지 못했습니다. 교체되거나 제거되었을 수 있습니다. 복사하지 않았습니다.',
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': 'SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합니다. 복사하지 않았습니다.',
     'Copy failed. The card in the Wii was left unchanged.': '복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다.',
-    "The card in the Wii is never written to. Copies go to the SD card.": "Wii에 꽂힌 카드에는 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다.",
+    "Nothing is written to the card. Copies go to the SD card.": "카드에는 아무것도 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다.",
     'This game uses the real card in slot A. Its saves are not on the SD card.': '이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다.',
     "Use this game's SD card": '이 게임의 SD 카드 사용',
     'Wii U has no GameCube memory card slots.': 'Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다.',
@@ -6026,11 +6026,11 @@ FR.update({
     'Choose the slot holding the memory card.': 'Choisissez le port contenant la carte mémoire.',
     'Slot A': 'Port A',
     'Slot B': 'Port B',
-    "Choose which saves to copy. The card in the Wii is never written to.": "Choisissez les sauvegardes à copier. Rien n'est écrit sur la carte dans la Wii.",
+    "Choose which saves to copy. Nothing is written to the card.": "Choisissez les sauvegardes à copier. Rien n'est écrit sur la carte.",
     "This game's saves": 'Sauvegardes de ce jeu',
     'Every save': 'Toutes les sauvegardes',
     'Copy': 'Copier',
-    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to.": "Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? Rien n'est écrit sur la carte dans la Wii.",
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": "Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? Rien n'est écrit sur la carte.",
     'Copied to {1}.': 'Copié vers {1}.',
     'Found {1} matching saves. Destination: {2}.': '{1} sauvegardes correspondantes trouvées. Destination : {2}.',
     'To copy: {1}. Already present: {2}. Unusable: {3}.': 'À copier : {1}. Déjà présentes : {2}. Inutilisables : {3}.',
@@ -6040,12 +6040,24 @@ FR.update({
     'The memory card could not be read. It may have changed or been removed. Nothing was copied.': "Impossible de lire la carte. Elle a peut-être été changée ou retirée. Rien n'a été copié.",
     'The SD image is damaged or uses the other text encoding. Nothing was copied.': "L'image SD est endommagée ou utilise l'autre encodage. Rien n'a été copié.",
     'Copy failed. The card in the Wii was left unchanged.': 'Échec de la copie. La carte dans la Wii reste inchangée.',
-    "The card in the Wii is never written to. Copies go to the SD card.": "Rien n'est écrit sur la carte dans la Wii. Les copies vont sur la carte SD.",
+    "Nothing is written to the card. Copies go to the SD card.": "Rien n'est écrit sur la carte. Les copies vont sur la carte SD.",
     'This game uses the real card in slot A. Its saves are not on the SD card.': 'Ce jeu utilise la carte réelle du port A. Ses sauvegardes ne sont pas sur la carte SD.',
     "Use this game's SD card": 'Utiliser la carte SD de ce jeu',
     'Wii U has no GameCube memory card slots.': "La Wii U n'a pas de ports pour cartes mémoire GameCube.",
 })
 
+T.update({
+    "Reading the memory card": ("Leyendo la tarjeta de memoria", "メモリーカードを読み込み中", "Lendo o cartão de memória", "Lettura della scheda di memoria"),
+    "Keep the card in its slot. Nothing is written to it.": ("Deja la tarjeta en su ranura. No se escribe nada en ella.", "カードをスロットに入れたままにしてください。何も書き込みません。", "Deixe o cartão no slot. Nada é gravado nele.", "Lascia la scheda nello slot. Non viene scritto nulla."),
+})
+KO.update({
+    "Reading the memory card": "메모리 카드 읽는 중",
+    "Keep the card in its slot. Nothing is written to it.": "카드를 슬롯에 그대로 두세요. 아무것도 쓰지 않습니다.",
+})
+FR.update({
+    "Reading the memory card": "Lecture de la carte mémoire",
+    "Keep the card in its slot. Nothing is written to it.": "Laissez la carte dans son port. Rien n'y est écrit.",
+})
 T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
 KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
 FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'

@@ -2760,8 +2760,8 @@ msgstr "スロットA"
 msgid "Slot B"
 msgstr "スロットB"
 
-msgid "Choose which saves to copy. The card in the Wii is never written to."
-msgstr "コピーするセーブを選びます。Wiiのカードに書き込むことはありません。"
+msgid "Choose which saves to copy. Nothing is written to the card."
+msgstr "コピーするセーブを選びます。カードには何も書き込みません。"
 
 msgid "This game's saves"
 msgstr "このゲームのセーブ"
@@ -2772,8 +2772,8 @@ msgstr "すべてのセーブ"
 msgid "Copy"
 msgstr "コピー"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
-msgstr "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？Wiiのカードに書き込むことはありません。"
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card."
+msgstr "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？カードには何も書き込みません。"
 
 msgid "Copied to {1}."
 msgstr "{1}にコピーしました。"
@@ -2802,8 +2802,8 @@ msgstr "SDのイメージが破損しているか文字コードが異なりま�
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "コピーできませんでした。Wiiのカードは変更していません。"
 
-msgid "The card in the Wii is never written to. Copies go to the SD card."
-msgstr "Wiiのカードに書き込むことはありません。コピーはSDカードに保存します。"
+msgid "Nothing is written to the card. Copies go to the SD card."
+msgstr "カードには何も書き込みません。コピーはSDカードに保存します。"
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。"
@@ -2813,6 +2813,12 @@ msgstr "このゲームのSDカードを使う"
 
 msgid "Wii U has no GameCube memory card slots."
 msgstr "Wii Uにはゲームキューブのメモリーカードスロットがありません。"
+
+msgid "Reading the memory card"
+msgstr "メモリーカードを読み込み中"
+
+msgid "Keep the card in its slot. Nothing is written to it."
+msgstr "カードをスロットに入れたままにしてください。何も書き込みません。"
 
 msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
 msgstr "スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。"
