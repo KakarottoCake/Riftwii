@@ -47,6 +47,8 @@ typedef struct rwp_gc_launch {
     const char* path;      /* sd:/games/.../game.iso, or .rvz */
     const char* id;        /* its ID6 */
     uint32_t is_rvz;       /* the image is an RVZ (by its name, as the list says) */
+    uint32_t real_card;    /* slot A passes through to physical hardware */
+    uint8_t real_card_flash_id[12]; /* verified physical header, never an SD image */
     uint32_t shared_card;  /* the shared memory card, not the game's own */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */

@@ -56,6 +56,8 @@ struct FrontendState {
     // Picked at Start for a code mod: without RiftWii's extras (as the
     // mod's own loader would start it).
     bool code_build_plain = false;
+    // The player accepted an SD fallback for this launch; the saved card choice stays intact.
+    bool gc_card_fallback = false;
     // Folders on the USB drive holding code builds for this game (usb_mod_folders),
     // found by ScanPackages. The game does not start while there are any.
     std::vector<std::string> usb_mods;

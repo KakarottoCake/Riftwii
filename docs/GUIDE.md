@@ -406,8 +406,8 @@ choices, and Home's view button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
-picture and online settings: **Memory card** (*This game's own* or
-*Shared*), **480p picture** (not for European games), **Sharper
+picture and online settings: **Memory card** (*This game's own*,
+*Shared* or, on an original Wii, *Real card in slot A*), **480p picture** (not for European games), **Sharper
 picture**, **Picture width**, **Game language** and, for European
 games, **Game speed** (60 Hz instead of 50).
 
@@ -420,6 +420,39 @@ Settings (it is at first), the card is copied to
 `sd:/riftwii/gc/backups/` before the game starts, when it has changed;
 the newest five copies are kept, and **Restore an older save** on the
 Saves page puts one back.
+
+On an original Wii with GameCube memory card slots, **Real card in slot A**
+lets the game read and write that physical card directly. Its saves are not
+on the SD card and RiftWii does not automatically back them up. If slot A
+has no readable card, the card is damaged, or its Japanese/Western text
+encoding differs from the game, RiftWii offers **Use this game's SD card**
+or **Cancel**. Accepting selects *This game's own*. A card in slot B alone
+cannot serve as the game's slot A. Wii U has no memory card slots; the real
+choice is unavailable there.
+
+The GameCube **Saves** page offers the SD **Memory Card** tools and
+**Copy from a memory card in the Wii**. Choose **Slot A** or **Slot B**,
+then **This game's saves** (the game's own SD image, even when it currently
+uses a shared/real card) or **Every save** (the shared SD image for the
+physical card's encoding). RiftWii shows the matching count, how many will
+fit, duplicates left alone and unusable saves, plus the destination, before
+you confirm. It never overwrites a same-name save for the same game/maker.
+A full image may receive only the saves that fit. Japanese and Western
+cards are kept separate. Existing images are backed up first; **Restore
+an older save** in that image's SD tools can undo an import. A missing SD
+image is made during the copy. Keep the card inserted until copying ends;
+removal or replacement before the final check cancels the operation.
+
+**Save a copy of the whole card** reads all flash bytes into a Dolphin
+`.raw` image in `sd:/riftwii/gc/backups/real/`, named by date/time. These
+manual backups are kept until you remove them. This requires a formatted,
+readable card; RiftWii does not repair an unreadable card. Both copy tools
+never write to the physical card. Mounting also updates the card ID cached
+in the Wii's SRAM; see ARCHITECTURE.md for the mount side effects.
+
+In real-card mode the SD tools are dimmed, and the page explains where
+the game's saves live; the copy tools remain available. On Wii U they
+are dimmed with a note.
 
 **Leaving a game:** hold for two seconds
 

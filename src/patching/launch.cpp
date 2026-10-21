@@ -436,7 +436,8 @@ std::string LaunchModel::save() const {
     // Fast is the default while drive timing can freeze games on a Wii
     // (the ARAM streaming race); a "fast" saved before stays fast.
     if (game.gc_disc_reads == "drive") text += "*riftwii*\tgcdiscreads\tdrive\n";
-    if (game.gc_card == "shared") text += "*riftwii*\tgccard\tshared\n";
+    if (game.gc_card == "shared" || game.gc_card == "real")
+        text += "*riftwii*\tgccard\t" + game.gc_card + "\n";
     // "global", the default, is written as nothing.
     if (game.gc_progressive == "480p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
@@ -520,7 +521,7 @@ void LaunchModel::restore(const std::string& text) {
             } else if (key == "gcdiscreads") {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
-                game.gc_card = value == "shared" ? "shared" : "own";
+                game.gc_card = value == "shared" || value == "real" ? value : "own";
             } else if (key == "gcprogressive") {
                 game.gc_progressive = value == "480p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {

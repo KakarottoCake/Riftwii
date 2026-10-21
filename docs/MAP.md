@@ -186,6 +186,7 @@ The build compiles every folder into one, so no two files share a name.
 | `umsdev.cpp` | d2x's USB device (`/dev/usb2`), read by the launch and handed to the runtime |
 | `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
 | `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
+| `gcrealcard.cpp`, `gcrealcard.hpp` | Read-only physical GameCube card sessions: early MEM1 DMA reservation, CARD mount, synchronous raw EXI reads, owned EXI cleanup, sticky removal detection and snapshot verification |
 | `sdfile.cpp` | Where a file's bytes lie on the card |
 | `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card |
 | `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
@@ -269,6 +270,7 @@ document it.
 | `wbfspart` | USB drives formatted as WBFS: finding the partition, its discs, their fragments |
 | `rvz`, `sha1` | RVZ images and their hashes |
 | `gccard` | GameCube memory card images: formatting one, listing its saves and their icons, deleting a save, .gci export and import |
+| `gcreal` | Physical-card import preview: exact game/maker selection, GCI validation, collision/capacity/encoding checks, staged SD commits; `include/riftwii/gcreal.hpp`, `src/fs/gcreal.cpp`, `tests/gcreal_tests.cpp` |
 | `gcbackup` | GameCube memory card backups: the copy made before a start, named by date and time, the newest five kept, none while the card is unchanged |
 | `gccard_text`, `sjis_table.inc` | A card's save names and comments as UTF-8 (Shift-JIS through the table `tools/make_sjis_table.py` makes, or Windows-1252) |
 
@@ -350,6 +352,9 @@ is reference data from python-qrcode. `hook_tests.cpp` and
 blob's C code on the host against a fake IOS (the blobs keep addresses
 as 32-bit words, so their memory is placed below 4 GiB; the virtual SD
 card's at the Wii's own MEM1 and MEM2 addresses).
+`gcrealcard_io_tests.cpp` compiles the Wii card reader against `gcreal_mock/`
+to check EXI ownership, failed mounts/reads, deferred close and removal.
+`gcreal_tests.cpp` checks the real numeric DMA address limits separately.
 
 ## `tools/`
 

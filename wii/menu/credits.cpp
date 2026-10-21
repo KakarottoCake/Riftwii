@@ -73,7 +73,7 @@ const char* const kCredits[] = {
     "d2x cIOS: the USB and SD game loading interface.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
-    "others): the toolchain and the Wii library.",
+    "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "

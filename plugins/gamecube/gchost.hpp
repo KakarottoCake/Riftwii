@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@ struct GcImage {
     std::int32_t usb_fd = -1;
     std::vector<Fragment> usb_fragments;
     std::uint64_t usb_bytes = 0;
+    bool real_card = false;
+    std::array<std::uint8_t, 12> real_card_flash_id{};
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;

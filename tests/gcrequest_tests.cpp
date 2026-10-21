@@ -220,6 +220,15 @@ static void test_refusals() {
 }
 
 int main() {
+    Fixture card_choice;
+    std::string why;
+    card_choice.request.real_card = 1;
+    EXPECT_TRUE(card_choice.check(why));
+    card_choice.request.shared_card = 1;
+    EXPECT_FALSE(card_choice.check(why));
+    card_choice.request.shared_card = 0;
+    card_choice.request.real_card = 2;
+    EXPECT_FALSE(card_choice.check(why));
     test_layout();
     test_plan_round_trip();
     test_no_packs();

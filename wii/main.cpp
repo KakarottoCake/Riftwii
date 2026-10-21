@@ -34,6 +34,7 @@
 
 #include "crash.hpp"
 #include "gcadapter.hpp"
+#include "gcrealcard.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
@@ -305,6 +306,7 @@ int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
+    riftwii::wii::InitGcRealCards();
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
     bool sd_mounted = MountStartupSd();
