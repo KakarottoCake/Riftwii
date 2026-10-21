@@ -10,10 +10,8 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <map>
 #include <memory>
-#include <sstream>
 #include <utility>
 
 #include "gcplugin.hpp"
@@ -31,6 +29,7 @@
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "sdfile.hpp"
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -407,14 +406,7 @@ bool to_pieces(const AppliedFile& file, std::vector<GcPiece>& out, std::string& 
     return true;
 }
 
-bool read_text(const std::string& path, std::string& text) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in) return false;
-    std::stringstream all;
-    all << in.rdbuf();
-    text = all.str();
-    return true;
-}
+bool read_text(const std::string& path, std::string& text) { return ReadWholeFile(path, text); }
 
 // The packs' files as overlay files, in the order the Wii path applies them.
 bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t* boot, const Fst& fst,
@@ -872,11 +864,11 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     // The game's own options, from the file the menu keeps them in (the
     // choices file, riftwii/launch.hpp's restore).
     {
-        std::ifstream in("sd:/riftwii/choices/" + image.id + ".txt");
-        std::stringstream text;
-        text << in.rdbuf();
+        // No file: the defaults, from an empty text.
+        std::string text;
+        ReadWholeFile("sd:/riftwii/choices/" + image.id + ".txt", text);
         LaunchModel choices;
-        choices.restore(text.str());
+        choices.restore(text);
         image.drive_timing = kGcDriveTimingReady && choices.game.gc_disc_reads != "fast";
         image.shared_card = choices.game.gc_card == "shared";
         image.real_card = choices.game.gc_card == "real";

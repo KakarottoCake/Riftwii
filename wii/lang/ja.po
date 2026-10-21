@@ -45,6 +45,15 @@ msgstr "sd:/riivolution にパックのあるゲームはまだありません�
 msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 msgstr "ゲームが見つかりません (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 
+msgid "No games found (usb:/wbfs, usb:/games)"
+msgstr "ゲームが見つかりません (usb:/wbfs, usb:/games)"
+
+msgid "No games found (sd:/wbfs, sd:/games)"
+msgstr "ゲームが見つかりません (sd:/wbfs, sd:/games)"
+
+msgid "No games found"
+msgstr "ゲームが見つかりません"
+
 msgid "Reading the SD card..."
 msgstr "SDカードを読み込んでいます..."
 

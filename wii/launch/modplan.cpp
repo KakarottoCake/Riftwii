@@ -7,11 +7,9 @@
 
 #include <algorithm>
 #include <cstdio>
-#include <fstream>
 #include <map>
 #include <memory>
 #include <set>
-#include <sstream>
 
 #include "di.hpp"
 #include "log.hpp"
@@ -28,6 +26,7 @@
 #include "riftwii/redirect.hpp"
 #include "riftwii/source.hpp"
 #include "sdfile.hpp"
+#include "textfile.hpp"
 #include "umsdev.hpp"
 
 namespace riftwii::wii {
@@ -449,14 +448,10 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             return false;
         }
     } else {
-        std::ifstream xml(xml_sd_path, std::ios::binary);
-        if (!xml) {
+        if (!ReadWholeFile(xml_sd_path, text)) {
             error = "cannot open " + xml_sd_path;
             return false;
         }
-        std::stringstream all;
-        all << xml.rdbuf();
-        text = all.str();
     }
     Package package;
     if (!parse_package(text, package, error, PackFolderOf(xml_sd_path))) return false;
@@ -685,13 +680,11 @@ bool homebrew_app_stand_in(const std::vector<PackageSelection>& packages, const 
         const std::string& xml_sd_path = selection.xml_sd_path;
         if (OnUsb(xml_sd_path) || xml_sd_path.compare(0, 4, "sd:/") != 0 || !NetworkRootOf(xml_sd_path).empty())
             return false;
-        std::ifstream xml(xml_sd_path, std::ios::binary);
-        if (!xml) return false;
-        std::stringstream all;
-        all << xml.rdbuf();
+        std::string xml;
+        if (!ReadWholeFile(xml_sd_path, xml)) return false;
         Package package;
         std::string error;
-        if (!parse_package(all.str(), package, error, PackFolderOf(xml_sd_path))) return false;
+        if (!parse_package(xml, package, error, PackFolderOf(xml_sd_path))) return false;
         for (const auto& c : selection.choices) {
             if (!select_choice(package, c.first, c.second, error)) return false;
         }

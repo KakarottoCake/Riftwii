@@ -8,13 +8,13 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <sstream>
 
 #include "i18n.hpp"
 #include "log.hpp"
 #include "vsdimage.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/codehook.hpp"
+#include "riftwii/textlines.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -127,9 +127,10 @@ void add_codes(const std::string& folder, std::vector<CodeBuildFile>& out, const
 // "RSBE01<tab>sd:/path/file.gct" lines.
 std::vector<std::pair<std::string, std::string>> read_picks() {
     std::vector<std::pair<std::string, std::string>> picks;
-    std::istringstream lines(read_text(kPicksPath, 64 * 1024));
+    const std::string text = read_text(kPicksPath, 64 * 1024);
+    LineReader lines(text);
     std::string line;
-    while (std::getline(lines, line)) {
+    while (lines.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const std::size_t tab = line.find('\t');
         if (tab == std::string::npos || tab == 0 || line.compare(tab + 1, 4, "sd:/") != 0) continue;
