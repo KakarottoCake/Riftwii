@@ -1895,12 +1895,17 @@ static std::string LaunchNote(const FrontendState& state)
 		if (!note.empty()) note += " ";
 		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
 	}
-	// A game image runs under d2x, whose USB reaches only a Wii U's rear
-	// ports in game (the menu's IOS 58 reaches all four). Which port the
-	// adapter is in cannot be told from IOS's device ID yet, so any
-	// adapter the menu is using gets the note.
+	// A game image runs under d2x. Only a d2x on base 58 reaches a Wii U's
+	// front USB ports in game, and the launch puts it first with the
+	// adapter in use (image_cios_order); on any other d2x the adapter works
+	// from the rear ports only. Which port the adapter is in cannot be told
+	// from IOS's device ID yet, so the note comes whenever the game will not
+	// start on base 58: none installed, or another cIOS picked for it. A
+	// tester's Brawl, Mario Kart Wii and Kamen Rider played from a front
+	// port on IOS251 (base 58) with 2610-541.
 	if ((state.use_usb || state.use_sd) && riftwii::wii::GcAdapterRunning() &&
-	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u()) {
+	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
+	    !riftwii::wii::cios_reaches_front_ports(riftwii::wii::SelectedSource(state).cios_slot)) {
 		if (!note.empty()) note += " ";
 		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
 	}
