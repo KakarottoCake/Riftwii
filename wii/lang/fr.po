@@ -942,8 +942,26 @@ msgstr "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB 
 msgid "Updating RiftWii"
 msgstr "Mise à jour de RiftWii"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1} est disponible. Téléchargement et installation en cours..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1} est disponible. Installation en cours; cela prend quelques minutes."
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "Téléchargement de RiftWii ({1} sur {2} Mo)"
+
+msgid "Downloading RiftWii..."
+msgstr "Téléchargement de RiftWii..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "Téléchargement des plugins ({1} sur {2} Mo)"
+
+msgid "Downloading plugins..."
+msgstr "Téléchargement des plugins..."
+
+msgid "Checking the download..."
+msgstr "Vérification du téléchargement..."
+
+msgid "Writing to the SD card..."
+msgstr "Écriture sur la carte SD..."
 
 msgid "Update failed"
 msgstr "Échec de la mise à jour"

@@ -942,8 +942,26 @@ msgstr "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB
 msgid "Updating RiftWii"
 msgstr "Aggiornamento di RiftWii"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "È uscita RiftWii {1}. La sto installando; ci vogliono alcuni minuti."
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "Scaricamento di RiftWii ({1} di {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "Scaricamento di RiftWii..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "Scaricamento dei plugin ({1} di {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "Scaricamento dei plugin..."
+
+msgid "Checking the download..."
+msgstr "Controllo del download..."
+
+msgid "Writing to the SD card..."
+msgstr "Scrittura sulla scheda SD..."
 
 msgid "Update failed"
 msgstr "Aggiornamento non riuscito"
