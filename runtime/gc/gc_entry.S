@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 7, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 8, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -35,6 +35,8 @@ _gc_blob_start:
     .long gc_continue_reset_system - _gc_blob_start
     .long gc_hook_hot_reset - _gc_blob_start
     .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, gc_di_slots - _gc_blob_start
+    .long gc_hook_boot_dol - _gc_blob_start, gc_replay_boot_dol - _gc_blob_start
+    .long gc_continue_boot_dol - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -360,6 +362,54 @@ gc_replay_reset_system:
     nop
     .globl gc_continue_reset_system
 gc_continue_reset_system:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+/* __OSBootDolSimple(doloffset, restartCode, regionStart, regionEnd,
+ * argsUseDefault, argc, argv), where the SDK's OSExec and its restart into
+ * another program both end: gc_on_boot_dol(ctx, args) gets the seven (the
+ * frame's words at 8 to 32). It returns only when the switch could not go
+ * back through RiftWii, and the original runs on them. */
+    .globl gc_hook_boot_dol
+gc_hook_boot_dol:
+    stwu 1, -0x30(1)
+    mflr 0
+    stw 0, 0x34(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    stw 6, 0x14(1)
+    stw 7, 0x18(1)
+    stw 8, 0x1C(1)
+    stw 9, 0x20(1)
+    addi 4, 1, 0x08
+    bl 1f
+1:  mflr 3
+    addi 3, 3, gc_context_data - 1b
+    bl gc_on_boot_dol
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 6, 0x14(1)
+    lwz 7, 0x18(1)
+    lwz 8, 0x1C(1)
+    lwz 9, 0x20(1)
+    lwz 0, 0x34(1)
+    mtlr 0
+    addi 1, 1, 0x30
+    b gc_replay_boot_dol
+
+    .balign 16
+    .globl gc_replay_boot_dol
+gc_replay_boot_dol:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_boot_dol
+gc_continue_boot_dol:
     lis 12, 0
     ori 12, 12, 0
     mtctr 12

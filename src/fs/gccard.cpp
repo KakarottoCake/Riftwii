@@ -53,6 +53,19 @@ constexpr std::uint32_t kEntryBlockCount = 0x38;
 constexpr std::uint32_t kEntryComment = 0x3C;
 constexpr std::uint32_t kCommentLineBytes = 32;
 
+// The serial from a flash ID and the format time, as the SDK's card
+// library checks it (VerifyID): each flash ID byte offset by the next
+// step of a linear congruential sequence seeded with the format time.
+void card_serial(const std::array<std::uint8_t, 12>& flash_id, std::uint64_t format_time,
+                 std::uint8_t* out) {
+    std::uint64_t rand = format_time;
+    for (unsigned i = 0; i < 12; ++i) {
+        rand = (rand * 0x41C64E6Dull + 0x3039ull) >> 16;
+        out[i] = static_cast<std::uint8_t>(flash_id[i] + static_cast<std::uint32_t>(rand));
+        rand = ((rand * 0x41C64E6Dull + 0x3039ull) >> 16) & 0x7FFF;
+    }
+}
+
 // The banner and icon pictures (2 bits each in the entry).
 constexpr unsigned kPictureNone = 0;
 constexpr unsigned kPictureCi8 = 1;     // icons: CI8, one palette after the last frame
@@ -405,12 +418,7 @@ void gc_card_format(std::vector<std::uint8_t>& card, const GcCardFormat& format)
     // The serial: the flash ID, each byte offset by the next step of a
     // linear congruential sequence seeded with the format time.
     std::uint8_t* header = card.data();
-    std::uint64_t rand = format.format_time;
-    for (unsigned i = 0; i < 12; ++i) {
-        rand = (rand * 0x41C64E6Dull + 0x3039ull) >> 16;
-        header[i] = static_cast<std::uint8_t>(format.flash_id[i] + static_cast<std::uint32_t>(rand));
-        rand = ((rand * 0x41C64E6Dull + 0x3039ull) >> 16) & 0x7FFF;
-    }
+    card_serial(format.flash_id, format.format_time, header);
     put_be32(header + 12, static_cast<std::uint32_t>(format.format_time >> 32));
     put_be32(header + 16, static_cast<std::uint32_t>(format.format_time));
     put_be32(header + 20, format.counter_bias);
@@ -435,6 +443,25 @@ void gc_card_format(std::vector<std::uint8_t>& card, const GcCardFormat& format)
         put_be16(bat + kBatLast, kGcCardSystemBlocks - 1);
         gc_card_checksum(bat + kBatCounter, kGcCardBlockBytes - kBatCounter, bat + kBatChecksum);
     }
+}
+
+bool gc_card_flash_id(const std::vector<std::uint8_t>& card, std::array<std::uint8_t, 12>& flash_id) {
+    if (card.size() < kHeaderChecksum + 4) return false;
+    const std::uint8_t* header = card.data();
+    // Never interpret corruption as a different card's identity. In
+    // particular, a damaged format time gives a completely different ID.
+    if (!checksum_holds(header, kHeaderChecksum, header + kHeaderChecksum)) return false;
+    if (!known_size(be16(header + 0x22)) || be16(header + 0x24) > 1) return false;
+
+    const std::uint64_t format_time =
+        (std::uint64_t(be32(header + 12)) << 32) | be32(header + 16);
+    const std::array<std::uint8_t, 12> zero_id{};
+    std::array<std::uint8_t, 12> offsets{};
+    card_serial(zero_id, format_time, offsets.data());
+    for (unsigned i = 0; i < flash_id.size(); ++i) {
+        flash_id[i] = static_cast<std::uint8_t>(header[i] - offsets[i]);
+    }
+    return true;
 }
 
 bool gc_card_read(const std::vector<std::uint8_t>& card, GcCardInfo& out, std::string& error) {

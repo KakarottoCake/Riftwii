@@ -1488,6 +1488,24 @@ bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector
     return true;
 }
 
+bool sd_free_pieces(std::uint64_t file_bytes, std::uint64_t max_pieces, const std::vector<std::string>& replaced,
+                    FreeSpaceReport& out, std::string& error) {
+    // 65536 blocks is 32 MiB of FAT: 8 million clusters, a 256 GB card at
+    // 32 KB clusters. It reads in a few seconds; a bigger card is checked as
+    // far as that and reported Unchecked when it was not enough to know.
+    constexpr std::uint64_t kMaxFatBlocks = 65536;
+    Fat32Volume volume;
+    if (!Fat32Volume::mount(&sd_read, volume, error)) return false;
+    std::vector<Fragment> also_free;
+    for (const std::string& path : replaced) {
+        Fat32File file;
+        std::string ignored;
+        if (path.compare(0, 4, "sd:/") != 0 || !volume.lookup(path.substr(3), file, ignored)) continue;
+        also_free.insert(also_free.end(), file.fragments.begin(), file.fragments.end());
+    }
+    return volume.free_pieces(file_bytes, max_pieces, kMaxFatBlocks, also_free, out, error);
+}
+
 std::string GameDisplayName(const std::string& id, const std::string& internal) {
     return display_title(titles(), id, std::string(), internal);
 }

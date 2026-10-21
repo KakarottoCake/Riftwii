@@ -420,6 +420,12 @@ msgstr "Télécharger noms et codes de triche"
 msgid "Get the latest game names"
 msgstr "Obtenir les derniers noms de jeux"
 
+msgid "Download missing covers"
+msgstr "Télécharger les jaquettes manquantes"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "Les jaquettes manquantes seront téléchargées au retour à l'accueil."
+
 msgid "Update"
 msgstr "Mettre à jour"
 
@@ -630,11 +636,14 @@ msgstr "Langue du menu. \"Wii\" utilise le paramètre de la console."
 msgid "Downloads the newest game names from GameTDB."
 msgstr "Télécharge les derniers noms de jeux depuis GameTDB."
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "Télécharge depuis GameTDB les jaquettes, boîtiers et jaquettes 3D qui manquent à l'accueil. Un jeu sans image sur GameTDB reste sans image."
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Affiche en direct les entrées des manettes branchées sur l'adaptateur."
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "Relance la lecture de la carte SD et du stockage USB."
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "Relit la carte SD et le stockage USB, et réessaie de télécharger les jaquettes, boîtiers et jaquettes 3D manquants."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB."
@@ -804,8 +813,8 @@ msgstr "Serveur de remplacement pour le jeu en ligne officiel désormais fermé.
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Récupération des jacquettes GameTDB : {1} restante(s)"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes."
 
 msgid "Cover"
 msgstr "Jacquette"
@@ -933,8 +942,26 @@ msgstr "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB 
 msgid "Updating RiftWii"
 msgstr "Mise à jour de RiftWii"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1} est disponible. Téléchargement et installation en cours..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1} est disponible. Installation en cours; cela prend quelques minutes."
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "Téléchargement de RiftWii ({1} sur {2} Mo)"
+
+msgid "Downloading RiftWii..."
+msgstr "Téléchargement de RiftWii..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "Téléchargement des plugins ({1} sur {2} Mo)"
+
+msgid "Downloading plugins..."
+msgstr "Téléchargement des plugins..."
+
+msgid "Checking the download..."
+msgstr "Vérification du téléchargement..."
+
+msgid "Writing to the SD card..."
+msgstr "Écriture sur la carte SD..."
 
 msgid "Update failed"
 msgstr "Échec de la mise à jour"
@@ -1424,6 +1451,15 @@ msgstr "Créer une image SD ?"
 
 msgid "Make it"
 msgstr "Créer"
+
+msgid "The SD card is too fragmented"
+msgstr "La carte SD est trop fragmentée"
+
+msgid "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway."
+msgstr "L'espace libre de la carte SD est trop dispersé. {1} serait écrite en plus de {2} morceaux, plus que RiftWii ne peut en suivre, donc le jeu ne démarrerait pas. Libérez de la place ou formatez la carte SD (copiez d'abord ses fichiers), puis réessayez. Ou créez-la quand même."
+
+msgid "Build anyway"
+msgstr "Créer quand même"
 
 msgid "Making {1}"
 msgstr "Création de {1}"

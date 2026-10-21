@@ -23,6 +23,17 @@ namespace {
 
 constexpr const char* kLogPath = "sd:/riftwii/boot.log";
 constexpr const char* kLaunchFile = "sd:/riftwii/launch.txt";
+// A GameCube game's switch to another program (runtime/gc's gc_on_boot_dol):
+// the GameCube loader makes it at every launch, "--idle--" and the image,
+// and the blob turns it into a launch when the game switches. One sector,
+// written by the blob as raw bytes: NULs after the text.
+constexpr const char* kGcExecFile = "sd:/riftwii/gc/exec.txt";
+// A Wii game's own Reset (runtime/resident's rt_reset_on_os_restart): the
+// loader makes it at every launch that can take the Reset, "--idle--" and the
+// launch that starts the game again, one sector; the runtime writes the
+// sector back with "--launch" for its first line when the game's Reset
+// runs, and leaves for the RiftWii channel. Read like the GameCube's.
+constexpr const char* kRestartFile = "sd:/riftwii/restart.txt";
 
 bool same_path(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -159,17 +170,19 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
     return true;
 }
 
-// A launch file: the arguments one per line, "--launch" first.
+// A launch file: the arguments one per line, "--launch" first. Only the
+// first kMaxLaunchFileBytes are read (a longer file is not a launch: its cut
+// end could be a shortened path), and a file written a sector at a time
+// ends in NULs (kGcExecFile, kRestartFile).
 bool read_launch_lines(const std::string& path, std::vector<std::string>& args) {
     args.clear();
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file) return false;
-    std::string line;
-    while (std::getline(file, line) && args.size() < 64) {
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
-        if (!line.empty()) args.push_back(line);
-    }
-    return is_headless_launch(args);
+    std::string text(kMaxLaunchFileBytes, '\0');
+    file.read(&text[0], static_cast<std::streamsize>(text.size()));
+    text.resize(static_cast<std::size_t>(file.gcount()));
+    if (text.size() == kMaxLaunchFileBytes && file.peek() != std::ifstream::traits_type::eof()) return false;
+    return launch_lines_from_text(text, args);
 }
 
 bool launch(const std::vector<std::string>& args, std::string& error) {
@@ -183,6 +196,16 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
             error = "xml=all and code builds are not supported for GameCube games yet";
             return false;
         }
+        if (h.gc_exec) {
+            gc.exec = true;
+            gc.exec_dol = h.gc_dol;
+            gc.exec_restart = h.gc_restart;
+            gc.exec_args = h.gc_args;
+            logf("GameCube: the game switches to the program at disc offset 0x%08x (restart code 0x%08x, %u "
+                 "argument(s)): the image starts again with it\n",
+                 static_cast<unsigned>(h.gc_dol), static_cast<unsigned>(h.gc_restart),
+                 static_cast<unsigned>(h.gc_args.size()));
+        }
         std::vector<PackageChoices> packs;
         for (const std::string& x : h.xmls) {
             PackageChoices p;
@@ -191,9 +214,19 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
         }
         return LaunchGcGame(gc, packs, error);
     }
+    if (h.gc_exec) {
+        error = "a GameCube program switch for an image that is not a GameCube game on the SD card";
+        return false;
+    }
     FrontendState state;
     InitializeFrontend(state);
     if (!select_game(h, state, error)) return false;
+    if (h.reset) {
+        logf("The game's own Reset: %s starts again, with the packs and choices it had\n", state.game_id.c_str());
+    }
+    // The pack choices the menu launched the game with (a profile's file,
+    // say); the game's own where the launch does not name one.
+    if (!h.choices.empty()) state.choices_path = std::string(kChoicesDir) + "/" + h.choices;
     logf("  %s\n", state.disc_status.c_str());
     logf("  %s\n", ScanPackages(state).c_str());
     if (!apply_choices(h, state, error)) return false;
@@ -206,8 +239,11 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     }
     if (!CheckCodeBuilds(state, error)) return false;
     PrepareLaunchExtras(state, &h);
-    RecordPlay(state.game_id);
-    TagGame(state.game_id, false);  // before the cIOS reload takes the network
+    // Not for the same play started again by its own Reset.
+    if (!h.reset) {
+        RecordPlay(state.game_id);
+        TagGame(state.game_id, false);  // before the cIOS reload takes the network
+    }
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::OutOfMemoryAsError(error, [&] {
@@ -255,8 +291,21 @@ bool HeadlessArguments(std::vector<std::string>& args) {
     // without any) writes them to a file instead, one per line. It is
     // read once: deleted before the launch, so a failed one never repeats.
     args.clear();
-    if (!read_launch_lines(kLaunchFile, args)) return false;
-    std::remove(kLaunchFile);
+    if (read_launch_lines(kLaunchFile, args)) {
+        std::remove(kLaunchFile);
+        return true;
+    }
+    // A GameCube game's switch to another program, taken up once: the file
+    // goes, and the loader makes it again for the next game.
+    args.clear();
+    if (read_launch_lines(kGcExecFile, args)) {
+        std::remove(kGcExecFile);
+        return true;
+    }
+    // A Wii game's own Reset, taken up once the same way.
+    args.clear();
+    if (!read_launch_lines(kRestartFile, args)) return false;
+    std::remove(kRestartFile);
     return true;
 }
 

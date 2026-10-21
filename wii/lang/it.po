@@ -420,6 +420,12 @@ msgstr "Scarica nomi e trucchi"
 msgid "Get the latest game names"
 msgstr "Aggiorna i nomi dei giochi"
 
+msgid "Download missing covers"
+msgstr "Scarica le copertine mancanti"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "Le copertine mancanti verranno scaricate quando torni alla Home."
+
 msgid "Update"
 msgstr "Aggiorna"
 
@@ -630,11 +636,14 @@ msgstr "La lingua del menu. Wii segue l'impostazione della console."
 msgid "Downloads the newest game names from GameTDB."
 msgstr "Scarica i nomi dei giochi più recenti da GameTDB."
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "Scarica da GameTDB le copertine, le custodie e le copertine 3D che mancano nella Home. Un gioco senza immagini su GameTDB resta senza."
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Mostra in tempo reale cosa premono i controller dell'adattatore."
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "Rilegge la scheda SD e l'unità USB."
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "Rilegge la scheda SD e l'unità USB e riprova a scaricare le copertine, le custodie e le copertine 3D mancanti."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Nessun cIOS d2x trovato negli slot da 248 a 252, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."
@@ -804,8 +813,8 @@ msgstr "Il server online che il gioco usa al posto di quello di Nintendo, ormai 
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Scaricamento copertine da GameTDB: ne mancano {1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."
 
 msgid "Cover"
 msgstr "Copertina"
@@ -933,8 +942,26 @@ msgstr "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB
 msgid "Updating RiftWii"
 msgstr "Aggiornamento di RiftWii"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "È uscita RiftWii {1}. La sto installando; ci vogliono alcuni minuti."
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "Scaricamento di RiftWii ({1} di {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "Scaricamento di RiftWii..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "Scaricamento dei plugin ({1} di {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "Scaricamento dei plugin..."
+
+msgid "Checking the download..."
+msgstr "Controllo del download..."
+
+msgid "Writing to the SD card..."
+msgstr "Scrittura sulla scheda SD..."
 
 msgid "Update failed"
 msgstr "Aggiornamento non riuscito"
@@ -1424,6 +1451,15 @@ msgstr "Creare un'immagine SD?"
 
 msgid "Make it"
 msgstr "Creala"
+
+msgid "The SD card is too fragmented"
+msgstr "La scheda SD è troppo frammentata"
+
+msgid "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway."
+msgstr "Lo spazio libero della scheda SD è troppo sparso. {1} verrebbe scritta in più di {2} pezzi, più di quelli che RiftWii può seguire, quindi il gioco non partirebbe. Libera spazio o formatta la scheda SD (prima copia i suoi file) e riprova. Oppure creala comunque."
+
+msgid "Build anyway"
+msgstr "Crea comunque"
 
 msgid "Making {1}"
 msgstr "Creazione di {1}"

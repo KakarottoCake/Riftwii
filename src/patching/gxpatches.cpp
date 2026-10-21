@@ -221,8 +221,14 @@ bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 
 // Mario Party 4 (GMP), every region: its sound manager's ARAM check
 // (gxpatches.hpp), learned from the game's decompilation (marioparty4's
-// src/msm/msmsys.c and src/game/audio.c).
-bool gc_keeps_aram_addresses(const std::string& id) { return id_is(id, "GMP"); }
+// src/msm/msmsys.c and src/game/audio.c). Mario Party 5 (GP5), 6 (GP6),
+// 7 (GP7) and Dance Dance Revolution: Mario Mix (GWZ) start the same
+// sound manager the same way (marioparty5 and marioparty6's
+// src/game/audio.c: skipARInit, ARAM end 0x808000) and stopped in it, in
+// HuAudInit's endless loop, after reading its two headers (Dolphin, 2610-564).
+bool gc_keeps_aram_addresses(const std::string& id) {
+    return id_is(id, "GMP") || id_is(id, "GP5") || id_is(id, "GP6") || id_is(id, "GP7") || id_is(id, "GWZ");
+}
 
 // Luigi's Mansion (GLM), every region: its loader thread's heap race
 // (gxpatches.hpp), found on a real Wii (an ISI through "JKRT" going upstairs
@@ -236,7 +242,24 @@ bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); 
 // game not run with it might not take, so the European and Japanese
 // Sunshine wait for a run of their own. Luigi's Mansion PAL hung after
 // its restart in Dolphin, cause not found yet, so it is not here.
-bool gc_restart_known_to_work(const std::string& id) { return id == "GMSE01" || id == "GMSE04"; }
+// Doshin the Giant PAL (GKDP01) restarts itself with OSResetSystem(0, 0, 0)
+// when Reset is pressed and released, and from its error screen. (Its
+// restart 0.2 s into every start was such an error, "Cant alloc snd
+// Stream", from the ARAM limit gcaram.hpp now raises.) The other regions
+// wait for a run of their own.
+bool gc_restart_known_to_work(const std::string& id) {
+    return id == "GMSE01" || id == "GMSE04" || id == "GKDP01";
+}
+
+std::vector<GcCodeFix> gc_code_fixes(const std::string& id) {
+    std::vector<GcCodeFix> fixes;
+    if (id == "GEDE01") {
+        // li r5,1 (OS_MESSAGE_BLOCK) before the callback's call of OSReceiveMessage.
+        fixes.push_back({0x801EB0E8u, 0x38A00001u, 0x38A00000u,
+                         "the draw-done callback no longer blocks in OSReceiveMessage inside the interrupt"});
+    }
+    return fixes;
+}
 
 // A tester's City Folk from a USB drive ran on a base-58 d2x and took no
 // keyboard (2610-412).

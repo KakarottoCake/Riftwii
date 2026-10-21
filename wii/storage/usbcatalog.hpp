@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/fat32.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
@@ -164,6 +165,14 @@ bool rvz_resident_options(RvzResidentOptions& out, std::string& error);
 // wrote is there once it has flushed): its size and its pieces as
 // absolute sectors of the card. Needs the card mounted.
 bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector<Fragment>& out, std::string& error);
+// How many pieces a new file of `file_bytes` would lie in on the SD card
+// now (riftwii/fat32.hpp's Fat32Volume::free_pieces, read-only), with the
+// files in `replaced` (SD paths that will be deleted first) counted as free.
+// `max_pieces` is the most the caller can use. The read of the card's FAT is
+// bounded (about 32 MiB, a few seconds): past that the verdict is
+// Unchecked. Needs the card mounted.
+bool sd_free_pieces(std::uint64_t file_bytes, std::uint64_t max_pieces, const std::vector<std::string>& replaced,
+                    FreeSpaceReport& out, std::string& error);
 // A game's name from the title list (GameTDB, in the menu's language),
 // else `internal`, the disc header's.
 std::string GameDisplayName(const std::string& id, const std::string& internal);

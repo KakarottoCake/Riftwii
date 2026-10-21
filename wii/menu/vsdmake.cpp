@@ -18,6 +18,8 @@
 #include "i18n.hpp"
 #include "log.hpp"
 #include "riftwii/vsdparts.hpp"
+#include "rtvsd.h"
+#include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -307,6 +309,31 @@ bool plan_make(const std::string& key, const std::string& game_id, VsdMakePlan& 
     logf("Image: %s from %s: %u file(s), %u folder(s), %llu MiB, cluster %u, %llu MiB free\n", out.image.c_str(),
          key.c_str(), out.plan.files, out.plan.folders, static_cast<unsigned long long>(out.plan.image_bytes >> 20),
          out.plan.cluster_bytes, static_cast<unsigned long long>(out.free_bytes >> 20));
+    // Is the card's free space whole enough? A used card's free clusters lie
+    // in many runs, and the image takes them as they come (a tester's 8.9 GB
+    // image lay in 11796 pieces).
+    out.max_pieces = RTVSD_MAX_EXTENTS;
+    if (out.free_bytes >= out.plan.image_bytes + (8ull << 20)) {
+        // With no room beside the old image it is deleted first: its space is
+        // free for the new one.
+        std::vector<std::string> deleted;
+        if (!out.beside) deleted = image_files(out.image);
+        FreeSpaceReport report;
+        std::string reason;
+        if (sd_free_pieces(out.plan.image_bytes, out.max_pieces, deleted, report, reason)) {
+            out.pieces = report.pieces;
+            out.fragmentation_checked = report.verdict == FreeSpaceVerdict::Fits ||
+                                        report.verdict == FreeSpaceVerdict::TooFragmented;
+            out.too_fragmented = report.verdict == FreeSpaceVerdict::TooFragmented;
+            logf("Image: the card's free space would hold %s in %s%llu piece(s) (the most RiftWii follows is %llu; "
+                 "%llu MiB of the FAT read%s)\n",
+                 out.image.c_str(), out.too_fragmented ? "more than " : "", static_cast<unsigned long long>(report.pieces),
+                 static_cast<unsigned long long>(out.max_pieces), static_cast<unsigned long long>(report.fat_blocks_read >> 11),
+                 report.verdict == FreeSpaceVerdict::Unchecked ? ", then stopped: the card was not checked fully" : "");
+        } else {
+            logf("Image: the card's free space could not be read to count pieces (%s)\n", reason.c_str());
+        }
+    }
     // A little room for the card's own FAT to grow.
     if (out.free_bytes < out.plan.image_bytes + (8ull << 20)) {
         const auto mb = [](std::uint64_t b) { return std::to_string((b + (1 << 20) - 1) >> 20) + " MB"; };

@@ -37,7 +37,38 @@ struct HeadlessLaunch {
     std::string gct;                 // cheat codes file; "none": no cheats; empty: RiftWii's own
     std::uint64_t return_to = 0;     // the title the Wii Menu button starts; 0: RiftWii's choice
     bool return_to_menu = false;     // return_to=menu: the Wii Menu, as the game has it
+    // A GameCube game switching to another program on its disc (the SDK's
+    // OSExec), which RiftWii's blob writes as a launch file
+    // (sd:/riftwii/gc/exec.txt, runtime/gc's gc_on_boot_dol): the
+    // program's offset on the disc (gc_dol=, 0: the disc's own), the
+    // restart code the game passed (gc_restart=) and its arguments
+    // (gc_arg=, one each, in order).
+    bool gc_exec = false;
+    std::uint32_t gc_dol = 0;
+    std::uint32_t gc_restart = 0;
+    std::vector<std::string> gc_args;
+    // The pack choices file to read instead of the game's own (a file name
+    // in sd:/riftwii/choices, "SMNP01.txt" or a profile's): the choices the
+    // menu launched the game with, for a launch RiftWii makes for itself.
+    std::string choices;
+    // A Wii game's own Reset (HOME Menu > Reset): the runtime leaves this
+    // launch as a request (sd:/riftwii/restart.txt) and goes to the RiftWii
+    // channel, and RiftWii starts the game again from it. reset=1 marks it:
+    // the game was already playing, so it is not counted as a new play.
+    bool reset = false;
 };
+
+// The longest value, in bytes, any key takes, and the most packs and code
+// builds one launch names: a request comes from a file, an argument or the
+// game itself, and none of them gets to make RiftWii read without a bound.
+constexpr std::size_t kMaxLaunchValueBytes = 255;
+constexpr std::size_t kMaxLaunchPacks = 32;
+constexpr std::size_t kMaxLaunchCodeBuilds = 16;
+// A line of a launch file, key and value: longer is not a launch.
+constexpr std::size_t kMaxLaunchLineBytes = kMaxLaunchValueBytes + 16;
+// How much of a launch file is read, and how many lines of it count.
+constexpr std::size_t kMaxLaunchFileBytes = 16 * 1024;
+constexpr std::size_t kMaxLaunchLines = 64;
 
 // True when `args` (argv without the program's path) ask for a headless
 // launch, that is, start with "--launch".
@@ -46,6 +77,32 @@ bool is_headless_launch(const std::vector<std::string>& args);
 // Reads the arguments after "--launch". False with `error` naming the
 // argument that is missing, unknown or has a value RiftWii does not take.
 bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch& out, std::string& error);
+
+// The arguments that start `h` again, "--launch" first and one key=value
+// each, only what `h` sets: parse_headless_launch reads them back to the
+// same launch. A Wii game's own Reset makes its request from these.
+std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h);
+
+// A launch file's arguments (docs/HEADLESS.md), one per line, "--launch"
+// first: the text of the file, or of a sector written a whole sector at a
+// time (NULs after the text). Carriage returns and trailing spaces are
+// dropped, empty lines skipped. False, with `args` empty, when the text is
+// not a launch: it does not start with "--launch" (an "--idle--" sector is
+// not one), it has more than kMaxLaunchLines lines, or a line longer than
+// kMaxLaunchLineBytes.
+bool launch_lines_from_text(const std::string& text, std::vector<std::string>& args);
+
+// The sector a Wii game's own Reset leaves on the card for its next start:
+// `args` (from headless_launch_arguments) one per line, NUL-filled to
+// `sector_bytes`. `armed`: as the Reset leaves it; otherwise as the loader
+// makes the file, "--idle--" for the first line, which the next start skips.
+// False, with `why`, when the text does not leave room for a final NUL.
+bool launch_request_sector(const std::vector<std::string>& args, bool armed, std::size_t sector_bytes,
+                           std::vector<std::uint8_t>& sector, std::string& why);
+
+// Whether `value` is a path (or a name) that stays where it is put: no
+// ".." in it, between slashes or backslashes, at either end or alone.
+bool launch_path_stays_put(const std::string& value);
 
 // Friivolution's launch argument (FRIIV_CFG, docs/HEADLESS.md): a loader
 // that starts Friivolution this way can start RiftWii the same way. The

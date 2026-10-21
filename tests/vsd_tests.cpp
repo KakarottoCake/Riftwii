@@ -6,6 +6,7 @@
 #include "rtvsd.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
 #include <iostream>
@@ -17,11 +18,22 @@ static int g_failures = 0;
 
 namespace {
 
-std::unique_ptr<rtvsd_card> make_card(std::uint32_t sectors, std::initializer_list<rtvsd_extent> extents) {
-    auto card = std::make_unique<rtvsd_card>();
-    std::memset(card.get(), 0, sizeof(rtvsd_card));
+// The card with its extent table behind it, as the blob's state lays it out.
+struct CardDeleter {
+    void operator()(rtvsd_card* card) const { std::free(card); }
+};
+using CardPtr = std::unique_ptr<rtvsd_card, CardDeleter>;
+
+CardPtr make_card_sized(std::uint32_t sectors, std::size_t capacity) {
+    const std::size_t bytes = sizeof(rtvsd_card) + rtvsd_extent_bytes(capacity);
+    rtvsd_card* card = static_cast<rtvsd_card*>(std::calloc(1, bytes));
     card->sectors = sectors;
-    for (const rtvsd_extent& e : extents) card->extents[card->extent_count++] = e;
+    return CardPtr(card);
+}
+
+CardPtr make_card(std::uint32_t sectors, std::initializer_list<rtvsd_extent> extents) {
+    CardPtr card = make_card_sized(sectors, extents.size());
+    for (const rtvsd_extent& e : extents) rtvsd_extents(card.get())[card->extent_count++] = e;
     return card;
 }
 
@@ -59,6 +71,28 @@ int main() {
         EXPECT_EQ(rtvsd_reset(short_of.get()), -1);
         auto none = make_card(3000, {});
         EXPECT_EQ(rtvsd_reset(none.get()), -1);
+    }
+    // A very scattered image (11796 pieces were seen on a used card, the
+    // table now takes up to RTVSD_MAX_EXTENTS): reset accepts it, a lookup
+    // finds the right piece at both ends and in the middle, and one more
+    // than the limit is refused.
+    {
+        const std::uint32_t pieces = RTVSD_MAX_EXTENTS;
+        const std::uint32_t piece_sectors = 8;
+        auto big = make_card_sized(pieces * piece_sectors, pieces);
+        for (std::uint32_t i = 0; i < pieces; ++i) {
+            // Device pieces in reverse order, so the table is not simply increasing.
+            rtvsd_extents(big.get())[i] = {i * piece_sectors, (pieces - i) * 1000u, piece_sectors};
+        }
+        big->extent_count = pieces;
+        EXPECT_EQ(rtvsd_reset(big.get()), 0);
+        for (std::uint32_t i : {0u, 1u, 5000u, 11796u, pieces - 2, pieces - 1}) {
+            std::uint32_t dev = 0;
+            EXPECT_EQ(rtvsd_map(big.get(), i * piece_sectors + 3, 64, &dev), 5u);
+            EXPECT_EQ(dev, (pieces - i) * 1000u + 3u);
+        }
+        big->extent_count = pieces + 1;
+        EXPECT_EQ(rtvsd_reset(big.get()), -1);
     }
     // Blocks to device sectors, a run at a time.
     {

@@ -31,13 +31,17 @@ struct ResidentBlob {
     std::uint32_t complete_fs_offset = 0;
     // Synchronous IOS_Open's two loader-filled words (rt_blob_header).
     std::array<std::uint32_t, 2> open_undo_offsets{};
+    // The game's own Reset: OSRestart's hook and its replay slot
+    // (rt_reset_on_os_restart).
+    std::uint32_t os_restart_offset = 0;
+    std::uint32_t os_restart_replay_offset = 0;
     // 4A compatibility aliases for the legacy DI-only loader.  They are
     // derived from the async-Ioctl table entry, never serialized.
     std::uint32_t hook_ioctl_async_offset = 0;
     std::uint32_t replay_ioctl_async_offset = 0;
     std::uint32_t continue_ioctl_async_offset = 0;
 };
-static_assert(4 * (4 + 3 * kResidentIpcEntries + 4) == 200, "resident blob ABI v5 header size");
+static_assert(4 * (4 + 3 * kResidentIpcEntries + 4 + 2) == 208, "resident blob ABI v6 header size");
 constexpr std::size_t kResidentContextBytes = 2048;  // the slot for struct rt_context (it may be smaller)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 // The RVZ blob's absolute references (tools/rtreloc.py: 12-byte big-endian
