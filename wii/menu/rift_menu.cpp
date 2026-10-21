@@ -1115,7 +1115,12 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 {
 	items.clear();
 	entries.clear();
-	{
+	// The Disc drive tile belongs to Home's own views (Mods and All games),
+	// as the disc channel does on the Wii Menu. A search, Recently played
+	// and Favorites list particular games, so a tile that is none of them
+	// was only noise there.
+	const bool discViews = g_search.empty() && (g_filter == Filter::Mods || g_filter == Filter::All);
+	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
 		disc.badge = "DISC";
@@ -1159,7 +1164,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	// Settings > Disc Channel off: the tile goes (an empty view keeps its
 	// note under the clock: Press 1 for all games).
-	if (riftwii::wii::Settings().home_disc == "off") {
+	if (discViews && riftwii::wii::Settings().home_disc == "off") {
 		items.erase(items.begin());
 		entries.erase(entries.begin());
 	}
