@@ -48,6 +48,7 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
 // (d2x refuses it once a title runs): the card is unmounted (libfat
 // flushes), d2x mounts it and serves the NAND from `dir`, the card is
 // mounted again (libfat reads it afresh), the log around that.
-bool enable_d2x_saves(const std::string& dir, std::string& error);
+bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted = nullptr,
+                      bool full_nand = false);
 
 }  // namespace riftwii::wii

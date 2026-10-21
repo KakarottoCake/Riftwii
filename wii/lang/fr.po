@@ -2825,3 +2825,72 @@ msgstr "Le port A ne contient aucune carte lisible. Une carte du port B ne peut 
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossible de préparer la carte réelle. Vérifiez la carte et réessayez."
+
+msgid "Channel background"
+msgstr "Fond des chaînes"
+
+msgid "White"
+msgstr "Blanc"
+
+msgid "Transparent"
+msgstr "Transparent"
+
+msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
+msgstr "Blanc place un cadre derrière les bannières des chaînes affichées dans le menu pour éviter qu'elles ne deviennent transparentes."
+
+msgid "Show non-game channels"
+msgstr "Afficher les chaînes non-jeu"
+
+msgid "Nintendo's own channels are listed on Home now."
+msgstr "Les chaînes Nintendo sont maintenant sur l'accueil."
+
+msgid "Only games are listed on Home now."
+msgstr "Seuls les jeux sont désormais listés sur l'accueil."
+
+msgid "Boot from"
+msgstr "Démarrer depuis"
+
+msgid "Boot"
+msgstr "Démarrer"
+
+msgid "Real NAND"
+msgstr "NAND réelle"
+
+msgid "Emulated NAND"
+msgstr "NAND émulée"
+
+msgid "Where the game will boot from. If set to Automatic, RiftWii will guess."
+msgstr "D'où le jeu démarrera. En Automatique, RiftWii devinera."
+
+msgid "Game IOS"
+msgstr "IOS du jeu"
+
+msgid "The IOS RiftWii starts the channel under."
+msgstr "L'IOS avec lequel RiftWii démarre la chaîne."
+
+msgid "Emulated NAND (not here)"
+msgstr "NAND émulée (pas ici)"
+
+msgid "Real NAND (not here)"
+msgstr "NAND réelle (pas ici)"
+
+msgid "Show all channels even if they aren't detected as a game."
+msgstr "Afficher toutes les chaînes même si elles ne sont pas reconnues comme un jeu."
+
+msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
+msgstr "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu."
+
+msgid "The Wii's own copy starts, and saves stay on the Wii."
+msgstr "La copie de la Wii démarre et les sauvegardes restent sur la Wii."
+
+msgid "The copy RiftWii lists starts, with its own save."
+msgstr "La copie que RiftWii affiche démarre, avec sa propre sauvegarde."
+
+msgid "The copy in {1} starts, and saves stay there on the SD card."
+msgstr "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD."
+
+msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
+msgstr "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}."
+
+msgid "{1} has no copy of this game. Install it there from its WAD first."
+msgstr "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD."

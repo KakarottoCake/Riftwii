@@ -26,6 +26,8 @@ namespace riftwii {
 // Shop or a WAD: WiiWare, Virtual Console, Nintendo's own channels, and
 // homebrew channels. Discs' data and the system's channels have others.
 constexpr std::uint32_t kDownloadedChannels = 0x00010001;
+constexpr std::uint32_t kSystemChannels = 0x00010002;
+constexpr std::uint32_t kHiddenChannels = 0x00010008;
 
 enum class ChannelKind {
     None,           // not a game: a Nintendo channel, a homebrew channel, RiftWii's own
@@ -67,6 +69,8 @@ std::string channel_left_out_reason(std::uint64_t title_id);
 // Whether `code` is one of the known homebrew channels' (the Homebrew
 // Channel's LULZ and JODI, RiftWii's UFTW).
 bool is_homebrew_code(const std::string& code);
+
+bool is_nintendo_channel(std::uint64_t title_id);
 
 // A forwarder channel's program is a few tens of KB; an inject's holds an
 // emulator and a game, megabytes. Programs above this are never forwarders,
@@ -171,6 +175,12 @@ struct ChannelProgram {
 bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
                             std::string& error);
 
+bool channel_program_compressed(const std::uint8_t* data, std::size_t size,
+                                 std::size_t max_out = 24u << 20);
+
+bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error,
+                            std::size_t max_out = 24u << 20);
+
 // Whether a channel GameTDB does not list stays off Home, judged from the
 // title itself. `starts` are the first bytes of its own contents (the
 // banner and shared ones need none); the boot content's are up to
@@ -198,5 +208,9 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
 // and BSS) that loads past it, rounded up to 32 bytes. Parts below
 // `loader_end` (the usual case, from 0x80003400 up) do not move it.
 std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end);
+
+constexpr std::uint32_t kChannelTitleTypes[] = {kDownloadedChannels, kSystemChannels, kHiddenChannels};
+
+std::vector<std::uint8_t> make_fake_ticket();
 
 }  // namespace riftwii

@@ -37,6 +37,7 @@ struct NandChannel {
     // Wii's own. Its files are read from the card, and it runs under d2x's
     // NAND emulation of that folder, its saves kept there.
     std::string emu_nand;
+    bool non_game = false;
 };
 
 // The WiiWare and Virtual Console games installed on this Wii, sorted by
@@ -44,13 +45,14 @@ struct NandChannel {
 // were left out. Reads through ES and ISFS, opening the IOS's NAND
 // permission check (boot.hpp) when the running IOS refuses the files, and
 // closing it again before returning.
-bool list_nand_channels(std::vector<NandChannel>& out, std::string& status);
+bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool include_non_games = false);
 
 // The WiiWare and Virtual Console games installed in the emulated NAND
 // `folder` (sd:/...), added to `out`; a title the Wii itself has (already
 // in `out`) is not listed twice. `status` says how many, in a plain
 // sentence. False when the folder holds no channels.
-bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status);
+bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status,
+                       bool include_non_games = false);
 
 // The whole banner file (content index 0), for the Channels view's banner
 // store (wii/menu/banners.hpp). False with `error` saying why.
@@ -85,8 +87,8 @@ struct ChannelBootFiles {
 // permission check as the listing does). False with `error` saying why:
 // the system then starts the title as the Wii Menu does.
 // `emu_nand`: the emulated NAND folder the channel is in, empty for the
-// Wii's own.
-bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out, std::string& error);
+bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out,
+                       std::string& error, int ios_choice = 0);
 
 // The channel game the menu is launching (MENU_PLAY_CHANNEL, wii/main.cpp's
 // StartChannel): set by the menu when Start is pressed on one.
@@ -94,5 +96,10 @@ void SetChannelToStart(const NandChannel& channel);
 std::uint64_t ChannelToStart();
 // Its emulated NAND folder, empty for the Wii's own.
 const std::string& ChannelToStartNand();
+void SetChannelToStartNand(const std::string& folder);
+void SetChannelToStartIos(int ios);
+int ChannelToStartIos();
+void SetChannelToStartDirect(bool direct);
+bool ChannelToStartDirect();
 
 }  // namespace riftwii::wii
