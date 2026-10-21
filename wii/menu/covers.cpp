@@ -310,6 +310,10 @@ void Ask(const std::string& game_id, int rank) {
 
 }  // namespace
 
+void ForgetCoverMiss(const std::string& game_id) {
+    if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());
+}
+
 bool CoverWanted(const std::string& game_id) {
     if (!ValidId(game_id)) return false;
     struct stat st;

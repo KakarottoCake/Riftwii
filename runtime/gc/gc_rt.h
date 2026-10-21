@@ -22,6 +22,7 @@
 
 #include "gc_crash.h"
 #include "gc_layout.h"
+#include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
 #define GC_RT_VERSION 8u                 /* also in gc_entry.S's header */
@@ -355,7 +356,7 @@ struct gc_rt_context {
     uint32_t load_alloc;      /* alloc(length, alignment) from the current heap */
     uint32_t loads_steered;   /* buffers allocated from the heap their load was queued from */
     uint32_t load_heap_offset; /* JKRHeap's current heap: its offset from r13 (the game's small data) */
-    uint32_t load_saved_heap; /* the current heap the loading thread's callbacks interrupted; 0: none */
+    uint32_t load_saved_heap; /* the temporary heap the callbacks interrupted; 0: no steering */
     uint32_t load_next;       /* the next slot of load_request/load_heap to take */
     uint32_t load_request[GC_LOAD_SLOTS]; /* queued requests (they come from a pool, reused) */
     uint32_t load_heap[GC_LOAD_SLOTS];    /* and the heap current when each was queued */
@@ -495,6 +496,10 @@ struct gc_rt_context {
     uint32_t vec[8] __attribute__((aligned(32)));       /* three vectors */
     uint32_t request[16] __attribute__((aligned(32)));  /* the SENDCMD block (36 bytes) */
     uint32_t response[8] __attribute__((aligned(32)));
+    /* The callback heap policy's four r13 displacements, loader-found:
+     * the game's two main heaps, then JKRHeap's system and root heaps.
+     * Kept at the end so existing trace/context offsets stay unchanged. */
+    uint32_t load_root_heap_offsets[GC_LOAD_ROOT_HEAPS];
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */

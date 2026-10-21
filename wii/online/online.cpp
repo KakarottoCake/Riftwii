@@ -763,8 +763,11 @@ namespace {
 // next to the running DOL. False, with `error`, when one could not be: the
 // update then stops before the DOL is touched. The rest of the pack (the
 // themes, the channel installer) waits for the new DOL's first start.
+//
+// `report` is told each step as it starts, and again as the pack's bytes
+// arrive.
 bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const std::string& dol_path,
-                        std::string& error) {
+                        std::string& error, const std::function<void(UpdateStep, std::uint64_t, std::uint64_t)>& report) {
     if (note.pack.url.empty()) {
         logf("Update: %s has no %s, so no plugins are written before its DOL\n", latest.c_str(), kUpdatePackAsset);
         return true;
@@ -775,10 +778,23 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
         return false;
     }
     std::vector<std::uint8_t> pack;
-    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, nullptr, HttpRedirects::GitHubRelease)) {
+    // The pack is several MB, as long a download as the DOL: a tester's
+    // Wii spent about six minutes here with the bar standing still.
+    logf("Update: downloading %s (%u bytes) for the plugins\n", kUpdatePackAsset,
+         static_cast<unsigned>(note.pack.size));
+    report(UpdateStep::DownloadingPlugins, 0, note.pack.size);
+    // Set even when the release gives no size (total 0), so the text and
+    // the screen's activity still follow the bytes.
+    const std::uint64_t total = note.pack.size;
+    const HttpProgress got = [&report, total](std::size_t received) {
+        report(UpdateStep::DownloadingPlugins, total != 0 ? std::min<std::uint64_t>(received, total) : received, total);
+    };
+    if (!HttpGet(note.pack.url, pack, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) {
         error = std::string("the update's ") + kUpdatePackAsset + ": " + error;
         return false;
     }
+    logf("Update: %s downloaded (%u bytes); checking it\n", kUpdatePackAsset, static_cast<unsigned>(pack.size()));
+    report(UpdateStep::CheckingPlugins, pack.size(), pack.size());
     if ((note.pack.size != 0 && pack.size() != note.pack.size) || Sha256Hex(pack) != note.pack.sha256) {
         error = std::string("the update's ") + kUpdatePackAsset + " does not match GitHub's SHA-256";
         return false;
@@ -794,6 +810,8 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     }
     std::vector<UpdateWrite> writes;
     if (!plan_update_writes(apps, latest, PluginTargetDirectory(), dol_path, writes, error)) return false;
+    logf("Update: writing the plugins of %s to the SD card\n", latest.c_str());
+    report(UpdateStep::WritingPlugins, 0, 0);
     const std::uint8_t* const bytes = pack.data() + split;
     unsigned written = 0;
     unsigned same = 0;
@@ -821,7 +839,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
 }  // namespace
 
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
-                   const std::function<void(double done)>& progress) {
+                   const std::function<void(const UpdateProgress&)>& progress) {
     UpdateNote note = ReadUpdateNote();
     if (note.latest != latest || note.dol.url.empty()) {
         error = "release " + latest + " has no riftwii.dol attached";
@@ -832,25 +850,46 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         error = "RiftWii was not started from a boot.dol on the SD card, so there is nothing to replace";
         return false;
     }
-    logf("Update: downloading %s for %s\n", latest.c_str(), where.c_str());
+    // The bar covers the whole update: the downloads by their bytes (the
+    // DOL, then the update pack, both sizes known from the release) up to
+    // kDownloadsShare, then a step each for the checks and the writes.
+    const std::uint64_t dol_total = note.dol.size;
+    const std::uint64_t pack_total = note.pack.url.empty() ? 0 : note.pack.size;
+    const std::uint64_t all_bytes = dol_total + pack_total;
+    constexpr double kDownloadsShare = 0.90;
+    auto report = [&](UpdateStep step, std::uint64_t done, std::uint64_t total) {
+        if (!progress) return;
+        UpdateProgress p;
+        p.step = step;
+        p.received = done;
+        p.total = total;
+        // Bytes counted toward the downloads so far: the pack's come after the DOL's.
+        std::uint64_t counted = all_bytes;
+        if (step == UpdateStep::DownloadingDol || step == UpdateStep::CheckingDol) counted = done;
+        else if (step == UpdateStep::DownloadingPlugins) counted = dol_total + done;
+        p.share = all_bytes == 0 ? 0.0 : kDownloadsShare * std::min(1.0, static_cast<double>(counted) / static_cast<double>(all_bytes));
+        if (step == UpdateStep::WritingPlugins) p.share = 0.93;
+        if (step == UpdateStep::WritingDol) p.share = 0.96;
+        progress(p);
+    };
+    logf("Update: downloading %s for %s (riftwii.dol, %u bytes)\n", latest.c_str(), where.c_str(),
+         static_cast<unsigned>(note.dol.size));
+    report(UpdateStep::DownloadingDol, 0, dol_total);
     std::vector<std::uint8_t> body;
-    // GitHub's redirect answers are small; the DOL is the bulk. Its size
-    // is known from the release, so the share is the bytes against it
-    // (headers make it a hair early, capped below 1 until it is whole).
-    HttpProgress got;
-    if (progress && note.dol.size != 0) {
-        const double total = static_cast<double>(note.dol.size);
-        got = [&progress, total](std::size_t received) {
-            progress(std::min(0.99, static_cast<double>(received) / total));
-        };
-    }
+    // GitHub's redirect answers are small; the DOL is the bulk (headers
+    // make the count a hair early, so it is capped at the size).
+    // Set even when the release gives no size (total 0), as for the pack.
+    const HttpProgress got = [&report, dol_total](std::size_t received) {
+        report(UpdateStep::DownloadingDol, dol_total != 0 ? std::min<std::uint64_t>(received, dol_total) : received,
+               dol_total);
+    };
     if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got, HttpRedirects::GitHubRelease)) return false;
     // A tester's Wii crashed half a minute into an update with nothing
     // after the line above: this one tells the DOL's download from the
     // update pack's and the writes that follow it.
     logf("Update: riftwii.dol downloaded (%u bytes); checking it and fetching the update pack next\n",
          static_cast<unsigned>(body.size()));
-    if (progress) progress(1.0);
+    report(UpdateStep::CheckingDol, body.size(), body.size());
     if (note.dol.size != 0 && body.size() != note.dol.size) {
         error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
                 std::to_string(note.dol.size);
@@ -878,7 +917,9 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     }
     // The plugins before anything of the DOL: a cut after them leaves the
     // old DOL, which still has its own plugins.
-    if (!WriteUpdatePlugins(note, latest, where, error)) return false;
+    if (!WriteUpdatePlugins(note, latest, where, error, report)) return false;
+    logf("Update: writing riftwii.dol (%u bytes) to the SD card\n", static_cast<unsigned>(body.size()));
+    report(UpdateStep::WritingDol, 0, body.size());
     // New file first, then the swap; the old one stays as boot.dol.old.
     // Nothing may stop it half way (the power button waits for it).
     const CardWriteHold hold;
