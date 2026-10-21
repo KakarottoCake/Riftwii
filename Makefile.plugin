@@ -82,6 +82,8 @@ CXXFLAGS := -Os -mcpu=750 -meabi -mhard-float -msdata=none -DGEKKO -DHW_RVL \
             -fno-stack-protector -fno-common -ffunction-sections -fdata-sections -std=c++17 \
             -Wall -Wextra -Werror -Iinclude -Iplugins/common -Iruntime -Iruntime/resident -Iruntime/gc \
             -Ivendor-zstd -I$(LIBOGC_INC)
+# The RVZ test switch is used by the DOL and the plugin's copy of rvz.cpp.
+CXXFLAGS += $(WII_DEFINES)
 ASFLAGS := -mcpu=750 -meabi -mregnames -Wa,-I$(RUNTIME_OUT)
 LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections \
            -Wl,--undefined=rwp_init -Wl,--undefined=rwp_exports -T plugins/plugin.ld

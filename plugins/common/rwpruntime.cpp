@@ -217,6 +217,13 @@ unsigned ZSTD_isError(size_t code) { return host().zstd_is_error(code); }
 
 const char* ZSTD_getErrorName(size_t code) { return host().zstd_error_name(code); }
 
+ZSTD_ErrorCode ZSTD_getErrorCode(size_t result) {
+    // The host returns the vendored decoder's size_t unchanged. Its errors
+    // are negated enum values, so no plugin API extension is needed.
+    if (!host().zstd_is_error(result)) return ZSTD_error_no_error;
+    return static_cast<ZSTD_ErrorCode>(size_t(0) - result);
+}
+
 // A decoding context of its own is only a speed-up: each call of the
 // loader's one-shot decoder makes its own. The pointer stands for "a
 // context" so a caller's null check holds; it is never looked into.

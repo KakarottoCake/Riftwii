@@ -381,6 +381,20 @@ void TestDamage() {
     EXPECT_EQ(error, std::string("not an RVZ file"));
     EXPECT_FALSE(read_rvz_head(MemorySource(std::vector<std::uint8_t>(good.begin(), good.begin() + 0x100)), head, error));
 
+    // A valid frame header with a reserved block type reaches the decoder,
+    // rather than the frame-size guard. Its code survives stripped strings
+    // in Wii builds and still identifies which RVZ table could not decode.
+    EXPECT_TRUE(read_rvz_head(MemorySource(good), head, error));
+    const std::uint8_t corrupt_frame[] = {0x28, 0xB5, 0x2F, 0xFD, 0x20, 0x01, 0x07, 0x00, 0x00};
+    EXPECT_TRUE(head.group_table_bytes >= sizeof(corrupt_frame));
+    if (head.group_table_bytes >= sizeof(corrupt_frame)) {
+        auto damaged = good;
+        std::memcpy(damaged.data() + head.group_table_offset, corrupt_frame, sizeof(corrupt_frame));
+        std::unique_ptr<RvzImage> refused;
+        EXPECT_FALSE(RvzImage::open(source(damaged), refused, error));
+        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error 20 (corruption detected)"));
+    }
+
     // Cut short: the headers still read, groups past the end fail cleanly.
     std::unique_ptr<RvzImage> image;
     if (!RvzImage::open(source(std::vector<std::uint8_t>(good.begin(), good.begin() + good.size() / 2)), image, error)) {
