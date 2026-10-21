@@ -295,7 +295,13 @@ non-NTSC paths and other game regions keep their own behavior.
   ports by `gc_ports.h`'s rule before the Wii Remotes, which then skip
   the ports they filled.
 - `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
-  written back to its file's sectors as the game saves.
+  written back to its file's sectors as the game saves. The SDK's EXI
+  functions are found by `src/patching/gcexi.cpp`, through their shared
+  control blocks and call relationships. `EXIGetID` identifies the bus
+  selector when two routines set the same selected-state bit (Pokemon
+  Channel). The clock/SRAM on channel 0 device 1, slot B and the serial
+  port pass through to the game's original functions and the hardware;
+  only channel 0 device 0 is answered by the card image.
 - `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
