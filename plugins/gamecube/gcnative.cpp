@@ -3055,8 +3055,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ICInvalidateRange(memcard->landing, sizeof(memcard->landing));
 
     LogClose();
-    // The frame stays on screen until the game sets up its own video; a
-    // crash turns it blue (gc_on_fatal) when the VI's registers give none.
+    // The frame stays on screen until the jump, where the blob blanks the
+    // screen until the game's first picture (gc_vi_blank_now); a crash
+    // turns it blue (gc_on_fatal) when the VI's registers give none.
     const std::uint32_t xfb = plugin::host().video_framebuffer();
     const std::uint32_t xfb_bytes = 640 * 480 * 2;
     ctx->xfb = xfb;
