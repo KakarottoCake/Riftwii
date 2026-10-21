@@ -312,6 +312,7 @@ document it.
 | `sharednand` | The shared emulated NAND's folder: the other loader's settings lines and the checks on the path |
 | `wadfile` | `.wad` files: their layout, each content decrypted and checked against its TMD hash, `/shared1/content.map` |
 | `nandchannel` | WiiWare and Virtual Console titles: which titles are games, a stored TMD's contents, the content RiftWii loads, their cheats' code |
+| `textlines` | Lines and words split from a text file by the rules of `std::getline` and `>>`, without the streams (which bring close to 500 KiB of libstdc++'s locale code into the DOL) |
 | `pluginfile`, `sha256` | A plugin file (`.rwp`): its header and every refusal, its relocations, the file names; SHA-256 |
 
 ## `runtime/`: code that runs inside the game
