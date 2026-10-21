@@ -9034,10 +9034,14 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
 				if (AskGcCardSwitch()) {
+					// Own and shared are valid on a Wii U; only the step that
+					// would reach "real" is skipped, and only that says why.
 					if (game.gc_card == "own") game.gc_card = "shared";
 					else if (game.gc_card == "shared" && !riftwii::wii::is_wii_u()) game.gc_card = "real";
-					else game.gc_card = "own";
-					if (riftwii::wii::is_wii_u()) say(tr("Wii U has no GameCube memory card slots."));
+					else {
+						if (game.gc_card == "shared") say(tr("Wii U has no GameCube memory card slots."));
+						game.gc_card = "own";
+					}
 				}
 				else changed = false;
 			}
