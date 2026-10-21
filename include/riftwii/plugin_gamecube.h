@@ -128,7 +128,15 @@ typedef struct rwp_gc_launch {
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;
+    /* Out: why the launch failed, as a code the DOL can act on (the
+     * RWP_GC_ERROR_* values) where `error`'s text is only for logs;
+     * RWP_GC_ERROR_NONE for the rest. Written through a pointer, as `error`
+     * is, because the request is const to the plugin. NULL: not wanted. */
+    uint32_t* error_code;
 } rwp_gc_launch;
+
+#define RWP_GC_ERROR_NONE 0u
+#define RWP_GC_ERROR_REAL_CARD_SRAM 1u /* the real card's ID could not be written to SRAM */
 
 #ifdef __cplusplus
 }

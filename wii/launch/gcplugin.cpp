@@ -316,6 +316,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     char reason[512] = "";
     request.error = reason;
     request.error_bytes = sizeof(reason);
+    uint32_t error_code = RWP_GC_ERROR_NONE;
+    request.error_code = &error_code;
 
     std::string message;
     const int32_t result = plugin::Launch(kPluginName, &request, sizeof(request), message);
@@ -331,7 +333,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         error = message;
         return false;
     }
-    if (std::strcmp(reason, RWP_GC_REAL_CARD_SRAM_ERROR) == 0) {
+    if (error_code == RWP_GC_ERROR_REAL_CARD_SRAM) {
         logf("GameCube: the real card could not be prepared because its ID could not be written to SRAM.\n");
         error = tr("The real card could not be prepared. Check the card and try again.");
     } else {

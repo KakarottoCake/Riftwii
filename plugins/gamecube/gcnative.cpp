@@ -6,6 +6,7 @@
 // crash screen) handed in by gcentry.cpp, and libogc and the card reached
 // through RiftWii's table (gchost.hpp).
 #include "gchost.hpp"
+#include "riftwii/plugin_gamecube.h"
 
 #include <sys/stat.h>
 #include <ogc/machine/processor.h>
@@ -1791,7 +1792,8 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
                  gc_controls_describe(map.to[kind][GC_IN_SHAKE]).c_str());
 }
 
-bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras, std::string& error) {
+bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras, std::string& error,
+                     std::uint32_t* error_code) {
     // The plugin runs to the jump from its arena at the top of MEM2: never
     // inside what the launch writes there (the card's image, the blob's
     // buffers, the RVZ's and the Reset restart's copy of MEM1).
@@ -2292,6 +2294,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (!RWP_HOST_HAS(&host, set_sram_flash_id_a) || !host.set_sram_flash_id_a ||
             host.set_sram_flash_id_a(image.real_card_flash_id.data()) < 0) {
             error = RWP_GC_REAL_CARD_SRAM_ERROR;
+            if (error_code != nullptr) *error_code = RWP_GC_ERROR_REAL_CARD_SRAM;
             return false;
         }
         // No image means no EXI card hooks below. The game's SDK sees the

@@ -79,8 +79,10 @@ struct GcLaunchExtras {
 };
 
 // Starts the game (gcnative.cpp). Returns only on failure.
+// `error_code`, when given, is set to an RWP_GC_ERROR_* value for the
+// failures the DOL acts on (plugin_gamecube.h).
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras,
-                    std::string& error);
+                    std::string& error, std::uint32_t* error_code = nullptr);
 
 // ---- RiftWii's functions the loader calls, on the table ----
 

@@ -2760,8 +2760,8 @@ msgstr "Ranura A"
 msgid "Slot B"
 msgstr "Ranura B"
 
-msgid "Choose which saves to copy. The card in the Wii is never written to."
-msgstr "Elige qué partidas copiar. Nunca se escribe en la tarjeta de la Wii."
+msgid "Choose which saves to copy. Nothing is written to the card."
+msgstr "Elige qué partidas copiar. No se escribe nada en la tarjeta."
 
 msgid "This game's saves"
 msgstr "Partidas de este juego"
@@ -2772,8 +2772,8 @@ msgstr "Todas las partidas"
 msgid "Copy"
 msgstr "Copiar"
 
-msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? The card in the Wii is never written to."
-msgstr "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? Nunca se escribe en la tarjeta de la Wii."
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card."
+msgstr "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? No se escribe nada en la tarjeta."
 
 msgid "Copied to {1}."
 msgstr "Copia guardada en {1}."
@@ -2802,8 +2802,8 @@ msgstr "La imagen de SD está dañada o usa la otra codificación de texto. No s
 msgid "Copy failed. The card in the Wii was left unchanged."
 msgstr "La copia falló. La tarjeta de Wii no se ha modificado."
 
-msgid "The card in the Wii is never written to. Copies go to the SD card."
-msgstr "Nunca se escribe en la tarjeta de la Wii. Las copias van a la tarjeta SD."
+msgid "Nothing is written to the card. Copies go to the SD card."
+msgstr "No se escribe nada en la tarjeta. Las copias van a la tarjeta SD."
 
 msgid "This game uses the real card in slot A. Its saves are not on the SD card."
 msgstr "Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD."
@@ -2813,6 +2813,12 @@ msgstr "Usar la tarjeta SD de este juego"
 
 msgid "Wii U has no GameCube memory card slots."
 msgstr "Wii U no tiene ranuras para tarjetas de memoria de GameCube."
+
+msgid "Reading the memory card"
+msgstr "Leyendo la tarjeta de memoria"
+
+msgid "Keep the card in its slot. Nothing is written to it."
+msgstr "Deja la tarjeta en su ranura. No se escribe nada en ella."
 
 msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
 msgstr "La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A."
