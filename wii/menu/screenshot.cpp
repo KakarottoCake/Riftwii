@@ -117,7 +117,8 @@ void DropUnfinishedShots() {
     const char* name = names;
     for (u32 i = 0; i < count; ++i, name += std::strlen(name) + 1) {
         char path[80];
-        std::snprintf(path, sizeof(path), "%s/%s", dir, name);
+        // A NAND file name is at most 12 characters.
+        std::snprintf(path, sizeof(path), "%s/%.12s", dir, name);
         ISFS_Delete(path);
         logf("Screenshot: %s was not finished when its game ended; deleted\n", path);
     }
