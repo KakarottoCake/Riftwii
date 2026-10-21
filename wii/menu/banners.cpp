@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <map>
 #include <new>
 #include <set>
 
@@ -30,9 +31,23 @@ constexpr long kMaxDiscPicture = 16 << 10;
 // A game the banner server has no banner for is asked about again after a week.
 constexpr std::time_t kRetryAfter = 7 * 24 * 60 * 60;
 
-std::set<std::string> g_failed;
+struct ReadFailure {
+    std::time_t when = 0;
+    int attempts = 0;
+};
+constexpr int kMaxBannerAttempts = 3;
+constexpr std::time_t kBannerRetrySeconds = 20;
+std::map<std::string, ReadFailure> g_failed;
 // GameCube games whose download found nothing this session.
 std::set<std::string> g_downloadMissed;
+
+void NoteBannerFailure(const std::string& id, const std::string& error) {
+    ReadFailure& failed = g_failed[id];
+    failed.when = std::time(nullptr);
+    ++failed.attempts;
+    logf("Banner of %s: %s (try %d of %d)%s\n", id.c_str(), error.c_str(), failed.attempts, kMaxBannerAttempts,
+         failed.attempts >= kMaxBannerAttempts ? ", not tried again this session" : ", tried again in a moment");
+}
 
 std::string PathOf(const std::string& id) { return std::string(kDir) + "/" + id + ".bnr"; }
 std::string MissPath(const std::string& id) { return std::string(kDir) + "/" + id + ".none"; }
@@ -77,9 +92,18 @@ bool ReadGameCubeDiscBanner(const ImageGame& game, std::vector<std::uint8_t>& bn
 }  // namespace
 
 bool BannerWanted(const std::string& game_id) {
-    if (!ValidId(game_id) || g_failed.count(game_id)) return false;
+    if (!ValidId(game_id)) return false;
     struct stat st;
-    return stat(PathOf(game_id).c_str(), &st) != 0;
+    if (stat(PathOf(game_id).c_str(), &st) == 0) return false;
+    const auto failed = g_failed.find(game_id);
+    if (failed == g_failed.end()) return true;
+    if (failed->second.attempts >= kMaxBannerAttempts) return false;
+    return std::time(nullptr) - failed->second.when >= kBannerRetrySeconds;
+}
+
+bool BannerRetryPending(const std::string& game_id) {
+    const auto failed = g_failed.find(game_id);
+    return failed != g_failed.end() && failed->second.attempts < kMaxBannerAttempts;
 }
 
 namespace {
@@ -95,8 +119,7 @@ bool StoreBannerBytes(const std::string& id, std::vector<std::uint8_t>& bnr, boo
         error = "out of memory for the banner";
     }
     if (!parsed) {
-        g_failed.insert(id);
-        logf("Banner of %s: %s\n", id.c_str(), error.c_str());
+        NoteBannerFailure(id, error);
         return false;
     }
     mkdir("sd:/riftwii", 0777);
@@ -107,10 +130,11 @@ bool StoreBannerBytes(const std::string& id, std::vector<std::uint8_t>& bnr, boo
     if (f) std::fclose(f);
     if (!ok || std::rename(temp.c_str(), path.c_str()) != 0) {
         std::remove(temp.c_str());
-        g_failed.insert(id);
         error = "cannot write " + path + " (card full?)";
+        NoteBannerFailure(id, error);
         return false;
     }
+    g_failed.erase(id);
     logf("Banner of %s stored (%u bytes)\n", id.c_str(), static_cast<unsigned>(bnr.size()));
     return true;
 }
@@ -133,14 +157,14 @@ bool StoreBanner(const ImageGame& game, std::string& error) {
             error = "out of memory for the banner";
         }
         if (!parsed) {
-            g_failed.insert(game.id);
-            logf("Banner of %s: %s\n", game.id.c_str(), error.c_str());
+            NoteBannerFailure(game.id, error);
             return false;
         }
         if (!WriteBanner(game.id, bnr, error)) {
-            g_failed.insert(game.id);
+            NoteBannerFailure(game.id, error);
             return false;
         }
+        g_failed.erase(game.id);
         logf("Banner of %s stored (%u bytes, the GameCube disc's own picture)\n", game.id.c_str(),
              static_cast<unsigned>(bnr.size()));
         return true;

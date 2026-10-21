@@ -14,8 +14,11 @@ those bytes of MEM1 become heap. The format is in
 include/riftwii/stashimage.hpp.
 
 --limit is the highest address the section may end at: the build fails
-past it. RiftWii's heap stops at the game's apploader (0x81200000), and
-the Homebrew Channel refused a DOL section at 0x81300000 on a real Wii.
+past it. It is not the heap's ceiling (0x81200000, the game's apploader):
+the stash is dead before a launch, and a packed DOL hides the section from
+the loader entirely. What is left is the loader's own limit (the Homebrew
+Channel refused a section at 0x81300000 on a real Wii), so the limit sits
+below it with room for growth.
 
 --image-out writes the stash image alone too (for tests/fixtures).
 """

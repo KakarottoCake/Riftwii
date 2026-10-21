@@ -661,9 +661,8 @@ static void test_file_of_four_gib() {
     EXPECT_TRUE(riftwii::Fat32Volume::mount(big.reader(), shorter, err));
     EXPECT_FALSE(shorter.lookup("/game.wbf", f, err));
     EXPECT_CONTAINS(err, "larger than its cluster chain");
-    EXPECT_CONTAINS(err, "4294967295 bytes (65536 clusters)");
-    EXPECT_CONTAINS(err, "the FAT links 65535 clusters");
-    EXPECT_CONTAINS(err, "damaged");
+    EXPECT_CONTAINS(err, "4294967295 bytes, the chain holds 4294901760 in 2 run(s)");
+    EXPECT_CONTAINS(err, "read again too");
     // The exact-size file needs one cluster fewer and still opens.
     EXPECT_TRUE(shorter.lookup("/exact.wbf", f, err));
 }

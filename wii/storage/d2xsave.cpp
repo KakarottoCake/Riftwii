@@ -30,6 +30,7 @@ namespace {
 // mounts the SD card for it (the commands USB Loader GX sends).
 constexpr u32 kSetMode = 100;
 constexpr u32 kModeSd = 1;
+constexpr u32 kModeFull = 0x100;
 constexpr u32 kFatMountSd = 0xF0;
 
 std::string hex8(std::uint32_t v) {
@@ -280,7 +281,45 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
     return true;
 }
 
-bool enable_d2x_saves(const std::string& dir, std::string& error) {
+bool copy_wii_save_into(const std::string& dir, std::uint64_t title_id, bool& copied, std::string& error) {
+    copied = false;
+    const std::string data = own_save_data_dir(dir, title_id);
+    if (is_dir(data) && !save_folder_empty(data)) {
+        logf("Wii channels: %s already holds a save for this game; the Wii's stays where it is\n", data.c_str());
+        return true;
+    }
+    if (ISFS_Initialize() < 0) {
+        error = "the Wii's save could not be read (ISFS)";
+        return false;
+    }
+    unsigned files = 0;
+    std::string why;
+    bool refused = false;
+    const std::string nand = "/title/" + hex8(static_cast<std::uint32_t>(title_id >> 32)) + "/" +
+                             hex8(static_cast<std::uint32_t>(title_id)) + "/data";
+    if (!make_dirs(data)) {
+        close_nand_permissions("Save copy");
+        error = "cannot create " + data;
+        return false;
+    }
+    const bool ok = copy_nand_tree(nand, data, files, refused, why);
+    close_nand_permissions("Save copy");
+    if (!ok) {
+        remove_tree(data);
+        make_dirs(data);
+        error = "the Wii's save could not be copied: " + why;
+        return false;
+    }
+    if (files == 0) {
+        logf("Wii channels: the Wii has no save for this game yet; the card's starts fresh\n");
+        return true;
+    }
+    copied = true;
+    logf("Wii channels: the Wii's save copied into %s (%u file(s))\n", data.c_str(), files);
+    return true;
+}
+
+bool enable_d2x_saves(const std::string& dir, std::string& error, bool* card_remounted, bool full_nand) {
     if (dir.compare(0, 4, "sd:/") != 0) {
         error = "not a folder of the SD card";
         return false;
@@ -291,8 +330,11 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     // libfat's writes reach the card before d2x reads its FAT.
     LogClose();
     fatUnmount("sd:");
+    const bool released = sd_interface()->shutdown();
+    static const char kFatDevice[] ATTRIBUTE_ALIGN(32) = "fat";
+    static const char kFsDevice[] ATTRIBUTE_ALIGN(32) = "/dev/fs";
     s32 mounted = -1, set = -1;
-    const s32 fat = IOS_Open("fat", 0);
+    const s32 fat = IOS_Open(kFatDevice, 0);
     if (fat >= 0) {
         mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
         IOS_Close(fat);
@@ -302,10 +344,10 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     // Wii Sports Resort from USB on IOS249: "mount -101, set 0", then
     // "open partition failed: DI reply 64 (ES -101)"). RiftWii's own save
     // code keeps the save instead.
-    const s32 fs = mounted >= 0 ? IOS_Open("/dev/fs", 0) : -1;
+    const s32 fs = mounted >= 0 ? IOS_Open(kFsDevice, 0) : -1;
     if (fs >= 0) {
         static ioctlv vectors[2] ATTRIBUTE_ALIGN(32);
-        mode = kModeSd;
+        mode = kModeSd | (full_nand ? kModeFull : 0);
         vectors[0].data = &mode;
         vectors[0].len = sizeof(mode);
         vectors[1].data = path;
@@ -315,9 +357,14 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     }
     // And libfat reads the card afresh after d2x made its folders.
     const bool remounted = fatMountSimple("sd", sd_interface());
+    if (card_remounted != nullptr) *card_remounted = remounted;
     LogReopen();
-    logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d%s\n", dir.c_str(), fat, mounted, set,
+    logf("Saves: d2x NAND emulation from %s (%s): FAT module %d, mount %d, set %d, mode 0x%x (%s)%s\n",
+         dir.c_str(), full_nand ? "a whole NAND" : "a save folder", fat, mounted, set, mode,
+         mode == kModeSd ? "partial" : "with the full flag",
          remounted ? "" : "; the SD card did not mount again");
+    logf("Saves: the card was %s before d2x mounted it\n", released ? "released" : "not released");
+    if (mounted == -101) logf("Saves: d2x's SDIO startup failed while this build's own d2x SD device held the card\n");
     if (fat < 0 || mounted < 0) {
         error = "d2x could not mount the SD card (FAT module " + std::to_string(fat) + ", mount " +
                 std::to_string(mounted) + ")";
@@ -329,8 +376,12 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     }
     if (!remounted) {
         error = "the SD card did not mount again after d2x took it";
-        return false;
+        if (card_remounted == nullptr) return false;
+        *card_remounted = false;
+        return true;
     }
+    if (card_remounted != nullptr) *card_remounted = true;
+    error.clear();
     return true;
 }
 

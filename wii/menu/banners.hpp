@@ -24,6 +24,8 @@ namespace riftwii::wii {
 // True when the game's banner is not stored yet and reading it has not
 // failed this session.
 bool BannerWanted(const std::string& game_id);
+// A failed read is still eligible for a bounded retry after its cooldown.
+bool BannerRetryPending(const std::string& game_id);
 
 // Reads the banner from the game's image and stores it. Takes a moment
 // (an ISO or WBFS game's is decrypted); a failure is remembered for the

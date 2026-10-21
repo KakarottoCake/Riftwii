@@ -32,6 +32,7 @@ int PopupExtra();
 // No SD card could be read at start: MainMenu(MENU_NEEDS_SD) says so,
 // and whether RiftWii was started from a USB drive.
 void SetNoSdCard(bool fromUsb);
+void SetSdCardMounted(bool mounted);
 
 enum
 {
@@ -45,5 +46,6 @@ enum
 	MENU_SOURCE,   // home: every game as tiles
 	MENU_CHANNEL,  // leave the GUI and start the RiftWii channel installer
 	MENU_NEEDS_SD, // no SD card: says why RiftWii can't run, then exits
-	MENU_PLAY_CHANNEL  // leave the GUI and start a WiiWare or Virtual Console game
+	MENU_PLAY_CHANNEL, // leave the GUI and start a WiiWare or Virtual Console game
+	MENU_HOMEBREW  // leave the GUI and start an app from Home's Homebrew view
 };

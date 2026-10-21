@@ -3,8 +3,8 @@
 #include "online.hpp"
 
 #include <network.h>
-#include <ogc/machine/processor.h>
 #include <poll.h>
+#include <ogc/machine/processor.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -128,6 +128,65 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
     return parse_http_response(raw, response, error);
 }
 
+bool icmp_echo(const std::string& address, int timeout_ms, std::string& why) {
+    const u32 echo_id = 0x5249;  // "RI"
+    const s32 raw = net_socket(AF_INET, SOCK_RAW, 1 /* IPPROTO_ICMP */);
+    if (raw < 0) {
+        why = "no ICMP socket (net_socket " + std::to_string(raw) + ")";
+        return false;
+    }
+    sockaddr_in to;
+    std::memset(&to, 0, sizeof(to));
+    to.sin_len = sizeof(to);
+    to.sin_family = AF_INET;
+    to.sin_port = 0;
+    to.sin_addr.s_addr = inet_addr(address.c_str());
+    if (to.sin_addr.s_addr == 0xFFFFFFFFu) {
+        net_close(raw);
+        why = address + " is not an address";
+        return false;
+    }
+    std::uint8_t request[8] = {8, 0, 0, 0, static_cast<std::uint8_t>(echo_id >> 8),
+                               static_cast<std::uint8_t>(echo_id & 0xFF), 0, 1};
+    std::uint32_t sum = 0;
+    for (int i = 0; i < 8; i += 2) sum += (std::uint32_t(request[i]) << 8) | request[i + 1];
+    while (sum >> 16) sum = (sum & 0xFFFFu) + (sum >> 16);
+    const std::uint16_t checksum = static_cast<std::uint16_t>(~sum);
+    request[2] = static_cast<std::uint8_t>(checksum >> 8);
+    request[3] = static_cast<std::uint8_t>(checksum & 0xFF);
+    const s32 sent = net_sendto(raw, request, sizeof(request), 0, reinterpret_cast<sockaddr*>(&to), sizeof(to));
+    if (sent < 0) {
+        net_close(raw);
+        why = "the echo request could not be sent (" + std::to_string(sent) + ")";
+        return false;
+    }
+    bool replied = false;
+    const u64 started = gettime();
+    while (!replied && ticks_to_millisecs(gettime() - started) < static_cast<unsigned>(timeout_ms)) {
+        pollsd waiting;
+        waiting.socket = raw;
+        waiting.events = POLLIN;
+        waiting.revents = 0;
+        if (net_poll(&waiting, 1, 50) <= 0 || (waiting.revents & POLLIN) == 0) continue;
+        std::uint8_t answer[128];
+        sockaddr_in from{};
+        socklen_t from_len = sizeof(from);
+        const s32 got = net_recvfrom(raw, answer, sizeof(answer), 0, reinterpret_cast<sockaddr*>(&from), &from_len);
+        if (got < 20 || from_len < sizeof(from) || from.sin_addr.s_addr != to.sin_addr.s_addr ||
+            (answer[0] >> 4) != 4)
+            continue;
+        const std::size_t ip_header = std::size_t(answer[0] & 0x0F) * 4;
+        if (ip_header < 20 || got < static_cast<s32>(ip_header + 8) || answer[9] != 1) continue;
+        const std::uint8_t* icmp = answer + ip_header;
+        if (icmp[0] == 0 && icmp[1] == 0 && icmp[4] == static_cast<std::uint8_t>(echo_id >> 8) &&
+            icmp[5] == static_cast<std::uint8_t>(echo_id & 0xFF) && icmp[6] == request[6] && icmp[7] == request[7])
+            replied = true;
+    }
+    net_close(raw);
+    if (!replied) why = "no answer to the ping from " + address;
+    return replied;
+}
+
 bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
     const std::string temp = path + ".part";
     FILE* f = std::fopen(temp.c_str(), "wb");
@@ -200,6 +259,34 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     }
     error = "too many redirects for " + http_url_for_messages(url);
     return false;
+}
+
+NetworkTest TestNetwork() {
+    NetworkTest out;
+    const u64 started = gettime();
+    if (!NetStart(out.error)) return out;
+    std::string why;
+    const bool pinged = icmp_echo("1.1.1.1", 1000, why);
+    std::vector<std::uint8_t> body;
+    if (pinged) {
+        out.online = true;
+    } else {
+        logf("Network test: no ping to 1.1.1.1 (%s); asking example.com over http\n", why.c_str());
+        // A diagnostic is an explicit retry, including after the player
+        // repairs the connection. Downloads keep their session cache.
+        NetServer server;
+        if (ResolveServer("example.com", 80, server, why)) {
+            const std::string where = server.label();
+            g_unreachable.erase(std::remove(g_unreachable.begin(), g_unreachable.end(), where), g_unreachable.end());
+        }
+        out.online = HttpGet("http://example.com/", body, out.error, 16u << 10, 8000);
+    }
+    out.ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
+    logf("Network test: %s (%u ms), %s\n", out.online ? "Online" : "Offline", out.ms,
+         pinged ? "1.1.1.1 answered a ping"
+                : out.online ? "example.com answered over http" : out.error.c_str());
+    if (out.online) out.error.clear();
+    return out;
 }
 
 bool HttpPost(const std::string& url, const std::string& content_type, const std::string& body, int& status,

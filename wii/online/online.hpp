@@ -112,6 +112,13 @@ bool CardWritesBusy();
 void NoteUpdateDeclined(const std::string& latest);
 void LogDeclinedUpdate();
 
+struct NetworkTest {
+    bool online = false;
+    unsigned ms = 0;
+    std::string error;  // why not, when `online` is false
+};
+NetworkTest TestNetwork();
+
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
 
