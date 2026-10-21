@@ -125,7 +125,8 @@ Two scripts on the card drive a run without hands on a controller:
   report layout), `rumbletest` (the game's PADControlMotor called for the
   test remote's port), `novihook` (VIConfigure left as the game made it:
   480p only through the game's own mode), `nomotor` (PADControlMotor not
-  hooked), `handover480p` (an NTSC game handed over with the VI and the
+  hooked), `handover480i` (an NTSC game given 480p handed over in 480i, as earlier
+  builds did), `handover480p` (an NTSC game handed over with the VI and the
   Wii's video encoder already in NTSC 480p instead of 480i), `avekeep`
   (the encoder left as the menu's own mode set it, not set to the game's
   region; both for red and blue swapped in 480p) `exec` (a switch to another program at the 1500th pad read, to the
