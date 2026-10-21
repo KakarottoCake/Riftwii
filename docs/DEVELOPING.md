@@ -239,7 +239,9 @@ fades out before the reload either way). `identify` lets a
 WiiWare or Virtual Console game start with RiftWii's loader even when ES
 won't run it as its own title (only for testing in Dolphin, whose ES
 refuses that to anything but the Wii Menu; the game's saves may not open).
-`boot.log` names each one left out. Start with all of them,
+`reset` the hook that has a Wii game's own Reset (HOME Menu > Reset)
+start the game again through the RiftWii channel
+([HEADLESS.md](HEADLESS.md)). `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
@@ -266,6 +268,29 @@ hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 `build-dolphin/felk-run.sh`), or the bad read is only a warning and the
 game crashes a few steps later instead. The next RiftWii start writes
 `sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
+
+`debug_reset = N` in the same file has the game restart itself N seconds
+(1 to 60) after its main thread first sleeps, through its own
+OSRestart(0) as the HOME Menu's Reset does, so the Reset can be tried in
+Dolphin without driving a controller (a stub at 0x80001200 on the game's
+OSSleepThread; `apply_debug_reset` in `wii/launch/boot.cpp`). `debug_gecko = on` has the
+runtime report every disc read it sees over the USB Gecko in slot B
+(Dolphin's: `SlotB = 7`, TCP port 55020, or the next ports up to 55023
+when the first is still taken, `tools/dolphin/gecko_log.py`):
+`R<word offset>:<length>@<buffer>`, `M...` for a read it changed, and
+`X...` for the steps of a Reset (`XR` OSRestart called, `XW` the request's
+write and its IOS result, `XL` the channel's launch result: it only
+reports when IOS refused). Never leave either in a tester's settings.
+
+In Dolphin the RiftWii channel is not installed, so a Reset there shows
+the fallback (`Reset: ... the RiftWii channel is not installed` in
+`boot.log`, the game restarting without its packs). To see the request
+round trip anyway, install the channel's WAD with Dolphin (File > Install
+WAD to the Wii NAND) or, without it, `debug_reset_keep = on` next to
+`debug_reset`: the title launch then is made to a title Dolphin does not
+have, IOS refuses it, and the request is left armed instead of put back to
+`--idle--`, which is what the channel's start would find; boot RiftWii again
+(Dolphin's `-e riftwii.dol`) and its start takes the request up.
 
 ## A menu that freezes only on a console
 

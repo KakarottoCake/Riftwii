@@ -79,6 +79,15 @@ bool apply_resident_relocs(std::uint8_t* blob, std::size_t blob_bytes, const std
     return true;
 }
 
+// The Reset's hook is code inside the blob, past its header, on a word; its
+// replay slot is four words and a four-word continuation, on 16 bytes.
+static bool restart_offsets_fit(const ResidentBlob& b) {
+    for (std::uint32_t offset : {b.os_restart_offset, b.os_restart_replay_offset}) {
+        if (!slot_fits(offset, 4, b.size) || (offset & 3) != 0 || offset < sizeof(rt_blob_header)) return false;
+    }
+    return slot_fits(b.os_restart_replay_offset, 32, b.size) && (b.os_restart_replay_offset & 15) == 0;
+}
+
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error) {
     if (length < sizeof(rt_blob_header)) {
         error = "resident blob is shorter than its header";
@@ -98,6 +107,8 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     b.complete_fs_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 4);
     b.open_undo_offsets[0] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 8);
     b.open_undo_offsets[1] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 12);
+    b.os_restart_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 16);
+    b.os_restart_replay_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 20);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;
@@ -114,7 +125,8 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
         !slot_fits(b.complete_di_offset, 4, b.size) || !slot_fits(b.complete_fs_offset, 4, b.size) ||
         !slot_fits(b.open_undo_offsets[0], 4, b.size) || !slot_fits(b.open_undo_offsets[1], 4, b.size) ||
         (b.open_undo_offsets[0] & 3) != 0 || (b.open_undo_offsets[1] & 3) != 0 ||
-        b.open_undo_offsets[0] < sizeof(rt_blob_header) || b.open_undo_offsets[1] < sizeof(rt_blob_header)) {
+        b.open_undo_offsets[0] < sizeof(rt_blob_header) || b.open_undo_offsets[1] < sizeof(rt_blob_header) ||
+        !restart_offsets_fit(b)) {
         error = "resident blob offsets are inconsistent";
         return false;
     }

@@ -61,8 +61,71 @@ from its own menu (the game's saved choices, then RiftWii's Settings).
 | `return_to` | `0001000147584c44` (or `00010001-47584c44`), or `menu` | The channel a game's HOME Menu "Wii Menu" button starts, such as the loader's own forwarder; `menu` leaves the Wii Menu. Without it RiftWii's own setting is used (the RiftWii channel, when installed). |
 | `gc_dol`, `gc_restart`, `gc_arg` | `123456768`, `3221225472`, `cd` | RiftWii's own, not for loaders: a GameCube game on the SD card switching to another program on its disc (the SDK's OSExec; Sonic Gems Collection starts its games this way). RiftWii can't patch that program from inside the game, so the game goes back to RiftWii, and RiftWii starts the image again with it. Its blob writes these into `sd:/riftwii/gc/exec.txt`, which the GameCube loader makes at every launch (first line `--idle--` until the switch). RiftWii's next start reads that file once, as it does `launch.txt`, and deletes it. `gc_dol`: the program's offset on the disc, in decimal (0: the disc's own). `gc_restart`: the restart code the game passed. `gc_arg`: each argument, in order. |
 
+| `choices`, `reset` | `SMNP03.txt`, `1` | RiftWii's own, not for loaders: a Wii game's own Reset (below). `choices`: the pack choices file to read, a file name in `sd:/riftwii/choices` (the game's own, or a profile's), where the pack's options and the game's settings were saved. `reset=1`: this launch is the same play started again, so it is not counted in the play history and not sent to RiTag. |
+
 An unknown key or a value RiftWii does not take stops the launch with
 the key named, so a loader finds a mismatch at once.
+
+### What a launch may hold
+
+A launch comes from an argument, a file on the card or, for a Reset, the
+game itself, so it is checked before anything is read or started:
+
+- No value is longer than 255 bytes, and a line of a launch file is no
+  longer than 271. A file is read for its first 16 KB and 64 lines; a file
+  that has more is not a launch.
+- No `path`, `xml`, `code_build` or `gct` has `..` in it, between slashes
+  or backslashes or alone, so a name cannot climb out of its folder. An
+  `xml` that is a bare file name has no slash or colon at all, and
+  `choices` is a plain file name (letters, digits and `. _ + -`, ending in
+  `.txt`, no leading dot, no `..`) that RiftWii joins to
+  `sd:/riftwii/choices`.
+- At most 32 `xml` and 16 `code_build` keys.
+
+## A Wii game's own Reset
+
+The HOME Menu's Reset (and the console's Reset button) has a Wii disc
+game restart itself: the SDK's `OSRestart` reads the disc's apploader
+again, which loads `main.dol` and the file table over the running game.
+RiftWii is not there to load them, so the restart would come back without
+the packs. RiftWii takes the Reset instead and starts the game again
+through the same headless launch, with the same packs, choices and
+settings, not at its menu:
+
+1. At every launch whose runtime is installed and that has the RiftWii
+   channel to go to, the loader makes `sd:/riftwii/restart.txt`: one
+   sector of the launch that would start this game again (`game`, `from`,
+   `path`, `choices`, one `xml` per pack that is on (`xml=none` for none),
+   `code_build`, the settings that are not RiftWii's own, `gct`,
+   `return_to`, `reset=1`), with `--idle--` for its first line. RiftWii's
+   next start skips such a file, as it does `gc/exec.txt`.
+2. The runtime hooks the game's `OSRestart`. When the game calls it, the
+   runtime writes the same sector back with `--launch` for the first line
+   (it holds a copy, so it composes nothing), through the card handle it
+   already has, and starts the RiftWii channel through `/dev/es` (the
+   ticket view was read at the launch). The channel starts RiftWii.
+3. RiftWii's start reads `restart.txt` once, as it does `launch.txt`, and
+   deletes it, and starts the game as the launch says: the log line
+   `The game's own Reset: SMNP03 starts again, with the packs and choices it had`.
+4. Anything that goes wrong on the way leaves the game's own restart to
+   run, as it would without RiftWii, and the request back as `--idle--`
+   so nothing starts later: the card refused the write, IOS refused the
+   channel's launch.
+
+Without the RiftWii channel installed (or without a ticket for it), with a
+game that checks its own code, with no runtime in the launch, with a launch
+that does not fit one sector (511 bytes) or one RiftWii would refuse, the
+`OSRestart` hook is not installed, `boot.log` says why in a `Reset:` line,
+and the Reset restarts the game without its packs, as before. When the
+hook goes in, its `Reset:` line says that, with OSRestart's address and
+the request's sector. Either way the line is decided and written while
+the log is still open (`plan_restart`, before the card goes to the
+runtime and the log ends); a launch that reloads the IOS ends the log
+earlier, so its line only says the request is ready and the rest is on
+screen. The
+channel's title is the RiftWii channel whatever Settings > Return to
+says: it is where RiftWii starts. `debug_off = reset` leaves the Reset to
+the game ([DEVELOPING.md](DEVELOPING.md)).
 
 ## Example
 
