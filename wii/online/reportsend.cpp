@@ -6,11 +6,13 @@
 #include <malloc.h>
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <new>
+#include <string>
 #include <vector>
 
 #include <gccore.h>
@@ -277,11 +279,101 @@ std::string gather(const std::string& reason, std::size_t limit) {
 
 }  // namespace
 
+namespace {
+
+constexpr const char* kLogDir = "sd:/riftwii/logs";
+constexpr unsigned kKeptLogFolders = 10;
+
+std::string LogStamp(std::time_t when) {
+    struct tm local;
+    if (when <= 0 || localtime_r(&when, &local) == nullptr) return std::string();
+    if (local.tm_year + 1900 < 2020) return std::string();
+    char text[32];
+    std::snprintf(text, sizeof text, "%04d%02d%02d-%02d%02d%02d", local.tm_year + 1900, local.tm_mon + 1,
+                  local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
+    return text;
+}
+
+bool CopyFile(const std::string& from, const std::string& to) {
+    FILE* in = std::fopen(from.c_str(), "rb");
+    if (!in) return false;
+    FILE* out = std::fopen(to.c_str(), "wb");
+    bool ok = out != nullptr;
+    char buffer[4096];
+    std::size_t got = 0;
+    while (ok && (got = std::fread(buffer, 1, sizeof buffer, in)) > 0)
+        ok = std::fwrite(buffer, 1, got, out) == got;
+    std::fclose(in);
+    if (out) std::fclose(out);
+    return ok;
+}
+
+void MoveFile(const std::string& from, const std::string& to) {
+    if (std::rename(from.c_str(), to.c_str()) == 0) return;
+    if (CopyFile(from, to)) std::remove(from.c_str());
+}
+
+void DeleteFolder(const std::string& path) {
+    if (DIR* dir = opendir(path.c_str())) {
+        while (const dirent* entry = readdir(dir)) {
+            const std::string name = entry->d_name;
+            if (name == "." || name == "..") continue;
+            std::remove((path + "/" + name).c_str());
+        }
+        closedir(dir);
+    }
+    std::remove(path.c_str());
+}
+
+bool LogFolderName(const std::string& name) {
+    if (name.size() != 15 || name[8] != '-') return false;
+    for (std::size_t i = 0; i < name.size(); ++i)
+        if (i != 8 && (name[i] < '0' || name[i] > '9')) return false;
+    return true;
+}
+
+void PruneLogFolders() {
+    std::vector<std::string> folders;
+    if (DIR* dir = opendir(kLogDir)) {
+        while (const dirent* entry = readdir(dir))
+            if (LogFolderName(entry->d_name)) folders.push_back(entry->d_name);
+        closedir(dir);
+    }
+    std::sort(folders.begin(), folders.end());
+    while (folders.size() > kKeptLogFolders) {
+        DeleteFolder(std::string(kLogDir) + "/" + folders.front());
+        folders.erase(folders.begin());
+    }
+}
+
+std::string UndatedFolder() {
+    for (unsigned n = 1; n < 1000; ++n) {
+        const std::string name = std::string(kLogDir) + "/undated-" + std::to_string(n);
+        struct stat st;
+        if (stat(name.c_str(), &st) != 0) return name;
+    }
+    return std::string(kLogDir) + "/undated";
+}
+
+}  // namespace
+
 void RotateSessionLog() {
     struct stat st;
     if (stat(kSessionLog, &st) != 0) return;
+    mkdir("sd:/riftwii", 0777);
+    mkdir(kLogDir, 0777);
+    const std::string stamp = LogStamp(st.st_mtime);
+    const std::string folder = stamp.empty() ? UndatedFolder() : std::string(kLogDir) + "/" + stamp;
+    mkdir(folder.c_str(), 0777);
+    const std::string archived = folder + "/session.log";
+    MoveFile(kSessionLog, archived);
+    MoveFile("sd:/riftwii/boot.log", folder + "/boot.log");
+    MoveFile(kCrashFile, folder + "/crash.txt");
+    MoveFile(kGameCrashFile, folder + "/gamecrash.txt");
+    MoveFile(kWpadLogFile, folder + "/wpadlog.txt");
     std::remove(kPreviousLog);
-    std::rename(kSessionLog, kPreviousLog);
+    CopyFile(archived, kPreviousLog);
+    PruneLogFolders();
 }
 
 std::string DescribeControllers() {

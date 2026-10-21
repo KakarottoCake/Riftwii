@@ -230,7 +230,10 @@ bool SelectChannel(FrontendState& state, std::size_t index, std::string& error) 
     }
     const NandChannel& channel = state.channels[index];
     if (!channel.playable) {
-        error = tr("This game's data was removed from the Wii, so it can't start.");
+        error = channel.emu_nand.empty()
+            ? tr("This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND.")
+            : tr("This game's files are missing from {1}: only its ticket and save are there. Install it again with its WAD.",
+                 {channel.emu_nand});
         return false;
     }
     state.use_usb = false;

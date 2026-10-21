@@ -187,13 +187,15 @@ holds for an unpacked DOL (`make -f Makefile.wii PACK=0`, and
 `build_wii/riftwii-unpacked.dol`), which loaders still load as it is.
 
 So the build fails when the stash would end past `STASH_LIMIT` in
-`Makefile.wii`, which is `0x81200000`, the same line as the heap ceiling.
-Today the stash ends at `0x811BC520`, where the program used to end, so
-loaders see the same highest address they already accepted. The 270 KiB
-left under the line is all the code and BSS growth can use before the
-build stops. After that, something has to leave the DOL (files or
-plugins), or the limit has to be measured on the Homebrew Channel and
-raised.
+`Makefile.wii`, which is `0x81280000`. It used to be the heap's own ceiling
+(`0x81200000`), but the stash is dead before a launch and a packed DOL
+hides it from the loader, so the ceiling was the wrong line for it: the
+limit that matters is the loader's. `0x81280000` leaves 512 KiB under
+`0x81300000`, where the Homebrew Channel refused a DOL section on a real
+Wii, and an unpacked build (`PACK=0`) has to stay below that. Today the
+stash ends at `0x81210BA0`, so about 440 KiB of code and BSS growth is
+left before the build stops. After that, something has to leave the DOL
+(files or plugins).
 
 ### The MEM2 copy
 

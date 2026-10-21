@@ -3173,6 +3173,13 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
          static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());
     if (files.ios_order.empty()) files.ios_order.push_back(IOS_GetVersion());
 
+    if (!files.emu_nand.empty() && files.wii_save) {
+        bool copied = false;
+        std::string save_error;
+        if (!copy_wii_save_into(files.emu_nand, files.title_id, copied, save_error))
+            logf("Wii channels: the Wii's save was not copied in: %s\n", save_error.c_str());
+    }
+
     // As for a disc game: the Wii Remotes, the log and the card go before
     // each reload kills their handles; the card comes back after it, for
     // the log, until the jump.
@@ -3180,6 +3187,12 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
+    std::string attempts;
+    const auto note_attempt = [&attempts](const std::string& line) {
+        if (!attempts.empty()) attempts += "; ";
+        attempts += line;
+    };
+    bool emulated_nand_enabled = false;
     for (int ios : files.ios_order) {
         LogClose();
         fatUnmount("sd:");
@@ -3195,17 +3208,31 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (card) LogReopen();
         if (reload == ReloadResult::NotInstalled || reload == ReloadResult::Failed) {
             logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
+            note_attempt("IOS" + std::to_string(ios) + " could not start (" + why + ")");
             continue;
         }
         // A channel of an emulated NAND runs in it: d2x serves the game's
         // NAND paths from the folder, its saves among them.
         if (!files.emu_nand.empty()) {
             std::string emu_error;
-            if (!enable_d2x_saves(files.emu_nand, emu_error)) {
-                logf("Wii channels: on IOS%d, no NAND emulation of %s: %s\n", IOS_GetVersion(), files.emu_nand.c_str(),
-                     emu_error.c_str());
+            bool remounted = true;
+            const bool emulation_enabled = enable_d2x_saves(files.emu_nand, emu_error, &remounted);
+            card = remounted;
+            if (!emulation_enabled) {
+                if (!remounted) {
+                    logf("Wii channels: stopping IOS attempts because the SD card did not remount after d2x\n");
+                    break;
+                }
+                logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
+                     IOS_GetRevision(), files.emu_nand.c_str(), emu_error.c_str());
+                note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": " + emu_error);
                 if (!debug_off("identify")) continue;
                 logf("Wii channels: debug_off: started without the NAND emulation\n");
+            } else {
+                emulated_nand_enabled = true;
+                if (!remounted) {
+                    logf("Wii channels: d2x serves %s; the SD card stays d2x's for the game\n", files.emu_nand.c_str());
+                }
             }
         }
         // ES runs the game as its own title, as when the system starts it:
@@ -3218,14 +3245,20 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                                        reinterpret_cast<const signed_blob*>(files.ticket.data()),
                                        static_cast<u32>(files.ticket.size()), &key);
         if (result >= 0) {
-            logf("Wii channels: on IOS%d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
-                 static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
+            logf("Wii channels: on IOS%d rev %d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
+                 IOS_GetRevision(), static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
             identified = true;
             break;
         }
-        logf("Wii channels: on IOS%d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), files.game_id.c_str(),
-             result);
+        logf("Wii channels: on IOS%d rev %d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), IOS_GetRevision(),
+             files.game_id.c_str(), result);
+        note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
+                     " refused ES_Identify (" + std::to_string(result) + ")");
+        if (emulated_nand_enabled) {
+            break;
+        }
     }
+    if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
@@ -3246,6 +3279,21 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // The program, section by section. Its BSS is cleared by the game's
     // own start-up code, as on a disc.
+    if (dol.bss_size != 0) {
+        const std::uint64_t bss_end = std::uint64_t(dol.bss_address) + dol.bss_size;
+        if (dol.bss_address < kChannelProgramStart || bss_end > kMem1End ||
+            overlaps_loader(dol.bss_address, dol.bss_size)) {
+            logf("Wii channels: its BSS 0x%08x-0x%08llx is not memory a program's own can be; not cleared\n",
+                 static_cast<unsigned>(dol.bss_address), static_cast<unsigned long long>(bss_end));
+        } else {
+            std::memset(reinterpret_cast<void*>(dol.bss_address), 0, dol.bss_size);
+            DCFlushRange(reinterpret_cast<void*>(dol.bss_address), dol.bss_size);
+            logf("Wii channels: its BSS 0x%08x-0x%08llx cleared (%u KB)\n",
+                 static_cast<unsigned>(dol.bss_address), static_cast<unsigned long long>(bss_end),
+                 whole_kb(dol.bss_size));
+        }
+    }
+
     ProgressStage("Loading the game", 70);
     std::vector<MemoryRegion> loaded;
     for (std::size_t i = 0; i < kDolSections; ++i) {
@@ -3300,7 +3348,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     store32(0x80000020, 0x0D15EA5E);  // boot magic
     store32(0x80000024, 1);           // version
     store32(0x80000028, 0x01800000);  // MEM1 size
-    if (!running_in_dolphin() || mem::TestConsoleTypeAsWii()) store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));
+    if (!running_in_dolphin() || mem::TestConsoleTypeAsWii())
+        store32(0x8000002C, 0x01000011 + (read32(0xCC00302C) >> 28));
     store32(0x800000EC, 0x81800000);  // debug monitor location
     store32(0x800000F0, 0x01800000);  // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);  // bus clock
@@ -3308,9 +3357,11 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // The MEM1 arena runs to the top of MEM1 (there is no FST below it),
     // or to the lowest of the extras' blobs.
     store32(0x80000034, arena1_top);
+    store32(0x8000310C, 0);
     store32(0x80003110, arena1_top);
+    *reinterpret_cast<volatile std::uint8_t*>(0x8000315C) = 0x80;
     std::memcpy(reinterpret_cast<void*>(0x80003180), code.data(), std::min<std::size_t>(code.size(), 4));
-    store32(0x80003184, 0x80000000);  // where the game id lives
+    store32(0x80003184, 0x81000000);
     store32(0x80003194, 0);
     store32(0x80003198, 0);
     std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);  // libogc's exception stubs, as for a disc

@@ -433,6 +433,9 @@ std::string LaunchModel::save() const {
     if (game.rumble == "off") text += "*riftwii*\trumble\toff\n";
     if (game.speaker == "off") text += "*riftwii*\tspeaker\toff\n";
     if (game.region_strings == "on") text += "*riftwii*\tregionstrings\ton\n";
+    if (game.nand_source == "real" || game.nand_source == "emu")
+        text += "*riftwii*\tnandsource\t" + game.nand_source + "\n";
+    if (game.channel_save == "wii") text += "*riftwii*\tchannelsave\twii\n";
     // Fast is the default while drive timing can freeze games on a Wii
     // (the ARAM streaming race); a "fast" saved before stays fast.
     if (game.gc_disc_reads == "drive") text += "*riftwii*\tgcdiscreads\tdrive\n";
@@ -517,6 +520,10 @@ void LaunchModel::restore(const std::string& text) {
                 game.speaker = value == "off" ? "off" : "on";
             } else if (key == "regionstrings") {
                 game.region_strings = value == "on" ? "on" : "off";
+            } else if (key == "nandsource") {
+                game.nand_source = value == "real" || value == "emu" ? value : "auto";
+            } else if (key == "channelsave") {
+                game.channel_save = value == "wii" ? "wii" : "game";
             } else if (key == "gcdiscreads") {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {

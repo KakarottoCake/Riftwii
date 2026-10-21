@@ -726,22 +726,30 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, bool& missing,
         error = "'" + path + "': " + error;
         return false;
     }
-    std::uint64_t capacity = 0;
-    for (const Fragment& f : file.fragments) capacity += f.sector_count * kFatBlockBytes;
-    // The FAT ends the file's chain before its size: the volume itself is
-    // damaged (a copy cut short, a drive pulled out before the computer
-    // finished writing its FAT). A loader that reads only the clusters a
-    // game asks for may never notice; the fragment list given to d2x must
-    // cover the whole file, so it is refused, saying by how much.
+    const auto chain_capacity = [](const std::vector<Fragment>& fragments) {
+        std::uint64_t bytes = 0;
+        for (const Fragment& f : fragments) bytes += std::uint64_t(f.sector_count) * kFatBlockBytes;
+        return bytes;
+    };
+    std::uint64_t capacity = chain_capacity(file.fragments);
     if (!file.entry.is_directory && file.entry.size > capacity) {
-        const std::uint64_t clusters_linked = capacity / cluster_bytes;
-        error = "'" + path + "' is larger than its cluster chain: its folder entry says " +
-                std::to_string(file.entry.size) + " bytes (" + std::to_string(needed) + " clusters), but the FAT links " +
-                std::to_string(clusters_linked) + " clusters (" + std::to_string(capacity) +
-                " bytes) from cluster " + std::to_string(file.entry.first_cluster) +
-                ". The drive's file system is damaged: check it on a computer (Windows: the drive's Properties > Tools > "
-                "Check) or copy the file again";
-        return false;
+        fat_cache_.clear();
+        std::vector<Fragment> again;
+        std::string why;
+        if (!chain(file.entry.first_cluster, again, why, needed)) {
+            error = "'" + path + "': " + why;
+            return false;
+        }
+        file.fragments = std::move(again);
+        capacity = chain_capacity(file.fragments);
+        if (file.entry.size > capacity) {
+            error = "'" + path + "' is larger than its cluster chain (" + std::to_string(file.entry.size) +
+                    " bytes, the chain holds " + std::to_string(capacity) + " in " +
+                    std::to_string(file.fragments.size()) + " run(s); " + std::to_string(cluster_bytes) +
+                    "-byte clusters, first cluster " + std::to_string(file.entry.first_cluster) +
+                    ", read again too)";
+            return false;
+        }
     }
     out = std::move(file);
     error.clear();

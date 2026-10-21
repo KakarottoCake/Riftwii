@@ -226,13 +226,23 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # The DOL is elf2dol's, plus the start-up stash as one more data section
 # right above .bss (tools/dol_stash.py). The build fails if the stash
-# would end past STASH_LIMIT: the game's apploader at 0x81200000, which is
-# also where RiftWii's heap stops, and well below 0x81300000, where the
-# Homebrew Channel refused a DOL section on a real Wii. riftwii.elf has
-# no stash: start the .dol.
+# would end past STASH_LIMIT. That limit is not the heap's ceiling
+# (0x81200000, the game's apploader): the stash is copied to MEM2 by crt0
+# before anything else runs (wii/core/stash.cpp), so its bytes in MEM1 are
+# dead before any launch and the apploader may have them. What limits it is
+# the loader that writes the section, and the released DOL is packed
+# (tools/pack_dol.py): loaders see only the packed bytes and the stub,
+# which end under 0x80940000, and the stub writes the unpacked sections
+# itself. So the stash may live above the heap's ceiling.
+# 0x81280000 leaves 512 KiB under 0x81300000, the address at which the
+# Homebrew Channel refused a DOL section on a real Wii (an unpacked build,
+# PACK=0, still has to be below that); it also keeps the stash clear of the
+# game's apploader region (0x81200000 and up) by a margin the heap never
+# uses, since RiftWii's heap stops at the ceiling. riftwii.elf has no
+# stash: start the .dol.
 PYTHON		?=	python3
 ZSTD		?=	zstd
-STASH_LIMIT	:=	0x81200000
+STASH_LIMIT	:=	0x81280000
 #
 # Then every plugin in build-plugins/plugins must carry this DOL's build
 # stamp and API version (tools/make_plugin.py check, as CI runs it).

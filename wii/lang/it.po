@@ -1005,8 +1005,8 @@ msgstr "Unità della Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: un'unità della Wii U (RiftWii non la usa)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "I giochi di quell'unità non sono elencati. Controlla l'unità su un computer; i dettagli sono in sd:/riftwii/session.log."
@@ -1971,20 +1971,20 @@ msgstr "Il riquadro del lettore di dischi nella Home, per giocare da un disco. S
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."
 
-msgid "1. Use the USB port nearest the edge."
+msgid "1. Use the USB port nearest to the edge."
 msgstr "1. Usa la porta USB più vicina al bordo."
 
-msgid "2. Big drives: a Y-cable or their own power."
+msgid "2. For big drives: a Y-cable or their own power."
 msgstr "2. Unità grandi: un cavo a Y o un'alimentazione propria."
 
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32 o NTFS (o un'unità WBFS)."
+msgid "3. Format to FAT32 (Recommended) or NTFS."
+msgstr "3. Formatta in FAT32 (consigliato) o NTFS."
 
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. Giochi in una cartella wbfs o games."
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. Giochi nella cartella /wbfs o /games."
 
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. Un cIOS d2x nello slot 249, 250 o 251."
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. Un cIOS d2x nello slot 249/250/251."
 
 msgid "A to Z"
 msgstr "Dalla A alla Z"
@@ -2306,9 +2306,6 @@ msgstr "Canali Wii"
 
 msgid "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."
 msgstr "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."
-
-msgid "This game's data was removed from the Wii, so it can't start."
-msgstr "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."
 
 msgid "GameCube games from a USB drive"
 msgstr "Giochi GameCube da USB"
@@ -2711,3 +2708,168 @@ msgstr "Più fluido gioca a 60 Hz nei giochi che hanno una modalità a 60 Hz, su
 
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "Predefinito attiva i 480p quando la Wii è impostata su 480p e viene rilevato un cavo component; scegli Sì (480p) se il televisore li accetta comunque."
+
+msgid "Channel background"
+msgstr "Sfondo dei canali"
+
+msgid "White"
+msgstr "Bianco"
+
+msgid "Transparent"
+msgstr "Trasparente"
+
+msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
+msgstr "Bianco mette una cornice dietro i banner dei canali nel menu, così non diventano trasparenti."
+
+msgid "Network Test"
+msgstr "Test di rete"
+
+msgid "Testing the network..."
+msgstr "Test della rete in corso..."
+
+msgid "Offline"
+msgstr "Offline"
+
+msgid "Checks if network is online."
+msgstr "Controlla se la rete è online."
+
+msgid "Show non-game channels"
+msgstr "Mostra i canali non di gioco"
+
+msgid "Nintendo's own channels are listed on Home now."
+msgstr "I canali Nintendo ora sono nella home."
+
+msgid "Only games are listed on Home now."
+msgstr "Ora nella home sono elencati solo i giochi."
+
+msgid "Boot from"
+msgstr "Avvia da"
+
+msgid "Boot"
+msgstr "Avvia"
+
+msgid "With the game"
+msgstr "Con il gioco"
+
+msgid "The Wii's save"
+msgstr "Il salvataggio del Wii"
+
+msgid "The Wii's copy along with it's own save starts"
+msgstr "Si avvia la copia del Wii con il suo salvataggio"
+
+msgid "The Wii's save is copied into the emulated NAND to be used."
+msgstr "Il salvataggio del Wii viene copiato nel NAND emulato per essere usato."
+
+msgid "Saves stay on the Wii with it's own copy booting up."
+msgstr "I salvataggi restano sul Wii con la sua copia che si avvia."
+
+msgid "Saves stay on the emulated NAND with it's own copy booting up."
+msgstr "I salvataggi restano nel NAND emulato con la sua copia che si avvia."
+
+msgid "Where this game's save will live."
+msgstr "Dove verrà salvato il salvataggio di questo gioco."
+
+msgid "Real NAND"
+msgstr "NAND reale"
+
+msgid "Emulated NAND"
+msgstr "NAND emulato"
+
+msgid "Where the game will boot from. If set to Automatic, RiftWii will guess."
+msgstr "Da dove si avvierà il gioco. Con Automatico, RiftWii lo indovina."
+
+msgid "Game IOS"
+msgstr "IOS del gioco"
+
+msgid "The IOS RiftWii starts the channel under."
+msgstr "L'IOS con cui RiftWii avvia il canale."
+
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1 app"
+
+msgid "{1} apps"
+msgstr "{1} app"
+
+msgid "No homebrew matches \"{1}\". Press 1 for all games."
+msgstr "Nessun homebrew corrisponde a \"{1}\". Premi 1 per tutti i giochi."
+
+msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 for all games."
+msgstr "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps o usb:/apps con il suo boot.dol e il suo meta.xml. Premi 1 per tutti i giochi."
+
+msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 for all games."
+msgstr "Non è stato possibile leggere le cartelle delle app (sd:/apps e usb:/apps). Premi 1 per tutti i giochi."
+
+msgid "It cannot start: {1}."
+msgstr "Non può avviarsi: {1}."
+
+msgid "The app will start when ready."
+msgstr "L'app si avvierà quando è pronta."
+
+msgid "Emulated NAND (not here)"
+msgstr "NAND emulato (non qui)"
+
+msgid "Real NAND (not here)"
+msgstr "NAND reale (non qui)"
+
+msgid "RiftWii keeps its settings, logs and covers on the SD card, so the menu cannot go on safely without it. Put the card back in and press A: RiftWii will start again from it. If it will not come back, pick Leave to go to the Homebrew Channel."
+msgstr "RiftWii tiene le impostazioni, i registri e le copertine sulla scheda SD, quindi il menu non può continuare senza. Rimetti la scheda e premi A: RiftWii si riavvierà da lì. Se non torna, scegli Esci per andare al Canale Homebrew."
+
+msgid "Show all channels even if they aren't detected as a game."
+msgstr "Mostra tutti i canali anche se non sono rilevati come gioco."
+
+msgid "Start again"
+msgstr "Avvia di nuovo"
+
+msgid "Start {1}?"
+msgstr "Avviare {1}?"
+
+msgid "Take it out, then put it back in"
+msgstr "Toglila e rimettila"
+
+msgid "The SD card was removed"
+msgstr "La scheda SD è stata rimossa"
+
+msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
+msgstr "Il Wii non ha una copia di questo gioco che possa avviarsi. Scegli il NAND emulato o installa il gioco lì."
+
+msgid "The Wii's own copy starts, and saves stay on the Wii."
+msgstr "Si avvia la copia del Wii e i salvataggi restano sul Wii."
+
+msgid "The card did not mount. Take it out, check it, and put it back in."
+msgstr "Non è stato possibile montare la scheda. Toglila, controllala e rimettila."
+
+msgid "The card is not back yet. Push it in until it clicks, then press A again."
+msgstr "La scheda non è ancora tornata. Spingila finché non scatta, poi premi di nuovo A."
+
+msgid "The copy RiftWii lists starts, with its own save."
+msgstr "Si avvia la copia che RiftWii elenca, con il suo salvataggio."
+
+msgid "The copy in {1} starts, and saves stay there on the SD card."
+msgstr "Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD."
+
+msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
+msgstr "Si avvia la copia del NAND emulato; il salvataggio è sulla scheda SD in {1}."
+
+msgid "This game's files are missing from the Wii: only its ticket and save are there. Install it again, or put its WAD into the emulated NAND."
+msgstr "Mancano i file di questo gioco sul Wii: ci sono solo il ticket e il salvataggio. Installalo di nuovo o metti il suo WAD nel NAND emulato."
+
+msgid "This game's files are missing from {1}: only its ticket and save are there. Install it again with its WAD."
+msgstr "Mancano i file di questo gioco in {1}: ci sono solo il ticket e il salvataggio. Installalo di nuovo con il suo WAD."
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "Vuoi avviare {1} ({2}) di {3}?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "Vuoi avviare {1} ({2})?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "Vuoi avviare {1} di {2}?"
+
+msgid "Would you like to start {1}?"
+msgstr "Vuoi avviare {1}?"
+
+msgid "{1} has no copy of this game. Install it there from its WAD first."
+msgstr "{1} non ha una copia di questo gioco. Installalo lì dal suo WAD prima."

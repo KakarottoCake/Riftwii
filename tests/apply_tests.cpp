@@ -470,9 +470,14 @@ static void test_file_source_rejects_huge_file_without_wrap() {
     const bool created = !ec;
     struct stat st;
     std::memset(&st, 0, sizeof(st));
-    bool sparse = created && ::stat(huge.generic_string().c_str(), &st) == 0 &&
-                  static_cast<std::uint64_t>(st.st_size) == target &&
-                  static_cast<std::uint64_t>(st.st_blocks) * 512ULL < (target / 2);
+    bool sparse = false;
+#if !defined(_WIN32)
+    sparse = created && ::stat(huge.generic_string().c_str(), &st) == 0 &&
+             static_cast<std::uint64_t>(st.st_size) == target &&
+             static_cast<std::uint64_t>(st.st_blocks) * 512ULL < (target / 2);
+#else
+    (void)created;
+#endif
     if (!sparse) {
         std::cout << "  (skipping huge-file check: sparse files unavailable here)" << std::endl;
         fs::remove_all(base, ec);

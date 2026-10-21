@@ -1056,6 +1056,39 @@ void apply_titles(ImageCatalog& c) {
     });
 }
 
+void name_unnamed_games(ImageCatalog& c, const ImageVolume& volume, const std::string& prefix) {
+    unsigned named = 0, failed = 0;
+    for (ImageGame& game : c.games) {
+        if (game.checked || game.wbfs_slot >= 0) continue;
+        if (!game.display.empty() && game.display != game.id) continue;
+        const std::size_t slash = game.path.find_last_of('/');
+        if (slash == std::string::npos || game.path.compare(0, prefix.size(), prefix) != 0) continue;
+        std::vector<VolumeEntry> entries;
+        std::vector<std::string> siblings;
+        std::string error;
+        if (!volume.list(game.path.substr(prefix.size() - 1, slash - (prefix.size() - 1)), entries, error)) {
+            ++failed;
+            continue;
+        }
+        for (const VolumeEntry& entry : entries) siblings.push_back(entry.name);
+        ImageGame opened = game;
+        unsigned pieces = 0;
+        if (!open_game(volume, prefix, siblings, opened, pieces, error) || opened.title.empty()) {
+            ++failed;
+            continue;
+        }
+        game = std::move(opened);
+        game.display = display_title(nullptr, game.id, game.path, game.title);
+        ++named;
+    }
+    if (named != 0 || failed != 0) {
+        std::string note;
+        if (failed != 0) note = ", " + std::to_string(failed) + " could not be opened";
+        logf("Names: %u game(s) with no name in the title list or their folders read from their disc headers%s\n",
+             named, note.c_str());
+    }
+}
+
 // This is intentionally non-recursive: all post-reload paths make one
 // bounded SD remount attempt and restore the caller-selected append log.
 bool restore_sd_and_log(const char* log_path, std::string& error) {
@@ -1809,6 +1842,10 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
     }
     apply_titles(out);
+    if (!g_usb_wbfs) {
+        name_unnamed_games(out, *g_usb_volume, "usb:/");
+        apply_titles(out);
+    }
     const std::string empty_drive = g_usb_wbfs ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive";
     const std::string unreadable = (g_usb_wbfs ? "Cannot read the WBFS drive: " : "No valid USB images: ") + failure;
     out.status = out.games.empty() ? (failure.empty() ? empty_drive : unreadable) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
@@ -1856,6 +1893,8 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     const std::string more_gamecube = g_misplaced_gc.rest("SD scan");
     if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
     ScanGcImages(out.games, &out.ciso);
+    apply_titles(out);
+    name_unnamed_games(out, *g_sd_volume, "sd:/");
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
