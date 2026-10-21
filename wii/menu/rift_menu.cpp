@@ -186,6 +186,10 @@ static std::atomic<bool> hidePointers{false};
 #endif
 static bool dimAllowed = false;
 static u64 lastActive = 0;
+// An update is running (RunUpdate): its card writes can last longer than the
+// dim time without a progress call, so the screen stays lit for all of it.
+// Single core, one writer: volatile is enough.
+static volatile bool updateRunning = false;
 static int dimAlpha = 0;
 static bool swallowInput = false;
 static int pointerX[4], pointerY[4];
@@ -399,7 +403,7 @@ UpdateGUI(void *arg)
 				dimLogged = false;
 				lastActive = now;
 			}
-			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			const bool idle = dimAllowed && !updateRunning && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
 			if (idle && !dimLogged) {
 				LogDimmed(now);
 				dimLogged = true;
@@ -2997,6 +3001,41 @@ const GuiWindow* HomeWindowWatch::watched = nullptr;
 u32 HomeWindowWatch::word = 0;
 bool HomeWindowWatch::reported = false;
 
+// Megabytes with one decimal ("3.5"), as the update's text shows them.
+static std::string MegabytesText(std::uint64_t bytes)
+{
+	const std::uint64_t tenths = (bytes * 10 + (1 << 19)) >> 20;
+	return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
+}
+
+// The update popup's text: the step in progress, so no wait looks frozen.
+static std::string UpdateStepBody(const std::string& latest, const riftwii::wii::UpdateProgress& p)
+{
+	using riftwii::wii::UpdateStep;
+	std::string line;
+	switch (p.step) {
+	case UpdateStep::DownloadingDol:
+		line = p.total != 0
+			? tr("Downloading RiftWii ({1} of {2} MB)", {MegabytesText(p.received), MegabytesText(p.total)})
+			: tr("Downloading RiftWii...");
+		break;
+	case UpdateStep::DownloadingPlugins:
+		line = p.total != 0
+			? tr("Downloading plugins ({1} of {2} MB)", {MegabytesText(p.received), MegabytesText(p.total)})
+			: tr("Downloading plugins...");
+		break;
+	case UpdateStep::CheckingDol:
+	case UpdateStep::CheckingPlugins:
+		line = tr("Checking the download...");
+		break;
+	case UpdateStep::WritingPlugins:
+	case UpdateStep::WritingDol:
+		line = tr("Writing to the SD card...");
+		break;
+	}
+	return tr("RiftWii {1} is out. Installing it now; this takes a few minutes.", {latest}) + "\n" + line;
+}
+
 // Downloads and installs a newer release (riftwii::wii::InstallUpdate),
 // then offers to leave so the Homebrew Channel starts it.
 static void RunUpdate(const std::string& latest)
@@ -3007,20 +3046,27 @@ static void RunUpdate(const std::string& latest)
 		// The bar before the box: it is drawn in the box's window, so it
 		// must last until the box is off the screen.
 		ProgressBar bar(56, 280, 528);
-		PopupBox box(tr("Updating RiftWii"),
-			tr("RiftWii {1} is out. Downloading and installing it now; this takes a minute...", {latest}));
+		PopupBox box(tr("Updating RiftWii"), UpdateStepBody(latest, riftwii::wii::UpdateProgress{}));
 		box.Add(&bar, 528);
+		updateRunning = true;
 		ResumeGui();
 		int shown = -1;
+		riftwii::wii::UpdateStep shownStep = riftwii::wii::UpdateStep::DownloadingDol;
 		HomeWindowWatch::Check("before the update's download");
-		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](double done) {
-			// Only whole percents, so the GUI is not halted for every chunk.
-			const int percent = static_cast<int>(done * 100);
-			if (percent == shown) return;
+		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](const riftwii::wii::UpdateProgress& p) {
+			// The screen stays lit through updateRunning, not here: this
+			// runs on the menu thread while the GUI thread reads
+			// lastActive, and a 64-bit write could be read torn.
+			// Only whole percents (and each new step), so the GUI is not
+			// halted for every chunk.
+			const int percent = static_cast<int>(p.share * 100);
+			if (percent == shown && p.step == shownStep) return;
 			shown = percent;
+			shownStep = p.step;
 			HomeWindowWatch::Check("during the update's download");
 			HaltGui();
-			bar.Set(done);
+			bar.Set(p.share);
+			box.SetBody(UpdateStepBody(latest, p));
 			ResumeGui();
 		});
 		HomeWindowWatch::Check("by the end of the update's download and install");
@@ -3028,6 +3074,8 @@ static void RunUpdate(const std::string& latest)
 		// anything went wrong in the download or after it.
 		if (!ok) logf("Update: %s\n", error.c_str());
 		HaltGui();
+		updateRunning = false;
+		lastActive = gettime();  // the dim time starts over after the update
 		box.Close();
 	}
 	if (!ok) {
