@@ -36,6 +36,7 @@
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcload.hpp"
 #include "riftwii/gcreset.hpp"
+#include "riftwii/gctgc.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -142,6 +143,103 @@ bool read_dol(const ByteSource& f, std::uint32_t at, Dol& out, std::string& erro
         return false;
     }
     return !out.text.empty();
+}
+
+std::string hex32(std::uint32_t value) {
+    char text[12];
+    std::snprintf(text, sizeof(text), "%08x", static_cast<unsigned>(value));
+    return text;
+}
+
+void set_be32(std::uint8_t* p, std::uint32_t value) {
+    p[0] = static_cast<std::uint8_t>(value >> 24);
+    p[1] = static_cast<std::uint8_t>(value >> 16);
+    p[2] = static_cast<std::uint8_t>(value >> 8);
+    p[3] = static_cast<std::uint8_t>(value);
+}
+
+// A game packed in a TGC image, which the disc's menu started last time
+// (exec.txt's gc_tgc, gc_on_tgc_read): the TGC must be a file of the
+// disc's own FST, so the offset from the SD card names nothing else, and
+// everything its header gives is bounded by that file (gctgc.hpp). Gives
+// the TGC's boot.bin, with the program's and FST's places made the outer
+// disc's, its BI2, and its FST with the files' offsets on the outer disc.
+bool open_gc_tgc(const ByteSource& f, const std::vector<std::uint8_t>& disc_boot, std::uint32_t tgc_offset, GcTgc& tgc,
+                 std::vector<std::uint8_t>& boot, std::vector<std::uint8_t>& bi2, std::vector<std::uint8_t>& fst,
+                 std::string& error) {
+    const std::uint32_t disc_fst_size = be32(&disc_boot[0x428]);
+    if (disc_fst_size == 0 || disc_fst_size > kGcTgcFstLimit) {
+        error = "the disc's FST size is not one a disc has, so its TGC image cannot be found";
+        return false;
+    }
+    std::vector<std::uint8_t> disc_fst(disc_fst_size);
+    if (!read_at(f, be32(&disc_boot[0x424]), disc_fst.data(), disc_fst.size())) {
+        error = "cannot read the disc's FST to find its TGC image";
+        return false;
+    }
+    GcFstFile file;
+    if (!find_gc_fst_file_at(disc_fst, tgc_offset, file)) {
+        error = "no file of the disc starts at the TGC image's offset 0x" + hex32(tgc_offset);
+        return false;
+    }
+    std::uint8_t header[kGcTgcHeaderBytes];
+    std::string why;
+    if (!read_at(f, tgc_offset, header, sizeof(header)) ||
+        !parse_gc_tgc(header, sizeof(header), file.offset, file.size, f.size(), tgc, why)) {
+        error = "the TGC image at 0x" + hex32(tgc_offset) + " cannot be started: " + (why.empty() ? "unreadable" : why);
+        return false;
+    }
+    std::uint8_t dol_header[0x100];
+    if (!read_at(f, tgc.dol_at(), dol_header, sizeof(dol_header)) ||
+        !gc_tgc_dol_fits(dol_header, sizeof(dol_header), tgc.dol_size, why)) {
+        error = "the TGC image's program cannot be started: " + (why.empty() ? "unreadable" : why);
+        return false;
+    }
+    fst.assign(tgc.fst_size, 0);
+    if (!read_at(f, tgc.boot_at(), boot.data(), boot.size()) || !read_at(f, tgc.bi2_at(), bi2.data(), bi2.size()) ||
+        !read_at(f, tgc.fst_at(), fst.data(), fst.size())) {
+        error = "cannot read the TGC image's header, BI2 or FST";
+        return false;
+    }
+    if (!gc_tgc_rebase_fst(fst, tgc, why)) {
+        error = "the TGC image's FST cannot be used: " + why;
+        return false;
+    }
+    // Where the loader below takes the program and the FST from, as for a
+    // disc of its own. The packed boot.bin has the TGC's own numbers there.
+    set_be32(&boot[0x420], tgc.dol_at());
+    set_be32(&boot[0x424], tgc.fst_at());
+    set_be32(&boot[0x428], tgc.fst_size);
+    set_be32(&boot[0x42C], tgc.fst_max);
+    logf("GameCube: the game packed in the TGC image at disc offset 0x%08x (%u bytes): %.6s, its program at 0x%08x "
+         "(%u bytes), its FST at 0x%08x (%u bytes, its files moved by %d bytes onto the disc)\n",
+         tgc.disc_offset, tgc.bytes, reinterpret_cast<const char*>(boot.data()), tgc.dol_at(), tgc.dol_size,
+         tgc.fst_at(), tgc.fst_size,
+         static_cast<int>(std::int64_t(tgc.disc_offset) + tgc.file_area_offset - tgc.file_area_virtual));
+    return true;
+}
+
+// The TGC images among the disc's files (`fst`, as the game will have it),
+// at most GC_TGC_MAX, each with a header that stays within its file: the
+// ones a bonus disc's menu can start a game from. One that does not parse
+// is left as the disc has it, and the log says why.
+std::vector<GcTgc> find_gc_tgc_starts(const ByteSource& f, const std::vector<std::uint8_t>& fst) {
+    std::vector<GcTgc> starts;
+    for (const GcFstFile& file : find_gc_tgc_files(fst, GC_TGC_MAX)) {
+        std::uint8_t header[kGcTgcHeaderBytes];
+        GcTgc tgc;
+        std::string why = "unreadable";
+        if (read_at(f, file.offset, header, sizeof(header)) &&
+            parse_gc_tgc(header, sizeof(header), file.offset, file.size, f.size(), tgc, why)) {
+            logf("GameCube: a TGC image at disc offset 0x%08x (%u bytes), its program at 0x%08x to 0x%08x\n",
+                 tgc.disc_offset, tgc.bytes, tgc.dol_at(), tgc.dol_end());
+            starts.push_back(tgc);
+        } else {
+            logf("GameCube: the file at disc offset 0x%08x is named as a TGC image but is left as it is: %s\n",
+                 file.offset, why.c_str());
+        }
+    }
+    return starts;
 }
 
 // The game's code as words by address, for the search below.
@@ -1798,6 +1896,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const RvzDiscSource* rvz_disc = nullptr;
     if (!open_gc_disc(image, disc, rvz_disc, error)) return false;
     const ByteSource& f = *disc;
+    // A game packed in a TGC image (a bonus disc's menu started it, and
+    // exec.txt named the TGC's offset). Zero again below when no TGC the
+    // disc has starts there: the disc's own program then starts.
+    std::uint32_t tgc_offset = image.tgc_offset;
+    // The packs were made for the disc's own FST, not the TGC's.
+    if (tgc_offset != 0 && pack != nullptr) {
+        logf("GameCube: the packs are left off for the game packed in a TGC image: they change the disc's own files\n");
+        pack = nullptr;
+    }
     // The game's view of the disc: the image, then the packs' window
     // (gcoverlay.hpp) when there are packs. An RVZ's bytes are read from it
     // by their offset in the image (the blob's RVZ build).
@@ -1814,6 +1921,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     Dol dol;
     bool ok = read_at(f, 0, boot.data(), boot.size()) && read_at(f, 0x440, bi2.data(), bi2.size());
     if (!ok) error = "cannot read " + image.path;
+    // A game packed in a TGC image: its own boot.bin, BI2, program and
+    // FST, from the TGC, with the FST's files where they are on the disc.
+    GcTgc tgc;
+    std::vector<std::uint8_t> tgc_fst;
+    if (ok && tgc_offset != 0) {
+        const std::vector<std::uint8_t> disc_boot = boot;  // the disc's own, for its FST
+        std::string tgc_error;
+        if (!open_gc_tgc(f, disc_boot, tgc_offset, tgc, boot, bi2, tgc_fst, tgc_error)) {
+            // exec.txt named no TGC the disc has (a hand-made or stale
+            // file, or another disc's): the disc starts as itself, its
+            // menu back on screen, rather than stopping. boot and BI2 are
+            // the disc's again, as open_gc_tgc may have half-filled them
+            // with the packed disc's (whose FST size is unchecked).
+            logf("GameCube: no game packed in a TGC image started: %s; the disc's own program starts instead\n",
+                 tgc_error.c_str());
+            tgc_offset = 0;
+            tgc = GcTgc();
+            tgc_fst.clear();
+            boot = disc_boot;
+            ok = read_at(f, 0x440, bi2.data(), bi2.size());
+            if (!ok) error = "cannot read " + image.path;
+        }
+    }
     // A switch to another program on the disc (gc_on_boot_dol): that one,
     // with its arguments in BI2 where its start-up code reads them.
     const std::uint32_t dol_offset = image.exec && image.exec_dol != 0 ? image.exec_dol : be32(&boot[0x420]);
@@ -1835,6 +1965,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
         fst = pack->fst;
+    } else if (tgc_offset != 0) {
+        fst = tgc_fst;
     } else if (ok && (fst.empty() || !read_at(f, be32(&boot[0x424]), fst.data(), fst.size()))) {
         error = "cannot read the game's FST";
         ok = false;
@@ -2599,15 +2731,37 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // "--idle--" and the image, is the launch the blob fills in. Only for
     // an image on the SD card, whose headless launch RiftWii carries out
     // at its next start, and with a way back to leave by.
+    // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
+    // the Wind Waker demo disc) starts its games another way: each is a
+    // whole disc packed in a TGC image, whose program the menu reads with
+    // its own loader and jumps to, unpatched. Its read of a TGC's header
+    // or of its program goes back through RiftWii the same way
+    // (gc_on_tgc_read, runtime/gc/gc_tgc.h).
+    // Not with packs, which move the disc's files.
+    const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
+    // A game from a TGC image reads its own disc ID, the packed header's.
+    if (tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
     {
         std::vector<CodeRange> data_ranges;
         for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
         const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
         const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
+        const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
+        // A game from a TGC image: exec.txt names programs by their offset
+        // on the outer disc and starts them with its boot.bin and FST, not
+        // the TGC's, so its own switches run as made (not seen in a game).
+        const bool from_tgc = tgc_offset != 0;
+        const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
+        const bool exec_test_on = test_exec && !boot_dol_branch;
+        const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
+                                         : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
+                                                           "cannot name"
+                                                         : nullptr;
         const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
         std::string why_not;
-        if (boot_dol == 0 && !test_exec) why_not = "the game has no switch to another program (__OSBootDolSimple not found)";
-        else if (boot_dol != 0 && (first == 16 || first == 18)) why_not = "its first word is a branch";
+        if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
+            why_not = boot_dol_off != nullptr ? boot_dol_off
+                                              : "the game has no switch to another program (__OSBootDolSimple not found)";
         else if (!on_sd) why_not = "only for a game on the SD card so far";
         else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
         else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
@@ -2627,20 +2781,39 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             else if (why_not.empty())
                 why_not = "sd:/riftwii/gc/exec.txt could not be made";
         }
-        if (exec_sector != 0 && test_exec) ctx->flags |= GC_FLAG_EXEC_TEST;
-        if (exec_sector != 0 && boot_dol == 0) {
-            ctx->exec_sector = exec_sector;
-            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                 exec_sector);
-        } else if (exec_sector != 0) {
+        if (exec_sector != 0 && exec_test_on) ctx->flags |= GC_FLAG_EXEC_TEST;
+        if (exec_sector != 0 && boot_dol_hookable) {
             replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
             ctx->exec_sector = exec_sector;
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
                  "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
                  boot_dol, exec_sector);
-        } else if (boot_dol != 0) {
+        } else if (exec_sector != 0 && exec_test_on) {
+            ctx->exec_sector = exec_sector;
+            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 exec_sector);
+        }
+        if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
             logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
-                 boot_dol, why_not.c_str());
+                 boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
+        }
+        // The TGC images' programs, whose reads the blob watches. A sector
+        // word of their own, so a disc with TGCs alone keeps the restart a
+        // game without a program switch has (gc_on_reset_system).
+        if (exec_sector != 0 && !tgcs.empty()) {
+            ctx->tgc_sector = exec_sector;
+            ctx->tgc_count = static_cast<std::uint32_t>(tgcs.size());
+            for (std::size_t i = 0; i < tgcs.size(); ++i) {
+                ctx->tgc_offset[i] = tgcs[i].disc_offset;
+                ctx->tgc_dol_start[i] = tgcs[i].dol_at();
+                ctx->tgc_dol_end[i] = tgcs[i].dol_end();
+            }
+            logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
+                 "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                 static_cast<unsigned>(tgcs.size()), exec_sector);
+        } else if (!tgcs.empty()) {
+            logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
+                 why_not.c_str());
         }
     }
     // The memory card: the EXI functions to the blob (gc_card.h).

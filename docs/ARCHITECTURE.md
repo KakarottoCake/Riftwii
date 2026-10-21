@@ -434,6 +434,44 @@ list are in the debugger area (`0x80001800`–`0x80003000`), inside the
 low memory that is put back, so keep them there. The test switch is
 `sd:/riftwii/gc/test/reset`: two presses made by the blob.
 
+**Switching programs.** A program the game starts after itself would run
+with none of the loader's patches, so every such start goes back through
+RiftWii, which starts the image again with that program. The loader
+makes `sd:/riftwii/gc/exec.txt` at each launch (one sector: `--idle--`,
+the image's path and ID); the blob turns it into a headless launch
+([HEADLESS.md](HEADLESS.md)) and leaves as holding HOME does, and
+RiftWii's next start reads it once. Two kinds of start are caught:
+- the SDK's OSExec (Sonic Gems Collection), which ends in
+  `__OSBootDolSimple` (`find_gc_boot_dol`, hooked as `gc_on_boot_dol`):
+  `gc_dol=`, `gc_restart=`, `gc_arg=`, and the next start boots that DOL
+  with its arguments in BI2 and `OSExecParams` at `0x800030F0`;
+- a bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc
+  D43E01, the Wind Waker demo disc PZLE01) starting a game packed in a
+  TGC image on its disc, with a loader of its own. The loader finds the
+  disc's `.tgc` files in its FST and their headers (`src/disc/gctgc.cpp`,
+  up to eight), and gives the blob where each TGC and its program lie on
+  the disc. The menu's read of a TGC's header, or its first read of a
+  TGC's program (`gc_on_tgc_read`, rule in `runtime/gc/gc_tgc.h`, which
+  leaves before the read is served) writes `gc_tgc=<the TGC file's
+  offset>`. The header counts because the Collector's Edition menu reads
+  the program with a loader of its own (`execD.img`) that drives the
+  disc interface itself, past the blob's DVDLowRead hook. The next start
+  takes the game from the TGC instead of the disc: its packed boot.bin
+  and BI2, its DOL, and its FST with every file's offset moved onto the
+  outer disc (the FST counts from the header's virtual file-area start;
+  the file area's real start and the TGC's own offset are added), so the
+  blob serves its reads from the image as it is. DVDLowReadDiskID reads
+  the packed boot.bin's ID (`disc_id_offset`). The offset in exec.txt
+  must be the start of a file of the disc's own FST, and every size and
+  offset the TGC's header and FST give must lie inside that file, or the
+  disc starts as itself (its menu), the reason in the log. Packs are left off for such a game, and
+  its own OSExec switches run as made: exec.txt cannot name a program
+  inside a TGC.
+
+Only for an image on the SD card, with a way back. If IOS refuses to
+leave, exec.txt goes back to `--idle--` and the start runs as the game
+made it.
+
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
 `sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
 for Japanese games), formatted the first time. The game page's Saves tile
@@ -619,6 +657,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
+| `sd:/riftwii/gc/exec.txt` | A GameCube game's start of another program (OSExec, or a bonus disc's menu starting a game from a TGC image): `--idle--` until then, a headless launch after, read once by RiftWii's next start (see "Switching programs") |
 | `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 

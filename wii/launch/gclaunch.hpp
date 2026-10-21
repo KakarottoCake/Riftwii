@@ -45,6 +45,10 @@ struct GcImage {
     std::uint32_t exec_dol = 0;
     std::uint32_t exec_restart = 0;
     std::vector<std::string> exec_args{};
+    // A game packed in a TGC image on the disc, which a bonus disc's menu
+    // started last time (headless.cpp's exec.txt, gc_tgc=): the TGC file's
+    // offset on the disc; 0: the disc's own program.
+    std::uint32_t tgc_offset = 0;
 };
 
 // Whether the image at `path` is on the USB drive ("usb:/...").
