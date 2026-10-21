@@ -1,10 +1,11 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* ABI v5: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
+/* ABI v6: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13;
+ * the game's own Reset (OSRestart's hook and replay slot) follows IOS_Open's undo words. */
     .section .text.rt_entry, "ax", @progbits
     .globl _rt_blob_start
 _rt_blob_start:
-    .long 0x5257484B, 5, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
+    .long 0x5257484B, 6, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
     .long rt_hook_0 - _rt_blob_start, rt_hook_1 - _rt_blob_start, rt_hook_2 - _rt_blob_start, rt_hook_3 - _rt_blob_start
     .long rt_hook_4 - _rt_blob_start, rt_hook_5 - _rt_blob_start, rt_hook_6 - _rt_blob_start, rt_hook_7 - _rt_blob_start
     .long rt_hook_8 - _rt_blob_start, rt_hook_9 - _rt_blob_start, rt_hook_10 - _rt_blob_start, rt_hook_11 - _rt_blob_start
@@ -20,6 +21,7 @@ _rt_blob_start:
     .long rt_complete_di - _rt_blob_start
     .long rt_complete_fs - _rt_blob_start
     .long rt_open_undo_0 - _rt_blob_start, rt_open_undo_1 - _rt_blob_start
+    .long rt_reset_os_restart - _rt_blob_start, rt_reset_os_restart_replay - _rt_blob_start
 
 /* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
     .macro RT_HOOK n
@@ -205,6 +207,40 @@ rt_complete_fs:
     addi 1, 1, 0x20
     cmpwi 12, 0
     beqlr
+    mtctr 12
+    bctr
+
+/* OSRestart(resetCode)'s first word goes here: the runtime writes the
+ * launch request and leaves for the RiftWii channel (rt_reset_on_os_restart,
+ * rt_hook.c), which does not return. When it does (it could not), the
+ * function runs from its replay slot (its displaced first word, then the
+ * jump back to its second, loader-filled), every register as the caller
+ * left it. Frame: 0 back chain, 4 LR, 8 r3. */
+    .globl rt_reset_os_restart
+rt_reset_os_restart:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    bl 9f
+9:  mflr 3
+    addi 3, 3, rt_context_data - 9b
+    bl rt_reset_on_os_restart
+    lwz 3, 0x08(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    b rt_reset_os_restart_replay
+
+    .balign 16
+    .globl rt_reset_os_restart_replay
+rt_reset_os_restart_replay:
+    nop
+    nop
+    nop
+    nop
+    lis 12, 0
+    ori 12, 12, 0
     mtctr 12
     bctr
 

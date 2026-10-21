@@ -28,6 +28,12 @@ constexpr const char* kLaunchFile = "sd:/riftwii/launch.txt";
 // and the blob turns it into a launch when the game switches. One sector,
 // written by the blob as raw bytes: NULs after the text.
 constexpr const char* kGcExecFile = "sd:/riftwii/gc/exec.txt";
+// A Wii game's own Reset (runtime/resident's rt_reset_on_os_restart): the
+// loader makes it at every launch that can take the Reset, "--idle--" and the
+// launch that starts the game again, one sector; the runtime writes the
+// sector back with "--launch" for its first line when the game's Reset
+// runs, and leaves for the RiftWii channel. Read like the GameCube's.
+constexpr const char* kRestartFile = "sd:/riftwii/restart.txt";
 
 bool same_path(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -164,19 +170,19 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
     return true;
 }
 
-// A launch file: the arguments one per line, "--launch" first.
+// A launch file: the arguments one per line, "--launch" first. Only the
+// first kMaxLaunchFileBytes are read (a longer file is not a launch: its cut
+// end could be a shortened path), and a file written a sector at a time
+// ends in NULs (kGcExecFile, kRestartFile).
 bool read_launch_lines(const std::string& path, std::vector<std::string>& args) {
     args.clear();
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file) return false;
-    std::string line;
-    while (std::getline(file, line) && args.size() < 64) {
-        // A file written a sector at a time ends in NULs (kGcExecFile).
-        if (const std::size_t nul = line.find('\0'); nul != std::string::npos) line.resize(nul);
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
-        if (!line.empty()) args.push_back(line);
-    }
-    return is_headless_launch(args);
+    std::string text(kMaxLaunchFileBytes, '\0');
+    file.read(&text[0], static_cast<std::streamsize>(text.size()));
+    text.resize(static_cast<std::size_t>(file.gcount()));
+    if (text.size() == kMaxLaunchFileBytes && file.peek() != std::ifstream::traits_type::eof()) return false;
+    return launch_lines_from_text(text, args);
 }
 
 bool launch(const std::vector<std::string>& args, std::string& error) {
@@ -215,6 +221,12 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     FrontendState state;
     InitializeFrontend(state);
     if (!select_game(h, state, error)) return false;
+    if (h.reset) {
+        logf("The game's own Reset: %s starts again, with the packs and choices it had\n", state.game_id.c_str());
+    }
+    // The pack choices the menu launched the game with (a profile's file,
+    // say); the game's own where the launch does not name one.
+    if (!h.choices.empty()) state.choices_path = std::string(kChoicesDir) + "/" + h.choices;
     logf("  %s\n", state.disc_status.c_str());
     logf("  %s\n", ScanPackages(state).c_str());
     if (!apply_choices(h, state, error)) return false;
@@ -227,8 +239,11 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     }
     if (!CheckCodeBuilds(state, error)) return false;
     PrepareLaunchExtras(state, &h);
-    RecordPlay(state.game_id);
-    TagGame(state.game_id, false);  // before the cIOS reload takes the network
+    // Not for the same play started again by its own Reset.
+    if (!h.reset) {
+        RecordPlay(state.game_id);
+        TagGame(state.game_id, false);  // before the cIOS reload takes the network
+    }
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::OutOfMemoryAsError(error, [&] {
@@ -283,8 +298,14 @@ bool HeadlessArguments(std::vector<std::string>& args) {
     // A GameCube game's switch to another program, taken up once: the file
     // goes, and the loader makes it again for the next game.
     args.clear();
-    if (!read_launch_lines(kGcExecFile, args)) return false;
-    std::remove(kGcExecFile);
+    if (read_launch_lines(kGcExecFile, args)) {
+        std::remove(kGcExecFile);
+        return true;
+    }
+    // A Wii game's own Reset, taken up once the same way.
+    args.clear();
+    if (!read_launch_lines(kRestartFile, args)) return false;
+    std::remove(kRestartFile);
     return true;
 }
 
