@@ -2825,3 +2825,15 @@ msgstr "Le port A ne contient aucune carte lisible. Une carte du port B ne peut 
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossible de préparer la carte réelle. Vérifiez la carte et réessayez."
+
+msgid "Network Test"
+msgstr "Test réseau"
+
+msgid "Testing the network..."
+msgstr "Test du réseau..."
+
+msgid "Offline"
+msgstr "Hors ligne"
+
+msgid "Checks if network is online."
+msgstr "Vérifie si le réseau est en ligne."

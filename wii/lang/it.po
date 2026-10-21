@@ -2825,3 +2825,15 @@ msgstr "Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossibile preparare la scheda reale. Controlla la scheda e riprova."
+
+msgid "Network Test"
+msgstr "Test di rete"
+
+msgid "Testing the network..."
+msgstr "Test della rete in corso..."
+
+msgid "Offline"
+msgstr "Offline"
+
+msgid "Checks if network is online."
+msgstr "Controlla se la rete è online."

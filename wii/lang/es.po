@@ -2825,3 +2825,15 @@ msgstr "La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no 
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo."
+
+msgid "Network Test"
+msgstr "Prueba de red"
+
+msgid "Testing the network..."
+msgstr "Probando la red..."
+
+msgid "Offline"
+msgstr "Sin conexión"
+
+msgid "Checks if network is online."
+msgstr "Comprueba si la red está en línea."

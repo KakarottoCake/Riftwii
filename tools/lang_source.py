@@ -6075,6 +6075,26 @@ def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+T.update({
+    "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
+    "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
+    "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
+    "Checks if network is online.": ('Comprueba si la red está en línea.', 'ネットワークがオンラインか確認します。', 'Verifica se a rede está online.', 'Controlla se la rete è online.'),
+})
+KO.update({
+    "Network Test": "네트워크 테스트",
+    "Testing the network...": "네트워크를 테스트하는 중...",
+    "Offline": "오프라인",
+    "Checks if network is online.": "네트워크가 온라인인지 확인합니다.",
+})
+FR.update({
+    "Network Test": "Test réseau",
+    "Testing the network...": "Test du réseau...",
+    "Offline": "Hors ligne",
+    "Checks if network is online.": "Vérifie si le réseau est en ligne.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
