@@ -1096,7 +1096,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id,
 				&state.usb_catalog.games[i]);
 		}
-	if (source == "all" || source == "sd" || source == "gamecube")
+	// Not while the SD scan is off: a catalog read earlier is stale until the rescan replaces it.
+	if ((source == "all" || source == "sd" || source == "gamecube") && riftwii::wii::Settings().sd_games != "off")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
 			if (source == "gamecube" && !state.sd_catalog.games[i].gamecube) continue;
 			add(GameName(state.sd_catalog.games[i]), HomeEntry::Kind::Sd, i, state.sd_catalog.games[i].id,
@@ -11584,6 +11585,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// this setting (a std::string): wait for it before writing.
 					WaitForDriveScan(noteTxt);
 					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
+					// What the last scan found on the card is stale at once: Home, the counts and the
+					// empty-Home card must not show it while the rescan is still to come.
+					if (settings.sd_games == "off") {
+						state.sd_catalog = riftwii::wii::ImageCatalog{};
+						state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
+					}
 					// Games from: SD would list nothing now (GameCube still lists USB games).
 					if (settings.sd_games == "off" && (settings.home_source == "sd"))
 						settings.home_source = "all";
