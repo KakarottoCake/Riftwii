@@ -2005,7 +2005,15 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
     const std::uint32_t first_sector = list.entries[0].sector;
     bool read = false;
     std::string last_why;
-    for (int attempt = 1; attempt <= kD2xDriveWaitSeconds && !read; ++attempt) {
+    // A deadline, not a count of tries: one try can take up to the device
+    // calls' own time limit (umsdev.cpp) and still return an error. No new
+    // try starts past it; one already started runs to its end.
+    const u64 wait_started = gettime();
+    const auto waited_long_enough = [&] {
+        return ticks_to_millisecs(gettime() - wait_started) >= static_cast<u64>(kD2xDriveWaitSeconds) * 1000;
+    };
+    for (int attempt = 1; !read; ++attempt) {
+        if (attempt > 1 && waited_long_enough()) break;
         // The bar sits at "Opening the game image" meanwhile: say why.
         char stage[64];
         std::snprintf(stage, sizeof(stage), "Waiting for the USB drive (d2x, IOS%d, try %d)", cios_slot, attempt);
@@ -2034,6 +2042,7 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
         }
         if (!read) {
             ums::Forget();  // opened again from scratch on the next try
+            if (waited_long_enough()) break;
             usleep(1000000);
         }
     }

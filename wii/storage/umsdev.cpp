@@ -7,6 +7,7 @@
 
 #include <gccore.h>
 #include <ogc/ipc.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/machine/processor.h>
 #include <unistd.h>
 
@@ -342,12 +343,20 @@ bool Open(std::string& error) {
 }
 
 bool OpenWaiting(std::string& error, int seconds) {
-    for (int waited = 0;; ++waited) {
+    // A deadline, not a count of tries: one Open can take up to the calls'
+    // time limit and still fail without the device being stuck. No new try
+    // starts past it; one already started runs to its end.
+    const u64 started = gettime();
+    for (int tries = 1;; ++tries) {
         if (Open(error)) {
-            if (waited > 0) logf("USB (d2x): the drive started after %d s\n", waited);
+            if (tries > 1) {
+                logf("USB (d2x): the drive started after %u ms (try %d)\n",
+                     static_cast<unsigned>(ticks_to_millisecs(gettime() - started)), tries);
+            }
             return true;
         }
-        if (!g_not_ready || waited >= seconds) return false;
+        const u64 waited_ms = ticks_to_millisecs(gettime() - started);
+        if (!g_not_ready || waited_ms >= static_cast<u64>(seconds) * 1000) return false;
         Forget();  // asked again from scratch
         usleep(1000000);
     }
