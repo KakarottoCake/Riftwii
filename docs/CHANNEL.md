@@ -81,9 +81,11 @@ channel stopped for good after the intro with nothing on screen (issue
 neither the card nor the drive. During the steps and on that screen, POWER
 turns the Wii off and RESET goes back to the Wii Menu (before, libogc's
 default ignored a short POWER press). `make -f Makefile.channel
-CHANNEL_TEST_HANG=<step>` (after `make -f Makefile.channel clean`) builds a
-forwarder that stops at that step (`StepId` in `main.c`; 1 is mounting the
-SD card), to see that screen in Dolphin; never for a release.
+CHANNEL_TEST_HANG=<step>` builds a forwarder that stops at that step
+(`StepId` in `main.c`; 1 is mounting the SD card), to see that screen in
+Dolphin; never for a release. The forwarder is rebuilt whenever the flag
+changes (a stamp in `build-channel/obj`), so a plain `make -f
+Makefile.channel` afterwards builds the normal one again, no clean needed.
 
 Dolphin starts NAND titles as a Wii does, so it tests the Wii path of
 either package, not the vWii one. It also stalls on a boot program whose

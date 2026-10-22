@@ -20,8 +20,8 @@
 //
 // For a test build that stops at one step, as such a console does, define
 // CHANNEL_TEST_HANG as that step's number (the Step enum below):
-//   make -f Makefile.channel clean
 //   make -f Makefile.channel CHANNEL_TEST_HANG=1    (stops at mounting the SD card)
+// and a plain make -f Makefile.channel builds the normal one again.
 
 #include <gccore.h>
 #include <fat.h>
@@ -255,6 +255,9 @@ static const char kHangAdvice[] =
     "  Take the SD card (or USB drive) out, put it back in and open this\n"
     "  channel again. If it stops at the same step, start RiftWii from the\n"
     "  Homebrew Channel and report what this screen says.\n";
+static const char kRetryAdvice[] =
+    "  Open this channel again. If this happens again, start RiftWii from\n"
+    "  the Homebrew Channel and report what this screen says.\n";
 
 // Nothing to start: a message on the console, then back to the Wii Menu
 // after 15 seconds, RESET or a GameCube controller button; POWER turns the
@@ -421,7 +424,11 @@ static void load(void) {
     // Below the main thread (64), so each frame's check gets the CPU back
     // from it even while it computes.
     lwp_t loader;
-    LWP_CreateThread(&loader, load_thread, NULL, g_loader_stack, sizeof(g_loader_stack), 48);
+    // Without the thread no step would ever start, and the intro's last
+    // frame would stay up for good.
+    if (LWP_CreateThread(&loader, load_thread, NULL, g_loader_stack, sizeof(g_loader_stack), 48) != 0) {
+        fail("The channel could not start its loader thread.", kRetryAdvice);
+    }
     int shown = -1;
     u64 shown_since = 0;
     for (;;) {

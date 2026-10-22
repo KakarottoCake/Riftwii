@@ -38,8 +38,10 @@ ART      := $(wildcard channel/art/*)
 
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
 # A test forwarder that stops at one step of its start, to check the screen
-# a stuck console shows (channel/forwarder/main.c): make clean, then
+# a stuck console shows (channel/forwarder/main.c):
 # make -f Makefile.channel CHANNEL_TEST_HANG=<step>. Never for a release.
+# fw_main.o depends on a stamp of this flag, so switching it on or off
+# rebuilds the forwarder (and the packages and installer) without a clean.
 ifneq ($(strip $(CHANNEL_TEST_HANG)),)
 FWTEST   := -DCHANNEL_TEST_HANG=$(CHANNEL_TEST_HANG)
 endif
@@ -50,7 +52,7 @@ FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0
 FWWIILD  := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder_wii.map $(FWWRAP)
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
-.PHONY: all clean bearssl
+.PHONY: all clean bearssl FORCE
 all: $(INSTDOL)
 
 $(OBJDIR):
@@ -74,7 +76,13 @@ $(OBJDIR)/%_a.o $(OBJDIR)/%_a.h: channel/forwarder/data/%.a | $(OBJDIR)
 	@echo $(notdir $<)
 	@cd $(OBJDIR) && cp ../../$< . && bin2s -a 32 -H $*_a.h $(notdir $<) | $(AS) -o $*_a.o
 
-$(OBJDIR)/fw_main.o: channel/forwarder/main.c channel/forwarder/data/splash.h $(SPLASHO) | $(OBJDIR)
+# The test flag the forwarder was last built with; rewritten only when it
+# changes, so its time tells make whether fw_main.o is stale.
+FWTESTSTAMP := $(OBJDIR)/fw_test.flags
+$(FWTESTSTAMP): FORCE | $(OBJDIR)
+	@echo '$(FWTEST)' | cmp -s - $@ || echo '$(FWTEST)' > $@
+
+$(OBJDIR)/fw_main.o: channel/forwarder/main.c channel/forwarder/data/splash.h $(SPLASHO) $(FWTESTSTAMP) | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(CFLAGS) $(FWTEST) -Ichannel/forwarder/data -c $< -o $@
 
