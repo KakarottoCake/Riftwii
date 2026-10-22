@@ -105,7 +105,11 @@ What still fails is written to a one-sector card log
 adapter on, a second blob hooks the game's `PADRead` and
 `PADControlMotor` (found by structure too) and runs the WUP-028 driver
 through the game's own asynchronous IPC. The adapter's controllers fill
-ports with nothing plugged in; rumble goes back to them.
+ports with nothing plugged in; rumble goes back to them. PADRead tells
+the video code which of its own ports are in use, so the Wii's screen
+burn-in reduction leaves the screen lit; for the adapter's pads the
+blob calls the same reset (found by the call near PADRead) on each
+button or stick change.
 
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when

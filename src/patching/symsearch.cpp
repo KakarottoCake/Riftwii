@@ -319,6 +319,53 @@ constexpr std::uint32_t kBlr = 0x4E800020u;
 constexpr std::uint32_t kFunctionLookback = 0x1000;  // bytes walked back to a function's start
 constexpr unsigned kMinReadSites = 3;
 constexpr std::size_t kMotorWindow = 40;             // instructions from the flag read to the command
+constexpr std::uint32_t kIdleResetWindow = 0x1000;   // bytes from PADRead's start: PADRead and its status helper
+constexpr std::uint32_t kLiR0Zero = 0x38000000u;     // li r0, 0
+constexpr std::uint32_t kLiR3One = 0x38600001u;      // li r3, 1
+
+bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }  // stw r0, d(r13)
+
+// The SDK's screen-dimming resets: clear a small-data flag, return 1
+// (compilers put the store and the return value in either order). The
+// flag's offset from r13 for a function of that shape, else kNoIdleReset
+// (offsets fit 16 bits).
+constexpr std::int32_t kNoIdleReset = 0x10000;
+std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (const CodeRange& r : text) {
+        if (address < r.address || address - r.address + 16 > r.size) continue;
+        const std::uint8_t* words = r.bytes + (address - r.address);
+        const std::uint32_t second = be32(words + 4);
+        const std::uint32_t third = be32(words + 8);
+        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
+            return kNoIdleReset;
+        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    }
+    return kNoIdleReset;
+}
+
+// The idle reset PADRead (or the status helper after it) calls; 0 when no
+// call in the window reaches one, or calls reach two different ones. The
+// video library defines the controller ports' reset right after the Wii
+// Remotes' one, for the flag 4 bytes above, in every game checked (Brawl,
+// Mario Kart Wii, Tatsunoko vs. Capcom, Clash of Ninja Revolution 3, Kamen
+// Rider): a call near PADRead to a lone function of that shape is
+// something else.
+std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    std::uint32_t found = 0;
+    for (std::uint32_t at = pad_read; at < pad_read + kIdleResetWindow; at += 4) {
+        if (!inside(text, at)) break;
+        const std::uint32_t w = word_at(text, at);
+        if (!is_bl(w)) continue;
+        const std::uint32_t target = bl_target(at, w);
+        const std::int32_t flag = idle_reset_flag(text, target);
+        if (flag == kNoIdleReset || idle_reset_flag(text, target - 16) != flag + 4) continue;
+        if (found != 0 && found != target) return 0;
+        found = target;
+    }
+    return found;
+}
 
 // The start of the function containing `address`: the nearest `stwu r1`
 // followed by `mflr r0` before it, 0 when a `blr` comes first (the site
@@ -385,6 +432,7 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         out.read = f;
         out.read_sites = sites;
     }
+    if (out.read != 0) out.idle_reset = find_idle_reset(text, out.read);
     if (motors.size() > 1) {
         char buf[96];
         std::snprintf(buf, sizeof(buf), "%u PADControlMotor candidates, the first 0x%08x",
