@@ -41,6 +41,7 @@ const char* const kCredits[] = {
     "aspect ratio, rumble and speaker options, the Wiinnertag file RiftWii's RiiTag support reads, how to find "
     "the Wii Menu's fonts (its TrueType and bitmap ones) for the Menu font setting, how to use d2x's USB device on either USB port, "
     "how to keep saves in d2x's emulated NAND and where that NAND is kept (the Saves choice \"SD, emulated NAND\"), the "
+    "channel identity and synthetic ticket layout (dude, Miigotu and Dimok, zlib), the "
     "idea of hooking a game's second "
     "executable and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
     "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "

@@ -2808,6 +2808,78 @@ msgstr "スロットAに読み込めるメモリーカードがありません�
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
 
+msgid "Channel background"
+msgstr "チャンネルの背景"
+
+msgid "White"
+msgstr "白"
+
+msgid "Transparent"
+msgstr "透明"
+
+msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
+msgstr "白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。"
+
+msgid "Show non-game channels"
+msgstr "ゲーム以外のチャンネルを表示"
+
+msgid "Nintendo's own channels are listed on Home now."
+msgstr "任天堂のチャンネルをホームに表示するようにしました。"
+
+msgid "Only games are listed on Home now."
+msgstr "ホームにはゲームだけを表示するようにしました。"
+
+msgid "Boot from"
+msgstr "起動元"
+
+msgid "Boot"
+msgstr "起動"
+
+msgid "Real NAND"
+msgstr "実NAND"
+
+msgid "Emulated NAND"
+msgstr "エミュレートNAND"
+
+msgid "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."
+msgstr "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。"
+
+msgid "Game IOS"
+msgstr "ゲームのIOS"
+
+msgid "The IOS RiftWii starts the channel under."
+msgstr "RiftWiiがこのチャンネルを起動するIOSです。"
+
+msgid "Emulated NAND (not here)"
+msgstr "エミュレートNAND (ここにはありません)"
+
+msgid "Real NAND (not here)"
+msgstr "実NAND (ここにはありません)"
+
+msgid "Show all channels even if they aren't detected as a game."
+msgstr "ゲームとして検出されないチャンネルもすべて表示します。"
+
+msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
+msgstr "Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。"
+
+msgid "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply."
+msgstr "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。"
+
+msgid "The copy RiftWii lists starts, with its own save."
+msgstr "RiftWiiが表示するコピーが、独自のセーブとともに起動します。"
+
+msgid "The copy in {1} starts, and saves stay there on the SD card."
+msgstr "{1}のコピーが起動し、セーブはSDカードのそこに残ります。"
+
+msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
+msgstr "エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。"
+
+msgid "{1} has no copy of this game. Install it there from its WAD first."
+msgstr "{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。"
+
+msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
+msgstr "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。"
+
 msgid "Homebrew"
 msgstr "Homebrew"
 

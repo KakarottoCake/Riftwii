@@ -49,6 +49,7 @@
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
 #include "memlimits.hpp"
+#include "d2xsd.hpp"
 #include "modpicture.hpp"
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
@@ -1096,8 +1097,10 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 				&state.sd_catalog.games[i]);
 		}
 	if (source == "all" || source == "wii")
-		for (std::size_t i = 0; i < state.channels.size(); ++i)
+		for (std::size_t i = 0; i < state.channels.size(); ++i) {
+			if (state.channels[i].non_game && !riftwii::wii::Settings().nand_non_games) continue;
 			add(ChannelName(state.channels[i]), HomeEntry::Kind::Channel, i, state.channels[i].game_id, nullptr);
+		}
 	// The games' profiles, each a tile of its own, with the first copy of
 	// its game found on a drive (a game on both drives gets them once; the
 	// Wii's channels take no packs). Only a game Home lists has them: a
@@ -4042,6 +4045,7 @@ static int MenuSource(FrontendState& state)
 	grid.SetRing(homeTiles == "covers3d");
 	grid.SetRoomy(riftwii::wii::Settings().grid_spacing == "roomy");
 	skin::SetOnHome(true);  // the wall for the view now set
+	grid.SetChannelBackdrop(riftwii::wii::Settings().channel_background == "card");
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
 		[&items, &entries](int index, const GuiGameGrid::IconBox& b) {
 			if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return false;
@@ -5157,9 +5161,72 @@ static std::string SaveNote(const riftwii::LaunchModel& model, const std::string
 	return "Saves stay on the Wii, as usual.";
 }
 
+struct ChannelCopies {
+	bool wii = false;
+	bool emu = false;
+	std::string folder;
+};
+
+static ChannelCopies CopiesOf(const FrontendState& state) {
+	ChannelCopies copies;
+	if (state.channel_index >= state.channels.size()) return copies;
+	const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
+	for (const riftwii::wii::NandChannel& other : state.channels) {
+		if (other.title_id != channel.title_id) continue;
+		if (other.emu_nand.empty()) {
+			copies.wii = copies.wii || other.playable;
+		} else {
+			copies.emu = copies.emu || other.playable;
+			copies.folder = other.emu_nand;
+		}
+	}
+	if (copies.folder.empty()) {
+		const riftwii::wii::SharedNandLookup emu = riftwii::wii::look_up_channel_nand();
+		if (emu.usable) copies.folder = emu.folder;
+	}
+	if (!copies.emu && riftwii::wii::emu_channel_program_present(copies.folder, channel.title_id)) copies.emu = true;
+	return copies;
+}
+
+static std::string ChannelBootLabel(const std::string& nand_source) {
+	if (nand_source == "real") return tr("On the Wii");
+	if (nand_source == "emu") return tr("SD, emulated NAND");
+	return tr("Automatic");
+}
+static void CycleChannelNand(FrontendState& state) {
+	const ChannelCopies copies = CopiesOf(state);
+	static const char* const kChoices[] = {"auto", "real", "emu"};
+	int at = 0;
+	while (at < 3 && state.model.game.nand_source != kChoices[at]) ++at;
+	for (int step = 1; step <= 3; ++step) {
+		const char* candidate = kChoices[(at + step) % 3];
+		if (std::string(candidate) == "real" && !copies.wii) continue;
+		if (std::string(candidate) == "emu" && !copies.emu) continue;
+		state.model.game.nand_source = candidate;
+		return;
+	}
+
+}
+
+static std::string ChannelBootNote(const FrontendState& state) {
+	const ChannelCopies copies = CopiesOf(state);
+	if (!copies.wii && !copies.emu)
+		return tr("No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.");
+	const std::string& source = state.model.game.nand_source;
+	if (source == "real")
+		return copies.wii ? tr("Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.")
+						  : tr("The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.");
+	if (source == "emu")
+		return copies.emu ? tr("The copy in {1} starts, and saves stay there on the SD card.", {copies.folder})
+						  : tr("{1} has no copy of this game. Install it there from its WAD first.", {copies.folder});
+	return copies.emu && !copies.wii
+		? tr("The emulated NAND's copy starts; its save is on the SD card in {1}.", {copies.folder})
+		: tr("The copy RiftWii lists starts, with its own save.");
+}
+
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
-		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
+		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
@@ -5196,7 +5263,37 @@ static std::string GcLanguageName(const std::string& v)
 	if (v == "dutch") return tr("Dutch");
 	return tr("The console's");
 }
+static const std::vector<std::string>& CiosSlotValues()
+{
+	static std::vector<std::string> values;
+	if (!values.empty()) return values;
+	for (int slot = 248; slot <= 252; ++slot) values.push_back(std::to_string(slot));
+	for (int slot = 200; slot < 256; ++slot) {
+		if (slot >= 248 && slot <= 252) continue;
+		if (riftwii::wii::slot_has_ticket(slot)) values.push_back(std::to_string(slot));
+	}
+	return values;
+}
+static const std::vector<std::string>& ChannelIosValues()
+{
+	static std::vector<std::string> values;
+	if (values.empty()) {
+		values.push_back("auto");
+		const std::vector<std::string>& slots = CiosSlotValues();
+		values.insert(values.end(), slots.begin(), slots.end());
+	}
+	return values;
+}
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
+static std::string StepList(const std::vector<std::string>& values, const std::string& value, int direction)
+{
+	if (values.empty()) return value;
+	const auto found = std::find(values.begin(), values.end(), value);
+	if (found == values.end()) return direction > 0 ? values.front() : values.back();
+	const int n = static_cast<int>(values.size());
+	const int at = static_cast<int>(found - values.begin());
+	return values[static_cast<std::size_t>(((at + direction) % n + n) % n)];
+}
 static const char* const kServers[] = {"global", "off", "wiimmfi", "wiilink", "altwfc", "custom"};
 
 template <std::size_t N>
@@ -5276,6 +5373,17 @@ static std::string CiosName(const std::string& v)
 {
 	if (v == "auto") return tr("Automatic");
 	return "cIOS " + v;
+}
+static std::string ChannelIosName(const std::string& v)
+{
+	if (v == "auto" || v == "global") return tr("Automatic");
+	return "IOS " + v;
+}
+static int ChannelIosChoice(const std::string& v)
+{
+	if (v.empty() || v == "auto" || v == "global") return 0;
+	const int slot = std::atoi(v.c_str());
+	return slot > 0 && slot < 256 ? slot : 0;
 }
 static std::string ServerName(const std::string& v)
 {
@@ -5432,14 +5540,24 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	language.value = GameValue(game.language, global.game_language, GameLanguageName);
 	language.on = game.language != "global";
 	add(language, {RowRef::What::Language});
-	// Discs run under the menu's IOS reload; the cIOS is for images.
-	if (state.use_usb || state.use_sd) {
+	if (state.use_usb || state.use_sd || state.use_channel) {
 		FlowRow cios;
 		cios.kind = FlowRow::Kind::Option;
-		cios.label = "cIOS";
-		cios.value = GameValue(game.cios, global.game_cios, CiosName);
-		cios.on = game.cios != "global";
+		cios.label = state.use_channel ? tr("Game IOS") : "cIOS";
+		cios.value = state.use_channel ? ChannelIosName(game.cios) : GameValue(game.cios, global.game_cios, CiosName);
+		cios.on = state.use_channel ? ChannelIosChoice(game.cios) != 0 : (game.cios != "global" && game.cios != "auto");
 		add(cios, {RowRef::What::Cios});
+		if (state.use_channel) {
+			FlowRow nand;
+			nand.kind = FlowRow::Kind::Option;
+			nand.label = tr("Boot from");
+			const ChannelCopies copies = CopiesOf(state);
+			nand.value = game.nand_source == "real" ? (copies.wii ? tr("Real NAND") : tr("Real NAND (not here)"))
+				: game.nand_source == "emu" ? (copies.emu ? tr("Emulated NAND") : tr("Emulated NAND (not here)"))
+				: tr("Automatic");
+			nand.on = game.nand_source != "auto";
+			add(nand, {RowRef::What::NandSource});
+		}
 	}
 	FlowRow server;
 	server.kind = FlowRow::Kind::Option;
@@ -9026,7 +9144,8 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	int changed = 0;
 	for (const std::string* v : {&g.video_width, &g.deflicker, &g.borders, &g.video_mode, &g.aspect, &g.language,
 		     &g.cios, &g.server})
-		if (*v != "global") ++changed;
+		if (*v != "global" && *v != "auto") ++changed;
+	if (g.nand_source != "auto") ++changed;
 	if (g.region_video == "on") ++changed;
 	if (g.region_strings == "on") ++changed;
 	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
@@ -9102,11 +9221,13 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		add(GameTile::Play, kTilesX, 132, kTilesRight - kTilesX, 84, tr("Play"), "", &skin::iconPlay, false);
 		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
 			game.cheats && !game.cheat_names.empty());
-		add(GameTile::Options, kRightX, 228, kHalfW, 70, tr("Options"),
+		add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Boot"), ChannelBootLabel(game.nand_source),
+			&skin::iconSaves, game.nand_source != "auto");
+		add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
 			changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
 		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
-		add(GameTile::About, kTilesX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
 		return;
 	}
 	add(GameTile::Play, kTilesX, 132, 252, 84, play, playValue, &skin::iconPlay, false);
@@ -9246,8 +9367,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 					text += std::string(" ") + tr("That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again.");
 				say(text);
 			}
+			else if (ref.what == RowRef::What::Cios && state.use_channel)
+				say(tr("The IOS RiftWii starts the channel under."));
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+			else if (ref.what == RowRef::What::NandSource)
+				say(tr("Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."));
 			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id))
 				say(tr("This game has no online play, so it needs no server."));
 			else if (ref.what == RowRef::What::Server && state.model.packs_patch_game())
@@ -9277,7 +9402,15 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::Speaker) game.speaker = game.speaker == "off" ? "on" : "off";
 			else if (ref.what == RowRef::What::RegionStrings) game.region_strings = game.region_strings == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::Language) game.language = StepValue(kGameLanguages, game.language, direction);
+			else if (ref.what == RowRef::What::Cios && state.use_channel) {
+				if (game.cios == "global") game.cios = "auto";
+				game.cios = StepList(ChannelIosValues(), game.cios, direction);
+				if (ChannelIosChoice(game.cios) == 0) game.cios = "global";
+			}
 			else if (ref.what == RowRef::What::Cios) game.cios = StepValue(kCiosChoices, game.cios, direction);
+			else if (ref.what == RowRef::What::NandSource) {
+				CycleChannelNand(state);
+			}
 			else if (ref.what == RowRef::What::GcDiscReads) game.gc_disc_reads = game.gc_disc_reads == "fast" ? "drive" : "fast";
 			else if (ref.what == RowRef::What::GcCard) {
 				// Asked when switching, where it matters: the saves stay behind.
@@ -9377,6 +9510,7 @@ static int MenuHome(FrontendState& state)
 	} catch (...) {
 		scanStatus = "Package scan failed; go back and try again";
 	}
+	if (state.use_channel && state.model.game.cios == "auto") state.model.game.cios = "global";
 	// A disc's game (or one Home did not reach yet): its cover, on the
 	// network's thread (the loop below starts it and takes the answer).
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
@@ -9603,7 +9737,11 @@ static int MenuHome(FrontendState& state)
 					break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
 				case GameTile::Cheats: say(tr("Cheat codes for this game. Press A to choose them.")); break;
-				case GameTile::Saves: say(SelectedGcGame(state) ? GcSaveNote(state) : SaveNote(state.model, state.game_id)); break;
+				case GameTile::Saves:
+					if (state.use_channel) say(ChannelBootNote(state));
+					else if (SelectedGcGame(state)) say(GcSaveNote(state));
+					else say(SaveNote(state.model, state.game_id));
+					break;
 				case GameTile::Favorite: say(tr("Favourites have their own view on Home: press 1 there until it shows.")); break;
 				case GameTile::Options:
 					say(SelectedGcGame(state) ? std::string(tr("This game's own options: how its disc is read, and its controls."))
@@ -9628,6 +9766,11 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Append(&w);
 				rebuildTiles();
 				shownTile = -1;
+			} else if (tile == GameTile::Saves && state.use_channel) {
+				CycleChannelNand(state);
+				saveOrSay();
+				rebuildTiles();
+				say(ChannelBootNote(state));
 			} else if (tile == GameTile::Saves && !state.model.pack_save_owner().empty()) {
 				say(SaveNote(state.model, state.game_id));
 			} else if (tile == GameTile::Saves) {
@@ -9696,12 +9839,25 @@ static int MenuHome(FrontendState& state)
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
 			} else if (state.use_channel) {
-				// The Wii's own game: none of the drives' checks apply.
 				if (saveForStart() && state.channel_index < state.channels.size()) {
 					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
-					logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
-					riftwii::wii::SetChannelToStart(channel);
-					menu = MENU_PLAY_CHANNEL;
+					const ChannelCopies copies = CopiesOf(state);
+					const std::string& nand_source = state.model.game.nand_source;
+					const bool emulated = nand_source == "emu" || (nand_source == "auto" && !copies.wii && copies.emu);
+					if ((!copies.wii && !copies.emu) || (nand_source == "real" && !copies.wii) ||
+					    (emulated && !copies.emu)) {
+						say(ChannelBootNote(state));
+					} else {
+						logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
+						riftwii::wii::SetChannelToStart(channel);
+						if (emulated && channel.emu_nand.empty())
+							riftwii::wii::SetChannelToStartNand(copies.folder);
+						else if (!emulated)
+							riftwii::wii::SetChannelToStartNand(std::string());
+						riftwii::wii::SetChannelToStartIos(ChannelIosChoice(state.model.game.cios));
+						riftwii::wii::SetChannelToStartDirect(nand_source == "real");
+						menu = MENU_PLAY_CHANNEL;
+					}
 				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
@@ -10093,7 +10249,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -10135,6 +10291,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
+		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
+			settings.nand_non_games, kNonGames, FlowRow::Kind::Toggle);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
 			settings.return_to != "menu", kReturnTo);
@@ -10168,6 +10326,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		if (settings.home_tiles == "channels") {
 			option(tr("Channel corners"), ChannelCornersName(settings.channel_corners), settings.channel_corners != "theme",
 				kChannelCorners);
+			option(tr("Channel background"), settings.channel_background == "card" ? tr("White") : tr("Transparent"),
+				settings.channel_background == "card", kChannelBackground);
 			option(tr("Pages at the sides"), settings.page_peek == "off" ? tr("Off") : tr("On"),
 				settings.page_peek != "off", kPagePeek, FlowRow::Kind::Toggle);
 		}
@@ -10332,11 +10492,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kGameLanguage: case kGameCios: case kReturnTo: case kShots: case kGcBackups:
+				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
 					return SettingsSection::Controllers;
-				case kHomeTiles: case kChannelCorners: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort:
+				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
@@ -10430,8 +10590,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
+			case kNonGames: return tr("Show all channels even if they aren't detected as a game.");
 			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.");
 			case kChannelCorners: return tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.");
+			case kChannelBackground:
+				return tr("White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.");
 			case kGridSpacing: return tr("Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.");
 			case kPagePeek: return tr("Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
@@ -10581,6 +10744,25 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					saveAndNote(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 					rebuild();
 					break;
+				case kNonGames: {
+					settings.nand_non_games = !settings.nand_non_games;
+					const std::string error = saveSettings();
+					if (!error.empty()) {
+						note(error);
+						break;
+					}
+					note(settings.nand_non_games ? tr("Nintendo's own channels are listed on Home now.")
+									: tr("Only games are listed on Home now."));
+					for (FlowRow& row : rows)
+						if (row.label == tr("Show non-game channels")) {
+							row.value = settings.nand_non_games ? tr("On") : tr("Off");
+							row.on = settings.nand_non_games;
+							break;
+						}
+					list.Refresh();
+					list.Select(acted);
+					break;
+				}
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
@@ -10686,6 +10868,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.channel_corners = StepValue(kChannelCornerChoices, settings.channel_corners, direction);
 					skin::SetChannelCorners(settings.channel_corners);
 					saveAndNote(tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."));
+					rebuild();
+					break;
+				case kChannelBackground:
+					settings.channel_background = settings.channel_background == "card" ? "none" : "card";
+					saveAndNote(tr("White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."));
 					rebuild();
 					break;
 				case kGridSpacing:

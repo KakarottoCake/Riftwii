@@ -88,11 +88,21 @@ void StartHomebrewChannelTitle() {
 void StartChannel(u64 title) {
     riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
                        static_cast<unsigned>(title));
+    if (riftwii::wii::ChannelToStartDirect()) {
+        riftwii::wii::logf("Wii channels: the system starts it as the Wii Menu does, with none of RiftWii's loader\n");
+        riftwii::wii::LaunchMusicEnd("the system starts the game");
+        riftwii::wii::LogClose();
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+        return;
+    }
     riftwii::wii::ProgressStage("Getting the game ready", 30);
     std::string error;
     riftwii::wii::ChannelBootFiles files;
     const std::string emu_nand = riftwii::wii::ChannelToStartNand();
-    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error)) {
+    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos())) {
         riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
     }
