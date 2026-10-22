@@ -2808,6 +2808,27 @@ msgstr "Le port A ne contient aucune carte lisible. Une carte du port B ne peut 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossible de préparer la carte réelle. Vérifiez la carte et réessayez."
 
+msgid "Network Test"
+msgstr "Test réseau"
+
+msgid "Testing the network..."
+msgstr "Test du réseau..."
+
+msgid "Offline"
+msgstr "Hors ligne"
+
+msgid "Checks if network is online."
+msgstr "Vérifie si le réseau est en ligne."
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii."
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "Aucune réponse HTTP. Vérifiez la connexion et réessayez."
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "Le réseau est occupé. Réessayez après le téléchargement."
+
 msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
 msgstr "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi)."
 

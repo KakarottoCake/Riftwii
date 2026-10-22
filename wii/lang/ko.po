@@ -2808,6 +2808,27 @@ msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
 
+msgid "Network Test"
+msgstr "네트워크 테스트"
+
+msgid "Testing the network..."
+msgstr "네트워크를 테스트하는 중..."
+
+msgid "Offline"
+msgstr "오프라인"
+
+msgid "Checks if network is online."
+msgstr "네트워크가 온라인인지 확인합니다."
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요."
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요."
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요."
+
 msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
 msgstr "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다)."
 
