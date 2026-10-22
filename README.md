@@ -117,6 +117,8 @@ contains theirs names them in its file header, and
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
+- **Priiloader** by DacoTaco: how to tell it is installed, from its
+  installer (read only; no code copied).
 - **Mario Party 4 community decompilation**: documentation of GameCube font
   encoding behavior (read only; no code copied).
 - **OGWS community decompilation**: documentation of Wii sequence envelopes,

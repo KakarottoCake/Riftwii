@@ -67,6 +67,8 @@ const char* const kCredits[] = {
     "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
     "",
+    "Priiloader by DacoTaco: how to tell it is installed, from its installer (read only, no code copied).",
+    "",
     "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer and libasnd by "
     "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player, and the streaming mixer API reference.",
     "",

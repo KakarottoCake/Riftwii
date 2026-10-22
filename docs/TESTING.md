@@ -93,7 +93,8 @@ For things that worked, a short "works" with the game, where it ran from
   screen saver is on, and wakes up on any button.
 - [ ] **Menu screenshots.** Hold 1 and press HOME on a Wii Remote. A PNG
   appears in `sd:/riftwii/screenshots`.
-- [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader and
+- [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader (or
+  Restart where Priiloader is not installed: the console restarts) and
   Power off.
 - [ ] **Power button**: the console's and a Wii Remote's turn the Wii off.
 - [ ] **Look for games again** (Settings) finds a game you just copied.
