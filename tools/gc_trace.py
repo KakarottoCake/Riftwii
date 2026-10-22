@@ -26,7 +26,7 @@ WHERE = {1: 'read', 2: 'pad', 3: 'ai', 4: 'ar', 5: 'jump', 6: 'beat', 7: 'fatal'
          10: 'restart', 11: 'exec', 12: 'pad_si', 13: 'disc'}
 PAD_SI_WHERE = 12
 DISC_WHERE = 13
-DISC_NAMES = ['disc_state', 'disc_stops', 'disc_dicvr']
+DISC_NAMES = ['disc_state', 'disc_stops', 'disc_dicvr', 'disc_step']
 PAD_SI_NAMES = ['si_type_1', 'si_type_2', 'si_type_3', 'si_type_4', 'sisr', 'pad_enabled_before',
                 'pad_enabled_after', 'pad_raw_errs', 'pad_native']
 # Counters read better in decimal; everything else (addresses, registers) in hex.

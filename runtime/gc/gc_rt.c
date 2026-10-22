@@ -708,6 +708,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
                               (dc->unseen & 0xFFu);
         w[GC_TR_DISC_STOPS] = dc->stops;
         w[GC_TR_DISC_DICVR] = ctx->di_regs != 0 ? gc_read32(ctx->di_regs + 4u * GC_DI_CVR) : 0;
+        w[GC_TR_DISC_STEP] = dc->state << 24 | (dc->alarm_queued & 0xFFu) << 16 | (dc->looks & 0xFFFFu);
     }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
@@ -1400,6 +1401,7 @@ static void gc_disc_motor_stop(struct gc_rt_context* ctx) {
     __asm__ volatile("mftb %0" : "=r"(now));
     if (gc_disc_motor_stopped(dc, now)) gc_set_alarm(ctx, dc->alarm, dc->cover_ticks);
     gc_irq_restore(msr);
+    gc_trace(ctx, GC_TRACE_DISC);
 }
 
 uint32_t gc_on_stop_motor(struct gc_rt_context* ctx, uint32_t cb) {
@@ -1442,13 +1444,12 @@ static void gc_disc_on_alarm(struct gc_rt_context* ctx, uint32_t os_context) {
     }
     __asm__ volatile("mftb %0" : "=r"(now));
     todo = gc_disc_cover_alarm(dc, now, di[GC_DI_CVR], &ticks);
-    if (todo & GC_DISC_SWAPPED) {
-        gc_disc_insert(ctx, dc);
-        gc_trace(ctx, GC_TRACE_DISC);
-    }
+    if (todo & GC_DISC_SWAPPED) gc_disc_insert(ctx, dc);
     if (todo & GC_DISC_LATCH) di[GC_DI_CVR] |= GC_DICVR_INT;
     if (todo & GC_DISC_RAISE) gc_disc_raise_cover(ctx, os_context);
     if (todo & GC_DISC_AGAIN) gc_set_alarm(ctx, dc->alarm, ticks);
+    /* A record for each step but the quiet looks in between. */
+    if (todo & (GC_DISC_SWAPPED | GC_DISC_RAISE | GC_DISC_LATCH)) gc_trace(ctx, GC_TRACE_DISC);
 }
 
 /* ---- Disc audio streaming ------------------------------------------ */

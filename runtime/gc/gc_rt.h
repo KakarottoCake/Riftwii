@@ -224,14 +224,17 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TR_PAD_ENABLED_AFTER (GC_TR_CRASH_R1 + 6)
 #define GC_TR_PAD_RAW_ERRS (GC_TR_CRASH_R1 + 7)
 #define GC_TR_PAD_NATIVE (GC_TR_CRASH_R1 + 8) /* bits 0-3 reserved; bit 8: type table available */
-/* A disc change's records (GC_TRACE_DISC, gc_disc.h) reuse three of them
- * the same way: the disc in (0: disc 1) << 24 | discs changed << 16 |
- * cover interrupts the game took << 8 | changes nobody waited for (each
- * count's low 8 bits), the motor's stops, and the DI cover register as
- * the game left it. */
+/* A disc change's records (GC_TRACE_DISC, gc_disc.h: written at each stop
+ * of the motor, each change and when the cover interrupt is raised or
+ * left latched) reuse four of them the same way: the disc in (0: disc 1)
+ * << 24 | discs changed << 16 | cover interrupts the game took << 8 |
+ * changes nobody waited for (each count's low 8 bits), the motor's stops,
+ * the DI cover register as the game left it, and the change's state << 24
+ * | its alarm queued << 16 | looks at a closed cover. */
 #define GC_TR_DISC_STATE GC_TR_CRASH_R1
 #define GC_TR_DISC_STOPS (GC_TR_CRASH_R1 + 1)
 #define GC_TR_DISC_DICVR (GC_TR_CRASH_R1 + 2)
+#define GC_TR_DISC_STEP (GC_TR_CRASH_R1 + 3)
 /* where: what wrote the record */
 #define GC_TRACE_READ 1u
 #define GC_TRACE_PAD 2u
@@ -245,7 +248,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_RESTART 10u /* the game is restarted (Reset): MEM1 goes back as it was at the jump */
 #define GC_TRACE_EXEC 11u   /* the game switches to another program: exec.txt written, the way back next */
 #define GC_TRACE_PAD_SI 12u /* a pad record with the crash-word overlay above */
-#define GC_TRACE_DISC 13u   /* a two-disc game's other disc went in (gc_disc.h) */
+#define GC_TRACE_DISC 13u   /* a two-disc game's disc change moved on (gc_disc.h) */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
