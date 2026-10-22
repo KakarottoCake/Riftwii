@@ -240,7 +240,12 @@ void RunNetworkTest() {
 bool StartNetworkTest() {
     if (NetBackgroundBusy()) return false;
     g_network_test_pending = true;
-    return NetRunInBackground(RunNetworkTest);
+    // A test that never started has no result to hand out later.
+    if (!NetRunInBackground(RunNetworkTest)) {
+        g_network_test_pending = false;
+        return false;
+    }
+    return true;
 }
 
 bool TakeNetworkTest(NetworkTest& result) {
