@@ -37,6 +37,12 @@ PYTHON   ?= python3
 ART      := $(wildcard channel/art/*)
 
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
+# A test forwarder that stops at one step of its start, to check the screen
+# a stuck console shows (channel/forwarder/main.c): make clean, then
+# make -f Makefile.channel CHANNEL_TEST_HANG=<step>. Never for a release.
+ifneq ($(strip $(CHANNEL_TEST_HANG)),)
+FWTEST   := -DCHANNEL_TEST_HANG=$(CHANNEL_TEST_HANG)
+endif
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
 # libogc's start-up IOS_Close calls go through channel/forwarder/startup.c.
 FWWRAP   := $(foreach f,IOS_Close SYS_PreMain __IOS_LoadStartupIOS,-Wl,--wrap=$(f))
@@ -70,7 +76,7 @@ $(OBJDIR)/%_a.o $(OBJDIR)/%_a.h: channel/forwarder/data/%.a | $(OBJDIR)
 
 $(OBJDIR)/fw_main.o: channel/forwarder/main.c channel/forwarder/data/splash.h $(SPLASHO) | $(OBJDIR)
 	@echo $(notdir $<)
-	@$(CC) $(CFLAGS) -Ichannel/forwarder/data -c $< -o $@
+	@$(CC) $(CFLAGS) $(FWTEST) -Ichannel/forwarder/data -c $< -o $@
 
 $(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDIR)
 	@echo $(notdir $<)

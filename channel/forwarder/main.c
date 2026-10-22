@@ -12,9 +12,20 @@
 // (channel/loader) reads this one from the channel's content 2 and starts
 // it; it is linked at 0x80100000, above that program and below RiftWii
 // (0x80a00000 up).
+//
+// The SD card and the USB drive are read on a thread of their own, while
+// the main thread shows each step under the name and gives up on a step
+// that takes too long (issue #228: on some vWii consoles the channel
+// stopped for good after the intro, with nothing on screen to say where).
+//
+// For a test build that stops at one step, as such a console does, define
+// CHANNEL_TEST_HANG as that step's number (the Step enum below):
+//   make -f Makefile.channel clean
+//   make -f Makefile.channel CHANNEL_TEST_HANG=1    (stops at mounting the SD card)
 
 #include <gccore.h>
 #include <fat.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/usbstorage.h>
 #include <sdcard/wiisd_io.h>
 
@@ -73,20 +84,46 @@ static void blend(int* c, int r, int g, int b, int a) {
     c[2] += (b - c[2]) * a >> 8;
 }
 
-static void draw(const Frame* f) {
+// The status line under the name: which step of the start the channel is
+// on (show_status), so a console that stops shows where it stopped. In the
+// console's own 8x16 font, which fail() links in anyway.
+extern u8 console_font_8x16[];
+enum { kGlyphWidth = 8, kGlyphHeight = 16 };
+static const char* g_status = NULL;
+static Frame g_last;  // the frame on screen, to draw a new status line over
+
+static int status_top(void) { return g_mode->xfbHeight - 72; }
+
+// Whether the status text covers screen pixel `px` on glyph row `glyph_y`.
+// It is narrowed on a 16:9 TV, as the art is.
+static bool status_covers(int px, int glyph_y, int text_x, int length) {
+    if (px < text_x) return false;
+    const int column = (px - text_x) * 256 / g_squeeze;
+    const int index = column / kGlyphWidth;
+    if (index >= length) return false;
+    const u8 bits = console_font_8x16[(u8)g_status[index] * kGlyphHeight + glyph_y];
+    return bits & (0x80 >> (column % kGlyphWidth));
+}
+
+// Rows y_from..y_to-1 of a frame, into the framebuffer.
+static void render_rows(const Frame* f, int y_from, int y_to) {
     const int w = g_mode->fbWidth, h = g_mode->xfbHeight;
     const int sq = g_squeeze;
     const int word_x = (w - kWordWidth * sq / 256) / 2, word_y = (h - kWordHeight) / 2 - 6;
     const int seam_x = word_x + kWordSeam * sq / 256;  // where the rift is, on screen
     const int cy = h / 2 - 6;
     const int half = kRiftHeight * f->tear / 512;  // the rift's half height now
-    for (int y = 0; y < h; ++y) {
+    const int text_length = g_status ? (int)strlen(g_status) : 0;
+    const int text_x = (w - text_length * kGlyphWidth * sq / 256) / 2;
+    for (int y = y_from; y < y_to; ++y) {
         u32* row = g_xfb + y * (w / 2);
         const u8* bg_row = splash_bg_rgb + (y * kBgHeight / h) * kBgWidth * 3;
         const int wy = y - word_y;
         const bool in_word = f->word > 0 && wy >= 0 && wy < kWordHeight;
         const bool in_rift = half > 0 && y >= cy - half && y < cy + half;
         const int ry = in_rift ? kRiftHeight / 2 + (y - cy) * (kRiftHeight / 2) / half : 0;
+        const int glyph_y = y - status_top();
+        const bool in_status = text_length > 0 && glyph_y >= 0 && glyph_y < kGlyphHeight;
         for (int x = 0; x < w; x += 2) {
             int c[2][3];
             for (int i = 0; i < 2; ++i) {
@@ -111,13 +148,31 @@ static void draw(const Frame* f) {
                         blend(c[i], p[0], p[1], p[2], p[3] * f->word >> 8);
                     }
                 }
+                // Not quite opaque, so the line stays quieter than the
+                // name; it fades out with the name.
+                if (in_status && status_covers(px, glyph_y, text_x, text_length)) {
+                    blend(c[i], 220, 228, 240, 200 * f->word >> 8);
+                }
                 if (f->flash) blend(c[i], 255, 255, 255, f->flash);
             }
             row[x / 2] = yuv_pair(c[0], c[1]);
         }
     }
-    DCFlushRange(g_xfb, w * h * 2);
+}
+
+static void draw(const Frame* f) {
+    g_last = *f;
+    render_rows(f, 0, g_mode->xfbHeight);
+    DCFlushRange(g_xfb, g_mode->fbWidth * g_mode->xfbHeight * 2);
     VIDEO_WaitVSync();
+}
+
+// A new status line over the frame on screen: only its rows are drawn again.
+static void show_status(const char* text) {
+    g_status = text;
+    const int top = status_top();
+    render_rows(&g_last, top, top + kGlyphHeight);
+    DCFlushRange(g_xfb + top * (g_mode->fbWidth / 2), g_mode->fbWidth * kGlyphHeight * 2);
 }
 
 static int ease_out(int t, int span) {  // 0..256 over span frames, slowing down
@@ -170,15 +225,27 @@ static void outro(void) {
     }
 }
 
+// What fail() advises for each kind of failure.
+static const char kCopyAdvice[] =
+    "  Copy RiftWii to the SD card (apps/riftwii/boot.dol)\n"
+    "  from riftwii.zip, then open this channel again.\n";
+static const char kHangAdvice[] =
+    "  Take the SD card (or USB drive) out, put it back in and open this\n"
+    "  channel again. If it stops at the same step, start RiftWii from the\n"
+    "  Homebrew Channel and report what this screen says.\n";
+
 // Nothing to start: a message on the console, then back to the Wii Menu
 // after 15 seconds, RESET or a GameCube controller button. (No Wii Remote
 // stack: it would double this program's size, which RiftWii carries.)
-static void fail(const char* why) {
+// It may run while the loader thread is stuck in a call to IOS that never
+// returns, which cannot be cancelled: so it touches neither the SD card
+// nor the USB drive, only the screen, the controller ports (SI, not IOS)
+// and the return to the Wii Menu.
+static void fail(const char* why, const char* advice) {
     CON_Init(g_xfb, 20, 20, g_mode->fbWidth, g_mode->xfbHeight, g_mode->fbWidth * VI_DISPLAY_PIX_SZ);
     printf("\x1b[2J\x1b[4;2H");
     printf("RiftWii could not be started.\n\n  %s\n\n", why);
-    printf("  Copy RiftWii to the SD card (apps/riftwii/boot.dol)\n");
-    printf("  from riftwii.zip, then open this channel again.\n\n");
+    printf("%s\n", advice);
     printf("  Back to the Wii Menu in 15 seconds (or press RESET).\n");
     PAD_Init();
     for (int f = 0; f < 15 * 60; ++f) {
@@ -189,8 +256,62 @@ static void fail(const char* why) {
     SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 }
 
-static bool mount(int which) {
-    if (which == 0) return fatMountSimple("sd", &__io_wiisd);
+// The steps of finding RiftWii, in order, each with how long it may take
+// before the channel gives up on it. A card or drive that works passes
+// all of them in well under a second, but reading boot.dol (about 7 MiB)
+// from a slow card or drive can take a few seconds.
+typedef enum {
+    STEP_SD_START,
+    STEP_SD_MOUNT,
+    STEP_SD_READ,
+    STEP_USB_MOUNT,
+    STEP_USB_READ,
+    STEP_COUNT,
+} StepId;
+
+typedef struct {
+    const char* status;      // under the name while it runs
+    const char* device;      // what did not answer, for fail()
+    const char* stopped_at;  // the step, for fail()
+    int seconds;
+} Step;
+
+static const Step kSteps[STEP_COUNT] = {
+    {"Starting the SD card...", "The SD card", "starting the SD card", 10},
+    {"Mounting the SD card...", "The SD card", "mounting the SD card", 10},
+    {"Reading apps/riftwii/boot.dol...", "The SD card", "reading boot.dol from the SD card", 60},
+    // mount_usb's own tries take about 5 seconds when no drive is there
+    {"Trying the USB drive...", "The USB drive", "starting the USB drive", 20},
+    {"Reading apps/riftwii/boot.dol from the USB drive...", "The USB drive",
+     "reading boot.dol from the USB drive", 60},
+};
+
+// What the loader thread found, read by the main thread once g_step is
+// STEP_COUNT (its last write).
+static volatile int g_step = -1;
+static volatile bool g_given_up;
+static u8* g_dol;
+static u32 g_size;
+static const char* g_path;
+
+// A thread that never goes on (it sleeps, so the main thread keeps running).
+static void stay_here(void) {
+    for (;;) usleep(1000000);
+}
+
+static void enter_step(StepId step) {
+    // Once the main thread has given up, start nothing more on the way
+    // back to the Wii Menu.
+    if (g_given_up) stay_here();
+    g_step = step;
+#ifdef CHANNEL_TEST_HANG
+    // The test build: what a console that never comes back from this step
+    // looks like.
+    if (step == CHANNEL_TEST_HANG) stay_here();
+#endif
+}
+
+static bool mount_usb(void) {
     for (int tries = 0; tries < 20; ++tries) {  // a USB drive can take a few seconds to spin up
         if (fatMountSimple("usb", &__io_usbstorage)) return true;
         usleep(250000);
@@ -216,29 +337,97 @@ static void* mem2(u32 n) {
 // The last mem2 block, given back.
 static void mem2_release(void* data) { SYS_SetArena2Lo(data); }
 
+static void read_dol(int which) {
+    g_dol = dolboot_read(kPaths[which], &g_size, mem2, mem2_release);
+    if (g_dol) g_path = kPaths[which];
+    unmount(which);
+}
+
+// That the channel got this far, in the installer's log, and how long the
+// card took: the first line is the one earlier channels wrote, which
+// reports are searched for.
+static void log_sd_start(u32 started_ms, u32 mounted_ms) {
+    FILE* log = fopen("sd:/riftwii/channel.log", "a");
+    if (!log) return;
+    fprintf(log, "Channel started, IOS%d\n", IOS_GetVersion());
+    fprintf(log, "Channel: the SD card started in %u ms and mounted in %u ms.\n",
+            (unsigned)started_ms, (unsigned)mounted_ms);
+    fclose(log);
+}
+
+// The loader thread: SD card first, the USB drive when the card has no
+// RiftWii. The SD card's start and mount are separate steps, so a console
+// that stops in one shows which (__io_wiisd.startup() does nothing the
+// second time, inside fatMountSimple).
+static void* load_thread(void* unused) {
+    (void)unused;
+    const u64 sd_begin = gettime();
+    enter_step(STEP_SD_START);
+    bool sd = __io_wiisd.startup();
+    const u32 started_ms = diff_msec(sd_begin, gettime());
+    if (sd) {
+        enter_step(STEP_SD_MOUNT);
+        sd = fatMountSimple("sd", &__io_wiisd);
+    }
+    if (sd) {
+        const u32 mounted_ms = diff_msec(sd_begin, gettime()) - started_ms;
+        enter_step(STEP_SD_READ);
+        log_sd_start(started_ms, mounted_ms);
+        read_dol(0);
+    }
+    if (!g_dol) {
+        enter_step(STEP_USB_MOUNT);
+        if (mount_usb()) {
+            enter_step(STEP_USB_READ);
+            read_dol(1);
+        }
+    }
+    g_step = STEP_COUNT;
+    return NULL;
+}
+
+// The loader thread's stack: static, as libogc's thread workspace is small.
+static u8 g_loader_stack[32 * 1024] ATTRIBUTE_ALIGN(32);
+
+// Runs the loader thread, showing each step it is on, until it is done.
+// A step past its time ends in fail(): the thread is stuck in IOS and
+// cannot be stopped, but the console can still go back to the Wii Menu.
+static void load(void) {
+    // Below the main thread (64), so each frame's check gets the CPU back
+    // from it even while it computes.
+    lwp_t loader;
+    LWP_CreateThread(&loader, load_thread, NULL, g_loader_stack, sizeof(g_loader_stack), 48);
+    int shown = -1;
+    u64 shown_since = 0;
+    for (;;) {
+        const int step = g_step;
+        if (step == STEP_COUNT) break;
+        if (step >= 0 && step != shown) {
+            shown = step;
+            shown_since = gettime();
+            show_status(kSteps[step].status);
+        }
+        if (shown >= 0 && diff_msec(shown_since, gettime()) >= kSteps[shown].seconds * 1000u) {
+            g_given_up = true;
+            char why[128];
+            snprintf(why, sizeof(why), "%s did not answer (stopped at: %s).", kSteps[shown].device,
+                     kSteps[shown].stopped_at);
+            fail(why, kHangAdvice);
+        }
+        VIDEO_WaitVSync();
+    }
+    LWP_JoinThread(loader, NULL);
+}
+
 int main(void) {
     video_init();
     intro();
+    load();
 
-    u8* dol = NULL;
-    u32 size = 0;
-    const char* path = NULL;
-    for (int i = 0; i < 2 && !dol; ++i) {
-        if (!mount(i)) continue;
-        if (i == 0) {  // that the channel got this far, in the installer's log
-            FILE* log = fopen("sd:/riftwii/channel.log", "a");
-            if (log) {
-                fprintf(log, "Channel started, IOS%d\n", IOS_GetVersion());
-                fclose(log);
-            }
-        }
-        dol = dolboot_read(kPaths[i], &size, mem2, mem2_release);
-        if (dol) path = kPaths[i];
-        unmount(i);
-    }
-    if (!dol) fail("apps/riftwii/boot.dol is not on the SD card or the USB drive.");
-    if (!dolboot_valid(dol, size)) fail("apps/riftwii/boot.dol is damaged or is not a Wii program.");
+    if (!g_dol) fail("apps/riftwii/boot.dol is not on the SD card or the USB drive.", kCopyAdvice);
+    if (!dolboot_valid(g_dol, g_size)) fail("apps/riftwii/boot.dol is damaged or is not a Wii program.", kCopyAdvice);
 
+    show_status("Starting RiftWii...");
     outro();
     VIDEO_SetBlack(TRUE);
     VIDEO_Flush();
@@ -246,6 +435,6 @@ int main(void) {
 
     // Keeps the IOS this channel runs under (58, from its TMD), as the
     // Homebrew Channel does.
-    dolboot_run(dol, path);
+    dolboot_run(g_dol, g_path);
     return 0;
 }
