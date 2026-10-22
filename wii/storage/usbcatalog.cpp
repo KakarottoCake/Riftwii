@@ -1933,6 +1933,12 @@ void log_release_heap(const std::string& before_reload) {
 }  // namespace
 
 bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error, const char* purpose) {
+    // As for USB and SD games (refuse_reload_while_stuck below).
+    if (ums::Stuck()) {
+        logf("USB (d2x): an earlier d2x request never answered; not reloading IOS again this run\n");
+        error = d2x_usb_unreadable_error(kD2xStuckReason);
+        return false;
+    }
     const int slots[] = {cios_slot ? cios_slot : 249, cios_slot ? 0 : 250, cios_slot ? 0 : 251};
     std::string skipped;
     for (int slot : slots) {
@@ -2064,9 +2070,25 @@ bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& erro
 
 bool d2x_usb_drive_failed() { return g_d2x_usb_drive_failed; }
 
+namespace {
+// A d2x USB request that never answered stays outstanding for the rest of
+// this run (ums::Stuck), and an IOS reload with it outstanding may hang.
+// A later launch in the same run (none after A on the failure screen,
+// which restarts RiftWii with fresh memory, but any other way back) fails
+// at once with the same reason instead of reloading.
+bool refuse_reload_while_stuck(std::string& error) {
+    if (!ums::Stuck()) return false;
+    logf("USB (d2x): an earlier d2x request never answered; not reloading IOS again this run\n");
+    error = d2x_usb_unreadable_error(kD2xStuckReason);
+    g_d2x_usb_drive_failed = true;
+    return true;
+}
+}  // namespace
+
 bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_sector, int cios_slot,
                            const char* log_path, std::string& error) {
     g_d2x_usb_drive_failed = false;
+    if (refuse_reload_while_stuck(error)) return false;
     if (cios_slot < 3 || cios_slot > 255) {
         error = "cIOS slot must be 3..255";
         return false;
@@ -2166,6 +2188,7 @@ bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error, bool block_ios_reload) {
     g_d2x_usb_drive_failed = false;
+    if (refuse_reload_while_stuck(error)) return false;
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
     // Vet the slot while IPC, SD and USB are still up: past the teardown
     // below a title that fails to start cannot be reported or recovered.
