@@ -93,6 +93,23 @@ int gcad_decode(const uint8_t raw[9], const uint8_t origin[6], gcad_pad* out) {
     return 1;
 }
 
+int gcad_pad_moved(const gcad_pad* before, const gcad_pad* now) {
+    /* Newer SDKs take 10 steps for a GameCube controller's sticks and
+     * triggers, older ones a change of 9 in the value squared; 10 is the
+     * newer rule, and the same for every game. One loop over the six
+     * axes keeps the in-game blob small. */
+    const int32_t was[6] = {before->stick_x,    before->stick_y,   before->substick_x,
+                            before->substick_y, before->trigger_l, before->trigger_r};
+    const int32_t is[6] = {now->stick_x, now->stick_y, now->substick_x, now->substick_y, now->trigger_l, now->trigger_r};
+    uint32_t axis;
+    if (now->buttons != before->buttons) return 1;
+    for (axis = 0; axis < 6; ++axis) {
+        const int32_t distance = is[axis] > was[axis] ? is[axis] - was[axis] : was[axis] - is[axis];
+        if (distance >= GCAD_ACTIVE_STEP) return 1;
+    }
+    return 0;
+}
+
 static uint32_t tag_value(gcad* g, uint32_t tag) { return tag | (g->generation << 4); }
 
 static void failed(gcad* g, uint32_t step, int32_t result) {
@@ -138,6 +155,67 @@ static void set_stale(gcad* g) {
         g->origin_valid[i] = 0;
         g->recal_active[i] = 0;
     }
+}
+
+/* Whether one of a report's six analog bytes (stick x, y, substick x, y,
+ * L, R) reads as a pad at rest: a stick near the middle, a trigger let
+ * go. */
+static int axis_at_rest(uint32_t axis, uint8_t value) {
+    if (axis >= 4) return value <= GCAD_ORIGIN_TRIGGER_MAX;
+    return value >= 128 - GCAD_ORIGIN_SPREAD && value <= 128 + GCAD_ORIGIN_SPREAD;
+}
+
+static int pad_at_rest(const uint8_t analog[6]) {
+    uint32_t axis;
+    for (axis = 0; axis < 6; ++axis) {
+        if (!axis_at_rest(axis, analog[axis])) return 0;
+    }
+    return 1;
+}
+
+/* Counts each axis's readings at rest in a row, each within
+ * GCAD_ORIGIN_STEADY_STEP of the one before; whether all six have reached
+ * GCAD_ORIGIN_STEADY_READS. */
+static int count_steady(gcad* g, uint32_t port, const uint8_t analog[6]) {
+    uint32_t axis;
+    int all = 1;
+    for (axis = 0; axis < 6; ++axis) {
+        uint8_t* reads = &g->steady_reads[port][axis];
+        const int d = (int)analog[axis] - (int)g->steady[port][axis];
+        if (!axis_at_rest(axis, analog[axis])) {
+            *reads = 0;
+        } else if (*reads != 0 && d <= GCAD_ORIGIN_STEADY_STEP && d >= -GCAD_ORIGIN_STEADY_STEP) {
+            if (*reads < GCAD_ORIGIN_STEADY_READS) ++*reads;
+        } else {
+            *reads = 1;
+        }
+        g->steady[port][axis] = analog[axis];
+        if (*reads < GCAD_ORIGIN_STEADY_READS) all = 0;
+    }
+    return all;
+}
+
+static void origin_event(gcad* g, uint32_t port, uint32_t how, const uint8_t analog[6]) {
+    const uint32_t triggers = (uint32_t)analog[4] << 16 | (uint32_t)analog[5] << 24;
+    const uint32_t sticks =
+        (uint32_t)analog[0] << 24 | (uint32_t)analog[1] << 16 | (uint32_t)analog[2] << 8 | analog[3];
+    gcad_env_event(g, GCAD_EV_ORIGIN, port | how << 8 | triggers, (int32_t)sticks);
+}
+
+/* `how` is GCAD_ORIGIN_*: with GCAD_ORIGIN_MIDDLE an axis not at rest
+ * takes the middle (a trigger 0) instead of its reading. */
+static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t how) {
+    uint32_t axis;
+    uint8_t* origin = g->origin[port];
+    for (axis = 0; axis < 6; ++axis) {
+        const uint8_t middle = axis < 4 ? 128 : 0;
+        /* At the end of the wait an axis that never settled at rest
+         * takes the middle, not whatever it reads at that moment. */
+        const int off = how == GCAD_ORIGIN_MIDDLE && g->steady_reads[port][axis] < GCAD_ORIGIN_STEADY_READS;
+        origin[axis] = off ? middle : analog[axis];
+    }
+    g->origin_valid[port] = 1;
+    origin_event(g, port, how, origin);
 }
 
 static void submit_change(gcad* g, uint32_t now) {
@@ -310,9 +388,33 @@ static void take_report(gcad* g, uint32_t now) {
             g->recal_active[i] = 0;
             continue;
         }
+        /* The origin comes only from the pad at rest, and steady: a
+         * reading far off taken as the origin pinned the stick to a
+         * corner until the adapter was replugged (seen at RiftWii's
+         * start on a Wii U, 2610-541). For a moment after it appears a
+         * pad can also send readings that jump about while sitting
+         * still (233,147 then 99,83 on a Wii U, 2610-603), so one at
+         * rest counts only after GCAD_ORIGIN_STEADY_READS in a row,
+         * each within GCAD_ORIGIN_STEADY_STEP of the last; the port
+         * stays empty while it waits. A pad held off the middle for
+         * GCAD_ORIGIN_WAIT_MS gets the middle for those axes, where its
+         * own origin would make the stick drift once let go. */
         if (!g->origin_valid[i]) {
-            for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
-            g->origin_valid[i] = 1;
+            const int at_rest = pad_at_rest(src + 3);
+            /* The wait starts as the pad appears: every way an origin is
+             * dropped (the port emptied, the link lost) also empties the
+             * port, so the next report shows it appearing again. */
+            if (!was) {
+                g->origin_since[i] = now;
+                for (j = 0; j < 6; ++j) g->steady_reads[i][j] = 0;
+                /* Once per wait, so a log shows what was passed over. */
+                if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
+            }
+            if (count_steady(g, i, src + 3)) {
+                set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
+            } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
+                set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
+            }
         }
         /* X+Y+Start held: a new origin, as the pad itself does. */
         if ((src[1] & 0x0C) == 0x0C && (src[2] & 0x01)) {
@@ -320,7 +422,7 @@ static void take_report(gcad* g, uint32_t now) {
                 g->recal_active[i] = 1;
                 g->recal_since[i] = now;
             } else if (g->recal_active[i] == 1 && elapsed(now, g->recal_since[i]) >= ms(g, GCAD_RECAL_MS)) {
-                for (j = 0; j < 6; ++j) g->origin[i][j] = src[3 + j];
+                set_origin(g, i, src + 3, GCAD_ORIGIN_RECAL);
                 g->recal_active[i] = 2;  /* once per hold */
             }
         } else {

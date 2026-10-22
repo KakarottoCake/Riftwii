@@ -180,10 +180,13 @@ The build compiles every folder into one, so no two files share a name.
 | --- | --- |
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
 
+Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs and clear cached textures on rescan.
+
 ### `wii/storage/`: sD cards and USB drives: game images, raw access, d2x devices, saves
 
 | File | What |
 | --- | --- |
+| `homebrew.cpp`, `homebrew.hpp` | SD Homebrew app discovery, metadata and launch selection |
 | `usbcatalog.cpp` | Game images on the SD card and USB drives, the USB drive's volume, RVZ serving, the menu's file reads there |
 | `umsdev.cpp` | d2x's USB device (`/dev/usb2`), read by the launch and handed to the runtime |
 | `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
@@ -299,6 +302,7 @@ document it.
 
 | Name | What |
 | --- | --- |
+| `appmeta` | Bounded Homebrew meta.xml fields and NUL-separated launch arguments (`tests/appmeta_tests.cpp`) |
 | `cheats` | Cheat files and GCT building |
 | `titles` | Game names |
 | `settingsfile` | `settings.txt` |

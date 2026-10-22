@@ -964,11 +964,6 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.": (
-        "La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 o NTFS en un ordenador.",
-        "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。",
-        "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador.",
-        "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1637,31 +1632,6 @@ T = {
         "A fonte do Menu do Wii precisa de acesso ao hardware ou de um cIOS d2x, e nenhum funcionou desta vez, então a fonte da RiftWii é usada. Inicie a RiftWii por um Homebrew Channel atualizado ou pelo canal da RiftWii (versão 9).",
         "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."),
     # Menu text added in 2610-151 to 2610-168
-    "1. Use the USB port nearest the edge.": (
-        "1. Usa el puerto USB más cercano al borde.",
-        "1. 本体の端に近いUSBポートを使ってください。",
-        "1. Use a porta USB mais perto da borda.",
-        "1. Usa la porta USB più vicina al bordo."),
-    "2. Big drives: a Y-cable or their own power.": (
-        "2. Unidades grandes: un cable en Y o su propia alimentación.",
-        "2. 大きなドライブ: Y字ケーブルか専用の電源を。",
-        "2. Unidades grandes: um cabo Y ou alimentação própria.",
-        "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
-    "3. FAT32 or NTFS (or a WBFS drive).": (
-        "3. FAT32 o NTFS (o una unidad WBFS).",
-        "3. FAT32かNTFS (またはWBFSドライブ)。",
-        "3. FAT32 ou NTFS (ou uma unidade WBFS).",
-        "3. FAT32 o NTFS (o un'unità WBFS)."),
-    "4. Games in a wbfs or games folder.": (
-        "4. Juegos en una carpeta wbfs o games.",
-        "4. ゲームはwbfsかgamesフォルダに。",
-        "4. Jogos numa pasta wbfs ou games.",
-        "4. Giochi in una cartella wbfs o games."),
-    "5. A d2x cIOS in slot 249, 250 or 251.": (
-        "5. Un cIOS d2x en el slot 249, 250 o 251.",
-        "5. スロット249、250、251のいずれかにd2x cIOS。",
-        "5. Um cIOS d2x no slot 249, 250 ou 251.",
-        "5. Un cIOS d2x nello slot 249, 250 o 251."),
     "A to Z": (
         "De la A a la Z",
         "A〜Z",
@@ -2946,8 +2916,6 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -3623,16 +3591,6 @@ KO = {
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
-    "1. Use the USB port nearest the edge.":
-        "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 또는 NTFS (또는 WBFS 드라이브).",
-    "4. Games in a wbfs or games folder.":
-        "4. 게임은 wbfs 또는 games 폴더에 넣으세요.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. 슬롯 249, 250 또는 251에 d2x cIOS.",
     "A to Z":
         "가나다순",
     "Change":
@@ -4775,8 +4733,6 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -5061,16 +5017,6 @@ FR = {
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
-    "1. Use the USB port nearest the edge.":
-        "1. Utilisez le port USB le plus proche du bord.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. Grands stockages : un câble en Y ou leur propre alimentation.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 ou NTFS (ou un stockage WBFS).",
-    "4. Games in a wbfs or games folder.":
-        "4. Les jeux dans un dossier wbfs ou games.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. Un cIOS d2x dans le slot 249, 250 ou 251.",
     "A to Z":
         "De A à Z",
     "Change":
@@ -6264,13 +6210,270 @@ def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+T.update({
+    "Channel background": ('Fondo de los canales', 'チャンネルの背景', 'Fundo dos canais', 'Sfondo dei canali'),
+    "White": ('Blanco', '白', 'Branco', 'Bianco'),
+    "Transparent": ('Transparente', '透明', 'Transparente', 'Trasparente'),
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": ('Blanco pone una caja detrás de los banners de los canales en el menú para que no se vuelvan transparentes.', '白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。', 'Branco põe uma caixa atrás dos banners dos canais no menu para que eles não fiquem transparentes.', 'Bianco mette una cornice dietro i banner dei canali nel menu, così non diventano trasparenti.'),
+    "Show non-game channels": ('Mostrar canales que no son juegos', 'ゲーム以外のチャンネルを表示', 'Mostrar canais que não são jogos', 'Mostra i canali non di gioco'),
+    "Nintendo's own channels are listed on Home now.": ('Los canales de Nintendo ya se listan en el inicio.', '任天堂のチャンネルをホームに表示するようにしました。', 'Os canais da Nintendo já aparecem no início.', 'I canali Nintendo ora sono nella home.'),
+    "Only games are listed on Home now.": ('Ahora solo se listan juegos en el inicio.', 'ホームにはゲームだけを表示するようにしました。', 'Agora só jogos aparecem no início.', 'Ora nella home sono elencati solo i giochi.'),
+    "Boot from": ('Iniciar desde', '起動元', 'Iniciar de', 'Avvia da'),
+    "Boot": ('Iniciar', '起動', 'Iniciar', 'Avvia'),
+    "Real NAND": ('NAND real', '実NAND', 'NAND real', 'NAND reale'),
+    "Emulated NAND": ('NAND emulada', 'エミュレートNAND', 'NAND emulada', 'NAND emulata'),
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": ("Automático usa el cargador de RiftWii. En la Wii inicia como el Menú de Wii, sin IOS del juego, trucos ni extras.", "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。", "Automático usa o carregador do RiftWii. No Wii inicia como o Menu Wii, sem IOS do jogo, trapaças ou extras.", "Automatico usa il loader di RiftWii. Sulla Wii avvia come il Menu Wii, senza IOS del gioco, trucchi o extra."),
+    "Game IOS": ('IOS del juego', 'ゲームのIOS', 'IOS do jogo', 'IOS del gioco'),
+    "The IOS RiftWii starts the channel under.": ('El IOS con el que RiftWii inicia el canal.', 'RiftWiiがこのチャンネルを起動するIOSです。', 'O IOS com que o RiftWii inicia o canal.', "L'IOS con cui RiftWii avvia il canale."),
+    "Emulated NAND (not here)": ('NAND emulada (no aquí)', 'エミュレートNAND (ここにはありません)', 'NAND emulada (não aqui)', 'NAND emulata (non qui)'),
+    "Real NAND (not here)": ('NAND real (no aquí)', '実NAND (ここにはありません)', 'NAND real (não aqui)', 'NAND reale (non qui)'),
+    "Show all channels even if they aren't detected as a game.": ('Mostrar todos los canales aunque no se detecten como juego.', 'ゲームとして検出されないチャンネルもすべて表示します。', 'Mostrar todos os canais mesmo que não sejam detectados como jogo.', 'Mostra tutti i canali anche se non sono rilevati come gioco.'),
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": ('La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí.', 'Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。', 'O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha a NAND emulada ou instale o jogo lá.', 'La Wii non ha una copia di questo gioco che possa avviarsi. Scegli la NAND emulata o installa il gioco lì.'),
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": ("Inicia como el Menú de Wii, con partidas en la Wii. No aplica IOS del juego, trucos ni extras del cargador.", "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。", "Inicia como o Menu Wii, com saves no Wii. IOS do jogo, trapaças e extras do carregador não se aplicam.", "Avvia come il Menu Wii, con salvataggi sulla Wii. IOS del gioco, trucchi ed extra del loader non si applicano."),
+    "The copy RiftWii lists starts, with its own save.": ('Se inicia la copia que RiftWii muestra, con su propia partida.', 'RiftWiiが表示するコピーが、独自のセーブとともに起動します。', 'Inicia a cópia que o RiftWii lista, com o próprio save.', 'Si avvia la copia che RiftWii elenca, con il suo salvataggio.'),
+    "The copy in {1} starts, and saves stay there on the SD card.": ('Se inicia la copia en {1} y las partidas se quedan ahí, en la tarjeta SD.', '{1}のコピーが起動し、セーブはSDカードのそこに残ります。', 'Inicia a cópia em {1} e os saves ficam lá, no cartão SD.', 'Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD.'),
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": ('Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}.', 'エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。', 'Inicia a cópia da NAND emulada; o save está no cartão SD em {1}.', 'Si avvia la copia della NAND emulata; il salvataggio è sulla scheda SD in {1}.'),
+    "{1} has no copy of this game. Install it there from its WAD first.": ('{1} no tiene ninguna copia de este juego. Instálalo ahí desde su WAD primero.', '{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。', '{1} não tem nenhuma cópia deste jogo. Instale-o lá a partir do WAD primeiro.', '{1} non ha una copia di questo gioco. Installalo lì dal suo WAD prima.'),
+})
+KO.update({
+    "Channel background": "채널 배경",
+    "White": "흰색",
+    "Transparent": "투명",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "흰색은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다.",
+    "Show non-game channels": "게임이 아닌 채널 표시",
+    "Nintendo's own channels are listed on Home now.": "닌텐도 채널이 이제 홈에 표시됩니다.",
+    "Only games are listed on Home now.": "이제 홈에는 게임만 표시됩니다.",
+    "Boot from": "다음에서 시작",
+    "Boot": "시작",
+    "Real NAND": "실제 NAND",
+    "Emulated NAND": "에뮬레이트 NAND",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "자동은 RiftWii 로더를 사용합니다. Wii 본체는 게임 IOS, 치트, 로더 추가 기능 없이 Wii 메뉴처럼 시작합니다.",
+    "Game IOS": "게임 IOS",
+    "The IOS RiftWii starts the channel under.": "RiftWii가 채널을 시작하는 IOS입니다.",
+    "Emulated NAND (not here)": "에뮬레이트 NAND (여기 없음)",
+    "Real NAND (not here)": "실제 NAND (여기 없음)",
+    "Show all channels even if they aren't detected as a game.": "게임으로 감지되지 않은 채널도 모두 표시합니다.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "Wii 본체에는 시작할 수 있는 이 게임의 사본이 없습니다. 에뮬레이트 NAND를 선택하거나 거기에 게임을 설치하세요.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Wii 메뉴처럼 시작하며 저장은 Wii에 남습니다. 게임 IOS, 치트, RiftWii 로더 추가 기능은 적용되지 않습니다.",
+    "The copy RiftWii lists starts, with its own save.": "RiftWii가 표시하는 사본이 자체 세이브와 함께 시작됩니다.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "{1}의 사본이 시작되고 세이브는 SD 카드의 그곳에 남습니다.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "에뮬레이트 NAND의 사본이 시작됩니다. 세이브는 SD 카드의 {1}에 있습니다.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1}에는 이 게임의 사본이 없습니다. 먼저 해당 WAD에서 설치하세요.",
+})
+FR.update({
+    "Channel background": "Fond des chaînes",
+    "White": "Blanc",
+    "Transparent": "Transparent",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "Blanc place un cadre derrière les bannières des chaînes affichées dans le menu pour éviter qu'elles ne deviennent transparentes.",
+    "Show non-game channels": "Afficher les chaînes non-jeu",
+    "Nintendo's own channels are listed on Home now.": "Les chaînes Nintendo sont maintenant sur l'accueil.",
+    "Only games are listed on Home now.": "Seuls les jeux sont désormais listés sur l'accueil.",
+    "Boot from": "Démarrer depuis",
+    "Boot": "Démarrer",
+    "Real NAND": "NAND réelle",
+    "Emulated NAND": "NAND émulée",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "Automatique utilise le chargeur RiftWii. Sur la Wii démarre comme le Menu Wii, sans IOS du jeu, codes ni extras.",
+    "Game IOS": "IOS du jeu",
+    "The IOS RiftWii starts the channel under.": "L'IOS avec lequel RiftWii démarre la chaîne.",
+    "Emulated NAND (not here)": "NAND émulée (pas ici)",
+    "Real NAND (not here)": "NAND réelle (pas ici)",
+    "Show all channels even if they aren't detected as a game.": "Afficher toutes les chaînes même si elles ne sont pas reconnues comme un jeu.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Démarre comme le Menu Wii, avec sauvegardes sur la Wii. IOS du jeu, codes et extras du chargeur ne s'appliquent pas.",
+    "The copy RiftWii lists starts, with its own save.": "La copie que RiftWii affiche démarre, avec sa propre sauvegarde.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD.",
+})
+
+
+# A retained title may have neither installed program.
+T.update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": (
+        "Ninguna copia de este canal tiene su programa. Instálalo en la Wii o en la NAND emulada.",
+        "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。",
+        "Nenhuma cópia deste canal tem o programa. Instale no Wii ou na NAND emulada.",
+        "Nessuna copia di questo canale ha il programma. Installalo sulla Wii o nella NAND emulata.",
+    ),
+})
+MORE["ko"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "이 채널의 프로그램 데이터가 없습니다. Wii 또는 에뮬레이트 NAND에 설치하세요.",
+})
+MORE["fr"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée.",
+})
+
+
+T.update({
+    "Homebrew": ('Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'),
+    "1 app": ('1 app', '1個のアプリ', '1 app', '1 app'),
+    "{1} apps": ('{1} apps', '{1}個のアプリ', '{1} apps', '{1} app'),
+    "No homebrew matches \"{1}\". Press 1 to change the view.": ('Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista.', '「{1}」に一致するHomebrewはありません。1で表示を切り替えます。', 'Nenhum homebrew corresponde a "{1}". Aperte 1 para mudar a vista.', 'Nessun homebrew corrisponde a "{1}". Premi 1 per cambiare vista.'),
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": ('Aún no hay homebrew: cada app es una carpeta en sd:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista.', 'Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。', 'Ainda não há homebrew: cada app é uma pasta em sd:/apps com seu boot.dol e meta.xml. Aperte 1 para mudar a vista.', "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista."),
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": ('No se pudo leer la carpeta de apps (sd:/apps). Pulsa 1 para cambiar la vista.', 'アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。', 'A pasta de apps (sd:/apps) não pôde ser lida. Aperte 1 para mudar a vista.', 'Impossibile leggere la cartella delle app (sd:/apps). Premi 1 per cambiare vista.'),
+    "It cannot start: {1}.": ('No puede iniciarse: {1}.', '起動できません: {1}。', 'Não pode ser iniciado: {1}.', 'Non può avviarsi: {1}.'),
+    "The app will start when ready.": ('La app se iniciará cuando esté lista.', 'アプリは準備ができると起動します。', 'O app inicia quando estiver pronto.', "L'app si avvierà quando è pronta."),
+    "Start {1}?": ('¿Iniciar {1}?', '{1}を起動しますか?', 'Iniciar {1}?', 'Avviare {1}?'),
+    "Would you like to start {1} ({2}) by {3}?": ('¿Quieres iniciar {1} ({2}) de {3}?', '{3}の{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2}) de {3}?', 'Vuoi avviare {1} ({2}) di {3}?'),
+    "Would you like to start {1} ({2})?": ('¿Quieres iniciar {1} ({2})?', '{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2})?', 'Vuoi avviare {1} ({2})?'),
+    "Would you like to start {1} by {2}?": ('¿Quieres iniciar {1} de {2}?', '{2}の{1}を起動しますか?', 'Quer iniciar {1} de {2}?', 'Vuoi avviare {1} di {2}?'),
+    "Would you like to start {1}?": ('¿Quieres iniciar {1}?', '{1}を起動しますか?', 'Quer iniciar {1}?', 'Vuoi avviare {1}?'),
+})
+KO.update({
+    "Homebrew": "홈브류",
+    "1 app": "앱 1개",
+    "{1} apps": "앱 {1}개",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "앱 폴더(sd:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "It cannot start: {1}.": "시작할 수 없습니다: {1}.",
+    "The app will start when ready.": "앱은 준비되면 시작됩니다.",
+    "Start {1}?": "{1}을(를) 시작할까요?",
+    "Would you like to start {1} ({2}) by {3}?": "{3}의 {1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} ({2})?": "{1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} by {2}?": "{2}의 {1}을(를) 시작할까요?",
+    "Would you like to start {1}?": "{1}을(를) 시작할까요?",
+})
+FR.update({
+    "Homebrew": "Homebrew",
+    "1 app": "1 appli",
+    "{1} apps": "{1} applis",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue.",
+    "It cannot start: {1}.": "Impossible de le lancer : {1}.",
+    "The app will start when ready.": "L'appli démarrera lorsqu'elle sera prête.",
+    "Start {1}?": "Démarrer {1} ?",
+    "Would you like to start {1} ({2}) by {3}?": "Voulez-vous démarrer {1} ({2}) par {3} ?",
+    "Would you like to start {1} ({2})?": "Voulez-vous démarrer {1} ({2}) ?",
+    "Would you like to start {1} by {2}?": "Voulez-vous démarrer {1} par {2} ?",
+    "Would you like to start {1}?": "Voulez-vous démarrer {1} ?",
+})
+
+
+# Homebrew launch limitations and navigation.
+T.update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": (
+        "el programa es boot.elf y RiftWii solo inicia apps boot.dol",
+        "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます",
+        "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
+        "il programma è boot.elf e RiftWii avvia solo app boot.dol",
+    ),
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    ),
+    "1: all apps": (
+        "1: todas las apps",
+        "1: すべてのアプリ",
+        "1: todos os apps",
+        "1: tutte le app",
+    ),
+})
+MORE["ko"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "1: all apps": "1: 모든 앱",
+})
+MORE["fr"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "1: all apps": "1 : toutes les applis",
+})
+
+
+T.update({
+    "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
+    "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
+    "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
+    "Checks if network is online.": ('Comprueba si la red está en línea.', 'ネットワークがオンラインか確認します。', 'Verifica se a rede está online.', 'Controlla se la rete è online.'),
+})
+KO.update({
+    "Network Test": "네트워크 테스트",
+    "Testing the network...": "네트워크를 테스트하는 중...",
+    "Offline": "오프라인",
+    "Checks if network is online.": "네트워크가 온라인인지 확인합니다.",
+})
+FR.update({
+    "Network Test": "Test réseau",
+    "Testing the network...": "Test du réseau...",
+    "Offline": "Hors ligne",
+    "Checks if network is online.": "Vérifie si le réseau est en ligne.",
+})
+
+
+# Review fixes: player-facing diagnostic results.
+T.update({
+    "The network could not start. Check the Wii's Internet settings.": (
+        "No se pudo iniciar la red. Revisa la configuración de Internet de la Wii.",
+        "ネットワークを開始できません。Wiiのインターネット設定を確認してください。",
+        "Não foi possível iniciar a rede. Verifique as configurações de Internet do Wii.",
+        "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii.",
+    ),
+    "No HTTP response. Check the connection and try again.": (
+        "Sin respuesta HTTP. Revisa la conexión e inténtalo de nuevo.",
+        "HTTPの応答がありません。接続を確認して、もう一度お試しください。",
+        "Sem resposta HTTP. Verifique a conexão e tente novamente.",
+        "Nessuna risposta HTTP. Controlla la connessione e riprova.",
+    ),
+    "The network is busy. Try again when the download finishes.": (
+        "La red está ocupada. Inténtalo cuando termine la descarga.",
+        "ネットワークは使用中です。ダウンロードが終わってからお試しください。",
+        "A rede está ocupada. Tente quando o download terminar.",
+        "La rete è occupata. Riprova al termine del download.",
+    ),
+})
+MORE["ko"].update({
+    "The network could not start. Check the Wii's Internet settings.": "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요.",
+    "No HTTP response. Check the connection and try again.": "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "The network is busy. Try again when the download finishes.": "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요.",
+})
+MORE["fr"].update({
+    "The network could not start. Check the Wii's Internet settings.": "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii.",
+    "No HTTP response. Check the connection and try again.": "Aucune réponse HTTP. Vérifiez la connexion et réessayez.",
+    "The network is busy. Try again when the download finishes.": "Le réseau est occupé. Réessayez après le téléchargement.",
+})
+
+
+T.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": ('La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 en un ordenador (NTFS también funciona).', '接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。', 'A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 em um computador (NTFS também funciona).', "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."),
+    "1. Use the USB port nearest to the edge.": ('1. Usa el puerto USB más cercano al borde.', '1. 本体の端に近いUSBポートを使ってください。', '1. Use a porta USB mais perto da borda.', '1. Usa la porta USB più vicina al bordo.'),
+    "2. For big drives: a Y-cable or their own power.": ('2. Unidades grandes: un cable en Y o su propia alimentación.', '2. 大きなドライブ: Y字ケーブルか専用の電源を。', '2. Unidades grandes: um cabo Y ou alimentação própria.', "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
+    "3. FAT32 recommended; NTFS and WBFS work too.": (
+        "3. FAT32 recomendado; NTFS y WBFS también sirven.",
+        "3. FAT32推奨。NTFSとWBFSも使えます。",
+        "3. FAT32 recomendado; NTFS e WBFS também funcionam.",
+        "3. FAT32 consigliato; funzionano anche NTFS e WBFS."),
+    "4. Games in the /wbfs or /games folder.": ('4. Juegos en la carpeta /wbfs o /games.', '4. ゲームは/wbfsか/gamesフォルダに。', '4. Jogos na pasta /wbfs ou /games.', '4. Giochi nella cartella /wbfs o /games.'),
+    "5. A d2x cIOS in slot 249/250/251.": ('5. Un cIOS d2x en el slot 249/250/251.', '5. スロット249/250/251のいずれかにd2x cIOS。', '5. Um cIOS d2x no slot 249/250/251.', '5. Un cIOS d2x nello slot 249/250/251.'),
+})
+KO.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다).",
+    "1. Use the USB port nearest to the edge.": "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
+    "2. For big drives: a Y-cable or their own power.": "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 권장. NTFS와 WBFS도 지원합니다.",
+    "4. Games in the /wbfs or /games folder.": "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. 슬롯 249/250/251에 d2x cIOS.",
+})
+FR.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi).",
+    "1. Use the USB port nearest to the edge.": "1. Utilisez le port USB le plus proche du bord.",
+    "2. For big drives: a Y-cable or their own power.": "2. Grands stockages : un câble en Y ou leur propre alimentation.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi.",
+    "4. Games in the /wbfs or /games folder.": "4. Les jeux dans le dossier /wbfs ou /games.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. Un cIOS d2x dans le slot 249/250/251.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

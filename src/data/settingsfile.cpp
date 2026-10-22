@@ -73,6 +73,8 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "channel_corners") {
             if (value == "theme" || value == "square" || value == "slight" || value == "round" || value == "rounder")
                 channel_corners = value;
+        } else if (key == "channel_background") {
+            if (value == "none" || value == "card") channel_background = value;
         } else if (key == "grid_spacing") {
             if (value == "normal" || value == "roomy") grid_spacing = value;
         } else if (key == "page_peek") {
@@ -101,6 +103,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "az" || value == "recent" || value == "most" || value == "custom") home_sort = value;
         } else if (key == "home_disc") {
             if (value == "on" || value == "off") home_disc = value;
+        } else if (key == "nand_non_games") {
+            if (value == "on" || value == "off") nand_non_games = value == "on";
         } else if (key == "theme") {
             // A folder in sd:/riftwii/themes: one name, no path.
             if (!value.empty() && value.size() <= 64 && value.find_first_of("/\\:") == std::string::npos &&
@@ -171,6 +175,7 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
     s += "channel_corners = " + channel_corners + "\n";
+    s += "channel_background = " + channel_background + "\n";
     s += "grid_spacing = " + grid_spacing + "\n";
     s += "page_peek = " + page_peek + "\n";
     s += "menu_widescreen = " + menu_widescreen + "\n";
@@ -182,6 +187,7 @@ std::string LoaderSettings::serialize() const {
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
     s += "home_disc = " + home_disc + "\n";
+    s += std::string("nand_non_games = ") + (nand_non_games ? "on" : "off") + "\n";
     s += "theme = " + theme + "\n";
     s += "clock = " + clock + "\n";
     s += "menu_font = " + menu_font + "\n";
