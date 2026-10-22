@@ -549,19 +549,29 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
         const std::string dir = std::string("sd:/games/") + folder->d_name;
         DIR* inner = opendir(dir.c_str());
         if (!inner) continue;
+        // The folder's matching images, so a two-disc game starts from disc
+        // 1 whichever order the folder lists them in (gc_second_disc_of).
+        std::vector<std::string> paths;
+        std::vector<GcFolderImage> discs;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (!is_gc_image_name(name)) continue;
-            std::string id;
             const std::string full = dir + "/" + name;
-            if (read_gc_id(full, id) && id.compare(0, game.size(), game) == 0) {
-                out.path = full;
-                out.id = id;
-                found = true;
-                break;
-            }
+            GcHead head;
+            if (!read_gc_head(full, head)) continue;  // not a GameCube image
+            const std::string id(reinterpret_cast<const char*>(head.bytes), 6);
+            if (id.compare(0, game.size(), game) != 0) continue;
+            paths.push_back(full);
+            discs.push_back({id, head.bytes[6]});
         }
         closedir(inner);
+        const std::vector<int> first_disc = gc_second_disc_of(discs);
+        for (std::size_t i = 0; i < paths.size() && !found; ++i) {
+            if (first_disc[i] >= 0) continue;
+            out.path = paths[i];
+            out.id = discs[i].id;
+            found = true;
+        }
         if (found) break;
     }
     closedir(games);
