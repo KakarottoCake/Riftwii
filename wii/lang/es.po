@@ -615,6 +615,9 @@ msgstr "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llam
 msgid "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."
 msgstr "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades > Juegos en la tarjeta SD). Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz del USB y luego elige Buscar juegos de nuevo en Ajustes."
 
+msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
+msgstr "Buscarlos: los juegos de sd:/wbfs y sd:/games aparecen en Inicio."
+
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente."
 

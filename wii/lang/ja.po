@@ -615,6 +615,9 @@ msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカ�
 msgid "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."
 msgstr "ゲームがまだありません。SDカードは探していません(設定 > ドライブ > SDカードのゲーム)。ゲーム(WBFS、ISO、RVZ)をUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
 
+msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
+msgstr "探す: sd:/wbfs と sd:/games のゲームがホームに表示されます。"
+
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"
 

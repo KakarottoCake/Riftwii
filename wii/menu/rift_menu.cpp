@@ -11584,7 +11584,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						settings.home_source = "all";
 					// Home reads the drives again when you leave Settings.
 					g_scanned = false;
-					saveAndNote(tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work."));
+					// The note follows the value the row just changed to.
+					saveAndNote(settings.sd_games == "off"
+						? tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.")
+						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."));
 					rebuild();
 					break;
 				case kRescan:

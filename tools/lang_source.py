@@ -545,6 +545,11 @@ T = {
         "ゲームがまだありません。SDカードは探していません(設定 > ドライブ > SDカードのゲーム)。ゲーム(WBFS、ISO、RVZ)をUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
         "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades > Jogos no cartão SD). Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do USB e depois escolha Procurar jogos de novo em Configurações.",
         "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità > Giochi sulla scheda SD). Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.": (
+        "Buscarlos: los juegos de sd:/wbfs y sd:/games aparecen en Inicio.",
+        "探す: sd:/wbfs と sd:/games のゲームがホームに表示されます。",
+        "Procurar: os jogos em sd:/wbfs e sd:/games aparecem no Início.",
+        "Cercali: i giochi in sd:/wbfs e sd:/games compaiono nella Home."),
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.": (
         "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
         "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
@@ -2649,6 +2654,8 @@ KO = {
         "크레딧 및 라이선스",
     "View":
         "보기",
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.":
+        "찾기: sd:/wbfs와 sd:/games의 게임이 홈에 표시됩니다.",
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.":
         "RiftWii의 구성 요소 출처, 라이선스(GNU GPL 버전 3 이상), 소스 코드 위치.",
     "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.":
@@ -4476,6 +4483,8 @@ FR = {
         "Crédits et licence",
     "View":
         "Voir",
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.":
+        "Les chercher : les jeux de sd:/wbfs et sd:/games apparaissent sur l'accueil.",
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.":
         "L'origine des composants de RiftWii, sa licence (GNU GPL v3 ou ultérieure) et l'emplacement du code source.",
     "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.":
