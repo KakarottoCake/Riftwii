@@ -316,6 +316,16 @@ bool Deliver(const std::vector<std::uint8_t>& report) {
     return true;
 }
 
+// A pad appearing: the readings at rest its origin waits for
+// (GCAD_ORIGIN_STEADY_READS in a row, 8 ms apart).
+bool DeliverSettled(const std::vector<std::uint8_t>& report) {
+    for (int k = 0; k < GCAD_ORIGIN_STEADY_READS; ++k) {
+        if (k != 0) g_driver->now += 8;
+        if (!Deliver(report)) return false;
+    }
+    return true;
+}
+
 void Unplug() {
     FakeHid& h = *g_hid;
     h.adapter = false;
@@ -528,8 +538,8 @@ static void TestV5() {
     EXPECT_EQ(hid.waiting_list.size(), 1u);  // listening for the next change
     EXPECT_FALSE(gcad_port(g, 0, nullptr, d.now));
 
-    // A pad on port 1: the first report is its origin.
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));
+    // A pad on port 1: its first readings at rest are its origin.
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 131, 125)));
     ExpectPort(g, 0, 0, 0, d.now);
     // The rumble-off command goes between polls.
     EXPECT_EQ(hid.sent_out.size(), 2u);
@@ -571,7 +581,7 @@ static void TestV5() {
     gcad_tick(g, d.now);
     EXPECT_FALSE(gcad_port(g, 0, &unused, d.now));
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 140, 125)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 140, 125)));
     ExpectPort(g, 0, 0, 0, d.now);  // a fresh origin after the gap
 
     // X+Y+Start held for three seconds: a new origin.
@@ -594,7 +604,7 @@ static void TestV5() {
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_FALSE(hid.locked);
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0x02, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x02, 0, 128, 128)));
     ExpectPort(g, 0, GCAD_PAD_B, 0, d.now);
 
     // Stop: the list hook and the poll are cancelled, the device released.
@@ -623,7 +633,7 @@ static void TestV5OwnedElsewhere() {
     hid.owned_by_other = false;
     Plug(hid.dev_id);  // the release shows up as a change
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_TRUE(Deliver(Report(0x24, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x24, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
     EXPECT_EQ(static_cast<int>(pad.wireless), 1);
@@ -697,7 +707,7 @@ static void TestV5KnownDevice() {
     EXPECT_TRUE(hid.ours);
     EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0].size() == 1 && hid.sent_out[0][0] == 0x13);
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(d.g, 0, &pad, d.now));
 }
@@ -714,7 +724,7 @@ static void TestV4() {
     EXPECT_EQ(hid.control_setup.size(), 1u);  // SET_PROTOCOL, answer ignored
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_list.size(), 1u);
-    EXPECT_TRUE(Deliver(Report(0x14, 0x08, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x08, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
     EXPECT_EQ(pad.buttons, GCAD_PAD_Y);
@@ -726,7 +736,7 @@ static void TestV4() {
     rep[1 + 2 * 9 + 4] = 128;
     rep[1 + 2 * 9 + 5] = 128;  // the C-stick at rest too
     rep[1 + 2 * 9 + 6] = 128;
-    EXPECT_TRUE(Deliver(rep));
+    EXPECT_TRUE(DeliverSettled(rep));
     rep[1 + 2 * 9 + 1] = 0x02;
     EXPECT_TRUE(Deliver(rep));
     EXPECT_TRUE(gcad_port(g, 2, &pad, d.now));
@@ -737,7 +747,7 @@ static void TestV4() {
     Plug(4);
     EXPECT_EQ(g->dev_id, 4);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_TRUE(Deliver(Report(0x14, 0x01, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x01, 0, 128, 128)));
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
 
     gcad_stop(g, d.now);
@@ -775,9 +785,9 @@ static void TestOriginAtRest() {
     EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 0u);
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_PASSED), 1u);  // logged once
-    // The next reading, at rest, is the origin.
+    // The next readings at rest, steady, are the origin.
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 131, 125)));
     ExpectPort(g, 0, 0, 0, d.now);
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 1u);
     d.now += 8;
@@ -826,6 +836,35 @@ static void TestOriginAtRest() {
     EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 200, 128)));
     ExpectPort(g, 0, 0, 0, d.now);
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RECAL), 1u);
+
+    // A pad that sends readings jumping about for a moment after it
+    // appears, as one did at RiftWii's start on a Wii U (2610-603):
+    // 233,147 then 99,83 while sitting still, then its own rest. None of
+    // the jumping readings is the origin; three steady ones at rest are.
+    const unsigned resting = OriginEvents(d, 0, GCAD_ORIGIN_RESTING);
+    const unsigned middle = OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 233, 147)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 99, 83)));  // 45 below the middle: not at rest
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 110, 120)));  // at rest, but
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 125, 131)));  // still moving
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 132, 134)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 134)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));  // two steady so far
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 132, 135)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), resting + 1);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), middle);  // and not the middle
 }
 
 static void TestNoAdapter() {
@@ -860,7 +899,7 @@ static void TestTransferErrorRelinks() {
     Pump();
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_EQ(g->links, 2u);
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
 }
