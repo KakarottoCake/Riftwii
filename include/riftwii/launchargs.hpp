@@ -116,6 +116,23 @@ bool launch_request_sector(const std::vector<std::string>& args, bool armed, std
 // they were changed.
 bool pin_launch_cios(std::vector<std::string>& args, int running_ios);
 
+// What restart_request_sectors did with the cIOS.
+enum class RestartCios {
+    Unchanged,  // the request already names one, or running_ios is no slot to name
+    Pinned,     // the request names running_ios
+    DidNotFit,  // naming it would not fit the sector: left to the restart, as before
+};
+
+// A Wii game's own Reset request as its two sectors (launch_request_sector,
+// armed and idle), with the cIOS pinned (pin_launch_cios) when the pinned
+// request still fits. A request that fits only without the extra line keeps
+// its packs and leaves the cIOS to the restart (`cios` DidNotFit), rather
+// than losing the Reset hook. False, with `why`, only when `args` themselves
+// do not fit.
+bool restart_request_sectors(const std::vector<std::string>& args, int running_ios, std::size_t sector_bytes,
+                             std::vector<std::uint8_t>& armed, std::vector<std::uint8_t>& idle, RestartCios& cios,
+                             std::string& why);
+
 // Whether `value` is a path (or a name) that stays where it is put: no
 // ".." in it, between slashes or backslashes, at either end or alone.
 bool launch_path_stays_put(const std::string& value);

@@ -137,6 +137,23 @@ bool pin_launch_cios(std::vector<std::string>& args, int running_ios) {
     return true;
 }
 
+bool restart_request_sectors(const std::vector<std::string>& args, int running_ios, std::size_t sector_bytes,
+                             std::vector<std::uint8_t>& armed, std::vector<std::uint8_t>& idle, RestartCios& cios,
+                             std::string& why) {
+    std::vector<std::string> with_cios = args;
+    cios = pin_launch_cios(with_cios, running_ios) ? RestartCios::Pinned : RestartCios::Unchanged;
+    if (cios == RestartCios::Pinned) {
+        std::string too_long;
+        if (launch_request_sector(with_cios, true, sector_bytes, armed, too_long) &&
+            launch_request_sector(with_cios, false, sector_bytes, idle, too_long)) {
+            return true;
+        }
+        cios = RestartCios::DidNotFit;
+    }
+    return launch_request_sector(args, true, sector_bytes, armed, why) &&
+           launch_request_sector(args, false, sector_bytes, idle, why);
+}
+
 bool is_headless_launch(const std::vector<std::string>& args) {
     return !args.empty() && args[0] == "--launch";
 }

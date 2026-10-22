@@ -1726,6 +1726,65 @@ void TestPinLaunchCios() {
     EXPECT_EQ(bare.back(), std::string("cios=248"));
 }
 
+// The Reset request's two sectors with the cIOS pinned, and a request that
+// fits only without the extra line: it keeps its packs and leaves the cIOS
+// to the restart, rather than losing the Reset hook (CodeRabbit on #225).
+void TestRestartRequestSectors() {
+    constexpr std::size_t kSector = 512;
+    std::vector<std::uint8_t> armed;
+    std::vector<std::uint8_t> idle;
+    RestartCios cios = RestartCios::Unchanged;
+    std::string why;
+    auto text_of = [](const std::vector<std::uint8_t>& sector) {
+        return std::string(reinterpret_cast<const char*>(sector.data()));
+    };
+
+    // An ordinary request: pinned, in both sectors.
+    const std::vector<std::string> ordinary = {"--launch", "game=SKHJAF", "from=sd", "xml=krsch_gcpad.xml", "reset=1"};
+    EXPECT_TRUE(restart_request_sectors(ordinary, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Pinned);
+    EXPECT_EQ(armed.size(), kSector);
+    EXPECT_TRUE(text_of(armed).find("cios=251\n") != std::string::npos);
+    EXPECT_TRUE(text_of(armed).compare(0, 9, "--launch\n") == 0);
+    EXPECT_TRUE(text_of(idle).compare(0, 9, "--idle--\n") == 0);
+    EXPECT_TRUE(text_of(idle).find("cios=251\n") != std::string::npos);
+
+    // A request that already names a slot, or a launch on IOS 58: unchanged.
+    std::vector<std::string> chosen = ordinary;
+    chosen.insert(chosen.end() - 1, "cios=250");
+    EXPECT_TRUE(restart_request_sectors(chosen, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Unchanged);
+    EXPECT_TRUE(text_of(armed).find("cios=250\n") != std::string::npos);
+    EXPECT_TRUE(restart_request_sectors(ordinary, 58, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Unchanged);
+    EXPECT_TRUE(text_of(armed).find("cios=") == std::string::npos);
+
+    // Grown to 505 bytes of text: fits a sector, but not with "cios=251\n"
+    // (9 more). The request goes as it was, the packs kept.
+    std::vector<std::string> near_full = ordinary;
+    std::string path = "path=sd:/wbfs/";
+    near_full.insert(near_full.begin() + 3, path);
+    auto text_bytes = [](const std::vector<std::string>& args) {
+        std::size_t n = 0;
+        for (const std::string& a : args) n += a.size() + 1;
+        return n;
+    };
+    while (text_bytes(near_full) < 505) near_full[3] += "x";
+    EXPECT_EQ(text_bytes(near_full), static_cast<std::size_t>(505));
+    EXPECT_TRUE(restart_request_sectors(near_full, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::DidNotFit);
+    EXPECT_TRUE(text_of(armed).find("cios=") == std::string::npos);
+    EXPECT_TRUE(text_of(armed).find("xml=krsch_gcpad.xml\n") != std::string::npos);
+    EXPECT_TRUE(text_of(idle).compare(0, 9, "--idle--\n") == 0);
+
+    // Too long even without it: refused, as launch_request_sector refuses it.
+    std::vector<std::string> too_long = near_full;
+    too_long[3] += std::string(20, 'y');
+    why.clear();
+    EXPECT_FALSE(restart_request_sectors(too_long, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(!why.empty());
+}
+
 void TestResetRequest() {
     HeadlessLaunch h;
     h.game = "SMNP03";
@@ -2131,6 +2190,7 @@ int main() {
     TestHeadlessArguments();
     TestResetRequest();
     TestPinLaunchCios();
+    TestRestartRequestSectors();
     TestFriivolutionArguments();
     TestHttp();
     TestCheats();
