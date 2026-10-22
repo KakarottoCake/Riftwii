@@ -126,6 +126,7 @@ struct gc_bt {
     uint32_t event_count;
     uint32_t acl_count;
     uint32_t connects;
+    uint32_t connecting;    /* a connection request accepted, its completion not yet seen */
     int32_t last_error;
     uint32_t last_event;    /* code << 16 | the opcode or first bytes */
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
@@ -209,7 +210,7 @@ struct gc_rt_context;
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
 /* A link being established or used needs frame-paced service. After
  * start-up, idle discovery is serviced by the heartbeat instead of PADRead. */
-int gc_bt_has_remote(const struct gc_bt* bt);
+int gc_bt_wants_frame_polls(const struct gc_bt* bt);
 void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native);
 /* PADControlMotor(chan, command) from the game: the port's rumble is noted
  * (command 1 rumbles, 0 and 2 stop) and goes to the remote on that port
