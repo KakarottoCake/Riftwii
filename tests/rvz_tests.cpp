@@ -392,7 +392,21 @@ void TestDamage() {
         std::memcpy(damaged.data() + head.group_table_offset, corrupt_frame, sizeof(corrupt_frame));
         std::unique_ptr<RvzImage> refused;
         EXPECT_FALSE(RvzImage::open(source(damaged), refused, error));
-        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error 20 (corruption detected)"));
+        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error code 20 (corruption detected)"));
+    }
+
+    // A raw block containing "A" with an incorrect frame checksum reaches
+    // a different decoder failure before the remaining table bytes matter.
+    const std::uint8_t checksum_frame[] = {
+        0x28, 0xB5, 0x2F, 0xFD, 0x24, 0x01, 0x09, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x00
+    };
+    EXPECT_TRUE(head.group_table_bytes >= sizeof(checksum_frame));
+    if (head.group_table_bytes >= sizeof(checksum_frame)) {
+        auto damaged = good;
+        std::memcpy(damaged.data() + head.group_table_offset, checksum_frame, sizeof(checksum_frame));
+        std::unique_ptr<RvzImage> refused;
+        EXPECT_FALSE(RvzImage::open(source(damaged), refused, error));
+        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error code 22 (checksum mismatch)"));
     }
 
     // Cut short: the headers still read, groups past the end fail cleanly.
