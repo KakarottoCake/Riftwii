@@ -4063,7 +4063,10 @@ static int MenuSource(FrontendState& state)
 				const riftwii::FitRect fit = riftwii::fit_inside(static_cast<float>(art.w), static_cast<float>(art.h),
 					b.clipX, b.clipY, b.clipW, b.clipH);
 				if (fit.scale <= 0.0f) return false;
-				Menu_DrawImg(fit.x, fit.y, static_cast<u16>(art.w), static_cast<u16>(art.h), art.data, 0, fit.scale,
+				// Menu_DrawImg scales about the picture's middle: put it on fit's.
+				const float drawX = fit.x - (static_cast<float>(art.w) - fit.w) / 2.0f;
+				const float drawY = fit.y - (static_cast<float>(art.h) - fit.h) / 2.0f;
+				Menu_DrawImg(drawX, drawY, static_cast<u16>(art.w), static_cast<u16>(art.h), art.data, 0, fit.scale,
 					fit.scale, static_cast<u8>(b.alpha));
 				return true;
 			}
