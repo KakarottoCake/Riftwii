@@ -201,12 +201,15 @@ struct gc_bt {
 
 #ifdef RT_TARGET_PPC
 struct gc_rt_context;
-/* Once a frame, from PADRead: IOS's replies taken, the controller and
- * remotes served, then each remote's state written into the port
+/* PADRead services start-up and connected remotes each frame; once page
+ * scan is ready, the heartbeat services idle discovery. Each remote fills the port
  * gc_ports.h gives it, one a GameCube controller does not hold (status:
  * the game's PADStatus[4]; native: SI-identified ports, reserved even
  * when the game's own err is -1). */
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
+/* A link being established or used needs frame-paced service. After
+ * start-up, idle discovery is serviced by the heartbeat instead of PADRead. */
+int gc_bt_has_remote(const struct gc_bt* bt);
 void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native);
 /* PADControlMotor(chan, command) from the game: the port's rumble is noted
  * (command 1 rumbles, 0 and 2 stop) and goes to the remote on that port
