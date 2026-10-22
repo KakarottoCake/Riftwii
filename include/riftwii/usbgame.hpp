@@ -192,6 +192,32 @@ std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, con
 // and what RiftWii plays instead.
 std::string ciso_log_line(const CisoFinds& finds);
 
+// What d2x's own USB device (after the reload into the cIOS) reports, said
+// for boot.log and the launch's failure screen. A sector size of 0 is d2x
+// finding no drive at all in the port it looked at, not a drive with odd
+// sectors. `needs` names what needs 512-byte sectors ("GameCube games");
+// it is added after a real size only.
+std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs);
+
+// Whether the first sector d2x read for a Wii game is the game the menu
+// listed: a disc starts with its six-character game ID. True when it
+// cannot be judged (the first fragment is not the disc's start, or the
+// sector is not 512 bytes, as on a USB DVD drive), so only positive
+// evidence of another drive stops a launch.
+bool d2x_first_sector_is_game(const std::uint8_t* sector, std::uint32_t sector_bytes,
+                              std::uint32_t fragment_offset, const std::string& game_id);
+
+// The launch errors for a Wii game on a USB drive that d2x cannot serve.
+// `reason` is the last thing d2x's device said (empty when unknown).
+std::string d2x_usb_unreadable_error(const std::string& reason);
+std::string d2x_usb_other_drive_error();
+
+// After every cIOS slot was tried: the USB drive's error, said once with
+// the slots it happened in ("IOS249, IOS250"), and the first other slot's
+// error after it when one failed for another reason.
+std::string d2x_usb_slots_summary(const std::string& usb_error, const std::vector<int>& slots,
+                                  const std::string& other_error);
+
 // Nintendo's stub marker, seen in public SysCheck reports as rev 65280: a
 // slot holding this boots but implements nothing, so it can never be d2x.
 inline bool cios_revision_is_stub(std::uint32_t revision) { return revision == 65280; }

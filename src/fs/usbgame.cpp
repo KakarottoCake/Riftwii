@@ -539,4 +539,46 @@ bool UsbDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::s
     return true;
 }
 
+std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs) {
+    if (sector_bytes == 0) return "d2x sees no USB drive in this port";
+    std::string text = "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
+    if (needs != nullptr && needs[0] != '\0') text += "; " + std::string(needs) + " need 512";
+    return text;
+}
+
+bool d2x_first_sector_is_game(const std::uint8_t* sector, std::uint32_t sector_bytes,
+                              std::uint32_t fragment_offset, const std::string& game_id) {
+    // Only the disc's own first sector starts with the ID, and only a
+    // 512-byte drive is read in the units the fragment list counts.
+    const bool judged = fragment_offset == 0 && sector_bytes == kUsbSectorBytes && game_id.size() == 6;
+    if (!judged) return true;
+    return std::memcmp(sector, game_id.data(), 6) == 0;
+}
+
+std::string d2x_usb_unreadable_error(const std::string& reason) {
+    std::string text = "d2x can't read the USB drive in this port";
+    if (!reason.empty()) text += " (" + reason + ")";
+    text += ". Try the Wii's other USB port (on a Wii U, the one d2x was set up for), or leave only this drive "
+            "plugged in";
+    return text;
+}
+
+std::string d2x_usb_other_drive_error() {
+    return "d2x reads another USB drive than the one the game was listed from: plug the game's drive into the "
+           "Wii's other USB port, or leave only that drive plugged in";
+}
+
+std::string d2x_usb_slots_summary(const std::string& usb_error, const std::vector<int>& slots,
+                                  const std::string& other_error) {
+    std::string tried;
+    for (int slot : slots) {
+        tried += tried.empty() ? "IOS" : ", IOS";
+        tried += std::to_string(slot);
+    }
+    std::string text = usb_error;
+    if (!tried.empty()) text += " (tried with " + tried + ")";
+    if (!other_error.empty()) text += "; also: " + other_error;
+    return text;
+}
+
 }  // namespace riftwii

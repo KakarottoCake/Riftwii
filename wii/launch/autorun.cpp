@@ -163,16 +163,27 @@ struct Session {
             }
             // When every slot fails, the first one's reason is the one to
             // show (249: "not a d2x cIOS", not "251 is not installed").
+            // A drive d2x cannot read is said once, after every slot, with
+            // the slots it happened in: another slot's d2x base may reach
+            // the port (a Wii U's d2x often sees one rear port only).
             std::string first_error;
+            std::string usb_error;
+            std::vector<int> usb_slots;
             int used_slot = 0;
             for (int slot : image_cios_order(source.game, source.cios_slot, sd_in_use)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; used_slot=slot; break; }
                 if (reload_terminal_failure()) return false;
-                if (first_error.empty()) first_error = error;
+                if (d2x_usb_drive_failed()) {
+                    if (usb_error.empty()) usb_error = error;
+                    usb_slots.push_back(slot);
+                } else if (first_error.empty()) {
+                    first_error = error;
+                }
             }
             if (!active) {
-                if (!first_error.empty()) error = first_error;
+                if (!usb_error.empty()) error = d2x_usb_slots_summary(usb_error, usb_slots, first_error);
+                else if (!first_error.empty()) error = first_error;
                 return false;
             }
             // Before the partition is opened: d2x turns its NAND

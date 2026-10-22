@@ -815,16 +815,26 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
     game.device = ImageDevice::Usb;
     game.path = image.path;
     game.id = image.id;
+    // A drive d2x cannot read is said once, with the slots it happened in
+    // (another d2x base may reach the port), as for a Wii game.
     std::string first_error;
+    std::string usb_error;
+    std::vector<int> usb_slots;
     for (int slot : image_cios_order(game, image.cios_slot, true)) {
         if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
             image.usb_in_use = true;
             return true;
         }
         if (reload_terminal_failure()) return false;
-        if (first_error.empty()) first_error = error;
+        if (d2x_usb_drive_failed()) {
+            if (usb_error.empty()) usb_error = error;
+            usb_slots.push_back(slot);
+        } else if (first_error.empty()) {
+            first_error = error;
+        }
     }
-    if (!first_error.empty()) error = first_error;
+    if (!usb_error.empty()) error = d2x_usb_slots_summary(usb_error, usb_slots, first_error);
+    else if (!first_error.empty()) error = first_error;
     return false;
 }
 

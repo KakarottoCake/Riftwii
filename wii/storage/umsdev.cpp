@@ -180,8 +180,10 @@ bool Open(std::string& error) {
         // The only drive that started has other sectors than the menu's:
         // not the games' drive (that one may still be starting). Asked
         // again instead of reading the other drive.
-        error = "d2x sees only a USB drive other than the games' (" + std::to_string(any.sector_bytes) +
-                "-byte sectors)";
+        // A size of 0 is d2x finding no drive in that port at all.
+        error = any.sector_bytes == 0 ? d2x_sector_size_problem(0, nullptr)
+                                      : "d2x sees only a USB drive other than the games' (" +
+                                            std::to_string(any.sector_bytes) + "-byte sectors)";
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
@@ -207,7 +209,7 @@ bool Open(std::string& error) {
     if (!s.ok()) {
         error = init < 0 || !counted ? "the USB drive did not start through d2x (" + std::to_string(init) + ", " +
                                            std::to_string(sectors) + ")"
-                                     : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
+                                     : d2x_sector_size_problem(sector_bytes, nullptr);
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
@@ -277,7 +279,7 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
 bool Volume(const ImageVolume*& out, std::string& error) {
     if (!Open(error)) return false;
     if (g_sector_bytes != kFatSectorBytes) {
-        error = "the USB drive has " + std::to_string(g_sector_bytes) + "-byte sectors; packs on it need 512";
+        error = d2x_sector_size_problem(g_sector_bytes, "packs on it");
         return false;
     }
     if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error, usb_wanted_folders())) {
