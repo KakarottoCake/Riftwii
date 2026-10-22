@@ -2808,6 +2808,147 @@ msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
 
+msgid "Get more themes"
+msgstr "테마 더 받기"
+
+msgid "Browse"
+msgstr "둘러보기"
+
+msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "커뮤니티가 만든 테마를 riftwii.github.io에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다."
+
+msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
+msgstr "사용 중인 테마를 삭제해서 메뉴가 기본 모양으로 돌아갑니다. 설정을 나가면 다시 시작합니다."
+
+msgid "There is not enough free memory for the theme browser."
+msgstr "테마 목록을 열 여유 메모리가 부족합니다."
+
+msgid "Get"
+msgstr "받기"
+
+msgid "On the card"
+msgstr "카드에 있음"
+
+msgid "Getting the list of themes..."
+msgstr "테마 목록을 가져오는 중..."
+
+msgid "Could not get the list"
+msgstr "목록을 가져올 수 없음"
+
+msgid "There are no themes in the list yet."
+msgstr "목록에 아직 테마가 없습니다."
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
+msgstr "{1}이(가) 설치되어 있습니다. 사용하려면 설정 > 테마에서 고르세요. A를 누르면 삭제합니다."
+
+msgid "A newer copy of {1} is out. Press A to update it, or delete it."
+msgstr "{1}의 새 버전이 있습니다. A를 누르면 업데이트하거나 삭제합니다."
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
+msgstr "{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. A를 누르면 교체합니다."
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
+msgstr "A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 테마에서 고르기 전에는 아무것도 바뀌지 않습니다."
+
+msgid "{1} themes"
+msgstr "테마 {1}개"
+
+msgid "by {1}"
+msgstr "제작: {1}"
+
+msgid "License: {1}"
+msgstr "라이선스: {1}"
+
+msgid "Size: {1}"
+msgstr "크기: {1}"
+
+msgid "Has its own music"
+msgstr "전용 음악 포함"
+
+msgid "No preview"
+msgstr "미리보기 없음"
+
+msgid "Loading the preview..."
+msgstr "미리보기를 불러오는 중..."
+
+msgid "Could not get the list of themes: {1}"
+msgstr "테마 목록을 가져올 수 없습니다: {1}"
+
+msgid "The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."
+msgstr "테마 폴더가 sd:/riftwii/themes에서 제거됩니다. 여기서 다시 받을 수 있습니다."
+
+msgid "A newer copy of this theme is out."
+msgstr "이 테마의 새 버전이 있습니다."
+
+msgid "Get the newer copy"
+msgstr "새 버전 받기"
+
+msgid "Remove the theme"
+msgstr "테마 제거"
+
+msgid "Replace {1}?"
+msgstr "{1}을(를) 교체할까요?"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it."
+msgstr "{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다."
+
+msgid "Replace"
+msgstr "교체"
+
+msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
+msgstr "{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다."
+
+msgid "{1} is deleted."
+msgstr "{1}을(를) 삭제했습니다."
+
+msgid "Theme not deleted"
+msgstr "테마를 삭제하지 못함"
+
+msgid "{1} could not be deleted: {2}"
+msgstr "{1}을(를) 삭제할 수 없습니다: {2}"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it."
+msgstr "{1}이(가) 설치되었습니다. 사용하려면 설정 > 테마에서 고르세요."
+
+msgid "Stopped. Nothing was changed."
+msgstr "중지했습니다. 아무것도 바뀌지 않았습니다."
+
+msgid "Theme not installed"
+msgstr "테마를 설치하지 못함"
+
+msgid "{1} could not be installed: {2}. Nothing was changed."
+msgstr "{1}을(를) 설치할 수 없습니다: {2}. 아무것도 바뀌지 않았습니다."
+
+msgid "{1} was not installed."
+msgstr "{1}은(는) 설치되지 않았습니다."
+
+msgid "Downloading a theme"
+msgstr "테마 다운로드 중"
+
+msgid "Stopping..."
+msgstr "중지하는 중..."
+
+msgid "The theme browser is busy. Try again in a moment."
+msgstr "테마 목록이 사용 중입니다. 잠시 후 다시 시도하세요."
+
+msgid "{1}: {2} of {3} downloaded"
+msgstr "{1}: {3} 중 {2} 받음"
+
+msgid "{1}: checking the download..."
+msgstr "{1}: 다운로드를 확인하는 중..."
+
+msgid "{1}: unpacking, file {2} of {3}"
+msgstr "{1}: 압축 푸는 중, 파일 {3}개 중 {2}번째"
+
+msgid "{1}: checking the theme..."
+msgstr "{1}: 테마를 확인하는 중..."
+
+msgid "{1}: putting it in place..."
+msgstr "{1}: 제자리에 놓는 중..."
+
+msgid "1 theme"
+msgstr "테마 1개"
+
 msgid "Channel background"
 msgstr "채널 배경"
 
