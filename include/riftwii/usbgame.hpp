@@ -212,11 +212,21 @@ bool d2x_first_sector_is_game(const std::uint8_t* sector, std::uint32_t sector_b
 std::string d2x_usb_unreadable_error(const std::string& reason);
 std::string d2x_usb_other_drive_error();
 
-// After every cIOS slot was tried: the USB drive's error, said once with
-// the slots it happened in ("IOS249, IOS250"), and the first other slot's
-// error after it when one failed for another reason.
-std::string d2x_usb_slots_summary(const std::string& usb_error, const std::vector<int>& slots,
-                                  const std::string& other_error);
+// A call into d2x's USB device that never came back (a tester's Wii U
+// froze in the first one after the reload): the reason given, and the log
+// line for `call` ("open" or "read") after `seconds`.
+inline constexpr const char* kD2xStuckReason = "d2x stopped answering";
+std::string d2x_usb_stuck_log_line(const char* call, int seconds);
+
+// After every cIOS slot was tried: each USB drive error said once, with
+// the slots it happened in ("... (tried with IOS249, IOS251); <another
+// reason> (tried with IOS250)"), in the order first seen, then the first
+// other slot's error when one failed for another reason.
+struct D2xSlotFailure {
+    int slot = 0;
+    std::string reason;
+};
+std::string d2x_usb_slots_summary(const std::vector<D2xSlotFailure>& usb_failures, const std::string& other_error);
 
 // Nintendo's stub marker, seen in public SysCheck reports as rev 65280: a
 // slot holding this boots but implements nothing, so it can never be d2x.

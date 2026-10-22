@@ -522,9 +522,20 @@ void test_d2x_usb_checks() {
     EXPECT_TRUE(unreadable.find("other USB port") != std::string::npos);
     EXPECT_TRUE(d2x_usb_unreadable_error("").find("port. Try") != std::string::npos);
 
-    EXPECT_EQ(d2x_usb_slots_summary("E", {249, 250, 251}, ""), std::string("E (tried with IOS249, IOS250, IOS251)"));
-    EXPECT_EQ(d2x_usb_slots_summary("E", {250}, "IOS slot 249: no ticket"),
+    // A call d2x never answered (a tester's Wii U froze in the first one).
+    EXPECT_EQ(d2x_usb_stuck_log_line("open", 10),
+              std::string("d2x did not answer the drive's open in 10 s; the drive is stuck in d2x"));
+    EXPECT_TRUE(d2x_usb_unreadable_error(kD2xStuckReason)
+                    .find("d2x can't read the USB drive in this port (d2x stopped answering). Try") == 0);
+
+    EXPECT_EQ(d2x_usb_slots_summary({{249, "E"}, {250, "E"}, {251, "E"}}, ""),
+              std::string("E (tried with IOS249, IOS250, IOS251)"));
+    EXPECT_EQ(d2x_usb_slots_summary({{250, "E"}}, "IOS slot 249: no ticket"),
               std::string("E (tried with IOS250); also: IOS slot 249: no ticket"));
+    // Each slot keeps its own reason, grouped in the order first seen.
+    EXPECT_EQ(d2x_usb_slots_summary({{249, "unreadable"}, {250, "other drive"}, {251, "unreadable"}}, ""),
+              std::string("unreadable (tried with IOS249, IOS251); other drive (tried with IOS250)"));
+    EXPECT_EQ(d2x_usb_slots_summary({}, "only this"), std::string("only this"));
 }
 
 void test_gc_container_by_magic() {

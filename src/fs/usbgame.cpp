@@ -568,16 +568,32 @@ std::string d2x_usb_other_drive_error() {
            "Wii's other USB port, or leave only that drive plugged in";
 }
 
-std::string d2x_usb_slots_summary(const std::string& usb_error, const std::vector<int>& slots,
-                                  const std::string& other_error) {
-    std::string tried;
-    for (int slot : slots) {
-        tried += tried.empty() ? "IOS" : ", IOS";
-        tried += std::to_string(slot);
+std::string d2x_usb_stuck_log_line(const char* call, int seconds) {
+    return "d2x did not answer the drive's " + std::string(call) + " in " + std::to_string(seconds) +
+           " s; the drive is stuck in d2x";
+}
+
+std::string d2x_usb_slots_summary(const std::vector<D2xSlotFailure>& usb_failures, const std::string& other_error) {
+    // Reasons in the order first seen, each with the slots that gave it.
+    std::vector<std::string> reasons;
+    std::vector<std::string> slots_of_reason;
+    for (const D2xSlotFailure& failure : usb_failures) {
+        const auto found = std::find(reasons.begin(), reasons.end(), failure.reason);
+        const std::size_t index = static_cast<std::size_t>(found - reasons.begin());
+        if (found == reasons.end()) {
+            reasons.push_back(failure.reason);
+            slots_of_reason.emplace_back();
+        }
+        std::string& slots = slots_of_reason[index];
+        slots += slots.empty() ? "IOS" : ", IOS";
+        slots += std::to_string(failure.slot);
     }
-    std::string text = usb_error;
-    if (!tried.empty()) text += " (tried with " + tried + ")";
-    if (!other_error.empty()) text += "; also: " + other_error;
+    std::string text;
+    for (std::size_t i = 0; i < reasons.size(); ++i) {
+        if (!text.empty()) text += "; ";
+        text += reasons[i] + " (tried with " + slots_of_reason[i] + ")";
+    }
+    if (!other_error.empty()) text += (text.empty() ? "" : "; also: ") + other_error;
     return text;
 }
 

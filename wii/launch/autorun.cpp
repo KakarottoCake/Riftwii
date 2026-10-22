@@ -163,26 +163,27 @@ struct Session {
             }
             // When every slot fails, the first one's reason is the one to
             // show (249: "not a d2x cIOS", not "251 is not installed").
-            // A drive d2x cannot read is said once, after every slot, with
-            // the slots it happened in: another slot's d2x base may reach
-            // the port (a Wii U's d2x often sees one rear port only).
+            // A drive d2x cannot read is said after every slot, each reason
+            // once with the slots that gave it: another slot's d2x base may
+            // reach the port (a Wii U's d2x often sees one rear port only).
             std::string first_error;
-            std::string usb_error;
-            std::vector<int> usb_slots;
+            std::vector<D2xSlotFailure> usb_failures;
             int used_slot = 0;
             for (int slot : image_cios_order(source.game, source.cios_slot, sd_in_use)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; used_slot=slot; break; }
                 if (reload_terminal_failure()) return false;
                 if (d2x_usb_drive_failed()) {
-                    if (usb_error.empty()) usb_error = error;
-                    usb_slots.push_back(slot);
+                    usb_failures.push_back({slot, error});
                 } else if (first_error.empty()) {
                     first_error = error;
                 }
+                // A call d2x never answered can't be cancelled, and another IOS
+                // reload with it outstanding may hang: no further slot.
+                if (ums::Stuck()) break;
             }
             if (!active) {
-                if (!usb_error.empty()) error = d2x_usb_slots_summary(usb_error, usb_slots, first_error);
+                if (!usb_failures.empty()) error = d2x_usb_slots_summary(usb_failures, first_error);
                 else if (!first_error.empty()) error = first_error;
                 return false;
             }

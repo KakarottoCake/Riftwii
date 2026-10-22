@@ -47,6 +47,70 @@ std::unique_ptr<ImageVolume> g_volume;
 // the drive stays where it is plugged in).
 std::uint32_t g_port = 0;
 
+// Every call into d2x's USB module is sent asynchronously and waited for
+// with a time limit. A tester's Wii U froze inside the first one after the
+// reload into the cIOS (boot.log ended before any answer), and a request
+// IOS never answers cannot be cancelled: once one is overdue the device
+// counts as stuck for the rest of this run. Its fd is then never closed
+// (the close would queue behind the stuck request and hang too), and the
+// buffers the request points at (g_args, g_vec, g_bounce, the path) are
+// static or never freed, so a late answer lands harmlessly.
+constexpr int kCallLimitMs = 10000;
+constexpr int kPollMs = 2;
+
+struct Reply {
+    volatile bool done = false;
+    volatile s32 result = 0;
+};
+Reply g_reply;
+bool g_stuck = false;
+
+s32 on_reply(s32 result, void* user) {
+    // IPC interrupt context: only record it.
+    Reply* reply = static_cast<Reply*>(user);
+    reply->result = result;
+    reply->done = true;
+    return 0;
+}
+
+// Waits for the request `queued` sent (its result, or libogc's own error
+// when it could not be queued). On the time limit, marks the device stuck
+// and gives an error. `call` says which, for the log ("open" or "read").
+s32 wait_for_reply(s32 queued, const char* call) {
+    if (queued < 0) return queued;
+    for (int waited = 0; waited < kCallLimitMs; waited += kPollMs) {
+        if (g_reply.done) return g_reply.result;
+        usleep(kPollMs * 1000);
+    }
+    if (g_reply.done) return g_reply.result;
+    g_stuck = true;
+    logf("USB (d2x): %s\n", d2x_usb_stuck_log_line(call, kCallLimitMs / 1000).c_str());
+    return IPC_ENOMEM;  // any error: the caller sees a failed call
+}
+
+s32 ioctlv_limited(s32 ioctl, s32 in, s32 io, ioctlv* vec, const char* call) {
+    if (g_stuck || g_fd < 0) return IPC_EINVAL;
+    g_reply.done = false;
+    return wait_for_reply(IOS_IoctlvAsync(g_fd, ioctl, in, io, vec, on_reply, &g_reply), call);
+}
+
+s32 open_limited(const char* path) {
+    if (g_stuck) return IPC_EINVAL;
+    g_reply.done = false;
+    return wait_for_reply(IOS_OpenAsync(path, 0, on_reply, &g_reply), "open");
+}
+
+// After a stuck call: forget the fd without closing it, and say so to
+// every later caller.
+bool fail_stuck(std::string& error) {
+    g_fd = -1;
+    error = kD2xStuckReason;
+    g_failed = true;
+    g_failure = error;
+    g_not_ready = false;
+    return false;
+}
+
 struct Started {
     s32 init = -1;
     s32 sectors = 0;
@@ -62,7 +126,7 @@ bool set_port(std::uint32_t port) {
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    return IOS_Ioctlv(g_fd, kSetPort, 1, 0, g_vec) >= 0;
+    return ioctlv_limited(kSetPort, 1, 0, g_vec, "open") >= 0;
 }
 
 // Whether the started drive's sector 0 ends in 0x55AA (a partition table,
@@ -83,11 +147,11 @@ bool HasVolume(std::uint32_t sector_bytes, std::uint64_t& hash) {
 
 Started start_drive() {
     Started s;
-    s.init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
+    s.init = ioctlv_limited(kInit, 0, 0, nullptr, "open");
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    s.sectors = IOS_Ioctlv(g_fd, kGetCapacity, 0, 1, g_vec);
+    s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "open");
     DCInvalidateRange(g_args, sizeof(g_args));
     s.sector_bytes = g_args[0];
     // The count comes back as the ioctl's result: a drive past 2^31
@@ -106,13 +170,18 @@ bool ReadBlocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) { ret
 
 bool Open(std::string& error) {
     if (g_fd >= 0) return true;
+    if (g_stuck) {
+        error = kD2xStuckReason;
+        return false;
+    }
     if (g_failed) {
         error = g_failure;
         return false;
     }
     g_not_ready = false;
     static char path[] ATTRIBUTE_ALIGN(32) = "/dev/usb2";
-    g_fd = IOS_Open(path, 0);
+    g_fd = open_limited(path);
+    if (g_stuck) return fail_stuck(error);
     if (g_fd < 0) {
         // libogc's driver is still up: a failure here leaves the menu's
         // USB drive mounted.
@@ -142,9 +211,12 @@ bool Open(std::string& error) {
     std::uint32_t last = 0;
     for (int attempt = 0; attempt < 2 && (match ? matched < 0 : readable < 0); ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
+        logf("USB (d2x): starting the drive in port %u\n", static_cast<unsigned>(port));
         const bool switched = set_port(port);
+        if (g_stuck) return fail_stuck(error);
         if (!switched && port != 0) continue;  // no port switch in this d2x: port 0 only
         s = start_drive();
+        if (g_stuck) return fail_stuck(error);
         last = port;
         logf("USB (d2x): fd %d, port %u, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd),
              static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
@@ -155,7 +227,9 @@ bool Open(std::string& error) {
             any = s;
         }
         std::uint64_t hash = 0;
-        if (s.ok() && HasVolume(s.sector_bytes, hash)) {
+        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash);
+        if (g_stuck) return fail_stuck(error);
+        if (has_volume) {
             if (readable < 0) readable = static_cast<int>(port);
             if (match && s.sector_bytes == menu_bytes && hash == menu_hash) {
                 matched = static_cast<int>(port);
@@ -198,6 +272,7 @@ bool Open(std::string& error) {
         if (static_cast<std::uint32_t>(chosen) != last) {
             set_port(static_cast<std::uint32_t>(chosen));
             s = start_drive();
+            if (g_stuck) return fail_stuck(error);
             logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
         }
         g_port = static_cast<std::uint32_t>(chosen);
@@ -241,7 +316,8 @@ bool OpenWaiting(std::string& error, int seconds) {
 }
 
 void Forget() {
-    if (g_fd >= 0) IOS_Close(g_fd);
+    // A stuck device's close would wait behind its unanswered request.
+    if (g_fd >= 0 && !g_stuck) IOS_Close(g_fd);
     g_fd = -1;
     g_failed = false;
     g_failure.clear();
@@ -249,6 +325,8 @@ void Forget() {
 }
 
 int Fd() { return g_fd; }
+
+bool Stuck() { return g_stuck; }
 
 std::uint32_t SectorBytes() { return g_sector_bytes; }
 
@@ -266,7 +344,7 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
         g_vec[2].len = n * g_sector_bytes;
         DCFlushRange(g_args, sizeof(g_args));
         DCInvalidateRange(g_bounce, n * g_sector_bytes);
-        if (IOS_Ioctlv(g_fd, kReadSectors, 2, 1, g_vec) < 0) return false;
+        if (ioctlv_limited(kReadSectors, 2, 1, g_vec, "read") < 0) return false;
         DCInvalidateRange(g_bounce, n * g_sector_bytes);
         std::memcpy(out, g_bounce, n * g_sector_bytes);
         out += n * g_sector_bytes;
