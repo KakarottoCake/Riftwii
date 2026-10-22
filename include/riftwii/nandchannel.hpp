@@ -160,6 +160,10 @@ struct ChannelProgram {
     std::string format;  // parse_channel_program's: "DOL", "ELF", ...
 };
 
+// Whether a ChannelProgram::format says the DOL was read only leniently
+// (see parse_channel_program), as opposed to as the SDK links a game.
+bool dol_read_leniently(const std::string& format);
+
 // Why the cheats stay off for `program` when RiftWii's loader starts it,
 // or empty when they may go on. A DOL read only leniently (its entry
 // outside every text section, or overlapping sections) is not laid out

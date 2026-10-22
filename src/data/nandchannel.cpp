@@ -229,7 +229,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         }
         // A DOL or ELF read as it is wins over one read leniently (a big
         // data file could pass that by chance); then the bigger one.
-        const int rank = format.compare(0, 18, "DOL read leniently") == 0 ? 0 : 1;
+        const int rank = dol_read_leniently(format) ? 0 : 1;
         const bool better = !found || rank > found_rank || (rank == found_rank && start.size > found_size);
         if (!better) continue;
         found = true;
@@ -250,9 +250,13 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     return true;
 }
 
+bool dol_read_leniently(const std::string& format) {
+    static const char kPrefix[] = "DOL read leniently";
+    return format.compare(0, sizeof(kPrefix) - 1, kPrefix) == 0;
+}
+
 std::string channel_codes_refusal(const ChannelProgram& program) {
-    const bool read_leniently = program.format.compare(0, 18, "DOL read leniently") == 0;
-    if (!read_leniently) return std::string();
+    if (!dol_read_leniently(program.format)) return std::string();
     return "content " + std::to_string(program.index) + " was read only leniently (" + program.format +
            "), so it may be a loader that starts the game from elsewhere, and the codes would hook that "
            "loader, not the game";

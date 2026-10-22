@@ -239,7 +239,8 @@ void test_program() {
         // loader that starts the game from elsewhere (Fluidity).
         EXPECT_TRUE(choose_channel_program(tmd, {{3, 0x800000, loose}}, program, error));
         EXPECT_EQ(program.index, 3);
-        EXPECT_TRUE(program.format.compare(0, 18, "DOL read leniently") == 0);
+        EXPECT_TRUE(dol_read_leniently(program.format));
+        EXPECT_TRUE(!dol_read_leniently("DOL"));
         EXPECT_TRUE(channel_codes_refusal(program).find("content 3 was read only leniently") != std::string::npos);
     }
 
