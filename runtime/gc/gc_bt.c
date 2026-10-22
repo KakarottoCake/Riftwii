@@ -291,7 +291,7 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     }
     if (code == GC_EV_CONNECTION_REQUEST) {
         bt->progress |= GC_BT_SEEN_CONN_REQUEST;
-        bt->connecting = 1;
+        bt->connecting++;
         bt_copy(reply, p, 6);
         reply[6] = 0x00;  /* become the master: several remotes share this end */
         bt_command(bt, GC_HCI_ACCEPT_CONNECTION, reply, 7);
@@ -301,7 +301,7 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         struct gc_bt_remote* r;
         uint32_t slot;
         bt->conn_status = p[0];
-        bt->connecting = 0;
+        if (bt->connecting != 0) bt->connecting--;  /* this setup is over, failed or not */
         if (p[0] != 0) {
             bt->progress |= GC_BT_SEEN_CONN_FAILED;
             return;
