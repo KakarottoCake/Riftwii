@@ -18,20 +18,20 @@ constexpr std::size_t kMaxStringBytes = 1024;
 
 class Reader {
 public:
-    explicit Reader(const std::string& text) : text_(text) {}
+    Reader(const char* text, std::size_t size) : text_(text), size_(size) {}
 
     void skip_space() {
-        while (at_ < text_.size() &&
+        while (at_ < size_ &&
                (text_[at_] == ' ' || text_[at_] == '\t' || text_[at_] == '\n' || text_[at_] == '\r'))
             ++at_;
     }
     bool at_end() {
         skip_space();
-        return at_ >= text_.size();
+        return at_ >= size_;
     }
     char peek() {
         skip_space();
-        return at_ < text_.size() ? text_[at_] : '\0';
+        return at_ < size_ ? text_[at_] : '\0';
     }
     bool take(char c) {
         if (peek() != c) return false;
@@ -41,7 +41,7 @@ public:
     bool word(const char* w) {
         skip_space();
         const std::size_t n = std::strlen(w);
-        if (text_.compare(at_, n, w) != 0) return false;
+        if (size_ - at_ < n || std::memcmp(text_ + at_, w, n) != 0) return false;
         at_ += n;
         return true;
     }
@@ -51,7 +51,7 @@ public:
     bool string(std::string& out) {
         out.clear();
         if (!take('"')) return false;
-        while (at_ < text_.size()) {
+        while (at_ < size_) {
             const unsigned char c = static_cast<unsigned char>(text_[at_++]);
             if (c == '"') return true;
             if (out.size() > kMaxStringBytes) return false;
@@ -60,7 +60,7 @@ public:
                 out += static_cast<char>(c);
                 continue;
             }
-            if (at_ >= text_.size()) return false;
+            if (at_ >= size_) return false;
             const char e = text_[at_++];
             switch (e) {
             case '"': out += '"'; break;
@@ -72,7 +72,7 @@ public:
             case 'r': out += '\r'; break;
             case 't': out += '\t'; break;
             case 'u': {
-                if (text_.size() - at_ < 4) return false;
+                if (size_ - at_ < 4) return false;
                 unsigned code = 0;
                 for (int i = 0; i < 4; ++i) {
                     const char h = text_[at_++];
@@ -99,19 +99,19 @@ public:
         const std::size_t start = at_;
         value = 0;
         ok = true;
-        if (at_ < text_.size() && text_[at_] == '-') {
+        if (at_ < size_ && text_[at_] == '-') {
             ok = false;
             ++at_;
         }
         const std::size_t digits = at_;
-        while (at_ < text_.size() && text_[at_] >= '0' && text_[at_] <= '9') {
+        while (at_ < size_ && text_[at_] >= '0' && text_[at_] <= '9') {
             if (value <= 0xFFFFFFFFull) value = value * 10 + static_cast<unsigned>(text_[at_] - '0');
             ++at_;
         }
         if (at_ == digits) return false;
-        if (at_ < text_.size() && (text_[at_] == '.' || text_[at_] == 'e' || text_[at_] == 'E')) {
+        if (at_ < size_ && (text_[at_] == '.' || text_[at_] == 'e' || text_[at_] == 'E')) {
             ok = false;
-            while (at_ < text_.size() && (text_[at_] == '.' || text_[at_] == 'e' || text_[at_] == 'E' ||
+            while (at_ < size_ && (text_[at_] == '.' || text_[at_] == 'e' || text_[at_] == 'E' ||
                                           text_[at_] == '+' || text_[at_] == '-' || (text_[at_] >= '0' && text_[at_] <= '9')))
                 ++at_;
         }
@@ -165,7 +165,8 @@ private:
             out += static_cast<char>(0x80 | (code & 0x3F));
         }
     }
-    const std::string& text_;
+    const char* text_;
+    std::size_t size_;
     std::size_t at_ = 0;
 };
 
@@ -280,11 +281,11 @@ bool theme_url_ok(const std::string& url) {
     return true;
 }
 
-bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t max, std::size_t& count,
-                      std::size_t& skipped, std::string& error) {
+bool parse_theme_list(const char* text, std::size_t text_size, ThemeListing* out, std::size_t max,
+                      std::size_t& count, std::size_t& skipped, std::string& error) {
     count = 0;
     skipped = 0;
-    if (text.size() > kThemeListMaxBytes) {
+    if (text_size > kThemeListMaxBytes) {
         error = "the theme list is bigger than RiftWii takes (256 KB)";
         return false;
     }
@@ -293,7 +294,7 @@ bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t ma
         error = "the theme list is not in a form RiftWii reads";
         return false;
     };
-    Reader r(text);
+    Reader r(text, text_size);
     if (!r.take('{')) return bad();
     bool have_schema = false, have_themes = false;
     if (!r.take('}')) {
@@ -387,6 +388,11 @@ bool record_line(const std::string& line, std::string& folder, std::string& sha2
 }
 
 }  // namespace
+
+bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t max, std::size_t& count,
+                      std::size_t& skipped, std::string& error) {
+    return parse_theme_list(text.data(), text.size(), out, max, count, skipped, error);
+}
 
 std::string theme_record_without(const std::string& records, const std::string& folder) {
     std::string out;

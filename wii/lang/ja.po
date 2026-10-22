@@ -2825,3 +2825,141 @@ msgstr "スロットAに読み込めるメモリーカードがありません�
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
+
+msgid "Get more themes"
+msgstr "テーマを追加"
+
+msgid "Browse"
+msgstr "見る"
+
+msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
+
+msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
+msgstr "使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。"
+
+msgid "There is not enough free memory for the theme browser."
+msgstr "テーマ一覧を開くための空きメモリが足りません。"
+
+msgid "Get"
+msgstr "入手"
+
+msgid "On the card"
+msgstr "カードにあり"
+
+msgid "Getting the list of themes..."
+msgstr "テーマの一覧を取得しています..."
+
+msgid "Could not get the list"
+msgstr "一覧を取得できません"
+
+msgid "There are no themes in the list yet."
+msgstr "一覧にはまだテーマがありません。"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
+msgstr "{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。"
+
+msgid "A newer copy of {1} is out. Press A to update it, or delete it."
+msgstr "{1}の新しい版があります。Aで更新または削除します。"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
+msgstr "{1}というテーマがすでにsd:/riftwii/themesにあります(ここから入れたものではありません)。Aで置き換えます。"
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
+msgstr "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。"
+
+msgid "{1} themes"
+msgstr "{1}件のテーマ"
+
+msgid "by {1}"
+msgstr "作者: {1}"
+
+msgid "License: {1}"
+msgstr "ライセンス: {1}"
+
+msgid "Size: {1}"
+msgstr "サイズ: {1}"
+
+msgid "Has its own music"
+msgstr "専用のおんがくつき"
+
+msgid "No preview"
+msgstr "プレビューなし"
+
+msgid "Loading the preview..."
+msgstr "プレビューを読み込み中..."
+
+msgid "Could not get the list of themes: {1}"
+msgstr "テーマの一覧を取得できません: {1}"
+
+msgid "The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."
+msgstr "テーマのフォルダをsd:/riftwii/themesから削除します。ここからまたダウンロードできます。"
+
+msgid "A newer copy of this theme is out."
+msgstr "このテーマの新しい版があります。"
+
+msgid "Get the newer copy"
+msgstr "新しい版を入手"
+
+msgid "Remove the theme"
+msgstr "テーマを削除"
+
+msgid "Replace {1}?"
+msgstr "{1}を置き換えますか?"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it."
+msgstr "{1}というテーマがすでにsd:/riftwii/themesにあり、ここから入れたものではありません。ダウンロードすると置き換わります。"
+
+msgid "Replace"
+msgstr "置き換える"
+
+msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
+msgstr "{1}を削除しました。使用中のテーマだったので、メニューは標準の見た目に戻ります。"
+
+msgid "{1} is deleted."
+msgstr "{1}を削除しました。"
+
+msgid "Theme not deleted"
+msgstr "テーマを削除できません"
+
+msgid "{1} could not be deleted: {2}"
+msgstr "{1}を削除できませんでした: {2}"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it."
+msgstr "{1}をインストールしました。使うには設定 > テーマで選んでください。"
+
+msgid "Stopped. Nothing was changed."
+msgstr "中止しました。何も変更されていません。"
+
+msgid "Theme not installed"
+msgstr "テーマをインストールできません"
+
+msgid "{1} could not be installed: {2}. Nothing was changed."
+msgstr "{1}をインストールできませんでした: {2}。何も変更されていません。"
+
+msgid "{1} was not installed."
+msgstr "{1}はインストールされませんでした。"
+
+msgid "Downloading a theme"
+msgstr "テーマをダウンロード中"
+
+msgid "Stopping..."
+msgstr "中止しています..."
+
+msgid "The theme browser is busy. Try again in a moment."
+msgstr "テーマ一覧は処理中です。少ししてからもう一度お試しください。"
+
+msgid "{1}: {2} of {3} downloaded"
+msgstr "{1}: {3}のうち{2}をダウンロード済み"
+
+msgid "{1}: checking the download..."
+msgstr "{1}: ダウンロードを確認しています..."
+
+msgid "{1}: unpacking, file {2} of {3}"
+msgstr "{1}: 展開中、{3}個中{2}個目のファイル"
+
+msgid "{1}: checking the theme..."
+msgstr "{1}: テーマを確認しています..."
+
+msgid "{1}: putting it in place..."
+msgstr "{1}: 所定の場所に置いています..."

@@ -60,6 +60,10 @@ bool theme_url_ok(const std::string& url);
 // themes it holds; `skipped` how many entries were left out for breaking a
 // rule. False with `error` when the text is not a schema 1 list at all or
 // is over the size cap.
+bool parse_theme_list(const char* text, std::size_t text_size, ThemeListing* out, std::size_t max,
+                      std::size_t& count, std::size_t& skipped, std::string& error);
+// The same for text in a string (the tests'); the Wii reads it in place from
+// the downloaded buffer, so the list is never copied into the heap.
 bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t max, std::size_t& count,
                       std::size_t& skipped, std::string& error);
 

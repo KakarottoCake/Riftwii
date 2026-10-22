@@ -6066,6 +6066,195 @@ T['The real card could not be prepared. Check the card and try again.'] = ('No s
 KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
 FR['The real card could not be prepared. Check the card and try again.'] = 'Impossible de préparer la carte réelle. Vérifiez la carte et réessayez.'
 
+# The theme browser (Settings > Theme > Get more themes).
+T['Get more themes'] = ('Conseguir más temas', 'テーマを追加', 'Baixar mais temas', 'Scarica altri temi')
+KO['Get more themes'] = '테마 더 받기'
+FR['Get more themes'] = "Obtenir d'autres thèmes"
+
+T['Browse'] = ('Explorar', '見る', 'Ver', 'Sfoglia')
+KO['Browse'] = '둘러보기'
+FR['Browse'] = 'Parcourir'
+
+T['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = ('Temas hechos por la comunidad, de riftwii.github.io, cada uno con una vista previa. Se guardan en sd:/riftwii/themes.', 'みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。', 'Temas feitos pela comunidade, de riftwii.github.io, cada um com uma prévia. Eles ficam em sd:/riftwii/themes.', "Temi creati dalla comunità, da riftwii.github.io, ognuno con un'anteprima. Vengono messi in sd:/riftwii/themes.")
+KO['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = '커뮤니티가 만든 테마를 riftwii.github.io에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다.'
+FR['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = 'Des thèmes créés par la communauté, depuis riftwii.github.io, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes.'
+
+T['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = ('Se borró el tema en uso, así que el menú vuelve al aspecto predeterminado. Se reinicia al salir de Ajustes.', '使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。', 'O tema em uso foi apagado, então o menu volta ao visual padrão. Ele reinicia quando você sair das Configurações.', "Il tema in uso è stato eliminato, quindi il menu torna all'aspetto predefinito. Si riavvia quando esci dalle Impostazioni.")
+KO['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = '사용 중인 테마를 삭제해서 메뉴가 기본 모양으로 돌아갑니다. 설정을 나가면 다시 시작합니다.'
+FR['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = "Le thème utilisé a été supprimé, le menu revient donc à l'aspect par défaut. Il redémarre quand vous quittez les Réglages."
+
+T['There is not enough free memory for the theme browser.'] = ('No hay memoria libre suficiente para el explorador de temas.', 'テーマ一覧を開くための空きメモリが足りません。', 'Não há memória livre suficiente para o navegador de temas.', "Non c'è abbastanza memoria libera per lo sfoglia-temi.")
+KO['There is not enough free memory for the theme browser.'] = '테마 목록을 열 여유 메모리가 부족합니다.'
+FR['There is not enough free memory for the theme browser.'] = "Il n'y a pas assez de mémoire libre pour le navigateur de thèmes."
+
+T['Get'] = ('Obtener', '入手', 'Baixar', 'Scarica')
+KO['Get'] = '받기'
+FR['Get'] = 'Obtenir'
+
+T['On the card'] = ('En la tarjeta', 'カードにあり', 'No cartão', 'Sulla scheda')
+KO['On the card'] = '카드에 있음'
+FR['On the card'] = 'Sur la carte'
+
+T['Getting the list of themes...'] = ('Obteniendo la lista de temas...', 'テーマの一覧を取得しています...', 'Obtendo a lista de temas...', "Recupero dell'elenco dei temi...")
+KO['Getting the list of themes...'] = '테마 목록을 가져오는 중...'
+FR['Getting the list of themes...'] = 'Récupération de la liste des thèmes...'
+
+T['Could not get the list'] = ('No se pudo obtener la lista', '一覧を取得できません', 'Não foi possível obter a lista', "Impossibile ottenere l'elenco")
+KO['Could not get the list'] = '목록을 가져올 수 없음'
+FR['Could not get the list'] = "Impossible d'obtenir la liste"
+
+T['There are no themes in the list yet.'] = ('Todavía no hay temas en la lista.', '一覧にはまだテーマがありません。', 'Ainda não há temas na lista.', "Non ci sono ancora temi nell'elenco.")
+KO['There are no themes in the list yet.'] = '목록에 아직 테마가 없습니다.'
+FR['There are no themes in the list yet.'] = "Il n'y a pas encore de thème dans la liste."
+
+T['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo. Pulsa A para borrarlo.', '{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo. Aperte A para apagá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo. Premi A per eliminarlo.')
+KO['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = '{1}이(가) 설치되어 있습니다. 사용하려면 설정 > 테마에서 고르세요. A를 누르면 삭제합니다.'
+FR['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser. Appuyez sur A pour le supprimer."
+
+T['A newer copy of {1} is out. Press A to update it, or delete it.'] = ('Hay una copia más nueva de {1}. Pulsa A para actualizarlo o borrarlo.', '{1}の新しい版があります。Aで更新または削除します。', 'Há uma cópia mais nova de {1}. Aperte A para atualizá-lo ou apagá-lo.', 'È disponibile una copia più recente di {1}. Premi A per aggiornarlo o eliminarlo.')
+KO['A newer copy of {1} is out. Press A to update it, or delete it.'] = '{1}의 새 버전이 있습니다. A를 누르면 업데이트하거나 삭제합니다.'
+FR['A newer copy of {1} is out. Press A to update it, or delete it.'] = 'Une copie plus récente de {1} est disponible. Appuyez sur A pour la mettre à jour ou le supprimer.'
+
+T['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = ('Ya hay un tema llamado {1} en sd:/riftwii/themes que no se puso desde aquí. Pulsa A para reemplazarlo.', '{1}というテーマがすでにsd:/riftwii/themesにあります(ここから入れたものではありません)。Aで置き換えます。', 'Já existe um tema chamado {1} em sd:/riftwii/themes, que não foi colocado por aqui. Aperte A para substituí-lo.', "C'è già un tema chiamato {1} in sd:/riftwii/themes, che non è stato messo da qui. Premi A per sostituirlo.")
+KO['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = '{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. A를 누르면 교체합니다.'
+FR['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Appuyez sur A pour le remplacer."
+
+T['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = ('Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que lo elijas en Ajustes > Tema.', 'Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。', 'Aperte A para baixar {1} em sd:/riftwii/themes. Nada muda até você escolhê-lo em Configurações > Tema.', 'Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finché non lo scegli in Impostazioni > Tema.')
+KO['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 테마에서 고르기 전에는 아무것도 바뀌지 않습니다.'
+FR['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Réglages > Thème.'
+
+T['{1} themes'] = ('{1} temas', '{1}件のテーマ', '{1} temas', '{1} temi')
+KO['{1} themes'] = '테마 {1}개'
+FR['{1} themes'] = '{1} thèmes'
+
+T['by {1}'] = ('de {1}', '作者: {1}', 'por {1}', 'di {1}')
+KO['by {1}'] = '제작: {1}'
+FR['by {1}'] = 'par {1}'
+
+T['License: {1}'] = ('Licencia: {1}', 'ライセンス: {1}', 'Licença: {1}', 'Licenza: {1}')
+KO['License: {1}'] = '라이선스: {1}'
+FR['License: {1}'] = 'Licence : {1}'
+
+T['Size: {1}'] = ('Tamaño: {1}', 'サイズ: {1}', 'Tamanho: {1}', 'Dimensione: {1}')
+KO['Size: {1}'] = '크기: {1}'
+FR['Size: {1}'] = 'Taille : {1}'
+
+T['Has its own music'] = ('Tiene su propia música', '専用のおんがくつき', 'Tem música própria', 'Ha una musica propria')
+KO['Has its own music'] = '전용 음악 포함'
+FR['Has its own music'] = 'A sa propre musique'
+
+T['No preview'] = ('Sin vista previa', 'プレビューなし', 'Sem prévia', 'Nessuna anteprima')
+KO['No preview'] = '미리보기 없음'
+FR['No preview'] = "Pas d'aperçu"
+
+T['Loading the preview...'] = ('Cargando la vista previa...', 'プレビューを読み込み中...', 'Carregando a prévia...', "Caricamento dell'anteprima...")
+KO['Loading the preview...'] = '미리보기를 불러오는 중...'
+FR['Loading the preview...'] = "Chargement de l'aperçu..."
+
+T['Could not get the list of themes: {1}'] = ('No se pudo obtener la lista de temas: {1}', 'テーマの一覧を取得できません: {1}', 'Não foi possível obter a lista de temas: {1}', "Impossibile ottenere l'elenco dei temi: {1}")
+KO['Could not get the list of themes: {1}'] = '테마 목록을 가져올 수 없습니다: {1}'
+FR['Could not get the list of themes: {1}'] = "Impossible d'obtenir la liste des thèmes : {1}"
+
+T['Delete {1}?'] = ('¿Borrar {1}?', '{1}を削除しますか?', 'Apagar {1}?', 'Eliminare {1}?')
+KO['Delete {1}?'] = '{1}을(를) 삭제할까요?'
+FR['Delete {1}?'] = 'Supprimer {1} ?'
+
+T["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = ('La carpeta del tema se quita de sd:/riftwii/themes. Puedes volver a descargarlo desde aquí.', 'テーマのフォルダをsd:/riftwii/themesから削除します。ここからまたダウンロードできます。', 'A pasta do tema é removida de sd:/riftwii/themes. Você pode baixá-lo de novo por aqui.', 'La cartella del tema viene rimossa da sd:/riftwii/themes. Puoi scaricarlo di nuovo da qui.')
+KO["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = '테마 폴더가 sd:/riftwii/themes에서 제거됩니다. 여기서 다시 받을 수 있습니다.'
+FR["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = 'Le dossier du thème est retiré de sd:/riftwii/themes. Vous pouvez le télécharger de nouveau ici.'
+
+T['A newer copy of this theme is out.'] = ('Hay una copia más nueva de este tema.', 'このテーマの新しい版があります。', 'Há uma cópia mais nova deste tema.', 'È disponibile una copia più recente di questo tema.')
+KO['A newer copy of this theme is out.'] = '이 테마의 새 버전이 있습니다.'
+FR['A newer copy of this theme is out.'] = 'Une copie plus récente de ce thème est disponible.'
+
+T['Get the newer copy'] = ('Obtener la copia nueva', '新しい版を入手', 'Baixar a cópia nova', 'Scarica la copia nuova')
+KO['Get the newer copy'] = '새 버전 받기'
+FR['Get the newer copy'] = 'Obtenir la copie récente'
+
+T['Remove the theme'] = ('Quitar el tema', 'テーマを削除', 'Remover o tema', 'Rimuovi il tema')
+KO['Remove the theme'] = '테마 제거'
+FR['Remove the theme'] = 'Retirer le thème'
+
+T['Replace {1}?'] = ('¿Reemplazar {1}?', '{1}を置き換えますか?', 'Substituir {1}?', 'Sostituire {1}?')
+KO['Replace {1}?'] = '{1}을(를) 교체할까요?'
+FR['Replace {1}?'] = 'Remplacer {1} ?'
+
+T['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = ('Ya hay un tema llamado {1} en sd:/riftwii/themes y no se puso desde aquí. La descarga lo reemplaza.', '{1}というテーマがすでにsd:/riftwii/themesにあり、ここから入れたものではありません。ダウンロードすると置き換わります。', 'Já existe um tema chamado {1} em sd:/riftwii/themes, e ele não foi colocado por aqui. O download o substitui.', "C'è già un tema chiamato {1} in sd:/riftwii/themes e non è stato messo da qui. Il download lo sostituisce.")
+KO['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = '{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다.'
+FR['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Le téléchargement le remplace."
+
+T['Replace'] = ('Reemplazar', '置き換える', 'Substituir', 'Sostituisci')
+KO['Replace'] = '교체'
+FR['Replace'] = 'Remplacer'
+
+T['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = ('Se borró {1}. Era el tema en uso, así que el menú vuelve al aspecto predeterminado.', '{1}を削除しました。使用中のテーマだったので、メニューは標準の見た目に戻ります。', '{1} foi apagado. Era o tema em uso, então o menu volta ao visual padrão.', "{1} è stato eliminato. Era il tema in uso, quindi il menu torna all'aspetto predefinito.")
+KO['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = '{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다.'
+FR['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = "{1} est supprimé. C'était le thème utilisé, le menu revient donc à l'aspect par défaut."
+
+T['{1} is deleted.'] = ('Se borró {1}.', '{1}を削除しました。', '{1} foi apagado.', '{1} è stato eliminato.')
+KO['{1} is deleted.'] = '{1}을(를) 삭제했습니다.'
+FR['{1} is deleted.'] = '{1} est supprimé.'
+
+T['Theme not deleted'] = ('Tema no borrado', 'テーマを削除できません', 'Tema não apagado', 'Tema non eliminato')
+KO['Theme not deleted'] = '테마를 삭제하지 못함'
+FR['Theme not deleted'] = 'Thème non supprimé'
+
+T['{1} could not be deleted: {2}'] = ('No se pudo borrar {1}: {2}', '{1}を削除できませんでした: {2}', 'Não foi possível apagar {1}: {2}', 'Impossibile eliminare {1}: {2}')
+KO['{1} could not be deleted: {2}'] = '{1}을(를) 삭제할 수 없습니다: {2}'
+FR['{1} could not be deleted: {2}'] = 'Impossible de supprimer {1} : {2}'
+
+T['{1} is installed. Pick it in Settings > Theme to use it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo.', '{1}をインストールしました。使うには設定 > テーマで選んでください。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo.')
+KO['{1} is installed. Pick it in Settings > Theme to use it.'] = '{1}이(가) 설치되었습니다. 사용하려면 설정 > 테마에서 고르세요.'
+FR['{1} is installed. Pick it in Settings > Theme to use it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser."
+
+T['Stopped. Nothing was changed.'] = ('Detenido. No se cambió nada.', '中止しました。何も変更されていません。', 'Interrompido. Nada foi alterado.', 'Interrotto. Non è cambiato nulla.')
+KO['Stopped. Nothing was changed.'] = '중지했습니다. 아무것도 바뀌지 않았습니다.'
+FR['Stopped. Nothing was changed.'] = "Arrêté. Rien n'a été modifié."
+
+T['Theme not installed'] = ('Tema no instalado', 'テーマをインストールできません', 'Tema não instalado', 'Tema non installato')
+KO['Theme not installed'] = '테마를 설치하지 못함'
+FR['Theme not installed'] = 'Thème non installé'
+
+T['{1} could not be installed: {2}. Nothing was changed.'] = ('No se pudo instalar {1}: {2}. No se cambió nada.', '{1}をインストールできませんでした: {2}。何も変更されていません。', 'Não foi possível instalar {1}: {2}. Nada foi alterado.', 'Impossibile installare {1}: {2}. Non è cambiato nulla.')
+KO['{1} could not be installed: {2}. Nothing was changed.'] = '{1}을(를) 설치할 수 없습니다: {2}. 아무것도 바뀌지 않았습니다.'
+FR['{1} could not be installed: {2}. Nothing was changed.'] = "Impossible d'installer {1} : {2}. Rien n'a été modifié."
+
+T['{1} was not installed.'] = ('No se instaló {1}.', '{1}はインストールされませんでした。', '{1} não foi instalado.', '{1} non è stato installato.')
+KO['{1} was not installed.'] = '{1}은(는) 설치되지 않았습니다.'
+FR['{1} was not installed.'] = "{1} n'a pas été installé."
+
+T['Downloading a theme'] = ('Descargando un tema', 'テーマをダウンロード中', 'Baixando um tema', 'Download di un tema')
+KO['Downloading a theme'] = '테마 다운로드 중'
+FR['Downloading a theme'] = "Téléchargement d'un thème"
+
+T['Stopping...'] = ('Deteniendo...', '中止しています...', 'Parando...', 'Interruzione...')
+KO['Stopping...'] = '중지하는 중...'
+FR['Stopping...'] = 'Arrêt...'
+
+T['The theme browser is busy. Try again in a moment.'] = ('El explorador de temas está ocupado. Inténtalo de nuevo en un momento.', 'テーマ一覧は処理中です。少ししてからもう一度お試しください。', 'O navegador de temas está ocupado. Tente de novo em instantes.', 'Lo sfoglia-temi è occupato. Riprova tra un momento.')
+KO['The theme browser is busy. Try again in a moment.'] = '테마 목록이 사용 중입니다. 잠시 후 다시 시도하세요.'
+FR['The theme browser is busy. Try again in a moment.'] = 'Le navigateur de thèmes est occupé. Réessayez dans un instant.'
+
+T['{1}: {2} of {3} downloaded'] = ('{1}: {2} de {3} descargados', '{1}: {3}のうち{2}をダウンロード済み', '{1}: {2} de {3} baixados', '{1}: {2} di {3} scaricati')
+KO['{1}: {2} of {3} downloaded'] = '{1}: {3} 중 {2} 받음'
+FR['{1}: {2} of {3} downloaded'] = '{1} : {2} sur {3} téléchargés'
+
+T['{1}: checking the download...'] = ('{1}: comprobando la descarga...', '{1}: ダウンロードを確認しています...', '{1}: verificando o download...', '{1}: controllo del download...')
+KO['{1}: checking the download...'] = '{1}: 다운로드를 확인하는 중...'
+FR['{1}: checking the download...'] = '{1} : vérification du téléchargement...'
+
+T['{1}: unpacking, file {2} of {3}'] = ('{1}: descomprimiendo, archivo {2} de {3}', '{1}: 展開中、{3}個中{2}個目のファイル', '{1}: descompactando, arquivo {2} de {3}', '{1}: estrazione, file {2} di {3}')
+KO['{1}: unpacking, file {2} of {3}'] = '{1}: 압축 푸는 중, 파일 {3}개 중 {2}번째'
+FR['{1}: unpacking, file {2} of {3}'] = '{1} : décompression, fichier {2} sur {3}'
+
+T['{1}: checking the theme...'] = ('{1}: comprobando el tema...', '{1}: テーマを確認しています...', '{1}: verificando o tema...', '{1}: controllo del tema...')
+KO['{1}: checking the theme...'] = '{1}: 테마를 확인하는 중...'
+FR['{1}: checking the theme...'] = '{1} : vérification du thème...'
+
+T['{1}: putting it in place...'] = ('{1}: colocándolo en su sitio...', '{1}: 所定の場所に置いています...', '{1}: colocando no lugar...', '{1}: sistemazione al suo posto...')
+KO['{1}: putting it in place...'] = '{1}: 제자리에 놓는 중...'
+FR['{1}: putting it in place...'] = '{1} : mise en place...'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
