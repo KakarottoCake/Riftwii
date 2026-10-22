@@ -405,6 +405,18 @@ msgstr "メニュー"
 msgid "Finding games"
 msgstr "ゲームを探す"
 
+msgid "Games on the SD card"
+msgstr "SDカードのゲーム"
+
+msgid "Look for them"
+msgstr "探す"
+
+msgid "Don't look"
+msgstr "探さない"
+
+msgid "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work."
+msgstr "探さない: SDカードからゲームを探しません(ゲームキューブも含む)。WiiのゲームをすべてUSBドライブに置く場合向け。SDカードのパック、テーマ、セーブは使えます。"
+
 msgid "Online"
 msgstr "オンライン"
 
@@ -599,6 +611,9 @@ msgstr "検索をやめる"
 
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
+
+msgid "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."
+msgstr "ゲームがまだありません。SDカードは探していません(設定 > ドライブ > SDカードのゲーム)。ゲーム(WBFS、ISO、RVZ)をUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"

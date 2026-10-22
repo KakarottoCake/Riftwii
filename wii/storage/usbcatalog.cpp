@@ -1854,6 +1854,14 @@ std::vector<std::string> usb_wanted_folders() {
 
 bool scan_sd_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Sd;
+    // For setups that keep every game on a USB drive: the card still serves packs,
+    // themes, saves and logs, only the image scan is skipped. No status either, so
+    // Home shows no "no games" problem for a card that was never meant to have any.
+    if (Settings().sd_games == "off") {
+        logf("SD: not looking for games there (Settings: Games on the SD card is off)\n");
+        error.clear();
+        return true;
+    }
     logf("SD: scanning for images\n");
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }

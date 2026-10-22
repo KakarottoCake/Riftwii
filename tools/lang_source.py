@@ -367,6 +367,14 @@ T = {
     "Games": ("Juegos", "ゲーム", "Jogos", "Giochi"),
     "Menu": ("Menú", "メニュー", "Menu", "Menu"),
     "Finding games": ("Buscar juegos", "ゲームを探す", "Procurar jogos", "Trovare i giochi"),
+    "Games on the SD card": ("Juegos en la tarjeta SD", "SDカードのゲーム", "Jogos no cartão SD", "Giochi sulla scheda SD"),
+    "Look for them": ("Buscarlos", "探す", "Procurar", "Cercali"),
+    "Don't look": ("No buscar", "探さない", "Não procurar", "Non cercare"),
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.": (
+        "No buscar: no se buscan juegos en la tarjeta SD, tampoco los de GameCube. Para quien guarda todos sus juegos de Wii en un USB; los packs, temas y partidas de la tarjeta siguen funcionando.",
+        "探さない: SDカードからゲームを探しません(ゲームキューブも含む)。WiiのゲームをすべてUSBドライブに置く場合向け。SDカードのパック、テーマ、セーブは使えます。",
+        "Não procurar: o cartão SD não é vasculhado atrás de jogos, nem os de GameCube. Para quem guarda todos os jogos de Wii em um USB; packs, temas e saves no cartão continuam funcionando.",
+        "Non cercare: la scheda SD non viene cercata per i giochi, nemmeno quelli GameCube. Per chi tiene tutti i giochi Wii su USB; pack, temi e salvataggi sulla scheda funzionano ancora."),
     "Online": ("En línea", "オンライン", "Online", "Online"),
     "More": ("Más", "その他", "Mais", "Altro"),
     "Picture": ("Imagen", "画面", "Imagem", "Immagine"),
@@ -532,6 +540,11 @@ T = {
         "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
         "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações.",
         "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice della SD o dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.": (
+        "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades > Juegos en la tarjeta SD). Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz del USB y luego elige Buscar juegos de nuevo en Ajustes.",
+        "ゲームがまだありません。SDカードは探していません(設定 > ドライブ > SDカードのゲーム)。ゲーム(WBFS、ISO、RVZ)をUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
+        "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades > Jogos no cartão SD). Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do USB e depois escolha Procurar jogos de novo em Configurações.",
+        "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità > Giochi sulla scheda SD). Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.": (
         "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
         "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
@@ -3184,6 +3197,14 @@ KO = {
         "메뉴",
     "Finding games":
         "게임 찾기",
+    "Games on the SD card":
+        "SD 카드의 게임",
+    "Look for them":
+        "찾기",
+    "Don't look":
+        "찾지 않기",
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.":
+        "찾지 않기: SD 카드에서 게임을 찾지 않으며 게임큐브 게임도 포함됩니다. Wii 게임을 모두 USB 드라이브에 두는 경우용이며, 카드의 팩, 테마, 저장 데이터는 계속 작동합니다.",
     "Online":
         "온라인",
     "More":
@@ -3196,6 +3217,8 @@ KO = {
         "검색 지우기",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.":
+        "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브 > SD 카드의 게임). USB 드라이브 최상위 경로의 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "이 SD 카드({1} GB)는 코드 빌드용으로는 용량이 너무 큽니다. SD 이미지를 생성하세요.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
@@ -5169,6 +5192,14 @@ FR = {
         "Menu",
     "Finding games":
         "Recherche des jeux",
+    "Games on the SD card":
+        "Jeux sur la carte SD",
+    "Look for them":
+        "Les chercher",
+    "Don't look":
+        "Ne pas chercher",
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.":
+        "Ne pas chercher : la carte SD n'est pas fouillée pour les jeux, GameCube compris. Pour tous les jeux Wii sur un disque USB ; packs, thèmes et sauvegardes de la carte fonctionnent toujours.",
     "Online":
         "En ligne",
     "More":
@@ -5181,6 +5212,8 @@ FR = {
         "Effacer la recherche",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.":
+        "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports > Jeux sur la carte SD). Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "Cette carte SD ({1} Go) est trop grande pour les builds de code. Créez une image SD.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
