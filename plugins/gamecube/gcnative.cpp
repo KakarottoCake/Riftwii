@@ -1611,10 +1611,6 @@ struct GcSecondDisc {
     GcRvzSetup rvz_setup;
 };
 
-bool is_rvz_path(const std::string& path) {
-    return path.size() >= 4 && path.compare(path.size() - 4, 4, ".rvz") == 0;
-}
-
 // Any reason it cannot be used is logged, and the game starts with disc 1
 // alone (it then stops where it asks for disc 2, as before).
 void open_second_disc(const GcImage& image, const std::vector<std::uint8_t>& first_boot, std::uint32_t tgc_offset,
@@ -1628,7 +1624,7 @@ void open_second_disc(const GcImage& image, const std::vector<std::uint8_t>& fir
     if (tgc_offset != 0) return refuse("the game is one packed in a TGC image on a bonus disc");
     GcImage disc2 = image;
     disc2.path = image.disc2_path;
-    disc2.rvz = is_rvz_path(disc2.path);
+    disc2.rvz = gc_image_name_is_rvz(disc2.path);
     disc2.usb_fragments = image.disc2_usb_fragments;
     disc2.usb_bytes = image.disc2_usb_bytes;
     const bool on_usb = !disc2.usb_fragments.empty();

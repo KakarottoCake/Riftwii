@@ -29,6 +29,11 @@ constexpr std::uint32_t kGcSecondDiscFstMax = 0x00200000;
 bool gc_second_disc_matches(const std::uint8_t* first, const std::uint8_t* second, std::uint64_t second_bytes,
                             std::string& why);
 
+// Whether the image at `path` is an RVZ, by its name ending in ".rvz" in
+// any case, as the DOL's scan and GcImageIsRvz take it (DISC2.RVZ too).
+// ASCII folding only: the plugin has no locale.
+bool gc_image_name_is_rvz(const std::string& path);
+
 // The FST room both discs need, from disc 1's (`first_room`, its FST's
 // size or the larger "FST max" its header gives for a multi-disc game)
 // and the second disc's header: the SDK refuses a disc whose FST is

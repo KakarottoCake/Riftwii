@@ -54,6 +54,18 @@ bool gc_second_disc_matches(const std::uint8_t* first, const std::uint8_t* secon
     return true;
 }
 
+bool gc_image_name_is_rvz(const std::string& path) {
+    static const char kSuffix[] = ".rvz";
+    const std::size_t length = sizeof(kSuffix) - 1;
+    if (path.size() < length) return false;
+    for (std::size_t i = 0; i < length; ++i) {
+        char c = path[path.size() - length + i];
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        if (c != kSuffix[i]) return false;
+    }
+    return true;
+}
+
 std::uint32_t gc_two_disc_fst_room(std::uint32_t first_room, const std::uint8_t* second) {
     // The header's "FST max" is only a hint (a disc may leave it 0 or
     // anything); its own FST's size is what the game reads. Each bounded

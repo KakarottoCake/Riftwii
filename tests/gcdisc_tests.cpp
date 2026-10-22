@@ -258,6 +258,18 @@ void test_fst_room() {
               riftwii::kGcSecondDiscFstMax);
 }
 
+// An RVZ by its name, in any case, as the DOL's scan takes it.
+void test_image_name_is_rvz() {
+    using riftwii::gc_image_name_is_rvz;
+    EXPECT_TRUE(gc_image_name_is_rvz("sd:/games/GBIE08/disc2.rvz"));
+    EXPECT_TRUE(gc_image_name_is_rvz("usb:/games/GBIE08/DISC2.RVZ"));
+    EXPECT_TRUE(gc_image_name_is_rvz("disc2.Rvz"));
+    EXPECT_FALSE(gc_image_name_is_rvz("sd:/games/GBIE08/disc2.iso"));
+    EXPECT_FALSE(gc_image_name_is_rvz("disc2.rvz.iso"));
+    EXPECT_FALSE(gc_image_name_is_rvz("rvz"));
+    EXPECT_FALSE(gc_image_name_is_rvz(""));
+}
+
 }  // namespace
 
 int main() {
@@ -272,6 +284,7 @@ int main() {
     test_restart();
     test_second_disc_matches();
     test_fst_room();
+    test_image_name_is_rvz();
     if (failures == 0) std::printf("gcdisc: all passed\n");
     return failures == 0 ? 0 : 1;
 }
