@@ -374,6 +374,20 @@ bool has_extension(const std::string& name, const char* extension) {
 
 }  // namespace
 
+std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images) {
+    std::vector<int> first_disc(images.size(), -1);
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        if (images[i].disc_number != 1) continue;
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (images[j].disc_number == 0 && images[j].id == images[i].id) {
+                first_disc[i] = static_cast<int>(j);
+                break;
+            }
+        }
+    }
+    return first_disc;
+}
+
 std::string gc_folder_skip_reason(const std::string& name) {
     if (name.empty() || name[0] == '.') return std::string();
     static const char* const kPlayed[] = {".iso", ".gcm", ".rvz"};

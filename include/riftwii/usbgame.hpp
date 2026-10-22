@@ -171,6 +171,20 @@ struct CisoFinds {
 // a file that only sits beside an image (a cover, a text file).
 std::string gc_folder_skip_reason(const std::string& name);
 
+// A GameCube image in one game folder, by its disc header.
+struct GcFolderImage {
+    std::string id;                // the header's game ID
+    std::uint8_t disc_number = 0;  // 0 the first disc, 1 the second
+};
+
+// Which images of one game folder are a two-disc game's second disc kept
+// with its first: for each image, the index of the first disc (same ID,
+// disc number 0) it belongs to, or -1 when it is listed as a game itself.
+// A second disc alone is listed, as USB Loader GX does: some games start
+// from either disc. Nintendont looks for disc2.iso beside game.iso the same
+// way when the game asks for the other disc.
+std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images);
+
 // A GameCube image container told by the first bytes of the file, whatever
 // its name: players rename a .ciso or .gcz to .iso and Home then showed the
 // game missing with no reason. NKit is not told apart here: its images keep

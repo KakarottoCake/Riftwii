@@ -674,6 +674,26 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
     out.push_back(std::move(g));
 }
 
+// One game folder's images into the list. A two-disc game's second disc
+// beside its first is not a game of its own: started alone it ran without
+// what disc 1 sets up (issue #173, Splinter Cell Double Agent crashed), so
+// it is only said in the log. RiftWii can't change discs yet.
+void list_folder_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+    std::vector<GcFolderImage> discs;
+    for (const ImageGame& g : found) discs.push_back({g.id, g.disc_number});
+    const std::vector<int> first_disc = gc_second_disc_of(discs);
+    // Said before any image moves to the list: the line names disc 1.
+    for (std::size_t i = 0; i < found.size(); ++i) {
+        if (first_disc[i] < 0) continue;
+        const ImageGame& first = found[static_cast<std::size_t>(first_disc[i])];
+        logf("%s scan: %s is disc 2 of %s (%s), so Home lists the game once; start it from disc 1. "
+             "RiftWii can't change discs yet, so the game stops where it asks for disc 2\n",
+             drive_of(found[i].path), found[i].path.c_str(), first.id.c_str(), first.path.c_str());
+    }
+    for (std::size_t i = 0; i < found.size(); ++i)
+        if (first_disc[i] < 0) out.push_back(std::move(found[i]));
+}
+
 }  // namespace
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
@@ -695,6 +715,7 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
             continue;
         }
+        std::vector<ImageGame> found;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (file->d_type == DT_DIR) continue;
@@ -704,9 +725,10 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out, skipped, ciso);
+            add_gc_image(dir + "/" + name, found, skipped, ciso);
         }
         closedir(inner);
+        list_folder_images(found, out);
     }
     closedir(games);
     skipped.finish("SD");
@@ -728,6 +750,7 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             skipped.note(dir, "the folder cannot be read: " + why);
             continue;
         }
+        std::vector<ImageGame> found;
         for (const VolumeEntry& file : files) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
@@ -736,8 +759,9 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out, skipped, ciso);
+            add_gc_image(dir + "/" + file.name, found, skipped, ciso);
         }
+        list_folder_images(found, out);
     }
     skipped.finish("USB");
     // Patch-only mods whose original is on the drive (the game they make
