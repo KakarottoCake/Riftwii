@@ -666,12 +666,14 @@ struct rt_restart_block {
     uint32_t response[8] __attribute__((aligned(32)));
     struct rt_ioctlv vec[3] __attribute__((aligned(32)));
     uint32_t pad_vec[2];
+    char es_path[32];      /* /dev/es, in the block so the runtime needs no absolute string address */
 } __attribute__((aligned(32)));
 
 struct rt_restart {
     uint32_t block;        /* loader-filled: a struct rt_restart_block; 0: the game's Reset is left alone */
     uint32_t lba;          /* the request's sector on the card */
-    uint32_t es_fd;        /* /dev/es, opened by the loader (RT_RESTART_NONE: none) */
+    uint32_t open_sync;    /* the game's IOS_Open; ES is opened only when Reset is called */
+    uint32_t close_sync;   /* the game's IOS_Close, for a refused launch */
     uint32_t ioctlv_sync;  /* the game's IOS_Ioctlv, as the runtime may call it */
     uint32_t keep;         /* test switch (debug_reset_keep): a launch IOS refused leaves the request armed */
     uint32_t asked;        /* calls of OSRestart seen */

@@ -72,7 +72,6 @@ struct RestartOptions {
     std::vector<std::uint8_t> idle;   // as the loader made it, "--idle--" first; put back when the launch is refused
     std::uint64_t title = 0;          // the RiftWii channel
     std::vector<std::uint8_t> view;   // its ticket view (0xD8 bytes)
-    std::int32_t es_fd = -1;          // /dev/es, open
     bool keep = false;                // test switch: a launch IOS refused leaves the request armed
 };
 
