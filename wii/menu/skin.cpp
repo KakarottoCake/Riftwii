@@ -49,6 +49,21 @@ u8* Mem2Alloc(std::size_t bytes) {
     return out;
 }
 
+// Gives back what Mem2Alloc took for `block`, when nothing was taken after
+// it (the arena only moves one way): the theme browser's blocks come and go
+// with its page. False when something was (a cover slot, the heap growing
+// into MEM2), so the block stays, and its owner keeps it for the next visit.
+bool Mem2Release(u8* block, std::size_t bytes) {
+    if (!block) return false;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    const u32 size = (bytes + 31) & ~std::size_t(31);
+    const bool on_top = reinterpret_cast<u32>(SYS_GetArena2Lo()) == reinterpret_cast<u32>(block) + size;
+    if (on_top) SYS_SetArena2Lo(block);
+    _CPU_ISR_Restore(level);
+    return on_top;
+}
+
 GXColor kInk = {46, 46, 54, 255};
 GXColor kInkSoft = {74, 74, 84, 255};
 GXColor kInkDim = {106, 106, 116, 255};

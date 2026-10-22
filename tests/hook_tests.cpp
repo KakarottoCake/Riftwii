@@ -3796,6 +3796,29 @@ std::vector<RestartCall> g_restart_calls;
 rt_restart_block* g_restart_block = nullptr;
 int32_t g_restart_write_result = 0;
 int32_t g_restart_launch_result = -1;  // IOS refuses; success never returns
+int32_t g_restart_open_result = 9;
+unsigned g_restart_es_handles = 2;  // leave one of ES's three contexts free
+// Open, armed Write, Launch, Close and Idle write, in the order IOS sees them.
+std::string g_restart_events;
+
+int32_t RestartOpenSync(const char* path, std::uint32_t mode) {
+    g_restart_events += 'O';
+    EXPECT_TRUE(std::strcmp(path, "/dev/es") == 0);
+    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(path) & 31u, 0u);
+    EXPECT_EQ(mode, 0u);
+    if (g_restart_es_handles == 3) return -1016;
+    if (g_restart_open_result < 0) return g_restart_open_result;
+    ++g_restart_es_handles;
+    return g_restart_open_result;
+}
+
+int32_t RestartCloseSync(int32_t fd) {
+    g_restart_events += 'C';
+    EXPECT_EQ(fd, g_restart_open_result);
+    EXPECT_EQ(g_restart_es_handles, 3u);
+    --g_restart_es_handles;
+    return 0;
+}
 
 int32_t RestartIoctlvSync(int32_t fd, std::uint32_t request, std::uint32_t in_count, std::uint32_t out_count,
                           rt_ioctlv* vec) {
@@ -3814,12 +3837,17 @@ int32_t RestartIoctlvSync(int32_t fd, std::uint32_t request, std::uint32_t in_co
     c.blocks = g_restart_block->request.blk_cnt;
     c.cmd = g_restart_block->request.cmd;
     g_restart_calls.push_back(c);
-    if (request == 8u) return g_restart_launch_result;
+    if (request == 8u) {
+        g_restart_events += 'L';
+        EXPECT_EQ(g_restart_es_handles, 3u);
+        return g_restart_launch_result;
+    }
+    g_restart_events += c.armed_sector ? 'W' : 'I';
     return g_restart_write_result;
 }
 
 // A context ready to take the Reset: the card at sector `lba`, the channel
-// launched through /dev/es (fd 9).
+// launched through /dev/es (fd 9), opened only at Reset.
 void RestartContext(rt_context& ctx, rt_restart_block& block, std::uint32_t sdhc, std::uint32_t lba) {
     std::memset(&ctx, 0, sizeof(ctx));
     std::memset(&block, 0, sizeof(block));
@@ -3828,22 +3856,31 @@ void RestartContext(rt_context& ctx, rt_restart_block& block, std::uint32_t sdhc
     ctx.sdio_sdhc = sdhc;
     ctx.restart.block = 0x90001000u;  // any non-zero: the host test points rt_host_restart_block at the block
     ctx.restart.lba = lba;
-    ctx.restart.es_fd = 9;
+    ctx.restart.open_sync = 0x80100100u;
+    ctx.restart.close_sync = 0x80100200u;
     ctx.restart.ioctlv_sync = 0x80100000u;
     std::memcpy(block.armed, "--launch\ngame=SMNP03\n", 21);
     std::memcpy(block.idle, "--idle--\ngame=SMNP03\n", 21);
     block.title[7] = 0x44;
+    std::memcpy(block.es_path, "/dev/es", sizeof("/dev/es"));
     g_restart_block = &block;
     rt_host_restart_block = &block;
     rt_host_fs_ioctlv_sync = RestartIoctlvSync;
+    rt_host_fs_open_sync = RestartOpenSync;
+    rt_host_fs_close_sync = RestartCloseSync;
     g_restart_calls.clear();
     g_restart_write_result = 0;
     g_restart_launch_result = -1;
+    g_restart_open_result = 9;
+    g_restart_es_handles = 2;
+    g_restart_events.clear();
 }
 
 void RestartDone() {
     rt_host_restart_block = nullptr;
     rt_host_fs_ioctlv_sync = nullptr;
+    rt_host_fs_open_sync = nullptr;
+    rt_host_fs_close_sync = nullptr;
     g_restart_block = nullptr;
 }
 
@@ -3857,7 +3894,16 @@ static void TestRestart() {
     // sector, then the title launch; IOS refuses the launch, so the idle
     // sector goes back and the game's own restart goes on.
     RestartContext(ctx, block, 0, 4000);
+    // Preparing Reset leaves the remaining ES context available to a
+    // mod's authentication code, which can open, use and close it first.
+    EXPECT_TRUE(g_restart_events.empty());
+    const int32_t auth_fd = RestartOpenSync(block.es_path, 0);
+    EXPECT_EQ(auth_fd, 9);
+    EXPECT_EQ(RestartCloseSync(auth_fd), 0);
+    g_restart_events.clear();
     rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_events, std::string("OWLCI"));
+    EXPECT_EQ(g_restart_es_handles, 2u);
     EXPECT_EQ(g_restart_calls.size(), 3u);
     if (g_restart_calls.size() == 3) {
         const RestartCall& write = g_restart_calls[0];
@@ -3888,9 +3934,11 @@ static void TestRestart() {
     EXPECT_EQ(ctx.restart.last_result, 0xFFFFFFFFu);
     // A launch IOS refused is not tried again on the next call.
     g_restart_calls.clear();
+    g_restart_events.clear();
     rt_reset_on_os_restart(&ctx);
     EXPECT_EQ(g_restart_calls.size(), 0u);
     EXPECT_EQ(ctx.restart.asked, 2u);
+    EXPECT_TRUE(g_restart_events.empty());
 
     // The test switch (debug_reset_keep): the refused launch leaves the
     // request armed, with no write of the idle sector after it.
@@ -3899,6 +3947,8 @@ static void TestRestart() {
     rt_reset_on_os_restart(&ctx);
     EXPECT_EQ(g_restart_calls.size(), 2u);
     EXPECT_EQ(ctx.restart.refused, 1u);
+    EXPECT_EQ(g_restart_events, std::string("OWLC"));
+    EXPECT_EQ(g_restart_es_handles, 2u);
 
     // SDHC: the sector number itself. d2x's /dev/sdio/sdhc: sector and count
     // as ioctlv inputs, the data as the third vector.
@@ -3927,9 +3977,39 @@ static void TestRestart() {
     EXPECT_TRUE(g_restart_calls.size() == 2u && g_restart_calls[1].idle_sector);
     EXPECT_EQ(ctx.restart.written, 0u);
     EXPECT_EQ(ctx.restart.refused, 1u);
+    EXPECT_EQ(g_restart_events, std::string("OWIC"));
+    EXPECT_EQ(g_restart_es_handles, 2u);
+
+    // If ES is already full at Reset, leave the request idle and let the
+    // game's own restart proceed. Never close a handle that did not open.
+    RestartContext(ctx, block, 0, 4000);
+    g_restart_es_handles = 3;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_events, std::string("O"));
+    EXPECT_TRUE(g_restart_calls.empty());
+    EXPECT_EQ(g_restart_es_handles, 3u);
+    EXPECT_EQ(ctx.restart.written, 0u);
+    EXPECT_EQ(ctx.restart.refused, 1u);
+    EXPECT_EQ(ctx.restart.last_result, static_cast<std::uint32_t>(-1016));
+
+    // Descriptor zero is valid too, and a different open failure also
+    // leaves the sector untouched.
+    RestartContext(ctx, block, 0, 4000);
+    g_restart_open_result = 0;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_events, std::string("OWLCI"));
+    EXPECT_TRUE(g_restart_calls.size() == 3u && g_restart_calls[1].fd == 0);
+    EXPECT_EQ(g_restart_es_handles, 2u);
+    RestartContext(ctx, block, 0, 4000);
+    g_restart_open_result = -6;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_events, std::string("O"));
+    EXPECT_TRUE(g_restart_calls.empty());
+    EXPECT_EQ(g_restart_es_handles, 2u);
+    EXPECT_EQ(ctx.restart.last_result, static_cast<std::uint32_t>(-6));
 
     // Left alone: no block (the loader found no channel, card or OSRestart
-    // to go with it), no sector, no /dev/es, no synchronous IOS_Ioctlv, or a
+    // to go with it), no sector, missing synchronous IOS calls, or a
     // caller that cannot wait for IOS (an interrupt handler).
     RestartContext(ctx, block, 0, 4000);
     ctx.restart.block = 0;
@@ -3941,10 +4021,16 @@ static void TestRestart() {
     EXPECT_EQ(g_restart_calls.size(), 0u);
     EXPECT_EQ(ctx.restart.written, 0u);
     RestartContext(ctx, block, 0, 4000);
-    ctx.restart.es_fd = RT_RESTART_NONE;
+    ctx.restart.open_sync = 0;
     rt_reset_on_os_restart(&ctx);
     EXPECT_EQ(g_restart_calls.size(), 0u);
     EXPECT_EQ(ctx.restart.written, 0u);
+    EXPECT_TRUE(g_restart_events.empty());
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.close_sync = 0;
+    rt_reset_on_os_restart(&ctx);
+    EXPECT_EQ(g_restart_calls.size(), 0u);
+    EXPECT_TRUE(g_restart_events.empty());
     RestartContext(ctx, block, 0, 4000);
     ctx.restart.ioctlv_sync = 0;
     rt_reset_on_os_restart(&ctx);

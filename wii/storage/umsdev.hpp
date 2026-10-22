@@ -33,6 +33,12 @@ bool OpenWaiting(std::string& error, int seconds);
 void Forget();
 // The open fd, or -1.
 int Fd();
+// Every call into the device has a time limit (10 s). A call d2x never
+// answered cannot be cancelled: the device is then stuck for the rest of
+// this run, Open and Read fail with riftwii::kD2xStuckReason, and the
+// launch must stop without another IOS reload (one with that request
+// outstanding may hang as well).
+bool Stuck();
 // The drive's sector size once open: 512 for a hard drive, 2048 for a
 // DVD in a USB DVD drive. Packs and RVZ games need 512 (Volume says so).
 std::uint32_t SectorBytes();

@@ -433,7 +433,13 @@ alone; L, R, Z and Start on a GameCube controller) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
 RiftWii channel when it is installed, else the Wii Menu, through
 `ES_LaunchTitle` with the ticket view the loader read. The memory card is
-written back first. A crash ends in `gc_on_fatal`: a record in
+written back first. Normal gameplay does not write SD trace records;
+`sd:/riftwii/gc/test/trace` enables them for diagnostics. PAD trace requests
+are coalesced and written by the heartbeat. After Bluetooth start-up,
+discovery with no connected remote also runs from the heartbeat, rather
+than each PADRead; a new connection can take longer to be noticed, and
+connected remotes keep frame-paced service.
+A crash ends in `gc_on_fatal`: a record in
 the trace, then the menu's own message (drawn by FreeTypeGX's
 `RenderTextCoverage` before the launch) over the picture the VI shows, and
 A goes back. The memory card's struct starts with two words of code that
@@ -714,17 +720,22 @@ the headless launch (`docs/HEADLESS.md`, `headless_launch_arguments` in
 `src/patching/launchargs.cpp`) that starts this game again, built by the
 menu from what it launched with (`RestartArguments` in
 `wii/menu/gameextras.cpp`), with `--idle--` first. After the IOS reload it
-reads the RiftWii channel's ticket view, opens `/dev/es`, finds OSRestart
+reads the RiftWii channel's ticket view, finds OSRestart
 (`find_os_restart`, `src/patching/osrestart.cpp`) and gives the runtime
 the sector's place on the card, a copy of the sector with `--launch` first
 and the title and view (`struct rt_restart_block` in `rt_hook.h`, at the
 bottom of the MEM2 arena with the runtime's data). The runtime hooks
 OSRestart (`rt_reset_os_restart` in `rt_entry.S`, with a replay slot for
 the displaced word as the IPC hooks have). When the game calls it
-(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime writes the sector
+(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime opens `/dev/es` through
+the game's synchronous IOS_Open, then writes the sector
 (a CMD25 on `/dev/sdio/slot0`, or d2x's sector write, through the game's
 own synchronous IOS_Ioctlv, built as the savegame engine builds a write),
-waits 50 ms for the card, and launches the channel through ES. That does
+waits 50 ms for the card, and launches the channel through ES. A refused
+open leaves the request idle; a refused write or launch closes the handle
+before the game's own restart continues. No extra ES handle is held during
+play: ES has only three contexts, and mods such as Retro Rewind open ES
+themselves to sign an authentication salt. The launch does
 not return when IOS takes it; RiftWii's next start reads `restart.txt`
 once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
 again. When the write or the launch is refused the sector goes back to

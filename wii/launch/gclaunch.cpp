@@ -30,6 +30,7 @@
 #include "riftwii/rvz.hpp"
 #include "sdfile.hpp"
 #include "textfile.hpp"
+#include "umsdev.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -906,16 +907,28 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
     game.device = ImageDevice::Usb;
     game.path = image.path;
     game.id = image.id;
+    // A drive d2x cannot read is said at the end, each reason once with the
+    // slots that gave it (another d2x base may reach the port), as for a
+    // Wii game.
     std::string first_error;
+    std::vector<D2xSlotFailure> usb_failures;
     for (int slot : image_cios_order(game, image.cios_slot, true)) {
         if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
             image.usb_in_use = true;
             return true;
         }
         if (reload_terminal_failure()) return false;
-        if (first_error.empty()) first_error = error;
+        if (d2x_usb_drive_failed()) {
+            usb_failures.push_back({slot, error});
+        } else if (first_error.empty()) {
+            first_error = error;
+        }
+        // A call d2x never answered can't be cancelled, and another IOS
+        // reload with it outstanding may hang: no further slot.
+        if (ums::Stuck()) break;
     }
-    if (!first_error.empty()) error = first_error;
+    if (!usb_failures.empty()) error = d2x_usb_slots_summary(usb_failures, first_error);
+    else if (!first_error.empty()) error = first_error;
     return false;
 }
 
