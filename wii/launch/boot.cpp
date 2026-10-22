@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
+// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
 // SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
@@ -1326,7 +1328,7 @@ void prepare_restart_request(const BootOptions& options) {
 }
 
 // After the game's code is loaded, while boot.log is still open: the
-// channel's ticket view and /dev/es, OSRestart, and the runtime's own
+// channel's ticket view, OSRestart, and the runtime's own
 // conditions (install_resident's), into `out`. Every outcome is logged
 // here, the hook included, because the log ends when the card goes to the
 // runtime, before install_resident runs: on a Wii without a USB Gecko a
@@ -1381,11 +1383,6 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
         logf("Reset: the game's own Reset restarts it without its packs: the RiftWii channel has no ticket\n");
         return;
     }
-    const s32 es = IOS_Open("/dev/es", 0);
-    if (es < 0) {
-        logf("Reset: the game's own Reset restarts it without its packs: /dev/es did not open (%d)\n", es);
-        return;
-    }
     out.os_restart = os_restart;
     out.request_lba = g_restart_request.lba;
     out.armed = g_restart_request.armed;
@@ -1393,7 +1390,6 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
     out.title = title;
     out.view.assign(reinterpret_cast<const std::uint8_t*>(&view),
                     reinterpret_cast<const std::uint8_t*>(&view) + sizeof(view));
-    out.es_fd = es;
     logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with its "
          "packs and choices: the request is in sector %u of the card (%s)\n", os_restart, out.request_lba,
          kRestartFile);
@@ -2054,16 +2050,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const bool runtime_code_in_mem2 =
         code_build || (clears_mem1_top && !game_runs_no_mem2_code(probe.header.game_id));
     // The game's own Reset, decided now: boot.log ends when the card goes
-    // to the runtime, just below. /dev/es, opened for it, is closed again
-    // unless the runtime takes it.
+    // to the runtime, just below. ES is opened only when Reset is called:
+    // holding an extra handle during play can exhaust the game's ES contexts.
     RestartOptions restart_plan;
     plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
-    struct EsCleanup {
-        RestartOptions& plan;
-        ~EsCleanup() {
-            if (plan.es_fd >= 0) IOS_Close(plan.es_fd);
-        }
-    } es_cleanup{restart_plan};
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements, savegame redirection and RVZ games need the resident runtime";
@@ -2145,9 +2135,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ro.mem2_top = true;
         }
         if (!install_resident(dol, ro, resident, error)) return false;
-        if (resident.restart_hooked) {
-            restart_plan.es_fd = -1;  // the runtime's now
-        } else if (restart_plan.os_restart != 0) {
+        if (!resident.restart_hooked && restart_plan.os_restart != 0) {
             // Past the end of boot.log: only on screen (and the Gecko).
             logf("Reset: not hooked after all: the game's own Reset restarts it without its packs\n");
         }
@@ -3416,6 +3404,11 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
+    std::string attempts;
+    const auto note_attempt = [&attempts](const std::string& line) {
+        if (!attempts.empty()) attempts += "; ";
+        attempts += line;
+    };
     for (int ios : files.ios_order) {
         LogClose();
         fatUnmount("sd:");
@@ -3431,6 +3424,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (card) LogReopen();
         if (reload == ReloadResult::NotInstalled || reload == ReloadResult::Failed) {
             logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
+            note_attempt("IOS" + std::to_string(ios) + " could not start (" + why + ")");
             continue;
         }
         // A channel of an emulated NAND runs in it: d2x serves the game's
@@ -3454,14 +3448,17 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                                        reinterpret_cast<const signed_blob*>(files.ticket.data()),
                                        static_cast<u32>(files.ticket.size()), &key);
         if (result >= 0) {
-            logf("Wii channels: on IOS%d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
-                 static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
+            logf("Wii channels: on IOS%d rev %d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
+                 IOS_GetRevision(), static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
             identified = true;
             break;
         }
-        logf("Wii channels: on IOS%d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), files.game_id.c_str(),
-             result);
+        logf("Wii channels: on IOS%d rev %d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), IOS_GetRevision(),
+             files.game_id.c_str(), result);
+        note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
+                     " refused ES_Identify (" + std::to_string(result) + ")");
     }
+    if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.

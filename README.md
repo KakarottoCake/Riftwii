@@ -102,7 +102,8 @@ contains theirs names them in its file header, and
   (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
   Dimok, zlib), how to drive d2x's USB device on
   either USB port (Dimok, Rodries, Kwiirk, zlib), and RiftWii's copy of
-  the Gecko code handler. Thanks to
+  the Gecko code handler; the channel identity and synthetic ticket layout
+  (dude, Miigotu and Dimok, zlib; source commit in NOTICE.md). Thanks to
   its developers and everyone whose work it carries: ToadKing
   (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke
   and the GeckoOS authors, crediar, dcx2, container12345, blackb0x and

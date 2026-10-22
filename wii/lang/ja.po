@@ -1032,9 +1032,6 @@ msgstr "Wii Uのドライブ"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。"
-
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
 
@@ -1314,7 +1311,7 @@ msgstr "テーマ"
 msgid "Default"
 msgstr "標準"
 
-msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgid "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
 msgstr "メニューの色と画像です。テーマはsd:/riftwii/themesのフォルダーです（GitHubのdocs/THEMES.md）。"
 
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
@@ -1997,21 +1994,6 @@ msgstr "ホームのディスクドライブのタイルです。ディスクか
 
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。"
-
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. 本体の端に近いUSBポートを使ってください。"
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32かNTFS (またはWBFSドライブ)。"
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. ゲームはwbfsかgamesフォルダに。"
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. スロット249、250、251のいずれかにd2x cIOS。"
 
 msgid "A to Z"
 msgstr "A〜Z"
@@ -2825,3 +2807,303 @@ msgstr "スロットAに読み込めるメモリーカードがありません�
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
+
+msgid "Get more themes"
+msgstr "テーマを追加"
+
+msgid "Browse"
+msgstr "見る"
+
+msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。"
+
+msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
+msgstr "使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。"
+
+msgid "There is not enough free memory for the theme browser."
+msgstr "テーマ一覧を開くための空きメモリが足りません。"
+
+msgid "Get"
+msgstr "入手"
+
+msgid "On the card"
+msgstr "カードにあり"
+
+msgid "Getting the list of themes..."
+msgstr "テーマの一覧を取得しています..."
+
+msgid "Could not get the list"
+msgstr "一覧を取得できません"
+
+msgid "There are no themes in the list yet."
+msgstr "一覧にはまだテーマがありません。"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
+msgstr "{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。"
+
+msgid "A newer copy of {1} is out. Press A to update it, or delete it."
+msgstr "{1}の新しい版があります。Aで更新または削除します。"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
+msgstr "{1}というテーマがすでにsd:/riftwii/themesにあります(ここから入れたものではありません)。Aで置き換えます。"
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
+msgstr "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。"
+
+msgid "{1} themes"
+msgstr "{1}件のテーマ"
+
+msgid "by {1}"
+msgstr "作者: {1}"
+
+msgid "License: {1}"
+msgstr "ライセンス: {1}"
+
+msgid "Size: {1}"
+msgstr "サイズ: {1}"
+
+msgid "Has its own music"
+msgstr "専用のおんがくつき"
+
+msgid "No preview"
+msgstr "プレビューなし"
+
+msgid "Loading the preview..."
+msgstr "プレビューを読み込み中..."
+
+msgid "Could not get the list of themes: {1}"
+msgstr "テーマの一覧を取得できません: {1}"
+
+msgid "The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."
+msgstr "テーマのフォルダをsd:/riftwii/themesから削除します。ここからまたダウンロードできます。"
+
+msgid "A newer copy of this theme is out."
+msgstr "このテーマの新しい版があります。"
+
+msgid "Get the newer copy"
+msgstr "新しい版を入手"
+
+msgid "Remove the theme"
+msgstr "テーマを削除"
+
+msgid "Replace {1}?"
+msgstr "{1}を置き換えますか?"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it."
+msgstr "{1}というテーマがすでにsd:/riftwii/themesにあり、ここから入れたものではありません。ダウンロードすると置き換わります。"
+
+msgid "Replace"
+msgstr "置き換える"
+
+msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
+msgstr "{1}を削除しました。使用中のテーマだったので、メニューは標準の見た目に戻ります。"
+
+msgid "{1} is deleted."
+msgstr "{1}を削除しました。"
+
+msgid "Theme not deleted"
+msgstr "テーマを削除できません"
+
+msgid "{1} could not be deleted: {2}"
+msgstr "{1}を削除できませんでした: {2}"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it."
+msgstr "{1}をインストールしました。使うには設定 > テーマで選んでください。"
+
+msgid "Stopped. Nothing was changed."
+msgstr "中止しました。何も変更されていません。"
+
+msgid "Theme not installed"
+msgstr "テーマをインストールできません"
+
+msgid "{1} could not be installed: {2}. Nothing was changed."
+msgstr "{1}をインストールできませんでした: {2}。何も変更されていません。"
+
+msgid "{1} was not installed."
+msgstr "{1}はインストールされませんでした。"
+
+msgid "Downloading a theme"
+msgstr "テーマをダウンロード中"
+
+msgid "Stopping..."
+msgstr "中止しています..."
+
+msgid "The theme browser is busy. Try again in a moment."
+msgstr "テーマ一覧は処理中です。少ししてからもう一度お試しください。"
+
+msgid "{1}: {2} of {3} downloaded"
+msgstr "{1}: {3}のうち{2}をダウンロード済み"
+
+msgid "{1}: checking the download..."
+msgstr "{1}: ダウンロードを確認しています..."
+
+msgid "{1}: unpacking, file {2} of {3}"
+msgstr "{1}: 展開中、{3}個中{2}個目のファイル"
+
+msgid "{1}: checking the theme..."
+msgstr "{1}: テーマを確認しています..."
+
+msgid "{1}: putting it in place..."
+msgstr "{1}: 所定の場所に置いています..."
+
+msgid "1 theme"
+msgstr "1件のテーマ"
+
+msgid "Channel background"
+msgstr "チャンネルの背景"
+
+msgid "White"
+msgstr "白"
+
+msgid "Transparent"
+msgstr "透明"
+
+msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
+msgstr "白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。"
+
+msgid "Show non-game channels"
+msgstr "ゲーム以外のチャンネルを表示"
+
+msgid "Nintendo's own channels are listed on Home now."
+msgstr "任天堂のチャンネルをホームに表示するようにしました。"
+
+msgid "Only games are listed on Home now."
+msgstr "ホームにはゲームだけを表示するようにしました。"
+
+msgid "Boot from"
+msgstr "起動元"
+
+msgid "Boot"
+msgstr "起動"
+
+msgid "Real NAND"
+msgstr "実NAND"
+
+msgid "Emulated NAND"
+msgstr "エミュレートNAND"
+
+msgid "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."
+msgstr "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。"
+
+msgid "Game IOS"
+msgstr "ゲームのIOS"
+
+msgid "The IOS RiftWii starts the channel under."
+msgstr "RiftWiiがこのチャンネルを起動するIOSです。"
+
+msgid "Emulated NAND (not here)"
+msgstr "エミュレートNAND (ここにはありません)"
+
+msgid "Real NAND (not here)"
+msgstr "実NAND (ここにはありません)"
+
+msgid "Show all channels even if they aren't detected as a game."
+msgstr "ゲームとして検出されないチャンネルもすべて表示します。"
+
+msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
+msgstr "Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。"
+
+msgid "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply."
+msgstr "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。"
+
+msgid "The copy RiftWii lists starts, with its own save."
+msgstr "RiftWiiが表示するコピーが、独自のセーブとともに起動します。"
+
+msgid "The copy in {1} starts, and saves stay there on the SD card."
+msgstr "{1}のコピーが起動し、セーブはSDカードのそこに残ります。"
+
+msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
+msgstr "エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。"
+
+msgid "{1} has no copy of this game. Install it there from its WAD first."
+msgstr "{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。"
+
+msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
+msgstr "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。"
+
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1個のアプリ"
+
+msgid "{1} apps"
+msgstr "{1}個のアプリ"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "「{1}」に一致するHomebrewはありません。1で表示を切り替えます。"
+
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。"
+
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。"
+
+msgid "It cannot start: {1}."
+msgstr "起動できません: {1}。"
+
+msgid "The app will start when ready."
+msgstr "アプリは準備ができると起動します。"
+
+msgid "Start {1}?"
+msgstr "{1}を起動しますか?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "{3}の{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "{2}の{1}を起動しますか?"
+
+msgid "Would you like to start {1}?"
+msgstr "{1}を起動しますか?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。"
+
+msgid "1: all apps"
+msgstr "1: すべてのアプリ"
+
+msgid "Network Test"
+msgstr "ネットワークテスト"
+
+msgid "Testing the network..."
+msgstr "ネットワークをテストしています..."
+
+msgid "Offline"
+msgstr "オフライン"
+
+msgid "Checks if network is online."
+msgstr "ネットワークがオンラインか確認します。"
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "ネットワークを開始できません。Wiiのインターネット設定を確認してください。"
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "HTTPの応答がありません。接続を確認して、もう一度お試しください。"
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "ネットワークは使用中です。ダウンロードが終わってからお試しください。"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。"
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. 本体の端に近いUSBポートを使ってください。"
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
+
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32推奨。NTFSとWBFSも使えます。"
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. ゲームは/wbfsか/gamesフォルダに。"
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"

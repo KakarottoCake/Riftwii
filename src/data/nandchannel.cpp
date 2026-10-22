@@ -1,9 +1,14 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
+// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/nandchannel.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+
+#include "riftwii/bnr.hpp"
 
 namespace riftwii {
 namespace {
@@ -30,6 +35,7 @@ std::uint64_t be64(const std::uint8_t* p) { return (std::uint64_t(be32(p)) << 32
 constexpr const char* kHomebrewCodes[] = {
     "LULZ",  // the Homebrew Channel
     "JODI",  // the Homebrew Channel, older
+    "OHBC",  // the Homebrew Channel under this title ID (a tester's vWii listed it as a game, 22 Oct 2026)
     "UFTW",  // RiftWii's own channel
     "CORD",  // the Discross channel (a tester's Wii showed it as a game)
 };
@@ -41,12 +47,155 @@ constexpr std::size_t kMaxShownPath = 60;
 
 bool printable(std::uint8_t c) { return c >= 0x20 && c < 0x7F; }
 
+bool nand_lz_header(const std::uint8_t* data, std::size_t size, std::size_t max_out,
+                    std::size_t& at, std::size_t& want, std::string& error) {
+    if (data == nullptr || size < 4) {
+        error = "the compression header ends early";
+        return false;
+    }
+    if (data[0] != 0x10 && data[0] != 0x11) {
+        error = "it is not LZ77-compressed";
+        return false;
+    }
+    at = 4;
+    want = static_cast<std::size_t>(data[1]) | (static_cast<std::size_t>(data[2]) << 8) |
+           (static_cast<std::size_t>(data[3]) << 16);
+    if (want == 0) {
+        if (size < 8) {
+            error = "the compression header ends early";
+            return false;
+        }
+        want = static_cast<std::size_t>(data[4]) | (static_cast<std::size_t>(data[5]) << 8) |
+               (static_cast<std::size_t>(data[6]) << 16) | (static_cast<std::size_t>(data[7]) << 24);
+        at = 8;
+    }
+    if (want == 0 || want > max_out) {
+        error = "it unpacks to " + std::to_string(want) + " bytes, not a size a program can be";
+        return false;
+    }
+    return true;
+}
+
+bool lz77_nand(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& out,
+               std::size_t max_out, std::string& error, std::size_t prefix_bytes = 0) {
+    std::size_t at = 0, want = 0;
+    if (!nand_lz_header(data, size, max_out, at, want, error)) return false;
+    if (prefix_bytes != 0) want = std::min(want, prefix_bytes);
+    const std::uint8_t type = data[0];
+    std::vector<std::uint8_t> unpacked;
+    while (unpacked.size() < want) {
+        if (at >= size) {
+            error = "the compressed data ends early";
+            return false;
+        }
+        const std::uint8_t flags = data[at++];
+        for (int bit = 7; bit >= 0 && unpacked.size() < want; --bit) {
+            if ((flags & (1u << bit)) == 0) {
+                if (at >= size) {
+                    error = "the compressed data ends early";
+                    return false;
+                }
+                unpacked.push_back(data[at++]);
+                continue;
+            }
+            std::size_t length = 0, distance = 0;
+            if (type == 0x10) {
+                if (at + 1 >= size) {
+                    error = "the compressed data ends early";
+                    return false;
+                }
+                length = 3 + (data[at] >> 4);
+                distance = (((static_cast<std::size_t>(data[at]) & 0x0F) << 8) | data[at + 1]) + 1;
+                at += 2;
+            } else {
+                if (at + 1 >= size) {
+                    error = "the compressed data ends early";
+                    return false;
+                }
+                const std::uint8_t first = data[at];
+                const std::uint8_t second = data[at + 1];
+                if (first < 0x20) {
+                    if (at + 2 >= size) {
+                        error = "the compressed data ends early";
+                        return false;
+                    }
+                    const std::uint8_t third = data[at + 2];
+                    if (first >= 0x10) {
+                        if (at + 3 >= size) {
+                            error = "the compressed data ends early";
+                            return false;
+                        }
+                        distance = (((static_cast<std::size_t>(third) & 0x0F) << 8) | data[at + 3]) + 1;
+                        length = ((static_cast<std::size_t>(second) << 4) |
+                                  ((static_cast<std::size_t>(first) & 0x0F) << 12) |
+                                  (static_cast<std::size_t>(third) >> 4)) + 273;
+                        at += 4;
+                    } else {
+                        distance = (((static_cast<std::size_t>(second) & 0x0F) << 8) | third) + 1;
+                        length = (((static_cast<std::size_t>(first) & 0x0F) << 4) | (second >> 4)) + 17;
+                        at += 3;
+                    }
+                } else {
+                    distance = (((static_cast<std::size_t>(first) & 0x0F) << 8) | second) + 1;
+                    length = (first >> 4) + 1;
+                    at += 2;
+                }
+            }
+            if (distance > unpacked.size()) {
+                error = "a back-reference points before its start";
+                return false;
+            }
+            for (std::size_t i = 0; i < length && unpacked.size() < want; ++i)
+                unpacked.push_back(unpacked[unpacked.size() - distance]);
+        }
+    }
+    out.swap(unpacked);
+    return true;
+}
+
 }  // namespace
+
+bool channel_program_compressed(const std::uint8_t* data, std::size_t size, std::size_t max_out) {
+    if (data == nullptr || size < 4) return false;
+    if (std::memcmp(data, "LZ77", 4) == 0) {
+        data += 4;
+        size -= 4;
+    }
+    std::size_t payload = 0, unpacked = 0;
+    std::string error;
+    return nand_lz_header(data, size, max_out, payload, unpacked, error) && size > payload;
+}
+
+bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error, std::size_t max_out) {
+    if (data.size() < 4) {
+        error = "it is too short to be a program";
+        return false;
+    }
+    std::vector<std::uint8_t> unpacked;
+    if (std::memcmp(data.data(), "LZ77", 4) == 0) {
+        if (!lz77_nand(data.data() + 4, data.size() - 4, unpacked, max_out, error)) return false;
+    } else if (data[0] == 0x10 || data[0] == 0x11) {
+        if (!lz77_nand(data.data(), data.size(), unpacked, max_out, error)) return false;
+    } else {
+        error = "it is not LZ77-compressed";
+        return false;
+    }
+    data.swap(unpacked);
+    error.clear();
+    return true;
+}
 
 bool is_homebrew_code(const std::string& code) {
     for (const char* homebrew : kHomebrewCodes)
         if (code == homebrew) return true;
     return false;
+}
+
+bool is_nintendo_channel(std::uint64_t title_id) {
+    const std::uint32_t upper = static_cast<std::uint32_t>(title_id >> 32);
+    if (upper != kDownloadedChannels && upper != kSystemChannels && upper != kHiddenChannels) return false;
+    const std::string code = channel_code(title_id);
+    return !code.empty() && code[0] == 'H';
 }
 
 std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size) {
@@ -132,6 +281,24 @@ std::string channel_cheat_code(const std::string& game_id) {
     return game_id.substr(0, 4);
 }
 
+// Reimplemented from USB Loader GX's Identify_GenerateTik construction
+// (NOTICE.md). It supplies identity metadata, not a valid Nintendo signature;
+// whether ES accepts it depends on the IOS and is not assumed here.
+std::vector<std::uint8_t> make_fake_ticket() {
+    constexpr std::size_t kIssuer = 0x140;
+    constexpr std::size_t kContentIndexMask = 0x222;
+    constexpr std::size_t kMaskBytes = 32;
+    std::vector<std::uint8_t> ticket(0x2A4, 0);
+    ticket[0] = 0x00;
+    ticket[1] = 0x01;
+    ticket[2] = 0x00;
+    ticket[3] = 0x01;
+    const char* const issuer = "Root-CA00000001-XS00000003";
+    std::memcpy(ticket.data() + kIssuer, issuer, std::strlen(issuer));
+    std::memset(ticket.data() + kContentIndexMask, 0xFF, kMaskBytes);
+    return ticket;
+}
+
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error) {
     if (tmd == nullptr || size < kTmdContentsOffset) {
         error = "the TMD is too small";
@@ -214,22 +381,42 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         const TmdContent* record = tmd_content_by_index(tmd, start.index);
         const bool shared = record && (record->type & 0x8000) != 0;
         if (!record || shared || start.index == 0) continue;
+        const bool compressed = channel_program_compressed(start.head.data(), start.head.size());
         DolHeader dol;
         std::string why;
         std::string format;
-        if (!parse_channel_program(start.head.data(), start.head.size(), dol, format, why)) {
+        bool parsed = false;
+        std::size_t program_bytes = start.size;
+        if (compressed) {
+            const bool wrapped = std::memcmp(start.head.data(), "LZ77", 4) == 0;
+            const std::size_t skip = wrapped ? 4 : 0;
+            const std::uint8_t* payload = start.head.data() + skip;
+            const std::size_t payload_size = start.head.size() - skip;
+            std::size_t header_end = 0;
+            std::vector<std::uint8_t> header;
+            // Only a parsed DOL header may earn compressed-program priority.
+            // The content prefix is small; do not allocate the advertised 24 MiB.
+            parsed = nand_lz_header(payload, payload_size, 24u << 20, header_end, program_bytes, why) &&
+                     lz77_nand(payload, payload_size, header, 24u << 20, why, 0x100) &&
+                     parse_dol_header(header.data(), header.size(), dol, why);
+            format = "LZ77";
+        } else {
+            parsed = parse_channel_program(start.head.data(), start.head.size(), dol, format, why);
+        }
+        if (!parsed) {
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": " + content_kind(start.head) +
                     (why.empty() ? "" : " (" + why + ")");
             continue;
         }
         // A header whose sections run past the file is not this file's.
-        if (dol.image_size() > start.size) {
+        if (dol.image_size() > program_bytes) {
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": a DOL longer than the file";
             continue;
         }
-        // A DOL or ELF read as it is wins over one read leniently (a big
-        // data file could pass that by chance); then the bigger one.
-        const int rank = dol_read_leniently(format) ? 0 : 1;
+        int rank = 0;
+        if (compressed && start.index == 1) rank = 4;
+        else if (compressed) rank = 1;
+        else rank = dol_read_leniently(format) ? 2 : 3;
         const bool better = !found || rank > found_rank || (rank == found_rank && start.size > found_size);
         if (!better) continue;
         found = true;
@@ -237,7 +424,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         found_size = start.size;
         best.index = start.index;
         best.dol = dol;
-        best.format = format;
+        best.format = compressed ? std::string("LZ77") : format;
     }
     if (!found) {
         error = "none of its contents is a program RiftWii can load";

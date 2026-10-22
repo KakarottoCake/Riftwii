@@ -33,6 +33,7 @@ and `vendor-*` is third-party code.
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
 | A menu that freezes on a console only (the GUI watch, the GX trace, `debug_gx`) | `wii/menu/drawtrace.cpp`, `LogGuiWatch` and `UpdateGUI` in `wii/menu/rift_menu.cpp` |
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
+| Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
@@ -129,6 +130,7 @@ The build compiles every folder into one, so no two files share a name.
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
+| `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
 | `menumusic.cpp` | The background music |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
@@ -178,10 +180,13 @@ The build compiles every folder into one, so no two files share a name.
 | --- | --- |
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
 
+Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs and clear cached textures on rescan.
+
 ### `wii/storage/`: sD cards and USB drives: game images, raw access, d2x devices, saves
 
 | File | What |
 | --- | --- |
+| `homebrew.cpp`, `homebrew.hpp` | SD Homebrew app discovery, metadata and launch selection |
 | `usbcatalog.cpp` | Game images on the SD card and USB drives, the USB drive's volume, RVZ serving, the menu's file reads there |
 | `umsdev.cpp` | d2x's USB device (`/dev/usb2`), read by the launch and handed to the runtime |
 | `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
@@ -201,6 +206,7 @@ The build compiles every folder into one, so no two files share a name.
 | `online.cpp` | Downloads (names, covers, cheats, the update check) |
 | `netsock.cpp` | Network sockets |
 | `tls.cpp`, `tlsroots.c` | https with BearSSL, and the certificates it trusts |
+| `httpmem.cpp` | One https GET read straight into a caller's block of memory (the theme browser's, MEM2) |
 | `entropy.cpp` | the random seed for https: the card's seed file, the console's ID, the Remotes' jitter |
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
 | `gameinfo.cpp` | Game details for the About page: GameTDB's database on the card, its download, the cache |
@@ -296,6 +302,7 @@ document it.
 
 | Name | What |
 | --- | --- |
+| `appmeta` | Bounded Homebrew meta.xml fields and NUL-separated launch arguments (`tests/appmeta_tests.cpp`) |
 | `cheats` | Cheat files and GCT building |
 | `titles` | Game names |
 | `settingsfile` | `settings.txt` |

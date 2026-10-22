@@ -97,14 +97,14 @@ bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, s
         if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
     }
     // The same search install_resident makes: the runtime writes the
-    // request and starts the channel through the game's own IOS_Ioctlv,
-    // which it reaches through that function's hook.
+    // request and starts the channel through the game's own IOS_Ioctlv.
+    // IOS_Open and IOS_Close acquire ES only for that transition.
     IpcSymbols symbols;
     IpcApi api;
     std::string search_error;
     if (!find_ipc_symbols(text, symbols, search_error) || !find_ipc_api(text, symbols, api, search_error) ||
-        api.sync[7] == 0) {
-        why = "the game's IOS_Ioctlv was not found";
+        api.sync[1] == 0 || api.sync[2] == 0 || api.sync[7] == 0) {
+        why = "the game's IOS_Open, IOS_Close or IOS_Ioctlv was not found";
         return false;
     }
     // Each hook moves its function's first instruction to a replay slot.
@@ -335,10 +335,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
             restart_off = "the runtime's code is in MEM2, out of a branch's reach";
         } else if (!have_api || api.sync[7] == 0 || !hooked[RT_IPC_SYNC(7)]) {
             restart_off = "the game's IOS_Ioctlv could not be hooked";
+        } else if (api.sync[1] == 0 || api.sync[2] == 0) {
+            restart_off = "the game's IOS_Open or IOS_Close was not found";
         } else if (options.sdio_fd < 0) {
             restart_off = "the SD card is not open for the runtime";
-        } else if (restart.es_fd < 0) {
-            restart_off = "/dev/es is not open";
         } else if (restart.request_lba == 0 || restart.armed.size() != RT_SECTOR_BYTES ||
                    restart.idle.size() != RT_SECTOR_BYTES || restart.view.size() != kTicketViewBytes) {
             restart_off = "the request is not whole";
@@ -452,7 +452,6 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     // The game's own Reset: the request, the channel's title and its ticket
     // view in a block of their own; the context says where it is.
-    ctx->restart.es_fd = RT_RESTART_NONE;
     if (restart_on) {
         rt_restart_block* block = reinterpret_cast<rt_restart_block*>(staged(restart_address));
         std::memset(block, 0, sizeof(*block));
@@ -460,9 +459,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         std::memcpy(block->idle, restart.idle.data(), RT_SECTOR_BYTES);
         for (unsigned i = 0; i < 8; ++i) block->title[i] = static_cast<std::uint8_t>(restart.title >> (56 - 8 * i));
         std::memcpy(block->view, restart.view.data(), kTicketViewBytes);
+        std::memcpy(block->es_path, "/dev/es", sizeof("/dev/es"));
         ctx->restart.block = restart_address;
         ctx->restart.lba = restart.request_lba;
-        ctx->restart.es_fd = static_cast<std::uint32_t>(restart.es_fd);
+        ctx->restart.open_sync = original(RT_IPC_SYNC(1));
+        ctx->restart.close_sync = original(RT_IPC_SYNC(2));
         ctx->restart.ioctlv_sync = original(RT_IPC_SYNC(7));
         ctx->restart.keep = restart.keep ? 1u : 0u;
     }

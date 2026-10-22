@@ -29,6 +29,7 @@ struct LoaderSettings {
     std::string wfc_domain;               // the "custom" server's domain
     std::string home_tiles = "covers";    // Home's tiles: covers, names, shelf or channels
     std::string channel_corners = "theme";  // theme, square, slight, round, rounder: the Channels view's tiles
+    std::string channel_background = "none";
     std::string grid_spacing = "normal";  // normal, roomy: Home's grid smaller, with wider gaps at its sides
     std::string page_peek = "on";         // on, off: Channels shows the next and previous pages' nearest columns at its sides
     std::string menu_widescreen = "off";  // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
@@ -40,6 +41,7 @@ struct LoaderSettings {
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
+    bool nand_non_games = false;
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
     std::string clock = "auto";           // auto (as the menu's language writes it), 12, 24: Home's clock
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)

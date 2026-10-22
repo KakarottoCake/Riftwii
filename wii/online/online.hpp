@@ -112,6 +112,15 @@ bool CardWritesBusy();
 void NoteUpdateDeclined(const std::string& latest);
 void LogDeclinedUpdate();
 
+struct NetworkTest {
+    bool online = false;
+    unsigned ms = 0;
+    std::string error;
+};
+// Shares the download worker so the menu keeps responding during DNS and IOS startup.
+bool StartNetworkTest();
+bool TakeNetworkTest(NetworkTest& result);
+
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
 

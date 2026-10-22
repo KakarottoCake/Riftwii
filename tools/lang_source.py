@@ -964,11 +964,6 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.": (
-        "La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 o NTFS en un ordenador.",
-        "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。",
-        "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador.",
-        "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1286,7 +1281,7 @@ T = {
     # Themes (wii/menu/menutheme.cpp, docs/THEMES.md)
     "Theme": ("Tema", "テーマ", "Tema", "Tema"),
     "Default": ("Predeterminado", "標準", "Padrão", "Predefinito"),
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
         "Los colores y las imágenes del menú. Los temas son carpetas en sd:/riftwii/themes (docs/THEMES.md en GitHub).",
         "メニューの色と画像です。テーマはsd:/riftwii/themesのフォルダーです（GitHubのdocs/THEMES.md）。",
         "As cores e as imagens do menu. Os temas são pastas em sd:/riftwii/themes (docs/THEMES.md no GitHub).",
@@ -1637,31 +1632,6 @@ T = {
         "A fonte do Menu do Wii precisa de acesso ao hardware ou de um cIOS d2x, e nenhum funcionou desta vez, então a fonte da RiftWii é usada. Inicie a RiftWii por um Homebrew Channel atualizado ou pelo canal da RiftWii (versão 9).",
         "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."),
     # Menu text added in 2610-151 to 2610-168
-    "1. Use the USB port nearest the edge.": (
-        "1. Usa el puerto USB más cercano al borde.",
-        "1. 本体の端に近いUSBポートを使ってください。",
-        "1. Use a porta USB mais perto da borda.",
-        "1. Usa la porta USB più vicina al bordo."),
-    "2. Big drives: a Y-cable or their own power.": (
-        "2. Unidades grandes: un cable en Y o su propia alimentación.",
-        "2. 大きなドライブ: Y字ケーブルか専用の電源を。",
-        "2. Unidades grandes: um cabo Y ou alimentação própria.",
-        "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
-    "3. FAT32 or NTFS (or a WBFS drive).": (
-        "3. FAT32 o NTFS (o una unidad WBFS).",
-        "3. FAT32かNTFS (またはWBFSドライブ)。",
-        "3. FAT32 ou NTFS (ou uma unidade WBFS).",
-        "3. FAT32 o NTFS (o un'unità WBFS)."),
-    "4. Games in a wbfs or games folder.": (
-        "4. Juegos en una carpeta wbfs o games.",
-        "4. ゲームはwbfsかgamesフォルダに。",
-        "4. Jogos numa pasta wbfs ou games.",
-        "4. Giochi in una cartella wbfs o games."),
-    "5. A d2x cIOS in slot 249, 250 or 251.": (
-        "5. Un cIOS d2x en el slot 249, 250 o 251.",
-        "5. スロット249、250、251のいずれかにd2x cIOS。",
-        "5. Um cIOS d2x no slot 249, 250 ou 251.",
-        "5. Un cIOS d2x nello slot 249, 250 o 251."),
     "A to Z": (
         "De la A a la Z",
         "A〜Z",
@@ -2946,8 +2916,6 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -3134,7 +3102,7 @@ KO = {
         "테마",
     "Default":
         "기본",
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
         "메뉴의 색상과 이미지입니다. 테마는 sd:/riftwii/themes 폴더에 위치합니다. (GitHub의 docs/THEMES.md 참조)",
     "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.":
         "sd:/riftwii/themes 경로에 테마가 없습니다. 압축 파일 내의 themes 폴더에 해당 경로로 복사할 수 있는 테마가 하나 들어 있습니다.",
@@ -3623,16 +3591,6 @@ KO = {
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
-    "1. Use the USB port nearest the edge.":
-        "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 또는 NTFS (또는 WBFS 드라이브).",
-    "4. Games in a wbfs or games folder.":
-        "4. 게임은 wbfs 또는 games 폴더에 넣으세요.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. 슬롯 249, 250 또는 251에 d2x cIOS.",
     "A to Z":
         "가나다순",
     "Change":
@@ -4775,8 +4733,6 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -4963,7 +4919,7 @@ FR = {
         "Thème",
     "Default":
         "Par défaut",
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
         "Apparence visuelle du menu. Les thèmes sont stockés dans sd:/riftwii/themes.",
     "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.":
         "Aucun thème trouvé dans sd:/riftwii/themes. L'archive zip d'origine en propose à installer.",
@@ -5061,16 +5017,6 @@ FR = {
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
-    "1. Use the USB port nearest the edge.":
-        "1. Utilisez le port USB le plus proche du bord.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. Grands stockages : un câble en Y ou leur propre alimentation.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 ou NTFS (ou un stockage WBFS).",
-    "4. Games in a wbfs or games folder.":
-        "4. Les jeux dans un dossier wbfs ou games.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. Un cIOS d2x dans le slot 249, 250 ou 251.",
     "A to Z":
         "De A à Z",
     "Change":
@@ -6066,6 +6012,199 @@ T['The real card could not be prepared. Check the card and try again.'] = ('No s
 KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
 FR['The real card could not be prepared. Check the card and try again.'] = 'Impossible de préparer la carte réelle. Vérifiez la carte et réessayez.'
 
+# The theme browser (Settings > Theme > Get more themes).
+T['Get more themes'] = ('Conseguir más temas', 'テーマを追加', 'Baixar mais temas', 'Scarica altri temi')
+KO['Get more themes'] = '테마 더 받기'
+FR['Get more themes'] = "Obtenir d'autres thèmes"
+
+T['Browse'] = ('Explorar', '見る', 'Ver', 'Sfoglia')
+KO['Browse'] = '둘러보기'
+FR['Browse'] = 'Parcourir'
+
+T['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = ('Temas hechos por la comunidad, de riftwii.github.io, cada uno con una vista previa. Se guardan en sd:/riftwii/themes.', 'みんなが作ったテーマをriftwii.github.ioから入手します。プレビュー付きで、sd:/riftwii/themesに保存されます。', 'Temas feitos pela comunidade, de riftwii.github.io, cada um com uma prévia. Eles ficam em sd:/riftwii/themes.', "Temi creati dalla comunità, da riftwii.github.io, ognuno con un'anteprima. Vengono messi in sd:/riftwii/themes.")
+KO['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = '커뮤니티가 만든 테마를 riftwii.github.io에서 받습니다. 각 테마에 미리보기가 있으며 sd:/riftwii/themes에 저장됩니다.'
+FR['Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.'] = 'Des thèmes créés par la communauté, depuis riftwii.github.io, chacun avec un aperçu. Ils sont placés dans sd:/riftwii/themes.'
+
+T['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = ('Se borró el tema en uso, así que el menú vuelve al aspecto predeterminado. Se reinicia al salir de Ajustes.', '使っていたテーマを削除したので、メニューは標準の見た目に戻ります。設定を出ると再起動します。', 'O tema em uso foi apagado, então o menu volta ao visual padrão. Ele reinicia quando você sair das Configurações.', "Il tema in uso è stato eliminato, quindi il menu torna all'aspetto predefinito. Si riavvia quando esci dalle Impostazioni.")
+KO['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = '사용 중인 테마를 삭제해서 메뉴가 기본 모양으로 돌아갑니다. 설정을 나가면 다시 시작합니다.'
+FR['The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings.'] = "Le thème utilisé a été supprimé, le menu revient donc à l'aspect par défaut. Il redémarre quand vous quittez les Réglages."
+
+T['There is not enough free memory for the theme browser.'] = ('No hay memoria libre suficiente para el explorador de temas.', 'テーマ一覧を開くための空きメモリが足りません。', 'Não há memória livre suficiente para o navegador de temas.', "Non c'è abbastanza memoria libera per lo sfoglia-temi.")
+KO['There is not enough free memory for the theme browser.'] = '테마 목록을 열 여유 메모리가 부족합니다.'
+FR['There is not enough free memory for the theme browser.'] = "Il n'y a pas assez de mémoire libre pour le navigateur de thèmes."
+
+T['Get'] = ('Obtener', '入手', 'Baixar', 'Scarica')
+KO['Get'] = '받기'
+FR['Get'] = 'Obtenir'
+
+T['On the card'] = ('En la tarjeta', 'カードにあり', 'No cartão', 'Sulla scheda')
+KO['On the card'] = '카드에 있음'
+FR['On the card'] = 'Sur la carte'
+
+T['Getting the list of themes...'] = ('Obteniendo la lista de temas...', 'テーマの一覧を取得しています...', 'Obtendo a lista de temas...', "Recupero dell'elenco dei temi...")
+KO['Getting the list of themes...'] = '테마 목록을 가져오는 중...'
+FR['Getting the list of themes...'] = 'Récupération de la liste des thèmes...'
+
+T['Could not get the list'] = ('No se pudo obtener la lista', '一覧を取得できません', 'Não foi possível obter a lista', "Impossibile ottenere l'elenco")
+KO['Could not get the list'] = '목록을 가져올 수 없음'
+FR['Could not get the list'] = "Impossible d'obtenir la liste"
+
+T['There are no themes in the list yet.'] = ('Todavía no hay temas en la lista.', '一覧にはまだテーマがありません。', 'Ainda não há temas na lista.', "Non ci sono ancora temi nell'elenco.")
+KO['There are no themes in the list yet.'] = '목록에 아직 테마가 없습니다.'
+FR['There are no themes in the list yet.'] = "Il n'y a pas encore de thème dans la liste."
+
+T['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo. Pulsa A para borrarlo.', '{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo. Aperte A para apagá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo. Premi A per eliminarlo.')
+KO['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = '{1}이(가) 설치되어 있습니다. 사용하려면 설정 > 테마에서 고르세요. A를 누르면 삭제합니다.'
+FR['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser. Appuyez sur A pour le supprimer."
+
+T['A newer copy of {1} is out. Press A to update it, or delete it.'] = ('Hay una copia más nueva de {1}. Pulsa A para actualizarlo o borrarlo.', '{1}の新しい版があります。Aで更新または削除します。', 'Há uma cópia mais nova de {1}. Aperte A para atualizá-lo ou apagá-lo.', 'È disponibile una copia più recente di {1}. Premi A per aggiornarlo o eliminarlo.')
+KO['A newer copy of {1} is out. Press A to update it, or delete it.'] = '{1}의 새 버전이 있습니다. A를 누르면 업데이트하거나 삭제합니다.'
+FR['A newer copy of {1} is out. Press A to update it, or delete it.'] = 'Une copie plus récente de {1} est disponible. Appuyez sur A pour la mettre à jour ou le supprimer.'
+
+T['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = ('Ya hay un tema llamado {1} en sd:/riftwii/themes que no se puso desde aquí. Pulsa A para reemplazarlo.', '{1}というテーマがすでにsd:/riftwii/themesにあります(ここから入れたものではありません)。Aで置き換えます。', 'Já existe um tema chamado {1} em sd:/riftwii/themes, que não foi colocado por aqui. Aperte A para substituí-lo.', "C'è già un tema chiamato {1} in sd:/riftwii/themes, che non è stato messo da qui. Premi A per sostituirlo.")
+KO['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = '{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. A를 누르면 교체합니다.'
+FR['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Appuyez sur A pour le remplacer."
+
+T['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = ('Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que lo elijas en Ajustes > Tema.', 'Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。', 'Aperte A para baixar {1} em sd:/riftwii/themes. Nada muda até você escolhê-lo em Configurações > Tema.', 'Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finché non lo scegli in Impostazioni > Tema.')
+KO['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 테마에서 고르기 전에는 아무것도 바뀌지 않습니다.'
+FR['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Réglages > Thème.'
+
+T['{1} themes'] = ('{1} temas', '{1}件のテーマ', '{1} temas', '{1} temi')
+KO['{1} themes'] = '테마 {1}개'
+FR['{1} themes'] = '{1} thèmes'
+
+T['by {1}'] = ('de {1}', '作者: {1}', 'por {1}', 'di {1}')
+KO['by {1}'] = '제작: {1}'
+FR['by {1}'] = 'par {1}'
+
+T['License: {1}'] = ('Licencia: {1}', 'ライセンス: {1}', 'Licença: {1}', 'Licenza: {1}')
+KO['License: {1}'] = '라이선스: {1}'
+FR['License: {1}'] = 'Licence : {1}'
+
+T['Size: {1}'] = ('Tamaño: {1}', 'サイズ: {1}', 'Tamanho: {1}', 'Dimensione: {1}')
+KO['Size: {1}'] = '크기: {1}'
+FR['Size: {1}'] = 'Taille : {1}'
+
+T['Has its own music'] = ('Tiene su propia música', '専用のおんがくつき', 'Tem música própria', 'Ha una musica propria')
+KO['Has its own music'] = '전용 음악 포함'
+FR['Has its own music'] = 'A sa propre musique'
+
+T['No preview'] = ('Sin vista previa', 'プレビューなし', 'Sem prévia', 'Nessuna anteprima')
+KO['No preview'] = '미리보기 없음'
+FR['No preview'] = "Pas d'aperçu"
+
+T['Loading the preview...'] = ('Cargando la vista previa...', 'プレビューを読み込み中...', 'Carregando a prévia...', "Caricamento dell'anteprima...")
+KO['Loading the preview...'] = '미리보기를 불러오는 중...'
+FR['Loading the preview...'] = "Chargement de l'aperçu..."
+
+T['Could not get the list of themes: {1}'] = ('No se pudo obtener la lista de temas: {1}', 'テーマの一覧を取得できません: {1}', 'Não foi possível obter a lista de temas: {1}', "Impossibile ottenere l'elenco dei temi: {1}")
+KO['Could not get the list of themes: {1}'] = '테마 목록을 가져올 수 없습니다: {1}'
+FR['Could not get the list of themes: {1}'] = "Impossible d'obtenir la liste des thèmes : {1}"
+
+T['Delete {1}?'] = ('¿Borrar {1}?', '{1}を削除しますか?', 'Apagar {1}?', 'Eliminare {1}?')
+KO['Delete {1}?'] = '{1}을(를) 삭제할까요?'
+FR['Delete {1}?'] = 'Supprimer {1} ?'
+
+T["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = ('La carpeta del tema se quita de sd:/riftwii/themes. Puedes volver a descargarlo desde aquí.', 'テーマのフォルダをsd:/riftwii/themesから削除します。ここからまたダウンロードできます。', 'A pasta do tema é removida de sd:/riftwii/themes. Você pode baixá-lo de novo por aqui.', 'La cartella del tema viene rimossa da sd:/riftwii/themes. Puoi scaricarlo di nuovo da qui.')
+KO["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = '테마 폴더가 sd:/riftwii/themes에서 제거됩니다. 여기서 다시 받을 수 있습니다.'
+FR["The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."] = 'Le dossier du thème est retiré de sd:/riftwii/themes. Vous pouvez le télécharger de nouveau ici.'
+
+T['A newer copy of this theme is out.'] = ('Hay una copia más nueva de este tema.', 'このテーマの新しい版があります。', 'Há uma cópia mais nova deste tema.', 'È disponibile una copia più recente di questo tema.')
+KO['A newer copy of this theme is out.'] = '이 테마의 새 버전이 있습니다.'
+FR['A newer copy of this theme is out.'] = 'Une copie plus récente de ce thème est disponible.'
+
+T['Get the newer copy'] = ('Obtener la copia nueva', '新しい版を入手', 'Baixar a cópia nova', 'Scarica la copia nuova')
+KO['Get the newer copy'] = '새 버전 받기'
+FR['Get the newer copy'] = 'Obtenir la copie récente'
+
+T['Remove the theme'] = ('Quitar el tema', 'テーマを削除', 'Remover o tema', 'Rimuovi il tema')
+KO['Remove the theme'] = '테마 제거'
+FR['Remove the theme'] = 'Retirer le thème'
+
+T['Replace {1}?'] = ('¿Reemplazar {1}?', '{1}を置き換えますか?', 'Substituir {1}?', 'Sostituire {1}?')
+KO['Replace {1}?'] = '{1}을(를) 교체할까요?'
+FR['Replace {1}?'] = 'Remplacer {1} ?'
+
+T['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = ('Ya hay un tema llamado {1} en sd:/riftwii/themes y no se puso desde aquí. La descarga lo reemplaza.', '{1}というテーマがすでにsd:/riftwii/themesにあり、ここから入れたものではありません。ダウンロードすると置き換わります。', 'Já existe um tema chamado {1} em sd:/riftwii/themes, e ele não foi colocado por aqui. O download o substitui.', "C'è già un tema chiamato {1} in sd:/riftwii/themes e non è stato messo da qui. Il download lo sostituisce.")
+KO['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = '{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다.'
+FR['A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.'] = "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Le téléchargement le remplace."
+
+T['Replace'] = ('Reemplazar', '置き換える', 'Substituir', 'Sostituisci')
+KO['Replace'] = '교체'
+FR['Replace'] = 'Remplacer'
+
+T['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = ('Se borró {1}. Era el tema en uso, así que el menú vuelve al aspecto predeterminado.', '{1}を削除しました。使用中のテーマだったので、メニューは標準の見た目に戻ります。', '{1} foi apagado. Era o tema em uso, então o menu volta ao visual padrão.', "{1} è stato eliminato. Era il tema in uso, quindi il menu torna all'aspetto predefinito.")
+KO['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = '{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다.'
+FR['{1} is deleted. It was the theme in use, so the menu goes back to the default look.'] = "{1} est supprimé. C'était le thème utilisé, le menu revient donc à l'aspect par défaut."
+
+T['{1} is deleted.'] = ('Se borró {1}.', '{1}を削除しました。', '{1} foi apagado.', '{1} è stato eliminato.')
+KO['{1} is deleted.'] = '{1}을(를) 삭제했습니다.'
+FR['{1} is deleted.'] = '{1} est supprimé.'
+
+T['Theme not deleted'] = ('Tema no borrado', 'テーマを削除できません', 'Tema não apagado', 'Tema non eliminato')
+KO['Theme not deleted'] = '테마를 삭제하지 못함'
+FR['Theme not deleted'] = 'Thème non supprimé'
+
+T['{1} could not be deleted: {2}'] = ('No se pudo borrar {1}: {2}', '{1}を削除できませんでした: {2}', 'Não foi possível apagar {1}: {2}', 'Impossibile eliminare {1}: {2}')
+KO['{1} could not be deleted: {2}'] = '{1}을(를) 삭제할 수 없습니다: {2}'
+FR['{1} could not be deleted: {2}'] = 'Impossible de supprimer {1} : {2}'
+
+T['{1} is installed. Pick it in Settings > Theme to use it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo.', '{1}をインストールしました。使うには設定 > テーマで選んでください。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo.')
+KO['{1} is installed. Pick it in Settings > Theme to use it.'] = '{1}이(가) 설치되었습니다. 사용하려면 설정 > 테마에서 고르세요.'
+FR['{1} is installed. Pick it in Settings > Theme to use it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser."
+
+T['Stopped. Nothing was changed.'] = ('Detenido. No se cambió nada.', '中止しました。何も変更されていません。', 'Interrompido. Nada foi alterado.', 'Interrotto. Non è cambiato nulla.')
+KO['Stopped. Nothing was changed.'] = '중지했습니다. 아무것도 바뀌지 않았습니다.'
+FR['Stopped. Nothing was changed.'] = "Arrêté. Rien n'a été modifié."
+
+T['Theme not installed'] = ('Tema no instalado', 'テーマをインストールできません', 'Tema não instalado', 'Tema non installato')
+KO['Theme not installed'] = '테마를 설치하지 못함'
+FR['Theme not installed'] = 'Thème non installé'
+
+T['{1} could not be installed: {2}. Nothing was changed.'] = ('No se pudo instalar {1}: {2}. No se cambió nada.', '{1}をインストールできませんでした: {2}。何も変更されていません。', 'Não foi possível instalar {1}: {2}. Nada foi alterado.', 'Impossibile installare {1}: {2}. Non è cambiato nulla.')
+KO['{1} could not be installed: {2}. Nothing was changed.'] = '{1}을(를) 설치할 수 없습니다: {2}. 아무것도 바뀌지 않았습니다.'
+FR['{1} could not be installed: {2}. Nothing was changed.'] = "Impossible d'installer {1} : {2}. Rien n'a été modifié."
+
+T['{1} was not installed.'] = ('No se instaló {1}.', '{1}はインストールされませんでした。', '{1} não foi instalado.', '{1} non è stato installato.')
+KO['{1} was not installed.'] = '{1}은(는) 설치되지 않았습니다.'
+FR['{1} was not installed.'] = "{1} n'a pas été installé."
+
+T['Downloading a theme'] = ('Descargando un tema', 'テーマをダウンロード中', 'Baixando um tema', 'Download di un tema')
+KO['Downloading a theme'] = '테마 다운로드 중'
+FR['Downloading a theme'] = "Téléchargement d'un thème"
+
+T['Stopping...'] = ('Deteniendo...', '中止しています...', 'Parando...', 'Interruzione...')
+KO['Stopping...'] = '중지하는 중...'
+FR['Stopping...'] = 'Arrêt...'
+
+T['The theme browser is busy. Try again in a moment.'] = ('El explorador de temas está ocupado. Inténtalo de nuevo en un momento.', 'テーマ一覧は処理中です。少ししてからもう一度お試しください。', 'O navegador de temas está ocupado. Tente de novo em instantes.', 'Lo sfoglia-temi è occupato. Riprova tra un momento.')
+KO['The theme browser is busy. Try again in a moment.'] = '테마 목록이 사용 중입니다. 잠시 후 다시 시도하세요.'
+FR['The theme browser is busy. Try again in a moment.'] = 'Le navigateur de thèmes est occupé. Réessayez dans un instant.'
+
+T['{1}: {2} of {3} downloaded'] = ('{1}: {2} de {3} descargados', '{1}: {3}のうち{2}をダウンロード済み', '{1}: {2} de {3} baixados', '{1}: {2} di {3} scaricati')
+KO['{1}: {2} of {3} downloaded'] = '{1}: {3} 중 {2} 받음'
+FR['{1}: {2} of {3} downloaded'] = '{1} : {2} sur {3} téléchargés'
+
+T['{1}: checking the download...'] = ('{1}: comprobando la descarga...', '{1}: ダウンロードを確認しています...', '{1}: verificando o download...', '{1}: controllo del download...')
+KO['{1}: checking the download...'] = '{1}: 다운로드를 확인하는 중...'
+FR['{1}: checking the download...'] = '{1} : vérification du téléchargement...'
+
+T['{1}: unpacking, file {2} of {3}'] = ('{1}: descomprimiendo, archivo {2} de {3}', '{1}: 展開中、{3}個中{2}個目のファイル', '{1}: descompactando, arquivo {2} de {3}', '{1}: estrazione, file {2} di {3}')
+KO['{1}: unpacking, file {2} of {3}'] = '{1}: 압축 푸는 중, 파일 {3}개 중 {2}번째'
+FR['{1}: unpacking, file {2} of {3}'] = '{1} : décompression, fichier {2} sur {3}'
+
+T['{1}: checking the theme...'] = ('{1}: comprobando el tema...', '{1}: テーマを確認しています...', '{1}: verificando o tema...', '{1}: controllo del tema...')
+KO['{1}: checking the theme...'] = '{1}: 테마를 확인하는 중...'
+FR['{1}: checking the theme...'] = '{1} : vérification du thème...'
+
+T['{1}: putting it in place...'] = ('{1}: colocándolo en su sitio...', '{1}: 所定の場所に置いています...', '{1}: colocando no lugar...', '{1}: sistemazione al suo posto...')
+KO['{1}: putting it in place...'] = '{1}: 제자리에 놓는 중...'
+FR['{1}: putting it in place...'] = '{1} : mise en place...'
+
+T['1 theme'] = ('1 tema', '1件のテーマ', '1 tema', '1 tema')
+KO['1 theme'] = '테마 1개'
+FR['1 theme'] = '1 thème'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
@@ -6075,13 +6214,270 @@ def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+T.update({
+    "Channel background": ('Fondo de los canales', 'チャンネルの背景', 'Fundo dos canais', 'Sfondo dei canali'),
+    "White": ('Blanco', '白', 'Branco', 'Bianco'),
+    "Transparent": ('Transparente', '透明', 'Transparente', 'Trasparente'),
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": ('Blanco pone una caja detrás de los banners de los canales en el menú para que no se vuelvan transparentes.', '白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。', 'Branco põe uma caixa atrás dos banners dos canais no menu para que eles não fiquem transparentes.', 'Bianco mette una cornice dietro i banner dei canali nel menu, così non diventano trasparenti.'),
+    "Show non-game channels": ('Mostrar canales que no son juegos', 'ゲーム以外のチャンネルを表示', 'Mostrar canais que não são jogos', 'Mostra i canali non di gioco'),
+    "Nintendo's own channels are listed on Home now.": ('Los canales de Nintendo ya se listan en el inicio.', '任天堂のチャンネルをホームに表示するようにしました。', 'Os canais da Nintendo já aparecem no início.', 'I canali Nintendo ora sono nella home.'),
+    "Only games are listed on Home now.": ('Ahora solo se listan juegos en el inicio.', 'ホームにはゲームだけを表示するようにしました。', 'Agora só jogos aparecem no início.', 'Ora nella home sono elencati solo i giochi.'),
+    "Boot from": ('Iniciar desde', '起動元', 'Iniciar de', 'Avvia da'),
+    "Boot": ('Iniciar', '起動', 'Iniciar', 'Avvia'),
+    "Real NAND": ('NAND real', '実NAND', 'NAND real', 'NAND reale'),
+    "Emulated NAND": ('NAND emulada', 'エミュレートNAND', 'NAND emulada', 'NAND emulata'),
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": ("Automático usa el cargador de RiftWii. En la Wii inicia como el Menú de Wii, sin IOS del juego, trucos ni extras.", "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。", "Automático usa o carregador do RiftWii. No Wii inicia como o Menu Wii, sem IOS do jogo, trapaças ou extras.", "Automatico usa il loader di RiftWii. Sulla Wii avvia come il Menu Wii, senza IOS del gioco, trucchi o extra."),
+    "Game IOS": ('IOS del juego', 'ゲームのIOS', 'IOS do jogo', 'IOS del gioco'),
+    "The IOS RiftWii starts the channel under.": ('El IOS con el que RiftWii inicia el canal.', 'RiftWiiがこのチャンネルを起動するIOSです。', 'O IOS com que o RiftWii inicia o canal.', "L'IOS con cui RiftWii avvia il canale."),
+    "Emulated NAND (not here)": ('NAND emulada (no aquí)', 'エミュレートNAND (ここにはありません)', 'NAND emulada (não aqui)', 'NAND emulata (non qui)'),
+    "Real NAND (not here)": ('NAND real (no aquí)', '実NAND (ここにはありません)', 'NAND real (não aqui)', 'NAND reale (non qui)'),
+    "Show all channels even if they aren't detected as a game.": ('Mostrar todos los canales aunque no se detecten como juego.', 'ゲームとして検出されないチャンネルもすべて表示します。', 'Mostrar todos os canais mesmo que não sejam detectados como jogo.', 'Mostra tutti i canali anche se non sono rilevati come gioco.'),
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": ('La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí.', 'Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。', 'O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha a NAND emulada ou instale o jogo lá.', 'La Wii non ha una copia di questo gioco che possa avviarsi. Scegli la NAND emulata o installa il gioco lì.'),
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": ("Inicia como el Menú de Wii, con partidas en la Wii. No aplica IOS del juego, trucos ni extras del cargador.", "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。", "Inicia como o Menu Wii, com saves no Wii. IOS do jogo, trapaças e extras do carregador não se aplicam.", "Avvia come il Menu Wii, con salvataggi sulla Wii. IOS del gioco, trucchi ed extra del loader non si applicano."),
+    "The copy RiftWii lists starts, with its own save.": ('Se inicia la copia que RiftWii muestra, con su propia partida.', 'RiftWiiが表示するコピーが、独自のセーブとともに起動します。', 'Inicia a cópia que o RiftWii lista, com o próprio save.', 'Si avvia la copia che RiftWii elenca, con il suo salvataggio.'),
+    "The copy in {1} starts, and saves stay there on the SD card.": ('Se inicia la copia en {1} y las partidas se quedan ahí, en la tarjeta SD.', '{1}のコピーが起動し、セーブはSDカードのそこに残ります。', 'Inicia a cópia em {1} e os saves ficam lá, no cartão SD.', 'Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD.'),
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": ('Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}.', 'エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。', 'Inicia a cópia da NAND emulada; o save está no cartão SD em {1}.', 'Si avvia la copia della NAND emulata; il salvataggio è sulla scheda SD in {1}.'),
+    "{1} has no copy of this game. Install it there from its WAD first.": ('{1} no tiene ninguna copia de este juego. Instálalo ahí desde su WAD primero.', '{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。', '{1} não tem nenhuma cópia deste jogo. Instale-o lá a partir do WAD primeiro.', '{1} non ha una copia di questo gioco. Installalo lì dal suo WAD prima.'),
+})
+KO.update({
+    "Channel background": "채널 배경",
+    "White": "흰색",
+    "Transparent": "투명",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "흰색은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다.",
+    "Show non-game channels": "게임이 아닌 채널 표시",
+    "Nintendo's own channels are listed on Home now.": "닌텐도 채널이 이제 홈에 표시됩니다.",
+    "Only games are listed on Home now.": "이제 홈에는 게임만 표시됩니다.",
+    "Boot from": "다음에서 시작",
+    "Boot": "시작",
+    "Real NAND": "실제 NAND",
+    "Emulated NAND": "에뮬레이트 NAND",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "자동은 RiftWii 로더를 사용합니다. Wii 본체는 게임 IOS, 치트, 로더 추가 기능 없이 Wii 메뉴처럼 시작합니다.",
+    "Game IOS": "게임 IOS",
+    "The IOS RiftWii starts the channel under.": "RiftWii가 채널을 시작하는 IOS입니다.",
+    "Emulated NAND (not here)": "에뮬레이트 NAND (여기 없음)",
+    "Real NAND (not here)": "실제 NAND (여기 없음)",
+    "Show all channels even if they aren't detected as a game.": "게임으로 감지되지 않은 채널도 모두 표시합니다.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "Wii 본체에는 시작할 수 있는 이 게임의 사본이 없습니다. 에뮬레이트 NAND를 선택하거나 거기에 게임을 설치하세요.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Wii 메뉴처럼 시작하며 저장은 Wii에 남습니다. 게임 IOS, 치트, RiftWii 로더 추가 기능은 적용되지 않습니다.",
+    "The copy RiftWii lists starts, with its own save.": "RiftWii가 표시하는 사본이 자체 세이브와 함께 시작됩니다.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "{1}의 사본이 시작되고 세이브는 SD 카드의 그곳에 남습니다.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "에뮬레이트 NAND의 사본이 시작됩니다. 세이브는 SD 카드의 {1}에 있습니다.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1}에는 이 게임의 사본이 없습니다. 먼저 해당 WAD에서 설치하세요.",
+})
+FR.update({
+    "Channel background": "Fond des chaînes",
+    "White": "Blanc",
+    "Transparent": "Transparent",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "Blanc place un cadre derrière les bannières des chaînes affichées dans le menu pour éviter qu'elles ne deviennent transparentes.",
+    "Show non-game channels": "Afficher les chaînes non-jeu",
+    "Nintendo's own channels are listed on Home now.": "Les chaînes Nintendo sont maintenant sur l'accueil.",
+    "Only games are listed on Home now.": "Seuls les jeux sont désormais listés sur l'accueil.",
+    "Boot from": "Démarrer depuis",
+    "Boot": "Démarrer",
+    "Real NAND": "NAND réelle",
+    "Emulated NAND": "NAND émulée",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "Automatique utilise le chargeur RiftWii. Sur la Wii démarre comme le Menu Wii, sans IOS du jeu, codes ni extras.",
+    "Game IOS": "IOS du jeu",
+    "The IOS RiftWii starts the channel under.": "L'IOS avec lequel RiftWii démarre la chaîne.",
+    "Emulated NAND (not here)": "NAND émulée (pas ici)",
+    "Real NAND (not here)": "NAND réelle (pas ici)",
+    "Show all channels even if they aren't detected as a game.": "Afficher toutes les chaînes même si elles ne sont pas reconnues comme un jeu.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Démarre comme le Menu Wii, avec sauvegardes sur la Wii. IOS du jeu, codes et extras du chargeur ne s'appliquent pas.",
+    "The copy RiftWii lists starts, with its own save.": "La copie que RiftWii affiche démarre, avec sa propre sauvegarde.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD.",
+})
+
+
+# A retained title may have neither installed program.
+T.update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": (
+        "Ninguna copia de este canal tiene su programa. Instálalo en la Wii o en la NAND emulada.",
+        "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。",
+        "Nenhuma cópia deste canal tem o programa. Instale no Wii ou na NAND emulada.",
+        "Nessuna copia di questo canale ha il programma. Installalo sulla Wii o nella NAND emulata.",
+    ),
+})
+MORE["ko"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "이 채널의 프로그램 데이터가 없습니다. Wii 또는 에뮬레이트 NAND에 설치하세요.",
+})
+MORE["fr"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée.",
+})
+
+
+T.update({
+    "Homebrew": ('Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'),
+    "1 app": ('1 app', '1個のアプリ', '1 app', '1 app'),
+    "{1} apps": ('{1} apps', '{1}個のアプリ', '{1} apps', '{1} app'),
+    "No homebrew matches \"{1}\". Press 1 to change the view.": ('Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista.', '「{1}」に一致するHomebrewはありません。1で表示を切り替えます。', 'Nenhum homebrew corresponde a "{1}". Aperte 1 para mudar a vista.', 'Nessun homebrew corrisponde a "{1}". Premi 1 per cambiare vista.'),
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": ('Aún no hay homebrew: cada app es una carpeta en sd:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista.', 'Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。', 'Ainda não há homebrew: cada app é uma pasta em sd:/apps com seu boot.dol e meta.xml. Aperte 1 para mudar a vista.', "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista."),
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": ('No se pudo leer la carpeta de apps (sd:/apps). Pulsa 1 para cambiar la vista.', 'アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。', 'A pasta de apps (sd:/apps) não pôde ser lida. Aperte 1 para mudar a vista.', 'Impossibile leggere la cartella delle app (sd:/apps). Premi 1 per cambiare vista.'),
+    "It cannot start: {1}.": ('No puede iniciarse: {1}.', '起動できません: {1}。', 'Não pode ser iniciado: {1}.', 'Non può avviarsi: {1}.'),
+    "The app will start when ready.": ('La app se iniciará cuando esté lista.', 'アプリは準備ができると起動します。', 'O app inicia quando estiver pronto.', "L'app si avvierà quando è pronta."),
+    "Start {1}?": ('¿Iniciar {1}?', '{1}を起動しますか?', 'Iniciar {1}?', 'Avviare {1}?'),
+    "Would you like to start {1} ({2}) by {3}?": ('¿Quieres iniciar {1} ({2}) de {3}?', '{3}の{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2}) de {3}?', 'Vuoi avviare {1} ({2}) di {3}?'),
+    "Would you like to start {1} ({2})?": ('¿Quieres iniciar {1} ({2})?', '{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2})?', 'Vuoi avviare {1} ({2})?'),
+    "Would you like to start {1} by {2}?": ('¿Quieres iniciar {1} de {2}?', '{2}の{1}を起動しますか?', 'Quer iniciar {1} de {2}?', 'Vuoi avviare {1} di {2}?'),
+    "Would you like to start {1}?": ('¿Quieres iniciar {1}?', '{1}を起動しますか?', 'Quer iniciar {1}?', 'Vuoi avviare {1}?'),
+})
+KO.update({
+    "Homebrew": "홈브류",
+    "1 app": "앱 1개",
+    "{1} apps": "앱 {1}개",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "앱 폴더(sd:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "It cannot start: {1}.": "시작할 수 없습니다: {1}.",
+    "The app will start when ready.": "앱은 준비되면 시작됩니다.",
+    "Start {1}?": "{1}을(를) 시작할까요?",
+    "Would you like to start {1} ({2}) by {3}?": "{3}의 {1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} ({2})?": "{1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} by {2}?": "{2}의 {1}을(를) 시작할까요?",
+    "Would you like to start {1}?": "{1}을(를) 시작할까요?",
+})
+FR.update({
+    "Homebrew": "Homebrew",
+    "1 app": "1 appli",
+    "{1} apps": "{1} applis",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue.",
+    "It cannot start: {1}.": "Impossible de le lancer : {1}.",
+    "The app will start when ready.": "L'appli démarrera lorsqu'elle sera prête.",
+    "Start {1}?": "Démarrer {1} ?",
+    "Would you like to start {1} ({2}) by {3}?": "Voulez-vous démarrer {1} ({2}) par {3} ?",
+    "Would you like to start {1} ({2})?": "Voulez-vous démarrer {1} ({2}) ?",
+    "Would you like to start {1} by {2}?": "Voulez-vous démarrer {1} par {2} ?",
+    "Would you like to start {1}?": "Voulez-vous démarrer {1} ?",
+})
+
+
+# Homebrew launch limitations and navigation.
+T.update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": (
+        "el programa es boot.elf y RiftWii solo inicia apps boot.dol",
+        "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます",
+        "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
+        "il programma è boot.elf e RiftWii avvia solo app boot.dol",
+    ),
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    ),
+    "1: all apps": (
+        "1: todas las apps",
+        "1: すべてのアプリ",
+        "1: todos os apps",
+        "1: tutte le app",
+    ),
+})
+MORE["ko"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "1: all apps": "1: 모든 앱",
+})
+MORE["fr"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "1: all apps": "1 : toutes les applis",
+})
+
+
+T.update({
+    "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
+    "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
+    "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
+    "Checks if network is online.": ('Comprueba si la red está en línea.', 'ネットワークがオンラインか確認します。', 'Verifica se a rede está online.', 'Controlla se la rete è online.'),
+})
+KO.update({
+    "Network Test": "네트워크 테스트",
+    "Testing the network...": "네트워크를 테스트하는 중...",
+    "Offline": "오프라인",
+    "Checks if network is online.": "네트워크가 온라인인지 확인합니다.",
+})
+FR.update({
+    "Network Test": "Test réseau",
+    "Testing the network...": "Test du réseau...",
+    "Offline": "Hors ligne",
+    "Checks if network is online.": "Vérifie si le réseau est en ligne.",
+})
+
+
+# Review fixes: player-facing diagnostic results.
+T.update({
+    "The network could not start. Check the Wii's Internet settings.": (
+        "No se pudo iniciar la red. Revisa la configuración de Internet de la Wii.",
+        "ネットワークを開始できません。Wiiのインターネット設定を確認してください。",
+        "Não foi possível iniciar a rede. Verifique as configurações de Internet do Wii.",
+        "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii.",
+    ),
+    "No HTTP response. Check the connection and try again.": (
+        "Sin respuesta HTTP. Revisa la conexión e inténtalo de nuevo.",
+        "HTTPの応答がありません。接続を確認して、もう一度お試しください。",
+        "Sem resposta HTTP. Verifique a conexão e tente novamente.",
+        "Nessuna risposta HTTP. Controlla la connessione e riprova.",
+    ),
+    "The network is busy. Try again when the download finishes.": (
+        "La red está ocupada. Inténtalo cuando termine la descarga.",
+        "ネットワークは使用中です。ダウンロードが終わってからお試しください。",
+        "A rede está ocupada. Tente quando o download terminar.",
+        "La rete è occupata. Riprova al termine del download.",
+    ),
+})
+MORE["ko"].update({
+    "The network could not start. Check the Wii's Internet settings.": "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요.",
+    "No HTTP response. Check the connection and try again.": "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "The network is busy. Try again when the download finishes.": "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요.",
+})
+MORE["fr"].update({
+    "The network could not start. Check the Wii's Internet settings.": "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii.",
+    "No HTTP response. Check the connection and try again.": "Aucune réponse HTTP. Vérifiez la connexion et réessayez.",
+    "The network is busy. Try again when the download finishes.": "Le réseau est occupé. Réessayez après le téléchargement.",
+})
+
+
+T.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": ('La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 en un ordenador (NTFS también funciona).', '接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。', 'A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 em um computador (NTFS também funciona).', "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."),
+    "1. Use the USB port nearest to the edge.": ('1. Usa el puerto USB más cercano al borde.', '1. 本体の端に近いUSBポートを使ってください。', '1. Use a porta USB mais perto da borda.', '1. Usa la porta USB più vicina al bordo.'),
+    "2. For big drives: a Y-cable or their own power.": ('2. Unidades grandes: un cable en Y o su propia alimentación.', '2. 大きなドライブ: Y字ケーブルか専用の電源を。', '2. Unidades grandes: um cabo Y ou alimentação própria.', "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
+    "3. FAT32 recommended; NTFS and WBFS work too.": (
+        "3. FAT32 recomendado; NTFS y WBFS también sirven.",
+        "3. FAT32推奨。NTFSとWBFSも使えます。",
+        "3. FAT32 recomendado; NTFS e WBFS também funcionam.",
+        "3. FAT32 consigliato; funzionano anche NTFS e WBFS."),
+    "4. Games in the /wbfs or /games folder.": ('4. Juegos en la carpeta /wbfs o /games.', '4. ゲームは/wbfsか/gamesフォルダに。', '4. Jogos na pasta /wbfs ou /games.', '4. Giochi nella cartella /wbfs o /games.'),
+    "5. A d2x cIOS in slot 249/250/251.": ('5. Un cIOS d2x en el slot 249/250/251.', '5. スロット249/250/251のいずれかにd2x cIOS。', '5. Um cIOS d2x no slot 249/250/251.', '5. Un cIOS d2x nello slot 249/250/251.'),
+})
+KO.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다).",
+    "1. Use the USB port nearest to the edge.": "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
+    "2. For big drives: a Y-cable or their own power.": "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 권장. NTFS와 WBFS도 지원합니다.",
+    "4. Games in the /wbfs or /games folder.": "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. 슬롯 249/250/251에 d2x cIOS.",
+})
+FR.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi).",
+    "1. Use the USB port nearest to the edge.": "1. Utilisez le port USB le plus proche du bord.",
+    "2. For big drives: a Y-cable or their own power.": "2. Grands stockages : un câble en Y ou leur propre alimentation.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi.",
+    "4. Games in the /wbfs or /games folder.": "4. Les jeux dans le dossier /wbfs ou /games.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. Un cIOS d2x dans le slot 249/250/251.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

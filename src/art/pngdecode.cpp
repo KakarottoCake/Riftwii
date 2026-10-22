@@ -131,6 +131,33 @@ struct ToByte {
     }
 };
 
+// Where the decoder's three big buffers live: the vectors of decode_png (the
+// heap), or one block the caller owns (decode_png_in: the menu keeps these
+// in MEM2, where a 640x480 picture's 2.5 MB belongs).
+struct Workspace {
+    std::uint8_t* block = nullptr;
+    std::size_t room = 0, used = 0;
+    std::vector<std::uint8_t> idat_heap, raw_heap;
+    // Where the RGBA goes in heap mode; in block mode `take` never touches it,
+    // but it is still a real vector to bind a reference to.
+    std::vector<std::uint8_t> rgba_unused;
+    std::vector<std::uint8_t>* rgba_heap = &rgba_unused;
+
+    // `bytes` of zeros, from the block when there is one.
+    std::uint8_t* take(std::vector<std::uint8_t>& heap, std::size_t bytes) {
+        if (block) {
+            const std::size_t aligned = (bytes + 31) & ~std::size_t(31);
+            if (aligned < bytes || aligned > room - used) return nullptr;
+            std::uint8_t* at = block + used;
+            used += aligned;
+            std::memset(at, 0, bytes);
+            return at;
+        }
+        heap.assign(bytes, 0);
+        return heap.data();
+    }
+};
+
 }  // namespace
 
 std::uint32_t png_crc32(const std::uint8_t* data, std::size_t size) {
@@ -149,13 +176,19 @@ std::uint32_t png_crc32(const std::uint8_t* data, std::size_t size) {
     return c ^ 0xFFFFFFFFu;
 }
 
-bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
-                std::vector<std::uint8_t>& rgba, std::uint32_t& width, std::uint32_t& height, std::string& error) {
+namespace {
+
+bool decode_core(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
+                 Workspace& ws, std::uint8_t*& rgba, std::uint32_t& width, std::uint32_t& height,
+                 std::string& error) {
     static const std::uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     if (size < 8 || std::memcmp(png, kSignature, 8) != 0) return Fail(error, "not a PNG");
     Header h;
     bool have_header = false, idat_done = false;
-    std::vector<std::uint8_t> idat;
+    // The image data's chunks, joined: they cannot add up to more than the file.
+    std::uint8_t* idat = ws.take(ws.idat_heap, size);
+    if (!idat) return Fail(error, "no memory for the PNG");
+    std::size_t idat_size = 0;
     std::uint8_t palette[256][3] = {};
     unsigned palette_size = 0;
     std::uint8_t palette_alpha[256];
@@ -222,15 +255,16 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
             have_gamma = seen_srgb = true;
         } else if (named("IDAT")) {
             if (idat_done) return Fail(error, "the PNG's image data is split");
-            idat.insert(idat.end(), data, data + length);
+            std::memcpy(idat + idat_size, data, length);
+            idat_size += length;
         } else if (named("IEND")) {
             break;
         } else if (critical) {
             return Fail(error, "the PNG has an unknown critical chunk");
         }
-        if (!idat.empty() && !named("IDAT")) idat_done = true;
+        if (idat_size != 0 && !named("IDAT")) idat_done = true;
     }
-    if (idat.empty()) return Fail(error, "the PNG has no image data");
+    if (idat_size == 0) return Fail(error, "the PNG has no image data");
     if (h.type == 3 && palette_size == 0) return Fail(error, "the PNG has no palette");
 
     // Adam7's passes (or the one whole image): origin and step.
@@ -245,9 +279,10 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
         const std::uint32_t ph = (h.height - passes[p][1] + passes[p][3] - 1) / passes[p][3];
         if (h.width > passes[p][0] && h.height > passes[p][1] && pw && ph) raw_size += ph * (RowBytes(h, pw) + 1);
     }
-    std::vector<std::uint8_t> raw(raw_size);
-    if (!inflate(idat.data(), idat.size(), raw.data(), raw.size())) return Fail(error, "the PNG's image data is damaged");
-    std::vector<std::uint8_t>().swap(idat);
+    std::uint8_t* raw = ws.take(ws.raw_heap, raw_size);
+    if (!raw) return Fail(error, "no memory for the PNG");
+    if (!inflate(idat, idat_size, raw, raw_size)) return Fail(error, "the PNG's image data is damaged");
+    std::vector<std::uint8_t>().swap(ws.idat_heap);
 
     ToByte to_byte;
     to_byte.setup(h.depth, have_gamma ? file_gamma : h.depth == 16 ? 100000u : 45455u);
@@ -259,7 +294,8 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
             for (int c = 0; c < 3; ++c) palette[i][c] = palette_byte(palette[i][c]);
     }
 
-    rgba.assign(static_cast<std::size_t>(h.width) * h.height * 4, 0);
+    rgba = ws.take(*ws.rgba_heap, static_cast<std::size_t>(h.width) * h.height * 4);
+    if (!rgba) return Fail(error, "no memory for the PNG");
     const std::size_t bpp = h.depth < 8 ? 1 : h.channels * h.depth / 8;
     std::size_t offset = 0;
     for (int p = 0; p < pass_count; ++p) {
@@ -267,7 +303,7 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
         const std::uint32_t pw = (h.width - passes[p][0] + passes[p][2] - 1) / passes[p][2];
         const std::uint32_t ph = (h.height - passes[p][1] + passes[p][3] - 1) / passes[p][3];
         const std::size_t row_bytes = RowBytes(h, pw);
-        std::uint8_t* pass = raw.data() + offset;
+        std::uint8_t* pass = raw + offset;
         offset += ph * (row_bytes + 1);
         if (!Unfilter(pass, ph, row_bytes, bpp)) return Fail(error, "the PNG has a bad row filter");
         for (std::uint32_t py = 0; py < ph; ++py) {
@@ -275,7 +311,7 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
             const std::uint32_t y = passes[p][1] + py * passes[p][3];
             for (std::uint32_t px = 0; px < pw; ++px) {
                 const std::uint32_t x = passes[p][0] + px * passes[p][2];
-                std::uint8_t* out = &rgba[(static_cast<std::size_t>(y) * h.width + x) * 4];
+                std::uint8_t* out = rgba + (static_cast<std::size_t>(y) * h.width + x) * 4;
                 const std::size_t s = static_cast<std::size_t>(px) * h.channels;
                 switch (h.type) {
                 case 0: {
@@ -319,6 +355,28 @@ bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, 
     }
     width = h.width;
     height = h.height;
+    return true;
+}
+
+}  // namespace
+
+bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
+                std::vector<std::uint8_t>& rgba, std::uint32_t& width, std::uint32_t& height, std::string& error) {
+    Workspace ws;
+    ws.rgba_heap = &rgba;
+    std::uint8_t* pixels = nullptr;
+    return decode_core(png, size, inflate, max_side, ws, pixels, width, height, error);
+}
+
+bool decode_png_in(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
+                   std::uint8_t* block, std::size_t block_size, const std::uint8_t*& rgba, std::uint32_t& width,
+                   std::uint32_t& height, std::string& error) {
+    Workspace ws;
+    ws.block = block;
+    ws.room = block_size;
+    std::uint8_t* pixels = nullptr;
+    if (!decode_core(png, size, inflate, max_side, ws, pixels, width, height, error)) return false;
+    rgba = pixels;
     return true;
 }
 

@@ -105,7 +105,11 @@ What still fails is written to a one-sector card log
 adapter on, a second blob hooks the game's `PADRead` and
 `PADControlMotor` (found by structure too) and runs the WUP-028 driver
 through the game's own asynchronous IPC. The adapter's controllers fill
-ports with nothing plugged in; rumble goes back to them.
+ports with nothing plugged in; rumble goes back to them. PADRead tells
+the video code which of its own ports are in use, so the Wii's screen
+burn-in reduction leaves the screen lit; for the adapter's pads the
+blob calls the same reset (found by the call near PADRead) on each
+button or stick change.
 
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
@@ -688,17 +692,22 @@ the headless launch (`docs/HEADLESS.md`, `headless_launch_arguments` in
 `src/patching/launchargs.cpp`) that starts this game again, built by the
 menu from what it launched with (`RestartArguments` in
 `wii/menu/gameextras.cpp`), with `--idle--` first. After the IOS reload it
-reads the RiftWii channel's ticket view, opens `/dev/es`, finds OSRestart
+reads the RiftWii channel's ticket view, finds OSRestart
 (`find_os_restart`, `src/patching/osrestart.cpp`) and gives the runtime
 the sector's place on the card, a copy of the sector with `--launch` first
 and the title and view (`struct rt_restart_block` in `rt_hook.h`, at the
 bottom of the MEM2 arena with the runtime's data). The runtime hooks
 OSRestart (`rt_reset_os_restart` in `rt_entry.S`, with a replay slot for
 the displaced word as the IPC hooks have). When the game calls it
-(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime writes the sector
+(`rt_reset_on_os_restart`, `rt_hook.c`), the runtime opens `/dev/es` through
+the game's synchronous IOS_Open, then writes the sector
 (a CMD25 on `/dev/sdio/slot0`, or d2x's sector write, through the game's
 own synchronous IOS_Ioctlv, built as the savegame engine builds a write),
-waits 50 ms for the card, and launches the channel through ES. That does
+waits 50 ms for the card, and launches the channel through ES. A refused
+open leaves the request idle; a refused write or launch closes the handle
+before the game's own restart continues. No extra ES handle is held during
+play: ES has only three contexts, and mods such as Retro Rewind open ES
+themselves to sign an authentication salt. The launch does
 not return when IOS takes it; RiftWii's next start reads `restart.txt`
 once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
 again. When the write or the launch is refused the sector goes back to
