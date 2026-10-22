@@ -2808,6 +2808,54 @@ msgstr "Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossibile preparare la scheda reale. Controlla la scheda e riprova."
 
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1 app"
+
+msgid "{1} apps"
+msgstr "{1} app"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "Nessun homebrew corrisponde a \"{1}\". Premi 1 per cambiare vista."
+
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista."
+
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "Impossibile leggere la cartella delle app (sd:/apps). Premi 1 per cambiare vista."
+
+msgid "It cannot start: {1}."
+msgstr "Non può avviarsi: {1}."
+
+msgid "The app will start when ready."
+msgstr "L'app si avvierà quando è pronta."
+
+msgid "Start {1}?"
+msgstr "Avviare {1}?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "Vuoi avviare {1} ({2}) di {3}?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "Vuoi avviare {1} ({2})?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "Vuoi avviare {1} di {2}?"
+
+msgid "Would you like to start {1}?"
+msgstr "Vuoi avviare {1}?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "il programma è boot.elf e RiftWii avvia solo app boot.dol"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii."
+
+msgid "1: all apps"
+msgstr "1: tutte le app"
+
 msgid "Network Test"
 msgstr "Test di rete"
 
