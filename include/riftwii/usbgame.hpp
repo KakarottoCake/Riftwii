@@ -171,6 +171,18 @@ struct CisoFinds {
 // a file that only sits beside an image (a cover, a text file).
 std::string gc_folder_skip_reason(const std::string& name);
 
+// A GameCube image container told by the first bytes of the file, whatever
+// its name: players rename a .ciso or .gcz to .iso and Home then showed the
+// game missing with no reason. NKit is not told apart here: its images keep
+// the ISO's own header, so they pass as ISO (a tester's .nkit.gcz is said by
+// its name, gc_folder_skip_reason).
+enum class GcContainer { None, Ciso, Gcz, Wia, Rvz };
+GcContainer gc_container_by_magic(const std::uint8_t* head, std::size_t size);
+
+// For the scan's log, a file named .iso/.gcm that is really `container`:
+// what it is and what to do. Empty for None.
+std::string gc_container_skip_reason(GcContainer container);
+
 // Home's popup text: `help` (already translated), a blank line, then the
 // first file found and, when there are more, `and_more` (translated, with
 // {1} for how many more) after it. Empty when nothing was found.

@@ -120,6 +120,13 @@ bool StartChannelInstaller(std::string& error) {
 }
 
 bool StartHomebrewApp(const std::string& path, std::string& error) {
+    std::string line = path;
+    line.push_back('\0');
+    line.push_back('\0');
+    return StartHomebrewApp(path, line, error);
+}
+
+bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
     u32 size = 0;
     u8* dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* { return memalign(32, n); },
                             [](void* p) { std::free(p); });
@@ -135,7 +142,7 @@ bool StartHomebrewApp(const std::string& path, std::string& error) {
     fatUnmount("sd:");
     fatUnmount("usb:");
     AUDIO_StopDMA();
-    dolboot_run(dol, path.c_str());
+    dolboot_run_line(dol, command_line.data(), static_cast<u32>(command_line.size()));
 }
 
 }  // namespace riftwii::wii

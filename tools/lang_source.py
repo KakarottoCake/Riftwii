@@ -57,6 +57,21 @@ T = {
         "ゲームが見つかりません (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
         "Nenhum jogo encontrado (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
         "Nessun gioco trovato (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"),
+    "No games found (usb:/wbfs, usb:/games)": (
+        "No se encontraron juegos (usb:/wbfs, usb:/games)",
+        "ゲームが見つかりません (usb:/wbfs, usb:/games)",
+        "Nenhum jogo encontrado (usb:/wbfs, usb:/games)",
+        "Nessun gioco trovato (usb:/wbfs, usb:/games)"),
+    "No games found (sd:/wbfs, sd:/games)": (
+        "No se encontraron juegos (sd:/wbfs, sd:/games)",
+        "ゲームが見つかりません (sd:/wbfs, sd:/games)",
+        "Nenhum jogo encontrado (sd:/wbfs, sd:/games)",
+        "Nessun gioco trovato (sd:/wbfs, sd:/games)"),
+    "No games found": (
+        "No se encontraron juegos",
+        "ゲームが見つかりません",
+        "Nenhum jogo encontrado",
+        "Nessun gioco trovato"),
     "Reading the SD card...": ("Leyendo la tarjeta SD...", "SDカードを読み込んでいます...", "Lendo o cartão SD...",
                                "Lettura della scheda SD..."),
     "Reading the USB drive... (a big drive takes a moment)": (
@@ -362,6 +377,13 @@ T = {
                                   "Scarica nomi e trucchi"),
     "Get the latest game names": ("Actualizar nombres de juegos", "最新のゲーム名を取得", "Atualizar nomes dos jogos",
                                   "Aggiorna i nomi dei giochi"),
+    "Download missing covers": ("Descargar portadas que faltan", "足りないカバーをダウンロード", "Baixar capas que faltam",
+                                "Scarica le copertine mancanti"),
+    "Missing covers will be downloaded when you go back to Home.": (
+        "Las portadas que faltan se descargarán cuando vuelvas a Inicio.",
+        "ホームに戻ると、足りないカバーをダウンロードします。",
+        "As capas que faltam serão baixadas quando você voltar ao Início.",
+        "Le copertine mancanti verranno scaricate quando torni alla Home."),
     "Update": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
     "Menu IOS": ("IOS del menú", "メニューのIOS", "IOS do menu", "IOS del menu"),
     "Menu IOS: IOS 58 (no d2x cIOS found)": ("IOS del menú: IOS 58 (no hay cIOS d2x)", "メニューのIOS: IOS 58 (d2x cIOSなし)",
@@ -571,16 +593,21 @@ T = {
         "GameTDBから最新のゲーム名をダウンロードします。",
         "Baixa os nomes de jogos mais recentes do GameTDB.",
         "Scarica i nomi dei giochi più recenti da GameTDB."),
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.": (
+        "Descarga de GameTDB las portadas, cajas y portadas 3D que faltan en Inicio. Si GameTDB no tiene imagen de un juego, seguirá sin ella.",
+        "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。",
+        "Baixa do GameTDB as capas, caixas e capas 3D que ainda faltam no Início. Um jogo sem imagem no GameTDB continua sem ela.",
+        "Scarica da GameTDB le copertine, le custodie e le copertine 3D che mancano nella Home. Un gioco senza immagini su GameTDB resta senza."),
     "Shows live what the controllers in the adapter are pressing.": (
         "Muestra en directo lo que pulsan los mandos del adaptador.",
         "接続タップのコントローラで押しているボタンをその場で表示します。",
         "Mostra ao vivo o que os controles do adaptador estão apertando.",
         "Mostra in tempo reale cosa premono i controller dell'adattatore."),
-    "Reads the SD card and the USB drive again.": (
-        "Vuelve a leer la tarjeta SD y la unidad USB.",
-        "SDカードとUSBドライブをもう一度読み込みます。",
-        "Lê o cartão SD e a unidade USB de novo.",
-        "Rilegge la scheda SD e l'unità USB."),
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.": (
+        "Vuelve a leer la tarjeta SD y la unidad USB, e intenta descargar de nuevo las portadas, cajas y portadas 3D que faltan.",
+        "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。",
+        "Lê o cartão SD e a unidade USB de novo e tenta baixar novamente as capas, caixas e capas 3D que faltam.",
+        "Rilegge la scheda SD e l'unità USB e riprova a scaricare le copertine, le custodie e le copertine 3D mancanti."),
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
         "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
         "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
@@ -706,11 +733,11 @@ T = {
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
         "Scaricamento copertine da GameTDB: ne mancano {1}"),
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.": (
-        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo.",
-        "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。",
-        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo.",
-        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."),
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.": (
+        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > En línea > Descargar portadas que faltan.",
+        "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Online > Baixar capas que faltam.",
+        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."),
     "Cover": ("Portada", "カバー", "Capa", "Copertina"),
     "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
     "Downloads this game's box art from GameTDB now.": (
@@ -865,11 +892,26 @@ T = {
         "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB durante una partita solo se anche il gioco è lì. Metti il gioco sull'unità USB, oppure metti {1} nella cartella riftwii della SD."),
     # Updates (the pop-ups at start, and the Settings row)
     "Updating RiftWii": ("Actualizando RiftWii", "RiftWiiを更新しています", "Atualizando a RiftWii", "Aggiornamento di RiftWii"),
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...": (
-        "Ya salió RiftWii {1}. Se está descargando e instalando; tarda un minuto...",
-        "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります...",
-        "Saiu a RiftWii {1}. Baixando e instalando agora; leva um minuto...",
-        "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."),
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.": (
+        "Ya salió RiftWii {1}. Se está instalando; tarda unos minutos.",
+        "RiftWii {1}が出ています。インストールしています。数分かかります。",
+        "Saiu a RiftWii {1}. Instalando agora; leva alguns minutos.",
+        "È uscita RiftWii {1}. La sto installando; ci vogliono alcuni minuti."),
+    # {1} megabytes so far, {2} megabytes in all.
+    "Downloading RiftWii ({1} of {2} MB)": (
+        "Descargando RiftWii ({1} de {2} MB)", "RiftWiiをダウンロード中 ({1} / {2} MB)",
+        "Baixando a RiftWii ({1} de {2} MB)", "Scaricamento di RiftWii ({1} di {2} MB)"),
+    "Downloading RiftWii...": (
+        "Descargando RiftWii...", "RiftWiiをダウンロード中...", "Baixando a RiftWii...", "Scaricamento di RiftWii..."),
+    "Downloading plugins ({1} of {2} MB)": (
+        "Descargando complementos ({1} de {2} MB)", "プラグインをダウンロード中 ({1} / {2} MB)",
+        "Baixando plugins ({1} de {2} MB)", "Scaricamento dei plugin ({1} di {2} MB)"),
+    "Downloading plugins...": (
+        "Descargando complementos...", "プラグインをダウンロード中...", "Baixando plugins...", "Scaricamento dei plugin..."),
+    "Checking the download...": (
+        "Comprobando la descarga...", "ダウンロードを確認中...", "Verificando o download...", "Controllo del download..."),
+    "Writing to the SD card...": (
+        "Escribiendo en la tarjeta SD...", "SDカードに書き込み中...", "Gravando no cartão SD...", "Scrittura sulla scheda SD..."),
     "Update failed": ("La actualización falló", "更新に失敗しました", "A atualização falhou", "Aggiornamento non riuscito"),
     # {1} the new version, {2} why, {3} where to get it.
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}": (
@@ -922,11 +964,6 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.": (
-        "La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 o NTFS en un ordenador.",
-        "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。",
-        "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador.",
-        "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1393,6 +1430,9 @@ T = {
     "It replaces the {1} there now.": ("Reemplaza el {1} que hay ahora.", "今ある{1}を置き換えます。", "Substitui o {1} que está lá agora.", "Sostituisce il {1} che c'è ora."),
     "Make an SD image?": ("¿Crear una imagen SD?", "SDイメージを作りますか?", "Criar uma imagem SD?", "Creare un'immagine SD?"),
     "Make it": ("Crearla", "作成", "Criar", "Creala"),
+    "The SD card is too fragmented": ("La tarjeta SD está demasiado fragmentada", "SDカードの断片化がひどすぎます", "O cartão SD está fragmentado demais", "La scheda SD è troppo frammentata"),
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.": ("El espacio libre de la tarjeta SD está demasiado disperso. {1} se escribiría en más de {2} fragmentos, más de los que RiftWii puede seguir, así que el juego no arrancaría con ella. Libera espacio o formatea la tarjeta SD (copia antes sus archivos) y vuelve a intentarlo. O créala de todos modos.", "SDカードの空き領域が細かく散らばりすぎています。{1}は{2}個を超える断片に書き込まれ、RiftWiiが扱える数を超えるため、ゲームは起動しません。空き容量を作るかSDカードをフォーマットして(先にファイルをコピーしてください)、もう一度お試しください。このまま作成することもできます。", "O espaço livre do cartão SD está disperso demais. {1} seria gravada em mais de {2} pedaços, mais do que o RiftWii consegue seguir, então o jogo não iniciaria com ela. Libere espaço ou formate o cartão SD (copie os arquivos antes) e tente de novo. Ou crie assim mesmo.", "Lo spazio libero della scheda SD è troppo sparso. {1} verrebbe scritta in più di {2} pezzi, più di quelli che RiftWii può seguire, quindi il gioco non partirebbe. Libera spazio o formatta la scheda SD (prima copia i suoi file) e riprova. Oppure creala comunque."),
+    "Build anyway": ("Crear igualmente", "このまま作成", "Criar mesmo assim", "Crea comunque"),
     "Making {1}": ("Creando {1}", "{1}を作成中", "Criando {1}", "Creazione di {1}"),
     "Stop": ("Detener", "中止", "Parar", "Interrompi"),
     "{1} minutes left": ("Faltan {1} minutos", "残り{1}分", "Faltam {1} minutos", "Mancano {1} minuti"),
@@ -1497,7 +1537,12 @@ T = {
     "Saves go to the shared memory card on the SD card: {1}.": ("Las partidas van a la tarjeta de memoria compartida de la tarjeta SD: {1}.", "セーブはSDカード上の共有メモリーカードに保存されます: {1}", "Os saves vão para o cartão de memória compartilhado no cartão SD: {1}.", "I salvataggi vanno nella Memory Card condivisa sulla scheda SD: {1}."),
     "Memory card": ("Tarjeta de memoria", "メモリーカード", "Cartão de memória", "Memory Card"),
     "About this": ("Acerca de esto", "説明", "Sobre isto", "Informazioni"),
-    "Save to a card for this game alone, or to one card shared by all your games.": ("Guarda las partidas en una tarjeta solo para este juego, o en una tarjeta compartida por todos tus juegos.", "このゲームだけのカードか、すべてのゲームで共有する1枚のカードにセーブします。", "Salva em um cartão só para este jogo, ou em um cartão compartilhado por todos os seus jogos.", "Salva su una scheda solo per questo gioco, oppure su una scheda condivisa da tutti i tuoi giochi."),
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": (
+        "Guarda en la tarjeta SD de este juego, una SD compartida o una tarjeta real en la ranura A (solo Wii original).",
+        "このゲームのSDカード、共有SDカード、またはスロットAの実物のカードにセーブします（初代Wiiのみ）。",
+        "Salva no cartão SD deste jogo, em um SD compartilhado ou em um cartão real no slot A (só no Wii original).",
+        "Salva sulla scheda SD del gioco, su una SD condivisa o su una scheda reale nello slot A (solo Wii originale).",
+    ),
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.": ("Al cambiar no se copian partidas: se quedan en la otra tarjeta. Muévelas con Copiar a la tarjeta SD y Añadir una partida desde la tarjeta SD en la página de partidas. Los juegos japoneses tienen su propia tarjeta compartida.", "切り替えてもセーブはコピーされず、もう一方のカードに残ります。セーブのページの「SDカードにコピー」と「SDカードからセーブを追加」で移せます。日本のゲームは専用の共有カードを使います。", "Trocar não copia saves: eles ficam no outro cartão. Mova-os com Copiar para o cartão SD e Adicionar um save do cartão SD na página de saves. Os jogos japoneses têm o seu próprio cartão compartilhado.", "Cambiando non si copia nulla: i salvataggi restano sull'altra scheda. Spostali con Copia sulla scheda SD e Aggiungi un salvataggio dalla scheda SD nella pagina dei salvataggi. I giochi giapponesi hanno la loro scheda condivisa."),
     "Switch": ("Cambiar", "切り替える", "Trocar", "Cambia"),
     "Shared": ("Compartida", "共有", "Compartilhado", "Condivisa"),
@@ -1587,31 +1632,6 @@ T = {
         "A fonte do Menu do Wii precisa de acesso ao hardware ou de um cIOS d2x, e nenhum funcionou desta vez, então a fonte da RiftWii é usada. Inicie a RiftWii por um Homebrew Channel atualizado ou pelo canal da RiftWii (versão 9).",
         "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."),
     # Menu text added in 2610-151 to 2610-168
-    "1. Use the USB port nearest the edge.": (
-        "1. Usa el puerto USB más cercano al borde.",
-        "1. 本体の端に近いUSBポートを使ってください。",
-        "1. Use a porta USB mais perto da borda.",
-        "1. Usa la porta USB più vicina al bordo."),
-    "2. Big drives: a Y-cable or their own power.": (
-        "2. Unidades grandes: un cable en Y o su propia alimentación.",
-        "2. 大きなドライブ: Y字ケーブルか専用の電源を。",
-        "2. Unidades grandes: um cabo Y ou alimentação própria.",
-        "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
-    "3. FAT32 or NTFS (or a WBFS drive).": (
-        "3. FAT32 o NTFS (o una unidad WBFS).",
-        "3. FAT32かNTFS (またはWBFSドライブ)。",
-        "3. FAT32 ou NTFS (ou uma unidade WBFS).",
-        "3. FAT32 o NTFS (o un'unità WBFS)."),
-    "4. Games in a wbfs or games folder.": (
-        "4. Juegos en una carpeta wbfs o games.",
-        "4. ゲームはwbfsかgamesフォルダに。",
-        "4. Jogos numa pasta wbfs ou games.",
-        "4. Giochi in una cartella wbfs o games."),
-    "5. A d2x cIOS in slot 249, 250 or 251.": (
-        "5. Un cIOS d2x en el slot 249, 250 o 251.",
-        "5. スロット249、250、251のいずれかにd2x cIOS。",
-        "5. Um cIOS d2x no slot 249, 250 ou 251.",
-        "5. Un cIOS d2x nello slot 249, 250 o 251."),
     "A to Z": (
         "De la A a la Z",
         "A〜Z",
@@ -2232,6 +2252,12 @@ T = {
         "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。",
         "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim.",
         "Predefinito attiva i 480p quando la Wii è impostata su 480p e viene rilevato un cavo component; scegli Sì (480p) se il televisore li accetta comunque."),
+    "There is not enough memory to copy this card. Nothing was copied.": (
+        "No hay suficiente memoria para copiar esta tarjeta. No se ha copiado nada.",
+        "このカードをコピーするメモリが足りません。何もコピーしていません。",
+        "Não há memória suficiente para copiar este cartão. Nada foi copiado.",
+        "Memoria insufficiente per copiare questa scheda. Non è stato copiato nulla.",
+    ),
 }
 
 
@@ -2266,6 +2292,12 @@ KO = {
         "아직 sd:/riivolution에 팩이 포함된 게임이 없습니다. 모든 게임을 보려면 1번을 누르세요.",
     "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)":
         "게임을 찾을 수 없음 (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
+    "No games found (usb:/wbfs, usb:/games)":
+        "게임을 찾을 수 없음 (usb:/wbfs, usb:/games)",
+    "No games found (sd:/wbfs, sd:/games)":
+        "게임을 찾을 수 없음 (sd:/wbfs, sd:/games)",
+    "No games found":
+        "게임을 찾을 수 없음",
     "Reading the SD card...":
         "SD 카드 읽는 중...",
     "Reading the USB drive... (a big drive takes a moment)":
@@ -2502,6 +2534,10 @@ KO = {
         "이름 및 치트 다운로드",
     "Get the latest game names":
         "최신 게임 이름 확인",
+    "Download missing covers":
+        "없는 커버 다운로드",
+    "Missing covers will be downloaded when you go back to Home.":
+        "홈으로 돌아가면 없는 커버를 다운로드합니다.",
     "Update":
         "업데이트",
     "Menu IOS":
@@ -2630,10 +2666,12 @@ KO = {
         "메뉴 언어입니다. Wii는 본체 자체 설정을 따릅니다.",
     "Downloads the newest game names from GameTDB.":
         "GameTDB에서 최신 게임 이름을 다운로드합니다.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "홈에 아직 없는 커버, 박스 및 3D 커버를 GameTDB에서 다운로드합니다. GameTDB에 이미지가 없는 게임은 이미지 없이 남습니다.",
     "Shows live what the controllers in the adapter are pressing.":
         "어댑터에 연결된 컨트롤러의 입력 상태를 실시간으로 보여줍니다.",
-    "Reads the SD card and the USB drive again.":
-        "SD 카드와 USB 드라이브를 다시 읽습니다.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "SD 카드와 USB 드라이브를 다시 읽고, 없는 커버, 박스 및 3D 커버 다운로드를 다시 시도합니다.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "슬롯 248~252에서 d2x cIOS가 발견되지 않아 메뉴가 IOS 58로 실행됩니다. SD 카드나 USB로 게임을 플레이하려면 d2x를 설치하세요.",
     "Check for a new version":
@@ -2746,8 +2784,8 @@ KO = {
         "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다.",
     "Getting covers from GameTDB: {1} left":
         "GameTDB에서 커버 가져오는 중: {1} 개 남음",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "커버 이미지를 ({1})에서 다운로드할 수 없습니다. 다시 시도하려면 설정 > 게임 다시 찾기를 이용하세요.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "커버를 다운로드할 수 없습니다 ({1}). 다시 시도하려면 설정 > 온라인 > 없는 커버 다운로드를 이용하세요.",
     "Cover":
         "커버",
     "Download again":
@@ -2824,8 +2862,20 @@ KO = {
         "이 방법은 작동하지 않습니다: {1} 파일이 USB 드라이브에 있는데, RiftWii는 게임 파일도 해당 USB 드라이브에 있을 때만 게임 실행 중 USB 드라이브를 읽어오기 때문입니다. 게임을 USB 드라이브로 옮기거나, SD 카드의 riftwii 폴더에 {1} 파일을 넣으세요.",
     "Updating RiftWii":
         "RiftWii 업데이트",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1}이(가) 출시되었습니다. 지금 다운로드 및 설치 중이고, 시간이 조금 걸리는 중...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1}이(가) 출시되었습니다. 지금 설치 중이며 몇 분 걸립니다.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "RiftWii 다운로드 중 ({1} / {2} MB)",
+    "Downloading RiftWii...":
+        "RiftWii 다운로드 중...",
+    "Downloading plugins ({1} of {2} MB)":
+        "플러그인 다운로드 중 ({1} / {2} MB)",
+    "Downloading plugins...":
+        "플러그인 다운로드 중...",
+    "Checking the download...":
+        "다운로드 확인 중...",
+    "Writing to the SD card...":
+        "SD 카드에 쓰는 중...",
     "Update failed":
         "업데이트 실패",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
@@ -2866,8 +2916,6 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -3178,6 +3226,12 @@ KO = {
         "SD 이미지를 만들까요?",
     "Make it":
         "만들기",
+    "The SD card is too fragmented":
+        "SD 카드가 너무 단편화되어 있습니다",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "SD 카드의 빈 공간이 너무 흩어져 있습니다. {1}은(는) {2}개가 넘는 조각으로 기록되어 RiftWii가 따라갈 수 있는 수를 넘으므로 게임이 시작되지 않습니다. 공간을 확보하거나 SD 카드를 포맷한 뒤(먼저 파일을 복사해 두세요) 다시 시도하세요. 또는 그대로 만들 수도 있습니다.",
+    "Build anyway":
+        "그래도 만들기",
     "Making {1}":
         "{1} 만들기",
     "Stop":
@@ -3386,8 +3440,7 @@ KO = {
         "메모리 카드",
     "About this":
         "설명",
-    "Save to a card for this game alone, or to one card shared by all your games.":
-        "이 게임 전용 카드나 모든 게임이 함께 쓰는 카드 한 장에 저장합니다.",
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": "이 게임의 SD 카드, 공용 SD 카드 또는 슬롯 A의 실제 카드에 저장합니다(초기 Wii 전용).",
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.":
         "바꿔도 저장 데이터는 복사되지 않고 다른 카드에 남습니다. 저장 페이지의 SD 카드에 복사와 SD 카드에서 저장 데이터 추가로 옮길 수 있습니다. 일본 게임은 별도의 공유 카드를 씁니다.",
     "Switch":
@@ -3538,16 +3591,6 @@ KO = {
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
-    "1. Use the USB port nearest the edge.":
-        "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 또는 NTFS (또는 WBFS 드라이브).",
-    "4. Games in a wbfs or games folder.":
-        "4. 게임은 wbfs 또는 games 폴더에 넣으세요.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. 슬롯 249, 250 또는 251에 d2x cIOS.",
     "A to Z":
         "가나다순",
     "Change":
@@ -4032,6 +4075,7 @@ KO = {
         "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
     "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
         "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요.",
+    "There is not enough memory to copy this card. Nothing was copied.": "이 카드를 복사할 메모리가 부족합니다. 아무것도 복사하지 않았습니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -4065,6 +4109,12 @@ FR = {
         "Aucun jeu ici n'a de pack dans sd:/riivolution. Appuyez sur 1 pour voir tous les jeux.",
     "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)":
         "Aucun jeu trouvé (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
+    "No games found (usb:/wbfs, usb:/games)":
+        "Aucun jeu trouvé (usb:/wbfs, usb:/games)",
+    "No games found (sd:/wbfs, sd:/games)":
+        "Aucun jeu trouvé (sd:/wbfs, sd:/games)",
+    "No games found":
+        "Aucun jeu trouvé",
     "Reading the SD card...":
         "Lecture de la carte SD...",
     "Reading the USB drive... (a big drive takes a moment)":
@@ -4301,6 +4351,10 @@ FR = {
         "Télécharger noms et codes de triche",
     "Get the latest game names":
         "Obtenir les derniers noms de jeux",
+    "Download missing covers":
+        "Télécharger les jaquettes manquantes",
+    "Missing covers will be downloaded when you go back to Home.":
+        "Les jaquettes manquantes seront téléchargées au retour à l'accueil.",
     "Update":
         "Mettre à jour",
     "Menu IOS":
@@ -4429,10 +4483,12 @@ FR = {
         "Langue du menu. \"Wii\" utilise le paramètre de la console.",
     "Downloads the newest game names from GameTDB.":
         "Télécharge les derniers noms de jeux depuis GameTDB.",
+    "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.":
+        "Télécharge depuis GameTDB les jaquettes, boîtiers et jaquettes 3D qui manquent à l'accueil. Un jeu sans image sur GameTDB reste sans image.",
     "Shows live what the controllers in the adapter are pressing.":
         "Affiche en direct les entrées des manettes branchées sur l'adaptateur.",
-    "Reads the SD card and the USB drive again.":
-        "Relance la lecture de la carte SD et du stockage USB.",
+    "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.":
+        "Relit la carte SD et le stockage USB, et réessaie de télécharger les jaquettes, boîtiers et jaquettes 3D manquants.",
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
         "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB.",
     "Check for a new version":
@@ -4545,8 +4601,8 @@ FR = {
         "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
     "Getting covers from GameTDB: {1} left":
         "Récupération des jacquettes GameTDB : {1} restante(s)",
-    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
-        "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux.",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
+        "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes.",
     "Cover":
         "Jacquette",
     "Download again":
@@ -4623,8 +4679,20 @@ FR = {
         "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB en jeu que si le jeu y est aussi stocké. Mettez le jeu sur l'USB, ou placez {1} dans le dossier riftwii de votre SD.",
     "Updating RiftWii":
         "Mise à jour de RiftWii",
-    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
-        "RiftWii {1} est disponible. Téléchargement et installation en cours...",
+        "RiftWii {1} is out. Installing it now; this takes a few minutes.":
+        "RiftWii {1} est disponible. Installation en cours; cela prend quelques minutes.",
+    "Downloading RiftWii ({1} of {2} MB)":
+        "Téléchargement de RiftWii ({1} sur {2} Mo)",
+    "Downloading RiftWii...":
+        "Téléchargement de RiftWii...",
+    "Downloading plugins ({1} of {2} MB)":
+        "Téléchargement des plugins ({1} sur {2} Mo)",
+    "Downloading plugins...":
+        "Téléchargement des plugins...",
+    "Checking the download...":
+        "Vérification du téléchargement...",
+    "Writing to the SD card...":
+        "Écriture sur la carte SD...",
     "Update failed":
         "Échec de la mise à jour",
     "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
@@ -4665,8 +4733,6 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -4951,16 +5017,6 @@ FR = {
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
-    "1. Use the USB port nearest the edge.":
-        "1. Utilisez le port USB le plus proche du bord.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. Grands stockages : un câble en Y ou leur propre alimentation.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 ou NTFS (ou un stockage WBFS).",
-    "4. Games in a wbfs or games folder.":
-        "4. Les jeux dans un dossier wbfs ou games.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. Un cIOS d2x dans le slot 249, 250 ou 251.",
     "A to Z":
         "De A à Z",
     "Change":
@@ -5155,6 +5211,12 @@ FR = {
         "Créer une image SD ?",
     "Make it":
         "Créer",
+    "The SD card is too fragmented":
+        "La carte SD est trop fragmentée",
+    "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway.":
+        "L'espace libre de la carte SD est trop dispersé. {1} serait écrite en plus de {2} morceaux, plus que RiftWii ne peut en suivre, donc le jeu ne démarrerait pas. Libérez de la place ou formatez la carte SD (copiez d'abord ses fichiers), puis réessayez. Ou créez-la quand même.",
+    "Build anyway":
+        "Créer quand même",
     "Making {1}":
         "Création de {1}",
     "Stop":
@@ -5363,8 +5425,7 @@ FR = {
         "Carte mémoire",
     "About this":
         "À propos",
-    "Save to a card for this game alone, or to one card shared by all your games.":
-        "Enregistre sur une carte réservée à ce jeu, ou sur une carte partagée par tous vos jeux.",
+    "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only).": "Sauvegardez sur la carte SD du jeu, une SD partagée ou une carte réelle dans le port A (Wii originale uniquement).",
     "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own.":
         "Changer ne copie aucune sauvegarde : elles restent sur l'autre carte. Déplacez-les avec Copier sur la carte SD et Ajouter une sauvegarde depuis la carte SD dans la page des sauvegardes. Les jeux japonais ont leur propre carte partagée.",
     "Switch":
@@ -5831,10 +5892,126 @@ FR = {
         "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
     "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
         "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même.",
+    "There is not enough memory to copy this card. Nothing was copied.": "La mémoire disponible ne suffit pas pour copier cette carte. Rien n'a été copié.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
 # of T with its text here (an empty msgstr, English on screen, when none).
+# Real GameCube memory cards: the saves tools and slot-A launch choice.
+T.update({
+    'Real card in slot A': ('Tarjeta real en la ranura A', 'スロットAの実物カード', 'Cartão real no slot A', 'Scheda reale nello slot A'),
+    'Copy from a memory card in the Wii': ('Copiar de una tarjeta de memoria de Wii', 'Wiiのメモリーカードからコピー', 'Copiar de um cartão de memória no Wii', 'Copia da una scheda di memoria nel Wii'),
+    'Save a copy of the whole card': ('Guardar una copia de toda la tarjeta', 'カード全体をコピーして保存', 'Salvar uma cópia do cartão inteiro', 'Salva una copia di tutta la scheda'),
+    'Choose the slot holding the memory card.': ('Elige la ranura donde está la tarjeta de memoria.', 'メモリーカードが入っているスロットを選んでください。', 'Escolha o slot que contém o cartão de memória.', 'Scegli lo slot che contiene la scheda di memoria.'),
+    'Slot A': ('Ranura A', 'スロットA', 'Slot A', 'Slot A'),
+    'Slot B': ('Ranura B', 'スロットB', 'Slot B', 'Slot B'),
+    "Choose which saves to copy. Nothing is written to the card.": (
+        "Elige qué partidas copiar. No se escribe nada en la tarjeta.",
+        "コピーするセーブを選びます。カードには何も書き込みません。",
+        "Escolha quais saves copiar. Nada é gravado no cartão.",
+        "Scegli quali salvataggi copiare. Sulla scheda non viene scritto nulla.",
+    ),
+    "This game's saves": ('Partidas de este juego', 'このゲームのセーブ', 'Saves deste jogo', 'Salvataggi di questo gioco'),
+    'Every save': ('Todas las partidas', 'すべてのセーブ', 'Todos os saves', 'Tutti i salvataggi'),
+    'Copy': ('Copiar', 'コピー', 'Copiar', 'Copia'),
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": (
+        "¿Copiar {1} partidas y toda la tarjeta a sd:/riftwii/gc/backups/real/? No se escribe nada en la tarjeta.",
+        "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？カードには何も書き込みません。",
+        "Copiar {1} saves e o cartão inteiro para sd:/riftwii/gc/backups/real/? Nada é gravado no cartão.",
+        "Copiare {1} salvataggi e tutta la scheda in sd:/riftwii/gc/backups/real/? Sulla scheda non viene scritto nulla.",
+    ),
+    'Copied to {1}.': ('Copia guardada en {1}.', '{1}にコピーしました。', 'Copiado para {1}.', 'Copiato in {1}.'),
+    'Found {1} matching saves. Destination: {2}.': ('Se encontraron {1} partidas coincidentes. Destino: {2}.', '対象のセーブは{1}個です。コピー先：{2}。', 'Encontrados {1} saves correspondentes. Destino: {2}.', 'Trovati {1} salvataggi corrispondenti. Destinazione: {2}.'),
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': ('Por copiar: {1}. Ya presentes: {2}. No utilizables: {3}.', 'コピー予定：{1}個。コピー済み：{2}個。使用不可：{3}個。', 'A copiar: {1}. Já presentes: {2}. Inutilizáveis: {3}.', 'Da copiare: {1}. Già presenti: {2}. Inutilizzabili: {3}.'),
+    'No memory card was found in this slot. Check slot A or slot B.': ('No se encontró una tarjeta en esta ranura. Comprueba la ranura A o B.', 'このスロットにメモリーカードがありません。スロットAかBを確認してください。', 'Nenhum cartão encontrado neste slot. Verifique o slot A ou B.', 'Nessuna scheda trovata in questo slot. Controlla lo slot A o B.'),
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': ('Esta tarjeta usa la otra codificación de texto. No se pueden mezclar tarjetas japonesas y occidentales.', 'このカードは文字コードが異なります。日本と欧米のカードは一緒に使えません。', 'Este cartão usa outra codificação de texto. Cartões japoneses e ocidentais não podem ser misturados.', "Questa scheda usa l'altra codifica del testo. Le schede giapponesi e occidentali non possono essere mescolate."),
+    'The memory card is unformatted or damaged. It was left unchanged.': ('La tarjeta no tiene formato o está dañada. No se ha modificado.', 'メモリーカードが未初期化か破損しています。変更していません。', 'O cartão não está formatado ou está danificado. Ele não foi alterado.', 'La scheda non è formattata o è danneggiata. Non è stata modificata.'),
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': ('No se pudo leer la tarjeta. Puede haberse cambiado o retirado. No se ha copiado nada.', 'メモリーカードを読み込めません。交換されたか抜かれた可能性があります。コピーしていません。', 'Não foi possível ler o cartão. Ele pode ter sido trocado ou removido. Nada foi copiado.', 'Impossibile leggere la scheda. Potrebbe essere stata cambiata o rimossa. Nulla è stato copiato.'),
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': ('La imagen de SD está dañada o usa la otra codificación de texto. No se ha copiado nada.', 'SDのイメージが破損しているか文字コードが異なります。コピーしていません。', 'A imagem no SD está danificada ou usa outra codificação. Nada foi copiado.', "L'immagine su SD è danneggiata o usa l'altra codifica. Nulla è stato copiato."),
+    'Copy failed. The card in the Wii was left unchanged.': ('La copia falló. La tarjeta de Wii no se ha modificado.', 'コピーできませんでした。Wiiのカードは変更していません。', 'A cópia falhou. O cartão no Wii não foi alterado.', 'Copia non riuscita. La scheda nel Wii non è stata modificata.'),
+    "Nothing is written to the card. Copies go to the SD card.": (
+        "No se escribe nada en la tarjeta. Las copias van a la tarjeta SD.",
+        "カードには何も書き込みません。コピーはSDカードに保存します。",
+        "Nada é gravado no cartão. As cópias vão para o cartão SD.",
+        "Sulla scheda non viene scritto nulla. Le copie vanno sulla scheda SD.",
+    ),
+    'This game uses the real card in slot A. Its saves are not on the SD card.': ('Este juego usa la tarjeta real de la ranura A. Sus partidas no están en la tarjeta SD.', 'このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。', 'Este jogo usa o cartão real no slot A. Seus saves não estão no cartão SD.', 'Questo gioco usa la scheda reale nello slot A. I salvataggi non sono sulla scheda SD.'),
+    "Use this game's SD card": ('Usar la tarjeta SD de este juego', 'このゲームのSDカードを使う', 'Usar o cartão SD deste jogo', 'Usa la scheda SD di questo gioco'),
+    'Wii U has no GameCube memory card slots.': ('Wii U no tiene ranuras para tarjetas de memoria de GameCube.', 'Wii Uにはゲームキューブのメモリーカードスロットがありません。', 'O Wii U não tem slots para cartões de memória do GameCube.', 'Wii U non ha slot per schede di memoria GameCube.'),
+})
+KO.update({
+    'Real card in slot A': '슬롯 A의 실제 카드',
+    'Copy from a memory card in the Wii': 'Wii의 메모리 카드에서 복사',
+    'Save a copy of the whole card': '카드 전체 사본 저장',
+    'Choose the slot holding the memory card.': '메모리 카드가 있는 슬롯을 선택하세요.',
+    'Slot A': '슬롯 A',
+    'Slot B': '슬롯 B',
+    "Choose which saves to copy. Nothing is written to the card.": "복사할 저장 데이터를 선택하세요. 카드에는 아무것도 쓰지 않습니다.",
+    "This game's saves": '이 게임의 저장 데이터',
+    'Every save': '모든 저장 데이터',
+    'Copy': '복사',
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": "{1}개의 저장 데이터와 카드 전체를 sd:/riftwii/gc/backups/real/에 복사할까요? 카드에는 아무것도 쓰지 않습니다.",
+    'Copied to {1}.': '{1}에 복사했습니다.',
+    'Found {1} matching saves. Destination: {2}.': '일치하는 저장 데이터 {1}개를 찾았습니다. 대상: {2}.',
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': '복사 예정: {1}. 이미 있음: {2}. 사용 불가: {3}.',
+    'No memory card was found in this slot. Check slot A or slot B.': '이 슬롯에서 메모리 카드를 찾지 못했습니다. 슬롯 A 또는 B를 확인하세요.',
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': '이 카드는 다른 문자 인코딩을 사용합니다. 일본과 서양 카드를 혼합할 수 없습니다.',
+    'The memory card is unformatted or damaged. It was left unchanged.': '메모리 카드가 포맷되지 않았거나 손상되었습니다. 변경하지 않았습니다.',
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': '메모리 카드를 읽지 못했습니다. 교체되거나 제거되었을 수 있습니다. 복사하지 않았습니다.',
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': 'SD 이미지가 손상되었거나 다른 문자 인코딩을 사용합니다. 복사하지 않았습니다.',
+    'Copy failed. The card in the Wii was left unchanged.': '복사에 실패했습니다. Wii의 카드는 변경하지 않았습니다.',
+    "Nothing is written to the card. Copies go to the SD card.": "카드에는 아무것도 쓰지 않습니다. 복사본은 SD 카드에 저장됩니다.",
+    'This game uses the real card in slot A. Its saves are not on the SD card.': '이 게임은 슬롯 A의 실제 카드를 사용합니다. 저장 데이터는 SD 카드에 없습니다.',
+    "Use this game's SD card": '이 게임의 SD 카드 사용',
+    'Wii U has no GameCube memory card slots.': 'Wii U에는 게임큐브 메모리 카드 슬롯이 없습니다.',
+})
+FR.update({
+    'Real card in slot A': 'Carte réelle dans le port A',
+    'Copy from a memory card in the Wii': 'Copier depuis une carte mémoire dans la Wii',
+    'Save a copy of the whole card': 'Sauvegarder toute la carte',
+    'Choose the slot holding the memory card.': 'Choisissez le port contenant la carte mémoire.',
+    'Slot A': 'Port A',
+    'Slot B': 'Port B',
+    "Choose which saves to copy. Nothing is written to the card.": "Choisissez les sauvegardes à copier. Rien n'est écrit sur la carte.",
+    "This game's saves": 'Sauvegardes de ce jeu',
+    'Every save': 'Toutes les sauvegardes',
+    'Copy': 'Copier',
+    "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card.": "Copier {1} sauvegardes et toute la carte vers sd:/riftwii/gc/backups/real/ ? Rien n'est écrit sur la carte.",
+    'Copied to {1}.': 'Copié vers {1}.',
+    'Found {1} matching saves. Destination: {2}.': '{1} sauvegardes correspondantes trouvées. Destination : {2}.',
+    'To copy: {1}. Already present: {2}. Unusable: {3}.': 'À copier : {1}. Déjà présentes : {2}. Inutilisables : {3}.',
+    'No memory card was found in this slot. Check slot A or slot B.': 'Aucune carte mémoire dans ce port. Vérifiez le port A ou B.',
+    'This card uses the other text encoding. Japanese and Western cards cannot be mixed.': "Cette carte utilise l'autre encodage. Les cartes japonaises et occidentales ne peuvent pas être mélangées.",
+    'The memory card is unformatted or damaged. It was left unchanged.': 'La carte mémoire est non formatée ou endommagée. Elle reste inchangée.',
+    'The memory card could not be read. It may have changed or been removed. Nothing was copied.': "Impossible de lire la carte. Elle a peut-être été changée ou retirée. Rien n'a été copié.",
+    'The SD image is damaged or uses the other text encoding. Nothing was copied.': "L'image SD est endommagée ou utilise l'autre encodage. Rien n'a été copié.",
+    'Copy failed. The card in the Wii was left unchanged.': 'Échec de la copie. La carte dans la Wii reste inchangée.',
+    "Nothing is written to the card. Copies go to the SD card.": "Rien n'est écrit sur la carte. Les copies vont sur la carte SD.",
+    'This game uses the real card in slot A. Its saves are not on the SD card.': 'Ce jeu utilise la carte réelle du port A. Ses sauvegardes ne sont pas sur la carte SD.',
+    "Use this game's SD card": 'Utiliser la carte SD de ce jeu',
+    'Wii U has no GameCube memory card slots.': "La Wii U n'a pas de ports pour cartes mémoire GameCube.",
+})
+
+T.update({
+    "Reading the memory card": ("Leyendo la tarjeta de memoria", "メモリーカードを読み込み中", "Lendo o cartão de memória", "Lettura della scheda di memoria"),
+    "Keep the card in its slot. Nothing is written to it.": ("Deja la tarjeta en su ranura. No se escribe nada en ella.", "カードをスロットに入れたままにしてください。何も書き込みません。", "Deixe o cartão no slot. Nada é gravado nele.", "Lascia la scheda nello slot. Non viene scritto nulla."),
+})
+KO.update({
+    "Reading the memory card": "메모리 카드 읽는 중",
+    "Keep the card in its slot. Nothing is written to it.": "카드를 슬롯에 그대로 두세요. 아무것도 쓰지 않습니다.",
+})
+FR.update({
+    "Reading the memory card": "Lecture de la carte mémoire",
+    "Keep the card in its slot. Nothing is written to it.": "Laissez la carte dans son port. Rien n'y est écrit.",
+})
+T['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = ('La ranura A no tiene una tarjeta legible. Una tarjeta en la ranura B no puede usarse como A.', 'スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。', 'O slot A não tem cartão legível. Um cartão no slot B não pode ser usado como slot A.', 'Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non può essere usata come slot A.')
+KO['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = '슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B의 카드는 슬롯 A로 사용할 수 없습니다.'
+FR['Slot A has no readable memory card. A card in slot B cannot be used as slot A.'] = 'Le port A ne contient aucune carte lisible. Une carte du port B ne peut pas servir de port A.'
+
+T['The real card could not be prepared. Check the card and try again.'] = ('No se pudo preparar la tarjeta real. Comprueba la tarjeta e inténtalo de nuevo.', '実物のカードを準備できませんでした。カードを確認してもう一度お試しください。', 'Não foi possível preparar o cartão real. Verifique o cartão e tente novamente.', 'Impossibile preparare la scheda reale. Controlla la scheda e riprova.')
+KO['The real card could not be prepared. Check the card and try again.'] = '실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요.'
+FR['The real card could not be prepared. Check the card and try again.'] = 'Impossible de préparer la carte réelle. Vérifiez la carte et réessayez.'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
@@ -5844,13 +6021,270 @@ def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+T.update({
+    "Channel background": ('Fondo de los canales', 'チャンネルの背景', 'Fundo dos canais', 'Sfondo dei canali'),
+    "White": ('Blanco', '白', 'Branco', 'Bianco'),
+    "Transparent": ('Transparente', '透明', 'Transparente', 'Trasparente'),
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": ('Blanco pone una caja detrás de los banners de los canales en el menú para que no se vuelvan transparentes.', '白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。', 'Branco põe uma caixa atrás dos banners dos canais no menu para que eles não fiquem transparentes.', 'Bianco mette una cornice dietro i banner dei canali nel menu, così non diventano trasparenti.'),
+    "Show non-game channels": ('Mostrar canales que no son juegos', 'ゲーム以外のチャンネルを表示', 'Mostrar canais que não são jogos', 'Mostra i canali non di gioco'),
+    "Nintendo's own channels are listed on Home now.": ('Los canales de Nintendo ya se listan en el inicio.', '任天堂のチャンネルをホームに表示するようにしました。', 'Os canais da Nintendo já aparecem no início.', 'I canali Nintendo ora sono nella home.'),
+    "Only games are listed on Home now.": ('Ahora solo se listan juegos en el inicio.', 'ホームにはゲームだけを表示するようにしました。', 'Agora só jogos aparecem no início.', 'Ora nella home sono elencati solo i giochi.'),
+    "Boot from": ('Iniciar desde', '起動元', 'Iniciar de', 'Avvia da'),
+    "Boot": ('Iniciar', '起動', 'Iniciar', 'Avvia'),
+    "Real NAND": ('NAND real', '実NAND', 'NAND real', 'NAND reale'),
+    "Emulated NAND": ('NAND emulada', 'エミュレートNAND', 'NAND emulada', 'NAND emulata'),
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": ("Automático usa el cargador de RiftWii. En la Wii inicia como el Menú de Wii, sin IOS del juego, trucos ni extras.", "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。", "Automático usa o carregador do RiftWii. No Wii inicia como o Menu Wii, sem IOS do jogo, trapaças ou extras.", "Automatico usa il loader di RiftWii. Sulla Wii avvia come il Menu Wii, senza IOS del gioco, trucchi o extra."),
+    "Game IOS": ('IOS del juego', 'ゲームのIOS', 'IOS do jogo', 'IOS del gioco'),
+    "The IOS RiftWii starts the channel under.": ('El IOS con el que RiftWii inicia el canal.', 'RiftWiiがこのチャンネルを起動するIOSです。', 'O IOS com que o RiftWii inicia o canal.', "L'IOS con cui RiftWii avvia il canale."),
+    "Emulated NAND (not here)": ('NAND emulada (no aquí)', 'エミュレートNAND (ここにはありません)', 'NAND emulada (não aqui)', 'NAND emulata (non qui)'),
+    "Real NAND (not here)": ('NAND real (no aquí)', '実NAND (ここにはありません)', 'NAND real (não aqui)', 'NAND reale (non qui)'),
+    "Show all channels even if they aren't detected as a game.": ('Mostrar todos los canales aunque no se detecten como juego.', 'ゲームとして検出されないチャンネルもすべて表示します。', 'Mostrar todos os canais mesmo que não sejam detectados como jogo.', 'Mostra tutti i canali anche se non sono rilevati come gioco.'),
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": ('La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí.', 'Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。', 'O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha a NAND emulada ou instale o jogo lá.', 'La Wii non ha una copia di questo gioco che possa avviarsi. Scegli la NAND emulata o installa il gioco lì.'),
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": ("Inicia como el Menú de Wii, con partidas en la Wii. No aplica IOS del juego, trucos ni extras del cargador.", "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。", "Inicia como o Menu Wii, com saves no Wii. IOS do jogo, trapaças e extras do carregador não se aplicam.", "Avvia come il Menu Wii, con salvataggi sulla Wii. IOS del gioco, trucchi ed extra del loader non si applicano."),
+    "The copy RiftWii lists starts, with its own save.": ('Se inicia la copia que RiftWii muestra, con su propia partida.', 'RiftWiiが表示するコピーが、独自のセーブとともに起動します。', 'Inicia a cópia que o RiftWii lista, com o próprio save.', 'Si avvia la copia che RiftWii elenca, con il suo salvataggio.'),
+    "The copy in {1} starts, and saves stay there on the SD card.": ('Se inicia la copia en {1} y las partidas se quedan ahí, en la tarjeta SD.', '{1}のコピーが起動し、セーブはSDカードのそこに残ります。', 'Inicia a cópia em {1} e os saves ficam lá, no cartão SD.', 'Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD.'),
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": ('Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}.', 'エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。', 'Inicia a cópia da NAND emulada; o save está no cartão SD em {1}.', 'Si avvia la copia della NAND emulata; il salvataggio è sulla scheda SD in {1}.'),
+    "{1} has no copy of this game. Install it there from its WAD first.": ('{1} no tiene ninguna copia de este juego. Instálalo ahí desde su WAD primero.', '{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。', '{1} não tem nenhuma cópia deste jogo. Instale-o lá a partir do WAD primeiro.', '{1} non ha una copia di questo gioco. Installalo lì dal suo WAD prima.'),
+})
+KO.update({
+    "Channel background": "채널 배경",
+    "White": "흰색",
+    "Transparent": "투명",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "흰색은 메뉴에 표시되는 채널 배너 뒤에 상자를 놓아 배너가 투명해지지 않게 합니다.",
+    "Show non-game channels": "게임이 아닌 채널 표시",
+    "Nintendo's own channels are listed on Home now.": "닌텐도 채널이 이제 홈에 표시됩니다.",
+    "Only games are listed on Home now.": "이제 홈에는 게임만 표시됩니다.",
+    "Boot from": "다음에서 시작",
+    "Boot": "시작",
+    "Real NAND": "실제 NAND",
+    "Emulated NAND": "에뮬레이트 NAND",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "자동은 RiftWii 로더를 사용합니다. Wii 본체는 게임 IOS, 치트, 로더 추가 기능 없이 Wii 메뉴처럼 시작합니다.",
+    "Game IOS": "게임 IOS",
+    "The IOS RiftWii starts the channel under.": "RiftWii가 채널을 시작하는 IOS입니다.",
+    "Emulated NAND (not here)": "에뮬레이트 NAND (여기 없음)",
+    "Real NAND (not here)": "실제 NAND (여기 없음)",
+    "Show all channels even if they aren't detected as a game.": "게임으로 감지되지 않은 채널도 모두 표시합니다.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "Wii 본체에는 시작할 수 있는 이 게임의 사본이 없습니다. 에뮬레이트 NAND를 선택하거나 거기에 게임을 설치하세요.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Wii 메뉴처럼 시작하며 저장은 Wii에 남습니다. 게임 IOS, 치트, RiftWii 로더 추가 기능은 적용되지 않습니다.",
+    "The copy RiftWii lists starts, with its own save.": "RiftWii가 표시하는 사본이 자체 세이브와 함께 시작됩니다.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "{1}의 사본이 시작되고 세이브는 SD 카드의 그곳에 남습니다.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "에뮬레이트 NAND의 사본이 시작됩니다. 세이브는 SD 카드의 {1}에 있습니다.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1}에는 이 게임의 사본이 없습니다. 먼저 해당 WAD에서 설치하세요.",
+})
+FR.update({
+    "Channel background": "Fond des chaînes",
+    "White": "Blanc",
+    "Transparent": "Transparent",
+    "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent.": "Blanc place un cadre derrière les bannières des chaînes affichées dans le menu pour éviter qu'elles ne deviennent transparentes.",
+    "Show non-game channels": "Afficher les chaînes non-jeu",
+    "Nintendo's own channels are listed on Home now.": "Les chaînes Nintendo sont maintenant sur l'accueil.",
+    "Only games are listed on Home now.": "Seuls les jeux sont désormais listés sur l'accueil.",
+    "Boot from": "Démarrer depuis",
+    "Boot": "Démarrer",
+    "Real NAND": "NAND réelle",
+    "Emulated NAND": "NAND émulée",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "Automatique utilise le chargeur RiftWii. Sur la Wii démarre comme le Menu Wii, sans IOS du jeu, codes ni extras.",
+    "Game IOS": "IOS du jeu",
+    "The IOS RiftWii starts the channel under.": "L'IOS avec lequel RiftWii démarre la chaîne.",
+    "Emulated NAND (not here)": "NAND émulée (pas ici)",
+    "Real NAND (not here)": "NAND réelle (pas ici)",
+    "Show all channels even if they aren't detected as a game.": "Afficher toutes les chaînes même si elles ne sont pas reconnues comme un jeu.",
+    "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Démarre comme le Menu Wii, avec sauvegardes sur la Wii. IOS du jeu, codes et extras du chargeur ne s'appliquent pas.",
+    "The copy RiftWii lists starts, with its own save.": "La copie que RiftWii affiche démarre, avec sa propre sauvegarde.",
+    "The copy in {1} starts, and saves stay there on the SD card.": "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD.",
+    "The emulated NAND's copy starts; its save is on the SD card in {1}.": "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}.",
+    "{1} has no copy of this game. Install it there from its WAD first.": "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD.",
+})
+
+
+# A retained title may have neither installed program.
+T.update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": (
+        "Ninguna copia de este canal tiene su programa. Instálalo en la Wii o en la NAND emulada.",
+        "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。",
+        "Nenhuma cópia deste canal tem o programa. Instale no Wii ou na NAND emulada.",
+        "Nessuna copia di questo canale ha il programma. Installalo sulla Wii o nella NAND emulata.",
+    ),
+})
+MORE["ko"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "이 채널의 프로그램 데이터가 없습니다. Wii 또는 에뮬레이트 NAND에 설치하세요.",
+})
+MORE["fr"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée.",
+})
+
+
+T.update({
+    "Homebrew": ('Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'),
+    "1 app": ('1 app', '1個のアプリ', '1 app', '1 app'),
+    "{1} apps": ('{1} apps', '{1}個のアプリ', '{1} apps', '{1} app'),
+    "No homebrew matches \"{1}\". Press 1 to change the view.": ('Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista.', '「{1}」に一致するHomebrewはありません。1で表示を切り替えます。', 'Nenhum homebrew corresponde a "{1}". Aperte 1 para mudar a vista.', 'Nessun homebrew corrisponde a "{1}". Premi 1 per cambiare vista.'),
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": ('Aún no hay homebrew: cada app es una carpeta en sd:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista.', 'Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。', 'Ainda não há homebrew: cada app é uma pasta em sd:/apps com seu boot.dol e meta.xml. Aperte 1 para mudar a vista.', "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista."),
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": ('No se pudo leer la carpeta de apps (sd:/apps). Pulsa 1 para cambiar la vista.', 'アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。', 'A pasta de apps (sd:/apps) não pôde ser lida. Aperte 1 para mudar a vista.', 'Impossibile leggere la cartella delle app (sd:/apps). Premi 1 per cambiare vista.'),
+    "It cannot start: {1}.": ('No puede iniciarse: {1}.', '起動できません: {1}。', 'Não pode ser iniciado: {1}.', 'Non può avviarsi: {1}.'),
+    "The app will start when ready.": ('La app se iniciará cuando esté lista.', 'アプリは準備ができると起動します。', 'O app inicia quando estiver pronto.', "L'app si avvierà quando è pronta."),
+    "Start {1}?": ('¿Iniciar {1}?', '{1}を起動しますか?', 'Iniciar {1}?', 'Avviare {1}?'),
+    "Would you like to start {1} ({2}) by {3}?": ('¿Quieres iniciar {1} ({2}) de {3}?', '{3}の{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2}) de {3}?', 'Vuoi avviare {1} ({2}) di {3}?'),
+    "Would you like to start {1} ({2})?": ('¿Quieres iniciar {1} ({2})?', '{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2})?', 'Vuoi avviare {1} ({2})?'),
+    "Would you like to start {1} by {2}?": ('¿Quieres iniciar {1} de {2}?', '{2}の{1}を起動しますか?', 'Quer iniciar {1} de {2}?', 'Vuoi avviare {1} di {2}?'),
+    "Would you like to start {1}?": ('¿Quieres iniciar {1}?', '{1}を起動しますか?', 'Quer iniciar {1}?', 'Vuoi avviare {1}?'),
+})
+KO.update({
+    "Homebrew": "홈브류",
+    "1 app": "앱 1개",
+    "{1} apps": "앱 {1}개",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "앱 폴더(sd:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "It cannot start: {1}.": "시작할 수 없습니다: {1}.",
+    "The app will start when ready.": "앱은 준비되면 시작됩니다.",
+    "Start {1}?": "{1}을(를) 시작할까요?",
+    "Would you like to start {1} ({2}) by {3}?": "{3}의 {1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} ({2})?": "{1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} by {2}?": "{2}의 {1}을(를) 시작할까요?",
+    "Would you like to start {1}?": "{1}을(를) 시작할까요?",
+})
+FR.update({
+    "Homebrew": "Homebrew",
+    "1 app": "1 appli",
+    "{1} apps": "{1} applis",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue.",
+    "It cannot start: {1}.": "Impossible de le lancer : {1}.",
+    "The app will start when ready.": "L'appli démarrera lorsqu'elle sera prête.",
+    "Start {1}?": "Démarrer {1} ?",
+    "Would you like to start {1} ({2}) by {3}?": "Voulez-vous démarrer {1} ({2}) par {3} ?",
+    "Would you like to start {1} ({2})?": "Voulez-vous démarrer {1} ({2}) ?",
+    "Would you like to start {1} by {2}?": "Voulez-vous démarrer {1} par {2} ?",
+    "Would you like to start {1}?": "Voulez-vous démarrer {1} ?",
+})
+
+
+# Homebrew launch limitations and navigation.
+T.update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": (
+        "el programa es boot.elf y RiftWii solo inicia apps boot.dol",
+        "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます",
+        "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
+        "il programma è boot.elf e RiftWii avvia solo app boot.dol",
+    ),
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    ),
+    "1: all apps": (
+        "1: todas las apps",
+        "1: すべてのアプリ",
+        "1: todos os apps",
+        "1: tutte le app",
+    ),
+})
+MORE["ko"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "1: all apps": "1: 모든 앱",
+})
+MORE["fr"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "1: all apps": "1 : toutes les applis",
+})
+
+
+T.update({
+    "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
+    "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
+    "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
+    "Checks if network is online.": ('Comprueba si la red está en línea.', 'ネットワークがオンラインか確認します。', 'Verifica se a rede está online.', 'Controlla se la rete è online.'),
+})
+KO.update({
+    "Network Test": "네트워크 테스트",
+    "Testing the network...": "네트워크를 테스트하는 중...",
+    "Offline": "오프라인",
+    "Checks if network is online.": "네트워크가 온라인인지 확인합니다.",
+})
+FR.update({
+    "Network Test": "Test réseau",
+    "Testing the network...": "Test du réseau...",
+    "Offline": "Hors ligne",
+    "Checks if network is online.": "Vérifie si le réseau est en ligne.",
+})
+
+
+# Review fixes: player-facing diagnostic results.
+T.update({
+    "The network could not start. Check the Wii's Internet settings.": (
+        "No se pudo iniciar la red. Revisa la configuración de Internet de la Wii.",
+        "ネットワークを開始できません。Wiiのインターネット設定を確認してください。",
+        "Não foi possível iniciar a rede. Verifique as configurações de Internet do Wii.",
+        "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii.",
+    ),
+    "No HTTP response. Check the connection and try again.": (
+        "Sin respuesta HTTP. Revisa la conexión e inténtalo de nuevo.",
+        "HTTPの応答がありません。接続を確認して、もう一度お試しください。",
+        "Sem resposta HTTP. Verifique a conexão e tente novamente.",
+        "Nessuna risposta HTTP. Controlla la connessione e riprova.",
+    ),
+    "The network is busy. Try again when the download finishes.": (
+        "La red está ocupada. Inténtalo cuando termine la descarga.",
+        "ネットワークは使用中です。ダウンロードが終わってからお試しください。",
+        "A rede está ocupada. Tente quando o download terminar.",
+        "La rete è occupata. Riprova al termine del download.",
+    ),
+})
+MORE["ko"].update({
+    "The network could not start. Check the Wii's Internet settings.": "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요.",
+    "No HTTP response. Check the connection and try again.": "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "The network is busy. Try again when the download finishes.": "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요.",
+})
+MORE["fr"].update({
+    "The network could not start. Check the Wii's Internet settings.": "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii.",
+    "No HTTP response. Check the connection and try again.": "Aucune réponse HTTP. Vérifiez la connexion et réessayez.",
+    "The network is busy. Try again when the download finishes.": "Le réseau est occupé. Réessayez après le téléchargement.",
+})
+
+
+T.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": ('La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 en un ordenador (NTFS también funciona).', '接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。', 'A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 em um computador (NTFS também funciona).', "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."),
+    "1. Use the USB port nearest to the edge.": ('1. Usa el puerto USB más cercano al borde.', '1. 本体の端に近いUSBポートを使ってください。', '1. Use a porta USB mais perto da borda.', '1. Usa la porta USB più vicina al bordo.'),
+    "2. For big drives: a Y-cable or their own power.": ('2. Unidades grandes: un cable en Y o su propia alimentación.', '2. 大きなドライブ: Y字ケーブルか専用の電源を。', '2. Unidades grandes: um cabo Y ou alimentação própria.', "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
+    "3. FAT32 recommended; NTFS and WBFS work too.": (
+        "3. FAT32 recomendado; NTFS y WBFS también sirven.",
+        "3. FAT32推奨。NTFSとWBFSも使えます。",
+        "3. FAT32 recomendado; NTFS e WBFS também funcionam.",
+        "3. FAT32 consigliato; funzionano anche NTFS e WBFS."),
+    "4. Games in the /wbfs or /games folder.": ('4. Juegos en la carpeta /wbfs o /games.', '4. ゲームは/wbfsか/gamesフォルダに。', '4. Jogos na pasta /wbfs ou /games.', '4. Giochi nella cartella /wbfs o /games.'),
+    "5. A d2x cIOS in slot 249/250/251.": ('5. Un cIOS d2x en el slot 249/250/251.', '5. スロット249/250/251のいずれかにd2x cIOS。', '5. Um cIOS d2x no slot 249/250/251.', '5. Un cIOS d2x nello slot 249/250/251.'),
+})
+KO.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다).",
+    "1. Use the USB port nearest to the edge.": "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
+    "2. For big drives: a Y-cable or their own power.": "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 권장. NTFS와 WBFS도 지원합니다.",
+    "4. Games in the /wbfs or /games folder.": "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. 슬롯 249/250/251에 d2x cIOS.",
+})
+FR.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi).",
+    "1. Use the USB port nearest to the edge.": "1. Utilisez le port USB le plus proche du bord.",
+    "2. For big drives: a Y-cable or their own power.": "2. Grands stockages : un câble en Y ou leur propre alimentation.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi.",
+    "4. Games in the /wbfs or /games folder.": "4. Les jeux dans le dossier /wbfs ou /games.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. Un cIOS d2x dans le slot 249/250/251.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

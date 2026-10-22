@@ -6,7 +6,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <sstream>
+
+#include "riftwii/textlines.hpp"
 
 #include "pugixml.hpp"
 
@@ -62,8 +63,8 @@ int bounded(long value, int low, int high) {
 std::vector<std::string> split_list(const std::string& text) {
     std::vector<std::string> out;
     std::string item;
-    std::istringstream in(text);
-    while (std::getline(in, item, ',') && out.size() < kMaxListItems) {
+    LineReader in(text, ',');
+    while (in.next(item) && out.size() < kMaxListItems) {
         item = clean(item, kMaxText);
         if (!item.empty()) out.push_back(item);
     }
@@ -232,10 +233,10 @@ std::string serialize_game_infos(const std::map<std::string, GameInfo>& games) {
 
 bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& out) {
     out.clear();
-    std::istringstream in(text);
+    LineReader in(text);
     std::string line;
     GameInfo* current = nullptr;
-    while (std::getline(in, line)) {
+    while (in.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         if (line[0] == '[') {

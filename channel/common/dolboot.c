@@ -67,10 +67,10 @@ bool dolboot_valid(const u8* dol, u32 size) {
     return h->entry >= MEM1_LO && h->entry < MEM1_HI;
 }
 
-// argv[0] goes where the Homebrew Channel puts it: the program's "_arg"
-// block after its entry branch points to the string, placed after its
-// BSS, where libogc keeps its arena clear of it.
-static void set_argv(const DolHeader* h, const char* path) {
+#define DOLBOOT_LINE_MAX 1024
+static char line_copy[DOLBOOT_LINE_MAX];
+
+static void set_argv(const DolHeader* h, const char* text, u32 length) {
     // A program without a first text section, or one too short for the
     // block, has no "_arg" block to read (MIN-10): its address may be 0.
     if (h->size[0] < 8 + sizeof(struct __argv)) return;
@@ -83,19 +83,17 @@ static void set_argv(const DolHeader* h, const char* path) {
     }
     if (h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
     char* line = (char*)((end + 31) & ~31u);
-    const u32 len = strlen(path) + 1;
     // The line and its closing zero stay below what IOS and the loaders keep,
     // and off this program, still running (a DOL wholly below it would have
     // its line written over this code and `path` itself).
     extern u8 __app_start[], __bss_end[];
-    if ((u32)line > MEM1_HI || len + 1 > MEM1_HI - (u32)line) return;
-    if (overlaps((u32)line, (u32)line + len + 1, (u32)__app_start, (u32)__bss_end)) return;
-    memcpy(line, path, len);
-    line[len] = 0;
-    DCFlushRange(line, (len + 32) & ~31u);
+    if ((u32)line > MEM1_HI || length > MEM1_HI - (u32)line) return;
+    if (overlaps((u32)line, (u32)line + length, (u32)__app_start, (u32)__bss_end)) return;
+    memcpy(line, text, length);
+    DCFlushRange(line, (length + 31) & ~31u);
     args->argvMagic = ARGV_MAGIC;
     args->commandLine = line;
-    args->length = (int)len + 1;
+    args->length = (int)length;
     DCFlushRange(args, sizeof(*args));
 }
 
@@ -115,9 +113,15 @@ void dolboot_system_call_vector(void) {
     ICInvalidateRange(vector, sizeof(handler));
 }
 
-void dolboot_run(const u8* dol, const char* argv0) {
-    static char path[256];
-    strncpy(path, argv0, sizeof(path) - 1);
+void dolboot_run_line(const u8* dol, const char* line, u32 length) {
+    u32 n = length;
+    if (n > sizeof(line_copy)) n = sizeof(line_copy);
+    if (n != 0) memcpy(line_copy, line, n);
+    while (n > 0 && line_copy[n - 1] != 0) --n;
+    if (n == 0) {
+        line_copy[0] = 0;
+        n = 1;
+    }
     const DolHeader h = *(const DolHeader*)dol;
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     IRQ_Disable();
@@ -131,9 +135,19 @@ void dolboot_run(const u8* dol, const char* argv0) {
         memset((void*)h.bss_address, 0, h.bss_size);
         DCFlushRange((void*)h.bss_address, h.bss_size);
     }
-    set_argv(&h, path);
+    set_argv(&h, line_copy, n);
     dolboot_system_call_vector();
     ((void (*)(void))h.entry)();
     for (;;) {
     }
+}
+
+void dolboot_run(const u8* dol, const char* argv0) {
+    static char single[256];
+    u32 n = (u32)strlen(argv0);
+    if (n > sizeof(single) - 2) n = sizeof(single) - 2;
+    memcpy(single, argv0, n);
+    single[n] = 0;
+    single[n + 1] = 0;
+    dolboot_run_line(dol, single, n + 2);
 }

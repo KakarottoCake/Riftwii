@@ -47,6 +47,8 @@ typedef struct rwp_gc_launch {
     const char* path;      /* sd:/games/.../game.iso, or .rvz */
     const char* id;        /* its ID6 */
     uint32_t is_rvz;       /* the image is an RVZ (by its name, as the list says) */
+    uint32_t real_card;    /* slot A passes through to physical hardware */
+    uint8_t real_card_flash_id[12]; /* verified physical header, never an SD image */
     uint32_t shared_card;  /* the shared memory card, not the game's own */
     uint32_t drive_timing; /* reads take a GameCube drive's time */
     uint32_t progressive;  /* 480p */
@@ -106,10 +108,35 @@ typedef struct rwp_gc_launch {
     const void* way_back_view;
     uint32_t way_back_view_bytes;
 
+    /* A switch to another program on the disc, carried out by starting
+     * the image again (runtime/gc's gc_on_boot_dol, exec.txt): exec set,
+     * the program's offset on the disc (0: the disc's own), the restart
+     * code the game passed, and its arguments, exec_arg_count strings one
+     * after another, each ending in a NUL. */
+    uint32_t exec;
+    uint32_t exec_dol;
+    uint32_t exec_restart;
+    const char* exec_args;
+    uint32_t exec_args_bytes;
+    uint32_t exec_arg_count;
+
+    /* A game packed in a TGC image on the disc, which a bonus disc's menu
+     * started (runtime/gc's gc_on_tgc_read, exec.txt's gc_tgc): the TGC
+     * file's offset on the disc; 0: the disc's own program. */
+    uint32_t tgc_offset;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;
+    /* Out: why the launch failed, as a code the DOL can act on (the
+     * RWP_GC_ERROR_* values) where `error`'s text is only for logs;
+     * RWP_GC_ERROR_NONE for the rest. Written through a pointer, as `error`
+     * is, because the request is const to the plugin. NULL: not wanted. */
+    uint32_t* error_code;
 } rwp_gc_launch;
+
+#define RWP_GC_ERROR_NONE 0u
+#define RWP_GC_ERROR_REAL_CARD_SRAM 1u /* the real card's ID could not be written to SRAM */
 
 #ifdef __cplusplus
 }

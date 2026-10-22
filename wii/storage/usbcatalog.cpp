@@ -16,11 +16,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <memory>
 #include <set>
 #include <sys/stat.h>
-#include <sstream>
 
 #include "d2xsd.hpp"
 #include "gclaunch.hpp"
@@ -50,6 +48,7 @@
 #include "netsock.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -702,17 +701,9 @@ bool open_rvz_reads(const ImageVolume* volume, const std::string& path, std::str
 }
 
 bool write_if_changed(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
-    {
-        std::ifstream in(path, std::ios::binary);
-        if (in) {
-            std::vector<std::uint8_t> old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            if (old == bytes) return true;
-        }
-    }
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    out.close();
-    if (!out) {
+    std::vector<std::uint8_t> old;
+    if (ReadWholeFile(path, old) && old == bytes) return true;
+    if (!WriteWholeFile(path, bytes.data(), bytes.size())) {
         error = "cannot write " + path;
         return false;
     }
@@ -1030,11 +1021,9 @@ const TitleTable* titles() {
     if (lang != "en") paths.push_back(TitlesPath("en"));
     for (const char* p : kTitleFiles) paths.push_back(p);
     for (const std::string& path : paths) {
-        std::ifstream in(path, std::ios::binary);
-        if (!in) continue;
-        std::stringstream text;
-        text << in.rdbuf();
-        g_titles.add_text(text.str());
+        std::string text;
+        if (!ReadWholeFile(path, text)) continue;
+        g_titles.add_text(text);
         if (g_titles.size() == 0) continue;
         g_titles_from = path;
         logf("Titles: %u game names from %s\n", static_cast<unsigned>(g_titles.size()), path.c_str());
@@ -1488,6 +1477,24 @@ bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector
     return true;
 }
 
+bool sd_free_pieces(std::uint64_t file_bytes, std::uint64_t max_pieces, const std::vector<std::string>& replaced,
+                    FreeSpaceReport& out, std::string& error) {
+    // 65536 blocks is 32 MiB of FAT: 8 million clusters, a 256 GB card at
+    // 32 KB clusters. It reads in a few seconds; a bigger card is checked as
+    // far as that and reported Unchecked when it was not enough to know.
+    constexpr std::uint64_t kMaxFatBlocks = 65536;
+    Fat32Volume volume;
+    if (!Fat32Volume::mount(&sd_read, volume, error)) return false;
+    std::vector<Fragment> also_free;
+    for (const std::string& path : replaced) {
+        Fat32File file;
+        std::string ignored;
+        if (path.compare(0, 4, "sd:/") != 0 || !volume.lookup(path.substr(3), file, ignored)) continue;
+        also_free.insert(also_free.end(), file.fragments.begin(), file.fragments.end());
+    }
+    return volume.free_pieces(file_bytes, max_pieces, kMaxFatBlocks, also_free, out, error);
+}
+
 std::string GameDisplayName(const std::string& id, const std::string& internal) {
     return display_title(titles(), id, std::string(), internal);
 }
@@ -1698,6 +1705,24 @@ int wii_u_adapter_slot(std::string* why) {
         return 251;
     }
     return 0;
+}
+
+bool cios_reaches_front_ports(const ImageGame& game, int cios_slot) {
+    // The launch's own order (slot 0) starts on a base-58 slot when there
+    // is one (wii_u_adapter_slot), except for a game that reads a USB
+    // keyboard: its order starts with a slot that has a keyboard driver
+    // (keyboard_slots_first), never base 58.
+    if (cios_slot == 0 && game_uses_usb_keyboard(game.id)) return false;
+    // Only a base read from a slot counts: wii_u_adapter_slot's fallbacks
+    // (where Check each cIOS saw the adapter, or slot 251 by default) say
+    // nothing about the front ports. The launch also skips a slot without a
+    // ticket to start it (image_cios_check), and its own order puts only the
+    // first base-58 slot first, so that slot decides: when it is skipped the
+    // note stays, even if a later slot turns out to be base 58 too.
+    for (const D2xSlot& s : d2x_slots()) {
+        if (s.base == 58 && (cios_slot == 0 || s.slot == cios_slot)) return slot_has_ticket(s.slot);
+    }
+    return false;
 }
 
 std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd) {

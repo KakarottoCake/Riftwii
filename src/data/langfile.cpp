@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/langfile.hpp"
 
-#include <sstream>
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -51,10 +51,10 @@ std::size_t parse_po(const std::string& text, Translations& out) {
         have_id = false;
         context = false;
     };
-    std::istringstream in(text);
+    LineReader in(text);
     std::string line;
     bool first = true;
-    while (std::getline(in, line)) {
+    while (in.next(line)) {
         if (first && line.compare(0, 3, "\xEF\xBB\xBF") == 0) line.erase(0, 3);
         first = false;
         if (!line.empty() && line.back() == '\r') line.pop_back();

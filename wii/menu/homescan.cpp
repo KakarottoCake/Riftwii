@@ -57,10 +57,10 @@ void ReadSdCard(DriveScanPart& part) {
     part.ok = scan_sd_games(part.catalog, part.error);
     mem::CheckHeap("after the SD scan");
     std::string channelStatus;
-    list_nand_channels(part.channels, channelStatus);
+    list_nand_channels(part.channels, channelStatus, true);
     // And those USB Loader GX keeps in an emulated NAND on the card.
     const SharedNandLookup emu = look_up_channel_nand();
-    if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus);
+    if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus, true);
     part.packs = ReadPackIndex();
     mem::CheckHeap("after the pack index");
 }

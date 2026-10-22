@@ -16,6 +16,9 @@ namespace riftwii::wii {
 // True when the game has no stored box and GameTDB was not found without
 // one in the last week.
 bool BoxWanted(const std::string& game_id);
+// Forgets that GameTDB had no box for the game, so the next look asks
+// again instead of waiting out the week (Settings > Download missing covers).
+void ForgetBoxMiss(const std::string& game_id);
 
 // Downloads, cuts and stores the game's box on the network's background
 // thread, as StartCoverFetch does; one at a time.

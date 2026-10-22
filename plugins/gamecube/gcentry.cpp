@@ -5,6 +5,7 @@
 // launch takes the DOL's rwp_gc_launch, checks it, turns it back into the
 // loader's C++ (GcImage, GcOverlayPlan, GcLaunchExtras) and starts the
 // game; it returns only when the game could not be started.
+#include <algorithm>
 #include <cstdio>
 
 #include "gc_crash.h"
@@ -26,6 +27,8 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.path = request.path;
     image.id = request.id;
     image.rvz = request.is_rvz != 0;
+    image.real_card = request.real_card != 0;
+    std::copy_n(request.real_card_flash_id, image.real_card_flash_id.size(), image.real_card_flash_id.begin());
     image.shared_card = request.shared_card != 0;
     image.drive_timing = request.drive_timing != 0;
     image.progressive = request.progressive != 0;
@@ -34,6 +37,15 @@ riftwii::wii::GcImage image_of(const rwp_gc_launch& request) {
     image.sharp = request.sharp != 0;
     image.sixty_hz = request.sixty_hz != 0;
     image.vi_width = request.vi_width;
+    image.exec = request.exec != 0;
+    image.exec_dol = request.exec_dol;
+    image.exec_restart = request.exec_restart;
+    for (std::uint32_t i = 0, at = 0; i < request.exec_arg_count; ++i) {
+        const std::string arg = request.exec_args + at;
+        at += static_cast<std::uint32_t>(arg.size()) + 1;
+        image.exec_args.push_back(arg);
+    }
+    image.tgc_offset = request.tgc_offset;
     image.usb_fd = request.usb_fd;
     if (request.usb_fd >= 0) {
         for (std::uint32_t i = 0; i < request.usb_fragment_count; ++i) {
@@ -82,7 +94,7 @@ __attribute__((noinline)) int32_t run_launch(const rwp_gc_launch& request) {
     }
     const riftwii::wii::GcImage image = image_of(request);
     const riftwii::wii::GcLaunchExtras extras = extras_of(request);
-    riftwii::wii::LaunchGcNative(image, has_packs ? &plan : nullptr, extras, error);
+    riftwii::wii::LaunchGcNative(image, has_packs ? &plan : nullptr, extras, error, request.error_code);
     copy_reason(request, error.empty() ? "the game did not start" : error.c_str());
     return RWP_LAUNCH_FAILED;
 }

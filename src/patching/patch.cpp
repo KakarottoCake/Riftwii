@@ -7,14 +7,13 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
-#include <istream>
 #include <limits>
 #include <string>
 #include <vector>
 #include <map>
 namespace riftwii {
 namespace {
-constexpr std::size_t kMaxXml = 1048576;
+constexpr std::size_t kMaxXml = kMaxPackageXml;
 constexpr std::size_t kMaxString = 4096;
 // Hex payloads (memory value/original) carry binary data as hex text, two
 // characters per byte. The budget matches the runtime's 1 MiB memory value
@@ -1374,31 +1373,6 @@ bool parse_package(const std::string& input, Package& output, std::string& error
         return false;
     } catch (...) {
         error = "allocation failure";
-        return false;
-    }
-}
-bool read_package(std::istream& input, Package& output, std::string& error, const std::string& folder) {
-    try {
-        std::string xml;
-        char chunk[4096];
-        while (input.read(chunk, sizeof(chunk)) || input.gcount() > 0) {
-            const auto count = static_cast<std::size_t>(input.gcount());
-            if (count > kMaxXml - xml.size()) {
-                error = "xml too large";
-                return false;
-            }
-            xml.append(chunk, count);
-        }
-        if (input.bad() || !input.eof()) {
-            error = "read error";
-            return false;
-        }
-        return parse_package(xml, output, error, folder);
-    } catch (const std::bad_alloc&) {
-        error = "allocation failure";
-        return false;
-    } catch (...) {
-        error = "read error";
         return false;
     }
 }

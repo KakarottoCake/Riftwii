@@ -81,6 +81,25 @@ void test_classify() {
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "LULZ")).kind == ChannelKind::None);
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "JODI")).kind == ChannelKind::None);
     EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "UFTW")).kind == ChannelKind::None);
+    // A custom inject's code (a tester's "TIME") is its own kind, still to be
+    // judged by the unlisted-channel rules.
+    EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "TIME")).kind == ChannelKind::Other);
+    EXPECT_TRUE(classify_channel(title(kDownloadedChannels, "TIME")).system.empty());
+    // Nintendo's own channels, whatever follows the H.
+    for (const char* code : {"HAAA", "HABA", "HACA", "HADA", "HAEA", "HAFA", "HAGA", "HCFA", "HAYA", "HCCA"})
+        EXPECT_TRUE(classify_channel(title(kDownloadedChannels, code)).kind == ChannelKind::None);
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "HABA")).substr(0, 29),
+              std::string("its code starts with H, which"));
+    EXPECT_TRUE(channel_left_out_reason(title(kDownloadedChannels, "LULZ")).find("homebrew") != std::string::npos);
+    EXPECT_TRUE(channel_left_out_reason(title(kDownloadedChannels, "ab12")).find("four") != std::string::npos);
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "TIME")), std::string(""));
+    EXPECT_EQ(channel_left_out_reason(title(kDownloadedChannels, "WBME")), std::string(""));
+    // System channels (00010002), disc channels (00010004), DLC (00010005)
+    // and hidden titles (00010008) are never scanned.
+    for (std::uint32_t high : {0x00010002u, 0x00010004u, 0x00010005u, 0x00010008u}) {
+        EXPECT_TRUE(classify_channel(title(high, "TIME")).kind == ChannelKind::None);
+        EXPECT_EQ(channel_left_out_reason(title(high, "TIME")), std::string(""));
+    }
     // Not a downloaded channel: a disc's data (00010000) or a system
     // channel (00010002) with a game-like code.
     EXPECT_TRUE(classify_channel(title(0x00010000, "WBME")).kind == ChannelKind::None);
@@ -158,6 +177,98 @@ std::vector<std::uint8_t> dol_head(std::uint32_t text) {
     put32(h.data() + 0x90, text);
     put32(h.data() + 0xE0, 0x80004000);
     return h;
+}
+
+void test_program_compression() {
+    std::string error;
+    for (std::uint8_t type : {0x10, 0x11}) {
+        std::vector<std::uint8_t> packed = {type, 0, 0, 0, 3, 0, 0, 0, 0, 'D', 'O', 'L'};
+        EXPECT_TRUE(channel_program_compressed(packed.data(), packed.size()));
+        std::vector<std::uint8_t> decoded = packed;
+        EXPECT_TRUE(unpack_channel_program(decoded, error));
+        EXPECT_TRUE((decoded == std::vector<std::uint8_t>{'D', 'O', 'L'}));
+
+        std::vector<std::uint8_t> wrapped = {'L', 'Z', '7', '7'};
+        wrapped.insert(wrapped.end(), packed.begin(), packed.end());
+        EXPECT_TRUE(channel_program_compressed(wrapped.data(), wrapped.size()));
+        EXPECT_TRUE(unpack_channel_program(wrapped, error));
+        EXPECT_TRUE(wrapped == decoded);
+
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), 7));
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), 8));
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size(), 2));
+        packed[4] = 0;
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size()));
+        packed[7] = 2;
+        EXPECT_TRUE(!channel_program_compressed(packed.data(), packed.size()));
+    }
+    EXPECT_TRUE(!channel_program_compressed(nullptr, 0));
+
+    TmdContents tmd;
+    tmd.boot_index = 1;
+    tmd.contents = {{1, 1, 1, 0x1000}, {2, 2, 1, 0x3000}};
+    const std::vector<std::uint8_t> invalid = {0x11, 0, 0, 0, 0, 0, 0, 0};
+    ChannelProgram program;
+    EXPECT_TRUE(choose_channel_program(tmd, {{1, 0x1000, invalid}, {2, 0x3000, dol_head(0x2000)}},
+                                       program, error));
+    EXPECT_EQ(program.index, 2);
+
+    // A plausible compression header is not proof of a program, even at
+    // index 1 where a validated compressed DOL receives boot priority.
+    const std::vector<std::uint8_t> false_program = {0x10, 0, 0x30, 0, 0, 'X'};
+    EXPECT_TRUE(choose_channel_program(tmd, {{1, 0x1000, false_program}, {2, 0x3000, dol_head(0x2000)}},
+                                       program, error));
+    EXPECT_EQ(program.index, 2);
+
+    // Literal-encode a real DOL. Selection only receives the first 4 KiB
+    // of compressed input, as the Wii scanner does for large contents.
+    std::vector<std::uint8_t> image = dol_head(0x1000);
+    image.resize(0x1100);
+    std::vector<std::uint8_t> compressed = {0x10, 0, 0x11, 0};
+    for (std::size_t at = 0; at < image.size(); at += 8) {
+        compressed.push_back(0);
+        const std::size_t end = std::min(at + 8, image.size());
+        compressed.insert(compressed.end(), image.begin() + at, image.begin() + end);
+    }
+    compressed.resize(kProgramHeadBytes);
+    EXPECT_TRUE(choose_channel_program(tmd, {{1, 0x2000, compressed}, {2, 0x3000, dol_head(0x2000)}},
+                                       program, error));
+    EXPECT_EQ(program.index, 1);
+    EXPECT_EQ(program.dol.image_size(), 0x1100u);
+}
+
+void test_compression_back_references() {
+    struct Example {
+        std::vector<std::uint8_t> packed;
+        std::string plain;
+    };
+    const std::vector<Example> examples = {
+        {{0x10, 9, 0, 0, 0x10, 'A', 'B', 'C', 0x30, 0x02}, "ABCABCABC"},
+        {{0x10, 9, 0, 0, 0x40, 'A', 0x50, 0}, std::string(9, 'A')},
+        {{0x11, 4, 0, 0, 0x40, 'A', 0x20, 0}, std::string(4, 'A')},
+        {{0x11, 18, 0, 0, 0x40, 'A', 0, 0, 0}, std::string(18, 'A')},
+        {{0x11, 0x12, 1, 0, 0x40, 'A', 0x10, 0, 0, 0}, std::string(274, 'A')},
+        // All three length fields of the long form contribute to 0x1234 + 273.
+        {{0x11, 0x46, 0x13, 0, 0x40, 'B', 0x11, 0x23, 0x40, 0}, std::string(4934, 'B')},
+    };
+    std::string error;
+    for (const Example& example : examples) {
+        std::vector<std::uint8_t> decoded = example.packed;
+        EXPECT_TRUE(unpack_channel_program(decoded, error));
+        EXPECT_TRUE(std::string(decoded.begin(), decoded.end()) == example.plain);
+        // Every incomplete token must fail without replacing the input.
+        for (std::size_t size = 4; size < example.packed.size(); ++size) {
+            const std::vector<std::uint8_t> truncated(example.packed.begin(), example.packed.begin() + size);
+            decoded = truncated;
+            EXPECT_TRUE(!unpack_channel_program(decoded, error));
+            EXPECT_TRUE(decoded == truncated);
+        }
+        decoded = example.packed;
+        EXPECT_TRUE(!unpack_channel_program(decoded, error, example.plain.size() - 1));
+        EXPECT_TRUE(decoded == example.packed);
+    }
+    std::vector<std::uint8_t> before_start = {0x11, 4, 0, 0, 0x80, 0x20, 0};
+    EXPECT_TRUE(!unpack_channel_program(before_start, error));
 }
 
 void test_program() {
@@ -288,10 +399,22 @@ void test_unlisted_verdict() {
     EXPECT_TRUE(fwd.left_out);
     EXPECT_TRUE(fwd.reason.find("sd:/apps/Nintendont/boot.dol") != std::string::npos);
 
+    // TIME, a tester's custom inject: a small low-loading DOL with no
+    // forwarder text passes every rule and is listed; a known homebrew code
+    // is left out by rule 1 whatever its program holds.
+    const std::vector<std::uint8_t> inject_program = dol_at(0x80004000);
+    const TmdContents inject = one_program_channel(inject_program.size());
+    EXPECT_TRUE(!judge_unlisted_channel("TIME", inject, {{1, inject_program.size(), inject_program}}).left_out);
+    const ChannelVerdict homebrew = judge_unlisted_channel("LULZ", inject, {{1, inject_program.size(), inject_program}});
+    EXPECT_TRUE(homebrew.left_out);
+    EXPECT_TRUE(homebrew.rule == 1);
+
     // A missing program: nothing read for the boot content, a boot index the
     // TMD does not list, or a shared one. Left out, whatever the code.
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).left_out);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).reason.find("not on the Wii") != std::string::npos);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).rule == 2);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).unread_content_id != 0);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, 0, {}}}).left_out);  // read, but empty
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{0, 0x40000, dol_at(0x80004000)}}).left_out);  // only the banner
     TmdContents no_boot = small;
@@ -353,6 +476,13 @@ void test_unlisted_verdict() {
     // Known homebrew codes, whatever the program.
     EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
     EXPECT_TRUE(is_homebrew_code("UFTW"));
+    // The Discross channel: a small, plain program that no section rule catches.
+    EXPECT_TRUE(is_homebrew_code("CORD"));
+    {
+        const ChannelVerdict cord = judge_unlisted_channel("CORD", small, {{1, plain.size(), plain}});
+        EXPECT_TRUE(cord.left_out);
+        EXPECT_TRUE(cord.rule == 1);
+    }
     // A GameTDB-listed game never reaches the verdict, and its code is no homebrew's.
     EXPECT_TRUE(!is_homebrew_code("WBME"));
 
@@ -370,6 +500,8 @@ int main() {
     test_tmd();
     test_paths();
     test_program();
+    test_program_compression();
+    test_compression_back_references();
     test_cheat_code();
     test_unlisted_verdict();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;

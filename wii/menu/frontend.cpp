@@ -11,9 +11,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstring>
-#include <fstream>
 #include <memory>
-#include <sstream>
 #include <vector>
 
 #include "autorun.hpp"
@@ -72,10 +70,7 @@ void WriteRiivolutionConfig(const FrontendState& state) {
         return;
     }
     const std::string path = dir + "/" + riivolution_config_name(state.game_id) + ".xml";
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << text;
-    out.flush();
-    if (!out) logf("Riivolution config: cannot write %s\n", path.c_str());
+    if (!WriteWholeFile(path, text.data(), text.size())) logf("Riivolution config: cannot write %s\n", path.c_str());
 }
 }
 
@@ -380,14 +375,15 @@ bool SaveChoicesTo(const LaunchModel& model, const std::string& path, std::strin
     // power cut or a full card no longer leaves the game's choices empty.
     const std::string temp = path + ".part";
     {
-        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        FILE* out = std::fopen(temp.c_str(), "wb");
         if (!out) {
             error = "cannot open " + temp + " for writing";
             return false;
         }
-        out << model.save();
-        out.close();
-        if (!out) {
+        const std::string text = model.save();
+        const bool written = std::fwrite(text.data(), 1, text.size(), out) == text.size();
+        const bool closed = std::fclose(out) == 0;
+        if (!written || !closed) {
             std::remove(temp.c_str());
             error = "cannot write " + path;
             return false;

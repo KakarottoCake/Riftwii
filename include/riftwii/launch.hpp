@@ -118,12 +118,13 @@ struct GameSettings {
     std::string rumble = "on";          // "off": gx_rumble_off
     std::string speaker = "on";         // "off": gx_speaker_off
     std::string region_strings = "off"; // "on": the Region strings fix (gx_country_strings)
+    std::string nand_source = "auto";
     // A GameCube game's disc reads: "drive" take a GameCube drive's time
     // (some games count on it), "fast" come at the SD card's speed.
     std::string gc_disc_reads = "fast";
     // A GameCube game's memory card: "own" is the game's own file, "shared"
     // one card for all the games of its encoding (gc_card_path).
-    std::string gc_card = "own";
+    std::string gc_card = "own";  // own, shared, or real (physical slot A)
     // A GameCube game's picture and language (gcnative.cpp does each).
     // "global", the default, follows Settings and the Wii's own settings
     // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"

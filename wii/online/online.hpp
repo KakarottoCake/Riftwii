@@ -74,10 +74,26 @@ bool UpdateInstalled(const std::string& latest);
 // checks it (size, GitHub's SHA-256, a valid DOL header) and puts it in
 // place of the running boot.dol, keeping the old one as boot.dol.old;
 // meta.xml's version follows. A release without a SHA-256 is refused.
-// `where` is the file replaced. `progress` gets the share of the download
-// done, 0 to 1.
+// `where` is the file replaced. `progress` is called as each step starts
+// and as download bytes arrive.
+enum class UpdateStep {
+    DownloadingDol,
+    CheckingDol,
+    DownloadingPlugins,
+    CheckingPlugins,
+    WritingPlugins,
+    WritingDol,
+};
+struct UpdateProgress {
+    UpdateStep step = UpdateStep::DownloadingDol;
+    // The whole update, 0 to 1 (downloads by bytes, then a step each).
+    double share = 0;
+    // Bytes of this step's file so far and in all (0 when not known).
+    std::uint64_t received = 0;
+    std::uint64_t total = 0;
+};
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
-                   const std::function<void(double done)>& progress = nullptr);
+                   const std::function<void(const UpdateProgress&)>& progress = nullptr);
 
 // Card writes RiftWii must not be stopped in the middle of (the update's
 // swap): while one runs, the GUI thread holds back the power button and
@@ -95,6 +111,15 @@ bool CardWritesBusy();
 // report shows the version that might already fix it was declined.
 void NoteUpdateDeclined(const std::string& latest);
 void LogDeclinedUpdate();
+
+struct NetworkTest {
+    bool online = false;
+    unsigned ms = 0;
+    std::string error;
+};
+// Shares the download worker so the menu keeps responding during DNS and IOS startup.
+bool StartNetworkTest();
+bool TakeNetworkTest(NetworkTest& result);
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);

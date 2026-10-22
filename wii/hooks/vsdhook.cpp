@@ -151,8 +151,13 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
         file_sector += f.sector_count;
     }
     if (out.extents.size() > RTVSD_MAX_EXTENTS) {
-        why = "it is in " + std::to_string(out.extents.size()) + " pieces (at most " +
-              std::to_string(RTVSD_MAX_EXTENTS) + "); copy it to a freshly formatted drive";
+        // Name the file, the drive, the count and the limit, and the fix: a
+        // tester saw only "11796 pieces" and could not tell what to do.
+        const std::string drive = out.on_usb ? "USB drive" : "SD card";
+        const std::string files = parts.size() > 1 ? name + " (all " + std::to_string(parts.size()) + " part files)" : name;
+        why = files + " on the " + drive + " is scattered in " + std::to_string(out.extents.size()) +
+              " pieces and RiftWii can follow at most " + std::to_string(RTVSD_MAX_EXTENTS) +
+              "; copy the file(s) to a freshly formatted " + drive + ", or defragment it, then try again";
         return false;
     }
     out.sectors = static_cast<std::uint32_t>(size / RTVSD_SECTOR_BYTES);
@@ -224,7 +229,7 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     //    as Project M 3.6's codes read fixed addresses in Brawl's MEM2
     //    heaps (0x90e60f10, its sound loader) and crashed when they moved.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(sizeof(vsd_state));
+    out.state_bytes = align_up(vsd_state_bytes(image.extents.size()));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;
     out.data_bytes = out.state_bytes + (out.code_in_mem2 ? out.code_bytes : 0);
@@ -297,7 +302,7 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     }
     ctx->state = out.state_base;
     vsd_state* st = reinterpret_cast<vsd_state*>(now(out, out.state_base));
-    std::memset(st, 0, sizeof(vsd_state));
+    std::memset(st, 0, out.state_bytes);
     st->magic = VSD_STATE_MAGIC;
     st->complete = out.code_base + h.complete;
     for (unsigned e = 0; e < VSD_ENTRIES; ++e) {
@@ -309,7 +314,7 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     st->rca = device.rca;
     st->card.sectors = image.sectors;
     st->card.extent_count = static_cast<std::uint32_t>(image.extents.size());
-    for (std::size_t i = 0; i < image.extents.size(); ++i) st->card.extents[i] = image.extents[i];
+    for (std::size_t i = 0; i < image.extents.size(); ++i) rtvsd_extents(&st->card)[i] = image.extents[i];
     if (rtvsd_reset(&st->card) != 0) {
         why = "the image's pieces do not cover it";
         return false;

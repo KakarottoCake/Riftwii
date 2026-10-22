@@ -319,6 +319,53 @@ constexpr std::uint32_t kBlr = 0x4E800020u;
 constexpr std::uint32_t kFunctionLookback = 0x1000;  // bytes walked back to a function's start
 constexpr unsigned kMinReadSites = 3;
 constexpr std::size_t kMotorWindow = 40;             // instructions from the flag read to the command
+constexpr std::uint32_t kIdleResetWindow = 0x1000;   // bytes from PADRead's start: PADRead and its status helper
+constexpr std::uint32_t kLiR0Zero = 0x38000000u;     // li r0, 0
+constexpr std::uint32_t kLiR3One = 0x38600001u;      // li r3, 1
+
+bool is_stw_r0_sda(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x900D0000u; }  // stw r0, d(r13)
+
+// The SDK's screen-dimming resets: clear a small-data flag, return 1
+// (compilers put the store and the return value in either order). The
+// flag's offset from r13 for a function of that shape, else kNoIdleReset
+// (offsets fit 16 bits).
+constexpr std::int32_t kNoIdleReset = 0x10000;
+std::int32_t idle_reset_flag(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (const CodeRange& r : text) {
+        if (address < r.address || address - r.address + 16 > r.size) continue;
+        const std::uint8_t* words = r.bytes + (address - r.address);
+        const std::uint32_t second = be32(words + 4);
+        const std::uint32_t third = be32(words + 8);
+        const bool store_then_return = is_stw_r0_sda(second) && third == kLiR3One;
+        const bool return_then_store = second == kLiR3One && is_stw_r0_sda(third);
+        if (be32(words) != kLiR0Zero || !(store_then_return || return_then_store) || be32(words + 12) != kBlr)
+            return kNoIdleReset;
+        return static_cast<std::int16_t>((store_then_return ? second : third) & 0xFFFFu);
+    }
+    return kNoIdleReset;
+}
+
+// The idle reset PADRead (or the status helper after it) calls; 0 when no
+// call in the window reaches one, or calls reach two different ones. The
+// video library defines the controller ports' reset right after the Wii
+// Remotes' one, for the flag 4 bytes above, in every game checked (Brawl,
+// Mario Kart Wii, Tatsunoko vs. Capcom, Clash of Ninja Revolution 3, Kamen
+// Rider): a call near PADRead to a lone function of that shape is
+// something else.
+std::uint32_t find_idle_reset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    std::uint32_t found = 0;
+    for (std::uint32_t at = pad_read; at < pad_read + kIdleResetWindow; at += 4) {
+        if (!inside(text, at)) break;
+        const std::uint32_t w = word_at(text, at);
+        if (!is_bl(w)) continue;
+        const std::uint32_t target = bl_target(at, w);
+        const std::int32_t flag = idle_reset_flag(text, target);
+        if (flag == kNoIdleReset || idle_reset_flag(text, target - 16) != flag + 4) continue;
+        if (found != 0 && found != target) return 0;
+        found = target;
+    }
+    return found;
+}
 
 // The start of the function containing `address`: the nearest `stwu r1`
 // followed by `mflr r0` before it, 0 when a `blr` comes first (the site
@@ -385,6 +432,7 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
         out.read = f;
         out.read_sites = sites;
     }
+    if (out.read != 0) out.idle_reset = find_idle_reset(text, out.read);
     if (motors.size() > 1) {
         char buf[96];
         std::snprintf(buf, sizeof(buf), "%u PADControlMotor candidates, the first 0x%08x",
@@ -604,5 +652,130 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
     error = functions.empty() ? skipped : std::string();
     return error.empty();
 }
+
+namespace {
+
+// The SIGetStatus body as instruction fields, with registers taken from
+// the candidate. This follows the register data flow, not game addresses.
+std::uint32_t si_status_type_cache(const std::vector<CodeRange>& text, std::uint32_t at) {
+    std::uint32_t words[16];
+    for (unsigned i = 0; i < 16; ++i) words[i] = word_at(text, at + 4 * i);
+    const auto rd = [](std::uint32_t w) { return (w >> 21) & 31u; };
+    const auto ra = [](std::uint32_t w) { return (w >> 16) & 31u; };
+    const unsigned hardware = rd(words[0]);
+    const unsigned shift = rd(words[1]);
+    const unsigned channel = ra(words[1]);
+    const unsigned status = rd(words[2]);
+    const unsigned scratch = ra(words[5]);
+    const unsigned high = rd(words[7]);
+    const unsigned index = ra(words[8]);
+    const unsigned base = rd(words[9]);
+    const unsigned entry = rd(words[10]);
+    const unsigned type = rd(words[11]);
+    const unsigned busy = ra(words[12]);
+    // D-form memory operands with rA=0 mean absolute addressing.
+    if (hardware == 0 || high == 0 || entry == 0) return 0;
+    if (hardware == channel || shift == channel || status == channel || scratch == channel || high == channel ||
+        shift == hardware || shift == status || index == high || base == index || type == entry || busy == entry) return 0;
+    const std::uint32_t io_high = words[0] & 0xFFFFu;
+    if (io_high != 0xCC00u && io_high != 0xCD00u) return 0;
+    const std::uint32_t expected[] = {
+        0x3C000000u | (hardware << 21) | io_high,              // lis hardware,CC00/CD00
+        0x20000003u | (shift << 21) | (channel << 16),         // subfic shift,channel,3
+        0x80006438u | (status << 21) | (hardware << 16),       // lwz status,SISR(hardware)
+        0x54001838u | (shift << 21) | (shift << 16),          // slwi shift,shift,3
+        0x7C000430u | (status << 21) | (status << 16) | (shift << 11),
+        0x54000739u | (status << 21) | (scratch << 16),       // NOREP (bit 3)
+        0x41820028u,                                         // beq past the cache update
+        0x3C000000u | (high << 21) | (words[7] & 0xFFFFu),
+        0x5400103Au | (channel << 21) | (index << 16),        // channel * sizeof(u32)
+        0x38000000u | (base << 21) | (high << 16) | (words[9] & 0xFFFFu),
+        0x7C000214u | (entry << 21) | (base << 16) | (index << 11),
+        0x80000000u | (type << 21) | (entry << 16),
+        0x54000631u | (type << 21) | (busy << 16),            // BUSY (bit 7)
+        0x4082000Cu,                                         // bne past the store
+        li(type, 8),
+        0x90000000u | (type << 21) | (entry << 16),
+    };
+    for (unsigned i = 0; i < 16; ++i)
+        if (words[i] != expected[i]) return 0;
+    const std::uint32_t cache = ((words[7] & 0xFFFFu) << 16) +
+                                static_cast<std::int16_t>(words[9] & 0xFFFFu);
+    if ((cache & 3u) != 0 || cache < 0x80003100u || cache > 0x81800000u - 16u) return 0;
+    return cache;
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
+    std::set<std::uint32_t> caches;
+    // Only PADRead's direct callees qualify. Stop at the function's end;
+    // an unrelated SDK copy elsewhere must not select a different table.
+    for (std::uint32_t offset = 0; offset < 0x600; offset += 4) {
+        const std::uint32_t call = pad_read + offset;
+        if (!inside(text, call)) return 0;
+        const std::uint32_t word = word_at(text, call);
+        if (word == 0x4E800020u) return caches.size() == 1 ? *caches.begin() : 0;
+        if (!is_bl(word)) continue;
+        const std::uint32_t target = bl_target(call, word);
+        for (std::uint32_t step = 0; step < 0x40; step += 4) {
+            if (!inside(text, target + step) || word_at(text, target + step) == 0x4E800020u) break;
+            const std::uint32_t cache = si_status_type_cache(text, target + step);
+            if (cache != 0) caches.insert(cache);
+        }
+    }
+    return 0;
+}
+
+std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
+    std::set<std::int32_t> offsets;
+    for (std::uint32_t step = 0; step < 0x600; step += 4) {
+        const std::uint32_t at = pad_read + step;
+        const std::uint32_t load = word_at(text, at);
+        if (!inside(text, at)) return 0;
+        if (load == 0x4E800020u) return offsets.size() == 1 ? *offsets.begin() : 0;
+        if ((load & 0xFC1F0000u) != 0x800D0000u) continue;  // lwz enabled,d(r13)
+        const unsigned enabled = (load >> 21) & 31u;
+        const std::uint32_t test = word_at(text, at + 4);
+        const unsigned mask = (test >> 11) & 31u;
+        const std::uint32_t error = word_at(text, at + 12);
+        const unsigned error_reg = (error >> 21) & 31u;
+        const std::uint32_t store = word_at(text, at + 16);
+        const unsigned status = (store >> 16) & 31u;
+        if (status == 0 || status == error_reg || enabled == mask) continue;
+        const std::uint32_t expected[] = {
+            load,
+            0x7C000039u | (enabled << 21) | (enabled << 16) | (mask << 11),
+            0x40820020u,  // bne past the disabled-port block
+            li(error_reg, 0xFFFFu),
+            0x9800000Au | (error_reg << 21) | (status << 16),
+            0x38600000u | (status << 16),  // addi r3,status,0
+            li(4, 0),
+            li(5, 10),
+        };
+        bool matches = true;
+        for (unsigned i = 0; i < 8; ++i) {
+            if (word_at(text, at + 4 * i) != expected[i]) matches = false;
+        }
+        if (!matches || !is_bl(word_at(text, at + 32))) continue;
+        // Verify the mask's source within this PADRead, rather than taking
+        // an arbitrary small-data word tested on the no-controller path.
+        bool channel_mask = false;
+        for (std::uint32_t source = pad_read; source < at; source += 4) {
+            const std::uint32_t shift = word_at(text, source);
+            if ((shift & 0xFC1F07FFu) != (0x7C000430u | (mask << 16))) continue;
+            const unsigned high = (shift >> 21) & 31u;
+            for (std::uint32_t init = pad_read; init < source; init += 4) {
+                if (word_at(text, init) == (0x3C008000u | (high << 21))) channel_mask = true;
+            }
+        }
+        const std::int32_t offset = static_cast<std::int16_t>(load & 0xFFFFu);
+        if (channel_mask && offset != 0 && (offset & 3) == 0) offsets.insert(offset);
+    }
+    return 0;
+}
+
 
 }  // namespace riftwii

@@ -655,6 +655,11 @@ bool GuiGameGrid::DrawChannelTile(int index, float x, float y, float scale, bool
         box.y = SnapY(box.y);
     }
     box.alpha = alpha;
+    if (channel_backdrop) {
+        const float m = static_cast<float>(riftwii::kChannelFrameMargin);
+        skin::DrawNine(skin::channelCard9, cx - tileW / 2 - m, cy - tileH / 2 - m, tileW + 2 * m,
+                       tileH + 2 * m, riftwii::kChannelFrameCorner, alpha);
+    }
     if (iconDrawer(index, box)) {
         rim();
         return true;

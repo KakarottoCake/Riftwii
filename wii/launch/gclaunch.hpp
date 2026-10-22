@@ -21,6 +21,7 @@ struct GcImage {
     std::string path;  // sd:/games/.../game.iso, or game.rvz (GcImageIsRvz); usb:/games/... on the USB drive
     std::string id;    // ID6 from its header
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
+    bool real_card = false;
     bool shared_card = false;  // the memory card is the shared one, not the game's own (the Memory card option)
     bool drive_timing = true;  // reads take a GameCube drive's time (the game's Loading speed option)
     bool progressive = false;  // 480p (the game's 480p picture option)
@@ -38,6 +39,17 @@ struct GcImage {
     // The launch reloaded into d2x and opened its USB device: for an image
     // or a pack on the USB drive (the request's usb_fd).
     bool usb_in_use = false;
+    // A switch to another program on the disc, which the game asked for
+    // last time (headless.cpp's exec.txt): that program's offset on the
+    // disc (0: the disc's own), the restart code and the arguments it gets.
+    bool exec = false;
+    std::uint32_t exec_dol = 0;
+    std::uint32_t exec_restart = 0;
+    std::vector<std::string> exec_args{};
+    // A game packed in a TGC image on the disc, which a bonus disc's menu
+    // started last time (headless.cpp's exec.txt, gc_tgc=): the TGC file's
+    // offset on the disc; 0: the disc's own program.
+    std::uint32_t tgc_offset = 0;
 };
 
 // Whether the image at `path` is on the USB drive ("usb:/...").

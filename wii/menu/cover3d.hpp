@@ -16,6 +16,9 @@ namespace riftwii::wii {
 // True when the game has no stored 3D cover and GameTDB was not found
 // without one in the last week.
 bool Cover3dWanted(const std::string& game_id);
+// Forgets that GameTDB had no 3D cover for the game, so the next look asks
+// again instead of waiting out the week (Settings > Download missing covers).
+void ForgetCover3dMiss(const std::string& game_id);
 
 // Downloads and stores the game's 3D cover on the network's background
 // thread, as StartCoverFetch does; one at a time.

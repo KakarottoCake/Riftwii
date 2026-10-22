@@ -84,6 +84,7 @@ public:
     };
     using IconDrawer = std::function<bool(int index, const IconBox& box)>;
     void SetChannels(bool on, IconDrawer icon);
+    void SetChannelBackdrop(bool on) { channel_backdrop = on; }
     bool Channels() const { return channels; }
     // A profile's tile: its picture (item index), an RGBA8 texture `side`
     // texels square, drawn in the tile's corner; nullptr when it has none:
@@ -271,6 +272,7 @@ private:
     GuiText* captionInfo = nullptr;  // under the shelf's name: where the game is, its region, play count, mods
     int infoFor = -1;
     bool channels = false;
+    bool channel_backdrop = false;
     bool roomy = false;  // grid_spacing = roomy
     IconDrawer iconDrawer;
     bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame

@@ -90,6 +90,38 @@ std::uint32_t game_arena1_hi() {
     return arena1_hi;
 }
 
+bool resident_can_hook_restart(const DolHeader& dol, std::uint32_t os_restart, std::string& why) {
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    // The same search install_resident makes: the runtime writes the
+    // request and starts the channel through the game's own IOS_Ioctlv,
+    // which it reaches through that function's hook.
+    IpcSymbols symbols;
+    IpcApi api;
+    std::string search_error;
+    if (!find_ipc_symbols(text, symbols, search_error) || !find_ipc_api(text, symbols, api, search_error) ||
+        api.sync[7] == 0) {
+        why = "the game's IOS_Ioctlv was not found";
+        return false;
+    }
+    // Each hook moves its function's first instruction to a replay slot.
+    std::string word_why;
+    const std::uint32_t ioctlv_first = *reinterpret_cast<const volatile std::uint32_t*>(api.sync[7]);
+    if (!displaceable(ioctlv_first, kContinueScratchRegister, word_why)) {
+        why = "the game's IOS_Ioctlv cannot be hooked (its first word " + word_why + ")";
+        return false;
+    }
+    const std::uint32_t restart_first = *reinterpret_cast<const volatile std::uint32_t*>(os_restart);
+    if (!displaceable(restart_first, kContinueScratchRegister, word_why)) {
+        why = "OSRestart cannot be hooked (its first word " + word_why + ")";
+        return false;
+    }
+    return true;
+}
+
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,
                       std::string& error) {
     const bool rvz = options.rvz.enabled;
@@ -291,6 +323,32 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         options.savegame.enabled ? sizeof(rt_fs_state) : offsetof(rt_fs_state, names));
     const std::uint32_t fs_bytes = has_fs ? fs_state_bytes + 32 : 0;
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
+    // The game's own Reset: what the runtime needs to take it, all or none.
+    // The hook is a branch from the game's code to the blob, so the blob
+    // must be in MEM1; the game's synchronous IOS_Ioctlv writes the sector
+    // and starts the channel.
+    const RestartOptions& restart = options.restart;
+    constexpr std::uint32_t kTicketViewBytes = 0xD8;
+    std::string restart_off;
+    if (restart.os_restart != 0) {
+        if (options.mem1_veneers != 0) {
+            restart_off = "the runtime's code is in MEM2, out of a branch's reach";
+        } else if (!have_api || api.sync[7] == 0 || !hooked[RT_IPC_SYNC(7)]) {
+            restart_off = "the game's IOS_Ioctlv could not be hooked";
+        } else if (options.sdio_fd < 0) {
+            restart_off = "the SD card is not open for the runtime";
+        } else if (restart.es_fd < 0) {
+            restart_off = "/dev/es is not open";
+        } else if (restart.request_lba == 0 || restart.armed.size() != RT_SECTOR_BYTES ||
+                   restart.idle.size() != RT_SECTOR_BYTES || restart.view.size() != kTicketViewBytes) {
+            restart_off = "the request is not whole";
+        }
+        if (!restart_off.empty()) {
+            logf("Reset: the game's own Reset restarts it without its packs: %s\n", restart_off.c_str());
+        }
+    }
+    const bool restart_on = restart.os_restart != 0 && restart_off.empty();
+    const std::uint32_t restart_bytes = restart_on ? sizeof(rt_restart_block) + 32 : 0;
     // A replacement the game already holds in memory for its whole run is
     // served from there: the rewritten FST the apploader loaded, which the
     // SDK keeps above its arena at the address in 0x38. Every byte kept
@@ -319,7 +377,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ResidentPlacement place;
     const bool code_in_mem2 = options.mem1_veneers != 0;
     if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
-                                 static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes,
+                                 static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes + restart_bytes,
                                  place, error, code_in_mem2, options.mem2_top)) {
         return false;
     }
@@ -334,6 +392,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         rvz_state_address + ((rt_rvz_state_bytes(options.rvz.extents.size()) + 31) & ~31u);
     const std::uint32_t rvz_group_address = rvz_stored_address + rvz_buffers.stored;
     const std::uint32_t rvz_dctx_address = rvz_group_address + rvz_buffers.group;
+    const std::uint32_t restart_address = (rvz_state_address + rvz_bytes + 31) & ~31u;
     // Where each final address is written now.
     const auto staged = [&](std::uint32_t address) { return address - place.data_base + place.stage_base; };
     // Where each of the code's final addresses is written now: staged too
@@ -390,6 +449,22 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         const std::uint32_t undo = 0x80210000u;  // lwz r1,0(r1): the function's own frame, undone
         store_words(code_now(place.code_base + blob.open_undo_offsets[0]), &undo, 1);
         store_words(code_now(place.code_base + blob.open_undo_offsets[1]), &undo, 1);
+    }
+    // The game's own Reset: the request, the channel's title and its ticket
+    // view in a block of their own; the context says where it is.
+    ctx->restart.es_fd = RT_RESTART_NONE;
+    if (restart_on) {
+        rt_restart_block* block = reinterpret_cast<rt_restart_block*>(staged(restart_address));
+        std::memset(block, 0, sizeof(*block));
+        std::memcpy(block->armed, restart.armed.data(), RT_SECTOR_BYTES);
+        std::memcpy(block->idle, restart.idle.data(), RT_SECTOR_BYTES);
+        for (unsigned i = 0; i < 8; ++i) block->title[i] = static_cast<std::uint8_t>(restart.title >> (56 - 8 * i));
+        std::memcpy(block->view, restart.view.data(), kTicketViewBytes);
+        ctx->restart.block = restart_address;
+        ctx->restart.lba = restart.request_lba;
+        ctx->restart.es_fd = static_cast<std::uint32_t>(restart.es_fd);
+        ctx->restart.ioctlv_sync = original(RT_IPC_SYNC(7));
+        ctx->restart.keep = restart.keep ? 1u : 0u;
     }
     // The savegame state: the engine's context (volume, prefix), the
     // completion entry and the two originals the sync path calls.
@@ -497,6 +572,33 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         }
         store_words(hook_site[e], &branch, 1);
         sync_code(hook_site[e], kHookStubBytes);
+    }
+    // The game's own Reset: OSRestart goes to the runtime first, which
+    // starts the game again through RiftWii; when it cannot, the function
+    // runs from the replay slot (its first word, then the jump back to its
+    // second).
+    if (restart_on) {
+        const std::uint32_t site = restart.os_restart;
+        const std::uint32_t first = *reinterpret_cast<const volatile std::uint32_t*>(site);
+        std::string why;
+        std::uint32_t branch = 0;
+        if (!displaceable(first, kContinueScratchRegister, why)) {
+            logf("Reset: OSRestart at 0x%08x not hooked, the game's own Reset restarts it without its packs: its first "
+                 "word %s\n", site, why.c_str());
+        } else if (!encode_branch(site, place.code_base + blob.os_restart_offset, branch)) {
+            logf("Reset: OSRestart at 0x%08x is out of a branch's reach; not hooked, the game's own Reset restarts "
+                 "it without its packs\n", site);
+        } else {
+            const std::uint32_t replay = place.code_base + blob.os_restart_replay_offset;
+            const std::uint32_t replay_words[4] = {first, kNop, kNop, kNop};
+            store_words(replay, replay_words, 4);
+            const auto resume = encode_absolute_jump(kContinueScratchRegister, site + 4);
+            store_words(replay + 16, resume.data(), 4);
+            sync_code(replay, 32);
+            store_words(site, &branch, 1);
+            sync_code(site, 4);
+            out.restart_hooked = true;
+        }
     }
 
     out.code_base = place.code_base;

@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
+// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nandchannels.hpp"
 
@@ -176,9 +178,33 @@ bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, cons
     std::string name;
     for (const std::string& banner_name : channel.names)
         if (name.empty()) name = banner_name;
-    logf("Wii channels: %s%s%s%s left out%s: %s\n", channel.code.c_str(), name.empty() ? "" : " (",
-         name.c_str(), name.empty() ? "" : ")", where.c_str(), verdict.reason.c_str());
+    std::string unread;
+    if (verdict.unread_content_id != 0) {
+        char id[48];
+        std::snprintf(id, sizeof id, "; content %08x could not be read",
+                      static_cast<unsigned>(verdict.unread_content_id));
+        unread = id;
+    }
+    logf("Wii channels: %s%s%s%s left out%s (rule %d of 4): %s%s\n", channel.code.c_str(),
+         name.empty() ? "" : " (", name.c_str(), name.empty() ? "" : ")", where.c_str(), verdict.rule,
+         verdict.reason.c_str(), unread.c_str());
     return true;
+}
+
+// classify_channel passes over some titles without a word, so a report
+// could not say why such a channel is not on Home. Says it.
+void log_left_out_title(std::uint64_t title_id, const std::string& where) {
+    const std::string reason = channel_left_out_reason(title_id);
+    if (reason.empty()) return;
+    std::string code = channel_code(title_id);
+    if (code.empty()) {
+        char hex[16];
+        std::snprintf(hex, sizeof hex, "%08x", static_cast<unsigned>(title_id & 0xFFFFFFFFu));
+        code = hex;
+    }
+    const bool homebrew = is_homebrew_code(code);
+    logf("Wii channels: %s left out%s%s: %s\n", code.c_str(), where.c_str(), homebrew ? " (rule 1 of 4)" : "",
+         reason.c_str());
 }
 
 bool card_file_exists(const std::string& path) {
@@ -186,16 +212,26 @@ bool card_file_exists(const std::string& path) {
     return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
-bool exists(NandAccess& access, const std::string& path) {
+s32 open_result(NandAccess& access, const std::string& path) {
     const s32 fd = access.open(path);
-    if (fd < 0) return false;
-    ISFS_Close(fd);
-    return true;
+    if (fd >= 0) ISFS_Close(fd);
+    return fd;
+}
+
+bool program_present(const TmdContents& tmd, const TmdContent* program,
+                     const std::function<bool(const TmdContent&)>& own_content_exists) {
+    if (program == nullptr) return false;
+    if ((program->type & 0x8000) == 0) return own_content_exists(*program);
+    for (const TmdContent& c : tmd.contents) {
+        if (c.index == 0 || (c.type & 0x8000) != 0) continue;
+        if (own_content_exists(c)) return true;
+    }
+    return false;
 }
 
 }  // namespace
 
-bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
+bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool include_non_games) {
     out.clear();
     if (NandOpen() < 0) {
         status = "The Wii's memory could not be read (ISFS).";
@@ -218,12 +254,20 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
         NandChannel channel;
         channel.title_id = titles[i];
         channel.kind = classify_channel(channel.title_id);
-        if (channel.kind.kind == ChannelKind::None) continue;
+        channel.non_game = channel.kind.kind == ChannelKind::None && include_non_games &&
+                           is_nintendo_channel(channel.title_id);
+        if (channel.kind.kind == ChannelKind::None && !channel.non_game) {
+            log_left_out_title(channel.title_id, "");
+            continue;
+        }
         channel.code = channel_code(channel.title_id);
         // Homebrew forwarders take Shop-like codes too (Nintendont's is
         // WWND), and custom injects take made-up ones GameTDB does not list.
         // A code its list lacks is judged below from the title itself.
-        const bool not_in_list = GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty();
+        // A code with no Shop letter (a custom inject's) is always judged,
+        const bool not_in_list = !channel.non_game &&
+                                 (channel.kind.kind == ChannelKind::Other ||
+                                  (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty()));
         std::string why;
         if (!read_stored_tmd(channel.title_id, channel.tmd, why)) {
             logf("Wii channels: %s left out: %s\n", channel.code.c_str(), why.c_str());
@@ -248,15 +292,32 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
                 continue;
             }
         }
-        // A shared program content would live in /shared1; Shop titles'
-        // programs are their own.
-        channel.playable = program && !(program->type & 0x8000) &&
-                           exists(access, nand_content_path(channel.title_id, program->id));
-        if (!channel.playable) ++missing;
+        if (channel.listed_name.empty()) {
+            bool banner_name = false;
+            for (const std::string& n : channel.names) banner_name = banner_name || !n.empty();
+            if (!banner_name)
+                logf("Wii channels: %s has no name in the title list and its banner gives none; Home shows its code\n",
+                     channel.code.c_str());
+        }
+        channel.playable = program_present(channel.tmd, program, [&](const TmdContent& c) {
+            return open_result(access, nand_content_path(channel.title_id, c.id)) >= 0;
+        });
+        if (!channel.playable) {
+            if (!channel.non_game) ++missing;
+            const s32 result = program ? open_result(access, nand_content_path(channel.title_id, program->id)) : -1;
+            logf("Wii channels: %s%s: its program is not there (boot index %u, content %08x, type 0x%04x, open %d)\n",
+                 channel.code.c_str(), not_in_list ? " (not in GameTDB's list)" : "",
+                 static_cast<unsigned>(channel.tmd.boot_index), program ? program->id : 0,
+                 program ? static_cast<unsigned>(program->type) : 0, result);
+        }
         out.push_back(std::move(channel));
     }
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
-    status = std::to_string(out.size()) + " WiiWare and Virtual Console game(s) on the Wii";
+    const std::size_t non_games = static_cast<std::size_t>(std::count_if(
+        out.begin(), out.end(), [](const NandChannel& channel) { return channel.non_game; }));
+    status = std::to_string(out.size() - non_games) +
+             " WiiWare, Virtual Console and other channel game(s) on the Wii";
+    if (non_games) status += ", " + std::to_string(non_games) + " non-game channel(s)";
     if (missing) status += ", " + std::to_string(missing) + " of them with their game data removed (they cannot start)";
     if (unlisted) status += "; " + std::to_string(unlisted) + " unlisted channel(s) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
@@ -266,26 +327,38 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     return true;
 }
 
-bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status) {
-    const std::string titles = folder + "/title/00010001";
-    DIR* dir = opendir(titles.c_str());
-    if (dir == nullptr) {
-        status = "No channels in " + folder + ".";
-        logf("Wii channels: %s\n", status.c_str());
-        return false;
-    }
-    std::size_t found = 0;
+namespace {
+
+struct EmuTotals {
     unsigned unreadable = 0, unlisted = 0, twice = 0, instead = 0;
+};
+
+void scan_emu_title_type(const std::string& folder, std::uint32_t upper, std::vector<NandChannel>& out,
+                         bool include_non_games, EmuTotals& totals) {
+    char type[9];
+    std::snprintf(type, sizeof(type), "%08x", static_cast<unsigned>(upper));
+    const std::string titles = folder + "/title/" + type;
+    DIR* dir = opendir(titles.c_str());
+    if (dir == nullptr) return;
     while (const dirent* entry = readdir(dir)) {
         const std::string name = entry->d_name;
         if (name.size() != 8 || name.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) continue;
         NandChannel channel;
         channel.emu_nand = folder;
-        channel.title_id = (std::uint64_t(kDownloadedChannels) << 32) | std::strtoul(name.c_str(), nullptr, 16);
+        channel.title_id = (std::uint64_t(upper) << 32) | std::strtoul(name.c_str(), nullptr, 16);
         channel.kind = classify_channel(channel.title_id);
-        if (channel.kind.kind == ChannelKind::None) continue;
+        channel.non_game = channel.kind.kind == ChannelKind::None && include_non_games &&
+                           is_nintendo_channel(channel.title_id);
+        if (channel.kind.kind == ChannelKind::None && !channel.non_game) {
+            log_left_out_title(channel.title_id, " in " + folder);
+            continue;
+        }
         channel.code = channel_code(channel.title_id);
-        const bool not_in_list = GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty();
+        // A code with no Shop letter (a custom inject's) is always judged,
+        // even before GameTDB's list has loaded.
+        const bool not_in_list = !channel.non_game &&
+                                 (channel.kind.kind == ChannelKind::Other ||
+                                  (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty()));
         // The Wii's own copy, when it can start, is the one shown. One whose
         // game data was removed from the Wii (it keeps only the ticket, the
         // TMD and the save; a tester had 30 of 31 so, all whole in the
@@ -293,7 +366,7 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         const auto wii_copy = std::find_if(out.begin(), out.end(),
                                            [&](const NandChannel& c) { return c.title_id == channel.title_id; });
         if (wii_copy != out.end() && wii_copy->playable) {
-            ++twice;
+            ++totals.twice;
             continue;
         }
         // The stored TMD, as the Wii keeps it.
@@ -302,7 +375,7 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         if (!read_card_file(titles + "/" + name + "/content/title.tmd", kMaxTmdBytes, tmd, why) ||
             !parse_tmd_contents(tmd.data(), tmd.size(), channel.tmd, why)) {
             logf("Wii channels: %s in %s left out: %s\n", channel.code.c_str(), folder.c_str(), why.c_str());
-            ++unreadable;
+            ++totals.unreadable;
             continue;
         }
         channel.game_id = channel_game_id(channel.code, channel.tmd.maker);
@@ -319,36 +392,91 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
                 return read_card_head(folder + path, bytes, head);
             };
             if (leave_out_unlisted(channel, read, " in " + folder)) {
-                ++unlisted;
+                ++totals.unlisted;
                 continue;
             }
         }
-        channel.playable = program && !(program->type & 0x8000) &&
-                           card_file_exists(folder + nand_content_path(channel.title_id, program->id));
+        if (channel.listed_name.empty()) {
+            bool banner_name = false;
+            for (const std::string& n : channel.names) banner_name = banner_name || !n.empty();
+            if (!banner_name)
+                logf("Wii channels: %s in %s has no name in the title list and its banner gives none; Home shows its code\n",
+                     channel.code.c_str(), folder.c_str());
+        }
+        channel.playable = program_present(channel.tmd, program, [&](const TmdContent& c) {
+            return card_file_exists(folder + nand_content_path(channel.title_id, c.id));
+        });
+        if (!channel.playable) {
+            logf("Wii channels: %s in %s: its program is not there (boot index %u, content %08x, type 0x%04x)\n",
+                 channel.code.c_str(), folder.c_str(), static_cast<unsigned>(channel.tmd.boot_index),
+                 program ? program->id : 0, program ? static_cast<unsigned>(program->type) : 0);
+        }
         if (wii_copy != out.end()) {
             if (!channel.playable) {
-                ++twice;  // neither copy can start: the Wii's stays, with its note
+                ++totals.twice;
                 continue;
             }
             *wii_copy = std::move(channel);  // nothing was added to `out` since the search
-            ++instead;
-            ++found;
+            ++totals.instead;
             continue;
         }
         out.push_back(std::move(channel));
-        ++found;
     }
     closedir(dir);
+}
+
+}
+
+bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status,
+                       bool include_non_games) {
+    EmuTotals totals;
+    bool opened = false;
+    for (const std::uint32_t upper : kChannelTitleTypes) {
+        char type[9];
+        std::snprintf(type, sizeof(type), "%08x", static_cast<unsigned>(upper));
+        if (DIR* probe = opendir((folder + "/title/" + type).c_str())) {
+            opened = true;
+            closedir(probe);
+        }
+        scan_emu_title_type(folder, upper, out, include_non_games, totals);
+    }
+    if (!opened) {
+        status = "No channels in " + folder + ".";
+        logf("Wii channels: %s\n", status.c_str());
+        return false;
+    }
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
-    status = std::to_string(found) + " WiiWare and Virtual Console game(s) in " + folder;
-    if (twice) status += "; " + std::to_string(twice) + " the Wii has itself listed once";
-    if (instead)
-        status += "; " + std::to_string(instead) + " shown from here instead of the Wii's copy, whose game data was removed";
-    if (unlisted) status += "; " + std::to_string(unlisted) + " unlisted channel(s) left out";
-    if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
+    const std::size_t non_games = static_cast<std::size_t>(std::count_if(
+        out.begin(), out.end(), [](const NandChannel& channel) { return channel.non_game; }));
+    status = std::to_string(out.size() - non_games) +
+             " WiiWare, Virtual Console and other channel game(s) in " + folder;
+    if (non_games) status += ", " + std::to_string(non_games) + " non-game channel(s)";
+    if (totals.twice) status += "; " + std::to_string(totals.twice) + " the Wii has itself listed once";
+    if (totals.instead)
+        status += "; " + std::to_string(totals.instead) +
+                  " shown from here instead of the Wii's copy, whose game data was removed";
+    if (totals.unlisted) status += "; " + std::to_string(totals.unlisted) + " unlisted channel(s) left out";
+    if (totals.unreadable) status += "; " + std::to_string(totals.unreadable) + " unreadable title(s) left out";
     status += ".";
     logf("Wii channels: %s\n", status.c_str());
-    return found != 0;
+    return !out.empty();
+}
+
+bool emu_channel_program_present(const std::string& folder, std::uint64_t title_id) {
+    if (folder.empty()) return false;
+    char relative[80];
+    std::snprintf(relative, sizeof(relative), "/title/%08x/%08x/content/title.tmd",
+                  static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
+    std::vector<std::uint8_t> bytes;
+    TmdContents tmd;
+    std::string why;
+    if (!read_card_file(folder + relative, kMaxTmdBytes, bytes, why) ||
+        !parse_tmd_contents(bytes.data(), bytes.size(), tmd, why) || tmd.title_id != title_id)
+        return false;
+    const TmdContent* program = tmd_content_by_index(tmd, tmd.boot_index);
+    return program_present(tmd, program, [&](const TmdContent& content) {
+        return card_file_exists(folder + nand_content_path(title_id, content.id));
+    });
 }
 
 bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error) {
@@ -383,12 +511,12 @@ bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8
     return true;
 }
 
-bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out, std::string& error) {
+bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out, std::string& error,
+                       int ios_choice) {
     // A WiiWare game's program is a few megabytes (the shop sold games of
     // at most 40 MB in all); MEM1 holds 24 MB.
     constexpr u32 kMaxProgramBytes = 24u << 20;
-    constexpr u32 kMaxTicketBytes = 0x1000;  // 0x2A4, one ticket
-    constexpr u32 kMaxCertBytes = 0x4000;    // /sys/cert.sys is 0xA00
+    constexpr u32 kMaxCertBytes = 0x4000;
     ChannelBootFiles files;
     files.title_id = title_id;
     files.emu_nand = emu_nand;
@@ -417,18 +545,27 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     }
     TmdContents contents;
     if (!parse_tmd_contents(files.tmd.data(), files.tmd.size(), contents, error)) return false;
+    if (contents.title_id != title_id) {
+        error = "the TMD belongs to a different channel";
+        return false;
+    }
     files.required_ios = contents.required_ios;
     files.game_id = channel_game_id(channel_code(title_id), contents.maker);
+    const auto add_ios = [&files](int ios) {
+        if (std::find(files.ios_order.begin(), files.ios_order.end(), ios) == files.ios_order.end())
+            files.ios_order.push_back(ios);
+    };
+    if (ios_choice != 0) add_ios(ios_choice);
     if (!running_in_dolphin()) {
         ImageGame as_image;
         as_image.id = files.game_id;
         as_image.required_ios = files.required_ios;
         for (int slot : image_cios_order(as_image, 0)) {
             std::string why;
-            if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) files.ios_order.push_back(slot);
+            if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) add_ios(slot);
         }
     }
-    if (files.required_ios != 0) files.ios_order.push_back(static_cast<int>(files.required_ios));
+    if (files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
 
     NandAccess access;
     std::vector<ContentStart> starts;
@@ -444,23 +581,78 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
                                    : read_head(access, path, head, start.head);
         if (read) starts.push_back(start);
     }
-    if (!choose_channel_program(contents, starts, files.program, error)) return false;
-    const TmdContent* program = tmd_content_by_index(contents, files.program.index);
-    if (!program) return false;
-    const std::string program_path = nand_content_path(title_id, program->id);
-    const bool program_read = emulated ? read_card_file(emu_nand + program_path, kMaxProgramBytes, files.dol, error)
-                                       : read_whole(access, program_path, kMaxProgramBytes, files.dol, error);
-    if (!program_read) return false;
-    if (files.dol.size() < files.program.dol.image_size()) {
-        error = "its program is shorter than its own header says";
+    // A header probe ranks candidates; only a complete unpack and parse
+    // below can commit the choice. Reject a bad stream and try another.
+    std::vector<ContentStart> candidates = starts;
+    bool loaded = false;
+    std::string why;
+    for (int attempt = 0; attempt < 3 && !loaded; ++attempt) {
+        if (!choose_channel_program(contents, candidates, files.program, why)) {
+            error = why;
+            return false;
+        }
+        const TmdContent* program = tmd_content_by_index(contents, files.program.index);
+        if (!program) return false;
+        const std::string program_path = nand_content_path(title_id, program->id);
+        const bool program_read = emulated ? read_card_file(emu_nand + program_path, kMaxProgramBytes, files.dol, error)
+                                           : read_whole(access, program_path, kMaxProgramBytes, files.dol, error);
+        if (!program_read) return false;
+        const bool compressed = channel_program_compressed(files.dol.data(), files.dol.size());
+        if (compressed) {
+            const std::size_t packed_size = files.dol.size();
+            if (!unpack_channel_program(files.dol, why)) {
+                logf("Wii channels: content %d is compressed and %s; not a program\n",
+                     static_cast<int>(files.program.index), why.c_str());
+                candidates.erase(std::remove_if(candidates.begin(), candidates.end(),
+                                                [&](const ContentStart& c) {
+                                                    return c.index == files.program.index;
+                                                }),
+                                 candidates.end());
+                continue;
+            }
+            DolHeader dol;
+            std::string format, parse_why;
+            if (!parse_channel_program(files.dol.data(), files.dol.size(), dol, format, parse_why)) {
+                logf("Wii channels: content %d unpacks to something that is not a program (%s)\n",
+                     static_cast<int>(files.program.index), parse_why.c_str());
+                candidates.erase(std::remove_if(candidates.begin(), candidates.end(),
+                                                [&](const ContentStart& c) {
+                                                    return c.index == files.program.index;
+                                                }),
+                                 candidates.end());
+                continue;
+            }
+            files.program.dol = dol;
+            files.program.format = format;
+            logf("Wii channels: content %d is LZ77-compressed (%u bytes); unpacked for the game (%u bytes, %s)\n",
+                 static_cast<int>(files.program.index), static_cast<unsigned>(packed_size),
+                 static_cast<unsigned>(files.dol.size()), files.program.format.c_str());
+        }
+        if (files.dol.size() < files.program.dol.image_size()) {
+            error = "its program is shorter than its own header says";
+            return false;
+        }
+        loaded = true;
+    }
+    if (!loaded) {
+        error = "none of its contents is a program RiftWii can load";
         return false;
     }
+    // Prefer the installed title's own ticket. The synthetic identity is
+    // only a fallback when a copied NAND lacks it; IOS may still refuse it.
+    constexpr u32 kMaxTicketBytes = 0x1000;
     char ticket_path[64];
-    std::snprintf(ticket_path, sizeof ticket_path, "/ticket/%08x/%08x.tik", static_cast<unsigned>(title_id >> 32),
-                  static_cast<unsigned>(title_id & 0xFFFFFFFFu));
-    const bool ticket_read = emulated ? read_card_file(emu_nand + ticket_path, kMaxTicketBytes, files.ticket, error)
-                                      : read_whole(access, ticket_path, kMaxTicketBytes, files.ticket, error);
-    if (!ticket_read) return false;
+    std::snprintf(ticket_path, sizeof(ticket_path), "/ticket/%08x/%08x.tik",
+                  static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
+    std::string ticket_error;
+    const bool ticket_read = emulated
+        ? read_card_file(emu_nand + ticket_path, kMaxTicketBytes, files.ticket, ticket_error)
+        : read_whole(access, ticket_path, kMaxTicketBytes, files.ticket, ticket_error);
+    if (!ticket_read) {
+        logf("Wii channels: the installed ticket could not be read (%s); trying a synthetic identity.\n",
+             ticket_error.c_str());
+        files.ticket = riftwii::make_fake_ticket();
+    }
     // The certificates are the same on every Wii: an emulated NAND's own
     // copy when it has one, else the Wii's.
     std::string ignored;
@@ -474,6 +666,8 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
 namespace {
 std::uint64_t g_channel_to_start = 0;
 std::string g_channel_nand;
+int g_channel_ios = 0;
+bool g_channel_direct = false;
 }  // namespace
 
 void SetChannelToStart(const NandChannel& channel) {
@@ -482,6 +676,11 @@ void SetChannelToStart(const NandChannel& channel) {
 }
 std::uint64_t ChannelToStart() { return g_channel_to_start; }
 const std::string& ChannelToStartNand() { return g_channel_nand; }
+void SetChannelToStartNand(const std::string& folder) { g_channel_nand = folder; }
+void SetChannelToStartIos(int ios) { g_channel_ios = ios; }
+int ChannelToStartIos() { return g_channel_ios; }
+void SetChannelToStartDirect(bool direct) { g_channel_direct = direct; }
+bool ChannelToStartDirect() { return g_channel_direct; }
 
 std::string nand_channel_name(const NandChannel& channel, int language) {
     // GameTDB's name first, as for disc games: it is in the menu's language.

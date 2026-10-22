@@ -72,6 +72,9 @@ bool TestConsoleTypeAsWii();
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();
 void LogUsage(const char* when);
+
+// The kernel heap's free bytes, for the log lines that follow its use.
+u32 KernelHeapFree();
 // Walks every chunk of the heap after logging `when`: their sizes, and a
 // free chunk's links and end. A damaged heap is logged there (the chunk,
 // the one before it, and the bytes around as hex and text: an overrun

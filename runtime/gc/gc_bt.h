@@ -204,9 +204,10 @@ struct gc_rt_context;
 /* Once a frame, from PADRead: IOS's replies taken, the controller and
  * remotes served, then each remote's state written into the port
  * gc_ports.h gives it, one a GameCube controller does not hold (status:
- * the game's PADStatus[4]). */
+ * the game's PADStatus[4]; native: SI-identified ports, reserved even
+ * when the game's own err is -1). */
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
-void gc_bt_fill(struct gc_bt* bt, uint8_t* status);
+void gc_bt_fill(struct gc_bt* bt, uint8_t* status, uint32_t native);
 /* PADControlMotor(chan, command) from the game: the port's rumble is noted
  * (command 1 rumbles, 0 and 2 stop) and goes to the remote on that port
  * with the next PADRead. `allowed`: Settings' Wii Remote rumble (and the
@@ -226,7 +227,7 @@ int gc_bt_home_held(const struct gc_bt* bt);
  * port 1 got in each step goes to fake_log for the trace. `n`: the
  * PADRead's count. `pro` (sd:/riftwii/gc/test/fakepro, GC_FLAG_FAKE_PRO):
  * a Wii U Pro Controller's reports instead, steps of their own. */
-void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro);
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro, uint32_t native);
 /* A reply from IOS that came while another request was being waited
  * for: marked done if it is one of these (1), else 0. */
 int gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);

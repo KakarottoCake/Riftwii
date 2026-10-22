@@ -45,6 +45,15 @@ msgstr "sd:/riivolution にパックのあるゲームはまだありません�
 msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 msgstr "ゲームが見つかりません (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
 
+msgid "No games found (usb:/wbfs, usb:/games)"
+msgstr "ゲームが見つかりません (usb:/wbfs, usb:/games)"
+
+msgid "No games found (sd:/wbfs, sd:/games)"
+msgstr "ゲームが見つかりません (sd:/wbfs, sd:/games)"
+
+msgid "No games found"
+msgstr "ゲームが見つかりません"
+
 msgid "Reading the SD card..."
 msgstr "SDカードを読み込んでいます..."
 
@@ -420,6 +429,12 @@ msgstr "ゲーム名とチートをダウンロード"
 msgid "Get the latest game names"
 msgstr "最新のゲーム名を取得"
 
+msgid "Download missing covers"
+msgstr "足りないカバーをダウンロード"
+
+msgid "Missing covers will be downloaded when you go back to Home."
+msgstr "ホームに戻ると、足りないカバーをダウンロードします。"
+
 msgid "Update"
 msgstr "更新"
 
@@ -630,11 +645,14 @@ msgstr "メニューの言語です。「Wii」は本体の設定に合わせま
 msgid "Downloads the newest game names from GameTDB."
 msgstr "GameTDBから最新のゲーム名をダウンロードします。"
 
+msgid "Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one."
+msgstr "ホームにまだないカバー、ケース、3DカバーをGameTDBからダウンロードします。GameTDBに画像がないゲームは、画像なしのままです。"
+
 msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "接続タップのコントローラで押しているボタンをその場で表示します。"
 
-msgid "Reads the SD card and the USB drive again."
-msgstr "SDカードとUSBドライブをもう一度読み込みます。"
+msgid "Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers."
+msgstr "SDカードとUSBドライブをもう一度読み込み、足りないカバー、ケース、3Dカバーのダウンロードをもう一度試します。"
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。"
@@ -804,8 +822,8 @@ msgstr "終了したNintendoのサーバーの代わりにゲームが使うオ�
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "GameTDBからカバーを取得中: 残り{1}"
 
-msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
-msgstr "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。"
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
+msgstr "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。"
 
 msgid "Cover"
 msgstr "カバー"
@@ -933,8 +951,26 @@ msgstr "このままでは動きません。{1}はUSBドライブにあります
 msgid "Updating RiftWii"
 msgstr "RiftWiiを更新しています"
 
-msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
-msgstr "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります..."
+msgid "RiftWii {1} is out. Installing it now; this takes a few minutes."
+msgstr "RiftWii {1}が出ています。インストールしています。数分かかります。"
+
+msgid "Downloading RiftWii ({1} of {2} MB)"
+msgstr "RiftWiiをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading RiftWii..."
+msgstr "RiftWiiをダウンロード中..."
+
+msgid "Downloading plugins ({1} of {2} MB)"
+msgstr "プラグインをダウンロード中 ({1} / {2} MB)"
+
+msgid "Downloading plugins..."
+msgstr "プラグインをダウンロード中..."
+
+msgid "Checking the download..."
+msgstr "ダウンロードを確認中..."
+
+msgid "Writing to the SD card..."
+msgstr "SDカードに書き込み中..."
 
 msgid "Update failed"
 msgstr "更新に失敗しました"
@@ -995,9 +1031,6 @@ msgstr "Wii Uのドライブ"
 
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
-
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。"
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
@@ -1425,6 +1458,15 @@ msgstr "SDイメージを作りますか?"
 msgid "Make it"
 msgstr "作成"
 
+msgid "The SD card is too fragmented"
+msgstr "SDカードの断片化がひどすぎます"
+
+msgid "The free space on the SD card is too scattered. {1} would be written in more than {2} pieces, which is more than RiftWii can follow, so the game would not start from it. Free up space or format the SD card (copy its files off first), then try again. Or build it anyway."
+msgstr "SDカードの空き領域が細かく散らばりすぎています。{1}は{2}個を超える断片に書き込まれ、RiftWiiが扱える数を超えるため、ゲームは起動しません。空き容量を作るかSDカードをフォーマットして(先にファイルをコピーしてください)、もう一度お試しください。このまま作成することもできます。"
+
+msgid "Build anyway"
+msgstr "このまま作成"
+
 msgid "Making {1}"
 msgstr "{1}を作成中"
 
@@ -1737,8 +1779,8 @@ msgstr "メモリーカード"
 msgid "About this"
 msgstr "説明"
 
-msgid "Save to a card for this game alone, or to one card shared by all your games."
-msgstr "このゲームだけのカードか、すべてのゲームで共有する1枚のカードにセーブします。"
+msgid "Save to this game's SD card, a shared SD card, or a real card in slot A (original Wii only)."
+msgstr "このゲームのSDカード、共有SDカード、またはスロットAの実物のカードにセーブします（初代Wiiのみ）。"
 
 msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
 msgstr "切り替えてもセーブはコピーされず、もう一方のカードに残ります。セーブのページの「SDカードにコピー」と「SDカードからセーブを追加」で移せます。日本のゲームは専用の共有カードを使います。"
@@ -1952,21 +1994,6 @@ msgstr "ホームのディスクドライブのタイルです。ディスクか
 
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。"
-
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. 本体の端に近いUSBポートを使ってください。"
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32かNTFS (またはWBFSドライブ)。"
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. ゲームはwbfsかgamesフォルダに。"
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. スロット249、250、251のいずれかにd2x cIOS。"
 
 msgid "A to Z"
 msgstr "A〜Z"
@@ -2693,3 +2720,249 @@ msgstr "60 Hzモードがあるゲームは、対応するテレビで60 Hzで�
 
 msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
 msgstr "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。"
+
+msgid "There is not enough memory to copy this card. Nothing was copied."
+msgstr "このカードをコピーするメモリが足りません。何もコピーしていません。"
+
+msgid "Real card in slot A"
+msgstr "スロットAの実物カード"
+
+msgid "Copy from a memory card in the Wii"
+msgstr "Wiiのメモリーカードからコピー"
+
+msgid "Save a copy of the whole card"
+msgstr "カード全体をコピーして保存"
+
+msgid "Choose the slot holding the memory card."
+msgstr "メモリーカードが入っているスロットを選んでください。"
+
+msgid "Slot A"
+msgstr "スロットA"
+
+msgid "Slot B"
+msgstr "スロットB"
+
+msgid "Choose which saves to copy. Nothing is written to the card."
+msgstr "コピーするセーブを選びます。カードには何も書き込みません。"
+
+msgid "This game's saves"
+msgstr "このゲームのセーブ"
+
+msgid "Every save"
+msgstr "すべてのセーブ"
+
+msgid "Copy"
+msgstr "コピー"
+
+msgid "Copy {1} saves and the whole card to sd:/riftwii/gc/backups/real/? Nothing is written to the card."
+msgstr "{1}個のセーブとカード全体をsd:/riftwii/gc/backups/real/にコピーしますか？カードには何も書き込みません。"
+
+msgid "Copied to {1}."
+msgstr "{1}にコピーしました。"
+
+msgid "Found {1} matching saves. Destination: {2}."
+msgstr "対象のセーブは{1}個です。コピー先：{2}。"
+
+msgid "To copy: {1}. Already present: {2}. Unusable: {3}."
+msgstr "コピー予定：{1}個。コピー済み：{2}個。使用不可：{3}個。"
+
+msgid "No memory card was found in this slot. Check slot A or slot B."
+msgstr "このスロットにメモリーカードがありません。スロットAかBを確認してください。"
+
+msgid "This card uses the other text encoding. Japanese and Western cards cannot be mixed."
+msgstr "このカードは文字コードが異なります。日本と欧米のカードは一緒に使えません。"
+
+msgid "The memory card is unformatted or damaged. It was left unchanged."
+msgstr "メモリーカードが未初期化か破損しています。変更していません。"
+
+msgid "The memory card could not be read. It may have changed or been removed. Nothing was copied."
+msgstr "メモリーカードを読み込めません。交換されたか抜かれた可能性があります。コピーしていません。"
+
+msgid "The SD image is damaged or uses the other text encoding. Nothing was copied."
+msgstr "SDのイメージが破損しているか文字コードが異なります。コピーしていません。"
+
+msgid "Copy failed. The card in the Wii was left unchanged."
+msgstr "コピーできませんでした。Wiiのカードは変更していません。"
+
+msgid "Nothing is written to the card. Copies go to the SD card."
+msgstr "カードには何も書き込みません。コピーはSDカードに保存します。"
+
+msgid "This game uses the real card in slot A. Its saves are not on the SD card."
+msgstr "このゲームはスロットAの実物カードを使います。セーブはSDカードにはありません。"
+
+msgid "Use this game's SD card"
+msgstr "このゲームのSDカードを使う"
+
+msgid "Wii U has no GameCube memory card slots."
+msgstr "Wii Uにはゲームキューブのメモリーカードスロットがありません。"
+
+msgid "Reading the memory card"
+msgstr "メモリーカードを読み込み中"
+
+msgid "Keep the card in its slot. Nothing is written to it."
+msgstr "カードをスロットに入れたままにしてください。何も書き込みません。"
+
+msgid "Slot A has no readable memory card. A card in slot B cannot be used as slot A."
+msgstr "スロットAに読み込めるメモリーカードがありません。スロットBのカードはAとして使えません。"
+
+msgid "The real card could not be prepared. Check the card and try again."
+msgstr "実物のカードを準備できませんでした。カードを確認してもう一度お試しください。"
+
+msgid "Channel background"
+msgstr "チャンネルの背景"
+
+msgid "White"
+msgstr "白"
+
+msgid "Transparent"
+msgstr "透明"
+
+msgid "White will add a box behind channel banners shown in the menu to prevent the banners from becoming transparent."
+msgstr "白は、メニューに表示するチャンネルのバナーの後ろに箱を置き、バナーが透けないようにします。"
+
+msgid "Show non-game channels"
+msgstr "ゲーム以外のチャンネルを表示"
+
+msgid "Nintendo's own channels are listed on Home now."
+msgstr "任天堂のチャンネルをホームに表示するようにしました。"
+
+msgid "Only games are listed on Home now."
+msgstr "ホームにはゲームだけを表示するようにしました。"
+
+msgid "Boot from"
+msgstr "起動元"
+
+msgid "Boot"
+msgstr "起動"
+
+msgid "Real NAND"
+msgstr "実NAND"
+
+msgid "Emulated NAND"
+msgstr "エミュレートNAND"
+
+msgid "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."
+msgstr "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。"
+
+msgid "Game IOS"
+msgstr "ゲームのIOS"
+
+msgid "The IOS RiftWii starts the channel under."
+msgstr "RiftWiiがこのチャンネルを起動するIOSです。"
+
+msgid "Emulated NAND (not here)"
+msgstr "エミュレートNAND (ここにはありません)"
+
+msgid "Real NAND (not here)"
+msgstr "実NAND (ここにはありません)"
+
+msgid "Show all channels even if they aren't detected as a game."
+msgstr "ゲームとして検出されないチャンネルもすべて表示します。"
+
+msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
+msgstr "Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。"
+
+msgid "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply."
+msgstr "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。"
+
+msgid "The copy RiftWii lists starts, with its own save."
+msgstr "RiftWiiが表示するコピーが、独自のセーブとともに起動します。"
+
+msgid "The copy in {1} starts, and saves stay there on the SD card."
+msgstr "{1}のコピーが起動し、セーブはSDカードのそこに残ります。"
+
+msgid "The emulated NAND's copy starts; its save is on the SD card in {1}."
+msgstr "エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。"
+
+msgid "{1} has no copy of this game. Install it there from its WAD first."
+msgstr "{1}にはこのゲームのコピーがありません。先にそのWADからインストールしてください。"
+
+msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
+msgstr "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。"
+
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1個のアプリ"
+
+msgid "{1} apps"
+msgstr "{1}個のアプリ"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "「{1}」に一致するHomebrewはありません。1で表示を切り替えます。"
+
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。"
+
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。"
+
+msgid "It cannot start: {1}."
+msgstr "起動できません: {1}。"
+
+msgid "The app will start when ready."
+msgstr "アプリは準備ができると起動します。"
+
+msgid "Start {1}?"
+msgstr "{1}を起動しますか?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "{3}の{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "{1} ({2})を起動しますか?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "{2}の{1}を起動しますか?"
+
+msgid "Would you like to start {1}?"
+msgstr "{1}を起動しますか?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。"
+
+msgid "1: all apps"
+msgstr "1: すべてのアプリ"
+
+msgid "Network Test"
+msgstr "ネットワークテスト"
+
+msgid "Testing the network..."
+msgstr "ネットワークをテストしています..."
+
+msgid "Offline"
+msgstr "オフライン"
+
+msgid "Checks if network is online."
+msgstr "ネットワークがオンラインか確認します。"
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "ネットワークを開始できません。Wiiのインターネット設定を確認してください。"
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "HTTPの応答がありません。接続を確認して、もう一度お試しください。"
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "ネットワークは使用中です。ダウンロードが終わってからお試しください。"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。"
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. 本体の端に近いUSBポートを使ってください。"
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
+
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32推奨。NTFSとWBFSも使えます。"
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. ゲームは/wbfsか/gamesフォルダに。"
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"
