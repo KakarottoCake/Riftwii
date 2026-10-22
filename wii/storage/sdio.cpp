@@ -10,6 +10,8 @@
 
 #include <cstring>
 
+extern "C" void udelay(int us);
+
 namespace riftwii::wii::sdio {
 namespace {
 
@@ -27,16 +29,31 @@ constexpr std::uint32_t kStatusSdhc = 0x100000;
 
 constexpr std::uint32_t kHcrHostControl = 0x28;
 constexpr std::uint32_t kHostControl4Bit = 0x02;
+constexpr std::uint32_t kHcrPowerControl = 0x29;
+constexpr std::uint32_t kHcrClockControl = 0x2C;
+constexpr std::uint32_t kHcrTimeoutControl = 0x2E;
+constexpr std::uint32_t kHcrSoftwareReset = 0x2F;
 
+constexpr std::uint32_t kCmdGoIdle = 0x00;
+constexpr std::uint32_t kCmdAllSendCid = 0x02;
+constexpr std::uint32_t kCmdSendRca = 0x03;
 constexpr std::uint32_t kCmdSelect = 0x07;
+constexpr std::uint32_t kCmdSendIfCond = 0x08;
 constexpr std::uint32_t kCmdSetBlockLength = 0x10;
 constexpr std::uint32_t kCmdReadMultiBlock = 0x12;
 constexpr std::uint32_t kCmdApp = 0x37;
 constexpr std::uint32_t kAcmdSetBusWidth = 0x06;
+constexpr std::uint32_t kAcmdSendOpCond = 0x29;
 
+constexpr std::uint32_t kTypeNoData = 0;
 constexpr std::uint32_t kTypeAc = 3;
 constexpr std::uint32_t kResponseR1 = 1;
 constexpr std::uint32_t kResponseR1b = 2;
+constexpr std::uint32_t kResponseR2 = 3;
+constexpr std::uint32_t kResponseR3 = 4;
+// IOS's response selectors, as used by libogc (not SD response numbers).
+constexpr std::uint32_t kResponseRca = 6;
+constexpr std::uint32_t kResponseIfCond = 7;
 
 constexpr std::uint32_t kSectorBytes = 512;
 
@@ -120,6 +137,83 @@ bool write_hcr(const Card& card, std::uint32_t reg, std::uint32_t size, std::uin
     return true;
 }
 
+bool wait_hcr(const Card& card, std::uint32_t reg, std::uint32_t size, std::uint32_t mask,
+              std::uint32_t expected, std::string& error) {
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        std::uint32_t value = 0;
+        if (!read_hcr(card, reg, size, value, error)) return false;
+        if ((value & mask) == expected) return true;
+        udelay(1000);
+    }
+    error = "sdio: host controller did not become ready after 100 checks";
+    return false;
+}
+
+bool initialize_card(Card& card, std::string& error) {
+    // Older IOS SDI modules can expose the card's registers but cannot
+    // initialise an SDHC card. libogc's mounted view already handles this;
+    // the raw handoff needs the same fallback after libfat has shut down.
+    IOS_Close(card.fd);
+    card.fd = IOS_Open(g_path, 1);
+    if (card.fd < 0) {
+        error = ipc_error("reopen for manual initialization", card.fd);
+        return false;
+    }
+    card.rca = 0;
+    card.sdhc = true;  // SENDCMD's vector form during SD v2 identification
+    if (!write_hcr(card, kHcrSoftwareReset, 1, 7, error) ||
+        !wait_hcr(card, kHcrSoftwareReset, 1, 7, 0, error) ||
+        !write_hcr(card, 0x34, 4, 0x13F00C3, error) ||
+        !write_hcr(card, 0x38, 4, 0x13F00C3, error) ||
+        !write_hcr(card, kHcrPowerControl, 1, 0x0E, error) ||
+        !write_hcr(card, kHcrPowerControl, 1, 0x0F, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0x101, error) ||
+        !wait_hcr(card, kHcrClockControl, 2, 2, 2, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0x107, error) ||
+        !write_hcr(card, kHcrTimeoutControl, 1, 0x0E, error)) {
+        return false;
+    }
+
+    const auto command = [&](std::uint32_t cmd, std::uint32_t type, std::uint32_t response, std::uint32_t arg) {
+        const std::int32_t ret = send_command(card, cmd, type, response, arg, 0, 0, nullptr, 0);
+        if (ret >= 0) return true;
+        const std::string operation = "manual initialization command " + std::to_string(cmd);
+        error = ipc_error(operation.c_str(), ret);
+        return false;
+    };
+    if (!command(kCmdGoIdle, kTypeNoData, 0, 0) ||
+        !command(kCmdSendIfCond, kTypeNoData, kResponseIfCond, 0x1AA)) return false;
+    if ((g_response[0] & 0xFFF) != 0x1AA) {
+        error = "sdio: the card did not accept SD v2 voltage and check pattern";
+        return false;
+    }
+
+    bool ready = false;
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        if (!command(kCmdApp, kTypeAc, kResponseR1, 0) ||
+            !command(kAcmdSendOpCond, kTypeNoData, kResponseR3, 0x40300000)) return false;
+        if (g_response[0] & 0x80000000) {
+            card.sdhc = (g_response[0] & 0x40000000) != 0;
+            ready = true;
+            break;
+        }
+        udelay(10000);
+    }
+    if (!ready) {
+        error = "sdio: the card did not finish SD v2 power-up after 100 checks";
+        return false;
+    }
+    if (!command(kCmdAllSendCid, kTypeNoData, kResponseR2, 0) ||
+        !command(kCmdSendRca, kTypeNoData, kResponseRca, 0)) return false;
+    card.rca = static_cast<std::uint16_t>(g_response[0] >> 16);
+    if (card.rca == 0) {
+        error = "sdio: the card returned no relative address during manual initialization";
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 bool open_card(Card& card, std::string& error) {
@@ -139,14 +233,11 @@ bool open_card(Card& card, std::string& error) {
         error = ipc_error("open", card.fd);
         return false;
     }
-    std::int32_t ret = IOS_Ioctl(card.fd, kIoctlResetCard, nullptr, 0, g_word, 4);
-    if (ret < 0) {
-        error = ipc_error("card reset", ret);
-        close_card(card);
-        return false;
-    }
-    card.rca = static_cast<std::uint16_t>(g_word[0] >> 16);
-    ret = IOS_Ioctl(card.fd, kIoctlGetStatus, nullptr, 0, g_word, 4);
+    g_word[0] = 0;
+    const std::int32_t reset_result = IOS_Ioctl(card.fd, kIoctlResetCard, nullptr, 0, g_word, 4);
+    if (reset_result >= 0) card.rca = static_cast<std::uint16_t>(g_word[0] >> 16);
+    g_word[0] = 0;
+    std::int32_t ret = IOS_Ioctl(card.fd, kIoctlGetStatus, nullptr, 0, g_word, 4);
     if (ret < 0) {
         error = ipc_error("status", ret);
         close_card(card);
@@ -158,12 +249,15 @@ bool open_card(Card& card, std::string& error) {
         close_card(card);
         return false;
     }
-    if (!(status & kStatusInitialized)) {
-        error = "sdio: IOS did not initialise the card (host-controller setup not implemented)";
-        close_card(card);
-        return false;
+    if (reset_result < 0 || !(status & kStatusInitialized) || card.rca == 0) {
+        if (!initialize_card(card, error)) {
+            if (reset_result < 0) error = ipc_error("card reset", reset_result) + "; " + error;
+            close_card(card);
+            return false;
+        }
+    } else {
+        card.sdhc = (status & kStatusSdhc) != 0;
     }
-    card.sdhc = (status & kStatusSdhc) != 0;
 
     ret = send_command(card, kCmdSelect, kTypeAc, kResponseR1b, static_cast<std::uint32_t>(card.rca) << 16, 0, 0,
                        nullptr, 0);

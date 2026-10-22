@@ -10,9 +10,9 @@
 // the card up here and hands the fd to the resident runtime, which reads
 // through the game's IPC with the same request format. The command set
 // is the one documented at https://wiibrew.org/wiki//dev/sdio/slot0 in
-// the order libogc's wiisd.c uses it (see NOTICE.md). Only cards IOS has
-// already initialised are accepted (the usual case); the host-controller
-// dance for cards IOS refuses is not implemented.
+// the order libogc's wiisd.c uses it (see NOTICE.md). If IOS cannot bring
+// up an inserted SD v2 card, bounded host-controller setup obtains its
+// capacity mode and RCA before the normal select and transfer setup.
 namespace riftwii::wii::sdio {
 
 struct Card {
