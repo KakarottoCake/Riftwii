@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launchargs.hpp"
 
+#include <cstddef>
 #include <cstdlib>
 #include <utility>
 
@@ -112,6 +113,27 @@ bool launch_request_sector(const std::vector<std::string>& args, bool armed, std
     sector.assign(sector_bytes, 0);
     sector.insert(sector.begin(), text.begin(), text.end());
     sector.resize(sector_bytes);
+    return true;
+}
+
+bool pin_launch_cios(std::vector<std::string>& args, int running_ios) {
+    if (running_ios < kFirstGameCios || running_ios > kLastGameCios) return false;
+    const std::string pinned = "cios=" + std::to_string(running_ios);
+    for (std::string& arg : args) {
+        if (arg.compare(0, 5, "cios=") != 0) continue;
+        // A slot the player chose stays theirs.
+        if (arg != "cios=auto") return false;
+        arg = pinned;
+        return true;
+    }
+    // After the settings, where headless_launch_arguments puts them: before
+    // the keys that follow (wfc_domain, gct, return_to, reset).
+    std::size_t at = args.size();
+    while (at > 1 && (args[at - 1].compare(0, 11, "wfc_domain=") == 0 || args[at - 1].compare(0, 4, "gct=") == 0 ||
+                      args[at - 1].compare(0, 10, "return_to=") == 0 || args[at - 1].compare(0, 6, "reset=") == 0)) {
+        --at;
+    }
+    args.insert(args.begin() + static_cast<std::ptrdiff_t>(at), pinned);
     return true;
 }
 

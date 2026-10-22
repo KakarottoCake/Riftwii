@@ -106,6 +106,16 @@ bool launch_lines_from_text(const std::string& text, std::vector<std::string>& a
 bool launch_request_sector(const std::vector<std::string>& args, bool armed, std::size_t sector_bytes,
                            std::vector<std::uint8_t>& sector, std::string& why);
 
+// A Wii game's own Reset starts it again headless, without the menu, so a
+// cIOS that Automatic chose from what the menu saw (on a Wii U, the d2x on
+// base 58 when the menu had the GameCube adapter) comes out differently,
+// and the game comes back on a cIOS where the adapter cannot work. When
+// `args` (from headless_launch_arguments) leave the cIOS to RiftWii (no
+// cios key, or "cios=auto"), they name `running_ios` instead, the cIOS the
+// launch runs on, if it is one a launch can name (248 ... 252). True when
+// they were changed.
+bool pin_launch_cios(std::vector<std::string>& args, int running_ios);
+
 // Whether `value` is a path (or a name) that stays where it is put: no
 // ".." in it, between slashes or backslashes, at either end or alone.
 bool launch_path_stays_put(const std::string& value);

@@ -16,6 +16,7 @@
 #include "riftwii/wfcpatch.hpp"
 #include "riftwii/videopatch.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -1669,6 +1670,62 @@ void TestHeadlessArguments() {
 // A Wii game's own Reset (docs/HEADLESS.md): the launch RiftWii leaves for
 // itself, written by headless_launch_arguments and read back by the same
 // parser every other launch goes through.
+// A Wii game's own Reset names the cIOS its launch ran on when the request
+// leaves the choice to RiftWii: the restart starts without the menu, and on
+// a Wii U with the GameCube adapter Automatic chose IOS251 only from what
+// the menu saw (a Wii U, Kamen Rider from the SD card: the restart came
+// back on IOS249, the adapter off).
+void TestPinLaunchCios() {
+    HeadlessLaunch h;
+    h.game = "SKHJAF";
+    h.from = "sd";
+    h.path = "sd:/wbfs/Kamen Rider [SKHJAF]/SKHJAF.wbfs";
+    h.choices = "SKHJAF.txt";
+    h.packs_given = true;
+    h.xmls = {"krsch_gcpad.xml"};
+    h.gct = "sd:/codes/SKHJAF.gct";
+    h.reset = true;
+    // No cios key (the game's setting is the global one): one is added,
+    // before the keys that end a request, and reads back.
+    std::vector<std::string> args = headless_launch_arguments(h);
+    EXPECT_TRUE(pin_launch_cios(args, 251));
+    HeadlessLaunch back;
+    std::string error;
+    EXPECT_TRUE(parse_headless_launch(args, back, error));
+    EXPECT_EQ(back.settings.cios, std::string("251"));
+    EXPECT_EQ(back.gct, h.gct);
+    EXPECT_TRUE(back.reset);
+    EXPECT_EQ(args.back(), std::string("reset=1"));
+    EXPECT_TRUE(std::find(args.begin(), args.end(), std::string("cios=251")) + 3 == args.end());  // then gct, reset
+    // Once is enough: the request now names it.
+    EXPECT_FALSE(pin_launch_cios(args, 251));
+    // "auto" becomes the slot.
+    h.settings.cios = "auto";
+    args = headless_launch_arguments(h);
+    EXPECT_TRUE(pin_launch_cios(args, 249));
+    EXPECT_TRUE(parse_headless_launch(args, back, error));
+    EXPECT_EQ(back.settings.cios, std::string("249"));
+    // A slot the player chose stays.
+    h.settings.cios = "250";
+    args = headless_launch_arguments(h);
+    const std::vector<std::string> chosen = args;
+    EXPECT_FALSE(pin_launch_cios(args, 251));
+    EXPECT_TRUE(args == chosen);
+    // Not a cIOS a launch can name: IOS 58 (a disc game, the adapter's IOS)
+    // or a slot outside 248 ... 252.
+    h.settings.cios = "global";
+    args = headless_launch_arguments(h);
+    const std::vector<std::string> plain = args;
+    EXPECT_FALSE(pin_launch_cios(args, 58));
+    EXPECT_FALSE(pin_launch_cios(args, 236));
+    EXPECT_FALSE(pin_launch_cios(args, 253));
+    EXPECT_TRUE(args == plain);
+    // A request with nothing after the settings still gets it at the end.
+    std::vector<std::string> bare = {"--launch", "game=RMCE01", "from=usb"};
+    EXPECT_TRUE(pin_launch_cios(bare, 248));
+    EXPECT_EQ(bare.back(), std::string("cios=248"));
+}
+
 void TestResetRequest() {
     HeadlessLaunch h;
     h.game = "SMNP03";
@@ -2073,6 +2130,7 @@ int main() {
     TestReturnTo();
     TestHeadlessArguments();
     TestResetRequest();
+    TestPinLaunchCios();
     TestFriivolutionArguments();
     TestHttp();
     TestCheats();
