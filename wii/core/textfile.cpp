@@ -28,4 +28,50 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
     return true;
 }
 
+namespace {
+
+// ReadWholeFile for a string or a byte vector: both hold the file as it is.
+template <typename Buffer>
+bool read_whole(const std::string& path, Buffer& out) {
+    using Byte = typename Buffer::value_type;
+    out.clear();
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    // The whole file in one read when its size can be told, so a large
+    // pack XML is not copied about as the string grows; then chunks until
+    // the end, for a file whose size was not known (or that grew).
+    long size = -1;
+    if (std::fseek(f, 0, SEEK_END) == 0) size = std::ftell(f);
+    std::rewind(f);
+    if (size > 0) {
+        out.resize(static_cast<std::size_t>(size));
+        out.resize(std::fread(&out[0], 1, out.size(), f));
+    }
+    constexpr std::size_t kChunk = 4096;
+    int next = std::fgetc(f);
+    while (next != EOF) {
+        out.push_back(static_cast<Byte>(next));
+        const std::size_t had = out.size();
+        out.resize(had + kChunk);
+        out.resize(had + std::fread(&out[had], 1, kChunk, f));
+        next = std::fgetc(f);
+    }
+    std::fclose(f);
+    return true;
+}
+
+}  // namespace
+
+bool ReadWholeFile(const std::string& path, std::string& out) { return read_whole(path, out); }
+
+bool ReadWholeFile(const std::string& path, std::vector<std::uint8_t>& out) { return read_whole(path, out); }
+
+bool WriteWholeFile(const std::string& path, const void* data, std::size_t size) {
+    FILE* f = std::fopen(path.c_str(), "wb");
+    if (!f) return false;
+    const std::size_t written = size == 0 ? 0 : std::fwrite(data, 1, size, f);
+    const bool closed = std::fclose(f) == 0;
+    return written == size && closed;
+}
+
 }  // namespace riftwii::wii

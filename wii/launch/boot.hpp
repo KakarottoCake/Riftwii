@@ -180,6 +180,7 @@ enum class GcAdapterMode { Off, On, Auto, Demo };
 
 struct LaunchExtras {
     std::string game_id;
+    bool gc_card_fallback = false;  // this launch uses the game's SD card instead of the missing real card
     GcAdapterMode gc_adapter = GcAdapterMode::Off;
     bool gc_adapter_forced = false;     // the setting is On: the adapter is tried where Automatic leaves it off
     VideoSettings video;  // its target is set at boot, from its mode
@@ -217,6 +218,11 @@ struct LaunchExtras {
     bool speaker_off = false;     // gx_speaker_off
     bool region_strings = false;  // the Region strings fix (gx_country_strings)
     bool pack_keeps_saves = false;  // a pack's <savegame> decides where the saves go
+    // The launch that starts this game again after its own Reset (the HOME
+    // Menu's), as headless_launch_arguments (riftwii/launchargs.hpp) writes
+    // it: same game, same packs, choices and settings. Empty: the Reset is
+    // left to the game, which restarts without its packs.
+    std::vector<std::string> restart_args;
 };
 void SetLaunchExtras(LaunchExtras extras);
 // What SetLaunchExtras set, for a launch that does not go through

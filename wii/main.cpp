@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "homebrew.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "screenshot.hpp"
@@ -34,6 +35,7 @@
 
 #include "crash.hpp"
 #include "gcadapter.hpp"
+#include "gcrealcard.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
@@ -86,11 +88,21 @@ void StartHomebrewChannelTitle() {
 void StartChannel(u64 title) {
     riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
                        static_cast<unsigned>(title));
+    if (riftwii::wii::ChannelToStartDirect()) {
+        riftwii::wii::logf("Wii channels: the system starts it as the Wii Menu does, with none of RiftWii's loader\n");
+        riftwii::wii::LaunchMusicEnd("the system starts the game");
+        riftwii::wii::LogClose();
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+        return;
+    }
     riftwii::wii::ProgressStage("Getting the game ready", 30);
     std::string error;
     riftwii::wii::ChannelBootFiles files;
     const std::string emu_nand = riftwii::wii::ChannelToStartNand();
-    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error)) {
+    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos())) {
         riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
     }
@@ -243,8 +255,10 @@ void OpenSessionLog(bool sd_mounted) {
         return;
     }
     mkdir("sd:/riftwii", 0777);
-    riftwii::wii::RotateSessionLog();
-    riftwii::wii::LogOpen("sd:/riftwii/session.log");
+    const bool rotated = riftwii::wii::RotateSessionLog();
+    riftwii::wii::LogOpen("sd:/riftwii/session.log", !rotated);
+    if (!rotated)
+        riftwii::wii::logf("The previous session could not be archived; this session is appended to preserve it.\n");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
     // Who started it: the Homebrew Channel and the RiftWii channel both
@@ -305,6 +319,7 @@ int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
+    riftwii::wii::InitGcRealCards();
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
     bool sd_mounted = MountStartupSd();
@@ -429,7 +444,11 @@ int main() {
     timed("settings and language");
 
     InitVideo();
+    // Logged either side: with four Wii Remotes connected the menu froze on a
+    // Wii (#138), and the last line of the log names how far it got.
+    riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
+    riftwii::wii::logf("Pads: started\n");
     InitAudio();
     timed("video, pads and audio");
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
@@ -477,6 +496,7 @@ int main() {
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();
+    riftwii::wii::mem::LogUsage("threads started");
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     // The plugin test switch (docs/DEVELOPING.md): only with
     // sd:/riftwii/plugin_test.txt on the card; nothing loads at a plain
@@ -501,7 +521,7 @@ int main() {
         riftwii::wii::logf("Menu closed: the background job is done\n");
         // The launch frame said it was waiting; it is not any more.
         if (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_DUMP || action == MENU_CHANNEL ||
-            action == MENU_PLAY_CHANNEL)
+            action == MENU_PLAY_CHANNEL || action == MENU_HOMEBREW)
             RefreshLaunchFrame(state, action);
     }
     // Before the adapter stops: what the player had plugged in, for the
@@ -580,6 +600,17 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         StartChannel(riftwii::wii::ChannelToStart());
+    } else if (action == MENU_HOMEBREW) {
+        const riftwii::wii::HomebrewApp app = riftwii::wii::HomebrewToStart();
+        riftwii::wii::LogOpen("sd:/riftwii/boot.log");
+        riftwii::wii::logf("RiftWii %s: start homebrew %s (%s)\n", RIFTWII_VERSION, app.name.c_str(), app.program.c_str());
+        riftwii::wii::LogDeclinedUpdate();
+        std::string error;
+        riftwii::wii::StartHomebrew(app, error);
+        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The app did not start: " + error);
+        riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        std::exit(0);
     } else if (action == MENU_CHANNEL) {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.

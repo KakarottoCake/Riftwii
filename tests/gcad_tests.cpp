@@ -316,6 +316,16 @@ bool Deliver(const std::vector<std::uint8_t>& report) {
     return true;
 }
 
+// A pad appearing: the readings at rest its origin waits for
+// (GCAD_ORIGIN_STEADY_READS in a row, 8 ms apart).
+bool DeliverSettled(const std::vector<std::uint8_t>& report) {
+    for (int k = 0; k < GCAD_ORIGIN_STEADY_READS; ++k) {
+        if (k != 0) g_driver->now += 8;
+        if (!Deliver(report)) return false;
+    }
+    return true;
+}
+
 void Unplug() {
     FakeHid& h = *g_hid;
     h.adapter = false;
@@ -472,6 +482,35 @@ static void TestHelpers() {
     EXPECT_EQ(gcad_find_v5(v5.data(), 1), -1);
 }
 
+// What keeps the screen lit: a button, or a stick or trigger moved
+// GCAD_ACTIVE_STEP or more since the last read; a resting stick's wobble
+// does not.
+static void TestPadMoved() {
+    gcad_pad before{};
+    before.stick_x = 3;
+    before.stick_y = -2;
+    before.trigger_l = 12;
+    gcad_pad now = before;
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+    now.buttons = GCAD_PAD_A;
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.stick_x = static_cast<std::int8_t>(before.stick_x + GCAD_ACTIVE_STEP - 1);  // wobble
+    now.stick_y = static_cast<std::int8_t>(before.stick_y - GCAD_ACTIVE_STEP + 1);
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+    now.stick_x = static_cast<std::int8_t>(before.stick_x + GCAD_ACTIVE_STEP);
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.substick_y = -GCAD_ACTIVE_STEP;  // down counts as much as up
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.trigger_r = GCAD_ACTIVE_STEP;
+    EXPECT_TRUE(gcad_pad_moved(&before, &now));
+    now = before;
+    now.wireless = 1;  // not something the player does
+    EXPECT_FALSE(gcad_pad_moved(&before, &now));
+}
+
 static void ExpectPort(gcad* g, std::uint32_t port, std::uint16_t buttons, int stick_x, std::uint32_t now) {
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, port, &pad, now));
@@ -499,8 +538,8 @@ static void TestV5() {
     EXPECT_EQ(hid.waiting_list.size(), 1u);  // listening for the next change
     EXPECT_FALSE(gcad_port(g, 0, nullptr, d.now));
 
-    // A pad on port 1: the first report is its origin.
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 125)));
+    // A pad on port 1: its first readings at rest are its origin.
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 131, 125)));
     ExpectPort(g, 0, 0, 0, d.now);
     // The rumble-off command goes between polls.
     EXPECT_EQ(hid.sent_out.size(), 2u);
@@ -542,7 +581,7 @@ static void TestV5() {
     gcad_tick(g, d.now);
     EXPECT_FALSE(gcad_port(g, 0, &unused, d.now));
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 140, 125)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 140, 125)));
     ExpectPort(g, 0, 0, 0, d.now);  // a fresh origin after the gap
 
     // X+Y+Start held for three seconds: a new origin.
@@ -565,7 +604,7 @@ static void TestV5() {
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_FALSE(hid.locked);
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0x02, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x02, 0, 128, 128)));
     ExpectPort(g, 0, GCAD_PAD_B, 0, d.now);
 
     // Stop: the list hook and the poll are cancelled, the device released.
@@ -594,7 +633,7 @@ static void TestV5OwnedElsewhere() {
     hid.owned_by_other = false;
     Plug(hid.dev_id);  // the release shows up as a change
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_TRUE(Deliver(Report(0x24, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x24, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
     EXPECT_EQ(static_cast<int>(pad.wireless), 1);
@@ -668,7 +707,7 @@ static void TestV5KnownDevice() {
     EXPECT_TRUE(hid.ours);
     EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0].size() == 1 && hid.sent_out[0][0] == 0x13);
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(d.g, 0, &pad, d.now));
 }
@@ -685,7 +724,7 @@ static void TestV4() {
     EXPECT_EQ(hid.control_setup.size(), 1u);  // SET_PROTOCOL, answer ignored
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_list.size(), 1u);
-    EXPECT_TRUE(Deliver(Report(0x14, 0x08, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x08, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
     EXPECT_EQ(pad.buttons, GCAD_PAD_Y);
@@ -695,7 +734,9 @@ static void TestV4() {
     rep[1 + 2 * 9 + 1] = 0x01;
     rep[1 + 2 * 9 + 3] = 128;
     rep[1 + 2 * 9 + 4] = 128;
-    EXPECT_TRUE(Deliver(rep));
+    rep[1 + 2 * 9 + 5] = 128;  // the C-stick at rest too
+    rep[1 + 2 * 9 + 6] = 128;
+    EXPECT_TRUE(DeliverSettled(rep));
     rep[1 + 2 * 9 + 1] = 0x02;
     EXPECT_TRUE(Deliver(rep));
     EXPECT_TRUE(gcad_port(g, 2, &pad, d.now));
@@ -706,7 +747,7 @@ static void TestV4() {
     Plug(4);
     EXPECT_EQ(g->dev_id, 4);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_TRUE(Deliver(Report(0x14, 0x01, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0x01, 0, 128, 128)));
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
 
     gcad_stop(g, d.now);
@@ -714,6 +755,131 @@ static void TestV4() {
     EXPECT_TRUE(gcad_idle(g));
     EXPECT_TRUE(hid.waiting_list.empty());
     EXPECT_TRUE(hid.waiting_in.empty());
+}
+
+static unsigned OriginEvents(const Driver& d, std::uint32_t port, std::uint32_t how) {
+    const std::string prefix = std::to_string(GCAD_EV_ORIGIN) + ":";
+    unsigned count = 0;
+    for (const std::string& e : d.events) {
+        if (e.compare(0, prefix.size(), prefix) != 0) continue;
+        const std::uint32_t a = static_cast<std::uint32_t>(std::stoul(e.substr(prefix.size())));
+        if ((a & 0xFF) == port && ((a >> 8) & 0xFF) == how) ++count;
+    }
+    return count;
+}
+
+// The origin comes only from the pad at rest: a reading far off (a stick
+// pinned to a corner at RiftWii's start on a Wii U) is passed over and the
+// port reads empty until one at rest; a pad held off the middle gets the
+// middle for those axes after GCAD_ORIGIN_WAIT_MS.
+static void TestOriginAtRest() {
+    FakeHid hid;
+    hid.dev_id = 2;
+    Driver d;
+    Start(hid, d, 4);
+    gcad* g = d.g;
+    gcad_pad pad{};
+
+    // Sticks at 0 in the pad's first reading: no origin from it.
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 0, 0)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 0u);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_PASSED), 1u);  // logged once
+    // The next readings at rest, steady, are the origin.
+    d.now += 8;
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 131, 125)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), 1u);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 231, 125)));
+    ExpectPort(g, 0, 0, 100, d.now);
+
+    // Plugged in again with the stick held right: empty while it waits.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += GCAD_ORIGIN_WAIT_MS - 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    // Still held at the end of the wait: x takes the middle, y (at rest)
+    // its reading, so the stick reads as held, and centred once let go.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 230, 128)));
+    ExpectPort(g, 0, 0, 102, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), 1u);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_PASSED), 2u);  // once for the whole wait, not per reading
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    ExpectPort(g, 0, 0, 0, d.now);
+
+    // A trigger held at the start: it takes 0, the rest their readings.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    d.now += 8;
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 126, 128, 200, 30)));  // the axes at rest settle
+    d.now += GCAD_ORIGIN_WAIT_MS;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 126, 128, 200, 30)));
+    EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
+    EXPECT_EQ(static_cast<int>(pad.stick_x), 0);
+    EXPECT_EQ(static_cast<int>(pad.trigger_l), 200);
+    EXPECT_EQ(static_cast<int>(pad.trigger_r), 0);
+
+    // X+Y+Start still takes the reading as it is, as the pad does.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0x0C, 0x01, 200, 128)));
+    d.now += GCAD_RECAL_MS;
+    EXPECT_TRUE(Deliver(Report(0x14, 0x0C, 0x01, 200, 128)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 200, 128)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RECAL), 1u);
+
+    // A pad that sends readings jumping about for a moment after it
+    // appears, as one did at RiftWii's start on a Wii U (2610-603):
+    // 233,147 then 99,83 while sitting still, then its own rest. None of
+    // the jumping readings is the origin; three steady ones at rest are.
+    const unsigned resting = OriginEvents(d, 0, GCAD_ORIGIN_RESTING);
+    const unsigned middle = OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 233, 147)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 99, 83)));  // 45 below the middle: not at rest
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 110, 120)));  // at rest, but
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 125, 131)));  // still moving
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 132, 134)));
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 131, 134)));
+    EXPECT_FALSE(gcad_port(g, 0, &pad, d.now));  // two steady so far
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 132, 135)));
+    ExpectPort(g, 0, 0, 0, d.now);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), resting + 1);
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), middle);  // and not the middle
+
+    // A stick jumping between two readings that are each at rest (100 and
+    // 120) never settles: at the end of the wait it takes the middle, not
+    // whichever it read last, while the y axis, steady, keeps its reading.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    const std::uint32_t appeared = d.now + 8;
+    for (int k = 0; d.now < appeared + GCAD_ORIGIN_WAIT_MS; ++k) {
+        d.now += 8;
+        EXPECT_TRUE(Deliver(Report(0x14, 0, 0, (k & 1) ? 120 : 100, 130)));
+    }
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), middle + 1);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 130)));
+    ExpectPort(g, 0, 0, 0, d.now);  // centred: x took the middle, y its own 130
 }
 
 static void TestNoAdapter() {
@@ -748,7 +914,7 @@ static void TestTransferErrorRelinks() {
     Pump();
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_EQ(g->links, 2u);
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
 }
@@ -887,6 +1053,131 @@ static void TestPadSearch() {
     text = {{loose.base, code.data(), code.size()}};
     EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
     EXPECT_EQ(pad.read, 0u);
+}
+
+// The screen-dimming reset: li r0,0, then the store and li r3,1 in the
+// order `store_first` gives, then blr. Returns its address.
+static std::uint32_t idle_reset_function(Asm& a, std::int16_t sda_offset, bool store_first) {
+    const std::uint32_t start = a.here();
+    const std::uint32_t store = 0x900D0000u | static_cast<std::uint16_t>(sda_offset);  // stw r0,d(r13)
+    a.op(0x38000000u);  // li r0,0
+    a.op(store_first ? store : 0x38600001u);
+    a.op(store_first ? 0x38600001u : store);
+    a.blr();
+    return start;
+}
+
+static void TestIdleResetSearch() {
+    constexpr std::uint32_t kMemset = 0x80004000u;
+    std::vector<std::uint8_t> code;
+    std::vector<riftwii::CodeRange> text;
+    riftwii::PadSymbols pad;
+    std::string error;
+
+    // Called from PADRead itself (Mario Kart Wii, Tatsunoko vs. Capcom),
+    // next to the video code's other reset, which the Wii Remote side calls.
+    Asm inside{0x80200000u, {}};
+    inside.blr();
+    const std::uint32_t remotes = idle_reset_function(inside, -0x6034, false);
+    const std::uint32_t ports = idle_reset_function(inside, -0x6038, false);
+    inside.prologue();
+    for (unsigned k = 0; k < 3; ++k) inside.pad_error(27, 19, kMemset);
+    inside.bl(ports);
+    inside.blr();
+    code = inside.bytes();
+    text = {{inside.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_TRUE(pad.read != 0);
+    EXPECT_EQ(pad.idle_reset, ports);
+    EXPECT_TRUE(pad.idle_reset != remotes);
+
+    // Called from the status helper linked after PADRead (Brawl), with the
+    // store before the return value (Kamen Rider), after its Wii Remote twin.
+    Asm helper{0x80200000u, {}};
+    helper.blr();
+    idle_reset_function(helper, -0x69B4, true);
+    const std::uint32_t store_first = idle_reset_function(helper, -0x69B8, true);
+    helper.prologue();
+    for (unsigned k = 0; k < 3; ++k) helper.pad_error(27, 19, kMemset);
+    helper.blr();
+    helper.prologue();
+    helper.op(0x60000000u);
+    helper.bl(store_first);
+    helper.blr();
+    code = helper.bytes();
+    text = {{helper.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, store_first);
+
+    // A call past the window is someone else's: none found.
+    Asm distant{0x80200000u, {}};
+    distant.blr();
+    idle_reset_function(distant, -0x6034, false);
+    const std::uint32_t distant_reset = idle_reset_function(distant, -0x6038, false);
+    const std::uint32_t distant_read = distant.here();
+    distant.prologue();
+    for (unsigned k = 0; k < 3; ++k) distant.pad_error(27, 19, kMemset);
+    distant.blr();
+    while (distant.here() < distant_read + 0x1000) distant.op(0x60000000u);
+    distant.bl(distant_reset);
+    code = distant.bytes();
+    text = {{distant.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.read, distant_read);
+    EXPECT_EQ(pad.idle_reset, 0u);
+
+    // Two different resets (each after its twin) called near PADRead:
+    // unsure, so none.
+    Asm two{0x80200000u, {}};
+    two.blr();
+    idle_reset_function(two, -0x6034, false);
+    const std::uint32_t first = idle_reset_function(two, -0x6038, false);
+    idle_reset_function(two, -0x5034, false);
+    const std::uint32_t second = idle_reset_function(two, -0x5038, false);
+    two.prologue();
+    for (unsigned k = 0; k < 3; ++k) two.pad_error(27, 19, kMemset);
+    two.bl(first);
+    two.bl(second);
+    two.blr();
+    code = two.bytes();
+    text = {{two.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, 0u);
+
+    // The right shape but alone, or after a twin for a flag that isn't next
+    // to it: some other function, not the video library's pair.
+    for (int twin_flag : {0, -0x7000}) {  // 0: no twin before it
+        Asm lone{0x80200000u, {}};
+        lone.blr();
+        if (twin_flag != 0) idle_reset_function(lone, static_cast<std::int16_t>(twin_flag), false);
+        const std::uint32_t reset = idle_reset_function(lone, -0x6038, false);
+        lone.prologue();
+        for (unsigned k = 0; k < 3; ++k) lone.pad_error(27, 19, kMemset);
+        lone.bl(reset);
+        lone.blr();
+        code = lone.bytes();
+        text = {{lone.base, code.data(), code.size()}};
+        EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+        EXPECT_TRUE(pad.read != 0);
+        EXPECT_EQ(pad.idle_reset, 0u);
+    }
+
+    // Clearing a flag but returning 0 is not the reset.
+    Asm other{0x80200000u, {}};
+    other.blr();
+    const std::uint32_t returns_zero = other.here();
+    other.op(0x38000000u);  // li r0,0
+    other.op(0x900D9FC8u);  // stw r0,-24632(r13)
+    other.op(0x38600000u);  // li r3,0
+    other.blr();
+    other.prologue();
+    for (unsigned k = 0; k < 3; ++k) other.pad_error(27, 19, kMemset);
+    other.bl(returns_zero);
+    other.blr();
+    code = other.bytes();
+    text = {{other.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.idle_reset, 0u);
 }
 
 // A GameCube game's PADControlMotor: the command's low two bits ORed with
@@ -1033,6 +1324,120 @@ static void TestGcPadMotorSearch() {
     EXPECT_TRUE(error.find("PADControlMotor") != std::string::npos);
 }
 
+// A self-authored SIGetStatus-shaped function with a different register
+// allocation and a cache whose signed low half requires a high-half carry.
+static void si_status_function(Asm& code, std::uint32_t cache, bool wii) {
+    code.prologue();
+    code.op(0x3D200000u | (wii ? 0xCD00u : 0xCC00u));  // lis r9,MMIO
+    code.op(0x21430003u);  // subfic r10,r3,3
+    code.op(0x81696438u);  // lwz r11,0x6438(r9)
+    code.op(0x554A1838u);  // slwi r10,r10,3
+    code.op(0x7D6B5430u);  // srw r11,r11,r10
+    code.op(0x55600739u);  // rlwinm. r0,r11,0,28,28
+    code.op(0x41820028u);  // beq past update
+    code.op(0x3D800000u | ((cache + 0x8000u) >> 16));  // lis r12,ha(cache)
+    code.op(0x5469103Au);  // slwi r9,r3,2
+    code.op(0x398C0000u | (cache & 0xFFFFu));  // addi r12,r12,lo(cache)
+    code.op(0x7D8C4A14u);  // add r12,r12,r9
+    code.op(0x812C0000u);  // lwz r9,0(r12)
+    code.op(0x55200631u);  // rlwinm. r0,r9,0,24,24
+    code.op(0x4082000Cu);  // bne past store
+    code.op(0x39200008u);  // li r9,8
+    code.op(0x912C0000u);  // stw r9,0(r12)
+    code.blr();
+}
+
+static void TestGcSiTypeCacheSearch() {
+    constexpr std::uint32_t kCache = 0x8034ABC0u;
+    for (const bool wii : {false, true}) {
+        Asm code{0x80004000u, {}};
+        code.bl(code.base + 12);
+        code.bl(code.base + 12);  // repeated calls to one table agree
+        code.blr();
+        si_status_function(code, kCache, wii);
+        const auto find = [&](const Asm& input) {
+            const auto bytes = input.bytes();
+            return riftwii::find_gc_si_type_cache({{input.base, bytes.data(), bytes.size()}}, input.base);
+        };
+        EXPECT_EQ(find(code), kCache);
+        // Neither a different hardware block, a mismatched channel
+        // index, a different error bit nor an incomplete update qualifies.
+        for (unsigned index : {2u, 3u, 4u, 5u, 6u, 7u, 8u, 10u, 12u, 13u, 14u, 15u, 16u, 17u}) {
+            Asm changed = code;
+            changed.words[3 + index] ^= 4u;
+            EXPECT_EQ(find(changed), 0u);
+        }
+        Asm truncated = code;
+        truncated.words.resize(truncated.words.size() - 2);
+        EXPECT_EQ(find(truncated), 0u);
+        Asm unrelated = code;
+        unrelated.words[0] = 0x60000000u;
+        unrelated.words[1] = 0x60000000u;
+        EXPECT_EQ(find(unrelated), 0u);
+        Asm invalid = code;
+        invalid.words[3 + 7] = 0x3D80CD00u;  // hardware address in place of RAM
+        EXPECT_EQ(find(invalid), 0u);
+        Asm conflict = code;
+        const std::uint32_t second = conflict.here();
+        si_status_function(conflict, kCache + 16, wii);
+        conflict.words[1] = 0x48000001u | ((second - (conflict.base + 4)) & 0x03FFFFFCu);
+        EXPECT_EQ(find(conflict), 0u);
+    }
+    EXPECT_EQ(riftwii::find_gc_si_type_cache({}, 0), 0u);
+}
+
+// Self-authored disabled-port block, with a shifted channel mask and
+// register allocation distinct from F-Zero's executable.
+static void pad_enabled_block(Asm& code, std::int16_t offset) {
+    code.op(0x3D408000u);  // lis r10,0x8000
+    code.op(0x7D494C30u);  // srw r9,r10,r9
+    code.op(0x80AD0000u | static_cast<std::uint16_t>(offset));  // lwz r5,d(r13)
+    code.op(0x7CA54839u);  // and. r5,r5,r9
+    code.op(0x40820020u);
+    code.op(0x38C0FFFFu);  // li r6,-1
+    code.op(0x98DE000Au);  // stb r6,10(r30)
+    code.op(0x387E0000u);  // addi r3,r30,0
+    code.op(0x38800000u);
+    code.op(0x38A0000Au);
+    code.bl(code.base + 0x500);
+}
+
+static void TestGcPadEnabledSearch() {
+    const auto find = [](const Asm& input) {
+        const auto bytes = input.bytes();
+        return riftwii::find_gc_pad_enabled_offset({{input.base, bytes.data(), bytes.size()}}, input.base);
+    };
+    for (const std::int16_t offset : {-0x7134, 0x1234}) {
+        Asm code{0x80004000u, {}};
+        pad_enabled_block(code, offset);
+        code.blr();
+        EXPECT_EQ(find(code), static_cast<std::int32_t>(offset));
+        for (unsigned index = 0; index < 11; ++index) {
+            Asm changed = code;
+            std::uint32_t changed_field = 4u;
+            if (index == 2) changed_field = 0x10000u;
+            if (index == 10) changed_field = 1u;
+            changed.words[index] ^= changed_field;
+            EXPECT_EQ(find(changed), 0);
+        }
+        Asm truncated = code;
+        truncated.words.resize(9);
+        EXPECT_EQ(find(truncated), 0);
+        Asm conflict = code;
+        conflict.words.pop_back();
+        pad_enabled_block(conflict, offset + 4);
+        conflict.blr();
+        EXPECT_EQ(find(conflict), 0);
+    }
+    for (const std::int16_t offset : {0, 3}) {
+        Asm invalid{0x80004000u, {}};
+        pad_enabled_block(invalid, offset);
+        invalid.blr();
+        EXPECT_EQ(find(invalid), 0);
+    }
+    EXPECT_EQ(riftwii::find_gc_pad_enabled_offset({}, 0), 0);
+}
+
 int main() {
     EXPECT_EQ(sizeof(gcad) % 4, 0u);
     EXPECT_EQ(offsetof(gcad, setup_in) % 32, 0u);
@@ -1040,17 +1445,22 @@ int main() {
     EXPECT_EQ(offsetof(gcad, out_data) % 32, 0u);
     EXPECT_EQ(offsetof(gcad, env) % 32, 0u);
     TestHelpers();
+    TestPadMoved();
     TestV5();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
     TestV5SetProtocolRefused();
     TestV5KnownDevice();
     TestV4();
+    TestOriginAtRest();
     TestNoAdapter();
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
+    TestIdleResetSearch();
     TestGcPadMotorSearch();
+    TestGcSiTypeCacheSearch();
+    TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

@@ -172,6 +172,9 @@ struct Plan {
     std::vector<PatchStep> order;
 };
 
+// The largest pack XML read (1 MiB).
+constexpr std::size_t kMaxPackageXml = 1048576;
+
 // Parses one XML document into a Package. Tolerates unknown attributes and
 // elements (recorded in Package::warnings); rejects malformed values,
 // DOCTYPE/entities, non-declaration processing instructions, duplicate
@@ -181,6 +184,8 @@ struct Plan {
 // the root when the XML names none.
 bool parse_package(const std::string& xml, Package& output, std::string& error,
                    const std::string& folder = "/riivolution");
+// The same from a stream, read up to kMaxPackageXml. Host only
+// (src/patching/patchstream.cpp): the Wii build has no streams.
 bool read_package(std::istream& input, Package& output, std::string& error,
                   const std::string& folder = "/riivolution");
 // Well-formed XML whose root is not <wiidisc>: not a Riivolution pack at

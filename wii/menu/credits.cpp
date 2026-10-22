@@ -41,6 +41,7 @@ const char* const kCredits[] = {
     "aspect ratio, rumble and speaker options, the Wiinnertag file RiftWii's RiiTag support reads, how to find "
     "the Wii Menu's fonts (its TrueType and bitmap ones) for the Menu font setting, how to use d2x's USB device on either USB port, "
     "how to keep saves in d2x's emulated NAND and where that NAND is kept (the Saves choice \"SD, emulated NAND\"), the "
+    "channel identity and synthetic ticket layout (dude, Miigotu and Dimok, zlib), the "
     "idea of hooking a game's second "
     "executable and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
     "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "
@@ -58,6 +59,8 @@ const char* const kCredits[] = {
     "Nintendont by FIX94 and contributors: the USB HID driver and the GameCube sound program patches, used "
     "with its developers' permission.",
     "",
+    "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
+    "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
@@ -71,11 +74,14 @@ const char* const kCredits[] = {
     "d2x cIOS: the USB and SD game loading interface.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
-    "others): the toolchain and the Wii library.",
+    "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
+    "",
+    "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
+    "read as documentation; no code copied.",
     "",
     "libwbfs by Kwiirk and contributors, as in Wiimm's WBFS tools: the layout of a WBFS drive. "
     "Friivolution by december: the launch argument other loaders pass. Both read as documentation, "

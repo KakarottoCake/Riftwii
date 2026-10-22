@@ -3,7 +3,8 @@
 #include "riftwii/profiles.hpp"
 
 #include <algorithm>
-#include <sstream>
+
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -111,9 +112,9 @@ void ProfileList::parse(const std::string& text) {
     // a line cut in two would keep a shortened name or picture path.
     std::string head = text.substr(0, kMaxProfilesFile);
     if (text.size() > kMaxProfilesFile) head.resize(head.rfind('\n') == std::string::npos ? 0 : head.rfind('\n') + 1);
-    std::istringstream in(head);
+    LineReader in(head);
     std::string line;
-    while (std::getline(in, line) && profiles_.size() < kMaxProfiles) {
+    while (in.next(line) && profiles_.size() < kMaxProfiles) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         // <key>\t<name>[\t<picture>]

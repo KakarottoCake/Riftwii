@@ -102,7 +102,8 @@ contains theirs names them in its file header, and
   (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
   Dimok, zlib), how to drive d2x's USB device on
   either USB port (Dimok, Rodries, Kwiirk, zlib), and RiftWii's copy of
-  the Gecko code handler. Thanks to
+  the Gecko code handler; the channel identity and synthetic ticket layout
+  (dude, Miigotu and Dimok, zlib; source commit in NOTICE.md). Thanks to
   its developers and everyone whose work it carries: ToadKing
   (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke
   and the GeckoOS authors, crediar, dcx2, container12345, blackb0x and
@@ -116,18 +117,24 @@ contains theirs names them in its file header, and
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
+- **Mario Party 4 community decompilation**: documentation of GameCube font
+  encoding behavior (read only; no code copied).
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
   **oggplayer** by Hermes: the menu's toolkit, text and music player.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
 - **d2x cIOS**: the USB and SD game loading interface.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
-  Martin, Sven Peter and others): the toolchain and the Wii library.
+  Martin, Sven Peter and others): the toolchain and the Wii library;
+  libogc also documents the physical GameCube card read protocol, SRAM behavior
+  and MEM1-only EXI DMA.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
   **libruntimeiospatch**: how the Wii, IOS and the patch format behave
   (read as documentation); Dolphin also for how the Wii Remote extension's
   encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument
   other loaders pass (both read as documentation, nothing copied).
+- **projectPiki's Pikmin 2 decompilation**: GameCube SDK controller
+  lifecycle behaviour, read as documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat

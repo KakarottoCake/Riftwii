@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
 
-#include <sstream>
+#include "riftwii/textlines.hpp"
 
 namespace riftwii {
 namespace {
@@ -433,10 +433,13 @@ std::string LaunchModel::save() const {
     if (game.rumble == "off") text += "*riftwii*\trumble\toff\n";
     if (game.speaker == "off") text += "*riftwii*\tspeaker\toff\n";
     if (game.region_strings == "on") text += "*riftwii*\tregionstrings\ton\n";
+    if (game.nand_source == "real" || game.nand_source == "emu")
+        text += "*riftwii*\tnandsource\t" + game.nand_source + "\n";
     // Fast is the default while drive timing can freeze games on a Wii
     // (the ARAM streaming race); a "fast" saved before stays fast.
     if (game.gc_disc_reads == "drive") text += "*riftwii*\tgcdiscreads\tdrive\n";
-    if (game.gc_card == "shared") text += "*riftwii*\tgccard\tshared\n";
+    if (game.gc_card == "shared" || game.gc_card == "real")
+        text += "*riftwii*\tgccard\t" + game.gc_card + "\n";
     // "global", the default, is written as nothing.
     if (game.gc_progressive == "480p" || game.gc_progressive == "game")
         text += "*riftwii*\tgcprogressive\t" + game.gc_progressive + "\n";
@@ -471,9 +474,9 @@ void LaunchModel::restore(const std::string& text) {
     // one-choice convenience existed; normalize that exact shape after all
     // records are known, regardless of their line ordering.
     std::vector<int> restored_enabled(packages.size(), -1);
-    std::istringstream lines(text);
+    LineReader lines(text);
     std::string line;
-    while (std::getline(lines, line)) {
+    while (lines.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
         const std::size_t t1 = line.find('\t');
@@ -517,10 +520,12 @@ void LaunchModel::restore(const std::string& text) {
                 game.speaker = value == "off" ? "off" : "on";
             } else if (key == "regionstrings") {
                 game.region_strings = value == "on" ? "on" : "off";
+            } else if (key == "nandsource") {
+                game.nand_source = value == "real" || value == "emu" ? value : "auto";
             } else if (key == "gcdiscreads") {
                 game.gc_disc_reads = value == "drive" ? "drive" : "fast";
             } else if (key == "gccard") {
-                game.gc_card = value == "shared" ? "shared" : "own";
+                game.gc_card = value == "shared" || value == "real" ? value : "own";
             } else if (key == "gcprogressive") {
                 game.gc_progressive = value == "480p" || value == "game" ? value : "global";
             } else if (key == "gcwidescreen") {

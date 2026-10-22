@@ -59,13 +59,14 @@ bool game_needs_most_of_mem2(const std::string& game_id);
 
 // GameCube games (the native loader, gcnative.cpp) whose ARAM addresses
 // must stay as the SDK gives them: raising them to 0x10004000, for the
-// sound program to read MEM2, breaks a check of their own. Mario Party 4's
-// sound manager (msmSysInit, its ARAM end fixed at 0x808000) tests
+// sound program to read MEM2, breaks a check of their own. Hudson's sound
+// manager in Mario Party 4 to 7 and DDR Mario Mix (msmSysInit, its ARAM end fixed at 0x808000) tests
 // ARGetBaseAddress() plus its sound data's size against that end, sees no
 // room and stops in an endless loop before the first frame. Their
 // addresses are never raised: in Dolphin, where the sound program is left
 // alone, their sound still plays from MEM1, but on a Wii Mario Party 4's
-// program is itself patched (its AX entry in riftwii/gcdsp.hpp), so it reads MEM2 and sounds right. Either way they run.
+// program is itself patched (its AX entry in riftwii/gcdsp.hpp), so it reads MEM2 and sounds right;
+// one whose program no entry knows would still run, with its sound read from MEM1.
 bool gc_keeps_aram_addresses(const std::string& game_id);
 
 // GameCube games whose file loader thread takes a queued load as soon as a
@@ -73,7 +74,13 @@ bool gc_keeps_aram_addresses(const std::string& game_id);
 // with reads at the SD card's speed it can wake while another thread has
 // made a small, full heap current (Luigi's Mansion: a 512 KB solid heap for
 // a room's models) and gets nothing. The native loader makes each load use
-// the heap current where it was queued (gcnative.cpp's find_lm_loader).
+// the heap current where it was queued for its read buffer. Callbacks use
+// that heap only when the current heap is temporary; on the game's two
+// main heaps or JKRHeap's root/system heaps they keep the game's choice
+// (gcnative.cpp's find_lm_loader, gcload.hpp). A callback's archive can
+// outlive its buffer: forcing game_usa.szp's callback onto its queued
+// scene heap destroyed the global archive during scene cleanup after
+// the progressive prompt.
 bool gc_loads_use_queued_heap(const std::string& game_id);
 
 // GameCube games whose restart (Reset, riftwii/gcreset.hpp) is known to
@@ -81,6 +88,29 @@ bool gc_loads_use_queued_heap(const std::string& game_id);
 // entry again. Every other game goes back to RiftWii on Reset, as holding
 // HOME does, until its restart has been seen to work.
 bool gc_restart_known_to_work(const std::string& game_id);
+
+// A word of a GameCube game's code that is replaced for Wii mode, where the
+// game is checked to hold `expected` at `address` first (the address is that
+// game's own: no search finds a mistake like this). `what` is the log line.
+struct GcCodeFix {
+    std::uint32_t address;
+    std::uint32_t expected;
+    std::uint32_t replacement;
+    const char* what;
+};
+
+// The code fixes of a GameCube game, by its exact ID (empty for most).
+// Eternal Darkness (USA, GEDE01) froze on its opening quote in Wii mode:
+// its GX draw-done callback (0x801eb09c, run from the GX finish interrupt)
+// does OSReceiveMessage(queue, 0, OS_MESSAGE_BLOCK) on a one-message queue
+// that the main loop posts to just after GXSetDrawDone. When the interrupt
+// came first, the queue was empty, the callback went to sleep inside the
+// interrupt, and with it the interrupted main thread, the only poster:
+// nothing woke it again. The fix makes that receive not block (`li r5,0`,
+// the game ignores the result), so a message that has not been posted yet
+// is taken by the next draw-done instead. Found from the game's code and
+// a Dolphin run (the freeze at the first callback, gone with the change).
+std::vector<GcCodeFix> gc_code_fixes(const std::string& game_id);
 
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,

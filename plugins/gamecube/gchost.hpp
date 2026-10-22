@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@ struct GcImage {
     std::int32_t usb_fd = -1;
     std::vector<Fragment> usb_fragments;
     std::uint64_t usb_bytes = 0;
+    bool real_card = false;
+    std::array<std::uint8_t, 12> real_card_flash_id{};
     bool shared_card = false;
     bool drive_timing = true;
     bool progressive = false;
@@ -43,6 +46,13 @@ struct GcImage {
     bool sharp = false;
     bool sixty_hz = false;
     std::uint32_t vi_width = 0;
+    // A switch to another program on the disc (rwp_gc_launch's exec).
+    bool exec = false;
+    std::uint32_t exec_dol = 0;
+    std::uint32_t exec_restart = 0;
+    std::vector<std::string> exec_args;
+    // A game packed in a TGC image on the disc (rwp_gc_launch's tgc_offset).
+    std::uint32_t tgc_offset = 0;
 };
 
 // What the launch read from the settings, the launch's extras, the crash
@@ -69,8 +79,10 @@ struct GcLaunchExtras {
 };
 
 // Starts the game (gcnative.cpp). Returns only on failure.
+// `error_code`, when given, is set to an RWP_GC_ERROR_* value for the
+// failures the DOL acts on (plugin_gamecube.h).
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLaunchExtras& extras,
-                    std::string& error);
+                    std::string& error, std::uint32_t* error_code = nullptr);
 
 // ---- RiftWii's functions the loader calls, on the table ----
 

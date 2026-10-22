@@ -9,8 +9,6 @@
 #include <unistd.h>
 
 #include <cstdio>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -18,6 +16,8 @@
 #include "libwiigui/gui.h"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "riftwii/textlines.hpp"
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -108,26 +108,27 @@ void Advance(const void* xfb, int width, int height) {
             g_pointing = false;
             return;
         }
-        std::istringstream words(g_lines[g_next++]);
+        WordReader words(g_lines[g_next++]);
         std::string cmd;
-        words >> cmd;
+        words.next(cmd);
         if (cmd.empty() || cmd[0] == '#') continue;
         if (cmd == "wait") {
-            words >> g_wait;
+            words.next(g_wait);
         } else if (cmd == "point") {
-            words >> g_x >> g_y;
+            words.next(g_x);
+            words.next(g_y);
             g_pointing = true;
         } else if (cmd == "nopoint") {
             g_pointing = false;
         } else if (cmd == "press") {
             std::string name;
-            words >> name;
+            words.next(name);
             g_press = ButtonNamed(name);
             g_press_frames = g_press ? 1 : 0;
             g_wait = 2;
         } else if (cmd == "hold") {
             std::string name;
-            words >> name;
+            words.next(name);
             const u32 b = ButtonNamed(name);
             g_held_new |= b & ~g_held;
             g_held |= b;
@@ -138,13 +139,15 @@ void Advance(const void* xfb, int width, int height) {
         } else if (cmd == "glide") {
             g_from_x = g_x;
             g_from_y = g_y;
-            words >> g_to_x >> g_to_y >> g_glide_frames;
+            words.next(g_to_x);
+            words.next(g_to_y);
+            words.next(g_glide_frames);
             if (g_glide_frames < 1) g_glide_frames = 1;
             g_glide = 0;
             g_wait = g_glide_frames;
         } else if (cmd == "slowmo") {
             float factor = 1;
-            words >> factor;
+            words.next(factor);
             transition::SetSlowMotion(factor);
         } else if (cmd == "launchshots") {
             g_launch_shots = true;
@@ -154,14 +157,14 @@ void Advance(const void* xfb, int width, int height) {
             logf("guiscript: crashing on purpose\n");
             asm volatile("trap");  // a program exception, in Dolphin too
         } else if (cmd == "finalshot") {
-            words >> g_final_shot;
+            words.next(g_final_shot);
         } else if (cmd == "mem") {
             std::string label;
-            words >> label;
+            words.next(label);
             mem::LogUsage(label.empty() ? "guiscript" : label.c_str());
         } else if (cmd == "shot") {
             std::string path;
-            words >> path;
+            words.next(path);
             if (xfb) Shot(path, xfb, width, height);
         } else {
             logf("guiscript: unknown command '%s'\n", cmd.c_str());
@@ -182,10 +185,11 @@ void GuiScriptCrashShot(const void* xfb, int width, int height) {
 }
 
 bool GuiScriptLoad(const char* path) {
-    std::ifstream in(path);
-    if (!in) return false;
+    std::string text;
+    if (!ReadWholeFile(path, text)) return false;
+    LineReader in(text);
     std::string line;
-    while (std::getline(in, line)) {
+    while (in.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         g_lines.push_back(line);
     }
