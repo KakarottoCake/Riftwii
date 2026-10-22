@@ -1893,11 +1893,11 @@ msgstr "このゲーム専用のオプション: ディスクの読み込み方�
 msgid "Not made yet"
 msgstr "まだ作られていません"
 
-msgid "Home lists the GameCube games only, from sd:/games."
-msgstr "ホームにはsd:/gamesのゲームキューブのゲームだけを表示します。"
+msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
+msgstr "ホームにはsd:/gamesとusb:/gamesのゲームキューブのゲームだけを表示します。"
 
-msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
-msgstr "ゲームキューブのゲームはSDカードにsd:/games/<ID>/game.isoとして入れます。"
+msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
+msgstr "ゲームキューブのゲームは、SDカードかUSBドライブのgamesの中に専用のフォルダを作り、games/<ID>/game.isoとして入れます。"
 
 msgid "Loading speed"
 msgstr "読み込み速度"

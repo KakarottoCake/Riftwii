@@ -1893,11 +1893,11 @@ msgstr "As opções próprias deste jogo: como o disco é lido e os controles."
 msgid "Not made yet"
 msgstr "Ainda não criado"
 
-msgid "Home lists the GameCube games only, from sd:/games."
-msgstr "O Início mostra só os jogos de GameCube, de sd:/games."
+msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
+msgstr "O Início mostra só os jogos de GameCube, de sd:/games e usb:/games."
 
-msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
-msgstr "Um jogo de GameCube vai no cartão SD, como sd:/games/<seu ID>/game.iso."
+msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
+msgstr "Um jogo de GameCube vai numa pasta própria dentro de games, como games/<seu ID>/game.iso, no cartão SD ou no USB."
 
 msgid "Loading speed"
 msgstr "Carregamento"

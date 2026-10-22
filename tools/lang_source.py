@@ -1592,8 +1592,8 @@ T = {
     "RiftWii could not write {1}.": ("RiftWii no pudo escribir {1}.", "RiftWiiは{1}を書き込めませんでした。", "O RiftWii não conseguiu escrever {1}.", "RiftWii non è riuscito a scrivere {1}."),
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
     "Not made yet": ("Aún no creado", "まだ作られていません", "Ainda não criado", "Non ancora creato"),
-    "Home lists the GameCube games only, from sd:/games.": ("Inicio muestra solo los juegos de GameCube, de sd:/games.", "ホームにはsd:/gamesのゲームキューブのゲームだけを表示します。", "O Início mostra só os jogos de GameCube, de sd:/games.", "La Home mostra solo i giochi GameCube, da sd:/games."),
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.": ("Un juego de GameCube va en la tarjeta SD, como sd:/games/<su ID>/game.iso.", "ゲームキューブのゲームはSDカードにsd:/games/<ID>/game.isoとして入れます。", "Um jogo de GameCube vai no cartão SD, como sd:/games/<seu ID>/game.iso.", "Un gioco GameCube va sulla scheda SD, come sd:/games/<il suo ID>/game.iso."),
+    "Home lists the GameCube games only, from sd:/games and usb:/games.": ("Inicio muestra solo los juegos de GameCube, de sd:/games y usb:/games.", "ホームにはsd:/gamesとusb:/gamesのゲームキューブのゲームだけを表示します。", "O Início mostra só os jogos de GameCube, de sd:/games e usb:/games.", "La Home mostra solo i giochi GameCube, da sd:/games e usb:/games."),
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.": ("Un juego de GameCube va en su propia carpeta dentro de games, como games/<su ID>/game.iso, en la tarjeta SD o el USB.", "ゲームキューブのゲームは、SDカードかUSBドライブのgamesの中に専用のフォルダを作り、games/<ID>/game.isoとして入れます。", "Um jogo de GameCube vai numa pasta própria dentro de games, como games/<seu ID>/game.iso, no cartão SD ou no USB.", "Un gioco GameCube va in una cartella tutta sua dentro games, come games/<il suo ID>/game.iso, sulla scheda SD o sull'unità USB."),
     "Loading speed": ("Carga", "読み込み速度", "Carregamento", "Caricamento"),
     "Fast": ("Rápida", "高速", "Rápida", "Veloce"),
     "As on a GameCube (slower)": ("Como en una GameCube (más lenta)", "ゲームキューブと同じ (遅い)", "Como em um GameCube (mais lenta)", "Come su un GameCube (più lenta)"),
@@ -3533,10 +3533,10 @@ KO = {
         "이 게임만의 옵션: 디스크 읽기 방식과 조작.",
     "Not made yet":
         "아직 만들어지지 않음",
-    "Home lists the GameCube games only, from sd:/games.":
-        "홈에 sd:/games의 게임큐브 게임만 표시합니다.",
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.":
-        "게임큐브 게임은 SD 카드에 sd:/games/<ID>/game.iso로 넣습니다.",
+    "Home lists the GameCube games only, from sd:/games and usb:/games.":
+        "홈에 sd:/games와 usb:/games의 게임큐브 게임만 표시합니다.",
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
+        "게임큐브 게임은 SD 카드나 USB 드라이브의 games 안에 전용 폴더를 만들어 games/<ID>/game.iso로 넣습니다.",
     "Loading speed":
         "로딩 속도",
     "Fast":
@@ -5530,10 +5530,10 @@ FR = {
         "Les options propres à ce jeu : la lecture de son disque et ses commandes.",
     "Not made yet":
         "Pas encore créé",
-    "Home lists the GameCube games only, from sd:/games.":
-        "L'accueil n'affiche que les jeux GameCube, depuis sd:/games.",
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.":
-        "Un jeu GameCube se met sur la carte SD, en sd:/games/<son ID>/game.iso.",
+    "Home lists the GameCube games only, from sd:/games and usb:/games.":
+        "L'accueil n'affiche que les jeux GameCube, depuis sd:/games et usb:/games.",
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
+        "Un jeu GameCube se met dans son propre dossier de games, en games/<son ID>/game.iso, sur la carte SD ou le stockage USB.",
     "Loading speed":
         "Chargement",
     "Fast":

@@ -826,7 +826,7 @@ static const char* HomeSourceName(const std::string& v)
 
 static std::string HomeSourceNote(const std::string& v)
 {
-	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games.");
+	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games and usb:/games.");
 	return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 }
 
@@ -2233,7 +2233,7 @@ public:
 		: words(riftwii::wii::Settings().sd_games == "off"
 			? std::string(tr("No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."))
 			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
-				" " + tr("A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.")),
+				" " + tr("A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.")),
 		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
 		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -11185,12 +11185,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					constexpr int kSources = 5;
 					int at = 0;
 					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
-					// With the SD scan off those two would list nothing: stepped over.
+					// With the SD scan off SD would list nothing: stepped over. GameCube stays, it lists USB games too.
 					const bool sdScanned = settings.sd_games != "off";
 					for (int tries = 0; tries < kSources; ++tries) {
 						at = ((at % kSources) + kSources + direction) % kSources;
 						const std::string choice = kSourceChoices[at];
-						if (sdScanned || (choice != "sd" && choice != "gamecube")) break;
+						if (sdScanned || choice != "sd") break;
 					}
 					settings.home_source = kSourceChoices[at];
 					saveAndNote(HomeSourceNote(settings.home_source));
@@ -11579,8 +11579,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// this setting (a std::string): wait for it before writing.
 					WaitForDriveScan(noteTxt);
 					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
-					// Games from: SD or GameCube would list nothing now.
-					if (settings.sd_games == "off" && (settings.home_source == "sd" || settings.home_source == "gamecube"))
+					// Games from: SD would list nothing now (GameCube still lists USB games).
+					if (settings.sd_games == "off" && (settings.home_source == "sd"))
 						settings.home_source = "all";
 					// Home reads the drives again when you leave Settings.
 					g_scanned = false;

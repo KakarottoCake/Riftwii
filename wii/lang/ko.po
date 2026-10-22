@@ -1893,11 +1893,11 @@ msgstr "이 게임만의 옵션: 디스크 읽기 방식과 조작."
 msgid "Not made yet"
 msgstr "아직 만들어지지 않음"
 
-msgid "Home lists the GameCube games only, from sd:/games."
-msgstr "홈에 sd:/games의 게임큐브 게임만 표시합니다."
+msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
+msgstr "홈에 sd:/games와 usb:/games의 게임큐브 게임만 표시합니다."
 
-msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
-msgstr "게임큐브 게임은 SD 카드에 sd:/games/<ID>/game.iso로 넣습니다."
+msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
+msgstr "게임큐브 게임은 SD 카드나 USB 드라이브의 games 안에 전용 폴더를 만들어 games/<ID>/game.iso로 넣습니다."
 
 msgid "Loading speed"
 msgstr "로딩 속도"
