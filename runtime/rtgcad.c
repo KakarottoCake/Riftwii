@@ -173,15 +173,26 @@ static int pad_at_rest(const uint8_t analog[6]) {
     return 1;
 }
 
-/* Whether every axis is within GCAD_ORIGIN_STEADY_STEP of the reading
- * before. */
-static int pad_steady(const uint8_t analog[6], const uint8_t before[6]) {
+/* Counts each axis's readings at rest in a row, each within
+ * GCAD_ORIGIN_STEADY_STEP of the one before; whether all six have reached
+ * GCAD_ORIGIN_STEADY_READS. */
+static int count_steady(gcad* g, uint32_t port, const uint8_t analog[6]) {
     uint32_t axis;
+    int all = 1;
     for (axis = 0; axis < 6; ++axis) {
-        const int d = (int)analog[axis] - (int)before[axis];
-        if (d > GCAD_ORIGIN_STEADY_STEP || d < -GCAD_ORIGIN_STEADY_STEP) return 0;
+        uint8_t* reads = &g->steady_reads[port][axis];
+        const int d = (int)analog[axis] - (int)g->steady[port][axis];
+        if (!axis_at_rest(axis, analog[axis])) {
+            *reads = 0;
+        } else if (*reads != 0 && d <= GCAD_ORIGIN_STEADY_STEP && d >= -GCAD_ORIGIN_STEADY_STEP) {
+            if (*reads < GCAD_ORIGIN_STEADY_READS) ++*reads;
+        } else {
+            *reads = 1;
+        }
+        g->steady[port][axis] = analog[axis];
+        if (*reads < GCAD_ORIGIN_STEADY_READS) all = 0;
     }
-    return 1;
+    return all;
 }
 
 static void origin_event(gcad* g, uint32_t port, uint32_t how, const uint8_t analog[6]) {
@@ -198,7 +209,9 @@ static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t
     uint8_t* origin = g->origin[port];
     for (axis = 0; axis < 6; ++axis) {
         const uint8_t middle = axis < 4 ? 128 : 0;
-        const int off = how == GCAD_ORIGIN_MIDDLE && !axis_at_rest(axis, analog[axis]);
+        /* At the end of the wait an axis that never settled at rest
+         * takes the middle, not whatever it reads at that moment. */
+        const int off = how == GCAD_ORIGIN_MIDDLE && g->steady_reads[port][axis] < GCAD_ORIGIN_STEADY_READS;
         origin[axis] = off ? middle : analog[axis];
     }
     g->origin_valid[port] = 1;
@@ -393,19 +406,11 @@ static void take_report(gcad* g, uint32_t now) {
              * port, so the next report shows it appearing again. */
             if (!was) {
                 g->origin_since[i] = now;
-                g->steady_reads[i] = 0;
+                for (j = 0; j < 6; ++j) g->steady_reads[i][j] = 0;
                 /* Once per wait, so a log shows what was passed over. */
                 if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
             }
-            if (!at_rest) {
-                g->steady_reads[i] = 0;
-            } else if (g->steady_reads[i] != 0 && pad_steady(src + 3, g->steady[i])) {
-                ++g->steady_reads[i];
-            } else {
-                g->steady_reads[i] = 1;
-            }
-            for (j = 0; j < 6; ++j) g->steady[i][j] = src[3 + j];
-            if (g->steady_reads[i] >= GCAD_ORIGIN_STEADY_READS) {
+            if (count_steady(g, i, src + 3)) {
                 set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
             } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
                 set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
