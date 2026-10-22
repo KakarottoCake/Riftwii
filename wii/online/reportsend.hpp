@@ -15,7 +15,8 @@ constexpr const char* kReportPath = "sd:/riftwii/report.txt";
 
 // At startup, before session.log is opened again: the last run's log
 // becomes session-previous.log, so a restart does not lose it.
-void RotateSessionLog();
+// False keeps startup in append mode: the old session was not preserved elsewhere.
+bool RotateSessionLog();
 
 // The controllers connected right now, on one line: Wii Remotes and what
 // is plugged into them, GameCube ports, the GameCube adapter, the Wii U

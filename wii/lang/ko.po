@@ -1032,9 +1032,6 @@ msgstr "Wii U 드라이브"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요."
-
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다."
 
@@ -1998,21 +1995,6 @@ msgstr "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요."
 
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. 가장자리에 가장 가까운 USB 포트를 사용하세요."
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요."
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32 또는 NTFS (또는 WBFS 드라이브)."
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. 게임은 wbfs 또는 games 폴더에 넣으세요."
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. 슬롯 249, 250 또는 251에 d2x cIOS."
-
 msgid "A to Z"
 msgstr "가나다순"
 
@@ -2825,3 +2807,21 @@ msgstr "슬롯 A에 읽을 수 있는 메모리 카드가 없습니다. 슬롯 B
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "실제 카드를 준비하지 못했습니다. 카드를 확인하고 다시 시도하세요."
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다)."
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. 가장자리에 가장 가까운 USB 포트를 사용하세요."
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요."
+
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32 권장. NTFS와 WBFS도 지원합니다."
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요."
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. 슬롯 249/250/251에 d2x cIOS."
