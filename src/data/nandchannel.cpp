@@ -250,6 +250,14 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     return true;
 }
 
+std::string channel_codes_refusal(const ChannelProgram& program) {
+    const bool read_leniently = program.format.compare(0, 18, "DOL read leniently") == 0;
+    if (!read_leniently) return std::string();
+    return "content " + std::to_string(program.index) + " was read only leniently (" + program.format +
+           "), so it may be a loader that starts the game from elsewhere, and the codes would hook that "
+           "loader, not the game";
+}
+
 std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end) {
     // Only MEM1 counts: the blobs' code is in MEM1, and RiftWii's loader
     // refuses a program with parts in MEM2.

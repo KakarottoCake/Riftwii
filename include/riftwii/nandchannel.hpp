@@ -160,6 +160,18 @@ struct ChannelProgram {
     std::string format;  // parse_channel_program's: "DOL", "ELF", ...
 };
 
+// Why the cheats stay off for `program` when RiftWii's loader starts it,
+// or empty when they may go on. A DOL read only leniently (its entry
+// outside every text section, or overlapping sections) is not laid out
+// as the SDK links a game: it may be a loader that unpacks or reads the
+// real game and jumps to it. The code handler's hook would then sit in
+// that loader's own retrace handler, which stops running once the game
+// starts, while its frames patch code the loader is still filling in. A
+// tester's Fluidity (WFLE01) looked like that: its hook was found at
+// 0x81342c38, far above the code its cheat patches (0x801b37a4), and the
+// screen stayed black.
+std::string channel_codes_refusal(const ChannelProgram& program);
+
 // Which content to load: the biggest of the title's own contents (not the
 // banner, not a shared one) that is a whole, valid DOL. Many WiiWare games
 // boot a small loader that reads the real program from another content;
