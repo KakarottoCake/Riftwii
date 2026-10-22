@@ -25,7 +25,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 8u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 9u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The DI interrupt types a DVDLow callback takes. */
@@ -104,6 +104,7 @@ struct gc_rt_header {
     uint32_t hook_boot_dol;         /* __OSBootDolSimple(...): gc_on_boot_dol, then the original */
     uint32_t replay_boot_dol;
     uint32_t continue_boot_dol;
+    uint32_t hook_stop_motor;       /* DVDLowStopMotor(cb): gc_on_stop_motor (a two-disc game's change, gc_disc.h) */
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -223,6 +224,14 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TR_PAD_ENABLED_AFTER (GC_TR_CRASH_R1 + 6)
 #define GC_TR_PAD_RAW_ERRS (GC_TR_CRASH_R1 + 7)
 #define GC_TR_PAD_NATIVE (GC_TR_CRASH_R1 + 8) /* bits 0-3 reserved; bit 8: type table available */
+/* A disc change's records (GC_TRACE_DISC, gc_disc.h) reuse three of them
+ * the same way: the disc in (0: disc 1) << 24 | discs changed << 16 |
+ * cover interrupts the game took << 8 | changes nobody waited for (each
+ * count's low 8 bits), the motor's stops, and the DI cover register as
+ * the game left it. */
+#define GC_TR_DISC_STATE GC_TR_CRASH_R1
+#define GC_TR_DISC_STOPS (GC_TR_CRASH_R1 + 1)
+#define GC_TR_DISC_DICVR (GC_TR_CRASH_R1 + 2)
 /* where: what wrote the record */
 #define GC_TRACE_READ 1u
 #define GC_TRACE_PAD 2u
@@ -236,6 +245,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_RESTART 10u /* the game is restarted (Reset): MEM1 goes back as it was at the jump */
 #define GC_TRACE_EXEC 11u   /* the game switches to another program: exec.txt written, the way back next */
 #define GC_TRACE_PAD_SI 12u /* a pad record with the crash-word overlay above */
+#define GC_TRACE_DISC 13u   /* a two-disc game's other disc went in (gc_disc.h) */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -262,6 +272,10 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_RESET_TEST 128u  /* tests of the restart: a Reset press at the 1500th pad read and at the 3600th */
 #define GC_FLAG_EXEC_TEST 4096u  /* tests of a program switch (gc_on_boot_dol) in a game without one: at the 1500th
                                   * pad read, to the disc's own program with one argument, "rwtest" */
+#define GC_FLAG_DISC_TEST 8192u  /* tests of a two-disc game's change in Dolphin: the motor is stopped at the 1500th
+                                  * pad read and the 3600th (GC_DISC_TEST_*), as DVDLowStopMotor would stop it */
+#define GC_DISC_TEST_FIRST 1500u
+#define GC_DISC_TEST_SECOND 3600u
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
 
@@ -533,6 +547,11 @@ struct gc_rt_context {
      * the game's two main heaps, then JKRHeap's system and root heaps.
      * Kept at the end so existing trace/context offsets stay unchanged. */
     uint32_t load_root_heap_offsets[GC_LOAD_ROOT_HEAPS];
+    /* A two-disc game: struct gc_disc_change (gc_disc.h, loader-placed in
+     * MEM2) with both discs' runs; 0: one disc, and a stop of the motor is
+     * only answered. In the bytes the struct's 32-byte alignment pads it
+     * to anyway, so the context's size stays the same. */
+    uint32_t disc_change;
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
@@ -547,6 +566,7 @@ uint32_t gc_on_load_callbacks_done(struct gc_rt_context* ctx, uint32_t group);
 uint32_t gc_on_disk_id(struct gc_rt_context* ctx, uint32_t id, uint32_t cb);
 uint32_t gc_on_inquiry(struct gc_rt_context* ctx, uint32_t info, uint32_t cb);
 uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb);
+uint32_t gc_on_stop_motor(struct gc_rt_context* ctx, uint32_t cb);
 uint32_t gc_on_audio_status(struct gc_rt_context* ctx, uint32_t sub, uint32_t cb);
 uint32_t gc_on_audio_stream(struct gc_rt_context* ctx, uint32_t sub, uint32_t length, uint32_t offset, uint32_t cb);
 void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where);

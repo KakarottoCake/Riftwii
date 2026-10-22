@@ -53,6 +53,11 @@ struct GcImage {
     std::vector<std::string> exec_args;
     // A game packed in a TGC image on the disc (rwp_gc_launch's tgc_offset).
     std::uint32_t tgc_offset = 0;
+    // A two-disc game's second disc (rwp_gc_launch's disc2_*): its path,
+    // empty for one disc, and on the USB drive its pieces and size.
+    std::string disc2_path;
+    std::vector<Fragment> disc2_usb_fragments;
+    std::uint64_t disc2_usb_bytes = 0;
 };
 
 // What the launch read from the settings, the launch's extras, the crash

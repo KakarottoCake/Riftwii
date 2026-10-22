@@ -470,6 +470,28 @@ list are in the debugger area (`0x80001800`–`0x80003000`), inside the
 low memory that is put back, so keep them there. The test switch is
 `sd:/riftwii/gc/test/reset`: two presses made by the blob.
 
+**Two-disc games** (`runtime/gc/gc_disc.h`, issue #173). Home lists a
+game's `disc2.iso` with its disc 1 (`gc_second_disc_of`); at the launch
+`find_second_disc` (`wii/launch/gclaunch.cpp`) passes the folder's disc
+2 of the same game ID to the plugin, which checks its header
+(`src/disc/gcdiscs.cpp`), grows the FST's room at MEM1's top to the
+larger of the two discs' FSTs (the SDK reads the new disc's FST there and
+refuses one larger than 0x8000003C says), and puts disc 2's runs, its RVZ
+reader (sharing disc 1's buffers) and the change's state in MEM2; with
+packs, disc 1's FST is kept in MEM2 too, as disc 2's overwrites the one
+in MEM1. The context gets one word, `disc_change`, in its alignment
+padding. DVDLowStopMotor (libogc's command 0xE3) then opens the cover;
+about two seconds later the blob's own alarm puts the other disc in
+(the runs `ctx->runs` points to) and, once the SDK waits on the cover
+(DICVR's mask), sets DICVR's interrupt bit and runs the game's DI
+interrupt handler from the OS's table (0x80003094), so the SDK reads the
+new disc's ID and FST as from a drive. A wrong disc gets another stop
+of the motor, which changes back. Reset puts disc 1 back in. The trace
+writes a `disc` record at each change. Without a disc 2 nothing of this
+is set up and StopMotor is answered as before. The test switch is
+`sd:/riftwii/gc/test/discchange` (with a disc 2 beside the game): the
+blob stops the motor itself at the 1500th and 3600th pad reads.
+
 **Physical memory cards** (`wii/storage/gcrealcard.cpp`,
 `src/fs/gcreal.cpp`): the Saves page has read-only tools for either Wii
 slot, including slot B with no card in A. libogc CARD mounts/unlocks the

@@ -539,6 +539,24 @@ void test_gc_second_disc_of() {
     EXPECT_TRUE(gc_second_disc_of({}).empty());
 }
 
+// The disc a two-disc game changes to (runtime/gc/gc_disc.h): the same ID's
+// disc 2 in the folder, whatever its place; another ID's disc 2 never, and
+// said; none for a game started from its second disc.
+void test_gc_disc_change_partner() {
+    std::vector<std::size_t> other;
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIE08", 1}}, 0, &other), 1);
+    EXPECT_TRUE(other.empty());
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 1}, {"GALE01", 0}, {"GBIE08", 0}}, 2, &other), 0);
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIP08", 1}}, 0, &other), -1);
+    EXPECT_EQ(other.size(), 1u);
+    EXPECT_EQ(other[0], 1u);
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 1}, {"GBIE08", 0}}, 0), -1);
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}}, 0), -1);
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIE08", 1}}, 5), -1);
+    // Two copies of disc 2 (an ISO and an RVZ): the first.
+    EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIE08", 1}, {"GBIE08", 1}}, 0), 1);
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -692,6 +710,7 @@ int main() {
     test_plan_over_usb();
     test_ciso_detection();
     test_gc_second_disc_of();
+    test_gc_disc_change_partner();
     test_gc_folder_skip_reason();
     test_gc_container_by_magic();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";

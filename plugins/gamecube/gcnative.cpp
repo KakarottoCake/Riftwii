@@ -21,6 +21,7 @@
 #include "gc_bt.h"
 #include "gc_gcad.h"
 #include "gc_card.h"
+#include "gc_disc.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
 #include "gc_video.h"
@@ -31,6 +32,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcclock.hpp"
 #include "riftwii/gccontrols.hpp"
+#include "riftwii/gcdiscs.hpp"
 #include "riftwii/gcdsp.hpp"
 #include "riftwii/gcexi.hpp"
 #include "riftwii/gcfont.hpp"
@@ -1533,8 +1535,10 @@ std::vector<gc_rvz_extent> extents_of(const Fat32File& file) {
 
 // `source` is the RVZ's disc as open_gc_disc opened it (the plugin has no
 // RTTI to ask a ByteSource what it is).
-bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat32File& file, GcRvzSetup& out,
-                    std::string& error) {
+// `groups_name` names its group table's file (the game ID, and for a
+// second disc a suffix: the two discs share the ID).
+bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat32File& file,
+                    const std::string& groups_name, GcRvzSetup& out, std::string& error) {
     if (source == nullptr) {
         error = "the RVZ was not opened as one";
         return false;
@@ -1564,7 +1568,7 @@ bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat
     // sector at a time during play.
     mkdir("sd:/riftwii", 0777);
     mkdir("sd:/riftwii/rvz", 0777);
-    const std::string path = "sd:/riftwii/rvz/" + image.id + ".groups";
+    const std::string path = "sd:/riftwii/rvz/" + groups_name + ".groups";
     {
         std::FILE* f = std::fopen(path.c_str(), "wb");
         const bool written =
@@ -1592,6 +1596,132 @@ bool prepare_gc_rvz(const GcImage& image, const RvzDiscSource* source, const Fat
          static_cast<unsigned>(out.table.entries.size()), static_cast<unsigned>(out.table_extents.size()),
          static_cast<unsigned>(out.extents.size()));
     return true;
+}
+
+// A two-disc game's second disc (runtime/gc/gc_disc.h), opened for the
+// blob to change to: its runs (and RVZ reader), checked against disc 1's
+// header (riftwii/gcdiscs.hpp). `on` false: one disc, as before.
+struct GcSecondDisc {
+    bool on = false;
+    bool rvz = false;
+    bool on_usb = false;
+    std::string path;
+    std::vector<std::uint8_t> boot;
+    std::vector<GcRun> placed;
+    GcRvzSetup rvz_setup;
+};
+
+bool is_rvz_path(const std::string& path) {
+    return path.size() >= 4 && path.compare(path.size() - 4, 4, ".rvz") == 0;
+}
+
+// Any reason it cannot be used is logged, and the game starts with disc 1
+// alone (it then stops where it asks for disc 2, as before).
+void open_second_disc(const GcImage& image, const std::vector<std::uint8_t>& first_boot, std::uint32_t tgc_offset,
+                      GcSecondDisc& out) {
+    out = GcSecondDisc();
+    if (image.disc2_path.empty()) return;
+    auto refuse = [&image](const std::string& why) {
+        logf("GameCube: %s is not used as disc 2: %s; the game stops where it asks for it\n",
+             image.disc2_path.c_str(), why.c_str());
+    };
+    if (tgc_offset != 0) return refuse("the game is one packed in a TGC image on a bonus disc");
+    GcImage disc2 = image;
+    disc2.path = image.disc2_path;
+    disc2.rvz = is_rvz_path(disc2.path);
+    disc2.usb_fragments = image.disc2_usb_fragments;
+    disc2.usb_bytes = image.disc2_usb_bytes;
+    const bool on_usb = !disc2.usb_fragments.empty();
+    if (on_usb != !image.usb_fragments.empty()) return refuse("its pieces on the USB drive were not found");
+    // The plain blob reads no RVZ; the RVZ one reads ISOs too.
+    if (disc2.rvz && !image.rvz) return refuse("it is an RVZ and disc 1 an ISO: make both discs the same kind");
+    std::string error;
+    Fat32File file;
+    if (on_usb) {
+        file.entry.size = static_cast<std::uint32_t>(disc2.usb_bytes);
+        file.fragments = disc2.usb_fragments;
+    } else if (!resolve_sd_file(disc2.path, file, error)) {
+        return refuse(error);
+    }
+    std::unique_ptr<ByteSource> disc;
+    const RvzDiscSource* rvz_disc = nullptr;
+    if (!open_gc_disc(disc2, disc, rvz_disc, error)) return refuse(error);
+    std::vector<std::uint8_t> boot(kGcDiscHeaderBytes);
+    if (!read_at(*disc, 0, boot.data(), boot.size())) return refuse("its header cannot be read");
+    if (!gc_second_disc_matches(first_boot.data(), boot.data(), disc->size(), error)) return refuse(error);
+    std::vector<GcRun> placed;
+    const bool runs_ok = disc2.rvz ? gc_disc_runs_rvz(disc->size(), nullptr, placed, error)
+                                   : gc_disc_runs(file.fragments, file.entry.size, nullptr, placed, error, on_usb);
+    if (!runs_ok) return refuse(error);
+    if (disc2.rvz && !prepare_gc_rvz(disc2, rvz_disc, file, image.id + ".disc2", out.rvz_setup, error))
+        return refuse(error);
+    out.on = true;
+    out.rvz = disc2.rvz;
+    out.on_usb = on_usb;
+    out.path = disc2.path;
+    out.boot = std::move(boot);
+    out.placed = std::move(placed);
+}
+
+// The game's view of one disc as the blob's runs (gc_rt.h): `fst_source`
+// is where the packs' FST (Fst runs) is kept.
+void fill_gc_runs(gc_rt_run* runs, const std::vector<GcRun>& placed, std::uint32_t fst_source) {
+    for (std::size_t i = 0; i < placed.size(); ++i) {
+        const GcRun& r = placed[i];
+        runs[i].disc = static_cast<std::uint32_t>(r.disc);
+        runs[i].length = static_cast<std::uint32_t>(r.length);
+        runs[i].skip = r.skip;
+        if (r.kind == GcRun::Kind::Sd) {
+            runs[i].kind = GC_RUN_SD;
+            runs[i].source = static_cast<std::uint32_t>(r.sector);
+        } else if (r.kind == GcRun::Kind::Usb) {
+            runs[i].kind = GC_RUN_USB;
+            runs[i].source = static_cast<std::uint32_t>(r.sector);
+        } else if (r.kind == GcRun::Kind::Image) {
+            runs[i].kind = GC_RUN_RVZ;
+            runs[i].source = static_cast<std::uint32_t>(r.image_offset);
+        } else if (r.kind == GcRun::Kind::Fst) {
+            runs[i].kind = GC_RUN_MEM;
+            runs[i].source = fst_source + static_cast<std::uint32_t>(r.fst_offset);
+        } else {
+            runs[i].kind = GC_RUN_ZERO;
+            runs[i].source = 0;
+        }
+    }
+}
+
+// The buffers an RVZ reader decodes into (gc_rvz.h), shared by both discs
+// of a two-disc game: each the larger of the two needs.
+struct GcRvzBuffers {
+    std::uint32_t dctx = 0;
+    std::uint32_t stored = 0;
+    std::uint32_t stored_bytes = 0;
+    std::uint32_t slot[GC_RVZ_SLOTS] = {};
+    std::uint32_t group_bytes = 0;
+};
+
+// An RVZ reader as the loader leaves it: `setup`'s RVZ on its buffers.
+void fill_gc_rvz_reader(gc_rvz* reader, const GcRvzSetup& setup, const GcRvzBuffers& buffers, bool on_usb) {
+    reader->magic = GC_RVZ_MAGIC;
+    reader->disc_bytes = setup.disc_bytes;
+    reader->chunk_bytes = setup.chunk_bytes;
+    reader->group_count = setup.table.group_count;
+    reader->stored_buffer = buffers.stored;
+    reader->stored_bytes = buffers.stored ? buffers.stored_bytes : 0;
+    reader->dctx_buffer = buffers.dctx;
+    reader->dctx_bytes = buffers.dctx ? kGcRvzDecoderBytes : 0;
+    for (std::uint32_t s = 0; s < GC_RVZ_SLOTS; ++s) {
+        reader->slots[s].buffer = buffers.slot[s];
+        reader->slots[s].buffer_bytes = buffers.group_bytes;
+        reader->slots[s].group = GC_RVZ_NO_GROUP;
+    }
+    std::memcpy(reader->header, setup.header, sizeof(reader->header));
+    reader->entry_sector = GC_RVZ_NO_GROUP;
+    reader->table_extent_count = static_cast<std::uint32_t>(setup.table_extents.size());
+    std::copy(setup.table_extents.begin(), setup.table_extents.end(), reader->table_extents);
+    reader->extent_count = static_cast<std::uint32_t>(setup.extents.size());
+    reader->extents_on_usb = on_usb ? 1 : 0;  // the group table stays on the card
+    std::copy(setup.extents.begin(), setup.extents.end(), reader->extents);
 }
 
 // The RVZ build of the blob out of its zstd frame (Makefile.runtime).
@@ -1818,6 +1948,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
     // And of a program switch, in a game that has none (gc_on_boot_dol).
     const bool test_exec = stat("sd:/riftwii/gc/test/exec", &st_press) == 0;
+    // And of a two-disc game's change, in a game that never asks for one
+    // (GC_FLAG_DISC_TEST): on only when there is a second disc.
+    const bool test_disc_change = stat("sd:/riftwii/gc/test/discchange", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
@@ -1869,7 +2002,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_handover_480i, "handover480i"},
                          {test_ave_keep, "avekeep"},
                          {test_reset, "reset"},
-                         {test_exec, "exec"}};
+                         {test_exec, "exec"},
+                         {test_disc_change, "discchange"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
         switches += switches.empty() ? " [test switches: " : ", ";
@@ -1917,7 +2051,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     GcRvzSetup rvz_setup;
-    if (rvz && !prepare_gc_rvz(image, rvz_disc, file, rvz_setup, error)) return false;
+    if (rvz && !prepare_gc_rvz(image, rvz_disc, file, image.id, rvz_setup, error)) return false;
 
     std::vector<std::uint8_t> boot(0x440), bi2(kBi2Bytes);
     Dol dol;
@@ -1963,7 +2097,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // its window), and the game reads that FST from memory.
     if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
     const std::uint32_t fst_size = be32(&boot[0x428]);
-    const std::uint32_t fst_max = std::max(be32(&boot[0x42C]), fst_size);
+    std::uint32_t fst_max = std::max(be32(&boot[0x42C]), fst_size);
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
         fst = pack->fst;
@@ -1974,6 +2108,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         ok = false;
     }
     if (!ok) return false;
+    // A two-disc game's second disc: the game reads its FST into the same
+    // room as disc 1's, which grows to hold the larger (the SDK refuses a
+    // disc whose FST is larger than the room 0x8000003C gives).
+    GcSecondDisc second;
+    open_second_disc(image, boot, tgc_offset, second);
+    if (second.on) fst_max = gc_two_disc_fst_room(fst_max, second.boot.data());
 
 
     Code code(dol.text);
@@ -2115,6 +2255,30 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     const std::uint32_t rvz_state_bytes =
         rvz ? gc_rvz_state_bytes(static_cast<std::uint32_t>(rvz_setup.extents.size())) : 0;
     const std::uint32_t rvz_addr = rvz ? mem2_take(rvz_state_bytes) : 0;
+    // A two-disc game (gc_disc.h): the disc change's state, disc 2's runs
+    // and RVZ reader, and, when disc 1's runs serve the packs' FST from
+    // memory, a copy of it here: the game reads disc 2's FST over the one
+    // at MEM1's top, and disc 1's must still be there to go back to.
+    std::uint32_t disc_change_addr = 0, runs2_addr = 0, rvz2_addr = 0, fst_copy_addr = 0;
+    if (second.on) {
+        const std::uint32_t mem2_before = mem2_next;
+        const bool fst_in_runs = std::any_of(placed.begin(), placed.end(),
+                                             [](const GcRun& r) { return r.kind == GcRun::Kind::Fst; });
+        disc_change_addr = mem2_take(sizeof(gc_disc_change));
+        runs2_addr = mem2_take(static_cast<std::uint32_t>(second.placed.size() * sizeof(gc_rt_run)));
+        if (second.rvz)
+            rvz2_addr = mem2_take(gc_rvz_state_bytes(static_cast<std::uint32_t>(second.rvz_setup.extents.size())));
+        if (fst_in_runs) fst_copy_addr = mem2_take(static_cast<std::uint32_t>(fst.size()));
+        if (mem2_next - kGcMem2Data > kGcMem2DataMax) {
+            logf("GameCube: %s is not used as disc 2: its %u run(s) do not fit in the %u KB of MEM2 set aside; the "
+                 "game stops where it asks for it\n",
+                 second.path.c_str(), static_cast<unsigned>(second.placed.size()),
+                 static_cast<unsigned>(kGcMem2DataMax / 1024));
+            mem2_next = mem2_before;
+            second = GcSecondDisc();
+            disc_change_addr = runs2_addr = rvz2_addr = fst_copy_addr = 0;
+        }
+    }
     const std::uint32_t mem2_bytes = mem2_next - kGcMem2Data;
     if (mem2_bytes > kGcMem2DataMax) {
         error = "the packs' disc layout is too large";
@@ -2129,10 +2293,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         rvz_next = (at + bytes + 31u) & ~31u;
         return at;
     };
-    const std::uint32_t rvz_dctx_addr = rvz && rvz_setup.sizes.decoder ? rvz_take(kGcRvzDecoderBytes) : 0;
-    const std::uint32_t rvz_stored_addr = rvz && rvz_setup.sizes.stored ? rvz_take(rvz_setup.sizes.stored) : 0;
-    const std::uint32_t rvz_slot_addr[GC_RVZ_SLOTS] = {rvz ? rvz_take(rvz_setup.sizes.group) : 0,
-                                                       rvz ? rvz_take(rvz_setup.sizes.group) : 0};
+    // Disc 2's reader (an RVZ too) shares them: each the larger of the two.
+    RvzBufferSizes rvz_sizes = rvz_setup.sizes;
+    if (second.rvz) {
+        rvz_sizes.decoder = rvz_sizes.decoder || second.rvz_setup.sizes.decoder;
+        rvz_sizes.stored = std::max(rvz_sizes.stored, second.rvz_setup.sizes.stored);
+        rvz_sizes.group = std::max(rvz_sizes.group, second.rvz_setup.sizes.group);
+    }
+    const std::uint32_t rvz_dctx_addr = rvz && rvz_sizes.decoder ? rvz_take(kGcRvzDecoderBytes) : 0;
+    const std::uint32_t rvz_stored_addr = rvz && rvz_sizes.stored ? rvz_take(rvz_sizes.stored) : 0;
+    const std::uint32_t rvz_slot_addr[GC_RVZ_SLOTS] = {rvz ? rvz_take(rvz_sizes.group) : 0,
+                                                       rvz ? rvz_take(rvz_sizes.group) : 0};
     if (rvz_next - kGcRvzCache > kGcRvzCacheMax) {
         logf("GameCube: the RVZ's %u KiB chunks need %u KB of buffers in game, more than the %u KB set aside\n",
              static_cast<unsigned>(rvz_setup.chunk_bytes / 1024), static_cast<unsigned>((rvz_next - kGcRvzCache) / 1024),
@@ -2183,8 +2354,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  "0x%08x (%u bytes), the game's group 0x%08x and the stream's 0x%08x (%u bytes each)\n",
                  rvz_addr, static_cast<unsigned>(rvz_state_bytes), kGcRvzCache,
                  static_cast<unsigned>(rvz_next - kGcRvzCache), rvz_dctx_addr, rvz_stored_addr,
-                 static_cast<unsigned>(rvz_setup.sizes.stored), rvz_slot_addr[0], rvz_slot_addr[1],
-                 static_cast<unsigned>(rvz_setup.sizes.group));
+                 static_cast<unsigned>(rvz_sizes.stored), rvz_slot_addr[0], rvz_slot_addr[1],
+                 static_cast<unsigned>(rvz_sizes.group));
         const std::uint32_t game_floor = std::max(stack.address, arena_lo);
         if (game_floor > arena_hi) {
             logf("GameCube: the game's stack or arena starts at 0x%08x, above the arena's top 0x%08x: the FST and "
@@ -2207,29 +2378,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     auto* ctx = reinterpret_cast<gc_rt_context*>(blob_addr + h.context_offset);
-    auto* runs = static_cast<gc_rt_run*>(staged(runs_addr));
-    for (std::size_t i = 0; i < placed.size(); ++i) {
-        const GcRun& r = placed[i];
-        runs[i].disc = static_cast<std::uint32_t>(r.disc);
-        runs[i].length = static_cast<std::uint32_t>(r.length);
-        runs[i].skip = r.skip;
-        if (r.kind == GcRun::Kind::Sd) {
-            runs[i].kind = GC_RUN_SD;
-            runs[i].source = static_cast<std::uint32_t>(r.sector);
-        } else if (r.kind == GcRun::Kind::Usb) {
-            runs[i].kind = GC_RUN_USB;
-            runs[i].source = static_cast<std::uint32_t>(r.sector);
-        } else if (r.kind == GcRun::Kind::Image) {
-            runs[i].kind = GC_RUN_RVZ;
-            runs[i].source = static_cast<std::uint32_t>(r.image_offset);
-        } else if (r.kind == GcRun::Kind::Fst) {
-            runs[i].kind = GC_RUN_MEM;
-            runs[i].source = fst_addr + static_cast<std::uint32_t>(r.fst_offset);
-        } else {
-            runs[i].kind = GC_RUN_ZERO;
-            runs[i].source = 0;
-        }
-    }
+    fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
+    if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
+    if (second.on) fill_gc_runs(static_cast<gc_rt_run*>(staged(runs2_addr)), second.placed, 0);
     std::memcpy(reinterpret_cast<void*>(fst_addr), fst.data(), fst.size());
     std::memcpy(reinterpret_cast<void*>(bi2_addr), bi2.data(), bi2.size());
     // Developer arguments left in bi2.bin move the game's ArenaHi (see the
@@ -2494,31 +2645,39 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     ctx->runs = runs_addr;
     ctx->run_count = static_cast<std::uint32_t>(placed.size());
+    GcRvzBuffers rvz_buffers;
+    rvz_buffers.dctx = rvz_dctx_addr;
+    rvz_buffers.stored = rvz_stored_addr;
+    rvz_buffers.stored_bytes = rvz_sizes.stored;
+    rvz_buffers.slot[0] = rvz_slot_addr[0];
+    rvz_buffers.slot[1] = rvz_slot_addr[1];
+    rvz_buffers.group_bytes = rvz_sizes.group;
     if (rvz) {
         // The RVZ's reader (gc_rvz.h), staged with the rest of MEM2's data;
         // its buffers need nothing in them.
-        auto* reader = static_cast<gc_rvz*>(staged(rvz_addr));
-        reader->magic = GC_RVZ_MAGIC;
-        reader->disc_bytes = rvz_setup.disc_bytes;
-        reader->chunk_bytes = rvz_setup.chunk_bytes;
-        reader->group_count = rvz_setup.table.group_count;
-        reader->stored_buffer = rvz_stored_addr;
-        reader->stored_bytes = rvz_stored_addr ? rvz_setup.sizes.stored : 0;
-        reader->dctx_buffer = rvz_dctx_addr;
-        reader->dctx_bytes = rvz_dctx_addr ? kGcRvzDecoderBytes : 0;
-        for (std::uint32_t s = 0; s < GC_RVZ_SLOTS; ++s) {
-            reader->slots[s].buffer = rvz_slot_addr[s];
-            reader->slots[s].buffer_bytes = rvz_setup.sizes.group;
-            reader->slots[s].group = GC_RVZ_NO_GROUP;
-        }
-        std::memcpy(reader->header, rvz_setup.header, sizeof(reader->header));
-        reader->entry_sector = GC_RVZ_NO_GROUP;
-        reader->table_extent_count = static_cast<std::uint32_t>(rvz_setup.table_extents.size());
-        std::copy(rvz_setup.table_extents.begin(), rvz_setup.table_extents.end(), reader->table_extents);
-        reader->extent_count = static_cast<std::uint32_t>(rvz_setup.extents.size());
-        reader->extents_on_usb = on_usb ? 1 : 0;  // the group table stays on the card
-        std::copy(rvz_setup.extents.begin(), rvz_setup.extents.end(), reader->extents);
+        fill_gc_rvz_reader(static_cast<gc_rvz*>(staged(rvz_addr)), rvz_setup, rvz_buffers, on_usb);
         ctx->rvz = rvz_addr;
+    }
+    if (second.on) {
+        // A two-disc game (gc_disc.h): disc 1 in, disc 2 ready, the cover
+        // closing about 2 s after the game stops the motor (the reference
+        // loaders' wait), then looked at every quarter second for a game
+        // not yet waiting on it.
+        if (second.rvz) fill_gc_rvz_reader(static_cast<gc_rvz*>(staged(rvz2_addr)), second.rvz_setup, rvz_buffers,
+                                           second.on_usb);
+        auto* change = static_cast<gc_disc_change*>(staged(disc_change_addr));
+        change->magic = GC_DISC_MAGIC;
+        change->discs[0] = {runs_addr, static_cast<std::uint32_t>(placed.size()), rvz ? rvz_addr : 0};
+        change->discs[1] = {runs2_addr, static_cast<std::uint32_t>(second.placed.size()), rvz2_addr};
+        change->cover_ticks = 2 * 60750000u;
+        change->look_ticks = 60750000u / 4;
+        ctx->disc_change = disc_change_addr;
+        if (test_disc_change) ctx->flags |= GC_FLAG_DISC_TEST;
+        logf("GameCube: disc 2 %s (%s, %u run(s) at 0x%08x%s), changed to when the game stops the disc's motor; "
+             "state 0x%08x%s; FST room %u bytes\n",
+             second.path.c_str(), second.rvz ? "an RVZ" : "an ISO", static_cast<unsigned>(second.placed.size()),
+             runs2_addr, second.on_usb ? ", on the USB drive" : "", disc_change_addr,
+             fst_copy_addr ? ", disc 1's packed FST kept in MEM2 too" : "", static_cast<unsigned>(fst_max));
     }
     ctx->set_alarm = low.set_alarm;
     ctx->alarm_entry = blob_addr + h.alarm_entry;
@@ -2611,8 +2770,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         hook(low.seek, h.hook_seek);
         hook(low.disk_id, h.hook_disk_id);
         hook(low.inquiry, h.hook_inquiry);
-        hook(low.stop_motor, h.hook_cb_r3);
+        // With a second disc the stop of the motor changes discs
+        // (gc_on_stop_motor); otherwise it is only answered, as before.
+        hook(low.stop_motor, ctx->disc_change != 0 ? h.hook_stop_motor : h.hook_cb_r3);
         hook(low.request_error, h.hook_cb_r3);
+        if (ctx->disc_change != 0 && low.stop_motor == 0)
+            logf("GameCube: DVDLowStopMotor was not found: the game cannot ask for disc 2\n");
         hook(low.audio_status, h.hook_audio_status);
         hook(low.audio_config, h.hook_cb_r5);
         hook(low.audio_stream, h.hook_audio_stream);
