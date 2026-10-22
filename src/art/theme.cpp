@@ -262,13 +262,13 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 }
             }
             if (!found) {
-                add_note(notes, line_num, "unknown colour key '" + key + "'; ignored");
+                add_note(notes, line_num, "unknown color key '" + key + "'; ignored");
             } else {
                 ThemeColor c;
                 if (parse_theme_color(val, c)) {
                     theme.colors.*(found->field) = c;
                 } else {
-                    add_note(notes, line_num, key + ": \"" + val + "\" is not a colour (#RRGGBB or #RRGGBBAA); the default stays");
+                    add_note(notes, line_num, key + ": \"" + val + "\" is not a color (#RRGGBB or #RRGGBBAA); the default stays");
                 }
             }
         } else if (section == Section::Shape) {

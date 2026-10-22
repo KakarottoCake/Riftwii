@@ -27,6 +27,15 @@ using ZlibInflate = bool (*)(const std::uint8_t* data, std::size_t size, std::ui
 bool decode_png(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
                 std::vector<std::uint8_t>& rgba, std::uint32_t& width, std::uint32_t& height, std::string& error);
 
+// The same, with every buffer taken from `block` (`block_size` bytes, 32-byte
+// aligned by the caller) instead of the heap: the file's joined image data,
+// the unfiltered rows and the RGBA result, which `rgba` then points into.
+// A picture of w x h needs about the file's size + w*h*8 + h bytes; a
+// 640x480 one 2.5 MB. For the theme browser, which keeps them in MEM2.
+bool decode_png_in(const std::uint8_t* png, std::size_t size, ZlibInflate inflate, std::uint32_t max_side,
+                   std::uint8_t* block, std::size_t block_size, const std::uint8_t*& rgba, std::uint32_t& width,
+                   std::uint32_t& height, std::string& error);
+
 // The PNG CRC-32 (ISO 3309) of `size` bytes.
 std::uint32_t png_crc32(const std::uint8_t* data, std::size_t size);
 

@@ -291,6 +291,7 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     }
     if (code == GC_EV_CONNECTION_REQUEST) {
         bt->progress |= GC_BT_SEEN_CONN_REQUEST;
+        bt->connecting++;
         bt_copy(reply, p, 6);
         reply[6] = 0x00;  /* become the master: several remotes share this end */
         bt_command(bt, GC_HCI_ACCEPT_CONNECTION, reply, 7);
@@ -300,6 +301,7 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         struct gc_bt_remote* r;
         uint32_t slot;
         bt->conn_status = p[0];
+        if (bt->connecting != 0) bt->connecting--;  /* this setup is over, failed or not */
         if (p[0] != 0) {
             bt->progress |= GC_BT_SEEN_CONN_FAILED;
             return;
@@ -761,6 +763,17 @@ static void bt_update_rumble(struct gc_bt* bt, int send) {
         report[1] = want;
         if (send) bt_report(bt, r, report, 2);
     }
+}
+
+int gc_bt_wants_frame_polls(const struct gc_bt* bt) {
+    uint32_t i;
+    /* A remote on its way in counts too: its connection and the commands
+     * queued for it go out at the game's frame rate, not the heartbeat's. */
+    if (bt->connecting || bt->command_count != 0) return 1;
+    for (i = 0; i < GC_BT_REMOTES; ++i) {
+        if (bt->remotes[i].used) return 1;
+    }
+    return 0;
 }
 
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {

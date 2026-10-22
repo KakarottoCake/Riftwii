@@ -1805,6 +1805,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
     const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
+    // SD trace writes stop the game with interrupts off. Enable them only
+    // for a diagnostic run, never as part of normal controller polling.
+    const bool test_trace = stat("sd:/riftwii/gc/test/trace", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
     const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
@@ -1854,6 +1857,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         bool on;
         const char* name;
     } test_switches[] = {{test_presses, "press"},
+                         {test_trace, "trace"},
                          {test_leave, "leave"},
                          {test_crash, "crash"},
                          {test_crash_black, "crashblack"},
@@ -2262,12 +2266,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     mkdir("sd:/riftwii/gc", 0777);
     mkdir("sd:/riftwii/gc/cards", 0777);
 
-    // The trace (gc_rt.h): one cluster's worth of zeroed records, its
-    // sectors given to the blob, read back after a run that went wrong.
+    // Keep one crash record for problem reports. Repeated gameplay writes
+    // are diagnostic-only: each synchronous SD write stops the PPC.
     std::uint32_t trace_sector = 0, trace_count = 0;
     {
         static const char kTrace[] = "sd:/riftwii/gc/trace.bin";
-        std::vector<std::uint8_t> zeros(128 << 10);
+        const std::uint32_t requested_records = test_trace ? 256 : 1;
+        std::vector<std::uint8_t> zeros(requested_records * 512);
         std::FILE* t = std::fopen(kTrace, "wb");
         const bool written = t && std::fwrite(zeros.data(), 1, zeros.size(), t) == zeros.size();
         if (t) std::fclose(t);
@@ -2276,10 +2281,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         std::string why;
         if (written && resolve_sd_file(kTrace, tf, why) && !tf.fragments.empty()) {
             trace_sector = static_cast<std::uint32_t>(tf.fragments[0].sector);
-            trace_count = static_cast<std::uint32_t>(std::min<std::uint64_t>(256, tf.fragments[0].sector_count));
+            const std::uint64_t available_records = tf.fragments[0].sector_count;
+            trace_count = static_cast<std::uint32_t>(std::min<std::uint64_t>(requested_records, available_records));
         }
-        logf("GameCube: trace %s (sector %u, %u records)%s%s\n", trace_count ? "on" : "off", trace_sector, trace_count,
-             why.empty() ? "" : ": ", why.c_str());
+        logf("GameCube: SD trace capture is %s (sector %u, %u records)%s%s.\n",
+             !trace_count ? "unavailable" : test_trace ? "on for gameplay diagnostics" : "reserved for a crash only",
+             trace_sector, trace_count, why.empty() ? "" : ": ", why.c_str());
     }
 
     // The memory card in slot A (gc_card.h): one file per game, or the shared one
@@ -2553,8 +2560,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->trace_sector = trace_sector;
     ctx->trace_count = trace_count;
     ctx->trace_buf = trace_addr;
+    if (test_trace) ctx->flags |= GC_FLAG_TRACE_GAMEPLAY;
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
-    // opens the Bluetooth controller at the game's first PADRead.
+    // opens the Bluetooth controller at the game's first PADRead. After
+    // start-up, idle discovery is serviced by the heartbeat.
     ctx->bt = bt_addr;
     static_cast<gc_bt*>(staged(bt_addr))->map = controls;
     // The GameCube adapter for Wii U: its driver runs from the game's

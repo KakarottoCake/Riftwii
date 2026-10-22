@@ -95,6 +95,19 @@ void Configure(br_ssl_client_context& cc, br_x509_minimal_context& xc) {
 TlsStream::TlsStream() = default;
 TlsStream::~TlsStream() = default;
 
+void TlsStream::StateRelease::operator()(State* state) const {
+    if (!state) return;
+    state->~State();
+    if (!placed) ::operator delete(state);
+}
+
+std::size_t TlsStream::memory_needed() { return sizeof(State) + 32; }
+
+void TlsStream::use_memory(void* block, std::size_t bytes) {
+    memory_ = block;
+    memory_bytes_ = bytes;
+}
+
 void TlsStream::set_deadline(std::uint64_t deadline) {
     deadline_ = deadline;
     if (state_) state_->deadline = deadline;
@@ -103,7 +116,12 @@ void TlsStream::set_deadline(std::uint64_t deadline) {
 bool TlsStream::timed_out() const { return state_ && state_->timed_out; }
 
 bool TlsStream::open(SocketTransport& socket, const std::string& host, std::string& error) {
-    state_.reset(new (std::nothrow) State());
+    if (memory_ && memory_bytes_ >= memory_needed()) {
+        const std::uintptr_t aligned = (reinterpret_cast<std::uintptr_t>(memory_) + 31) & ~std::uintptr_t(31);
+        state_ = StatePtr(new (reinterpret_cast<void*>(aligned)) State(), StateRelease{true});
+    } else {
+        state_ = StatePtr(new (std::nothrow) State(), StateRelease{false});
+    }
     if (!state_) {
         error = "no memory for TLS";
         return false;

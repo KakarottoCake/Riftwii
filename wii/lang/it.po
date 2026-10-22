@@ -1311,7 +1311,7 @@ msgstr "Tema"
 msgid "Default"
 msgstr "Predefinito"
 
-msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgid "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
 msgstr "I colori e le immagini del menu. I temi sono cartelle in sd:/riftwii/themes (docs/THEMES.md su GitHub)."
 
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
@@ -2807,6 +2807,147 @@ msgstr "Lo slot A non contiene una scheda leggibile. Una scheda nello slot B non
 
 msgid "The real card could not be prepared. Check the card and try again."
 msgstr "Impossibile preparare la scheda reale. Controlla la scheda e riprova."
+
+msgid "Get more themes"
+msgstr "Scarica altri temi"
+
+msgid "Browse"
+msgstr "Sfoglia"
+
+msgid "Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes."
+msgstr "Temi creati dalla comunità, da riftwii.github.io, ognuno con un'anteprima. Vengono messi in sd:/riftwii/themes."
+
+msgid "The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."
+msgstr "Il tema in uso è stato eliminato, quindi il menu torna all'aspetto predefinito. Si riavvia quando esci dalle Impostazioni."
+
+msgid "There is not enough free memory for the theme browser."
+msgstr "Non c'è abbastanza memoria libera per lo sfoglia-temi."
+
+msgid "Get"
+msgstr "Scarica"
+
+msgid "On the card"
+msgstr "Sulla scheda"
+
+msgid "Getting the list of themes..."
+msgstr "Recupero dell'elenco dei temi..."
+
+msgid "Could not get the list"
+msgstr "Impossibile ottenere l'elenco"
+
+msgid "There are no themes in the list yet."
+msgstr "Non ci sono ancora temi nell'elenco."
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
+msgstr "{1} è installato. Sceglilo in Impostazioni > Tema per usarlo. Premi A per eliminarlo."
+
+msgid "A newer copy of {1} is out. Press A to update it, or delete it."
+msgstr "È disponibile una copia più recente di {1}. Premi A per aggiornarlo o eliminarlo."
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
+msgstr "C'è già un tema chiamato {1} in sd:/riftwii/themes, che non è stato messo da qui. Premi A per sostituirlo."
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
+msgstr "Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finché non lo scegli in Impostazioni > Tema."
+
+msgid "{1} themes"
+msgstr "{1} temi"
+
+msgid "by {1}"
+msgstr "di {1}"
+
+msgid "License: {1}"
+msgstr "Licenza: {1}"
+
+msgid "Size: {1}"
+msgstr "Dimensione: {1}"
+
+msgid "Has its own music"
+msgstr "Ha una musica propria"
+
+msgid "No preview"
+msgstr "Nessuna anteprima"
+
+msgid "Loading the preview..."
+msgstr "Caricamento dell'anteprima..."
+
+msgid "Could not get the list of themes: {1}"
+msgstr "Impossibile ottenere l'elenco dei temi: {1}"
+
+msgid "The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."
+msgstr "La cartella del tema viene rimossa da sd:/riftwii/themes. Puoi scaricarlo di nuovo da qui."
+
+msgid "A newer copy of this theme is out."
+msgstr "È disponibile una copia più recente di questo tema."
+
+msgid "Get the newer copy"
+msgstr "Scarica la copia nuova"
+
+msgid "Remove the theme"
+msgstr "Rimuovi il tema"
+
+msgid "Replace {1}?"
+msgstr "Sostituire {1}?"
+
+msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it."
+msgstr "C'è già un tema chiamato {1} in sd:/riftwii/themes e non è stato messo da qui. Il download lo sostituisce."
+
+msgid "Replace"
+msgstr "Sostituisci"
+
+msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
+msgstr "{1} è stato eliminato. Era il tema in uso, quindi il menu torna all'aspetto predefinito."
+
+msgid "{1} is deleted."
+msgstr "{1} è stato eliminato."
+
+msgid "Theme not deleted"
+msgstr "Tema non eliminato"
+
+msgid "{1} could not be deleted: {2}"
+msgstr "Impossibile eliminare {1}: {2}"
+
+msgid "{1} is installed. Pick it in Settings > Theme to use it."
+msgstr "{1} è installato. Sceglilo in Impostazioni > Tema per usarlo."
+
+msgid "Stopped. Nothing was changed."
+msgstr "Interrotto. Non è cambiato nulla."
+
+msgid "Theme not installed"
+msgstr "Tema non installato"
+
+msgid "{1} could not be installed: {2}. Nothing was changed."
+msgstr "Impossibile installare {1}: {2}. Non è cambiato nulla."
+
+msgid "{1} was not installed."
+msgstr "{1} non è stato installato."
+
+msgid "Downloading a theme"
+msgstr "Download di un tema"
+
+msgid "Stopping..."
+msgstr "Interruzione..."
+
+msgid "The theme browser is busy. Try again in a moment."
+msgstr "Lo sfoglia-temi è occupato. Riprova tra un momento."
+
+msgid "{1}: {2} of {3} downloaded"
+msgstr "{1}: {2} di {3} scaricati"
+
+msgid "{1}: checking the download..."
+msgstr "{1}: controllo del download..."
+
+msgid "{1}: unpacking, file {2} of {3}"
+msgstr "{1}: estrazione, file {2} di {3}"
+
+msgid "{1}: checking the theme..."
+msgstr "{1}: controllo del tema..."
+
+msgid "{1}: putting it in place..."
+msgstr "{1}: sistemazione al suo posto..."
+
+msgid "1 theme"
+msgstr "1 tema"
 
 msgid "Channel background"
 msgstr "Sfondo dei canali"
