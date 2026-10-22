@@ -107,7 +107,10 @@ std::string app_release_date(const std::string& raw) {
 }
 
 std::string app_command_line(const std::string& path, const std::vector<std::string>& arguments) {
-    std::string line = path.substr(0, kAppCommandLineMax - 2);
+    // argv[0] must name the exact binary, never a truncated path.
+    if (path.empty() || path.size() > kAppCommandLineMax - 2 || path.find('\0') != std::string::npos)
+        return "";
+    std::string line = path;
     for (const std::string& argument : arguments) {
         if (line.empty()) break;
         if (line.size() + argument.size() + 4 > kAppCommandLineMax) break;

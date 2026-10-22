@@ -2838,11 +2838,11 @@ msgstr "앱 {1}개"
 msgid "No homebrew matches \"{1}\". Press 1 to change the view."
 msgstr "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요."
 
-msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
-msgstr "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 또는 usb:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요."
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요."
 
-msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
-msgstr "앱 폴더(sd:/apps 및 usb:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요."
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "앱 폴더(sd:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요."
 
 msgid "It cannot start: {1}."
 msgstr "시작할 수 없습니다: {1}."
@@ -2864,3 +2864,12 @@ msgstr "{2}의 {1}을(를) 시작할까요?"
 
 msgid "Would you like to start {1}?"
 msgstr "{1}을(를) 시작할까요?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다."
+
+msgid "1: all apps"
+msgstr "1: 모든 앱"

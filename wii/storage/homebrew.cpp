@@ -39,15 +39,6 @@ HomebrewApp* to_start() {
     return &app;
 }
 
-bool contains_no_case(const std::string& text, const char* needle) {
-    const std::size_t length = std::strlen(needle);
-    if (length == 0 || text.size() < length) return false;
-    for (std::size_t at = 0; at + length <= text.size(); ++at) {
-        if (strncasecmp(text.c_str() + at, needle, length) == 0) return true;
-    }
-    return false;
-}
-
 void add_app(Scan& state, const std::string& badge, const std::string& path, const std::string& folder) {
     struct stat info {};
     std::string program;
@@ -71,7 +62,6 @@ void add_app(Scan& state, const std::string& badge, const std::string& path, con
     HomebrewApp app;
     app.name = app_display_name(meta, folder);
     if (app.name.empty()) app.name = folder;
-    if (contains_no_case(app.name, "riftwii") && !contains_no_case(app.name, "RiftWii Channel Installer")) return;
     app.folder = path;
     app.program = program;
     app.device = badge;
@@ -98,15 +88,6 @@ void scan_drive(Scan& state, const char* device, const char* badge) {
         const std::string folder = entry->d_name;
         if (folder.empty() || folder == "." || folder == ".." || folder[0] == '.') continue;
         if (strcasecmp(folder.c_str(), "riftwii") == 0) continue;
-        bool already = false;
-        for (const HomebrewApp& app : state.apps) {
-            const std::size_t slash = app.folder.rfind('/');
-            if (slash != std::string::npos && strcasecmp(app.folder.c_str() + slash + 1, folder.c_str()) == 0) {
-                already = true;
-                break;
-            }
-        }
-        if (already) continue;
         const std::string path = root + "/" + folder;
         struct stat info {};
         if (stat(path.c_str(), &info) != 0 || !S_ISDIR(info.st_mode)) continue;
@@ -126,14 +107,15 @@ void RescanHomebrewApps() {
     state.apps.clear();
     state.read = false;
     scan_drive(state, "sd:", "SD");
-    scan_drive(state, "usb:", "USB");
+    // USB game volumes are not libfat devices. Until app reads use the
+    // volume reader too, only offer binaries the stdio launcher can open.
     std::stable_sort(state.apps.begin(), state.apps.end(), [](const HomebrewApp& a, const HomebrewApp& b) {
         const int by = strcasecmp(a.name.c_str(), b.name.c_str());
         return by != 0 ? by < 0 : strcasecmp(a.folder.c_str(), b.folder.c_str()) < 0;
     });
     state.done = true;
-    logf("Homebrew: %u app(s) in sd:/apps and usb:/apps%s\n", static_cast<unsigned>(state.apps.size()),
-         state.read ? "" : " (neither apps folder could be opened)");
+    logf("Homebrew: %u app(s) in sd:/apps%s\n", static_cast<unsigned>(state.apps.size()),
+         state.read ? "" : " (the apps folder could not be opened)");
 }
 
 const std::vector<HomebrewApp>& HomebrewApps() {
@@ -158,6 +140,10 @@ bool StartHomebrew(const HomebrewApp& app, std::string& error) {
         return false;
     }
     const std::string line = riftwii::app_command_line(app.path, app.arguments);
+    if (line.empty()) {
+        error = "the app path is empty, contains a NUL or exceeds the command-line limit";
+        return false;
+    }
     logf("Homebrew: starting %s (%s, %u argument(s))\n", app.name.c_str(), app.path.c_str(),
          static_cast<unsigned>(app.arguments.size()));
     return StartHomebrewApp(app.path, line, error);

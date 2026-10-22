@@ -2838,11 +2838,11 @@ msgstr "{1} applis"
 msgid "No homebrew matches \"{1}\". Press 1 to change the view."
 msgstr "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue."
 
-msgid "No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view."
-msgstr "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps ou usb:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue."
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue."
 
-msgid "The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view."
-msgstr "Les dossiers des applis (sd:/apps et usb:/apps) n'ont pas pu être lus. Appuyez sur 1 pour changer de vue."
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue."
 
 msgid "It cannot start: {1}."
 msgstr "Impossible de le lancer : {1}."
@@ -2864,3 +2864,12 @@ msgstr "Voulez-vous démarrer {1} par {2} ?"
 
 msgid "Would you like to start {1}?"
 msgstr "Voulez-vous démarrer {1} ?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii."
+
+msgid "1: all apps"
+msgstr "1 : toutes les applis"

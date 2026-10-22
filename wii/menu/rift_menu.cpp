@@ -2050,13 +2050,14 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (games == 0)
 			return g_filter == Filter::Homebrew ? tr("No homebrew matches \"{1}\". Press 1 to change the view.", {g_search})
 				: tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
-		return tr("Search \"{1}\"", {g_search}) + ": " + ShownCount(g_filter, games) + "\n" + tr("1: all games");
+		const char* searchKeys = g_filter == Filter::Homebrew ? tr("1: all apps") : tr("1: all games");
+		return tr("Search \"{1}\"", {g_search}) + ": " + ShownCount(g_filter, games) + "\n" + searchKeys;
 	}
 	if (g_filter == Filter::Mods && games == 0) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
 	if (g_filter == Filter::Homebrew && games == 0)
 		return riftwii::wii::HomebrewFoldersRead()
-			? tr("No homebrew yet: each app is a folder in sd:/apps or usb:/apps with its boot.dol and meta.xml. Press 1 to change the view.")
-			: tr("The apps folders (sd:/apps and usb:/apps) could not be read. Press 1 to change the view.");
+			? tr("No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.")
+			: tr("The apps folder (sd:/apps) could not be read. Press 1 to change the view.");
 	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
@@ -2068,7 +2069,7 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (sdListed) return "No games found (sd:/wbfs, sd:/games)";
 		return "No games found";
 	}
-	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
+	const std::string count = ShownCount(g_filter, games);
 	// What B does here: letters in A to Z order (GuiGameGrid::LetterKeys),
 	// and with A it picks a game up where games can be moved.
 	const bool letters = riftwii::wii::Settings().home_sort == "az";
@@ -4756,7 +4757,8 @@ static int MenuSource(FrontendState& state)
 				if (entry.index >= apps.size()) continue;
 				const riftwii::wii::HomebrewApp app = apps[entry.index];
 				if (!app.problem.empty()) {
-					ShowPopup(app.name, tr("It cannot start: {1}.", {FlatCapped(app.problem, 150)}), tr("OK"));
+					const std::string reason = FlatCapped(tr(app.problem.c_str()), 150);
+					ShowPopup(app.name, tr("It cannot start: {1}.", {reason}), tr("OK"));
 					statusTxt.SetText(HomeStatus(state, items).c_str());
 					ResumeGui();
 					continue;
@@ -4770,6 +4772,7 @@ static int MenuSource(FrontendState& state)
 					about = tr("Would you like to start {1} by {2}?", {FlatCapped(app.name, 40), app.coder});
 				else
 					about = tr("Would you like to start {1}?", {FlatCapped(app.name, 40)});
+				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."));
 				const int choice = ShowPopup(tr("Start {1}?", {FlatCapped(app.name, 40)}), about, tr("Start"), tr("Cancel"));
 				if (choice != 0) {
 					statusTxt.SetText(HomeStatus(state, items).c_str());
@@ -4880,7 +4883,7 @@ static int MenuSource(FrontendState& state)
 					if (games++ < kNamed) matches += (matches.empty() ? "" : ", ") + item.title;
 				}
 				if (games > kNamed) matches += " " + tr("and {1} more", {std::to_string(games - kNamed)});
-				return games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
+				return ShownCount(g_filter, games);
 			};
 			if (AskSearch(typed, live)) {
 				g_search = TrimSearch(typed);
@@ -4924,6 +4927,7 @@ static int MenuSource(FrontendState& state)
 				// both are in.
 				g_forgetPicturesAfterScan = true;
 				StartScan();
+				riftwii::wii::ForgetAppIcons();
 				riftwii::wii::RescanHomebrewApps();
 				refresh(true);
 				showStatus();
@@ -10916,6 +10920,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kRescan:
 					WaitForDriveScan(noteTxt);
+					// Halted GUI: no tile can retain an icon that this frees.
+					riftwii::wii::ForgetAppIcons();
+					riftwii::wii::RescanHomebrewApps();
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;

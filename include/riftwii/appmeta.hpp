@@ -23,6 +23,7 @@ std::string app_display_name(const AppMeta& meta, const std::string& folder);
 
 std::string app_release_date(const std::string& raw);
 
+// Empty on an invalid argv[0]; otherwise NUL-separated arguments and a final double NUL.
 std::string app_command_line(const std::string& path, const std::vector<std::string>& arguments);
 
 constexpr std::size_t kAppCommandLineMax = 1024;

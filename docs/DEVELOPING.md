@@ -475,3 +475,16 @@ backed up before the first signed release.
   adapted with credit in `NOTICE.md`.
 - No Nintendo keys or assets in the repository.
 - Nothing hardcoded for one game or one mod.
+
+
+## Homebrew apps
+
+Home lists apps from `sd:/apps/<folder>/boot.dol`, with optional `meta.xml`
+and `icon.png`. USB game volumes are not libfat devices, so this launcher
+does not list USB apps. ELF-only apps are listed with an explanation.
+
+Apps inherit RiftWii's current IOS and hardware access. Metadata requests
+such as `ios`, `ahb_access` and `no_ios_reload` do not reload IOS or grant
+AHBPROT access; use the Homebrew Channel for apps needing another environment.
+RiftWii does not install a return stub. When started from the RiftWii channel,
+an app's normal exit returns to the Wii Menu.
