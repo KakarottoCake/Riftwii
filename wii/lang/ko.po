@@ -1311,7 +1311,7 @@ msgstr "테마"
 msgid "Default"
 msgstr "기본"
 
-msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgid "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
 msgstr "메뉴의 색상과 이미지입니다. 테마는 sd:/riftwii/themes 폴더에 위치합니다. (GitHub의 docs/THEMES.md 참조)"
 
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."

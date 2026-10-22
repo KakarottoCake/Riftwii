@@ -1311,7 +1311,7 @@ msgstr "Thème"
 msgid "Default"
 msgstr "Par défaut"
 
-msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgid "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
 msgstr "Apparence visuelle du menu. Les thèmes sont stockés dans sd:/riftwii/themes."
 
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."

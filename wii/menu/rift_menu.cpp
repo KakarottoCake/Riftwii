@@ -10991,7 +10991,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kPagePeek: return tr("Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
-			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kTheme: return tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kThemeBrowse: return settings.online ? tr("Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.")
 				: tr("Downloads are off. Turn on Download names and cheats first.");
 			case kNoClock: return tr("Turns off the clock on Home.");
@@ -11343,7 +11343,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						if (!error.empty()) note(error);
 						else note(tr("The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."));
 					} else {
-						note(tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."));
+						note(tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."));
 					}
 					rebuild();
 					break;
