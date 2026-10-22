@@ -1896,6 +1896,9 @@ msgstr "Pas encore créé"
 msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
 msgstr "L'accueil n'affiche que les jeux GameCube, depuis sd:/games et usb:/games."
 
+msgid "Home lists the GameCube games only, from usb:/games (the SD card is not searched)."
+msgstr "L'accueil n'affiche que les jeux GameCube, depuis usb:/games (la carte SD n'est pas fouillée)."
+
 msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
 msgstr "Un jeu GameCube se met dans son propre dossier de games, en games/<son ID>/game.iso, sur la carte SD ou le stockage USB."
 

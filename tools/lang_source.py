@@ -1593,6 +1593,7 @@ T = {
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
     "Not made yet": ("Aún no creado", "まだ作られていません", "Ainda não criado", "Non ancora creato"),
     "Home lists the GameCube games only, from sd:/games and usb:/games.": ("Inicio muestra solo los juegos de GameCube, de sd:/games y usb:/games.", "ホームにはsd:/gamesとusb:/gamesのゲームキューブのゲームだけを表示します。", "O Início mostra só os jogos de GameCube, de sd:/games e usb:/games.", "La Home mostra solo i giochi GameCube, da sd:/games e usb:/games."),
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).": ("Inicio muestra solo los juegos de GameCube, de usb:/games (no se busca en la tarjeta SD).", "ホームにはusb:/gamesのゲームキューブのゲームだけを表示します(SDカードは探しません)。", "O Início mostra só os jogos de GameCube, de usb:/games (o cartão SD não é procurado).", "La Home mostra solo i giochi GameCube, da usb:/games (la scheda SD non viene cercata)."),
     "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.": ("Un juego de GameCube va en su propia carpeta dentro de games, como games/<su ID>/game.iso, en la tarjeta SD o el USB.", "ゲームキューブのゲームは、SDカードかUSBドライブのgamesの中に専用のフォルダを作り、games/<ID>/game.isoとして入れます。", "Um jogo de GameCube vai numa pasta própria dentro de games, como games/<seu ID>/game.iso, no cartão SD ou no USB.", "Un gioco GameCube va in una cartella tutta sua dentro games, come games/<il suo ID>/game.iso, sulla scheda SD o sull'unità USB."),
     "Loading speed": ("Carga", "読み込み速度", "Carregamento", "Caricamento"),
     "Fast": ("Rápida", "高速", "Rápida", "Veloce"),
@@ -3535,6 +3536,8 @@ KO = {
         "아직 만들어지지 않음",
     "Home lists the GameCube games only, from sd:/games and usb:/games.":
         "홈에 sd:/games와 usb:/games의 게임큐브 게임만 표시합니다.",
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).":
+        "홈에 usb:/games의 게임큐브 게임만 표시합니다(SD 카드는 검색하지 않음).",
     "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
         "게임큐브 게임은 SD 카드나 USB 드라이브의 games 안에 전용 폴더를 만들어 games/<ID>/game.iso로 넣습니다.",
     "Loading speed":
@@ -5532,6 +5535,8 @@ FR = {
         "Pas encore créé",
     "Home lists the GameCube games only, from sd:/games and usb:/games.":
         "L'accueil n'affiche que les jeux GameCube, depuis sd:/games et usb:/games.",
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).":
+        "L'accueil n'affiche que les jeux GameCube, depuis usb:/games (la carte SD n'est pas fouillée).",
     "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
         "Un jeu GameCube se met dans son propre dossier de games, en games/<son ID>/game.iso, sur la carte SD ou le stockage USB.",
     "Loading speed":

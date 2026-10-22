@@ -826,7 +826,12 @@ static const char* HomeSourceName(const std::string& v)
 
 static std::string HomeSourceNote(const std::string& v)
 {
-	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games and usb:/games.");
+	if (v == "gamecube") {
+		// With the SD scan off, only the USB drive's games/ folder is read.
+		if (riftwii::wii::Settings().sd_games == "off")
+			return tr("Home lists the GameCube games only, from usb:/games (the SD card is not searched).");
+		return tr("Home lists the GameCube games only, from sd:/games and usb:/games.");
+	}
 	return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 }
 
