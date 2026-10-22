@@ -561,6 +561,23 @@ void test_gc_container_by_magic() {
     EXPECT_TRUE(gc_container_skip_reason(GcContainer::Rvz).find(".rvz") != std::string::npos);
 }
 
+// A two-disc game's folder (issue #173, Splinter Cell Double Agent): disc 2
+// goes with disc 1, in either order the folder lists them; alone, or beside
+// another game's first disc, it is listed itself.
+void test_gc_second_disc_of() {
+    std::vector<int> first = gc_second_disc_of({{"GWYE41", 0}, {"GWYE41", 1}});
+    EXPECT_EQ(first[0], -1);
+    EXPECT_EQ(first[1], 0);
+    first = gc_second_disc_of({{"GWYE41", 1}, {"GWYE41", 0}});
+    EXPECT_EQ(first[0], 1);
+    EXPECT_EQ(first[1], -1);
+    first = gc_second_disc_of({{"GWYE41", 1}});
+    EXPECT_EQ(first[0], -1);
+    first = gc_second_disc_of({{"GALE01", 0}, {"GWYE41", 1}});
+    EXPECT_EQ(first[1], -1);
+    EXPECT_TRUE(gc_second_disc_of({}).empty());
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -713,6 +730,7 @@ int main() {
     test_cios_readiness_note();
     test_plan_over_usb();
     test_ciso_detection();
+    test_gc_second_disc_of();
     test_gc_folder_skip_reason();
     test_gc_container_by_magic();
     test_d2x_usb_checks();
