@@ -1234,7 +1234,7 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         gc_vi_note(ctx);
         if (ctx->bt && !(ctx->flags & GC_FLAG_FAKE_REMOTE)) {
             struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
-            if (bt->stage == GC_BT_STAGE_READY && !gc_bt_has_remote(bt)) gc_bt_poll(ctx, bt);
+            if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
         }
         if (ctx->card) gc_card_flush(ctx, (struct gc_card*)(uintptr_t)ctx->card, 0);
         gc_usb_keep_alive(ctx);
@@ -2316,7 +2316,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         } else {
             /* Keep start-up's frame-counted timeouts unchanged. Once page
              * scan is ready, an idle controller needs no per-frame IPC. */
-            if (bt->stage != GC_BT_STAGE_READY || gc_bt_has_remote(bt)) gc_bt_poll(ctx, bt);
+            if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
             gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
         }
     }
