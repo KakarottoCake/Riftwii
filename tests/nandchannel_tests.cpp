@@ -454,6 +454,48 @@ void test_unlisted_verdict() {
                                                          {2, 3u << 20, dol_at(0x81000000)}})
                     .left_out);
 
+    // A forwarder in two stages, as Nintendont's own channel (WWND) on a
+    // player's vWii: a 4,800-byte boot DOL with no path, which starts a
+    // 553,600-byte DOL naming "%s:/apps/Nintendont/boot.dol" 477 KB in.
+    TmdContents staged;
+    staged.boot_index = 1;
+    staged.contents = {{0, 0, 1, 0x40000}, {1, 1, 1, 4800}, {2, 2, 1, 553600}};
+    std::vector<std::uint8_t> first_stage = dol_at(0x80004000, 0x1000);
+    first_stage.resize(4800);
+    std::vector<std::uint8_t> second_stage = dol_at(0x80004000, 0x80000);
+    second_stage.resize(553600);
+    const char nintendont[] = "%s:/apps/Nintendont/boot.dol";
+    std::copy(nintendont, nintendont + sizeof nintendont - 1, second_stage.begin() + 0x77428);
+    std::vector<std::uint8_t> second_head(second_stage.begin(), second_stage.begin() + 0x100);
+    // With only the second stage's header (what the listing reads first), it
+    // is the content to read whole, and not yet a forwarder (the path is past it).
+    EXPECT_EQ(forwarder_second_stage(staged, {{1, 4800, first_stage}, {2, 553600, second_head}}), 2);
+    EXPECT_TRUE(!judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, second_head}}).left_out);
+    // Read whole: left out by rule 4, naming the app.
+    const ChannelVerdict two_stage =
+        judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, second_stage}});
+    EXPECT_TRUE(two_stage.left_out);
+    EXPECT_EQ(two_stage.rule, 4);
+    EXPECT_TRUE(two_stage.reason.find("/apps/Nintendont/boot.dol") != std::string::npos);
+    // A second stage naming "boot.dol" but not under /apps/ is a game's text.
+    std::vector<std::uint8_t> no_apps = second_stage;
+    const char loose[] = "data/boot.dol\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+    std::copy(loose, loose + sizeof loose - 1, no_apps.begin() + 0x77428);
+    EXPECT_TRUE(!judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, no_apps}}).left_out);
+    // A WiiWare game behind a small loader: its program is megabytes, never read
+    // whole, never a forwarder, even with a path in it.
+    TmdContents wiiware = staged;
+    wiiware.contents[2].size = 3u << 20;
+    std::vector<std::uint8_t> big_program = second_stage;
+    EXPECT_EQ(forwarder_second_stage(wiiware, {{1, 4800, first_stage}, {2, 3u << 20, second_head}}), -1);
+    EXPECT_TRUE(!judge_unlisted_channel("WGOE", wiiware, {{1, 4800, first_stage}, {2, 3u << 20, big_program}}).left_out);
+    // A boot content over kForwarderMaxBytes is no forwarder's first stage.
+    TmdContents big_boot = staged;
+    big_boot.contents[1].size = 300000;
+    EXPECT_EQ(forwarder_second_stage(big_boot, {{1, 300000, first_stage}, {2, 553600, second_head}}), -1);
+    // A single-stage program has no second stage.
+    EXPECT_EQ(forwarder_second_stage(small, {{1, forwarder.size(), forwarder}}), -1);
+
     // A Virtual Console inject: a 3 MB DOL at 0x80004000, no path. A game.
     EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
     // Just under the line is still a game; a bigger emulator reaching 0x809FFFFF too.
