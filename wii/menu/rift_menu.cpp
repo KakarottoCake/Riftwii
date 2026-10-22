@@ -52,6 +52,7 @@
 #include "modpicture.hpp"
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
+#include "appicon.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
@@ -126,6 +127,7 @@
 #include "sharednandfind.hpp"
 #include "otpkey.hpp"
 #include "wadinstall.hpp"
+#include "homebrew.hpp"
 #include "video.h"
 
 namespace transition = riftwii::wii::transition;
@@ -164,6 +166,7 @@ static const char* ScreenName(int menu)
 		case MENU_CHANNEL: return "channel";
 		case MENU_NEEDS_SD: return "needs an SD card";
 		case MENU_PLAY_CHANNEL: return "launch (Wii channel)";
+		case MENU_HOMEBREW: return "launch (homebrew)";
 		default: return "?";
 	}
 }
@@ -914,7 +917,7 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 
 // The Home views, stepped with 1; the one last used is remembered in
 // settings.txt ("view").
-enum class Filter { Mods, All, Recent, Favorites };
+enum class Filter { Mods, All, Homebrew, Recent, Favorites };
 static Filter g_filter = Filter::Mods;
 static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
@@ -929,6 +932,7 @@ static const char* FilterLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
+		case Filter::Homebrew: return "Homebrew";
 		case Filter::Recent: return "Recently played";
 		case Filter::Favorites: return "Favourites";
 		default: return "All games";
@@ -940,6 +944,7 @@ static const char* FilterShortLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Mods";
+		case Filter::Homebrew: return "Homebrew";
 		case Filter::Recent: return "Recent";
 		case Filter::Favorites: return "Favourites";
 		default: return "All games";
@@ -947,7 +952,8 @@ static const char* FilterShortLabel(Filter f)
 }
 static const char* FilterKey(Filter f)
 {
-	return f == Filter::Mods ? "mods" : f == Filter::Recent ? "recent" : f == Filter::Favorites ? "favorites" : "all";
+	return f == Filter::Mods ? "mods" : f == Filter::Homebrew ? "homebrew" : f == Filter::Recent ? "recent"
+		: f == Filter::Favorites ? "favorites" : "all";
 }
 static void LoadFilter()
 {
@@ -957,6 +963,7 @@ static void LoadFilter()
 	const auto it = other.find("view");
 	if (it == other.end()) return;
 	if (it->second == "all") g_filter = Filter::All;
+	else if (it->second == "homebrew") g_filter = Filter::Homebrew;
 	else if (it->second == "recent" && riftwii::wii::History().size() != 0) g_filter = Filter::Recent;
 	else if (it->second == "favorites" && !riftwii::wii::Settings().favorites.empty()) g_filter = Filter::Favorites;
 }
@@ -1001,8 +1008,7 @@ static bool MatchesSearch(const std::string& name, const std::string& id, bool g
 
 struct HomeEntry {
 	// Channel: a WiiWare or Virtual Console game installed on the Wii
-	// (FrontendState::channels).
-	enum class Kind { Disc, Usb, Sd, Channel } kind;
+	enum class Kind { Disc, Usb, Sd, Channel, App } kind;
 	std::size_t index;
 	// One of the game's profiles (riftwii/profiles.hpp): its key. Empty for
 	// the game's own tile.
@@ -1020,6 +1026,7 @@ static std::string ChannelName(const riftwii::wii::NandChannel& c)
 // its disc, a channel's from the Wii's memory.
 static bool StoreEntryBanner(const FrontendState& state, const HomeEntry& e, std::string& why)
 {
+	if (e.kind == HomeEntry::Kind::App) return false;
 	if (e.kind == HomeEntry::Kind::Channel) return riftwii::wii::StoreChannelBanner(state.channels[e.index], why);
 	const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
 		: state.sd_catalog.games[e.index];
@@ -1037,6 +1044,10 @@ static std::string GameName(const riftwii::wii::ImageGame& g)
 // (a drive, or the Wii's own channels) and its ID.
 static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 {
+	if (entry.kind == HomeEntry::Kind::App) {
+		const auto& apps = riftwii::wii::HomebrewApps();
+		return entry.index < apps.size() ? "app:" + apps[entry.index].folder : std::string();
+	}
 	if (entry.kind == HomeEntry::Kind::Channel)
 		return riftwii::home_order_key("wii", state.channels[entry.index].game_id, 0);
 	const bool usb = entry.kind == HomeEntry::Kind::Usb;
@@ -1151,6 +1162,22 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 {
 	items.clear();
 	entries.clear();
+	if (g_filter == Filter::Homebrew) {
+		const std::vector<riftwii::wii::HomebrewApp>& apps = riftwii::wii::HomebrewApps();
+		const bool searching = !g_search.empty();
+		for (std::size_t i = 0; i < apps.size(); ++i) {
+			const std::string searchName = apps[i].name + " " + apps[i].coder;
+			if (searching && !MatchesSearch(searchName, apps[i].name, false)) continue;
+			GridItem item;
+			item.title = apps[i].name;
+			item.badge = apps[i].path.empty() ? "ELF" : "APP";
+			item.key = "app:" + apps[i].folder;
+			item.hue = skin::HueFor(apps[i].name);
+			items.push_back(std::move(item));
+			entries.push_back({HomeEntry::Kind::App, i, "", searchName});
+		}
+		return;
+	}
 	// The Disc drive tile belongs to Home's own views (Mods and All games),
 	// as the disc channel does on the Wii Menu. A search, Recently played
 	// and Favorites list particular games, so a tile that is none of them
@@ -1254,7 +1281,7 @@ static bool HomeCanMove()
 {
 	const std::string& tiles = riftwii::wii::Settings().home_tiles;
 	const bool shelf = tiles == "shelf" || tiles == "carousel" || tiles == "covers3d";
-	return g_search.empty() && g_filter != Filter::Recent && !shelf;
+	return g_search.empty() && g_filter != Filter::Recent && g_filter != Filter::Homebrew && !shelf;
 }
 
 static void SetHomeMovable(GuiGameGrid& grid, const std::vector<HomeEntry>& entries)
@@ -1997,6 +2024,13 @@ static std::string HomeStatus(const FrontendState& state, const std::vector<Grid
 	return first + "   " + second;
 }
 
+static std::string ShownCount(Filter f, std::size_t count)
+{
+	if (f == Filter::Homebrew)
+		return count == 1 ? std::string(tr("1 app")) : tr("{1} apps", {std::to_string(count)});
+	return count == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(count)});
+}
+
 static std::string HomeStatusLines(const FrontendState& state, const std::vector<GridItem>& items)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
@@ -2004,8 +2038,10 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	// and a game's tiles (its own and its profiles') are one game. A view
 	// showing only a game's profiles is not empty.
 	std::set<std::string> shownGames;
-	for (const GridItem& item : items)
-		if (item.badge != "DISC") shownGames.insert(item.id);
+	for (const GridItem& item : items) {
+		if (item.badge == "DISC") continue;
+		shownGames.insert(item.id.empty() ? item.key : item.id);
+	}
 	const std::size_t games = shownGames.size();
 	std::string status;
 	// A drive Settings > Games from leaves out is not a problem to report:
@@ -2023,11 +2059,17 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
 	if (!status.empty()) return status;
 	if (!g_search.empty()) {
-		if (games == 0) return tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
-		const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
-		return tr("Search \"{1}\"", {g_search}) + ": " + count + "\n" + tr("1: all games");
+		if (games == 0)
+			return g_filter == Filter::Homebrew ? tr("No homebrew matches \"{1}\". Press 1 to change the view.", {g_search})
+				: tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
+		const char* searchKeys = g_filter == Filter::Homebrew ? tr("1: all apps") : tr("1: all games");
+		return tr("Search \"{1}\"", {g_search}) + ": " + ShownCount(g_filter, games) + "\n" + searchKeys;
 	}
 	if (g_filter == Filter::Mods && games == 0) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
+	if (g_filter == Filter::Homebrew && games == 0)
+		return riftwii::wii::HomebrewFoldersRead()
+			? tr("No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.")
+			: tr("The apps folder (sd:/apps) could not be read. Press 1 to change the view.");
 	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
@@ -2039,7 +2081,7 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (sdListed) return "No games found (sd:/wbfs, sd:/games)";
 		return "No games found";
 	}
-	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
+	const std::string count = ShownCount(g_filter, games);
 	// What B does here: letters in A to Z order (GuiGameGrid::LetterKeys),
 	// and with A it picks a game up where games can be moved.
 	const bool letters = riftwii::wii::Settings().home_sort == "az";
@@ -4001,9 +4043,20 @@ static int MenuSource(FrontendState& state)
 	grid.SetRoomy(riftwii::wii::Settings().grid_spacing == "roomy");
 	skin::SetOnHome(true);  // the wall for the view now set
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
-		[&items](int index, const GuiGameGrid::IconBox& b) {
+		[&items, &entries](int index, const GuiGameGrid::IconBox& b) {
 			if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return false;
-			riftwii::wii::BannerPlayer* icon = IconFor(items[static_cast<std::size_t>(index)].id);
+			const std::size_t at = static_cast<std::size_t>(index);
+			if (at < entries.size() && entries[at].kind == HomeEntry::Kind::App) {
+				const std::vector<riftwii::wii::HomebrewApp>& apps = riftwii::wii::HomebrewApps();
+				if (entries[at].index >= apps.size()) return false;
+				skin::Tex art;
+				if (!riftwii::wii::AppIcon(apps[entries[at].index].folder, art)) return false;
+				const float k = std::min(b.w / art.w, b.h / art.h);
+				Menu_DrawImg(b.x + b.w / 2 - art.w * k / 2, b.y + b.h / 2 - art.h * k / 2, static_cast<u16>(art.w),
+					static_cast<u16>(art.h), art.data, 0, k, k, static_cast<u8>(b.alpha));
+				return true;
+			}
+			riftwii::wii::BannerPlayer* icon = IconFor(items[at].id);
 			if (!icon) return false;
 			icon->Step();
 			riftwii::wii::RoundClip clip;
@@ -4450,7 +4503,8 @@ static int MenuSource(FrontendState& state)
 			bool read = false;
 			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) {
 				const HomeEntry& e = entries[k];
-				if (e.kind == HomeEntry::Kind::Disc || !g_bannersTried.insert(items[k].id).second) continue;
+				if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App ||
+				    !g_bannersTried.insert(items[k].id).second) continue;
 				if (!riftwii::wii::BannerWanted(items[k].id)) continue;
 				std::string why;
 				if (StoreEntryBanner(state, e, why)) g_bannerAbsent.erase(items[k].id);
@@ -4472,7 +4526,8 @@ static int MenuSource(FrontendState& state)
 			for (int r = 0; r < 3 && iconId.empty(); ++r) {
 				for (int k = std::max(0, from[r]); k < from[r] + count[r] && k < static_cast<int>(items.size()); ++k) {
 					const std::string& id = items[static_cast<std::size_t>(k)].id;
-					if (id.empty() || entries[static_cast<std::size_t>(k)].kind == HomeEntry::Kind::Disc ||
+					const HomeEntry::Kind kind = entries[static_cast<std::size_t>(k)].kind;
+					if (id.empty() || kind == HomeEntry::Kind::Disc || kind == HomeEntry::Kind::App ||
 					    g_iconIndex.count(id) || g_bannerAbsent.count(id))
 						continue;
 					iconId = id;
@@ -4544,6 +4599,18 @@ static int MenuSource(FrontendState& state)
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
 			showStatus();
+		if (!g_scanning && grid.Channels()) {
+			const auto& apps = riftwii::wii::HomebrewApps();
+			const int first = grid.PageFirst();
+			for (int k = std::max(0, first); k < first + GuiGameGrid::kPerPage + 4 && k < static_cast<int>(entries.size()); ++k) {
+				const HomeEntry& entry = entries[static_cast<std::size_t>(k)];
+				if (entry.kind != HomeEntry::Kind::App || entry.index >= apps.size()) continue;
+				const std::string& folder = apps[entry.index].folder;
+				if (!riftwii::wii::AppIconWanted(folder)) continue;
+				riftwii::wii::LoadAppIcon(folder);
+				break;
+			}
+		}
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!gcBannerArrived.empty()) {
 			// The disc's picture gives way to the animated banner at the next turn.
@@ -4651,7 +4718,7 @@ static int MenuSource(FrontendState& state)
 			// Channels: the game's banner first, as the Wii Menu opens a
 			// channel: out of its tile, and back into it.
 			bool fromChannel = false;
-			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc &&
+			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
 				transition::Begin(reopening ? transition::Kind::Fade : transition::Kind::ZoomIn, tile);
 				// Another game's banner, from the arrows: read from its image
@@ -4659,7 +4726,7 @@ static int MenuSource(FrontendState& state)
 				const BannerLoader loadBanner = [&](int i, std::vector<std::uint8_t>& bytes) {
 					if (i < 0 || static_cast<std::size_t>(i) >= entries.size()) return false;
 					const HomeEntry& e = entries[static_cast<std::size_t>(i)];
-					if (e.kind == HomeEntry::Kind::Disc) return false;
+					if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) return false;
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
@@ -4696,6 +4763,38 @@ static int MenuSource(FrontendState& state)
 				// opens. Start: the banner itself plays on (g_lingerBanner).
 				if (choice == ChannelChoice::Page) transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
+			}
+			if (entry.kind == HomeEntry::Kind::App) {
+				const std::vector<riftwii::wii::HomebrewApp>& apps = riftwii::wii::HomebrewApps();
+				if (entry.index >= apps.size()) continue;
+				const riftwii::wii::HomebrewApp app = apps[entry.index];
+				if (!app.problem.empty()) {
+					const std::string reason = FlatCapped(tr(app.problem.c_str()), 150);
+					ShowPopup(app.name, tr("It cannot start: {1}.", {reason}), tr("OK"));
+					statusTxt.SetText(HomeStatus(state, items).c_str());
+					ResumeGui();
+					continue;
+				}
+				std::string about;
+				if (!app.version.empty() && !app.coder.empty())
+					about = tr("Would you like to start {1} ({2}) by {3}?", {FlatCapped(app.name, 40), app.version, app.coder});
+				else if (!app.version.empty())
+					about = tr("Would you like to start {1} ({2})?", {FlatCapped(app.name, 40), app.version});
+				else if (!app.coder.empty())
+					about = tr("Would you like to start {1} by {2}?", {FlatCapped(app.name, 40), app.coder});
+				else
+					about = tr("Would you like to start {1}?", {FlatCapped(app.name, 40)});
+				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."));
+				const int choice = ShowPopup(tr("Start {1}?", {FlatCapped(app.name, 40)}), about, tr("Start"), tr("Cancel"));
+				if (choice != 0) {
+					statusTxt.SetText(HomeStatus(state, items).c_str());
+					ResumeGui();
+					continue;
+				}
+				riftwii::wii::SetHomebrewToStart(app);
+				ResumeGui();
+				menu = MENU_HOMEBREW;
+				continue;
 			}
 			std::string error;
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
@@ -4796,7 +4895,7 @@ static int MenuSource(FrontendState& state)
 					if (games++ < kNamed) matches += (matches.empty() ? "" : ", ") + item.title;
 				}
 				if (games > kNamed) matches += " " + tr("and {1} more", {std::to_string(games - kNamed)});
-				return games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
+				return ShownCount(g_filter, games);
 			};
 			if (AskSearch(typed, live)) {
 				g_search = TrimSearch(typed);
@@ -4818,10 +4917,13 @@ static int MenuSource(FrontendState& state)
 			// Favourites once one is marked.
 			const bool anyPlayed = riftwii::wii::History().size() != 0;
 			const bool anyFavorite = !riftwii::wii::Settings().favorites.empty();
-			if (g_filter == Filter::Mods) g_filter = Filter::All;
-			else if (g_filter == Filter::All && anyPlayed) g_filter = Filter::Recent;
-			else if (g_filter != Filter::Favorites && anyFavorite) g_filter = Filter::Favorites;
-			else g_filter = Filter::Mods;
+			switch (g_filter) {
+				case Filter::Mods: g_filter = Filter::All; break;
+				case Filter::All: g_filter = Filter::Homebrew; break;
+				case Filter::Homebrew: g_filter = anyPlayed ? Filter::Recent : anyFavorite ? Filter::Favorites : Filter::Mods; break;
+				case Filter::Recent: g_filter = anyFavorite ? Filter::Favorites : Filter::Mods; break;
+				case Filter::Favorites: g_filter = Filter::Mods; break;
+			}
 			logf("Home: filter %s\n", FilterLabel(g_filter));
 			riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
 			riftwii::wii::Settings().other["home_hints"] = "learned";
@@ -4837,6 +4939,9 @@ static int MenuSource(FrontendState& state)
 				// both are in.
 				g_forgetPicturesAfterScan = true;
 				StartScan();
+				riftwii::wii::ForgetAppIcons();
+				riftwii::wii::RescanHomebrewApps();
+				refresh(true);
 				showStatus();
 			}
 		}
@@ -10848,6 +10953,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kRescan:
 					WaitForDriveScan(noteTxt);
+					// Halted GUI: no tile can retain an icon that this frees.
+					riftwii::wii::ForgetAppIcons();
+					riftwii::wii::RescanHomebrewApps();
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;
@@ -11168,12 +11276,14 @@ static int MenuNeedsSd()
 
 static void ShowLaunchFrame(const FrontendState& state, int action)
 {
-	const std::string title = action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
+	const bool homebrew = action == MENU_HOMEBREW;
+	const std::string title = homebrew ? riftwii::wii::HomebrewToStart().name
+		: action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
 	const char* doing = action == MENU_DUMP ? tr("Dumping files from")
 		: action == MENU_CHANNEL ? tr("Opening the installer for") : tr("Starting");
 	// The game page's band in the game's colour, as the page it starts from.
-	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id),
-		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd && !state.use_channel);
+	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : homebrew ? title : state.game_id),
+		action == MENU_CHANNEL || homebrew ? std::string() : state.game_id, !state.use_usb && !state.use_sd && !state.use_channel);
 	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
 	Place(doingTxt, 40, 10);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
@@ -11191,6 +11301,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: riftwii::wii::UpdatePacksBusy() ? tr("Stopping the theme download...")
 		: riftwii::wii::NetBackgroundBusy() ? tr("Waiting for the update check to finish...")
 		: action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
+		: homebrew ? tr("The app will start when ready.")
 		: tr("The game takes over the screen when it is ready."), 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
@@ -11249,7 +11360,7 @@ int MainMenu(int menu, FrontendState& state)
 	ResumeGui();
 
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
-		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL)
+		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL && currentMenu != MENU_HOMEBREW)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		skin::SetOnHome(currentMenu == MENU_SOURCE);
@@ -11295,7 +11406,7 @@ int MainMenu(int menu, FrontendState& state)
 	if (!riftwii::wii::DriveScanDone()) logf("Menu: waiting for the scan to finish reading the drives\n");
 	riftwii::wii::WaitDriveScan();
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
-		currentMenu == MENU_PLAY_CHANNEL) {
+		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
 		// The GUI thread is halted after this; main prints the boot log
 		// into the card of the frame left on screen.
 		ShowLaunchFrame(state, currentMenu);

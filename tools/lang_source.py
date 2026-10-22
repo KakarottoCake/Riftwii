@@ -6022,6 +6022,86 @@ def escape(s):
 
 
 T.update({
+    "Homebrew": ('Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'),
+    "1 app": ('1 app', '1個のアプリ', '1 app', '1 app'),
+    "{1} apps": ('{1} apps', '{1}個のアプリ', '{1} apps', '{1} app'),
+    "No homebrew matches \"{1}\". Press 1 to change the view.": ('Ningún homebrew coincide con «{1}». Pulsa 1 para cambiar la vista.', '「{1}」に一致するHomebrewはありません。1で表示を切り替えます。', 'Nenhum homebrew corresponde a "{1}". Aperte 1 para mudar a vista.', 'Nessun homebrew corrisponde a "{1}". Premi 1 per cambiare vista.'),
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": ('Aún no hay homebrew: cada app es una carpeta en sd:/apps con su boot.dol y meta.xml. Pulsa 1 para cambiar la vista.', 'Homebrewがまだありません。各アプリはsd:/apps内の、boot.dolとmeta.xmlが入ったフォルダです。1で表示を切り替えます。', 'Ainda não há homebrew: cada app é uma pasta em sd:/apps com seu boot.dol e meta.xml. Aperte 1 para mudar a vista.', "Non c'è ancora homebrew: ogni app è una cartella in sd:/apps con boot.dol e meta.xml. Premi 1 per cambiare vista."),
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": ('No se pudo leer la carpeta de apps (sd:/apps). Pulsa 1 para cambiar la vista.', 'アプリのフォルダ（sd:/apps）を読めませんでした。1で表示を切り替えます。', 'A pasta de apps (sd:/apps) não pôde ser lida. Aperte 1 para mudar a vista.', 'Impossibile leggere la cartella delle app (sd:/apps). Premi 1 per cambiare vista.'),
+    "It cannot start: {1}.": ('No puede iniciarse: {1}.', '起動できません: {1}。', 'Não pode ser iniciado: {1}.', 'Non può avviarsi: {1}.'),
+    "The app will start when ready.": ('La app se iniciará cuando esté lista.', 'アプリは準備ができると起動します。', 'O app inicia quando estiver pronto.', "L'app si avvierà quando è pronta."),
+    "Start {1}?": ('¿Iniciar {1}?', '{1}を起動しますか?', 'Iniciar {1}?', 'Avviare {1}?'),
+    "Would you like to start {1} ({2}) by {3}?": ('¿Quieres iniciar {1} ({2}) de {3}?', '{3}の{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2}) de {3}?', 'Vuoi avviare {1} ({2}) di {3}?'),
+    "Would you like to start {1} ({2})?": ('¿Quieres iniciar {1} ({2})?', '{1} ({2})を起動しますか?', 'Quer iniciar {1} ({2})?', 'Vuoi avviare {1} ({2})?'),
+    "Would you like to start {1} by {2}?": ('¿Quieres iniciar {1} de {2}?', '{2}の{1}を起動しますか?', 'Quer iniciar {1} de {2}?', 'Vuoi avviare {1} di {2}?'),
+    "Would you like to start {1}?": ('¿Quieres iniciar {1}?', '{1}を起動しますか?', 'Quer iniciar {1}?', 'Vuoi avviare {1}?'),
+})
+KO.update({
+    "Homebrew": "홈브류",
+    "1 app": "앱 1개",
+    "{1} apps": "앱 {1}개",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "\"{1}\"와 일치하는 홈브류가 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "아직 홈브류가 없습니다. 각 앱은 boot.dol과 meta.xml이 있는 sd:/apps 안의 폴더입니다. 보기를 바꾸려면 1번을 누르세요.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "앱 폴더(sd:/apps)를 읽을 수 없습니다. 보기를 바꾸려면 1번을 누르세요.",
+    "It cannot start: {1}.": "시작할 수 없습니다: {1}.",
+    "The app will start when ready.": "앱은 준비되면 시작됩니다.",
+    "Start {1}?": "{1}을(를) 시작할까요?",
+    "Would you like to start {1} ({2}) by {3}?": "{3}의 {1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} ({2})?": "{1} ({2})을(를) 시작할까요?",
+    "Would you like to start {1} by {2}?": "{2}의 {1}을(를) 시작할까요?",
+    "Would you like to start {1}?": "{1}을(를) 시작할까요?",
+})
+FR.update({
+    "Homebrew": "Homebrew",
+    "1 app": "1 appli",
+    "{1} apps": "{1} applis",
+    "No homebrew matches \"{1}\". Press 1 to change the view.": "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue.",
+    "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view.": "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue.",
+    "The apps folder (sd:/apps) could not be read. Press 1 to change the view.": "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue.",
+    "It cannot start: {1}.": "Impossible de le lancer : {1}.",
+    "The app will start when ready.": "L'appli démarrera lorsqu'elle sera prête.",
+    "Start {1}?": "Démarrer {1} ?",
+    "Would you like to start {1} ({2}) by {3}?": "Voulez-vous démarrer {1} ({2}) par {3} ?",
+    "Would you like to start {1} ({2})?": "Voulez-vous démarrer {1} ({2}) ?",
+    "Would you like to start {1} by {2}?": "Voulez-vous démarrer {1} par {2} ?",
+    "Would you like to start {1}?": "Voulez-vous démarrer {1} ?",
+})
+
+
+# Homebrew launch limitations and navigation.
+T.update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": (
+        "el programa es boot.elf y RiftWii solo inicia apps boot.dol",
+        "このアプリはboot.elfです。RiftWiiはboot.dolのアプリのみ起動できます",
+        "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
+        "il programma è boot.elf e RiftWii avvia solo app boot.dol",
+    ),
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    ),
+    "1: all apps": (
+        "1: todas las apps",
+        "1: すべてのアプリ",
+        "1: todos os apps",
+        "1: tutte le app",
+    ),
+})
+MORE["ko"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "1: all apps": "1: 모든 앱",
+})
+MORE["fr"].update({
+    "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
+    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "1: all apps": "1 : toutes les applis",
+})
+
+
+T.update({
     "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
     "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
     "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
@@ -6110,7 +6190,7 @@ def check(repo):
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/online/online.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

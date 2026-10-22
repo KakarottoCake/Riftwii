@@ -26,6 +26,8 @@ bool dolboot_valid(const u8* dol, u32 size);
 // not return.
 void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
 
+void dolboot_run_line(const u8* dol, const char* line, u32 length) __attribute__((noreturn));
+
 // Puts at the system call vector (0x80000C00) the handler the Wii's system
 // software leaves for a program it starts: `sc` returns at once, after
 // toggling HID0's bit 28 around a sync (the SDK's and older libogc's cache
