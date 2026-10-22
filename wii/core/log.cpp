@@ -60,7 +60,8 @@ void LogReopen() {
     Locked lock;
     if (g_file || g_path.empty()) return;
     g_file = std::fopen(g_path.c_str(), "a");
-    g_line_start = true;
+    // Closed-file output already advanced the line state, including a
+    // partial final line. Failed reopen attempts must preserve it too.
     if (g_file && !g_backlog.empty()) {
         std::fputs(g_backlog.c_str(), g_file);
         g_backlog.clear();

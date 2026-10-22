@@ -1621,6 +1621,14 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	std::unique_ptr<ChannelView> owned(new ChannelView());
 	ChannelView& view = *owned;
 	std::string shownId;
+	// The banner's sound starts a few frames after its banner, with the
+	// menu drawing: decoding it took the longest part of a + or - (and
+	// the screen stood still meanwhile).
+	std::vector<std::uint8_t> pendingSound;
+	int soundIn = -1;  // frames until it starts; -1 none due
+	// After + or -, once the slide is over; a banner just opened starts
+	// its sound at once, as on the Wii Menu (a tester heard it late).
+	int soundDelay = 0;
 	const auto logShown = [&] {
 		if (view.frames == 0) return;
 		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
@@ -1662,7 +1670,8 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		shownId = idOf(i);
 		index = i;
 		std::vector<std::uint8_t>().swap(bytes);
-		riftwii::wii::BannerSoundStart(sound);
+		pendingSound.swap(sound);
+		soundIn = soundDelay;
 		// Where a switch's wait goes (a tester: + and - lag).
 		logf("Screen: channel %s (read %u ms, checked %u ms, banner %u ms)\n", shownId.c_str(),
 			diff_msec(t0, t1), diff_msec(t1, t2), diff_msec(t2, t3));
@@ -1733,6 +1742,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	int choice = -1;  // 0 Start, 1 back, 2 the game's page
 	while (choice < 0) {
 		usleep(20000);
+		if (soundIn >= 0 && soundIn-- == 0) {
+			// No sound of its own: the menu's music comes back.
+			riftwii::wii::BannerSoundStart(pendingSound);
+			std::vector<std::uint8_t>().swap(pendingSound);
+		}
 		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &goBtn.button, &pageBtn.button, &prevBtn.button, &nextBtn.button, &starBtn.button});
@@ -1764,6 +1778,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 				ResumeGui();
 				const bool read = load(i, bytes);
 				HaltGui();
+				soundDelay = 12;
 				if (read && show(i, bytes, t0, gettime())) break;
 			}
 			transition::Begin(turn, area);
@@ -3328,7 +3343,7 @@ static bool ShowUsbHelp(bool offerOff)
 	PopupBox box(tr("Getting a USB drive working"),
 		std::string(tr("1. Use the USB port nearest to the edge.")) + "\n" +
 			tr("2. For big drives: a Y-cable or their own power.") + "\n" +
-			tr("3. Format to FAT32 (Recommended) or NTFS.") + "\n" +
+			tr("3. FAT32 recommended; NTFS and WBFS work too.") + "\n" +
 			tr("4. Games in the /wbfs or /games folder.") + "\n" +
 			tr("5. A d2x cIOS in slot 249/250/251.") + "\n" +
 			tr("Scan the code for the guide."),

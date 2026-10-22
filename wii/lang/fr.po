@@ -2817,8 +2817,8 @@ msgstr "1. Utilisez le port USB le plus proche du bord."
 msgid "2. For big drives: a Y-cable or their own power."
 msgstr "2. Grands stockages : un câble en Y ou leur propre alimentation."
 
-msgid "3. Format to FAT32 (Recommended) or NTFS."
-msgstr "3. Formatez en FAT32 (recommandé) ou NTFS."
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi."
 
 msgid "4. Games in the /wbfs or /games folder."
 msgstr "4. Les jeux dans le dossier /wbfs ou /games."

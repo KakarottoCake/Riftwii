@@ -2817,8 +2817,8 @@ msgstr "1. 本体の端に近いUSBポートを使ってください。"
 msgid "2. For big drives: a Y-cable or their own power."
 msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
 
-msgid "3. Format to FAT32 (Recommended) or NTFS."
-msgstr "3. FAT32 (推奨) かNTFSでフォーマットしてください。"
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32推奨。NTFSとWBFSも使えます。"
 
 msgid "4. Games in the /wbfs or /games folder."
 msgstr "4. ゲームは/wbfsか/gamesフォルダに。"

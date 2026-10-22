@@ -5,8 +5,10 @@
 #include <dirent.h>
 #include <malloc.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -33,6 +35,7 @@
 #include "riftwii/http.hpp"
 #include "riftwii/problemreport.hpp"
 #include "riftwii/profiles.hpp"
+#include "riftwii/sha256.hpp"
 #include "riftwii/wpadlog.hpp"
 #include "rtwlog.h"
 #include "wiidrc.h"
@@ -241,7 +244,9 @@ std::string gather(const std::string& reason, std::size_t limit) {
     parts.push_back(boot);
     // Check each cIOS's results, early: a long report is cut at its end.
     parts.push_back(file_part("sd:/riftwii/usbcheck.txt"));
-    parts.push_back(file_part(kPreviousLog));
+    ReportPart previous = file_part(kPreviousLog);
+    if (!previous.found) previous = file_part(std::string(kPreviousLog) + ".backup");
+    parts.push_back(previous);
     // The open session log is closed while it is read.
     LogClose();
     parts.push_back(file_part(kSessionLog));
@@ -305,14 +310,35 @@ bool CopyFile(const std::string& from, const std::string& to) {
         ok = std::fwrite(buffer, 1, got, out) == got;
     if (std::ferror(in)) ok = false;
     std::fclose(in);
-    if (out && std::fclose(out) != 0) ok = false;
+    if (out) {
+        if (std::fflush(out) != 0 || fsync(fileno(out)) != 0) ok = false;
+        if (std::fclose(out) != 0) ok = false;
+    }
     if (!ok) std::remove(to.c_str());
     return ok;
 }
 
-void MoveFile(const std::string& from, const std::string& to) {
-    if (std::rename(from.c_str(), to.c_str()) == 0) return;
-    if (CopyFile(from, to)) std::remove(from.c_str());
+bool MoveFile(const std::string& from, const std::string& to) {
+    if (std::rename(from.c_str(), to.c_str()) == 0) return true;
+    if (!CopyFile(from, to)) return false;
+    return std::remove(from.c_str()) == 0;
+}
+
+bool PublishFile(const std::string& temp, const std::string& destination) {
+    if (std::rename(temp.c_str(), destination.c_str()) == 0) return true;
+    // Some FAT implementations cannot rename over an existing file. Keep
+    // that file as a recoverable backup until the staged copy is published.
+    const std::string backup = destination + ".backup";
+    struct stat info;
+    if (stat(destination.c_str(), &info) != 0) return false;
+    if (stat(backup.c_str(), &info) == 0 && std::remove(backup.c_str()) != 0) return false;
+    if (std::rename(destination.c_str(), backup.c_str()) != 0) return false;
+    if (std::rename(temp.c_str(), destination.c_str()) != 0) {
+        std::rename(backup.c_str(), destination.c_str());
+        return false;
+    }
+    std::remove(backup.c_str());
+    return true;
 }
 
 void DeleteFolder(const std::string& path) {
@@ -328,10 +354,18 @@ void DeleteFolder(const std::string& path) {
 }
 
 bool LogFolderName(const std::string& name) {
-    if (name.size() != 15 || name[8] != '-') return false;
-    for (std::size_t i = 0; i < name.size(); ++i)
-        if (i != 8 && (name[i] < '0' || name[i] > '9')) return false;
-    return true;
+    std::size_t suffix = 15;
+    if (name.rfind("undated-", 0) == 0) {
+        suffix = 7;
+    } else {
+        if (name.size() < 15 || name[8] != '-') return false;
+        for (std::size_t i = 0; i < 15; ++i) {
+            if (i != 8 && (name[i] < '0' || name[i] > '9')) return false;
+        }
+        if (name.size() == 15) return true;
+    }
+    if (name.size() <= suffix + 1 || name[suffix] != '-') return false;
+    return name.find_first_not_of("0123456789", suffix + 1) == std::string::npos;
 }
 
 struct LogFolder {
@@ -365,34 +399,79 @@ void PruneLogFolders(const std::string& current) {
     }
 }
 
-std::string UndatedFolder() {
-    for (unsigned n = 1; n < 1000; ++n) {
-        const std::string name = std::string(kLogDir) + "/undated-" + std::to_string(n);
-        struct stat st;
-        if (stat(name.c_str(), &st) != 0) return name;
+// mkdir reserves the name rather than reusing a folder after a stat check.
+std::string NewLogFolder(const std::string& stamp) {
+    const std::string base = std::string(kLogDir) + "/" + (stamp.empty() ? "undated" : stamp);
+    const unsigned first = stamp.empty() ? 1 : 0;
+    for (unsigned n = first; n < 1000; ++n) {
+        const std::string path = base + (n == 0 ? "" : "-" + std::to_string(n));
+        if (mkdir(path.c_str(), 0777) == 0) return path;
+        if (errno != EEXIST) return "";
     }
-    return std::string(kLogDir) + "/undated";
+    return "";
 }
 
+// Crash records survive reporting. Remember the last archived contents and
+// timestamp so an unchanged old record is not attached to every new session.
+void CopyNewDiagnostic(const char* source, const std::string& folder, const char* name) {
+    struct stat info;
+    if (stat(source, &info) != 0 || info.st_size < 0 || static_cast<std::size_t>(info.st_size) > kReadCap) return;
+    std::string contents;
+    if (!read_text(source, contents) || contents.size() != static_cast<std::size_t>(info.st_size)) return;
+    const Sha256Digest digest = sha256(reinterpret_cast<const std::uint8_t*>(contents.data()), contents.size());
+    std::string fingerprint = std::to_string(static_cast<long long>(info.st_mtime)) + " ";
+    constexpr char hex[] = "0123456789abcdef";
+    for (std::uint8_t byte : digest) {
+        fingerprint.push_back(hex[byte >> 4]);
+        fingerprint.push_back(hex[byte & 15]);
+    }
+    const std::string marker = std::string(kLogDir) + "/" + name + ".last";
+    std::string previous;
+    if (read_text(marker, previous) && previous == fingerprint) return;
+    if (!CopyFile(source, folder + "/" + name)) return;
+    const std::string temp = marker + ".part";
+    FILE* file = std::fopen(temp.c_str(), "wb");
+    if (!file) return;
+    bool ok = std::fwrite(fingerprint.data(), 1, fingerprint.size(), file) == fingerprint.size();
+    if (std::fflush(file) != 0 || fsync(fileno(file)) != 0) ok = false;
+    if (std::fclose(file) != 0) ok = false;
+    if (ok) PublishFile(temp, marker);
+    std::remove(temp.c_str());
 }
 
-void RotateSessionLog() {
+}  // namespace
+
+bool RotateSessionLog() {
+    // A power loss between the two FAT renames still leaves report input.
+    const std::string backup = std::string(kPreviousLog) + ".backup";
+    struct stat previous;
+    if (stat(kPreviousLog, &previous) != 0 && errno == ENOENT)
+        std::rename(backup.c_str(), kPreviousLog);
     struct stat st;
-    if (stat(kSessionLog, &st) != 0) return;
+    if (stat(kSessionLog, &st) != 0) return errno == ENOENT;
     mkdir("sd:/riftwii", 0777);
-    mkdir(kLogDir, 0777);
-    const std::string stamp = LogStamp(st.st_mtime);
-    const std::string folder = stamp.empty() ? UndatedFolder() : std::string(kLogDir) + "/" + stamp;
-    mkdir(folder.c_str(), 0777);
+    if (mkdir(kLogDir, 0777) != 0 && errno != EEXIST) return false;
+    const std::string folder = NewLogFolder(LogStamp(st.st_mtime));
+    if (folder.empty()) return false;
     const std::string archived = folder + "/session.log";
-    MoveFile(kSessionLog, archived);
+    if (!MoveFile(kSessionLog, archived)) {
+        logf("The session log could not be archived; startup will append to it.\n");
+        return false;
+    }
     CopyFile("sd:/riftwii/boot.log", folder + "/boot.log");
-    CopyFile(kCrashFile, folder + "/crash.txt");
-    CopyFile(kGameCrashFile, folder + "/gamecrash.txt");
-    CopyFile(kWpadLogFile, folder + "/wpadlog.txt");
-    std::remove(kPreviousLog);
-    CopyFile(archived, kPreviousLog);
+    CopyNewDiagnostic(kCrashFile, folder, "crash.txt");
+    CopyNewDiagnostic(kGameCrashFile, folder, "gamecrash.txt");
+    CopyNewDiagnostic(kWpadLogFile, folder, "wpadlog.txt");
+    // Publish only a complete, synced copy. A failed copy or rename leaves
+    // the existing report input intact; the new log is safe in its archive.
+    const std::string temp = std::string(kPreviousLog) + ".part";
+    if (!CopyFile(archived, temp) || !PublishFile(temp, kPreviousLog)) {
+        std::remove(temp.c_str());
+        logf("The previous-session log could not be refreshed; its old copy and the new archive are kept.\n");
+        return true;
+    }
     PruneLogFolders(folder);
+    return true;
 }
 
 std::string DescribeControllers() {

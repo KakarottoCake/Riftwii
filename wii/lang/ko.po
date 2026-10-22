@@ -2817,8 +2817,8 @@ msgstr "1. 가장자리에 가장 가까운 USB 포트를 사용하세요."
 msgid "2. For big drives: a Y-cable or their own power."
 msgstr "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요."
 
-msgid "3. Format to FAT32 (Recommended) or NTFS."
-msgstr "3. FAT32(권장) 또는 NTFS로 포맷하세요."
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32 권장. NTFS와 WBFS도 지원합니다."
 
 msgid "4. Games in the /wbfs or /games folder."
 msgstr "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요."
