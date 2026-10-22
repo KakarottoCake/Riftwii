@@ -3353,11 +3353,11 @@ static bool ShowUsbHelp(bool offerOff)
 	const int side = QrImage::Side(code, kModule);
 	QrImage qr(code, 588 - 16 - side, 150, kModule);
 	PopupBox box(tr("Getting a USB drive working"),
-		std::string(tr("1. Use the USB port nearest the edge.")) + "\n" +
-			tr("2. Big drives: a Y-cable or their own power.") + "\n" +
-			tr("3. FAT32 or NTFS (or a WBFS drive).") + "\n" +
-			tr("4. Games in a wbfs or games folder.") + "\n" +
-			tr("5. A d2x cIOS in slot 249, 250 or 251.") + "\n" +
+		std::string(tr("1. Use the USB port nearest to the edge.")) + "\n" +
+			tr("2. For big drives: a Y-cable or their own power.") + "\n" +
+			tr("3. FAT32 recommended; NTFS and WBFS work too.") + "\n" +
+			tr("4. Games in the /wbfs or /games folder.") + "\n" +
+			tr("5. A d2x cIOS in slot 249/250/251.") + "\n" +
 			tr("Scan the code for the guide."),
 		tr("OK"), offerOff ? std::string(tr("Don't show again")) : std::string());
 	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
@@ -3401,7 +3401,7 @@ static void NoteWiiUDrive()
 	const auto seen = other.find("wiiu_drive_note");
 	if (seen != other.end() && seen->second == "shown") return;
 	ShowPopup(tr("Wii U drive"),
-		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."),
+		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."),
 		tr("OK"));
 	other["wiiu_drive_note"] = "shown";
 	riftwii::wii::SaveSettings();
