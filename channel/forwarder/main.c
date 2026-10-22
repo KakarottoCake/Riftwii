@@ -327,10 +327,11 @@ static void stay_here(void) {
     for (;;) usleep(1000000);
 }
 
-// Held by the loader thread around the device calls that follow a step's
-// long call (the log write, the unmount after a read), and taken by the main
-// thread to give up: a call that returns late after the error screen is up
-// then goes no further, and fail() never runs beside an unmount.
+// Held by the loader thread around the log write, and around taking the
+// result of a read (g_dol) and the unmount after it; not around the mount or
+// the read themselves, which can be stuck in IOS. Taken by the main thread
+// to give up: a read that returns late after the error screen is up then
+// goes no further, and fail() never runs beside an unmount.
 static mutex_t g_device_lock;
 
 // Before such a call: goes on only if the main thread has not given up.
@@ -356,6 +357,9 @@ static void give_up(void) {
         }
         VIDEO_WaitVSync();
     }
+    // Set even without the lock: the thread stops at its next device_begin
+    // or enter_step, and one stuck inside an IOS call never gets there,
+    // which is harmless since nothing touches the device after this.
     g_given_up = true;
     if (locked) LWP_MutexUnlock(g_device_lock);
 }
