@@ -2104,12 +2104,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         ok = false;
     }
     if (!ok) return false;
-    // A two-disc game's second disc: the game reads its FST into the same
-    // room as disc 1's, which grows to hold the larger (the SDK refuses a
-    // disc whose FST is larger than the room 0x8000003C gives).
+    // A two-disc game's second disc. The game reads its FST into the same
+    // room as disc 1's, which grows to hold the larger with MEM1's layout
+    // below (the SDK refuses a disc whose FST is larger than the room
+    // 0x8000003C gives).
     GcSecondDisc second;
     open_second_disc(image, boot, tgc_offset, second);
-    if (second.on) fst_max = gc_two_disc_fst_room(fst_max, second.boot.data());
 
 
     Code code(dol.text);
@@ -2198,38 +2198,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "the GameCube blob's context is smaller than gc_rt_context";
         return false;
     }
-    std::uint32_t fst_addr = (kMem1Top - fst_max) & ~31u;
-    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kMem1Pieces };
-    std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
-    mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
-    mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
-    mem1_pieces[kPieceMoved].bytes = kMovedBytes;
-    mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
-    mem1_pieces[kPieceStubs].bytes = kStubBytes;
-    const GcMem1Plan mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
-    const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
-    const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
-    const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
-    const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
-    const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
-    const std::uint32_t di_regs = mem1.di_regs;
-    const std::uint32_t bi2_addr = mem1.bi2;
-    std::uint32_t arena_hi = mem1.arena_hi;
-    // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034 in
-    // every version: Sonic Riders Tournament Edition's sets its arena's top
-    // to the FST's address less 0x800, so with the FST at MEM1's top its heap
-    // covered the blob, and a 1.4 MB read wrote over it. For such a game the
-    // FST goes below everything else, and the arena ends 0x800 under it:
-    // either way of reading the top leaves the blob, the card and the DI
-    // stand-in alone.
-    if (ogc) {
-        fst_addr = (arena_hi - fst_max) & ~31u;
-        arena_hi = (fst_addr - 0x800) & ~31u;
-    }
-    if (arena_hi < kLoaderCeiling) {
-        error = "the game's FST is too large";
-        return false;
-    }
     // MEM2, one after another from kGcMem2Data, each 32-byte aligned.
     const std::uint32_t runs_bytes = static_cast<std::uint32_t>(placed.size() * sizeof(gc_rt_run));
     std::uint32_t mem2_next = kGcMem2Data;
@@ -2275,6 +2243,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             disc_change_addr = runs2_addr = rvz2_addr = fst_copy_addr = 0;
         }
     }
+    // Disc 2 dropped after its MEM2 was planned (the RVZ's buffers, MEM1's
+    // layout): what MEM2 holds for it stays unused, disc 1 runs as before.
+    auto drop_second = [&](const char* why) {
+        logf("GameCube: %s is not used as disc 2: %s; the game stops where it asks for it\n", second.path.c_str(),
+             why);
+        second.on = false;
+        disc_change_addr = 0;
+        fst_copy_addr = 0;
+    };
     const std::uint32_t mem2_bytes = mem2_next - kGcMem2Data;
     if (mem2_bytes > kGcMem2DataMax) {
         error = "the packs' disc layout is too large";
@@ -2289,12 +2266,22 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         rvz_next = (at + bytes + 31u) & ~31u;
         return at;
     };
-    // Disc 2's reader (an RVZ too) shares them: each the larger of the two.
+    // Disc 2's reader (an RVZ too) shares them: each the larger of the
+    // two. When that is more than the window holds and disc 1's alone is
+    // not, disc 2 goes rather than the game.
+    auto rvz_cache_bytes = [](const RvzBufferSizes& sizes) {
+        auto rounded = [](std::uint32_t bytes) { return (bytes + 31u) & ~31u; };
+        return (sizes.decoder ? rounded(kGcRvzDecoderBytes) : 0) + (sizes.stored ? rounded(sizes.stored) : 0) +
+               2 * rounded(sizes.group);
+    };
     RvzBufferSizes rvz_sizes = rvz_setup.sizes;
-    if (second.rvz) {
-        rvz_sizes.decoder = rvz_sizes.decoder || second.rvz_setup.sizes.decoder;
-        rvz_sizes.stored = std::max(rvz_sizes.stored, second.rvz_setup.sizes.stored);
-        rvz_sizes.group = std::max(rvz_sizes.group, second.rvz_setup.sizes.group);
+    if (second.on && second.rvz) {
+        RvzBufferSizes shared = rvz_sizes;
+        shared.decoder = shared.decoder || second.rvz_setup.sizes.decoder;
+        shared.stored = std::max(shared.stored, second.rvz_setup.sizes.stored);
+        shared.group = std::max(shared.group, second.rvz_setup.sizes.group);
+        if (rvz_cache_bytes(shared) <= kGcRvzCacheMax) rvz_sizes = shared;
+        else drop_second("the two RVZs' chunks together need more buffers than RiftWii sets aside");
     }
     const std::uint32_t rvz_dctx_addr = rvz && rvz_sizes.decoder ? rvz_take(kGcRvzDecoderBytes) : 0;
     const std::uint32_t rvz_stored_addr = rvz && rvz_sizes.stored ? rvz_take(rvz_sizes.stored) : 0;
@@ -2307,6 +2294,71 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "This RVZ's chunks are too large to read during play: convert it again in Dolphin with 128 KiB chunks.";
         return false;
     }
+    // The game's own layout at the top of MEM1: its stack's top (the r1
+    // that __init_registers sets) and ArenaLo (OSInit's __ArenaLo). The
+    // arena's top has to stay at or above both, or OSInit's clear wraps
+    // and the stack runs down into RiftWii's part.
+    const GcCodeReader read_code = [&code](std::uint32_t address, std::uint32_t& word) {
+        if (!code.has(address)) return false;
+        word = code.at(address);
+        return true;
+    };
+    std::vector<GcTextRange> text_ranges;
+    for (const Section& s : dol.text)
+        text_ranges.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+    const GcStackTop stack = find_gc_stack_top(read_code, dol.entry);
+    const std::uint32_t arena_lo = find_gc_arena_lo(read_code, text_ranges);
+    const std::uint32_t game_floor = std::max(stack.address, arena_lo);
+    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kMem1Pieces };
+    std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
+    mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
+    mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
+    mem1_pieces[kPieceMoved].bytes = kMovedBytes;
+    mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
+    mem1_pieces[kPieceStubs].bytes = kStubBytes;
+    std::uint32_t fst_addr = 0;
+    std::uint32_t arena_hi = 0;
+    GcMem1Plan mem1;
+    // The layout for an FST room of `room`; true when it leaves the
+    // arena's top above RiftWii's heap and the game's own floor.
+    auto plan_mem1 = [&](std::uint32_t room) {
+        fst_addr = (kMem1Top - room) & ~31u;
+        mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
+        arena_hi = mem1.arena_hi;
+        // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034
+        // in every version: Sonic Riders Tournament Edition's sets its
+        // arena's top to the FST's address less 0x800, so with the FST at
+        // MEM1's top its heap covered the blob, and a 1.4 MB read wrote over
+        // it. For such a game the FST goes below everything else, and the
+        // arena ends 0x800 under it: either way of reading the top leaves
+        // the blob, the card and the DI stand-in alone.
+        if (ogc) {
+            fst_addr = (arena_hi - room) & ~31u;
+            arena_hi = (fst_addr - 0x800) & ~31u;
+        }
+        return arena_hi >= kLoaderCeiling && arena_hi >= game_floor;
+    };
+    // A two-disc game's room holds the larger FST; when no layout has room
+    // for that, disc 2 goes and disc 1's room is planned as before.
+    bool planned = false;
+    if (second.on) {
+        const std::uint32_t two_disc_room = gc_two_disc_fst_room(fst_max, second.boot.data());
+        planned = plan_mem1(two_disc_room);
+        if (planned) fst_max = two_disc_room;
+        else drop_second("its FST leaves the game no room at the top of MEM1");
+    }
+    if (!planned) plan_mem1(fst_max);
+    const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
+    const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
+    const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
+    const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
+    const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
+    const std::uint32_t di_regs = mem1.di_regs;
+    const std::uint32_t bi2_addr = mem1.bi2;
+    if (arena_hi < kLoaderCeiling) {
+        error = "the game's FST is too large";
+        return false;
+    }
     // Built here, zeroed, and moved into MEM2 just before the jump with
     // the card's image: the loader's own heap may be where it goes.
     std::vector<std::uint8_t> mem2_stage(mem2_bytes, 0);
@@ -2314,21 +2366,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return static_cast<void*>(mem2_stage.data() + (mem2_address - kGcMem2Data));
     };
 
-    // The game's own layout at the top of MEM1: its stack's top (the r1
-    // that __init_registers sets) and ArenaLo (OSInit's __ArenaLo). The
-    // arena's top has to stay at or above both, or OSInit's clear wraps
-    // and the stack runs down into RiftWii's part.
+    // The layout in the log, and a game whose stack or ArenaLo is above
+    // the arena's top even with disc 1's room stopped here.
     {
-        const GcCodeReader read = [&code](std::uint32_t address, std::uint32_t& word) {
-            if (!code.has(address)) return false;
-            word = code.at(address);
-            return true;
-        };
-        std::vector<GcTextRange> text_ranges;
-        for (const Section& s : dol.text)
-            text_ranges.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
-        const GcStackTop stack = find_gc_stack_top(read, dol.entry);
-        const std::uint32_t arena_lo = find_gc_arena_lo(read, text_ranges);
         char stack_text[48] = "not found";
         char arena_text[16] = "not found";
         if (stack.address != 0)
@@ -2352,7 +2392,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  static_cast<unsigned>(rvz_next - kGcRvzCache), rvz_dctx_addr, rvz_stored_addr,
                  static_cast<unsigned>(rvz_sizes.stored), rvz_slot_addr[0], rvz_slot_addr[1],
                  static_cast<unsigned>(rvz_sizes.group));
-        const std::uint32_t game_floor = std::max(stack.address, arena_lo);
         if (game_floor > arena_hi) {
             logf("GameCube: the game's stack or arena starts at 0x%08x, above the arena's top 0x%08x: the FST and "
                  "RiftWii's part leave it no room\n",
