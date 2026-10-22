@@ -1281,7 +1281,7 @@ T = {
     # Themes (wii/menu/menutheme.cpp, docs/THEMES.md)
     "Theme": ("Tema", "テーマ", "Tema", "Tema"),
     "Default": ("Predeterminado", "標準", "Padrão", "Predefinito"),
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
         "Los colores y las imágenes del menú. Los temas son carpetas en sd:/riftwii/themes (docs/THEMES.md en GitHub).",
         "メニューの色と画像です。テーマはsd:/riftwii/themesのフォルダーです（GitHubのdocs/THEMES.md）。",
         "As cores e as imagens do menu. Os temas são pastas em sd:/riftwii/themes (docs/THEMES.md no GitHub).",
@@ -3102,7 +3102,7 @@ KO = {
         "테마",
     "Default":
         "기본",
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
         "메뉴의 색상과 이미지입니다. 테마는 sd:/riftwii/themes 폴더에 위치합니다. (GitHub의 docs/THEMES.md 참조)",
     "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.":
         "sd:/riftwii/themes 경로에 테마가 없습니다. 압축 파일 내의 themes 폴더에 해당 경로로 복사할 수 있는 테마가 하나 들어 있습니다.",
@@ -4919,7 +4919,7 @@ FR = {
         "Thème",
     "Default":
         "Par défaut",
-    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
+    "The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
         "Apparence visuelle du menu. Les thèmes sont stockés dans sd:/riftwii/themes.",
     "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.":
         "Aucun thème trouvé dans sd:/riftwii/themes. L'archive zip d'origine en propose à installer.",
