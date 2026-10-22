@@ -327,6 +327,39 @@ static void stay_here(void) {
     for (;;) usleep(1000000);
 }
 
+// Held by the loader thread around the device calls that follow a step's
+// long call (the log write, the unmount after a read), and taken by the main
+// thread to give up: a call that returns late after the error screen is up
+// then goes no further, and fail() never runs beside an unmount.
+static mutex_t g_device_lock;
+
+// Before such a call: goes on only if the main thread has not given up.
+static void device_begin(void) {
+    LWP_MutexLock(g_device_lock);
+    if (g_given_up) {
+        LWP_MutexUnlock(g_device_lock);
+        stay_here();
+    }
+}
+
+static void device_end(void) { LWP_MutexUnlock(g_device_lock); }
+
+// The main thread gives up. An unmount or log write under way gets up to
+// 5 seconds to finish first; one stuck in IOS longer is left as it is,
+// which fail() does not touch either.
+static void give_up(void) {
+    bool locked = false;
+    for (int f = 0; f < 5 * 60; ++f) {
+        if (LWP_MutexTryLock(g_device_lock) == 0) {
+            locked = true;
+            break;
+        }
+        VIDEO_WaitVSync();
+    }
+    g_given_up = true;
+    if (locked) LWP_MutexUnlock(g_device_lock);
+}
+
 static void enter_step(StepId step) {
     // Once the main thread has given up, start nothing more on the way
     // back to the Wii Menu.
@@ -366,9 +399,12 @@ static void* mem2(u32 n) {
 static void mem2_release(void* data) { SYS_SetArena2Lo(data); }
 
 static void read_dol(int which) {
-    g_dol = dolboot_read(kPaths[which], &g_size, mem2, mem2_release);
-    if (g_dol) g_path = kPaths[which];
+    u8* dol = dolboot_read(kPaths[which], &g_size, mem2, mem2_release);
+    device_begin();
+    g_dol = dol;
+    if (dol) g_path = kPaths[which];
     unmount(which);
+    device_end();
 }
 
 // That the channel got this far, in the installer's log, and how long the
@@ -400,7 +436,9 @@ static void* load_thread(void* unused) {
     if (sd) {
         const u32 mounted_ms = diff_msec(sd_begin, gettime()) - started_ms;
         enter_step(STEP_SD_READ);
+        device_begin();
         log_sd_start(started_ms, mounted_ms);
+        device_end();
         read_dol(0);
     }
     if (!g_dol) {
@@ -424,6 +462,7 @@ static void load(void) {
     // Below the main thread (64), so each frame's check gets the CPU back
     // from it even while it computes.
     lwp_t loader;
+    LWP_MutexInit(&g_device_lock, false);
     // Without the thread no step would ever start, and the intro's last
     // frame would stay up for good.
     if (LWP_CreateThread(&loader, load_thread, NULL, g_loader_stack, sizeof(g_loader_stack), 48) != 0) {
@@ -441,7 +480,7 @@ static void load(void) {
             show_status(kSteps[step].status);
         }
         if (shown >= 0 && diff_msec(shown_since, gettime()) >= kSteps[shown].seconds * 1000u) {
-            g_given_up = true;
+            give_up();
             char why[128];
             snprintf(why, sizeof(why), "%s did not answer (stopped at: %s).", kSteps[shown].device,
                      kSteps[shown].stopped_at);
