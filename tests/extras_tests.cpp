@@ -1667,14 +1667,11 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "xml=../ctgp.xml"}, h, error));
 }
 
-// A Wii game's own Reset (docs/HEADLESS.md): the launch RiftWii leaves for
-// itself, written by headless_launch_arguments and read back by the same
-// parser every other launch goes through.
 // A Wii game's own Reset names the cIOS its launch ran on when the request
 // leaves the choice to RiftWii: the restart starts without the menu, and on
 // a Wii U with the GameCube adapter Automatic chose IOS251 only from what
-// the menu saw (a Wii U, Kamen Rider from the SD card: the restart came
-// back on IOS249, the adapter off).
+// the menu saw (a Wii U, Kamen Rider: Super Climax Heroes from the SD card:
+// the restart came back on IOS249, the adapter off).
 void TestPinLaunchCios() {
     HeadlessLaunch h;
     h.game = "SKHJAF";
@@ -1785,6 +1782,9 @@ void TestRestartRequestSectors() {
     EXPECT_TRUE(!why.empty());
 }
 
+// A Wii game's own Reset (docs/HEADLESS.md): the launch RiftWii leaves for
+// itself, written by headless_launch_arguments and read back by the same
+// parser every other launch goes through.
 void TestResetRequest() {
     HeadlessLaunch h;
     h.game = "SMNP03";
