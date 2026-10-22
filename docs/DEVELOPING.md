@@ -114,7 +114,14 @@ Two scripts on the card drive a run without hands on a controller:
 
 - GameCube games have test switches too: empty files in
   `sd:/riftwii/gc/test/`, read only from there so a stray file among a
-  player's cards, saves and controls cannot set one. `press` (presses on
+  player's cards, saves and controls cannot set one. `trace` enables repeated
+  SD trace writes for diagnostics; normally only a crash writes a record,
+  preserving its problem report without periodic writes during play. Full
+  tracing can itself cause stutter. PAD diagnostics are coalesced until the
+  next heartbeat, so their timestamp and live SI registers describe that
+  later sample rather than the triggering PADRead. Without `trace`, a hang
+  has no saved heartbeat history, and a normal exit has no saved Bluetooth
+  history; runtime counters remain in RAM. `press` (presses on
   port 1), `leave` (holds the way back), `crash` and `crashblack` (a
   crash on purpose, also on a blanked screen), `streamonly` (disc music
   alone), `nowiden` (16:9's hook without the widening), `keeparam` (ARAM
