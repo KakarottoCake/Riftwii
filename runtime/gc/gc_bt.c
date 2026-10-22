@@ -763,6 +763,14 @@ static void bt_update_rumble(struct gc_bt* bt, int send) {
     }
 }
 
+int gc_bt_has_remote(const struct gc_bt* bt) {
+    uint32_t i;
+    for (i = 0; i < GC_BT_REMOTES; ++i) {
+        if (bt->remotes[i].used) return 1;
+    }
+    return 0;
+}
+
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     uint32_t i, msr;
     if (bt->stage == GC_BT_STAGE_FAILED) return;

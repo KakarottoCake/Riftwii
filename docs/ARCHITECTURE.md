@@ -433,7 +433,13 @@ alone; L, R, Z and Start on a GameCube controller) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
 RiftWii channel when it is installed, else the Wii Menu, through
 `ES_LaunchTitle` with the ticket view the loader read. The memory card is
-written back first. A crash ends in `gc_on_fatal`: a record in
+written back first. Normal gameplay does not write SD trace records;
+`sd:/riftwii/gc/test/trace` enables them for diagnostics. PAD trace requests
+are coalesced and written by the heartbeat. After Bluetooth start-up,
+discovery with no connected remote also runs from the heartbeat, rather
+than each PADRead; a new connection can take longer to be noticed, and
+connected remotes keep frame-paced service.
+A crash ends in `gc_on_fatal`: a record in
 the trace, then the menu's own message (drawn by FreeTypeGX's
 `RenderTextCoverage` before the launch) over the picture the VI shows, and
 A goes back. The memory card's struct starts with two words of code that
