@@ -819,7 +819,7 @@ static void TestOriginAtRest() {
     d.now += 8;
     EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
     d.now += 8;
-    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 126, 128, 200, 30)));
+    EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 126, 128, 200, 30)));  // the axes at rest settle
     d.now += GCAD_ORIGIN_WAIT_MS;
     EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 126, 128, 200, 30)));
     EXPECT_TRUE(gcad_port(g, 0, &pad, d.now));
@@ -865,6 +865,21 @@ static void TestOriginAtRest() {
     ExpectPort(g, 0, 0, 0, d.now);
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_RESTING), resting + 1);
     EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), middle);  // and not the middle
+
+    // A stick jumping between two readings that are each at rest (100 and
+    // 120) never settles: at the end of the wait it takes the middle, not
+    // whichever it read last, while the y axis, steady, keeps its reading.
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+    const std::uint32_t appeared = d.now + 8;
+    for (int k = 0; d.now < appeared + GCAD_ORIGIN_WAIT_MS; ++k) {
+        d.now += 8;
+        EXPECT_TRUE(Deliver(Report(0x14, 0, 0, (k & 1) ? 120 : 100, 130)));
+    }
+    EXPECT_EQ(OriginEvents(d, 0, GCAD_ORIGIN_MIDDLE), middle + 1);
+    d.now += 8;
+    EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 130)));
+    ExpectPort(g, 0, 0, 0, d.now);  // centred: x took the middle, y its own 130
 }
 
 static void TestNoAdapter() {

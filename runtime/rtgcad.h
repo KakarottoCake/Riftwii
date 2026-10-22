@@ -107,7 +107,7 @@ extern "C" {
 
 /* How a port's origin was taken (GCAD_EV_ORIGIN). */
 #define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
-#define GCAD_ORIGIN_MIDDLE 1u  /* nothing at rest for GCAD_ORIGIN_WAIT_MS: the axes still off took the middle */
+#define GCAD_ORIGIN_MIDDLE 1u  /* nothing steady at rest for GCAD_ORIGIN_WAIT_MS: the axes not settled took the middle */
 #define GCAD_ORIGIN_RECAL 2u   /* X+Y+Start held */
 #define GCAD_ORIGIN_PASSED 3u  /* not taken: the pad's first reading was not at rest (the values are that reading) */
 
@@ -179,7 +179,7 @@ typedef struct gcad {
     uint8_t recal_active[GCAD_PORTS];
     uint32_t origin_since[GCAD_PORTS];  /* when the wait for a reading at rest began */
     uint8_t steady[GCAD_PORTS][6];      /* the last reading at rest, while the origin waits */
-    uint8_t steady_reads[GCAD_PORTS];   /* readings at rest in a row, each close to the one before */
+    uint8_t steady_reads[GCAD_PORTS][6]; /* per axis: readings at rest in a row, each close to the one before */
     uint32_t recal_since[GCAD_PORTS];
 
     /* Rumble: what the game wants and what the adapter last took. */
