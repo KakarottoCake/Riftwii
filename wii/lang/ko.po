@@ -2859,8 +2859,8 @@ msgstr "실제 NAND"
 msgid "Emulated NAND"
 msgstr "에뮬레이트 NAND"
 
-msgid "Where the game will boot from. If set to Automatic, RiftWii will guess."
-msgstr "게임을 어디서 시작할지 정합니다. 자동으로 두면 RiftWii가 판단합니다."
+msgid "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."
+msgstr "자동은 RiftWii 로더를 사용합니다. Wii 본체는 게임 IOS, 치트, 로더 추가 기능 없이 Wii 메뉴처럼 시작합니다."
 
 msgid "Game IOS"
 msgstr "게임 IOS"
@@ -2880,8 +2880,8 @@ msgstr "게임으로 감지되지 않은 채널도 모두 표시합니다."
 msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
 msgstr "Wii 본체에는 시작할 수 있는 이 게임의 사본이 없습니다. 에뮬레이트 NAND를 선택하거나 거기에 게임을 설치하세요."
 
-msgid "The Wii's own copy starts, and saves stay on the Wii."
-msgstr "Wii 본체의 사본이 시작되고 세이브는 Wii 본체에 남습니다."
+msgid "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply."
+msgstr "Wii 메뉴처럼 시작하며 저장은 Wii에 남습니다. 게임 IOS, 치트, RiftWii 로더 추가 기능은 적용되지 않습니다."
 
 msgid "The copy RiftWii lists starts, with its own save."
 msgstr "RiftWii가 표시하는 사본이 자체 세이브와 함께 시작됩니다."
@@ -2894,3 +2894,6 @@ msgstr "에뮬레이트 NAND의 사본이 시작됩니다. 세이브는 SD 카�
 
 msgid "{1} has no copy of this game. Install it there from its WAD first."
 msgstr "{1}에는 이 게임의 사본이 없습니다. 먼저 해당 WAD에서 설치하세요."
+
+msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
+msgstr "이 채널의 프로그램 데이터가 없습니다. Wii 또는 에뮬레이트 NAND에 설치하세요."

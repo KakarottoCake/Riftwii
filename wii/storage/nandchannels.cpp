@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
+// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "nandchannels.hpp"
 
@@ -460,6 +462,23 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
     return !out.empty();
 }
 
+bool emu_channel_program_present(const std::string& folder, std::uint64_t title_id) {
+    if (folder.empty()) return false;
+    char relative[80];
+    std::snprintf(relative, sizeof(relative), "/title/%08x/%08x/content/title.tmd",
+                  static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
+    std::vector<std::uint8_t> bytes;
+    TmdContents tmd;
+    std::string why;
+    if (!read_card_file(folder + relative, kMaxTmdBytes, bytes, why) ||
+        !parse_tmd_contents(bytes.data(), bytes.size(), tmd, why) || tmd.title_id != title_id)
+        return false;
+    const TmdContent* program = tmd_content_by_index(tmd, tmd.boot_index);
+    return program_present(tmd, program, [&](const TmdContent& content) {
+        return card_file_exists(folder + nand_content_path(title_id, content.id));
+    });
+}
+
 bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error) {
     // A banner with its sound is a few hundred KB; past this it is not one.
     constexpr u32 kMaxBannerBytes = 4u << 20;
@@ -526,6 +545,10 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     }
     TmdContents contents;
     if (!parse_tmd_contents(files.tmd.data(), files.tmd.size(), contents, error)) return false;
+    if (contents.title_id != title_id) {
+        error = "the TMD belongs to a different channel";
+        return false;
+    }
     files.required_ios = contents.required_ios;
     files.game_id = channel_game_id(channel_code(title_id), contents.maker);
     const auto add_ios = [&files](int ios) {
@@ -558,6 +581,8 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
                                    : read_head(access, path, head, start.head);
         if (read) starts.push_back(start);
     }
+    // A header probe ranks candidates; only a complete unpack and parse
+    // below can commit the choice. Reject a bad stream and try another.
     std::vector<ContentStart> candidates = starts;
     bool loaded = false;
     std::string why;
@@ -574,7 +599,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         if (!program_read) return false;
         const bool compressed = channel_program_compressed(files.dol.data(), files.dol.size());
         if (compressed) {
-            std::vector<std::uint8_t> packed = files.dol;
+            const std::size_t packed_size = files.dol.size();
             if (!unpack_channel_program(files.dol, why)) {
                 logf("Wii channels: content %d is compressed and %s; not a program\n",
                      static_cast<int>(files.program.index), why.c_str());
@@ -600,7 +625,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
             files.program.dol = dol;
             files.program.format = format;
             logf("Wii channels: content %d is LZ77-compressed (%u bytes); unpacked for the game (%u bytes, %s)\n",
-                 static_cast<int>(files.program.index), static_cast<unsigned>(packed.size()),
+                 static_cast<int>(files.program.index), static_cast<unsigned>(packed_size),
                  static_cast<unsigned>(files.dol.size()), files.program.format.c_str());
         }
         if (files.dol.size() < files.program.dol.image_size()) {
@@ -613,7 +638,21 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         error = "none of its contents is a program RiftWii can load";
         return false;
     }
-    files.ticket = riftwii::make_fake_ticket();
+    // Prefer the installed title's own ticket. The synthetic identity is
+    // only a fallback when a copied NAND lacks it; IOS may still refuse it.
+    constexpr u32 kMaxTicketBytes = 0x1000;
+    char ticket_path[64];
+    std::snprintf(ticket_path, sizeof(ticket_path), "/ticket/%08x/%08x.tik",
+                  static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
+    std::string ticket_error;
+    const bool ticket_read = emulated
+        ? read_card_file(emu_nand + ticket_path, kMaxTicketBytes, files.ticket, ticket_error)
+        : read_whole(access, ticket_path, kMaxTicketBytes, files.ticket, ticket_error);
+    if (!ticket_read) {
+        logf("Wii channels: the installed ticket could not be read (%s); trying a synthetic identity.\n",
+             ticket_error.c_str());
+        files.ticket = riftwii::make_fake_ticket();
+    }
     // The certificates are the same on every Wii: an emulated NAND's own
     // copy when it has one, else the Wii's.
     std::string ignored;

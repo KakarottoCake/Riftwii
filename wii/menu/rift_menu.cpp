@@ -5050,15 +5050,6 @@ struct ChannelCopies {
 	std::string folder;
 };
 
-static bool ChannelInNand(const std::string& folder, std::uint64_t title_id) {
-	if (folder.empty()) return false;
-	char path[160];
-	std::snprintf(path, sizeof(path), "%s/title/%08x/%08x/content/title.tmd", folder.c_str(),
-		static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
-	struct stat st;
-	return stat(path, &st) == 0;
-}
-
 static ChannelCopies CopiesOf(const FrontendState& state) {
 	ChannelCopies copies;
 	if (state.channel_index >= state.channels.size()) return copies;
@@ -5072,13 +5063,11 @@ static ChannelCopies CopiesOf(const FrontendState& state) {
 			copies.folder = other.emu_nand;
 		}
 	}
-	if (channel.emu_nand.empty()) copies.wii = true;
-	else copies.emu = true;
 	if (copies.folder.empty()) {
 		const riftwii::wii::SharedNandLookup emu = riftwii::wii::look_up_channel_nand();
 		if (emu.usable) copies.folder = emu.folder;
 	}
-	if (!copies.emu && ChannelInNand(copies.folder, channel.title_id)) copies.emu = true;
+	if (!copies.emu && riftwii::wii::emu_channel_program_present(copies.folder, channel.title_id)) copies.emu = true;
 	return copies;
 }
 
@@ -5104,9 +5093,11 @@ static void CycleChannelNand(FrontendState& state) {
 
 static std::string ChannelBootNote(const FrontendState& state) {
 	const ChannelCopies copies = CopiesOf(state);
+	if (!copies.wii && !copies.emu)
+		return tr("No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.");
 	const std::string& source = state.model.game.nand_source;
 	if (source == "real")
-		return copies.wii ? tr("The Wii's own copy starts, and saves stay on the Wii.")
+		return copies.wii ? tr("Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.")
 						  : tr("The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.");
 	if (source == "emu")
 		return copies.emu ? tr("The copy in {1} starts, and saves stay there on the SD card.", {copies.folder})
@@ -9264,7 +9255,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else if (ref.what == RowRef::What::NandSource)
-				say(tr("Where the game will boot from. If set to Automatic, RiftWii will guess."));
+				say(tr("Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."));
 			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id))
 				say(tr("This game has no online play, so it needs no server."));
 			else if (ref.what == RowRef::What::Server && state.model.packs_patch_game())
@@ -9736,7 +9727,8 @@ static int MenuHome(FrontendState& state)
 					const ChannelCopies copies = CopiesOf(state);
 					const std::string& nand_source = state.model.game.nand_source;
 					const bool emulated = nand_source == "emu" || (nand_source == "auto" && !copies.wii && copies.emu);
-					if ((nand_source == "real" && !copies.wii) || (emulated && !copies.emu)) {
+					if ((!copies.wii && !copies.emu) || (nand_source == "real" && !copies.wii) ||
+					    (emulated && !copies.emu)) {
 						say(ChannelBootNote(state));
 					} else {
 						logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
@@ -10388,7 +10380,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kMissingCovers: case kNames: case kServer: case kUpdate:
+				case kOnline: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;

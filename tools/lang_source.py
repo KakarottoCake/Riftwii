@@ -6087,14 +6087,14 @@ T.update({
     "Boot": ('Iniciar', '起動', 'Iniciar', 'Avvia'),
     "Real NAND": ('NAND real', '実NAND', 'NAND real', 'NAND reale'),
     "Emulated NAND": ('NAND emulada', 'エミュレートNAND', 'NAND emulada', 'NAND emulata'),
-    "Where the game will boot from. If set to Automatic, RiftWii will guess.": ('Desde dónde se iniciará el juego. Con Automático, RiftWii lo deduce.', 'ゲームをどこから起動するかです。自動にすると、RiftWiiが判断します。', 'De onde o jogo vai iniciar. Em Automático, o RiftWii adivinha.', 'Da dove si avvierà il gioco. Con Automatico, RiftWii lo indovina.'),
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": ("Automático usa el cargador de RiftWii. En la Wii inicia como el Menú de Wii, sin IOS del juego, trucos ni extras.", "自動はRiftWiiのローダーを使います。「Wii本体」はWiiメニューと同じように起動し、ゲームIOS、チート、追加機能は使いません。", "Automático usa o carregador do RiftWii. No Wii inicia como o Menu Wii, sem IOS do jogo, trapaças ou extras.", "Automatico usa il loader di RiftWii. Sulla Wii avvia come il Menu Wii, senza IOS del gioco, trucchi o extra."),
     "Game IOS": ('IOS del juego', 'ゲームのIOS', 'IOS do jogo', 'IOS del gioco'),
     "The IOS RiftWii starts the channel under.": ('El IOS con el que RiftWii inicia el canal.', 'RiftWiiがこのチャンネルを起動するIOSです。', 'O IOS com que o RiftWii inicia o canal.', "L'IOS con cui RiftWii avvia il canale."),
     "Emulated NAND (not here)": ('NAND emulada (no aquí)', 'エミュレートNAND (ここにはありません)', 'NAND emulada (não aqui)', 'NAND emulata (non qui)'),
     "Real NAND (not here)": ('NAND real (no aquí)', '実NAND (ここにはありません)', 'NAND real (não aqui)', 'NAND reale (non qui)'),
     "Show all channels even if they aren't detected as a game.": ('Mostrar todos los canales aunque no se detecten como juego.', 'ゲームとして検出されないチャンネルもすべて表示します。', 'Mostrar todos os canais mesmo que não sejam detectados como jogo.', 'Mostra tutti i canali anche se non sono rilevati come gioco.'),
     "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": ('La Wii no tiene ninguna copia de este juego que pueda iniciarse. Elige la NAND emulada o instala el juego ahí.', 'Wii本体には起動できるこのゲームのコピーがありません。エミュレートNANDを選ぶか、そこにゲームをインストールしてください。', 'O Wii não tem nenhuma cópia deste jogo que possa iniciar. Escolha a NAND emulada ou instale o jogo lá.', 'La Wii non ha una copia di questo gioco che possa avviarsi. Scegli la NAND emulata o installa il gioco lì.'),
-    "The Wii's own copy starts, and saves stay on the Wii.": ('Se inicia la copia del propio Wii y las partidas se quedan en la Wii.', 'Wii本体のコピーが起動し、セーブはWii本体に残ります。', 'A cópia do próprio Wii inicia e os saves ficam no Wii.', 'Si avvia la copia della Wii e i salvataggi restano sulla Wii.'),
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": ("Inicia como el Menú de Wii, con partidas en la Wii. No aplica IOS del juego, trucos ni extras del cargador.", "Wiiメニューと同じように起動し、セーブはWii本体に残ります。ゲームIOS、チート、RiftWiiの追加機能は使いません。", "Inicia como o Menu Wii, com saves no Wii. IOS do jogo, trapaças e extras do carregador não se aplicam.", "Avvia come il Menu Wii, con salvataggi sulla Wii. IOS del gioco, trucchi ed extra del loader non si applicano."),
     "The copy RiftWii lists starts, with its own save.": ('Se inicia la copia que RiftWii muestra, con su propia partida.', 'RiftWiiが表示するコピーが、独自のセーブとともに起動します。', 'Inicia a cópia que o RiftWii lista, com o próprio save.', 'Si avvia la copia che RiftWii elenca, con il suo salvataggio.'),
     "The copy in {1} starts, and saves stay there on the SD card.": ('Se inicia la copia en {1} y las partidas se quedan ahí, en la tarjeta SD.', '{1}のコピーが起動し、セーブはSDカードのそこに残ります。', 'Inicia a cópia em {1} e os saves ficam lá, no cartão SD.', 'Si avvia la copia in {1} e i salvataggi restano lì, sulla scheda SD.'),
     "The emulated NAND's copy starts; its save is on the SD card in {1}.": ('Se inicia la copia de la NAND emulada; su partida está en la tarjeta SD, en {1}.', 'エミュレートNANDのコピーが起動します。セーブはSDカードの{1}にあります。', 'Inicia a cópia da NAND emulada; o save está no cartão SD em {1}.', 'Si avvia la copia della NAND emulata; il salvataggio è sulla scheda SD in {1}.'),
@@ -6112,14 +6112,14 @@ KO.update({
     "Boot": "시작",
     "Real NAND": "실제 NAND",
     "Emulated NAND": "에뮬레이트 NAND",
-    "Where the game will boot from. If set to Automatic, RiftWii will guess.": "게임을 어디서 시작할지 정합니다. 자동으로 두면 RiftWii가 판단합니다.",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "자동은 RiftWii 로더를 사용합니다. Wii 본체는 게임 IOS, 치트, 로더 추가 기능 없이 Wii 메뉴처럼 시작합니다.",
     "Game IOS": "게임 IOS",
     "The IOS RiftWii starts the channel under.": "RiftWii가 채널을 시작하는 IOS입니다.",
     "Emulated NAND (not here)": "에뮬레이트 NAND (여기 없음)",
     "Real NAND (not here)": "실제 NAND (여기 없음)",
     "Show all channels even if they aren't detected as a game.": "게임으로 감지되지 않은 채널도 모두 표시합니다.",
     "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "Wii 본체에는 시작할 수 있는 이 게임의 사본이 없습니다. 에뮬레이트 NAND를 선택하거나 거기에 게임을 설치하세요.",
-    "The Wii's own copy starts, and saves stay on the Wii.": "Wii 본체의 사본이 시작되고 세이브는 Wii 본체에 남습니다.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Wii 메뉴처럼 시작하며 저장은 Wii에 남습니다. 게임 IOS, 치트, RiftWii 로더 추가 기능은 적용되지 않습니다.",
     "The copy RiftWii lists starts, with its own save.": "RiftWii가 표시하는 사본이 자체 세이브와 함께 시작됩니다.",
     "The copy in {1} starts, and saves stay there on the SD card.": "{1}의 사본이 시작되고 세이브는 SD 카드의 그곳에 남습니다.",
     "The emulated NAND's copy starts; its save is on the SD card in {1}.": "에뮬레이트 NAND의 사본이 시작됩니다. 세이브는 SD 카드의 {1}에 있습니다.",
@@ -6137,18 +6137,35 @@ FR.update({
     "Boot": "Démarrer",
     "Real NAND": "NAND réelle",
     "Emulated NAND": "NAND émulée",
-    "Where the game will boot from. If set to Automatic, RiftWii will guess.": "D'où le jeu démarrera. En Automatique, RiftWii devinera.",
+    "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras.": "Automatique utilise le chargeur RiftWii. Sur la Wii démarre comme le Menu Wii, sans IOS du jeu, codes ni extras.",
     "Game IOS": "IOS du jeu",
     "The IOS RiftWii starts the channel under.": "L'IOS avec lequel RiftWii démarre la chaîne.",
     "Emulated NAND (not here)": "NAND émulée (pas ici)",
     "Real NAND (not here)": "NAND réelle (pas ici)",
     "Show all channels even if they aren't detected as a game.": "Afficher toutes les chaînes même si elles ne sont pas reconnues comme un jeu.",
     "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there.": "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu.",
-    "The Wii's own copy starts, and saves stay on the Wii.": "La copie de la Wii démarre et les sauvegardes restent sur la Wii.",
+    "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply.": "Démarre comme le Menu Wii, avec sauvegardes sur la Wii. IOS du jeu, codes et extras du chargeur ne s'appliquent pas.",
     "The copy RiftWii lists starts, with its own save.": "La copie que RiftWii affiche démarre, avec sa propre sauvegarde.",
     "The copy in {1} starts, and saves stay there on the SD card.": "La copie dans {1} démarre et les sauvegardes restent là, sur la carte SD.",
     "The emulated NAND's copy starts; its save is on the SD card in {1}.": "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte SD dans {1}.",
     "{1} has no copy of this game. Install it there from its WAD first.": "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD.",
+})
+
+
+# A retained title may have neither installed program.
+T.update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": (
+        "Ninguna copia de este canal tiene su programa. Instálalo en la Wii o en la NAND emulada.",
+        "このチャンネルのプログラムがありません。Wii本体またはエミュレートNANDにインストールしてください。",
+        "Nenhuma cópia deste canal tem o programa. Instale no Wii ou na NAND emulada.",
+        "Nessuna copia di questo canale ha il programma. Installalo sulla Wii o nella NAND emulata.",
+    ),
+})
+MORE["ko"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "이 채널의 프로그램 데이터가 없습니다. Wii 또는 에뮬레이트 NAND에 설치하세요.",
+})
+MORE["fr"].update({
+    "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.": "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée.",
 })
 
 

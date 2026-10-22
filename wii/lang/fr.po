@@ -2859,8 +2859,8 @@ msgstr "NAND réelle"
 msgid "Emulated NAND"
 msgstr "NAND émulée"
 
-msgid "Where the game will boot from. If set to Automatic, RiftWii will guess."
-msgstr "D'où le jeu démarrera. En Automatique, RiftWii devinera."
+msgid "Automatic uses RiftWii's loader. On the Wii starts like the Wii Menu, without Game IOS, cheats or loader extras."
+msgstr "Automatique utilise le chargeur RiftWii. Sur la Wii démarre comme le Menu Wii, sans IOS du jeu, codes ni extras."
 
 msgid "Game IOS"
 msgstr "IOS du jeu"
@@ -2880,8 +2880,8 @@ msgstr "Afficher toutes les chaînes même si elles ne sont pas reconnues comme 
 msgid "The Wii has no copy of this game that can start. Pick the emulated NAND, or install the game there."
 msgstr "La Wii n'a aucune copie de ce jeu qui puisse démarrer. Choisissez la NAND émulée, ou installez-y le jeu."
 
-msgid "The Wii's own copy starts, and saves stay on the Wii."
-msgstr "La copie de la Wii démarre et les sauvegardes restent sur la Wii."
+msgid "Starts like the Wii Menu, with saves on the Wii. Game IOS, cheats and RiftWii loader extras do not apply."
+msgstr "Démarre comme le Menu Wii, avec sauvegardes sur la Wii. IOS du jeu, codes et extras du chargeur ne s'appliquent pas."
 
 msgid "The copy RiftWii lists starts, with its own save."
 msgstr "La copie que RiftWii affiche démarre, avec sa propre sauvegarde."
@@ -2894,3 +2894,6 @@ msgstr "La copie de la NAND émulée démarre ; sa sauvegarde est sur la carte S
 
 msgid "{1} has no copy of this game. Install it there from its WAD first."
 msgstr "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD."
+
+msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
+msgstr "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée."

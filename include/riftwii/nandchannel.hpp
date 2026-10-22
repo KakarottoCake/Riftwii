@@ -170,11 +170,12 @@ struct ChannelProgram {
 // loading the biggest DOL skips the loader and starts the game itself, so
 // RiftWii's patches go into the code that runs. Virtual Console games boot
 // their emulator, and their other contents are archives, not DOLs. False
-// when no content is a DOL (a compressed program, say), with `error`
+// when no content has a valid plain or compressed DOL header, with `error`
 // saying so: the system then starts the title as the Wii Menu does.
 bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
                             std::string& error);
 
+// Header signature only; choose_channel_program also trial-decodes a DOL header.
 bool channel_program_compressed(const std::uint8_t* data, std::size_t size,
                                  std::size_t max_out = 24u << 20);
 

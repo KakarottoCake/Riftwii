@@ -54,6 +54,9 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool
 bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status,
                        bool include_non_games = false);
 
+// Uses the listing's TMD and program-content check; a leftover TMD alone is not playable.
+bool emu_channel_program_present(const std::string& folder, std::uint64_t title_id);
+
 // The whole banner file (content index 0), for the Channels view's banner
 // store (wii/menu/banners.hpp). False with `error` saying why.
 bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error);

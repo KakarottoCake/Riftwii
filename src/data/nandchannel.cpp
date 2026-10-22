@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2010 dude (USB Loader GX channel identity design)
+// SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/nandchannel.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -73,9 +76,10 @@ bool nand_lz_header(const std::uint8_t* data, std::size_t size, std::size_t max_
 }
 
 bool lz77_nand(const std::uint8_t* data, std::size_t size, std::vector<std::uint8_t>& out,
-               std::size_t max_out, std::string& error) {
+               std::size_t max_out, std::string& error, std::size_t prefix_bytes = 0) {
     std::size_t at = 0, want = 0;
     if (!nand_lz_header(data, size, max_out, at, want, error)) return false;
+    if (prefix_bytes != 0) want = std::min(want, prefix_bytes);
     const std::uint8_t type = data[0];
     std::vector<std::uint8_t> unpacked;
     while (unpacked.size() < want) {
@@ -276,6 +280,9 @@ std::string channel_cheat_code(const std::string& game_id) {
     return game_id.substr(0, 4);
 }
 
+// Reimplemented from USB Loader GX's Identify_GenerateTik construction
+// (NOTICE.md). It supplies identity metadata, not a valid Nintendo signature;
+// whether ES accepts it depends on the IOS and is not assumed here.
 std::vector<std::uint8_t> make_fake_ticket() {
     constexpr std::size_t kIssuer = 0x140;
     constexpr std::size_t kContentIndexMask = 0x222;
@@ -377,13 +384,31 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         DolHeader dol;
         std::string why;
         std::string format;
-        if (!compressed && !parse_channel_program(start.head.data(), start.head.size(), dol, format, why)) {
+        bool parsed = false;
+        std::size_t program_bytes = start.size;
+        if (compressed) {
+            const bool wrapped = std::memcmp(start.head.data(), "LZ77", 4) == 0;
+            const std::size_t skip = wrapped ? 4 : 0;
+            const std::uint8_t* payload = start.head.data() + skip;
+            const std::size_t payload_size = start.head.size() - skip;
+            std::size_t header_end = 0;
+            std::vector<std::uint8_t> header;
+            // Only a parsed DOL header may earn compressed-program priority.
+            // The content prefix is small; do not allocate the advertised 24 MiB.
+            parsed = nand_lz_header(payload, payload_size, 24u << 20, header_end, program_bytes, why) &&
+                     lz77_nand(payload, payload_size, header, 24u << 20, why, 0x100) &&
+                     parse_dol_header(header.data(), header.size(), dol, why);
+            format = "LZ77";
+        } else {
+            parsed = parse_channel_program(start.head.data(), start.head.size(), dol, format, why);
+        }
+        if (!parsed) {
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": " + content_kind(start.head) +
                     (why.empty() ? "" : " (" + why + ")");
             continue;
         }
         // A header whose sections run past the file is not this file's.
-        if (!compressed && dol.image_size() > start.size) {
+        if (dol.image_size() > program_bytes) {
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": a DOL longer than the file";
             continue;
         }
