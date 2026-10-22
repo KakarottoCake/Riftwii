@@ -51,5 +51,6 @@ bool StartChannelInstaller(std::string& error);
 // sd: prefix) as the Homebrew Channel does: the running IOS kept. Returns
 // only if it cannot, with `error` saying why.
 bool StartHomebrewApp(const std::string& path, std::string& error);
+bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error);
 
 }  // namespace riftwii::wii

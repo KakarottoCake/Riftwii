@@ -1032,9 +1032,6 @@ msgstr "Stockage de Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB : un stockage de Wii U (RiftWii ne l'utilise pas)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC."
-
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log."
 
@@ -1998,21 +1995,6 @@ msgstr "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9)."
 
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. Utilisez le port USB le plus proche du bord."
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. Grands stockages : un câble en Y ou leur propre alimentation."
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32 ou NTFS (ou un stockage WBFS)."
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. Les jeux dans un dossier wbfs ou games."
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. Un cIOS d2x dans le slot 249, 250 ou 251."
-
 msgid "A to Z"
 msgstr "De A à Z"
 
@@ -2897,3 +2879,90 @@ msgstr "{1} n'a aucune copie de ce jeu. Installez-le d'abord depuis son WAD."
 
 msgid "No copy of this channel has its program data. Install it on the Wii or in the emulated NAND."
 msgstr "Aucune copie de cette chaîne n'a son programme. Installez-la sur la Wii ou dans la NAND émulée."
+
+msgid "Homebrew"
+msgstr "Homebrew"
+
+msgid "1 app"
+msgstr "1 appli"
+
+msgid "{1} apps"
+msgstr "{1} applis"
+
+msgid "No homebrew matches \"{1}\". Press 1 to change the view."
+msgstr "Aucun homebrew ne correspond à « {1} ». Appuyez sur 1 pour changer de vue."
+
+msgid "No homebrew yet: each app is a folder in sd:/apps with its boot.dol and meta.xml. Press 1 to change the view."
+msgstr "Pas encore d'homebrew : chaque appli est un dossier dans sd:/apps avec boot.dol et meta.xml. Appuyez sur 1 pour changer de vue."
+
+msgid "The apps folder (sd:/apps) could not be read. Press 1 to change the view."
+msgstr "Le dossier des applis (sd:/apps) n'a pas pu être lu. Appuyez sur 1 pour changer de vue."
+
+msgid "It cannot start: {1}."
+msgstr "Impossible de le lancer : {1}."
+
+msgid "The app will start when ready."
+msgstr "L'appli démarrera lorsqu'elle sera prête."
+
+msgid "Start {1}?"
+msgstr "Démarrer {1} ?"
+
+msgid "Would you like to start {1} ({2}) by {3}?"
+msgstr "Voulez-vous démarrer {1} ({2}) par {3} ?"
+
+msgid "Would you like to start {1} ({2})?"
+msgstr "Voulez-vous démarrer {1} ({2}) ?"
+
+msgid "Would you like to start {1} by {2}?"
+msgstr "Voulez-vous démarrer {1} par {2} ?"
+
+msgid "Would you like to start {1}?"
+msgstr "Voulez-vous démarrer {1} ?"
+
+msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
+msgstr "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol"
+
+msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
+msgstr "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii."
+
+msgid "1: all apps"
+msgstr "1 : toutes les applis"
+
+msgid "Network Test"
+msgstr "Test réseau"
+
+msgid "Testing the network..."
+msgstr "Test du réseau..."
+
+msgid "Offline"
+msgstr "Hors ligne"
+
+msgid "Checks if network is online."
+msgstr "Vérifie si le réseau est en ligne."
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii."
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "Aucune réponse HTTP. Vérifiez la connexion et réessayez."
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "Le réseau est occupé. Réessayez après le téléchargement."
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi)."
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. Utilisez le port USB le plus proche du bord."
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. Grands stockages : un câble en Y ou leur propre alimentation."
+
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi."
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. Les jeux dans le dossier /wbfs ou /games."
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. Un cIOS d2x dans le slot 249/250/251."

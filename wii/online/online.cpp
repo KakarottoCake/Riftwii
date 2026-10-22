@@ -202,6 +202,60 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     return false;
 }
 
+namespace {
+
+NetworkTest g_network_test;
+bool g_network_test_pending = false;
+
+void RunNetworkTest() {
+    NetworkTest result;
+    const u64 started = gettime();
+    std::string why;
+    if (!NetStart(why, true)) {
+        result.error = "The network could not start. Check the Wii's Internet settings.";
+    } else {
+        NetServer server;
+        if (ResolveServer("example.com", 80, server, why)) {
+            // A diagnostic retries a previously unreachable endpoint too.
+            const std::string where = server.label();
+            g_unreachable.erase(std::remove(g_unreachable.begin(), g_unreachable.end(), where), g_unreachable.end());
+            HttpUrl url;
+            HttpResponse response;
+            if (parse_http_url("http://example.com/", url, why)) {
+                // Any complete HTTP response proves connectivity, including an
+                // error status. ICMP alone does not test the download path.
+                result.online = exchange(url, http_get_request(url), response, why, 16u << 10, 8000);
+            }
+        }
+        if (!result.online) result.error = "No HTTP response. Check the connection and try again.";
+    }
+    result.ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
+    logf("Network test: %s after %u ms (%s).\n", result.online ? "online" : "offline", result.ms,
+         result.online ? "example.com answered over HTTP" : why.c_str());
+    g_network_test = std::move(result);
+}
+
+}  // namespace
+
+bool StartNetworkTest() {
+    if (NetBackgroundBusy()) return false;
+    g_network_test_pending = true;
+    // A test that never started has no result to hand out later.
+    if (!NetRunInBackground(RunNetworkTest)) {
+        g_network_test_pending = false;
+        return false;
+    }
+    return true;
+}
+
+bool TakeNetworkTest(NetworkTest& result) {
+    if (!g_network_test_pending || NetBackgroundBusy()) return false;
+    NetWaitForBackground();
+    g_network_test_pending = false;
+    result = g_network_test;
+    return true;
+}
+
 bool HttpPost(const std::string& url, const std::string& content_type, const std::string& body, int& status,
               std::string& answer, std::string& error, int timeout_ms) {
     status = 0;
