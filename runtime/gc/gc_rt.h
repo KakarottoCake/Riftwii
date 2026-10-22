@@ -264,6 +264,14 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
                                   * pad read, to the disc's own program with one argument, "rwtest" */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
+#define GC_FLAG_PAD_TRACE_PENDING 8192u  /* diagnostic PAD state to write at the next heartbeat, outside PADRead */
+#define GC_FLAG_TRACE_GAMEPLAY 16384u  /* sd:/riftwii/gc/test/trace: repeated SD writes are explicitly requested */
+
+/* A stopped game's crash record remains available to problem reports
+ * without making normal play wait for diagnostic SD writes. */
+static inline int gc_trace_allowed(uint32_t flags, uint32_t where) {
+    return where == GC_TRACE_FATAL || (flags & GC_FLAG_TRACE_GAMEPLAY) != 0;
+}
 
 /* The callers of GXSetProjection that gc_on_projection notes for the
  * trace, the first ones seen: four words each, the return address, the

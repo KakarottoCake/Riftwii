@@ -540,6 +540,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     uint32_t* w = (uint32_t*)(uintptr_t)ctx->trace_buf;
     const struct gc_rt_stream* st = (const struct gc_rt_stream*)(uintptr_t)ctx->stream;
     uint32_t msr, tbu, tbl, i, sector;
+    if (!gc_trace_allowed(ctx->flags, where)) return GC_TRACE_SKIPPED;
     if (ctx->trace_sector == 0 || ctx->trace_count == 0 || w == 0) return GC_TRACE_SKIPPED;
     msr = gc_irq_off();
     if (ctx->busy) {
@@ -1231,8 +1232,16 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         }
         gc_guard(ctx);
         gc_vi_note(ctx);
+        if (ctx->bt && !(ctx->flags & GC_FLAG_FAKE_REMOTE)) {
+            struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
+            if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
+        }
         if (ctx->card) gc_card_flush(ctx, (struct gc_card*)(uintptr_t)ctx->card, 0);
         gc_usb_keep_alive(ctx);
+        /* Coalesce PAD diagnostics: a slow SD write must not hold up the
+         * return of a freshly sampled native controller's PADRead. */
+        if ((ctx->flags & GC_FLAG_PAD_TRACE_PENDING) && gc_trace(ctx, GC_TRACE_PAD_SI) != GC_TRACE_SKIPPED)
+            ctx->flags &= ~GC_FLAG_PAD_TRACE_PENDING;
         gc_trace(ctx, GC_TRACE_BEAT);
         gc_beat_arm(ctx);
         return;
@@ -2305,13 +2314,18 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
             gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native);
         } else {
-            gc_bt_poll(ctx, bt);
+            /* Keep start-up's frame-counted timeouts unchanged. Once page
+             * scan is ready, an idle controller needs no per-frame IPC. */
+            if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
             gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
         }
     }
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
-    if (n % 300 == 0 || native != previous_native || ctx->pad_raw_errs != previous_errors ||
-        ctx->pad_enabled_before != gc_pad_enabled(ctx)) gc_trace(ctx, GC_TRACE_PAD_SI);
+    if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
+        const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
+                            ctx->pad_enabled_before != gc_pad_enabled(ctx);
+        if (n % 300 == 0 || changed) ctx->flags |= GC_FLAG_PAD_TRACE_PENDING;
+    }
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
     if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
