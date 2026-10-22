@@ -121,6 +121,25 @@ void test_nobody_waits() {
     EXPECT_EQ(dc.current, 1u);
 }
 
+// A game that missed the interrupt (latched) and later asks for its other
+// disc again: a stop after the latch starts a fresh change, back to disc 1
+// (the test switch's second stop, and a real game that asks again).
+void test_stop_after_latch() {
+    gc_disc_change dc = make_change();
+    std::uint32_t ticks = 0;
+    std::uint32_t now = kCover;
+    gc_disc_motor_stopped(&dc, 0);
+    while (gc_disc_cover_alarm(&dc, now, 0, &ticks) & GC_DISC_AGAIN) now += ticks;
+    EXPECT_EQ(dc.unseen, 1u);
+    EXPECT_EQ(dc.current, 1u);
+    EXPECT_EQ(gc_disc_motor_stopped(&dc, now + 500), 1u);  // a new alarm
+    EXPECT_EQ(dc.state, GC_DISC_COVER_OPEN);
+    EXPECT_EQ(gc_disc_cover_alarm(&dc, now + 500 + kCover, GC_DICVR_MASK, &ticks), GC_DISC_SWAPPED | GC_DISC_RAISE);
+    EXPECT_EQ(dc.current, 0u);
+    EXPECT_EQ(dc.changes, 2u);
+    EXPECT_EQ(dc.stops, 2u);
+}
+
 // A stop after the other disc went in but before the game looked: a new
 // change, timed from this stop, on the alarm already queued (no second
 // one), which comes early and waits out the rest.
@@ -246,6 +265,7 @@ int main() {
     test_stop_twice();
     test_game_waits_late();
     test_nobody_waits();
+    test_stop_after_latch();
     test_stop_while_closed();
     test_timebase_wrap();
     test_no_second_disc();
