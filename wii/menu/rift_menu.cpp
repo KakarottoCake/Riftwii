@@ -10348,6 +10348,8 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	std::string openError;
 	if (!themes::Open(openError)) {
 		logf("Themes: %s\n", openError.c_str());
+		// The caller left the GUI running: a popup is built with it halted.
+		HaltGui();
 		ShowPopup(tr("Get more themes"), tr("There is not enough free memory for the theme browser."), tr("OK"));
 		return false;
 	}

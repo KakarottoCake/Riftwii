@@ -138,7 +138,10 @@ struct Workspace {
     std::uint8_t* block = nullptr;
     std::size_t room = 0, used = 0;
     std::vector<std::uint8_t> idat_heap, raw_heap;
-    std::vector<std::uint8_t>* rgba_heap = nullptr;
+    // Where the RGBA goes in heap mode; in block mode `take` never touches it,
+    // but it is still a real vector to bind a reference to.
+    std::vector<std::uint8_t> rgba_unused;
+    std::vector<std::uint8_t>* rgba_heap = &rgba_unused;
 
     // `bytes` of zeros, from the block when there is one.
     std::uint8_t* take(std::vector<std::uint8_t>& heap, std::size_t bytes) {

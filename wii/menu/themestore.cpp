@@ -831,6 +831,16 @@ InstallProgress CurrentInstallProgress() {
 }
 
 void CancelInstall() {
+    if (g_installAsked && g_job != Job::Install) {
+        // Not started yet (another job holds the network): dropped, and
+        // reported as stopped, without cancelling that other job.
+        g_installAsked = false;
+        g_installFinished = true;
+        g_installFolder = g_listing[g_installIndex].folder;
+        g_installError = "cancelled";
+        return;
+    }
+    if (g_job != Job::Install) return;
     g_cancel = true;
     NetCancelBackground();
 }

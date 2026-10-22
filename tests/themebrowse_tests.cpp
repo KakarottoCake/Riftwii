@@ -212,6 +212,14 @@ int main() {
         EXPECT_EQ(p.skipped, 2u);
         EXPECT_EQ(std::string(p.themes[1].folder), "B");
     }
+    // Folders that differ only in case are one folder on FAT: the first stands.
+    {
+        const Parsed p = parse(list_json(theme_json("Indigo") + "," + theme_json("indigo") + "," + theme_json("Indigo2")));
+        EXPECT_TRUE(p.ok);
+        EXPECT_EQ(p.count, 2u);
+        EXPECT_EQ(p.skipped, 1u);
+        EXPECT_EQ(std::string(p.themes[1].folder), "Indigo2");
+    }
     // The count cap: 500 themes at most, however many the list holds.
     {
         std::string many;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/themelist.hpp"
 
+#include <cctype>
 #include <cstring>
 
 #include "riftwii/themepack.hpp"
@@ -192,6 +193,15 @@ bool clean_text(std::string& text, std::size_t max_bytes) {
     return !text.empty() && text.size() < max_bytes;
 }
 
+// FAT does not tell "Indigo" from "indigo": they are one folder.
+bool same_folder(const std::string& a, const char* b) {
+    std::size_t i = 0;
+    for (; i < a.size() && b[i] != '\0'; ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return i == a.size() && b[i] == '\0';
+}
+
 bool hex_digest_ok(const std::string& text) {
     if (text.size() != 64) return false;
     for (char c : text) {
@@ -349,7 +359,7 @@ bool parse_theme_list(const char* text, std::size_t text_size, ThemeListing* out
                             // One folder twice: the first stands.
                             bool again = false;
                             for (std::size_t i = 0; i < count; ++i) {
-                                if (t.folder == out[i].folder) again = true;
+                                if (same_folder(t.folder, out[i].folder)) again = true;
                             }
                             if (again) ++skipped;
                             else out[count++] = listing;
