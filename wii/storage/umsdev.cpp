@@ -7,6 +7,7 @@
 
 #include <gccore.h>
 #include <ogc/ipc.h>
+#include <ogc/machine/processor.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -55,49 +56,86 @@ std::uint32_t g_port = 0;
 // (the close would queue behind the stuck request and hang too), and the
 // buffers the request points at (g_args, g_vec, g_bounce, the path) are
 // static or never freed, so a late answer lands harmlessly.
-constexpr int kCallLimitMs = 10000;
-constexpr int kPollMs = 2;
+constexpr int kCallLimitSeconds = 10;
 
+// g_reply (with g_wake and g_limit_alarm) is shared by every request: ums
+// is only ever called from one thread, the main thread running the launch,
+// so one request is in flight at a time. Keep it that way; a call from a
+// second thread would need its own record, queue and alarm.
 struct Reply {
     volatile bool done = false;
+    volatile bool timed_out = false;
     volatile s32 result = 0;
 };
 Reply g_reply;
 bool g_stuck = false;
+// The waiting thread sleeps on this queue; the reply or the time limit's
+// alarm wakes it (both run in interrupt context, as libogc's own
+// synchronous IPC wakes its caller from the reply interrupt).
+lwpq_t g_wake = LWP_TQUEUE_NULL;
+syswd_t g_limit_alarm = SYS_WD_NULL;
+bool g_wait_ready = false;
 
 s32 on_reply(s32 result, void* user) {
-    // IPC interrupt context: only record it.
     Reply* reply = static_cast<Reply*>(user);
     reply->result = result;
     reply->done = true;
+    LWP_ThreadSignal(g_wake);
     return 0;
 }
 
-// Waits for the request `queued` sent (its result, or libogc's own error
-// when it could not be queued). On the time limit, marks the device stuck
-// and gives an error. `call` says which, for the log ("open" or "read").
-s32 wait_for_reply(s32 queued, const char* call) {
-    if (queued < 0) return queued;
-    for (int waited = 0; waited < kCallLimitMs; waited += kPollMs) {
-        if (g_reply.done) return g_reply.result;
-        usleep(kPollMs * 1000);
+void on_time_limit(syswd_t, void* user) {
+    static_cast<Reply*>(user)->timed_out = true;
+    LWP_ThreadSignal(g_wake);
+}
+
+bool prepare_wait() {
+    if (g_wait_ready) return true;
+    if (LWP_InitQueue(&g_wake) < 0) return false;
+    if (SYS_CreateAlarm(&g_limit_alarm) < 0) {
+        LWP_CloseQueue(g_wake);
+        return false;
     }
+    g_wait_ready = true;
+    return true;
+}
+
+// Sends one request (`send` queues it with on_reply and &g_reply) and
+// waits for its answer, up to the time limit. The answer is checked with
+// interrupts off before each sleep, as libogc's __ipc_syncrequest does, so
+// a reply that comes in between cannot be missed. On the time limit the
+// device is marked stuck. `call` names the request for the log.
+template <typename Send>
+s32 call_limited(Send send, const char* call) {
+    if (g_stuck) return IPC_EINVAL;
+    if (!prepare_wait()) return IPC_ENOMEM;
+    g_reply.done = false;
+    g_reply.timed_out = false;
+    timespec limit = {kCallLimitSeconds, 0};
+    SYS_SetAlarm(g_limit_alarm, &limit, on_time_limit, &g_reply);
+    const s32 queued = send();
+    if (queued < 0) {
+        SYS_CancelAlarm(g_limit_alarm);
+        return queued;  // libogc could not queue it
+    }
+    u32 level;
+    _CPU_ISR_Disable(level);
+    while (!g_reply.done && !g_reply.timed_out) LWP_ThreadSleep(g_wake);
+    _CPU_ISR_Restore(level);
+    SYS_CancelAlarm(g_limit_alarm);
     if (g_reply.done) return g_reply.result;
     g_stuck = true;
-    logf("USB (d2x): %s\n", d2x_usb_stuck_log_line(call, kCallLimitMs / 1000).c_str());
+    logf("USB (d2x): %s\n", d2x_usb_stuck_log_line(call, kCallLimitSeconds).c_str());
     return IPC_ENOMEM;  // any error: the caller sees a failed call
 }
 
 s32 ioctlv_limited(s32 ioctl, s32 in, s32 io, ioctlv* vec, const char* call) {
-    if (g_stuck || g_fd < 0) return IPC_EINVAL;
-    g_reply.done = false;
-    return wait_for_reply(IOS_IoctlvAsync(g_fd, ioctl, in, io, vec, on_reply, &g_reply), call);
+    if (g_fd < 0) return IPC_EINVAL;
+    return call_limited([&] { return IOS_IoctlvAsync(g_fd, ioctl, in, io, vec, on_reply, &g_reply); }, call);
 }
 
 s32 open_limited(const char* path) {
-    if (g_stuck) return IPC_EINVAL;
-    g_reply.done = false;
-    return wait_for_reply(IOS_OpenAsync(path, 0, on_reply, &g_reply), "open");
+    return call_limited([&] { return IOS_OpenAsync(path, 0, on_reply, &g_reply); }, "open");
 }
 
 // After a stuck call: forget the fd without closing it, and say so to
@@ -126,7 +164,7 @@ bool set_port(std::uint32_t port) {
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    return ioctlv_limited(kSetPort, 1, 0, g_vec, "open") >= 0;
+    return ioctlv_limited(kSetPort, 1, 0, g_vec, "set port") >= 0;
 }
 
 // Whether the started drive's sector 0 ends in 0x55AA (a partition table,
@@ -147,11 +185,11 @@ bool HasVolume(std::uint32_t sector_bytes, std::uint64_t& hash) {
 
 Started start_drive() {
     Started s;
-    s.init = ioctlv_limited(kInit, 0, 0, nullptr, "open");
+    s.init = ioctlv_limited(kInit, 0, 0, nullptr, "init");
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "open");
+    s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "capacity");
     DCInvalidateRange(g_args, sizeof(g_args));
     s.sector_bytes = g_args[0];
     // The count comes back as the ioctl's result: a drive past 2^31
