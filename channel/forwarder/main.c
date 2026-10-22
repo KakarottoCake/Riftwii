@@ -225,6 +225,28 @@ static void outro(void) {
     }
 }
 
+// POWER and RESET pressed during the start steps or on the error screen.
+// The callbacks run in interrupt context and only set a flag; the main
+// thread acts on it (check_buttons). Without them a short POWER press did
+// nothing while the channel was stuck: libogc's default ignores it (seen in
+// Dolphin, where a stop request is that press).
+static volatile bool g_power_pressed;
+static volatile bool g_reset_pressed;
+
+static void on_power(void) { g_power_pressed = true; }
+
+static void on_reset(u32 irq, void* ctx) {
+    (void)irq;
+    (void)ctx;
+    g_reset_pressed = true;
+}
+
+// Turns the Wii off, or goes back to the Wii Menu, if asked to.
+static void check_buttons(void) {
+    if (g_power_pressed) SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    if (g_reset_pressed) SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+}
+
 // What fail() advises for each kind of failure.
 static const char kCopyAdvice[] =
     "  Copy RiftWii to the SD card (apps/riftwii/boot.dol)\n"
@@ -235,7 +257,8 @@ static const char kHangAdvice[] =
     "  Homebrew Channel and report what this screen says.\n";
 
 // Nothing to start: a message on the console, then back to the Wii Menu
-// after 15 seconds, RESET or a GameCube controller button. (No Wii Remote
+// after 15 seconds, RESET or a GameCube controller button; POWER turns the
+// Wii off. (No Wii Remote
 // stack: it would double this program's size, which RiftWii carries.)
 // It may run while the loader thread is stuck in a call to IOS that never
 // returns, which cannot be cancelled: so it touches neither the SD card
@@ -246,9 +269,11 @@ static void fail(const char* why, const char* advice) {
     printf("\x1b[2J\x1b[4;2H");
     printf("RiftWii could not be started.\n\n  %s\n\n", why);
     printf("%s\n", advice);
-    printf("  Back to the Wii Menu in 15 seconds (or press RESET).\n");
+    printf("  Back to the Wii Menu in 15 seconds.\n");
+    printf("  Press RESET for the Wii Menu, POWER to turn the Wii off.\n");
     PAD_Init();
     for (int f = 0; f < 15 * 60; ++f) {
+        check_buttons();
         if (SYS_ResetButtonDown()) break;
         if (PAD_ScanPads() && PAD_ButtonsDown(0)) break;
         VIDEO_WaitVSync();
@@ -400,6 +425,7 @@ static void load(void) {
     int shown = -1;
     u64 shown_since = 0;
     for (;;) {
+        check_buttons();
         const int step = g_step;
         if (step == STEP_COUNT) break;
         if (step >= 0 && step != shown) {
@@ -421,6 +447,8 @@ static void load(void) {
 
 int main(void) {
     video_init();
+    SYS_SetPowerCallback(on_power);
+    SYS_SetResetCallback(on_reset);
     intro();
     load();
 

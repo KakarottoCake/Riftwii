@@ -78,7 +78,9 @@ card, 20 for the USB drive, 60 to read `boot.dol`) ends on an error screen
 that names it, then back to the Wii Menu: on some vWii consoles the
 channel stopped for good after the intro with nothing on screen (issue
 #228). A call stuck in IOS cannot be cancelled, so that screen touches
-neither the card nor the drive. `make -f Makefile.channel
+neither the card nor the drive. During the steps and on that screen, POWER
+turns the Wii off and RESET goes back to the Wii Menu (before, libogc's
+default ignored a short POWER press). `make -f Makefile.channel
 CHANNEL_TEST_HANG=<step>` (after `make -f Makefile.channel clean`) builds a
 forwarder that stops at that step (`StepId` in `main.c`; 1 is mounting the
 SD card), to see that screen in Dolphin; never for a release.
