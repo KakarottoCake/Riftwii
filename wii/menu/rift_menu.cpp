@@ -11575,6 +11575,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					noteTxt.SetText("The next launch copies every file of its network packs again.");
 					break;
 				case kSdGames:
+					// The drive scan may still be running on its thread, and scan_sd_games reads
+					// this setting (a std::string): wait for it before writing.
+					WaitForDriveScan(noteTxt);
 					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
 					// Games from: SD or GameCube would list nothing now.
 					if (settings.sd_games == "off" && (settings.home_source == "sd" || settings.home_source == "gamecube"))
