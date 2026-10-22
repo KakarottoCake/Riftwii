@@ -105,6 +105,9 @@ extern Tex backgroundWide, barWide;
 // Takes `bytes` of MEM2, 32-byte aligned, for the rest of the menu phase;
 // nullptr when MEM2 is full.
 u8* Mem2Alloc(std::size_t bytes);
+// Gives `block` (what Mem2Alloc returned for `bytes`) back when it is the
+// last thing taken; false when another was taken after it.
+bool Mem2Release(u8* block, std::size_t bytes);
 
 // A hover name's rounded box (riftwii/skinpaint.hpp), `w` x `h` plus
 // its shadow's margin; painted once per size and kept.

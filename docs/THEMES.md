@@ -15,6 +15,28 @@ none). RiftWii offers to restart its menu to show the new theme. The choice
 is saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
 (`theme = default` for the default).
 
+## Getting more themes
+
+Settings > **Theme** > **Get more themes** opens a page of the community
+themes on riftwii.github.io, each with a preview, its author, license and
+size. Press A on one to download it into `sd:/riftwii/themes`; nothing
+changes on screen until you pick it with the Theme row above. A theme
+already there shows *Installed*, or *Update* when the list has a newer copy;
+pressing A on it offers to delete it (or update it). Only themes the page
+installed can be deleted from it: it keeps their names in
+`sd:/riftwii/themes/.browser.txt`, and a theme you copied there yourself is
+left alone (the page asks before it replaces one of the same name).
+
+It needs Settings > Download names and cheats on. The list
+(`https://riftwii.github.io/themes/themes.json`) and every file come over
+https from riftwii.github.io only, and are treated as untrusted: the list
+is cut at 256 KB and 500 themes, a download must be exactly the size the
+list says and match its SHA-256, a zip holds one folder of plain file names
+(no paths that climb out, no more files or bytes than the list says, at
+most 64 files and 24 MB), and the unpacked theme is checked with RiftWii's own
+theme loader in `sd:/riftwii/themes/.<name>.tmp` before it replaces the old
+copy. A failed download leaves nothing behind.
+
 ## The theme.ini file
 
 `theme.ini` is a plain text file split into sections. Comments start with
