@@ -7,6 +7,8 @@
 
 #include <gccore.h>
 #include <ogc/ipc.h>
+#include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -47,6 +49,107 @@ std::unique_ptr<ImageVolume> g_volume;
 // the drive stays where it is plugged in).
 std::uint32_t g_port = 0;
 
+// Every call into d2x's USB module is sent asynchronously and waited for
+// with a time limit. A tester's Wii U froze inside the first one after the
+// reload into the cIOS (boot.log ended before any answer), and a request
+// IOS never answers cannot be cancelled: once one is overdue the device
+// counts as stuck for the rest of this run. Its fd is then never closed
+// (the close would queue behind the stuck request and hang too), and the
+// buffers the request points at (g_args, g_vec, g_bounce, the path) are
+// static or never freed, so a late answer lands harmlessly.
+constexpr int kCallLimitSeconds = 10;
+
+// g_reply (with g_wake and g_limit_alarm) is shared by every request: ums
+// is only ever called from one thread, the main thread running the launch,
+// so one request is in flight at a time. Keep it that way; a call from a
+// second thread would need its own record, queue and alarm.
+struct Reply {
+    volatile bool done = false;
+    volatile bool timed_out = false;
+    volatile s32 result = 0;
+};
+Reply g_reply;
+bool g_stuck = false;
+// The waiting thread sleeps on this queue; the reply or the time limit's
+// alarm wakes it (both run in interrupt context, as libogc's own
+// synchronous IPC wakes its caller from the reply interrupt).
+lwpq_t g_wake = LWP_TQUEUE_NULL;
+syswd_t g_limit_alarm = SYS_WD_NULL;
+bool g_wait_ready = false;
+
+s32 on_reply(s32 result, void* user) {
+    Reply* reply = static_cast<Reply*>(user);
+    reply->result = result;
+    reply->done = true;
+    LWP_ThreadSignal(g_wake);
+    return 0;
+}
+
+void on_time_limit(syswd_t, void* user) {
+    static_cast<Reply*>(user)->timed_out = true;
+    LWP_ThreadSignal(g_wake);
+}
+
+bool prepare_wait() {
+    if (g_wait_ready) return true;
+    if (LWP_InitQueue(&g_wake) < 0) return false;
+    if (SYS_CreateAlarm(&g_limit_alarm) < 0) {
+        LWP_CloseQueue(g_wake);
+        return false;
+    }
+    g_wait_ready = true;
+    return true;
+}
+
+// Sends one request (`send` queues it with on_reply and &g_reply) and
+// waits for its answer, up to the time limit. The answer is checked with
+// interrupts off before each sleep, as libogc's __ipc_syncrequest does, so
+// a reply that comes in between cannot be missed. On the time limit the
+// device is marked stuck. `call` names the request for the log.
+template <typename Send>
+s32 call_limited(Send send, const char* call) {
+    if (g_stuck) return IPC_EINVAL;
+    if (!prepare_wait()) return IPC_ENOMEM;
+    g_reply.done = false;
+    g_reply.timed_out = false;
+    timespec limit = {kCallLimitSeconds, 0};
+    SYS_SetAlarm(g_limit_alarm, &limit, on_time_limit, &g_reply);
+    const s32 queued = send();
+    if (queued < 0) {
+        SYS_CancelAlarm(g_limit_alarm);
+        return queued;  // libogc could not queue it
+    }
+    u32 level;
+    _CPU_ISR_Disable(level);
+    while (!g_reply.done && !g_reply.timed_out) LWP_ThreadSleep(g_wake);
+    _CPU_ISR_Restore(level);
+    SYS_CancelAlarm(g_limit_alarm);
+    if (g_reply.done) return g_reply.result;
+    g_stuck = true;
+    logf("USB (d2x): %s\n", d2x_usb_stuck_log_line(call, kCallLimitSeconds).c_str());
+    return IPC_ENOMEM;  // any error: the caller sees a failed call
+}
+
+s32 ioctlv_limited(s32 ioctl, s32 in, s32 io, ioctlv* vec, const char* call) {
+    if (g_fd < 0) return IPC_EINVAL;
+    return call_limited([&] { return IOS_IoctlvAsync(g_fd, ioctl, in, io, vec, on_reply, &g_reply); }, call);
+}
+
+s32 open_limited(const char* path) {
+    return call_limited([&] { return IOS_OpenAsync(path, 0, on_reply, &g_reply); }, "open");
+}
+
+// After a stuck call: forget the fd without closing it, and say so to
+// every later caller.
+bool fail_stuck(std::string& error) {
+    g_fd = -1;
+    error = kD2xStuckReason;
+    g_failed = true;
+    g_failure = error;
+    g_not_ready = false;
+    return false;
+}
+
 struct Started {
     s32 init = -1;
     s32 sectors = 0;
@@ -62,7 +165,7 @@ bool set_port(std::uint32_t port) {
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    return IOS_Ioctlv(g_fd, kSetPort, 1, 0, g_vec) >= 0;
+    return ioctlv_limited(kSetPort, 1, 0, g_vec, "set port") >= 0;
 }
 
 // Whether the started drive's sector 0 ends in 0x55AA (a partition table,
@@ -83,11 +186,11 @@ bool HasVolume(std::uint32_t sector_bytes, std::uint64_t& hash) {
 
 Started start_drive() {
     Started s;
-    s.init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
+    s.init = ioctlv_limited(kInit, 0, 0, nullptr, "init");
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
     DCFlushRange(g_args, sizeof(g_args));
-    s.sectors = IOS_Ioctlv(g_fd, kGetCapacity, 0, 1, g_vec);
+    s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "capacity");
     DCInvalidateRange(g_args, sizeof(g_args));
     s.sector_bytes = g_args[0];
     // The count comes back as the ioctl's result: a drive past 2^31
@@ -106,13 +209,18 @@ bool ReadBlocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) { ret
 
 bool Open(std::string& error) {
     if (g_fd >= 0) return true;
+    if (g_stuck) {
+        error = kD2xStuckReason;
+        return false;
+    }
     if (g_failed) {
         error = g_failure;
         return false;
     }
     g_not_ready = false;
     static char path[] ATTRIBUTE_ALIGN(32) = "/dev/usb2";
-    g_fd = IOS_Open(path, 0);
+    g_fd = open_limited(path);
+    if (g_stuck) return fail_stuck(error);
     if (g_fd < 0) {
         // libogc's driver is still up: a failure here leaves the menu's
         // USB drive mounted.
@@ -142,9 +250,12 @@ bool Open(std::string& error) {
     std::uint32_t last = 0;
     for (int attempt = 0; attempt < 2 && (match ? matched < 0 : readable < 0); ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
+        logf("USB (d2x): starting the drive in port %u\n", static_cast<unsigned>(port));
         const bool switched = set_port(port);
+        if (g_stuck) return fail_stuck(error);
         if (!switched && port != 0) continue;  // no port switch in this d2x: port 0 only
         s = start_drive();
+        if (g_stuck) return fail_stuck(error);
         last = port;
         logf("USB (d2x): fd %d, port %u, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd),
              static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
@@ -155,7 +266,9 @@ bool Open(std::string& error) {
             any = s;
         }
         std::uint64_t hash = 0;
-        if (s.ok() && HasVolume(s.sector_bytes, hash)) {
+        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash);
+        if (g_stuck) return fail_stuck(error);
+        if (has_volume) {
             if (readable < 0) readable = static_cast<int>(port);
             if (match && s.sector_bytes == menu_bytes && hash == menu_hash) {
                 matched = static_cast<int>(port);
@@ -180,8 +293,10 @@ bool Open(std::string& error) {
         // The only drive that started has other sectors than the menu's:
         // not the games' drive (that one may still be starting). Asked
         // again instead of reading the other drive.
-        error = "d2x sees only a USB drive other than the games' (" + std::to_string(any.sector_bytes) +
-                "-byte sectors)";
+        // A size of 0 is d2x finding no drive in that port at all.
+        error = any.sector_bytes == 0 ? d2x_sector_size_problem(0, nullptr)
+                                      : "d2x sees only a USB drive other than the games' (" +
+                                            std::to_string(any.sector_bytes) + "-byte sectors)";
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
@@ -196,6 +311,7 @@ bool Open(std::string& error) {
         if (static_cast<std::uint32_t>(chosen) != last) {
             set_port(static_cast<std::uint32_t>(chosen));
             s = start_drive();
+            if (g_stuck) return fail_stuck(error);
             logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
         }
         g_port = static_cast<std::uint32_t>(chosen);
@@ -207,7 +323,7 @@ bool Open(std::string& error) {
     if (!s.ok()) {
         error = init < 0 || !counted ? "the USB drive did not start through d2x (" + std::to_string(init) + ", " +
                                            std::to_string(sectors) + ")"
-                                     : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
+                                     : d2x_sector_size_problem(sector_bytes, nullptr);
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
@@ -227,19 +343,28 @@ bool Open(std::string& error) {
 }
 
 bool OpenWaiting(std::string& error, int seconds) {
-    for (int waited = 0;; ++waited) {
+    // A deadline, not a count of tries: one Open can take up to the calls'
+    // time limit and still fail without the device being stuck. No new try
+    // starts past it; one already started runs to its end.
+    const u64 started = gettime();
+    for (int tries = 1;; ++tries) {
         if (Open(error)) {
-            if (waited > 0) logf("USB (d2x): the drive started after %d s\n", waited);
+            if (tries > 1) {
+                logf("USB (d2x): the drive started after %u ms (try %d)\n",
+                     static_cast<unsigned>(ticks_to_millisecs(gettime() - started)), tries);
+            }
             return true;
         }
-        if (!g_not_ready || waited >= seconds) return false;
+        const u64 waited_ms = ticks_to_millisecs(gettime() - started);
+        if (!g_not_ready || waited_ms >= static_cast<u64>(seconds) * 1000) return false;
         Forget();  // asked again from scratch
         usleep(1000000);
     }
 }
 
 void Forget() {
-    if (g_fd >= 0) IOS_Close(g_fd);
+    // A stuck device's close would wait behind its unanswered request.
+    if (g_fd >= 0 && !g_stuck) IOS_Close(g_fd);
     g_fd = -1;
     g_failed = false;
     g_failure.clear();
@@ -247,6 +372,8 @@ void Forget() {
 }
 
 int Fd() { return g_fd; }
+
+bool Stuck() { return g_stuck; }
 
 std::uint32_t SectorBytes() { return g_sector_bytes; }
 
@@ -264,7 +391,7 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
         g_vec[2].len = n * g_sector_bytes;
         DCFlushRange(g_args, sizeof(g_args));
         DCInvalidateRange(g_bounce, n * g_sector_bytes);
-        if (IOS_Ioctlv(g_fd, kReadSectors, 2, 1, g_vec) < 0) return false;
+        if (ioctlv_limited(kReadSectors, 2, 1, g_vec, "read") < 0) return false;
         DCInvalidateRange(g_bounce, n * g_sector_bytes);
         std::memcpy(out, g_bounce, n * g_sector_bytes);
         out += n * g_sector_bytes;
@@ -277,7 +404,7 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
 bool Volume(const ImageVolume*& out, std::string& error) {
     if (!Open(error)) return false;
     if (g_sector_bytes != kFatSectorBytes) {
-        error = "the USB drive has " + std::to_string(g_sector_bytes) + "-byte sectors; packs on it need 512";
+        error = d2x_sector_size_problem(g_sector_bytes, "packs on it");
         return false;
     }
     if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error, usb_wanted_folders())) {
