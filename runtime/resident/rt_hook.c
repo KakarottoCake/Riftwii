@@ -1,5 +1,9 @@
 /* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-FileCopyrightText: libogc contributors <https://github.com/devkitPro/libogc> */
+/* SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx> */
+/* SPDX-FileCopyrightText: FIX94 and Nintendont contributors */
+/* SPDX-FileCopyrightText: 2013 crediar (Nintendont) */
+/* SPDX-FileCopyrightText: Dolphin Emulator Project */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * Resident runtime, C part. Rules that keep this position-independent and
@@ -3642,7 +3646,7 @@ static int32_t rt_restart_write(struct rt_context* ctx, struct rt_restart* rs, s
 
 /* ES_LaunchTitle of the channel: the title ID and its ticket view the
  * loader left in the block. Does not return when IOS takes it. */
-static int32_t rt_restart_launch(struct rt_restart* rs, struct rt_restart_block* blk) {
+static int32_t rt_restart_launch(struct rt_restart* rs, struct rt_restart_block* blk, int32_t es_fd) {
     blk->vec[0].data = (uint32_t)(uintptr_t)blk->title;
     blk->vec[0].len = RT_ES_TITLE_BYTES;
     blk->vec[1].data = (uint32_t)(uintptr_t)blk->view;
@@ -3650,7 +3654,29 @@ static int32_t rt_restart_launch(struct rt_restart* rs, struct rt_restart_block*
     rt_flush_range((uintptr_t)blk->title, sizeof(blk->title));
     rt_flush_range((uintptr_t)blk->view, sizeof(blk->view));
     rt_flush_range((uintptr_t)blk->vec, sizeof(blk->vec));
-    return rt_restart_call(rs, rs->es_fd, RT_ES_LAUNCH_TITLE, 2, 0, blk->vec);
+    return rt_restart_call(rs, (uint32_t)es_fd, RT_ES_LAUNCH_TITLE, 2, 0, blk->vec);
+}
+
+/* ES has only three contexts. Keep them available to the game (Retro
+ * Rewind opens ES to sign its authentication salt), rather than reserving
+ * one from the launch until a Reset that might never happen. */
+static int32_t rt_restart_open_es(struct rt_restart* rs, struct rt_restart_block* blk) {
+    rt_flush_range((uintptr_t)blk->es_path, sizeof(blk->es_path));
+#ifdef RT_TARGET_PPC
+    return ((rt_open_sync_fn)(uintptr_t)rs->open_sync)(blk->es_path, 0);
+#else
+    (void)rs;
+    return rt_host_fs_open_sync == 0 ? -1 : rt_host_fs_open_sync(blk->es_path, 0);
+#endif
+}
+
+static void rt_restart_close_es(struct rt_restart* rs, int32_t es_fd) {
+#ifdef RT_TARGET_PPC
+    ((rt_close_sync_fn)(uintptr_t)rs->close_sync)(es_fd);
+#else
+    (void)rs;
+    if (rt_host_fs_close_sync != 0) rt_host_fs_close_sync(es_fd);
+#endif
 }
 
 void rt_reset_on_os_restart(struct rt_context* ctx) {
@@ -3661,14 +3687,24 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     struct rt_restart_block* blk = rs->block != 0 ? rt_host_restart_block : 0;
 #endif
     int32_t result;
+    int32_t es_fd;
     rs->asked++;
     rt_restart_report(ctx, 'R', rs->asked);
     /* Nothing to go by (the loader leaves the Reset alone when the card, the
      * channel or the game's IOS calls are missing), a thread that cannot
      * wait for IOS (an interrupt handler), or a launch IOS already refused:
      * the game's own restart goes on, as it would without RiftWii. */
-    if (blk == 0 || rs->lba == 0 || rs->es_fd == RT_RESTART_NONE || rs->ioctlv_sync == 0 || rs->refused != 0 ||
-        !rt_fs_in_thread()) {
+    if (blk == 0 || rs->lba == 0 || rs->open_sync == 0 || rs->close_sync == 0 || rs->ioctlv_sync == 0 ||
+        rs->refused != 0 || !rt_fs_in_thread()) {
+        return;
+    }
+    /* Open before arming the request: a refused open must not leave a
+     * request for a later, unrelated start of RiftWii to consume. */
+    es_fd = rt_restart_open_es(rs, blk);
+    rt_restart_report(ctx, 'E', (uint32_t)es_fd);
+    if (es_fd < 0) {
+        rs->last_result = (uint32_t)es_fd;
+        rs->refused++;
         return;
     }
     result = rt_restart_write(ctx, rs, blk, blk->armed);
@@ -3680,11 +3716,13 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
          * take the card down while it still programs this sector, so wait
          * as after the armed write. */
         if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
+        rt_restart_close_es(rs, es_fd);
         return;
     }
     rs->written++;
     rt_restart_settle();
-    result = rt_restart_launch(rs, blk);
+    result = rt_restart_launch(rs, blk, es_fd);
+    rt_restart_close_es(rs, es_fd);
     /* Still here: IOS said no (the channel went, or its ticket). The request
      * goes back to idle, so no later start of RiftWii takes it up, and the
      * game's own restart goes on. */
