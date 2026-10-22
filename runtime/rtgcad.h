@@ -45,7 +45,9 @@ extern "C" {
 #define GCAD_RESCAN_MS 2000u      /* a device another handle owns, or a failed device list */
 #define GCAD_RECAL_MS 3000u       /* X+Y+Start held this long takes a new origin, like the pad */
 #define GCAD_ACTIVE_STEP 10       /* a stick or trigger moving this far between reads is a player (gcad_pad_moved) */
-#define GCAD_ORIGIN_SPREAD 48     /* a stick at rest reads within this of the middle (128) */
+#define GCAD_ORIGIN_SPREAD 32     /* a stick at rest reads within this of the middle (128) */
+#define GCAD_ORIGIN_STEADY_READS 3 /* readings at rest in a row, each close to the last, before one is the origin */
+#define GCAD_ORIGIN_STEADY_STEP 3 /* how close: no axis further than this from the reading before */
 #define GCAD_ORIGIN_TRIGGER_MAX 80 /* a trigger at rest reads no more than this */
 #define GCAD_ORIGIN_WAIT_MS 500u  /* no reading at rest this long: the axes still off take the middle */
 #define GCAD_CTRL_MS 100u         /* SET_PROTOCOL unanswered this long: init anyway */
@@ -176,6 +178,8 @@ typedef struct gcad {
     uint8_t origin_valid[GCAD_PORTS];
     uint8_t recal_active[GCAD_PORTS];
     uint32_t origin_since[GCAD_PORTS];  /* when the wait for a reading at rest began */
+    uint8_t steady[GCAD_PORTS][6];      /* the last reading at rest, while the origin waits */
+    uint8_t steady_reads[GCAD_PORTS];   /* readings at rest in a row, each close to the one before */
     uint32_t recal_since[GCAD_PORTS];
 
     /* Rumble: what the game wants and what the adapter last took. */

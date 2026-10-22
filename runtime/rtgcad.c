@@ -173,6 +173,17 @@ static int pad_at_rest(const uint8_t analog[6]) {
     return 1;
 }
 
+/* Whether every axis is within GCAD_ORIGIN_STEADY_STEP of the reading
+ * before. */
+static int pad_steady(const uint8_t analog[6], const uint8_t before[6]) {
+    uint32_t axis;
+    for (axis = 0; axis < 6; ++axis) {
+        const int d = (int)analog[axis] - (int)before[axis];
+        if (d > GCAD_ORIGIN_STEADY_STEP || d < -GCAD_ORIGIN_STEADY_STEP) return 0;
+    }
+    return 1;
+}
+
 static void origin_event(gcad* g, uint32_t port, uint32_t how, const uint8_t analog[6]) {
     const uint32_t triggers = (uint32_t)analog[4] << 16 | (uint32_t)analog[5] << 24;
     const uint32_t sticks =
@@ -364,13 +375,17 @@ static void take_report(gcad* g, uint32_t now) {
             g->recal_active[i] = 0;
             continue;
         }
-        /* The origin comes only from a reading of the pad at rest. A
+        /* The origin comes only from the pad at rest, and steady: a
          * reading far off taken as the origin pinned the stick to a
          * corner until the adapter was replugged (seen at RiftWii's
-         * start on a Wii U, 2610-541); the port stays empty while it
-         * waits. A pad held off the middle for GCAD_ORIGIN_WAIT_MS gets
-         * the middle for those axes, where its own origin would make
-         * the stick drift once let go. */
+         * start on a Wii U, 2610-541). For a moment after it appears a
+         * pad can also send readings that jump about while sitting
+         * still (233,147 then 99,83 on a Wii U, 2610-603), so one at
+         * rest counts only after GCAD_ORIGIN_STEADY_READS in a row,
+         * each within GCAD_ORIGIN_STEADY_STEP of the last; the port
+         * stays empty while it waits. A pad held off the middle for
+         * GCAD_ORIGIN_WAIT_MS gets the middle for those axes, where its
+         * own origin would make the stick drift once let go. */
         if (!g->origin_valid[i]) {
             const int at_rest = pad_at_rest(src + 3);
             /* The wait starts as the pad appears: every way an origin is
@@ -378,10 +393,19 @@ static void take_report(gcad* g, uint32_t now) {
              * port, so the next report shows it appearing again. */
             if (!was) {
                 g->origin_since[i] = now;
+                g->steady_reads[i] = 0;
                 /* Once per wait, so a log shows what was passed over. */
                 if (!at_rest) origin_event(g, i, GCAD_ORIGIN_PASSED, src + 3);
             }
-            if (at_rest) {
+            if (!at_rest) {
+                g->steady_reads[i] = 0;
+            } else if (g->steady_reads[i] != 0 && pad_steady(src + 3, g->steady[i])) {
+                ++g->steady_reads[i];
+            } else {
+                g->steady_reads[i] = 1;
+            }
+            for (j = 0; j < 6; ++j) g->steady[i][j] = src[3 + j];
+            if (g->steady_reads[i] >= GCAD_ORIGIN_STEADY_READS) {
                 set_origin(g, i, src + 3, GCAD_ORIGIN_RESTING);
             } else if (elapsed(now, g->origin_since[i]) >= ms(g, GCAD_ORIGIN_WAIT_MS)) {
                 set_origin(g, i, src + 3, GCAD_ORIGIN_MIDDLE);
