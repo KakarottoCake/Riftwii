@@ -19,6 +19,13 @@ class TlsStream {
 public:
     TlsStream();
     ~TlsStream();
+    // Keeps the connection's state (BearSSL's contexts and record buffer,
+    // about 33 KB) in `block`, which must outlive the stream and be
+    // memory_needed() bytes, instead of on the heap: the theme browser
+    // gives it MEM2. Set before open(); open() falls back to the heap when
+    // the block is too small.
+    void use_memory(void* block, std::size_t bytes);
+    static std::size_t memory_needed();
     // The handshake with `host` over `socket`, which stays owned by the
     // caller and must outlive this stream.
     bool open(SocketTransport& socket, const std::string& host, std::string& error);
@@ -36,9 +43,19 @@ public:
     int last_error() const;
 
     struct State;
+    // Frees a heap state, or only ends one placed in caller memory.
+    struct StateRelease {
+        StateRelease() : placed(false) {}
+        explicit StateRelease(bool in_caller_memory) : placed(in_caller_memory) {}
+        bool placed;
+        void operator()(State* state) const;
+    };
 
 private:
-    std::unique_ptr<State> state_;
+    using StatePtr = std::unique_ptr<State, StateRelease>;
+    StatePtr state_;
+    void* memory_ = nullptr;
+    std::size_t memory_bytes_ = 0;
     std::uint64_t deadline_ = 0;
 };
 

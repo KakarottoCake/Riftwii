@@ -374,6 +374,20 @@ bool has_extension(const std::string& name, const char* extension) {
 
 }  // namespace
 
+std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images) {
+    std::vector<int> first_disc(images.size(), -1);
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        if (images[i].disc_number != 1) continue;
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (images[j].disc_number == 0 && images[j].id == images[i].id) {
+                first_disc[i] = static_cast<int>(j);
+                break;
+            }
+        }
+    }
+    return first_disc;
+}
+
 std::string gc_folder_skip_reason(const std::string& name) {
     if (name.empty() || name[0] == '.') return std::string();
     static const char* const kPlayed[] = {".iso", ".gcm", ".rvz"};
@@ -537,6 +551,64 @@ bool UsbDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::s
         offset += take; destination += take; length -= take;
     }
     return true;
+}
+
+std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs) {
+    if (sector_bytes == 0) return "d2x sees no USB drive in this port";
+    std::string text = "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
+    if (needs != nullptr && needs[0] != '\0') text += "; " + std::string(needs) + " need 512";
+    return text;
+}
+
+bool d2x_first_sector_is_game(const std::uint8_t* sector, std::uint32_t sector_bytes,
+                              std::uint32_t fragment_offset, const std::string& game_id) {
+    // Only the disc's own first sector starts with the ID, and only a
+    // 512-byte drive is read in the units the fragment list counts.
+    const bool judged = fragment_offset == 0 && sector_bytes == kUsbSectorBytes && game_id.size() == 6;
+    if (!judged) return true;
+    return std::memcmp(sector, game_id.data(), 6) == 0;
+}
+
+std::string d2x_usb_unreadable_error(const std::string& reason) {
+    std::string text = "d2x can't read the USB drive in this port";
+    if (!reason.empty()) text += " (" + reason + ")";
+    text += ". Try the Wii's other USB port (on a Wii U, the one d2x was set up for), or leave only this drive "
+            "plugged in";
+    return text;
+}
+
+std::string d2x_usb_other_drive_error() {
+    return "d2x reads another USB drive than the one the game was listed from: plug the game's drive into the "
+           "Wii's other USB port, or leave only that drive plugged in";
+}
+
+std::string d2x_usb_stuck_log_line(const char* call, int seconds) {
+    return "d2x did not answer the drive's " + std::string(call) + " in " + std::to_string(seconds) +
+           " s; the drive is stuck in d2x";
+}
+
+std::string d2x_usb_slots_summary(const std::vector<D2xSlotFailure>& usb_failures, const std::string& other_error) {
+    // Reasons in the order first seen, each with the slots that gave it.
+    std::vector<std::string> reasons;
+    std::vector<std::string> slots_of_reason;
+    for (const D2xSlotFailure& failure : usb_failures) {
+        const auto found = std::find(reasons.begin(), reasons.end(), failure.reason);
+        const std::size_t index = static_cast<std::size_t>(found - reasons.begin());
+        if (found == reasons.end()) {
+            reasons.push_back(failure.reason);
+            slots_of_reason.emplace_back();
+        }
+        std::string& slots = slots_of_reason[index];
+        slots += slots.empty() ? "IOS" : ", IOS";
+        slots += std::to_string(failure.slot);
+    }
+    std::string text;
+    for (std::size_t i = 0; i < reasons.size(); ++i) {
+        if (!text.empty()) text += "; ";
+        text += reasons[i] + " (tried with " + slots_of_reason[i] + ")";
+    }
+    if (!other_error.empty()) text += (text.empty() ? "" : "; also: ") + other_error;
+    return text;
 }
 
 }  // namespace riftwii

@@ -35,6 +35,7 @@ std::uint64_t be64(const std::uint8_t* p) { return (std::uint64_t(be32(p)) << 32
 constexpr const char* kHomebrewCodes[] = {
     "LULZ",  // the Homebrew Channel
     "JODI",  // the Homebrew Channel, older
+    "OHBC",  // the Homebrew Channel under this title ID (a tester's vWii listed it as a game, 22 Oct 2026)
     "UFTW",  // RiftWii's own channel
     "CORD",  // the Discross channel (a tester's Wii showed it as a game)
 };

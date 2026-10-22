@@ -50,6 +50,23 @@ void test_no_crash() {
     EXPECT_TRUE(!riftwii::describe_gc_crash(junk, "GMSE04", text));
 }
 
+void test_crash_only_capture() {
+    // Normal launches reserve a single sector: no history precedes the
+    // crash. It must still produce the report used on the next start.
+    std::vector<std::uint8_t> trace(512, 0);
+    for (std::uint32_t where = GC_TRACE_READ; where <= GC_TRACE_PAD_SI; ++where) {
+        EXPECT_TRUE(gc_trace_allowed(0, where) == (where == GC_TRACE_FATAL));
+        EXPECT_TRUE(gc_trace_allowed(GC_FLAG_TRACE_GAMEPLAY, where));
+    }
+    record(trace, 0, 1, GC_TRACE_FATAL);
+    put(trace, 0, GC_TR_EXCEPTION, 2);
+    put(trace, 0, GC_TR_BEAT_PC, 0x80001234);
+    std::string text;
+    EXPECT_TRUE(riftwii::describe_gc_crash(trace, "GM4E01", text));
+    EXPECT_TRUE(text.find("DSI") != std::string::npos);
+    EXPECT_TRUE(text.find("SRR0 0x80001234") != std::string::npos);
+}
+
 void test_crash() {
     std::vector<std::uint8_t> trace(512 * 8 + 100, 0);  // a short tail is ignored
     record(trace, 0, 1, GC_TRACE_JUMP);
@@ -311,6 +328,7 @@ void test_compose() {
 
 int main() {
     test_no_crash();
+    test_crash_only_capture();
     test_crash();
     test_remotes();
     test_blue();

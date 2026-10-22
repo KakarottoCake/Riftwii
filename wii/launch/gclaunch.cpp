@@ -30,6 +30,7 @@
 #include "riftwii/rvz.hpp"
 #include "sdfile.hpp"
 #include "textfile.hpp"
+#include "umsdev.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -549,19 +550,29 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
         const std::string dir = std::string("sd:/games/") + folder->d_name;
         DIR* inner = opendir(dir.c_str());
         if (!inner) continue;
+        // The folder's matching images, so a two-disc game starts from disc
+        // 1 whichever order the folder lists them in (gc_second_disc_of).
+        std::vector<std::string> paths;
+        std::vector<GcFolderImage> discs;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (!is_gc_image_name(name)) continue;
-            std::string id;
             const std::string full = dir + "/" + name;
-            if (read_gc_id(full, id) && id.compare(0, game.size(), game) == 0) {
-                out.path = full;
-                out.id = id;
-                found = true;
-                break;
-            }
+            GcHead head;
+            if (!read_gc_head(full, head)) continue;  // not a GameCube image
+            const std::string id(reinterpret_cast<const char*>(head.bytes), 6);
+            if (id.compare(0, game.size(), game) != 0) continue;
+            paths.push_back(full);
+            discs.push_back({id, head.bytes[6]});
         }
         closedir(inner);
+        const std::vector<int> first_disc = gc_second_disc_of(discs);
+        for (std::size_t i = 0; i < paths.size() && !found; ++i) {
+            if (first_disc[i] >= 0) continue;
+            out.path = paths[i];
+            out.id = discs[i].id;
+            found = true;
+        }
         if (found) break;
     }
     closedir(games);
@@ -674,6 +685,26 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
     out.push_back(std::move(g));
 }
 
+// One game folder's images into the list. A two-disc game's second disc
+// beside its first is not a game of its own: started alone it ran without
+// what disc 1 sets up (issue #173, Splinter Cell Double Agent crashed), so
+// it is only said in the log. RiftWii can't change discs yet.
+void list_folder_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+    std::vector<GcFolderImage> discs;
+    for (const ImageGame& g : found) discs.push_back({g.id, g.disc_number});
+    const std::vector<int> first_disc = gc_second_disc_of(discs);
+    // Said before any image moves to the list: the line names disc 1.
+    for (std::size_t i = 0; i < found.size(); ++i) {
+        if (first_disc[i] < 0) continue;
+        const ImageGame& first = found[static_cast<std::size_t>(first_disc[i])];
+        logf("%s scan: %s is disc 2 of %s (%s), so Home lists the game once; start it from disc 1. "
+             "RiftWii can't change discs yet, so the game stops where it asks for disc 2\n",
+             drive_of(found[i].path), found[i].path.c_str(), first.id.c_str(), first.path.c_str());
+    }
+    for (std::size_t i = 0; i < found.size(); ++i)
+        if (first_disc[i] < 0) out.push_back(std::move(found[i]));
+}
+
 }  // namespace
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
@@ -695,6 +726,7 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
             continue;
         }
+        std::vector<ImageGame> found;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (file->d_type == DT_DIR) continue;
@@ -704,9 +736,10 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out, skipped, ciso);
+            add_gc_image(dir + "/" + name, found, skipped, ciso);
         }
         closedir(inner);
+        list_folder_images(found, out);
     }
     closedir(games);
     skipped.finish("SD");
@@ -728,6 +761,7 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             skipped.note(dir, "the folder cannot be read: " + why);
             continue;
         }
+        std::vector<ImageGame> found;
         for (const VolumeEntry& file : files) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
@@ -736,8 +770,9 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out, skipped, ciso);
+            add_gc_image(dir + "/" + file.name, found, skipped, ciso);
         }
+        list_folder_images(found, out);
     }
     skipped.finish("USB");
     // Patch-only mods whose original is on the drive (the game they make
@@ -815,16 +850,28 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
     game.device = ImageDevice::Usb;
     game.path = image.path;
     game.id = image.id;
+    // A drive d2x cannot read is said at the end, each reason once with the
+    // slots that gave it (another d2x base may reach the port), as for a
+    // Wii game.
     std::string first_error;
+    std::vector<D2xSlotFailure> usb_failures;
     for (int slot : image_cios_order(game, image.cios_slot, true)) {
         if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
             image.usb_in_use = true;
             return true;
         }
         if (reload_terminal_failure()) return false;
-        if (first_error.empty()) first_error = error;
+        if (d2x_usb_drive_failed()) {
+            usb_failures.push_back({slot, error});
+        } else if (first_error.empty()) {
+            first_error = error;
+        }
+        // A call d2x never answered can't be cancelled, and another IOS
+        // reload with it outstanding may hang: no further slot.
+        if (ums::Stuck()) break;
     }
-    if (!first_error.empty()) error = first_error;
+    if (!usb_failures.empty()) error = d2x_usb_slots_summary(usb_failures, first_error);
+    else if (!first_error.empty()) error = first_error;
     return false;
 }
 

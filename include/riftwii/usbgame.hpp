@@ -171,6 +171,20 @@ struct CisoFinds {
 // a file that only sits beside an image (a cover, a text file).
 std::string gc_folder_skip_reason(const std::string& name);
 
+// A GameCube image in one game folder, by its disc header.
+struct GcFolderImage {
+    std::string id;                // the header's game ID
+    std::uint8_t disc_number = 0;  // 0 the first disc, 1 the second
+};
+
+// Which images of one game folder are a two-disc game's second disc kept
+// with its first: for each image, the index of the first disc (same ID,
+// disc number 0) it belongs to, or -1 when it is listed as a game itself.
+// A second disc alone is listed, as USB Loader GX does: some games start
+// from either disc. Nintendont looks for disc2.iso beside game.iso the same
+// way when the game asks for the other disc.
+std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images);
+
 // A GameCube image container told by the first bytes of the file, whatever
 // its name: players rename a .ciso or .gcz to .iso and Home then showed the
 // game missing with no reason. NKit is not told apart here: its images keep
@@ -191,6 +205,42 @@ std::string ciso_popup_body(const CisoFinds& finds, const std::string& help, con
 // The log line for the same, in English: the first file, how many more,
 // and what RiftWii plays instead.
 std::string ciso_log_line(const CisoFinds& finds);
+
+// What d2x's own USB device (after the reload into the cIOS) reports, said
+// for boot.log and the launch's failure screen. A sector size of 0 is d2x
+// finding no drive at all in the port it looked at, not a drive with odd
+// sectors. `needs` names what needs 512-byte sectors ("GameCube games");
+// it is added after a real size only.
+std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs);
+
+// Whether the first sector d2x read for a Wii game is the game the menu
+// listed: a disc starts with its six-character game ID. True when it
+// cannot be judged (the first fragment is not the disc's start, or the
+// sector is not 512 bytes, as on a USB DVD drive), so only positive
+// evidence of another drive stops a launch.
+bool d2x_first_sector_is_game(const std::uint8_t* sector, std::uint32_t sector_bytes,
+                              std::uint32_t fragment_offset, const std::string& game_id);
+
+// The launch errors for a Wii game on a USB drive that d2x cannot serve.
+// `reason` is the last thing d2x's device said (empty when unknown).
+std::string d2x_usb_unreadable_error(const std::string& reason);
+std::string d2x_usb_other_drive_error();
+
+// A call into d2x's USB device that never came back (a tester's Wii U
+// froze in the first one after the reload): the reason given, and the log
+// line for `call` ("open" or "read") after `seconds`.
+inline constexpr const char* kD2xStuckReason = "d2x stopped answering";
+std::string d2x_usb_stuck_log_line(const char* call, int seconds);
+
+// After every cIOS slot was tried: each USB drive error said once, with
+// the slots it happened in ("... (tried with IOS249, IOS251); <another
+// reason> (tried with IOS250)"), in the order first seen, then the first
+// other slot's error when one failed for another reason.
+struct D2xSlotFailure {
+    int slot = 0;
+    std::string reason;
+};
+std::string d2x_usb_slots_summary(const std::vector<D2xSlotFailure>& usb_failures, const std::string& other_error);
 
 // Nintendo's stub marker, seen in public SysCheck reports as rev 65280: a
 // slot holding this boots but implements nothing, so it can never be d2x.
