@@ -499,6 +499,45 @@ void test_ciso_detection() {
               static_cast<std::size_t>(0));
 }
 
+// A Wii U's d2x often sees one rear port only: the launch must stop with
+// a reason instead of starting a game d2x cannot read.
+void test_d2x_usb_checks() {
+    EXPECT_EQ(d2x_sector_size_problem(0, "GameCube games"), std::string("d2x sees no USB drive in this port"));
+    EXPECT_EQ(d2x_sector_size_problem(4096, "GameCube games"),
+              std::string("the USB drive has 4096-byte sectors; GameCube games need 512"));
+    EXPECT_EQ(d2x_sector_size_problem(2048, nullptr), std::string("the USB drive has 2048-byte sectors"));
+
+    std::uint8_t sector[512] = {};
+    std::memcpy(sector, "RMGE01", 6);
+    EXPECT_TRUE(d2x_first_sector_is_game(sector, 512, 0, "RMGE01"));
+    EXPECT_FALSE(d2x_first_sector_is_game(sector, 512, 0, "SMNE01"));
+    // Not judged: a fragment list that does not start at the disc's start,
+    // a DVD drive's 2048-byte sectors, an ID that is not six characters.
+    EXPECT_TRUE(d2x_first_sector_is_game(sector, 512, 8, "SMNE01"));
+    EXPECT_TRUE(d2x_first_sector_is_game(sector, 2048, 0, "SMNE01"));
+    EXPECT_TRUE(d2x_first_sector_is_game(sector, 512, 0, ""));
+
+    const std::string unreadable = d2x_usb_unreadable_error("d2x sees no USB drive in this port");
+    EXPECT_TRUE(unreadable.find("d2x can't read the USB drive in this port (d2x sees no USB drive") == 0);
+    EXPECT_TRUE(unreadable.find("other USB port") != std::string::npos);
+    EXPECT_TRUE(d2x_usb_unreadable_error("").find("port. Try") != std::string::npos);
+
+    // A call d2x never answered (a tester's Wii U froze in the first one).
+    EXPECT_EQ(d2x_usb_stuck_log_line("open", 10),
+              std::string("d2x did not answer the drive's open in 10 s; the drive is stuck in d2x"));
+    EXPECT_TRUE(d2x_usb_unreadable_error(kD2xStuckReason)
+                    .find("d2x can't read the USB drive in this port (d2x stopped answering). Try") == 0);
+
+    EXPECT_EQ(d2x_usb_slots_summary({{249, "E"}, {250, "E"}, {251, "E"}}, ""),
+              std::string("E (tried with IOS249, IOS250, IOS251)"));
+    EXPECT_EQ(d2x_usb_slots_summary({{250, "E"}}, "IOS slot 249: no ticket"),
+              std::string("E (tried with IOS250); also: IOS slot 249: no ticket"));
+    // Each slot keeps its own reason, grouped in the order first seen.
+    EXPECT_EQ(d2x_usb_slots_summary({{249, "unreadable"}, {250, "other drive"}, {251, "unreadable"}}, ""),
+              std::string("unreadable (tried with IOS249, IOS251); other drive (tried with IOS250)"));
+    EXPECT_EQ(d2x_usb_slots_summary({}, "only this"), std::string("only this"));
+}
+
 void test_gc_container_by_magic() {
     const std::uint8_t ciso[] = {'C', 'I', 'S', 'O', 0, 0, 0x20, 0};
     const std::uint8_t gcz[] = {0x01, 0xC0, 0x0B, 0xB1, 0, 0, 0, 0};
@@ -676,6 +715,7 @@ int main() {
     test_ciso_detection();
     test_gc_folder_skip_reason();
     test_gc_container_by_magic();
+    test_d2x_usb_checks();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";
     return g_failures == 0 ? 0 : 1;
