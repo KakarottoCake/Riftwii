@@ -540,11 +540,16 @@ T = {
         "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
         "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações.",
         "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice della SD o dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
-    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.": (
-        "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades > Juegos en la tarjeta SD). Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz del USB y luego elige Buscar juegos de nuevo en Ajustes.",
-        "ゲームがまだありません。SDカードは探していません(設定 > ドライブ > SDカードのゲーム)。ゲーム(WBFS、ISO、RVZ)をUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
-        "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades > Jogos no cartão SD). Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do USB e depois escolha Procurar jogos de novo em Configurações.",
-        "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità > Giochi sulla scheda SD). Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.": (
+        "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades). Pon tus juegos (WBFS, ISO o RVZ) en wbfs o games del USB y luego elige Buscar juegos de nuevo en Ajustes.",
+        "ゲームがまだありません。SDカードは探していません(設定 > ドライブ)。ゲーム(WBFS、ISO、RVZ)をUSBドライブのwbfsまたはgamesに入れて、設定の「ゲームをもう一度探す」を選んでください。",
+        "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades). Coloque seus jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e depois escolha Procurar jogos de novo em Configurações.",
+        "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità). Metti i giochi (WBFS, ISO o RVZ) in wbfs o games sull'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.": (
+        "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso.",
+        "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。",
+        "Um jogo de GameCube vai numa pasta própria, como usb:/games/<seu ID>/game.iso.",
+        "Un gioco GameCube va in una cartella tutta sua, come usb:/games/<il suo ID>/game.iso."),
     "Look for them: games in sd:/wbfs and sd:/games are listed on Home.": (
         "Buscarlos: los juegos de sd:/wbfs y sd:/games aparecen en Inicio.",
         "探す: sd:/wbfs と sd:/games のゲームがホームに表示されます。",
@@ -3225,8 +3230,10 @@ KO = {
         "검색 지우기",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
-    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.":
-        "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브 > SD 카드의 게임). USB 드라이브 최상위 경로의 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
+        "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브). USB 드라이브의 'wbfs' 또는 'games'에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
+        "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "이 SD 카드({1} GB)는 코드 빌드용으로는 용량이 너무 큽니다. SD 이미지를 생성하세요.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
@@ -5224,8 +5231,10 @@ FR = {
         "Effacer la recherche",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
-    "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings.":
-        "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports > Jeux sur la carte SD). Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
+        "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
+        "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "Cette carte SD ({1} Go) est trop grande pour les builds de code. Créez une image SD.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":

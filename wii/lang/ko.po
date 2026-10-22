@@ -612,8 +612,11 @@ msgstr "검색 지우기"
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요."
 
-msgid "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."
-msgstr "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브 > SD 카드의 게임). USB 드라이브 최상위 경로의 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요."
+msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
+msgstr "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브). USB 드라이브의 'wbfs' 또는 'games'에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요."
+
+msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
+msgstr "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다."
 
 msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
 msgstr "찾기: sd:/wbfs와 sd:/games의 게임이 홈에 표시됩니다."

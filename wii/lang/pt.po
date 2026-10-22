@@ -612,8 +612,11 @@ msgstr "Limpar busca"
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações."
 
-msgid "No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."
-msgstr "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades > Jogos no cartão SD). Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do USB e depois escolha Procurar jogos de novo em Configurações."
+msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
+msgstr "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades). Coloque seus jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e depois escolha Procurar jogos de novo em Configurações."
+
+msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
+msgstr "Um jogo de GameCube vai numa pasta própria, como usb:/games/<seu ID>/game.iso."
 
 msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
 msgstr "Procurar: os jogos em sd:/wbfs e sd:/games aparecem no Início."

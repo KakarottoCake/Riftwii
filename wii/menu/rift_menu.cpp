@@ -2237,7 +2237,7 @@ public:
 	static constexpr int kW = 440, kH = 146, kTop = 136;
 	EmptyHomeNote()
 		: words(riftwii::wii::Settings().sd_games == "off"
-			? std::string(tr("No games found yet. The SD card is not searched for games (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the USB drive, then pick Look for games again in Settings."))
+			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
 			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
 				" " + tr("A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.")),
 		  text(words.c_str(), 16, skin::kInk) {
