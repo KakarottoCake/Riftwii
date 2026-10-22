@@ -212,13 +212,15 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   `gc_on_stop_motor` and `gc_disc_on_alarm` in `runtime/gc/gc_rt.c`,
   `open_second_disc` in `plugins/gamecube/gcnative.cpp`,
   `src/disc/gcdiscs.cpp`). The behaviour follows Nintendont's (FIX94 and
-  contributors, https://github.com/FIX94/Nintendont, `kernel/DI.c` and
-  `kernel/main.c`): the other image goes in when the game stops the
-  drive's motor (DI command 0xE3), and the DI cover interrupt follows
-  about two seconds later, as described in RiftWii's PR #227; and
-  Dolphin's DVDInterface, whose automatic disc change also starts at a
-  stop of the motor. Facts: YAGCD's and wiibrew's DI register pages (the
-  cover register's state, mask and interrupt bits), and the OS's interrupt
-  handler table at 0x80003040. Neither project's code was copied or read
-  for this; the state machine, the second disc's checks and its MEM2
-  tables are RiftWii's own.
+  contributors, https://github.com/FIX94/Nintendont, GPL-2.0, its row in
+  the table above), as RiftWii's PR #227 describes it: the other image
+  goes in when the game stops the drive's motor (DI command 0xE3), and
+  the DI cover interrupt follows about two seconds later; and Dolphin's
+  DVDInterface (GPL-2.0-or-later), whose automatic disc change also
+  starts at a stop of the motor. Facts: YAGCD's and wiibrew's DI register
+  pages (the cover register's state, mask and interrupt bits), and the
+  OS's interrupt handler table at 0x80003040. Behaviour only: neither
+  project's code was read or copied for this, so no commit applies; the
+  state machine, the second disc's checks and its MEM2 tables are
+  RiftWii's own. Nintendont is already credited in the README's Credits
+  and `wii/menu/credits.cpp`.
