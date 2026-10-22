@@ -6,8 +6,10 @@
 #include <ogc/mutex.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 namespace riftwii::wii {
@@ -37,6 +39,9 @@ struct Locked {
     }
     ~Locked() { LWP_MutexUnlock(g_lock); }
 };
+
+std::string g_backlog;
+constexpr std::size_t kMaxBacklog = 8 * 1024;
 }
 
 void LogEchoToScreen(bool on) { g_echo = on; }
@@ -48,13 +53,21 @@ void LogOpen(const char* sd_path, bool append) {
     g_path = sd_path;
     g_file = std::fopen(sd_path, append ? "a" : "w");
     g_line_start = true;
+    g_backlog.clear();
 }
 
 void LogReopen() {
     Locked lock;
     if (g_file || g_path.empty()) return;
     g_file = std::fopen(g_path.c_str(), "a");
-    g_line_start = true;
+    // Closed-file output already advanced the line state, including a
+    // partial final line. Failed reopen attempts must preserve it too.
+    if (g_file && !g_backlog.empty()) {
+        std::fputs(g_backlog.c_str(), g_file);
+        g_backlog.clear();
+        std::fflush(g_file);
+        fsync(fileno(g_file));
+    }
 }
 
 void LogSync() {
@@ -89,16 +102,32 @@ void logf(const char* format, ...) {
         std::vprintf(format, args);
         va_end(args);
     }
-    if (g_file) {
+    if (g_file || !g_path.empty()) {
         char text[1024];
         va_start(args, format);
         std::vsnprintf(text, sizeof(text), format, args);
         va_end(args);
+        char line[1088];
+        std::size_t used = 0;
         if (g_line_start) {
             const unsigned long ms = static_cast<unsigned long>(ticks_to_millisecs(gettime() - g_epoch));
-            std::fprintf(g_file, "[%6lu.%03lu] ", ms / 1000, ms % 1000);
+            used = static_cast<std::size_t>(std::snprintf(line, sizeof(line), "[%6lu.%03lu] ", ms / 1000, ms % 1000));
         }
-        std::fputs(text, g_file);
+        const std::size_t text_chars = std::char_traits<char>::length(text);
+        const std::size_t take = std::min(text_chars, sizeof(line) - 1 - used);
+        std::memcpy(line + used, text, take);
+        used += take;
+        line[used] = '\0';
+        if (!g_file) {
+            if (g_backlog.size() + used > kMaxBacklog) {
+                const std::size_t drop = std::min(g_backlog.size(), g_backlog.size() + used - kMaxBacklog);
+                g_backlog.erase(0, drop);
+            }
+            g_backlog.append(line, used);
+            g_line_start = take > 0 && text[take - 1] == '\n';
+            return;
+        }
+        std::fputs(line, g_file);
         const std::size_t n = std::char_traits<char>::length(text);
         g_line_start = n > 0 && text[n - 1] == '\n';
         // fflush only reaches libfat's sector cache; fsync writes the

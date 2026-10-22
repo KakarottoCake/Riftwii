@@ -1032,9 +1032,6 @@ msgstr "Unità della Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: un'unità della Wii U (RiftWii non la usa)"
 
-msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
-msgstr "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."
-
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "I giochi di quell'unità non sono elencati. Controlla l'unità su un computer; i dettagli sono in sd:/riftwii/session.log."
 
@@ -1998,21 +1995,6 @@ msgstr "Il riquadro del lettore di dischi nella Home, per giocare da un disco. S
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."
 
-msgid "1. Use the USB port nearest the edge."
-msgstr "1. Usa la porta USB più vicina al bordo."
-
-msgid "2. Big drives: a Y-cable or their own power."
-msgstr "2. Unità grandi: un cavo a Y o un'alimentazione propria."
-
-msgid "3. FAT32 or NTFS (or a WBFS drive)."
-msgstr "3. FAT32 o NTFS (o un'unità WBFS)."
-
-msgid "4. Games in a wbfs or games folder."
-msgstr "4. Giochi in una cartella wbfs o games."
-
-msgid "5. A d2x cIOS in slot 249, 250 or 251."
-msgstr "5. Un cIOS d2x nello slot 249, 250 o 251."
-
 msgid "A to Z"
 msgstr "Dalla A alla Z"
 
@@ -2873,3 +2855,42 @@ msgstr "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii,
 
 msgid "1: all apps"
 msgstr "1: tutte le app"
+
+msgid "Network Test"
+msgstr "Test di rete"
+
+msgid "Testing the network..."
+msgstr "Test della rete in corso..."
+
+msgid "Offline"
+msgstr "Offline"
+
+msgid "Checks if network is online."
+msgstr "Controlla se la rete è online."
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii."
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "Nessuna risposta HTTP. Controlla la connessione e riprova."
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "La rete è occupata. Riprova al termine del download."
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."
+msgstr "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."
+
+msgid "1. Use the USB port nearest to the edge."
+msgstr "1. Usa la porta USB più vicina al bordo."
+
+msgid "2. For big drives: a Y-cable or their own power."
+msgstr "2. Unità grandi: un cavo a Y o un'alimentazione propria."
+
+msgid "3. FAT32 recommended; NTFS and WBFS work too."
+msgstr "3. FAT32 consigliato; funzionano anche NTFS e WBFS."
+
+msgid "4. Games in the /wbfs or /games folder."
+msgstr "4. Giochi nella cartella /wbfs o /games."
+
+msgid "5. A d2x cIOS in slot 249/250/251."
+msgstr "5. Un cIOS d2x nello slot 249/250/251."

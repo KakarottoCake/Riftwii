@@ -245,8 +245,10 @@ void OpenSessionLog(bool sd_mounted) {
         return;
     }
     mkdir("sd:/riftwii", 0777);
-    riftwii::wii::RotateSessionLog();
-    riftwii::wii::LogOpen("sd:/riftwii/session.log");
+    const bool rotated = riftwii::wii::RotateSessionLog();
+    riftwii::wii::LogOpen("sd:/riftwii/session.log", !rotated);
+    if (!rotated)
+        riftwii::wii::logf("The previous session could not be archived; this session is appended to preserve it.\n");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
     // Who started it: the Homebrew Channel and the RiftWii channel both

@@ -1935,6 +1935,12 @@ static bool CursedEngineGame(const FrontendState& state)
 	return GameIdIs(state, "STS") || GameIdIs(state, "SQI");
 }
 
+static bool FrontPortsReached(const FrontendState& state)
+{
+	const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
+	return riftwii::wii::cios_reaches_front_ports(source.game, source.cios_slot);
+}
+
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
@@ -1967,12 +1973,18 @@ static std::string LaunchNote(const FrontendState& state)
 		if (!note.empty()) note += " ";
 		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
 	}
-	// A game image runs under d2x, whose USB reaches only a Wii U's rear
-	// ports in game (the menu's IOS 58 reaches all four). Which port the
-	// adapter is in cannot be told from IOS's device ID yet, so any
-	// adapter the menu is using gets the note.
+	// A game image runs under d2x. Only a d2x on base 58 reaches a Wii U's
+	// front USB ports in game, and the launch puts it first with the
+	// adapter in use (image_cios_order); on any other d2x the adapter works
+	// from the rear ports only. Which port the adapter is in cannot be told
+	// from IOS's device ID yet, so the note comes whenever the game will not
+	// start on a slot whose base was read as 58: none installed, the bases
+	// unreadable, another cIOS picked for it, or a USB-keyboard game. A
+	// tester's Brawl, Mario Kart Wii and Kamen Rider played from a front
+	// port on IOS251 (base 58) with 2610-541.
 	if ((state.use_usb || state.use_sd) && riftwii::wii::GcAdapterRunning() &&
-	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u()) {
+	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u() &&
+	    !FrontPortsReached(state)) {
 		if (!note.empty()) note += " ";
 		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
 	}
@@ -3383,11 +3395,11 @@ static bool ShowUsbHelp(bool offerOff)
 	const int side = QrImage::Side(code, kModule);
 	QrImage qr(code, 588 - 16 - side, 150, kModule);
 	PopupBox box(tr("Getting a USB drive working"),
-		std::string(tr("1. Use the USB port nearest the edge.")) + "\n" +
-			tr("2. Big drives: a Y-cable or their own power.") + "\n" +
-			tr("3. FAT32 or NTFS (or a WBFS drive).") + "\n" +
-			tr("4. Games in a wbfs or games folder.") + "\n" +
-			tr("5. A d2x cIOS in slot 249, 250 or 251.") + "\n" +
+		std::string(tr("1. Use the USB port nearest to the edge.")) + "\n" +
+			tr("2. For big drives: a Y-cable or their own power.") + "\n" +
+			tr("3. FAT32 recommended; NTFS and WBFS work too.") + "\n" +
+			tr("4. Games in the /wbfs or /games folder.") + "\n" +
+			tr("5. A d2x cIOS in slot 249/250/251.") + "\n" +
 			tr("Scan the code for the guide."),
 		tr("OK"), offerOff ? std::string(tr("Don't show again")) : std::string());
 	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
@@ -3431,7 +3443,7 @@ static void NoteWiiUDrive()
 	const auto seen = other.find("wiiu_drive_note");
 	if (seen != other.end() && seen->second == "shown") return;
 	ShowPopup(tr("Wii U drive"),
-		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."),
+		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too)."),
 		tr("OK"));
 	other["wiiu_drive_note"] = "shown";
 	riftwii::wii::SaveSettings();
@@ -10081,7 +10093,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -10232,6 +10244,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
+		FlowRow netTest;
+		netTest.kind = FlowRow::Kind::Action;
+		netTest.label = tr("Network Test");
+		netTest.value = tr("Test");
+		rows.push_back(netTest);
+		actions.push_back(kNetTest);
 		FlowRow covers;
 		covers.kind = FlowRow::Kind::Action;
 		covers.label = tr("Download missing covers");
@@ -10325,7 +10343,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -10437,6 +10455,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
+			case kNetTest: return tr("Checks if network is online.");
 			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
@@ -10476,6 +10495,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	{
 		usleep(10000);
 		HaltGui();
+		riftwii::wii::NetworkTest networkTest;
+		if (riftwii::wii::TakeNetworkTest(networkTest)) {
+			noteTxt.SetText(networkTest.online ? tr("Online") : tr("Offline"));
+			if (!networkTest.online)
+				ShowPopup(tr("Network Test"), tr(networkTest.error.c_str()), tr("OK"));
+		}
 		ClearStaleButtons({&backBtn.button});
 		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
 		const int focused = list.Selected();
@@ -10759,6 +10784,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					note(settings.menu_font == runningFont ? tr("This is the font on screen now.")
 						: tr("The menu restarts to show it when you leave Settings."));
+					break;
+				}
+				case kNetTest: {
+					WaitForDriveScan(noteTxt);
+					if (riftwii::wii::StartNetworkTest())
+						noteTxt.SetText(tr("Testing the network..."));
+					else
+						noteTxt.SetText(tr("The network is busy. Try again when the download finishes."));
 					break;
 				}
 				case kOnline:

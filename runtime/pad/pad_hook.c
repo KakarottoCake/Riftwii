@@ -39,6 +39,19 @@ typedef int32_t (*pad_ioctl_fn)(int32_t fd, uint32_t ioctl, void* in, uint32_t i
                                 uint32_t out_len, uint32_t callback, uint32_t tag);
 typedef int32_t (*pad_ioctlv_fn)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t io_count, uint32_t* vec,
                                  uint32_t callback, uint32_t tag);
+/* The game's screen-dimming reset for its controller ports: clears a
+ * flag the video code checks once a frame, returns 1. */
+typedef int32_t (*pad_idle_reset_fn)(void);
+
+/* The game's PADRead only sees pads in the console's own ports, so it
+ * never tells the video code that an adapter pad is in use: with the
+ * Wii's screen burn-in reduction on, adapter-only play dimmed the screen
+ * after five minutes (Project+ on a Wii U, 2610-541). Each change an
+ * adapter pad makes is passed on the way PADRead passes its own. */
+static void keep_screen_lit(const struct rt_pad_context* c) {
+    pad_idle_reset_fn reset = (pad_idle_reset_fn)(uintptr_t)c->idle_reset;
+    if (reset != 0) reset();
+}
 
 int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t in_len, void* out, uint32_t out_len) {
     struct rt_pad_context* c = (struct rt_pad_context*)g->env_ctx;
@@ -140,6 +153,14 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
         s[10] = 0;
         mask |= 1u << i;
         if (!pad.wireless) motor |= 0x80000000u >> i;  /* PADRead's "has a motor" bits */
+        /* Against the pad as it was when it last counted, not the last
+         * read: a stick moved slowly, a few steps a read, still counts
+         * once it has gone GCAD_ACTIVE_STEP, and a resting stick's wobble
+         * never adds up to that. */
+        if (gcad_pad_moved(&c->last[i], &pad)) {
+            keep_screen_lit(c);
+            c->last[i] = pad;
+        }
     }
     c->overlay_mask = mask;
     ++c->reads;

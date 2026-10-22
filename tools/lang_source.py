@@ -964,11 +964,6 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.": (
-        "La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 o NTFS en un ordenador.",
-        "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。",
-        "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador.",
-        "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1637,31 +1632,6 @@ T = {
         "A fonte do Menu do Wii precisa de acesso ao hardware ou de um cIOS d2x, e nenhum funcionou desta vez, então a fonte da RiftWii é usada. Inicie a RiftWii por um Homebrew Channel atualizado ou pelo canal da RiftWii (versão 9).",
         "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."),
     # Menu text added in 2610-151 to 2610-168
-    "1. Use the USB port nearest the edge.": (
-        "1. Usa el puerto USB más cercano al borde.",
-        "1. 本体の端に近いUSBポートを使ってください。",
-        "1. Use a porta USB mais perto da borda.",
-        "1. Usa la porta USB più vicina al bordo."),
-    "2. Big drives: a Y-cable or their own power.": (
-        "2. Unidades grandes: un cable en Y o su propia alimentación.",
-        "2. 大きなドライブ: Y字ケーブルか専用の電源を。",
-        "2. Unidades grandes: um cabo Y ou alimentação própria.",
-        "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
-    "3. FAT32 or NTFS (or a WBFS drive).": (
-        "3. FAT32 o NTFS (o una unidad WBFS).",
-        "3. FAT32かNTFS (またはWBFSドライブ)。",
-        "3. FAT32 ou NTFS (ou uma unidade WBFS).",
-        "3. FAT32 o NTFS (o un'unità WBFS)."),
-    "4. Games in a wbfs or games folder.": (
-        "4. Juegos en una carpeta wbfs o games.",
-        "4. ゲームはwbfsかgamesフォルダに。",
-        "4. Jogos numa pasta wbfs ou games.",
-        "4. Giochi in una cartella wbfs o games."),
-    "5. A d2x cIOS in slot 249, 250 or 251.": (
-        "5. Un cIOS d2x en el slot 249, 250 o 251.",
-        "5. スロット249、250、251のいずれかにd2x cIOS。",
-        "5. Um cIOS d2x no slot 249, 250 ou 251.",
-        "5. Un cIOS d2x nello slot 249, 250 o 251."),
     "A to Z": (
         "De la A a la Z",
         "A〜Z",
@@ -2946,8 +2916,6 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -3623,16 +3591,6 @@ KO = {
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
-    "1. Use the USB port nearest the edge.":
-        "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 또는 NTFS (또는 WBFS 드라이브).",
-    "4. Games in a wbfs or games folder.":
-        "4. 게임은 wbfs 또는 games 폴더에 넣으세요.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. 슬롯 249, 250 또는 251에 d2x cIOS.",
     "A to Z":
         "가나다순",
     "Change":
@@ -4775,8 +4733,6 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
-    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
-        "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -5061,16 +5017,6 @@ FR = {
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
-    "1. Use the USB port nearest the edge.":
-        "1. Utilisez le port USB le plus proche du bord.",
-    "2. Big drives: a Y-cable or their own power.":
-        "2. Grands stockages : un câble en Y ou leur propre alimentation.",
-    "3. FAT32 or NTFS (or a WBFS drive).":
-        "3. FAT32 ou NTFS (ou un stockage WBFS).",
-    "4. Games in a wbfs or games folder.":
-        "4. Les jeux dans un dossier wbfs ou games.",
-    "5. A d2x cIOS in slot 249, 250 or 251.":
-        "5. Un cIOS d2x dans le slot 249, 250 ou 251.",
     "A to Z":
         "De A à Z",
     "Change":
@@ -6155,13 +6101,96 @@ MORE["fr"].update({
 })
 
 
+T.update({
+    "Network Test": ('Prueba de red', 'ネットワークテスト', 'Teste de rede', 'Test di rete'),
+    "Testing the network...": ('Probando la red...', 'ネットワークをテストしています...', 'Testando a rede...', 'Test della rete in corso...'),
+    "Offline": ('Sin conexión', 'オフライン', 'Offline', 'Offline'),
+    "Checks if network is online.": ('Comprueba si la red está en línea.', 'ネットワークがオンラインか確認します。', 'Verifica se a rede está online.', 'Controlla se la rete è online.'),
+})
+KO.update({
+    "Network Test": "네트워크 테스트",
+    "Testing the network...": "네트워크를 테스트하는 중...",
+    "Offline": "오프라인",
+    "Checks if network is online.": "네트워크가 온라인인지 확인합니다.",
+})
+FR.update({
+    "Network Test": "Test réseau",
+    "Testing the network...": "Test du réseau...",
+    "Offline": "Hors ligne",
+    "Checks if network is online.": "Vérifie si le réseau est en ligne.",
+})
+
+
+# Review fixes: player-facing diagnostic results.
+T.update({
+    "The network could not start. Check the Wii's Internet settings.": (
+        "No se pudo iniciar la red. Revisa la configuración de Internet de la Wii.",
+        "ネットワークを開始できません。Wiiのインターネット設定を確認してください。",
+        "Não foi possível iniciar a rede. Verifique as configurações de Internet do Wii.",
+        "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii.",
+    ),
+    "No HTTP response. Check the connection and try again.": (
+        "Sin respuesta HTTP. Revisa la conexión e inténtalo de nuevo.",
+        "HTTPの応答がありません。接続を確認して、もう一度お試しください。",
+        "Sem resposta HTTP. Verifique a conexão e tente novamente.",
+        "Nessuna risposta HTTP. Controlla la connessione e riprova.",
+    ),
+    "The network is busy. Try again when the download finishes.": (
+        "La red está ocupada. Inténtalo cuando termine la descarga.",
+        "ネットワークは使用中です。ダウンロードが終わってからお試しください。",
+        "A rede está ocupada. Tente quando o download terminar.",
+        "La rete è occupata. Riprova al termine del download.",
+    ),
+})
+MORE["ko"].update({
+    "The network could not start. Check the Wii's Internet settings.": "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요.",
+    "No HTTP response. Check the connection and try again.": "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "The network is busy. Try again when the download finishes.": "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요.",
+})
+MORE["fr"].update({
+    "The network could not start. Check the Wii's Internet settings.": "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii.",
+    "No HTTP response. Check the connection and try again.": "Aucune réponse HTTP. Vérifiez la connexion et réessayez.",
+    "The network is busy. Try again when the download finishes.": "Le réseau est occupé. Réessayez après le téléchargement.",
+})
+
+
+T.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": ('La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 en un ordenador (NTFS también funciona).', '接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32にフォーマットしたドライブを使ってください（NTFSも使えます）。', 'A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 em um computador (NTFS também funciona).', "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 su un computer (funziona anche NTFS)."),
+    "1. Use the USB port nearest to the edge.": ('1. Usa el puerto USB más cercano al borde.', '1. 本体の端に近いUSBポートを使ってください。', '1. Use a porta USB mais perto da borda.', '1. Usa la porta USB più vicina al bordo.'),
+    "2. For big drives: a Y-cable or their own power.": ('2. Unidades grandes: un cable en Y o su propia alimentación.', '2. 大きなドライブ: Y字ケーブルか専用の電源を。', '2. Unidades grandes: um cabo Y ou alimentação própria.', "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
+    "3. FAT32 recommended; NTFS and WBFS work too.": (
+        "3. FAT32 recomendado; NTFS y WBFS también sirven.",
+        "3. FAT32推奨。NTFSとWBFSも使えます。",
+        "3. FAT32 recomendado; NTFS e WBFS também funcionam.",
+        "3. FAT32 consigliato; funzionano anche NTFS e WBFS."),
+    "4. Games in the /wbfs or /games folder.": ('4. Juegos en la carpeta /wbfs o /games.', '4. ゲームは/wbfsか/gamesフォルダに。', '4. Jogos na pasta /wbfs ou /games.', '4. Giochi nella cartella /wbfs o /games.'),
+    "5. A d2x cIOS in slot 249/250/251.": ('5. Un cIOS d2x en el slot 249/250/251.', '5. スロット249/250/251のいずれかにd2x cIOS。', '5. Um cIOS d2x no slot 249/250/251.', '5. Un cIOS d2x nello slot 249/250/251.'),
+})
+KO.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32로 포맷한 드라이브를 사용하세요 (NTFS도 됩니다).",
+    "1. Use the USB port nearest to the edge.": "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
+    "2. For big drives: a Y-cable or their own power.": "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 권장. NTFS와 WBFS도 지원합니다.",
+    "4. Games in the /wbfs or /games folder.": "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. 슬롯 249/250/251에 d2x cIOS.",
+})
+FR.update({
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 on a computer (NTFS works too).": "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 sur un PC (NTFS fonctionne aussi).",
+    "1. Use the USB port nearest to the edge.": "1. Utilisez le port USB le plus proche du bord.",
+    "2. For big drives: a Y-cable or their own power.": "2. Grands stockages : un câble en Y ou leur propre alimentation.",
+    "3. FAT32 recommended; NTFS and WBFS work too.": "3. FAT32 conseillé ; NTFS et WBFS fonctionnent aussi.",
+    "4. Games in the /wbfs or /games folder.": "4. Les jeux dans le dossier /wbfs ou /games.",
+    "5. A d2x cIOS in slot 249/250/251.": "5. Un cIOS d2x dans le slot 249/250/251.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
