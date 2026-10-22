@@ -54,6 +54,7 @@
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
 #include "appicon.hpp"
+#include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
@@ -4056,9 +4057,17 @@ static int MenuSource(FrontendState& state)
 				if (entries[at].index >= apps.size()) return false;
 				skin::Tex art;
 				if (!riftwii::wii::AppIcon(apps[entries[at].index].folder, art)) return false;
-				const float k = std::min(b.w / art.w, b.h / art.h);
-				Menu_DrawImg(b.x + b.w / 2 - art.w * k / 2, b.y + b.h / 2 - art.h * k / 2, static_cast<u16>(art.w),
-					static_cast<u16>(art.h), art.data, 0, k, k, static_cast<u8>(b.alpha));
+				// Fitted to the tile's inside (b.clip*), not to b.w x b.h: that box is
+				// the channel icon's 128 x 96 and can be wider than the tile, which let
+				// a wide icon spill past the tile's outline, most when it grew in focus.
+				const riftwii::FitRect fit = riftwii::fit_inside(static_cast<float>(art.w), static_cast<float>(art.h),
+					b.clipX, b.clipY, b.clipW, b.clipH);
+				if (fit.scale <= 0.0f) return false;
+				// Menu_DrawImg scales about the picture's middle: put it on fit's.
+				const float drawX = fit.x - (static_cast<float>(art.w) - fit.w) / 2.0f;
+				const float drawY = fit.y - (static_cast<float>(art.h) - fit.h) / 2.0f;
+				Menu_DrawImg(drawX, drawY, static_cast<u16>(art.w), static_cast<u16>(art.h), art.data, 0, fit.scale,
+					fit.scale, static_cast<u8>(b.alpha));
 				return true;
 			}
 			riftwii::wii::BannerPlayer* icon = IconFor(items[at].id);
