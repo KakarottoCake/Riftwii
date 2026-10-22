@@ -10226,7 +10226,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -10378,6 +10378,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	{
 		usleep(10000);
 		HaltGui();
+		riftwii::wii::NetworkTest networkTest;
+		if (riftwii::wii::TakeNetworkTest(networkTest)) {
+			noteTxt.SetText(networkTest.online ? tr("Online") : tr("Offline"));
+			if (!networkTest.online)
+				ShowPopup(tr("Network Test"), tr(networkTest.error.c_str()), tr("OK"));
+		}
 		ClearStaleButtons({&backBtn.button});
 		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
 		const int focused = list.Selected();
@@ -10664,11 +10670,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kNetTest: {
-					noteTxt.SetText(tr("Testing the network..."));
-					ResumeGui();
-					const riftwii::wii::NetworkTest test = riftwii::wii::TestNetwork();
-					HaltGui();
-					noteTxt.SetText(test.online ? tr("Online") : tr("Offline"));
+					WaitForDriveScan(noteTxt);
+					if (riftwii::wii::StartNetworkTest())
+						noteTxt.SetText(tr("Testing the network..."));
+					else
+						noteTxt.SetText(tr("The network is busy. Try again when the download finishes."));
 					break;
 				}
 				case kOnline:

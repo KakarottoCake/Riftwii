@@ -2837,3 +2837,12 @@ msgstr "Hors ligne"
 
 msgid "Checks if network is online."
 msgstr "Vérifie si le réseau est en ligne."
+
+msgid "The network could not start. Check the Wii's Internet settings."
+msgstr "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii."
+
+msgid "No HTTP response. Check the connection and try again."
+msgstr "Aucune réponse HTTP. Vérifiez la connexion et réessayez."
+
+msgid "The network is busy. Try again when the download finishes."
+msgstr "Le réseau est occupé. Réessayez après le téléchargement."

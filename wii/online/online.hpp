@@ -117,7 +117,9 @@ struct NetworkTest {
     unsigned ms = 0;
     std::string error;
 };
-NetworkTest TestNetwork();
+// Shares the download worker so the menu keeps responding during DNS and IOS startup.
+bool StartNetworkTest();
+bool TakeNetworkTest(NetworkTest& result);
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);

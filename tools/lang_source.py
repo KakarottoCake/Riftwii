@@ -6095,13 +6095,46 @@ FR.update({
 })
 
 
+# Review fixes: player-facing diagnostic results.
+T.update({
+    "The network could not start. Check the Wii's Internet settings.": (
+        "No se pudo iniciar la red. Revisa la configuración de Internet de la Wii.",
+        "ネットワークを開始できません。Wiiのインターネット設定を確認してください。",
+        "Não foi possível iniciar a rede. Verifique as configurações de Internet do Wii.",
+        "Impossibile avviare la rete. Controlla le impostazioni Internet della Wii.",
+    ),
+    "No HTTP response. Check the connection and try again.": (
+        "Sin respuesta HTTP. Revisa la conexión e inténtalo de nuevo.",
+        "HTTPの応答がありません。接続を確認して、もう一度お試しください。",
+        "Sem resposta HTTP. Verifique a conexão e tente novamente.",
+        "Nessuna risposta HTTP. Controlla la connessione e riprova.",
+    ),
+    "The network is busy. Try again when the download finishes.": (
+        "La red está ocupada. Inténtalo cuando termine la descarga.",
+        "ネットワークは使用中です。ダウンロードが終わってからお試しください。",
+        "A rede está ocupada. Tente quando o download terminar.",
+        "La rete è occupata. Riprova al termine del download.",
+    ),
+})
+MORE["ko"].update({
+    "The network could not start. Check the Wii's Internet settings.": "네트워크를 시작할 수 없습니다. Wii의 인터넷 설정을 확인하세요.",
+    "No HTTP response. Check the connection and try again.": "HTTP 응답이 없습니다. 연결을 확인하고 다시 시도하세요.",
+    "The network is busy. Try again when the download finishes.": "네트워크가 사용 중입니다. 다운로드가 끝나면 다시 시도하세요.",
+})
+MORE["fr"].update({
+    "The network could not start. Check the Wii's Internet settings.": "Le réseau ne démarre pas. Vérifiez les paramètres Internet de la Wii.",
+    "No HTTP response. Check the connection and try again.": "Aucune réponse HTTP. Vérifiez la connexion et réessayez.",
+    "The network is busy. Try again when the download finishes.": "Le réseau est occupé. Réessayez après le téléchargement.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
