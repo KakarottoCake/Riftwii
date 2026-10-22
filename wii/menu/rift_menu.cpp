@@ -10626,6 +10626,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					for (FlowRow& row : rows)
 						if (row.label == tr("Show non-game channels")) {
 							row.value = settings.nand_non_games ? tr("On") : tr("Off");
+							row.on = settings.nand_non_games;
 							break;
 						}
 					list.Refresh();
