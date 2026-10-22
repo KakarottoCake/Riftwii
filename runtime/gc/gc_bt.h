@@ -126,7 +126,7 @@ struct gc_bt {
     uint32_t event_count;
     uint32_t acl_count;
     uint32_t connects;
-    uint32_t connecting;    /* a connection request accepted, its completion not yet seen */
+    uint32_t connecting;    /* connection requests accepted whose completion is not yet seen (another may come in meanwhile) */
     int32_t last_error;
     uint32_t last_event;    /* code << 16 | the opcode or first bytes */
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
