@@ -6201,6 +6201,10 @@ T['{1}: putting it in place...'] = ('{1}: colocándolo en su sitio...', '{1}: �
 KO['{1}: putting it in place...'] = '{1}: 제자리에 놓는 중...'
 FR['{1}: putting it in place...'] = '{1} : mise en place...'
 
+T['1 theme'] = ('1 tema', '1件のテーマ', '1 tema', '1 tema')
+KO['1 theme'] = '테마 1개'
+FR['1 theme'] = '1 thème'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"

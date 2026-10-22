@@ -254,6 +254,13 @@ int main() {
         EXPECT_TRUE(!theme_record_find("../x " + std::string(64, 'a') + "\nbad line\n", "../x", sha));
     }
 
+    // ---- what the card has of a listed theme
+    EXPECT_TRUE(theme_install_state(false, false, "", "a") == ThemeInstall::No);
+    EXPECT_TRUE(theme_install_state(false, true, "a", "a") == ThemeInstall::No);
+    EXPECT_TRUE(theme_install_state(true, false, "", "a") == ThemeInstall::Other);
+    EXPECT_TRUE(theme_install_state(true, true, "a", "a") == ThemeInstall::Current);
+    EXPECT_TRUE(theme_install_state(true, true, "a", "b") == ThemeInstall::Update);
+
     // ---- zip entry paths
     {
         std::string file;

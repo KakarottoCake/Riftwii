@@ -796,19 +796,15 @@ void RefreshInstalled() {
     if (!g_installed) return;
     for (std::size_t i = 0; i < g_count; ++i) {
         std::string recorded;
-        Installed state = Installed::No;
-        if (g_folders.count(Lower(g_listing[i].folder))) {
-            if (!theme_record_find(g_records, g_listing[i].folder, recorded)) state = Installed::Other;
-            else state = recorded == g_listing[i].sha256 ? Installed::Current : Installed::Update;
-        }
-        g_installed[i] = static_cast<unsigned char>(state);
+        const bool there = g_folders.count(Lower(g_listing[i].folder)) != 0;
+        const bool known = theme_record_find(g_records, g_listing[i].folder, recorded);
+        g_installed[i] = static_cast<unsigned char>(theme_install_state(there, known, recorded, g_listing[i].sha256));
     }
 }
 
-Installed InstalledState(const ThemeListing& theme) {
-    if (!g_installed || !g_listing) return Installed::No;
-    const std::size_t index = static_cast<std::size_t>(&theme - g_listing);
-    return index < g_count ? static_cast<Installed>(g_installed[index]) : Installed::No;
+Installed InstalledState(std::size_t index) {
+    if (!g_installed || !g_listing || index >= g_count) return Installed::No;
+    return static_cast<Installed>(g_installed[index]);
 }
 
 bool StartInstall(std::size_t index) {

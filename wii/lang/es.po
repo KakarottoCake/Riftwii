@@ -2946,6 +2946,9 @@ msgstr "{1}: comprobando el tema..."
 msgid "{1}: putting it in place..."
 msgstr "{1}: colocándolo en su sitio..."
 
+msgid "1 theme"
+msgstr "1 tema"
+
 msgid "Channel background"
 msgstr "Fondo de los canales"
 

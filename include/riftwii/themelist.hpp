@@ -72,6 +72,17 @@ bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t ma
 // put there, and the zip it came from, so an Update is offered when the list
 // has another one and a Delete only for these.
 std::string theme_record_text(const std::string& records, const std::string& folder, const std::string& sha256);
+// What the card has of a listed theme: whether its folder is there, whether
+// the browser recorded installing it (`recorded_sha`: from which zip), and
+// the zip the list names now.
+enum class ThemeInstall {
+    No,       // no such folder
+    Current,  // installed by the browser from this very zip
+    Update,   // installed by the browser, and the list has another zip
+    Other,    // a folder of that name that the browser did not install
+};
+ThemeInstall theme_install_state(bool folder_there, bool recorded, const std::string& recorded_sha,
+                                 const std::string& listed_sha);
 // `records` without `folder`'s line.
 std::string theme_record_without(const std::string& records, const std::string& folder);
 // The sha256 recorded for `folder`; false when the browser did not install it.

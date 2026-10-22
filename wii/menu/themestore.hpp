@@ -58,15 +58,11 @@ void Focus(std::size_t index);
 bool PreviewFailed(std::size_t index);
 
 // What the card has of a theme in the list.
-enum class Installed {
-    No,      // no such folder
-    Current, // installed by the browser from this very zip
-    Update,  // installed by the browser, and the list has another zip
-    Other,   // a folder of that name that the browser did not install
-};
+using Installed = riftwii::ThemeInstall;
 // Reads sd:/riftwii/themes again (after an install or delete, and at Open).
 void RefreshInstalled();
-Installed InstalledState(const ThemeListing& theme);
+// `index` is the theme's place in Listing(): a copy of a record has no place.
+Installed InstalledState(std::size_t index);
 
 // The install of theme `index`, as a job.
 enum class Stage { Download, Check, Unpack, Verify, Finish };

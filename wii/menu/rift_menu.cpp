@@ -10392,7 +10392,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 			return;
 		}
 		for (std::size_t i = 0; i < count; ++i) {
-			const themes::Installed state = themes::InstalledState(listing[i]);
+			const themes::Installed state = themes::InstalledState(i);
 			FlowRow row;
 			row.kind = FlowRow::Kind::Action;
 			row.label = FlatCapped(listing[i].name, 26);
@@ -10459,9 +10459,10 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	const auto focused = [&](int row) { return row >= 0 && listing && static_cast<std::size_t>(row) < count; };
 
 	// What the card has of the focused theme, and what A does to it.
-	const auto noteFor = [&](const riftwii::ThemeListing& t) -> std::string {
+	const auto noteFor = [&](std::size_t index) -> std::string {
+		const riftwii::ThemeListing& t = listing[index];
 		const std::string name = FlatCapped(t.name, 30);
-		switch (themes::InstalledState(t)) {
+		switch (themes::InstalledState(index)) {
 			case themes::Installed::Current:
 				return tr("{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.", {name});
 			case themes::Installed::Update:
@@ -10492,7 +10493,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 				if (state == themes::ListState::Failed)
 					say(tr("Could not get the list of themes: {1}", {FlatCapped(listError, 100)}));
 				countTxt.SetText(state == themes::ListState::Ready
-					? tr("{1} themes", {std::to_string(count)}).c_str() : "");
+					? (count == 1 ? std::string(tr("1 theme")) : std::string(tr("{1} themes", {std::to_string(count)}))).c_str() : "");
 			}
 		}
 
@@ -10507,7 +10508,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 					tr("Size: {1}", {ThemeSizeText(t.size)});
 				if (t.has_music) facts += "\n" + std::string(tr("Has its own music"));
 				factsTxt.SetText(facts.c_str());
-				say(noteFor(t));
+				say(noteFor(static_cast<std::size_t>(row)));
 			} else {
 				preview.SetTheme(-1);
 				factsTxt.SetText("");
@@ -10534,7 +10535,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 		} else if (acted >= 0 && focused(acted)) {
 			const riftwii::ThemeListing t = listing[acted];  // a copy: the list is not touched meanwhile
 			const std::string name = FlatCapped(t.name, 30);
-			const themes::Installed state = themes::InstalledState(t);
+			const themes::Installed state = themes::InstalledState(static_cast<std::size_t>(acted));
 			// 0 download, 1 delete, -1 nothing.
 			int action = 0;
 			if (state == themes::Installed::Current) {

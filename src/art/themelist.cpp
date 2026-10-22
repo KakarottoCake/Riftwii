@@ -394,6 +394,13 @@ bool parse_theme_list(const std::string& text, ThemeListing* out, std::size_t ma
     return parse_theme_list(text.data(), text.size(), out, max, count, skipped, error);
 }
 
+ThemeInstall theme_install_state(bool folder_there, bool recorded, const std::string& recorded_sha,
+                                const std::string& listed_sha) {
+    if (!folder_there) return ThemeInstall::No;
+    if (!recorded) return ThemeInstall::Other;
+    return recorded_sha == listed_sha ? ThemeInstall::Current : ThemeInstall::Update;
+}
+
 std::string theme_record_without(const std::string& records, const std::string& folder) {
     std::string out;
     std::size_t at = 0;
