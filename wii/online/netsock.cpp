@@ -92,10 +92,10 @@ bool wait_for(std::int32_t socket, std::uint32_t events, int timeout_ms) {
 
 }  // namespace
 
-bool NetStart(std::string& error) {
+bool NetStart(std::string& error, bool retry) {
     NetWaitForBackground();
     if (g_up) return true;
-    if (g_failed && diff_msec(g_failed_at, gettime()) < kRetryMs) {
+    if (!retry && g_failed && diff_msec(g_failed_at, gettime()) < kRetryMs) {
         error = g_failed_error;
         return false;
     }

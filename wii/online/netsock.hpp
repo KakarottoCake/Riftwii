@@ -15,7 +15,8 @@ namespace riftwii::wii {
 
 // Brings the network up with the console's saved connection. Takes a few
 // seconds; fails when no connection is set up or it cannot be reached.
-bool NetStart(std::string& error);
+// An explicit diagnostic may bypass the automatic-download retry cooldown.
+bool NetStart(std::string& error, bool retry = false);
 void NetStop();
 // The last NetStart failed (and the next would wait as long again).
 bool NetFailed();
