@@ -30,6 +30,7 @@
 #include "netsock.hpp"
 #include "umsdev.hpp"
 #include "nanduse.hpp"
+#include "padhook.hpp"
 
 extern "C" void udelay(int us);
 
@@ -133,6 +134,10 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // And /dev/di: every launch path closes it before reloading, and
     // di::open would return a handle left open as if it were still good.
     di::close();
+    // And the launch's own /dev/usb/hid handle (#284): a launch that failed
+    // after opening it would otherwise return the dead descriptor to the next
+    // use on the menu's IOS.
+    forget_usb_hid_handle();
     // The running IOS's NAND permission check, put back while that IOS is
     // still there to put it back in: open, it would read as open for the
     // next IOS too, which nobody patched.
