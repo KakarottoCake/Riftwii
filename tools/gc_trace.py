@@ -23,8 +23,10 @@ HEADER = os.path.join(os.path.dirname(__file__), '..', 'runtime', 'gc', 'gc_rt.h
 MAGIC = 0x52575452  # "RWTR"
 RECORD_BYTES = 512
 WHERE = {1: 'read', 2: 'pad', 3: 'ai', 4: 'ar', 5: 'jump', 6: 'beat', 7: 'fatal', 8: 'command', 9: 'leave',
-         10: 'restart', 11: 'exec', 12: 'pad_si'}
+         10: 'restart', 11: 'exec', 12: 'pad_si', 13: 'disc'}
 PAD_SI_WHERE = 12
+DISC_WHERE = 13
+DISC_NAMES = ['disc_state', 'disc_stops', 'disc_dicvr', 'disc_step']
 PAD_SI_NAMES = ['si_type_1', 'si_type_2', 'si_type_3', 'si_type_4', 'sisr', 'pad_enabled_before',
                 'pad_enabled_after', 'pad_raw_errs', 'pad_native']
 # Counters read better in decimal; everything else (addresses, registers) in hex.
@@ -62,12 +64,13 @@ def word_names():
 
 
 def record_names(names, where):
-    """New pad records reuse crash-only words; older pad and fatal records do not."""
-    if where != PAD_SI_WHERE:
+    """New pad records and disc-change records reuse crash-only words; older pad and fatal records do not."""
+    overlay = {PAD_SI_WHERE: PAD_SI_NAMES, DISC_WHERE: DISC_NAMES}.get(where)
+    if overlay is None:
         return names
     overlaid = list(names)
     first = names.index('crash_r1')
-    overlaid[first:first + len(PAD_SI_NAMES)] = PAD_SI_NAMES
+    overlaid[first:first + len(overlay)] = overlay
     return overlaid
 
 
