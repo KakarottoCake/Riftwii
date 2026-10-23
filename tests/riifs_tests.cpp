@@ -400,6 +400,39 @@ static void TestClient() {
     EXPECT_EQ(riftwii::riifs::join_path("/a/", "c"), "/a/c");
 }
 
+static void TestMissingSaveParent() {
+    const std::string root = "sd:/riftwii/riifs/pc_1137";
+    const std::string save = root + "/Pack/Data/Save/data.bin";
+    const std::string stale = root + "/Pack/Data/old.arc";
+    // Either the listing omits Data, or a direct request finds it missing.
+    for (bool list_parent : {false, true}) {
+        FakeServer server;
+        server.extra_dirs.insert("/Pack");
+        Client client(server);
+        FakeCard card;
+        card.make_dirs(root + "/Pack/Data/Save");
+        card.begin_file(save);
+        const auto saved = bytes("player save");
+        card.write(saved.data(), saved.size());
+        card.end_file(true);
+        card.begin_file(stale);
+        card.end_file(true);
+
+        std::vector<riftwii::riifs::SyncItem> items(1);
+        items[0].path = list_parent ? "/Pack" : "/Pack/Data";
+        items[0].folder = true;
+        riftwii::riifs::SyncOptions options;
+        options.keep.push_back("/PACK/DATA/SAVE");  // FAT names ignore case.
+        riftwii::riifs::SyncStats stats;
+        std::string error;
+        EXPECT_TRUE(riftwii::riifs::sync(client, card, root, items, options, stats, error));
+        EXPECT_TRUE(card.has(save));
+        EXPECT_EQ(card.text(save), "player save");
+        EXPECT_FALSE(card.has(stale));
+        EXPECT_EQ(stats.removed, 1u);
+    }
+}
+
 static void TestSync() {
     FakeServer server;
     server.files["/riivolution/Pack.xml"] = bytes("<wiidisc/>");
@@ -655,6 +688,7 @@ static void TestHostileServer() {
 
 int main() {
     TestClient();
+    TestMissingSaveParent();
     TestSync();
     TestHostileServer();
     if (g_failures) {
