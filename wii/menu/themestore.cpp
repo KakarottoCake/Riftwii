@@ -23,6 +23,7 @@
 #include "skin.hpp"
 #include "textfile.hpp"
 #include "tls.hpp"
+#include "zipinflate.hpp"
 #include "riftwii/pngdecode.hpp"
 #include "riftwii/sha256.hpp"
 #include "riftwii/theme.hpp"
@@ -49,9 +50,9 @@ constexpr std::size_t kRawBytes = kThemePreviewMaxBytes + 8192;
 // data, the unfiltered rows and the RGBA result (2.7 MB at 8 bits a channel).
 constexpr std::size_t kScratchBytes = 3u << 20;
 // zlib's state and window for one inflate (about 40 KB), and the chunk
-// each inflate hands on.
-constexpr std::size_t kZlibBytes = 64u << 10;
-constexpr std::size_t kChunkBytes = 16u << 10;
+// each zip inflate hands on (zipinflate.hpp).
+constexpr std::size_t kZlibBytes = kZipZlibBytes;
+constexpr std::size_t kChunkBytes = kZipChunkBytes;
 // What a zip's download may be over its size: the HTTP headers.
 constexpr std::size_t kHeaderRoom = 8192;
 
@@ -172,6 +173,8 @@ bool ArrangeWork() {
     g_parts.zlib = at;
     at += kZlibBytes;
     g_parts.chunk = at;
+    // The zip reader's inflate (zipinflate.hpp) works in the same blocks.
+    ZipInflateUse(g_parts.zlib, g_parts.chunk);
     return true;
 }
 
@@ -196,36 +199,6 @@ bool PngInflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, s
     while (z.avail_out > 0 && result == Z_OK) result = inflate(&z, Z_SYNC_FLUSH);
     inflateEnd(&z);
     return z.avail_out == 0 && (result == Z_OK || result == Z_STREAM_END || result == Z_BUF_ERROR);
-}
-
-// A zip entry's raw deflate data, in chunks to `sink`, no more than
-// `expected` bytes in all (zipread.hpp).
-bool ZipInflate(const std::uint8_t* in, std::size_t in_size, std::uint64_t expected, const ZipSink& sink) {
-    ResetZlibHeap();
-    z_stream z = {};
-    z.zalloc = ZlibAlloc;
-    z.zfree = ZlibFree;
-    if (inflateInit2(&z, -15) != Z_OK) return false;
-    z.next_in = const_cast<Bytef*>(in);
-    z.avail_in = static_cast<uInt>(in_size);
-    std::uint64_t total = 0;
-    bool ok = false;
-    for (;;) {
-        z.next_out = g_parts.chunk;
-        z.avail_out = static_cast<uInt>(kChunkBytes);
-        const int result = inflate(&z, Z_NO_FLUSH);
-        const std::size_t made = kChunkBytes - z.avail_out;
-        if (total + made > expected) break;  // more than the zip said
-        if (made > 0 && !sink(g_parts.chunk, made)) break;
-        total += made;
-        if (result == Z_STREAM_END) {
-            ok = total == expected;
-            break;
-        }
-        if (result != Z_OK) break;  // damaged, or no progress (Z_BUF_ERROR)
-    }
-    inflateEnd(&z);
-    return ok;
 }
 
 // ---- Thumbnails ----

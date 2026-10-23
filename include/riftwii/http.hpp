@@ -51,8 +51,11 @@ bool http_local_ipv4(std::uint32_t ip);
 // Whether `policy` lets a GET go on from `from` to `to`.
 bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to);
 
-// The request's bytes: GET, Host, a User-Agent, Connection: close.
-std::string http_get_request(const HttpUrl& url);
+// The request's bytes: GET, Host, a User-Agent, Connection: close. The
+// User-Agent is "RiftWii" unless the caller names more (GameHacking.org asks
+// to be told which program and version is asking); it is RiftWii's own
+// text, never from the network.
+std::string http_get_request(const HttpUrl& url, const std::string& user_agent = "RiftWii");
 // A POST of `body` (Content-Type `content_type`), body included.
 std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body);
 

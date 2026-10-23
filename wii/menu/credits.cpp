@@ -100,7 +100,8 @@ const char* const kCredits[] = {
     "The soyjak in one theme you may find: from soyjak.party, used with their permission.",
     "",
     "Game names and covers from GameTDB (gametdb.com). Cheat codes from the GeckoCodes archive kept by "
-    "RiiConnect24 (codes.rc24.xyz).",
+    "RiiConnect24 (codes.rc24.xyz). When that has none, cheat codes from GameHacking.org (gamehacking.org), "
+    "where the Gecko codes went after geckocodes.org closed.",
     "",
     "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",

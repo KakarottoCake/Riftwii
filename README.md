@@ -138,7 +138,8 @@ contains theirs names them in its file header, and
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
-  archive, **M+ Fonts** for the menu font, **Zane Little** for the menu
+  archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
+  lacks (fetched at most once a month, when a game needs them), **M+ Fonts** for the menu font, **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures.
 - **Animated GameCube banners**: the community's banners, hosted by
   RiiConnect24 (banner.rc24.xyz).

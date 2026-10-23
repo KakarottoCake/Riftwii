@@ -123,6 +123,10 @@ bool TakeNetworkTest(NetworkTest& result);
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
+// The note beside the cheat file that says its codes came from GameHacking.org
+// (riftwii/ghcheats.hpp), and whether it is there and valid.
+std::string CheatSourcePath(const std::string& game_id);
+bool CheatsFromGameHacking(const std::string& game_id);
 
 // Adds <ahb_access/> to the meta.xml next to this boot.dol when it lacks
 // it (an update through the menu replaces only boot.dol): the Homebrew
@@ -131,10 +135,14 @@ std::string CheatPath(const std::string& game_id);
 void EnsureMetaAhbAccess();
 // Fetches the game's cheats into the file, keeping the player's own (cheats
 // added by hand, values filled in). The archive answers with an empty
-// page for a game it has no cheats for: `error` says so.
+// page for a game it has no cheats for: `error` says so. When it has none,
+// or does not answer, GameHacking.org's archive stands in (ghfallback.hpp).
 // `enabled`: the cheats the player has turned on for it, whose code a
 // download does not change (riftwii/cheats.hpp, merge_cheat_text).
-bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled = {});
+// `source`, when given, is where the file came from.
+enum class CheatSource { Archive, GameHacking };
+bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled = {},
+                    CheatSource* source = nullptr);
 // A GameCube game's animated banner, made by the community and hosted by
 // RiiConnect24, asked for by its full ID and then, for a regional copy of
 // a game (`regional_fallback`, riftwii/gcbanner.hpp's

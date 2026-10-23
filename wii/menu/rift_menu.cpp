@@ -8902,6 +8902,12 @@ static void MenuCheats(FrontendState& state)
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
+	// Whenever the codes came from GameHacking.org (the note beside the file,
+	// kept by DownloadCheats): a small line at a fixed place just under the note
+	// card, left with the note's text, above the prompts. The list
+	// scrolls above it, so it cannot meet the rows or the note card.
+	GuiText sourceTxt("", 12, skin::kInkDim);
+	Place(sourceTxt, NoteCard::kTextX, NoteCard::kY + NoteCard::kH);
 	NoteCard noteCard;
 	GuiFlowList list(44, 84, 540, 5);
 	list.SetCards(true);
@@ -8910,6 +8916,15 @@ static void MenuCheats(FrontendState& state)
 	GuiText noteTxt(fileNote.c_str(), 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	// A fourth line of the note would run to y 410, over the source label, so
+	// the note keeps to three lines (ending by y 389) while the label shows.
+	const auto showSource = [&]() {
+		const bool fromGameHacking = riftwii::wii::CheatsFromGameHacking(state.game_id);
+		const std::string from = tr("Cheats from GameHacking.org");
+		sourceTxt.SetText(fromGameHacking ? from.c_str() : "");
+		noteTxt.SetWrap(true, NoteCard::kTextW, fromGameHacking ? NoteCard::kLines - 1 : NoteCard::kLines);
+	};
+	showSource();
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -8923,6 +8938,7 @@ static void MenuCheats(FrontendState& state)
 	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
+	w.Append(&sourceTxt);
 	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
@@ -8939,14 +8955,18 @@ static void MenuCheats(FrontendState& state)
 		std::string error;
 		const std::size_t before = loaded ? file.cheats.size() : 0;
 		const bool hadFile = loaded;
-		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names);
+		riftwii::wii::CheatSource source = riftwii::wii::CheatSource::Archive;
+		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names, &source);
 		HaltGui();
+		showSource();
 		if (ok) {
 			load(false);
 			// Said plainly either way: the same list again looked like
 			// nothing had happened (a tester).
 			const std::size_t now = loaded ? file.cheats.size() : 0;
 			say(!loaded ? status
+				: source == riftwii::wii::CheatSource::GameHacking
+					? tr("{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want.", {std::to_string(now)})
 				: hadFile && now == before ? tr("Downloaded: still {1} cheats, the list was already the latest.", {std::to_string(now)})
 				: hadFile ? tr("Downloaded: {1} cheats now ({2} before).", {std::to_string(now), std::to_string(before)})
 				: tr("{1} cheats. Turn on the ones you want.", {std::to_string(now)}));
