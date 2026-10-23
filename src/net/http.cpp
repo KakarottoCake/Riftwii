@@ -181,11 +181,16 @@ bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
 bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to, std::string& error) {
     const std::string where = trim(location);
     const std::string head = lower(where.substr(0, 8));
+    // Only the first path segment can carry a scheme. Colons after a
+    // slash, query marker or fragment marker belong to the relative URL.
+    const std::size_t colon = where.find(':');
+    const std::size_t relative_marker = where.find_first_of("/?#");
+    const bool has_scheme = colon != std::string::npos && colon < relative_marker;
     if (head.compare(0, 7, "http://") == 0 || head == "https://") {
         if (!parse_http_url(where, to, error)) return false;
     } else if (where.compare(0, 2, "//") == 0) {
         if (!parse_http_url((from.tls ? "https:" : "http:") + where, to, error)) return false;
-    } else if (!where.empty() && (where[0] == '/' || where.find(':') == std::string::npos)) {
+    } else if (!where.empty() && !has_scheme) {
         // A path on the same server: from its root, or beside this one.
         to = from;
         std::string path = where.substr(0, where.find('#'));
