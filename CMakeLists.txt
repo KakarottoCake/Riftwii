@@ -76,6 +76,15 @@ add_executable(theme_kit tools/theme_kit.cpp)
 target_link_libraries(theme_kit PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(channel_dolboot_tests tests/channel_dolboot_tests.c)
+    target_include_directories(channel_dolboot_tests PRIVATE tests/channel_mock)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        # The channel deliberately casts between Wii pointers and 32-bit addresses.
+        target_compile_options(channel_dolboot_tests PRIVATE -Wall -Wextra -Werror
+            -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast)
+    endif()
+    add_test(NAME channel_dolboot COMMAND channel_dolboot_tests)
+    set_tests_properties(channel_dolboot PROPERTIES SKIP_RETURN_CODE 77)
     # Use the plugin's actual Zstandard shim against a mocked host table,
     # without its libc replacements or a second decoder defining the API.
     add_executable(rwpzstd_tests tests/rwpzstd_tests.cpp plugins/common/rwpzstd.cpp)
