@@ -3127,8 +3127,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
              "may play wrong)\n");
     else if (keep_aram)
-        logf("GameCube: ARAM addresses left as the SDK gives them: %s does arithmetic on them that "
-             "breaks when they are raised (its sound may play wrong)\n", image.id.c_str());
+        logf("GameCube: ARAM addresses left as the SDK gives them: %s breaks when they are raised (see "
+             "gc_keeps_aram_addresses; its sound may play wrong)\n", image.id.c_str());
     else
         logf("GameCube: ARAM addresses from 0x10004000 (%u place(s), %u sound heap limit(s) raised with them) for the "
              "sound program to read MEM2 (%s)\n",
