@@ -186,6 +186,27 @@ static void test_refusals() {
         f.request.pack_entry_count = 0;
         EXPECT_FALSE(f.check(why));
     }
+    // A corrupt or mismatched DOL's huge counts are refused before anything
+    // is copied from them or read through them.
+    {
+        const std::uint8_t fst[64] = {};
+        const std::uint8_t header[0x20] = {};
+        const rwp_gc_pack_entry entries[2] = {};
+        Fixture f;
+        f.request.pack_fst = fst;
+        f.request.pack_fst_bytes = 0xFFFFFFFFu;
+        f.request.pack_header = header;
+        f.request.pack_header_bytes = sizeof(header);
+        f.request.pack_entries = entries;
+        f.request.pack_entry_count = 2;
+        EXPECT_FALSE(f.check(why));
+        EXPECT_TRUE(why.find("not whole") != std::string::npos);
+        f.request.pack_fst_bytes = sizeof(fst);
+        f.request.pack_entry_count = 0x40000000u;
+        EXPECT_FALSE(f.check(why));
+        f.request.pack_entry_count = 2;
+        EXPECT_TRUE(f.check(why));
+    }
     // Cheats and the code handler: a pointer with its bytes, or neither.
     {
         const std::uint8_t gct[16] = {};
