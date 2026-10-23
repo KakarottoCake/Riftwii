@@ -171,6 +171,67 @@ void test_calibration() {
     EXPECT_EQ(ack[13], 0);
 }
 
+// A refused read has no later parts. Only replace it if the complete
+// remaining calibration fits in the one answer the controller supplied.
+void test_refused_calibration() {
+    for (std::uint32_t count : {1u, 6u, 16u, 32u}) {
+        rtpro_state st;
+        rtpro_init(&st);
+        Connect(st, kPro, kProAddress);
+        Bytes read = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0x20, 0x00,
+                               static_cast<std::uint8_t>(count)});
+        Out(st, read);
+        Bytes reply = Acl(kPro, ReadReply(0x0020, 16, 7, Bytes(16, 0)));
+        const Bytes before = reply;
+        In(st, reply);
+        if (count <= 16u) {
+            EXPECT_EQ(reply[12], (count - 1u) << 4);
+            EXPECT_EQ(reply[15], 0xE0);
+        } else {
+            // A success with only 16 of the requested 32 bytes leaves the
+            // game's read waiting forever; keep the terminal error instead.
+            EXPECT_TRUE(reply == before);
+        }
+    }
+
+    // EEPROM reads also use the Pro's calibration as a stand-in. Its
+    // terminal error must keep the game's address and end the whole read.
+    for (std::uint32_t count : {10u, 32u}) {
+        rtpro_state memory;
+        rtpro_init(&memory);
+        Connect(memory, kPro, kProAddress);
+        Bytes read = Acl(kPro, {0xA2, 0x17, 0x00, 0x00, 0x00, 0x16, 0x00,
+                               static_cast<std::uint8_t>(count)});
+        Out(memory, read);
+        Bytes reply = Acl(kPro, ReadReply(0x0020, 16, 7, Bytes(16, 0)));
+        In(memory, reply);
+        EXPECT_EQ(reply[13], 0x00);
+        EXPECT_EQ(reply[14], 0x16);
+        EXPECT_EQ(reply[12], count <= 16u ? (count - 1u) << 4 : 0xF7u);
+    }
+
+    // An error on the final part can still be answered in full.
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kPro, kProAddress);
+    Bytes read = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0x20, 0x00, 0x20});
+    Out(st, read);
+    Bytes first = Acl(kPro, ReadReply(0x0020, 16, 0, Bytes(16, 0)));
+    In(st, first);
+    Bytes last = Acl(kPro, ReadReply(0x0030, 16, 7, Bytes(16, 0)));
+    In(st, last);
+    EXPECT_EQ(last[12], 0xF0);
+    EXPECT_EQ(last[15], 0xE0);
+
+    // A read straddling the end of calibration must retain its error.
+    Bytes crossing = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0x3F, 0x00, 0x02});
+    Out(st, crossing);
+    Bytes failed = Acl(kPro, ReadReply(0x003F, 16, 7, Bytes(16, 0)));
+    const Bytes before = failed;
+    In(st, failed);
+    EXPECT_TRUE(failed == before);
+}
+
 // A Pro hangs up on a read of the Wii Remote's memory (a tester's trace:
 // the firmware probe at 0x1770), and has no IR camera or speaker.
 void test_stand_ins() {
@@ -578,6 +639,7 @@ int main() {
     test_links();
     test_extension_id();
     test_calibration();
+    test_refused_calibration();
     test_stand_ins();
     test_classic_bytes();
     test_data_reports();
