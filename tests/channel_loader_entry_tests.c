@@ -49,6 +49,43 @@ int main(void) {
     header.bss_size = 0x40;
     expect_entry(&header, 0x81000200, 0);
 
+    // The entry stays in section 7 below, so only a range decides.
+    // BSS: from the loader's end up to MEM1_HI, and not wrapping.
+    expect_entry(&header, 0x81000100, 1);
+    header.bss_address = LOADER_END;
+    expect_entry(&header, 0x81000100, 1);
+    header.bss_address = MEM1_HI - 0x40;
+    expect_entry(&header, 0x81000100, 1);
+    header.bss_address = LOADER_END - 0x20;
+    expect_entry(&header, 0x81000100, 0);
+    header.bss_address = MEM1_HI - 0x20;
+    expect_entry(&header, 0x81000100, 0);
+    header.bss_address = 0xffffffe0;
+    expect_entry(&header, 0x81000100, 0);
+    header.bss_address = 0x81000200;
+
+    // Another section: the same address range, and its bytes in the file.
+    header.offset[1] = 0x1c0;
+    header.address[1] = 0x81000300;
+    header.size[1] = 0x20;
+    expect_entry(&header, 0x81000100, 1);
+    header.address[1] = MEM1_HI - 0x20;
+    expect_entry(&header, 0x81000100, 1);
+    header.size[1] = 0x21;
+    expect_entry(&header, 0x81000100, 0);
+    header.address[1] = 0xffffffe0;
+    header.size[1] = 0x40;
+    expect_entry(&header, 0x81000100, 0);
+    header.address[1] = 0x81000300;
+    header.size[1] = 0x40;
+    expect_entry(&header, 0x81000100, 1);
+    header.size[1] = 0x41;
+    expect_entry(&header, 0x81000100, 0);
+    header.offset[1] = 0x201;
+    header.size[1] = 0x20;
+    expect_entry(&header, 0x81000100, 0);
+    header.size[1] = 0;
+
     // A section may start right at the loader's end, not a byte under it.
     for (int under = 0; under <= 1; ++under) {
         DolHeader low = {0};

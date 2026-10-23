@@ -87,7 +87,10 @@ void TestStoredTruncationPreservesCache() {
     CHECK(PeekGameInfo(later.id, cached));
     CHECK(serialize_game_infos({{cached.id, cached}}) == original_cache);
 
-    const std::string early_game = "<game><id>RMCE01</id><developer>Partial result</developer></game>";
+    // "<game " with its attributes, as GameTDB writes it: the scanner looks
+    // for that, so the early game is really found before the failure.
+    const std::string early_game =
+        "<game name=\"partial\"><id>RMCE01</id><developer>Partial result</developer></game>";
     const std::string partial_xml = early_game + std::string(300u << 10, ' ');
     auto bytes = ziptest::make_zip({{"wiitdb.xml", partial_xml, 0}});
     bytes.resize(30 + std::string("wiitdb.xml").size() + partial_xml.size());
@@ -104,6 +107,16 @@ void TestStoredTruncationPreservesCache() {
     // delivery, so publishing partial scanner results cannot pass unnoticed.
     const auto bad_crc = ziptest::make_zip({{"wiitdb.xml", partial_xml, 0, true}});
     ExpectFailedScanPreservesCache(bad_crc, later, original_cache, true);
+
+    // Control: the same database intact finds the early game, so the
+    // failed scans above did see it and still published nothing.
+    const auto intact = ziptest::make_zip({{"wiitdb.xml", partial_xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(intact.data()), intact.size());
+    GameInfo found;
+    std::string error;
+    CHECK(FindGameInfo("RMCE01", {"RMCE01"}, found, error, [](double) { return true; }) ==
+          GameInfoResult::Found);
+    CHECK(found.developer == "Partial result");
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
