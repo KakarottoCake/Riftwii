@@ -25,16 +25,19 @@ void rtrvz_junk_seed(rtrvz_junk* j, const uint8_t seed[RTRVZ_SEED_BYTES]) {
     j->pos = 0;
 }
 
-void rtrvz_junk_skip(rtrvz_junk* j, uint32_t bytes) {
+static void junk_skip_work(rtrvz_junk* j, uint32_t bytes, rtrvz_yield_fn yield, void* io) {
     while (bytes >= JUNK_BYTES - j->pos) {
         bytes -= JUNK_BYTES - j->pos;
         junk_advance(j);
         j->pos = 0;
+        if (yield != 0) yield(io);
     }
     j->pos += bytes;
 }
 
-void rtrvz_junk_out(rtrvz_junk* j, uint8_t* dst, uint32_t len) {
+void rtrvz_junk_skip(rtrvz_junk* j, uint32_t bytes) { junk_skip_work(j, bytes, 0, 0); }
+
+static void junk_out_work(rtrvz_junk* j, uint8_t* dst, uint32_t len, rtrvz_yield_fn yield, void* io) {
     /* A word gives bits 31..24, 23..18 (sic), 15..8 and 7..0. */
     static const uint8_t shift[4] = {24u, 18u, 8u, 0u};
     uint32_t i;
@@ -45,8 +48,11 @@ void rtrvz_junk_out(rtrvz_junk* j, uint8_t* dst, uint32_t len) {
         }
         dst[i] = (uint8_t)(j->buf[j->pos >> 2] >> shift[j->pos & 3u]);
         ++j->pos;
+        if ((i & 1023u) == 1023u && yield != 0) yield(io);
     }
 }
+
+void rtrvz_junk_out(rtrvz_junk* j, uint8_t* dst, uint32_t len) { junk_out_work(j, dst, len, 0, 0); }
 
 int rtrvz_exception_bytes(const uint8_t* in, uint32_t in_len, uint32_t lists, int pad4, uint32_t* out) {
     uint32_t at = 0;
@@ -69,16 +75,24 @@ int rtrvz_exception_bytes(const uint8_t* in, uint32_t in_len, uint32_t lists, in
     return RTRVZ_OK;
 }
 
-static void copy_bytes(uint8_t* d, const uint8_t* s, uint32_t n) {
-    uint32_t i;
-    for (i = 0; i < n; ++i) d[i] = s[i];
+static void copy_bytes(uint8_t* d, const uint8_t* s, uint32_t n, rtrvz_yield_fn yield, void* io) {
+    while (n != 0) {
+        const uint32_t piece = n < 4096u ? n : 4096u;
+        uint32_t i;
+        for (i = 0; i < piece; ++i) d[i] = s[i];
+        d += piece;
+        s += piece;
+        n -= piece;
+        if (yield != 0) yield(io);
+    }
 }
 
-int rtrvz_unpack(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint32_t skip,
-                 uint8_t* dst, uint32_t len, rtrvz_junk* scratch) {
+int rtrvz_unpack_yield(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint32_t skip,
+                       uint8_t* dst, uint32_t len, rtrvz_junk* scratch, rtrvz_yield_fn yield, void* io) {
     const uint64_t end = (uint64_t)skip + len;
     uint64_t out = 0; /* unpacked bytes before the current record */
     uint32_t at = 0;
+    uint32_t records = 0;
     while (out < end) {
         uint32_t size;
         int junk;
@@ -96,16 +110,24 @@ int rtrvz_unpack(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint3
                 rtrvz_junk_seed(scratch, in + at);
                 /* The seed gives the bytes from the 0x8000 boundary at or
                  * before the run's start. */
-                rtrvz_junk_skip(scratch, (uint32_t)((data_offset + out) % JUNK_BLOCK) + (uint32_t)(from - out));
-                rtrvz_junk_out(scratch, dst + (from - skip), (uint32_t)(to - from));
+                junk_skip_work(scratch, (uint32_t)((data_offset + out) % JUNK_BLOCK) + (uint32_t)(from - out),
+                                yield, io);
+                junk_out_work(scratch, dst + (from - skip), (uint32_t)(to - from), yield, io);
             }
             at += RTRVZ_SEED_BYTES;
         } else {
             if (in_len - at < size) return RTRVZ_ERR_TRUNCATED;
-            if (from < to) copy_bytes(dst + (from - skip), in + at + (uint32_t)(from - out), (uint32_t)(to - from));
+            if (from < to)
+                copy_bytes(dst + (from - skip), in + at + (uint32_t)(from - out), (uint32_t)(to - from), yield, io);
             at += size;
         }
         out += size;
+        if ((++records & 31u) == 0 && yield != 0) yield(io);
     }
     return RTRVZ_OK;
+}
+
+int rtrvz_unpack(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint32_t skip,
+                 uint8_t* dst, uint32_t len, rtrvz_junk* scratch) {
+    return rtrvz_unpack_yield(in, in_len, data_offset, skip, dst, len, scratch, 0, 0);
 }

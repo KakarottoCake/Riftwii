@@ -122,6 +122,17 @@ void TestUnpackWindows() {
                   RTRVZ_OK);
         EXPECT_EQ(int(whole[4]), 0xA4);
         EXPECT_EQ(int(whole[5007]), 3);
+        // Suspending during padding generation must keep the same seed,
+        // position and output, including a stream near a 0x8000 boundary.
+        std::uint32_t checkpoints = 0;
+        const auto on_yield = [](void* io) {
+            ++*static_cast<std::uint32_t*>(io);
+        };
+        std::vector<std::uint8_t> cooperative(total);
+        EXPECT_EQ(rtrvz_unpack_yield(packed.data(), static_cast<std::uint32_t>(packed.size()), base, 0,
+                                     cooperative.data(), total, &junk, on_yield, &checkpoints), RTRVZ_OK);
+        EXPECT_TRUE(checkpoints > 0);
+        EXPECT_TRUE(cooperative == whole);
         for (std::uint32_t skip : {0u, 1u, 4u, 5u, 6u, 2083u, 2084u, 2090u, 5004u}) {
             for (std::uint32_t len : {1u, 3u, 100u, 3000u}) {
                 if (skip + len > total) continue;

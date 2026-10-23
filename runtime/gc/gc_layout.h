@@ -9,8 +9,12 @@
  * zeros. Fixed, with spare bytes at the end, so a field added to the
  * struct changes neither this nor the assembly; gc_rt.h checks that the
  * struct still fits. The native-controller state (#191) and the TGC
- * watch (#192) together need 0x6C0 bytes on PowerPC. */
-#define GC_RT_CONTEXT_BYTES 0x6C0
+ * watch (#192), followed by the asynchronous I/O continuation. */
+#define GC_RT_CONTEXT_BYTES 0x740
+
+/* A private MEM2 stack lets an IOS wait return from the alarm without
+ * keeping the game's interrupt stack or enabling nested OS callbacks. */
+#define GC_IO_STACK_BYTES 0x10000
 
 /* A game whose disc code is libogc's (gc_rt.h, "libogc"): each store that
  * starts a DI command jumps to a slot of GC_DI_SLOT_WORDS words, which

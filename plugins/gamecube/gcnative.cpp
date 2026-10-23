@@ -1267,7 +1267,7 @@ std::uint32_t find_gx_set_projection(const Code& code) {
 // Wii Menu: the DOL picks the title and reads its ticket view
 // (wii/launch/gcplugin.cpp's way_back_title), so the plugin makes no ES
 // calls of its own.
-constexpr std::uint32_t kLeaveBytes = 0x100;
+constexpr std::uint32_t kLeaveBytes = GC_LEAVE_BYTES;
 constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
 // The ticket view's place in the block (gc_rt.c reads it from there).
 constexpr std::uint32_t kLeaveViewOffset = 0x20;
@@ -1279,7 +1279,7 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
     ctx->leave_since = 0;
     auto* bytes = reinterpret_cast<std::uint8_t*>(buf);
     std::memset(bytes, 0, kLeaveBytes);
-    const bool view_fits = extras.way_back_view_bytes <= kLeaveBytes - kLeaveViewOffset;
+    const bool view_fits = extras.way_back_view_bytes <= GC_LEAVE_REQUEST_OFFSET - kLeaveViewOffset;
     if (const u64 title = view_fits ? extras.way_back_title : 0) {
         const s32 fd = plugin::host().ios_open("/dev/es", 0);
         if (fd < 0) {
@@ -1931,9 +1931,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
     const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
-    // SD trace writes stop the game with interrupts off. Enable them only
-    // for a diagnostic run, never as part of normal controller polling.
+    // Repeated traces add SD traffic. Enable them only for a diagnostic
+    // run, never as part of normal controller polling.
     const bool test_trace = stat("sd:/riftwii/gc/test/trace", &st_press) == 0;
+    const bool test_sd_slow = stat("sd:/riftwii/gc/test/sd_slow", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
     const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
@@ -1986,6 +1987,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         bool on;
         const char* name;
     } test_switches[] = {{test_presses, "press"},
+                         {test_sd_slow, "sd_slow"},
                          {test_trace, "trace"},
                          {test_leave, "leave"},
                          {test_crash, "crash"},
@@ -2220,6 +2222,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return at;
     };
     const std::uint32_t bounce_addr = mem2_take(kBounceBytes);
+    const std::uint32_t io_stack_addr = mem2_take(GC_IO_STACK_BYTES);
+    const std::uint32_t io_buffer_addr = mem2_take(0x10000);
     const std::uint32_t adp_addr = mem2_take(kStreamBytes);
     const std::uint32_t stream_addr = mem2_take(sizeof(gc_rt_stream));
     const std::uint32_t trace_addr = mem2_take(512);
@@ -2426,6 +2430,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     auto* ctx = reinterpret_cast<gc_rt_context*>(blob_addr + h.context_offset);
+    ctx->io_stack = io_stack_addr;
+    ctx->io_buffer = io_buffer_addr;
     fill_gc_runs(static_cast<gc_rt_run*>(staged(runs_addr)), placed, fst_copy_addr != 0 ? fst_copy_addr : fst_addr);
     if (fst_copy_addr != 0) std::memcpy(staged(fst_copy_addr), fst.data(), fst.size());
     if (second.on) fill_gc_runs(static_cast<gc_rt_run*>(staged(runs2_addr)), second.placed, 0);
@@ -2462,7 +2468,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     mkdir("sd:/riftwii/gc/cards", 0777);
 
     // Keep one crash record for problem reports. Repeated gameplay writes
-    // are diagnostic-only: each synchronous SD write stops the PPC.
+    // are diagnostic-only; the normal run keeps just the crash record.
     std::uint32_t trace_sector = 0, trace_count = 0;
     {
         static const char kTrace[] = "sd:/riftwii/gc/trace.bin";
@@ -2764,6 +2770,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->trace_count = trace_count;
     ctx->trace_buf = trace_addr;
     if (test_trace) ctx->flags |= GC_FLAG_TRACE_GAMEPLAY;
+    if (test_sd_slow) {
+        ctx->flags |= GC_FLAG_SD_SLOW;
+        logf("GameCube: the SD timing test is on, so each SD request takes at least 1.5 ms plus 0.12 ms per KB.\n");
+    }
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
     // opens the Bluetooth controller at the game's first PADRead. After
     // start-up, idle discovery is serviced by the heartbeat.

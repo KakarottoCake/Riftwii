@@ -780,11 +780,10 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     uint32_t i, msr;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
     msr = gc_irq_off();
-    if (ctx->busy) {  /* a disc read is waiting on IOS: next frame */
+    if (gc_ipc_poll_blocked(ctx)) {
         gc_irq_restore(msr);
         return;
     }
-    ctx->busy = 1;
     bt->ctx = (uint32_t)(uintptr_t)ctx;
     bt->polls++;
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
@@ -814,7 +813,6 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         bt_next_step(bt);
     }
     bt_send_commands(bt);
-    ctx->busy = 0;
     gc_guard(ctx);
     gc_irq_restore(msr);
 }
@@ -936,13 +934,11 @@ void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt) {
     for (i = 0; i < GC_PORTS; ++i) bt->rumble_want[i] = 0;
     if (bt->stage != GC_BT_STAGE_READY) return;
     msr = gc_irq_off();
-    if (ctx->busy) {
+    if (gc_ipc_poll_blocked(ctx)) {
         gc_irq_restore(msr);
         return;
     }
-    ctx->busy = 1;
     bt_update_rumble(bt, 1);
-    ctx->busy = 0;
     gc_guard(ctx);
     gc_irq_restore(msr);
 }

@@ -5,39 +5,35 @@
 #include "gc_rvz.h"
 
 #ifdef RT_TARGET_PPC
+void gc_io_checkpoint(void* io);
 /* Zstandard for the blob (runtime/resident/rt_zstd.c): addresses are
  * 32-bit words there. */
-uint32_t rt_zstd_init(uint32_t workspace, uint32_t bytes);
-int32_t rt_zstd_decode(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length);
+uint32_t rt_zstd_init_io(uint32_t workspace, uint32_t bytes, void* io);
+int32_t rt_zstd_decode_io(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length,
+                          void* io);
 
-static uintptr_t gc_rvz_zstd_init(uintptr_t workspace, uint32_t bytes) {
-    return rt_zstd_init((uint32_t)workspace, bytes);
+static uintptr_t gc_rvz_zstd_init(uintptr_t workspace, uint32_t bytes, void* io) {
+    return rt_zstd_init_io((uint32_t)workspace, bytes, io);
 }
 
 static int32_t gc_rvz_zstd_decode(uintptr_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src,
-                                  uint32_t length) {
-    return rt_zstd_decode((uint32_t)dctx, dst, capacity, src, length);
+                                  uint32_t length, void* io) {
+    return rt_zstd_decode_io((uint32_t)dctx, dst, capacity, src, length, io);
 }
 
-/* The decoder (rt_zstd.c) lowers some of its copies to memcpy; nothing
- * else in the blob calls it. */
-void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
-    unsigned char* d = (unsigned char*)dst;
-    const unsigned char* s = (const unsigned char*)src;
-    while (n--) *d++ = *s++;
-    return dst;
-}
 #else
 /* The host tests: the host's Zstandard, with full-width pointers. */
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstd.h"
 
-static uintptr_t gc_rvz_zstd_init(uintptr_t workspace, uint32_t bytes) {
+static uintptr_t gc_rvz_zstd_init(uintptr_t workspace, uint32_t bytes, void* io) {
+    (void)io;
     return (uintptr_t)ZSTD_initStaticDCtx((void*)workspace, bytes);
 }
 
 static int32_t gc_rvz_zstd_decode(uintptr_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src,
-                                  uint32_t length) {
+                                  uint32_t length, void* io) {
+    (void)io;
     const size_t got = ZSTD_decompressDCtx((ZSTD_DCtx*)dctx, dst, capacity, src, length);
     if (ZSTD_isError(got) || got > 0x7FFFFFFFu) return -1;
     return (int32_t)got;
@@ -155,10 +151,10 @@ static int gc_rvz_load(struct gc_rvz* rvz, void* io, struct gc_rvz_slot* slot, u
     }
     if (compressed) {
         int32_t got;
-        if (rvz->dctx == 0) rvz->dctx = gc_rvz_zstd_init(rvz->dctx_buffer, rvz->dctx_bytes);
+        if (rvz->dctx == 0) rvz->dctx = gc_rvz_zstd_init(rvz->dctx_buffer, rvz->dctx_bytes, io);
         if (rvz->dctx == 0) return gc_rvz_fail(rvz, GC_RVZ_ERR_DECODER, offset);
         got = gc_rvz_zstd_decode(rvz->dctx, (uint8_t*)slot->buffer, slot->buffer_bytes,
-                                 (const uint8_t*)(target + skip), size);
+                                 (const uint8_t*)(target + skip), size, io);
         if (got < 0) return gc_rvz_fail(rvz, GC_RVZ_ERR_DECODE, offset);
         slot->data = slot->buffer;
         slot->bytes = (uint32_t)got;
@@ -198,8 +194,14 @@ int gc_rvz_read(struct gc_rvz* rvz, void* io, uint32_t slot_index, uint8_t* dst,
             /* Unpacked straight into the game's buffer. GameCube padding
              * is generated from disc offsets: the group's start is where
              * its stream's first byte sits for the generator. */
-            if (rtrvz_unpack((const uint8_t*)slot->data, slot->bytes, group_start, within, dst, n, &rvz->junk) !=
-                RTRVZ_OK) {
+            int result;
+#ifdef RT_TARGET_PPC
+            result = rtrvz_unpack_yield((const uint8_t*)slot->data, slot->bytes, group_start, within, dst, n,
+                                        &rvz->junk, gc_io_checkpoint, io);
+#else
+            result = rtrvz_unpack((const uint8_t*)slot->data, slot->bytes, group_start, within, dst, n, &rvz->junk);
+#endif
+            if (result != RTRVZ_OK) {
                 slot->group = GC_RVZ_NO_GROUP;
                 return gc_rvz_fail(rvz, GC_RVZ_ERR_DATA, offset);
             }

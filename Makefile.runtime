@@ -281,7 +281,7 @@ $(GCRVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(GCRVZOUT)
-	$(CC) $(ZSTDFLAGS) -c -o $@ $<
+	$(CC) $(ZSTDFLAGS) -DRT_GC_IO -ffixed-r31 -c -o $@ $<
 
 $(GCRVZOUT)/riftwii_gc_rvz.elf: $(GCRVZOBJS) $(GCSRC)/gc_rvz.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
