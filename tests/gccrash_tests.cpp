@@ -57,7 +57,13 @@ void test_flag_bits(const std::string& repo) {
         std::string name;
         std::string literal;
         std::string after_literal;
-        words >> directive >> name >> literal >> after_literal;
+        words >> directive;
+        // A space may sit between the hash and the directive, as in "# define".
+        if (directive == "#") {
+            if (!(words >> directive)) continue;
+            directive = "#" + directive;
+        }
+        words >> name >> literal >> after_literal;
         if (directive != "#define" || name.compare(0, 8, "GC_FLAG_") != 0) continue;
         if (name.find('(') != std::string::npos) continue;  // helper macros, not flags
 
@@ -67,9 +73,11 @@ void test_flag_bits(const std::string& repo) {
         const auto value = std::strtoull(literal.c_str(), &end, 0);
         // Keep flag definitions as unsigned 32-bit literals, not expressions
         // or aliases that this source-level check could misinterpret.
+        // A trailing comment is either C-style or a line comment.
+        const bool trailing_ok = after_literal.empty() || after_literal.compare(0, 2, "/*") == 0 ||
+                                 after_literal.compare(0, 2, "//") == 0;
         const bool valid_literal = errno == 0 && end != literal.c_str() &&
-                                   std::strcmp(end, "u") == 0 && value <= UINT32_MAX &&
-                                   (after_literal.empty() || after_literal == "/*");
+                                   std::strcmp(end, "u") == 0 && value <= UINT32_MAX && trailing_ok;
         const bool single_bit = valid_literal && value != 0 && (value & (value - 1)) == 0;
         const bool distinct = single_bit && (used_bits & value) == 0;
         if (!distinct) std::printf("Invalid or overlapping GameCube flag: %s = %s\n", name.c_str(), literal.c_str());
