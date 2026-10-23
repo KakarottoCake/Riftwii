@@ -159,6 +159,21 @@ Two scripts on the card drive a run without hands on a controller:
   remote's results take the `projection_callers` words of the trace
   (`tools/gc_trace.py`), which that run does not need.
 
+  `sd_slow` gives every runtime SD request a minimum duration of 1.5 ms
+  plus 0.12 ms per KiB (9.18 ms for 64 KiB), including writes and SD status
+  commands. The deadline starts before sending to IOS. It delays reporting
+  completion, so it works with instant Dolphin replies and with the
+  asynchronous worker; remove the file to disable it. Boot logs name it
+  once when enabled. Leave `trace` off when comparing audio.
+
+  `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
+  checks the built PowerPC worker with Unicorn (`pip install unicorn`)
+  and devkitPro's zstd executable. It exercises slow IOS completions,
+  preserved registers/stack, SD/USB bytes, replacement commands, stream
+  cancellation, save changes during writes, and a compressed RVZ group.
+  Its simulated instruction clock is a deadline test, not a hardware
+  performance measurement, and it does not replace game tests in Dolphin.
+
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
 well: the menu, disc launches with packs, the resident runtime (its
