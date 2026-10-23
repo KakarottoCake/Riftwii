@@ -897,6 +897,35 @@ static void TestNoAdapter() {
     EXPECT_TRUE(gcad_idle(d.g));
 }
 
+// A replacement controller must not inherit the unplugged pad's motor request.
+static void TestRumbleDisconnect() {
+    for (std::uint32_t version : {4u, 5u}) {
+        FakeHid hid;
+        Driver driver;
+        Start(hid, driver, version);
+        gcad* g = driver.g;
+        EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
+        gcad_rumble(g, 0, 1);
+        EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+        EXPECT_EQ(hid.sent_out.back()[1], 1);
+
+        // The game stops addressing the port once it reads as unplugged.
+        EXPECT_TRUE(Deliver(Report(0x04, 0, 0, 128, 128)));
+        EXPECT_EQ(hid.sent_out.back()[1], 0);
+        EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
+        EXPECT_EQ(hid.sent_out.back()[1], 0);
+
+        // Losing the whole adapter must forget its motors as well.
+        gcad_rumble(g, 0, 1);
+        EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
+        EXPECT_EQ(hid.sent_out.back()[1], 1);
+        Unplug();
+        Plug(hid.dev_id + 1);
+        EXPECT_TRUE(DeliverSettled(Report(0x14, 0, 0, 128, 128)));
+        EXPECT_EQ(hid.sent_out.back()[1], 0);
+    }
+}
+
 static void TestTransferErrorRelinks() {
     FakeHid hid;
     Driver d;
@@ -1454,6 +1483,7 @@ int main() {
     TestV4();
     TestOriginAtRest();
     TestNoAdapter();
+    TestRumbleDisconnect();
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
