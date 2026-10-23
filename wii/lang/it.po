@@ -366,6 +366,12 @@ msgstr "Download dei trucchi..."
 msgid "{1} cheats. Turn on the ones you want."
 msgstr "{1} trucchi. Attiva quelli che vuoi."
 
+msgid "Cheats from GameHacking.org"
+msgstr "Trucchi da GameHacking.org"
+
+msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want."
+msgstr "{1} trucchi da GameHacking.org, perché l'archivio di RiiConnect24 non ne aveva o non era disponibile. Attiva quelli che vuoi."
+
 msgid "Could not download cheats: {1}"
 msgstr "Impossibile scaricare i trucchi: {1}"
 

@@ -28,7 +28,9 @@
 #include "plugins.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
+#include "ghfallback.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/ghcheats.hpp"
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/dol.hpp"
@@ -1025,6 +1027,13 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
 
 std::string CheatPath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".txt"; }
 
+std::string CheatSourcePath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".source"; }
+
+bool CheatsFromGameHacking(const std::string& game_id) {
+    std::string text, zip;
+    return ReadTextFile(CheatSourcePath(game_id), text, 1024) && gamehacking_source_parse(text, zip);
+}
+
 namespace {
 
 // Capped as downloads are (DownloadCheats takes at most 1 MB).
@@ -1056,24 +1065,69 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
     return true;
 }
 
-bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled) {
+bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled,
+                    CheatSource* source) {
     std::vector<std::uint8_t> body;
     // A WiiWare or Virtual Console game is in the archive under its
     // four-letter code (riftwii/nandchannel.hpp's channel_cheat_code).
     const std::string channel_code = channel_cheat_code(game_id);
     const std::string archive_id = channel_code.empty() ? game_id : channel_code;
-    if (!HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
-        // The archive answers 404 for a game it has no cheats for.
-        if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0)
-            error = "the cheat archive has no cheats for " + game_id;
-        return false;
-    }
     CheatFile file;
     std::string why;
-    if (!parse_cheat_text(std::string(body.begin(), body.end()), file, why)) {
+    CheatSource found_in = CheatSource::Archive;
+    std::string from_zip;
+    bool have = false;
+    bool archive_none = false;  // the archive answered 404: it has nothing for this game
+    if (HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
+        have = parse_cheat_text(std::string(body.begin(), body.end()), file, why);
+        if (!have) {
+            // An answer that is not a cheat file says nothing about whether
+            // the archive has cheats for this game.
+            error = "the cheat archive's answer for " + game_id + " could not be read";
+            logf("Cheats: the cheat archive's answer for %s cannot be read: %s\n", game_id.c_str(), why.c_str());
+        }
+    } else if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0) {
+        // The archive answers 404 for a game it has no cheats for.
+        archive_none = true;
         error = "the cheat archive has no cheats for " + game_id;
-        return false;
     }
+    if (!have) {
+        // codes.rc24.xyz has none or did not answer: GameHacking.org's copy
+        // on the card stands in. It is fetched or refreshed only when the
+        // network has not failed; a copy already on the card is used either way.
+        logf("Cheats: %s (%s); trying %s\n", error.c_str(), game_id.c_str(), kGameHackingName);
+        std::string text, from_error;
+        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error, &from_zip, !NetFailed());
+        bool game_hacking_unreadable = false;
+        if (result == GameHackingResult::Found) {
+            if (parse_cheat_text(text, file, why)) {
+                body.assign(text.begin(), text.end());
+                found_in = CheatSource::GameHacking;
+                have = true;
+            } else {
+                game_hacking_unreadable = true;
+                logf("Cheats: %s's file for %s cannot be read: %s\n", kGameHackingName, game_id.c_str(),
+                     why.c_str());
+            }
+        }
+        if (!have) {
+            if (game_hacking_unreadable) {
+                error = std::string(kGameHackingName) + " has a file for " + game_id + " but it could not be read";
+            } else if (result == GameHackingResult::NoCheats) {
+                // Only what was established is said: an answer that was
+                // unreadable or missing is not "no cheats".
+                if (archive_none)
+                    error = std::string("neither the cheat archive nor ") + kGameHackingName + " has cheats for " +
+                            game_id;
+                else
+                    error = std::string("the cheat archive gave no usable answer, and ") + kGameHackingName +
+                            " has no cheats for " + game_id;
+            } else {
+                logf("Cheats: %s: %s\n", kGameHackingName, from_error.c_str());
+            }
+        }
+    }
+    if (!have) return false;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCheatDir, 0777);
     // Cheats added by hand and values filled in survive the download (a
@@ -1097,8 +1151,22 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
              static_cast<unsigned>(held), game_id.c_str());
     if (!write_file(CheatPath(game_id), body, error)) return false;
-    logf("Cheats: %u for %s from the GeckoCodes archive, %u of the player's own kept\n",
-         static_cast<unsigned>(file.cheats.size()), game_id.c_str(), static_cast<unsigned>(kept));
+    logf("Cheats: %u for %s from %s, %u of the player's own kept\n", static_cast<unsigned>(file.cheats.size()),
+         game_id.c_str(),
+         found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none or could not be reached)"
+                                              : "the GeckoCodes archive",
+         static_cast<unsigned>(kept));
+    // Where the codes came from is kept beside the file, for the cheats page.
+    const std::string source_path = CheatSourcePath(game_id);
+    if (found_in == CheatSource::GameHacking) {
+        const std::string note = gamehacking_source_text(from_zip);
+        std::string note_error;
+        if (!write_file(source_path, std::vector<std::uint8_t>(note.begin(), note.end()), note_error))
+            logf("Cheats: cannot note the source of %s: %s\n", game_id.c_str(), note_error.c_str());
+    } else {
+        std::remove(source_path.c_str());
+    }
+    if (source) *source = found_in;
     return true;
 }
 
