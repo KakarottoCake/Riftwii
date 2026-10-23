@@ -1,13 +1,19 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <stdint.h>
 #include <stdio.h>
+
+// What the loader defines before including its check.
+typedef uint32_t u32;
+#define MEM1_HI 0x81700000u
+#define LOADER_END 0x80004000u
 #include "../channel/loader/dolvalidate.h"
 
 static int failures;
 
 static void expect_entry(DolHeader* header, uint32_t entry, int expected) {
     header->entry = entry;
-    const int actual = dol_valid(header, 0x200, 0x80004000);
+    const int actual = dol_valid(header, 0x200);
     if (actual != expected) {
         printf("FAILED: loader entry %08x was %s, expected %s.\n", entry,
                actual ? "accepted" : "refused", expected ? "accepted" : "refused");
@@ -42,5 +48,19 @@ int main(void) {
     header.bss_address = 0x81000200;
     header.bss_size = 0x40;
     expect_entry(&header, 0x81000200, 0);
+
+    // A section may start right at the loader's end, not a byte under it.
+    for (int under = 0; under <= 1; ++under) {
+        DolHeader low = {0};
+        low.offset[0] = 0x100;
+        low.address[0] = LOADER_END - (u32)under;
+        low.size[0] = 0x20;
+        low.entry = low.address[0];
+        if (dol_valid(&low, 0x200) != !under) {
+            printf("FAILED: a section at %08x was %s.\n", (unsigned)low.address[0],
+                   under ? "accepted" : "refused");
+            ++failures;
+        }
+    }
     return failures ? 1 : 0;
 }

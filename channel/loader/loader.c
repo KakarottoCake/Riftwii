@@ -10,7 +10,6 @@
 // through the IPC registers, polled, the way libogc's ipc.c drives them.
 
 #include <stdint.h>
-#include "dolvalidate.h"
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -20,6 +19,7 @@ typedef uint64_t u64;
 #define FORWARDER_CONTENT 2
 #define DOL_BUFFER ((u8*)0x91000000)  // MEM2, clear of what an IOS reload uses
 #define DOL_MAX (8u << 20)
+#define MEM1_HI 0x81700000u
 #define CHUNK 0x40000u
 
 extern u8 __loader_end[];
@@ -237,6 +237,10 @@ static void wii_menu(void) {
     }
 }
 
+// ------------------------------------------------------------------- DOL ----
+#define LOADER_END ((u32)__loader_end)
+#include "dolvalidate.h"
+
 typedef void (*Entry)(void);
 
 void loader_main(void) {
@@ -247,7 +251,7 @@ void loader_main(void) {
     }
     const u32 size = read_forwarder();
     const DolHeader* h = (const DolHeader*)DOL_BUFFER;
-    if (!size || !dol_valid(h, size, (u32)__loader_end)) wii_menu();
+    if (!size || !dol_valid(h, size)) wii_menu();
     ios_close(g_es);
 
     if (h->bss_size) {
