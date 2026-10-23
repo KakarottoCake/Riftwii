@@ -158,6 +158,7 @@ class Machine:
         self.disk = None
         self.writes = []
         self.sd_write_result = 0
+        self.sd_status_result = 0
         self.checkpoints = 0
         self.storage_guards = []
         self.uc.hook_add(UC_HOOK_CODE, self.code)
@@ -274,6 +275,8 @@ class Machine:
         result = 0
         if fields[2] == 5:
             result = -1017  # ES refuses the test's title launch.
+        elif fields[2] == 1 and fields[0] == 6:
+            result = self.sd_status_result
         elif fields[2] == 1 and fields[0] == 7 and command[0] == 0x19:
             result = self.sd_write_result
         self.uc.mem_write(request + 4, struct.pack(">I", result & 0xFFFFFFFF))
@@ -612,6 +615,33 @@ def test_card(layout):
     assert machine.writes[-1] == (300, b"B" * 512)
     assert machine.get_object(card, "card", "dirty_count") == 0
     print("Save overlap: the first snapshot stays immutable and newer dirty bytes are written again")
+
+
+def test_card_status_error(layout):
+    machine = Machine(layout, latency=60750)
+    card = 0x90040000
+    image = 0x90080000
+    machine.put("card_rca", 1)
+    for name, value in {"image": image, "run_count": 1, "dirty_count": 1}.items():
+        machine.put_object(card, "card", name, value)
+    machine.uc.mem_write(card + layout["card.runs"], struct.pack(">3I", 0, 300, 1))
+    machine.uc.mem_write(card + layout["card.dirty"], b"\x01")
+    machine.uc.mem_write(image, b"S" * 512)
+    machine.sd_status_result = -5
+    machine.uc.reg_write(UC_PPC_REG_MSR, machine.uc.reg_read(UC_PPC_REG_MSR) | 0x8000)
+    machine.call("gc_card_flush", machine.ctx, card, 1)
+    assert machine.writes == [(300, b"S" * 512)]
+    assert machine.get_object(card, "card", "dirty_count") == 1, "failed CMD13 lost the dirty save"
+    assert bytes(machine.uc.mem_read(card + layout["card.dirty"], 1)) == b"\x01"
+    assert machine.get_object(card, "card", "flush_error") == (-5 & 0xFFFFFFFF)
+    assert machine.get("storage_busy") == 0
+    assert machine.uc.reg_read(UC_PPC_REG_MSR) & 0x8000, "failed write left interrupts disabled"
+
+    machine.sd_status_result = 0
+    machine.call("gc_card_flush", machine.ctx, card, 1)
+    assert machine.writes == [(300, b"S" * 512)] * 2, "failed save was not retried"
+    assert machine.get_object(card, "card", "dirty_count") == 0
+    print("Save status failure: dirty sectors survive CMD13 errors and retry with interrupts restored")
 
 
 def test_controller_timeout(layout):
@@ -1288,6 +1318,7 @@ def main():
     test_cancel_before_start(layout)
     test_stream(layout)
     test_card(layout)
+    test_card_status_error(layout)
     test_controller_timeout(layout)
     test_timeout(layout)
     test_reply_before_ack_timeout(layout)
