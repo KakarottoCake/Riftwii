@@ -45,7 +45,7 @@ arena (image 1,984, `.bss` 8, 65 relocations).
 Still to run in Dolphin for stage (a), beyond the runs in the pull
 request:
 
-- **The arena that stays taken.** `ReleaseArena` gives the 256 KiB back
+- **The arena that stays taken.** `ReleaseArena` gives the 384 KiB back
   only when arena 2's high end is still where the loader left it
   (`SYS_GetArena2Hi()` equal to the arena's low end); when something has
   moved it since, the log says `the arena at 0x... stays taken (MEM2's
