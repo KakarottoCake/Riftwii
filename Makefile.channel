@@ -127,7 +127,7 @@ $(OBJDIR)/ldr_start.o: channel/loader/start.S | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(LDRFLAGS) -x assembler-with-cpp -c $< -o $@
 
-$(OBJDIR)/ldr_loader.o: channel/loader/loader.c | $(OBJDIR)
+$(OBJDIR)/ldr_loader.o: channel/loader/loader.c channel/loader/dolvalidate.h | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(LDRFLAGS) -c $< -o $@
 
