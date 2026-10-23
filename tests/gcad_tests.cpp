@@ -1415,6 +1415,85 @@ static void TestGcSiTypeCacheSearch() {
     EXPECT_EQ(riftwii::find_gc_si_type_cache({}, 0), 0u);
 }
 
+// A self-authored SIProbe: SIDecodeType(SIGetType(chan)) in a small
+// frame, with the prologue and epilogue orders the two compilers use.
+static void si_probe_function(Asm& code, std::uint32_t get_type, std::uint32_t decode, bool older) {
+    if (older) {
+        code.op(0x7C0802A6u);  // mflr r0
+        code.op(0x90010004u);  // stw r0,4(r1)
+        code.op(0x9421FFF8u);  // stwu r1,-8(r1)
+    } else {
+        code.op(0x9421FFF0u);  // stwu r1,-16(r1)
+        code.op(0x7C0802A6u);  // mflr r0
+        code.op(0x90010014u);  // stw r0,20(r1)
+    }
+    code.bl(get_type);
+    code.bl(decode);
+    if (older) {
+        code.op(0x8001000Cu);  // lwz r0,12(r1)
+        code.op(0x38210008u);  // addi r1,r1,8
+        code.op(0x7C0803A6u);  // mtlr r0
+    } else {
+        code.op(0x80010014u);  // lwz r0,20(r1)
+        code.op(0x7C0803A6u);  // mtlr r0
+        code.op(0x38210010u);  // addi r1,r1,16
+    }
+    code.blr();
+}
+
+static void TestGcSiProbeSearch() {
+    for (const bool older : {true, false}) {
+        // PADRead calls SIGetType and something else; SIDecodeType returns
+        // early several times before it gives the WaveBird's type.
+        Asm code{0x80004000u, {}};
+        const std::uint32_t pad_read = code.here();
+        code.bl(pad_read + 12);
+        code.bl(pad_read + 20);
+        code.blr();
+        const std::uint32_t get_type = code.here();
+        code.op(0x38600008u);  // li r3,8
+        code.blr();
+        code.blr();  // PADRead's other call
+        const std::uint32_t decode = code.here();
+        code.op(0x38600008u);  // li r3,8
+        code.blr();
+        code.op(0x3C608B10u);  // lis r3,0x8B10
+        code.blr();
+        const std::uint32_t no_wavebird = code.here();
+        code.op(0x3C600900u);  // lis r3,0x0900
+        code.blr();
+        const std::uint32_t probe = code.here();
+        si_probe_function(code, get_type, decode, older);
+        const auto find = [&](const Asm& input, std::uint32_t pad) {
+            const auto bytes = input.bytes();
+            return riftwii::find_gc_si_probe({{input.base, bytes.data(), bytes.size()}}, pad);
+        };
+        EXPECT_EQ(find(code, pad_read), probe);
+        EXPECT_EQ(find(code, 0), 0u);
+        // A wrapper whose first call PADRead does not make, or whose second
+        // never gives a WaveBird's type, is not SIProbe.
+        Asm not_get_type = code;
+        si_probe_function(not_get_type, decode, decode, older);
+        EXPECT_EQ(find(not_get_type, pad_read), probe);
+        Asm wrong_first = code;
+        wrong_first.words.resize((probe - code.base) / 4);
+        si_probe_function(wrong_first, no_wavebird, decode, older);
+        EXPECT_EQ(find(wrong_first, pad_read), 0u);
+        Asm wrong_second = code;
+        wrong_second.words.resize((probe - code.base) / 4);
+        si_probe_function(wrong_second, get_type, no_wavebird, older);
+        EXPECT_EQ(find(wrong_second, pad_read), 0u);
+        // Two candidates: nothing is hooked rather than the wrong one.
+        Asm twice = code;
+        si_probe_function(twice, get_type, decode, !older);
+        EXPECT_EQ(find(twice, pad_read), 0u);
+        // Anything but lwz r0 after the two calls is not the small shape.
+        Asm bigger = code;
+        bigger.words[(probe - code.base) / 4 + 5] = 0x93E1000Cu;  // stw r31,12(r1)
+        EXPECT_EQ(find(bigger, pad_read), 0u);
+    }
+}
+
 // Self-authored disabled-port block, with a shifted channel mask and
 // register allocation distinct from F-Zero's executable.
 static void pad_enabled_block(Asm& code, std::int16_t offset) {
@@ -1490,6 +1569,7 @@ int main() {
     TestIdleResetSearch();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();
+    TestGcSiProbeSearch();
     TestGcPadEnabledSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
