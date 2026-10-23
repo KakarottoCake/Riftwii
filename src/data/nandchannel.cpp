@@ -416,7 +416,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         int rank = 0;
         if (compressed && start.index == 1) rank = 4;
         else if (compressed) rank = 1;
-        else rank = format.compare(0, 18, "DOL read leniently") == 0 ? 2 : 3;
+        else rank = dol_read_leniently(format) ? 2 : 3;
         const bool better = !found || rank > found_rank || (rank == found_rank && start.size > found_size);
         if (!better) continue;
         found = true;
@@ -435,6 +435,18 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     out = best;
     error.clear();
     return true;
+}
+
+bool dol_read_leniently(const std::string& format) {
+    static const char kPrefix[] = "DOL read leniently";
+    return format.compare(0, sizeof(kPrefix) - 1, kPrefix) == 0;
+}
+
+std::string channel_codes_refusal(const ChannelProgram& program) {
+    if (!dol_read_leniently(program.format)) return std::string();
+    return "content " + std::to_string(program.index) + " was read only leniently (" + program.format +
+           "), so it may be a loader that starts the game from elsewhere, and the codes would hook that "
+           "loader, not the game";
 }
 
 std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end) {

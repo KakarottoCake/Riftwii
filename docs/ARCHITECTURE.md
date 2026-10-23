@@ -790,6 +790,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/saves/*.gci` | GameCube saves copied out, or to add to a card |
 | `sd:/riftwii/gc/backups/real/` | Explicit whole physical-card `.raw` backups, not pruned |
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
+| `sd:/saves/`, `usb:/saves/` | Nintendont's memory cards (`<ID4>.raw`, `ninmem.raw`, `ninmemj.raw`, slot B names), read and never written, for Bring your Nintendont saves (`gc_nintendont_scan`, `gcimport.hpp`); a card is read into a MEM2 buffer, one at a time |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
 | `sd:/riftwii/gc/exec.txt` | A GameCube game's start of another program (OSExec, or a bonus disc's menu starting a game from a TGC image): `--idle--` until then, a headless launch after, read once by RiftWii's next start (see "Switching programs") |

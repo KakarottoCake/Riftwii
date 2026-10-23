@@ -19,6 +19,7 @@
 #include "homebrew.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
+#include "menusounds.hpp"
 #include "screenshot.hpp"
 #include "FreeTypeGX.h"
 #include "audio.h"
@@ -452,6 +453,7 @@ int main() {
     SetupPads();
     riftwii::wii::logf("Pads: started\n");
     InitAudio();
+    riftwii::wii::DecodeMenuSounds();
     timed("video, pads and audio");
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
     bool font_ready = false;
