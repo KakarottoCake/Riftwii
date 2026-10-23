@@ -8,6 +8,7 @@
 #include <gccore.h>
 #include <ogc/ipc.h>
 
+#include <cstdio>
 #include <cstring>
 
 extern "C" void udelay(int us);
@@ -49,6 +50,10 @@ constexpr std::uint32_t kTypeNoData = 0;
 constexpr std::uint32_t kTypeAc = 3;
 constexpr std::uint32_t kResponseR1 = 1;
 constexpr std::uint32_t kResponseR1b = 2;
+// The card status bits of an R1 reply that mean the command failed: out of
+// range, address error, CRC error, illegal command, ECC failed, controller
+// error, general error. (The other bits are state, not errors.)
+constexpr std::uint32_t kR1Errors = 0xC0F80000;
 constexpr std::uint32_t kResponseR2 = 3;
 constexpr std::uint32_t kResponseR3 = 4;
 // IOS's response selectors, as used by libogc (not SD response numbers).
@@ -177,10 +182,22 @@ bool initialize_card(Card& card, std::string& error) {
 
     const auto command = [&](std::uint32_t cmd, std::uint32_t type, std::uint32_t response, std::uint32_t arg) {
         const std::int32_t ret = send_command(card, cmd, type, response, arg, 0, 0, nullptr, 0);
-        if (ret >= 0) return true;
         const std::string operation = "manual initialization command " + std::to_string(cmd);
-        error = ipc_error(operation.c_str(), ret);
-        return false;
+        if (ret < 0) {
+            error = ipc_error(operation.c_str(), ret);
+            return false;
+        }
+        // IOS answered, but an R1 reply carries the card's own verdict too.
+        // Only R1 replies do: the others hold the voltage echo, the
+        // operating conditions, the card's ID or its address.
+        const bool card_status = response == kResponseR1 || response == kResponseR1b;
+        if (card_status && (g_response[0] & kR1Errors) != 0) {
+            char status[16];
+            std::snprintf(status, sizeof(status), "%08X", static_cast<unsigned>(g_response[0]));
+            error = "sdio: " + operation + ": the card answered with an error (status " + status + ")";
+            return false;
+        }
+        return true;
     };
     if (!command(kCmdGoIdle, kTypeNoData, 0, 0) ||
         !command(kCmdSendIfCond, kTypeNoData, kResponseIfCond, 0x1AA)) return false;
