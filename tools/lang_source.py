@@ -367,6 +367,14 @@ T = {
     "Games": ("Juegos", "ゲーム", "Jogos", "Giochi"),
     "Menu": ("Menú", "メニュー", "Menu", "Menu"),
     "Finding games": ("Buscar juegos", "ゲームを探す", "Procurar jogos", "Trovare i giochi"),
+    "Games on the SD card": ("Juegos en la tarjeta SD", "SDカードのゲーム", "Jogos no cartão SD", "Giochi sulla scheda SD"),
+    "Look for them": ("Buscarlos", "探す", "Procurar", "Cercali"),
+    "Don't look": ("No buscar", "探さない", "Não procurar", "Non cercare"),
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.": (
+        "No buscar: no se buscan juegos en la tarjeta SD, tampoco los de GameCube. Para quien guarda todos sus juegos de Wii en un USB; los packs, temas y partidas de la tarjeta siguen funcionando.",
+        "探さない: SDカードからゲームを探しません(ゲームキューブも含む)。WiiのゲームをすべてUSBドライブに置く場合向け。SDカードのパック、テーマ、セーブは使えます。",
+        "Não procurar: o cartão SD não é vasculhado atrás de jogos, nem os de GameCube. Para quem guarda todos os jogos de Wii em um USB; packs, temas e saves no cartão continuam funcionando.",
+        "Non cercare: la scheda SD non viene cercata per i giochi, nemmeno quelli GameCube. Per chi tiene tutti i giochi Wii su USB; pack, temi e salvataggi sulla scheda funzionano ancora."),
     "Online": ("En línea", "オンライン", "Online", "Online"),
     "More": ("Más", "その他", "Mais", "Altro"),
     "Picture": ("Imagen", "画面", "Imagem", "Immagine"),
@@ -532,6 +540,21 @@ T = {
         "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
         "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações.",
         "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice della SD o dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.": (
+        "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades). Pon tus juegos (WBFS, ISO o RVZ) en wbfs o games del USB y luego elige Buscar juegos de nuevo en Ajustes.",
+        "ゲームがまだありません。SDカードは探していません(設定 > ドライブ)。ゲーム(WBFS、ISO、RVZ)をUSBドライブのwbfsまたはgamesに入れて、設定の「ゲームをもう一度探す」を選んでください。",
+        "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades). Coloque seus jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e depois escolha Procurar jogos de novo em Configurações.",
+        "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità). Metti i giochi (WBFS, ISO o RVZ) in wbfs o games sull'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.": (
+        "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso.",
+        "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。",
+        "Um jogo de GameCube vai numa pasta própria, como usb:/games/<seu ID>/game.iso.",
+        "Un gioco GameCube va in una cartella tutta sua, come usb:/games/<il suo ID>/game.iso."),
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.": (
+        "Buscarlos: los juegos de sd:/wbfs y sd:/games aparecen en Inicio.",
+        "探す: sd:/wbfs と sd:/games のゲームがホームに表示されます。",
+        "Procurar: os jogos em sd:/wbfs e sd:/games aparecem no Início.",
+        "Cercali: i giochi in sd:/wbfs e sd:/games compaiono nella Home."),
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.": (
         "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
         "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
@@ -1574,8 +1597,9 @@ T = {
     "RiftWii could not write {1}.": ("RiftWii no pudo escribir {1}.", "RiftWiiは{1}を書き込めませんでした。", "O RiftWii não conseguiu escrever {1}.", "RiftWii non è riuscito a scrivere {1}."),
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
     "Not made yet": ("Aún no creado", "まだ作られていません", "Ainda não criado", "Non ancora creato"),
-    "Home lists the GameCube games only, from sd:/games.": ("Inicio muestra solo los juegos de GameCube, de sd:/games.", "ホームにはsd:/gamesのゲームキューブのゲームだけを表示します。", "O Início mostra só os jogos de GameCube, de sd:/games.", "La Home mostra solo i giochi GameCube, da sd:/games."),
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.": ("Un juego de GameCube va en la tarjeta SD, como sd:/games/<su ID>/game.iso.", "ゲームキューブのゲームはSDカードにsd:/games/<ID>/game.isoとして入れます。", "Um jogo de GameCube vai no cartão SD, como sd:/games/<seu ID>/game.iso.", "Un gioco GameCube va sulla scheda SD, come sd:/games/<il suo ID>/game.iso."),
+    "Home lists the GameCube games only, from sd:/games and usb:/games.": ("Inicio muestra solo los juegos de GameCube, de sd:/games y usb:/games.", "ホームにはsd:/gamesとusb:/gamesのゲームキューブのゲームだけを表示します。", "O Início mostra só os jogos de GameCube, de sd:/games e usb:/games.", "La Home mostra solo i giochi GameCube, da sd:/games e usb:/games."),
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).": ("Inicio muestra solo los juegos de GameCube, de usb:/games (no se busca en la tarjeta SD).", "ホームにはusb:/gamesのゲームキューブのゲームだけを表示します(SDカードは探しません)。", "O Início mostra só os jogos de GameCube, de usb:/games (o cartão SD não é procurado).", "La Home mostra solo i giochi GameCube, da usb:/games (la scheda SD non viene cercata)."),
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.": ("Un juego de GameCube va en su propia carpeta dentro de games, como games/<su ID>/game.iso, en la tarjeta SD o el USB.", "ゲームキューブのゲームは、SDカードかUSBドライブのgamesの中に専用のフォルダを作り、games/<ID>/game.isoとして入れます。", "Um jogo de GameCube vai numa pasta própria dentro de games, como games/<seu ID>/game.iso, no cartão SD ou no USB.", "Un gioco GameCube va in una cartella tutta sua dentro games, come games/<il suo ID>/game.iso, sulla scheda SD o sull'unità USB."),
     "Loading speed": ("Carga", "読み込み速度", "Carregamento", "Caricamento"),
     "Fast": ("Rápida", "高速", "Rápida", "Veloce"),
     "As on a GameCube (slower)": ("Como en una GameCube (más lenta)", "ゲームキューブと同じ (遅い)", "Como em um GameCube (mais lenta)", "Come su un GameCube (più lenta)"),
@@ -2636,6 +2660,8 @@ KO = {
         "크레딧 및 라이선스",
     "View":
         "보기",
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.":
+        "찾기: sd:/wbfs와 sd:/games의 게임이 홈에 표시됩니다.",
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.":
         "RiftWii의 구성 요소 출처, 라이선스(GNU GPL 버전 3 이상), 소스 코드 위치.",
     "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.":
@@ -3184,6 +3210,14 @@ KO = {
         "메뉴",
     "Finding games":
         "게임 찾기",
+    "Games on the SD card":
+        "SD 카드의 게임",
+    "Look for them":
+        "찾기",
+    "Don't look":
+        "찾지 않기",
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.":
+        "찾지 않기: SD 카드에서 게임을 찾지 않으며 게임큐브 게임도 포함됩니다. Wii 게임을 모두 USB 드라이브에 두는 경우용이며, 카드의 팩, 테마, 저장 데이터는 계속 작동합니다.",
     "Online":
         "온라인",
     "More":
@@ -3196,6 +3230,10 @@ KO = {
         "검색 지우기",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
+        "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브). USB 드라이브의 'wbfs' 또는 'games'에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
+        "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "이 SD 카드({1} GB)는 코드 빌드용으로는 용량이 너무 큽니다. SD 이미지를 생성하세요.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
@@ -3503,10 +3541,12 @@ KO = {
         "이 게임만의 옵션: 디스크 읽기 방식과 조작.",
     "Not made yet":
         "아직 만들어지지 않음",
-    "Home lists the GameCube games only, from sd:/games.":
-        "홈에 sd:/games의 게임큐브 게임만 표시합니다.",
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.":
-        "게임큐브 게임은 SD 카드에 sd:/games/<ID>/game.iso로 넣습니다.",
+    "Home lists the GameCube games only, from sd:/games and usb:/games.":
+        "홈에 sd:/games와 usb:/games의 게임큐브 게임만 표시합니다.",
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).":
+        "홈에 usb:/games의 게임큐브 게임만 표시합니다(SD 카드는 검색하지 않음).",
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
+        "게임큐브 게임은 SD 카드나 USB 드라이브의 games 안에 전용 폴더를 만들어 games/<ID>/game.iso로 넣습니다.",
     "Loading speed":
         "로딩 속도",
     "Fast":
@@ -4453,6 +4493,8 @@ FR = {
         "Crédits et licence",
     "View":
         "Voir",
+    "Look for them: games in sd:/wbfs and sd:/games are listed on Home.":
+        "Les chercher : les jeux de sd:/wbfs et sd:/games apparaissent sur l'accueil.",
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.":
         "L'origine des composants de RiftWii, sa licence (GNU GPL v3 ou ultérieure) et l'emplacement du code source.",
     "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.":
@@ -5169,6 +5211,14 @@ FR = {
         "Menu",
     "Finding games":
         "Recherche des jeux",
+    "Games on the SD card":
+        "Jeux sur la carte SD",
+    "Look for them":
+        "Les chercher",
+    "Don't look":
+        "Ne pas chercher",
+    "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.":
+        "Ne pas chercher : la carte SD n'est pas fouillée pour les jeux, GameCube compris. Pour tous les jeux Wii sur un disque USB ; packs, thèmes et sauvegardes de la carte fonctionnent toujours.",
     "Online":
         "En ligne",
     "More":
@@ -5181,6 +5231,10 @@ FR = {
         "Effacer la recherche",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
+        "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
+        "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
         "Cette carte SD ({1} Go) est trop grande pour les builds de code. Créez une image SD.",
     "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
@@ -5488,10 +5542,12 @@ FR = {
         "Les options propres à ce jeu : la lecture de son disque et ses commandes.",
     "Not made yet":
         "Pas encore créé",
-    "Home lists the GameCube games only, from sd:/games.":
-        "L'accueil n'affiche que les jeux GameCube, depuis sd:/games.",
-    "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.":
-        "Un jeu GameCube se met sur la carte SD, en sd:/games/<son ID>/game.iso.",
+    "Home lists the GameCube games only, from sd:/games and usb:/games.":
+        "L'accueil n'affiche que les jeux GameCube, depuis sd:/games et usb:/games.",
+    "Home lists the GameCube games only, from usb:/games (the SD card is not searched).":
+        "L'accueil n'affiche que les jeux GameCube, depuis usb:/games (la carte SD n'est pas fouillée).",
+    "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.":
+        "Un jeu GameCube se met dans son propre dossier de games, en games/<son ID>/game.iso, sur la carte SD ou le stockage USB.",
     "Loading speed":
         "Chargement",
     "Fast":

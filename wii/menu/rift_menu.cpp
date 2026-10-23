@@ -827,7 +827,12 @@ static const char* HomeSourceName(const std::string& v)
 
 static std::string HomeSourceNote(const std::string& v)
 {
-	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games.");
+	if (v == "gamecube") {
+		// With the SD scan off, only the USB drive's games/ folder is read.
+		if (riftwii::wii::Settings().sd_games == "off")
+			return tr("Home lists the GameCube games only, from usb:/games (the SD card is not searched).");
+		return tr("Home lists the GameCube games only, from sd:/games and usb:/games.");
+	}
 	return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 }
 
@@ -1092,7 +1097,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id,
 				&state.usb_catalog.games[i]);
 		}
-	if (source == "all" || source == "sd" || source == "gamecube")
+	// Not while the SD scan is off: a catalog read earlier is stale until the rescan replaces it.
+	if ((source == "all" || source == "sd" || source == "gamecube") && riftwii::wii::Settings().sd_games != "off")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
 			if (source == "gamecube" && !state.sd_catalog.games[i].gamecube) continue;
 			add(GameName(state.sd_catalog.games[i]), HomeEntry::Kind::Sd, i, state.sd_catalog.games[i].id,
@@ -2052,7 +2058,8 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	// A drive Settings > Games from leaves out is not a problem to report:
 	// "SD: no games" has no meaning when Home lists the USB drive only.
 	const std::string& source = riftwii::wii::Settings().home_source;
-	const bool sdListed = source == "all" || source == "sd" || source == "gamecube";
+	// With Settings > Drives > Games on the SD card off, its folders are not searched, so none is named.
+	const bool sdListed = (source == "all" || source == "sd" || source == "gamecube") && riftwii::wii::Settings().sd_games != "off";
 	const bool usbListed = source == "all" || source == "usb" || source == "gamecube";
 	const std::string sdProblem = sdListed ? ShortSourceProblem("SD", state.sd_catalog) : "";
 	const std::string usbProblem = usbListed ? ShortSourceProblem("USB", state.usb_catalog) : "";
@@ -2230,8 +2237,10 @@ class EmptyHomeNote : public GuiElement {
 public:
 	static constexpr int kW = 440, kH = 146, kTop = 136;
 	EmptyHomeNote()
-		: words(std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
-			" " + tr("A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.")),
+		: words(riftwii::wii::Settings().sd_games == "off"
+			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
+			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
+				" " + tr("A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.")),
 		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
 		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -10645,7 +10654,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -10768,6 +10777,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
 		heading(tr("Finding games"));
+		option(tr("Games on the SD card"), settings.sd_games == "off" ? tr("Don't look") : tr("Look for them"),
+			settings.sd_games == "off", kSdGames);
 		FlowRow rescan;
 		rescan.kind = FlowRow::Kind::Action;
 		rescan.label = "Look for games again";
@@ -10908,7 +10919,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kRescan: case kNet: case kResync: case kWads:
+				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -11045,6 +11056,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
+			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
@@ -11188,7 +11200,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					constexpr int kSources = 5;
 					int at = 0;
 					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
-					settings.home_source = kSourceChoices[((at % kSources) + kSources + direction) % kSources];
+					// With the SD scan off SD would list nothing: stepped over. GameCube stays, it lists USB games too.
+					const bool sdScanned = settings.sd_games != "off";
+					for (int tries = 0; tries < kSources; ++tries) {
+						at = ((at % kSources) + kSources + direction) % kSources;
+						const std::string choice = kSourceChoices[at];
+						if (sdScanned || choice != "sd") break;
+					}
+					settings.home_source = kSourceChoices[at];
 					saveAndNote(HomeSourceNote(settings.home_source));
 					rebuild();
 					break;
@@ -11569,6 +11588,28 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kResync:
 					riftwii::wii::ForceNextSync();
 					noteTxt.SetText("The next launch copies every file of its network packs again.");
+					break;
+				case kSdGames:
+					// The drive scan may still be running on its thread, and scan_sd_games reads
+					// this setting (a std::string): wait for it before writing.
+					WaitForDriveScan(noteTxt);
+					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
+					// What the last scan found on the card is stale at once: Home, the counts and the
+					// empty-Home card must not show it while the rescan is still to come.
+					if (settings.sd_games == "off") {
+						state.sd_catalog = riftwii::wii::ImageCatalog{};
+						state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
+					}
+					// Games from: SD would list nothing now (GameCube still lists USB games).
+					if (settings.sd_games == "off" && (settings.home_source == "sd"))
+						settings.home_source = "all";
+					// Home reads the drives again when you leave Settings.
+					g_scanned = false;
+					// The note follows the value the row just changed to.
+					saveAndNote(settings.sd_games == "off"
+						? tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.")
+						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."));
+					rebuild();
 					break;
 				case kRescan:
 					WaitForDriveScan(noteTxt);
