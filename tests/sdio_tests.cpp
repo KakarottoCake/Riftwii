@@ -28,6 +28,7 @@ struct Scenario {
     u32 if_condition = 0x1AA;
     u32 operation_condition = 0xC0300000;
     u32 rca = 0x1234;
+    u32 app_status = 0x120;  // CMD55's R1: ready for data, application command
     u32 fail_command = 0xFFFFFFFF;
     bool reset_stuck = false;
     bool clock_stuck = false;
@@ -61,6 +62,7 @@ s32 command(void* request, void* response) {
         reply[0] = scenario.operation_condition;
     }
     if (cmd == 3) reply[0] = scenario.rca << 16;
+    if (cmd == 0x37) reply[0] = scenario.app_status;
     if (cmd == 7 && words[3] != 0) CHECK(words[3] == scenario.rca << 16);
     if (cmd == 0x12) scenario.read_argument = words[3];
     return 0;
@@ -130,6 +132,15 @@ void test_manual_initialization() {
     CHECK(scenario.opens == 2);
     riftwii::wii::sdio::close_card(card);
     CHECK(scenario.live_fd == -1);
+}
+
+// A card status error in an R1 reply fails the manual initialization even
+// though IOS itself answered (CodeRabbit on #230).
+void test_manual_initialization_card_error() {
+    scenario = Scenario{};
+    scenario.status = 1;  // inserted, but IOS did not initialise it
+    scenario.app_status = 0x00400000;  // illegal command
+    expect_failed_open("the card answered with an error (status 00400000)");
 }
 
 void test_failures_are_bounded_and_closed() {
@@ -271,6 +282,7 @@ bool d2x_sd_read(std::uint32_t, std::uint32_t, void*) {
 int main() {
     test_ios_initialized_card();
     test_manual_initialization();
+    test_manual_initialization_card_error();
     test_failures_are_bounded_and_closed();
     test_d2x_sharing();
     if (failures == 0) std::cout << "Raw SD handoff and bounded manual initialization passed\n";
