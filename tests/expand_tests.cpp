@@ -327,6 +327,9 @@ static void test_invalid_names() {
     card.add("/mod/Stage", "b:colon.bin", false);
     card.add("/mod/Stage", "c{$d}.bin", false);
     card.add("/mod/Stage", "e$f.bin", false);
+    card.add("/mod/Stage", "f{left.bin", false);
+    card.add("/mod/Stage", "g}right.bin", false);
+    card.add("/mod/Stage", std::string("h") + '\x7f' + "del.bin", false);
     riftwii::Plan plan;
     plan.folders.push_back(Folder("/Stage", "/mod/Stage", false, true));
     std::vector<riftwii::FilePatch> out;
