@@ -2528,9 +2528,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // card, say) is never overwritten: its saves stay, and the game runs
         // without a card. The menu still reads it, to copy its saves out.
         const bool other_size = exists && size != static_cast<long>(GC_CARD_BYTES) && size != 0;
-        // New, empty, or never formatted (its header still erased): formatted here.
-        const bool blank = !other_size && (!ready || std::all_of(card_image.begin(), card_image.begin() + 0x200,
-                                                                   [](std::uint8_t b) { return b == 0xFF; }));
+        // A failed read is not an empty card: never truncate its existing saves.
+        const bool blank = !other_size && (!exists || size == 0 ||
+                            (ready && std::all_of(card_image.begin(), card_image.begin() + 0x200,
+                                                 [](std::uint8_t b) { return b == 0xFF; })));
         if (other_size) {
             logf("GameCube: %s is %ld bytes, not a 251-block card's %u: left as it is, and the game runs without a card\n",
                  path.c_str(), size, GC_CARD_BYTES);
