@@ -1267,7 +1267,7 @@ std::uint32_t find_gx_set_projection(const Code& code) {
 // Wii Menu: the DOL picks the title and reads its ticket view
 // (wii/launch/gcplugin.cpp's way_back_title), so the plugin makes no ES
 // calls of its own.
-constexpr std::uint32_t kLeaveBytes = 0x100;
+constexpr std::uint32_t kLeaveBytes = GC_LEAVE_BYTES;
 constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
 // The ticket view's place in the block (gc_rt.c reads it from there).
 constexpr std::uint32_t kLeaveViewOffset = 0x20;
@@ -1279,7 +1279,7 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test, cons
     ctx->leave_since = 0;
     auto* bytes = reinterpret_cast<std::uint8_t*>(buf);
     std::memset(bytes, 0, kLeaveBytes);
-    const bool view_fits = extras.way_back_view_bytes <= kLeaveBytes - kLeaveViewOffset;
+    const bool view_fits = extras.way_back_view_bytes <= GC_LEAVE_REQUEST_OFFSET - kLeaveViewOffset;
     if (const u64 title = view_fits ? extras.way_back_title : 0) {
         const s32 fd = plugin::host().ios_open("/dev/es", 0);
         if (fd < 0) {
@@ -1987,6 +1987,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         bool on;
         const char* name;
     } test_switches[] = {{test_presses, "press"},
+                         {test_sd_slow, "sd_slow"},
                          {test_trace, "trace"},
                          {test_leave, "leave"},
                          {test_crash, "crash"},
