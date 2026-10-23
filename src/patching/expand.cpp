@@ -37,7 +37,13 @@ bool name_less(const ExternalEntry& a, const ExternalEntry& b) {
 bool valid_entry_name(const std::string& name) {
     if (name.empty() || name == "." || name == "..") return false;
     for (unsigned char c : name) {
-        if (c == '/' || c == '\\' || c < 0x20) return false;
+        if (c == '/' || c == '\\' || c < 0x20 || c == 0x7F) return false;
+        // The planner refuses these in every disc and SD path it takes from
+        // XML (resolve_path, CheckDiscPath): a card file carrying one would
+        // make an invalid disc path the host accepts but the Wii's FAT
+        // refuses, so the expansion leaves such files out, as it does macOS
+        // metadata.
+        if (c == ':' || c == '{' || c == '}' || c == '$') return false;
     }
     return true;
 }
