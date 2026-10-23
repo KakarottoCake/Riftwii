@@ -26,6 +26,7 @@ Wii channels, WiiWare and homebrew on Home, themes to download, and Retro Rewind
 * Retro Rewind online works again (error 20911)
 * Steadier GameCube controls (Double Dash), and USB games that d2x can't read stop with a message instead of crashing
 * Settings: Network Test, and Games on the SD card (Don't look, for USB-only setups)
+* vWii: RiftWii offers channel 14, which shows where it stops if it freezes at start
 
 Channels, homebrew and two-disc games are checked in Dolphin only.
 
@@ -37,6 +38,7 @@ To test, please:
 4. A two-disc GameCube game up to the disc change
 5. Double Dash or other GameCube games: do the controls feel right now?
 6. A USB game on a Wii U
+7. vWii: accept the channel 14 update; if the channel froze before, tell us the step its screen shows
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
