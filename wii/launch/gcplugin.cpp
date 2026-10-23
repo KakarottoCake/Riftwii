@@ -248,6 +248,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         request.usb_fragment_count = static_cast<std::uint32_t>(usb_fragments.size());
         request.usb_file_bytes = image.usb_bytes;
     }
+    // A two-disc game's second disc, with its own pieces on the USB drive.
+    std::vector<rwp_fragment> disc2_fragments;
+    if (!image.disc2_path.empty()) {
+        request.disc2_path = image.disc2_path.c_str();
+        for (const Fragment& f : image.disc2_usb_fragments) disc2_fragments.push_back(rwp_fragment{f.sector, f.sector_count});
+        request.disc2_usb_fragments = disc2_fragments.empty() ? nullptr : disc2_fragments.data();
+        request.disc2_usb_fragment_count = static_cast<std::uint32_t>(disc2_fragments.size());
+        request.disc2_usb_file_bytes = disc2_fragments.empty() ? 0 : image.disc2_usb_bytes;
+    }
 
     // A program switch's arguments, each ending in a NUL; kept here until
     // the launch returns.

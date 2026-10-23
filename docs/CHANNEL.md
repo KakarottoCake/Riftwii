@@ -65,8 +65,27 @@ on: a vWii has the Wii U's boot program for channels, BC-NAND
 
 The installer is linked at the usual `0x80004000`; all of it is below
 RiftWii (`0x80a00000` up). The forwarder writes `Channel started` to
-`sd:/riftwii/channel.log` once it runs, and `build-channel/forwarder.dol`
-still runs from the Homebrew Channel or Dolphin by itself.
+`sd:/riftwii/channel.log` once it has mounted the SD card (and, on the next
+line, how long the card took to start and to mount), and
+`build-channel/forwarder.dol` still runs from the Homebrew Channel or
+Dolphin by itself.
+
+After the intro, the forwarder reads the SD card and the USB drive on a
+thread of its own and shows each step under the logo: starting the SD
+card, mounting it, reading `boot.dol`, trying the USB drive, starting
+RiftWii. A step that takes too long (10 seconds to start or mount the SD
+card, 20 for the USB drive, 60 to read `boot.dol`) ends on an error screen
+that names it, then back to the Wii Menu: on some vWii consoles the
+channel stopped for good after the intro with nothing on screen (issue
+#228). A call stuck in IOS cannot be cancelled, so that screen touches
+neither the card nor the drive. During the steps and on that screen, POWER
+turns the Wii off and RESET goes back to the Wii Menu (before, libogc's
+default ignored a short POWER press). `make -f Makefile.channel
+CHANNEL_TEST_HANG=<step>` builds a forwarder that stops at that step
+(`StepId` in `main.c`; 1 is mounting the SD card), to see that screen in
+Dolphin; never for a release. The forwarder is rebuilt whenever the flag
+changes (a stamp in `build-channel/obj`), so a plain `make -f
+Makefile.channel` afterwards builds the normal one again, no clean needed.
 
 Dolphin starts NAND titles as a Wii does, so it tests the Wii path of
 either package, not the vWii one. It also stalls on a boot program whose

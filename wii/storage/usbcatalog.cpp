@@ -43,6 +43,7 @@
 #include "otpkey.hpp"
 #include "memlimits.hpp"
 #include "menumusic.hpp"
+#include "progress.hpp"
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
 #include "netsock.hpp"
@@ -1854,6 +1855,14 @@ std::vector<std::string> usb_wanted_folders() {
 
 bool scan_sd_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Sd;
+    // For setups that keep every game on a USB drive: the card still serves packs,
+    // themes, saves and logs, only the image scan is skipped. No status either, so
+    // Home shows no "no games" problem for a card that was never meant to have any.
+    if (Settings().sd_games == "off") {
+        logf("SD: not looking for games there (Settings: Games on the SD card is off)\n");
+        error.clear();
+        return true;
+    }
     logf("SD: scanning for images\n");
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
@@ -1932,6 +1941,12 @@ void log_release_heap(const std::string& before_reload) {
 }  // namespace
 
 bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error, const char* purpose) {
+    // As for USB and SD games (refuse_reload_while_stuck below).
+    if (ums::Stuck()) {
+        logf("USB (d2x): an earlier d2x request never answered; not reloading IOS again this run\n");
+        error = d2x_usb_unreadable_error(kD2xStuckReason);
+        return false;
+    }
     const int slots[] = {cios_slot ? cios_slot : 249, cios_slot ? 0 : 250, cios_slot ? 0 : 251};
     std::string skipped;
     for (int slot : slots) {
@@ -1974,7 +1989,18 @@ namespace {
 // forever after the reload to the cIOS unless something had read the
 // drive through d2x first; this read does, and waits for a drive that is
 // slow to answer (up to 20 s).
-void log_d2x_usb_view(const D2xFragmentList& list) {
+// The read is also the last chance to stop: a drive that never answered
+// used to be only logged while the launch went on, and the game then
+// crashed at its first disc read with nothing on screen (a tester's Wii U,
+// whose d2x saw only one rear port). Now the launch stops with the reason,
+// and the next cIOS slot is tried (another d2x base can reach that port).
+constexpr int kD2xDriveWaitSeconds = 20;
+
+// Set by the activations below when d2x could not read the game's drive.
+bool g_d2x_usb_drive_failed = false;
+
+bool check_d2x_usb_drive(const ImageGame& game, int cios_slot, std::string& error) {
+    const D2xFragmentList& list = game.fragments;
     logf("USB: %u fragment(s), %u disc sectors\n", static_cast<unsigned>(list.entries.size()),
          static_cast<unsigned>(list.size));
     for (std::size_t i = 0; i < list.entries.size() && i < 4; ++i) {
@@ -1982,39 +2008,104 @@ void log_d2x_usb_view(const D2xFragmentList& list) {
         logf("USB: fragment %u: disc sector %u, %u sectors, at drive sector %u\n", static_cast<unsigned>(i),
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
-    if (list.entries.empty()) return;
+    if (list.entries.empty()) return true;  // nothing to read; d2x's own probe judges it
     static std::uint8_t first[32 * 1024] ATTRIBUTE_ALIGN(32);  // one sector of any size
+    const std::uint32_t first_sector = list.entries[0].sector;
     bool read = false;
-    for (int attempt = 1; attempt <= 20 && !read; ++attempt) {
+    std::string last_why;
+    // A deadline, not a count of tries: one try can take up to the device
+    // calls' own time limit (umsdev.cpp) and still return an error. No new
+    // try starts past it; one already started runs to its end.
+    const u64 wait_started = gettime();
+    const auto waited_long_enough = [&] {
+        return ticks_to_millisecs(gettime() - wait_started) >= static_cast<u64>(kD2xDriveWaitSeconds) * 1000;
+    };
+    for (int attempt = 1; !read; ++attempt) {
+        if (attempt > 1 && waited_long_enough()) break;
+        // The bar sits at "Opening the game image" meanwhile: say why.
+        char stage[64];
+        std::snprintf(stage, sizeof(stage), "Waiting for the USB drive (d2x, IOS%d, try %d)", cios_slot, attempt);
+        ProgressStage(stage, 3);
+        // Logged before each call (logf writes it to the card at once): a
+        // console that freezes inside one shows which in boot.log.
+        logf("USB (d2x): opening the drive through d2x (IOS%d, try %d)\n", cios_slot, attempt);
         std::string why;
         if (!ums::Open(why)) {
             logf("USB (d2x): %s\n", why.c_str());
+            last_why = why;
         } else {
-            if (attempt == 1) {
-                logf("USB (d2x): reading drive sector %u, the game's first\n",
-                     static_cast<unsigned>(list.entries[0].sector));
+            logf("USB (d2x): reading drive sector %u, the game's first (try %d)\n",
+                 static_cast<unsigned>(first_sector), attempt);
+            read = ums::Read(first_sector, 1, first);
+            if (!read) {
+                logf("USB (d2x): that read failed (try %d)\n", attempt);
+                last_why = "the game's first sector (" + std::to_string(first_sector) + ") could not be read";
             }
-            read = ums::Read(list.entries[0].sector, 1, first);
-            if (!read) logf("USB (d2x): that read failed (try %d)\n", attempt);
+        }
+        if (ums::Stuck()) {
+            // The call cannot be cancelled: no more tries, and no other
+            // slot (the launch loop stops on ums::Stuck too).
+            last_why = kD2xStuckReason;
+            break;
         }
         if (!read) {
             ums::Forget();  // opened again from scratch on the next try
+            if (waited_long_enough()) break;
             usleep(1000000);
         }
     }
+    ProgressStage("Opening the game image", 3);
+    if (!read && ums::Stuck()) {
+        logf("USB (d2x): d2x stopped answering, so the game is not started and no other cIOS slot is tried\n");
+        error = d2x_usb_unreadable_error(last_why);
+        g_d2x_usb_drive_failed = true;
+        return false;
+    }
     if (!read) {
-        logf("USB (d2x): the drive did not answer in 20 s; trying the launch anyway\n");
-        return;
+        logf("USB (d2x): the drive did not answer in %d s, so the game is not started (it would crash at its "
+             "first disc read)\n",
+             kD2xDriveWaitSeconds);
+        error = d2x_usb_unreadable_error(last_why);
+        g_d2x_usb_drive_failed = true;
+        return false;
     }
     char id[7];
     for (int i = 0; i < 6; ++i) id[i] = first[i] >= 0x20 && first[i] < 0x7F ? static_cast<char>(first[i]) : '.';
     id[6] = 0;
     logf("USB (d2x): it starts with \"%s\" (%02x %02x %02x %02x)\n", id, first[0], first[1], first[2], first[3]);
+    if (!d2x_first_sector_is_game(first, ums::SectorBytes(), list.entries[0].offset, game.id)) {
+        logf("USB (d2x): that is not %s, so d2x reads another drive than the menu listed the game from; the game "
+             "is not started\n",
+             game.id.c_str());
+        error = d2x_usb_other_drive_error();
+        g_d2x_usb_drive_failed = true;
+        return false;
+    }
+    return true;
+}
+}  // namespace
+
+bool d2x_usb_drive_failed() { return g_d2x_usb_drive_failed; }
+
+namespace {
+// A d2x USB request that never answered stays outstanding for the rest of
+// this run (ums::Stuck), and an IOS reload with it outstanding may hang.
+// A later launch in the same run (none after A on the failure screen,
+// which restarts RiftWii with fresh memory, but any other way back) fails
+// at once with the same reason instead of reloading.
+bool refuse_reload_while_stuck(std::string& error) {
+    if (!ums::Stuck()) return false;
+    logf("USB (d2x): an earlier d2x request never answered; not reloading IOS again this run\n");
+    error = d2x_usb_unreadable_error(kD2xStuckReason);
+    g_d2x_usb_drive_failed = true;
+    return true;
 }
 }  // namespace
 
 bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_sector, int cios_slot,
                            const char* log_path, std::string& error) {
+    g_d2x_usb_drive_failed = false;
+    if (refuse_reload_while_stuck(error)) return false;
     if (cios_slot < 3 || cios_slot > 255) {
         error = "cIOS slot must be 3..255";
         return false;
@@ -2071,22 +2162,39 @@ bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_
     }
     if (!debug_off("musicresume")) LaunchMusicResumeAfterReload();
     // Some drives take a while to start after the reload (OpenWaiting).
-    if (!ums::OpenWaiting(error, 20)) {
-        error = "d2x's USB device: " + error;
+    char stage[64];
+    std::snprintf(stage, sizeof(stage), "Waiting for the USB drive (d2x, IOS%d)", cios_slot);
+    ProgressStage(stage, 3);
+    // Logged before each call: a console that freezes inside one shows
+    // which in boot.log.
+    logf("GameCube (USB): opening the drive through d2x (IOS%d)\n", cios_slot);
+    const bool opened = ums::OpenWaiting(error, kD2xDriveWaitSeconds);
+    ProgressStage("Getting the game ready", 3);  // a GameCube launch has no stage of its own here
+    if (!opened) {
+        logf("GameCube (USB): d2x did not start the drive in %d s (%s)\n", kD2xDriveWaitSeconds, error.c_str());
+        error = d2x_usb_unreadable_error(error);
+        g_d2x_usb_drive_failed = true;
         return post_reload_failure(log_path, error);
     }
     if (ums::SectorBytes() != kUsbSectorBytes) {
-        error = "the USB drive has " + std::to_string(ums::SectorBytes()) + "-byte sectors; GameCube games need 512";
+        error = d2x_sector_size_problem(ums::SectorBytes(), "GameCube games");
         return post_reload_failure(log_path, error);
     }
     std::uint8_t first[kUsbSectorBytes];
+    logf("GameCube (USB): reading drive sector %llu, the game's first\n", static_cast<unsigned long long>(first_sector));
     if (!ums::Read(first_sector, 1, first)) {
-        error = "d2x could not read the game's first sector (" + std::to_string(first_sector) + ") on the USB drive";
+        logf("GameCube (USB): d2x could not read the game's first sector (%llu)\n",
+             static_cast<unsigned long long>(first_sector));
+        error = d2x_usb_unreadable_error(ums::Stuck() ? std::string(kD2xStuckReason)
+                                                      : "the game's first sector (" + std::to_string(first_sector) +
+                                                            ") could not be read");
+        g_d2x_usb_drive_failed = true;
         return post_reload_failure(log_path, error);
     }
     if (std::memcmp(first, first_bytes, 32) != 0) {
-        error = "d2x reads another USB drive than the one the game was listed from: plug the game's drive into the "
-                "Wii's other USB port, or leave only that drive plugged in";
+        logf("GameCube (USB): the first sector d2x read is not the game's, so d2x reads another drive\n");
+        error = d2x_usb_other_drive_error();
+        g_d2x_usb_drive_failed = true;
         return post_reload_failure(log_path, error);
     }
     logf("GameCube (USB): d2x's /dev/usb2 (fd %d) reads the game's first sector %llu\n", ums::Fd(),
@@ -2096,6 +2204,8 @@ bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_
 
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error, bool block_ios_reload) {
+    g_d2x_usb_drive_failed = false;
+    if (refuse_reload_while_stuck(error)) return false;
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
     // Vet the slot while IPC, SD and USB are still up: past the teardown
     // below a title that fails to start cannot be reported or recovered.
@@ -2191,7 +2301,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // The cIOS is up and the heap whole: the menu's music again for the
     // rest of the launch (debug_off = musicresume keeps it quiet).
     if (!debug_off("musicresume")) LaunchMusicResumeAfterReload();
-    if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
+    if (disc_device == ImageDevice::Usb && !rvz && !check_d2x_usb_drive(game, cios_slot, error)) {
+        return post_reload_failure(log_path, error);
+    }
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
     // Existing physical probes reset the drive. Disable reset after F9 so
@@ -2227,18 +2339,37 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (rvz && game.device == ImageDevice::Usb) {
         // The RVZ itself, through d2x's USB device from now on.
         logf("USB: d2x's /dev/usb2 for the RVZ\n");
-        bool ok = ums::OpenWaiting(error, 20);
-        if (ok && ums::SectorBytes() != 512) {
-            error = "the drive has " + std::to_string(ums::SectorBytes()) + "-byte sectors; RVZ games need 512";
+        char stage[64];
+        std::snprintf(stage, sizeof(stage), "Waiting for the USB drive (d2x, IOS%d)", cios_slot);
+        ProgressStage(stage, 3);
+        logf("USB: opening the drive through d2x for the RVZ (IOS%d)\n", cios_slot);
+        bool ok = ums::OpenWaiting(error, kD2xDriveWaitSeconds);
+        ProgressStage("Opening the game image", 3);
+        if (!ok) {
+            logf("USB: d2x did not start the drive in %d s (%s)\n", kD2xDriveWaitSeconds, error.c_str());
+            error = d2x_usb_unreadable_error(error);
+            g_d2x_usb_drive_failed = true;
+            return post_reload_failure(log_path, error);
+        }
+        if (ums::SectorBytes() != 512) {
+            error = d2x_sector_size_problem(ums::SectorBytes(), "RVZ games");
             ok = false;
         }
         if (!ok || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
             error = "USB drive after the cIOS reload: " + error;
+            if (ums::Stuck()) {
+                error = d2x_usb_unreadable_error(kD2xStuckReason);
+                g_d2x_usb_drive_failed = true;
+            }
             return post_reload_failure(log_path, error);
         }
     }
     if (rvz && !open_rvz_reads(game.device == ImageDevice::Usb ? g_rvz_usb_volume.get() : g_sd_volume.get(),
                                game.path, error)) {
+        if (ums::Stuck()) {
+            error = d2x_usb_unreadable_error(kD2xStuckReason);
+            g_d2x_usb_drive_failed = true;
+        }
         return post_reload_failure(log_path, error);
     }
     logf("%s: d2x ready\n", device_name(game.device));

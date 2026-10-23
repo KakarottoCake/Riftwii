@@ -11,6 +11,7 @@
 #include "gc_tgc.h"
 #include "gc_video.h"
 #include "gc_load.h"
+#include "gc_disc.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -540,6 +541,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     uint32_t* w = (uint32_t*)(uintptr_t)ctx->trace_buf;
     const struct gc_rt_stream* st = (const struct gc_rt_stream*)(uintptr_t)ctx->stream;
     uint32_t msr, tbu, tbl, i, sector;
+    if (!gc_trace_allowed(ctx->flags, where)) return GC_TRACE_SKIPPED;
     if (ctx->trace_sector == 0 || ctx->trace_count == 0 || w == 0) return GC_TRACE_SKIPPED;
     msr = gc_irq_off();
     if (ctx->busy) {
@@ -700,6 +702,14 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_PAD_RAW_ERRS] = ctx->pad_raw_errs;
         w[GC_TR_PAD_NATIVE] = ctx->native_ports | (types != 0 ? 0x100u : 0u);
         w[GC_TR_PAD_ERRS] = ctx->pad_filled_errs;
+    }
+    if (where == GC_TRACE_DISC && ctx->disc_change != 0) {
+        const struct gc_disc_change* dc = (const struct gc_disc_change*)(uintptr_t)ctx->disc_change;
+        w[GC_TR_DISC_STATE] = dc->current << 24 | (dc->changes & 0xFFu) << 16 | (dc->raised & 0xFFu) << 8 |
+                              (dc->unseen & 0xFFu);
+        w[GC_TR_DISC_STOPS] = dc->stops;
+        w[GC_TR_DISC_DICVR] = ctx->di_regs != 0 ? gc_read32(ctx->di_regs + 4u * GC_DI_CVR) : 0;
+        w[GC_TR_DISC_STEP] = dc->state << 24 | (dc->alarm_queued & 0xFFu) << 16 | (dc->looks & 0xFFFFu);
     }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
@@ -1198,6 +1208,8 @@ static void gc_vi_restart(const struct gc_rt_context* ctx) {
 
 typedef void (*gc_callback_fn)(uint32_t type);
 static void gc_di_raise(struct gc_rt_context* ctx, uint32_t type);
+static void gc_disc_on_alarm(struct gc_rt_context* ctx, uint32_t os_context);
+static void gc_disc_motor_stop(struct gc_rt_context* ctx);
 /* An OSContext's saved LR, SRR0 and SRR1 (the SDK's layout). */
 #define GC_OSCONTEXT_LR 0x84u
 #define GC_OSCONTEXT_SRR0 0x198u
@@ -1231,10 +1243,23 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         }
         gc_guard(ctx);
         gc_vi_note(ctx);
+        if (ctx->bt && !(ctx->flags & GC_FLAG_FAKE_REMOTE)) {
+            struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
+            if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
+        }
         if (ctx->card) gc_card_flush(ctx, (struct gc_card*)(uintptr_t)ctx->card, 0);
         gc_usb_keep_alive(ctx);
+        /* Coalesce PAD diagnostics: a slow SD write must not hold up the
+         * return of a freshly sampled native controller's PADRead. */
+        if ((ctx->flags & GC_FLAG_PAD_TRACE_PENDING) && gc_trace(ctx, GC_TRACE_PAD_SI) != GC_TRACE_SKIPPED)
+            ctx->flags &= ~GC_FLAG_PAD_TRACE_PENDING;
         gc_trace(ctx, GC_TRACE_BEAT);
         gc_beat_arm(ctx);
+        return;
+    }
+    if (ctx->disc_change != 0 &&
+        alarm == (uint32_t)(uintptr_t)((struct gc_disc_change*)(uintptr_t)ctx->disc_change)->alarm) {
+        gc_disc_on_alarm(ctx, os_context);
         return;
     }
     if (ctx->card && alarm == (uint32_t)(uintptr_t)((struct gc_card*)(uintptr_t)ctx->card)->alarm) {
@@ -1278,6 +1303,7 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
 #define GC_DI_IMM 8
 #define GC_DISR_DEINT 0x04u
 #define GC_DISR_TCINT 0x10u
+#define GC_DISR_BRKINT 0x40u
 #define GC_DI_IRQ 21u   /* libogc's IRQ_PI_DI, the handler's first argument */
 
 typedef void (*gc_irq_handler_fn)(uint32_t irq, void* context);
@@ -1324,6 +1350,13 @@ void gc_on_di_start(struct gc_rt_context* ctx) {
         di[GC_DI_LENGTH] = 0;
         break;
     }
+    case 0xE3:
+        /* Stop motor: a two-disc game's change starts (gc_disc.h); for
+         * any other game, answered as the default below. */
+        gc_disc_motor_stop(ctx);
+        if (control & 2u) di[GC_DI_LENGTH] = 0;
+        di[GC_DI_IMM] = 0;
+        break;
     default:
         if (control & 2u) di[GC_DI_LENGTH] = 0;
         di[GC_DI_IMM] = 0;
@@ -1331,6 +1364,101 @@ void gc_on_di_start(struct gc_rt_context* ctx) {
     }
     gc_command_seen(ctx, 1);
     gc_complete(ctx, GC_CB_DI_RAISE, GC_DI_TC);
+}
+
+/* ---- A two-disc game's disc change (gc_disc.h) ---------------------- */
+
+/* The SDK's interrupt handlers, a word for each of the OS's 32 interrupts
+ * (OSInterrupt's table at 0x80003040, physical 0x3040); the DI's is
+ * number 21, as libogc's IRQ_PI_DI. */
+#define GC_OS_INTERRUPT_TABLE 0x80003040u
+#define GC_DISC_HANDLER_LOW 0x80003100u  /* a handler is game code, above low memory */
+#define GC_DISC_HANDLER_HIGH 0x81800000u
+/* How soon to look again when a read or a completion is under way as the
+ * other disc is due: about a millisecond. */
+#define GC_DISC_BUSY_TICKS 60750u
+
+/* The disc in now serves every read: its runs and its RVZ reader. The
+ * RVZ readers share their buffers (gcnative.cpp), so the one coming in
+ * forgets what it had decoded there. */
+static void gc_disc_insert(struct gc_rt_context* ctx, struct gc_disc_change* dc) {
+    const struct gc_disc_image* disc = &dc->discs[dc->current];
+    ctx->runs = disc->runs;
+    ctx->run_count = disc->run_count;
+    ctx->rvz = disc->rvz;
+    ctx->last_read_end = 0;  /* the new disc's first read seeks */
+#ifdef RT_RVZ
+    if (ctx->rvz != 0) {
+        struct gc_rvz* rvz = (struct gc_rvz*)(uintptr_t)ctx->rvz;
+        uint32_t s;
+        for (s = 0; s < GC_RVZ_SLOTS; ++s) rvz->slots[s].group = GC_RVZ_NO_GROUP;
+        rvz->entry_sector = GC_RVZ_NO_GROUP;
+    }
+#endif
+}
+
+/* The motor stopped (DVDLowStopMotor, or libogc's command 0xE3): with a
+ * second disc, the cover opens and the disc-change alarm is set. The
+ * drive stops playing disc audio when its motor stops. */
+static void gc_disc_motor_stop(struct gc_rt_context* ctx) {
+    struct gc_disc_change* dc = (struct gc_disc_change*)(uintptr_t)ctx->disc_change;
+    uint32_t msr;
+    uint32_t now;
+    if (dc == 0) return;
+    if (ctx->stream != 0) ((struct gc_rt_stream*)(uintptr_t)ctx->stream)->playing = 0;
+    msr = gc_irq_off();
+    __asm__ volatile("mftb %0" : "=r"(now));
+    if (gc_disc_motor_stopped(dc, now)) gc_set_alarm(ctx, dc->alarm, dc->cover_ticks);
+    gc_irq_restore(msr);
+    gc_trace(ctx, GC_TRACE_DISC);
+}
+
+uint32_t gc_on_stop_motor(struct gc_rt_context* ctx, uint32_t cb) {
+    gc_disc_motor_stop(ctx);
+    return gc_on_done(ctx, cb);
+}
+
+/* The cover interrupt, for a game waiting on the cover: DICVR's interrupt
+ * bit, then the game's DI interrupt handler as the interrupt would run it
+ * (libogc's, found by the loader, or the one the SDK's DVDInit put in the
+ * OS's table), with the context the alarm interrupted. The stand-in is
+ * memory, not registers, so the bits the drive clears when the game
+ * writes a one to them are cleared here: the transfer ones first (every
+ * completion has reached the game by now, gc_disc_on_alarm waits for
+ * that), the cover's once the handler has taken it. */
+static void gc_disc_raise_cover(struct gc_rt_context* ctx, uint32_t os_context) {
+    volatile uint32_t* di = (volatile uint32_t*)(uintptr_t)ctx->di_regs;
+    uint32_t handler = ctx->di_handler;
+    if (handler == 0) handler = gc_read32(GC_OS_INTERRUPT_TABLE + 4u * GC_DI_IRQ);
+    di[GC_DI_SR] &= ~(GC_DISR_TCINT | GC_DISR_DEINT | GC_DISR_BRKINT);
+    di[GC_DI_CVR] |= GC_DICVR_INT;
+    if (handler < GC_DISC_HANDLER_LOW || handler >= GC_DISC_HANDLER_HIGH || (handler & 3u) != 0) return;
+    ((gc_irq_handler_fn)(uintptr_t)handler)(GC_DI_IRQ, (void*)(uintptr_t)os_context);
+    di[GC_DI_CVR] &= ~GC_DICVR_INT;
+}
+
+/* The disc-change alarm: the other disc goes in when it is due, and the
+ * game hears the cover close (gc_disc_cover_alarm says what to do). Not
+ * in the middle of a read, nor before a command's completion has reached
+ * the game: the change waits a moment for those. */
+static void gc_disc_on_alarm(struct gc_rt_context* ctx, uint32_t os_context) {
+    struct gc_disc_change* dc = (struct gc_disc_change*)(uintptr_t)ctx->disc_change;
+    volatile uint32_t* di = (volatile uint32_t*)(uintptr_t)ctx->di_regs;
+    uint32_t now;
+    uint32_t ticks;
+    uint32_t todo;
+    if (ctx->busy || ctx->read_state != GC_READ_NONE || ctx->pending_cb != 0) {
+        gc_set_alarm(ctx, dc->alarm, GC_DISC_BUSY_TICKS);  /* still queued, as far as gc_disc.h knows */
+        return;
+    }
+    __asm__ volatile("mftb %0" : "=r"(now));
+    todo = gc_disc_cover_alarm(dc, now, di[GC_DI_CVR], &ticks);
+    if (todo & GC_DISC_SWAPPED) gc_disc_insert(ctx, dc);
+    if (todo & GC_DISC_LATCH) di[GC_DI_CVR] |= GC_DICVR_INT;
+    if (todo & GC_DISC_RAISE) gc_disc_raise_cover(ctx, os_context);
+    if (todo & GC_DISC_AGAIN) gc_set_alarm(ctx, dc->alarm, ticks);
+    /* A record for each step but the quiet looks in between. */
+    if (todo & (GC_DISC_SWAPPED | GC_DISC_RAISE | GC_DISC_LATCH)) gc_trace(ctx, GC_TRACE_DISC);
 }
 
 /* ---- Disc audio streaming ------------------------------------------ */
@@ -2011,6 +2139,13 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
     ctx->pad_enabled_before = GC_PORTS_ENABLED_UNKNOWN;
     ctx->pad_raw_errs = 0xFFFFFFFFu;
     ctx->pad_filled_errs = 0xFFFFFFFFu;
+    /* A two-disc game restarts from disc 1, as MEM1 (its FST, its ID) is
+     * put back as it was at the jump. */
+    if (ctx->disc_change) {
+        struct gc_disc_change* dc = (struct gc_disc_change*)(uintptr_t)ctx->disc_change;
+        gc_disc_restart(dc);
+        gc_disc_insert(ctx, dc);
+    }
     if (ctx->stream) {
         struct gc_rt_stream* st = (struct gc_rt_stream*)(uintptr_t)ctx->stream;
         st->playing = 0;
@@ -2305,13 +2440,18 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
             gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0, native);
         } else {
-            gc_bt_poll(ctx, bt);
+            /* Keep start-up's frame-counted timeouts unchanged. Once page
+             * scan is ready, an idle controller needs no per-frame IPC. */
+            if (bt->stage != GC_BT_STAGE_READY || gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
             gc_bt_fill(bt, (uint8_t*)(uintptr_t)status, native);
         }
     }
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
-    if (n % 300 == 0 || native != previous_native || ctx->pad_raw_errs != previous_errors ||
-        ctx->pad_enabled_before != gc_pad_enabled(ctx)) gc_trace(ctx, GC_TRACE_PAD_SI);
+    if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
+        const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
+                            ctx->pad_enabled_before != gc_pad_enabled(ctx);
+        if (n % 300 == 0 || changed) ctx->flags |= GC_FLAG_PAD_TRACE_PENDING;
+    }
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
     if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
@@ -2337,6 +2477,11 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     }
     if (status != 0) gc_leave_check(ctx, (const uint8_t*)(uintptr_t)status);
     gc_reset_check(ctx, n);
+    /* The test of a disc change, with no game that asks for one: the
+     * motor stopped as DVDLowStopMotor would stop it, disc 2 going in two
+     * seconds later and disc 1 again after the second stop. */
+    if ((ctx->flags & GC_FLAG_DISC_TEST) && (n == GC_DISC_TEST_FIRST || n == GC_DISC_TEST_SECOND))
+        gc_disc_motor_stop(ctx);
     if ((ctx->flags & GC_FLAG_EXEC_TEST) && n == 1500) {
         /* As OSExec("", {"rwtest"}) would: __OSBootDol's "0" (the disc's
          * own program) first, the restart code OSExec passes. Built a

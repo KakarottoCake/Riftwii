@@ -265,5 +265,11 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
 // open before the reload is opened again. False with the reason.
 bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_sector, int cios_slot,
                            const char* log_path, std::string& error);
+// Whether the last activate_image_game or activate_gamecube_usb failed
+// because d2x could not read the game's USB drive (no drive in its port,
+// or another drive). The launch tries the next cIOS slot (another d2x
+// base can reach another port) and says this failure once at the end,
+// naming the slots (riftwii/usbgame.hpp's d2x_usb_slots_summary).
+bool d2x_usb_drive_failed();
 
 }  // namespace riftwii::wii
