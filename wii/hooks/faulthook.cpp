@@ -18,7 +18,10 @@ namespace riftwii::wii {
 namespace {
 
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
-constexpr std::uint32_t kBusClockField = 0x800000F8;  // the time base runs at a quarter of it
+// The Wii's bus clock; the time base runs at a quarter of it. A constant, as
+// in wpadhook.cpp: boot.cpp writes it to 0x800000F8 only at the handover,
+// after this is planned, so a launch from the RiftWii channel read 0 there.
+constexpr std::uint32_t kBusClock = 0x0E7BE2C0;
 constexpr unsigned kScratchRegister = 12;             // fault_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
 
@@ -148,7 +151,7 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     }
     ctx->state = out.state_base;
     ctx->stack_top = out.state_base + offsetof(rt_fault_state, stack) + RT_FAULT_STACK_BYTES - 16;
-    ctx->ticks_per_second = *reinterpret_cast<volatile std::uint32_t*>(kBusClockField) / 4u;
+    ctx->ticks_per_second = kBusClock / 4u;
     std::strncpy(ctx->version, RIFTWII_VERSION, sizeof(ctx->version) - 1);
     ctx->bca_sink = (out.code_base + h.sink + 31u) & ~31u;
     ctx->flags = out.ioctl != 0 ? RT_FAULT_FLAG_BCA : 0u;
