@@ -16,7 +16,7 @@ import subprocess
 
 from unicorn import (Uc, UC_ARCH_PPC, UC_MODE_32, UC_MODE_BIG_ENDIAN,
                      UC_HOOK_CODE, UC_HOOK_MEM_READ_UNMAPPED, UcError)
-from unicorn.ppc_const import UC_PPC_REG_0, UC_PPC_REG_LR
+from unicorn.ppc_const import UC_PPC_REG_0, UC_PPC_REG_LR, UC_PPC_REG_PC
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,6 +82,8 @@ def check_boundary(blob, entry, end, string_argument, terminated):
         if invalid_reads:
             raise AssertionError(f"Logger read outside RAM at {invalid_reads[0]:#010x}") from error
         raise
+    # The instruction cap also ends emu_start: only a return counts.
+    assert machine.reg_read(UC_PPC_REG_PC) == RETURN, "the logger did not return"
     # First entry: 40-byte header, then 40 bytes before its format and
     # another 64 bytes before the copied strings (runtime/rtwlog.h).
     text_at = STATE + 40 + 40 + (64 if string_argument else 0)
