@@ -254,9 +254,12 @@ New in 3.2 (beta):
 - 2610-564: Mario Party 4 and Sonic Gems colors in Wii mode;
   memory cards from elsewhere no longer damaged; more GameCube
   games' sound on a Wii; logging for the four-Remote freeze.
-- {{VERSION}}: real GameCube memory cards; the Zelda bonus
+- 2610-587: real GameCube memory cards; the Zelda bonus
   discs; HOME Menu Reset keeps a Wii game's mods; Mario Party
   5-7, Pikmin 2 RVZ, Doshin, Eternal Darkness and more fixed.
+- {{VERSION}}: Wii channels, WiiWare and homebrew apps on
+  Home; themes to download; two-disc GameCube games; Retro
+  Rewind online again; steadier GameCube controls.
 - 2610-280 (RC3): the GameCube adapter set to On no longer stops
   SD games from booting; no Wii Remote rumble for screenshots (it
   crashed Need for Speed: ProStreet). Cars 2 warning.
