@@ -15,12 +15,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <optional>
 
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 
 #include "bearssl.h"
 #include "loadersettings.hpp"
+#include "fullfont.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
 #include "plugins.hpp"
@@ -594,9 +596,10 @@ void MarkDone(const char* path) {
 }
 
 // What the apps pack may write: the channel installer's folder, RiftWii's
-// icon and its plugins (riftwii/plugins/<name>.<version>.rwp, nothing else
-// in that folder). RiftWii's boot.dol and meta.xml are the update's own,
-// and a player's music.ogg stays.
+// icon, its full menu font (riftwii/font.ttf) and its plugins
+// (riftwii/plugins/<name>.<version>.rwp, nothing else in that folder).
+// RiftWii's boot.dol and meta.xml are the update's own, and a player's
+// music.ogg stays.
 constexpr char kPluginsPrefix[] = "riftwii/plugins/";
 
 bool PluginFileAllowed(const std::string& path) {
@@ -610,7 +613,8 @@ bool PluginFileAllowed(const std::string& path) {
 }
 
 bool AppsFileAllowed(const std::string& path) {
-    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || PluginFileAllowed(path);
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || path == kMenuFontFile ||
+           PluginFileAllowed(path);
 }
 
 // The folder the plugins are written to: next to the boot.dol that is
@@ -624,8 +628,13 @@ std::string PluginTargetDirectory() {
 }
 
 // Where an apps pack file goes: sd:/apps/<path>, except the plugins
-// (PluginTargetDirectory).
+// (PluginTargetDirectory) and the menu font, which go beside the running
+// boot.dol when that is on the SD card.
 std::string AppsFileTarget(const std::string& path) {
+    if (path == kMenuFontFile) {
+        const std::string beside = fullfont::FullFontPath();
+        return beside.compare(0, 4, "sd:/") == 0 ? beside : "sd:/apps/" + path;
+    }
     if (!PluginFileAllowed(path)) return "sd:/apps/" + path;
     return PluginTargetDirectory() + path.substr(sizeof(kPluginsPrefix) - 1);
 }
@@ -662,6 +671,9 @@ void ApplyPack(PackKind& k) {
     mkdir("sd:/riftwii", 0777);
     mkdir(themes ? "sd:/riftwii/themes" : "sd:/apps", 0777);
     unsigned written = 0, same = 0, failed = 0;
+    // The menu may be reading glyphs from font.ttf, which may be rewritten.
+    std::optional<fullfont::ClosedHold> font_hold;
+    if (!themes) font_hold.emplace("an update rewrites it");
     for (const ThemePackFile& f : pack.files) {
         if (!themes && !AppsFileAllowed(f.path)) {
             logf("%s: %s skipped\n", k.label, f.path.c_str());
@@ -868,8 +880,10 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     }
     std::vector<UpdateWrite> writes;
     if (!plan_update_writes(apps, latest, PluginTargetDirectory(), dol_path, writes, error)) return false;
-    logf("Update: writing the plugins of %s to the SD card\n", latest.c_str());
+    logf("Update: writing the plugins and the menu font of %s to the SD card\n", latest.c_str());
     report(UpdateStep::WritingPlugins, 0, 0);
+    // The menu may be reading glyphs from font.ttf, which is rewritten here.
+    const fullfont::ClosedHold font_hold("an update rewrites it");
     const std::uint8_t* const bytes = pack.data() + split;
     unsigned written = 0;
     unsigned same = 0;
@@ -884,13 +898,13 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
         }
         const std::vector<std::uint8_t> data(bytes + w.offset, bytes + w.offset + w.size);
         if (!write_file(w.path, data, error)) {
-            error = "the update's plugin " + w.path + " could not be written (" + error + "); RiftWii was not changed";
+            error = "the update's file " + w.path + " could not be written (" + error + "); RiftWii was not changed";
             return false;
         }
         ++written;
     }
-    logf("Update: %u plugin(s) of %s written to %s before its DOL, %u already there\n", written, latest.c_str(),
-         PluginTargetDirectory().c_str(), same);
+    logf("Update: %u file(s) of %s (plugins in %s, the menu font next to the DOL) written before its DOL, "
+         "%u already there\n", written, latest.c_str(), PluginTargetDirectory().c_str(), same);
     return true;
 }
 

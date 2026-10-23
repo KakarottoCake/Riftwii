@@ -150,6 +150,11 @@ bool plugin_file_of_other_version(const std::string& file, const std::string& ve
 // sd:/apps/riftwii/plugins/ when argv0 is empty or not a path on a drive.
 std::string plugin_directory_for(const std::string& argv0);
 
+// The full menu font of a DOL started as `argv0` (wii/menu/fullfont.hpp):
+// font.ttf in the folder its plugins/ folder is in, so
+// "sd:/apps/riftwii/boot.dol" gives "sd:/apps/riftwii/font.ttf".
+std::string menu_font_path_for(const std::string& argv0);
+
 // A loaded plugin, for crash reports.
 struct PluginRange {
     const char* name;  // the plugin's, or what it registered

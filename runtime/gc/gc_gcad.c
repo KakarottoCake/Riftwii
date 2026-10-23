@@ -138,18 +138,16 @@ int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
 }
 
 /* The driver is only ever entered from here, with interrupts off and the
- * IPC free: a reply that comes while one of its requests is being sent is
- * marked done and handed over by the loop below, never from inside the
- * driver. */
+ * send handshake free: a reply arriving during one of its sends is marked
+ * done and handed over by the loop below, never from inside the driver. */
 void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
     uint32_t msr, reply, i, handed;
     if (ad->fd < 0) return;
     msr = gc_irq_off();
-    if (ctx->busy) {  /* a disc read is waiting on IOS: next frame */
+    if (gc_ipc_poll_blocked(ctx)) {
         gc_irq_restore(msr);
         return;
     }
-    ctx->busy = 1;
     ad->ctx = (uint32_t)(uintptr_t)ctx;
     ad->polls++;
     if (!ad->inited) {
@@ -169,7 +167,6 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
         }
     } while (handed);
     gcad_tick(&ad->g, ad_now());
-    ctx->busy = 0;
     gc_guard(ctx);
     gc_irq_restore(msr);
 }

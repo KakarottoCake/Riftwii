@@ -16,6 +16,12 @@
  * in the COPYING file in the root directory of this source tree).
  * You may select, at your option, one of the above-listed licenses.
  */
+/* RiftWii: optional cooperative checkpoints for the GameCube alarm
+ * worker. Other builds compile these calls and their guards away. */
+#ifndef RIFTWII_ZSTD_CHECKPOINT
+#  define RIFTWII_ZSTD_CHECKPOINT(dctx) ((void)0)
+#endif
+
 /*
  * Settings to bake for the standalone decompressor.
  *
@@ -15561,6 +15567,7 @@ HUF_decodeStreamX1(BYTE* p, BIT_DStream_t* const bitDPtr, BYTE* const pEnd, cons
     /* up to 4 symbols at a time */
     if ((pEnd - p) > 3) {
         while ((BIT_reloadDStream(bitDPtr) == BIT_DStream_unfinished) & (p < pEnd-3)) {
+            if (((size_t)(p - pStart) & 1023) < 8) RIFTWII_ZSTD_CHECKPOINT(0);
             HUF_DECODE_SYMBOLX1_2(p, bitDPtr);
             HUF_DECODE_SYMBOLX1_1(p, bitDPtr);
             HUF_DECODE_SYMBOLX1_2(p, bitDPtr);
@@ -15662,6 +15669,7 @@ HUF_decompress4X1_usingDTable_internal_body(
         /* up to 16 symbols per loop (4 symbols per stream) in 64-bit mode */
         if ((size_t)(oend - op4) >= sizeof(size_t)) {
             for ( ; (endSignal) & (op4 < olimit) ; ) {
+                if (((size_t)(op1 - ostart) & 1023) < 8) RIFTWII_ZSTD_CHECKPOINT(0);
                 HUF_DECODE_SYMBOLX1_2(op1, &bitD1);
                 HUF_DECODE_SYMBOLX1_2(op2, &bitD2);
                 HUF_DECODE_SYMBOLX1_2(op3, &bitD3);
@@ -16326,6 +16334,7 @@ HUF_decodeStreamX2(BYTE* p, BIT_DStream_t* bitDPtr, BYTE* const pEnd,
         if (dtLog <= 11 && MEM_64bits()) {
             /* up to 10 symbols at a time */
             while ((BIT_reloadDStream(bitDPtr) == BIT_DStream_unfinished) & (p < pEnd-9)) {
+                if (((size_t)(p - pStart) & 1023) < 8) RIFTWII_ZSTD_CHECKPOINT(0);
                 HUF_DECODE_SYMBOLX2_0(p, bitDPtr);
                 HUF_DECODE_SYMBOLX2_0(p, bitDPtr);
                 HUF_DECODE_SYMBOLX2_0(p, bitDPtr);
@@ -16335,6 +16344,7 @@ HUF_decodeStreamX2(BYTE* p, BIT_DStream_t* bitDPtr, BYTE* const pEnd,
         } else {
             /* up to 8 symbols at a time */
             while ((BIT_reloadDStream(bitDPtr) == BIT_DStream_unfinished) & (p < pEnd-(sizeof(bitDPtr->bitContainer)-1))) {
+                if (((size_t)(p - pStart) & 1023) < 8) RIFTWII_ZSTD_CHECKPOINT(0);
                 HUF_DECODE_SYMBOLX2_2(p, bitDPtr);
                 HUF_DECODE_SYMBOLX2_1(p, bitDPtr);
                 HUF_DECODE_SYMBOLX2_2(p, bitDPtr);
@@ -16443,6 +16453,7 @@ HUF_decompress4X2_usingDTable_internal_body(
         /* 16-32 symbols per loop (4-8 symbols per stream) */
         if ((size_t)(oend - op4) >= sizeof(size_t)) {
             for ( ; (endSignal) & (op4 < olimit); ) {
+                if (((size_t)(op1 - ostart) & 1023) < 8) RIFTWII_ZSTD_CHECKPOINT(0);
 #if defined(__clang__) && (defined(__x86_64__) || defined(__i386__))
                 HUF_DECODE_SYMBOLX2_2(op1, &bitD1);
                 HUF_DECODE_SYMBOLX2_1(op1, &bitD1);
@@ -21530,6 +21541,7 @@ ZSTD_decompressSequences_bodySplitLitBuffer( ZSTD_DCtx* dctx,
 
             /* Handle the initial state where litBuffer is currently split between dst and litExtraBuffer */
             for ( ; nbSeq; nbSeq--) {
+                if ((nbSeq & 31) == 0) RIFTWII_ZSTD_CHECKPOINT(dctx);
                 sequence = ZSTD_decodeSequence(&seqState, isLongOffset, nbSeq==1);
                 if (litPtr + sequence.litLength > dctx->litBufferEnd) break;
                 {   size_t const oneSeqSize = ZSTD_execSequenceSplitLitBuffer(op, oend, litPtr + sequence.litLength - WILDCOPY_OVERLENGTH, sequence, &litPtr, litBufferEnd, prefixStart, vBase, dictEnd);
@@ -21592,6 +21604,7 @@ ZSTD_decompressSequences_bodySplitLitBuffer( ZSTD_DCtx* dctx,
 #endif
 
             for ( ; nbSeq ; nbSeq--) {
+                if ((nbSeq & 31) == 0) RIFTWII_ZSTD_CHECKPOINT(dctx);
                 seq_t const sequence = ZSTD_decodeSequence(&seqState, isLongOffset, nbSeq==1);
                 size_t const oneSeqSize = ZSTD_execSequence(op, oend, sequence, &litPtr, litBufferEnd, prefixStart, vBase, dictEnd);
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION) && defined(FUZZING_ASSERT_VALID_SEQUENCE)
@@ -21688,6 +21701,7 @@ ZSTD_decompressSequences_body(ZSTD_DCtx* dctx,
 #endif
 
         for ( ; nbSeq ; nbSeq--) {
+            if ((nbSeq & 31) == 0) RIFTWII_ZSTD_CHECKPOINT(dctx);
             seq_t const sequence = ZSTD_decodeSequence(&seqState, isLongOffset, nbSeq==1);
             size_t const oneSeqSize = ZSTD_execSequence(op, oend, sequence, &litPtr, litEnd, prefixStart, vBase, dictEnd);
 #if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION) && defined(FUZZING_ASSERT_VALID_SEQUENCE)
@@ -21809,6 +21823,7 @@ ZSTD_decompressSequencesLong_body(
 
         /* decompress without stomping litBuffer */
         for (; seqNb < nbSeq; seqNb++) {
+            if ((seqNb & 31) == 0) RIFTWII_ZSTD_CHECKPOINT(dctx);
             seq_t sequence = ZSTD_decodeSequence(&seqState, isLongOffset, seqNb == nbSeq-1);
 
             if (dctx->litBufferLocation == ZSTD_split && litPtr + sequences[(seqNb - ADVANCED_SEQS) & STORED_SEQS_MASK].litLength > dctx->litBufferEnd) {
@@ -21857,6 +21872,7 @@ ZSTD_decompressSequencesLong_body(
         /* finish queue */
         seqNb -= seqAdvance;
         for ( ; seqNb<nbSeq ; seqNb++) {
+            if ((seqNb & 31) == 0) RIFTWII_ZSTD_CHECKPOINT(dctx);
             seq_t *sequence = &(sequences[seqNb&STORED_SEQS_MASK]);
             if (dctx->litBufferLocation == ZSTD_split && litPtr + sequence->litLength > dctx->litBufferEnd) {
                 const size_t leftoverLit = dctx->litBufferEnd - litPtr;

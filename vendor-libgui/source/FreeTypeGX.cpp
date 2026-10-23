@@ -24,7 +24,8 @@
  * InitFreeType takes a font collection's face and says when it can't read it (the Menu font setting);
  * FontHasChar (the Korean menu needs a font with Hangul); RenderTextCoverage (a GameCube game's crash
  * screen, drawn without GX: centred or left-aligned, narrowed for 16:9, its widest line measured);
- * each glyph drawn is told to the GX trace (Menu_TextureHook, settings.txt debug_gx).
+ * each glyph drawn is told to the GX trace (Menu_TextureHook, settings.txt debug_gx);
+ * a character the face lacks comes from SetMissingGlyphSource's source (the full menu font).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
@@ -63,6 +64,13 @@ static FtgxBitmapGlyphSource bitmapGlyphSource = nullptr;  // RiftWii: SetBitmap
 void SetBitmapGlyphSource(FtgxBitmapGlyphSource source)
 {
 	bitmapGlyphSource = source;
+}
+
+static const FtgxMissingGlyphSource* missingGlyphSource = nullptr;  // RiftWii: SetMissingGlyphSource
+
+void SetMissingGlyphSource(const FtgxMissingGlyphSource* source)
+{
+	missingGlyphSource = source;
 }
 
 // RiftWii: the face can be one of a collection's (the Wii Menu's font is a
@@ -347,7 +355,14 @@ void FreeTypeGX::unloadFont()
 	if(this->fontData.size() == 0)
 		return;
 	for(std::map<wchar_t, ftgxCharData>::iterator i = this->fontData.begin(), iEnd = this->fontData.end(); i != iEnd; ++i)
-		free(i->second.glyphDataTexture);
+	{
+		// RiftWii: a missing-glyph source's texture goes back to it.
+		void* texture = i->second.glyphDataTexture;
+		const bool sourceOwned = missingGlyphSource && missingGlyphSource->textureFree &&
+			missingGlyphSource->textureFree(texture);
+		if (!sourceOwned)
+			free(texture);
+	}
 	this->fontData.clear();
 }
 
@@ -377,32 +392,21 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 	FT_UInt gIndex;
 	uint16_t textureWidth = 0, textureHeight = 0;
 
-	// RiftWii: the bitmap font's glyph when it has one (glyph index 0: no
-	// FreeType kerning against it).
+	// RiftWii: the bitmap font's glyph when it has one.
 	FtgxBitmapGlyph bitmap;
 	if (bitmapGlyphSource && bitmapGlyphSource(charCode, this->ftPointSize, &bitmap))
-	{
-		FT_Bitmap bmp;
-		memset(&bmp, 0, sizeof(bmp));
-		bmp.width = bitmap.width;
-		bmp.rows = bitmap.rows;
-		bmp.pitch = bitmap.width;
-		bmp.buffer = const_cast<unsigned char*>(bitmap.pixels);
-		ftgxCharData& data = this->fontData[charCode];
-		data.renderOffsetX = (int16_t) bitmap.left;
-		data.glyphAdvanceX = (uint16_t) bitmap.advance;
-		data.glyphIndex = 0;
-		data.textureWidth = (uint16_t) (bitmap.width > 0 ? ALIGN8(bitmap.width) : 8);
-		data.textureHeight = (uint16_t) (bitmap.rows > 0 ? ALIGN8(bitmap.rows) : 8);
-		data.renderOffsetY = (int16_t) bitmap.top;
-		data.renderOffsetMax = (int16_t) bitmap.top;
-		data.renderOffsetMin = (int16_t) (bitmap.rows - bitmap.top);
-		data.glyphDataTexture = nullptr;
-		this->loadGlyphData(&bmp, &data);
-		return &data;
-	}
+		return this->cacheBitmapGlyph(charCode, bitmap, false);
 
 	gIndex = FT_Get_Char_Index(ftFace, (FT_ULong) charCode);
+	// RiftWii: a character the face lacks, from the missing-glyph source
+	// (the full menu font), which may read it from the SD card.
+	if (gIndex == 0)
+	{
+		if (missingGlyphSource && missingGlyphSource->glyph &&
+			missingGlyphSource->glyph(charCode, this->ftPointSize, &bitmap))
+			return this->cacheBitmapGlyph(charCode, bitmap, true);
+		return nullptr;
+	}
 	if (gIndex != 0 && FT_Load_Glyph(ftFace, gIndex, FT_LOAD_DEFAULT | FT_LOAD_RENDER) == 0)
 	{
 		if(ftSlot->format == FT_GLYPH_FORMAT_BITMAP)
@@ -432,6 +436,31 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 		}
 	}
 	return nullptr;
+}
+
+// RiftWii: a glyph given as 8-bit coverage (a bitmap font's, or one from
+// the missing-glyph source), cached as FreeType's are. Glyph index 0: no
+// FreeType kerning against it, as it is not one of the face's glyphs.
+ftgxCharData *FreeTypeGX::cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource)
+{
+	FT_Bitmap bmp;
+	memset(&bmp, 0, sizeof(bmp));
+	bmp.width = bitmap.width;
+	bmp.rows = bitmap.rows;
+	bmp.pitch = bitmap.width;
+	bmp.buffer = const_cast<unsigned char*>(bitmap.pixels);
+	ftgxCharData& data = this->fontData[charCode];
+	data.renderOffsetX = (int16_t) bitmap.left;
+	data.glyphAdvanceX = (uint16_t) bitmap.advance;
+	data.glyphIndex = 0;
+	data.textureWidth = (uint16_t) (bitmap.width > 0 ? ALIGN8(bitmap.width) : 8);
+	data.textureHeight = (uint16_t) (bitmap.rows > 0 ? ALIGN8(bitmap.rows) : 8);
+	data.renderOffsetY = (int16_t) bitmap.top;
+	data.renderOffsetMax = (int16_t) bitmap.top;
+	data.renderOffsetMin = (int16_t) (bitmap.rows - bitmap.top);
+	data.glyphDataTexture = nullptr;
+	this->loadGlyphData(&bmp, &data, missingSource);
+	return &data;
 }
 
 /**
@@ -465,11 +494,17 @@ uint16_t FreeTypeGX::cacheGlyphDataComplete()
  *
  * Optimized for RGBA8 use by Dimok.
  */
-void FreeTypeGX::loadGlyphData(FT_Bitmap *bmp, ftgxCharData *charData)
+void FreeTypeGX::loadGlyphData(FT_Bitmap *bmp, ftgxCharData *charData, bool missingSource)
 {
 	int glyphSize = (charData->textureWidth * charData->textureHeight) >> 1;
 
-	uint8_t *glyphData = (uint8_t *) memalign(32, glyphSize);
+	// RiftWii: the missing-glyph source's textures come from its own memory
+	// (MEM2), the heap's when it has none left.
+	uint8_t *glyphData = nullptr;
+	if (missingSource && missingGlyphSource && missingGlyphSource->textureAlloc)
+		glyphData = (uint8_t *) missingGlyphSource->textureAlloc(glyphSize);
+	if (!glyphData)
+		glyphData = (uint8_t *) memalign(32, glyphSize);
 	if(!glyphData)
 		return;
 
