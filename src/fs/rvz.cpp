@@ -577,11 +577,15 @@ bool RvzImage::disc_runtime_table(RvzRuntimeTable& out, std::string& error) cons
     out.lists = 0;  // raw data carries no hash exceptions
     for (std::uint64_t j = 0; j < chunks; ++j) {
         const std::uint64_t start = j * chunk;
+        const auto payload = static_cast<std::uint32_t>(std::min<std::uint64_t>(chunk, head_.iso_size - start));
         // The raw entry that holds this chunk as one whole group of its own.
         std::uint32_t group = UINT32_MAX;
         for (const Raw& r : raw_) {
             if (start < r.start || start >= r.end) continue;
             if ((start - r.start) % chunk != 0) break;
+            // The runtime has no raw-entry bounds: mapping a shorter entry
+            // would also expose bytes that read_raw refuses beyond its end.
+            if (r.end - start < payload) break;
             group = r.group_index + static_cast<std::uint32_t>((start - r.start) / chunk);
             break;
         }
@@ -595,7 +599,6 @@ bool RvzImage::disc_runtime_table(RvzRuntimeTable& out, std::string& error) cons
             error = "group " + std::to_string(group) + " is too large";
             return false;
         }
-        const auto payload = static_cast<std::uint32_t>(std::min<std::uint64_t>(chunk, head_.iso_size - start));
         std::uint32_t word1 = stored;
         if (stored != 0 && zstd && (g.size & 0x80000000u) != 0) word1 |= 0x80000000u;
         if (stored != 0 && g.packed != 0) word1 |= 0x40000000u;

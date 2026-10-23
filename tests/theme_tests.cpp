@@ -569,6 +569,31 @@ static void test_channel_frame_slices() {
     }
 }
 
+static void test_long_name_cut() {
+    // A 90-byte name of 3-byte characters (E6 BC A2 is U+6F22): the
+    // 64-byte cut keeps 21 whole ones, never half of the next.
+    std::string kana;
+    for (int i = 0; i < 30; ++i) {
+        kana += static_cast<char>(0xE6);
+        kana += static_cast<char>(0xBC);
+        kana += static_cast<char>(0xA2);
+    }
+    std::vector<std::string> notes;
+    const Theme theme =
+        parse_theme("[theme]\nname = " + kana + "\nauthor = " + kana + "\n", notes);
+    EXPECT_EQ(theme.name.size(), 63U);
+    EXPECT_EQ(theme.author.size(), 63U);
+    for (std::size_t i = 0; i < theme.name.size(); i += 3) {
+        EXPECT_TRUE(static_cast<unsigned char>(theme.name[i]) == 0xE6u);
+        EXPECT_TRUE(static_cast<unsigned char>(theme.name[i + 1]) == 0xBCu);
+        EXPECT_TRUE(static_cast<unsigned char>(theme.name[i + 2]) == 0xA2u);
+    }
+    EXPECT_EQ(notes.size(), 2U);
+    // Plain ASCII names still fill all 64 bytes.
+    std::vector<std::string> plain_notes;
+    const Theme plain = parse_theme("[theme]\nname = " + std::string(100, 'n') + "\n", plain_notes);
+    EXPECT_EQ(plain.name.size(), 64U);
+}
 int main() {
     test_default_theme();
     test_parse_theme_color();
@@ -581,6 +606,7 @@ int main() {
     test_drawn_input_icons();
     test_channel_frame_slices();
     test_case_insensitivity_and_boolean_formats();
+    test_long_name_cut();
 
     if (g_failures == 0) {
         std::cout << "ALL THEME TESTS PASSED" << std::endl;

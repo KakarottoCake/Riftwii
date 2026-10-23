@@ -130,6 +130,7 @@ static void share_file(struct rtfs_context* ctx, uint32_t slot) {
             f->fat.entry_index != from->fat.entry_index) continue;
         f->fat.first_cluster = from->fat.first_cluster;
         f->fat.size = from->fat.size;
+        f->fat.entry_dirty = from->fat.entry_dirty;
         f->fat.cache_index = 0;
         f->fat.cache_cluster = 0;
     }
@@ -668,9 +669,14 @@ static void open_found(struct rtfs_context* ctx, struct rtfs_request* r, int32_t
     f->fat.first_cluster = r->fat.found.first_cluster; f->fat.size = r->fat.found.size; f->fat.position = 0;
     f->fat.entry_lba = r->fat.found.entry_lba; f->fat.entry_index = r->fat.found.entry_index;
     f->fat.cache_index = 0; f->fat.cache_cluster = 0;
+    f->fat.entry_dirty = 0;
     {   /* Already open: its chain and size as that descriptor has them. */
         const struct rtfs_file* other = open_entry(ctx, f->fat.entry_lba, f->fat.entry_index, r->slot);
-        if (other != 0) { f->fat.first_cluster = other->fat.first_cluster; f->fat.size = other->fat.size; }
+        if (other != 0) {
+            f->fat.first_cluster = other->fat.first_cluster;
+            f->fat.size = other->fat.size;
+            f->fat.entry_dirty = other->fat.entry_dirty;
+        }
     }
     finish(ctx, r, make_fd(f, r->slot));
 }

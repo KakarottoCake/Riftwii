@@ -228,7 +228,7 @@ today). Checked against the other users of MEM2:
 - **The menu's MEM2 heap**, covers and textures come from arena 2, which
   starts above the stash.
 - **The plugin arena** ([PLUGINS.md](PLUGINS.md)) is taken from the top of
-  the loader's MEM2 heap downward, at the far end from the stash: 256 KiB
+  the loader's MEM2 heap downward, at the far end from the stash: 384 KiB
   (`RWP_ARENA_BYTES`) just below where arena 2 ends, only once a plugin is
   used, and given back when the plugins shut down at the menu's close.
   #113's Reset restart snapshot copies MEM1 (24 MiB) into MEM2 at

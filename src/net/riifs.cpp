@@ -141,6 +141,7 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
     std::vector<DirEntry> entries;
     std::vector<char> name(kNameBytes + 1, 0);
     bool too_many = false;
+    bool stat_failed = false;
     // Every entry the PC sends counts, "." and ".." too (two of each kind
     // at most): skipped ones were not, and a server answering "." for ever
     // held the listing for good (BUG-11).
@@ -163,6 +164,10 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
             error = "RiiFS: connection lost while listing " + path;
             return false;
         }
+        if (rc < 0) {
+            stat_failed = true;
+            break;
+        }
         name[kNameBytes] = 0;
         const std::size_t n = std::min<std::size_t>(static_cast<std::size_t>(length), std::strlen(name.data()));
         e.name.assign(name.data(), n);
@@ -180,6 +185,12 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
     }
     if (too_many) {
         error = "RiiFS: " + path + " lists more than " + std::to_string(kMaxListing) + " entries";
+        return false;
+    }
+    if (stat_failed) {
+        // No partial listing: dummy stats could replace cached files, and
+        // entries not reached could be mistaken for stale copies.
+        error = "RiiFS: the server could not stat an entry while listing " + path;
         return false;
     }
     out = std::move(entries);
