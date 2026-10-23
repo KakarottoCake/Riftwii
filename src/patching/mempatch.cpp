@@ -133,10 +133,10 @@ bool apply_plain(const MemoryPatch& p, const std::vector<MemoryRegion>& writable
     }
     const std::uint32_t address = memory_patch_target(p);
     if (!p.original.empty()) {
-        if (!inside(writable, address, p.original.size())) {
-            error = "memory patch reads outside RAM at " + hex32(address);
-            return false;
-        }
+        // The original is only compared, not written: a patch whose bytes
+        // differ is skipped even where nothing may be written (a hook
+        // RiftWii placed, as a search passes such matches over), instead
+        // of failing the launch. What cannot be read at all still fails.
         std::vector<std::uint8_t> current(p.original.size());
         if (!memory.read(address, current.data(), current.size())) {
             error = "memory read failed at " + hex32(address);
