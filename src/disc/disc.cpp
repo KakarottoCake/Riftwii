@@ -344,12 +344,12 @@ bool read_apploader_header(const ByteSource& data, ApploaderHeader& out, std::st
         error = "apploader lies outside the partition data";
         return false;
     }
-    // The caller jumps straight to this address after loading the code
-    // and trailer. An arbitrary MEM1 address can point into the loader or
-    // uninitialized RAM, even when the image itself fits.
-    if (a.total_size() < 4 || a.entry < kApploaderLoadAddress ||
-        a.entry - kApploaderLoadAddress > a.total_size() - 4 || (a.entry & 3u) != 0) {
-        error = "apploader entry point is not an aligned address inside its loaded image";
+    // The caller loads both code and trailer, then jumps straight here.
+    // The entry must name a complete instruction in the code; the trailer
+    // and other MEM1 addresses do not supply the entry function.
+    if (a.size < 4 || a.entry < kApploaderLoadAddress ||
+        a.entry - kApploaderLoadAddress > a.size - 4 || (a.entry & 3u) != 0) {
+        error = "apploader entry point is not an aligned address inside its code";
         return false;
     }
     out = a;
