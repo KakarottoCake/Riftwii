@@ -70,6 +70,20 @@ bool wanted(const ZipEntry& entry, const GameHackingLimits& limits) {
     return !entry.directory && has_suffix_nocase(entry.name, ".txt") && entry.unpacked_size <= limits.entry_unpacked;
 }
 
+// Whether the name at `at` sits inside a tag's href attribute: the last "<"
+// before it comes after the last ">", and "href" appears between that "<" and
+// the name. A zip name written in the page's text, or in another attribute,
+// is not taken as the newest.
+bool inside_href(const std::string& listing, std::size_t at) {
+    const std::size_t open = listing.rfind('<', at);
+    if (open == std::string::npos) return false;
+    const std::size_t close = listing.rfind('>', at);
+    if (close != std::string::npos && close > open) return false;
+    std::string tag = listing.substr(open, at - open);
+    std::transform(tag.begin(), tag.end(), tag.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return tag.find("href") != std::string::npos;
+}
+
 }  // namespace
 
 bool gamehacking_zip_name_ok(const std::string& name) { return zip_name_date(name) != 0; }
@@ -91,7 +105,7 @@ bool gamehacking_newest_wii_zip(const std::string& listing, std::string& name, s
                               (after == '"' || after == '\'' || after == '?' || after == '#' || after == '>' ||
                                after == '<' || after == ' ' || after == '\t' || after == '\r' || after == '\n');
         const std::string candidate = listing.substr(at, length);
-        const unsigned long date = anchored ? zip_name_date(candidate) : 0;
+        const unsigned long date = anchored && inside_href(listing, at) ? zip_name_date(candidate) : 0;
         if (date > best_date) {
             best_date = date;
             best = candidate;
