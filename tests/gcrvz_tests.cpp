@@ -516,12 +516,37 @@ void TestRefusals() {
     EXPECT_FALSE(RvzDiscSource::open(std::make_shared<MemorySource>(d.rvz), disc, error));
 }
 
+void TestIncompleteRawGroups() {
+    constexpr std::uint32_t chunk = 0x8000;
+    for (std::uint32_t size : {chunk, chunk + 0x1800}) {
+        for (Kind kind : {Kind::Zero, Kind::Stored}) {
+            Disc d = make_disc(size, chunk, false, {kind});
+            // Leave the stored groups intact but remove the disc's final
+            // byte from the raw entry. A runtime table must preserve this
+            // gap instead of mapping bytes the host reader cannot read.
+            constexpr std::size_t raw_at = 0x48 + 0xDC;
+            put64(d.rvz, raw_at + 8, size - 0x80 - 1);
+
+            std::unique_ptr<RvzImage> image;
+            std::string error;
+            EXPECT_TRUE(RvzImage::open(std::make_shared<MemorySource>(d.rvz), image, error));
+            if (!image) continue;
+            std::uint8_t last = 0xAA;
+            EXPECT_FALSE(image->read_raw(size - 1, &last, 1));
+            RvzRuntimeTable table;
+            EXPECT_FALSE(image->disc_runtime_table(table, error));
+            EXPECT_TRUE(error.find("not stored as a whole group") != std::string::npos);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
     TestVerdicts();
     TestDiscs();
     TestRefusals();
+    TestIncompleteRawGroups();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
