@@ -81,12 +81,15 @@ bool gamehacking_newest_wii_zip(const std::string& listing, std::string& name, s
     std::string best;
     std::size_t at = 0;
     while ((at = listing.find(kZipPrefix, at)) != std::string::npos) {
-        // A link target, not a word somewhere in the page: after a quote or
-        // a slash, and ending the address (so "...zip.bak" is not one).
+        // A link target, not a word somewhere in the page: after a quote, an
+        // equals sign (an unquoted href) or a slash, and ending the address
+        // (so "...zip.bak" is not one): a closing quote, a query or fragment,
+        // the end of the tag, or white space.
         const char before = at > 0 ? listing[at - 1] : '\0';
         const char after = at + length < listing.size() ? listing[at + length] : '\0';
-        const bool anchored = (before == '"' || before == '\'' || before == '/') &&
-                              (after == '"' || after == '\'' || after == '?' || after == '#');
+        const bool anchored = (before == '"' || before == '\'' || before == '/' || before == '=') &&
+                              (after == '"' || after == '\'' || after == '?' || after == '#' || after == '>' ||
+                               after == '<' || after == ' ' || after == '\t' || after == '\r' || after == '\n');
         const std::string candidate = listing.substr(at, length);
         const unsigned long date = anchored ? zip_name_date(candidate) : 0;
         if (date > best_date) {

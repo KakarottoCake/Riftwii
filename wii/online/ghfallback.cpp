@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ghfallback.hpp"
 
+#include <dirent.h>
 #include <sys/stat.h>
 
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
@@ -152,6 +154,28 @@ bool CachedZipIsGood(const GameHackingIndex& index, Parts& parts) {
     return true;
 }
 
+// Removes every zip in the cache folder that the index does not name: the
+// previous one, and any a power cut left between the zip's write and the
+// index's. Only names of exactly the zip format (no path in them) are touched.
+void RemoveOtherZips(const std::string& keep) {
+    DIR* dir = opendir(kGameHackingDir);
+    if (!dir) return;
+    std::vector<std::string> doomed;
+    while (const dirent* item = readdir(dir)) {
+        const std::string name = item->d_name;
+        // Compared without regard to case so a card that lists the name
+        // differently never costs the zip just written.
+        bool same = name.size() == keep.size();
+        for (std::size_t i = 0; same && i < name.size(); ++i)
+            same = std::tolower(static_cast<unsigned char>(name[i])) == std::tolower(static_cast<unsigned char>(keep[i]));
+        if (!same && gamehacking_zip_name_ok(name)) doomed.push_back(name);
+    }
+    closedir(dir);
+    for (const std::string& name : doomed) {
+        if (std::remove(ZipPath(name).c_str()) == 0) logf("Cheats: removed the old GameHacking.org zip %s\n", name.c_str());
+    }
+}
+
 // The two requests: the listing, then (unless the cached zip is already the
 // newest) the zip. On success `index` is the cache's new state, on the card.
 bool Refresh(GameHackingIndex& index, bool have_cache, std::string& error) {
@@ -204,7 +228,7 @@ bool Refresh(GameHackingIndex& index, bool have_cache, std::string& error) {
     if (!WriteFileAtomic(ZipPath(name), zip, get.body_length, error)) return false;
     // The index follows the zip, so one that names a zip is never left without it.
     if (!WriteIndex(fresh, error)) return false;
-    if (have_cache && index.zip != name) std::remove(ZipPath(index.zip).c_str());
+    RemoveOtherZips(name);
     logf("Cheats: kept %s from %s (%u bytes): %u games, %u entries left out (too big, no game ID, or a second file for a game)\n",
          name.c_str(), kGameHackingName, static_cast<unsigned>(get.body_length), static_cast<unsigned>(fresh.entry.size()),
          static_cast<unsigned>(fresh.left_out));

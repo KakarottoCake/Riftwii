@@ -1073,11 +1073,18 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     CheatSource found_in = CheatSource::Archive;
     std::string from_zip;
     bool have = false;
+    bool archive_none = false;  // the archive answered 404: it has nothing for this game
     if (HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
         have = parse_cheat_text(std::string(body.begin(), body.end()), file, why);
-        if (!have) error = "the cheat archive has no cheats for " + game_id;
+        if (!have) {
+            // An answer that is not a cheat file says nothing about whether
+            // the archive has cheats for this game.
+            error = "the cheat archive's answer for " + game_id + " could not be read";
+            logf("Cheats: the cheat archive's answer for %s cannot be read: %s\n", game_id.c_str(), why.c_str());
+        }
     } else if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0) {
         // The archive answers 404 for a game it has no cheats for.
+        archive_none = true;
         error = "the cheat archive has no cheats for " + game_id;
     }
     if (!have) {
@@ -1087,14 +1094,33 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         logf("Cheats: %s (%s); trying %s\n", error.c_str(), game_id.c_str(), kGameHackingName);
         std::string text, from_error;
         const GameHackingResult result = GameHackingCheats(archive_id, text, from_error, &from_zip, !NetFailed());
-        if (result == GameHackingResult::Found && parse_cheat_text(text, file, why)) {
-            body.assign(text.begin(), text.end());
-            found_in = CheatSource::GameHacking;
-            have = true;
-        } else if (result != GameHackingResult::Unavailable) {
-            error = std::string("neither the cheat archive nor ") + kGameHackingName + " has cheats for " + game_id;
-        } else {
-            logf("Cheats: %s: %s\n", kGameHackingName, from_error.c_str());
+        bool game_hacking_unreadable = false;
+        if (result == GameHackingResult::Found) {
+            if (parse_cheat_text(text, file, why)) {
+                body.assign(text.begin(), text.end());
+                found_in = CheatSource::GameHacking;
+                have = true;
+            } else {
+                game_hacking_unreadable = true;
+                logf("Cheats: %s's file for %s cannot be read: %s\n", kGameHackingName, game_id.c_str(),
+                     why.c_str());
+            }
+        }
+        if (!have) {
+            if (game_hacking_unreadable) {
+                error = std::string(kGameHackingName) + " has a file for " + game_id + " but it could not be read";
+            } else if (result == GameHackingResult::NoCheats) {
+                // Only what was established is said: an answer that was
+                // unreadable or missing is not "no cheats".
+                if (archive_none)
+                    error = std::string("neither the cheat archive nor ") + kGameHackingName + " has cheats for " +
+                            game_id;
+                else
+                    error = std::string("the cheat archive gave no usable answer, and ") + kGameHackingName +
+                            " has no cheats for " + game_id;
+            } else {
+                logf("Cheats: %s: %s\n", kGameHackingName, from_error.c_str());
+            }
         }
     }
     if (!have) return false;

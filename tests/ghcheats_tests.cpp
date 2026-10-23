@@ -70,6 +70,12 @@ int main() {
         // Only the name is taken from a link, whatever path it has.
         EXPECT_TRUE(gamehacking_newest_wii_zip(listing({"../text_wii_20260927.zip"}), name, error));
         EXPECT_EQ(name, "text_wii_20260927.zip");
+        // An unquoted href ends at ">" or white space; "<" ends link text.
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=text_wii_20260927.zip>zip</a>", name, error));
+        EXPECT_EQ(name, "text_wii_20260927.zip");
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=text_wii_20261001.zip class=x>zip</a>", name, error));
+        EXPECT_EQ(name, "text_wii_20261001.zip");
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a>text_wii_20261105.zip</a>", name, error) == false);
         EXPECT_TRUE(gamehacking_zip_name_ok("text_wii_20260927.zip"));
         EXPECT_TRUE(!gamehacking_zip_name_ok("../text_wii_20260927.zip"));
         EXPECT_TRUE(!gamehacking_zip_name_ok("text_wii_20260927.zip/x"));
