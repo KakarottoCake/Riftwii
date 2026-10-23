@@ -793,18 +793,24 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         bt_update_rumble(bt, 1);
         bt_check_extensions(bt);
     }
+    /* A refused send leaves its read IDLE. Retry it once in this pass,
+     * without parsing stale bytes or touching a request IOS still owns. */
     for (i = 0; i < GC_BT_EVENT_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_rq* rq = &bt->events[i];
-        if (rq->state != GC_BT_RQ_DONE) continue;
-        if (rq->result > 0) bt_on_event(bt, bt->event_buf[i], (uint32_t)rq->result);
-        else bt->last_error = rq->result;
+        if (rq->state == GC_BT_RQ_SENT) continue;
+        if (rq->state == GC_BT_RQ_DONE) {
+            if (rq->result > 0) bt_on_event(bt, bt->event_buf[i], (uint32_t)rq->result);
+            else bt->last_error = rq->result;
+        }
         bt_read(bt, rq, GC_USB_INTRMSG, GC_BT_EP_EVENTS, bt->event_buf[i]);
     }
     for (i = 0; i < GC_BT_ACL_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_rq* rq = &bt->acl[i];
-        if (rq->state != GC_BT_RQ_DONE) continue;
-        if (rq->result > 0) bt_on_acl(bt, bt->acl_buf[i], (uint32_t)rq->result);
-        else bt->last_error = rq->result;
+        if (rq->state == GC_BT_RQ_SENT) continue;
+        if (rq->state == GC_BT_RQ_DONE) {
+            if (rq->result > 0) bt_on_acl(bt, bt->acl_buf[i], (uint32_t)rq->result);
+            else bt->last_error = rq->result;
+        }
         bt_read(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     }
     if (bt->stage >= GC_BT_STAGE_RESET && bt->stage <= GC_BT_STAGE_SCAN && ++bt->stage_polls == 30) {
