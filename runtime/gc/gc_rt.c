@@ -566,9 +566,9 @@ static int32_t gc_sd_write_locked(struct gc_rt_context* ctx, uint32_t sector, ui
             q[3] = ctx->card_rca << 16;
             q[4] = q[5] = q[6] = q[7] = q[8] = 0;
             ctx->response[0] = 0;
-            if (gc_ioctl(ctx, ctx->sdio_fd, GC_SDIO_SENDCMD, (uint32_t)(uintptr_t)q, 36,
-                         (uint32_t)(uintptr_t)ctx->response, 16) < 0)
-                break;
+            result = gc_ioctl(ctx, ctx->sdio_fd, GC_SDIO_SENDCMD, (uint32_t)(uintptr_t)q, 36,
+                              (uint32_t)(uintptr_t)ctx->response, 16);
+            if (result < 0) return result;  /* leave the save dirty until status can be checked */
             state = (ctx->response[0] >> 9) & 0xFu;
             if (state != 6 && state != 7) break;  /* left receive-data and programming */
         }
