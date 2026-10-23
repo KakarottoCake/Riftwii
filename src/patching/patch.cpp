@@ -153,7 +153,9 @@ bool ParseHex(const std::string& s, std::vector<std::uint8_t>& out, bool& odd) {
     if (digits < 2) return false;
     const std::size_t end = s.size() - (odd ? 1 : 0);
     std::vector<std::uint8_t> bytes;
-    bytes.reserve(digits / 2);
+    // Checked: with no exceptions a failed reserve would end the program.
+    // False with the thread's OutOfMemoryScope set (ReadHex tells it apart).
+    if (!try_reserve(bytes, digits / 2)) return false;
     for (std::size_t i = start; i < end; i += 2) {
         unsigned v = 0;
         for (std::size_t k = 0; k < 2; ++k) {
@@ -545,7 +547,12 @@ bool ReadHex(pugi::xml_node n, const char* name, const std::string& label, std::
     if (v.empty()) { error = label + " " + name + " empty"; return false; }
     if (v.size() > kMaxHexChars) { error = label + " " + name + " too long"; return false; }
     bool odd = false;
-    if (!ParseHex(v, out, odd)) { error = "invalid " + label + " " + name + " (hex bytes expected)"; return false; }
+    OutOfMemoryScope out_of_memory;
+    if (!ParseHex(v, out, odd)) {
+        if (out_of_memory.failed()) { error = "allocation failure"; return false; }
+        error = "invalid " + label + " " + name + " (hex bytes expected)";
+        return false;
+    }
     if (odd) Warn(ctx, label + " " + name + " has an odd number of hex digits; the last one is left out");
     return true;
 }
@@ -1587,13 +1594,14 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
             s.option = &o;
             s.choice = &ch;
             s.patch = &it->second;
-            s.patch_id = pid;
             // The copy of the params below is the big allocation (all three
             // lists end up in s.params), so its room is asked for before it
             // is made, not after.
             std::size_t params_bytes = HeapBytes(ch.params) + HeapBytes(o.params);
             if (r < ch.patch_params.size()) params_bytes += HeapBytes(ch.patch_params[r]);
             if (!budget.need(sizeof(Selection) + HeapBytes(pid) + params_bytes)) return out_of_room();
+            if (!try_reserve(s.patch_id, pid.size())) return out_of_room();
+            s.patch_id = pid;
             // Riivolution lets an option's params win over its
             // choice's, and the reference's own win over both:
             // later entries win here.
