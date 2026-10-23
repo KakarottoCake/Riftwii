@@ -27,7 +27,9 @@ namespace riftwii::wii {
 namespace {
 
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
-constexpr std::uint32_t kBusClockField = 0x800000F8;  // the time base runs at a quarter of it
+// A constant: boot.cpp writes the bus clock to 0x800000F8 only at the handover, after this is planned (read there,
+// a launch from the RiftWii channel got 0, leaving the adapter's timeouts at a few microseconds and its ports empty).
+constexpr std::uint32_t kBusClock = 0x0E7BE2C0;  // the time base runs at a quarter of it
 constexpr unsigned kScratchRegister = 12;             // pad_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
 // v5 serves 16 handles, picked by the open mode: libogc's USB takes 0 and
@@ -648,7 +650,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->complete_entry = out.code_base + h.complete;
     ctx->fd = out.fd;
     ctx->version = out.version;
-    ctx->ticks_per_ms = read32(kBusClockField) / 4000u;
+    ctx->ticks_per_ms = kBusClock / 4000u;
     ctx->inited = 0;
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
