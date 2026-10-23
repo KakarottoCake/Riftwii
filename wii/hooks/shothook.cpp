@@ -18,7 +18,10 @@ namespace riftwii::wii {
 namespace {
 
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
-constexpr std::uint32_t kBusClockField = 0x800000F8;  // the time base runs at a quarter of it
+// The Wii's bus clock; the time base runs at a quarter of it. A constant, as
+// in wpadhook.cpp: boot.cpp writes it to 0x800000F8 only at the handover,
+// after this is planned, so a launch from the RiftWii channel read 0 there.
+constexpr std::uint32_t kBusClock = 0x0E7BE2C0;
 constexpr unsigned kScratchRegister = 12;             // shot_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
 
@@ -152,7 +155,7 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     ctx->complete_bt = out.code_base + h.complete_bt;
     ctx->complete_nand = out.code_base + h.complete_nand;
     ctx->flags = (demo ? RT_SHOT_FLAG_DEMO : 0u) | (direct ? RT_SHOT_FLAG_DIRECT : 0u);
-    ctx->ticks_per_second = *reinterpret_cast<volatile std::uint32_t*>(kBusClockField) / 4u;
+    ctx->ticks_per_second = kBusClock / 4u;
     ctx->number = 1;
     out.active = true;
     logf("Screenshots: blob %u bytes at 0x%08x, state%s %u bytes at 0x%08x; IOS_IoctlvAsync 0x%08x, "
