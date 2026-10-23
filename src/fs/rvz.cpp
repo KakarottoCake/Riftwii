@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/sha1.hpp"
 #include "rvz_error.hpp"
@@ -74,6 +75,19 @@ bool chunk_size_valid(std::uint32_t chunk, bool wia) {
     if (chunk == 0) return false;
     if (chunk >= kTwoMiB || wia) return chunk % kTwoMiB == 0;
     return chunk >= kSector && (chunk & (chunk - 1)) == 0;
+}
+
+// The checked resize for the group buffers. It does not tell an
+// OutOfMemoryScope (checkedalloc.hpp): each caller turns a false into its
+// own "out of memory for a group" error, and the gamecube plugin, which is
+// built from this file, has a scope table of its own that nothing reads and
+// no room for the 132 bytes it takes. One copy, not inlined at each call,
+// for the same reason.
+__attribute__((noinline)) bool resize_group_buffer(std::vector<std::uint8_t>& buffer, std::size_t size) {
+    if (size > buffer.capacity() && (!within_checked_cap(size, 1) || !detail::fits_now(size))) return false;
+    buffer.reserve(size);  // exactly what was checked, not the doubling resize() would take
+    buffer.resize(size);
+    return true;
 }
 
 }  // namespace
@@ -364,12 +378,14 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
     if (file_offset > file_->size() || stored > file_->size() - file_offset) {
         return fail("data at " + std::to_string(file_offset) + " runs past the end of the file");
     }
+    // A damaged table can name up to the whole file: the sizes below are
+    // checked so that is a failed read, not the end of RiftWii.
     if (!compressed) {
-        out.resize(stored);
+        if (!resize_group_buffer(out, stored)) return fail("out of memory for a group");
         if (stored != 0 && !file_->read(file_offset, out.data(), stored)) return fail("read error");
         return true;
     }
-    stored_.resize(stored);
+    if (!resize_group_buffer(stored_, stored)) return fail("out of memory for a group");
     if (stored != 0 && !file_->read(file_offset, stored_.data(), stored)) return fail("read error");
     std::size_t capacity = expected;
     const unsigned long long known = ZSTD_getFrameContentSize(stored_.data(), stored_.size());
@@ -378,7 +394,7 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
         if (known > std::uint64_t(expected) + kZstdSlack) return fail("a group claims an impossible size");
         capacity = static_cast<std::size_t>(known);
     }
-    out.resize(capacity);
+    if (!resize_group_buffer(out, capacity)) return fail("out of memory for a group");
     const std::size_t got =
         ZSTD_decompressDCtx(static_cast<ZSTD_DCtx*>(dctx_), out.data(), out.size(), stored_.data(), stored_.size());
     if (ZSTD_isError(got)) {
@@ -401,7 +417,7 @@ bool RvzImage::load_group(std::uint32_t index, std::uint32_t payload, std::uint6
     if (index >= groups_.size()) return fail("group " + std::to_string(index) + " does not exist");
     const Group& g = groups_[index];
     const std::uint32_t stored = g.size & 0x7FFFFFFFu;
-    cache_.resize(payload);
+    if (!resize_group_buffer(cache_, payload)) return fail("out of memory for a group");
     if (stored == 0) {
         std::fill(cache_.begin(), cache_.end(), 0);
         remember(index, payload, data_offset, lists);

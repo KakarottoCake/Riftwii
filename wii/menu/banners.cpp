@@ -17,6 +17,7 @@
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/bnr.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/gcbanner.hpp"
 
 namespace riftwii::wii {
@@ -88,12 +89,9 @@ namespace {
 // A failure is remembered for the session, so the game is not tried again.
 bool StoreBannerBytes(const std::string& id, std::vector<std::uint8_t>& bnr, bool read, std::string& error) {
     OpeningBanner check;
-    bool parsed = false;
-    try {
-        parsed = read && parse_opening_bnr(bnr.data(), bnr.size(), check, error, false);
-    } catch (const std::bad_alloc&) {
-        error = "out of memory for the banner";
-    }
+    OutOfMemoryScope out_of_memory;
+    const bool parsed = read && parse_opening_bnr(bnr.data(), bnr.size(), check, error, false);
+    if (!parsed && out_of_memory.failed()) error = "out of memory for the banner";
     if (!parsed) {
         g_failed.insert(id);
         logf("Banner of %s: %s\n", id.c_str(), error.c_str());
@@ -126,12 +124,9 @@ bool StoreBanner(const ImageGame& game, std::string& error) {
     if (game.gamecube) {
         // A GameCube disc's banner is a BNR1/BNR2 picture, not a Wii
         // opening.bnr, so it is checked and stored on its own path.
-        bool parsed = false;
-        try {
-            parsed = ReadGameCubeDiscBanner(game, bnr, error);
-        } catch (const std::bad_alloc&) {
-            error = "out of memory for the banner";
-        }
+        OutOfMemoryScope out_of_memory;
+        const bool parsed = ReadGameCubeDiscBanner(game, bnr, error);
+        if (!parsed && out_of_memory.failed()) error = "out of memory for the banner";
         if (!parsed) {
             g_failed.insert(game.id);
             logf("Banner of %s: %s\n", game.id.c_str(), error.c_str());
@@ -145,12 +140,9 @@ bool StoreBanner(const ImageGame& game, std::string& error) {
              static_cast<unsigned>(bnr.size()));
         return true;
     }
-    bool read = false;
-    try {
-        read = read_image_disc_file(game, "/opening.bnr", bnr, error);
-    } catch (const std::bad_alloc&) {
-        error = "out of memory for the banner";
-    }
+    OutOfMemoryScope out_of_memory;
+    const bool read = read_image_disc_file(game, "/opening.bnr", bnr, error);
+    if (!read && out_of_memory.failed()) error = "out of memory for the banner";
     return StoreBannerBytes(game.id, bnr, read, error);
 }
 
@@ -160,12 +152,9 @@ bool StoreChannelBanner(const NandChannel& channel, std::string& error) {
         return false;
     }
     std::vector<std::uint8_t> bnr;
-    bool read = false;
-    try {
-        read = read_nand_channel_banner(channel, bnr, error);
-    } catch (const std::bad_alloc&) {
-        error = "out of memory for the banner";
-    }
+    OutOfMemoryScope out_of_memory;
+    const bool read = read_nand_channel_banner(channel, bnr, error);
+    if (!read && out_of_memory.failed()) error = "out of memory for the banner";
     return StoreBannerBytes(channel.game_id, bnr, read, error);
 }
 
@@ -193,12 +182,13 @@ Background g_background;
 
 BannerFetch FetchGameCubeBanner(const std::string& game_id, bool regional_fallback, std::string& error) {
     std::vector<std::uint8_t> bytes;
-    BannerDownload answer = BannerDownload::Failed;
-    try {
-        answer = DownloadGameCubeBanner(game_id, regional_fallback, bytes, error);
-    } catch (const std::bad_alloc&) {
+    OutOfMemoryScope out_of_memory;
+    BannerDownload answer = DownloadGameCubeBanner(game_id, regional_fallback, bytes, error);
+    // No room is not "no banner": Failed stops this session's downloads
+    // and writes no stamp, so the game is asked for again next time.
+    if (answer != BannerDownload::Found && out_of_memory.failed()) {
         error = "out of memory for the banner";
-        answer = BannerDownload::None;
+        answer = BannerDownload::Failed;
     }
     if (answer == BannerDownload::Failed) return BannerFetch::Failed;
     if (answer == BannerDownload::None) {

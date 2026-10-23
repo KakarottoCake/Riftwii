@@ -207,6 +207,17 @@ static void refuses_without_memory() {
     CHECK(gc_real_plan(source, target, "GALE01", true, plan, error, nth_fails));
     CHECK(!plan.out_of_memory);
 
+    // Room for the image but not for a save's own copy: refused the same
+    // way (the menu shows its copy-memory message), nothing half planned.
+    Bytes with_save = card();
+    CHECK(gc_card_import(with_save, save("GALE01", "big save", 40), error));
+    calls_allowed = 2;
+    CHECK(!gc_real_plan(with_save, target, "GALE01", true, plan, error, nth_fails));
+    CHECK(plan.out_of_memory && plan.image.empty());
+    calls_allowed = 100;
+    CHECK(gc_real_plan(with_save, target, "GALE01", true, plan, error, nth_fails));
+    CHECK(!plan.out_of_memory && plan.count.added == 1);
+
     const auto folder = std::filesystem::temp_directory_path() / "riftwii-real-card-memory-tests";
     std::filesystem::create_directories(folder);
     const std::string path = (folder / "card.raw").string();
