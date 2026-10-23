@@ -133,7 +133,9 @@ class Machine:
         self.durations = []
         self.pending = []
         self.handshake = None
+        self.abandoned_acks = []
         self.ack_latency = 1000
+        self.send_timeout_at = None
         self.controller_latency = 1000
         self.sends = []
         self.control = 0
@@ -180,6 +182,12 @@ class Machine:
             self.ticks += 1
         if address == self.functions.get("gc_io_checkpoint"):
             self.checkpoints += 1
+        if (address == self.functions.get("gc_ipc_wait")
+                and self.send_timeout_at is not None and self.ticks >= self.send_timeout_at):
+            # Exercise the real poll-limit branch without executing fifty
+            # million iterations in Unicorn. Worker deadlines stay real.
+            self.set_reg(5, 50000000)
+            self.send_timeout_at = None
         if address == RETURN:
             uc.emu_stop()
             return
@@ -207,6 +215,9 @@ class Machine:
         if self.handshake is not None and self.ticks >= self.handshake:
             self.control |= 2
             self.handshake = None
+        while self.abandoned_acks and self.ticks >= self.abandoned_acks[0]:
+            heapq.heappop(self.abandoned_acks)
+            self.control |= 2
         if self.control & 4:
             return
         ready = next((request for request in self.pending if self.ticks >= request[1]), None)
@@ -264,6 +275,11 @@ class Machine:
             self.pending.append((physical, self.ticks + max(latency, self.ack_latency)))
             self.sends.append((physical, fields[2]))
         elif value in (2, 4):
+            if value == 2 and self.handshake is not None:
+                # Writing Y2 also writes X1=0. A controller timeout
+                # withdraws that doorbell; IOS can still acknowledge late.
+                heapq.heappush(self.abandoned_acks, self.handshake)
+                self.handshake = None
             self.control &= ~value
 
     def call(self, function, *arguments):
@@ -562,6 +578,48 @@ def test_card(layout):
     print("Save overlap: the first snapshot stays immutable and newer dirty bytes are written again")
 
 
+def test_controller_timeout(layout):
+    for kind in ("bt", "gcad"):
+        for late_ack in (False, True):
+            machine = Machine(layout)
+            setup_controllers(machine)
+            function, address = controller_poll(kind)
+            # Infinity represents an IOS request/acknowledgment that never
+            # arrives. The finite case acknowledges after the caller exits.
+            machine.ack_latency = 10000 if late_ack else float("inf")
+            machine.send_timeout_at = machine.ticks + 1000
+            machine.call(function, machine.ctx, address)
+            assert len(machine.sends) == 1, "the controller did not attempt its timed-out send"
+            assert machine.get("io_pending") == 0 and machine.get("storage_busy") == 0
+            assert machine.get("ipc_sending") == 0, "a controller timeout kept the doorbell forever"
+            assert machine.handshake is None, "the timed-out X1 was not withdrawn"
+            if late_ack:
+                machine.ticks += 10000
+                machine.finish_ios()
+                assert machine.control & 2, "the test did not deliver a stale Y2"
+
+            machine.ack_latency = 1000
+            machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
+            machine.drain()
+            assert [result for _, result in machine.callbacks] == [1]
+            expected = bytes((10 * 512 + 37 + 4096 + i) % 251 for i in range(512))
+            assert bytes(machine.uc.mem_read(0x80050000, 512)) == expected
+            assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
+
+            polls = machine.get_object(address, kind, "polls")
+            machine.call(function, machine.ctx, address)
+            assert machine.get_object(address, kind, "polls") == polls + 1
+            other_kind = "gcad" if kind == "bt" else "bt"
+            other_function, other_address = controller_poll(other_kind)
+            sends = len(machine.sends)
+            machine.call(other_function, machine.ctx, other_address)
+            assert len(machine.sends) > sends, "controller IPC did not recover after the timeout"
+            machine.ticks += 2000
+            machine.call(other_function, machine.ctx, other_address)
+            assert machine.get("ipc_sending") == 0
+    print("Controller send timeouts: absent and late Y2 release X1; disc bytes and both controller polls recover")
+
+
 def test_timeout(layout):
     for late_ack in (False, True):
         machine = Machine(layout, latency=607500000)
@@ -575,6 +633,7 @@ def test_timeout(layout):
         assert [kind for _, kind in machine.callbacks] == [2]
         assert machine.get("io_pending") != 0
         assert machine.get("ipc_sending") == int(late_ack)
+        assert machine.get("storage_busy") == 0 and machine.get("io_job") == 0
         machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
         machine.alarm()
         assert machine.get("sd_requests") == 1, "a timeout released a buffer IOS still owned"
@@ -586,6 +645,36 @@ def test_timeout(layout):
         assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
     print("Timeout: buffers and send handshake stay quarantined until the late acknowledgment/reply; "
           "the next read then succeeds")
+
+
+def test_reply_before_ack_timeout(layout):
+    machine = Machine(layout, latency=607500000)
+    machine.ack_latency = machine.latency
+    machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
+    machine.alarm()
+    machine.alarm()
+    physical, _ = machine.pending[0]
+    machine.pending[0] = (physical, machine.ticks)
+    machine.alarm()  # route the reply while Y2 is still missing
+    assert machine.get("io_reply") == 1 and machine.get("ipc_sending") == 1
+    machine.ticks += 303750001
+    machine.drain()
+    assert [result for _, result in machine.callbacks] == [2]
+    assert machine.get("storage_busy") == 0 and machine.get("io_job") == 0
+    machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
+    machine.alarm()
+    assert machine.get("io_pending") == 0, "an already routed reply kept the DMA quarantined"
+    assert machine.get("ipc_sending") == 1, "the missing acknowledgment lost its quarantine"
+    assert machine.get("sd_requests") == 1
+    machine.ticks += 303750001
+    machine.latency = 0
+    machine.ack_latency = 1000
+    machine.drain()
+    assert [result for _, result in machine.callbacks] == [2, 1]
+    expected = bytes((10 * 512 + 37 + 4096 + i) % 251 for i in range(512))
+    assert bytes(machine.uc.mem_read(0x80050000, 512)) == expected
+    assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
+    print("Reply before a send timeout: DMA and late Y2 recover independently before the next read")
 
 
 def test_reset_drain(layout):
@@ -708,7 +797,9 @@ def main():
     test_cancel_before_start(layout)
     test_stream(layout)
     test_card(layout)
+    test_controller_timeout(layout)
     test_timeout(layout)
+    test_reply_before_ack_timeout(layout)
     test_reset_drain(layout)
     test_leave_timeout(layout)
     test_rvz(layout, args.devkitppc)
