@@ -2119,6 +2119,14 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         return false;
     }
     std::uint32_t fst_max = std::max(be32(&boot[0x42C]), fst_size);
+    // The room for the FST is MEM1 too. Past it, the layout below wraps:
+    // for a libogc game an FST address of 0 with an arena top that
+    // passes the loader's checks.
+    if (fst_max > 0x01800000u) {
+        error = "the game's FST room is larger than MEM1";
+        logf("GameCube: %s\n", error.c_str());
+        return false;
+    }
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
         fst = pack->fst;
@@ -2352,6 +2360,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         fst_addr = (kMem1Top - room) & ~31u;
         mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
         arena_hi = mem1.arena_hi;
+        // A refused layout (arena top 0) stays refused: the libogc
+        // arithmetic below would wrap it into one that passes.
+        if (arena_hi == 0) return false;
         // libogc (gc_rt.h, "libogc") does not take ArenaHi from 0x80000034
         // in every version: Sonic Riders Tournament Edition's sets its
         // arena's top to the FST's address less 0x800, so with the FST at
