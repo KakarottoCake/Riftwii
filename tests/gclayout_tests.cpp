@@ -160,6 +160,10 @@ void refuses_an_fst_address_outside_mem1() {
     const GcMem1Plan plan = plan_gc_mem1(0x20, pieces, 0x2000);
     EXPECT_EQ(plan.arena_hi, 0u);
     for (const GcMem1Piece& p : pieces) EXPECT_EQ(p.address, 0u);
+    // The exclusive endpoint is not an FST address either.
+    std::vector<GcMem1Piece> endpoint = {{0x5d00, 0}, {0x440, 0}};
+    EXPECT_EQ(plan_gc_mem1(0x81800000, endpoint, 0x2000).arena_hi, 0u);
+    for (const GcMem1Piece& piece : endpoint) EXPECT_EQ(piece.address, 0u);
     // Past MEM1's top is refused the same way.
     std::vector<GcMem1Piece> high = {{0x5d00, 0}, {0x440, 0}};
     EXPECT_EQ(plan_gc_mem1(0x81800020, high, 0x2000).arena_hi, 0u);
