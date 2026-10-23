@@ -1750,29 +1750,36 @@ void gc_io_worker(struct gc_rt_context* ctx) {
 /* A game-driven reset/exec can arrive while the worker is suspended.
  * Its OS may stop delivering alarms next. Drain the one DMA in place
  * before dropping the continuation or resetting its buffers; saved card
- * sectors remain dirty and the exit's forced flush writes them again. */
-static void gc_io_drain(struct gc_rt_context* ctx) {
+ * sectors remain dirty and the exit's forced flush writes them again.
+ * A failed device gets five seconds; failure keeps its buffers quarantined. */
+static int gc_io_drain(struct gc_rt_context* ctx) {
     uint32_t msr;
+    uint32_t started;
     msr = gc_irq_off();
+    __asm__ volatile("mftb %0" : "=r"(started));
     /* A worker's TGC/leave trace can itself time out. Finish that DMA
-     * before a forced card flush or ES reuses the shared buffers, but
+     * before another storage operation reuses the shared buffers, but
      * keep the active worker's stack if IOS refuses the launch. */
-    while (ctx->ipc_sending) {
+    while (ctx->ipc_sending || (ctx->io_pending != 0 && !ctx->io_reply)) {
+        uint32_t now;
         const uint32_t reply = gc_ipc_take();
         if (reply != 0) gc_ipc_route(ctx, reply);
         if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) {
             gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
             ctx->ipc_sending = 0;
         }
-    }
-    while (ctx->io_pending != 0 && !ctx->io_reply) {
-        const uint32_t reply = gc_ipc_take();
-        if (reply != 0) gc_ipc_route(ctx, reply);
+        __asm__ volatile("mftb %0" : "=r"(now));
+        if (now - started >= GC_IO_TIMEOUT_TICKS) {
+            /* IOS still owns this memory. Neither a reset nor diagnostics
+             * may reuse it merely because the deadline expired. */
+            gc_irq_restore(msr);
+            return 0;
+        }
     }
     ctx->io_pending = 0;
     if (ctx->io_running) {
         gc_irq_restore(msr);
-        return;
+        return 1;
     }
     ctx->read_generation++;
     ctx->stream_generation++;
@@ -1789,6 +1796,7 @@ static void gc_io_drain(struct gc_rt_context* ctx) {
      * the old OS is discarded. Queuing that same alarm twice corrupts
      * the SDK's alarm list. */
     gc_irq_restore(msr);
+    return 1;
 }
 
 /* E1: set the stream (or the next one), or cancel it. */
@@ -1952,54 +1960,96 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
 #define GC_ES_LAUNCHTITLE 8u
 #define GC_YUYV_BLACK 0x10801080u
 static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card, int black);
-static void gc_leave(struct gc_rt_context* ctx) {
+static int32_t gc_leave_launch(struct gc_rt_context* ctx) {
     const uint32_t buf = ctx->leave_buf;
+    uint32_t* const request = (uint32_t*)(uintptr_t)(buf + GC_LEAVE_REQUEST_OFFSET);
+    uint32_t* const vectors = (uint32_t*)(uintptr_t)(buf + GC_LEAVE_VECTOR_OFFSET);
+    const uint32_t physical = gc_physical((uint32_t)(uintptr_t)request);
+    uint32_t reply;
+    uint32_t i;
+    int replied = 0;
+    for (i = 0; i < 16; ++i) request[i] = 0;
+    request[0] = GC_IOS_IOCTLV;
+    request[2] = ctx->leave_fd;
+    request[3] = GC_ES_LAUNCHTITLE;
+    request[4] = 2;
+    request[6] = gc_physical((uint32_t)(uintptr_t)vectors);
+    vectors[0] = gc_physical(buf);
+    vectors[1] = 8;
+    vectors[2] = gc_physical(buf + 0x20);
+    vectors[3] = 0xD8;
+    gc_flush(buf, GC_LEAVE_BYTES);
+    /* Abandon a stalled storage doorbell, but retain its DMA quarantine.
+     * ES owns a different request, vectors and input data. A late storage
+     * reply can touch only the old buffers until ES reloads IOS. */
+    gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+    ctx->ipc_sending = 1;
+    gc_write32(GC_IPC_PPCMSG, physical);
+    gc_write32(GC_IPC_PPCCTRL, GC_IPC_X1);
+    /* Once ES takes the launch, IOS can reload and reset the PPC without
+     * a reply. Only an explicit refusal may return to the game. */
+    while (ctx->ipc_sending || !replied) {
+        reply = gc_ipc_take();
+        if (reply == physical) replied = 1;
+        else if (reply != 0) gc_ipc_route(ctx, reply);
+        if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) {
+            gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+            ctx->ipc_sending = 0;
+        }
+    }
+    gc_invalidate((uint32_t)(uintptr_t)request, 64);
+    return (int32_t)request[1];
+}
+
+static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
     uint32_t game_vi[GC_VI_HANDOVER_WORDS];
     int32_t result;
     uint32_t msr;
-    gc_io_drain(ctx);
     /* The memory card first: what the game saved is in MEM2 until a
      * heartbeat writes it back. A sector that will not write keeps the
-     * game here, to try again. */
+     * game here, to try again, unless IOS has stopped answering entirely.
+     * Then HOME still leaves; retain the dirty bits and timeout in RAM. */
     if (ctx->card) {
         struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
-        gc_card_flush(ctx, card, 1);
-        if (card->dirty_count != 0) return;
+        if (storage_ready) {
+            gc_card_flush(ctx, card, 1);
+            if (card->dirty_count != 0) {
+                storage_ready = gc_io_drain(ctx);
+                if (storage_ready) return;
+            }
+        }
+        if (!storage_ready && card->dirty_count != 0) card->flush_error = -1000;
     }
-    gc_trace(ctx, GC_TRACE_LEAVE);
-    /* The exit's own trace can time out too. Its request must release
-     * the shared vectors before ES prepares the title launch. */
-    gc_io_drain(ctx);
+    if (storage_ready) {
+        gc_trace(ctx, GC_TRACE_LEAVE);
+        /* The exit's own trace can time out too. It must not leave the
+         * worker's continuation running during the title launch. */
+        storage_ready = gc_io_drain(ctx);
+    }
     /* A Wii Remote's motor would otherwise run on until its link drops. */
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
     msr = gc_irq_off();  /* the game stops here: IOS takes the console over */
     gc_crash_frame(ctx, 0, 1);
     gc_vi_hand_over(ctx, game_vi);
-    ctx->vec[0] = gc_physical(buf);
-    ctx->vec[1] = 8;
-    ctx->vec[2] = gc_physical(buf + 0x20);
-    ctx->vec[3] = 0xD8;
-    gc_flush(buf, 0x100);
-    gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
-    ctx->storage_busy = 1;
-    ctx->ipc_no_timeout = 1;
-    result = gc_ioctlv(ctx, ctx->leave_fd, GC_ES_LAUNCHTITLE, 2, 0);
-    ctx->ipc_no_timeout = 0;
+    result = gc_leave_launch(ctx);
     /* Still here: IOS said no (the title went, or its ticket). The game
      * comes back (its next frame repaints the screen, as the crash screen
      * redraws itself), and the trace says why. */
-    ctx->storage_busy = 0;
     ctx->last_error = result;
     gc_vi_take_back(ctx, game_vi);
     gc_irq_restore(msr);
-    gc_trace(ctx, GC_TRACE_LEAVE);
+    if (storage_ready) gc_trace(ctx, GC_TRACE_LEAVE);
+}
+
+static void gc_leave(struct gc_rt_context* ctx) {
+    gc_leave_finish(ctx, gc_io_drain(ctx));
 }
 
 /* HOME on a Wii Remote with an extension or on a Classic Controller (HOME
  * and - on a Wii Remote alone, whose HOME is the game's Y), or L, R, Z and
  * Start together on a GameCube controller (the pads as the game reads
  * them), held for leave_hold ticks; checked at every pad read. Not while
- * an SD request is in flight, nor within half a second of the game's last
+ * storage is preparing buffers, nor within half a second of the game's last
  * memory card access (a save may be under way): the next read tries
  * again. */
 #define GC_CARD_QUIET_TICKS 30375000u  /* half a second of the timebase */
@@ -2037,7 +2087,7 @@ static void gc_leave_check(struct gc_rt_context* ctx, const uint8_t* status) {
         ctx->leave_since = now | 1u;
         return;
     }
-    if (now - ctx->leave_since < ctx->leave_hold || ctx->storage_busy) return;
+    if (now - ctx->leave_since < ctx->leave_hold || (ctx->storage_busy && ctx->io_pending == 0)) return;
     if (!gc_card_quiet(ctx, now)) return;
     gc_leave(ctx);
     ctx->leave_since = 0;
@@ -2116,7 +2166,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     /* From the game's thread only: a pad read in an interrupt handler (some
      * games read the pads at the retrace) waits for the next one. */
     __asm__ volatile("mfmsr %0" : "=r"(msr));
-    if ((msr & GC_MSR_EE) == 0 || ctx->storage_busy || !gc_card_quiet(ctx, now)) return;
+    if ((msr & GC_MSR_EE) == 0 || (ctx->storage_busy && ctx->io_pending == 0) || !gc_card_quiet(ctx, now)) return;
     ctx->reset_request_at = 0;
     if (!restart) {
         gc_leave(ctx);  /* a game whose restart is not known to work: back to RiftWii, as holding HOME */
@@ -2133,7 +2183,12 @@ void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args) {
     ctx->resets_asked++;
     ctx->reset_last = args[0] << 8 | (args[2] & 0xFFu);
     if (args[0] == GC_OS_RESET_SHUTDOWN) return;  /* the OS shuts down and the game goes on: as made */
-    gc_io_drain(ctx);
+    if (!gc_io_drain(ctx)) {
+        /* MEM1 cannot be restored under a late DMA. Use the private way
+         * back instead; on refusal the SDK's reset continues as before. */
+        if (ctx->leave_buf != 0 && ctx->leave_fd != 0xFFFFFFFFu) gc_leave_finish(ctx, 0);
+        return;
+    }
     /* A restart in a game that switches programs (Sonic Gems Collection):
      * the SDK boots the program the game named (OSSetBootDol) through
      * __OSBootDolSimple, which gc_on_boot_dol takes, or else resets the
@@ -2217,7 +2272,7 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     uint32_t msr;
     int read;
     /* Even an unredirected SDK boot can discard the old OS and its alarms. */
-    gc_io_drain(ctx);
+    if (!gc_io_drain(ctx)) return;  /* leave exec.txt and the quarantined buffers alone */
     if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (target == 0xFFFFFFFFu) {
         const char* p = argc != 0 ? argv[0] : 0;
@@ -2257,7 +2312,7 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     gc_leave(ctx);
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the switch up, and the game's own goes on. */
-    gc_io_drain(ctx);
+    if (!gc_io_drain(ctx)) return;  /* no idle-file repair while IOS owns its buffers */
     msr = gc_irq_off();
     ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf)) {
@@ -2330,7 +2385,7 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the start up, and the menu's own goes on. */
     ctx->tgc_count = 0;
-    gc_io_drain(ctx);
+    if (!gc_io_drain(ctx)) return;
     msr = gc_irq_off();
     ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf)) {
@@ -2551,6 +2606,12 @@ static void gc_audio_reset(struct gc_rt_context* ctx) {
     ctx->audio_reset = before << 16 | slow << 12 | (gc_read16(GC_DSP_CSR) & 0xFFFu);
 }
 
+static void gc_hot_reset_leave(struct gc_rt_context* ctx, int storage_ready) {
+    if (ctx->leave_buf != 0 && ctx->leave_fd != 0xFFFFFFFFu) gc_leave_finish(ctx, storage_ready);
+    for (;;) {
+    }  /* IOS said no: stopped, as the routine itself would be */
+}
+
 /* The SDK's reset routine(code << 3), in place of PI's reset register:
  * the game's OSResetSystem has run its reset functions, stopped the DSP
  * and the audio and turned the picture off, with interrupts off. MEM1
@@ -2558,17 +2619,16 @@ static void gc_audio_reset(struct gc_rt_context* ctx) {
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     uint32_t i, start, now;
     int gp_idle;
+    int storage_ready;
     (void)code;  /* the game reads PI's reset register for it, which stays as it was at the first start */
     (void)gc_irq_off();
-    gc_io_drain(ctx);
-    if (ctx->restart_count == 0) {
-        /* No restart for this game: back to RiftWii, as holding HOME, where
-         * the routine would stop the console. A game that switches
+    storage_ready = gc_io_drain(ctx);
+    if (!storage_ready || ctx->restart_count == 0) {
+        /* No restart, or storage DMA that still owns the old memory:
+         * back to RiftWii, as holding HOME. A game that switches
          * programs lets OSResetSystem's restart through to here
          * (gc_on_reset_system) when it names no program to boot. */
-        if (ctx->leave_buf != 0 && ctx->leave_fd != 0xFFFFFFFFu) gc_leave(ctx);
-        for (;;) {
-        }  /* IOS said no: stopped, as the routine itself would be */
+        gc_hot_reset_leave(ctx, storage_ready);
     }
     ctx->restarts++;
     gc_trace(ctx, GC_TRACE_RESTART);
@@ -2578,6 +2638,8 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
         struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
         for (i = 0; i < 3 && card->dirty_count != 0; ++i) gc_card_flush(ctx, card, 1);
     }
+    storage_ready = gc_io_drain(ctx);
+    if (!storage_ready) gc_hot_reset_leave(ctx, 0);
     /* The GP's last commands done, then the GP reset, before the game
      * sets up a new FIFO. Whether it was still busy goes into the trace,
      * with the audio reset's waits. */
@@ -2591,6 +2653,9 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     if (!gp_idle) ctx->audio_reset |= GC_RESTART_GP_SLOW << 12;
     gc_vi_restart(ctx);
     gc_trace(ctx, GC_TRACE_RESTART);  /* the audio and the VI as the restarted game finds them */
+    storage_ready = gc_io_drain(ctx);
+    /* Neither the snapshot nor the new OS may overwrite late DMA. */
+    if (!storage_ready) gc_hot_reset_leave(ctx, 0);
     gc_forget_game(ctx);
     __asm__ volatile("mr 1,%0\n\tmr 3,%1\n\tb gc_restore_and_start" : : "r"(ctx->restart_stack), "r"(ctx) : "memory");
     for (;;) {
@@ -3144,8 +3209,7 @@ void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_cont
      * into its buffers. Drain it before the fatal trace reuses them. */
     (void)gc_irq_off();
     ctx->io_running = 0;
-    gc_io_drain(ctx);
-    gc_trace(ctx, GC_TRACE_FATAL);
+    if (gc_io_drain(ctx)) gc_trace(ctx, GC_TRACE_FATAL);
     gc_crash_screen(ctx, os_context);
     /* Nothing reads the pads now to switch a Wii Remote's motor off. */
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);

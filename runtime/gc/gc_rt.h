@@ -14,7 +14,8 @@
  * Layout (gc_entry.S): the header below, the trampolines, the C code,
  * then the context. Position independent (linked at two bases and
  * compared); it sits in MEM1 just below the FST, under the game's arena.
- * Every buffer IOS touches is in the context, 32-byte aligned. */
+ * Storage IPC buffers are in the context, 32-byte aligned; controller
+ * requests and the way back have their own loader-placed memory. */
 #ifndef RIFTWII_GC_RT_H
 #define RIFTWII_GC_RT_H
 
@@ -27,6 +28,11 @@
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
 #define GC_RT_VERSION 9u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
+
+/* The way back owns its IPC memory even when storage DMA is quarantined. */
+#define GC_LEAVE_REQUEST_OFFSET 0x100u
+#define GC_LEAVE_VECTOR_OFFSET 0x140u
+#define GC_LEAVE_BYTES 0x160u
 
 /* The DI interrupt types a DVDLow callback takes. */
 #define GC_DI_TC 1u     /* transfer complete */
@@ -469,7 +475,7 @@ struct gc_rt_context {
     /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
      * leave_hold ticks launches the title in leave_buf through /dev/es. */
     uint32_t leave_fd;        /* /dev/es, opened by the loader; 0xFFFFFFFF: no way back */
-    uint32_t leave_buf;       /* 32-byte aligned: the title ID at 0, its ticket view (0xD8 bytes) at 0x20 */
+    uint32_t leave_buf;       /* GC_LEAVE_BYTES, aligned: title at 0, ticket view at 0x20, then private IPC */
     uint32_t leave_hold;      /* timebase ticks */
     uint32_t leave_since;     /* when the hold began (low bit set), 0: not held */
     uint32_t crash_card;      /* the crash screen's card and strip, GC_CRASH_SCREEN_BYTES (loader-placed), 0: none */
