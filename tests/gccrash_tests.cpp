@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -35,6 +39,45 @@ void record(std::vector<std::uint8_t>& trace, std::size_t at, std::uint32_t seq,
     put(trace, at, GC_TR_MAGIC, GC_TRACE_MAGIC);
     put(trace, at, GC_TR_SEQ, seq);
     put(trace, at, GC_TR_WHERE, where);
+}
+
+void test_flag_bits(const std::string& repo) {
+    // Read every definition so a new flag cannot silently escape the check.
+    // gc_rt.h also checks this at compile time, with each flag listed by
+    // hand; this test instead discovers every definition, so a flag added
+    // without touching either check is still caught here.
+    std::ifstream header(repo + "/runtime/gc/gc_rt.h");
+    EXPECT_TRUE(header.is_open());
+    std::uint32_t used_bits = 0;
+    unsigned flag_count = 0;
+    std::string line;
+    while (std::getline(header, line)) {
+        std::istringstream words(line);
+        std::string directive;
+        std::string name;
+        std::string literal;
+        std::string after_literal;
+        words >> directive >> name >> literal >> after_literal;
+        if (directive != "#define" || name.compare(0, 8, "GC_FLAG_") != 0) continue;
+        if (name.find('(') != std::string::npos) continue;  // helper macros, not flags
+
+        ++flag_count;
+        char* end = nullptr;
+        errno = 0;
+        const auto value = std::strtoull(literal.c_str(), &end, 0);
+        // Keep flag definitions as unsigned 32-bit literals, not expressions
+        // or aliases that this source-level check could misinterpret.
+        const bool valid_literal = errno == 0 && end != literal.c_str() &&
+                                   std::strcmp(end, "u") == 0 && value <= UINT32_MAX &&
+                                   (after_literal.empty() || after_literal == "/*");
+        const bool single_bit = valid_literal && value != 0 && (value & (value - 1)) == 0;
+        const bool distinct = single_bit && (used_bits & value) == 0;
+        if (!distinct) std::printf("Invalid or overlapping GameCube flag: %s = %s\n", name.c_str(), literal.c_str());
+        EXPECT_TRUE(distinct);
+        if (distinct) used_bits |= static_cast<std::uint32_t>(value);
+    }
+    EXPECT_TRUE(!header.bad());
+    EXPECT_TRUE(flag_count != 0);
 }
 
 void test_no_crash() {
@@ -326,7 +369,8 @@ void test_compose() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    test_flag_bits(argc > 1 ? argv[1] : ".");
     test_no_crash();
     test_crash_only_capture();
     test_crash();
