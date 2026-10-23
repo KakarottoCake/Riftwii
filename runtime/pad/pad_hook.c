@@ -13,6 +13,8 @@
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor);
 void pad_on_motor(struct rt_pad_context* c, int32_t chan, uint32_t command);
 void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
+void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
+uint32_t pad_on_sleep(struct rt_pad_context* c);
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -118,6 +120,80 @@ static gcad* state(struct rt_pad_context* c) {
     return g;
 }
 
+/* ---- The way back (#224): L, R, Z and Start held on a GameCube pad ---- */
+
+/* A physical address the SDK stored in the block, as the CPU reads it
+ * (cached), or 0 for none. The SDK stores only the game's own buffers
+ * there (MEM1 or MEM2), and rtleave_save_request reads one only for an
+ * open or a /dev/fs change, whose argument is always a buffer. */
+static const uint8_t* pad_cached(uint32_t physical) {
+    return physical != 0 ? (const uint8_t*)(uintptr_t)(physical | 0x80000000u) : 0;
+}
+
+/* Every IOS request the game makes passes here (the SDK's submit
+ * routine): a save's is noted. The request's first two arguments as
+ * addresses, for rtleave_save_request to read where they are paths. */
+void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
+    if (rtleave_save_request(block, pad_cached(block[3]), pad_cached(block[4]))) rtleave_note_save(&c->leave, now());
+}
+
+/* The resident runtime's last SD save write (rt_fs_state's last_write,
+ * then wrote), with saves on the SD card; nothing otherwise. */
+static void pad_resident_write(const struct rt_pad_context* c, int* wrote, uint32_t* last_write) {
+    *wrote = 0;
+    *last_write = 0;
+    if (c->resident_last_write != 0) {
+        const volatile uint32_t* w = (const volatile uint32_t*)(uintptr_t)c->resident_last_write;
+        *last_write = w[0];
+        *wrote = w[1] != 0;
+    }
+}
+
+/* At each PADRead, the pads as the game will see them (the adapter's
+ * filled in): the combo held long enough, with no save being written,
+ * asks for the way back. Letting go before the main thread's sleep has
+ * left takes the ask back, and the hold starts over. */
+static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
+    int resident_wrote;
+    uint32_t resident_last_write;
+    const int held = rtleave_held(status);
+    if (c->return_to_menu == 0) return;
+    if (c->leave_asked == RT_PAD_LEAVE_ASKED && !held) {
+        c->leave_asked = 0;
+        rtleave_due(&c->leave, 0, t, 0, 0);  /* resets the hold */
+        return;
+    }
+    if (c->leave_asked) return;
+    pad_resident_write(c, &resident_wrote, &resident_last_write);
+    if (rtleave_due(&c->leave, held, t, resident_wrote, resident_last_write)) c->leave_asked = RT_PAD_LEAVE_ASKED;
+}
+
+/* OSSleepThread: the game's main thread (the OS's default thread, at
+ * 0x800000D8, running: 0x800000E4) sleeps every frame. Once the way
+ * back is asked, the first such sleep leaves through OSReturnToMenu, as
+ * the HOME Menu's Wii Menu button does from the same thread. Once only:
+ * OSReturnToMenu writes the System Menu's state files with synchronous
+ * calls, whose waits sleep the main thread through here again (in
+ * Dolphin, Mario Kart Wii opened state.dat twice and stopped). A save
+ * begun since the ask (between the PADRead and this sleep) takes the ask
+ * back: the combo, still held, asks again once the save has been quiet.
+ * The time and the save times are read with interrupts off, as at
+ * PADRead, so a save noted in between can't look newer than the time
+ * (the unsigned difference would wrap and read as long quiet). */
+uint32_t pad_on_sleep(struct rt_pad_context* c) {
+    const uint32_t running = *(volatile uint32_t*)(uintptr_t)0x800000E4u;
+    const uint32_t main_thread = *(volatile uint32_t*)(uintptr_t)0x800000D8u;
+    int resident_wrote, quiet;
+    uint32_t resident_last_write, msr;
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED || running != main_thread) return 0;
+    msr = interrupts_off();
+    pad_resident_write(c, &resident_wrote, &resident_last_write);
+    quiet = rtleave_quiet(&c->leave, now(), resident_wrote, resident_last_write);
+    c->leave_asked = quiet ? RT_PAD_LEAVE_GONE : 0;
+    interrupts_restore(msr);
+    return quiet ? c->return_to_menu : 0;
+}
+
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
     const uint32_t msr = interrupts_off();
     const uint32_t t = now();
@@ -164,6 +240,7 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     }
     c->overlay_mask = mask;
     ++c->reads;
+    pad_leave_check(c, status, t);
     interrupts_restore(msr);
     return motor;
 }

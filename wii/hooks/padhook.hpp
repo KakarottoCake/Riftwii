@@ -26,8 +26,15 @@
 // and reads its MEM2 data at fixed addresses from the arena's start, so
 // there the blob and its state go together at the top of the MEM2 arena,
 // whose end comes down (as the virtual SD card and the crash recorder do),
-// and PADRead and PADControlMotor reach the blob through two veneers in
-// low MEM1: MEM2 is out of a relative branch's reach.
+// and its hooks reach the blob through veneers in low MEM1 (kPadHookSites,
+// 16 bytes each): MEM2 is out of a relative branch's reach.
+//
+// The way back (#224): with OSReturnToMenu, OSSleepThread and the SDK's
+// IPC submit routine found and hooked, L, R, Z and Start held on a
+// GameCube controller leave the game through its own OSReturnToMenu (the
+// HOME Menu's Wii Menu button, which Return to RiftWii already points at
+// the channel), once no save has been written for a moment. Missing any
+// of them, the adapter works as before, without the way back.
 //
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
@@ -36,6 +43,10 @@
 // code hooked it). A Gecko code that later writes over the hook simply
 // wins: its own branch replaces ours and the adapter goes quiet.
 namespace riftwii::wii {
+
+// The blob's hooks: PADRead, PADControlMotor, the IPC submit routine and
+// OSSleepThread (a code build's veneers, one each).
+constexpr std::uint32_t kPadHookSites = 4;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -55,6 +66,11 @@ struct PadHook {
     std::int32_t fd = -1;            // /dev/usb/hid
     std::uint32_t version = 0;       // 4 or 5
     std::int32_t known_dev = -1;     // the adapter's v5 device id from libogc's list, -1: none
+    // The way back; return_to_menu 0: off (missing, or a hook failed).
+    std::uint32_t return_to_menu = 0;  // OSReturnToMenu
+    std::uint32_t sleep_thread = 0;    // OSSleepThread
+    std::uint32_t ipc_submit = 0;      // the SDK's IPC submit routine
+    std::uint32_t resident_last_write = 0;  // the resident's save-write time (SD saves), 0: none
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
@@ -111,8 +127,8 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
 // `arena1_hi` and `arena2_lo` are the arena ends left by the resident
 // runtime (or the game's own without it); the IOS entries are the
 // resident's unhooked ones, 0 to search the game. `mem1_veneer`, for a
-// code build, puts the blob at the top of MEM2 with its two veneers there
-// (32 bytes); the caller then lowers the MEM2 arena's end to
+// code build, puts the blob at the top of MEM2 with its veneers there
+// (kPadHookSites * 16 bytes); the caller then lowers the MEM2 arena's end to
 // `new_arena2_hi`. A nonzero `stage_base` keeps that blob below the
 // resident runtime's staging area until the handover copies it down.
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,

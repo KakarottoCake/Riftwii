@@ -3,7 +3,10 @@
 /* SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont> */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The GameCube adapter's in-game blob: PADRead and PADControlMotor
- * hooked, the WUP-028 driver (runtime/rtgcad.c) behind them. Its own
+ * hooked, the WUP-028 driver (runtime/rtgcad.c) behind them. With the
+ * way back (#224), L, R, Z and Start held on a GameCube controller leave
+ * the game through its own OSReturnToMenu: two more hooks, the SDK's IPC
+ * submit routine (save activity) and OSSleepThread (the main thread). Its own
  * small blob beside the resident runtime, so a game without the adapter
  * option never carries it and the resident's ABI is untouched.
  *
@@ -18,11 +21,17 @@
 #include <stdint.h>
 
 #include "rtgcad.h"
+#include "rtleave.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 2u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 3u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
 #define RT_PAD_CONTEXT_BYTES 128u
+
+/* rt_pad_context.leave_asked: the combo asked for the way back; the main
+ * thread's next OSSleepThread has gone into OSReturnToMenu. */
+#define RT_PAD_LEAVE_ASKED 1u
+#define RT_PAD_LEAVE_GONE 2u
 
 /* rt_pad_context.flags */
 #define RT_PAD_FLAG_DEMO 1u  /* no adapter needed: the first empty port presses A about once a second (Dolphin tests) */
@@ -40,6 +49,12 @@ struct rt_pad_header {
     uint32_t replay_motor;
     uint32_t continue_motor;
     uint32_t complete;         /* the IPC callback */
+    uint32_t hook_submit;      /* the SDK's IPC submit routine's (save activity) */
+    uint32_t replay_submit;
+    uint32_t continue_submit;
+    uint32_t hook_sleep;       /* OSSleepThread's (the way back, on the main thread) */
+    uint32_t replay_sleep;
+    uint32_t continue_sleep;
 };
 
 struct rt_pad_context {
@@ -59,6 +74,14 @@ struct rt_pad_context {
     int32_t known_dev;         /* the adapter's device id from the menu's USB list, -1: none */
     uint32_t idle_reset;       /* the game's screen-dimming reset for its controller ports, 0: not found */
     gcad_pad last[GCAD_PORTS]; /* each port as it was when it last counted as in use (gcad_pad_moved) */
+    /* The way back (0 return_to_menu: none). */
+    uint32_t return_to_menu;   /* the game's OSReturnToMenu */
+    struct rtleave leave;      /* the hold and the saves (runtime/rtleave.h; hold and quiet loader-filled) */
+    uint32_t leave_asked;      /* RT_PAD_LEAVE_*: 0, then asked, then gone (once only) */
+    /* Saves on the SD card go through the resident runtime's own card
+     * driver, which the submit hook doesn't read: its rt_fs_state's
+     * last_write (then wrote), 0 without the redirect (loader-filled). */
+    uint32_t resident_last_write;
 };
 
 #ifdef RT_TARGET_PPC
