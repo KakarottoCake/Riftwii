@@ -498,6 +498,16 @@ static void test_checked_alloc() {
     EXPECT_TRUE(riftwii::have_room(1u << 20));
     EXPECT_FALSE(scope.failed());
 
+    // RoomBudget: small needs and one request of many chunks (checked as a
+    // single trial) both pass; a total past the cap is refused, even when
+    // it arrives in pieces.
+    riftwii::RoomBudget budget(4096);
+    EXPECT_TRUE(budget.need(10));
+    EXPECT_TRUE(budget.need(4096 * 20 + 5));
+    EXPECT_TRUE(budget.need(0));
+    EXPECT_FALSE(scope.failed());
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return budget.need(riftwii::kMaxCheckedBytes); }));
+
     // Past kMaxCheckedBytes, or a count whose size overflows: refused
     // without asking the allocator, reported, nothing changed.
     EXPECT_TRUE(refused_as_out_of_memory([] { return riftwii::can_allocate(riftwii::kMaxCheckedBytes + 1); }));

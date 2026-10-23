@@ -441,7 +441,12 @@ bool vcdiff_head(const VcdiffReadFn& patch, std::uint64_t patch_size, const Vcdi
         return false;
     }
     checked = d.has_checksum();
-    out.assign(first.begin(), first.begin() + static_cast<std::ptrdiff_t>(length));
+    // The head is small, but a caller's list of games calls this once per
+    // original, so a full heap must give an error, not end the program.
+    if (!try_assign_range(out, first.begin(), first.begin() + static_cast<std::ptrdiff_t>(length))) {
+        error = kNoRoom;
+        return false;
+    }
     return true;
 }
 

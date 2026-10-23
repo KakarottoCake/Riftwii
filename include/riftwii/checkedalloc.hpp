@@ -219,9 +219,14 @@ public:
             return false;
         }
         used_ += bytes;
-        while (used_ >= checked_) {
-            if (!have_room(chunk_)) return false;
-            checked_ += chunk_;
+        if (used_ >= checked_) {
+            // One trial for everything the request goes past, so a request
+            // of many chunks needs all of their room at once, not one
+            // chunk's room checked over and over (each trial is freed).
+            const std::size_t missing = used_ - checked_ + 1;
+            const std::size_t chunks = (missing + chunk_ - 1) / chunk_;
+            if (!have_room(chunks * chunk_)) return false;
+            checked_ += chunks * chunk_;
         }
         return true;
     }

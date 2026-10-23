@@ -1588,6 +1588,12 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
             s.choice = &ch;
             s.patch = &it->second;
             s.patch_id = pid;
+            // The copy of the params below is the big allocation (all three
+            // lists end up in s.params), so its room is asked for before it
+            // is made, not after.
+            std::size_t params_bytes = HeapBytes(ch.params) + HeapBytes(o.params);
+            if (r < ch.patch_params.size()) params_bytes += HeapBytes(ch.patch_params[r]);
+            if (!budget.need(sizeof(Selection) + HeapBytes(pid) + params_bytes)) return out_of_room();
             // Riivolution lets an option's params win over its
             // choice's, and the reference's own win over both:
             // later entries win here.
@@ -1596,8 +1602,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
             if (r < ch.patch_params.size()) {
                 s.params.insert(s.params.end(), ch.patch_params[r].begin(), ch.patch_params[r].end());
             }
-            if (!budget.need(sizeof(Selection) + HeapBytes(pid) + HeapBytes(s.params)) ||
-                !try_push_back(selected, std::move(s))) {
+            if (!try_push_back(selected, std::move(s))) {
                 error = "allocation failure";
                 return false;
             }
