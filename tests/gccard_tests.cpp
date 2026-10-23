@@ -1358,7 +1358,271 @@ static void test_flash_id_of_blank_card() {
     EXPECT_TRUE(recovered == format.flash_id);
 }
 
+// A card holding these saves, made by importing each: `games` are
+// "GAME01"-style IDs (code and maker), each save named after its position.
+static Bytes card_with_saves(const std::vector<std::string>& games, bool shift_jis = false, std::uint16_t blocks = 2) {
+    Bytes card;
+    gc_card_format(card, sample_format(shift_jis));
+    std::string error;
+    std::uint8_t seed = 1;
+    for (const std::string& game : games) {
+        SaveSpec spec;
+        spec.game = game.substr(0, 4);
+        spec.maker = game.substr(4, 2);
+        spec.name = "save " + game;
+        spec.blocks = blocks;
+        spec.seed = seed++;
+        EXPECT_TRUE(gc_card_import(card, make_gci(spec), error));
+    }
+    return card;
+}
+
+static std::string names_of(const GcNintendontFiles& found) {
+    std::string out;
+    for (const GcNintendontCard& card : found.cards) out += card.path + "|";
+    return out;
+}
+
+static void test_nintendont_names() {
+    // What Nintendont names a card: an ID of four letters or digits, with
+    // or without the slot B mark, and the Multi cards.
+    for (const char* name : {"GMSE.raw", "GALP.raw", "G3FE.raw", "GMSE_B.raw", "ninmem.raw", "ninmemj.raw", "ninmemb.raw",
+                             "ninmemjb.raw", "GMSE.RAW", "NINMEM.RAW", "gmse.raw"})
+        EXPECT_TRUE(gc_nintendont_name_ok(name));
+    // The Triforce files and everything else in /saves are not cards.
+    for (const char* name : {"GP1.bin", "AX.bin", "FZEROAX.bin", "settings.bin", "GP1settings.bin", "GMSE.bin", "GMSE.gci",
+                             "GMSE.raw.bak", "GMSEE.raw", "GMS.raw", "GM E.raw", "GMS-.raw", "GMSE_A.raw", "GMSE_BB.raw",
+                             "ninmemx.raw", "ninmem.rawx", "ninmem", "ninmemjj.raw", "_B.raw", ".raw", "", "..", ".",
+                             "._GMSE.raw", "../GMSE.raw", "a/GMSE.raw", "GMSE.raw ", "sd:MSE.raw"})
+        EXPECT_FALSE(gc_nintendont_name_ok(name));
+    EXPECT_FALSE(gc_nintendont_name_ok(std::string("GM\x01" "E.raw")));
+    EXPECT_FALSE(gc_nintendont_name_ok(std::string(300, 'a') + ".raw"));
+}
+
+static void test_nintendont_scan() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "riftwii_nintendont_scan_test";
+    fs::remove_all(root);
+    fs::create_directories(root / "sd" / "saves");
+    fs::create_directories(root / "usb" / "saves");
+    const Bytes card = blank_card();
+    // The SD card's saves: one card per game, a slot B one, and the files
+    // that are not cards.
+    write_file(root / "sd" / "saves" / "GMSE.raw", card);
+    write_file(root / "sd" / "saves" / "GALP.raw", card);
+    write_file(root / "sd" / "saves" / "GMSE_B.raw", card);
+    write_file(root / "sd" / "saves" / "GP1.bin", Bytes(2048, 1));
+    write_file(root / "sd" / "saves" / "AX.bin", Bytes(2048, 1));
+    write_file(root / "sd" / "saves" / "GP1settings.bin", Bytes(64, 1));
+    write_file(root / "sd" / "saves" / "._GMSE.raw", card);
+    write_file(root / "sd" / "saves" / "notes.txt", Bytes(8, 0));
+    fs::create_directories(root / "sd" / "saves" / "ABCD.raw");  // a folder is not a card
+    // The drive's: the Multi cards, and sizes a card never has.
+    write_file(root / "usb" / "saves" / "ninmem.raw", card);
+    write_file(root / "usb" / "saves" / "ninmemj.raw", card);
+    write_file(root / "usb" / "saves" / "TINY.raw", Bytes(1000, 0));
+    write_file(root / "usb" / "saves" / "ODD1.raw", Bytes(kGcNintendontMinBytes + 1, 0));
+    write_file(root / "usb" / "saves" / "BIG1.raw", Bytes());
+    fs::resize_file(root / "usb" / "saves" / "BIG1.raw", kGcDolphinMaxRawBytes + kBlock);
+    write_file(root / "usb" / "saves" / "MAXI.raw", Bytes());
+    fs::resize_file(root / "usb" / "saves" / "MAXI.raw", kGcDolphinMaxRawBytes);
+
+    const std::string sd = (root / "sd" / "saves").string();
+    const std::string usb = (root / "usb" / "saves").string();
+    const auto short_paths = [&](const GcNintendontFiles& found) {
+        std::string out = names_of(found);
+        for (const std::string& prefix : {sd, usb}) {
+            for (std::size_t at; (at = out.find(prefix)) != std::string::npos;) out.replace(at, prefix.size(), prefix == sd ? "sd" : "usb");
+        }
+        return out;
+    };
+    GcNintendontFiles both = gc_nintendont_scan({sd, usb, (root / "none").string()}, gc_posix_lister);
+    // Both devices, the SD card's first; each folder's files by name; the
+    // missing folder is nothing.
+    EXPECT_EQ(short_paths(both), std::string("sd/GALP.raw|sd/GMSE.raw|sd/GMSE_B.raw|usb/MAXI.raw|usb/ninmem.raw|usb/ninmemj.raw|"));
+    EXPECT_EQ(both.wrong_size, 3u);  // TINY, ODD1 and BIG1
+    EXPECT_FALSE(both.truncated);
+    EXPECT_EQ(both.cards[0].name, std::string("GALP.raw"));
+    EXPECT_EQ(both.cards[0].bytes, std::uint64_t(card.size()));
+    EXPECT_EQ(both.cards[3].bytes, kGcDolphinMaxRawBytes);  // 16 MB is the largest and still read
+    EXPECT_EQ(short_paths(gc_nintendont_scan({usb}, gc_posix_lister)), std::string("usb/MAXI.raw|usb/ninmem.raw|usb/ninmemj.raw|"));
+    EXPECT_TRUE(gc_nintendont_scan({(root / "none").string()}, gc_posix_lister).cards.empty());
+
+    // The Wii reads usb: through its own lister: the scan only asks for names and sizes.
+    std::vector<std::string> asked;
+    const GcFolderLister fake = [&](const std::string& folder, std::vector<GcFolderEntry>& out) {
+        asked.push_back(folder);
+        out.clear();
+        if (folder != "usb:/saves") return false;
+        out.push_back({"ninmem.raw", false, 0x200000});
+        out.push_back({"GP1.bin", false, 2048});
+        return true;
+    };
+    const GcNintendontFiles via_fake = gc_nintendont_scan({kGcNintendontFolders[0], kGcNintendontFolders[1]}, fake);
+    EXPECT_EQ(asked.size(), 2u);
+    EXPECT_EQ(asked[0], std::string("sd:/saves"));
+    EXPECT_EQ(asked[1], std::string("usb:/saves"));
+    EXPECT_EQ(names_of(via_fake), std::string("usb:/saves/ninmem.raw|"));
+
+    // A folder of many cards is bounded, and so is one of many entries.
+    fs::create_directories(root / "many");
+    for (unsigned i = 0; i < kGcNintendontMaxCards + 8; ++i) {
+        char name[16];
+        std::snprintf(name, sizeof name, "G%03u.raw", i);
+        write_file(root / "many" / name, card);
+    }
+    const GcNintendontFiles many = gc_nintendont_scan({(root / "many").string()}, gc_posix_lister);
+    EXPECT_EQ(many.cards.size(), kGcNintendontMaxCards);
+    EXPECT_TRUE(many.truncated);
+    const GcFolderLister flood = [](const std::string&, std::vector<GcFolderEntry>& out) {
+        out.clear();
+        for (std::size_t i = 0; i < kGcDolphinMaxEntries + 10; ++i) {
+            char name[24];
+            std::snprintf(name, sizeof name, "f%05zu.txt", i);
+            out.push_back({name, false, 10});
+        }
+        return true;
+    };
+    const GcNintendontFiles flooded = gc_nintendont_scan({"x"}, flood);
+    EXPECT_TRUE(flooded.cards.empty());
+    EXPECT_TRUE(flooded.truncated);
+    fs::remove_all(root);
+}
+
+static void test_nintendont_saves_and_routing() {
+    // A Multi card with several games and regions, a second maker's game
+    // sharing a four-letter code, and a Japanese one.
+    const Bytes multi = card_with_saves({"GZLE01", "GALP01", "GZLE08", "GMSE01"});
+    std::vector<GcNintendontSave> saves;
+    std::string error;
+    EXPECT_TRUE(gc_nintendont_list(3, multi.data(), multi.size(), saves, error));
+    EXPECT_EQ(saves.size(), 4u);
+    EXPECT_EQ(saves[0].id, std::string("GZLE01"));
+    EXPECT_EQ(saves[0].card, 3u);
+    EXPECT_EQ(saves[0].file_name, std::string("save GZLE01"));
+    EXPECT_EQ(saves[0].comment_title, std::string("RiftWii Test Save"));
+    EXPECT_EQ(saves[0].blocks, 2u);
+    EXPECT_TRUE(saves[0].intact);
+    EXPECT_FALSE(saves[0].shift_jis);
+    EXPECT_EQ(saves[2].id, std::string("GZLE08"));  // the same four letters, another maker: its own card
+    // The card of the save's own game, by the directory entry, never by the file name.
+    EXPECT_EQ(gc_nintendont_route(saves[0], false), std::string("sd:/riftwii/gc/cards/GZLE01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], false), std::string("sd:/riftwii/gc/cards/GALP01.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[2], false), std::string("sd:/riftwii/gc/cards/GZLE08.raw"));
+    // A game set to Shared goes to the shared card of its text encoding.
+    EXPECT_EQ(gc_nintendont_route(saves[0], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    EXPECT_EQ(gc_nintendont_route(saves[1], true), std::string("sd:/riftwii/gc/cards/shared.raw"));
+    const Bytes japanese = card_with_saves({"GZLJ01", "GALK01"}, true);
+    std::vector<GcNintendontSave> jp;
+    EXPECT_TRUE(gc_nintendont_list(0, japanese.data(), japanese.size(), jp, error));
+    EXPECT_TRUE(jp[0].shift_jis);
+    EXPECT_EQ(gc_nintendont_route(jp[0], false), std::string("sd:/riftwii/gc/cards/GZLJ01.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[0], true), std::string("sd:/riftwii/gc/cards/shared-jp.raw"));
+    EXPECT_EQ(gc_nintendont_route(jp[1], false), std::string("sd:/riftwii/gc/cards/GALK01.raw"));
+    // An ID that is not capitals and digits is a card named by its bytes, not a way out of the folder.
+    GcNintendontSave odd = saves[0];
+    odd.id = "../x";
+    EXPECT_EQ(gc_nintendont_route(odd, false).find(".."), std::string::npos);
+    // Not a memory card, and not a whole one.
+    EXPECT_FALSE(gc_nintendont_list(0, multi.data(), 100, saves, error));
+    EXPECT_FALSE(error.empty());
+    const Bytes zeros(0x80000, 0);
+    EXPECT_FALSE(gc_nintendont_list(0, zeros.data(), zeros.size(), saves, error));
+    EXPECT_EQ(saves.size(), 4u);  // nothing was added by the failures
+
+    // The Multi card's saves go to a card of their own each, a new one
+    // formatted from the Nintendont card's flash ID.
+    Bytes zle;
+    gc_nintendont_blank_card(zle, multi.data(), multi.size(), false, 77);
+    EXPECT_EQ(zle.size(), 0x200000u);
+    std::array<std::uint8_t, 12> from_source{}, from_new{};
+    EXPECT_TRUE(gc_card_flash_id(multi, from_source));
+    EXPECT_TRUE(gc_card_flash_id(zle, from_new));
+    EXPECT_TRUE(from_source == from_new);
+    EXPECT_TRUE(read_ok(zle).saves.empty());
+    GcImportCount count;
+    gc_nintendont_import(zle, multi.data(), multi.size(), saves[0], count);
+    EXPECT_EQ(count.added, 1u);
+    GcCardInfo after = read_ok(zle);
+    EXPECT_EQ(after.saves.size(), 1u);
+    EXPECT_EQ(after.saves[0].game_code, std::string("GZLE"));
+    EXPECT_EQ(after.saves[0].maker, std::string("01"));
+    EXPECT_EQ(after.saves[0].file_name, std::string("save GZLE01"));
+    // The save's bytes are the Nintendont card's.
+    Bytes want, got;
+    EXPECT_TRUE(gc_card_export(multi.data(), multi.size(), saves[0].slot, want, error));
+    EXPECT_TRUE(gc_card_export(zle, after.saves[0].slot, got, error));
+    EXPECT_TRUE(want == got);
+
+    // Again: the save is already there, so it is skipped and the card is as it was.
+    const Bytes before_again = zle;
+    gc_nintendont_import(zle, multi.data(), multi.size(), saves[0], count);
+    EXPECT_EQ(count.added, 1u);
+    EXPECT_EQ(count.skipped, 1u);
+    EXPECT_EQ(count.unusable, 0u);
+    EXPECT_TRUE(zle == before_again);
+
+    // The same save from another file (a GMSE.raw and the Multi card both
+    // hold Mario Kart's) is the same save: skipped.
+    const Bytes own = card_with_saves({"GZLE01"});
+    std::vector<GcNintendontSave> own_saves;
+    EXPECT_TRUE(gc_nintendont_list(1, own.data(), own.size(), own_saves, error));
+    gc_nintendont_import(zle, own.data(), own.size(), own_saves[0], count);
+    EXPECT_EQ(count.skipped, 2u);
+
+    // A Japanese save does not go onto a card of the other text encoding.
+    GcImportCount mismatch;
+    gc_nintendont_import(zle, japanese.data(), japanese.size(), jp[0], mismatch);
+    EXPECT_EQ(mismatch.unusable, 1u);
+    EXPECT_EQ(mismatch.added, 0u);
+    Bytes zlj;
+    gc_nintendont_blank_card(zlj, japanese.data(), japanese.size(), jp[0].shift_jis, 77);
+    gc_nintendont_import(zlj, japanese.data(), japanese.size(), jp[0], mismatch);
+    EXPECT_EQ(mismatch.added, 1u);
+
+    // A file that changed since it was listed (Nintendont ran) is not guessed at.
+    Bytes changed = card_with_saves({"GALP01", "GZLE01"});
+    GcImportCount stale;
+    Bytes target = blank_card();
+    gc_nintendont_import(target, changed.data(), changed.size(), saves[0], stale);  // slot 0 is now GALP01
+    EXPECT_EQ(stale.unusable, 1u);
+    EXPECT_EQ(stale.added, 0u);
+    GcNintendontSave gone = saves[0];
+    gone.slot = 90;
+    gc_nintendont_import(target, changed.data(), changed.size(), gone, stale);
+    EXPECT_EQ(stale.unusable, 2u);
+    EXPECT_TRUE(read_ok(target).saves.empty());
+
+    // A damaged save is listed as such and not brought.
+    Bytes damaged = card_with_saves({"GZLE01", "GALP01"});
+    set_bat_word(damaged, 5, 0);
+    std::vector<GcNintendontSave> listed;
+    EXPECT_TRUE(gc_nintendont_list(0, damaged.data(), damaged.size(), listed, error));
+    EXPECT_FALSE(listed[0].intact);
+    EXPECT_TRUE(listed[1].intact);
+    GcImportCount broken;
+    Bytes clean = blank_card();
+    gc_nintendont_import(clean, damaged.data(), damaged.size(), listed[0], broken);
+    EXPECT_EQ(broken.unusable, 1u);
+    EXPECT_TRUE(read_ok(clean).saves.empty());
+
+    // A card that is full: the first that does not fit stops the rest.
+    Bytes nearly_full = blank_card();
+    GcImportCount filling;
+    SaveSpec huge;
+    huge.blocks = 250;
+    huge.name = "huge";
+    gc_import_one(nearly_full, make_gci(huge), filling);
+    gc_nintendont_import(nearly_full, multi.data(), multi.size(), saves[0], filling);
+    EXPECT_TRUE(filling.full);
+    gc_nintendont_import(nearly_full, multi.data(), multi.size(), saves[1], filling);
+    EXPECT_EQ(filling.added, 1u);
+}
+
 int main() {
+    test_nintendont_names();
+    test_nintendont_scan();
+    test_nintendont_saves_and_routing();
     test_backup_undo();
     test_dolphin_import();
     test_dolphin_limits();
