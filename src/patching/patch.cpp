@@ -1390,6 +1390,22 @@ bool parse_package(const std::string& input, Package& output, std::string& error
         for (auto& ch : o.choices) {
             std::vector<std::string> resolved;
             std::vector<std::vector<Param>> resolved_params;
+            // Room for the whole choice at once: reserving at each
+            // reference would reallocate and move both lists every time.
+            std::size_t total_copies = 0;
+            for (const std::string& pid : ch.patches) {
+                if (tmp.patches.find(pid) == tmp.patches.end()) continue;
+                const auto more = ctx.aliases.find(pid);
+                total_copies += 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
+            }
+            if (total_copies > kMaxReferences - references) {
+                error = "the package's choices name too many patches";
+                return false;
+            }
+            if (!try_reserve(resolved, total_copies) || !try_reserve(resolved_params, total_copies)) {
+                error = "allocation failure";
+                return false;
+            }
             for (std::size_t r = 0; r < ch.patches.size(); ++r) {
                 const std::string& pid = ch.patches[r];
                 if (tmp.patches.find(pid) == tmp.patches.end()) {
@@ -1409,9 +1425,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                 const std::size_t copies = 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
                 // The local copy of the params made below counts once more.
                 const std::size_t params_bytes = source_params != nullptr ? HeapBytes(*source_params) : 0;
-                if (!budget.need(params_bytes + copies * (HeapBytes(pid) + params_bytes)) ||
-                    !try_reserve(resolved, resolved.size() + copies) ||
-                    !try_reserve(resolved_params, resolved_params.size() + copies)) {
+                if (!budget.need(params_bytes + copies * (HeapBytes(pid) + params_bytes))) {
                     error = "allocation failure";
                     return false;
                 }
