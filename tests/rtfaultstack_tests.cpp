@@ -31,6 +31,13 @@ bool map_boundary(std::uint32_t end) {
     void* region = mmap(start, 2 * kRegionBytes, PROT_NONE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (region == MAP_FAILED) return false;
+    // Older kernels predate MAP_FIXED_NOREPLACE and may place the region
+    // elsewhere instead of failing; that address is not the guarded Wii
+    // memory the test writes, so release it and skip instead of faulting.
+    if (region != start) {
+        munmap(region, 2 * kRegionBytes);
+        return false;
+    }
     if (mprotect(region, kRegionBytes, PROT_READ | PROT_WRITE) != 0) {
         munmap(region, 2 * kRegionBytes);
         return false;
@@ -84,7 +91,7 @@ int main() {
     for (std::uint32_t end : {0x81800000u, 0x94000000u}) {
         if (!map_boundary(end)) {
             std::cerr << "Cannot map guarded Wii memory; skipping stack tests\n";
-            return 77;
+            return failures == 0 ? 77 : 1;
         }
         test_boundary(end);
         unmap_boundary(end);
