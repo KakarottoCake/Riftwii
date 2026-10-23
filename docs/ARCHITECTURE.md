@@ -476,6 +476,28 @@ list are in the debugger area (`0x80001800`–`0x80003000`), inside the
 low memory that is put back, so keep them there. The test switch is
 `sd:/riftwii/gc/test/reset`: two presses made by the blob.
 
+**Two-disc games** (`runtime/gc/gc_disc.h`, issue #173). Home lists a
+game's `disc2.iso` with its disc 1 (`gc_second_disc_of`); at the launch
+`find_second_disc` (`wii/launch/gclaunch.cpp`) passes the folder's disc
+2 of the same game ID to the plugin, which checks its header
+(`src/disc/gcdiscs.cpp`), grows the FST's room at MEM1's top to the
+larger of the two discs' FSTs (the SDK reads the new disc's FST there and
+refuses one larger than 0x8000003C says), and puts disc 2's runs, its RVZ
+reader (sharing disc 1's buffers) and the change's state in MEM2; with
+packs, disc 1's FST is kept in MEM2 too, as disc 2's overwrites the one
+in MEM1. The context gets one word, `disc_change`, in its alignment
+padding. DVDLowStopMotor (libogc's command 0xE3) then opens the cover;
+about two seconds later the blob's own alarm puts the other disc in
+(the runs `ctx->runs` points to) and, once the SDK waits on the cover
+(DICVR's mask), sets DICVR's interrupt bit and runs the game's DI
+interrupt handler from the OS's table (0x80003094), so the SDK reads the
+new disc's ID and FST as from a drive. A wrong disc gets another stop
+of the motor, which changes back. Reset puts disc 1 back in. The trace
+writes a `disc` record at each change. Without a disc 2 nothing of this
+is set up and StopMotor is answered as before. The test switch is
+`sd:/riftwii/gc/test/discchange` (with a disc 2 beside the game): the
+blob stops the motor itself at the 1500th and 2200th pad reads.
+
 **Physical memory cards** (`wii/storage/gcrealcard.cpp`,
 `src/fs/gcreal.cpp`): the Saves page has read-only tools for either Wii
 slot, including slot B with no card in A. libogc CARD mounts/unlocks the
@@ -771,7 +793,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
 | `sd:/riftwii/gc/exec.txt` | A GameCube game's start of another program (OSExec, or a bonus disc's menu starting a game from a TGC image): `--idle--` until then, a headless launch after, read once by RiftWii's next start (see "Switching programs") |
-| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `novihook`, `nomotor`, `handover480p`, `handover480i`, `avekeep`, `reset`, `exec`, `discchange` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), VIConfigure left as the game made it (480p only through the game's own mode), PADControlMotor not hooked, an NTSC game handed over with the VI and video encoder already in NTSC 480p even without 480p (a game given 480p is handed over that way anyway), one given 480p handed over in 480i as earlier builds did, the encoder left as the menu set it rather than in the game's region, two Reset presses (at the 1500th and 2200th pad reads; the first through the OS's own restart, reset 0), and a switch to another program (gc_on_boot_dol) at the 1500th pad read in a game without one: to the disc's own program with the argument `rwtest`, through `sd:/riftwii/gc/exec.txt` and the way back, and with a disc 2 beside the game the motor stopped at the 1500th and 2200th pad reads (a disc change and back, `runtime/gc/gc_disc.h`) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

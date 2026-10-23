@@ -220,6 +220,21 @@ static void test_refusals() {
         f.request.way_back_kind = RWP_GC_WAY_BACK_HBC + 1;
         EXPECT_FALSE(f.check(why));
     }
+    // A second disc: its USB pieces with their count, and only with its path.
+    {
+        const rwp_fragment pieces[2] = {{100, 8}, {300, 8}};
+        Fixture f;
+        f.request.disc2_path = "usb:/games/Two Disc [GWYE41]/disc2.iso";
+        EXPECT_TRUE(f.check(why));
+        f.request.disc2_usb_fragments = pieces;
+        EXPECT_FALSE(f.check(why));
+        EXPECT_TRUE(why.find("second disc") != std::string::npos);
+        f.request.disc2_usb_fragment_count = 2;
+        f.request.disc2_usb_file_bytes = 8192;
+        EXPECT_TRUE(f.check(why));
+        f.request.disc2_path = nullptr;
+        EXPECT_FALSE(f.check(why));
+    }
 }
 
 int main() {
