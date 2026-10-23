@@ -33,6 +33,14 @@ void add_note(std::vector<std::string>& notes, int line_num, const std::string& 
     notes.push_back(std::string(buf) + msg);
 }
 
+// A cut at `limit` bytes moved back to the start of a UTF-8 character,
+// so a long name never ends inside one (as riftwii/profiles.hpp does).
+std::size_t utf8_cut(const std::string& text, std::size_t limit) {
+    if (text.size() <= limit) return text.size();
+    std::size_t at = limit;
+    while (at > 0 && (static_cast<unsigned char>(text[at]) & 0xC0) == 0x80) --at;
+    return at;
+}
 bool parse_decimal(const std::string& s, float& out) {
     if (s.empty()) return false;
     std::size_t i = 0;
@@ -238,14 +246,14 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
         if (section == Section::Theme) {
             if (key == "name") {
                 if (val.size() > 64) {
-                    theme.name = val.substr(0, 64);
+                    theme.name = val.substr(0, utf8_cut(val, 64));
                     add_note(notes, line_num, "name longer than 64 characters; cut to 64");
                 } else {
                     theme.name = val;
                 }
             } else if (key == "author") {
                 if (val.size() > 64) {
-                    theme.author = val.substr(0, 64);
+                    theme.author = val.substr(0, utf8_cut(val, 64));
                     add_note(notes, line_num, "author longer than 64 characters; cut to 64");
                 } else {
                     theme.author = val;

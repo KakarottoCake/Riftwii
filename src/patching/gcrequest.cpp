@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcrequest.hpp"
 
+#include "riftwii/checkedalloc.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -97,7 +99,19 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
     const bool has_packs = request->pack_fst != nullptr;
     if (has_packs) {
         const bool header_whole = request->pack_header != nullptr && request->pack_header_bytes == kPlanHeaderBytes;
-        if (request->pack_fst_bytes == 0 || !header_whole ||
+        // The counts come from the DOL across the plugin line: bound them
+        // before anything copies that many bytes or reads that many entries,
+        // so a corrupt or mismatched DOL's huge counts are refused instead
+        // of allocating gigabytes or reading past the request's buffers.
+        // The entries are read as rwp_gc_pack_entry and kept as the plan's
+        // larger GcOverlayPlan::Entry (gc_plan_from_request): the bound is
+        // the larger of the two.
+        constexpr std::size_t kEntryBytes = sizeof(GcOverlayPlan::Entry) > sizeof(rwp_gc_pack_entry)
+                                                ? sizeof(GcOverlayPlan::Entry)
+                                                : sizeof(rwp_gc_pack_entry);
+        const bool sizes_bounded = within_checked_cap(request->pack_fst_bytes, 1) &&
+                                   within_checked_cap(request->pack_entry_count, kEntryBytes);
+        if (request->pack_fst_bytes == 0 || !header_whole || !sizes_bounded ||
             !sized(request->pack_entries, request->pack_entry_count)) {
             why = "the packs' plan in the launch request is not whole";
             return false;

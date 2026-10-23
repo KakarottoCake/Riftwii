@@ -19,6 +19,9 @@ export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 make -f Makefile.wii
 ```
 
+The host build needs zlib's headers and library (`zlib1g-dev` on Debian/Ubuntu,
+`zlib-devel` in devkitPro's MSYS2), for the streaming ZIP reader and its tests.
+
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
 lists (FreeType, zlib, libogg/tremor), and the `zstd` command-line
 tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu

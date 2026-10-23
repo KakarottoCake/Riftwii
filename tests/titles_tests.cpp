@@ -101,11 +101,41 @@ static void test_sort_name() {
     EXPECT_EQ(sort_name_start(""), std::size_t(0));
 }
 
+static void test_long_title_cut() {
+    // A 300-byte title of 3-byte characters (E6 BC A2 is U+6F22): the
+    // 200-byte cut keeps 66 whole ones, never half of one.
+    std::string long_title;
+    for (int i = 0; i < 100; ++i) {
+        long_title += static_cast<char>(0xE6);
+        long_title += static_cast<char>(0xBC);
+        long_title += static_cast<char>(0xA2);
+    }
+    riftwii::TitleTable table;
+    table.add_text("RMCE01 = " + long_title, nullptr);
+    const std::string* found = table.find("RMCE01");
+    EXPECT_TRUE(found != nullptr);
+    EXPECT_EQ(found->size(), std::size_t(198));
+    for (std::size_t i = 0; i < found->size(); i += 3) {
+        EXPECT_TRUE(static_cast<unsigned char>((*found)[i]) == 0xE6u);
+        EXPECT_TRUE(static_cast<unsigned char>((*found)[i + 1]) == 0xBCu);
+        EXPECT_TRUE(static_cast<unsigned char>((*found)[i + 2]) == 0xA2u);
+    }
+    // Plain ASCII titles still fill all 200 bytes.
+    riftwii::TitleTable ascii;
+    ascii.add_text(std::string("RMCE01 = ") + std::string(300, 'x'), nullptr);
+    EXPECT_EQ(ascii.find("RMCE01")->size(), std::size_t(200));
+    // The same cut for a game folder carrying a long name.
+    const std::string folder = riftwii::folder_title("usb:/wbfs/" + long_title + " [RMCE01]/RMCE01.wbfs",
+                                               "RMCE01");
+    EXPECT_EQ(folder.size(), std::size_t(198));
+    EXPECT_TRUE(folder == found->substr(0, 198));
+}
 int main() {
     test_sort_name();
     test_table();
     test_id_from_path();
     test_folder_and_choice();
+    test_long_title_cut();
     if (g_failures == 0) {
         std::cout << "ALL TITLES TESTS PASSED" << std::endl;
         return 0;

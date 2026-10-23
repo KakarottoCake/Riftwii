@@ -345,6 +345,18 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
             return false;
         }
         const std::uint64_t lba = geo_.cluster_lba(cluster);
+        // Brent may not have caught a cycle when the file's size stops
+        // the walk. After the first repeat every later cluster repeats,
+        // so checking the final cluster against earlier runs is enough.
+        // This needs neither more FAT reads nor a per-cluster allocation.
+        if (taken + 1 >= max_clusters) {
+            for (const Fragment& previous : frags) {
+                if (lba >= previous.sector && lba - previous.sector < previous.sector_count) {
+                    error = "cluster chain loops";
+                    return false;
+                }
+            }
+        }
         if (!frags.empty() && frags.back().sector + frags.back().sector_count == lba) {
             frags.back().sector_count += blocks_per_cluster;
         } else {
