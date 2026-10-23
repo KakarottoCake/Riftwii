@@ -281,9 +281,9 @@ static void test_partition_data() {
     EXPECT_EQ(a.code_offset, std::uint64_t(0x2460));
     EXPECT_EQ(a.total_size(), std::uint64_t(0x440));
 
-    // Only bytes loaded at 0x81200000 may supply the entry point. Being
-    // somewhere in MEM1 is not enough, and PPC instructions are aligned.
-    for (const std::uint32_t entry : {0x80003100u, 0x811FFFFCu, 0x81200440u,
+    // The entry must be a complete instruction in the code, before the
+    // trailer, rather than merely an address in MEM1 or the loaded image.
+    for (const std::uint32_t entry : {0x80003100u, 0x811FFFFCu, 0x81200400u, 0x81200440u,
                                        0x817FFFFCu, 0x81200001u}) {
         Bytes invalid = Data();
         Put32(invalid, 0x2450, entry);
@@ -295,7 +295,7 @@ static void test_partition_data() {
     Put32(partial_entry, 0x2450, 0x81200400);
     EXPECT_FALSE(riftwii::read_apploader_header(riftwii::MemorySource(partial_entry), a, err));
     Bytes last_entry = Data();
-    Put32(last_entry, 0x2450, 0x8120043Cu);
+    Put32(last_entry, 0x2450, 0x812003FCu);
     EXPECT_TRUE(riftwii::read_apploader_header(riftwii::MemorySource(last_entry), a, err));
 
     Bytes bad = Data();
