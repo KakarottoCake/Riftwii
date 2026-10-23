@@ -53,6 +53,7 @@ public:
     std::size_t listing_extra = 0;  // this many more files in "/big"
     std::int32_t version = 4;
     bool broken = false;  // drop the connection
+    std::string failed_next_stat;  // listed name whose stat failed on the PC
     std::uint32_t reads = 0;
     std::vector<std::uint32_t> commands;
 
@@ -226,7 +227,13 @@ private:
         case 0x24: {  // next stat
             const std::uint32_t fd = word(0x01);
             auto& d = dirs_[fd];
-            const auto& e = d.first[d.second++].second;
+            const auto& entry = d.first[d.second++];
+            if (entry.first == failed_next_stat) {
+                stat_bytes(0, 0);
+                result(-1);
+                break;
+            }
+            const auto& e = entry.second;
             stat_bytes(e.first, e.second);
             result(0);
             break;
@@ -564,6 +571,40 @@ static void TestSync() {
 
 // A server on the network must not reach outside the cache folder, nor
 // crash the Wii with folders that never end.
+static void TestListingStatFailure() {
+    FakeServer server;
+    server.files["/Pack/A.arc"] = bytes("server file");
+    server.failed_next_stat = "A.arc";
+    Client client(server);
+    std::string error;
+    bool missing = false;
+    std::vector<riftwii::riifs::DirEntry> entries;
+    EXPECT_FALSE(client.list("/Pack", entries, missing, error));
+    EXPECT_FALSE(missing);
+    EXPECT_TRUE(entries.empty());
+    EXPECT_EQ(server.commands.back(), 0x22u);  // close the directory on failure
+    riftwii::riifs::Stat stat;
+    EXPECT_TRUE(client.stat("/Pack/A.arc", stat, missing, error));
+
+    const std::string root = "sd:/riftwii/riifs/pc_1137";
+    const std::string path = root + "/Pack/A.arc";
+    FakeCard card;
+    card.make_dirs(root + "/Pack");
+    card.begin_file(path);
+    const auto original = bytes("cached file");
+    card.write(original.data(), original.size());
+    card.end_file(true);
+    std::vector<riftwii::riifs::SyncItem> items(1);
+    items[0].path = "/Pack";
+    items[0].folder = true;
+    riftwii::riifs::SyncStats stats;
+    EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+    EXPECT_EQ(card.writes, 1u);  // only the fixture, never a replacement
+    EXPECT_TRUE(card.has(path));
+    EXPECT_EQ(card.text(path), "cached file");
+    EXPECT_TRUE(error.find("stat") != std::string::npos);
+}
+
 static void TestHostileServer() {
     using riftwii::riifs::SyncItem;
     const std::string root = "sd:/riftwii/riifs/pc_1137";
@@ -691,6 +732,7 @@ int main() {
     TestMissingSaveParent();
     TestSync();
     TestHostileServer();
+    TestListingStatFailure();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
