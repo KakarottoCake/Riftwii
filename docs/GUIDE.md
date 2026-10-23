@@ -457,6 +457,45 @@ In real-card mode the SD tools are dimmed, and the page explains where
 the game's saves live; the copy tools remain available. On Wii U they
 are dimmed with a note.
 
+**Bring your Dolphin saves** (on a game's Memory Card page, once Dolphin's
+`GC` folder is copied to `sd:/riftwii/gc/dolphin/`) copies every save in it
+to that game's card. **Bring your Nintendont saves** does the same from
+Nintendont's memory cards, for all games at once:
+
+- With Nintendont's memory card emulation on, its cards are in `/saves` on
+  the device it loads from, so RiftWii looks in `sd:/saves` and
+  `usb:/saves`. It reads only the names Nintendont gives them: `<ID>.raw`
+  (one card for a game, such as `GMSE.raw`), `ninmem.raw` and `ninmemj.raw`
+  (the Multi cards: USA and PAL games, Japanese and Korean games) and the
+  slot B names (`<ID>_B.raw`, `ninmemb.raw`, `ninmemjb.raw`). The Triforce
+  arcade files in the same folder (`GP1.bin`, `AX.bin`, `*settings.bin`...)
+  and anything else are ignored, and so is a file that is not between 0.5
+  and 16 MB.
+- When RiftWii finds Nintendont's cards it asks once, after Home has looked
+  at the drives: **Bring your Nintendont saves?** with **Choose saves**,
+  **Bring all** and **Not now**. Any answer, Not now too (and B or HOME),
+  is kept in the settings (`nintendont_saves = asked`), so it is not asked
+  again. **Settings > Games > Bring your Nintendont saves** opens the
+  choose-saves screen whenever you want it.
+- **Choose saves** lists every save found, one row each with a switch: the
+  game's name, then the save's name, its blocks and the card file it is in
+  (and whether that is on the SD card or the USB drive). Switch on the ones
+  you want (**Tick all** does every save that can be brought; a damaged
+  save is dimmed and cannot be) and press **Bring the ticked saves**.
+- Each save goes to the card of its own game, by the game and maker code in
+  the save itself, not by the name of Nintendont's file: a `ninmem.raw` with
+  twenty games fills twenty RiftWii cards, and a `GMSE.raw` that also holds
+  another maker's game does not mix them. A game set to a **Shared** memory
+  card on its page gets its saves on `shared.raw` (or `shared-jp.raw` for a
+  Japanese game) instead. A game with no card yet gets a new one.
+- RiftWii then says what happened, as Bring your Dolphin saves does: added,
+  already there (and skipped), could not be used, and a full card. A save a
+  card already has (same game, maker and name) is never overwritten, and
+  when a card is full the saves that fit go in.
+- **Nintendont's files are never changed or deleted**: they are only read,
+  so you can keep using Nintendont. Each RiftWii card is backed up before it
+  is written, so **Restore an older save** can undo the import.
+
 **Leaving a game:** hold for two seconds
 
 - HOME on a Wii Remote with a Nunchuk, a Classic Controller or a Wii U

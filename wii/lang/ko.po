@@ -3131,3 +3131,54 @@ msgstr "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요."
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. 슬롯 249/250/251에 d2x cIOS."
+
+msgid "Bring your Nintendont saves?"
+msgstr "Nintendont 저장 데이터를 가져올까요?"
+
+msgid "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it."
+msgstr "RiftWii가 Nintendont의 saves 폴더({2})에서 메모리 카드 파일 {1}개를 찾았습니다. 그 저장 데이터를 RiftWii의 메모리 카드에 게임별로 각자의 카드로 복사하며, 이미 있는 것은 그대로 둡니다. Nintendont의 파일은 절대 바뀌지 않고, 먼저 각 카드의 복사본을 남기므로 '이전 저장 데이터로 되돌리기'로 취소할 수 있습니다."
+
+msgid "Choose saves"
+msgstr "저장 데이터 선택"
+
+msgid "Bring all"
+msgstr "모두 가져오기"
+
+msgid "Bring your Nintendont saves"
+msgstr "Nintendont 저장 데이터 가져오기"
+
+msgid "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed."
+msgstr "Nintendont의 메모리 카드(sd:/saves 또는 usb:/saves)에 있는 저장 데이터를 RiftWii의 카드로 복사합니다. Nintendont의 파일은 바뀌지 않습니다."
+
+msgid "No saves from Nintendont"
+msgstr "Nintendont 저장 데이터 없음"
+
+msgid "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on."
+msgstr "RiftWii가 {1}에서 Nintendont 메모리 카드를 찾지 못했습니다. Nintendont는 메모리 카드 에뮬레이션이 켜져 있으면 saves 폴더에 카드를 보관합니다."
+
+msgid "The Nintendont memory cards RiftWii found hold no saves it can bring."
+msgstr "찾은 Nintendont 메모리 카드에는 RiftWii가 가져올 수 있는 저장 데이터가 없습니다."
+
+msgid "Press A to tick or untick this save."
+msgstr "A를 눌러 이 저장 데이터를 선택하거나 해제합니다."
+
+msgid "This save is damaged, so it cannot be brought."
+msgstr "이 저장 데이터는 손상되어 가져올 수 없습니다."
+
+msgid "Tick all"
+msgstr "모두 선택"
+
+msgid "Ticks every save that can be brought."
+msgstr "가져올 수 있는 저장 데이터를 모두 선택합니다."
+
+msgid "Bring the ticked saves"
+msgstr "선택한 저장 데이터 가져오기"
+
+msgid "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed."
+msgstr "선택한 저장 데이터를 RiftWii의 메모리 카드로 복사합니다. Nintendont의 파일은 바뀌지 않습니다."
+
+msgid "Tick the saves you want to bring first."
+msgstr "먼저 가져올 저장 데이터를 선택하세요."
+
+msgid "Nintendont saves brought"
+msgstr "Nintendont 저장 데이터를 가져왔습니다"

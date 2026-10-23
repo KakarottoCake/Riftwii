@@ -6527,6 +6527,85 @@ FR.update({
 })
 
 
+T.update({
+    "Bring your Nintendont saves?": ("¿Traer tus partidas de Nintendont?", "Nintendontのセーブを持ってきますか?", "Trazer seus saves do Nintendont?", "Portare i salvataggi di Nintendont?"),
+    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": (
+        "RiftWii ha encontrado {1} archivos de tarjeta de memoria en la carpeta de partidas de Nintendont ({2}). Sus partidas se copian a las tarjetas de memoria de RiftWii, las de cada juego a la suya, y las que ya están no se tocan. Los archivos de Nintendont nunca se cambian, y antes se guarda una copia de cada tarjeta, así que Restaurar una partida anterior puede deshacerlo.",
+        "Nintendontのセーブフォルダ({2})にメモリーカードのファイルが{1}個見つかりました。そのセーブをRiftWiiのメモリーカードにコピーします。ゲームごとにそのゲーム専用のカードへ入り、すでにあるセーブはそのままです。Nintendontのファイルは変更しません。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。",
+        "O RiftWii encontrou {1} arquivos de cartão de memória na pasta de saves do Nintendont ({2}). Os saves deles são copiados para os cartões de memória do RiftWii, os de cada jogo para o seu, e os que já estão lá ficam como estão. Os arquivos do Nintendont nunca são alterados, e uma cópia de cada cartão é guardada antes, então Restaurar um save anterior pode desfazer isso.",
+        "RiftWii ha trovato {1} file di Memory Card nella cartella dei salvataggi di Nintendont ({2}). I loro salvataggi vengono copiati sulle Memory Card di RiftWii, quelli di ogni gioco sulla sua, e quelli già presenti restano come sono. I file di Nintendont non vengono mai modificati e prima viene fatta una copia di ogni scheda, quindi Ripristina un salvataggio precedente può annullare tutto."),
+    "Choose saves": ("Elegir partidas", "セーブを選ぶ", "Escolher saves", "Scegli i salvataggi"),
+    "Bring all": ("Traer todas", "すべて持ってくる", "Trazer todos", "Porta tutti"),
+    "Bring your Nintendont saves": ("Traer tus partidas de Nintendont", "Nintendontのセーブを持ってくる", "Trazer seus saves do Nintendont", "Porta i salvataggi di Nintendont"),
+    "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.": (
+        "Copia las partidas de las tarjetas de memoria de Nintendont (en sd:/saves o usb:/saves) a las de RiftWii. Los archivos de Nintendont no se cambian.",
+        "Nintendontのメモリーカード(sd:/savesまたはusb:/saves)にあるセーブをRiftWiiのカードにコピーします。Nintendontのファイルは変更しません。",
+        "Copia os saves dos cartões de memória do Nintendont (em sd:/saves ou usb:/saves) para os do RiftWii. Os arquivos do Nintendont não são alterados.",
+        "Copia i salvataggi dalle Memory Card di Nintendont (in sd:/saves o usb:/saves) a quelle di RiftWii. I file di Nintendont non vengono modificati."),
+    "No saves from Nintendont": ("Sin partidas de Nintendont", "Nintendontのセーブがありません", "Nenhum save do Nintendont", "Nessun salvataggio di Nintendont"),
+    "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on.": (
+        "RiftWii no ha encontrado tarjetas de memoria de Nintendont en {1}. Nintendont las guarda en su carpeta saves cuando la emulación de tarjeta de memoria está activada.",
+        "{1}にNintendontのメモリーカードが見つかりません。Nintendontはメモリーカードのエミュレートがオンのとき、savesフォルダにカードを保存します。",
+        "O RiftWii não encontrou cartões de memória do Nintendont em {1}. O Nintendont os guarda na pasta saves quando a emulação de cartão de memória está ativada.",
+        "RiftWii non ha trovato Memory Card di Nintendont in {1}. Nintendont le tiene nella cartella saves quando l'emulazione della Memory Card è attiva."),
+    "The Nintendont memory cards RiftWii found hold no saves it can bring.": (
+        "Las tarjetas de memoria de Nintendont encontradas no tienen partidas que RiftWii pueda traer.",
+        "見つかったNintendontのメモリーカードに、持ってこられるセーブはありません。",
+        "Os cartões de memória do Nintendont encontrados não têm saves que o RiftWii possa trazer.",
+        "Le Memory Card di Nintendont trovate non contengono salvataggi che RiftWii possa portare."),
+    "Press A to tick or untick this save.": ("Pulsa A para marcar o desmarcar esta partida.", "Aでこのセーブの選択を切り替えます。", "Aperte A para marcar ou desmarcar este save.", "Premi A per selezionare o deselezionare questo salvataggio."),
+    "This save is damaged, so it cannot be brought.": ("Esta partida está dañada, así que no se puede traer.", "このセーブは壊れているため、持ってこられません。", "Este save está danificado, então não pode ser trazido.", "Questo salvataggio è danneggiato, quindi non può essere portato."),
+    "Tick all": ("Marcar todas", "すべて選ぶ", "Marcar todos", "Seleziona tutti"),
+    "Ticks every save that can be brought.": ("Marca todas las partidas que se pueden traer.", "持ってこられるセーブをすべて選びます。", "Marca todos os saves que podem ser trazidos.", "Seleziona tutti i salvataggi che si possono portare."),
+    "Bring the ticked saves": ("Traer las partidas marcadas", "選んだセーブを持ってくる", "Trazer os saves marcados", "Porta i salvataggi selezionati"),
+    "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed.": (
+        "Copia las partidas marcadas a las tarjetas de memoria de RiftWii. Los archivos de Nintendont no se cambian.",
+        "選んだセーブをRiftWiiのメモリーカードにコピーします。Nintendontのファイルは変更しません。",
+        "Copia os saves marcados para os cartões de memória do RiftWii. Os arquivos do Nintendont não são alterados.",
+        "Copia i salvataggi selezionati sulle Memory Card di RiftWii. I file di Nintendont non vengono modificati."),
+    "Tick the saves you want to bring first.": ("Marca primero las partidas que quieras traer.", "先に持ってきたいセーブを選んでください。", "Marque primeiro os saves que quer trazer.", "Seleziona prima i salvataggi che vuoi portare."),
+    "Nintendont saves brought": ("Partidas de Nintendont traídas", "Nintendontのセーブを持ってきました", "Saves do Nintendont trazidos", "Salvataggi di Nintendont portati"),
+})
+KO.update({
+    "Bring your Nintendont saves?": "Nintendont 저장 데이터를 가져올까요?",
+    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": "RiftWii가 Nintendont의 saves 폴더({2})에서 메모리 카드 파일 {1}개를 찾았습니다. 그 저장 데이터를 RiftWii의 메모리 카드에 게임별로 각자의 카드로 복사하며, 이미 있는 것은 그대로 둡니다. Nintendont의 파일은 절대 바뀌지 않고, 먼저 각 카드의 복사본을 남기므로 '이전 저장 데이터로 되돌리기'로 취소할 수 있습니다.",
+    "Choose saves": "저장 데이터 선택",
+    "Bring all": "모두 가져오기",
+    "Bring your Nintendont saves": "Nintendont 저장 데이터 가져오기",
+    "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.": "Nintendont의 메모리 카드(sd:/saves 또는 usb:/saves)에 있는 저장 데이터를 RiftWii의 카드로 복사합니다. Nintendont의 파일은 바뀌지 않습니다.",
+    "No saves from Nintendont": "Nintendont 저장 데이터 없음",
+    "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on.": "RiftWii가 {1}에서 Nintendont 메모리 카드를 찾지 못했습니다. Nintendont는 메모리 카드 에뮬레이션이 켜져 있으면 saves 폴더에 카드를 보관합니다.",
+    "The Nintendont memory cards RiftWii found hold no saves it can bring.": "찾은 Nintendont 메모리 카드에는 RiftWii가 가져올 수 있는 저장 데이터가 없습니다.",
+    "Press A to tick or untick this save.": "A를 눌러 이 저장 데이터를 선택하거나 해제합니다.",
+    "This save is damaged, so it cannot be brought.": "이 저장 데이터는 손상되어 가져올 수 없습니다.",
+    "Tick all": "모두 선택",
+    "Ticks every save that can be brought.": "가져올 수 있는 저장 데이터를 모두 선택합니다.",
+    "Bring the ticked saves": "선택한 저장 데이터 가져오기",
+    "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed.": "선택한 저장 데이터를 RiftWii의 메모리 카드로 복사합니다. Nintendont의 파일은 바뀌지 않습니다.",
+    "Tick the saves you want to bring first.": "먼저 가져올 저장 데이터를 선택하세요.",
+    "Nintendont saves brought": "Nintendont 저장 데이터를 가져왔습니다",
+})
+FR.update({
+    "Bring your Nintendont saves?": "Récupérer vos sauvegardes Nintendont ?",
+    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": "RiftWii a trouvé {1} fichiers de carte mémoire dans le dossier saves de Nintendont ({2}). Leurs sauvegardes sont copiées sur les cartes mémoire de RiftWii, celles de chaque jeu sur la sienne, et celles qui y sont déjà restent telles quelles. Les fichiers de Nintendont ne sont jamais modifiés, et chaque carte est d'abord copiée, donc Restaurer une ancienne sauvegarde peut tout annuler.",
+    "Choose saves": "Choisir les sauvegardes",
+    "Bring all": "Tout récupérer",
+    "Bring your Nintendont saves": "Récupérer vos sauvegardes Nintendont",
+    "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.": "Copie les sauvegardes des cartes mémoire de Nintendont (dans sd:/saves ou usb:/saves) vers celles de RiftWii. Les fichiers de Nintendont ne sont pas modifiés.",
+    "No saves from Nintendont": "Aucune sauvegarde Nintendont",
+    "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on.": "RiftWii n'a trouvé aucune carte mémoire Nintendont dans {1}. Nintendont les garde dans son dossier saves quand l'émulation de carte mémoire est activée.",
+    "The Nintendont memory cards RiftWii found hold no saves it can bring.": "Les cartes mémoire Nintendont trouvées ne contiennent aucune sauvegarde que RiftWii puisse récupérer.",
+    "Press A to tick or untick this save.": "Appuyez sur A pour cocher ou décocher cette sauvegarde.",
+    "This save is damaged, so it cannot be brought.": "Cette sauvegarde est endommagée, elle ne peut donc pas être récupérée.",
+    "Tick all": "Tout cocher",
+    "Ticks every save that can be brought.": "Coche toutes les sauvegardes qui peuvent être récupérées.",
+    "Bring the ticked saves": "Récupérer les sauvegardes cochées",
+    "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed.": "Copie les sauvegardes cochées sur les cartes mémoire de RiftWii. Les fichiers de Nintendont ne sont pas modifiés.",
+    "Tick the saves you want to bring first.": "Cochez d'abord les sauvegardes à récupérer.",
+    "Nintendont saves brought": "Sauvegardes Nintendont récupérées",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

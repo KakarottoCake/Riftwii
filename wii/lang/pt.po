@@ -3131,3 +3131,54 @@ msgstr "4. Jogos na pasta /wbfs ou /games."
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Um cIOS d2x no slot 249/250/251."
+
+msgid "Bring your Nintendont saves?"
+msgstr "Trazer seus saves do Nintendont?"
+
+msgid "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it."
+msgstr "O RiftWii encontrou {1} arquivos de cartão de memória na pasta de saves do Nintendont ({2}). Os saves deles são copiados para os cartões de memória do RiftWii, os de cada jogo para o seu, e os que já estão lá ficam como estão. Os arquivos do Nintendont nunca são alterados, e uma cópia de cada cartão é guardada antes, então Restaurar um save anterior pode desfazer isso."
+
+msgid "Choose saves"
+msgstr "Escolher saves"
+
+msgid "Bring all"
+msgstr "Trazer todos"
+
+msgid "Bring your Nintendont saves"
+msgstr "Trazer seus saves do Nintendont"
+
+msgid "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed."
+msgstr "Copia os saves dos cartões de memória do Nintendont (em sd:/saves ou usb:/saves) para os do RiftWii. Os arquivos do Nintendont não são alterados."
+
+msgid "No saves from Nintendont"
+msgstr "Nenhum save do Nintendont"
+
+msgid "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on."
+msgstr "O RiftWii não encontrou cartões de memória do Nintendont em {1}. O Nintendont os guarda na pasta saves quando a emulação de cartão de memória está ativada."
+
+msgid "The Nintendont memory cards RiftWii found hold no saves it can bring."
+msgstr "Os cartões de memória do Nintendont encontrados não têm saves que o RiftWii possa trazer."
+
+msgid "Press A to tick or untick this save."
+msgstr "Aperte A para marcar ou desmarcar este save."
+
+msgid "This save is damaged, so it cannot be brought."
+msgstr "Este save está danificado, então não pode ser trazido."
+
+msgid "Tick all"
+msgstr "Marcar todos"
+
+msgid "Ticks every save that can be brought."
+msgstr "Marca todos os saves que podem ser trazidos."
+
+msgid "Bring the ticked saves"
+msgstr "Trazer os saves marcados"
+
+msgid "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed."
+msgstr "Copia os saves marcados para os cartões de memória do RiftWii. Os arquivos do Nintendont não são alterados."
+
+msgid "Tick the saves you want to bring first."
+msgstr "Marque primeiro os saves que quer trazer."
+
+msgid "Nintendont saves brought"
+msgstr "Saves do Nintendont trazidos"

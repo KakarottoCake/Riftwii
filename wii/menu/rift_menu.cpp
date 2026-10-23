@@ -3519,6 +3519,10 @@ static std::string DiscTileNote()
 	return tr("The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.");
 }
 
+// Bring your Nintendont saves (below, with the GameCube memory card pages):
+// asked once, after Home has looked at the drives.
+static void OfferNintendontSavesOnce();
+
 // The tour, once per SD card (sd:/riftwii/tutorial_done.txt remembers).
 // A card that has been used before (settings, play history, covers, the
 // channel offer answered) counts as seen: an update does not show it.
@@ -4377,6 +4381,7 @@ static int MenuSource(FrontendState& state)
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		TeaseCisoOnce(state.sd_catalog, state.usb_catalog);
+		OfferNintendontSavesOnce();
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		return true;
 	};
@@ -6520,10 +6525,12 @@ static std::string FreeGciPath(const std::string& dir, const riftwii::GcSave& sa
 }
 
 // Two choices as tiles over a popup, with Back: 0 or 1, -1 for Back.
+// `backLabel` names the Back button when it means something else ("Not now").
 static int ChooseTwo(const std::string& title, const std::string& body, const std::string& label0,
-		     const std::string& value0, const std::string& label1, const std::string& value1)
+		     const std::string& value0, const std::string& label1, const std::string& value1,
+		     const std::string& backLabel = "")
 {
-	PopupBox box(title, body, "", tr("Back"));
+	PopupBox box(title, body, "", backLabel.empty() ? std::string(tr("Back")) : backLabel);
 	box.CenterCancel();
 	// The body at the top: centred, a short one sat under the tiles
 	// (Dolphin: "Choose the slot holding the memory card" hidden by them).
@@ -7157,6 +7164,429 @@ static void MenuGcSdCard(FrontendState& state)
 		return tr("{1} of {2} blocks free", {std::to_string(info.free_blocks), std::to_string(info.blocks - 5)});
 	};
 	RunRowPage(shared ? tr("Shared Memory Card") : tr("Memory Card"), GameTitle(state), rows, note, act, space);
+}
+
+// ---------------------------------------------------------------------------
+// Bring your Nintendont saves: the memory cards Nintendont keeps in
+// sd:/saves and usb:/saves (riftwii/gcimport.hpp) are read, never changed,
+// and the saves picked are copied to RiftWii's cards, each to the card of
+// its own game.
+
+// One Nintendont card at a time is read into a buffer in MEM2 (a card is up
+// to 16 MB, which the heap in MEM1 cannot spare). It is taken once, for the
+// biggest card found, and given back when the visit ends; when something
+// else was taken from MEM2 after it, it stays for the next visit.
+static u8* g_nintendontBuffer = nullptr;
+static std::size_t g_nintendontBufferBytes = 0;
+
+static bool ReserveNintendontBuffer(std::size_t bytes)
+{
+	if (g_nintendontBufferBytes >= bytes) return true;
+	if (g_nintendontBuffer && skin::Mem2Release(g_nintendontBuffer, g_nintendontBufferBytes)) {
+		g_nintendontBuffer = nullptr;
+		g_nintendontBufferBytes = 0;
+	}
+	u8* block = skin::Mem2Alloc(bytes);
+	if (!block) return false;
+	g_nintendontBuffer = block;
+	g_nintendontBufferBytes = bytes;
+	return true;
+}
+
+static void ReleaseNintendontBuffer()
+{
+	if (g_nintendontBuffer && skin::Mem2Release(g_nintendontBuffer, g_nintendontBufferBytes)) {
+		g_nintendontBuffer = nullptr;
+		g_nintendontBufferBytes = 0;
+	}
+}
+
+// Nintendont's cards as found, the saves in them and how that went.
+struct NintendontFinds {
+	riftwii::GcNintendontFiles files;
+	std::vector<riftwii::GcNintendontSave> saves;  // card by card, in slot order
+	unsigned unreadable = 0;                       // card files that are not cards RiftWii can read
+	bool noMemory = false;                         // MEM2 had no room for the biggest card
+};
+
+// A folder of sd: is read with opendir; usb: is not a mounted file system,
+// so the menu's own view of the drive lists it (read only).
+static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcFolderEntry>& out)
+{
+	if (folder.compare(0, 5, "usb:/") != 0) return riftwii::gc_posix_lister(folder, out);
+	out.clear();
+	std::vector<riftwii::VolumeEntry> entries;
+	if (!riftwii::wii::list_usb_folder(folder, entries)) return false;
+	for (const riftwii::VolumeEntry& entry : entries) {
+		if (out.size() > riftwii::kGcDolphinMaxEntries) break;
+		riftwii::GcFolderEntry found;
+		found.name = entry.name;
+		found.is_directory = entry.is_directory;
+		found.bytes = entry.size;
+		out.push_back(found);
+	}
+	return true;
+}
+
+static void ScanNintendontCards(NintendontFinds& finds)
+{
+	const std::vector<std::string> folders(std::begin(riftwii::kGcNintendontFolders), std::end(riftwii::kGcNintendontFolders));
+	finds.files = riftwii::gc_nintendont_scan(folders, NintendontLister);
+	logf("Nintendont saves: %u memory card file(s) found in sd:/saves and usb:/saves, %u of a size no card has%s\n",
+		static_cast<unsigned>(finds.files.cards.size()), finds.files.wrong_size,
+		finds.files.truncated ? ", more than RiftWii reads at once, so some were left out" : "");
+}
+
+// Reads the card file into the MEM2 buffer, whole, as the scan saw it:
+// false when it cannot be read or is not that size any more.
+static bool ReadNintendontCard(const riftwii::GcNintendontCard& card)
+{
+	if (card.bytes > g_nintendontBufferBytes) return false;
+	if (card.path.compare(0, 5, "usb:/") == 0) {
+		constexpr std::uint64_t kPiece = 256 << 10;
+		for (std::uint64_t at = 0; at < card.bytes;) {
+			const std::size_t piece = static_cast<std::size_t>(std::min<std::uint64_t>(kPiece, card.bytes - at));
+			std::uint64_t size = 0;
+			if (!riftwii::wii::read_usb_range(card.path, at, g_nintendontBuffer + at, piece, size) || size != card.bytes)
+				return false;
+			at += piece;
+		}
+		return true;
+	}
+	FILE* f = std::fopen(card.path.c_str(), "rb");
+	if (!f) return false;
+	std::fseek(f, 0, SEEK_END);
+	const long size = std::ftell(f);
+	std::fseek(f, 0, SEEK_SET);
+	const bool whole = size >= 0 && static_cast<std::uint64_t>(size) == card.bytes &&
+		std::fread(g_nintendontBuffer, 1, card.bytes, f) == card.bytes;
+	std::fclose(f);
+	return whole;
+}
+
+// Lists the saves in every card found.
+static void ListNintendontSaves(NintendontFinds& finds)
+{
+	finds.saves.clear();
+	finds.unreadable = 0;
+	finds.noMemory = false;
+	std::uint64_t largest = 0;
+	for (const riftwii::GcNintendontCard& card : finds.files.cards) largest = std::max(largest, card.bytes);
+	if (largest == 0) return;
+	if (!ReserveNintendontBuffer(static_cast<std::size_t>(largest))) {
+		finds.noMemory = true;
+		logf("Nintendont saves: no room in MEM2 for a card of %u KB, so none were read\n", static_cast<unsigned>(largest >> 10));
+		return;
+	}
+	for (std::size_t i = 0; i < finds.files.cards.size(); ++i) {
+		const riftwii::GcNintendontCard& card = finds.files.cards[i];
+		std::string why;
+		if (!ReadNintendontCard(card)) {
+			logf("Nintendont saves: %s could not be read\n", card.path.c_str());
+			++finds.unreadable;
+		} else if (!riftwii::gc_nintendont_list(i, g_nintendontBuffer, card.bytes, finds.saves, why)) {
+			logf("Nintendont saves: %s is not a memory card RiftWii can read: %s\n", card.path.c_str(), why.c_str());
+			++finds.unreadable;
+		} else {
+			logf("Nintendont saves: %s holds %u save(s)\n", card.path.c_str(),
+				static_cast<unsigned>(std::count_if(finds.saves.begin(), finds.saves.end(),
+					[&](const riftwii::GcNintendontSave& save) { return save.card == i; })));
+		}
+	}
+}
+
+// Whether the game's own page says its memory card is the shared one (the
+// choices file the page keeps; none means its own card).
+static bool GcGameUsesSharedCard(const std::string& id)
+{
+	std::vector<std::uint8_t> bytes;
+	if (!ReadSmallFile(std::string(riftwii::wii::kChoicesDir) + "/" + id + ".txt", 1u << 20, bytes)) return false;
+	riftwii::LaunchModel choices;
+	choices.restore(std::string(bytes.begin(), bytes.end()));
+	return choices.game.gc_card == "shared";
+}
+
+// A card file's place for the player: "GMSE.raw, SD card".
+static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
+{
+	const bool usb = card.path.compare(0, 5, "usb:/") == 0;
+	return card.name + ", " + (usb ? tr("USB drive") : tr("SD card"));
+}
+
+// Copies the saves at `picks` (indices into finds.saves, ascending) to
+// RiftWii's cards. Each save goes to the card of the game in its own
+// directory entry (riftwii::gc_nintendont_route); a card is read, backed up
+// before it is written, and written once, with the blocks in the order that
+// leaves the old card in charge if the write is cut off. The Nintendont
+// files are only read. Counts what came of it into `total`.
+static void BringNintendontSaves(const NintendontFinds& finds, const std::vector<std::size_t>& picks,
+	riftwii::GcImportCount& total)
+{
+	struct Target {
+		std::string path;
+		std::string id;
+		bool shared = false;
+		std::vector<std::size_t> picks;
+	};
+	std::vector<Target> targets;
+	for (std::size_t pick : picks) {
+		const riftwii::GcNintendontSave& save = finds.saves[pick];
+		const bool shared = GcGameUsesSharedCard(save.id);
+		const std::string path = riftwii::gc_nintendont_route(save, shared);
+		auto found = std::find_if(targets.begin(), targets.end(), [&](const Target& t) { return t.path == path; });
+		if (found == targets.end()) {
+			targets.push_back(Target());
+			found = targets.end() - 1;
+			found->path = path;
+			found->id = save.id;
+			found->shared = shared;
+		}
+		found->picks.push_back(pick);
+	}
+
+	const std::size_t none = static_cast<std::size_t>(-1);
+	std::size_t inBuffer = none;  // the card file the MEM2 buffer holds now
+	for (const Target& target : targets) {
+		std::string why;
+		riftwii::GcImportCount count;
+		const riftwii::GcRecovery recovered = riftwii::gc_recover_card(target.path, why);
+		if (recovered == riftwii::GcRecovery::Failed || recovered == riftwii::GcRecovery::BothKept) {
+			logf("Nintendont saves: %s could not be recovered before the saves came: %s\n", target.path.c_str(), why.c_str());
+			total.unusable += static_cast<unsigned>(target.picks.size());
+			continue;
+		}
+		struct stat status;
+		const bool exists = stat(target.path.c_str(), &status) == 0;
+		std::vector<std::uint8_t> card;
+		if (exists && !ReadSmallFile(target.path, riftwii::kGcDolphinMaxRawBytes, card)) {
+			logf("Nintendont saves: %s could not be read\n", target.path.c_str());
+			total.unusable += static_cast<unsigned>(target.picks.size());
+			continue;
+		}
+		const std::vector<std::uint8_t> before = card;
+		bool formatted = exists;
+		for (std::size_t pick : target.picks) {
+			if (count.full) break;
+			const riftwii::GcNintendontSave& save = finds.saves[pick];
+			const riftwii::GcNintendontCard& source = finds.files.cards[save.card];
+			if (inBuffer != save.card) {
+				inBuffer = none;
+				if (!ReadNintendontCard(source)) {
+					logf("Nintendont saves: %s could not be read again\n", source.path.c_str());
+					++count.unusable;
+					continue;
+				}
+				inBuffer = save.card;
+			}
+			// A game with no card yet gets a new one, formatted like the one its save came from.
+			if (!formatted) {
+				riftwii::gc_nintendont_blank_card(card, g_nintendontBuffer, source.bytes, save.shift_jis, gettime());
+				formatted = true;
+			}
+			riftwii::gc_nintendont_import(card, g_nintendontBuffer, source.bytes, save, count);
+		}
+
+		bool written = true;
+		if (count.added > 0) {
+			// The copy is made only now that there is something to add, and
+			// before anything is written.
+			if (exists) {
+				const time_t now = time(nullptr);
+				struct tm local;
+				localtime_r(&now, &local);
+				const std::string folder = riftwii::gc_backup_folder(target.id, target.shared);
+				const riftwii::GcBackupResult backup = riftwii::gc_backup_card(target.path, folder, riftwii::gc_backup_stamp(local));
+				if (backup.what == riftwii::GcBackupResult::What::Failed) {
+					logf("Nintendont saves: %s was not changed, as it could not be backed up: %s\n", target.path.c_str(),
+						backup.error.c_str());
+					written = false;
+				} else if (backup.what == riftwii::GcBackupResult::What::Made) {
+					logf("Nintendont saves: %s backed up to %s/%s first\n", target.path.c_str(), folder.c_str(), backup.name.c_str());
+				}
+				for (const std::string& old : backup.pruned)
+					logf("Nintendont saves: oldest backup %s/%s deleted, to keep the newest %u\n", folder.c_str(), old.c_str(),
+						static_cast<unsigned>(riftwii::kGcBackupsKept));
+			}
+			if (written && exists) {
+				written = WriteChangedBlocks(target.path, before, card, CardChange::Import);
+			} else if (written) {
+				mkdir("sd:/riftwii", 0777);
+				mkdir("sd:/riftwii/gc", 0777);
+				mkdir("sd:/riftwii/gc/cards", 0777);
+				written = riftwii::gc_overwrite_file(target.path, card, why);
+				if (written) riftwii::wii::forget_sd_layout();
+			}
+			if (!written) logf("Nintendont saves: %s was not written\n", target.path.c_str());
+		}
+		logf("Nintendont saves: %s: %u added, %u already there, %u unusable%s%s\n", target.path.c_str(),
+			written ? count.added : 0, count.skipped, count.unusable + (written ? 0 : count.added),
+			count.full ? ", the card filled up" : "", written || count.added == 0 ? "" : ", but it could not be written");
+		total.added += written ? count.added : 0;
+		total.skipped += count.skipped;
+		total.unusable += count.unusable + (written ? 0 : count.added);
+		if (count.full) total.full = true;
+	}
+}
+
+// Brings the saves at `picks` and says what came of it. True: some were added.
+static bool BringNintendontSavesAndSay(const NintendontFinds& finds, const std::vector<std::size_t>& picks)
+{
+	riftwii::GcImportCount total;
+	BringNintendontSaves(finds, picks, total);
+	logf("Nintendont saves: %u added, %u already there, %u unusable%s\n", total.added, total.skipped, total.unusable,
+		total.full ? ", a card filled up" : "");
+	ShowPopup(total.added > 0 ? tr("Nintendont saves brought") : total.full ? tr("Memory card full") : tr("Nothing new to add"),
+		GcDolphinSummary(total, finds.files.truncated), tr("OK"));
+	return total.added > 0;
+}
+
+// The saves found, one row each with a switch: the game's name, then the
+// save's name, its blocks and the card it is in. A at the foot brings the
+// ones ticked. True: some were brought.
+static bool ChooseNintendontSaves(const NintendontFinds& finds)
+{
+	const std::size_t count = finds.saves.size();
+	std::vector<bool> ticked(count, false);
+	std::vector<FlowRow> rows;
+	const auto ticks = [&] { return static_cast<unsigned>(std::count(ticked.begin(), ticked.end(), true)); };
+	const auto rebuild = [&] {
+		rows.clear();
+		for (std::size_t i = 0; i < count; ++i) {
+			const riftwii::GcNintendontSave& save = finds.saves[i];
+			const std::string name = riftwii::gc_card_text_utf8(
+				save.comment_title.empty() ? save.file_name : save.comment_title, save.shift_jis);
+			FlowRow row;
+			row.kind = FlowRow::Kind::Toggle;
+			row.label = FlatCapped(riftwii::wii::GameDisplayName(save.id, save.id), 34);
+			row.detail = FlatCapped(name, 24) + " \xC2\xB7 " +
+				(save.blocks == 1 ? std::string(tr("1 block")) : tr("{1} blocks", {std::to_string(save.blocks)})) + " \xC2\xB7 " +
+				FlatCapped(NintendontCardLabel(finds.files.cards[save.card]), 26);
+			row.on = ticked[i];
+			row.value = row.on ? tr("On") : tr("Off");
+			row.dim = !save.intact;
+			rows.push_back(row);
+		}
+		FlowRow all;
+		all.kind = FlowRow::Kind::Action;
+		all.label = tr("Tick all");
+		rows.push_back(all);
+		FlowRow bring;
+		bring.kind = FlowRow::Kind::Action;
+		bring.label = tr("Bring the ticked saves");
+		bring.value = std::to_string(ticks());
+		bring.dim = ticks() == 0;
+		rows.push_back(bring);
+	};
+	rebuild();
+	bool brought = false;
+	const auto note = [&](int row) -> std::string {
+		const std::size_t at = static_cast<std::size_t>(row);
+		if (at == count) return tr("Ticks every save that can be brought.");
+		if (at == count + 1) {
+			return ticks() == 0 ? tr("Tick the saves you want to bring first.")
+				: tr("Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed.");
+		}
+		const riftwii::GcNintendontSave& save = finds.saves[at];
+		if (!save.intact) return tr("This save is damaged, so it cannot be brought.");
+		return std::string(tr("Press A to tick or untick this save.")) + "\n" + save.id;
+	};
+	const auto act = [&](int row, const PageAside&) {
+		const std::size_t at = static_cast<std::size_t>(row);
+		if (at < count) {
+			if (finds.saves[at].intact) ticked[at] = !ticked[at];
+		} else if (at == count) {
+			for (std::size_t i = 0; i < count; ++i) ticked[i] = finds.saves[i].intact;
+		} else {
+			std::vector<std::size_t> picks;
+			for (std::size_t i = 0; i < count; ++i)
+				if (ticked[i]) picks.push_back(i);
+			if (picks.empty()) return false;
+			brought = BringNintendontSavesAndSay(finds, picks);
+			return true;
+		}
+		// The rows are read again, and the list shows them as they are now.
+		rebuild();
+		return false;
+	};
+	RunRowPage(tr("Bring your Nintendont saves"), "", rows, note, act, nullptr, 56);
+	return brought;
+}
+
+// What to say when there is nothing to bring: no card files, or card files
+// that hold no save RiftWii can read.
+static void SayNoNintendontSaves(const NintendontFinds& finds)
+{
+	if (finds.noMemory) {
+		ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
+		return;
+	}
+	if (finds.files.cards.empty()) {
+		ShowPopup(tr("No saves from Nintendont"),
+			tr("RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on.",
+				{"sd:/saves, usb:/saves"}), tr("OK"));
+		return;
+	}
+	std::string body = tr("The Nintendont memory cards RiftWii found hold no saves it can bring.");
+	if (finds.unreadable > 0) body += std::string(" ") + tr("Could not be used: {1}.", {std::to_string(finds.unreadable)});
+	ShowPopup(tr("No saves from Nintendont"), body, tr("OK"));
+}
+
+// The saves found as the choose-saves screen lists them. False: none to show (said).
+static bool PrepareNintendontSaves(NintendontFinds& finds)
+{
+	ListNintendontSaves(finds);
+	if (finds.saves.empty()) {
+		SayNoNintendontSaves(finds);
+		return false;
+	}
+	return true;
+}
+
+// Settings > Bring your Nintendont saves: the choose-saves screen, whenever the player wants it.
+static void NintendontSavesPage()
+{
+	NintendontFinds finds;
+	ScanNintendontCards(finds);
+	if (finds.files.cards.empty()) SayNoNintendontSaves(finds);
+	else if (PrepareNintendontSaves(finds)) ChooseNintendontSaves(finds);
+	ReleaseNintendontBuffer();
+}
+
+// Asked once, when Home has looked at the drives and Nintendont's cards are
+// there; the answer, Not now too, is kept in the settings.
+static void OfferNintendontSavesOnce()
+{
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	if (settings.nintendont_saves != "ask") return;
+	NintendontFinds finds;
+	ScanNintendontCards(finds);
+	if (finds.files.cards.empty()) return;
+	bool onSd = false, onUsb = false;
+	for (const riftwii::GcNintendontCard& card : finds.files.cards) {
+		if (card.path.compare(0, 5, "usb:/") == 0) onUsb = true;
+		else onSd = true;
+	}
+	const std::string where = onSd && onUsb ? "sd:/saves, usb:/saves" : onUsb ? "usb:/saves" : "sd:/saves";
+	// Not now is the Back button, which B and HOME press, so backing out never changes a save.
+	const int choice = ChooseTwo(tr("Bring your Nintendont saves?"),
+		tr("RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.",
+			{std::to_string(finds.files.cards.size()), where}),
+		tr("Choose saves"), "", tr("Bring all"), "", tr("Not now"));
+	settings.nintendont_saves = "asked";
+	riftwii::wii::SaveSettings();
+	logf("Nintendont saves: the player answered %s\n", choice == 0 ? "Choose saves" : choice == 1 ? "Bring all" : "Not now");
+	if (choice >= 0 && PrepareNintendontSaves(finds)) {
+		if (choice == 0) {
+			ChooseNintendontSaves(finds);
+		} else {
+			std::vector<std::size_t> everything;
+			for (std::size_t i = 0; i < finds.saves.size(); ++i)
+				if (finds.saves[i].intact) everything.push_back(i);
+			if (everything.empty()) SayNoNintendontSaves(finds);
+			else BringNintendontSavesAndSay(finds, everything);
+		}
+	}
+	ReleaseNintendontBuffer();
 }
 
 // Hardware errors stay distinct from SD-image errors: the physical card is
@@ -10654,7 +11084,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -10706,6 +11136,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			FlowRow::Kind::Toggle);
 		option(tr("Back up saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
 			kGcBackups, FlowRow::Kind::Toggle);
+		FlowRow nintendontSaves;
+		nintendontSaves.kind = FlowRow::Kind::Action;
+		nintendontSaves.label = tr("Bring your Nintendont saves");
+		nintendontSaves.value = tr("Open");
+		rows.push_back(nintendontSaves);
+		actions.push_back(kNintendontSaves);
 		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
@@ -10906,7 +11342,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups:
+				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
 					return SettingsSection::Controllers;
@@ -11040,6 +11476,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
 			case kWhatsNew: return tr("This version's main changes. The release notes on GitHub have all of them.");
@@ -11500,6 +11937,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kNintendontSaves:
+					// The drives are read first: the cards may be on the USB drive.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					NintendontSavesPage();
+					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					break;
 				case kGcTest:
 					// The adapter starts once the scan's reads are over (TakeUsbScanPart).
 					WaitForDriveScan(noteTxt);

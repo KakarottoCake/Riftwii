@@ -3131,3 +3131,54 @@ msgstr "4. ゲームは/wbfsか/gamesフォルダに。"
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"
+
+msgid "Bring your Nintendont saves?"
+msgstr "Nintendontのセーブを持ってきますか?"
+
+msgid "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it."
+msgstr "Nintendontのセーブフォルダ({2})にメモリーカードのファイルが{1}個見つかりました。そのセーブをRiftWiiのメモリーカードにコピーします。ゲームごとにそのゲーム専用のカードへ入り、すでにあるセーブはそのままです。Nintendontのファイルは変更しません。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。"
+
+msgid "Choose saves"
+msgstr "セーブを選ぶ"
+
+msgid "Bring all"
+msgstr "すべて持ってくる"
+
+msgid "Bring your Nintendont saves"
+msgstr "Nintendontのセーブを持ってくる"
+
+msgid "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed."
+msgstr "Nintendontのメモリーカード(sd:/savesまたはusb:/saves)にあるセーブをRiftWiiのカードにコピーします。Nintendontのファイルは変更しません。"
+
+msgid "No saves from Nintendont"
+msgstr "Nintendontのセーブがありません"
+
+msgid "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on."
+msgstr "{1}にNintendontのメモリーカードが見つかりません。Nintendontはメモリーカードのエミュレートがオンのとき、savesフォルダにカードを保存します。"
+
+msgid "The Nintendont memory cards RiftWii found hold no saves it can bring."
+msgstr "見つかったNintendontのメモリーカードに、持ってこられるセーブはありません。"
+
+msgid "Press A to tick or untick this save."
+msgstr "Aでこのセーブの選択を切り替えます。"
+
+msgid "This save is damaged, so it cannot be brought."
+msgstr "このセーブは壊れているため、持ってこられません。"
+
+msgid "Tick all"
+msgstr "すべて選ぶ"
+
+msgid "Ticks every save that can be brought."
+msgstr "持ってこられるセーブをすべて選びます。"
+
+msgid "Bring the ticked saves"
+msgstr "選んだセーブを持ってくる"
+
+msgid "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed."
+msgstr "選んだセーブをRiftWiiのメモリーカードにコピーします。Nintendontのファイルは変更しません。"
+
+msgid "Tick the saves you want to bring first."
+msgstr "先に持ってきたいセーブを選んでください。"
+
+msgid "Nintendont saves brought"
+msgstr "Nintendontのセーブを持ってきました"
