@@ -16,56 +16,65 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Real GameCube memory cards, the Zelda bonus discs, a HOME Menu Reset that keeps a Wii game's mods, and a long list of GameCube game fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Wii channels, WiiWare and your homebrew apps on Home, themes to download, two-disc GameCube games, and Retro Rewind online again. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![A GameCube game's Memory Card page: copy from a memory card in the Wii, or save a copy of the whole card]({{SCREENSHOTS}}2610-587-real-memory-card.png)
-![Settings, Online: Download missing covers]({{SCREENSHOTS}}2610-587-missing-covers.png)
+![Home with the Wii's channels and WiiWare]({{SCREENSHOTS}}2610-615-wii-channels.png)
+![The Homebrew view on Home]({{SCREENSHOTS}}2610-615-homebrew.png)
+![Settings > Theme > Get more themes]({{SCREENSHOTS}}2610-615-get-more-themes.png)
+![What's new in this release]({{SCREENSHOTS}}2610-615-whats-new.png)
 
 ## What changed
 
+### Home
+
+- **Wii channels and WiiWare on Home,** with their banners. Settings > Games > Show non-game channels adds Nintendo's own channels too. A channel's settings have its own Game IOS, and Boot picks the Wii's NAND or the emulated one. Settings > Home > Channel background puts a white card behind banners that would look see-through. Checked in Dolphin; WiiWare and Virtual Console still need testing on a real Wii.
+- **Your homebrew apps on Home.** Press Y until the view says Homebrew: every app in `sd:/apps` is there, and A starts it. An app keeps RiftWii's IOS and hardware access; started from the RiftWii channel, it exits to the Wii Menu.
+- **Settings > Theme > Get more themes** lists the community themes, downloads one into `sd:/riftwii/themes` and deletes one you don't want.
+- **Settings > Drives > Games on the SD card: Don't look,** for a setup with every game on a USB drive. Home stops saying the card has no games, and the card still serves packs, themes and saves.
+- **The Homebrew Channel no longer shows up as a game,** and wide app icons stay inside their tiles.
+
 ### GameCube
 
-- **Real GameCube memory cards, on a Wii with GameCube slots.** A game's Saves page copies saves from a card in slot A or B into its SD card, and backs up a whole card to `sd:/riftwii/gc/backups/real/` without writing to it. Memory card > "Real card in slot A" lets the game save to the card itself; if no card answers, RiftWii offers the SD card for that launch only. A Wii U doesn't show these options. Checked in Dolphin; not tested on a real Wii yet.
-- **The Zelda bonus discs start their games.** Collector's Edition and the Ocarina of Time / Master Quest disc go back through RiftWii when you pick a game from their menu, which starts it with the usual patches, instead of a black screen. Checked in Dolphin; not tested on a real Wii yet.
-- **Sonic Gems Collection's Sonic CD, Sonic R and Sonic the Fighters** start the same way, through RiftWii, instead of staying black. Not tested with the game itself yet.
-- **Mario Party 5, 6 and 7 and DDR Mario Mix start** instead of hanging with no picture.
-- **Japanese games show their Japanese text on a Western Wii or Wii U**, instead of gaps and stray letters in their system and memory card messages.
-- **Memory cards formatted on another console are accepted,** the way a GameCube accepts them, without changing the card.
-- **Pikmin 2 from an RVZ starts** instead of staying black.
-- **Doshin the Giant (PAL) and NBA Courtside 2002 start,** and Doshin's Reset brings it back.
-- **Eternal Darkness no longer freezes on its opening quote.**
-- **F-Zero GX keeps a GameCube controller's port** while a Wii Remote is connected too. Checked in Dolphin; not tested on a real Wii yet.
-- **Luigi's Mansion no longer goes black after you choose progressive scan.**
-- **Pokémon Channel's memory card is RiftWii's again.** The game itself still stops on The Pokémon Company logo; that's a separate problem.
-- **480p games are handed over already in 480p**, our best guess at Super Mario Sunshine's wrong colors and speed on a Wii U. Not tested on a Wii U yet.
-- **A CISO, GCZ, WIA or RVZ renamed to .iso** is now named in the log with what to do about it, and a CISO gets the CISO DETECTED popup, instead of the game just not showing up.
+- **Two-disc games are listed once, and change discs when the game asks for disc 2.** Put `disc2.iso` next to `game.iso` in the game's folder. Checked in Dolphin; not tested with a real two-disc game yet.
+- **Steadier controls,** after a tester found Double Dash slippery with a near freeze: RiftWii no longer writes its diagnostic trace to the SD card while you play. An empty file `sd:/riftwii/gc/test/trace` turns the full trace back on when we ask for one.
+- **A game from USB no longer fails with "sdio: card reset failed"** on Wiis whose cIOS doesn't start the SD card itself; RiftWii starts it the way libogc does. Not tested on that Wii yet.
+- **The screen goes black at the jump into the game** instead of showing RiftWii's last picture, which Super Mario Sunshine in 480p showed green.
+- **The Wii U's GameCube adapter keeps the screen lit** while you play with its controllers, and a stick's center is taken only while it rests, so a stick held at start no longer drifts (thanks to grantendo).
+- **A damaged RVZ says what's wrong** in the log (the Zstandard error), instead of only that it couldn't be read.
+
+### Online and USB
+
+- **Retro Rewind goes online again** (error 20911). RiftWii held one of the Wii's three ES connections for the whole game so HOME Menu Reset could restart it; Retro Rewind needs one to sign its login. Now RiftWii takes it only when you press Reset. Reset with the pack still works on a real Wii.
+- **Settings > Online > Network Test** checks whether the Wii gets online.
+- **A USB game d2x can't read stops with a message** that says which port to try, instead of crashing or sitting at "3%", after trying each cIOS slot.
+- **HOME Menu Reset keeps the mods** of a game started from one of its extra Home tiles too.
 
 ### Everything else
 
-- **HOME Menu > Reset in a Wii game with mods keeps the mods.** The game starts again through RiftWii with its packs, cheats and choices. Checked in Dolphin; not tested on a real Wii yet.
-- **The in-app update shows every step:** one bar for all the downloads and writes, the step's name, and the screen no longer dims while it works.
-- **Settings > Online > Download missing covers** asks again for every cover, box and 3D cover Home is missing, including ones GameTDB didn't have last time.
-- **Virtual SD card images on a well-used SD card start,** and RiftWii warns before building one on a card whose free space is too scattered.
-- **Custom inject channels such as TIME show on Home,** Discross no longer does, and the log says why each channel is left off.
-- **Safer popups during an update,** after a tester's crash. The cause isn't certain yet, so the update now logs more to place it.
+- **The RiftWii channel shows each step while it starts,** and a step that hangs turns into a screen naming it, for the vWii consoles where the channel freezes (#228).
+- **The last 10 sessions' logs** are kept in `sd:/riftwii/logs`.
+- **Real GameCube memory cards:** a progress bar while copying, a memory check first, and a message on a Wii U, which has no card slots.
 
 ## What to test
 
-1. **The Zelda bonus discs** (Collector's Edition, Ocarina of Time / Master Quest): pick each game from the disc's menu. It should start, not go black. On a real Wii with 480p on, report any "No Signal" after the rumble screen, with `sd:/riftwii/boot.log` and `sd:/riftwii/gc/trace.bin`.
-2. **HOME Menu > Reset in a Wii game with mods:** the game should restart with its mods still on. The interesting games are the ones that used to lose them, like Wii Party. Also try the console's own Reset button.
-3. **Real GameCube memory cards** (a Wii with GameCube slots only): on a game's Saves page, copy saves from a card in slot A, then slot B, and load them in the game. Back up a whole card. Set Memory card to "Real card in slot A" and save in the game. With slot A empty, the SD card offer should be for that launch only. Pulling the card out during a copy shouldn't hang.
-4. **F-Zero GX** with only a GameCube controller while a Wii Remote is also connected; unplug and replug the controller during a race.
-5. **The GameCube fixes:** Mario Party 5, 6 and 7, DDR Mario Mix, a Japanese game's text, a card from another console, Pikmin 2 from an RVZ, Doshin's Reset, Eternal Darkness past its opening, Luigi's Mansion with progressive scan, Sunshine on a Wii U.
-6. **The update to this release:** every step with a moving bar, and the screen shouldn't dim.
-7. **Settings > Online > Download missing covers.**
+1. **Wii channels and WiiWare:** start a few from Home, try a channel's Game IOS and Boot settings, and Show non-game channels.
+2. **Homebrew:** press Y to the Homebrew view and start an app, from the Homebrew Channel and from the RiftWii channel.
+3. **Retro Rewind online** (and any other online mod), then HOME Menu > Reset.
+4. **A two-disc GameCube game** (Resident Evil 4, Tales of Symphonia, Twin Snakes...): play up to the disc change.
+5. **Double Dash and other GameCube games:** do the controls feel like a GameCube's now? Any freeze?
+6. **A game from a USB drive on a Wii U:** it should start, or stop with a clear message.
+7. **Get more themes,** and Games on the SD card set to Don't look.
 
 ## Known issues
 
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
+- **The RiftWii channel freezes on some vWii consoles** (#228). The channel in this release shows the step it stops at; please send what the screen says.
+- **A sideways Wii Remote doesn't work in GameCube games on a vWii** (#135).
+- **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
 - **Super Mario Sunshine's in-game Reset goes black** on a real Wii (#198).
 - **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
 - **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
-- **Pokémon Channel** stops on The Pokémon Company logo.
+- **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 

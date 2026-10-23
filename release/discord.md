@@ -17,27 +17,30 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Real GameCube memory cards, the Zelda bonus discs, and lots of GameCube fixes:
+Wii channels, WiiWare and homebrew on Home, themes to download, and Retro Rewind online again:
 
-* Real GameCube memory cards (Wii with GameCube slots): copy saves from one, back up a whole card, or play with "Real card in slot A"
-* The Zelda bonus discs start their games instead of going black
-* HOME Menu > Reset in a Wii game with mods keeps the mods
-* Start now: Mario Party 5/6/7, DDR Mario Mix, Pikmin 2 from an RVZ, Doshin the Giant, NBA Courtside 2002
-* Fixed: Eternal Darkness's opening, Luigi's Mansion with progressive scan, Japanese text on a Western Wii, cards from another console, F-Zero GX's controller ports
-* The update shows every step and the screen stays lit; Settings > Online > Download missing covers
+* Wii channels and WiiWare on Home, with per-channel Game IOS and NAND choice
+* Your homebrew apps on Home: press Y to the Homebrew view
+* Settings > Theme > Get more themes
+* Two-disc GameCube games: one tile, and the disc changes when the game asks
+* Retro Rewind online works again (error 20911)
+* Steadier GameCube controls (Double Dash), and USB games that d2x can't read stop with a message instead of crashing
+* Settings: Network Test, and Games on the SD card (Don't look, for USB-only setups)
 
-Cards, bonus discs, Reset and F-Zero GX are checked in Dolphin only.
+Channels, homebrew and two-disc games are checked in Dolphin only.
 
 To test, please:
 
-1. Zelda bonus discs: pick each game. On a real Wii at 480p, report any "No Signal" with boot.log and gc/trace.bin
-2. HOME Menu > Reset with mods (Wii Party is a good one), and the console's Reset button
-3. Real cards: copy from slot A, then B; back up a card; play on "Real card in slot A"
-4. F-Zero GX with a GameCube controller and a Wii Remote; replug the controller mid-race
-5. The other GameCube fixes, and Sunshine on a Wii U
-6. The update itself, then Download missing covers
+1. Start some Wii channels and WiiWare from Home
+2. Start a homebrew app, from the Homebrew Channel and from the RiftWii channel
+3. Retro Rewind online, then HOME Menu > Reset
+4. A two-disc GameCube game up to the disc change
+5. Double Dash or other GameCube games: do the controls feel right now?
+6. A USB game on a Wii U
 
-Sending logs (you don't need to take out your SD card anymore): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![A GameCube game's Memory Card page with the real card options](docs/screenshots/2610-587-real-memory-card.png)
-![Settings, Online: Download missing covers](docs/screenshots/2610-587-missing-covers.png)
+![Home with Wii channels and WiiWare](docs/screenshots/2610-615-wii-channels.png)
+![The Homebrew view](docs/screenshots/2610-615-homebrew.png)
+![Get more themes](docs/screenshots/2610-615-get-more-themes.png)
+![What's new](docs/screenshots/2610-615-whats-new.png)
