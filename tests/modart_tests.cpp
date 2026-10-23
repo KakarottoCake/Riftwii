@@ -54,7 +54,21 @@ static void test_fit() {
     EXPECT_EQ(static_cast<int>(box[(3 * 4 + 2) * 4 + 3]), 0);
 }
 
+static void test_fit_inside() {
+    // A wide 128x48 icon in a 100x90 tile inside: full width, centred down.
+    FitRect r = fit_inside(128, 48, 10, 20, 100, 90);
+    EXPECT_TRUE(r.x >= 10.0f - 0.001f && r.x + r.w <= 110.0f + 0.001f);
+    EXPECT_TRUE(r.y >= 20.0f - 0.001f && r.y + r.h <= 110.0f + 0.001f);
+    EXPECT_TRUE(r.w / r.h > 2.66f && r.w / r.h < 2.67f);
+    EXPECT_TRUE(r.y - 20.0f > 0.0f && r.y - 20.0f - (110.0f - r.y - r.h) < 0.001f);
+    // A tall icon is fitted by height; a zero area gives nothing.
+    r = fit_inside(48, 128, 0, 0, 100, 90);
+    EXPECT_TRUE(r.h <= 90.001f && r.w <= 100.0f);
+    EXPECT_TRUE(fit_inside(128, 48, 0, 0, 0, 90).scale == 0.0f);
+}
+
 int main() {
+    test_fit_inside();
     test_paths();
     test_fit();
     if (g_failures == 0) {

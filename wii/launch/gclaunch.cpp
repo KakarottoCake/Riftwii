@@ -30,6 +30,7 @@
 #include "riftwii/rvz.hpp"
 #include "sdfile.hpp"
 #include "textfile.hpp"
+#include "umsdev.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -549,19 +550,29 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
         const std::string dir = std::string("sd:/games/") + folder->d_name;
         DIR* inner = opendir(dir.c_str());
         if (!inner) continue;
+        // The folder's matching images, so a two-disc game starts from disc
+        // 1 whichever order the folder lists them in (gc_second_disc_of).
+        std::vector<std::string> paths;
+        std::vector<GcFolderImage> discs;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (!is_gc_image_name(name)) continue;
-            std::string id;
             const std::string full = dir + "/" + name;
-            if (read_gc_id(full, id) && id.compare(0, game.size(), game) == 0) {
-                out.path = full;
-                out.id = id;
-                found = true;
-                break;
-            }
+            GcHead head;
+            if (!read_gc_head(full, head)) continue;  // not a GameCube image
+            const std::string id(reinterpret_cast<const char*>(head.bytes), 6);
+            if (id.compare(0, game.size(), game) != 0) continue;
+            paths.push_back(full);
+            discs.push_back({id, head.bytes[6]});
         }
         closedir(inner);
+        const std::vector<int> first_disc = gc_second_disc_of(discs);
+        for (std::size_t i = 0; i < paths.size() && !found; ++i) {
+            if (first_disc[i] >= 0) continue;
+            out.path = paths[i];
+            out.id = discs[i].id;
+            found = true;
+        }
         if (found) break;
     }
     closedir(games);
@@ -674,6 +685,27 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
     out.push_back(std::move(g));
 }
 
+// One game folder's images into the list. A two-disc game's second disc
+// beside its first is not a game of its own: started alone it ran without
+// what disc 1 sets up (issue #173, Splinter Cell Double Agent crashed), so
+// it is only said in the log. The launch changes to it when the game asks
+// (find_second_disc).
+void list_folder_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+    std::vector<GcFolderImage> discs;
+    for (const ImageGame& g : found) discs.push_back({g.id, g.disc_number});
+    const std::vector<int> first_disc = gc_second_disc_of(discs);
+    // Said before any image moves to the list: the line names disc 1.
+    for (std::size_t i = 0; i < found.size(); ++i) {
+        if (first_disc[i] < 0) continue;
+        const ImageGame& first = found[static_cast<std::size_t>(first_disc[i])];
+        logf("%s scan: %s is disc 2 of %s (%s), so Home lists the game once; start it from disc 1, "
+             "and RiftWii changes to disc 2 when the game asks for it\n",
+             drive_of(found[i].path), found[i].path.c_str(), first.id.c_str(), first.path.c_str());
+    }
+    for (std::size_t i = 0; i < found.size(); ++i)
+        if (first_disc[i] < 0) out.push_back(std::move(found[i]));
+}
+
 }  // namespace
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
@@ -695,6 +727,7 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
             continue;
         }
+        std::vector<ImageGame> found;
         while (dirent* file = readdir(inner)) {
             const std::string name = file->d_name;
             if (file->d_type == DT_DIR) continue;
@@ -704,9 +737,10 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + name, out, skipped, ciso);
+            add_gc_image(dir + "/" + name, found, skipped, ciso);
         }
         closedir(inner);
+        list_folder_images(found, out);
     }
     closedir(games);
     skipped.finish("SD");
@@ -728,6 +762,7 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
             skipped.note(dir, "the folder cannot be read: " + why);
             continue;
         }
+        std::vector<ImageGame> found;
         for (const VolumeEntry& file : files) {
             if (file.is_directory || file.name.empty()) continue;
             if (!is_gc_image_name(file.name)) {
@@ -736,8 +771,9 @@ void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
                 if (!why.empty()) skipped.note(dir + "/" + file.name, why);
                 continue;
             }
-            add_gc_image(dir + "/" + file.name, out, skipped, ciso);
+            add_gc_image(dir + "/" + file.name, found, skipped, ciso);
         }
+        list_folder_images(found, out);
     }
     skipped.finish("USB");
     // Patch-only mods whose original is on the drive (the game they make
@@ -781,6 +817,52 @@ bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& pack
     return true;
 }
 
+// A two-disc game's second disc beside the image the game starts from
+// (riftwii/usbgame.hpp's gc_disc_change_partner): the folder's GameCube
+// images by their headers, disc 2 the one with the same game ID and disc
+// number 1. A second disc of another game is said and left alone. The
+// plugin checks the header again (gcdiscs.hpp) before it changes discs.
+void find_second_disc(GcImage& image) {
+    const std::size_t slash = image.path.rfind('/');
+    if (slash == std::string::npos) return;
+    const std::string dir = image.path.substr(0, slash);
+    std::vector<std::string> names;
+    if (GcImageOnUsb(image.path)) {
+        std::vector<VolumeEntry> files;
+        if (!list_usb_folder(dir, files)) return;
+        for (const VolumeEntry& file : files)
+            if (!file.is_directory) names.push_back(file.name);
+    } else {
+        DIR* folder = opendir(dir.c_str());
+        if (!folder) return;
+        while (dirent* file = readdir(folder))
+            if (file->d_type != DT_DIR) names.push_back(file->d_name);
+        closedir(folder);
+    }
+    // The image started first, then the folder's other GameCube images.
+    std::vector<std::string> paths{image.path};
+    std::vector<GcFolderImage> discs;
+    GcHead head;
+    if (!read_gc_head(image.path, head)) return;
+    discs.push_back({std::string(reinterpret_cast<const char*>(head.bytes), 6), head.bytes[6]});
+    for (const std::string& name : names) {
+        const std::string full = dir + "/" + name;
+        if (full == image.path || name.empty() || name[0] == '.' || !is_gc_image_name(name)) continue;
+        if (!read_gc_head(full, head)) continue;
+        paths.push_back(full);
+        discs.push_back({std::string(reinterpret_cast<const char*>(head.bytes), 6), head.bytes[6]});
+    }
+    std::vector<std::size_t> other_id;
+    const int partner = gc_disc_change_partner(discs, 0, &other_id);
+    for (std::size_t i : other_id)
+        logf("GameCube: %s is a second disc of %s, not of %s: RiftWii does not change to it\n", paths[i].c_str(),
+             discs[i].id.c_str(), discs[0].id.c_str());
+    if (partner < 0) return;
+    image.disc2_path = paths[static_cast<std::size_t>(partner)];
+    logf("GameCube: disc 2 of %s is %s: RiftWii changes to it when the game asks for it\n", image.id.c_str(),
+         image.disc2_path.c_str());
+}
+
 // A game or a pack on the USB drive: the image's pieces through the
 // menu's view of the drive (libogc's USB driver, IOS 58 only), then the
 // reload into a d2x cIOS whose USB device the game's loader reads the
@@ -802,6 +884,16 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
              static_cast<unsigned long long>(image.usb_fragments[0].sector));
         check_path = image.path;
         check_sector = image.usb_fragments[0].sector;
+        // A second disc beside it: its pieces too, while the menu still
+        // reads the drive. Without them the game starts on disc 1 alone.
+        std::string disc2_error;
+        if (!image.disc2_path.empty() &&
+            !usb_file_pieces(image.disc2_path, image.disc2_usb_bytes, image.disc2_usb_fragments, disc2_error)) {
+            logf("GameCube: %s is not used as disc 2: %s\n", image.disc2_path.c_str(), disc2_error.c_str());
+            image.disc2_path.clear();
+            image.disc2_usb_fragments.clear();
+            image.disc2_usb_bytes = 0;
+        }
     } else {
         logf("GameCube: packs on the USB drive (%s first); the game is on the SD card\n", check_path.c_str());
     }
@@ -815,16 +907,28 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
     game.device = ImageDevice::Usb;
     game.path = image.path;
     game.id = image.id;
+    // A drive d2x cannot read is said at the end, each reason once with the
+    // slots that gave it (another d2x base may reach the port), as for a
+    // Wii game.
     std::string first_error;
+    std::vector<D2xSlotFailure> usb_failures;
     for (int slot : image_cios_order(game, image.cios_slot, true)) {
         if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
             image.usb_in_use = true;
             return true;
         }
         if (reload_terminal_failure()) return false;
-        if (first_error.empty()) first_error = error;
+        if (d2x_usb_drive_failed()) {
+            usb_failures.push_back({slot, error});
+        } else if (first_error.empty()) {
+            first_error = error;
+        }
+        // A call d2x never answered can't be cancelled, and another IOS
+        // reload with it outstanding may hang: no further slot.
+        if (ums::Stuck()) break;
     }
-    if (!first_error.empty()) error = first_error;
+    if (!usb_failures.empty()) error = d2x_usb_slots_summary(usb_failures, first_error);
+    else if (!first_error.empty()) error = first_error;
     return false;
 }
 
@@ -910,6 +1014,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     UsbCheck usb_check;
     if (has_packs && !plan_gc_packs(image, packages, plan, usb_check, error)) return false;
     const bool packs_on_usb = has_packs && gc_plan_uses_usb(plan);
+    find_second_disc(image);
     if ((GcImageOnUsb(image.path) || packs_on_usb) && !ready_usb(image, usb_check, error)) return false;
     return LaunchGcNative(image, has_packs ? &plan : nullptr, error);
 }

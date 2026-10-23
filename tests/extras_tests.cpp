@@ -906,6 +906,19 @@ void TestVideoModes() {
     EXPECT_EQ(copy[403], 2);
 }
 
+// Settings > Games on the SD card: sd_games = on|off.
+void TestSettingsSdGames() {
+    LoaderSettings s;
+    EXPECT_EQ(s.sd_games, "on");
+    s.parse("sd_games = off\n");
+    EXPECT_EQ(s.sd_games, "off");
+    EXPECT_TRUE(s.serialize().find("sd_games = off\n") != std::string::npos);
+    s.parse("sd_games = maybe\n");
+    EXPECT_EQ(s.sd_games, "off");
+    s.parse("sd_games = on\n");
+    EXPECT_EQ(s.sd_games, "on");
+}
+
 // The menu's music settings: menu_music and launch_music (Music while the
 // menu is open, and whether it plays on under a launch or fades out).
 void TestSettingsMusic() {
@@ -1964,6 +1977,7 @@ int main() {
     TestVideoModes();
     TestKeepsPictureWidth();
     TestSettings();
+    TestSettingsSdGames();
     TestSettingsMusic();
     TestGameLanguage();
     TestWfc();

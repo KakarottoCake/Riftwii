@@ -476,6 +476,8 @@ void test_unlisted_verdict() {
     // Known homebrew codes, whatever the program.
     EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
     EXPECT_TRUE(is_homebrew_code("UFTW"));
+    // The Homebrew Channel under the title ID OHBC.
+    EXPECT_TRUE(is_homebrew_code("OHBC"));
     // The Discross channel: a small, plain program that no section rule catches.
     EXPECT_TRUE(is_homebrew_code("CORD"));
     {

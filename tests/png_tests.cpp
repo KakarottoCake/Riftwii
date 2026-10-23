@@ -425,7 +425,33 @@ static void test_refusals() {
     EXPECT_EQ(riftwii::png_crc32(reinterpret_cast<const std::uint8_t*>("IEND"), 4), 0xAE426082u);
 }
 
+// decode_png_in: the same picture from a caller's block, which is all it
+// uses, and a refusal (not a write past the end) when the block is short.
+static void test_block_decode() {
+    const Image im = Pattern(7, 10, 2, 8);
+    const Bytes png = Png(im, true, {}, 2);
+    Bytes heap;
+    std::uint32_t w = 0, h = 0;
+    std::string error;
+    EXPECT_TRUE(Decode(png, heap, w, h, error));
+    std::vector<std::uint8_t> block(png.size() + 7 * 10 * 8 + 10 + 512 + 64, 0xEE);
+    std::uint8_t* aligned = block.data();
+    const std::uint8_t* rgba = nullptr;
+    std::uint32_t bw = 0, bh = 0;
+    EXPECT_TRUE(riftwii::decode_png_in(png.data(), png.size(), &StoredInflate, 1024, aligned, block.size() - 32, rgba, bw, bh,
+                                       error));
+    EXPECT_EQ(bw, w);
+    EXPECT_EQ(bh, h);
+    EXPECT_TRUE(rgba >= aligned && rgba + 280 <= aligned + block.size() - 32);
+    EXPECT_TRUE(std::equal(heap.begin(), heap.end(), rgba));
+    // Too little room: refused.
+    EXPECT_TRUE(!riftwii::decode_png_in(png.data(), png.size(), &StoredInflate, 1024, aligned, 200, rgba, bw, bh, error));
+    // Bytes past the stated room are untouched.
+    EXPECT_EQ(block[block.size() - 1], 0xEE);
+}
+
 int main() {
+    test_block_decode();
     test_rgb8_filters();
     test_adam7();
     test_transparency();

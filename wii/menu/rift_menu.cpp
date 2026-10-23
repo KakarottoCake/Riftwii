@@ -54,6 +54,7 @@
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
 #include "appicon.hpp"
+#include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
@@ -91,6 +92,7 @@
 #include "menumusic.hpp"
 #include "menutheme.hpp"
 #include "themesounds.hpp"
+#include "themestore.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
 #include "demo.h"
@@ -825,7 +827,12 @@ static const char* HomeSourceName(const std::string& v)
 
 static std::string HomeSourceNote(const std::string& v)
 {
-	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games.");
+	if (v == "gamecube") {
+		// With the SD scan off, only the USB drive's games/ folder is read.
+		if (riftwii::wii::Settings().sd_games == "off")
+			return tr("Home lists the GameCube games only, from usb:/games (the SD card is not searched).");
+		return tr("Home lists the GameCube games only, from sd:/games and usb:/games.");
+	}
 	return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 }
 
@@ -1090,7 +1097,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id,
 				&state.usb_catalog.games[i]);
 		}
-	if (source == "all" || source == "sd" || source == "gamecube")
+	// Not while the SD scan is off: a catalog read earlier is stale until the rescan replaces it.
+	if ((source == "all" || source == "sd" || source == "gamecube") && riftwii::wii::Settings().sd_games != "off")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
 			if (source == "gamecube" && !state.sd_catalog.games[i].gamecube) continue;
 			add(GameName(state.sd_catalog.games[i]), HomeEntry::Kind::Sd, i, state.sd_catalog.games[i].id,
@@ -2050,7 +2058,8 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	// A drive Settings > Games from leaves out is not a problem to report:
 	// "SD: no games" has no meaning when Home lists the USB drive only.
 	const std::string& source = riftwii::wii::Settings().home_source;
-	const bool sdListed = source == "all" || source == "sd" || source == "gamecube";
+	// With Settings > Drives > Games on the SD card off, its folders are not searched, so none is named.
+	const bool sdListed = (source == "all" || source == "sd" || source == "gamecube") && riftwii::wii::Settings().sd_games != "off";
 	const bool usbListed = source == "all" || source == "usb" || source == "gamecube";
 	const std::string sdProblem = sdListed ? ShortSourceProblem("SD", state.sd_catalog) : "";
 	const std::string usbProblem = usbListed ? ShortSourceProblem("USB", state.usb_catalog) : "";
@@ -2228,8 +2237,10 @@ class EmptyHomeNote : public GuiElement {
 public:
 	static constexpr int kW = 440, kH = 146, kTop = 136;
 	EmptyHomeNote()
-		: words(std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
-			" " + tr("A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.")),
+		: words(riftwii::wii::Settings().sd_games == "off"
+			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
+			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
+				" " + tr("A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.")),
 		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
 		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -4055,9 +4066,17 @@ static int MenuSource(FrontendState& state)
 				if (entries[at].index >= apps.size()) return false;
 				skin::Tex art;
 				if (!riftwii::wii::AppIcon(apps[entries[at].index].folder, art)) return false;
-				const float k = std::min(b.w / art.w, b.h / art.h);
-				Menu_DrawImg(b.x + b.w / 2 - art.w * k / 2, b.y + b.h / 2 - art.h * k / 2, static_cast<u16>(art.w),
-					static_cast<u16>(art.h), art.data, 0, k, k, static_cast<u8>(b.alpha));
+				// Fitted to the tile's inside (b.clip*), not to b.w x b.h: that box is
+				// the channel icon's 128 x 96 and can be wider than the tile, which let
+				// a wide icon spill past the tile's outline, most when it grew in focus.
+				const riftwii::FitRect fit = riftwii::fit_inside(static_cast<float>(art.w), static_cast<float>(art.h),
+					b.clipX, b.clipY, b.clipW, b.clipH);
+				if (fit.scale <= 0.0f) return false;
+				// Menu_DrawImg scales about the picture's middle: put it on fit's.
+				const float drawX = fit.x - (static_cast<float>(art.w) - fit.w) / 2.0f;
+				const float drawY = fit.y - (static_cast<float>(art.h) - fit.h) / 2.0f;
+				Menu_DrawImg(drawX, drawY, static_cast<u16>(art.w), static_cast<u16>(art.h), art.data, 0, fit.scale,
+					fit.scale, static_cast<u8>(b.alpha));
 				return true;
 			}
 			riftwii::wii::BannerPlayer* icon = IconFor(items[at].id);
@@ -10223,6 +10242,392 @@ static const skin::Tex* SectionIcon(SettingsSection s)
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Settings > Theme > Get more themes: the themes of riftwii.github.io, each
+// with a preview, to download into sd:/riftwii/themes (wii/menu/themestore.hpp
+// does the work on the network's background thread; this is the page).
+
+// The focused theme's preview, a 160x120 texture, in a card. While there is
+// none the card is empty (the page's own text says why).
+class ThemePreview : public GuiElement {
+public:
+	ThemePreview(int x, int y, int w, int h) : x(x), y(y), w(w), h(h) {}
+	static constexpr int kWidth = 176, kHeight = 132;
+	void SetTheme(int index) { theme = index; }
+	void Draw() override
+	{
+		skin::DrawNine(skin::card9, x - 4, y - 4, w + 8, h + 8, 12);
+		const u8* tex = theme >= 0 ? riftwii::wii::themes::Thumbnail(static_cast<std::size_t>(theme)) : nullptr;
+		if (tex) {
+			skin::DrawRgb5a3Part(tex, riftwii::wii::themes::kThumbWidth, riftwii::wii::themes::kThumbHeight, 0.0f, 1.0f, x, y, w, h);
+			return;
+		}
+		Menu_DrawRectangle(x, y, w, h, skin::WithAlpha(skin::kInkDim, 40), 1);
+	}
+private:
+	int x, y, w, h;
+	int theme = -1;
+};
+
+// "268 KB" or "1.4 MB".
+static std::string ThemeSizeText(std::uint32_t bytes)
+{
+	char text[24];
+	if (bytes >= (1u << 20)) snprintf(text, sizeof(text), "%.1f MB", bytes / 1048576.0);
+	else snprintf(text, sizeof(text), "%u KB", static_cast<unsigned>((bytes + 1023) / 1024));
+	return text;
+}
+
+// What the progress popup says of the install's step.
+static std::string ThemeStageBody(const std::string& name, const riftwii::wii::themes::InstallProgress& p, double& share)
+{
+	using riftwii::wii::themes::Stage;
+	const double of = p.total ? static_cast<double>(std::min(p.done, p.total)) / p.total : 0;
+	switch (p.stage) {
+		case Stage::Download:
+			share = 0.6 * of;
+			return tr("{1}: {2} of {3} downloaded", {FlatCapped(name, 30), ThemeSizeText(p.done), ThemeSizeText(p.total)});
+		case Stage::Check:
+			share = 0.6;
+			return tr("{1}: checking the download...", {FlatCapped(name, 30)});
+		case Stage::Unpack:
+			share = 0.6 + 0.3 * of;
+			return tr("{1}: unpacking, file {2} of {3}", {FlatCapped(name, 30), std::to_string(p.done), std::to_string(p.total)});
+		case Stage::Verify:
+			share = 0.92;
+			return tr("{1}: checking the theme...", {FlatCapped(name, 30)});
+		default:
+			share = 0.97;
+			return tr("{1}: putting it in place...", {FlatCapped(name, 30)});
+	}
+}
+
+// Downloads and installs theme `index` in a popup with a progress bar and
+// Cancel. True when it is installed; `cancelled` when the player stopped it.
+// The network's job does the work; this thread only shows how far it is.
+static bool InstallThemeWithProgress(std::size_t index, const std::string& name, bool& cancelled, std::string& error)
+{
+	namespace themes = riftwii::wii::themes;
+	cancelled = false;
+	std::string folder;
+	bool done = false;
+	{
+		// The bar before the box, so it lasts until the box is off the screen.
+		ProgressBar bar(56, 280, 528);
+		double share = 0;
+		PopupBox box(tr("Downloading a theme"), ThemeStageBody(name, themes::InstallProgress{}, share), "", tr("Cancel"));
+		box.CenterCancel();
+		box.Add(&bar, 528);
+		// The power button and HOME wait for the install: a card unmounted
+		// in the middle of the move into place could leave no theme at all.
+		const riftwii::wii::CardWriteHold hold;
+		if (!themes::StartInstall(index)) {
+			error = tr("The theme browser is busy. Try again in a moment.");
+			box.Close();
+			return false;
+		}
+		ResumeGui();
+		int shownPercent = -1;
+		int shownStage = -1;
+		while (!done) {
+			usleep(50000);
+			HaltGui();
+			themes::Pump();
+			const themes::InstallProgress progress = themes::CurrentInstallProgress();
+			const std::string body = ThemeStageBody(name, progress, share);
+			const int percent = static_cast<int>(share * 100);
+			if (percent != shownPercent || static_cast<int>(progress.stage) != shownStage) {
+				shownPercent = percent;
+				shownStage = static_cast<int>(progress.stage);
+				bar.Set(share);
+				if (!cancelled) box.SetBody(body);
+			}
+			if (!cancelled && box.Pressed()) {
+				cancelled = true;
+				themes::CancelInstall();
+				box.SetBody(tr("Stopping..."));
+			}
+			if (themes::TakeInstall(folder, error)) {
+				done = true;
+				break;
+			}
+			ResumeGui();
+		}
+		box.Close();
+	}
+	return error.empty();
+}
+
+// The page. `activeTheme`: the folder Settings has chosen, so a delete of it
+// can say so. Returns true when that theme was deleted.
+static bool MenuThemeBrowser(const std::string& activeTheme)
+{
+	namespace themes = riftwii::wii::themes;
+	std::string openError;
+	if (!themes::Open(openError)) {
+		logf("Themes: %s\n", openError.c_str());
+		// The caller left the GUI running: a popup is built with it halted.
+		HaltGui();
+		ShowPopup(tr("Get more themes"), tr("There is not enough free memory for the theme browser."), tr("OK"));
+		return false;
+	}
+	bool activeDeleted = false;
+
+	std::vector<FlowRow> rows;
+	std::size_t count = 0;
+	const riftwii::ThemeListing* listing = nullptr;
+	bool listShown = false;
+	std::string listError;
+	const auto statusName = [](riftwii::wii::themes::Installed s) -> std::string {
+		switch (s) {
+			case riftwii::wii::themes::Installed::Current: return tr("Installed");
+			case riftwii::wii::themes::Installed::Update: return tr("Update");
+			case riftwii::wii::themes::Installed::Other: return tr("On the card");
+			default: return tr("Get");
+		}
+	};
+	const auto build = [&]() {
+		rows.clear();
+		if (themes::ListStatus(listError) == themes::ListState::Loading) {
+			FlowRow row;
+			row.label = tr("Getting the list of themes...");
+			row.dim = true;
+			rows.push_back(row);
+			return;
+		}
+		if (themes::ListStatus(listError) == themes::ListState::Failed) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = tr("Could not get the list");
+			row.value = tr("Try again");
+			rows.push_back(row);
+			return;
+		}
+		listing = themes::Listing(count);
+		if (count == 0) {
+			FlowRow row;
+			row.label = tr("There are no themes in the list yet.");
+			row.dim = true;
+			rows.push_back(row);
+			return;
+		}
+		for (std::size_t i = 0; i < count; ++i) {
+			const themes::Installed state = themes::InstalledState(i);
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = FlatCapped(listing[i].name, 26);
+			row.value = statusName(state);
+			row.on = state == themes::Installed::Current;
+			rows.push_back(row);
+		}
+	};
+
+	GuiText titleTxt(tr("Get more themes"), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconPicture);
+	GuiText countTxt("", 16, skin::kInkDim);
+	countTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	countTxt.SetPosition(-40, 40);
+	NoteCard noteCard;
+	// The list on the left, the focused theme's preview and facts on the right.
+	GuiFlowList list(44, 84, 340, 5);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	list.Select(0);
+	constexpr int kPreviewX = 410, kPreviewY = 92;
+	ThemePreview preview(kPreviewX, kPreviewY, ThemePreview::kWidth, ThemePreview::kHeight);
+	GuiText previewTxt("", 14, skin::kInkDim);
+	Place(previewTxt, kPreviewX + 10, kPreviewY + ThemePreview::kHeight / 2 - 9);
+	GuiText factsTxt("", 14, skin::kInkSoft);
+	Place(factsTxt, kPreviewX, kPreviewY + ThemePreview::kHeight + 10);
+	factsTxt.SetWrap(true, 190, 4);
+	GuiText noteTxt(tr("Getting the list of themes..."), 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
+
+	build();
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&countTxt);
+	w.Append(&noteCard);
+	w.Append(&list);
+	w.Append(&preview);
+	w.Append(&previewTxt);
+	w.Append(&factsTxt);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	const auto rebuild = [&](int select) {
+		build();
+		list.Refresh();
+		list.Select(select);
+	};
+	const auto focused = [&](int row) { return row >= 0 && listing && static_cast<std::size_t>(row) < count; };
+
+	// What the card has of the focused theme, and what A does to it.
+	const auto noteFor = [&](std::size_t index) -> std::string {
+		const riftwii::ThemeListing& t = listing[index];
+		const std::string name = FlatCapped(t.name, 30);
+		switch (themes::InstalledState(index)) {
+			case themes::Installed::Current:
+				return tr("{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.", {name});
+			case themes::Installed::Update:
+				return tr("A newer copy of {1} is out. Press A to update it, or delete it.", {name});
+			case themes::Installed::Other:
+				return tr("A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.", {name});
+			default:
+				return tr("Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.", {name});
+		}
+	};
+
+	int shownRow = -2;
+	std::string shownPreview;
+	bool done = false;
+	while (!done) {
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		themes::Pump();
+
+		// The list arrives (or fails) in the background.
+		if (!listShown) {
+			const themes::ListState state = themes::ListStatus(listError);
+			if (state != themes::ListState::Loading) {
+				listShown = true;
+				rebuild(0);
+				shownRow = -2;
+				if (state == themes::ListState::Failed)
+					say(tr("Could not get the list of themes: {1}", {FlatCapped(listError, 100)}));
+				countTxt.SetText(state == themes::ListState::Ready
+					? (count == 1 ? std::string(tr("1 theme")) : std::string(tr("{1} themes", {std::to_string(count)}))).c_str() : "");
+			}
+		}
+
+		const int row = list.Selected();
+		if (row != shownRow) {
+			shownRow = row;
+			if (focused(row)) {
+				const riftwii::ThemeListing& t = listing[row];
+				themes::Focus(static_cast<std::size_t>(row));
+				preview.SetTheme(row);
+				std::string facts = tr("by {1}", {FlatCapped(t.author, 28)}) + "\n" + tr("License: {1}", {t.license}) + "\n" +
+					tr("Size: {1}", {ThemeSizeText(t.size)});
+				if (t.has_music) facts += "\n" + std::string(tr("Has its own music"));
+				factsTxt.SetText(facts.c_str());
+				say(noteFor(static_cast<std::size_t>(row)));
+			} else {
+				preview.SetTheme(-1);
+				factsTxt.SetText("");
+				if (listShown && themes::ListStatus(listError) == themes::ListState::Failed)
+					say(tr("Could not get the list of themes: {1}", {FlatCapped(listError, 100)}));
+			}
+		}
+		// Why the card is empty.
+		std::string why;
+		if (focused(row) && !themes::ThumbnailReady(static_cast<std::size_t>(row)))
+			why = themes::PreviewFailed(static_cast<std::size_t>(row)) ? tr("No preview") : tr("Loading the preview...");
+		if (why != shownPreview) {
+			shownPreview = why;
+			previewTxt.SetText(why.c_str());
+		}
+
+		const int acted = list.GetClicked();
+		if (acted >= 0 && !focused(acted) && listShown && themes::ListStatus(listError) == themes::ListState::Failed) {
+			themes::RetryList();
+			listShown = false;
+			rebuild(0);
+			shownRow = -2;
+			say(tr("Getting the list of themes..."));
+		} else if (acted >= 0 && focused(acted)) {
+			const riftwii::ThemeListing t = listing[acted];  // a copy: the list is not touched meanwhile
+			const std::string name = FlatCapped(t.name, 30);
+			const themes::Installed state = themes::InstalledState(static_cast<std::size_t>(acted));
+			// 0 download, 1 delete, -1 nothing.
+			int action = 0;
+			if (state == themes::Installed::Current) {
+				action = ShowPopupSafeFirst(tr("Delete {1}?", {name}),
+					tr("The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."),
+					tr("Keep it"), tr("Delete")) == 1 ? 1 : -1;
+			} else if (state == themes::Installed::Update) {
+				const int choice = ChooseTwo(name, tr("A newer copy of this theme is out."), tr("Update"), tr("Get the newer copy"),
+					tr("Delete"), tr("Remove the theme"));
+				action = choice == 0 ? 0 : -1;
+				if (choice == 1)
+					action = ShowPopupSafeFirst(tr("Delete {1}?", {name}),
+						tr("The theme's folder is removed from sd:/riftwii/themes. You can download it again from here."),
+						tr("Keep it"), tr("Delete")) == 1 ? 1 : -1;
+			} else if (state == themes::Installed::Other) {
+				action = ShowPopupSafeFirst(tr("Replace {1}?", {name}),
+					tr("A theme called {1} is already in sd:/riftwii/themes, and it was not put there from here. The download replaces it.", {name}),
+					tr("Keep it"), tr("Replace")) == 1 ? 0 : -1;
+			}
+			if (action == 1) {
+				std::string error;
+				if (themes::DeleteTheme(t.folder, error)) {
+					if (activeTheme == t.folder) activeDeleted = true;
+					say(activeTheme == t.folder
+						? tr("{1} is deleted. It was the theme in use, so the menu goes back to the default look.", {name})
+						: tr("{1} is deleted.", {name}));
+				} else {
+					ShowPopup(tr("Theme not deleted"), tr("{1} could not be deleted: {2}", {name, FlatCapped(error, 120)}), tr("OK"));
+				}
+				rebuild(acted);
+				shownRow = acted;  // the note above stays
+			} else if (action == 0) {
+				if (!riftwii::wii::Settings().online) {
+					say(tr("Downloads are off. Turn on Download names and cheats first."));
+				} else {
+					bool cancelled = false;
+					std::string error;
+					const bool installed = InstallThemeWithProgress(static_cast<std::size_t>(acted), t.name, cancelled, error);
+					// What was pressed in the popup is not this page's.
+					list.GetClicked();
+					list.GetClickedBack();
+					prompts.GetClicked();
+					backBtn.button.ResetState();
+					rebuild(acted);
+					shownRow = acted;  // the note below stays
+					if (installed) {
+						say(tr("{1} is installed. Pick it in Settings > Theme to use it.", {name}));
+					} else if (cancelled) {
+						say(tr("Stopped. Nothing was changed."));
+					} else {
+						ShowPopup(tr("Theme not installed"),
+							tr("{1} could not be installed: {2}. Nothing was changed.", {name, FlatCapped(error, 120)}), tr("OK"));
+						list.GetClicked();
+						list.GetClickedBack();
+						prompts.GetClicked();
+						backBtn.button.ResetState();
+						say(tr("{1} was not installed.", {name}));
+					}
+				}
+			}
+		}
+		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	// The page's windows are off the screen; its memory goes back.
+	themes::Close();
+	return activeDeleted;
+}
+
 // One section of Settings (the hub's tile): its rows only. `backToHub`:
 // left with Back, for the hub (any other way out goes where it says).
 static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
@@ -10241,7 +10646,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	// The themes on the card (wii/menu/menutheme.hpp), read once per visit.
-	const std::vector<riftwii::wii::ThemeEntry> themes = riftwii::wii::ListMenuThemes();
+	std::vector<riftwii::wii::ThemeEntry> themes = riftwii::wii::ListMenuThemes();
 	const auto themeName = [&](const std::string& folder) -> std::string {
 		if (folder == "default") return tr("Default");
 		if (folder == riftwii::kTimeThemeFolder) return std::string("Would You Look at the Time");
@@ -10249,7 +10654,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -10343,6 +10748,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.menu_widescreen != "off", kWidescreen);
 		option(tr("Screen size"), std::to_string(settings.screen_size) + "%", settings.screen_size != 100, kScreenSize);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
+		FlowRow themeBrowse;
+		themeBrowse.kind = FlowRow::Kind::Action;
+		themeBrowse.label = tr("Get more themes");
+		themeBrowse.value = tr("Browse");
+		themeBrowse.dim = !settings.online;
+		rows.push_back(themeBrowse);
+		actions.push_back(kThemeBrowse);
 		option(tr("Clock"), settings.clock == "12" ? tr("12-hour") : settings.clock == "24" ? tr("24-hour") : tr("Automatic"),
 			settings.clock != "auto", kClockFormat);
 		option(tr("Disable clock on Home screen"), tr("Off"), false, kNoClock, FlowRow::Kind::Toggle);
@@ -10365,6 +10777,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
 		heading(tr("Finding games"));
+		option(tr("Games on the SD card"), settings.sd_games == "off" ? tr("Don't look") : tr("Look for them"),
+			settings.sd_games == "off", kSdGames);
 		FlowRow rescan;
 		rescan.kind = FlowRow::Kind::Action;
 		rescan.label = "Look for games again";
@@ -10500,12 +10914,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic: case kLaunchMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
 				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kRescan: case kNet: case kResync: case kWads:
+				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -10599,7 +11013,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kPagePeek: return tr("Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
-			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kTheme: return tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kThemeBrowse: return settings.online ? tr("Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.")
+				: tr("Downloads are off. Turn on Download names and cheats first.");
 			case kNoClock: return tr("Turns off the clock on Home.");
 			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
@@ -10640,6 +11056,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
+			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
@@ -10783,7 +11200,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					constexpr int kSources = 5;
 					int at = 0;
 					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
-					settings.home_source = kSourceChoices[((at % kSources) + kSources + direction) % kSources];
+					// With the SD scan off SD would list nothing: stepped over. GameCube stays, it lists USB games too.
+					const bool sdScanned = settings.sd_games != "off";
+					for (int tries = 0; tries < kSources; ++tries) {
+						at = ((at % kSources) + kSources + direction) % kSources;
+						const std::string choice = kSourceChoices[at];
+						if (sdScanned || choice != "sd") break;
+					}
+					settings.home_source = kSourceChoices[at];
 					saveAndNote(HomeSourceNote(settings.home_source));
 					rebuild();
 					break;
@@ -10925,6 +11349,33 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					note(settings.theme == runningTheme ? tr("This is the theme on screen now.")
 						: tr("The menu restarts to show it when you leave Settings."));
+					break;
+				}
+				case kThemeBrowse: {
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						break;
+					}
+					// The scan reads the card and the network the page uses.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					const bool deletedInUse = MenuThemeBrowser(settings.theme);
+					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					// Themes came or went: the Theme row steps through the new list.
+					themes = riftwii::wii::ListMenuThemes();
+					if (deletedInUse) {
+						settings.theme = "default";
+						const std::string error = saveSettings();
+						if (!error.empty()) note(error);
+						else note(tr("The theme in use was deleted, so the menu goes back to the default look. It restarts when you leave Settings."));
+					} else {
+						note(tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."));
+					}
+					rebuild();
 					break;
 				}
 				case kClockFormat: {
@@ -11137,6 +11588,28 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kResync:
 					riftwii::wii::ForceNextSync();
 					noteTxt.SetText("The next launch copies every file of its network packs again.");
+					break;
+				case kSdGames:
+					// The drive scan may still be running on its thread, and scan_sd_games reads
+					// this setting (a std::string): wait for it before writing.
+					WaitForDriveScan(noteTxt);
+					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
+					// What the last scan found on the card is stale at once: Home, the counts and the
+					// empty-Home card must not show it while the rescan is still to come.
+					if (settings.sd_games == "off") {
+						state.sd_catalog = riftwii::wii::ImageCatalog{};
+						state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
+					}
+					// Games from: SD would list nothing now (GameCube still lists USB games).
+					if (settings.sd_games == "off" && (settings.home_source == "sd"))
+						settings.home_source = "all";
+					// Home reads the drives again when you leave Settings.
+					g_scanned = false;
+					// The note follows the value the row just changed to.
+					saveAndNote(settings.sd_games == "off"
+						? tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.")
+						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."));
+					rebuild();
 					break;
 				case kRescan:
 					WaitForDriveScan(noteTxt);
