@@ -4432,9 +4432,17 @@ static int MenuSource(FrontendState& state)
 	{
 		usleep(10000);
 		// The full menu font is not on the card (wii/menu/fullfont.hpp):
-		// said once a session, the first time a name needed it.
-		if (riftwii::wii::fullfont::TakeMissingNote())
-			toast.Show(tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."), true);
+		// said once a session, after the start's popups (What's new and the
+		// others of askAfterLook), which covered a toast shown while they
+		// were up until it was gone. The status line keeps it too, as it
+		// keeps Home's other news, until a game is opened.
+		if (!g_askAfterScan && riftwii::wii::fullfont::TakeMissingNote()) {
+			const std::string fontNote = tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
+			SetHomeNotice(fontNote);
+			g_homeNoticeShown = true;
+			toast.Show(fontNote, true);
+			showStatus();
+		}
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
 		// done on the menu's, each held every press for seconds.
