@@ -51,7 +51,7 @@ have it, or that haven't changed since the last release's tag.
 
 ### Everything else
 
-- **The RiftWii channel shows each step while it starts,** and a step that hangs turns into a screen naming it, for the vWii consoles where the channel freezes (#228).
+- **The RiftWii channel shows each step while it starts,** and a step that hangs turns into a screen naming it, for the vWii consoles where the channel freezes (#228). This is channel version 14: RiftWii offers it on a vWii by itself.
 - **The last 10 sessions' logs** are kept in `sd:/riftwii/logs`.
 - **Real GameCube memory cards:** a progress bar while copying, a memory check first, and a message on a Wii U, which has no card slots.
 
@@ -68,7 +68,7 @@ have it, or that haven't changed since the last release's tag.
 ## Known issues
 
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
-- **The RiftWii channel freezes on some vWii consoles** (#228). The channel in this release shows the step it stops at; please send what the screen says.
+- **The RiftWii channel freezes on some vWii consoles** (#228). Channel 14, which RiftWii offers on a vWii, shows the step it stops at; please send what the screen says.
 - **A sideways Wii Remote doesn't work in GameCube games on a vWii** (#135).
 - **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
 - **Super Mario Sunshine's in-game Reset goes black** on a real Wii (#198).

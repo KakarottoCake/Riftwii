@@ -16,7 +16,7 @@ bool ChannelInstalled(unsigned& version);
 // The channel version the installer in this release puts on
 // (tools/make_channel.py's TITLE_VERSION): an installed one older than
 // that is offered for reinstalling.
-constexpr unsigned kChannelVersion = 13;
+constexpr unsigned kChannelVersion = 14;
 // The oldest channel RiftWii runs with: 11 on a Wii (its L2 clear), 13 on a
 // Wii U (11 and 12 never started on a vWii; 13 has its loader as in 10).
 unsigned ChannelVersionNeeded();
