@@ -29,6 +29,7 @@ unsigned reads = 0;
 unsigned logs = 0;
 bool boot_read_ok = true;
 bool expect_boot_read = false;
+bool fst_read_ok = true;
 
 struct TrackedBytes {
     std::size_t length = 0;
@@ -48,7 +49,7 @@ struct Disc {
             return boot_read_ok;
         }
         ++reads;
-        return true;
+        return fst_read_ok;
     }
 };
 
@@ -148,6 +149,30 @@ int main() {
             }
         }
         boot_read_ok = true;
+
+        // The FST read itself fails after a valid header: the FST's own
+        // error, with the RVZ's reason in the plugin.
+        fst_read_ok = false;
+        {
+            std::array<std::uint8_t, 0x440> boot{};
+            for (unsigned i = 0; i < 4; ++i) boot[0x428 + i] = 12u >> (24 - 8 * i);
+            allocations.clear();
+            reads = 0;
+            logs = 0;
+            std::string error;
+            const bool accepted = read(boot, error);
+            const std::string expected_error = read == plugin_read
+                ? "cannot read the game's FST (the RVZ: damaged RVZ chunk)"
+                : "cannot read the game's FST";
+            if (accepted || error != expected_error || allocations.size() != 1 || allocations.front() != 12 ||
+                reads != 1 || logs != 0) {
+                std::printf("%s, failed FST read: error '%s', %zu allocations, %u FST reads, %u logs\n",
+                            read == plugin_read ? "plugin" : "menu", error.c_str(), allocations.size(), reads,
+                            logs);
+                ++failures;
+            }
+        }
+        fst_read_ok = true;
     }
     // The plugin also lays out MEM1 from the FST room (0x42C). A room past
     // MEM1 is refused before any allocation; MEM1's whole size is not.
