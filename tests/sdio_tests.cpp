@@ -149,6 +149,20 @@ void test_failures_are_bounded_and_closed() {
     expect_failed_open("status failed");
     CHECK(scenario.opens == 1);
 
+    // Reset and status both refused: the manual initialization still runs,
+    // and it finds the card (CodeRabbit on #230).
+    scenario = Scenario{};
+    scenario.reset_result = static_cast<s32>(0xC1000020u);
+    scenario.status_result = -88;
+    {
+        riftwii::wii::sdio::Card card;
+        std::string error;
+        CHECK(riftwii::wii::sdio::open_card(card, error));
+        CHECK(card.selected && card.rca == scenario.rca);
+        CHECK(std::find(scenario.commands.begin(), scenario.commands.end(), 0u) != scenario.commands.end());
+        riftwii::wii::sdio::close_card(card);
+    }
+
     scenario = Scenario{};
     scenario.status = 0;
     expect_failed_open("no card");

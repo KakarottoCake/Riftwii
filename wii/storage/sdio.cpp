@@ -255,13 +255,18 @@ bool open_card(Card& card, std::string& error) {
     if (reset_result >= 0) card.rca = static_cast<std::uint16_t>(g_word[0] >> 16);
     g_word[0] = 0;
     std::int32_t ret = IOS_Ioctl(card.fd, kIoctlGetStatus, nullptr, 0, g_word, 4);
-    if (ret < 0) {
+    // IOS refusing both the reset and the status says nothing about the
+    // card: the manual initialization below reopens the slot and resets the
+    // host itself, so it gets its chance (a missing card fails there, each
+    // wait bounded). A status refused after a good reset still stops here.
+    const bool status_known = ret >= 0;
+    if (!status_known && reset_result >= 0) {
         error = ipc_error("status", ret);
         close_card(card);
         return false;
     }
-    const std::uint32_t status = g_word[0];
-    if (!(status & kStatusInserted)) {
+    const std::uint32_t status = status_known ? g_word[0] : 0;
+    if (status_known && !(status & kStatusInserted)) {
         error = "sdio: no card";
         close_card(card);
         return false;
