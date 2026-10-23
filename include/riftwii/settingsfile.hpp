@@ -59,6 +59,7 @@ struct LoaderSettings {
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
     // for on both drives, "sd:/path" or "usb:/path" on that one.
+    // A folder holding ';' cannot be named: saving leaves it out.
     std::vector<std::string> game_folders;
     std::map<std::string, std::string> other;
 
