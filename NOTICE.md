@@ -57,7 +57,12 @@ cheats" is on: game names and cover art from GameTDB
 art.gametdb.com's covers, stored shrunk on the SD card, and, when the
 player asks on a game's About page, its database `wiitdb.zip` in the
 menu's language for game details), cheat files from the GeckoCodes archive kept by
-RiiConnect24 (https://codes.rc24.xyz), animated banners for GameCube
+RiiConnect24 (https://codes.rc24.xyz) and, for a Wii game that has none
+there, from GameHacking.org (https://gamehacking.org/text/, the newest
+`text_wii_YYYYMMDD.zip`: one request for the listing and one for the zip, only
+when a game's cheats are asked for and no copy under 30 days old is on the
+card; kept in `sd:/riftwii/cheats/gamehacking/`, the site's `Crawl-delay: 30`
+respected), animated banners for GameCube
 games in the Channels view, made by the
 community and hosted by RiiConnect24 (http://banner.rc24.xyz, stored on
 the SD card as they come), and the newest release's tag from

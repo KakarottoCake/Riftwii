@@ -26,6 +26,8 @@
 #include "plugins.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
+#include "ghfallback.hpp"
+#include "riftwii/ghcheats.hpp"
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/dol.hpp"
@@ -1038,24 +1040,41 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
     return true;
 }
 
-bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled) {
+bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled,
+                    CheatSource* source) {
     std::vector<std::uint8_t> body;
     // A WiiWare or Virtual Console game is in the archive under its
     // four-letter code (riftwii/nandchannel.hpp's channel_cheat_code).
     const std::string channel_code = channel_cheat_code(game_id);
     const std::string archive_id = channel_code.empty() ? game_id : channel_code;
-    if (!HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
-        // The archive answers 404 for a game it has no cheats for.
-        if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0)
-            error = "the cheat archive has no cheats for " + game_id;
-        return false;
-    }
     CheatFile file;
     std::string why;
-    if (!parse_cheat_text(std::string(body.begin(), body.end()), file, why)) {
+    CheatSource found_in = CheatSource::Archive;
+    bool have = false;
+    if (HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
+        have = parse_cheat_text(std::string(body.begin(), body.end()), file, why);
+        if (!have) error = "the cheat archive has no cheats for " + game_id;
+    } else if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0) {
+        // The archive answers 404 for a game it has no cheats for.
         error = "the cheat archive has no cheats for " + game_id;
-        return false;
     }
+    if (!have && !NetFailed()) {
+        // codes.rc24.xyz has none or did not answer: GameHacking.org's copy
+        // on the card stands in, fetched only when it is missing or old.
+        logf("Cheats: %s (%s); trying %s\n", error.c_str(), game_id.c_str(), kGameHackingName);
+        std::string text, from_error;
+        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error);
+        if (result == GameHackingResult::Found && parse_cheat_text(text, file, why)) {
+            body.assign(text.begin(), text.end());
+            found_in = CheatSource::GameHacking;
+            have = true;
+        } else if (result != GameHackingResult::Unavailable) {
+            error = std::string("neither the cheat archive nor ") + kGameHackingName + " has cheats for " + game_id;
+        } else {
+            logf("Cheats: %s: %s\n", kGameHackingName, from_error.c_str());
+        }
+    }
+    if (!have) return false;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCheatDir, 0777);
     // Cheats added by hand and values filled in survive the download (a
@@ -1079,8 +1098,12 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         logf("Cheats: %u turned-on cheat(s) of %s kept their own code; the archive has a different one now\n",
              static_cast<unsigned>(held), game_id.c_str());
     if (!write_file(CheatPath(game_id), body, error)) return false;
-    logf("Cheats: %u for %s from the GeckoCodes archive, %u of the player's own kept\n",
-         static_cast<unsigned>(file.cheats.size()), game_id.c_str(), static_cast<unsigned>(kept));
+    logf("Cheats: %u for %s from %s, %u of the player's own kept\n", static_cast<unsigned>(file.cheats.size()),
+         game_id.c_str(),
+         found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none)"
+                                              : "the GeckoCodes archive",
+         static_cast<unsigned>(kept));
+    if (source) *source = found_in;
     return true;
 }
 

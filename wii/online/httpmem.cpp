@@ -123,7 +123,8 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
     tls.use_memory(get.tls_block, get.tls_bytes);
     tls.set_deadline(started + millisecs_to_ticks(budget_ms));
     if (url.tls && !tls.open(socket, url.host, error)) return tls.timed_out() ? too_slow() : false;
-    const std::string request = http_get_request(url);
+    const std::string request =
+        get.user_agent && *get.user_agent ? http_get_request(url, get.user_agent) : http_get_request(url);
     const bool sent = url.tls ? tls.send(request.data(), request.size()) : socket.send(request.data(), request.size());
     if (!sent) {
         error = "cannot send the request to " + url.host;

@@ -366,6 +366,9 @@ msgstr "Baixando trapaças..."
 msgid "{1} cheats. Turn on the ones you want."
 msgstr "{1} trapaças. Ative as que quiser."
 
+msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want."
+msgstr "{1} trapaças do GameHacking.org, pois o arquivo do RiiConnect24 não tinha nenhuma. Ative as que quiser."
+
 msgid "Could not download cheats: {1}"
 msgstr "Não foi possível baixar as trapaças: {1}"
 

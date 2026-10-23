@@ -768,6 +768,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/choices/<ID>.txt` | Per-game choices (packs, options, saves, cheats, picture) |
 | `sd:/riftwii/choices/<ID>.video` | Which borders the game drew last time |
 | `sd:/riftwii/cheats/<ID>.txt` | The game's cheat list |
+| `sd:/riftwii/cheats/gamehacking/` | GameHacking.org's Wii zip and `index.txt` (which entry holds which game), the fallback when rc24 has no cheats for a game; replaced when over 30 days old and a game asks |
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
 | `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |

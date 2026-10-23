@@ -8493,7 +8493,8 @@ static void MenuCheats(FrontendState& state)
 		std::string error;
 		const std::size_t before = loaded ? file.cheats.size() : 0;
 		const bool hadFile = loaded;
-		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names);
+		riftwii::wii::CheatSource source = riftwii::wii::CheatSource::Archive;
+		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names, &source);
 		HaltGui();
 		if (ok) {
 			load(false);
@@ -8501,6 +8502,8 @@ static void MenuCheats(FrontendState& state)
 			// nothing had happened (a tester).
 			const std::size_t now = loaded ? file.cheats.size() : 0;
 			say(!loaded ? status
+				: source == riftwii::wii::CheatSource::GameHacking
+					? tr("{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.", {std::to_string(now)})
 				: hadFile && now == before ? tr("Downloaded: still {1} cheats, the list was already the latest.", {std::to_string(now)})
 				: hadFile ? tr("Downloaded: {1} cheats now ({2} before).", {std::to_string(now), std::to_string(before)})
 				: tr("{1} cheats. Turn on the ones you want.", {std::to_string(now)}));

@@ -23,6 +23,9 @@ struct MemoryGet {
     // for the heap.
     void* tls_block = nullptr;
     std::size_t tls_bytes = 0;
+    // The User-Agent to send (riftwii/http.hpp's http_get_request); "RiftWii"
+    // when empty.
+    const char* user_agent = nullptr;
     // What was received: the body is buffer[body_offset, body_offset + body_length).
     std::size_t body_offset = 0;
     std::size_t body_length = 0;
