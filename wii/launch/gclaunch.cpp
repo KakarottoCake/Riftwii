@@ -566,6 +566,9 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
             GcHead head;
             if (!read_gc_head(full, head)) continue;  // not a GameCube image
             const std::string id(reinterpret_cast<const char*>(head.bytes), 6);
+            // As read_gc_id: an ID holding a slash would name files outside
+            // their folders downstream (the choices file), so it is no match.
+            if (id.find_first_of("/\\") != std::string::npos) continue;
             if (id.compare(0, game.size(), game) != 0) continue;
             paths.push_back(full);
             discs.push_back({id, head.bytes[6]});
