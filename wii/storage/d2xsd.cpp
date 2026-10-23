@@ -3,6 +3,7 @@
 #include "d2xsd.hpp"
 
 #include <gccore.h>
+#include <ogc/cache.h>
 #include <ogc/ipc.h>
 #include <ogc/mutex.h>
 #include <sdcard/wiisd_io.h>
@@ -22,8 +23,16 @@ constexpr u32 kSectorBytes = 512;
 constexpr u32 kBounceSectors = 64;
 
 char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/sdio/sdhc";
+// The handle and the driver choice belong to the IOS that was running
+// when they were made, and d2x_sd_forget drops both before every IOS
+// reload (reload_ios). A handle kept across a reload is a dead
+// descriptor: the next open would have returned it without opening or
+// starting the new IOS's device, and every read through it failed.
 s32 g_fd = -1;
 bool g_active = false;
+// Why the last d2x_sd_open failed, for the launch's error message: libfat
+// mounts through io_startup, which has nowhere to put it.
+std::string g_last_error;
 u32 g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
 u8 g_bounce[kBounceSectors * kSectorBytes] ATTRIBUTE_ALIGN(32);
@@ -138,17 +147,37 @@ bool d2x_sd_open(std::string& error) {
     const s32 fd = IOS_Open(g_path, 1);
     if (fd < 0) {
         error = "cannot open d2x's SD device " + std::string(g_path) + " (" + std::to_string(fd) + ")";
+        g_last_error = error;
         return false;
     }
     const s32 ret = IOS_Ioctlv(fd, kInit, 0, 0, nullptr);
     if (ret != 0) {
         IOS_Close(fd);
         error = "d2x's SD device could not start the card (" + std::to_string(ret) + ")";
+        g_last_error = error;
         return false;
     }
     g_fd = fd;
+    g_last_error.clear();
     return true;
 }
+
+void d2x_sd_forget() {
+    // Under the card's lock, so a transfer from another thread (the
+    // screenshot writer) is never halfway through the handle as it goes.
+    Locked lock;
+    // reload_ios calls this while the old IOS still runs, so the handle is
+    // still its own and is closed properly rather than leaked: if the
+    // reload then stops before the new IOS starts, the next open in the
+    // same IOS gets a fresh handle and starts the card again.
+    if (g_fd >= 0) IOS_Close(g_fd);
+    g_fd = -1;
+    // The next IOS may have no d2x at all (IOS 58 for the menu): libogc's
+    // driver again until a launch picks d2x's for that IOS.
+    g_active = false;
+}
+
+const std::string& d2x_sd_last_error() { return g_last_error; }
 
 std::int32_t d2x_sd_fd() { return g_fd; }
 
