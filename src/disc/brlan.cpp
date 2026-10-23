@@ -11,6 +11,11 @@
 namespace riftwii {
 namespace {
 
+// Offsets may alias arbitrarily long names: bound the copied list, not
+// just the encoded table. Real banner texture names are short file names.
+constexpr std::size_t kMaxTextureNames = 1024;
+constexpr std::size_t kMaxTextureNameBytes = 255;
+
 std::uint32_t be32(const std::uint8_t* p) {
     return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
            (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
@@ -93,13 +98,27 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
             error = "more than " + std::to_string(kMaxAnimTargets) + " animated panes and materials";
             return false;
         }
+        if (ntex > kMaxTextureNames) {
+            error = "pai1 has too many texture names";
+            return false;
+        }
         for (std::uint16_t i = 0; i < ntex; ++i) {
             const std::uint32_t off = be32(s + 0x14 + i * 4);
-            if (0x14 + static_cast<std::size_t>(off) >= len) {
+            if (off >= len - 0x14) {
                 error = "pai1 texture name outside it";
                 return false;
             }
-            a.textures.push_back(fixed_name(s + 0x14 + off, len - 0x14 - off));
+            const std::uint8_t* name = s + 0x14 + off;
+            const std::size_t room = len - 0x14 - off;
+            std::size_t name_bytes = 0;
+            while (name_bytes < room && name_bytes <= kMaxTextureNameBytes && name[name_bytes] != 0) {
+                ++name_bytes;
+            }
+            if (name_bytes == room || name_bytes > kMaxTextureNameBytes) {
+                error = "pai1 texture name is too long or has no terminator";
+                return false;
+            }
+            a.textures.emplace_back(reinterpret_cast<const char*>(name), name_bytes);
         }
         for (std::uint16_t i = 0; i < nanim; ++i) {
             const std::uint32_t ao = be32(s + table + i * 4);
