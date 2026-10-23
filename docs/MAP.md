@@ -276,7 +276,7 @@ document it.
 | `fragments` | `place_on_fragments`: a range of a file mapped onto its sectors (on its own so the `gamecube` plugin links it without the redirect table's builder) |
 | `usbgame` | WBFS, split WBFS and ISO images; the d2x fragment list |
 | `wbfspart` | USB drives formatted as WBFS: finding the partition, its discs, their fragments |
-| `rvz`, `sha1` | RVZ images and their hashes |
+| `rvz`, `sha1` | RVZ images and their hashes; `rvz_error.hpp` supplies error names when the decoder strips its strings, checked through the plugin shim by `tests/rwpzstd_tests.cpp` |
 | `gccard` | GameCube memory card images: formatting one, listing its saves and their icons, deleting a save, .gci export and import |
 | `gcreal` | Physical-card import preview: exact game/maker selection, GCI validation, collision/capacity/encoding checks, staged SD commits; `include/riftwii/gcreal.hpp`, `src/fs/gcreal.cpp`, `tests/gcreal_tests.cpp` |
 | `gcbackup` | GameCube memory card backups: the copy made before a start, named by date and time, the newest five kept, none while the card is unchanged |

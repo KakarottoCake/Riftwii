@@ -76,6 +76,14 @@ add_executable(theme_kit tools/theme_kit.cpp)
 target_link_libraries(theme_kit PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
+    # Use the plugin's actual Zstandard shim against a mocked host table,
+    # without its libc replacements or a second decoder defining the API.
+    add_executable(rwpzstd_tests tests/rwpzstd_tests.cpp plugins/common/rwpzstd.cpp)
+    target_include_directories(rwpzstd_tests PRIVATE include plugins/common src/fs vendor-zstd)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(rwpzstd_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME rwpzstd COMMAND rwpzstd_tests)
     # The physical-card adapter against EXI mocks: ownership and failure cleanup.
     add_executable(gcrealcard_io_tests tests/gcrealcard_io_tests.cpp wii/storage/gcrealcard.cpp)
     target_include_directories(gcrealcard_io_tests PRIVATE tests/gcreal_mock include wii/storage)

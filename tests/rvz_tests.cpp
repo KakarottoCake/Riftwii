@@ -381,6 +381,34 @@ void TestDamage() {
     EXPECT_EQ(error, std::string("not an RVZ file"));
     EXPECT_FALSE(read_rvz_head(MemorySource(std::vector<std::uint8_t>(good.begin(), good.begin() + 0x100)), head, error));
 
+    // A valid frame header with a reserved block type reaches the decoder,
+    // rather than the frame-size guard. Its code survives stripped strings
+    // in Wii builds and still identifies which RVZ table could not decode.
+    EXPECT_TRUE(read_rvz_head(MemorySource(good), head, error));
+    const std::uint8_t corrupt_frame[] = {0x28, 0xB5, 0x2F, 0xFD, 0x20, 0x01, 0x07, 0x00, 0x00};
+    EXPECT_TRUE(head.group_table_bytes >= sizeof(corrupt_frame));
+    if (head.group_table_bytes >= sizeof(corrupt_frame)) {
+        auto damaged = good;
+        std::memcpy(damaged.data() + head.group_table_offset, corrupt_frame, sizeof(corrupt_frame));
+        std::unique_ptr<RvzImage> refused;
+        EXPECT_FALSE(RvzImage::open(source(damaged), refused, error));
+        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error code 20 (corruption detected)"));
+    }
+
+    // A raw block containing "A" with an incorrect frame checksum reaches
+    // a different decoder failure before the remaining table bytes matter.
+    const std::uint8_t checksum_frame[] = {
+        0x28, 0xB5, 0x2F, 0xFD, 0x24, 0x01, 0x09, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x00
+    };
+    EXPECT_TRUE(head.group_table_bytes >= sizeof(checksum_frame));
+    if (head.group_table_bytes >= sizeof(checksum_frame)) {
+        auto damaged = good;
+        std::memcpy(damaged.data() + head.group_table_offset, checksum_frame, sizeof(checksum_frame));
+        std::unique_ptr<RvzImage> refused;
+        EXPECT_FALSE(RvzImage::open(source(damaged), refused, error));
+        EXPECT_EQ(error, std::string("cannot read the group table: Zstandard error code 22 (checksum mismatch)"));
+    }
+
     // Cut short: the headers still read, groups past the end fail cleanly.
     std::unique_ptr<RvzImage> image;
     if (!RvzImage::open(source(std::vector<std::uint8_t>(good.begin(), good.begin() + good.size() / 2)), image, error)) {
@@ -397,6 +425,19 @@ void TestDamage() {
         }
     }
     EXPECT_TRUE(any_failed);
+
+    // A read that works after one that failed leaves no old reason behind
+    // (CodeRabbit on #202: the GameCube plugin adds last_error() to a
+    // launch failure, so a stale one would explain the wrong read).
+    std::unique_ptr<RvzImage> whole;
+    if (!RvzImage::open(source(good), whole, error)) {
+        EXPECT_TRUE(false);
+        return;
+    }
+    EXPECT_FALSE(whole->read_partition(0, whole->partition_data_size(0), out.data(), out.size()));
+    EXPECT_FALSE(whole->last_error().empty());
+    EXPECT_TRUE(whole->read_partition(0, 0, out.data(), out.size()));
+    EXPECT_TRUE(whole->last_error().empty());
 }
 
 // Big-endian fields of an RVZ, and its three SHA-1s brought back in line

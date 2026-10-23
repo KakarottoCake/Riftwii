@@ -8,6 +8,7 @@
 
 #include "riftwii/disc.hpp"
 #include "riftwii/sha1.hpp"
+#include "rvz_error.hpp"
 #include "zstd.h"
 
 namespace riftwii {
@@ -380,7 +381,9 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
     out.resize(capacity);
     const std::size_t got =
         ZSTD_decompressDCtx(static_cast<ZSTD_DCtx*>(dctx_), out.data(), out.size(), stored_.data(), stored_.size());
-    if (ZSTD_isError(got)) return fail(std::string("Zstandard: ") + ZSTD_getErrorName(got));
+    if (ZSTD_isError(got)) {
+        return fail(rvz_zstd_error(ZSTD_getErrorCode(got), ZSTD_getErrorName(got)));
+    }
     out.resize(got);
     return true;
 }
@@ -438,6 +441,9 @@ void RvzImage::remember(std::uint32_t index, std::uint32_t payload, std::uint64_
 }
 
 bool RvzImage::read_raw(std::uint64_t disc_offset, std::uint8_t* destination, std::size_t length) const {
+    // last_error() is about the latest read only: a failure a caller got
+    // past must not explain a later, unrelated one.
+    error_.clear();
     while (length > 0) {
         const Raw* raw = nullptr;
         for (const Raw& r : raw_) {
@@ -708,6 +714,7 @@ bool build_rvz_stub(const RvzImage& image, RvzStub& out, std::string& error) {
 
 bool RvzImage::read_partition(std::size_t index, std::uint64_t offset, std::uint8_t* destination,
                               std::size_t length) const {
+    error_.clear();  // as read_raw: about this read only
     if (index >= head_.partitions.size()) return fail("no partition " + std::to_string(index));
     const std::uint64_t size = partition_data_size(index);
     if (offset > size || length > size - offset) {
