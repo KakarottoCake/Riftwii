@@ -51,11 +51,13 @@ bool dolboot_valid(const u8* dol, u32 size) {
     const u32 self_lo = (u32)__app_start, self_hi = (u32)__bss_end;
     const u32 file_lo = (u32)dol, file_hi = file_lo + size;
     const DolHeader* h = (const DolHeader*)dol;
+    bool entry_loaded = false;
     for (int i = 0; i < 18; ++i) {
         if (h->size[i] == 0) continue;
         if (h->offset[i] > size || h->size[i] > size - h->offset[i] || !in_mem1(h->address[i], h->size[i])) return false;
         const u32 lo = h->address[i], hi = lo + h->size[i];
         if (overlaps(lo, hi, self_lo, self_hi) || overlaps(lo, hi, file_lo, file_hi)) return false;
+        if (h->entry >= lo && h->entry < hi) entry_loaded = true;
     }
     if (h->bss_size) {
         if (!in_mem1(h->bss_address, h->bss_size)) return false;
@@ -64,7 +66,8 @@ bool dolboot_valid(const u8* dol, u32 size) {
             return false;
         }
     }
-    return h->entry >= MEM1_LO && h->entry < MEM1_HI;
+    // A MEM1 address alone is not executable: it must come from this DOL.
+    return entry_loaded;
 }
 
 #define DOLBOOT_LINE_MAX 1024
