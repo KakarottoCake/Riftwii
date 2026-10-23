@@ -1388,6 +1388,13 @@ void TestCoverArt() {
     EXPECT_TRUE(s.serialize().find("gc_backups = off\n") != std::string::npos);
     s.parse("gc_backups = maybe\n");
     EXPECT_EQ(s.gc_backups, "off");
+    // Nintendont's saves: asked once; the answer (Not now too) is kept, anything else ignored.
+    EXPECT_EQ(s.nintendont_saves, "ask");
+    s.parse("nintendont_saves = asked\n");
+    EXPECT_EQ(s.nintendont_saves, "asked");
+    EXPECT_TRUE(s.serialize().find("nintendont_saves = asked\n") != std::string::npos);
+    s.parse("nintendont_saves = sometimes\n");
+    EXPECT_EQ(s.nintendont_saves, "asked");
     s.gc_rumble = "on";
     EXPECT_EQ(s.wiimote_rumble, "on");
     s.parse("wiimote_rumble = off\n");

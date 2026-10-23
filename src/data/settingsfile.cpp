@@ -157,6 +157,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") sd_games = value;
         } else if (key == "gc_backups") {
             if (value == "on" || value == "off") gc_backups = value;
+        } else if (key == "nintendont_saves") {
+            if (value == "ask" || value == "asked") nintendont_saves = value;
         } else {
             other[key] = value;
         }
@@ -202,6 +204,7 @@ std::string LoaderSettings::serialize() const {
     s += "gc_adapter = " + gc_adapter + "\n";
     s += "sd_games = " + sd_games + "\n";
     s += "gc_backups = " + gc_backups + "\n";
+    s += "nintendont_saves = " + nintendont_saves + "\n";
     if (!favorites.empty()) {
         std::string list;
         for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;

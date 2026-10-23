@@ -136,17 +136,28 @@ struct Layout {
     bool shift_jis = false;
 };
 
+// A card's bytes wherever they are kept: in a vector, or in a buffer of
+// the caller's (the menu reads a card of up to 16 MB straight into MEM2).
+// A vector converts to it, so the functions that only read a card take
+// either.
+struct CardBytes {
+    const std::uint8_t* data;
+    std::size_t size;
+    CardBytes(const std::vector<std::uint8_t>& card) : data(card.data()), size(card.size()) {}
+    CardBytes(const std::uint8_t* bytes, std::size_t length) : data(bytes), size(length) {}
+};
+
 std::uint8_t* dir_block(std::vector<std::uint8_t>& card, unsigned copy) {
     return card.data() + (1 + copy) * kGcCardBlockBytes;
 }
-const std::uint8_t* dir_block(const std::vector<std::uint8_t>& card, unsigned copy) {
-    return card.data() + (1 + copy) * kGcCardBlockBytes;
+const std::uint8_t* dir_block(const CardBytes& card, unsigned copy) {
+    return card.data + (1 + copy) * kGcCardBlockBytes;
 }
 std::uint8_t* bat_block(std::vector<std::uint8_t>& card, unsigned copy) {
     return card.data() + (3 + copy) * kGcCardBlockBytes;
 }
-const std::uint8_t* bat_block(const std::vector<std::uint8_t>& card, unsigned copy) {
-    return card.data() + (3 + copy) * kGcCardBlockBytes;
+const std::uint8_t* bat_block(const CardBytes& card, unsigned copy) {
+    return card.data + (3 + copy) * kGcCardBlockBytes;
 }
 
 // The card's header and which copies of the directory and the BAT hold,
@@ -198,8 +209,8 @@ bool open_system(const std::uint8_t* data, std::size_t have, std::uint64_t card_
     return true;
 }
 
-bool open_card(const std::vector<std::uint8_t>& card, Layout& layout, std::string& error) {
-    return open_system(card.data(), card.size(), card.size(), layout, error);
+bool open_card(const CardBytes& card, Layout& layout, std::string& error) {
+    return open_system(card.data, card.size, card.size, layout, error);
 }
 
 bool block_in_range(const Layout& layout, std::uint32_t block) {
@@ -234,7 +245,7 @@ bool follow_chain(const Layout& layout, const std::uint8_t* bat, std::uint32_t f
 }
 
 // Copies `length` bytes at `offset` into the save, through its chain.
-bool save_bytes(const std::vector<std::uint8_t>& card, const std::vector<std::uint16_t>& chain,
+bool save_bytes(const CardBytes& card, const std::vector<std::uint16_t>& chain,
                 std::uint32_t offset, std::uint32_t length, std::uint8_t* out) {
     const std::uint64_t save_length = std::uint64_t(chain.size()) * kGcCardBlockBytes;
     if (std::uint64_t(offset) + length > save_length) return false;
@@ -243,7 +254,7 @@ bool save_bytes(const std::vector<std::uint8_t>& card, const std::vector<std::ui
         const std::uint32_t block = chain[at / kGcCardBlockBytes];
         const std::uint32_t inside = at % kGcCardBlockBytes;
         const std::uint32_t piece = std::min(length - done, kGcCardBlockBytes - inside);
-        std::memcpy(out + done, card.data() + std::size_t(block) * kGcCardBlockBytes + inside, piece);
+        std::memcpy(out + done, card.data + std::size_t(block) * kGcCardBlockBytes + inside, piece);
         done += piece;
     }
     return true;
@@ -290,7 +301,7 @@ GcSave save_from_entry(const std::uint8_t* entry, unsigned slot) {
     return save;
 }
 
-bool scan_card(const std::vector<std::uint8_t>& card, Scan& scan, std::string& error) {
+bool scan_card(const CardBytes& card, Scan& scan, std::string& error) {
     if (!open_card(card, scan.layout, error)) return false;
     const Layout& layout = scan.layout;
     const std::uint8_t* dir = dir_block(card, layout.dir);
@@ -464,11 +475,15 @@ bool gc_card_flash_id(const std::vector<std::uint8_t>& card, std::array<std::uin
     return true;
 }
 
-bool gc_card_read(const std::vector<std::uint8_t>& card, GcCardInfo& out, std::string& error) {
+bool gc_card_read(const std::uint8_t* card, std::size_t card_bytes, GcCardInfo& out, std::string& error) {
     Scan scan;
-    if (!scan_card(card, scan, error)) return false;
+    if (!scan_card(CardBytes(card, card_bytes), scan, error)) return false;
     out = scan.info;
     return true;
+}
+
+bool gc_card_read(const std::vector<std::uint8_t>& card, GcCardInfo& out, std::string& error) {
+    return gc_card_read(card.data(), card.size(), out, error);
 }
 
 bool gc_card_space(const std::vector<std::uint8_t>& system_blocks, std::uint64_t card_bytes, GcCardSpace& out,
@@ -518,6 +533,12 @@ bool gc_card_delete(std::vector<std::uint8_t>& card, unsigned slot, std::string&
 
 bool gc_card_export(const std::vector<std::uint8_t>& card, unsigned slot, std::vector<std::uint8_t>& gci,
                     std::string& error) {
+    return gc_card_export(card.data(), card.size(), slot, gci, error);
+}
+
+bool gc_card_export(const std::uint8_t* card_bytes, std::size_t card_size, unsigned slot,
+                    std::vector<std::uint8_t>& gci, std::string& error) {
+    const CardBytes card(card_bytes, card_size);
     Scan scan;
     if (!scan_card(card, scan, error)) return false;
     std::size_t index = 0;
@@ -534,7 +555,7 @@ bool gc_card_export(const std::vector<std::uint8_t>& card, unsigned slot, std::v
     gci.assign(save->entry.begin(), save->entry.end());
     gci.resize(kGcCardEntryBytes + chain.size() * kGcCardBlockBytes);
     for (std::size_t i = 0; i < chain.size(); ++i) {
-        const std::uint8_t* block = card.data() + std::size_t(chain[i]) * kGcCardBlockBytes;
+        const std::uint8_t* block = card.data + std::size_t(chain[i]) * kGcCardBlockBytes;
         std::memcpy(gci.data() + kGcCardEntryBytes + i * kGcCardBlockBytes, block, kGcCardBlockBytes);
     }
     return true;
