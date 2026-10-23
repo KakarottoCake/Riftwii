@@ -301,13 +301,13 @@ IOS58), so a game needs no squeeze to have a Wii's memory;
 `wii_mem2_top = 1` forces IOS58's layout, and `game_mem2_top_kib`
 alone builds a layout no Wii has (Project+ goes black in it).
 
-`debug_crash` in the same file breaks the game on purpose, to try the
-crash recorder: `debug_crash = pad` puts a read from address 0x28 at the
+`debug_crash` in `settings.txt` (with `debug_off`, not in `test_limits.txt`)
+breaks the game on purpose, to try the crash recorder: `debug_crash = pad` puts a read from address 0x28 at the
 start of the game's PADRead (its main thread, every frame), or give a
 hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 `build-dolphin/felk-run.sh`), or the bad read is only a warning and the
-game crashes a few steps later instead. The next RiftWii start writes
-`sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
+game crashes a few steps later instead. The next RiftWii start that opens
+the menu writes `sd:/riftwii/gamecrash.txt` (an autorun start skips it). Never leave it in a tester's settings.
 
 `debug_reset = N` in the same file has the game restart itself N seconds
 (1 to 60) after its main thread first sleeps, through its own
