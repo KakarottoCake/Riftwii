@@ -76,6 +76,13 @@ add_executable(theme_kit tools/theme_kit.cpp)
 target_link_libraries(theme_kit PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
+    # RiiFS discovery against a clock and socket mocks, including a UDP flood.
+    add_executable(netsock_tests tests/netsock_tests.cpp wii/online/netsock.cpp)
+    target_include_directories(netsock_tests PRIVATE tests/netsock_mock include wii/online wii/core)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(netsock_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME netsock COMMAND netsock_tests)
     # Use the plugin's actual Zstandard shim against a mocked host table,
     # without its libc replacements or a second decoder defining the API.
     add_executable(rwpzstd_tests tests/rwpzstd_tests.cpp plugins/common/rwpzstd.cpp)
