@@ -296,6 +296,47 @@ static void test_tpl() {
     EXPECT_TRUE(!parse_tpl(t.data(), t.size(), images, error));
 }
 
+// A layout can repeat name lists and make every offset name one string.
+// Neither the section size nor an individual count bounds the total copy.
+static void test_layout_name_lists() {
+    const auto layout_with_names = [](const char* kind, std::uint16_t count,
+                                      std::size_t name_bytes, unsigned repeats = 1) {
+        Bytes image(0x10, 0);
+        puts_(image, 0, "RLYT");
+        put16(image, 4, 0xFEFF);
+        put16(image, 0xC, 0x10);
+        Bytes pane(0x4C, 0);
+        puts_(pane, 0, "pan1");
+        put32(pane, 4, static_cast<std::uint32_t>(pane.size()));
+        image.insert(image.end(), pane.begin(), pane.end());
+        Bytes section(12 + std::size_t(count) * 8, 0);
+        puts_(section, 0, kind);
+        put16(section, 8, count);
+        for (std::uint16_t i = 0; i < count; ++i) put32(section, 12 + i * 8, count * 8);
+        section.insert(section.end(), name_bytes, 'x');
+        section.push_back(0);
+        put32(section, 4, static_cast<std::uint32_t>(section.size()));
+        for (unsigned i = 0; i < repeats; ++i) image.insert(image.end(), section.begin(), section.end());
+        return image;
+    };
+    for (const char* kind : {"txl1", "fnl1"}) {
+        Layout layout;
+        std::string error;
+        Bytes image = layout_with_names(kind, 512, 255, 2);
+        EXPECT_TRUE(parse_brlyt(image.data(), image.size(), layout, error));
+        EXPECT_EQ(kind[0] == 't' ? layout.textures.size() : layout.fonts.size(), std::size_t(1024));
+        image = layout_with_names(kind, 1025, 1);
+        EXPECT_TRUE(!parse_brlyt(image.data(), image.size(), layout, error));
+        image = layout_with_names(kind, 513, 1, 2);
+        EXPECT_TRUE(!parse_brlyt(image.data(), image.size(), layout, error));
+        image = layout_with_names(kind, 1024, 256);
+        EXPECT_TRUE(!parse_brlyt(image.data(), image.size(), layout, error));
+        image = layout_with_names(kind, 1, 4);
+        image.back() = 'x';
+        EXPECT_TRUE(!parse_brlyt(image.data(), image.size(), layout, error));
+    }
+}
+
 // A layout: a root pane, under it a 20x10 picture centred at (10, 0) and
 // two language groups.
 static Bytes make_layout(unsigned tev_stages = 0) {
@@ -723,6 +764,7 @@ int main() {
     test_partition();
     test_lz77_u8();
     test_opening();
+    test_layout_name_lists();
     test_tpl();
     test_layout();
     test_hostile();
