@@ -224,6 +224,27 @@ void TestHttp() {
     EXPECT_TRUE(to.tls);
     EXPECT_TRUE(http_redirect(from, "other.dol", to, error));
     EXPECT_EQ(to.path, "/x/y/other.dol");
+    // A query-only redirect replaces the query of the current resource;
+    // a fragment-only one keeps both the resource and its existing query.
+    EXPECT_TRUE(http_redirect(from, "?raw=2", to, error));
+    EXPECT_EQ(to.path, "/x/y/file.dol?raw=2");
+    EXPECT_TRUE(http_redirect(from, "?", to, error));
+    EXPECT_EQ(to.path, "/x/y/file.dol?");
+    EXPECT_TRUE(http_redirect(from, "#top", to, error));
+    EXPECT_EQ(to.path, "/x/y/file.dol?raw=1");
+    EXPECT_TRUE(http_redirect(from, "?raw=2#top", to, error));
+    EXPECT_EQ(to.path, "/x/y/file.dol?raw=2");
+    // A colon in a query, fragment or later path segment is data, not a scheme.
+    EXPECT_TRUE(http_redirect(from, "?next=https://example.test", to, error));
+    EXPECT_EQ(to.host, "github.com");
+    EXPECT_EQ(to.path, "/x/y/file.dol?next=https://example.test");
+    EXPECT_TRUE(to.tls);
+    EXPECT_TRUE(http_redirect(from, "#section:part", to, error));
+    EXPECT_EQ(to.path, "/x/y/file.dol?raw=1");
+    EXPECT_TRUE(http_redirect(from, "folder/file:part", to, error));
+    EXPECT_EQ(to.path, "/x/y/folder/file:part");
+    EXPECT_FALSE(http_redirect(from, "ftp:x", to, error));
+    EXPECT_FALSE(http_redirect(from, "http://other.host/file.dol", to, error));
     EXPECT_TRUE(http_redirect(from, "//cdn.example/f", to, error));
     EXPECT_TRUE(to.tls);
     EXPECT_EQ(to.host, "cdn.example");
