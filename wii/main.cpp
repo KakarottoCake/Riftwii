@@ -47,6 +47,7 @@
 #include "d2xsd.hpp"
 #include "covers.hpp"
 #include "entropy.hpp"
+#include "fullfont.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
@@ -308,7 +309,8 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::mem::LogUsage("start");
 }
 
-// The menu font (wii/font/rounded.ttf) ships zstd-compressed in the
+// The menu font's core (wii/font/core.ttf; the rest is read from the SD
+// card when needed, wii/menu/fullfont.hpp) ships zstd-compressed in the
 // start-up stash (Makefile.wii, wii/core/stash.hpp), already in MEM2.
 // Unpacked into MEM2 too, where FreeType reads it for the whole menu
 // phase, so neither the DOL's resident part nor the MEM1 heap carries it.
@@ -501,6 +503,8 @@ int main() {
         }
         timed("font unpacked");
         InitFreeType(font, font_size);
+        // Characters the core lacks (kanji in game names) from font.ttf.
+        riftwii::wii::fullfont::Enable();
     }
     if (!riftwii::wii::MenuLanguageDrawable(riftwii::wii::MenuLanguage())) {
         riftwii::wii::SetMenuLanguage("en");
@@ -525,6 +529,9 @@ int main() {
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
     MenuWatchdogStop();
+    // The card goes to the launch from here: the full font's file is let go
+    // and stays closed (the glyphs drawn so far stay cached).
+    riftwii::wii::fullfont::EndMenu();
     // The start's update check or a cover download may still be running on
     // the network's thread, and it writes to the card and the log: every way
     // out of the menu (a USB launch unmounts the card and reloads IOS before

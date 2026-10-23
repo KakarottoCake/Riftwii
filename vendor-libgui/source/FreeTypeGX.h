@@ -21,7 +21,8 @@
  */
 /* Changed for RiftWii (October 2026), under GPL-3.0-or-later: InitFreeType
  * takes a font collection's face and returns whether FreeType could read it;
- * glyphs can come from a bitmap font (SetBitmapGlyphSource).
+ * glyphs can come from a bitmap font (SetBitmapGlyphSource), and those the
+ * face lacks from a second source (SetMissingGlyphSource).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef FREETYPEGX_H_
@@ -120,6 +121,17 @@ bool FontHasChar(wchar_t charCode);
 struct FtgxBitmapGlyph { const uint8_t* pixels; int width, rows, left, top, advance; };
 typedef bool (*FtgxBitmapGlyphSource)(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out);
 void SetBitmapGlyphSource(FtgxBitmapGlyphSource source);
+// RiftWii: glyphs for the characters the face lacks (the full menu font on
+// the SD card, wii/menu/fullfont.hpp), asked again for a character until it
+// gives one, then cached as the face's are. The glyph's texture comes from
+// `textureAlloc` (32-byte aligned; nullptr: the heap's) and goes back
+// through `textureFree`, which says whether the block was its own.
+struct FtgxMissingGlyphSource {
+	FtgxBitmapGlyphSource glyph;
+	void* (*textureAlloc)(size_t bytes);
+	bool (*textureFree)(void* block);
+};
+void SetMissingGlyphSource(const FtgxMissingGlyphSource* source);
 void ChangeFontSize(FT_UInt pixelSize);
 // RiftWii: UTF-8 `text` as 8-bit coverage at `pixelSize` into `out`
 // (`width` x `height`, zeroed by the caller), wrapped at spaces and each
@@ -159,7 +171,8 @@ class FreeTypeGX {
 		void unloadFont();
 		ftgxCharData *cacheGlyphData(wchar_t charCode);
 		uint16_t cacheGlyphDataComplete();
-		void loadGlyphData(FT_Bitmap *bmp, ftgxCharData *charData);
+		void loadGlyphData(FT_Bitmap *bmp, ftgxCharData *charData, bool missingSource = false);
+		ftgxCharData *cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource);
 
 		void setDefaultMode();
 

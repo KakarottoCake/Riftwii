@@ -507,6 +507,11 @@ static void TestDirectory() {
     EXPECT_EQ(riftwii::plugin_directory_for("boot.dol"), std::string("sd:/apps/riftwii/plugins/"));
     EXPECT_EQ(riftwii::plugin_directory_for("sd:/boot.dol"), std::string("sd:/apps/riftwii/plugins/"));
     EXPECT_EQ(riftwii::plugin_directory_for("SD:/apps/x/boot.dol"), std::string("sd:/apps/riftwii/plugins/"));
+    // The full menu font sits next to the DOL, as the plugins' folder does.
+    EXPECT_EQ(riftwii::menu_font_path_for("sd:/apps/riftwii/boot.dol"), std::string("sd:/apps/riftwii/font.ttf"));
+    EXPECT_EQ(riftwii::menu_font_path_for("usb:/apps/riftwii-test/boot.dol"),
+              std::string("usb:/apps/riftwii-test/font.ttf"));
+    EXPECT_EQ(riftwii::menu_font_path_for(""), std::string("sd:/apps/riftwii/font.ttf"));
 }
 
 static void TestDescribeAddress() {
@@ -667,6 +672,18 @@ static void TestUpdateOrder() {
     // The tag without its 'v' is the same release.
     EXPECT_TRUE(riftwii::plan_update_writes(apps, "2610-500", folder, dol, writes, why));
     EXPECT_EQ(writes.size(), 3u);
+    // The full menu font goes beside the DOL, after the plugins and before it.
+    ThemePack withFont = apps;
+    withFont.files.push_back(ThemePackFile{"riftwii/font.ttf", 4450, 1600000});
+    EXPECT_TRUE(riftwii::plan_update_writes(withFont, "v2610-500", folder, "sd:/apps/riftwii-test/boot.dol", writes, why));
+    EXPECT_EQ(writes.size(), 4u);
+    if (writes.size() == 4) {
+        EXPECT_EQ(writes[2].path, std::string("sd:/apps/riftwii-test/font.ttf"));
+        EXPECT_EQ(writes[2].offset, 4450u);
+        EXPECT_EQ(writes[2].size, 1600000u);
+        EXPECT_FALSE(writes[2].dol);
+        EXPECT_TRUE(writes[3].dol);
+    }
     // A pack with no plugins: the DOL alone.
     ThemePack plain;
     plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};

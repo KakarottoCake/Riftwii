@@ -36,6 +36,7 @@ and `vendor-*` is third-party code.
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
+| The menu font: the core in the DOL, the rest from `font.ttf` on the card | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
 | Finding games on the SD card and USB drives | `wii/menu/homescan.cpp` (Home's scan thread), `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/imagevolume.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
 | Riivolution packs: reading the XML | `src/patching/patch.cpp` |
@@ -100,7 +101,7 @@ The build compiles every folder into one, so no two files share a name.
 | `main.cpp` | Start-up: video, pads, SD card, crash handler, the menu, and what happens when the player leaves |
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
 | `font/` | The menu font's source (`rounded.ttf`, OFL) |
-| `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
+| `font/` | The menu font (`tools/make_menu_font.py`): `core.ttf`, packed into the DOL by the build, and the whole `rounded.ttf`, shipped as `apps/riftwii/font.ttf` (`wii/menu/fullfont.cpp` reads it) |
 | `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (drawn by KakarottoCake) |
 
 ### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
@@ -373,6 +374,7 @@ to check EXI ownership, failed mounts/reads, deferred close and removal.
 | --- | --- |
 | `lang_source.py` | The translation table: writes `wii/lang/*.po` and checks every string still appears in the code |
 | `make_menu_font.py`, `make_sounds.py` | Build-time assets |
+| `menu_font_chars.py` | Which characters the menu font's core holds; checks `wii/font/core.ttf` (also run by `lang_source.py`) |
 | `make_sjis_table.py` | The Shift-JIS table for Japanese memory cards' text (`src/fs/sjis_table.inc`) |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |

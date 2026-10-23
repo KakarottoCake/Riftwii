@@ -196,7 +196,16 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         return false;
     }
     std::vector<UpdateWrite> plugins;
+    UpdateWrite font;
     for (const ThemePackFile& file : apps.files) {
+        // The full menu font: beside the new DOL, whose core font lacks
+        // what it holds (wii/menu/fullfont.hpp).
+        if (file.path == kMenuFontFile) {
+            font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + "font.ttf";
+            font.offset = file.offset;
+            font.size = file.size;
+            continue;
+        }
         if (file.path.compare(0, kPluginsFolder.size(), kPluginsFolder) != 0) continue;  // the next start's
         const std::string name = file.path.substr(kPluginsFolder.size());
         std::string plugin;
@@ -216,6 +225,7 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         plugins.push_back(write);
     }
     out = plugins;
+    if (!font.path.empty()) out.push_back(font);
     UpdateWrite dol;
     dol.path = dol_path;
     dol.dol = true;

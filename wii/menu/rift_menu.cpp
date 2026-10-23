@@ -67,6 +67,7 @@
 #include "boxart.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
+#include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
@@ -4630,6 +4631,19 @@ static int MenuSource(FrontendState& state)
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
 			showStatus();
+		// The full menu font is not on the card (wii/menu/fullfont.hpp):
+		// said once a session, after the start's popups (What's new and the
+		// others of askAfterLook), which covered a toast shown while they
+		// were up until it was gone. The status line keeps it too, as it
+		// keeps Home's other news, until a game is opened. Here, with the
+		// GUI halted, as the toast and the status line are drawn by it.
+		if (!g_askAfterScan && riftwii::wii::fullfont::TakeMissingNote()) {
+			const std::string fontNote = tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
+			SetHomeNotice(fontNote);
+			g_homeNoticeShown = true;
+			toast.Show(fontNote, true);
+			showStatus();
+		}
 		if (!g_scanning && grid.Channels()) {
 			const auto& apps = riftwii::wii::HomebrewApps();
 			const int first = grid.PageFirst();

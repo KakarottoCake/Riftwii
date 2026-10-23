@@ -3132,6 +3132,9 @@ msgstr "4. ゲームは/wbfsか/gamesフォルダに。"
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"
 
+msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "RiftWiiの完全なフォントがないため、表示できない文字があります。RiftWiiのzipにあるapps/riftwii/font.ttfをSDカードにコピーしてください。"
+
 msgid "Bring your Nintendont saves?"
 msgstr "Nintendontのセーブを持ってきますか?"
 
