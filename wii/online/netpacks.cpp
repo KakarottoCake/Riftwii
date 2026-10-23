@@ -21,6 +21,7 @@
 #include "log.hpp"
 #include "netsock.hpp"
 #include "textfile.hpp"
+#include "riftwii/patch.hpp"
 #include "riftwii/riifs_sync.hpp"
 
 namespace riftwii::wii {
@@ -142,8 +143,10 @@ std::string read_text(const std::string& path) {
         read_usb_text(path, text);
         return text;
     }
+    // No more than a pack may be (riftwii/patch.hpp), as on USB: a larger
+    // file is left alone with a log line instead of read whole.
     std::string text;
-    ReadWholeFile(path, text);
+    ReadTextFile(path, text, kMaxPackageXml);
     return text;
 }
 

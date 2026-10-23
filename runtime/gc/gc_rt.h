@@ -288,8 +288,48 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_DISC_TEST_SECOND 2200u  /* early enough that its records stay in the trace's kept part (GC_TRACE_RING) */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
-#define GC_FLAG_PAD_TRACE_PENDING 8192u  /* diagnostic PAD state to write at the next heartbeat, outside PADRead */
+#define GC_FLAG_PAD_TRACE_PENDING 32768u  /* diagnostic PAD state to write at the next heartbeat, outside PADRead */
 #define GC_FLAG_TRACE_GAMEPLAY 16384u  /* sd:/riftwii/gc/test/trace: repeated SD writes are explicitly requested */
+
+/* Every flag shares the one word, so each must be its own single bit: the
+ * sum equals the OR only when no two overlap, and a flag added on a bit that
+ * is already taken (as GC_FLAG_DISC_TEST and GC_FLAG_PAD_TRACE_PENDING once
+ * were) stops the build. */
+#define GC_FLAGS_ALL_OR (GC_FLAG_PRESS | GC_FLAG_CRASH | GC_FLAG_LEAVE | GC_FLAG_REMOTE_RUMBLE | GC_FLAG_RUMBLE_TEST | \
+                         GC_FLAG_FAKE_REMOTE | GC_FLAG_FAKE_PRO | GC_FLAG_CRASH_BLACK | GC_FLAG_STREAM_ONLY | \
+                         GC_FLAG_PROGRESSIVE | GC_FLAG_RESET_TEST | GC_FLAG_EXEC_TEST | GC_FLAG_DISC_TEST | \
+                         GC_FLAG_SD_SLOW | GC_FLAG_WIDEN | GC_FLAG_PAD_TRACE_PENDING | GC_FLAG_TRACE_GAMEPLAY)
+#define GC_FLAGS_ALL_SUM (GC_FLAG_PRESS + GC_FLAG_CRASH + GC_FLAG_LEAVE + GC_FLAG_REMOTE_RUMBLE + GC_FLAG_RUMBLE_TEST + \
+                          GC_FLAG_FAKE_REMOTE + GC_FLAG_FAKE_PRO + GC_FLAG_CRASH_BLACK + GC_FLAG_STREAM_ONLY + \
+                          GC_FLAG_PROGRESSIVE + GC_FLAG_RESET_TEST + GC_FLAG_EXEC_TEST + GC_FLAG_DISC_TEST + \
+                          GC_FLAG_SD_SLOW + GC_FLAG_WIDEN + GC_FLAG_PAD_TRACE_PENDING + GC_FLAG_TRACE_GAMEPLAY)
+/* The runtime is built as C99 (-Wpedantic rejects _Static_assert), so C uses an
+ * array whose size goes negative when the check fails. */
+#ifdef __cplusplus
+#define GC_FLAG_CHECK(name, condition, message) static_assert(condition, message)
+#else
+#define GC_FLAG_CHECK(name, condition, message) typedef char name[(condition) ? 1 : -1]
+#endif
+GC_FLAG_CHECK(gc_flags_distinct, GC_FLAGS_ALL_OR == GC_FLAGS_ALL_SUM, "GC_FLAG_* values must be distinct bits");
+#define GC_FLAG_IS_BIT(flag) ((flag) != 0u && ((flag) & ((flag) - 1u)) == 0u)
+GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
+                  GC_FLAG_IS_BIT(GC_FLAG_CRASH) &&
+               GC_FLAG_IS_BIT(GC_FLAG_LEAVE) &&
+               GC_FLAG_IS_BIT(GC_FLAG_REMOTE_RUMBLE) &&
+               GC_FLAG_IS_BIT(GC_FLAG_RUMBLE_TEST) &&
+               GC_FLAG_IS_BIT(GC_FLAG_FAKE_REMOTE) &&
+               GC_FLAG_IS_BIT(GC_FLAG_FAKE_PRO) &&
+               GC_FLAG_IS_BIT(GC_FLAG_CRASH_BLACK) &&
+               GC_FLAG_IS_BIT(GC_FLAG_STREAM_ONLY) &&
+               GC_FLAG_IS_BIT(GC_FLAG_PROGRESSIVE) &&
+               GC_FLAG_IS_BIT(GC_FLAG_RESET_TEST) &&
+               GC_FLAG_IS_BIT(GC_FLAG_EXEC_TEST) &&
+               GC_FLAG_IS_BIT(GC_FLAG_DISC_TEST) &&
+               GC_FLAG_IS_BIT(GC_FLAG_SD_SLOW) &&
+               GC_FLAG_IS_BIT(GC_FLAG_WIDEN) &&
+               GC_FLAG_IS_BIT(GC_FLAG_PAD_TRACE_PENDING) &&
+               GC_FLAG_IS_BIT(GC_FLAG_TRACE_GAMEPLAY),
+               "GC_FLAG_* values must be single bits");
 
 /* A stopped game's crash record remains available to problem reports
  * without making normal play wait for diagnostic SD writes. */

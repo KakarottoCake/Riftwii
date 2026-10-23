@@ -29,6 +29,7 @@
 #include "tls.hpp"
 #include "textfile.hpp"
 #include "ghfallback.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ghcheats.hpp"
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/cheats.hpp"
@@ -122,7 +123,10 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
             return false;
         }
         if (got == 0) break;  // closed
-        raw.insert(raw.end(), chunk, chunk + got);
+        if (!try_append(raw, chunk, chunk + got)) {
+            error = "not enough memory for what " + url.host + " sent";
+            return false;
+        }
         if (progress) progress(raw.size());
         if (raw.size() > max_bytes + 4096) {
             error = url.host + " sent more than " + std::to_string(max_bytes) + " bytes";

@@ -8,6 +8,8 @@
 #include <cctype>
 #include <cstdio>
 
+#include "riftwii/checkedalloc.hpp"
+
 #include "launchrun.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
@@ -234,7 +236,16 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     // say); the game's own where the launch does not name one.
     if (!h.choices.empty()) state.choices_path = std::string(kChoicesDir) + "/" + h.choices;
     logf("  %s\n", state.disc_status.c_str());
-    logf("  %s\n", ScanPackages(state).c_str());
+    // A scan that ran out of memory stops part-way and keeps only the packs
+    // read so far; launching with those would drop the player's mods
+    // without saying so.
+    riftwii::OutOfMemoryScope out_of_memory;
+    const std::string scan = ScanPackages(state);
+    logf("  %s\n", scan.c_str());
+    if (out_of_memory.failed()) {
+        error = "out of memory reading the packs' folders";
+        return false;
+    }
     if (!apply_choices(h, state, error)) return false;
     for (const LaunchPackage& p : state.model.packages) {
         if (p.enabled) logf("  pack on: %s\n", p.path.c_str());
@@ -252,7 +263,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     }
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
-    const bool booted = mem::OutOfMemoryAsError(error, [&] {
+    const bool booted = mem::GuardLaunchMemory(error, [&] {
         return needs_launch_pipeline(!selections.empty(), state.model.save_mode)
                    ? RunLaunch(selections, error, source, state.model.save_mode, state.game_id)
                    : RunBoot(true, error, source);

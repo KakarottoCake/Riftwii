@@ -19,7 +19,8 @@ OUT     := build-bearssl
 LIB     := $(OUT)/libbearssl.a
 
 # No OS randomness source: wii/online/tls.cpp seeds the engine itself.
-CFLAGS  := -Os -mrvl -mcpu=750 -meabi -mhard-float -ffunction-sections -fdata-sections \
+# No unwind tables either, as for the rest of the DOL (Makefile.wii).
+CFLAGS  := -Os -mrvl -mcpu=750 -meabi -mhard-float -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables \
            -W -Wall -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_WIN32_RAND=0 -DBR_USE_UNIX_TIME=1 \
            -Ivendor-bearssl/inc -I$(SRC)
 
@@ -32,7 +33,8 @@ $(LIB): $(OBJS)
 	@$(AR) rcs $@ $^
 	@echo built $@
 
-$(OUT)/obj/%.o: %.c | $(OUT)/obj
+# The flags live here: a change to this file rebuilds every object.
+$(OUT)/obj/%.o: %.c Makefile.bearssl | $(OUT)/obj
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/obj:

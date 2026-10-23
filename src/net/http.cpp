@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/http.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -332,6 +333,12 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
         return false;
     }
     if (!parse_headers(raw, end, out, error)) return false;
+    // The body is at most what is left after the headers: room for that
+    // first, so the copy below cannot fail halfway.
+    if (!try_reserve(out.body, raw.size() - end)) {
+        error = "out of memory for the response";
+        return false;
+    }
     if (chunked(out)) {
         std::size_t at = end;
         const int walked = walk_chunks(raw, at, &out.body);
@@ -359,11 +366,24 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
     return true;
 }
 
-std::string url_encode(const std::string& text) {
+namespace {
+
+bool url_unreserved(unsigned char c) {
+    return std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~';
+}
+
+}  // namespace
+
+std::size_t url_encoded_size(const std::string& text) {
+    std::size_t size = 0;
+    for (unsigned char c : text) size += url_unreserved(c) ? 1 : 3;
+    return size;
+}
+
+void url_encode_append(const std::string& text, std::string& out) {
     static const char* hex = "0123456789ABCDEF";
-    std::string out;
     for (unsigned char c : text) {
-        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+        if (url_unreserved(c)) {
             out += static_cast<char>(c);
         } else {
             out += '%';
@@ -371,6 +391,11 @@ std::string url_encode(const std::string& text) {
             out += hex[c & 15];
         }
     }
+}
+
+std::string url_encode(const std::string& text) {
+    std::string out;
+    url_encode_append(text, out);
     return out;
 }
 

@@ -22,6 +22,7 @@
 #include "log.hpp"
 #include "usbcatalog.hpp"
 #include "nanduse.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -132,7 +133,12 @@ bool read_card_file(const std::string& path, u32 max_bytes, std::vector<u8>& out
         error = path + " is " + std::to_string(size) + " bytes, not a size RiftWii reads";
         return false;
     }
-    std::vector<u8> bytes(static_cast<std::size_t>(size));
+    std::vector<u8> bytes;
+    if (!try_resize(bytes, static_cast<std::size_t>(size))) {
+        std::fclose(file);
+        error = "out of memory for " + path;
+        return false;
+    }
     const std::size_t got = std::fread(bytes.data(), 1, bytes.size(), file);
     std::fclose(file);
     if (got != bytes.size()) {
@@ -507,7 +513,10 @@ bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8
         error = channel.banner_path + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
         return false;
     }
-    out.assign(buffer.get(), buffer.get() + size);
+    if (!try_assign_range(out, buffer.get(), buffer.get() + size)) {
+        error = "out of memory for " + channel.banner_path;
+        return false;
+    }
     return true;
 }
 

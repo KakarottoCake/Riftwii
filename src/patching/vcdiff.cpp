@@ -5,6 +5,7 @@
 // (4.2, 4.3); xdelta3's extensions (the application header and the
 // per-window Adler-32) from xdelta3's format notes.
 #include "riftwii/vcdiff.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,11 +21,20 @@ namespace {
 // the old block and the new one at once. The Wii's menu has about 30 MB
 // to prepare a game in, and a buffer grown in place briefly took twice
 // its size (Super Mario Eclipse's third window found no 8 MB block).
-void fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
+// False when there is no room (riftwii/checkedalloc.hpp).
+bool fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
+    if (n > v.max_size()) {
+        detail::note_out_of_memory();  // so a caller's OutOfMemoryScope sees it
+        return false;
+    }
     if (n > v.capacity()) std::vector<std::uint8_t>().swap(v);
-    v.resize(static_cast<std::size_t>(n));
+    return try_resize(v, static_cast<std::size_t>(n));
 }
 
+
+// A window or section that found no room; callers that report running
+// out of memory in their own words ask an OutOfMemoryScope instead.
+constexpr const char* kNoRoom = "the patch asks for more memory than is free";
 
 constexpr std::uint8_t kSource = 0x01;   // Win_Indicator: the copy window is in the original
 constexpr std::uint8_t kTarget = 0x02;   // ...or in the patched image made so far
@@ -189,8 +199,8 @@ public:
             if (!take(c, 4)) return fail("a patch window is cut short");
             adler = (std::uint32_t(c[0]) << 24) | (std::uint32_t(c[1]) << 16) | (std::uint32_t(c[2]) << 8) | c[3];
         }
-        if (!section(data_, data_len) || !section(inst_, inst_len) || !section(addr_, addr_len))
-            return fail("a patch window runs past the file's end");
+        // section() says why it failed (past the end, or no room).
+        if (!section(data_, data_len) || !section(inst_, inst_len) || !section(addr_, addr_len)) return false;
         if (pos_ - delta_start != delta_len) return fail("a patch window's length does not match its contents");
 
         // The copy window: from the original, or from the image made so far.
@@ -205,11 +215,11 @@ public:
             if (seg_len > limits_.max_window) return fail("a patch window is larger than RiftWii takes");
         }
         if (seg_whole_) {
-            fresh_size(seg_, seg_len);
+            if (!fresh_size(seg_, seg_len)) return fail(kNoRoom);
             if (seg_len && !read_seg(seg_pos, seg_.data(), seg_.size())) return false;
         }
 
-        fresh_size(out, window_len);
+        if (!fresh_size(out, window_len)) return fail(kNoRoom);
         window_len_ = window_len;
         seg_len_ = seg_len;
         if (!seg_whole_ && seg_len != 0) {
@@ -219,13 +229,20 @@ public:
             // final pass below then leaves those copies alone.
             const std::uint64_t bs = limits_.cache_block;
             const std::uint64_t region = bs * limits_.cache_blocks;
-            std::vector<bool> used(static_cast<std::size_t>((seg_len + bs - 1) / bs));
+            // seg_len comes from the patch: the block count is checked
+            // before it becomes a size, and the bitmap's room asked for.
+            const std::uint64_t blocks = seg_len / bs + (seg_len % bs != 0 ? 1 : 0);
+            std::vector<bool> used;
+            if (blocks > used.max_size() || !try_resize(used, static_cast<std::size_t>(blocks))) {
+                detail::note_out_of_memory();
+                return fail(kNoRoom);
+            }
             if (!walk(out, [&](std::uint64_t from, std::uint64_t n, std::uint64_t) {
                     for (std::uint64_t b = from / bs; b <= (from + n - 1) / bs; ++b) used[b] = true;
                     return true;
                 }))
                 return false;
-            if (cache_.size() < region) fresh_size(cache_, region);
+            if (cache_.size() < region && !fresh_size(cache_, region)) return fail(kNoRoom);
             for (std::uint64_t lo = 0; lo < seg_len; lo += region) {
                 const std::uint64_t hi = std::min(seg_len, lo + region);
                 bool any = false;
@@ -353,9 +370,11 @@ private:
     // patch before anything is allocated: a 30-byte patch whose header
     // claimed 32 MiB a section asked for 100 MB and threw (BUG-02).
     bool section(std::vector<std::uint8_t>& out, std::uint64_t n) {
-        if (n > patch_size_ - std::min(pos_, patch_size_)) return false;
-        fresh_size(out, n);
-        return n == 0 || take(out.data(), out.size());
+        constexpr const char* kPastEnd = "a patch window runs past the file's end";
+        if (n > patch_size_ - std::min(pos_, patch_size_)) return fail(kPastEnd);
+        if (!fresh_size(out, n)) return fail(kNoRoom);
+        if (n != 0 && !take(out.data(), out.size())) return fail(kPastEnd);
+        return true;
     }
 
     const VcdiffReadFn& patch_;
@@ -432,7 +451,12 @@ bool vcdiff_head(const VcdiffReadFn& patch, std::uint64_t patch_size, const Vcdi
         return false;
     }
     checked = d.has_checksum();
-    out.assign(first.begin(), first.begin() + static_cast<std::ptrdiff_t>(length));
+    // The head is small, but a caller's list of games calls this once per
+    // original, so a full heap must give an error, not end the program.
+    if (!try_assign_range(out, first.begin(), first.begin() + static_cast<std::ptrdiff_t>(length))) {
+        error = kNoRoom;
+        return false;
+    }
     return true;
 }
 

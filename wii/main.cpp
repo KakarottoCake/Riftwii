@@ -590,7 +590,7 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        const bool booted = !error.empty() ? false : riftwii::wii::mem::OutOfMemoryAsError(error, [&] {
+        const bool booted = !error.empty() ? false : riftwii::wii::mem::GuardLaunchMemory(error, [&] {
             return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                        ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, state.model.save_mode, state.game_id)
                        : riftwii::wii::RunLaunch(state.model.selections(), error, source, state.model.save_mode,
@@ -608,7 +608,7 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        if (!error.empty() || !riftwii::wii::mem::OutOfMemoryAsError(error, [&] { return riftwii::wii::RunBoot(true, error, source); })) {
+        if (!error.empty() || !riftwii::wii::mem::GuardLaunchMemory(error, [&] { return riftwii::wii::RunBoot(true, error, source); })) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
