@@ -10,6 +10,7 @@
 // through the IPC registers, polled, the way libogc's ipc.c drives them.
 
 #include <stdint.h>
+#include "dolvalidate.h"
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -19,7 +20,6 @@ typedef uint64_t u64;
 #define FORWARDER_CONTENT 2
 #define DOL_BUFFER ((u8*)0x91000000)  // MEM2, clear of what an IOS reload uses
 #define DOL_MAX (8u << 20)
-#define MEM1_HI 0x81700000u
 #define CHUNK 0x40000u
 
 extern u8 __loader_end[];
@@ -237,33 +237,6 @@ static void wii_menu(void) {
     }
 }
 
-// ------------------------------------------------------------------- DOL ----
-typedef struct {
-    u32 offset[18];
-    u32 address[18];
-    u32 size[18];
-    u32 bss_address;
-    u32 bss_size;
-    u32 entry;
-} DolHeader;
-
-// Every section in MEM1 above this loader, and inside the file.
-static int dol_valid(const DolHeader* h, u32 size) {
-    const u32 self_hi = (u32)__loader_end;
-    int entry_loaded = 0;
-    for (int i = 0; i < 18; ++i) {
-        if (!h->size[i]) continue;
-        const u32 lo = h->address[i], hi = lo + h->size[i];
-        if (h->offset[i] > size || h->size[i] > size - h->offset[i]) return 0;
-        if (lo < self_hi || hi > MEM1_HI || hi < lo) return 0;
-        if (h->entry >= lo && h->entry < hi) entry_loaded = 1;
-    }
-    const u32 lo = h->bss_address, hi = lo + h->bss_size;
-    if (h->bss_size && (lo < self_hi || hi > MEM1_HI || hi < lo)) return 0;
-    // Refuse an entry in a hole instead of jumping into stale MEM1 data.
-    return entry_loaded;
-}
-
 typedef void (*Entry)(void);
 
 void loader_main(void) {
@@ -274,7 +247,7 @@ void loader_main(void) {
     }
     const u32 size = read_forwarder();
     const DolHeader* h = (const DolHeader*)DOL_BUFFER;
-    if (!size || !dol_valid(h, size)) wii_menu();
+    if (!size || !dol_valid(h, size, (u32)__loader_end)) wii_menu();
     ios_close(g_es);
 
     if (h->bss_size) {

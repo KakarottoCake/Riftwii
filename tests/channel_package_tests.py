@@ -14,14 +14,18 @@ SPEC.loader.exec_module(channel)
 
 
 class WiiStartupOverlapTests(unittest.TestCase):
+    PRODUCTION_START_SIZE = 424
+
     def setUp(self):
         # A synthetic start.S with both cache-clear signatures and a final
         # partial cache line, so its padding also belongs to the stub.
         self.start = b"\0" * 4 + b"RFTW" + b"\0" * 4
         self.start += b"".join(channel.L2_CLEAR)
-        self.start += b"\0" * 65
+        self.start += b"\0" * (self.PRODUCTION_START_SIZE - len(self.start))
         self.stub_size = (len(self.start) + 31) & ~31
         self.stub_end = channel.WII_START_AT + self.stub_size
+        self.assertEqual(self.stub_size, 448)
+        self.assertEqual(self.stub_end, 0x800035C0)
 
     def dol(self, section_address=None, bss_address=None):
         dol = bytearray(0x140)
