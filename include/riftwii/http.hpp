@@ -65,8 +65,9 @@ struct HttpResponse {
     std::vector<std::uint8_t> body;              // de-chunked
 };
 // Whether `raw` holds a whole response already: headers and a body of
-// Content-Length bytes, or a chunked body up to its last chunk. A
-// response with neither ends when the server closes the connection.
+// Content-Length bytes, or a chunked body through its trailers' final empty
+// line. A response with neither ends when the server closes the connection.
+// Also stops on malformed framing: parse_http_response reports the error.
 // `reading` carries what earlier calls on the same, growing `raw`
 // learned, so reading a response in pieces costs time in its length,
 // not its square; the one-argument form starts afresh.
@@ -78,6 +79,7 @@ struct HttpReadState {
     std::uint64_t length = 0;     // Content-Length, when given
     bool has_length = false;
     std::size_t chunk_at = 0;     // chunked: the next chunk's size line
+    std::size_t trailer_at = 0;   // chunked: the next trailer line, 0 = not reached
     std::size_t scanned = 0;      // bytes already searched for the headers' end
 };
 bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState& reading);

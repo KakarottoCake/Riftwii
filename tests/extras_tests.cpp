@@ -148,6 +148,66 @@ void TestHttp() {
     EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "Wikipedia in \r\n\r\nchunks.");
     EXPECT_FALSE(parse_http_response(bytes(chunked.substr(0, 60)), r, error));
 
+    const std::string chunked_head = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+    // Neither framing byte may be borrowed from the next size line. A
+    // last chunk may have several zero digits, so these all fooled the reader.
+    for (const char* body : {"1\r\nAXY0\r\n\r\n", "1\r\nA\r00\r\n\r\n", "1\r\nA\n00\r\n\r\n"}) {
+        const auto raw = bytes(chunked_head + body);
+        HttpReadState reading;
+        EXPECT_TRUE(http_response_complete(raw, reading));  // stop reading on an error
+        EXPECT_FALSE(parse_http_response(raw, r, error));
+        EXPECT_EQ(error, "the response's chunked body is malformed");
+        EXPECT_TRUE(r.body.empty());  // the invalid chunk was never appended
+    }
+    {
+        // A bad terminator stops the socket loop even without a last chunk.
+        const auto raw = bytes(chunked_head + "1\r\nAXY");
+        HttpReadState reading;
+        EXPECT_TRUE(http_response_complete(raw, reading));
+        EXPECT_FALSE(parse_http_response(raw, r, error));
+        EXPECT_EQ(error, "the response's chunked body is malformed");
+    }
+    {
+        // CR at the end of one arrival is incomplete, not malformed. The
+        // same state must resume when LF and the following chunks arrive.
+        auto raw = bytes(chunked_head + "1\r\nA\r");
+        HttpReadState reading;
+        EXPECT_FALSE(http_response_complete(raw, reading));
+        EXPECT_FALSE(parse_http_response(raw, r, error));
+        EXPECT_EQ(error, "the response's chunked body is cut short");
+        const std::string rest = "\n2\r\nBC\r\n3\r\nDEF\r\n0\r\n\r\n";
+        raw.insert(raw.end(), rest.begin(), rest.end());
+        EXPECT_TRUE(http_response_complete(raw, reading));
+        EXPECT_TRUE(parse_http_response(raw, r, error));
+        EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "ABCDEF");
+    }
+    // A zero size line is followed by optional trailer fields and a final
+    // empty line. Every prefix is incomplete, including a split final CRLF.
+    for (const char* ending : {"0\r\n\r\n", "00;ext=1\r\nX-Check: yes\r\nX-Empty:\r\n\r\n"}) {
+        const std::string response = chunked_head + "1\r\nA\r\n" + ending;
+        HttpReadState reading;
+        for (std::size_t size = chunked_head.size(); size < response.size(); ++size) {
+            const auto raw = bytes(response.substr(0, size));
+            EXPECT_FALSE(http_response_complete(raw, reading));
+            EXPECT_FALSE(parse_http_response(raw, r, error));
+            EXPECT_EQ(error, "the response's chunked body is cut short");
+        }
+        EXPECT_TRUE(http_response_complete(bytes(response), reading));
+        EXPECT_TRUE(parse_http_response(bytes(response), r, error));
+        EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "A");
+        EXPECT_TRUE(r.headers.find("x-check") == r.headers.end());
+    }
+    // Trailer fields are ignored, but arbitrary text, invalid names and
+    // control characters before the final empty line are not field lines.
+    for (const char* trailer : {"XY", ": value", "Bad Name: value", "Name : value",
+                                "X-Check: bad\nvalue", "X-Check: bad\rvalue", "X-Check: \x7F"}) {
+        const auto raw = bytes(chunked_head + "0\r\n" + trailer + "\r\n\r\n");
+        HttpReadState reading;
+        EXPECT_TRUE(http_response_complete(raw, reading));
+        EXPECT_FALSE(parse_http_response(raw, r, error));
+        EXPECT_EQ(error, "the response's chunked body is malformed");
+    }
+
     const std::string moved = "HTTP/1.1 301 Moved\r\nLocation: http://example.org/x\r\nContent-Length: 0\r\n\r\n";
     EXPECT_TRUE(parse_http_response(bytes(moved), r, error));
     EXPECT_EQ(r.status, 301);

@@ -78,11 +78,44 @@ int hex_digit(std::uint8_t c) {
 
 constexpr std::size_t kMaxChunkLine = 1024;
 
+bool field_name_byte(std::uint8_t c) {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return true;
+    switch (c) {
+    case '!': case '#': case '$': case '%': case '&': case '\'': case '*':
+    case '+': case '-': case '.': case '^': case '_': case '`': case '|': case '~':
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Trailers are field lines, not more chunk data. They may be discarded,
+// but RFC 9112 section 7.1 still requires their framing and final empty line.
+int walk_trailers(const std::vector<std::uint8_t>& raw, std::size_t& at) {
+    for (;;) {
+        std::size_t line = at;
+        while (line + 1 < raw.size() && !(raw[line] == '\r' && raw[line + 1] == '\n')) {
+            if (++line - at > kMaxChunkLine) return -1;
+        }
+        if (line + 1 >= raw.size()) return 0;
+        if (line == at) return 1;
+
+        std::size_t colon = at;
+        while (colon < line && field_name_byte(raw[colon])) ++colon;
+        if (colon == at || colon == line || raw[colon] != ':') return -1;
+        for (std::size_t i = colon + 1; i < line; ++i) {
+            if ((raw[i] < 0x20 && raw[i] != '\t') || raw[i] == 0x7F) return -1;
+        }
+        at = line + 2;
+    }
+}
+
 // Walks a chunked body from the size line at `at`, appending the data to
-// `out` when given: 1 when the last chunk was reached, 0 when more must
+// `out` when given: 1 when the final empty line was reached, 0 when more must
 // arrive first (`at` then names the chunk to continue from), -1 when
-// the body is malformed.
-int walk_chunks(const std::vector<std::uint8_t>& raw, std::size_t& at, std::vector<std::uint8_t>* out) {
+// the body is malformed. `trailer_at` resumes validated trailer lines.
+int walk_chunks(const std::vector<std::uint8_t>& raw, std::size_t& at, std::vector<std::uint8_t>* out,
+                std::size_t* trailer_at = nullptr) {
     for (;;) {
         std::size_t line = at;
         while (line + 1 < raw.size() && !(raw[line] == '\r' && raw[line + 1] == '\n')) {
@@ -99,15 +132,22 @@ int walk_chunks(const std::vector<std::uint8_t>& raw, std::size_t& at, std::vect
         if (i == at || (i < line && raw[i] != ';' && raw[i] != ' ' && raw[i] != '\t')) return -1;
         const std::size_t data = line + 2;
         if (size == 0) {
-            at = data;
-            return 1;
+            // Keep `at` on the zero size line so later reads stay in trailer
+            // mode. Resume past validated fields rather than rescanning them.
+            std::size_t next_trailer = data;
+            if (trailer_at && *trailer_at != 0) next_trailer = *trailer_at;
+            const int walked = walk_trailers(raw, next_trailer);
+            if (trailer_at) *trailer_at = next_trailer;
+            return walked;
         }
         if (raw.size() - data < size + 2) return 0;  // the chunk and its CRLF are not all here yet
+        const std::size_t data_end = data + static_cast<std::size_t>(size);
+        if (raw[data_end] != '\r' || raw[data_end + 1] != '\n') return -1;
         if (out) {
             out->insert(out->end(), raw.begin() + static_cast<std::ptrdiff_t>(data),
-                        raw.begin() + static_cast<std::ptrdiff_t>(data + size));
+                        raw.begin() + static_cast<std::ptrdiff_t>(data_end));
         }
-        at = data + static_cast<std::size_t>(size) + 2;
+        at = data_end + 2;
     }
 }
 
@@ -324,7 +364,7 @@ bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState&
         }
     }
     if (reading.is_chunked) {
-        const int walked = walk_chunks(raw, reading.chunk_at, nullptr);
+        const int walked = walk_chunks(raw, reading.chunk_at, nullptr, &reading.trailer_at);
         return reading.done = walked != 0;
     }
     if (reading.has_length) return reading.done = raw.size() - reading.body_at >= reading.length;
