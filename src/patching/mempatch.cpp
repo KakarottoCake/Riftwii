@@ -45,6 +45,23 @@ bool inside(const std::vector<MemoryRegion>& regions, std::uint32_t address, std
     return false;
 }
 
+// Game RAM the console maps for the game. A plain patch's `original` is
+// only read, so it stays eligible anywhere in here, even where RiftWii
+// keeps its own code (readable but not writable); outside here a direct
+// read would fault instead of failing the launch.
+constexpr std::uint32_t kGameRam1Start = 0x80000000u;
+constexpr std::uint32_t kGameRam1End = 0x81800000u;
+constexpr std::uint32_t kGameRam2Start = 0x90000000u;
+constexpr std::uint32_t kGameRam2End = 0x94000000u;
+
+bool inside_game_ram(std::uint32_t address, std::size_t length) {
+    const std::uint64_t end = static_cast<std::uint64_t>(address) + length;
+    if (end > (std::uint64_t(1) << 32) || end < address) return false;
+    const bool in_mem1 = address >= kGameRam1Start && end <= kGameRam1End;
+    const bool in_mem2 = address >= kGameRam2Start && end <= kGameRam2End;
+    return in_mem1 || in_mem2;
+}
+
 bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memory, std::uint32_t address,
                    const std::vector<std::uint8_t>& bytes, std::string& error) {
     if (!inside(writable, address, bytes.size())) {
@@ -136,7 +153,12 @@ bool apply_plain(const MemoryPatch& p, const std::vector<MemoryRegion>& writable
         // The original is only compared, not written: a patch whose bytes
         // differ is skipped even where nothing may be written (a hook
         // RiftWii placed, as a search passes such matches over), instead
-        // of failing the launch. What cannot be read at all still fails.
+        // of failing the launch. What cannot be read at all still fails,
+        // and an original outside game RAM never reaches the reader.
+        if (!inside_game_ram(address, p.original.size())) {
+            error = "memory patch reads outside RAM at " + hex32(address);
+            return false;
+        }
         std::vector<std::uint8_t> current(p.original.size());
         if (!memory.read(address, current.data(), current.size())) {
             error = "memory read failed at " + hex32(address);
