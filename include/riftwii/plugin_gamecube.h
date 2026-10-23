@@ -125,6 +125,16 @@ typedef struct rwp_gc_launch {
      * file's offset on the disc; 0: the disc's own program. */
     uint32_t tgc_offset;
 
+    /* A two-disc game's second disc (runtime/gc/gc_disc.h), found beside
+     * `path` with the same game ID: its path, NULL for a game of one disc;
+     * on the USB drive, its pieces and size as for the image above. The
+     * plugin checks its header again and goes on without it when it does
+     * not fit, so the game still starts. */
+    const char* disc2_path;
+    const rwp_fragment* disc2_usb_fragments;
+    uint32_t disc2_usb_fragment_count;
+    uint64_t disc2_usb_file_bytes;
+
     /* Out: the reason when launch returns RWP_LAUNCH_FAILED. */
     char* error;
     uint32_t error_bytes;

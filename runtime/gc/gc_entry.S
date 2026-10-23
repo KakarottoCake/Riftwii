@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 8, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 9, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -37,6 +37,7 @@ _gc_blob_start:
     .long gc_alarm_ogc - _gc_blob_start, gc_di_common - _gc_blob_start, gc_di_slots - _gc_blob_start
     .long gc_hook_boot_dol - _gc_blob_start, gc_replay_boot_dol - _gc_blob_start
     .long gc_continue_boot_dol - _gc_blob_start
+    .long gc_hook_stop_motor - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -68,6 +69,9 @@ gc_hook_\name:
     GC_HOOK fatal, gc_on_fatal
     GC_HOOK load_queued, gc_on_load_queued
     GC_HOOK load_callbacks_done, gc_on_load_callbacks_done
+    /* DVDLowStopMotor(cb): answered as gc_on_done does, and a two-disc
+     * game's disc change starts (gc_disc.h). */
+    GC_HOOK stop_motor, gc_on_stop_motor
 
 /* Luigi's Mansion's loading thread: calls of `fn` that also get its
  * request, which the thread keeps in r30 (the loader checked), after the

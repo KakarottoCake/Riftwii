@@ -388,6 +388,21 @@ std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images) {
     return first_disc;
 }
 
+int gc_disc_change_partner(const std::vector<GcFolderImage>& images, std::size_t started,
+                           std::vector<std::size_t>* other_id) {
+    if (started >= images.size() || images[started].disc_number != 0) return -1;
+    int partner = -1;
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        if (i == started || images[i].disc_number != 1) continue;
+        if (images[i].id != images[started].id) {
+            if (other_id) other_id->push_back(i);
+            continue;
+        }
+        if (partner < 0) partner = static_cast<int>(i);
+    }
+    return partner;
+}
+
 std::string gc_folder_skip_reason(const std::string& name) {
     if (name.empty() || name[0] == '.') return std::string();
     static const char* const kPlayed[] = {".iso", ".gcm", ".rvz"};
