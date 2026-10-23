@@ -1,0 +1,237 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Compile both actual GameCube FST allocation blocks with synthetic headers.
+
+Run with python3 tools/gc_fst_read_test.py --cxx g++. The vector stand-in
+records constructor sizes without allocating disc-controlled amounts of RAM.
+The surrounding launch functions depend on Wii hardware, so only their FST
+read blocks are compiled, with successful or failed header reads and no pack
+or TGC override.
+"""
+
+import argparse
+from pathlib import Path
+import subprocess
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+HARNESS = r'''
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+std::vector<std::size_t> allocations;
+unsigned reads = 0;
+unsigned logs = 0;
+bool boot_read_ok = true;
+bool expect_boot_read = false;
+bool fst_read_ok = true;
+
+struct TrackedBytes {
+    std::size_t length = 0;
+    std::uint8_t byte = 0;
+    explicit TrackedBytes(std::size_t size = 0) : length(size) {
+        allocations.push_back(size);
+    }
+    bool empty() const { return length == 0; }
+    std::size_t size() const { return length; }
+    std::uint8_t* data() { return &byte; }
+};
+
+struct Disc {
+    bool read(std::uint64_t, std::uint8_t*, std::size_t) const {
+        if (expect_boot_read) {
+            expect_boot_read = false;
+            return boot_read_ok;
+        }
+        ++reads;
+        return fst_read_ok;
+    }
+};
+
+bool read_at(const Disc& disc, std::uint64_t offset, std::uint8_t* data, std::size_t length) {
+    return disc.read(offset, data, length);
+}
+
+void logf(const char*, ...) { ++logs; }
+
+std::uint32_t be32(const std::uint8_t* bytes) {
+    return (std::uint32_t(bytes[0]) << 24) | (std::uint32_t(bytes[1]) << 16) |
+           (std::uint32_t(bytes[2]) << 8) | bytes[3];
+}
+
+struct RvzDisc {
+    const RvzDisc& image() const { return *this; }
+    std::string last_error() const { return "damaged RVZ chunk"; }
+};
+
+bool plugin_read(std::array<std::uint8_t, 0x440>& boot, std::string& error) {
+    Disc f;
+    bool ok = boot_read_ok;
+    if (!ok) error = "cannot read test.rvz";
+    const RvzDisc rvz;
+    const RvzDisc* rvz_disc = &rvz;
+    struct Pack { TrackedBytes fst; };
+    const Pack* pack = nullptr;
+    const std::uint32_t tgc_offset = 0;
+    TrackedBytes tgc_fst;
+    allocations.clear();
+    // PLUGIN_CODE
+    (void)fst_max;
+    return ok;
+}
+
+bool menu_read(std::array<std::uint8_t, 0x440>& boot, std::string& error) {
+    const Disc iso;
+    const struct { std::string path = "test.rvz"; } image;
+    expect_boot_read = true;
+    // MENU_CODE
+    return true;
+}
+
+int main() {
+    unsigned failures = 0;
+    for (auto read : {plugin_read, menu_read}) {
+        for (const std::uint32_t size : {0u, 0x01800001u, 0x7fffffffu, 0xffffffffu,
+                                         12u, 0x10000u, 0x017fffffu, 0x01800000u}) {
+            std::array<std::uint8_t, 0x440> boot{};
+            for (unsigned i = 0; i < 4; ++i) boot[0x428 + i] = size >> (24 - 8 * i);
+            allocations.clear();
+            reads = 0;
+            logs = 0;
+            std::string error;
+            const bool accepted = read(boot, error);
+            const bool valid = size != 0 && size <= 0x01800000;
+            const auto check = [&](bool condition, const char* requirement) {
+                if (!condition) {
+                    std::printf("%s, size 0x%08x: %s\n",
+                                read == plugin_read ? "plugin" : "menu", size, requirement);
+                    ++failures;
+                }
+            };
+            if (!valid) {
+                check(!accepted, "invalid size must be refused");
+                check(allocations.empty(), "invalid size must not reach the vector constructor");
+                check(reads == 0, "invalid size must not reach the disc reader");
+                check(logs == 1, "refusal must be logged");
+                check(error.find("FST") != std::string::npos, "error must identify the FST");
+                check(error.find("MEM1") != std::string::npos, "error must identify the MEM1 limit");
+            } else {
+                check(accepted, "valid size must be accepted");
+                check(allocations.size() == 1 && allocations.front() == size, "allocation must match the valid size");
+                check(reads == 1, "valid FST must be read once");
+                check(logs == 0, "valid size must not log a refusal");
+            }
+        }
+        // A failed boot read leaves zeroes or partial header bytes behind.
+        // Neither may replace the read error or choose an FST allocation.
+        boot_read_ok = false;
+        for (const std::uint32_t size : {0u, 12u, 0xffffffffu}) {
+            std::array<std::uint8_t, 0x440> boot{};
+            for (unsigned i = 0; i < 4; ++i) boot[0x428 + i] = size >> (24 - 8 * i);
+            allocations.clear();
+            reads = 0;
+            logs = 0;
+            std::string error;
+            const bool accepted = read(boot, error);
+            const std::string expected_error = read == plugin_read
+                ? "cannot read test.rvz (the RVZ: damaged RVZ chunk)"
+                : "cannot read test.rvz";
+            if (accepted || error != expected_error || !allocations.empty() || reads != 0 || logs != 0) {
+                std::printf("%s, failed boot read with size 0x%08x: error '%s', %zu allocations, %u FST reads, %u logs\n",
+                            read == plugin_read ? "plugin" : "menu", size, error.c_str(),
+                            allocations.size(), reads, logs);
+                ++failures;
+            }
+        }
+        boot_read_ok = true;
+
+        // The FST read itself fails after a valid header: the FST's own
+        // error, with the RVZ's reason in the plugin.
+        fst_read_ok = false;
+        {
+            std::array<std::uint8_t, 0x440> boot{};
+            for (unsigned i = 0; i < 4; ++i) boot[0x428 + i] = 12u >> (24 - 8 * i);
+            allocations.clear();
+            reads = 0;
+            logs = 0;
+            std::string error;
+            const bool accepted = read(boot, error);
+            const std::string expected_error = read == plugin_read
+                ? "cannot read the game's FST (the RVZ: damaged RVZ chunk)"
+                : "cannot read the game's FST";
+            if (accepted || error != expected_error || allocations.size() != 1 || allocations.front() != 12 ||
+                reads != 1 || logs != 0) {
+                std::printf("%s, failed FST read: error '%s', %zu allocations, %u FST reads, %u logs\n",
+                            read == plugin_read ? "plugin" : "menu", error.c_str(), allocations.size(), reads,
+                            logs);
+                ++failures;
+            }
+        }
+        fst_read_ok = true;
+    }
+    // The plugin also lays out MEM1 from the FST room (0x42C). A room past
+    // MEM1 is refused before any allocation; MEM1's whole size is not.
+    for (const std::uint32_t room : {0x01800001u, 0x80000000u, 0xffffffffu, 0x01800000u}) {
+        std::array<std::uint8_t, 0x440> boot{};
+        for (unsigned i = 0; i < 4; ++i) {
+            boot[0x428 + i] = 0x10000u >> (24 - 8 * i);
+            boot[0x42C + i] = room >> (24 - 8 * i);
+        }
+        allocations.clear();
+        reads = 0;
+        logs = 0;
+        std::string error;
+        const bool accepted = plugin_read(boot, error);
+        const bool valid = room <= 0x01800000u;
+        const bool right = valid ? accepted && allocations.size() == 1 && logs == 0
+                                 : !accepted && allocations.empty() && reads == 0 && logs == 1 &&
+                                       error.find("FST room") != std::string::npos;
+        if (!right) {
+            std::printf("plugin, FST room 0x%08x: accepted %d, %zu allocations, %u logs, error '%s'\n",
+                        room, accepted, allocations.size(), logs, error.c_str());
+            ++failures;
+        }
+    }
+    if (failures != 0) return 1;
+    std::puts("Both GameCube FST readers bound sizes and preserve failed boot-read errors before allocation");
+}
+'''
+
+
+def read_block(path, start_marker, end_marker):
+    source = (ROOT / path).read_text()
+    start = source.index(start_marker)
+    end = source.index(end_marker, start)
+    return source[start:end].replace("std::vector<std::uint8_t>", "TrackedBytes")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cxx", default="g++")
+    args = parser.parse_args()
+    plugin_source = (ROOT / "plugins/gamecube/gcnative.cpp").read_text()
+    plugin_start = "    const auto fail_read = [&]() {"
+    if plugin_start not in plugin_source:
+        plugin_start = "    const std::uint32_t fst_size = be32(&boot[0x428]);"
+    plugin = read_block("plugins/gamecube/gcnative.cpp", plugin_start,
+                        "    // A two-disc game's second disc.")
+    menu = read_block("wii/launch/gclaunch.cpp",
+                      "    if (!iso.read(0, boot.data(), boot.size())) {", "    Fst fst;")
+    harness = HARNESS.replace("// PLUGIN_CODE", plugin).replace("// MENU_CODE", menu)
+    with tempfile.TemporaryDirectory(prefix="riftwii-gc-fst-") as directory:
+        temporary = Path(directory)
+        test = temporary / "fst.cpp"
+        binary = temporary / "fst.exe"
+        test.write_text(harness)
+        subprocess.run([args.cxx, "-std=c++17", "-Wall", "-Wextra", "-Werror",
+                        str(test), "-o", str(binary)], check=True)
+        subprocess.run([str(binary)], check=True)
+
+
+if __name__ == "__main__":
+    main()
