@@ -547,9 +547,24 @@ bool ReadHex(pugi::xml_node n, const char* name, const std::string& label, std::
     if (v.empty()) { error = label + " " + name + " empty"; return false; }
     if (v.size() > kMaxHexChars) { error = label + " " + name + " too long"; return false; }
     bool odd = false;
-    OutOfMemoryScope out_of_memory;
-    if (!ParseHex(v, out, odd)) {
-        if (out_of_memory.failed()) { error = "allocation failure"; return false; }
+    bool parsed = false;
+    bool no_room = false;
+    {
+        OutOfMemoryScope out_of_memory;
+        parsed = ParseHex(v, out, odd);
+        no_room = !parsed && out_of_memory.failed();
+    }
+    if (!parsed) {
+        if (no_room) {
+            // The scope above restored the caller's state on closing, so
+            // the failure is told again to any scope around the parse.
+            // fatal: Recover() must not drop this element and go on, which
+            // would load the pack without the patch.
+            detail::note_out_of_memory();
+            ctx.fatal = true;
+            error = "allocation failure";
+            return false;
+        }
         error = "invalid " + label + " " + name + " (hex bytes expected)";
         return false;
     }
@@ -1382,8 +1397,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                                   pid + "'; ignored");
                     continue;
                 }
-                const std::vector<Param> params =
-                    r < ch.patch_params.size() ? ch.patch_params[r] : std::vector<Param>();
+                const std::vector<Param>* source_params = r < ch.patch_params.size() ? &ch.patch_params[r] : nullptr;
                 const auto more = ctx.aliases.find(pid);
                 // A repeated id names all its definitions, in every
                 // choice that names it: counted against the same budget.
@@ -1393,12 +1407,15 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                     return false;
                 }
                 const std::size_t copies = 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
-                if (!budget.need(copies * (HeapBytes(pid) + HeapBytes(params))) ||
+                // The local copy of the params made below counts once more.
+                const std::size_t params_bytes = source_params != nullptr ? HeapBytes(*source_params) : 0;
+                if (!budget.need(params_bytes + copies * (HeapBytes(pid) + params_bytes)) ||
                     !try_reserve(resolved, resolved.size() + copies) ||
                     !try_reserve(resolved_params, resolved_params.size() + copies)) {
                     error = "allocation failure";
                     return false;
                 }
+                const std::vector<Param> params = source_params != nullptr ? *source_params : std::vector<Param>();
                 resolved.push_back(pid);
                 resolved_params.push_back(params);
                 if (more != ctx.aliases.end()) {
