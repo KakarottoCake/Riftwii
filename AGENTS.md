@@ -77,7 +77,8 @@ pack's patches, the runtime, saves, controllers.
 
 - The isolated setup and scripts are in `build-dolphin/`
   ([docs/HARNESS.md](docs/HARNESS.md)). `felk-run.sh <card> <dol> [disc]
-  [sd bytes]` starts Felk's scriptable Dolphin. `felk-stop.sh` stops it
+  [sd bytes]` starts Felk's scriptable Dolphin. Give it the test DOL for any
+  run that uses `autorun.txt` (below). `felk-stop.sh` stops it
   gracefully, which matters because the SD folder only syncs on a clean close.
   `play.py` drives the Wii Remote, and `dolbridge.py` reads and writes memory.
 - A test card is a folder, `build-dolphin/user/Load/WiiSDSync-<card>/`.
@@ -85,6 +86,16 @@ pack's patches, the runtime, saves, controllers.
   `sd:/riftwii/autorun.txt` skips the menu (`disc`, `xml <path>`, `boot`,
   `launch`, ... see [docs/DEVELOPING.md](docs/DEVELOPING.md)) and logs to
   `sd:/riftwii/autorun.log`.
+- **Autorun is only in the test build.** `wii/launch/autorun.cpp` is
+  compiled only by `make -f Makefile.wii TEST=1`; the release DOL leaves it
+  out, and with an `autorun.txt` on the card it starts the menu and logs one
+  line that it ignored the file. Any Dolphin run that uses `autorun.txt` uses
+  the test build. The test build must otherwise act like the release one.
+  It is bigger, so use artificial limits where needed (hold back the extra
+  memory, cap the heap to the release DOL's: `WII_DEFINES=-DRIFTWII_TEST_LIMITS`
+  and `sd:/riftwii/test_limits.txt`, see docs/DEVELOPING.md), so that a test
+  doesn't pass only because the test build had room the release build
+  doesn't. CI builds both DOLs.
 - Give a test card a `riftwii/titles-en.txt`. Without one, the game-names
   download can overlap an autorun boot.
 - Report evidence, not impressions: log lines, memory reads, screenshots.

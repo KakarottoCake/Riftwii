@@ -158,7 +158,8 @@ The build compiles every folder into one, so no two files share a name.
 | `resident.cpp` | Installing the resident runtime |
 | `wfc.cpp` | Patching the game for an online server |
 | `headless.cpp` | Launches another loader asks for |
-| `autorun.cpp` | Unattended test runs (`sd:/riftwii/autorun.txt`) |
+| `launchrun.cpp`, `launchsession.hpp` | How a game is started: probe the disc or image, compile the packs, boot (`RunLaunch`, `BootCompiled`, `CompileSelection`...), shared by the menu, the headless entry and autorun |
+| `autorun.cpp` | Unattended test runs (`sd:/riftwii/autorun.txt`); test builds only (`make -f Makefile.wii TEST=1`) |
 | `gclaunch.cpp` | GameCube games: finding them on the card, planning their packs, starting them |
 | `gcplugin.cpp` | GameCube games in Wii mode, the DOL's side: the launch handed to the `gamecube` plugin (`plugins/gamecube/gcnative.cpp` patches the game to read the SD card, its sound, controls and memory card through the `runtime/gc` blob), the way back, the crash screen, the memory card's backup |
 | `gcpatch.cpp` | Patch-only GameCube mods (xdelta): listed as the game they make, prepared once |

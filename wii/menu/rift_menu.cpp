@@ -88,7 +88,7 @@
 #include "riftwii/skinpaint.hpp"
 #include "wiidrc.h"
 #include "menu.h"
-#include "autorun.hpp"
+#include "launchrun.hpp"
 #include "menumusic.hpp"
 #include "menutheme.hpp"
 #include "themesounds.hpp"

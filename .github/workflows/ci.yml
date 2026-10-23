@@ -134,6 +134,11 @@ jobs:
           make -f Makefile.wii -j"$(nproc)"
           test -s riftwii.dol
           test -s build_wii/riftwii-unpacked.dol
+          # The release DOL has no test driver (AGENTS.md "Testing in Dolphin").
+          if grep -q "RiftWii autorun" build_wii/riftwii-unpacked.dol; then
+            echo "::error::The release DOL contains the autorun test driver."
+            exit 1
+          fi
       # The plugins (docs/PLUGINS.md) next to the DOL: each built with this
       # commit's build stamp and the DOL's API version, whole, and named
       # for this version. The DOL's own build already checks this; here it
@@ -216,6 +221,15 @@ jobs:
           path: size-report.json
           retention-days: 90
           if-no-files-found: error
+      # The test DOL (TEST=1: the Dolphin harness's autorun driver built in)
+      # has to keep building too. It goes last because it replaces
+      # riftwii.dol and build_wii/riftwii-unpacked.dol, which the steps
+      # above read.
+      - name: Build the test DOL
+        run: |
+          make -f Makefile.wii TEST=1 -j"$(nproc)"
+          test -s riftwii.dol
+          grep -q "RiftWii autorun" build_wii/riftwii-unpacked.dol
 
   project-rules:
     name: Project rules

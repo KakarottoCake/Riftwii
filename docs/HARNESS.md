@@ -68,8 +68,10 @@ Dolphin after SECS. Dolphin log lands in
 
 ## Autorun
 
-- With `sd:/riftwii/autorun.txt` present the DOL runs headless
-  commands instead of the GUI. Current Spectral script:
+- With `sd:/riftwii/autorun.txt` present the **test build** (`make -f
+  Makefile.wii TEST=1`) runs headless commands instead of the GUI. A release
+  DOL ignores the file and logs that it did: point `felk-run.sh` at the test
+  DOL for every run that uses an `autorun.txt`. Current Spectral script:
   `disc, probe, layout, xml, set Core=Enabled, boot`.
 - The `xml` command takes ONE word: stage spaced filenames without
   spaces (`SpectralUSA.xml`, not `Spectral USA.xml`).
