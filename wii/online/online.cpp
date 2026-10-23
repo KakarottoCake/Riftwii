@@ -668,8 +668,8 @@ void ApplyPack(PackKind& k) {
     mkdir(themes ? "sd:/riftwii/themes" : "sd:/apps", 0777);
     unsigned written = 0, same = 0, failed = 0;
     // The menu may be reading glyphs from font.ttf, which may be rewritten.
-    std::optional<fullfont::RewriteHold> font_hold;
-    if (!themes) font_hold.emplace();
+    std::optional<fullfont::ClosedHold> font_hold;
+    if (!themes) font_hold.emplace("an update rewrites it");
     for (const ThemePackFile& f : pack.files) {
         if (!themes && !AppsFileAllowed(f.path)) {
             logf("%s: %s skipped\n", k.label, f.path.c_str());
@@ -879,7 +879,7 @@ bool WriteUpdatePlugins(const UpdateNote& note, const std::string& latest, const
     logf("Update: writing the plugins and the menu font of %s to the SD card\n", latest.c_str());
     report(UpdateStep::WritingPlugins, 0, 0);
     // The menu may be reading glyphs from font.ttf, which is rewritten here.
-    const fullfont::RewriteHold font_hold;
+    const fullfont::ClosedHold font_hold("an update rewrites it");
     const std::uint8_t* const bytes = pack.data() + split;
     unsigned written = 0;
     unsigned same = 0;

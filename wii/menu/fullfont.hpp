@@ -23,20 +23,19 @@ namespace riftwii::wii::fullfont {
 // font): characters the core lacks come from the full font from now on.
 void Enable();
 
-// Closes the file, so the card can be unmounted or font.ttf rewritten
-// (an update); the next character the core lacks opens it again. Every
-// unmount calls it (covers.cpp's dvmUnmountVolume wrap).
-void Close();
-
-// While one lives the file stays closed and is not opened (an update
-// rewriting font.ttf, on the network's thread); afterwards it is opened
-// again when a character needs it, and a missing file is looked for again.
-class RewriteHold {
+// While one lives the file is closed and is not opened again: for the
+// whole of every unmount (covers.cpp's dvmUnmountVolume wrap: a launch
+// handing the card to the game, an IOS reload, a remount), so the GUI
+// thread cannot open it on a card going away, and while an update rewrites
+// font.ttf (on the network's thread). Afterwards it is opened again when a
+// character the core lacks needs it, and a missing file is looked for
+// again. `why` is for the log line of the close.
+class ClosedHold {
 public:
-    RewriteHold();
-    ~RewriteHold();
-    RewriteHold(const RewriteHold&) = delete;
-    RewriteHold& operator=(const RewriteHold&) = delete;
+    explicit ClosedHold(const char* why);
+    ~ClosedHold();
+    ClosedHold(const ClosedHold&) = delete;
+    ClosedHold& operator=(const ClosedHold&) = delete;
 };
 
 // The menu has closed for a launch, which hands the card to the game:

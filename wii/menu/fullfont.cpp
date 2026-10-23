@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include "FreeTypeGX.h"
 #include "log.hpp"
@@ -48,7 +49,7 @@ mutex_t g_lock = LWP_MUTEX_NULL;
 
 bool g_enabled = false;
 bool g_menu_ended = false;
-int g_rewrite_holds = 0;
+int g_closed_holds = 0;
 // Looked for and not found (or not readable) since the last Close.
 bool g_missing = false;
 bool g_missing_logged = false;
@@ -209,14 +210,14 @@ bool FileThere(const std::string& path) {
     return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0;
 }
 
-// FreeType's stream on the file at `path`, and the face on it; nullptr
-// (and the file noted missing) when it cannot be opened or read as a font.
-FT_Face OpenAt(const std::string& path) {
+// FreeType's stream on the file at `path`, and the face on it; nullptr,
+// with `why`, when it cannot be opened or read as a font.
+FT_Face OpenAt(const std::string& path, std::string& why) {
     FILE* file = std::fopen(path.c_str(), "rb");
     struct stat info;
     if (file == nullptr || fstat(fileno(file), &info) != 0 || info.st_size <= 0) {
         if (file != nullptr) std::fclose(file);
-        NoteMissing(path + " could not be opened", true);
+        why = path + " could not be opened";
         return nullptr;
     }
     g_file = file;
@@ -235,10 +236,10 @@ FT_Face OpenAt(const std::string& path) {
     if (error != 0) {
         g_face = nullptr;
         StreamClose(nullptr);  // FreeType has closed it already; harmless again
-        NoteMissing(path + " could not be read as a font (FreeType error " + std::to_string(error) + ")", true);
+        why = path + " could not be read as a font (FreeType error " + std::to_string(error) + ")";
         return nullptr;
     }
-    // Once a session in the usual menu; again after each Close.
+    // Once a session in the usual menu; again after each unmount.
     logf("Menu font: the full font opened from %s (%ld bytes, %ld glyphs) for characters the core font "
          "lacks; read a glyph at a time\n", path.c_str(), static_cast<long>(info.st_size), g_face->num_glyphs);
     return g_face;
@@ -247,23 +248,32 @@ FT_Face OpenAt(const std::string& path) {
 // The face, opening it if need be; nullptr when it can't be had now.
 FT_Face FaceLocked() {
     if (g_face != nullptr) return g_face;
-    if (!g_enabled || g_menu_ended || g_rewrite_holds > 0 || g_missing) return nullptr;
+    if (!g_enabled || g_menu_ended || g_closed_holds > 0 || g_missing) return nullptr;
     const std::string beside = FullFontPath();
     if (!DriveReadable(beside) && !DriveReadable(kDefaultPath)) return nullptr;  // tried again later
-    // Beside the running boot.dol, else where the release zip puts it (a
-    // DOL started by a loader that passes no path).
-    std::string path = beside;
-    if (!FileThere(path) && FileThere(kDefaultPath)) path = kDefaultPath;
-    if (!FileThere(path)) {
+    // Beside the running boot.dol, then where the release zip puts it (a
+    // DOL started by a loader that passes no path, or a broken copy beside
+    // it): missing only when neither opens.
+    std::vector<std::string> candidates;
+    if (FileThere(beside)) candidates.push_back(beside);
+    if (beside != kDefaultPath && FileThere(kDefaultPath)) candidates.push_back(kDefaultPath);
+    if (candidates.empty()) {
         NoteMissing(beside + " is missing", true);
         return nullptr;
     }
-    // The MEM2 pool and the library only once the file is there.
+    // The MEM2 pool and the library only once a file is there.
     if (!LibraryReady()) {
         NoteMissing("there was no memory for FreeType", false);
         return nullptr;
     }
-    return OpenAt(path);
+    std::string why;
+    for (const std::string& path : candidates) {
+        std::string failed;
+        if (FT_Face face = OpenAt(path, failed)) return face;
+        why += (why.empty() ? "" : "; ") + failed;
+    }
+    NoteMissing(why, true);
+    return nullptr;
 }
 
 // FreeTypeGX's missing-glyph source: the full font's glyph for
@@ -334,21 +344,16 @@ void Enable() {
     SetMissingGlyphSource(&kSource);
 }
 
-void Close() {
+ClosedHold::ClosedHold(const char* why) {
     Lock lock;
-    CloseLocked("a drive is unmounted");
+    ++g_closed_holds;
+    CloseLocked(why);
 }
 
-RewriteHold::RewriteHold() {
+ClosedHold::~ClosedHold() {
     Lock lock;
-    ++g_rewrite_holds;
-    CloseLocked("an update rewrites it");
-}
-
-RewriteHold::~RewriteHold() {
-    Lock lock;
-    --g_rewrite_holds;
-    g_missing = false;  // the update may just have written it
+    --g_closed_holds;
+    g_missing = false;  // a remounted card or an update may have brought it
 }
 
 void EndMenu() {
