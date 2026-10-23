@@ -18,6 +18,8 @@ have it, or that haven't changed since the last release's tag.
 -->
 **RiftWii {{VERSION}}.** Wii channels, WiiWare and your homebrew apps on Home, themes to download, two-disc GameCube games, and Retro Rewind online again. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
+> **Update the RiftWii channel to version 14.** On a vWii, RiftWii asks at start: press Update now. On a Wii, go to Settings > Help > RiftWii channel on the Wii Menu and update it there. If it still shows the old version afterwards, copy `apps/riftwii_channel` from this release's zip to the SD card and update again.
+
 ![Home with the Wii's channels and WiiWare]({{SCREENSHOTS}}2610-615-wii-channels.png)
 ![The Homebrew view on Home]({{SCREENSHOTS}}2610-615-homebrew.png)
 ![Settings > Theme > Get more themes]({{SCREENSHOTS}}2610-615-get-more-themes.png)

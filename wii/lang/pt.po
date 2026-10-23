@@ -2241,8 +2241,8 @@ msgstr "Recentes"
 msgid "Update the RiftWii channel"
 msgstr "Atualize o canal do RiftWii"
 
-msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated."
-msgstr "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela corrige a tela preta ao voltar ao RiftWii pelo Menu HOME > Menu Wii de um jogo. O RiftWii não pode ser usado até o canal ser atualizado."
+msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated."
+msgstr "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela mostra cada passo ao iniciar e um erro em vez de travar. O RiftWii não pode ser usado até o canal ser atualizado."
 
 msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
 msgstr "O canal continua na versão {1} depois do instalador, então o instalador do seu cartão SD é antigo. Copie apps/riftwii_channel do zip mais recente do RiftWii para o cartão e atualize de novo."
