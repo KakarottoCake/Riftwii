@@ -84,7 +84,9 @@ static void set_argv(const DolHeader* h, const char* text, u32 length) {
     for (int i = 0; i < 18; ++i) {
         if (h->size[i] && h->address[i] + h->size[i] > end) end = h->address[i] + h->size[i];
     }
-    if (h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
+    // An empty BSS has no validated address. Counting it can wrap the
+    // aligned command-line address to zero for a damaged DOL header.
+    if (h->bss_size && h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
     char* line = (char*)((end + 31) & ~31u);
     // The line and its closing zero stay below what IOS and the loaders keep,
     // and off this program, still running (a DOL wholly below it would have
