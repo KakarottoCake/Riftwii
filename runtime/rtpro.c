@@ -466,7 +466,8 @@ static uint8_t eeprom_byte(uint32_t address) {
  * game asked for: its address, the Wii Remote's bytes (none of the other
  * registers: zeros), and error 8 for a read past the end of the memory
  * (or longer than the stand-in has room for), in one part. */
-static uint32_t stand_in_answer(uint8_t* p, const struct rtpro_read* r, uint32_t addr16, uint32_t len) {
+static uint32_t stand_in_answer(uint8_t* p, const struct rtpro_read* r, uint32_t addr16, uint32_t len,
+                                uint32_t error) {
     const uint32_t asked = r->asked & 0xFFFFFFu;
     const int memory = !(r->asked & RTPRO_REGISTERS);
     const uint32_t at = asked + (addr16 - (r->address & 0xFFFFu));
@@ -477,6 +478,16 @@ static uint32_t stand_in_answer(uint8_t* p, const struct rtpro_read* r, uint32_t
         p[6] = (uint8_t)asked;
         for (k = 0; k < 16u; ++k) p[7 + k] = 0;
         return RTPRO_CHANGED;
+    }
+    if (error) {
+        /* No more answers follow an error. Keep it terminal if the
+         * stand-in cannot supply the rest in this one report, but put it
+         * at the address the game asked for. */
+        const uint32_t remaining = asked + r->asked_size - at;
+        p[5] = (uint8_t)(at >> 8);
+        p[6] = (uint8_t)at;
+        if (remaining > 16u) return RTPRO_CHANGED;
+        len = remaining;
     }
     /* The game's read may end inside the Pro's part. */
     if (at + len > asked + r->asked_size) len = asked + r->asked_size - at;
@@ -503,12 +514,14 @@ static int calibration_at(uint32_t address) {
 static uint32_t read_answer(struct rtpro_state* st, struct rtpro_link* l, uint8_t* p, uint32_t n) {
     uint32_t addr16, len, error, full, k, what = 0;
     struct rtpro_read read;
+    int known_read;
     if (n < 23u) return 0;
     addr16 = ((uint32_t)p[5] << 8) | p[6];
     len = (p[4] >> 4) + 1u;
     error = p[4] & 0x0Fu;
-    if (answered_read(l, addr16, len, error, &read)) {
-        if (read.used == RTPRO_READ_STAND_IN) return stand_in_answer(p, &read, addr16, len);
+    known_read = answered_read(l, addr16, len, error, &read);
+    if (known_read) {
+        if (read.used == RTPRO_READ_STAND_IN) return stand_in_answer(p, &read, addr16, len, error);
         full = (read.address & ~0xFFFFu) | addr16;
     } else {
         /* Not one we saw asked: only an extension ID is recognised. */
@@ -555,10 +568,19 @@ static uint32_t read_answer(struct rtpro_state* st, struct rtpro_link* l, uint8_
         }
     }
     if (!l->pro || calibration_at(full) < 0) return 0;
-    /* Calibration: ours, whatever the Pro Controller holds there (or if it
-     * refused the read). */
+    /* A refused read ends here: there will be no more parts. Replace its
+     * error only when this one report can answer all the remaining bytes,
+     * and every byte is calibration we know. Otherwise the game would
+     * wait for the rest of a read the Pro already ended. */
     if (error) {
-        len = 16u;
+        uint32_t remaining;
+        if (!known_read) return 0;
+        remaining = (read.address & 0xFFFFu) + read.size - addr16;
+        if (remaining > 16u) return 0;
+        for (k = 0; k < remaining; ++k) {
+            if (calibration_at(full + k) < 0) return 0;
+        }
+        len = remaining;
         p[4] = (uint8_t)((len - 1u) << 4);
     }
     for (k = 0; k < len && k < 16u; ++k) {
