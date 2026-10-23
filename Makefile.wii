@@ -101,7 +101,18 @@ CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
 RIFTWII_COMMIT := $(shell git -C "$(PROJECT_ROOT)" rev-parse --short=8 HEAD 2>/dev/null)
 RIFTWII_BUILD_STAMP := $(RIFTWII_VERSION)-g$(or $(RIFTWII_COMMIT),unknown)
 CFLAGS		+=	-DRIFTWII_BUILD_STAMP='"$(RIFTWII_BUILD_STAMP)"'
-# Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/core/memlimits.hpp TestBallast).
+# Test builds: make -f Makefile.wii TEST=1 builds the Dolphin harness's test
+# driver (wii/launch/autorun.cpp) in; a release build leaves it out, and logs
+# one line when it finds an autorun.txt (wii/main.cpp). Artificial limits for
+# a test (wii/core/memlimits.hpp TestBallast) are a separate switch,
+# WII_DEFINES=-DRIFTWII_TEST_LIMITS. AGENTS.md "Testing in Dolphin" says which
+# builds a test may use.
+TEST		?=	0
+ifeq ($(TEST),1)
+WII_DEFINES	+=	-DRIFTWII_TEST_BUILD
+else
+EXCLUDES	+=	wii/launch/autorun.cpp
+endif
 CFLAGS		+=	$(WII_DEFINES)
 
 ifneq ($(IN_BUILD),1)
@@ -288,6 +299,15 @@ VERSION_STAMP := riftwii_version.stamp
 VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_VERSION -e RIFTWII_BUILD_STAMP $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
 $(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(VERSION_STAMP))
 $(VERSION_USERS): $(VERSION_STAMP)
+# The same for the test switches (TEST=1, WII_DEFINES): make does not see a
+# changed -D either, and an object built with the test driver must never be
+# linked into a release DOL. The sources that read a RIFTWII_TEST_ macro
+# depend on a stamp rewritten when the switches differ; autorun.o itself is
+# only in the object list of a TEST=1 build.
+TEST_STAMP := riftwii_test.stamp
+TEST_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_TEST_ $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
+$(shell [ "$$(cat $(TEST_STAMP) 2>/dev/null)" = "TEST=$(TEST) $(WII_DEFINES)" ] || echo "TEST=$(TEST) $(WII_DEFINES)" > $(TEST_STAMP))
+$(TEST_USERS): $(TEST_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
 #---------------------------------------------------------------------------------

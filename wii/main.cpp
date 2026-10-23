@@ -27,7 +27,10 @@
 #include "video.h"
 #include "zstd.h"
 
+#include "launchrun.hpp"
+#ifdef RIFTWII_TEST_BUILD
 #include "autorun.hpp"
+#endif
 #include "headless.hpp"
 #include "console.hpp"
 #include <cstdio>
@@ -269,6 +272,13 @@ void OpenSessionLog(bool sd_mounted) {
     // AHBPROT off (the Homebrew Channel, the channel since version 9): what
     // needs the hardware (IOS patches, the GameCube adapter) can work.
     riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
+#ifndef RIFTWII_TEST_BUILD
+    // The test driver is left out of release builds (docs/DEVELOPING.md): a
+    // card that still has its script from a test run starts the menu.
+    struct stat autorun_stat;
+    if (stat("sd:/riftwii/autorun.txt", &autorun_stat) == 0 && S_ISREG(autorun_stat.st_mode))
+        riftwii::wii::logf("sd:/riftwii/autorun.txt ignored: this build has no test driver (only make -f Makefile.wii TEST=1 builds do)\n");
+#endif
     riftwii::wii::EntropyStart();
     // Which title the system is running: the RiftWii channel or the
     // Homebrew Channel (both pass the same path), and the channel installed.
@@ -336,6 +346,8 @@ int main() {
         std::exit(0);
     }
 
+#ifdef RIFTWII_TEST_BUILD
+    // The Dolphin harness's test driver (make -f Makefile.wii TEST=1).
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
@@ -344,6 +356,7 @@ int main() {
         riftwii::wii::WaitForExit();
         std::exit(0);
     }
+#endif
 
     // Home is on screen before the drives are read (a big USB drive takes a
     // while); the disc is only probed when its tile is picked.
