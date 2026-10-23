@@ -619,11 +619,9 @@ static void* MenuWatchdog(void*)
 		} else {
 			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
 		}
-		if (ExitRequested == kExitPowerButton) {
-			// The stuck GUI thread never reaches its own log line.
-			LogPowerOffSource();
-			SYS_ResetSystem(SYS_POWEROFF, 0, 0);
-		}
+		// No log line here: the menu is stuck, usually on the SD card, and a
+		// write to the log could wait on that card and keep the Wii on.
+		if (ExitRequested == kExitPowerButton) SYS_ResetSystem(SYS_POWEROFF, 0, 0);
 		if (home || g_resetPressed) SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 	}
 	return nullptr;
