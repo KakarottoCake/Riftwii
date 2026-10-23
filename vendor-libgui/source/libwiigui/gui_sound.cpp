@@ -9,7 +9,8 @@
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: separate volumes for the hover sound and the others;
- * a menu theme's sounds in place of the built-in ones, at their own rate.
+ * a menu theme's sounds in place of the built-in ones, at their own rate;
+ * a built-in sound that was not decoded plays nothing.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
@@ -57,6 +58,9 @@ void GuiSound::Play()
 		case SOUND::PCM:
 		vol = 255*(volume/100.0) * (hover ? hoverPercent : otherPercent) / 100;
 		if (vol <= 0)
+			break;
+		// RiftWii: a built-in sound that is not decoded (no memory) plays nothing.
+		if (!sound || length <= 0)
 			break;
 		voice = ASND_GetFirstUnusedVoice();
 		if(voice >= 0)

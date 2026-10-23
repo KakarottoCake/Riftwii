@@ -3,11 +3,14 @@
 """Writes the menu's two sounds, made here from sine waves (no recordings):
 
   vendor-libgui/source/sounds/button_over.pcm   the hover tick
-  vendor-libgui/source/sounds/button_click.pcm  the press
-  vendor-libgui/source/sounds/home_open.pcm     the HOME Menu opening
-  vendor-libgui/source/sounds/home_close.pcm    and closing
+  vendor-libgui/source/sounds/button_click.ogg  the press
+  vendor-libgui/source/sounds/home_open.ogg     the HOME Menu opening
+  vendor-libgui/source/sounds/home_close.ogg    and closing
 
-Both are 48 kHz, 16-bit big-endian stereo, what GuiSound hands to ASND.
+The tick is 48 kHz, 16-bit big-endian stereo, what GuiSound hands to ASND.
+The other three are the same audio as Ogg Vorbis (about a tenth of the raw
+size; ffmpeg's vorbis encoder, 44 dB below the original at worst), which
+wii/menu/menusounds.cpp decodes into MEM2 at start.
 The tick is a short, quiet, round "tock"; the press two soft mallet notes
 a fifth apart, in the spirit of the Wii Menu's gentle clicks. The HOME
 Menu opens with a soft rising whoosh under three bell notes going up (a
@@ -20,7 +23,9 @@ DIR it also writes .wav copies to listen to on a computer.
 import math
 import os
 import struct
+import subprocess
 import sys
+import tempfile
 import wave
 
 RATE = 48000
@@ -106,11 +111,23 @@ def write_wav(path, frames):
         w.writeframes(b"".join(struct.pack("<hh", s, s) for s in frames))
 
 
+def write_ogg(name, frames):
+    """The sound as Ogg Vorbis, through a temporary .wav and ffmpeg."""
+    with tempfile.TemporaryDirectory() as tmp:
+        wav = os.path.join(tmp, name + ".wav")
+        write_wav(wav, frames)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-c:a", "vorbis",
+                        "-strict", "-2", "-b:a", "64k", os.path.join(OUT, name + ".ogg")], check=True)
+
+
 def main():
     sounds = {"button_over": render(0.045, hover), "button_click": render(0.21, click),
               "home_open": render(0.50, home_open), "home_close": render(0.45, home_close)}
     for name, frames in sounds.items():
-        write_pcm(name + ".pcm", frames)
+        if name == "button_over":
+            write_pcm(name + ".pcm", frames)
+        else:
+            write_ogg(name, frames)
     if "--wav" in sys.argv:
         folder = sys.argv[sys.argv.index("--wav") + 1]
         for name, frames in sounds.items():
@@ -124,7 +141,7 @@ def main():
                      "home_close": "home_close"}
         for name, frames in sounds.items():
             write_wav(os.path.join(folder, kit_names[name] + ".wav"), frames)
-    print("wrote", ", ".join(n + ".pcm" for n in sounds))
+    print("wrote", ", ".join(n + (".pcm" if n == "button_over" else ".ogg") for n in sounds))
 
 
 if __name__ == "__main__":

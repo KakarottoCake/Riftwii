@@ -20,9 +20,20 @@
 // Sounds
 #include "bg_music_ogg.h"
 #include "button_over_pcm.h"
-#include "button_click_pcm.h"
-#include "home_open_pcm.h"
-#include "home_close_pcm.h"
+#include "button_click_ogg.h"
+#include "home_open_ogg.h"
+#include "home_close_ogg.h"
+
+// RiftWii: the press and the two HOME Menu sounds are stored as Ogg Vorbis
+// (the *_ogg arrays above) and decoded once at start into MEM2 by
+// wii/menu/menusounds.cpp, which defines these: 48 kHz 16-bit stereo, what
+// GuiSound hands ASND. Null and 0 until decoded, or when the decode failed.
+extern const u8* button_click_pcm;
+extern s32 button_click_pcm_size;
+extern const u8* home_open_pcm;
+extern s32 home_open_pcm_size;
+extern const u8* home_close_pcm;
+extern s32 home_close_pcm_size;
 
 // Images
 #include "button_png.h"
