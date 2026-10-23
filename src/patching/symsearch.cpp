@@ -303,6 +303,7 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
         error = "the IOS_IoctlvAsync found through the partition open disagrees with the API search";
         return false;
     }
+    out.submit = submit;
     error.clear();
     return true;
 }
@@ -465,22 +466,23 @@ std::vector<std::uint32_t> find_strings(const std::vector<CodeRange>& ranges, co
     return out;
 }
 
+// Whether the string at `at` starts on its own: at the start of its range,
+// or after a NUL (not inside a longer string that ends the same way).
+bool string_starts_after_nul(const std::vector<CodeRange>& ranges, std::uint32_t at) {
+    for (const CodeRange& r : ranges) {
+        if (at < r.address || at >= r.address + r.size) continue;
+        return at == r.address || r.bytes[at - r.address - 1] == 0;
+    }
+    return false;
+}
+
 constexpr std::size_t kPairWindow = 16;     // instructions between a lis and its addi/ori
 constexpr std::size_t kPoolWindow = 400;    // instructions a pool base register is followed for
 constexpr std::uint32_t kPoolReach = 0x8000;  // bytes past a pool's base its strings may be
 
-}  // namespace
-
-bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
-                              std::uint32_t& out, std::string& error) {
-    out = 0;
-    std::vector<std::uint32_t> targets = find_strings(data, "Unhandled Exception %d");
-    const std::vector<std::uint32_t> more = find_strings(data, "Non-recoverable Exception %d");
-    targets.insert(targets.end(), more.begin(), more.end());
-    if (targets.empty()) {
-        error = "the game has no \"Unhandled Exception\" string";
-        return false;
-    }
+// The functions whose code builds one of `targets`' addresses: `lis` and
+// `addi`/`ori` directly, or `addi` from a string pool's base register.
+std::set<std::uint32_t> functions_using(const std::vector<CodeRange>& text, const std::vector<std::uint32_t>& targets) {
     const auto hit = [&](std::uint32_t value) {
         return std::find(targets.begin(), targets.end(), value) != targets.end();
     };
@@ -522,10 +524,51 @@ bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vec
             }
         }
     }
+    return functions;
+}
+
+}  // namespace
+
+bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
+                              std::uint32_t& out, std::string& error) {
+    out = 0;
+    std::vector<std::uint32_t> targets = find_strings(data, "Unhandled Exception %d");
+    const std::vector<std::uint32_t> more = find_strings(data, "Non-recoverable Exception %d");
+    targets.insert(targets.end(), more.begin(), more.end());
+    if (targets.empty()) {
+        error = "the game has no \"Unhandled Exception\" string";
+        return false;
+    }
+    const std::set<std::uint32_t> functions = functions_using(text, targets);
     if (functions.size() != 1) {
         char buf[96];
         std::snprintf(buf, sizeof(buf), "%u functions use the \"Unhandled Exception\" string",
                       static_cast<unsigned>(functions.size()));
+        error = buf;
+        return false;
+    }
+    out = *functions.begin();
+    error.clear();
+    return true;
+}
+
+bool find_os_return_to_menu(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
+                            std::uint32_t& out, std::string& error) {
+    out = 0;
+    // Only a string of its own, after a NUL: __OSReturnToMenu's text ends
+    // with the same bytes, two in.
+    std::vector<std::uint32_t> targets;
+    for (const std::uint32_t at : find_strings(data, kOsReturnToMenuText)) {
+        if (string_starts_after_nul(data, at)) targets.push_back(at);
+    }
+    if (targets.empty()) {
+        error = "the game has no OSReturnToMenu text";
+        return false;
+    }
+    const std::set<std::uint32_t> functions = functions_using(text, targets);
+    if (functions.size() != 1) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%u functions use OSReturnToMenu's text", static_cast<unsigned>(functions.size()));
         error = buf;
         return false;
     }

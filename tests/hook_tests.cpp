@@ -437,6 +437,7 @@ static void TestIpcApiSearch() {
         EXPECT_EQ(api.sync[cmd], sync_at[cmd]);
     }
     EXPECT_EQ(api.sync[5], 0u);
+    EXPECT_EQ(api.submit, submit);
 
     // An unknown IOS_IoctlAsync, or one that is not a prologue.
     riftwii::IpcSymbols bad;
@@ -462,6 +463,46 @@ static void TestIpcApiSearch() {
     riftwii::IpcSymbols disagree = s;
     disagree.ioctlv_async = sync_at[7];
     EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, disagree, api, error));
+}
+
+static void TestReturnToMenuSearch() {
+    // The SDK's panic texts: __OSReturnToMenu's at 0x10 (it ends with
+    // OSReturnToMenu's bytes, two in), OSReturnToMenu's own at 0x60.
+    std::vector<std::uint8_t> data(0x100, 0);
+    const char kInner[] = "__OSReturnToMenu(): Falied to boot system menu.\n";
+    std::memcpy(&data[0x10], kInner, sizeof(kInner));
+    std::memcpy(&data[0x60], riftwii::kOsReturnToMenuText, std::strlen(riftwii::kOsReturnToMenuText) + 1);
+    const std::vector<riftwii::CodeRange> strings = {{0x80301000, data.data(), data.size()}};
+    const auto words = [](std::initializer_list<std::uint32_t> list) {
+        std::vector<std::uint8_t> out;
+        for (std::uint32_t w : list) {
+            for (int sh = 24; sh >= 0; sh -= 8) out.push_back(static_cast<std::uint8_t>(w >> sh));
+        }
+        return out;
+    };
+    const std::uint32_t kPrologue = 0x9421FFE0, kMflr = 0x7C0802A6, kBlr = 0x4E800020;
+    // __OSReturnToMenu builds its own text's address (0x80301010), a
+    // stray function the address two bytes into it (0x80301012), and
+    // OSReturnToMenu its own (0x80301060): only the last counts.
+    std::vector<std::uint8_t> code = words({kPrologue, kMflr, 0x3C608030, 0x38631010, kBlr,
+                                            kPrologue, kMflr, 0x3C608030, 0x38631012, kBlr,
+                                            kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr});
+    std::vector<riftwii::CodeRange> text = {{0x80004000, code.data(), code.size()}};
+    std::uint32_t found = 0;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_os_return_to_menu(text, strings, found, error));
+    EXPECT_EQ(found, 0x80004028u);
+    // Only __OSReturnToMenu's text in the game: refused.
+    std::vector<std::uint8_t> inner_only(data.begin(), data.begin() + 0x50);
+    const std::vector<riftwii::CodeRange> no_text = {{0x80301000, inner_only.data(), inner_only.size()}};
+    EXPECT_FALSE(riftwii::find_os_return_to_menu(text, no_text, found, error));
+    EXPECT_EQ(found, 0u);
+    // Two functions use OSReturnToMenu's text: refused.
+    std::vector<std::uint8_t> twice = words({kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr,
+                                             kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr});
+    text = {{0x80005000, twice.data(), twice.size()}};
+    EXPECT_FALSE(riftwii::find_os_return_to_menu(text, strings, found, error));
+    EXPECT_TRUE(error.find("2 functions") != std::string::npos);
 }
 
 static void TestSymbolSearch() {
@@ -4058,6 +4099,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();
+    TestReturnToMenuSearch();
     TestFsIpcTranslation();
     TestFsSyncIntercept();
     TestFsAsyncIntercept();
