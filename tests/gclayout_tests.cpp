@@ -163,6 +163,13 @@ void refuses_an_fst_address_outside_mem1() {
     // Past MEM1's top is refused the same way.
     std::vector<GcMem1Piece> high = {{0x5d00, 0}, {0x440, 0}};
     EXPECT_EQ(plan_gc_mem1(0x81800020, high, 0x2000).arena_hi, 0u);
+    // Below MEM1 without any wrap (the stand-in lands at 0x6000), and at
+    // MEM1's very start (the stand-in wraps below it): refused, nothing placed.
+    for (const std::uint32_t fst : {0x7000u, 0x80000000u}) {
+        std::vector<GcMem1Piece> low = {{0x5d00, 0}, {0x440, 0}};
+        EXPECT_EQ(plan_gc_mem1(fst, low, 0x2000).arena_hi, 0u);
+        for (const GcMem1Piece& p : low) EXPECT_EQ(p.address, 0u);
+    }
 }
 
 void the_stand_in_ends_in_6000() {

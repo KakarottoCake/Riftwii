@@ -121,8 +121,10 @@ GcMem1Plan plan_gc_mem1(std::uint32_t fst_addr, std::vector<GcMem1Piece>& pieces
     // disc may leave at 0 or anything (gclayout.hpp): under MEM1 or under
     // the stand-in the subtractions above wrap, and the wrapped layout
     // used to pass the caller's ordering checks with pieces at 0xFFFFxxxx.
-    // Refuse it, with an arena top no caller accepts, instead.
-    if (fst_addr > kMem1End || upper_floor > fst_addr) return plan;
+    // Refuse it, with an arena top no caller accepts, instead. An address
+    // below MEM1 (0x7000 gives a stand-in at 0x6000) or at its very start
+    // (the stand-in wraps to 0x7FFF6000) is refused too.
+    if (!in_mem1(fst_addr) || plan.di_regs < kMem1Start || upper_floor > fst_addr) return plan;
     std::uint32_t upper_next = fst_addr;      // the room between the stand-in and the FST
     std::uint32_t lower_next = plan.di_regs;  // and from the stand-in down
     for (GcMem1Piece& piece : pieces) {
