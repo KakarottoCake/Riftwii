@@ -74,6 +74,7 @@ void test_protected() {
     EXPECT_TRUE(gc_keeps_aram_addresses("GP6P01"));
     EXPECT_TRUE(gc_keeps_aram_addresses("GP7J01"));
     EXPECT_TRUE(gc_keeps_aram_addresses("GWZE01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GWYE41"));  // Splinter Cell: Double Agent, VMInit's 16 MB minus the base
     EXPECT_FALSE(gc_keeps_aram_addresses("GMSE01"));
     {
         const std::vector<GcCodeFix> fixes = gc_code_fixes("GEDE01");
