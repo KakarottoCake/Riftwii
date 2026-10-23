@@ -50,6 +50,13 @@ struct GcImage {
     // started last time (headless.cpp's exec.txt, gc_tgc=): the TGC file's
     // offset on the disc; 0: the disc's own program.
     std::uint32_t tgc_offset = 0;
+    // A two-disc game's second disc, found beside `path` at the launch
+    // (same game ID, disc number 1): its path, empty for a game of one
+    // disc, and on the USB drive its pieces and size (found with the
+    // image's own before the reload into d2x).
+    std::string disc2_path{};
+    std::vector<Fragment> disc2_usb_fragments{};
+    std::uint64_t disc2_usb_bytes = 0;
 };
 
 // Whether the image at `path` is on the USB drive ("usb:/...").

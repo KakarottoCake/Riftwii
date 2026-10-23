@@ -405,6 +405,18 @@ msgstr "メニュー"
 msgid "Finding games"
 msgstr "ゲームを探す"
 
+msgid "Games on the SD card"
+msgstr "SDカードのゲーム"
+
+msgid "Look for them"
+msgstr "探す"
+
+msgid "Don't look"
+msgstr "探さない"
+
+msgid "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work."
+msgstr "探さない: SDカードからゲームを探しません(ゲームキューブも含む)。WiiのゲームをすべてUSBドライブに置く場合向け。SDカードのパック、テーマ、セーブは使えます。"
+
 msgid "Online"
 msgstr "オンライン"
 
@@ -599,6 +611,15 @@ msgstr "検索をやめる"
 
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
+
+msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
+msgstr "ゲームがまだありません。SDカードは探していません(設定 > ドライブ)。ゲーム(WBFS、ISO、RVZ)をUSBドライブのwbfsまたはgamesに入れて、設定の「ゲームをもう一度探す」を選んでください。"
+
+msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
+msgstr "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。"
+
+msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
+msgstr "探す: sd:/wbfs と sd:/games のゲームがホームに表示されます。"
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"
@@ -1875,11 +1896,14 @@ msgstr "このゲーム専用のオプション: ディスクの読み込み方�
 msgid "Not made yet"
 msgstr "まだ作られていません"
 
-msgid "Home lists the GameCube games only, from sd:/games."
-msgstr "ホームにはsd:/gamesのゲームキューブのゲームだけを表示します。"
+msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
+msgstr "ホームにはsd:/gamesとusb:/gamesのゲームキューブのゲームだけを表示します。"
 
-msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
-msgstr "ゲームキューブのゲームはSDカードにsd:/games/<ID>/game.isoとして入れます。"
+msgid "Home lists the GameCube games only, from usb:/games (the SD card is not searched)."
+msgstr "ホームにはusb:/gamesのゲームキューブのゲームだけを表示します(SDカードは探しません)。"
+
+msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
+msgstr "ゲームキューブのゲームは、SDカードかUSBドライブのgamesの中に専用のフォルダを作り、games/<ID>/game.isoとして入れます。"
 
 msgid "Loading speed"
 msgstr "読み込み速度"

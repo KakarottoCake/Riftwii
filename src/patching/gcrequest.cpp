@@ -127,6 +127,13 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
             return false;
         }
     }
+    // A second disc: its pieces only with its path, and with as many as said.
+    const bool has_disc2 = request->disc2_path != nullptr && request->disc2_path[0] != '\0';
+    if (!sized(request->disc2_usb_fragments, request->disc2_usb_fragment_count) ||
+        (!has_disc2 && (request->disc2_usb_fragment_count != 0 || request->disc2_usb_file_bytes != 0))) {
+        why = "the launch request's second disc is not whole";
+        return false;
+    }
     if (request->way_back_kind > RWP_GC_WAY_BACK_HBC ||
         (request->way_back_kind != RWP_GC_WAY_BACK_NONE && request->way_back_view == nullptr)) {
         why = "the launch request's way back is not whole";

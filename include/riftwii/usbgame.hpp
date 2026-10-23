@@ -185,6 +185,15 @@ struct GcFolderImage {
 // way when the game asks for the other disc.
 std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images);
 
+// The disc a two-disc game started from images[started] changes to
+// (runtime/gc/gc_disc.h): the first image of the folder with the same
+// game ID and disc number 1, by the same rule as gc_second_disc_of; -1
+// when there is none, or when the game was started from a disc other than
+// its first. A second disc of another game ID is never changed to: its
+// index goes into `other_id` (when given) for the log.
+int gc_disc_change_partner(const std::vector<GcFolderImage>& images, std::size_t started,
+                           std::vector<std::size_t>* other_id = nullptr);
+
 // A GameCube image container told by the first bytes of the file, whatever
 // its name: players rename a .ciso or .gcz to .iso and Home then showed the
 // game missing with no reason. NKit is not told apart here: its images keep
