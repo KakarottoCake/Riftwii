@@ -16,8 +16,6 @@
 #include <new>
 #include <string>
 
-#include "zstd.h"
-
 // std::string's members in the plugin itself, built here without
 // exceptions: libstdc++ declares them extern (its own copy was built with
 // exceptions and would bring its unwinding tables, which a plugin may not
@@ -202,34 +200,5 @@ int stat(const char* path, struct stat* out) {
 }
 
 int mkdir(const char* path, mode_t) { return host().make_directory(path); }
-
-// ---- Zstandard: RiftWii's own decoder ----
-
-size_t ZSTD_decompress(void* to, size_t to_bytes, const void* from, size_t from_bytes) {
-    return host().zstd_decompress(to, to_bytes, from, from_bytes);
-}
-
-unsigned long long ZSTD_getFrameContentSize(const void* from, size_t from_bytes) {
-    return host().zstd_frame_size(from, from_bytes);
-}
-
-unsigned ZSTD_isError(size_t code) { return host().zstd_is_error(code); }
-
-const char* ZSTD_getErrorName(size_t code) { return host().zstd_error_name(code); }
-
-// A decoding context of its own is only a speed-up: each call of the
-// loader's one-shot decoder makes its own. The pointer stands for "a
-// context" so a caller's null check holds; it is never looked into.
-namespace {
-char g_dctx_token;
-}
-
-ZSTD_DCtx* ZSTD_createDCtx() { return reinterpret_cast<ZSTD_DCtx*>(&g_dctx_token); }
-
-size_t ZSTD_freeDCtx(ZSTD_DCtx*) { return 0; }
-
-size_t ZSTD_decompressDCtx(ZSTD_DCtx*, void* to, size_t to_bytes, const void* from, size_t from_bytes) {
-    return host().zstd_decompress(to, to_bytes, from, from_bytes);
-}
 
 }  // extern "C"

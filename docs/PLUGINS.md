@@ -166,8 +166,11 @@ Built with `-fno-exceptions -fno-rtti -fno-threadsafe-statics`.
 link what libstdc++ and the C library would: `operator new` and `delete`
 on `mem1_alloc` and `mem1_free`, `memcpy`, `memmove`, `memset`, `memcmp`,
 `strlen`, the stdio calls and `stat` and `mkdir` over the Files group,
-`snprintf` over `format`, the `ZSTD_*` names over the Zstandard group,
+`snprintf` over `format`,
 `abort`, `__cxa_pure_virtual`, and the `std::__throw_*` functions.
+`plugins/common/rwpzstd.cpp` supplies the `ZSTD_*` names over the
+Zstandard group. It is built separately in host tests, with a mocked
+loader table, to check error codes and RVZ error messages.
 `std::string`'s members are instantiated in the plugin itself (an explicit
 instantiation in `rwpruntime.cpp`, compiled without exceptions), so
 nothing of libstdc++'s exception-built objects is linked. The one
@@ -245,7 +248,7 @@ update's order. Build: `make_plugin.py check` for `selftest` and
 | The request | `include/riftwii/plugin_gamecube.h` (`rwp_gc_launch`), `src/patching/gcrequest.cpp` (the packs' plan flattened and built again, the plugin's check of a request; `tests/gcrequest_tests.cpp`) |
 | The DOL's side | `wii/launch/gcplugin.cpp`: `LaunchGcNative` fills the request and calls `plugin::Launch("gamecube", ...)`; `FindGcWayBack`, `SetGcCrashScreen` and the card's backup stay here; `wii/core/plugins.cpp` has the host functions and `Launch` |
 | The plugin | `plugins/gamecube/`: `gcnative.cpp` (the loader, moved), `gcentry.cpp` (`rwp_init`, the table, `launch`), `gchost.cpp` (the loader's helpers on the table: `logf`, `resolve_sd_file`, the disc opened as an ISO or an RVZ, the arena check), `gcblobs.S` (the three `runtime/gc` blobs by `.incbin`) |
-| A C++ plugin's runtime | `plugins/common/rwpruntime.cpp`: `operator new` and `delete`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `strlen`, `snprintf`, the stdio calls, `stat`, `mkdir`, the `ZSTD_*` names (a decoding context stands for "make one per call"), `abort`, `__cxa_pure_virtual` and the `std::__throw_*` functions; `std::string` instantiated here |
+| A C++ plugin's runtime | `plugins/common/rwpruntime.cpp`: `operator new` and `delete`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `strlen`, `snprintf`, the stdio calls, `stat`, `mkdir`, `abort`, `__cxa_pure_virtual` and the `std::__throw_*` functions; `std::string` instantiated here. `plugins/common/rwpzstd.cpp`: the `ZSTD_*` names (a decoding context stands for "make one per call"), checked by `tests/rwpzstd_tests.cpp` |
 | The build | `Makefile.plugin`: `.cpp` and `.S` sources, `plugins/common/` for C++ plugins, `<name>_SRC` for the `src/` files a plugin links its own copy of, and libstdc++'s `tree.o` (the red-black tree's balancing, for `std::map`) taken out of the library alone with its unwinding table removed |
 | Out of the DOL | `Makefile.wii`: `gclayout`, `gcclock`, `gcreset` and `gccontrols` in `EXCLUDES`, the `riftwii_gc*` blobs out of `BINFILES` |
 | Updates | `plan_update_writes` (`src/net/update.cpp`, `tests/plugin_tests.cpp`), `WriteUpdatePlugins` (`wii/online/online.cpp`, the pack's asset kept in the update note), `tools/make_update_pack.py` (plugins first, the `gamecube` plugin required) |

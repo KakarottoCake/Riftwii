@@ -159,6 +159,8 @@ public:
     // whole group of a raw data entry, which Dolphin never writes.
     bool disc_runtime_table(RvzRuntimeTable& out, std::string& error) const;
 
+    // Why the latest read_raw or read_partition failed; empty after one
+    // that succeeded.
     const std::string& last_error() const { return error_; }
 
 private:
