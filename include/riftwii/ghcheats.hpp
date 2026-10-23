@@ -13,8 +13,9 @@
 // where the codes went after geckocodes.org shut down. RiftWii asks it only
 // when the player wants cheats for a Wii game that codes.rc24.xyz has none
 // for (or does not answer): one request for the directory listing and one
-// for the newest text_wii_YYYYMMDD.zip, then at most once in about 30 days
-// (the site asks not to be crawled: robots.txt sets Crawl-delay: 30). The
+// for the newest text_wii_YYYYMMDD.zip, back to back, then at most once in
+// about 30 days. robots.txt sets Crawl-delay: 30 for crawlers; two requests a
+// month from one console aren't crawling, so no wait is added between them. The
 // zip is kept on the SD card with an index of which entry holds which game,
 // and every game after that is answered from there.
 //

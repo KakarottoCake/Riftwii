@@ -61,8 +61,9 @@ RiiConnect24 (https://codes.rc24.xyz) and, for a Wii game that has none
 there, from GameHacking.org (https://gamehacking.org/text/, the newest
 `text_wii_YYYYMMDD.zip`: one request for the listing and one for the zip, only
 when a game's cheats are asked for and no copy under 30 days old is on the
-card; kept in `sd:/riftwii/cheats/gamehacking/`, the site's `Crawl-delay: 30`
-respected), animated banners for GameCube
+card; kept in `sd:/riftwii/cheats/gamehacking/`. The site's robots.txt asks
+crawlers for `Crawl-delay: 30`; RiftWii doesn't crawl, and makes these two
+requests back to back at most once in about 30 days), animated banners for GameCube
 games in the Channels view, made by the
 community and hosted by RiiConnect24 (http://banner.rc24.xyz, stored on
 the SD card as they come), and the newest release's tag from
