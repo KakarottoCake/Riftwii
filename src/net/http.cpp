@@ -267,19 +267,21 @@ bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const Http
 
 namespace {
 
-std::string request_head(const char* method, const HttpUrl& url) {
+std::string request_head(const char* method, const HttpUrl& url, const std::string& user_agent) {
     std::string host = url.host;
     if (url.port != (url.tls ? 443 : 80)) host += ":" + std::to_string(url.port);
     return std::string(method) + " " + url.path + " HTTP/1.1\r\nHost: " + host +
-           "\r\nUser-Agent: RiftWii\r\nAccept: */*\r\nConnection: close\r\n";
+           "\r\nUser-Agent: " + user_agent + "\r\nAccept: */*\r\nConnection: close\r\n";
 }
 
 }  // namespace
 
-std::string http_get_request(const HttpUrl& url) { return request_head("GET", url) + "\r\n"; }
+std::string http_get_request(const HttpUrl& url, const std::string& user_agent) {
+    return request_head("GET", url, user_agent) + "\r\n";
+}
 
 std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body) {
-    return request_head("POST", url) + "Content-Type: " + content_type +
+    return request_head("POST", url, "RiftWii") + "Content-Type: " + content_type +
            "\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
 }
 
