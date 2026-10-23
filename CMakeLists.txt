@@ -88,6 +88,15 @@ if(BUILD_TESTING)
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/gameinfo-test")
     add_test(NAME gameinfo COMMAND gameinfo_tests)
     set_tests_properties(gameinfo PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/gameinfo-test")
+    add_executable(channel_dolboot_tests tests/channel_dolboot_tests.c)
+    target_include_directories(channel_dolboot_tests PRIVATE tests/channel_mock)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        # The channel deliberately casts between Wii pointers and 32-bit addresses.
+        target_compile_options(channel_dolboot_tests PRIVATE -Wall -Wextra -Werror
+            -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast)
+    endif()
+    add_test(NAME channel_dolboot COMMAND channel_dolboot_tests)
+    set_tests_properties(channel_dolboot PROPERTIES SKIP_RETURN_CODE 77)
     # RiiFS discovery against a clock and socket mocks, including a UDP flood.
     add_executable(netsock_tests tests/netsock_tests.cpp wii/online/netsock.cpp)
     target_include_directories(netsock_tests PRIVATE tests/netsock_mock include wii/online wii/core)

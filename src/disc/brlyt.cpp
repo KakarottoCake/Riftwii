@@ -10,6 +10,11 @@
 namespace riftwii {
 namespace {
 
+// A section can alias one long string many times, and lists can repeat.
+// Bound the copied names across all texture/font sections of each kind.
+constexpr std::size_t kMaxListNames = 1024;
+constexpr std::size_t kMaxListNameBytes = 255;
+
 std::uint32_t be32(const std::uint8_t* p) {
     return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
            (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
@@ -37,6 +42,10 @@ bool name_list(const std::uint8_t* s, std::size_t len, std::vector<std::string>&
         return false;
     }
     const std::uint16_t n = be16(s + 8);
+    if (n > kMaxListNames || out.size() > kMaxListNames - n) {
+        error = "too many texture or font names in the layout";
+        return false;
+    }
     const std::uint8_t* table = s + 12;
     const std::size_t room = len - 12;
     if (static_cast<std::size_t>(n) * 8 > room) {
@@ -49,7 +58,17 @@ bool name_list(const std::uint8_t* s, std::size_t len, std::vector<std::string>&
             error = "name points outside its list";
             return false;
         }
-        out.push_back(fixed_name(table + off, room - off));
+        const std::uint8_t* name = table + off;
+        const std::size_t name_room = room - off;
+        std::size_t name_bytes = 0;
+        while (name_bytes < name_room && name_bytes <= kMaxListNameBytes && name[name_bytes] != 0) {
+            ++name_bytes;
+        }
+        if (name_bytes == name_room || name_bytes > kMaxListNameBytes) {
+            error = "layout texture or font name is too long or has no terminator";
+            return false;
+        }
+        out.emplace_back(reinterpret_cast<const char*>(name), name_bytes);
     }
     return true;
 }

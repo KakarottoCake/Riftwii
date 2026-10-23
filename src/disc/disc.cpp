@@ -15,6 +15,7 @@ constexpr std::uint32_t kTmdFixedBytes = 0x1E4;   // header up to the content re
 constexpr std::uint32_t kTmdContentBytes = 36;
 constexpr std::uint32_t kMaxTmdBytes = 64 * 1024;
 constexpr std::uint64_t kMaxApploaderBytes = 2 * 1024 * 1024;
+constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 
 std::uint32_t be32(const std::uint8_t* p) {
     return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
@@ -343,10 +344,12 @@ bool read_apploader_header(const ByteSource& data, ApploaderHeader& out, std::st
         error = "apploader lies outside the partition data";
         return false;
     }
-    // The apploader is loaded to 0x81200000; an entry outside the cached
-    // MEM1 window cannot be right.
-    if (a.entry < 0x80000000u || a.entry >= 0x81800000u) {
-        error = "apploader entry point is not in MEM1";
+    // The caller loads both code and trailer, then jumps straight here.
+    // The entry must name a complete instruction in the code; the trailer
+    // and other MEM1 addresses do not supply the entry function.
+    if (a.size < 4 || a.entry < kApploaderLoadAddress ||
+        a.entry - kApploaderLoadAddress > a.size - 4 || (a.entry & 3u) != 0) {
+        error = "apploader entry point is not an aligned address inside its code";
         return false;
     }
     out = a;
