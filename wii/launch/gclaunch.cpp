@@ -171,6 +171,11 @@ bool read_gc_id(const std::string& path, std::string& id) {
     GcHead head;
     if (!read_gc_head(path, head)) return false;
     id.assign(reinterpret_cast<const char*>(head.bytes), 6);
+    // The ID names files downstream (an RVZ's group table, the choices
+    // file): a crafted header may fill it with slashes, so such an image
+    // is no image here.
+    for (char c : id)
+        if (c == '/' || c == '\\') return false;
     return true;
 }
 
@@ -672,6 +677,15 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
         g.rvz_chunk_bytes = found.chunk_bytes;
     }
     g.id.assign(reinterpret_cast<const char*>(head), 6);
+    // The ID names files downstream (an RVZ's group table, the choices
+    // file): a crafted header may fill it with slashes, so such an image
+    // is said in skipped instead of listed.
+    for (char c : g.id) {
+        if (c == '/' || c == '\\') {
+            skipped.note(full, "its game ID holds a slash, so it is not listed");
+            return;
+        }
+    }
     g.disc_number = head[6];
     g.revision = head[7];
     g.title.assign(reinterpret_cast<const char*>(head + 0x20), strnlen(reinterpret_cast<const char*>(head + 0x20), 0x40));
