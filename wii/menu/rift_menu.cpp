@@ -8456,11 +8456,12 @@ static void MenuCheats(FrontendState& state)
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	// Under the game's name whenever the codes came from GameHacking.org
-	// (the note beside the file, kept by DownloadCheats).
-	GuiText sourceTxt("", 14, skin::kInkSoft);
-	sourceTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	sourceTxt.SetPosition(-40, 60);
+	// Whenever the codes came from GameHacking.org (the note beside the file,
+	// kept by DownloadCheats): a small line at a fixed place just under the note
+	// card, left with the note's text, above the prompts. The list
+	// scrolls above it, so it cannot meet the rows or the note card.
+	GuiText sourceTxt("", 12, skin::kInkDim);
+	Place(sourceTxt, NoteCard::kTextX, NoteCard::kY + NoteCard::kH);
 	const auto showSource = [&]() {
 		const std::string from = tr("Cheats from GameHacking.org");
 		sourceTxt.SetText(riftwii::wii::CheatsFromGameHacking(state.game_id) ? from.c_str() : "");
