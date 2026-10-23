@@ -31,7 +31,7 @@ extern "C" {
  * the first time a plugin loads (wii/core/plugins.cpp). Every plugin's
  * image, .bss and state must fit in it; the build refuses one that does
  * not. */
-#define RWP_ARENA_BYTES (256u * 1024u)
+#define RWP_ARENA_BYTES (384u * 1024u)
 
 /* A path's facts (path_info). */
 typedef struct rwp_path_info {

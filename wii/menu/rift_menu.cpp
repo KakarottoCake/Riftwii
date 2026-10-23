@@ -358,6 +358,14 @@ void MenuHaltForCrash()
 		usleep(10000);
 }
 
+// Who asked for the power-off, kept for the log because the callbacks cannot
+// log themselves: no request yet, the system's power event, or the channel
+// (0-3) of the Wii Remote whose power button was pressed.
+static const s32 kPowerFromNobody = -1;
+static const s32 kPowerFromConsole = 100;
+static volatile s32 g_powerSource = kPowerFromNobody;
+static void LogPowerOffSource();
+
 static void *
 UpdateGUI(void *arg)
 {
@@ -465,7 +473,7 @@ UpdateGUI(void *arg)
 			{
 				// The power button fades out more slowly, as the Wii Menu does.
 				const int step = ExitRequested == kExitPowerButton ? 6 : 15;
-				if (ExitRequested == kExitPowerButton) logf("Power button: turning the Wii off\n");
+				if (ExitRequested == kExitPowerButton) LogPowerOffSource();
 				for(i = 0; i <= 255; i += step)
 				{
 					mainWindow->Draw();
@@ -481,15 +489,35 @@ UpdateGUI(void *arg)
 
 // The console's power button, or a Wii Remote's: the GUI thread fades the
 // screen out and turns the Wii off. Called from interrupts: only the
-// request is set here.
-static void PowerPressed()
+// request is set here. The source goes in before ExitRequested, so the GUI
+// thread never sees a request without it; the first request keeps its source.
+static void RecordPowerRequest(s32 source)
 {
+	if (g_powerSource == kPowerFromNobody) g_powerSource = source;
 	if (!ExitRequested) ExitRequested = kExitPowerButton;
 }
 
-static void RemotePowerPressed(s32)
+static void PowerPressed()
 {
-	PowerPressed();
+	RecordPowerRequest(kPowerFromConsole);
+}
+
+static void RemotePowerPressed(s32 channel)
+{
+	RecordPowerRequest(channel);
+}
+
+// Says in the log where the power-off came from, so a report can tell the
+// console's power event (a drive's power draw can raise it) from a remote.
+static void LogPowerOffSource()
+{
+	const s32 source = g_powerSource;
+	if (source == kPowerFromConsole)
+		logf("Power button: turning the Wii off (the console's power event)\n");
+	else if (source >= 0 && source < 4)
+		logf("Power button: turning the Wii off (Wii Remote %d's power button)\n", (int)source + 1);
+	else
+		logf("Power button: turning the Wii off (source not recorded)\n");
 }
 
 // A way out of a stuck menu: a tester took the SD card out and nothing
@@ -591,6 +619,8 @@ static void* MenuWatchdog(void*)
 		} else {
 			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
 		}
+		// No log line here: the menu is stuck, usually on the SD card, and a
+		// write to the log could wait on that card and keep the Wii on.
 		if (ExitRequested == kExitPowerButton) SYS_ResetSystem(SYS_POWEROFF, 0, 0);
 		if (home || g_resetPressed) SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 	}

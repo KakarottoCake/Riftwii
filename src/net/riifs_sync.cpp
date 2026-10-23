@@ -225,11 +225,23 @@ private:
         const std::string target = root_ + path;
         std::uint64_t size = 0;
         bool exists = false;
-        std::vector<LocalEntry> ignored;
+        std::vector<LocalEntry> entries;
         bool dir_exists = false;
         const bool file_there = local_.file_size(target, size, exists) && exists;
-        const bool dir_there = !file_there && local_.list(target, ignored, dir_exists) && dir_exists;
+        const bool dir_there = !file_there && local_.list(target, entries, dir_exists) && dir_exists;
         if (!file_there && !dir_there) return true;
+        if (dir_there) {
+            const std::string prefix = folded(path == "/" ? path : path + "/");
+            for (const std::string& keep : keep_) {
+                if (keep.compare(0, prefix.size(), prefix) != 0) continue;
+                // Removing this parent recursively would also remove a save
+                // the card owns. Prune its stale siblings individually.
+                for (const LocalEntry& entry : entries) {
+                    if (!drop(join_path(path, entry.name))) return false;
+                }
+                return true;
+            }
+        }
         if (!local_.remove(target)) {
             error_ = "RiiFS: cannot remove the stale copy " + target;
             return false;

@@ -875,6 +875,8 @@ def wii_forwarder(dol, start):
     if len(start) < 12 or start[4:8] != b"RFTW" or start[8:12] != bytes(4):
         sys.exit("forwarder: start.bin is not channel/forwarder/start.S")
     check_l2_clear(bytes(start), "forwarder")
+    # The whole padded start.S is loaded, not just its first cache line.
+    stub_end = WII_START_AT + ((len(start) + 31) & ~31)
     d = bytearray(dol)
     offsets = list(struct.unpack_from(">18I", d, 0x00))
     starts = list(struct.unpack_from(">18I", d, 0x48))
@@ -883,10 +885,10 @@ def wii_forwarder(dol, start):
     if not 0x80003f00 <= entry < 0x81800000:
         sys.exit(f"forwarder: entry {entry:08x} is not libogc's")
     for i in range(18):
-        if sizes[i] and starts[i] < WII_START_AT + 32 and WII_START_AT < starts[i] + sizes[i]:
-            sys.exit(f"forwarder: a section already covers {WII_START_AT:08x}")
-    if bss_size and bss < WII_START_AT + 32 and WII_START_AT < bss + bss_size:
-        sys.exit(f"forwarder: the bss covers {WII_START_AT:08x}")
+        if sizes[i] and starts[i] < stub_end and WII_START_AT < starts[i] + sizes[i]:
+            sys.exit("forwarder: a section overlaps start.S")
+    if bss_size and bss < stub_end and WII_START_AT < bss + bss_size:
+        sys.exit("forwarder: the bss overlaps start.S")
     if sizes[6]:
         sys.exit("forwarder: no free text section")
     stub = bytearray(start)
