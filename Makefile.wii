@@ -109,7 +109,7 @@ CFLAGS		+=	-DRIFTWII_BUILD_STAMP='"$(RIFTWII_BUILD_STAMP)"'
 # builds a test may use.
 TEST		?=	0
 ifeq ($(TEST),1)
-WII_DEFINES	+=	-DRIFTWII_TEST_BUILD
+override WII_DEFINES	+=	-DRIFTWII_TEST_BUILD
 else
 EXCLUDES	+=	wii/launch/autorun.cpp
 endif
