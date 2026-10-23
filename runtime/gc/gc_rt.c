@@ -182,13 +182,29 @@ int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx) {
     uint32_t started;
     if (ctx->ipc_sending) return -1000;
     ctx->ipc_sending = 1;
+    /* A synchronous controller send may have been abandoned. Retire its
+     * X1 and any late Y2 before publishing a different request pointer.
+     * PPCCTRL's X1 is read/write; Y2 is write-one-to-clear (Hardware/IPC). */
+    gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
     __asm__ volatile("mftb %0" : "=r"(started));
     gc_write32(GC_IPC_PPCMSG, phys);
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_X1);
     for (polls = 0; (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) == 0; ++polls) {
         const uint32_t reply = gc_ipc_take();
         if (reply != 0) gc_ipc_route(ctx, reply);
-        if (!gc_ipc_wait(ctx, started, polls)) return -1000;
+        if (!gc_ipc_wait(ctx, started, polls)) {
+            /* Only the shared request has a late-DMA recovery path. A
+             * controller's synchronous caller has no continuation to take
+             * Y2 later: withdraw its doorbell before releasing ownership.
+             * Interrupts remain off throughout this caller, so no other
+             * sender can publish X1 between that withdrawal and release.
+             * Storage retains both its handshake and buffer quarantine. */
+            if (phys != ctx->io_pending) {
+                gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+                ctx->ipc_sending = 0;
+            }
+            return -1000;
+        }
     }
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
     ctx->ipc_sending = 0;
@@ -1667,9 +1683,12 @@ static void gc_stream_fetch(struct gc_rt_context* ctx) {
 
 static int gc_io_start(struct gc_rt_context* ctx, uint32_t job) {
     const uint32_t msr = gc_irq_off();
-    if (ctx->io_job == 0 && ctx->io_pending != 0) {
+    if (ctx->io_job == 0 && (ctx->io_pending != 0 || ctx->ipc_sending)) {
         uint32_t reply;
         while ((reply = gc_ipc_take()) != 0) gc_ipc_route(ctx, reply);
+        /* The reply may have been routed before the send timed out, or
+         * arrive before its late Y2. Recover these two owners independently. */
+        if (ctx->io_reply) ctx->io_pending = 0;
         /* A send timeout may leave Y2 unconsumed. Its continuation is
          * gone now, so this recovery path owns the final acknowledgment. */
         if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) {
