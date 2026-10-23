@@ -3750,7 +3750,7 @@ static int RequireChannelUpdate()
 	for (;;) {
 		std::string why;
 		const bool can = riftwii::wii::ChannelCanInstall(why);
-		std::string body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.",
+		std::string body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.",
 			{have, need});
 		if (stillOld)
 			body += std::string("\n\n") + tr("The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.",
