@@ -102,6 +102,17 @@ const u8* Decode(const char* name, const u8* ogg, std::size_t ogg_size, s32& out
         filled += static_cast<std::size_t>(got);
     }
     ov_clear(&vorbis);
+    // pcm_bytes comes from the Ogg's own length (ov_pcm_total above), so a
+    // correct decode always fills it; anything less is a damaged stream, and
+    // half a sound is worse than none.
+    if (filled != pcm_bytes) {
+        logf("Menu sounds: %s could not be decoded (%u of %u bytes); it will be silent\n", name,
+             static_cast<unsigned>(filled), static_cast<unsigned>(pcm_bytes));
+        // Nothing else has taken MEM2 since the block was made, so it is
+        // handed back; if something has, the few KB stay unused.
+        skin::Mem2Release(pcm, block_bytes);
+        return nullptr;
+    }
     DCFlushRange(pcm, block_bytes);
     out_bytes = static_cast<s32>(block_bytes);
     logf("Menu sounds: %s decoded, %u ms, %u bytes of MEM2 (the Ogg is %u bytes)\n", name,
