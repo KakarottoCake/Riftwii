@@ -33,10 +33,12 @@ IPC = 0xCD000000
 FIELDS = (
     "sdio_fd", "sdhc", "runs", "run_count", "set_alarm", "alarm_entry",
     "bounce", "bounce_bytes", "delay_ticks", "usb_fd", "flags", "io_stack",
-    "io_buffer", "io_job", "busy", "alarm", "io_alarm", "read_state",
+    "io_buffer", "io_job", "storage_busy", "alarm", "io_alarm", "read_state",
     "read_length", "read_generation", "io_pending", "io_reply", "sd_requests",
     "stream", "stream_generation", "card", "beat_alarm", "drive_timing", "rvz",
-    "card_rca",
+    "card_rca", "ipc_sending", "bt", "gcad", "disc_id_offset", "read_drive_ticks",
+    "last_read_end", "reads", "read_tgc_watch", "ipc", "tgc_count", "tgc_offset", "tgc_dol_start",
+    "tgc_dol_end", "disc_change", "di_regs", "vec", "request", "response", "leave_buf", "leave_fd",
 )
 EXTRA_FIELDS = {
     "stream": ("buf", "buf_bytes", "playing", "start", "length", "pos", "fetched", "consumed", "refills"),
@@ -44,6 +46,10 @@ EXTRA_FIELDS = {
     "rvz": ("disc_bytes", "chunk_bytes", "group_count", "stored_buffer", "stored_bytes", "dctx_buffer",
             "dctx_bytes", "extent_count", "table_extent_count", "slots", "entry_sector", "table_extents",
             "extents", "header", "groups_loaded"),
+    "bt": ("fd", "stage", "polls", "events"),
+    "bt_rq": ("state", "result"),
+    "gcad": ("fd", "version", "known_dev", "ticks_per_ms", "polls", "sends", "replies"),
+    "disc_change": ("magic", "discs", "current", "state", "due", "alarm", "cover_ticks", "look_ticks"),
 }
 
 
@@ -85,6 +91,7 @@ def context_layout(devkitppc):
         entries = ",\n".join(expressions.values())
         source.write_text('#include <stddef.h>\n#include "gc_rt.h"\n'
                           '#include "gc_card.h"\n#include "gc_rvz.h"\n'
+                          '#include "gc_bt.h"\n#include "gc_gcad.h"\n#include "gc_disc.h"\n'
                           'const unsigned layout[] __attribute__((section(".layout"))) = {\n'
                           + entries + "\n};\n")
         obj = temporary / "layout.o"
@@ -124,7 +131,11 @@ class Machine:
         self.alarms = []
         self.callbacks = []
         self.durations = []
-        self.pending = None
+        self.pending = []
+        self.handshake = None
+        self.ack_latency = 1000
+        self.controller_latency = 1000
+        self.sends = []
         self.control = 0
         self.usb = usb
         self.latency = latency
@@ -193,16 +204,23 @@ class Machine:
             uc.reg_write(UC_PPC_REG_PC, address + 4)
 
     def finish_ios(self):
-        if self.pending is None:
-            return
-        physical, started, completed = self.pending
-        if self.ticks >= started + 1000:
+        if self.handshake is not None and self.ticks >= self.handshake:
             self.control |= 2
-        if self.ticks < completed:
+            self.handshake = None
+        if self.control & 4:
             return
+        ready = next((request for request in self.pending if self.ticks >= request[1]), None)
+        if ready is None:
+            return
+        physical, completed = ready
+        self.pending.remove(ready)
         request = 0x80000000 | physical
         fields = words(self.uc.mem_read(request, 64))
-        if fields[0] == 6:
+        if fields[2] in (3, 4, 5):
+            # Controller requests use their own buffers. An empty successful
+            # reply suffices to exercise each actual driver's routing path.
+            pass
+        elif fields[0] == 6:
             # CMD13: ready, in transfer state, after an SD write.
             self.uc.mem_write(fields[6] | 0x80000000, struct.pack(">I", 4 << 9))
         else:
@@ -222,10 +240,10 @@ class Machine:
                 payload = (self.disk[sector * 512:sector * 512 + length] if self.disk is not None else
                            bytes((sector * 512 + i) % 251 for i in range(length)))
                 self.uc.mem_write(target, bytes(payload))
-        self.uc.mem_write(request + 4, b"\0" * 4)
+        result = -1017 if fields[2] == 5 else 0  # ES refuses the test's title launch.
+        self.uc.mem_write(request + 4, struct.pack(">I", result & 0xFFFFFFFF))
         self.uc.mem_write(IPC + 8, struct.pack(">I", physical))
-        self.control |= 6
-        self.pending = None
+        self.control |= 4
 
     def mmio_read(self, uc, access, address, size, value, unused):
         self.finish_ios()
@@ -236,10 +254,15 @@ class Machine:
         if address != IPC + 4:
             return
         if value == 1:
-            assert self.pending is None, "a second request replaced an in-flight DMA"
+            assert self.handshake is None and not self.control & 2, "overlapping IPC send handshakes"
             physical = words(uc.mem_read(IPC, 4))[0]
+            assert all(request[0] != physical for request in self.pending), "reused an in-flight IPC buffer"
+            fields = words(uc.mem_read(physical | 0x80000000, 64))
+            latency = self.controller_latency if fields[2] in (3, 4) else self.latency
             # sd_slow imposes its deadline independently of this IOS latency.
-            self.pending = (physical, self.ticks, self.ticks + self.latency)
+            self.handshake = self.ticks + self.ack_latency
+            self.pending.append((physical, self.ticks + max(latency, self.ack_latency)))
+            self.sends.append((physical, fields[2]))
         elif value in (2, 4):
             self.control &= ~value
 
@@ -322,6 +345,153 @@ def test_drive_timing(layout):
     print("Aligned 64 KiB: one request; drive timing survives instant and delayed IOS replies")
 
 
+def controller_poll(kind):
+    address = 0x90040000 if kind == "bt" else 0x90050000
+    return ("gc_bt_poll" if kind == "bt" else "gc_gcad_poll", address)
+
+
+def setup_controllers(machine):
+    machine.put("bt", 0x90040000)
+    machine.put("gcad", 0x90050000)
+    for name, value in {"fd": 3, "stage": 4}.items():
+        machine.put_object(0x90040000, "bt", name, value)
+    event = 0x90040000 + machine.layout["bt.events"]
+    machine.put_object(event, "bt_rq", "state", 2)
+    for name, value in {"fd": 4, "version": 4, "known_dev": 0xFFFFFFFF,
+                        "ticks_per_ms": 60750}.items():
+        machine.put_object(0x90050000, "gcad", name, value)
+
+
+def test_controller_overlap(layout):
+    for kind in ("bt", "gcad"):
+        machine = Machine(layout, latency=6075000)
+        setup_controllers(machine)
+        function, address = controller_poll(kind)
+        machine.uc.mem_write(0x90000000, struct.pack(">5I", 0, 0x40000, 10, 0, 0))
+        machine.call("gc_on_read", machine.ctx, 0x80020000, 0x10000, 0, CALLBACK)
+        machine.alarm()  # reserve the worker
+        machine.alarm()  # X1 is sent; the worker yields before Y2
+        assert machine.get("ipc_sending") == 1
+        assert machine.get("storage_busy") == 1
+        machine.call(function, machine.ctx, address)
+        assert len(machine.sends) == 1, "a controller overwrote the read's unacknowledged X1"
+        assert machine.get_object(address, kind, "polls") == 0
+        while machine.get("ipc_sending"):
+            machine.alarm()
+
+        pending = machine.get("io_pending")
+        job = machine.get("io_job")
+        shared = bytes(machine.uc.mem_read(machine.ctx + layout["ipc"], 160))
+        machine.call(function, machine.ctx, address)
+        assert len(machine.sends) > 1, "a controller lost its poll while storage waited for a reply"
+        assert machine.get("storage_busy") == 1 and machine.get("io_job") == job
+        assert machine.get("io_pending") == pending
+        assert bytes(machine.uc.mem_read(machine.ctx + layout["ipc"], 160)) == shared
+        machine.call("gc_sd_write", machine.ctx, 300, 1, 0x90070000)
+        assert machine.reg(3) == (-3000 & 0xFFFFFFFF), "a card write stole the read's buffers"
+        assert machine.get("storage_busy") == 1 and machine.get("io_pending") == pending
+
+        # Deliver the controller reply first, then have its next poll take
+        # the storage reply before the worker gets another alarm turn.
+        machine.ticks += 2000
+        machine.call(function, machine.ctx, address)
+        if kind == "gcad":
+            assert machine.get_object(address, kind, "replies") > 0
+        else:
+            assert len([fd for _, fd in machine.sends if fd == 3]) >= 2
+        machine.ticks += machine.latency
+        machine.call(function, machine.ctx, address)
+        assert machine.get("io_reply") == 1, "the poll lost the storage reply"
+        assert machine.get("storage_busy") == 1 and machine.get("io_pending") == pending
+        machine.drain()
+        assert [result for _, result in machine.callbacks] == [1]
+        expected = bytes((10 * 512 + i) % 251 for i in range(0x10000))
+        assert bytes(machine.uc.mem_read(0x80020000, 0x10000)) == expected
+        assert machine.get("storage_busy") == 0 and machine.get("ipc_sending") == 0
+
+        blocked = Machine(layout)
+        setup_controllers(blocked)
+        blocked.put("storage_busy", 1)
+        blocked.call(function, blocked.ctx, address)
+        assert not blocked.sends, "a controller ran during shared-buffer preparation"
+        assert blocked.get("storage_busy") == 1
+    print("Adapter and Wii Remote polls: deferred during X1/Y2 and buffer preparation; "
+          "send and route replies during storage waits without releasing its buffers")
+
+
+def test_disk_id(layout):
+    # A loader-provided header needs no device wait. Keep the old immediate
+    # data copy, with only its completion callback deferred to the alarm.
+    ready = Machine(layout)
+    header = bytes(range(32))
+    ready.uc.mem_write(0x90030000, header)
+    ready.uc.mem_write(0x90000000, struct.pack(">5I", 0, 32, 0x90030000, 0, 2))
+    ready.call("gc_on_disk_id", ready.ctx, 0x80020000, CALLBACK)
+    assert bytes(ready.uc.mem_read(0x80020000, 32)) == header
+    assert not ready.callbacks
+    ready.drain()
+    assert [result for _, result in ready.callbacks] == [1]
+
+    for offset in (0, 4096):
+        machine = Machine(layout, latency=60750)
+        machine.put("drive_timing", 1)
+        machine.put("last_read_end", 0x3F000)
+        machine.put("disc_id_offset", offset)
+        machine.put("tgc_count", 1)
+        for name, value in {"tgc_offset": offset, "tgc_dol_start": offset,
+                            "tgc_dol_end": offset + 0x100}.items():
+            machine.put(name, value)
+        machine.call("gc_on_disk_id", machine.ctx, 0x80020000, CALLBACK)
+        assert not machine.callbacks and machine.get("sd_requests") == 1
+        machine.drain()
+        assert [result for _, result in machine.callbacks] == [1]
+        assert machine.callbacks[0][0] < 100000, "ReadDiskID inherited a regular read's seek delay"
+        assert machine.get("read_drive_ticks") == 0 and machine.get("last_read_end") == 0x3F000
+        assert machine.get("reads") == 0 and machine.get("tgc_count") == 1
+        assert machine.get("read_tgc_watch") == 0
+        expected = bytes((10 * 512 + 37 + offset + i) % 251 for i in range(32))
+        assert bytes(machine.uc.mem_read(0x80020000, 32)) == expected
+
+    # A reset-style command replacement must drain the old read before
+    # delivering the ID, and may never publish the superseded DMA.
+    machine = Machine(layout, latency=60750)
+    machine.call("gc_on_read", machine.ctx, 0x80030000, 512, 8192, CALLBACK)
+    machine.alarm()
+    machine.alarm()
+    machine.call("gc_on_disk_id", machine.ctx, 0x80020000, CALLBACK)
+    machine.drain()
+    assert [result for _, result in machine.callbacks] == [1]
+    assert bytes(machine.uc.mem_read(0x80030000, 512)) == bytes(512)
+    expected = bytes((10 * 512 + 37 + i) % 251 for i in range(32))
+    assert bytes(machine.uc.mem_read(0x80020000, 32)) == expected
+
+    # Exercise the actual cover alarm's disc insertion, then identify the
+    # new image with the same command the SDK issues after a disc swap.
+    machine = Machine(layout, latency=60750)
+    change = 0x90040000
+    di = 0x90050000
+    machine.put("disc_change", change)
+    machine.put("di_regs", di)
+    for name, value in {"magic": 0x52574443, "cover_ticks": 10000, "look_ticks": 1000}.items():
+        machine.put_object(change, "disc_change", name, value)
+    machine.uc.mem_write(change + layout["disc_change.discs"],
+                         struct.pack(">6I", 0x90000000, 1, 0, 0x90001000, 1, 0))
+    machine.uc.mem_write(0x90001000, struct.pack(">5I", 0, 0x40000, 20, 0, 0))
+    machine.uc.mem_write(di + 4, struct.pack(">I", 2))
+    machine.call("gc_on_stop_motor", machine.ctx, CALLBACK)
+    machine.drain()
+    assert machine.get_object(change, "disc_change", "current") == 1
+    machine.callbacks.clear()
+    machine.call("gc_on_disk_id", machine.ctx, 0x80020000, CALLBACK)
+    machine.drain()
+    assert [result for _, result in machine.callbacks] == [1]
+    expected = bytes((20 * 512 + i) % 251 for i in range(32))
+    assert bytes(machine.uc.mem_read(0x80020000, 32)) == expected
+    print("ReadDiskID: ready bytes copied immediately, SD waits yield without emulated seek delay, "
+          "correct TGC header without launching its watch, "
+          "safe reset-style replacement and correct ID after the cover alarm inserts disc 2")
+
+
 def test_cancel_before_start(layout):
     machine = Machine(layout, slow=True)
     machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
@@ -393,44 +563,92 @@ def test_card(layout):
 
 
 def test_timeout(layout):
-    machine = Machine(layout, latency=607500000)
-    machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
-    machine.alarm()
-    machine.alarm()
-    machine.ticks += 303750001
-    machine.drain()
-    assert [kind for _, kind in machine.callbacks] == [2]
-    assert machine.get("io_pending") != 0
-    machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
-    machine.alarm()
-    assert machine.get("sd_requests") == 1, "a timeout released a buffer IOS still owned"
-    machine.ticks += 303750001
-    machine.latency = 0
-    machine.drain()
-    assert [kind for _, kind in machine.callbacks] == [2, 1]
-    assert machine.get("io_pending") == 0
-    print("Timeout: buffers stay quarantined until the late DMA reply, then the next read succeeds")
-
-
-def test_reset_drain(layout):
-    for latency in (0, 60750):
-        machine = Machine(layout, latency=latency, slow=True)
+    for late_ack in (False, True):
+        machine = Machine(layout, latency=607500000)
+        if late_ack:
+            machine.ack_latency = machine.latency
         machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
         machine.alarm()
         machine.alarm()
-        arguments = 0x80060000
-        machine.uc.mem_write(arguments, bytes(12))
-        machine.call("gc_on_reset_system", machine.ctx, arguments)
+        machine.ticks += 303750001
         machine.drain()
-        assert not machine.callbacks
-        assert machine.get("io_pending") == 0
-        assert machine.get("busy") == 0
-        assert bytes(machine.uc.mem_read(0x80040000, 512)) == bytes(512)
-        machine.latency = 0
+        assert [kind for _, kind in machine.callbacks] == [2]
+        assert machine.get("io_pending") != 0
+        assert machine.get("ipc_sending") == int(late_ack)
         machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
+        machine.alarm()
+        assert machine.get("sd_requests") == 1, "a timeout released a buffer IOS still owned"
+        machine.ticks += 303750001
+        machine.latency = 0
+        machine.ack_latency = 1000
         machine.drain()
-        assert [kind for _, kind in machine.callbacks] == [1]
-    print("Reset/exec drain: pending and already routed DMA replies are safe before dropping the worker")
+        assert [kind for _, kind in machine.callbacks] == [2, 1]
+        assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
+    print("Timeout: buffers and send handshake stay quarantined until the late acknowledgment/reply; "
+          "the next read then succeeds")
+
+
+def test_reset_drain(layout):
+    for function in ("gc_on_reset_system", "gc_on_boot_dol"):
+        for latency in (0, 60750):
+            machine = Machine(layout, latency=latency, slow=True)
+            machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
+            machine.alarm()
+            machine.alarm()
+            arguments = 0x80060000
+            machine.uc.mem_write(arguments, bytes(28))
+            machine.call(function, machine.ctx, arguments)
+            machine.drain()
+            assert not machine.callbacks
+            assert machine.get("io_pending") == 0
+            assert machine.get("storage_busy") == 0
+            assert bytes(machine.uc.mem_read(0x80040000, 512)) == bytes(512)
+            machine.latency = 0
+            machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
+            machine.drain()
+            assert [kind for _, kind in machine.callbacks] == [1]
+    print("Reset and unredirected exec: pending and already routed DMA replies are safe "
+          "before dropping the worker")
+
+
+def test_leave_timeout(layout):
+    machine = Machine(layout)
+    machine.put("leave_buf", 0x90060000)
+    machine.put("leave_fd", 5)
+    snapshot = b"T" * 512
+    machine.uc.mem_write(0x90070000, snapshot)
+    traces = []
+
+    def failed_trace(uc, address, size, unused):
+        if address != machine.functions["gc_trace"]:
+            return
+        traces.append(machine.reg(4))
+        if len(traces) == 1:
+            # Inject the state a timed-out trace leaves behind, including
+            # a late acknowledgment. The real exit must drain its DMA
+            # before overwriting this request and its vectors for ES.
+            request = machine.ctx + layout["ipc"]
+            vectors = machine.ctx + layout["vec"]
+            command = machine.ctx + layout["request"]
+            fields = [0] * 16
+            fields[0], fields[2], fields[3], fields[6] = 7, 1, 7, vectors & 0x3FFFFFFF
+            uc.mem_write(request, struct.pack(">16I", *fields))
+            uc.mem_write(command, struct.pack(">9I", 0x19, 3, 1, 300, 1, 512, 0x90070000, 1, 0))
+            uc.mem_write(vectors, struct.pack(">6I", command & 0x3FFFFFFF, 36, 0x10070000,
+                                             512, (machine.ctx + layout["response"]) & 0x3FFFFFFF, 16))
+            physical = request & 0x3FFFFFFF
+            machine.put("io_pending", physical)
+            machine.put("ipc_sending", 1)
+            machine.handshake = machine.ticks + 1000
+            machine.pending.append((physical, machine.ticks + 10000))
+        uc.reg_write(UC_PPC_REG_PC, uc.reg_read(UC_PPC_REG_LR))
+
+    machine.uc.hook_add(UC_HOOK_CODE, failed_trace)
+    machine.call("gc_leave", machine.ctx)
+    assert machine.writes == [(300, snapshot)], "ES replaced the timed-out trace before IOS finished it"
+    assert [fd for _, fd in machine.sends] == [5]
+    assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
+    print("Exit after a trace timeout: late acknowledgment and unchanged DMA bytes drain before ES reuses IPC")
 
 
 def test_rvz(layout, devkitppc):
@@ -485,11 +703,14 @@ def main():
     test_reads(layout)
     test_replacement(layout)
     test_drive_timing(layout)
+    test_controller_overlap(layout)
+    test_disk_id(layout)
     test_cancel_before_start(layout)
     test_stream(layout)
     test_card(layout)
     test_timeout(layout)
     test_reset_drain(layout)
+    test_leave_timeout(layout)
     test_rvz(layout, args.devkitppc)
 
 

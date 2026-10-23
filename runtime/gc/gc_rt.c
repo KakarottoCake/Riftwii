@@ -55,7 +55,8 @@ static void gc_io_arm(struct gc_rt_context* ctx) {
     gc_set_alarm(ctx, ctx->io_alarm, GC_IO_POLL_TICKS);
 }
 
-/* Yield all the way out of the alarm. Merely setting MSR.EE here would
+/* Yield all the way out of the alarm (or ReadDiskID's initial hook turn).
+ * Merely setting MSR.EE here would
  * allow nested game callbacks inside an SDK alarm's temporary context.
  * Instead, its normal epilogue restores the interrupted game, and the
  * next alarm picks this private-stack continuation up where it stopped. */
@@ -179,6 +180,8 @@ uint32_t gc_ipc_take(void) {
 int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx) {
     uint32_t polls;
     uint32_t started;
+    if (ctx->ipc_sending) return -1000;
+    ctx->ipc_sending = 1;
     __asm__ volatile("mftb %0" : "=r"(started));
     gc_write32(GC_IPC_PPCMSG, phys);
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_X1);
@@ -188,6 +191,7 @@ int32_t gc_ipc_send(uint32_t phys, struct gc_rt_context* ctx) {
         if (!gc_ipc_wait(ctx, started, polls)) return -1000;
     }
     gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+    ctx->ipc_sending = 0;
     return 0;
 }
 
@@ -433,17 +437,16 @@ static int gc_read_disc_unlocked(struct gc_rt_context* ctx, uint8_t* dst, uint32
     return 1;
 }
 
-/* ctx->busy: a read is using the IPC buffers. The AI interrupt's stream
- * refill finds it set when it interrupted the game's own read, and waits
- * for the next buffer instead. */
+/* Storage retains the shared buffers across every worker yield. Controller
+ * requests have their own buffers and never take or release this ownership. */
 static int gc_read_disc(struct gc_rt_context* ctx, uint8_t* dst, uint32_t length, uint32_t offset,
                         uint32_t stream) {
     int ok;
-    if (ctx->busy) return 0;
-    ctx->busy = 1;
+    if (ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending) return 0;
+    ctx->storage_busy = 1;
     ok = gc_read_disc_unlocked(ctx, dst, length, offset, stream);
     gc_io_checkpoint(ctx);
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     return ok;
 }
 
@@ -505,7 +508,7 @@ static int32_t gc_ioctl(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, 
 
 /* `count` sectors (at most 16) from `buf` (32-byte aligned) to the card
  * at `sector`: CMD25, then CMD13 until the card has written them. The
- * caller holds ctx->busy. */
+ * caller holds ctx->storage_busy. */
 static int32_t gc_sd_write_locked(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf) {
     uint32_t* q = ctx->request;
     int32_t result;
@@ -552,13 +555,13 @@ static int32_t gc_sd_write_locked(struct gc_rt_context* ctx, uint32_t sector, ui
 int32_t gc_sd_write(struct gc_rt_context* ctx, uint32_t sector, uint32_t count, uint32_t buf) {
     int32_t result;
     const uint32_t msr = gc_irq_off();
-    if (ctx->busy) {
+    if (ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending) {
         gc_irq_restore(msr);
         return GC_TRACE_SKIPPED;
     }
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     result = gc_sd_write_locked(ctx, sector, count, buf);
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_irq_restore(msr);
     return result;
 }
@@ -650,11 +653,11 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         return 0;
     }
     msr = gc_irq_off();
-    if (ctx->busy || ctx->io_pending != 0) {
+    if (ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending) {
         gc_irq_restore(msr);
         return GC_TRACE_SKIPPED;
     }
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     __asm__ volatile("mftbu %0" : "=r"(tbu));
     __asm__ volatile("mftb %0" : "=r"(tbl));
     for (i = 0; i < 128; ++i) w[i] = 0;
@@ -819,7 +822,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_irq_restore(msr);
     return result;
 }
@@ -942,31 +945,49 @@ static void gc_stream_fetch(struct gc_rt_context* ctx);
  * which the queuing code stores at 0x80020428 only after queuing the load
  * at 0x800203ec, and jumped to whatever the heap had there. */
 static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t length);
-uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
-    gc_command_seen(ctx, 0);
-    ctx->reads++;
-    ctx->read_bytes += length;
-    ctx->last_offset = offset;
+static uint32_t gc_read_begin(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset,
+                              uint32_t cb, int disk_id) {
+    gc_command_seen(ctx, disk_id);
+    if (!disk_id) {
+        ctx->reads++;
+        ctx->read_bytes += length;
+        ctx->last_offset = offset;
+    }
     __asm__ volatile("mftb %0" : "=r"(ctx->read_started));
-    ctx->read_drive_ticks = ctx->drive_timing ? gc_drive_ticks(ctx, offset, length) : 0;
-    ctx->last_read_end = offset + length;
+    ctx->read_drive_ticks = !disk_id && ctx->drive_timing ? gc_drive_ticks(ctx, offset, length) : 0;
+    if (!disk_id) ctx->last_read_end = offset + length;
     ctx->read_addr = addr;
     ctx->read_length = length;
     ctx->read_offset = offset;
     ctx->read_cb = cb;
     ctx->read_failed = 0;
-    ctx->read_tgc_watch = 1;
+    ctx->read_tgc_watch = !disk_id;
     ctx->pending_cb = 0;  /* a completion still pending is this read's now */
     ctx->pending_type = 0;
     /* Queue the music ring's top-up while the card is free; neither this
      * hook nor PADRead waits for it. The copy starts after that job. */
-    gc_stream_fetch(ctx);
+    if (!disk_id) gc_stream_fetch(ctx);
     ctx->read_state = GC_READ_COPYING;
-    gc_arm(ctx, ctx->delay_ticks);
+    /* ReadDiskID previously queued its completion as soon as its bytes
+     * arrived, without seek/transfer emulation or a music top-up first.
+     * Start it now: ready bytes still arrive before the hook returns,
+     * while an unfinished IOS wait returns through the hook's caller. */
+    if (disk_id) {
+        const uint32_t msr = gc_irq_off();
+        if (gc_io_start(ctx, GC_IO_READ)) gc_io_resume(ctx);
+        else gc_arm(ctx, ctx->delay_ticks);
+        gc_irq_restore(msr);
+    } else {
+        gc_arm(ctx, ctx->delay_ticks);
+    }
     return 1;
 }
 
-/* On the worker's private stack, entered from the alarm (interrupts off):
+uint32_t gc_on_read(struct gc_rt_context* ctx, uint32_t addr, uint32_t length, uint32_t offset, uint32_t cb) {
+    return gc_read_begin(ctx, addr, length, offset, cb, 0);
+}
+
+/* On the worker's private stack, with interrupts off:
  * the next piece of the read. IOS waits return from the alarm, including
  * within a piece. With all bytes there, the callback still waits for the
  * drive's time. */
@@ -987,7 +1008,7 @@ static void gc_read_step(struct gc_rt_context* ctx) {
     }
 #endif
     if (piece != 0 && !ctx->read_failed) {
-        if (ctx->busy) {
+        if (ctx->storage_busy) {
             /* The IPC buffers are taken (the way back is starting): later. */
             gc_arm(ctx, ctx->delay_ticks);
             return;
@@ -1019,7 +1040,7 @@ static void gc_read_step(struct gc_rt_context* ctx) {
         }
     }
     ctx->read_state = GC_READ_NONE;
-    if (ctx->reads <= 32 || (ctx->reads & 63) == 0) gc_trace(ctx, GC_TRACE_READ);
+    if (ctx->read_tgc_watch && (ctx->reads <= 32 || (ctx->reads & 63) == 0)) gc_trace(ctx, GC_TRACE_READ);
     /* What the drive would still need after the time the SD card took. */
     __asm__ volatile("mftb %0" : "=r"(now));
     spent = now - ctx->read_started;
@@ -1130,9 +1151,7 @@ uint32_t gc_on_load_callbacks_done(struct gc_rt_context* ctx, uint32_t group) {
 }
 
 uint32_t gc_on_disk_id(struct gc_rt_context* ctx, uint32_t id, uint32_t cb) {
-    const uint32_t result = gc_on_read(ctx, id, 0x20, ctx->disc_id_offset, cb);
-    ctx->read_tgc_watch = 0;  /* identification is not the bonus menu loading a TGC */
-    return result;
+    return gc_read_begin(ctx, id, 0x20, ctx->disc_id_offset, cb, 1);
 }
 
 /* DVDDriveInfo: revision, device code, release date, then padding. */
@@ -1335,13 +1354,13 @@ static void gc_disc_motor_stop(struct gc_rt_context* ctx);
 static void gc_usb_keep_alive(struct gc_rt_context* ctx) {
     uint32_t now;
     if (ctx->usb_fd == 0xFFFFFFFFu || ctx->usb_keep_ticks == 0) return;
-    if (ctx->busy || ctx->read_state != GC_READ_NONE) return;
+    if (ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending || ctx->read_state != GC_READ_NONE) return;
     __asm__ volatile("mftb %0" : "=r"(now));
     if (now - ctx->usb_last_read < ctx->usb_keep_ticks) return;
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     ctx->usb_keepalives++;
     gc_usb_read(ctx, ctx->usb_keep_sector, 1, ctx->bounce);
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
 }
 
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context) {
@@ -1566,7 +1585,8 @@ static void gc_disc_on_alarm(struct gc_rt_context* ctx, uint32_t os_context) {
     uint32_t now;
     uint32_t ticks;
     uint32_t todo;
-    if (ctx->busy || ctx->io_job != 0 || ctx->read_state != GC_READ_NONE || ctx->pending_cb != 0) {
+    if (ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending || ctx->io_job != 0 ||
+        ctx->read_state != GC_READ_NONE || ctx->pending_cb != 0) {
         gc_set_alarm(ctx, dc->alarm, GC_DISC_BUSY_TICKS);  /* still queued, as far as gc_disc.h knows */
         return;
     }
@@ -1650,8 +1670,14 @@ static int gc_io_start(struct gc_rt_context* ctx, uint32_t job) {
     if (ctx->io_job == 0 && ctx->io_pending != 0) {
         uint32_t reply;
         while ((reply = gc_ipc_take()) != 0) gc_ipc_route(ctx, reply);
+        /* A send timeout may leave Y2 unconsumed. Its continuation is
+         * gone now, so this recovery path owns the final acknowledgment. */
+        if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) {
+            gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+            ctx->ipc_sending = 0;
+        }
     }
-    if (ctx->io_stack == 0 || ctx->io_job != 0 || ctx->busy || ctx->io_pending != 0) {
+    if (ctx->io_stack == 0 || ctx->io_job != 0 || ctx->storage_busy || ctx->io_pending != 0 || ctx->ipc_sending) {
         gc_irq_restore(msr);
         return 0;
     }
@@ -1672,7 +1698,8 @@ static void gc_io_resume(struct gc_rt_context* ctx) {
 
 /* Entered once on the loader's MEM2 stack, never on the game's stack.
  * A job's C frames survive an IOS wait. Only the alarm's small caller
- * frame is unwound, letting the OS service AI/DSP and run game threads. */
+ * frame (or ReadDiskID's initial hook frame) is unwound, letting the OS
+ * service AI/DSP and run game threads. */
 void gc_io_worker(struct gc_rt_context* ctx) {
     for (;;) {
         if (ctx->io_job == GC_IO_READ) {
@@ -1704,31 +1731,41 @@ void gc_io_worker(struct gc_rt_context* ctx) {
 /* A game-driven reset/exec can arrive while the worker is suspended.
  * Its OS may stop delivering alarms next. Drain the one DMA in place
  * before dropping the continuation or resetting its buffers; saved card
- * sectors remain dirty and the exit's forced flush writes them again.
- * The TGC watch already runs on the worker and has finished its I/O. */
+ * sectors remain dirty and the exit's forced flush writes them again. */
 static void gc_io_drain(struct gc_rt_context* ctx) {
     uint32_t msr;
-    if (ctx->io_running) return;
     msr = gc_irq_off();
+    /* A worker's TGC/leave trace can itself time out. Finish that DMA
+     * before a forced card flush or ES reuses the shared buffers, but
+     * keep the active worker's stack if IOS refuses the launch. */
+    while (ctx->ipc_sending) {
+        const uint32_t reply = gc_ipc_take();
+        if (reply != 0) gc_ipc_route(ctx, reply);
+        if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) {
+            gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
+            ctx->ipc_sending = 0;
+        }
+    }
+    while (ctx->io_pending != 0 && !ctx->io_reply) {
+        const uint32_t reply = gc_ipc_take();
+        if (reply != 0) gc_ipc_route(ctx, reply);
+    }
+    ctx->io_pending = 0;
+    if (ctx->io_running) {
+        gc_irq_restore(msr);
+        return;
+    }
     ctx->read_generation++;
     ctx->stream_generation++;
     ctx->read_state = GC_READ_NONE;
     ctx->pending_cb = 0;
     ctx->pending_type = 0;
-    while (ctx->io_pending != 0 && !ctx->io_reply) {
-        const uint32_t reply = gc_ipc_take();
-        if (reply == ctx->io_pending) ctx->io_pending = 0;
-        else if (reply != 0) gc_ipc_route(ctx, reply);
-        if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
-    }
-    ctx->io_pending = 0;
-    if (gc_read32(GC_IPC_PPCCTRL) & GC_IPC_Y2) gc_write32(GC_IPC_PPCCTRL, GC_IPC_Y2);
     ctx->io_sp = 0;
     ctx->io_job = 0;
     ctx->io_reply = 0;
     ctx->io_maintenance = 0;
     ctx->io_trace_where = 0;
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     /* Leave an already queued io_alarm linked until it fires, or until
      * the old OS is discarded. Queuing that same alarm twice corrupts
      * the SDK's alarm list. */
@@ -1911,6 +1948,9 @@ static void gc_leave(struct gc_rt_context* ctx) {
         if (card->dirty_count != 0) return;
     }
     gc_trace(ctx, GC_TRACE_LEAVE);
+    /* The exit's own trace can time out too. Its request must release
+     * the shared vectors before ES prepares the title launch. */
+    gc_io_drain(ctx);
     /* A Wii Remote's motor would otherwise run on until its link drops. */
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
     msr = gc_irq_off();  /* the game stops here: IOS takes the console over */
@@ -1922,14 +1962,14 @@ static void gc_leave(struct gc_rt_context* ctx) {
     ctx->vec[3] = 0xD8;
     gc_flush(buf, 0x100);
     gc_flush((uint32_t)(uintptr_t)ctx->vec, sizeof(ctx->vec));
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     ctx->ipc_no_timeout = 1;
     result = gc_ioctlv(ctx, ctx->leave_fd, GC_ES_LAUNCHTITLE, 2, 0);
     ctx->ipc_no_timeout = 0;
     /* Still here: IOS said no (the title went, or its ticket). The game
      * comes back (its next frame repaints the screen, as the crash screen
      * redraws itself), and the trace says why. */
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     ctx->last_error = result;
     gc_vi_take_back(ctx, game_vi);
     gc_irq_restore(msr);
@@ -1978,7 +2018,7 @@ static void gc_leave_check(struct gc_rt_context* ctx, const uint8_t* status) {
         ctx->leave_since = now | 1u;
         return;
     }
-    if (now - ctx->leave_since < ctx->leave_hold || ctx->busy) return;
+    if (now - ctx->leave_since < ctx->leave_hold || ctx->storage_busy) return;
     if (!gc_card_quiet(ctx, now)) return;
     gc_leave(ctx);
     ctx->leave_since = 0;
@@ -2057,7 +2097,7 @@ static void gc_reset_check(struct gc_rt_context* ctx, uint32_t n) {
     /* From the game's thread only: a pad read in an interrupt handler (some
      * games read the pads at the retrace) waits for the next one. */
     __asm__ volatile("mfmsr %0" : "=r"(msr));
-    if ((msr & GC_MSR_EE) == 0 || ctx->busy || !gc_card_quiet(ctx, now)) return;
+    if ((msr & GC_MSR_EE) == 0 || ctx->storage_busy || !gc_card_quiet(ctx, now)) return;
     ctx->reset_request_at = 0;
     if (!restart) {
         gc_leave(ctx);  /* a game whose restart is not known to work: back to RiftWii, as holding HOME */
@@ -2157,8 +2197,9 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     uint32_t target = args[0], first = 0, at, i;
     uint32_t msr;
     int read;
-    if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
+    /* Even an unredirected SDK boot can discard the old OS and its alarms. */
     gc_io_drain(ctx);
+    if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (target == 0xFFFFFFFFu) {
         const char* p = argc != 0 ? argv[0] : 0;
         if (p == 0 || *p < '0' || *p > '9') return;  /* not a program RiftWii can name */
@@ -2166,10 +2207,10 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
         first = 1;
     }
     msr = gc_irq_off();  /* the trace's buffer is this one: no heartbeat in between */
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     read = gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
     if (!read || gc_exec_word(buf, 0) != GC_EXEC_IDLE_0 || gc_exec_word(buf, 4) != GC_EXEC_IDLE_1) {
-        ctx->busy = 0;
+        ctx->storage_busy = 0;
         gc_irq_restore(msr);
         return;
     }
@@ -2191,20 +2232,21 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
         at = gc_exec_end_line(buf, gc_exec_text(buf, at, argv[i]));
     }
     (void)gc_sd_write_locked(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_trace(ctx, GC_TRACE_EXEC);
     gc_irq_restore(msr);
     gc_leave(ctx);
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the switch up, and the game's own goes on. */
+    gc_io_drain(ctx);
     msr = gc_irq_off();
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf)) {
         (void)gc_exec_bytes(buf, 0, GC_EXEC_IDLE_0, 4);
         (void)gc_exec_bytes(buf, 4, GC_EXEC_IDLE_1, 4);
         (void)gc_sd_write_locked(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf);
     }
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_irq_restore(msr);
 }
 
@@ -2235,16 +2277,16 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     if (!found) return;
     /* An SD request under way (this read broke into it): the read's first
      * piece (gc_read_step) asks again once the card is free. */
-    if (ctx->busy) return;
+    if (ctx->storage_busy) return;
     if (ctx->tgc_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) {
         ctx->tgc_count = 0;
         return;
     }
     msr = gc_irq_off();  /* the trace's buffer is this one: no heartbeat in between */
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     read = gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf);
     if (!read || gc_exec_word(buf, 0) != GC_EXEC_IDLE_0 || gc_exec_word(buf, 4) != GC_EXEC_IDLE_1) {
-        ctx->busy = 0;
+        ctx->storage_busy = 0;
         ctx->tgc_count = 0;
         gc_irq_restore(msr);
         return;
@@ -2258,25 +2300,26 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     (void)gc_exec_end_line(buf, gc_exec_number(buf, at, tgc));
     if (gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf) < 0) {
         ctx->tgc_count = 0;
-        ctx->busy = 0;
+        ctx->storage_busy = 0;
         gc_irq_restore(msr);
         return;
     }
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_trace(ctx, GC_TRACE_EXEC);
     gc_irq_restore(msr);
     gc_leave(ctx);
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the start up, and the menu's own goes on. */
     ctx->tgc_count = 0;
+    gc_io_drain(ctx);
     msr = gc_irq_off();
-    ctx->busy = 1;
+    ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf)) {
         (void)gc_exec_bytes(buf, 0, GC_EXEC_IDLE_0, 4);
         (void)gc_exec_bytes(buf, 4, GC_EXEC_IDLE_1, 4);
         (void)gc_sd_write_locked(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf);
     }
-    ctx->busy = 0;
+    ctx->storage_busy = 0;
     gc_irq_restore(msr);
 }
 
@@ -3078,7 +3121,11 @@ void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_cont
         if (gc_in_mem1(ctx->beat_pc))
             ctx->crash_word = gc_read32(gc_physical(ctx->beat_pc) | 0xC0000000u);
     }
-    ctx->busy = 0;  /* a crash inside a read leaves it set; nothing else runs now */
+    /* The crashed continuation will never resume, but IOS can still DMA
+     * into its buffers. Drain it before the fatal trace reuses them. */
+    (void)gc_irq_off();
+    ctx->io_running = 0;
+    gc_io_drain(ctx);
     gc_trace(ctx, GC_TRACE_FATAL);
     gc_crash_screen(ctx, os_context);
     /* Nothing reads the pads now to switch a Wii Remote's motor off. */
