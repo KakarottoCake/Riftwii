@@ -2343,23 +2343,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "GameCube games from a USB drive"
-msgstr "USBドライブのゲームキューブのゲーム"
+msgid "Wii channels and WiiWare on Home"
+msgstr "WiiチャンネルとWiiWareをホームに"
 
-msgid "The Wii U's GameCube adapter in GameCube games"
-msgstr "ゲームキューブでWii Uのアダプターが使えます"
+msgid "Your homebrew apps on Home"
+msgstr "Homebrewアプリをホームに"
 
-msgid "GameCube mods built with libogc, like Sonic Riders TE"
-msgstr "Sonic Riders TEなど、libogc製のMOD"
+msgid "More themes to download in Settings > Theme"
+msgstr "設定 > テーマで新しいテーマをダウンロード"
 
-msgid "WiiWare and VC: launch screen and screenshots"
-msgstr "Wiiウェア/VCに起動画面とスクリーンショット"
+msgid "Two-disc GameCube games change discs"
+msgstr "2枚組のゲームキューブのゲームでディスク交換"
 
-msgid "Problem reports can be sent again"
-msgstr "問題のレポートを再び送信できます"
+msgid "Retro Rewind online works again"
+msgstr "Retro Rewindのオンラインが直りました"
 
-msgid "A smaller RiftWii: half the download"
-msgstr "RiftWiiのダウンロードが半分になりました"
+msgid "Settings: Network Test, Games on the SD card"
+msgstr "設定：ネットワークテスト、SDカードのゲーム"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

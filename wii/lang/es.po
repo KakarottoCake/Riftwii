@@ -2343,23 +2343,23 @@ msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
-msgid "GameCube games from a USB drive"
-msgstr "Juegos de GameCube desde un USB"
+msgid "Wii channels and WiiWare on Home"
+msgstr "Canales Wii y WiiWare en Inicio"
 
-msgid "The Wii U's GameCube adapter in GameCube games"
-msgstr "El adaptador GameCube de Wii U en GameCube"
+msgid "Your homebrew apps on Home"
+msgstr "Tus apps homebrew en Inicio"
 
-msgid "GameCube mods built with libogc, like Sonic Riders TE"
-msgstr "Mods de GameCube con libogc, como Sonic Riders TE"
+msgid "More themes to download in Settings > Theme"
+msgstr "Más temas para descargar en Ajustes > Tema"
 
-msgid "WiiWare and VC: launch screen and screenshots"
-msgstr "WiiWare y CV: pantalla de inicio y capturas"
+msgid "Two-disc GameCube games change discs"
+msgstr "Juegos de GameCube de dos discos: cambio de disco"
 
-msgid "Problem reports can be sent again"
-msgstr "Los informes de problema se envían de nuevo"
+msgid "Retro Rewind online works again"
+msgstr "Retro Rewind vuelve a funcionar en línea"
 
-msgid "A smaller RiftWii: half the download"
-msgstr "Un RiftWii más pequeño: la mitad de descarga"
+msgid "Settings: Network Test, Games on the SD card"
+msgstr "Ajustes: Prueba de red, Juegos en la tarjeta SD"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

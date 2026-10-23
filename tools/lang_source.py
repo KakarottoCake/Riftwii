@@ -1995,12 +1995,12 @@ T = {
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
     # What's new in the release after 2610-432
-    "GameCube games from a USB drive": ("Juegos de GameCube desde un USB", "USBドライブのゲームキューブのゲーム", "Jogos de GameCube de um USB", "Giochi GameCube da USB"),
-    "The Wii U's GameCube adapter in GameCube games": ("El adaptador GameCube de Wii U en GameCube", "ゲームキューブでWii Uのアダプターが使えます", "O adaptador GameCube do Wii U no GameCube", "L'adattatore GameCube di Wii U nel GameCube"),
-    "GameCube mods built with libogc, like Sonic Riders TE": ("Mods de GameCube con libogc, como Sonic Riders TE", "Sonic Riders TEなど、libogc製のMOD", "Mods de GameCube com libogc, como Sonic Riders TE", "Mod GameCube con libogc, come Sonic Riders TE"),
-    "WiiWare and VC: launch screen and screenshots": ("WiiWare y CV: pantalla de inicio y capturas", "Wiiウェア/VCに起動画面とスクリーンショット", "WiiWare e VC: tela de início e capturas", "WiiWare e VC: schermata di avvio e screenshot"),
-    "Problem reports can be sent again": ("Los informes de problema se envían de nuevo", "問題のレポートを再び送信できます", "Os relatórios de problema funcionam de novo", "Le segnalazioni di problema funzionano di nuovo"),
-    "A smaller RiftWii: half the download": ("Un RiftWii más pequeño: la mitad de descarga", "RiftWiiのダウンロードが半分になりました", "Um RiftWii menor: metade do download", "Un RiftWii più piccolo: metà del download"),
+    "Wii channels and WiiWare on Home": ("Canales Wii y WiiWare en Inicio", "WiiチャンネルとWiiWareをホームに", "Canais Wii e WiiWare no Início", "Canali Wii e WiiWare nella Home"),
+    "Your homebrew apps on Home": ("Tus apps homebrew en Inicio", "Homebrewアプリをホームに", "Seus apps homebrew no Início", "Le tue app homebrew nella Home"),
+    "More themes to download in Settings > Theme": ("Más temas para descargar en Ajustes > Tema", "設定 > テーマで新しいテーマをダウンロード", "Mais temas para baixar em Configurações > Tema", "Altri temi da scaricare in Impostazioni > Tema"),
+    "Two-disc GameCube games change discs": ("Juegos de GameCube de dos discos: cambio de disco", "2枚組のゲームキューブのゲームでディスク交換", "Jogos de GameCube de dois discos trocam de disco", "I giochi GameCube su due dischi cambiano disco"),
+    "Retro Rewind online works again": ("Retro Rewind vuelve a funcionar en línea", "Retro Rewindのオンラインが直りました", "O online do Retro Rewind funciona de novo", "L'online di Retro Rewind funziona di nuovo"),
+    "Settings: Network Test, Games on the SD card": ("Ajustes: Prueba de red, Juegos en la tarjeta SD", "設定：ネットワークテスト、SDカードのゲーム", "Configurações: Teste de rede, Jogos no cartão SD", "Impostazioni: Test di rete, Giochi su scheda SD"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3847,18 +3847,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "GameCube games from a USB drive":
-        "USB 드라이브의 게임큐브 게임",
-    "The Wii U's GameCube adapter in GameCube games":
-        "게임큐브 게임에서 Wii U 게임큐브 어댑터",
-    "GameCube mods built with libogc, like Sonic Riders TE":
-        "Sonic Riders TE 같은 libogc 게임큐브 MOD",
-    "WiiWare and VC: launch screen and screenshots":
-        "WiiWare와 VC: 실행 화면과 스크린샷",
-    "Problem reports can be sent again":
-        "문제 보고서를 다시 보낼 수 있습니다",
-    "A smaller RiftWii: half the download":
-        "더 작아진 RiftWii: 다운로드 절반",
+    "Wii channels and WiiWare on Home":
+        "홈에 Wii 채널과 WiiWare",
+    "Your homebrew apps on Home":
+        "홈에 홈브류 앱",
+    "More themes to download in Settings > Theme":
+        "설정 > 테마에서 테마 다운로드",
+    "Two-disc GameCube games change discs":
+        "디스크 2장짜리 게임큐브 게임의 디스크 교체",
+    "Retro Rewind online works again":
+        "Retro Rewind 온라인이 다시 작동",
+    "Settings: Network Test, Games on the SD card":
+        "설정: 네트워크 테스트, SD 카드의 게임",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5680,18 +5680,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "GameCube games from a USB drive":
-        "Jeux GameCube depuis un USB",
-    "The Wii U's GameCube adapter in GameCube games":
-        "L'adaptateur GameCube de Wii U sur GameCube",
-    "GameCube mods built with libogc, like Sonic Riders TE":
-        "Mods GameCube avec libogc, comme Sonic Riders TE",
-    "WiiWare and VC: launch screen and screenshots":
-        "WiiWare et CV : écran de lancement et captures",
-    "Problem reports can be sent again":
-        "Les rapports de problème fonctionnent à nouveau",
-    "A smaller RiftWii: half the download":
-        "Un RiftWii plus léger : moitié moins à télécharger",
+    "Wii channels and WiiWare on Home":
+        "Chaînes Wii et WiiWare dans l'Accueil",
+    "Your homebrew apps on Home":
+        "Vos applis homebrew dans l'Accueil",
+    "More themes to download in Settings > Theme":
+        "Thèmes à télécharger dans Paramètres > Thème",
+    "Two-disc GameCube games change discs":
+        "Jeux GameCube à 2 disques : le disque change",
+    "Retro Rewind online works again":
+        "Le jeu en ligne de Retro Rewind remarche",
+    "Settings: Network Test, Games on the SD card":
+        "Paramètres : Test réseau, Jeux sur la carte SD",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
