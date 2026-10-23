@@ -3595,7 +3595,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
     }
     apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
-    if (!g_extras.cheat_gct.empty()) {
+    const std::string codes_refused = channel_codes_refusal(files.program);
+    if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
+        logf("Codes are off: %s\n", codes_refused.c_str());
+    } else if (!g_extras.cheat_gct.empty()) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
