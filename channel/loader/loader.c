@@ -250,15 +250,18 @@ typedef struct {
 // Every section in MEM1 above this loader, and inside the file.
 static int dol_valid(const DolHeader* h, u32 size) {
     const u32 self_hi = (u32)__loader_end;
+    int entry_loaded = 0;
     for (int i = 0; i < 18; ++i) {
         if (!h->size[i]) continue;
         const u32 lo = h->address[i], hi = lo + h->size[i];
         if (h->offset[i] > size || h->size[i] > size - h->offset[i]) return 0;
         if (lo < self_hi || hi > MEM1_HI || hi < lo) return 0;
+        if (h->entry >= lo && h->entry < hi) entry_loaded = 1;
     }
     const u32 lo = h->bss_address, hi = lo + h->bss_size;
     if (h->bss_size && (lo < self_hi || hi > MEM1_HI || hi < lo)) return 0;
-    return h->entry >= self_hi && h->entry < MEM1_HI;
+    // Refuse an entry in a hole instead of jumping into stale MEM1 data.
+    return entry_loaded;
 }
 
 typedef void (*Entry)(void);
