@@ -5,6 +5,7 @@
 // whole in the plugin, and the plugin refuses a request it cannot read
 // before it uses any of it (docs/PLUGINS.md, "Stage (b)").
 #include "riftwii/gcrequest.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <cstddef>
 #include <cstring>
@@ -204,6 +205,13 @@ static void test_refusals() {
         f.request.pack_fst_bytes = sizeof(fst);
         f.request.pack_entry_count = 0x40000000u;
         EXPECT_FALSE(f.check(why));
+        // A count the request's own entries fit under the cap, but the
+        // plan's larger entries would not.
+        static_assert(sizeof(GcOverlayPlan::Entry) > sizeof(rwp_gc_pack_entry), "the plan's entries are the larger");
+        f.request.pack_entry_count = static_cast<std::uint32_t>(kMaxCheckedBytes / sizeof(rwp_gc_pack_entry));
+        EXPECT_FALSE(f.check(why));
+        f.request.pack_entry_count = static_cast<std::uint32_t>(kMaxCheckedBytes / sizeof(GcOverlayPlan::Entry));
+        EXPECT_TRUE(f.check(why));
         f.request.pack_entry_count = 2;
         EXPECT_TRUE(f.check(why));
     }
