@@ -102,7 +102,16 @@ Two scripts on the card drive a run without hands on a controller:
   `dump <disc path> [sd path]`, `dol [sd path]`, `xml <sd path>`,
   `set <option>=<choice>`, `replace`/`grow`/`sdreplace`/`sdgrow <disc
   path> <sd path>`, `keep <disc path>`, `hook`, `nofallback`, `boot`,
-  `launch`.
+  `launch`. The driver is in the test build only:
+  `make -f Makefile.wii TEST=1` (the DOL is `riftwii.dol` again, so keep a
+  copy of the release one). A release build leaves `wii/launch/autorun.cpp`
+  out, and with an `autorun.txt` on the card it starts the menu and logs one
+  line in `session.log` that it ignored the file. Switching between the two
+  without `clean` is safe: a stamp (`build_wii/riftwii_test.stamp`) rebuilds
+  `main.o` and `memlimits.o` when `TEST` or `WII_DEFINES` changes. The test
+  build must act like the release one, so a test that needs the release
+  build's room must not pass on the test build's extra: use the artificial
+  limits below (`test_limits.txt`) to hold the memory back. CI builds both.
 - `sd:/riftwii/guiscript.txt` plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
