@@ -122,8 +122,8 @@ if(BUILD_TESTING)
         endif()
         if(suite STREQUAL "compat" OR suite STREQUAL "rvz" OR suite STREQUAL "vcdiff" OR suite STREQUAL "stash" OR suite STREQUAL "plugin")
             add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}/tests/fixtures")
-        elseif(suite STREQUAL "menufont")
-            # The committed fonts and translations (wii/font, wii/lang).
+        elseif(suite STREQUAL "menufont" OR suite STREQUAL "gccrash")
+            # The committed fonts/translations and the GameCube flag definitions.
             add_test(NAME ${suite} COMMAND ${suite}_tests "${CMAKE_SOURCE_DIR}")
         else()
             add_test(NAME ${suite} COMMAND ${suite}_tests)
