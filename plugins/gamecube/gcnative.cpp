@@ -2111,9 +2111,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // A read from an RVZ fails with only true or false through
         // ByteSource; the reader keeps why (a damaged chunk's Zstandard
         // error, a group that does not fit), and that is what the player's
-        // log needs.
+        // log needs. This is the only place the reason is added, and the
+        // messages above never hold it.
         const std::string why = rvz_disc ? rvz_disc->image().last_error() : std::string();
-        if (!why.empty() && error.find(why) == std::string::npos) error += " (the RVZ: " + why + ")";
+        if (!why.empty()) error += " (the RVZ: " + why + ")";
         return false;
     }
     // A two-disc game's second disc. The game reads its FST into the same
