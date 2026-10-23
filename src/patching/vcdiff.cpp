@@ -229,7 +229,14 @@ public:
             // final pass below then leaves those copies alone.
             const std::uint64_t bs = limits_.cache_block;
             const std::uint64_t region = bs * limits_.cache_blocks;
-            std::vector<bool> used(static_cast<std::size_t>((seg_len + bs - 1) / bs));
+            // seg_len comes from the patch: the block count is checked
+            // before it becomes a size, and the bitmap's room asked for.
+            const std::uint64_t blocks = seg_len / bs + (seg_len % bs != 0 ? 1 : 0);
+            std::vector<bool> used;
+            if (blocks > used.max_size() || !try_resize(used, static_cast<std::size_t>(blocks))) {
+                detail::note_out_of_memory();
+                return fail(kNoRoom);
+            }
             if (!walk(out, [&](std::uint64_t from, std::uint64_t n, std::uint64_t) {
                     for (std::uint64_t b = from / bs; b <= (from + n - 1) / bs; ++b) used[b] = true;
                     return true;
