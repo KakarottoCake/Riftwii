@@ -10,6 +10,12 @@ namespace {
 // Directory nesting a folder patch may walk; deeper trees are refused so a
 // looping card cannot recurse forever.
 constexpr unsigned kMaxFolderDepth = 32;
+// Files one launch's folder patches may expand to in all. A RiiFS server
+// lists up to 65,536 entries in one folder and a FAT folder holds as many,
+// while a track-slot pack (32 slots of a few hundred tracks) needs about
+// ten thousand; without a cap a hostile listing asks for gigabytes of
+// FilePatches before the bad_alloc ends the launch.
+constexpr std::size_t kMaxExpandedFiles = 32768;
 
 char fold(char c) {
     return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
@@ -153,9 +159,17 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
                 continue;
             }
             x.files.push_back(make_file(folder, disc_path, sd_path, false));
+            if (x.files.size() > kMaxExpandedFiles) {
+                error = "'" + sd_dir + "' expands to too many files";
+                return false;
+            }
             ++x.replaced;
         } else if (folder.create) {
             x.files.push_back(make_file(folder, disc_path, sd_path, true));
+            if (x.files.size() > kMaxExpandedFiles) {
+                error = "'" + sd_dir + "' expands to too many files";
+                return false;
+            }
             ++x.created;
         } else {
             ++x.skipped;
@@ -196,6 +210,10 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
             FilePatch dol = make_file(folder, "main.dol", join(sd_dir, e.name), false);
             dol.is_filename = true;
             x.files.push_back(dol);
+            if (x.files.size() > kMaxExpandedFiles) {
+                error = "'" + sd_dir + "' expands to too many files";
+                return false;
+            }
             ++x.replaced;
             continue;
         }
@@ -211,6 +229,10 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
                 return false;
             }
             x.files.push_back(make_file(folder, spelled, join(sd_dir, e.name), false));
+            if (x.files.size() > kMaxExpandedFiles) {
+                error = "'" + sd_dir + "' expands to too many files";
+                return false;
+            }
             ++x.replaced;
         }
     }
@@ -260,6 +282,7 @@ bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, st
                  std::vector<std::string>& notes, std::string& error) {
     std::vector<FilePatch> files;
     std::vector<std::string> lines;
+    std::size_t expanded = 0;
     // Plans built in code may leave `order` empty (plan_package always fills
     // it); then the kinds go one after the other, files first.
     std::vector<PatchStep> order = plan.order;
@@ -284,6 +307,11 @@ bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, st
             const FolderPatch& folder = plan.folders[step.index];
             Expansion x;
             if (!expand_folder(folder, fst, provider, x, error)) return false;
+            expanded += x.files.size();
+            if (expanded > kMaxExpandedFiles) {
+                error = "'<folder " + folder.external + ">' expands to too many files";
+                return false;
+            }
             files.insert(files.end(), x.files.begin(), x.files.end());
             const std::string head =
                 "<folder " + folder.external + " -> " + (folder.disc.empty() ? "by name" : folder.disc) + ">: ";
