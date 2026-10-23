@@ -5,7 +5,8 @@
 Run with python3 tools/gc_fst_read_test.py --cxx g++. The vector stand-in
 records constructor sizes without allocating disc-controlled amounts of RAM.
 The surrounding launch functions depend on Wii hardware, so only their FST
-read blocks are compiled, with successful reads and no pack or TGC override.
+read blocks are compiled, with successful or failed header reads and no pack
+or TGC override.
 """
 
 import argparse
@@ -26,6 +27,8 @@ HARNESS = r'''
 std::vector<std::size_t> allocations;
 unsigned reads = 0;
 unsigned logs = 0;
+bool boot_read_ok = true;
+bool expect_boot_read = false;
 
 struct TrackedBytes {
     std::size_t length = 0;
@@ -40,6 +43,10 @@ struct TrackedBytes {
 
 struct Disc {
     bool read(std::uint64_t, std::uint8_t*, std::size_t) const {
+        if (expect_boot_read) {
+            expect_boot_read = false;
+            return boot_read_ok;
+        }
         ++reads;
         return true;
     }
@@ -56,9 +63,17 @@ std::uint32_t be32(const std::uint8_t* bytes) {
            (std::uint32_t(bytes[2]) << 8) | bytes[3];
 }
 
+struct RvzDisc {
+    const RvzDisc& image() const { return *this; }
+    std::string last_error() const { return "damaged RVZ chunk"; }
+};
+
 bool plugin_read(std::array<std::uint8_t, 0x440>& boot, std::string& error) {
     Disc f;
-    bool ok = true;
+    bool ok = boot_read_ok;
+    if (!ok) error = "cannot read test.rvz";
+    const RvzDisc rvz;
+    const RvzDisc* rvz_disc = &rvz;
     struct Pack { TrackedBytes fst; };
     const Pack* pack = nullptr;
     const std::uint32_t tgc_offset = 0;
@@ -71,6 +86,8 @@ bool plugin_read(std::array<std::uint8_t, 0x440>& boot, std::string& error) {
 
 bool menu_read(std::array<std::uint8_t, 0x440>& boot, std::string& error) {
     const Disc iso;
+    const struct { std::string path = "test.rvz"; } image;
+    expect_boot_read = true;
     // MENU_CODE
     return true;
 }
@@ -109,9 +126,31 @@ int main() {
                 check(logs == 0, "valid size must not log a refusal");
             }
         }
+        // A failed boot read leaves zeroes or partial header bytes behind.
+        // Neither may replace the read error or choose an FST allocation.
+        boot_read_ok = false;
+        for (const std::uint32_t size : {0u, 12u, 0xffffffffu}) {
+            std::array<std::uint8_t, 0x440> boot{};
+            for (unsigned i = 0; i < 4; ++i) boot[0x428 + i] = size >> (24 - 8 * i);
+            allocations.clear();
+            reads = 0;
+            logs = 0;
+            std::string error;
+            const bool accepted = read(boot, error);
+            const std::string expected_error = read == plugin_read
+                ? "cannot read test.rvz (the RVZ: damaged RVZ chunk)"
+                : "cannot read test.rvz";
+            if (accepted || error != expected_error || !allocations.empty() || reads != 0 || logs != 0) {
+                std::printf("%s, failed boot read with size 0x%08x: error '%s', %zu allocations, %u FST reads, %u logs\n",
+                            read == plugin_read ? "plugin" : "menu", size, error.c_str(),
+                            allocations.size(), reads, logs);
+                ++failures;
+            }
+        }
+        boot_read_ok = true;
     }
     if (failures != 0) return 1;
-    std::puts("Both GameCube FST readers reject zero and oversized sizes before allocation or reading");
+    std::puts("Both GameCube FST readers bound sizes and preserve failed boot-read errors before allocation");
 }
 '''
 
@@ -127,14 +166,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cxx", default="g++")
     args = parser.parse_args()
-    plugin = read_block("plugins/gamecube/gcnative.cpp",
-                        "    const std::uint32_t fst_size = be32(&boot[0x428]);",
-                        "    if (!ok) {")
-    menu_source = (ROOT / "wii/launch/gclaunch.cpp").read_text()
-    menu_start = "    const std::uint32_t fst_size = be32(&boot[0x428]);"
-    if menu_start not in menu_source:
-        menu_start = "    std::vector<std::uint8_t> fst_bytes(be32(&boot[0x428]));"
-    menu = read_block("wii/launch/gclaunch.cpp", menu_start, "    Fst fst;")
+    plugin_source = (ROOT / "plugins/gamecube/gcnative.cpp").read_text()
+    plugin_start = "    const auto fail_read = [&]() {"
+    if plugin_start not in plugin_source:
+        plugin_start = "    const std::uint32_t fst_size = be32(&boot[0x428]);"
+    plugin = read_block("plugins/gamecube/gcnative.cpp", plugin_start,
+                        "    // A two-disc game's second disc.")
+    menu = read_block("wii/launch/gclaunch.cpp",
+                      "    if (!iso.read(0, boot.data(), boot.size())) {", "    Fst fst;")
     harness = HARNESS.replace("// PLUGIN_CODE", plugin).replace("// MENU_CODE", menu)
     with tempfile.TemporaryDirectory(prefix="riftwii-gc-fst-") as directory:
         temporary = Path(directory)
