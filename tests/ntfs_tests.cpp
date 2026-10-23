@@ -495,6 +495,29 @@ void test_walk(std::uint64_t base) {
 
 void test_corruption() {
     std::string error;
+    for (bool has_list : {false, true}) {
+        // A continuation extent cannot stand in for the missing beginning
+        // of a file, with or without an attribute list naming it.
+        Volume v(0);
+        Record file(1);
+        if (has_list) {
+            Bytes list(0x20, 0);
+            put32(list.data(), 0x80);
+            put16(list.data() + 4, list.size());
+            list[7] = 0x1A;
+            put64(list.data() + 8, 1);
+            put64(list.data() + 0x10, 19);
+            file.resident(0x20, list);
+        }
+        file.non_resident(0x80, runs({{320, 1}}), 1, 1, 1000);
+        v.record(19, file.finish());
+
+        NtfsVolume vol;
+        EXPECT_TRUE(NtfsVolume::mount_at(v.reader(), 0, vol, error));
+        VolumeFile result;
+        EXPECT_FALSE(vol.lookup("/mid.bin", result, error));
+        EXPECT_CONTAINS(error, "first extent");
+    }
     {
         // A torn record (sector written without its neighbour) is refused.
         Volume v(0);

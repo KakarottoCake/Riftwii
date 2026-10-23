@@ -226,8 +226,16 @@ bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 // sound manager the same way (marioparty5 and marioparty6's
 // src/game/audio.c: skipARInit, ARAM end 0x808000) and stopped in it, in
 // HuAudInit's endless loop, after reading its two headers (Dolphin, 2610-564).
+// Splinter Cell: Double Agent (GWY), every region: it sizes the SDK's virtual
+// memory as VMInit(2 MB, ARGetBaseAddress() + 0x32000, 0x01000000 -
+// ARGetBaseAddress()) (GWYE41: callers at 0x800096ec, 0x800b97a4 and
+// 0x800b97dc). With the base raised to 0x10004000 (what Dolphin does, and a
+// Wii when the game's sound program is not one Nintendont's list knows) that
+// size wraps to 0xF0FFC000 and VMAlloc, which indexes its 4096-entry page
+// table by the absolute ARAM page, wrote far past the table in MEM1 (issue 252).
 bool gc_keeps_aram_addresses(const std::string& id) {
-    return id_is(id, "GMP") || id_is(id, "GP5") || id_is(id, "GP6") || id_is(id, "GP7") || id_is(id, "GWZ");
+    return id_is(id, "GMP") || id_is(id, "GP5") || id_is(id, "GP6") || id_is(id, "GP7") || id_is(id, "GWZ") ||
+           id_is(id, "GWY");
 }
 
 // Luigi's Mansion (GLM), every region: its loader thread's heap race
