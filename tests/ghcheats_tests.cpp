@@ -79,6 +79,10 @@ int main() {
         // A name in the page's text or in another attribute is not a link.
         EXPECT_TRUE(gamehacking_newest_wii_zip("<p>a=text_wii_20261201.zip </p>", name, error) == false);
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a title=text_wii_20261201.zip href=x>x</a>", name, error) == false);
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=x title=text_wii_20261201.zip>x</a>", name, error) == false);
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=\"x\" title=\"text_wii_20261201.zip\">x</a>", name, error) == false);
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a HREF = \"/text/text_wii_20261201.zip\">x</a>", name, error));
+        EXPECT_EQ(name, "text_wii_20261201.zip");
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=text_wii_20260927.zip>z</a> b=text_wii_20261201.zip ", name, error));
         EXPECT_EQ(name, "text_wii_20260927.zip");
         EXPECT_TRUE(gamehacking_zip_name_ok("text_wii_20260927.zip"));

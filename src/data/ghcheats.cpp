@@ -70,10 +70,11 @@ bool wanted(const ZipEntry& entry, const GameHackingLimits& limits) {
     return !entry.directory && has_suffix_nocase(entry.name, ".txt") && entry.unpacked_size <= limits.entry_unpacked;
 }
 
-// Whether the name at `at` sits inside a tag's href attribute: the last "<"
-// before it comes after the last ">", and "href" appears between that "<" and
-// the name. A zip name written in the page's text, or in another attribute,
-// is not taken as the newest.
+// Whether the name at `at` sits inside the value of a tag's href attribute:
+// the last "<" before it comes after the last ">", the tag's last "href" is
+// followed by "=" and the value, and nothing between the value's start and
+// the name ends it (its closing quote, or white space when unquoted). A zip
+// name in the page's text or in another attribute is not taken.
 bool inside_href(const std::string& listing, std::size_t at) {
     const std::size_t open = listing.rfind('<', at);
     if (open == std::string::npos) return false;
@@ -81,7 +82,20 @@ bool inside_href(const std::string& listing, std::size_t at) {
     if (close != std::string::npos && close > open) return false;
     std::string tag = listing.substr(open, at - open);
     std::transform(tag.begin(), tag.end(), tag.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return tag.find("href") != std::string::npos;
+    const std::size_t href = tag.rfind("href");
+    if (href == std::string::npos) return false;
+    std::size_t i = href + 4;
+    while (i < tag.size() && std::isspace(static_cast<unsigned char>(tag[i]))) ++i;
+    if (i >= tag.size() || tag[i] != '=') return false;
+    ++i;
+    while (i < tag.size() && std::isspace(static_cast<unsigned char>(tag[i]))) ++i;
+    const char quote = i < tag.size() && (tag[i] == '"' || tag[i] == '\'') ? tag[i] : '\0';
+    if (quote != '\0') ++i;
+    for (; i < tag.size(); ++i) {
+        const char c = tag[i];
+        if (quote != '\0' ? c == quote : std::isspace(static_cast<unsigned char>(c)) != 0) return false;
+    }
+    return true;
 }
 
 }  // namespace
