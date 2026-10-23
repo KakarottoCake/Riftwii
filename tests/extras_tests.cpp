@@ -1046,6 +1046,22 @@ void TestSettings() {
     EXPECT_TRUE(favAgain.favorites == fav.favorites);
     EXPECT_EQ(favAgain.other.count("favorites"), 0u);
     EXPECT_TRUE(LoaderSettings{}.serialize().find("favorites") == std::string::npos);
+
+    // A folder holding ';' cannot come back from the file whole: the file
+    // joins folders with ';', so saving leaves it out instead of writing
+    // two folders in its place.
+    LoaderSettings folders;
+    folders.game_folders = {"/Wii;Games", "/ok"};
+    const std::string foldersText = folders.serialize();
+    EXPECT_TRUE(foldersText.find(";Games") == std::string::npos);
+    EXPECT_TRUE(foldersText.find("game_folders = /ok\n") != std::string::npos);
+    LoaderSettings foldersAgain;
+    foldersAgain.parse(foldersText);
+    EXPECT_EQ(foldersAgain.game_folders.size(), 1u);
+    EXPECT_EQ(foldersAgain.game_folders[0], "/ok");
+    LoaderSettings foldersThird;
+    foldersThird.parse(foldersAgain.serialize());
+    EXPECT_TRUE(foldersThird.game_folders == foldersAgain.game_folders);
 }
 
 void TestWfc() {
