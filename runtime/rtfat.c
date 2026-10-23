@@ -962,7 +962,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->file->first_cluster = op->alloc_cluster;
             op->file->cache_index = 0;
             op->file->cache_cluster = op->alloc_cluster;
-            op->entry_dirty = 1;
+            op->file->entry_dirty = 1;
             op->state = op->next_state;
             return RT_CONT;
         case S_ALLOC_LINK:
@@ -1265,13 +1265,13 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->data_done += op->chunk_bytes;
             if (op->file->position + op->data_done > op->file->size) {
                 op->file->size = op->file->position + op->data_done;
-                op->entry_dirty = 1;
+                op->file->entry_dirty = 1;
             }
             op->state = S_WRITE_NEXT;
             return RT_CONT;
         case S_WRITE_FINISH:
             op->file->position += op->length;
-            if (!op->entry_dirty) return finish(op, (int32_t)op->length);
+            if (!op->file->entry_dirty) return finish(op, (int32_t)op->length);
             op->state = S_WRITE_ENTRY_READ;
             return RT_CONT;
         case S_WRITE_ENTRY_READ:
@@ -1286,6 +1286,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return issue(op, op->file->entry_lba, 1, 1, op->sector);
         }
         case S_WRITE_ENTRY_WRITTEN:
+            op->file->entry_dirty = 0;
             return finish(op, (int32_t)op->length);
 
         /* ---- CREATE ---- */
@@ -1464,7 +1465,6 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
                 if (op->file->position + op->length < op->file->position) return done_now(op, RTFAT_ENOSPC);
                 op->grow_from = op->file->size;
                 op->data_done = 0;
-                op->entry_dirty = 0;
                 op->state = S_WRITE_NEXT;
                 break;
             case RTFAT_OP_CREATE:
