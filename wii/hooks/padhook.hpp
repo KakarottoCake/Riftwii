@@ -62,6 +62,12 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why);
 // After an IOS reload: a /dev/usb/hid request that timed out went with
 // the old IOS, so the new one may be asked again.
 void forget_usb_hid_stuck();
+// Before an IOS reload (reload_ios), while the old IOS still answers: the
+// launch's own /dev/usb/hid handle is closed and forgotten, so the next use
+// opens a fresh one on the new IOS. A handle whose request never came back
+// is dropped without a close (the close would wait behind it), and the stuck
+// state stays. Does nothing when no handle is held.
+void forget_usb_hid_handle();
 // The running IOS's /dev/usb/hid is v4 (a d2x cIOS on base 56 or older):
 // it is asked only v4's GetVersion. v5's (request 0) is v4's
 // GetDeviceChange, which waits for the next plug or unplug.
