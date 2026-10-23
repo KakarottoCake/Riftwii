@@ -6529,11 +6529,11 @@ FR.update({
 
 T.update({
     "Bring your Nintendont saves?": ("¿Traer tus partidas de Nintendont?", "Nintendontのセーブを持ってきますか?", "Trazer seus saves do Nintendont?", "Portare i salvataggi di Nintendont?"),
-    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": (
-        "RiftWii ha encontrado {1} archivos de tarjeta de memoria en la carpeta de partidas de Nintendont ({2}). Sus partidas se copian a las tarjetas de memoria de RiftWii, las de cada juego a la suya, y las que ya están no se tocan. Los archivos de Nintendont nunca se cambian, y antes se guarda una copia de cada tarjeta, así que Restaurar una partida anterior puede deshacerlo.",
-        "Nintendontのセーブフォルダ({2})にメモリーカードのファイルが{1}個見つかりました。そのセーブをRiftWiiのメモリーカードにコピーします。ゲームごとにそのゲーム専用のカードへ入り、すでにあるセーブはそのままです。Nintendontのファイルは変更しません。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。",
-        "O RiftWii encontrou {1} arquivos de cartão de memória na pasta de saves do Nintendont ({2}). Os saves deles são copiados para os cartões de memória do RiftWii, os de cada jogo para o seu, e os que já estão lá ficam como estão. Os arquivos do Nintendont nunca são alterados, e uma cópia de cada cartão é guardada antes, então Restaurar um save anterior pode desfazer isso.",
-        "RiftWii ha trovato {1} file di Memory Card nella cartella dei salvataggi di Nintendont ({2}). I loro salvataggi vengono copiati sulle Memory Card di RiftWii, quelli di ogni gioco sulla sua, e quelli già presenti restano come sono. I file di Nintendont non vengono mai modificati e prima viene fatta una copia di ogni scheda, quindi Ripristina un salvataggio precedente può annullare tutto."),
+    "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed.": (
+        "RiftWii encontró {1} tarjetas de Nintendont en {2}. ¿Copiar sus partidas? Los archivos de Nintendont no cambian.",
+        "{2}にNintendontのメモリーカードが{1}個あります。セーブをコピーしますか? Nintendontのファイルは変更しません。",
+        "O RiftWii achou {1} cartões do Nintendont em {2}. Copiar os saves? Os arquivos do Nintendont não mudam.",
+        "RiftWii ha trovato {1} Memory Card di Nintendont in {2}. Copiare i salvataggi? I file di Nintendont non cambiano."),
     "Choose saves": ("Elegir partidas", "セーブを選ぶ", "Escolher saves", "Scegli i salvataggi"),
     "Bring all": ("Traer todas", "すべて持ってくる", "Trazer todos", "Porta tutti"),
     "Bring your Nintendont saves": ("Traer tus partidas de Nintendont", "Nintendontのセーブを持ってくる", "Trazer seus saves do Nintendont", "Porta i salvataggi di Nintendont"),
@@ -6568,7 +6568,7 @@ T.update({
 })
 KO.update({
     "Bring your Nintendont saves?": "Nintendont 저장 데이터를 가져올까요?",
-    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": "RiftWii가 Nintendont의 saves 폴더({2})에서 메모리 카드 파일 {1}개를 찾았습니다. 그 저장 데이터를 RiftWii의 메모리 카드에 게임별로 각자의 카드로 복사하며, 이미 있는 것은 그대로 둡니다. Nintendont의 파일은 절대 바뀌지 않고, 먼저 각 카드의 복사본을 남기므로 '이전 저장 데이터로 되돌리기'로 취소할 수 있습니다.",
+    "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed.": "{2}에서 Nintendont 메모리 카드 {1}개를 찾았습니다. 저장 데이터를 복사할까요? Nintendont의 파일은 바뀌지 않습니다.",
     "Choose saves": "저장 데이터 선택",
     "Bring all": "모두 가져오기",
     "Bring your Nintendont saves": "Nintendont 저장 데이터 가져오기",
@@ -6587,7 +6587,7 @@ KO.update({
 })
 FR.update({
     "Bring your Nintendont saves?": "Récupérer vos sauvegardes Nintendont ?",
-    "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.": "RiftWii a trouvé {1} fichiers de carte mémoire dans le dossier saves de Nintendont ({2}). Leurs sauvegardes sont copiées sur les cartes mémoire de RiftWii, celles de chaque jeu sur la sienne, et celles qui y sont déjà restent telles quelles. Les fichiers de Nintendont ne sont jamais modifiés, et chaque carte est d'abord copiée, donc Restaurer une ancienne sauvegarde peut tout annuler.",
+    "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed.": "RiftWii a trouvé {1} cartes de Nintendont dans {2}. Copier les sauvegardes ? Ses fichiers ne sont pas modifiés.",
     "Choose saves": "Choisir les sauvegardes",
     "Bring all": "Tout récupérer",
     "Bring your Nintendont saves": "Récupérer vos sauvegardes Nintendont",

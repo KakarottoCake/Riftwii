@@ -3135,8 +3135,8 @@ msgstr "5. Un cIOS d2x en el slot 249/250/251."
 msgid "Bring your Nintendont saves?"
 msgstr "¿Traer tus partidas de Nintendont?"
 
-msgid "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it."
-msgstr "RiftWii ha encontrado {1} archivos de tarjeta de memoria en la carpeta de partidas de Nintendont ({2}). Sus partidas se copian a las tarjetas de memoria de RiftWii, las de cada juego a la suya, y las que ya están no se tocan. Los archivos de Nintendont nunca se cambian, y antes se guarda una copia de cada tarjeta, así que Restaurar una partida anterior puede deshacerlo."
+msgid "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed."
+msgstr "RiftWii encontró {1} tarjetas de Nintendont en {2}. ¿Copiar sus partidas? Los archivos de Nintendont no cambian."
 
 msgid "Choose saves"
 msgstr "Elegir partidas"

@@ -3135,8 +3135,8 @@ msgstr "5. スロット249/250/251のいずれかにd2x cIOS。"
 msgid "Bring your Nintendont saves?"
 msgstr "Nintendontのセーブを持ってきますか?"
 
-msgid "RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it."
-msgstr "Nintendontのセーブフォルダ({2})にメモリーカードのファイルが{1}個見つかりました。そのセーブをRiftWiiのメモリーカードにコピーします。ゲームごとにそのゲーム専用のカードへ入り、すでにあるセーブはそのままです。Nintendontのファイルは変更しません。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。"
+msgid "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed."
+msgstr "{2}にNintendontのメモリーカードが{1}個あります。セーブをコピーしますか? Nintendontのファイルは変更しません。"
 
 msgid "Choose saves"
 msgstr "セーブを選ぶ"

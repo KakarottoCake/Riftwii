@@ -3521,7 +3521,7 @@ static std::string DiscTileNote()
 
 // Bring your Nintendont saves (below, with the GameCube memory card pages):
 // asked once, after Home has looked at the drives.
-static void OfferNintendontSavesOnce();
+static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown);
 
 // The tour, once per SD card (sd:/riftwii/tutorial_done.txt remembers).
 // A card that has been used before (settings, play history, covers, the
@@ -4381,7 +4381,10 @@ static int MenuSource(FrontendState& state)
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		TeaseCisoOnce(state.sd_catalog, state.usb_catalog);
-		OfferNintendontSavesOnce();
+		OfferNintendontSavesOnce([&](bool show) {
+			if (show) mainWindow->Append(&w);
+			else mainWindow->Remove(&w);
+		});
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		return true;
 	};
@@ -7306,11 +7309,11 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	return choices.game.gc_card == "shared";
 }
 
-// A card file's place for the player: "GMSE.raw, SD card".
+// A card file's place for the player, short enough for a row's second line: "GMSE.raw (SD)".
 static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 {
 	const bool usb = card.path.compare(0, 5, "usb:/") == 0;
-	return card.name + ", " + (usb ? tr("USB drive") : tr("SD card"));
+	return card.name + (usb ? " (USB)" : " (SD)");
 }
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
@@ -7458,9 +7461,10 @@ static bool ChooseNintendontSaves(const NintendontFinds& finds)
 			FlowRow row;
 			row.kind = FlowRow::Kind::Toggle;
 			row.label = FlatCapped(riftwii::wii::GameDisplayName(save.id, save.id), 34);
-			row.detail = FlatCapped(name, 24) + " \xC2\xB7 " +
+			// The switch takes the row's right end, so the line is short: only the save's name is cut.
+			row.detail = FlatCapped(name, 12) + " \xC2\xB7 " +
 				(save.blocks == 1 ? std::string(tr("1 block")) : tr("{1} blocks", {std::to_string(save.blocks)})) + " \xC2\xB7 " +
-				FlatCapped(NintendontCardLabel(finds.files.cards[save.card]), 26);
+				NintendontCardLabel(finds.files.cards[save.card]);
 			row.on = ticked[i];
 			row.value = row.on ? tr("On") : tr("Off");
 			row.dim = !save.intact;
@@ -7554,7 +7558,9 @@ static void NintendontSavesPage()
 
 // Asked once, when Home has looked at the drives and Nintendont's cards are
 // there; the answer, Not now too, is kept in the settings.
-static void OfferNintendontSavesOnce()
+// `homeShown(false)` takes Home off the screen while the choose-saves page is up, and
+// `homeShown(true)` puts it back, so nothing of Home shows through the page.
+static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 {
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 	if (settings.nintendont_saves != "ask") return;
@@ -7569,7 +7575,7 @@ static void OfferNintendontSavesOnce()
 	const std::string where = onSd && onUsb ? "sd:/saves, usb:/saves" : onUsb ? "usb:/saves" : "sd:/saves";
 	// Not now is the Back button, which B and HOME press, so backing out never changes a save.
 	const int choice = ChooseTwo(tr("Bring your Nintendont saves?"),
-		tr("RiftWii found {1} memory card files in Nintendont's saves folder ({2}). Their saves are copied to RiftWii's memory cards, each game's to its own, and the ones already there are left alone. Nintendont's files are never changed, and each card is kept as a copy first, so Restore an older save can undo it.",
+		tr("RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed.",
 			{std::to_string(finds.files.cards.size()), where}),
 		tr("Choose saves"), "", tr("Bring all"), "", tr("Not now"));
 	settings.nintendont_saves = "asked";
@@ -7577,7 +7583,9 @@ static void OfferNintendontSavesOnce()
 	logf("Nintendont saves: the player answered %s\n", choice == 0 ? "Choose saves" : choice == 1 ? "Bring all" : "Not now");
 	if (choice >= 0 && PrepareNintendontSaves(finds)) {
 		if (choice == 0) {
+			homeShown(false);
 			ChooseNintendontSaves(finds);
+			homeShown(true);
 		} else {
 			std::vector<std::size_t> everything;
 			for (std::size_t i = 0; i < finds.saves.size(); ++i)
