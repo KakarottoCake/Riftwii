@@ -281,6 +281,23 @@ static void test_partition_data() {
     EXPECT_EQ(a.code_offset, std::uint64_t(0x2460));
     EXPECT_EQ(a.total_size(), std::uint64_t(0x440));
 
+    // The entry must be a complete instruction in the code, before the
+    // trailer, rather than merely an address in MEM1 or the loaded image.
+    for (const std::uint32_t entry : {0x80003100u, 0x811FFFFCu, 0x81200400u, 0x81200440u,
+                                       0x817FFFFCu, 0x81200001u}) {
+        Bytes invalid = Data();
+        Put32(invalid, 0x2450, entry);
+        EXPECT_FALSE(riftwii::read_apploader_header(riftwii::MemorySource(invalid), a, err));
+    }
+    Bytes partial_entry = Data();
+    Put32(partial_entry, 0x2454, 0x401);
+    Put32(partial_entry, 0x2458, 0);
+    Put32(partial_entry, 0x2450, 0x81200400);
+    EXPECT_FALSE(riftwii::read_apploader_header(riftwii::MemorySource(partial_entry), a, err));
+    Bytes last_entry = Data();
+    Put32(last_entry, 0x2450, 0x812003FCu);
+    EXPECT_TRUE(riftwii::read_apploader_header(riftwii::MemorySource(last_entry), a, err));
+
     Bytes bad = Data();
     Put32(bad, 0x428, 0x300 >> 2);  // FST larger than its maximum
     EXPECT_FALSE(riftwii::read_partition_data_header(riftwii::MemorySource(bad), d, err));
