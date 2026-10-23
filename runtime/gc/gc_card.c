@@ -224,17 +224,32 @@ void gc_card_flush(struct gc_rt_context* ctx, struct gc_card* card, int force) {
                 continue;
             }
             {
-                const int32_t result = gc_sd_write(ctx, run->sd_sector + i, n, card->image + s * 512u);
+                const uint32_t activity = card->activity;
+                uint32_t source = card->image + s * 512u;
+                int32_t result;
                 uint32_t k;
+#ifdef RT_TARGET_PPC
+                /* The game can program the RAM card while an async SD
+                 * write is in flight. Give IOS an immutable snapshot,
+                 * and retain dirty bits if any card access overlapped. */
+                if (ctx->io_running) {
+                    uint8_t* dst = (uint8_t*)(uintptr_t)ctx->bounce;
+                    const uint8_t* src = (const uint8_t*)(uintptr_t)source;
+                    for (k = 0; k < n * 512u; ++k) dst[k] = src[k];
+                    source = ctx->bounce;
+                }
+#endif
+                result = gc_sd_write(ctx, run->sd_sector + i, n, source);
                 if (result < 0) {
                     card->flush_error = result;
                     return;  /* kept dirty: the next heartbeat tries again */
                 }
-                for (k = 0; k < n; ++k) {
+                for (k = 0; k < n && card->activity == activity; ++k) {
                     card->dirty[(s + k) >> 3] &= (uint8_t)~(1u << ((s + k) & 7u));
                     card->dirty_count--;
                 }
                 card->flushes++;
+                if (!force) return;
             }
             i += n;
         }

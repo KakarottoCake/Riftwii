@@ -728,6 +728,55 @@ gc_exi_table:
     GC_EXI_ENTRY 9
     GC_EXI_ENTRY 10
 
+/* Cooperative I/O continuation. The switch is an ordinary ABI call:
+ * volatile registers belong to its caller; r14-r31, CR and LR survive.
+ * r2/r13 are saved too, so game functions see the worker's SDA bases.
+ * A suspended worker owns no part of the game's interrupt stack. */
+    .globl gc_io_switch
+gc_io_switch:
+    stwu 1, -96(1)
+    mflr 0
+    stw 0, 4(1)
+    stmw 14, 8(1)
+    mfcr 0
+    stw 0, 80(1)
+    stw 2, 84(1)
+    stw 13, 88(1)
+    stw 1, 0(3)
+    mr 1, 4
+    lwz 0, 80(1)
+    mtcr 0
+    lwz 2, 84(1)
+    lwz 13, 88(1)
+    lmw 14, 8(1)
+    lwz 0, 4(1)
+    mtlr 0
+    addi 1, 1, 96
+    blr
+
+/* Make the first switch return to gc_io_bootstrap with ctx in r14.
+ * Sixteen bytes above its frame are the worker's initial ABI linkage. */
+    .globl gc_io_init
+gc_io_init:
+    mflr 0
+    addi 4, 4, -112
+    li 6, 0
+    stw 6, 0(4)
+    stw 6, 80(4)
+    stw 5, 8(4)
+    stw 2, 84(4)
+    stw 13, 88(4)
+    bl 1f
+1:  mflr 6
+    addi 6, 6, gc_io_bootstrap - 1b
+    stw 6, 4(4)
+    stw 4, 0(3)
+    mtlr 0
+    blr
+gc_io_bootstrap:
+    mr 3, 14
+    b gc_io_worker
+
     .balign 32
     .globl gc_context_data
 gc_context_data:

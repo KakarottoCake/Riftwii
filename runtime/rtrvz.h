@@ -50,6 +50,13 @@ int rtrvz_exception_bytes(const uint8_t* in, uint32_t in_len, uint32_t lists, in
 int rtrvz_unpack(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint32_t skip,
                  uint8_t* dst, uint32_t len, rtrvz_junk* scratch);
 
+/* The GameCube worker can suspend long padding generation and copies.
+ * The callback runs at bounded work intervals; all continuation state
+ * remains on the caller's stack. A null callback is the normal decoder. */
+typedef void (*rtrvz_yield_fn)(void* io);
+int rtrvz_unpack_yield(const uint8_t* in, uint32_t in_len, uint64_t data_offset, uint32_t skip,
+                       uint8_t* dst, uint32_t len, rtrvz_junk* scratch, rtrvz_yield_fn yield, void* io);
+
 #ifdef __cplusplus
 }
 #endif

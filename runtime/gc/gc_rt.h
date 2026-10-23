@@ -5,11 +5,11 @@
  *
  * A GameCube game drives the disc through the DI registers and waits
  * for the DI interrupt; in Wii mode those belong to IOS. So the SDK's
- * low-level commands are replaced: a read is done at once through IOS's
- * /dev/sdio/slot0 (IPC driven by polling, since the game has no IPC
- * code and its interrupt table knows nothing of IOS), and the command's
- * callback runs from one of the game's own OSAlarms a moment later, as
- * the DI interrupt would have run it.
+ * low-level commands are replaced: a private-stack worker polls IOS's
+ * /dev/sdio/slot0 from short OSAlarms, returning to the game while the
+ * card works (the game has no IPC interrupt handler). The command's
+ * callback runs from a separate alarm once its bytes and drive time are
+ * ready, as the DI interrupt would have run it.
  *
  * Layout (gc_entry.S): the header below, the trampolines, the C code,
  * then the context. Position independent (linked at two bases and
@@ -303,11 +303,9 @@ static inline int gc_trace_allowed(uint32_t flags, uint32_t where) {
  * game's audio as it goes out. In MEM1 beside the blob (loader-placed).
  *
  * The ADPCM comes off the card into a ring ahead of the decoder. The card
- * is read only from the game's own context (its PADRead every frame, its
- * disc reads, the stream's start), never from the AI interrupt: on a Wii
- * a read takes milliseconds, and in the interrupt it held up the game's
- * next audio buffer and was skipped whenever a disc read, a trace write
- * or the Wii Remote driver had the card (the music crackled). The two
+ * is read by worker top-ups queued from PADRead, disc reads and the
+ * stream's start. The AI interrupt only decodes already fetched bytes:
+ * waiting for the card there held up the game's next audio buffer. The two
  * sides each own one counter: `fetched` (the card side) and `consumed`
  * (the decoder), so neither waits for the other. */
 #define GC_STREAM_CHUNK 0x2000u  /* the most one top-up reads: about 0.15 s of music */
@@ -564,6 +562,24 @@ struct gc_rt_context {
      * only answered. In the bytes the struct's 32-byte alignment pads it
      * to anyway, so the context's size stays the same. */
     uint32_t disc_change;
+    /* One cooperative I/O worker, resumed only by io_alarm. Its private
+     * stack keeps the read/RVZ/write continuation while IOS works. */
+    uint32_t io_stack;        /* loader-filled, GC_IO_STACK_BYTES in MEM2 */
+    uint32_t io_sp;
+    uint32_t io_caller_sp;
+    uint32_t io_running;      /* on the private stack now (not merely waiting) */
+    uint32_t io_job;          /* GC_IO_*; nonzero until the worker has returned */
+    uint32_t io_ticks;        /* current CPU slice's start */
+    uint32_t io_reply;        /* shared-buffer reply collected by another IPC user */
+    uint32_t io_pending;      /* shared IPC request's physical address */
+    uint32_t read_generation; /* a replacement command invalidates a suspended copy */
+    uint32_t stream_generation;
+    uint32_t io_maintenance;  /* another bounded card flush is due */
+    uint32_t io_buffer;       /* 64 KiB staging: cancelled reads never publish their DMA */
+    uint32_t io_queued;
+    uint32_t io_trace_where;  /* coalesced diagnostic write, outside game hooks */
+    uint32_t read_tgc_watch;  /* a normal read, not ReadDiskID */
+    uint8_t io_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
@@ -606,6 +622,11 @@ void gc_invalidate(uint32_t address, uint32_t length);
 void gc_guard(struct gc_rt_context* ctx);
 uint32_t gc_irq_off(void);
 void gc_irq_restore(uint32_t msr);
+/* Private-stack switch: only callee-saved integer state is needed by the
+ * soft-float blob. These functions never enable interrupts. */
+void gc_io_init(uint32_t* saved_sp, uint32_t stack_top, struct gc_rt_context* ctx);
+void gc_io_switch(uint32_t* saved_sp, uint32_t next_sp);
+void gc_io_checkpoint(void* io);
 /* A request to IOS (its physical address), sent and taken; the replies
  * that come meanwhile go to gc_ipc_route. 0, or -1000 when IOS takes
  * nothing. */
