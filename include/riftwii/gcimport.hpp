@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -83,5 +85,103 @@ void gc_import_one(std::vector<std::uint8_t>& card, const std::vector<std::uint8
 // a save of it whose blocks are damaged, count as unusable. Input over
 // kGcDolphinMaxGciBytes / kGcDolphinMaxRawBytes is unusable too.
 void gc_import_card(std::vector<std::uint8_t>& card, const std::vector<std::uint8_t>& raw, GcImportCount& count);
+
+// ---------------------------------------------------------------------------
+// Bringing the saves from Nintendont. With its memory card emulation on,
+// Nintendont keeps raw card images in /saves on the device it loads from, so
+// RiftWii looks in sd:/saves and usb:/saves:
+//
+//   <ID4>.raw                  one card for that game ("GMSE.raw": the
+//                              four-letter ID, no maker code)
+//   ninmem.raw, ninmemj.raw    the "Multi" card of every USA and PAL game, and
+//                              of the Japanese and Korean ones
+//   <ID4>_B.raw, ninmemb.raw, ninmemjb.raw   the same for slot B (rare builds)
+//
+// Each is an ordinary raw card image, as Dolphin's. The same folder holds
+// Triforce arcade files (GP1.bin, AX.bin, *settings.bin...): not cards, so
+// nothing but the names above is looked at. The folder is on a player's
+// drive, so it is untrusted like Dolphin's: the files and their sizes are
+// bounded and only plain names are joined onto the folder. Nintendont's
+// files are only ever read.
+
+constexpr std::size_t kGcNintendontMaxCards = 32;            // card files looked at in all the folders
+constexpr std::uint64_t kGcNintendontMinBytes = 512u << 10;  // the smallest card (59 blocks, 0.5 MB)
+// The largest is kGcDolphinMaxRawBytes (16 MB, 2043 blocks).
+
+// Where the cards are, in the order they are listed.
+constexpr const char* kGcNintendontFolders[] = {"sd:/saves", "usb:/saves"};
+
+// One entry of a folder, as a lister reports it.
+struct GcFolderEntry {
+    std::string name;
+    bool is_directory = false;
+    std::uint64_t bytes = 0;
+};
+
+// Lists `folder` for the scan: false when it is not there. The Wii's
+// lister reads usb: through the menu's view of the drive (it is not a
+// mounted file system); gc_posix_lister reads any folder with opendir.
+using GcFolderLister = std::function<bool(const std::string& folder, std::vector<GcFolderEntry>& out)>;
+bool gc_posix_lister(const std::string& folder, std::vector<GcFolderEntry>& out);
+
+// Whether `name` is one Nintendont gives a memory card, compared without
+// regard to case (the drive's file system does the same): an ID of four
+// letters or digits with ".raw" or "_B.raw", or ninmem, ninmemj, ninmemb
+// or ninmemjb with ".raw". Nothing else, so GP1.bin is not.
+bool gc_nintendont_name_ok(const std::string& name);
+
+struct GcNintendontCard {
+    std::string path;  // "sd:/saves/GMSE.raw"
+    std::string name;  // "GMSE.raw"
+    std::uint64_t bytes = 0;
+};
+
+struct GcNintendontFiles {
+    std::vector<GcNintendontCard> cards;  // in folder order, each folder's by name
+    unsigned wrong_size = 0;              // named like a card, but under 0.5 MB, over 16 MB or not whole blocks: left out
+    bool truncated = false;               // more cards or entries than the limits above: some were left out
+};
+
+// The cards in `folders` (here: kGcNintendontFolders), listed with `list`.
+GcNintendontFiles gc_nintendont_scan(const std::vector<std::string>& folders, const GcFolderLister& list);
+
+// One save found in a Nintendont card, to show and to pick.
+struct GcNintendontSave {
+    std::size_t card = 0;       // index in GcNintendontFiles::cards
+    unsigned slot = 0;          // directory slot in that card
+    std::string id;             // the game's ID, code and maker (six characters), from the save's own entry
+    std::string file_name;      // the save's file name, in the card's encoding
+    std::string comment_title;  // the save's comment, in the card's encoding
+    std::uint16_t blocks = 0;
+    bool intact = false;        // false: the save's blocks are damaged and it cannot be brought
+    bool shift_jis = false;     // the card's encoding
+    std::array<std::uint8_t, 64> entry{};  // the directory entry as listed: a later read must still find it
+};
+
+// Appends the saves of the card image at `card` (`card_index` is its place
+// in the scan) to `out`. False, with a sentence in `error`, when it cannot
+// be read as a memory card. The image is only read.
+bool gc_nintendont_list(std::size_t card_index, const std::uint8_t* card, std::size_t card_bytes,
+                        std::vector<GcNintendontSave>& out, std::string& error);
+
+// The RiftWii card file a save goes to, by the six-character ID of its
+// own directory entry, never by the name of the Nintendont file (a
+// "GMSE.raw" can hold a second maker's game, and ninmem.raw holds many):
+// sd:/riftwii/gc/cards/<ID>.raw, or shared.raw / shared-jp.raw when that
+// game's memory card setting is Shared (`shared`).
+std::string gc_nintendont_route(const GcNintendontSave& save, bool shared);
+
+// A new, empty RiftWii card for a save's game, formatted like the card the
+// save came from (the first 0x200 bytes of `source` give its flash ID) in
+// the text encoding `shift_jis`.
+void gc_nintendont_blank_card(std::vector<std::uint8_t>& card, const std::uint8_t* source, std::size_t source_bytes,
+                              bool shift_jis, std::uint64_t format_time);
+
+// Adds `save` from the card image at `source` to `target` as
+// gc_import_one counts it: already there is skipped; a save the card no
+// longer has as listed (the file changed since), a damaged one and one
+// whose card text encoding differs from `target`'s are unusable.
+void gc_nintendont_import(std::vector<std::uint8_t>& target, const std::uint8_t* source, std::size_t source_bytes,
+                          const GcNintendontSave& save, GcImportCount& count);
 
 }  // namespace riftwii

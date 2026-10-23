@@ -22,7 +22,8 @@ reload stays the real capability check.
 
 Read-only-first sequence:
 
-1. Keep the SD card inserted with `sd:/riftwii/autorun.txt` containing
+1. Use a test-build DOL (`make -f Makefile.wii TEST=1`; a release DOL ignores
+   `autorun.txt`). Keep the SD card inserted with `sd:/riftwii/autorun.txt` containing
    `usb RMCE01`, `probe`, and `layout`. For SD images use `sd RMCE01`.
    Start RiftWii and save
    `sd:/riftwii/autorun.log` after it returns or powers off.

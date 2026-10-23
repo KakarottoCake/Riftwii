@@ -10,7 +10,7 @@
 
 #include "riftwii/checkedalloc.hpp"
 
-#include "autorun.hpp"
+#include "launchrun.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
 #include "gclaunch.hpp"

@@ -210,4 +210,145 @@ void gc_import_card(std::vector<std::uint8_t>& card, const std::vector<std::uint
     }
 }
 
+bool gc_posix_lister(const std::string& folder, std::vector<GcFolderEntry>& out) {
+    out.clear();
+    DIR* dir = opendir(folder.c_str());
+    if (!dir) return false;
+    // One more than the scan looks at, so it can tell there were too many.
+    while (dirent* entry = readdir(dir)) {
+        if (out.size() > kGcDolphinMaxEntries) break;
+        GcFolderEntry found;
+        found.name = entry->d_name;
+        // The size and the kind of a name that is never joined are not asked for.
+        if (gc_import_name_ok(found.name)) {
+            struct stat info;
+            if (stat((folder + "/" + found.name).c_str(), &info) == 0) {
+                found.is_directory = S_ISDIR(info.st_mode);
+                found.bytes = found.is_directory ? 0 : static_cast<std::uint64_t>(info.st_size);
+            }
+        }
+        out.push_back(found);
+    }
+    closedir(dir);
+    return true;
+}
+
+bool gc_nintendont_name_ok(const std::string& name) {
+    if (!gc_import_name_ok(name)) return false;
+    const std::string low = lower(name);
+    for (const char* fixed : {"ninmem.raw", "ninmemj.raw", "ninmemb.raw", "ninmemjb.raw"}) {
+        if (low == fixed) return true;
+    }
+    // <ID4>.raw (8 characters) or <ID4>_B.raw (10): the ID is four letters or digits.
+    const bool slot_b = low.size() == 10 && low.compare(4, 6, "_b.raw") == 0;
+    const bool slot_a = low.size() == 8 && low.compare(4, 4, ".raw") == 0;
+    if (!slot_a && !slot_b) return false;
+    for (std::size_t i = 0; i < 4; ++i) {
+        if (!std::isalnum(static_cast<unsigned char>(low[i]))) return false;
+    }
+    return true;
+}
+
+GcNintendontFiles gc_nintendont_scan(const std::vector<std::string>& folders, const GcFolderLister& list) {
+    GcNintendontFiles found;
+    for (const std::string& folder : folders) {
+        std::vector<GcFolderEntry> entries;
+        if (!list(folder, entries)) continue;
+        std::sort(entries.begin(), entries.end(),
+                  [](const GcFolderEntry& a, const GcFolderEntry& b) { return a.name < b.name; });
+        std::size_t seen = 0;
+        for (const GcFolderEntry& entry : entries) {
+            if (++seen > kGcDolphinMaxEntries) {
+                found.truncated = true;
+                break;
+            }
+            if (entry.is_directory || !gc_nintendont_name_ok(entry.name)) continue;
+            // A card is whole 8 KB blocks, from 0.5 MB to 16 MB; anything
+            // else with a card's name is not read.
+            if (entry.bytes < kGcNintendontMinBytes || entry.bytes > kGcDolphinMaxRawBytes ||
+                entry.bytes % kGcCardBlockBytes != 0) {
+                ++found.wrong_size;
+                continue;
+            }
+            if (found.cards.size() >= kGcNintendontMaxCards) {
+                found.truncated = true;
+                return found;
+            }
+            GcNintendontCard card;
+            card.name = entry.name;
+            card.path = folder + "/" + entry.name;
+            card.bytes = entry.bytes;
+            found.cards.push_back(card);
+        }
+    }
+    return found;
+}
+
+bool gc_nintendont_list(std::size_t card_index, const std::uint8_t* card, std::size_t card_bytes,
+                        std::vector<GcNintendontSave>& out, std::string& error) {
+    GcCardInfo info;
+    if (card_bytes > kGcDolphinMaxRawBytes || !gc_card_read(card, card_bytes, info, error)) {
+        if (card_bytes > kGcDolphinMaxRawBytes) error = "The file is larger than any memory card.";
+        return false;
+    }
+    for (const GcSave& save : info.saves) {
+        GcNintendontSave listed;
+        listed.card = card_index;
+        listed.slot = save.slot;
+        listed.id = save.game_code + save.maker;
+        listed.file_name = save.file_name;
+        listed.comment_title = save.comment_title;
+        listed.blocks = save.block_count;
+        listed.intact = save.intact;
+        listed.shift_jis = info.shift_jis;
+        listed.entry = save.entry;
+        out.push_back(listed);
+    }
+    return true;
+}
+
+std::string gc_nintendont_route(const GcNintendontSave& save, bool shared) { return gc_card_path(save.id, shared); }
+
+void gc_nintendont_blank_card(std::vector<std::uint8_t>& card, const std::uint8_t* source, std::size_t source_bytes,
+                              bool shift_jis, std::uint64_t format_time) {
+    GcCardFormat format;
+    format.shift_jis = shift_jis;
+    format.format_time = format_time;
+    constexpr std::size_t kHeaderBytes = 0x200;
+    if (source_bytes >= kHeaderBytes) {
+        const std::vector<std::uint8_t> header(source, source + kHeaderBytes);
+        gc_card_flash_id(header, format.flash_id);
+    }
+    gc_card_format(card, format);
+}
+
+void gc_nintendont_import(std::vector<std::uint8_t>& target, const std::uint8_t* source, std::size_t source_bytes,
+                          const GcNintendontSave& save, GcImportCount& count) {
+    if (count.full) return;
+    GcCardInfo from;
+    GcCardInfo to;
+    std::string error;
+    if (source_bytes > kGcDolphinMaxRawBytes || !gc_card_read(source, source_bytes, from, error) ||
+        !gc_card_read(target, to, error) || from.shift_jis != to.shift_jis) {
+        ++count.unusable;
+        return;
+    }
+    // The save must still be in its slot as it was listed: a Nintendont
+    // card that changed since (Nintendont ran in between) is not guessed at.
+    const GcSave* listed = nullptr;
+    for (const GcSave& candidate : from.saves) {
+        if (candidate.slot == save.slot) listed = &candidate;
+    }
+    if (!listed || !listed->intact || listed->entry != save.entry) {
+        ++count.unusable;
+        return;
+    }
+    std::vector<std::uint8_t> gci;
+    if (!gc_card_export(source, source_bytes, save.slot, gci, error)) {
+        ++count.unusable;
+        return;
+    }
+    gc_import_one(target, gci, count);
+}
+
 }  // namespace riftwii
