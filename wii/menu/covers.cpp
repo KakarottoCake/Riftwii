@@ -17,6 +17,7 @@
 #include <set>
 #include <vector>
 
+#include "fullfont.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -492,9 +493,12 @@ bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_
 
 // Every unmount (fatUnmount is dvmUnmountVolume) first stops the cover
 // loader, so no read is left in flight on a card going away (Makefile.wii
-// links with --wrap=dvmUnmountVolume).
+// links with --wrap=dvmUnmountVolume), and closes the full menu font's
+// file, which is opened again on the next glyph it is needed for: a launch
+// handing the card to the game, an IOS reload, a remount.
 extern "C" void __real_dvmUnmountVolume(const char* name);
 extern "C" void __wrap_dvmUnmountVolume(const char* name) {
+    riftwii::wii::fullfont::Close();
     riftwii::wii::CoverLoaderHold();
     __real_dvmUnmountVolume(name);
 }

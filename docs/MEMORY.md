@@ -116,7 +116,7 @@ Japanese with RiftWii's font.
 
 | Item | KiB in MEM1 | Used | Choice | MEM1 saved |
 | --- | ---: | --- | --- | ---: |
-| Menu font (`wii/font/rounded.ttf`, zstd) | 750 | Once at start (and after a warm restart), unpacked to MEM2 | **Start-up stash** (built) | 747 |
+| Menu font (`wii/font/rounded.ttf`, zstd) | 750 | Once at start (and after a warm restart), unpacked to MEM2 | **Start-up stash** (built); since issue #242 only the core (`wii/font/core.ttf`, 114 KiB zstd, 303 KiB unpacked in MEM2), the rest read a glyph at a time from `apps/riftwii/font.ttf` (`wii/menu/fullfont.hpp`, a 384 KiB MEM2 pool taken only when a character needs it) | 747 |
 | Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |

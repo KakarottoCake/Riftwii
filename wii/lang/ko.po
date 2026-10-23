@@ -3131,3 +3131,6 @@ msgstr "4. 게임은 /wbfs 또는 /games 폴더에 넣으세요."
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. 슬롯 249/250/251에 d2x cIOS."
+
+msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "RiftWii의 전체 글꼴이 없어 표시할 수 없는 문자가 있습니다. RiftWii zip의 apps/riftwii/font.ttf를 SD 카드에 복사하세요."

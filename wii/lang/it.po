@@ -3131,3 +3131,6 @@ msgstr "4. Giochi nella cartella /wbfs o /games."
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x nello slot 249/250/251."
+
+msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "Alcuni caratteri non possono essere mostrati senza il carattere completo di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."

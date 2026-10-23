@@ -77,8 +77,13 @@ the Wii from the same sources.
 
 Translations: `python tools/lang_source.py` checks that every table entry
 is still in the menu's sources and writes `wii/lang/*.po`. New Japanese
-text must be in the menu font; `tools/make_menu_font.py` explains how the
-subset is cut.
+text must be in the menu font's core (`wii/font/core.ttf`, in the DOL):
+`lang_source.py` and the `menufont` host test fail when a character is
+missing, and `python tools/make_menu_font.py core wii/font/rounded.ttf
+wii/font/core.ttf` (fontTools) makes the core again. The whole font
+(`wii/font/rounded.ttf`) ships next to the DOL as
+`sd:/apps/riftwii/font.ttf`, read only for characters the core lacks
+(`wii/menu/fullfont.hpp`); `tools/make_menu_font.py` explains both.
 
 ## Running in Dolphin
 
@@ -386,6 +391,7 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
    `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`),
+   `font.ttf` (`wii/font/rounded.ttf`, the whole menu font),
    and `plugins/` with every file of `build-plugins/plugins/` from the
    same build (`make_update_pack.py` refuses plugins that don't match the
    zip's `boot.dol`);
@@ -404,9 +410,9 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
    build packs it).
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
-   zip's plugins, channel installer and icon). It fails a zip without
-   `plugins/gamecube.<version>.rwp`: the DOL has no GameCube loader of its
-   own any more. Attach the pack to every release: the in-app update
+   zip's plugins, menu font, channel installer and icon). It fails a zip
+   without `plugins/gamecube.<version>.rwp` (the DOL has no GameCube
+   loader of its own any more) or without `font.ttf` (its kanji). Attach the pack to every release: the in-app update
    downloads it with the DOL and writes its plugins first.
    Before going on, check the zip has the plugin folder: `unzip -l
    riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one

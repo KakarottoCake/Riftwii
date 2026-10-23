@@ -11,9 +11,10 @@ other:
   files it shipped with (only those are removed);
 - the release zip's sd:/apps files besides RiftWii's own boot.dol,
   meta.xml and music.ogg ("RIFTWII APPS 1"): the channel installer's
-  folder, RiftWii's icon and its plugins (riftwii/plugins/, each checked
-  against the zip's boot.dol), the files wii/online/online.cpp
-  (AppsFileAllowed) writes.
+  folder, RiftWii's icon, its plugins (riftwii/plugins/, each checked
+  against the zip's boot.dol) and its full menu font (riftwii/font.ttf,
+  which the DOL's core font needs for kanji), the files
+  wii/online/online.cpp (AppsFileAllowed) writes.
 
     python tools/make_update_pack.py riftwii-vYYMM-N.zip out/riftwii-update.pack
 """
@@ -41,6 +42,9 @@ PLUGIN_FILE = re.compile(r"^([A-Za-z0-9_-]{1,16})\.([A-Za-z0-9_-]{1,32})\.rwp$")
 # missing one would give its players a RiftWii whose GameCube games say the
 # add-on is missing.
 REQUIRED_PLUGINS = ("gamecube",)
+# The full menu font (wii/menu/fullfont.hpp): the in-app update writes it
+# next to the new DOL with the plugins, before the DOL.
+MENU_FONT = "riftwii/font.ttf"
 
 
 def fail(message):
@@ -108,6 +112,7 @@ def apps_part(zip_path):
     count = 0
     found = set()
     plugins = {}
+    font = None
     with zipfile.ZipFile(zip_path) as z:
         for info in sorted(z.infolist(), key=lambda i: i.filename):
             if info.is_dir() or not info.filename.startswith(APPS):
@@ -115,6 +120,9 @@ def apps_part(zip_path):
             path = info.filename[len(APPS):]
             if path.startswith(PLUGINS):
                 plugins[path[len(PLUGINS):]] = z.read(info)
+                continue
+            if path == MENU_FONT:
+                font = z.read(info)
                 continue
             if not (path.startswith("riftwii_channel/") or path == "riftwii/icon.png"):
                 continue
@@ -145,6 +153,12 @@ def apps_part(zip_path):
     for needed in REQUIRED_PLUGINS:
         if needed not in names:
             fail("the zip has no %s%s%s.<version>.rwp, which its boot.dol needs" % (APPS, PLUGINS, needed))
+    # A TrueType font ("\0\1\0\0"), after the plugins: the update writes
+    # both before the DOL.
+    if font is None or font[:4] != b"\x00\x01\x00\x00":
+        fail("the zip has no TrueType %s%s, which its boot.dol needs" % (APPS, MENU_FONT))
+    parts.append(file_entry(MENU_FONT, font))
+    count += 1
     parts.extend(others)
     # The installer the channel prompt runs, by name: three files of any
     # kind used to be enough.

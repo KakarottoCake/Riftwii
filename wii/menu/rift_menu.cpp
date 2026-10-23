@@ -67,6 +67,7 @@
 #include "boxart.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
+#include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
@@ -4430,6 +4431,10 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		// The full menu font is not on the card (wii/menu/fullfont.hpp):
+		// said once a session, the first time a name needed it.
+		if (riftwii::wii::fullfont::TakeMissingNote())
+			toast.Show(tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."), true);
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
 		// done on the menu's, each held every press for seconds.
