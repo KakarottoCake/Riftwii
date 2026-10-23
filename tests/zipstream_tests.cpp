@@ -42,7 +42,9 @@ bool Read(const std::vector<std::uint8_t>& bytes, const ZipSink& sink, std::stri
         EXPECT_TRUE(file != nullptr);
         return false;
     }
-    const bool written = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    // An empty archive would pass a null pointer to fwrite, which the
+    // sanitizers reject even for zero bytes.
+    const bool written = bytes.empty() || std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
     std::fclose(file);
     EXPECT_TRUE(written);
     const bool accepted = zip_stream_first(kPath, max_zip, max_xml, sink, error, progress);
