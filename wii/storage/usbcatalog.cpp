@@ -2334,6 +2334,12 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";
+        // Through d2x's SD device: what it answered, as the log may not
+        // have reopened to say it.
+        const std::string& d2x_reason = d2x_sd_last_error();
+        if (using_d2x_sd() && !d2x_reason.empty()) {
+            error += " (" + d2x_reason + ")";
+        }
         return post_reload_failure(log_path, error);
     }
     if (rvz && game.device == ImageDevice::Usb) {
