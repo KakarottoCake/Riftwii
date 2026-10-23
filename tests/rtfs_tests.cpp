@@ -75,10 +75,15 @@ struct Device {
     fatimg::Image& image;
     std::uint32_t transfers = 0;
     std::uint32_t fail_at = 0;
+    std::uint32_t fail_write_lba = 0;
     explicit Device(fatimg::Image& i) : image(i) {}
     int transfer(const rtfat_op& op) {
         ++transfers;
         if (fail_at == transfers) return -1;
+        if (op.io_write && op.io_lba == fail_write_lba) {
+            fail_write_lba = 0;
+            return -1;
+        }
         const std::uint64_t at = std::uint64_t(op.io_lba) * 512;
         const std::uint64_t bytes = std::uint64_t(op.io_count) * 512;
         if (op.io_count == 0 || at + bytes > image.bytes.size()) return -2;
@@ -232,6 +237,80 @@ void TestWritePersists(Low& low) {
     EXPECT_EQ(Run(fx, low, read), static_cast<int>(sizeof(expected)));
     EXPECT_EQ(std::memcmp(low.data + 256, expected, sizeof(expected)), 0);
     EXPECT_EQ(fx.fs.files[slot].fat.position, 46u);
+}
+
+void TestWriteRetryPersists(Low& low) {
+    // Retry through the writer, a descriptor already open, or one opened
+    // after the failed write. All three must retain the pending metadata.
+    for (bool empty : {false, true}) {
+        for (unsigned retry_kind = 0; retry_kind < 3; ++retry_kind) {
+            Fixture fx;
+            const std::string path = fx.prefix + (empty ? "/fresh.sav" : "/banner.bin");
+            if (empty) {
+                std::memset(low.attr, 0, sizeof(*low.attr));
+                CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), path);
+                rtfs_ipc create{};
+                create.command = RTFS_CMD_IOCTL;
+                create.fd = 21;
+                create.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+                create.args.ioctl.in = Addr(low.attr);
+                create.args.ioctl.in_len = sizeof(*low.attr);
+                EXPECT_EQ(Run(fx, low, create), RTFAT_OK);
+            }
+            CopyPath(low.data, path);
+            const int writer = Run(fx, low, Open(Addr(low.data), 3));
+            int retry_fd = writer;
+            if (retry_kind == 1) retry_fd = Run(fx, low, Open(Addr(low.data), 3));
+            const std::uint32_t slot = (static_cast<std::uint32_t>(writer) - RTFS_FD_BASE) & (RTFS_MAX_FDS - 1u);
+            const std::uint32_t original_size = fx.fs.files[slot].fat.size;
+            rtfs_ipc seek{};
+            seek.command = RTFS_CMD_SEEK;
+            seek.fd = writer;
+            seek.args.seek.whence = RTFS_SEEK_END;
+            EXPECT_EQ(Run(fx, low, seek), static_cast<int>(original_size));
+
+            const std::uint8_t expected[] = {0x91, 0x27, 0x6C, 0xD4, 0x08, 0xFE};
+            std::memcpy(low.data + 128, expected, sizeof(expected));
+            rtfs_ipc write{};
+            write.command = RTFS_CMD_WRITE;
+            write.fd = writer;
+            write.args.readwrite.data = Addr(low.data + 128);
+            write.args.readwrite.length = sizeof(expected);
+            fx.dev.fail_write_lba = fx.fs.files[slot].fat.entry_lba;
+            EXPECT_EQ(Run(fx, low, write), RTFAT_EIO);
+            if (retry_kind == 2) {
+                CopyPath(low.data, path);
+                retry_fd = Run(fx, low, Open(Addr(low.data), 3));
+            }
+            seek.fd = retry_fd;
+            seek.args.seek.whence = RTFS_SEEK_SET;
+            seek.args.seek.where = static_cast<int>(original_size);
+            EXPECT_EQ(Run(fx, low, seek), static_cast<int>(original_size));
+            write.fd = retry_fd;
+            EXPECT_EQ(Run(fx, low, write), static_cast<int>(sizeof(expected)));
+
+            rtfs_ipc close{};
+            close.command = RTFS_CMD_CLOSE;
+            close.fd = writer;
+            EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+            if (retry_fd != writer) {
+                close.fd = retry_fd;
+                EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+            }
+            // With every descriptor closed, reopening uses the card's entry.
+            CopyPath(low.data, path);
+            const int reader = Run(fx, low, Open(Addr(low.data), 1));
+            seek.fd = reader;
+            EXPECT_EQ(Run(fx, low, seek), static_cast<int>(original_size));
+            rtfs_ipc read{};
+            read.command = RTFS_CMD_READ;
+            read.fd = reader;
+            read.args.readwrite.data = Addr(low.data + 256);
+            read.args.readwrite.length = sizeof(expected);
+            EXPECT_EQ(Run(fx, low, read), static_cast<int>(sizeof(expected)));
+            EXPECT_EQ(std::memcmp(low.data + 256, expected, sizeof(expected)), 0);
+        }
+    }
 }
 
 void TestIoctlsAndDirectory(Low& low) {
@@ -974,6 +1053,7 @@ int main() {
     TestOpenReadSeekAndPass(low);
     TestModesStaleAndBusy(low);
     TestWritePersists(low);
+    TestWriteRetryPersists(low);
     TestIoctlsAndDirectory(low);
     TestStatsRenameDeleteAndFailure(low);
     TestOpenFiles(low);

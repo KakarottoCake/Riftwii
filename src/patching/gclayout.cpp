@@ -117,6 +117,17 @@ GcMem1Plan plan_gc_mem1(std::uint32_t fst_addr, std::vector<GcMem1Piece>& pieces
     GcMem1Plan plan;
     plan.di_regs = ((fst_addr - kGcDiRegsBytes - 0x6000) & ~0xFFFFu) + 0x6000;
     const std::uint32_t upper_floor = plan.di_regs + kGcDiRegsBytes;
+    // The FST's address comes from the disc header's room words, which a
+    // disc may leave at 0 or anything (gclayout.hpp): under MEM1 or under
+    // the stand-in the subtractions above wrap, and the wrapped layout
+    // used to pass the caller's ordering checks with pieces at 0xFFFFxxxx.
+    // Refuse it, with an arena top no caller accepts, instead. An address
+    // below MEM1 (0x7000 gives a stand-in at 0x6000) or at its very start
+    // (the stand-in wraps to 0x7FFF6000) is refused too.
+    if (!in_mem1(fst_addr) || fst_addr == kMem1End ||
+        plan.di_regs < kMem1Start || upper_floor > fst_addr) {
+        return plan;
+    }
     std::uint32_t upper_next = fst_addr;      // the room between the stand-in and the FST
     std::uint32_t lower_next = plan.di_regs;  // and from the stand-in down
     for (GcMem1Piece& piece : pieces) {
