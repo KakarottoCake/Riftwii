@@ -4,7 +4,7 @@
 """riftwii-vYYMM-N.zip, the release's download, as docs/DEVELOPING.md
 (Releasing) lays it out:
 
-    sd-card/apps/riftwii/          boot.dol, meta.xml, icon.png, music.ogg, plugins/
+    sd-card/apps/riftwii/          boot.dol, meta.xml, icon.png, music.ogg, font.ttf, plugins/
     sd-card/apps/riftwii_channel/  boot.dol (the channel installer), meta.xml, icon.png
     sd-card/riftwii/themes/        the themes RiftWii comes with
     sd-card/..., usb-drive/...     the folders for games and packs, each with a note
@@ -118,6 +118,9 @@ def zip_entries(args, values, commit_time):
         (apps + "riftwii/meta.xml", crlf(release_meta_xml(args.version, commit_time))),
         (apps + "riftwii/icon.png", (ROOT / "hbc" / "icon.png").read_bytes()),
         (apps + "riftwii/music.ogg", (ROOT / "hbc" / "music.ogg").read_bytes()),
+        # The whole menu font, uncompressed so the menu can read a glyph in
+        # place: the DOL carries only its core (wii/menu/fullfont.hpp).
+        (apps + "riftwii/font.ttf", (ROOT / "wii" / "font" / "rounded.ttf").read_bytes()),
     ]
     for path in plugin_files(args.plugins, args.version).values():
         entries.append((apps + "riftwii/plugins/" + path.name, path.read_bytes()))
@@ -154,7 +157,7 @@ def main():
         fail("%r is not a YYMM-N version" % args.version)
 
     # A zip built from changed files would name a commit that doesn't hold them.
-    changed = git("status", "--porcelain", "--untracked-files=no", "--", "hbc", "themes", "release", "channel/installer/hbc", "LICENSE", "NOTICE.md")
+    changed = git("status", "--porcelain", "--untracked-files=no", "--", "hbc", "themes", "release", "channel/installer/hbc", "wii/font", "LICENSE", "NOTICE.md")
     if changed:
         fail("files the zip takes have changes not committed:\n" + changed)
 
