@@ -320,6 +320,28 @@ static void test_mac_metadata() {
     EXPECT_FALSE(riftwii::is_mac_metadata("SB4E01.wbfs"));
 }
 
+static void test_invalid_names() {
+    riftwii::Fst fst = Disc();
+    ListingProvider card;
+    card.add("/mod/Stage", "a.arc", false);
+    card.add("/mod/Stage", "b:colon.bin", false);
+    card.add("/mod/Stage", "c{$d}.bin", false);
+    card.add("/mod/Stage", "e$f.bin", false);
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Stage", "/mod/Stage", false, true));
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    for (const riftwii::FilePatch& f : out) {
+        EXPECT_TRUE(f.disc.find(':') == std::string::npos);
+        EXPECT_TRUE(f.disc.find('{') == std::string::npos);
+        EXPECT_TRUE(f.external.find(':') == std::string::npos);
+    }
+    EXPECT_EQ(out.size(), std::size_t(1));
+    if (out.size() == 1) EXPECT_EQ(out[0].disc, std::string("/Stage/a.arc"));
+}
+
 // The native listing through DirectoryProvider, on a directory made here.
 static void test_native_listing() {
     namespace fs = std::filesystem;
@@ -385,13 +407,30 @@ static void test_empty_plan_message() {
     EXPECT_TRUE(bare_msg.find("RZDE01") != std::string::npos);
 }
 
+static void test_too_many_files() {
+    riftwii::Fst fst = Disc();
+    ListingProvider big;
+    for (std::size_t i = 0; i < 32768 + 1; ++i) {
+        big.add("/mod/Big", "f" + std::to_string(i) + ".bin", false);
+    }
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Stage", "/mod/Big", false, true));
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_FALSE(riftwii::expand_plan(plan, fst, big, out, notes, err));
+    EXPECT_TRUE(err.find("too many files") != std::string::npos);
+}
+
 int main() {
     test_rooted();
     test_by_name();
     test_order_and_files();
     test_native_listing();
     test_mac_metadata();
+    test_invalid_names();
     test_empty_plan_message();
+    test_too_many_files();
     if (g_failures == 0) {
         std::cout << "ALL EXPAND TESTS PASSED" << std::endl;
         return 0;

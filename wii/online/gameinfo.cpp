@@ -3,7 +3,6 @@
 #include "gameinfo.hpp"
 
 #include <sys/stat.h>
-#include <zlib.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -14,6 +13,7 @@
 #include "log.hpp"
 #include "online.hpp"
 #include "riftwii/textlines.hpp"
+#include "riftwii/zipstream.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -142,86 +142,14 @@ bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error
     return ok;
 }
 
-// Unpacks wiitdb.xml out of the zip as it is read, a piece at a time, so
-// the 32 MB of XML are never in memory at once.
+// Keep scanner results private until the complete entry passes its length
+// and CRC checks; FindGameInfo only updates the cache after success.
 bool ScanZip(const std::string& path, WiitdbScanner& scanner, std::string& error, const Progress& progress) {
-    FILE* f = std::fopen(path.c_str(), "rb");
-    if (!f) {
-        error = "cannot open " + path;
-        return false;
-    }
-    struct stat st;
-    const double total = Stat(path.c_str(), st) ? static_cast<double>(st.st_size) : 1.0;
-    // The zip's first entry (GameTDB's holds only wiitdb.xml).
-    std::uint8_t header[30];
-    if (std::fread(header, 1, sizeof header, f) != sizeof header || Le(header, 4) != 0x04034B50u) {
-        std::fclose(f);
-        error = path + " is not a zip file";
-        return false;
-    }
-    const std::uint32_t method = Le(header + 8, 2);
-    const std::uint32_t name_length = Le(header + 26, 2);
-    const std::uint32_t extra_length = Le(header + 28, 2);
-    if ((method != 8 && method != 0) || std::fseek(f, static_cast<long>(name_length + extra_length), SEEK_CUR) != 0) {
-        std::fclose(f);
-        error = path + " is packed in a way RiftWii does not read";
-        return false;
-    }
-    if (method == 0) {  // stored: the XML as it is
-        std::vector<char> piece(64u << 10);
-        std::size_t got;
-        while ((got = std::fread(piece.data(), 1, piece.size(), f)) > 0) scanner.feed(piece.data(), got);
-        std::fclose(f);
+    const ZipSink feed = [&](const std::uint8_t* bytes, std::size_t count) {
+        scanner.feed(reinterpret_cast<const char*>(bytes), count);
         return true;
-    }
-    z_stream z = {};
-    if (inflateInit2(&z, -MAX_WBITS) != Z_OK) {
-        std::fclose(f);
-        error = "zlib did not start";
-        return false;
-    }
-    std::vector<std::uint8_t> in(32u << 10);
-    std::vector<std::uint8_t> out(64u << 10);
-    std::uint64_t read = 0, unpacked = 0;
-    int result = Z_OK;
-    bool ok = true;
-    while (result != Z_STREAM_END) {
-        if (z.avail_in == 0) {
-            const std::size_t got = std::fread(in.data(), 1, in.size(), f);
-            if (got == 0) {
-                error = path + " ends early";
-                ok = false;
-                break;
-            }
-            read += got;
-            z.next_in = in.data();
-            z.avail_in = static_cast<uInt>(got);
-            if (progress && !progress(static_cast<double>(read) / total)) {
-                error = "stopped";
-                ok = false;
-                break;
-            }
-        }
-        z.next_out = out.data();
-        z.avail_out = static_cast<uInt>(out.size());
-        result = inflate(&z, Z_NO_FLUSH);
-        if (result != Z_OK && result != Z_STREAM_END) {
-            error = path + " is damaged (zlib " + std::to_string(result) + ")";
-            ok = false;
-            break;
-        }
-        const std::size_t made = out.size() - z.avail_out;
-        scanner.feed(reinterpret_cast<const char*>(out.data()), made);
-        unpacked += made;
-        if (unpacked > kMaxXml) {
-            error = path + " unpacks to more than a database would";
-            ok = false;
-            break;
-        }
-    }
-    inflateEnd(&z);
-    std::fclose(f);
-    return ok;
+    };
+    return zip_stream_first(path, kMaxZip, kMaxXml, feed, error, progress);
 }
 
 }  // namespace

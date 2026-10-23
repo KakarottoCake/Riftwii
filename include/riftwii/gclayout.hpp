@@ -68,6 +68,9 @@ constexpr std::uint32_t kGcDiRegsBytes = 0x40;
 // there, and under the DI stand-in otherwise. The stand-in is the highest
 // address ending in 0x6000 that leaves it under the FST: with every piece
 // together under 64 KB, a lower one could only lower the arena's top.
+// An FST address outside MEM1, or one the stand-in does not fit under (a
+// header's room words may be 0 or anything), is refused with an empty plan
+// whose arena top is 0, which no caller accepts.
 GcMem1Plan plan_gc_mem1(std::uint32_t fst_addr, std::vector<GcMem1Piece>& pieces, std::uint32_t bi2_bytes);
 
 }  // namespace riftwii

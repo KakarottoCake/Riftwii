@@ -218,7 +218,14 @@ std::vector<NetServer> DiscoverServers(std::uint16_t port, int timeout_ms) {
     for (int round = 0; round < 3; ++round) {
         net_sendto(s, ping, sizeof(ping), 0, reinterpret_cast<sockaddr*>(&to), sizeof(to));
         const int slice = timeout_ms / 3;
-        while (wait_for(s, POLLIN, slice)) {
+        const u64 started = gettime();
+        for (;;) {
+            // A reply must not restart the round's timeout: duplicate or
+            // malformed datagrams can otherwise keep discovery here forever.
+            const u64 elapsed = diff_msec(started, gettime());
+            if (slice <= 0 || elapsed >= static_cast<u64>(slice)) break;
+            const int remaining = slice - static_cast<int>(elapsed);
+            if (!wait_for(s, POLLIN, remaining)) break;
             std::uint8_t reply[4];
             sockaddr_in from;
             socklen_t from_len = sizeof(from);

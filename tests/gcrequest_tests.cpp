@@ -5,6 +5,7 @@
 // whole in the plugin, and the plugin refuses a request it cannot read
 // before it uses any of it (docs/PLUGINS.md, "Stage (b)").
 #include "riftwii/gcrequest.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <cstddef>
 #include <cstring>
@@ -185,6 +186,34 @@ static void test_refusals() {
         gc_plan_to_request(plan, entries, f.request);
         f.request.pack_entry_count = 0;
         EXPECT_FALSE(f.check(why));
+    }
+    // A corrupt or mismatched DOL's huge counts are refused before anything
+    // is copied from them or read through them.
+    {
+        const std::uint8_t fst[64] = {};
+        const std::uint8_t header[0x20] = {};
+        const rwp_gc_pack_entry entries[2] = {};
+        Fixture f;
+        f.request.pack_fst = fst;
+        f.request.pack_fst_bytes = 0xFFFFFFFFu;
+        f.request.pack_header = header;
+        f.request.pack_header_bytes = sizeof(header);
+        f.request.pack_entries = entries;
+        f.request.pack_entry_count = 2;
+        EXPECT_FALSE(f.check(why));
+        EXPECT_TRUE(why.find("not whole") != std::string::npos);
+        f.request.pack_fst_bytes = sizeof(fst);
+        f.request.pack_entry_count = 0x40000000u;
+        EXPECT_FALSE(f.check(why));
+        // A count the request's own entries fit under the cap, but the
+        // plan's larger entries would not.
+        static_assert(sizeof(GcOverlayPlan::Entry) > sizeof(rwp_gc_pack_entry), "the plan's entries are the larger");
+        f.request.pack_entry_count = static_cast<std::uint32_t>(kMaxCheckedBytes / sizeof(rwp_gc_pack_entry));
+        EXPECT_FALSE(f.check(why));
+        f.request.pack_entry_count = static_cast<std::uint32_t>(kMaxCheckedBytes / sizeof(GcOverlayPlan::Entry));
+        EXPECT_TRUE(f.check(why));
+        f.request.pack_entry_count = 2;
+        EXPECT_TRUE(f.check(why));
     }
     // Cheats and the code handler: a pointer with its bytes, or neither.
     {
