@@ -125,7 +125,8 @@ bool read_dol(const ByteSource& f, std::uint32_t at, Dol& out, std::string& erro
         const std::uint32_t address = be32(h + 0x48 + 4 * i);
         const std::uint32_t size = be32(h + 0x90 + 4 * i);
         if (size == 0) continue;
-        if (address < kGameFloor || address + size > kLoaderStart) {
+        // Disc header values may wrap when added; bound before allocating or copying.
+        if (address < kGameFloor || address > kLoaderStart || size > kLoaderStart - address) {
             error = "the game's executable reaches memory RiftWii is still in (not handled yet)";
             return false;
         }
@@ -141,7 +142,8 @@ bool read_dol(const ByteSource& f, std::uint32_t at, Dol& out, std::string& erro
     out.bss = be32(h + 0xD8);
     out.bss_size = be32(h + 0xDC);
     out.entry = be32(h + 0xE0);
-    if (out.bss_size != 0 && out.bss + out.bss_size > kLoaderStart) {
+    if (out.bss_size != 0 && (out.bss < kGameFloor || out.bss > kLoaderStart ||
+                              out.bss_size > kLoaderStart - out.bss)) {
         error = "the game's memory reaches memory RiftWii is still in (not handled yet)";
         return false;
     }

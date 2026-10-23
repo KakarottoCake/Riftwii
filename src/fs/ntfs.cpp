@@ -461,6 +461,12 @@ bool NtfsVolume::find_attribute(std::uint64_t record_number, const std::vector<s
             error = "NTFS run list offset is out of range";
             return false;
         }
+        // Only the first extent carries the stream's size. Without it a
+        // continuation was accepted as a zero-byte file with no fragments.
+        if (lowest != 0 && out.runs.empty()) {
+            error = "NTFS attribute is missing its first extent";
+            return false;
+        }
         if (lowest == 0) {
             out.data_size = le64(a + 0x30);
             out.initialized_size = le64(a + 0x38);

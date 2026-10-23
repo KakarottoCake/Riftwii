@@ -779,7 +779,38 @@ static void test_free_pieces() {
     EXPECT_EQ(r.pieces, std::uint64_t(1));
 }
 
+static void test_cycles_at_file_size_cap() {
+    for (std::uint32_t prefix = 0; prefix < 4; ++prefix) {
+        for (std::uint32_t cycle = 2; cycle <= 5; ++cycle) {
+            Image img(512, 1, 0);
+            std::vector<std::uint32_t> clusters;
+            for (std::uint32_t i = 0; i < prefix + cycle; ++i) clusters.push_back(4 + i);
+            img.chain(clusters);
+            img.set_fat(clusters.back(), clusters[prefix]);
+
+            for (std::uint32_t needed = 1; needed <= prefix + 2 * cycle; ++needed) {
+                // Stop both before and after the first repeated cluster.
+                // A 30 -> 31 -> 30 chain previously supplied three file
+                // clusters because the size cap beat Brent's detector.
+                const Bytes root = short_entry("LOOP    BIN", 0x20, clusters.front(), needed * 512);
+                EXPECT_TRUE(img.write_dir({2}, root));
+                riftwii::Fat32Volume volume;
+                std::string error;
+                EXPECT_TRUE(riftwii::Fat32Volume::mount(img.reader(), volume, error));
+                riftwii::Fat32File file;
+                if (needed <= prefix + cycle) {
+                    EXPECT_TRUE(volume.lookup("/loop.bin", file, error));
+                } else {
+                    EXPECT_FALSE(volume.lookup("/loop.bin", file, error));
+                    EXPECT_CONTAINS(error, "loops");
+                }
+            }
+        }
+    }
+}
+
 int main() {
+    test_cycles_at_file_size_cap();
     test_free_pieces();
     test_chain_capped_by_size();
     test_file_of_four_gib();

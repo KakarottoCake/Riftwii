@@ -211,9 +211,13 @@ std::string LoaderSettings::serialize() const {
         s += "favorites = " + list + "\n";
     }
     if (!game_folders.empty()) {
+        // A folder holding ';' is left out: the file joins folders with
+        // ';', so it could not come back whole.
         std::string list;
-        for (const std::string& f : game_folders) list += (list.empty() ? "" : "; ") + f;
-        s += "game_folders = " + list + "\n";
+        for (const std::string& f : game_folders) {
+            if (f.find(';') == std::string::npos) list += (list.empty() ? "" : "; ") + f;
+        }
+        if (!list.empty()) s += "game_folders = " + list + "\n";
     }
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;

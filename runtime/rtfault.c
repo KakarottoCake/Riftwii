@@ -58,7 +58,8 @@ void rtfault_fill(struct rtfault_record* r, uint32_t exception, const uint32_t* 
         uint32_t sp = r->gpr[1];
         for (i = 0; i < RTFAULT_FRAMES && rtfault_in_ram(sp); ++i) {
             const uint32_t next = load(sp);
-            if (!rtfault_in_ram(next) || next <= sp) break;
+            /* A back chain at RAM's last word has no saved LR after it. */
+            if (!rtfault_in_ram(next) || !rtfault_in_ram(next + 4u) || next <= sp) break;
             r->frames[r->frame_count++] = load(next + 4u);
             sp = next;
         }

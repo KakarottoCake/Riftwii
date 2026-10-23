@@ -94,6 +94,8 @@ struct rtfat_file {
     uint32_t entry_index;    /* entry index within that sector (0..15) */
     uint32_t cache_index;    /* cluster index (0-based from the file start) of cache_cluster */
     uint32_t cache_cluster;  /* 0 = nothing cached */
+    /* Survives a failed write: a retry must still commit the chain and size. */
+    uint32_t entry_dirty;
 };
 
 /* What a directory scan reports about an entry. */
@@ -223,7 +225,6 @@ struct rtfat_op {
     uint32_t chunk_lba;
     uint32_t chunk_count;
     uint32_t grow_from;          /* WRITE: size before the operation */
-    uint32_t entry_dirty;        /* WRITE: the directory entry must be rewritten */
     uint32_t grow_next;          /* CREATE/RENAME: state after the directory gained room */
     uint32_t dir_grow;           /* the allocation in progress is a directory cluster: zeroed before linked */
     uint32_t dir_txn;            /* directory extension owns alloc_cluster until its first entry is durable */

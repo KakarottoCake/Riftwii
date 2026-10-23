@@ -164,6 +164,13 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             x.path = path;
             x.format = UsbImageFormat::Iso;
             x.id.assign(reinterpret_cast<const char*>(head.data()), 6);
+            // Patch output is untrusted too: this ID names the generated
+            // image and its choices file when the player launches it.
+            if (x.id.find_first_of("/\\") != std::string::npos) {
+                logf("GameCube patch %s: its game ID holds a slash, so it is not listed\n", path.c_str());
+                listed = true;
+                break;
+            }
             x.disc_number = head[6];
             x.revision = head[7];
             x.title.assign(reinterpret_cast<const char*>(head.data() + 0x20),

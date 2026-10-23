@@ -154,6 +154,7 @@ static void set_stale(gcad* g) {
         g->raw[i][0] = 0;
         g->origin_valid[i] = 0;
         g->recal_active[i] = 0;
+        g->rumble_want[i] = 0;
     }
 }
 
@@ -386,6 +387,8 @@ static void take_report(gcad* g, uint32_t now) {
         if (!is) {
             g->origin_valid[i] = 0;
             g->recal_active[i] = 0;
+            /* The game may never send a stop to an unplugged port. */
+            g->rumble_want[i] = 0;
             continue;
         }
         /* The origin comes only from the pad at rest, and steady: a

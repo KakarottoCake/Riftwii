@@ -65,10 +65,14 @@ static int readable(uint32_t address) {
     return (address >= 0x80000000u && address < 0x81800000u) || (address >= 0x90000000u && address < 0x94000000u);
 }
 
-/* Copies at most `limit - 1` characters and always ends the copy. */
+/* The caller checked the first byte; a missing terminator must not
+ * let a format or %s argument run past the end of its RAM region. */
 static void copy_text(char* out, const char* in, uint32_t limit) {
+    const uint32_t address = (uint32_t)(uintptr_t)in;
+    const uint32_t end = address < 0x81800000u ? 0x81800000u : 0x94000000u;
+    const uint32_t available = end - address;
     uint32_t i = 0;
-    while (i + 1 < limit && in[i] != 0) {
+    while (i + 1 < limit && i < available && in[i] != 0) {
         out[i] = in[i];
         ++i;
     }
