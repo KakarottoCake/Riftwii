@@ -82,7 +82,11 @@ bool inside_href(const std::string& listing, std::size_t at) {
     if (close != std::string::npos && close > open) return false;
     std::string tag = listing.substr(open, at - open);
     std::transform(tag.begin(), tag.end(), tag.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    const std::size_t href = tag.rfind("href");
+    // The attribute's whole name: "href" after white space, not the end of
+    // another name such as data-href.
+    std::size_t href = tag.rfind("href");
+    while (href != std::string::npos && (href == 0 || !std::isspace(static_cast<unsigned char>(tag[href - 1]))))
+        href = href == 0 ? std::string::npos : tag.rfind("href", href - 1);
     if (href == std::string::npos) return false;
     std::size_t i = href + 4;
     while (i < tag.size() && std::isspace(static_cast<unsigned char>(tag[i]))) ++i;

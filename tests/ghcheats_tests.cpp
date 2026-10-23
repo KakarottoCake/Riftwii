@@ -80,6 +80,9 @@ int main() {
         EXPECT_TRUE(gamehacking_newest_wii_zip("<p>a=text_wii_20261201.zip </p>", name, error) == false);
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a title=text_wii_20261201.zip href=x>x</a>", name, error) == false);
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=x title=text_wii_20261201.zip>x</a>", name, error) == false);
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a data-href=text_wii_20261201.zip>x</a>", name, error) == false);
+        EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=text_wii_20260927.zip>a</a><a data-href=text_wii_20261201.zip>b</a>", name, error));
+        EXPECT_EQ(name, "text_wii_20260927.zip");
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a href=\"x\" title=\"text_wii_20261201.zip\">x</a>", name, error) == false);
         EXPECT_TRUE(gamehacking_newest_wii_zip("<a HREF = \"/text/text_wii_20261201.zip\">x</a>", name, error));
         EXPECT_EQ(name, "text_wii_20261201.zip");
