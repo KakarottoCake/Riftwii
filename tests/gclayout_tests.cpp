@@ -152,6 +152,19 @@ void leaves_mario_golf_its_arena() {
     EXPECT_TRUE(plan.arena_hi - 0x817dc000u >= 0x2000u);
 }
 
+void refuses_an_fst_address_outside_mem1() {
+    // A header's FST-max word near 2 GiB leaves the FST's address at 0x20:
+    // the subtractions wrap, and the layout used to put the pieces at
+    // 0xFFFFxxxx with an arena top the loader's ordering checks passed.
+    std::vector<GcMem1Piece> pieces = {{0x5d00, 0}, {0x440, 0}, {0x100, 0}, {0x100, 0}, {0x40, 0}};
+    const GcMem1Plan plan = plan_gc_mem1(0x20, pieces, 0x2000);
+    EXPECT_EQ(plan.arena_hi, 0u);
+    for (const GcMem1Piece& p : pieces) EXPECT_EQ(p.address, 0u);
+    // Past MEM1's top is refused the same way.
+    std::vector<GcMem1Piece> high = {{0x5d00, 0}, {0x440, 0}};
+    EXPECT_EQ(plan_gc_mem1(0x81800020, high, 0x2000).arena_hi, 0u);
+}
+
 void the_stand_in_ends_in_6000() {
     for (std::uint32_t fst = 0x817c0000; fst < 0x81800000; fst += 0x1320) {
         std::vector<GcMem1Piece> pieces = {{0x5d00, 0}, {0x440, 0}};
@@ -173,6 +186,7 @@ int main() {
     finds_the_arena_lo();
     packs_under_the_fst();
     leaves_mario_golf_its_arena();
+    refuses_an_fst_address_outside_mem1();
     the_stand_in_ends_in_6000();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
