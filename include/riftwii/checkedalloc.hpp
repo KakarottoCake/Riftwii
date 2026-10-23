@@ -40,10 +40,27 @@ inline bool took_out_of_memory() {
     return g_out_of_memory;
 }
 
+// The most one checked request may ask for. A Wii has 88 MiB in all, so a
+// request past this comes from damaged or hostile input and is refused
+// without asking the allocator; the host tests stay far below it too, and
+// AddressSanitizer would stop a test on a malloc of an impossible size
+// rather than return null.
+constexpr std::size_t kMaxCheckedBytes = std::size_t(256) << 20;
+
+// True when `count` elements of `element_bytes` each stay within
+// kMaxCheckedBytes (so the product cannot overflow either).
+inline bool within_checked_cap(std::size_t count, std::size_t element_bytes) {
+    return element_bytes != 0 && count <= kMaxCheckedBytes / element_bytes;
+}
+
 // True when `bytes` can be allocated now. The trial block is freed at once,
 // and the allocator gives the same room to the request that follows.
 inline bool can_allocate(std::size_t bytes) {
     if (bytes == 0) return true;
+    if (bytes > kMaxCheckedBytes) {
+        g_out_of_memory = true;
+        return false;
+    }
     void* trial = std::malloc(bytes);
     if (trial == nullptr) {
         g_out_of_memory = true;
@@ -58,6 +75,10 @@ inline bool can_allocate(std::size_t bytes) {
 // sum is known roughly but which needs no single block that large. The
 // pieces are held at once, then all freed.
 inline bool have_room(std::size_t total, std::size_t piece = 64 * 1024) {
+    if (total > kMaxCheckedBytes) {
+        g_out_of_memory = true;
+        return false;
+    }
     // Each piece holds the address of the one before, so the check needs
     // no list of its own.
     void* chain = nullptr;
@@ -86,7 +107,7 @@ inline bool have_room(std::size_t total, std::size_t piece = 64 * 1024) {
 template <typename T, typename A>
 bool try_reserve(std::vector<T, A>& v, std::size_t count) {
     if (count <= v.capacity()) return true;
-    if (count > v.max_size()) {
+    if (count > v.max_size() || !within_checked_cap(count, sizeof(T))) {
         g_out_of_memory = true;
         return false;
     }
@@ -168,7 +189,7 @@ bool try_append(std::vector<T, A>& v, It first, It last) {
 
 inline bool try_reserve(std::string& s, std::size_t count) {
     if (count <= s.capacity()) return true;
-    if (count > s.max_size()) {
+    if (count > s.max_size() || count >= kMaxCheckedBytes) {
         g_out_of_memory = true;
         return false;
     }

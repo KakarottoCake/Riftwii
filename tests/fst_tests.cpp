@@ -486,11 +486,22 @@ static void test_checked_alloc() {
     EXPECT_TRUE(riftwii::have_room(1u << 20));
     EXPECT_FALSE(riftwii::took_out_of_memory());
 
-    // More than any allocator gives: refused, flagged, nothing changed.
+    // Past kMaxCheckedBytes, or a count whose size overflows: refused
+    // without asking the allocator, flagged, nothing changed.
+    EXPECT_FALSE(riftwii::can_allocate(riftwii::kMaxCheckedBytes + 1));
+    EXPECT_TRUE(riftwii::took_out_of_memory());
+    riftwii::clear_out_of_memory();
+    EXPECT_FALSE(riftwii::have_room(riftwii::kMaxCheckedBytes + 1));
+    EXPECT_TRUE(riftwii::took_out_of_memory());
+    riftwii::clear_out_of_memory();
+    EXPECT_FALSE(riftwii::try_reserve(bytes, riftwii::kMaxCheckedBytes + 1));
+    EXPECT_TRUE(riftwii::took_out_of_memory());
+    riftwii::clear_out_of_memory();
     EXPECT_FALSE(riftwii::try_reserve(bytes, bytes.max_size()));
     EXPECT_TRUE(riftwii::took_out_of_memory());
     EXPECT_EQ(bytes.size(), 2u);
     riftwii::clear_out_of_memory();
+    // max_size() * 4 bytes would overflow size_t.
     EXPECT_FALSE(riftwii::try_resize(words, words.max_size()));
     EXPECT_TRUE(riftwii::took_out_of_memory());
     EXPECT_EQ(words.size(), 103u);
