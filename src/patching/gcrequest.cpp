@@ -103,8 +103,14 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         // before anything copies that many bytes or reads that many entries,
         // so a corrupt or mismatched DOL's huge counts are refused instead
         // of allocating gigabytes or reading past the request's buffers.
+        // The entries are read as rwp_gc_pack_entry and kept as the plan's
+        // larger GcOverlayPlan::Entry (gc_plan_from_request): the bound is
+        // the larger of the two.
+        constexpr std::size_t kEntryBytes = sizeof(GcOverlayPlan::Entry) > sizeof(rwp_gc_pack_entry)
+                                                ? sizeof(GcOverlayPlan::Entry)
+                                                : sizeof(rwp_gc_pack_entry);
         const bool sizes_bounded = within_checked_cap(request->pack_fst_bytes, 1) &&
-                                   within_checked_cap(request->pack_entry_count, sizeof(rwp_gc_pack_entry));
+                                   within_checked_cap(request->pack_entry_count, kEntryBytes);
         if (request->pack_fst_bytes == 0 || !header_whole || !sizes_bounded ||
             !sized(request->pack_entries, request->pack_entry_count)) {
             why = "the packs' plan in the launch request is not whole";
