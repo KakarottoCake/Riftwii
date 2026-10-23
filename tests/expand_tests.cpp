@@ -385,6 +385,21 @@ static void test_empty_plan_message() {
     EXPECT_TRUE(bare_msg.find("RZDE01") != std::string::npos);
 }
 
+static void test_too_many_files() {
+    riftwii::Fst fst = Disc();
+    ListingProvider big;
+    for (std::size_t i = 0; i < 32768 + 1; ++i) {
+        big.add("/mod/Big", "f" + std::to_string(i) + ".bin", false);
+    }
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Stage", "/mod/Big", false, true));
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_FALSE(riftwii::expand_plan(plan, fst, big, out, notes, err));
+    EXPECT_TRUE(err.find("too many files") != std::string::npos);
+}
+
 int main() {
     test_rooted();
     test_by_name();
@@ -392,6 +407,7 @@ int main() {
     test_native_listing();
     test_mac_metadata();
     test_empty_plan_message();
+    test_too_many_files();
     if (g_failures == 0) {
         std::cout << "ALL EXPAND TESTS PASSED" << std::endl;
         return 0;
