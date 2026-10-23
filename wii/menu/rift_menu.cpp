@@ -3526,12 +3526,12 @@ static std::string DiscTileNote()
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"GameCube games from a USB drive",
-	"The Wii U's GameCube adapter in GameCube games",
-	"GameCube mods built with libogc, like Sonic Riders TE",
-	"WiiWare and VC: launch screen and screenshots",
-	"Problem reports can be sent again",
-	"A smaller RiftWii: half the download",
+	"Wii channels and WiiWare on Home",
+	"Your homebrew apps on Home",
+	"More themes to download in Settings > Theme",
+	"Two-disc GameCube games change discs",
+	"Retro Rewind online works again",
+	"Settings: Network Test, Games on the SD card",
 };
 
 static std::string WhatsNewText()
