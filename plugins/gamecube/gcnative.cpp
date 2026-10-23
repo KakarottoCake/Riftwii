@@ -2098,6 +2098,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // With packs, the header and FST are the plan's (the files moved to
     // its window), and the game reads that FST from memory.
     if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
+    const auto fail_read = [&]() {
+        // ByteSource reports only success or failure; keep the RVZ reader's
+        // reason for any failed header, program or FST read.
+        const std::string why = rvz_disc ? rvz_disc->image().last_error() : std::string();
+        if (!why.empty()) error += " (the RVZ: " + why + ")";
+        return false;
+    };
+    // A failed read may leave an empty or partial header. Preserve its
+    // error before interpreting those bytes or allocating the FST.
+    if (!ok) return fail_read();
     const std::uint32_t fst_size = be32(&boot[0x428]);
     // The game keeps the entire FST in MEM1; reject a corrupt size before
     // letting the disc header choose an allocation in the loader's heap.
@@ -2116,16 +2126,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         error = "cannot read the game's FST";
         ok = false;
     }
-    if (!ok) {
-        // A read from an RVZ fails with only true or false through
-        // ByteSource; the reader keeps why (a damaged chunk's Zstandard
-        // error, a group that does not fit), and that is what the player's
-        // log needs. This is the only place the reason is added, and the
-        // messages above never hold it.
-        const std::string why = rvz_disc ? rvz_disc->image().last_error() : std::string();
-        if (!why.empty()) error += " (the RVZ: " + why + ")";
-        return false;
-    }
+    if (!ok) return fail_read();
     // A two-disc game's second disc. The game reads its FST into the same
     // room as disc 1's, which grows to hold the larger with MEM1's layout
     // below (the SDK refuses a disc whose FST is larger than the room
