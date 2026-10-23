@@ -149,6 +149,29 @@ int main() {
         }
         boot_read_ok = true;
     }
+    // The plugin also lays out MEM1 from the FST room (0x42C). A room past
+    // MEM1 is refused before any allocation; MEM1's whole size is not.
+    for (const std::uint32_t room : {0x01800001u, 0x80000000u, 0xffffffffu, 0x01800000u}) {
+        std::array<std::uint8_t, 0x440> boot{};
+        for (unsigned i = 0; i < 4; ++i) {
+            boot[0x428 + i] = 0x10000u >> (24 - 8 * i);
+            boot[0x42C + i] = room >> (24 - 8 * i);
+        }
+        allocations.clear();
+        reads = 0;
+        logs = 0;
+        std::string error;
+        const bool accepted = plugin_read(boot, error);
+        const bool valid = room <= 0x01800000u;
+        const bool right = valid ? accepted && allocations.size() == 1 && logs == 0
+                                 : !accepted && allocations.empty() && reads == 0 && logs == 1 &&
+                                       error.find("FST room") != std::string::npos;
+        if (!right) {
+            std::printf("plugin, FST room 0x%08x: accepted %d, %zu allocations, %u logs, error '%s'\n",
+                        room, accepted, allocations.size(), logs, error.c_str());
+            ++failures;
+        }
+    }
     if (failures != 0) return 1;
     std::puts("Both GameCube FST readers bound sizes and preserve failed boot-read errors before allocation");
 }
