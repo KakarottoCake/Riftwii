@@ -8,7 +8,10 @@
 #include <gccore.h>
 #include <ogc/ipc.h>
 
+#include <cstdio>
 #include <cstring>
+
+extern "C" void udelay(int us);
 
 namespace riftwii::wii::sdio {
 namespace {
@@ -27,16 +30,38 @@ constexpr std::uint32_t kStatusSdhc = 0x100000;
 
 constexpr std::uint32_t kHcrHostControl = 0x28;
 constexpr std::uint32_t kHostControl4Bit = 0x02;
+constexpr std::uint32_t kHcrPowerControl = 0x29;
+constexpr std::uint32_t kHcrClockControl = 0x2C;
+constexpr std::uint32_t kHcrTimeoutControl = 0x2E;
+constexpr std::uint32_t kHcrSoftwareReset = 0x2F;
 
+constexpr std::uint32_t kCmdGoIdle = 0x00;
+constexpr std::uint32_t kCmdAllSendCid = 0x02;
+constexpr std::uint32_t kCmdSendRca = 0x03;
 constexpr std::uint32_t kCmdSelect = 0x07;
+constexpr std::uint32_t kCmdSendIfCond = 0x08;
 constexpr std::uint32_t kCmdSetBlockLength = 0x10;
 constexpr std::uint32_t kCmdReadMultiBlock = 0x12;
 constexpr std::uint32_t kCmdApp = 0x37;
 constexpr std::uint32_t kAcmdSetBusWidth = 0x06;
+constexpr std::uint32_t kAcmdSendOpCond = 0x29;
 
+constexpr std::uint32_t kTypeNoData = 0;
 constexpr std::uint32_t kTypeAc = 3;
 constexpr std::uint32_t kResponseR1 = 1;
 constexpr std::uint32_t kResponseR1b = 2;
+// The card status bits of an R1 reply that mean the command failed: out of
+// range, address error, CRC error, illegal command, ECC failed, controller
+// error, general error. (The other bits are state, not errors.)
+constexpr std::uint32_t kR1Errors = 0xC0F80000;
+// CMD3's R6 reply: the address in the top half, then the same CRC, illegal
+// command and general error flags squeezed into bits 15, 14 and 13.
+constexpr std::uint32_t kR6Errors = 0x0000E000;
+constexpr std::uint32_t kResponseR2 = 3;
+constexpr std::uint32_t kResponseR3 = 4;
+// IOS's response selectors, as used by libogc (not SD response numbers).
+constexpr std::uint32_t kResponseRca = 6;
+constexpr std::uint32_t kResponseIfCond = 7;
 
 constexpr std::uint32_t kSectorBytes = 512;
 
@@ -120,6 +145,97 @@ bool write_hcr(const Card& card, std::uint32_t reg, std::uint32_t size, std::uin
     return true;
 }
 
+bool wait_hcr(const Card& card, std::uint32_t reg, std::uint32_t size, std::uint32_t mask,
+              std::uint32_t expected, std::string& error) {
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        std::uint32_t value = 0;
+        if (!read_hcr(card, reg, size, value, error)) return false;
+        if ((value & mask) == expected) return true;
+        udelay(1000);
+    }
+    error = "sdio: host controller did not become ready after 100 checks";
+    return false;
+}
+
+bool initialize_card(Card& card, std::string& error) {
+    // Older IOS SDI modules can expose the card's registers but cannot
+    // initialise an SDHC card. libogc's mounted view already handles this;
+    // the raw handoff needs the same fallback after libfat has shut down.
+    IOS_Close(card.fd);
+    card.fd = IOS_Open(g_path, 1);
+    if (card.fd < 0) {
+        error = ipc_error("reopen for manual initialization", card.fd);
+        return false;
+    }
+    card.rca = 0;
+    card.sdhc = true;  // SENDCMD's vector form during SD v2 identification
+    if (!write_hcr(card, kHcrSoftwareReset, 1, 7, error) ||
+        !wait_hcr(card, kHcrSoftwareReset, 1, 7, 0, error) ||
+        !write_hcr(card, 0x34, 4, 0x13F00C3, error) ||
+        !write_hcr(card, 0x38, 4, 0x13F00C3, error) ||
+        !write_hcr(card, kHcrPowerControl, 1, 0x0E, error) ||
+        !write_hcr(card, kHcrPowerControl, 1, 0x0F, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0x101, error) ||
+        !wait_hcr(card, kHcrClockControl, 2, 2, 2, error) ||
+        !write_hcr(card, kHcrClockControl, 2, 0x107, error) ||
+        !write_hcr(card, kHcrTimeoutControl, 1, 0x0E, error)) {
+        return false;
+    }
+
+    const auto command = [&](std::uint32_t cmd, std::uint32_t type, std::uint32_t response, std::uint32_t arg) {
+        const std::int32_t ret = send_command(card, cmd, type, response, arg, 0, 0, nullptr, 0);
+        const std::string operation = "manual initialization command " + std::to_string(cmd);
+        if (ret < 0) {
+            error = ipc_error(operation.c_str(), ret);
+            return false;
+        }
+        // IOS answered, but R1 and R6 replies carry the card's own verdict
+        // too. The others hold the voltage echo, the operating conditions or
+        // the card's ID.
+        const bool r1 = response == kResponseR1 || response == kResponseR1b;
+        const bool r6 = response == kResponseRca;
+        const bool card_error = (r1 && (g_response[0] & kR1Errors) != 0) || (r6 && (g_response[0] & kR6Errors) != 0);
+        if (card_error) {
+            char status[16];
+            std::snprintf(status, sizeof(status), "%08X", static_cast<unsigned>(g_response[0]));
+            error = "sdio: " + operation + ": the card answered with an error (status " + status + ")";
+            return false;
+        }
+        return true;
+    };
+    if (!command(kCmdGoIdle, kTypeNoData, 0, 0) ||
+        !command(kCmdSendIfCond, kTypeNoData, kResponseIfCond, 0x1AA)) return false;
+    if ((g_response[0] & 0xFFF) != 0x1AA) {
+        error = "sdio: the card did not accept SD v2 voltage and check pattern";
+        return false;
+    }
+
+    bool ready = false;
+    for (unsigned attempt = 0; attempt < 100; ++attempt) {
+        if (!command(kCmdApp, kTypeAc, kResponseR1, 0) ||
+            !command(kAcmdSendOpCond, kTypeNoData, kResponseR3, 0x40300000)) return false;
+        if (g_response[0] & 0x80000000) {
+            card.sdhc = (g_response[0] & 0x40000000) != 0;
+            ready = true;
+            break;
+        }
+        udelay(10000);
+    }
+    if (!ready) {
+        error = "sdio: the card did not finish SD v2 power-up after 100 checks";
+        return false;
+    }
+    if (!command(kCmdAllSendCid, kTypeNoData, kResponseR2, 0) ||
+        !command(kCmdSendRca, kTypeNoData, kResponseRca, 0)) return false;
+    card.rca = static_cast<std::uint16_t>(g_response[0] >> 16);
+    if (card.rca == 0) {
+        error = "sdio: the card returned no relative address during manual initialization";
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 bool open_card(Card& card, std::string& error) {
@@ -139,31 +255,36 @@ bool open_card(Card& card, std::string& error) {
         error = ipc_error("open", card.fd);
         return false;
     }
-    std::int32_t ret = IOS_Ioctl(card.fd, kIoctlResetCard, nullptr, 0, g_word, 4);
-    if (ret < 0) {
-        error = ipc_error("card reset", ret);
-        close_card(card);
-        return false;
-    }
-    card.rca = static_cast<std::uint16_t>(g_word[0] >> 16);
-    ret = IOS_Ioctl(card.fd, kIoctlGetStatus, nullptr, 0, g_word, 4);
-    if (ret < 0) {
+    g_word[0] = 0;
+    const std::int32_t reset_result = IOS_Ioctl(card.fd, kIoctlResetCard, nullptr, 0, g_word, 4);
+    if (reset_result >= 0) card.rca = static_cast<std::uint16_t>(g_word[0] >> 16);
+    g_word[0] = 0;
+    std::int32_t ret = IOS_Ioctl(card.fd, kIoctlGetStatus, nullptr, 0, g_word, 4);
+    // IOS refusing both the reset and the status says nothing about the
+    // card: the manual initialization below reopens the slot and resets the
+    // host itself, so it gets its chance (a missing card fails there, each
+    // wait bounded). A status refused after a good reset still stops here.
+    const bool status_known = ret >= 0;
+    if (!status_known && reset_result >= 0) {
         error = ipc_error("status", ret);
         close_card(card);
         return false;
     }
-    const std::uint32_t status = g_word[0];
-    if (!(status & kStatusInserted)) {
+    const std::uint32_t status = status_known ? g_word[0] : 0;
+    if (status_known && !(status & kStatusInserted)) {
         error = "sdio: no card";
         close_card(card);
         return false;
     }
-    if (!(status & kStatusInitialized)) {
-        error = "sdio: IOS did not initialise the card (host-controller setup not implemented)";
-        close_card(card);
-        return false;
+    if (reset_result < 0 || !(status & kStatusInitialized) || card.rca == 0) {
+        if (!initialize_card(card, error)) {
+            if (reset_result < 0) error = ipc_error("card reset", reset_result) + "; " + error;
+            close_card(card);
+            return false;
+        }
+    } else {
+        card.sdhc = (status & kStatusSdhc) != 0;
     }
-    card.sdhc = (status & kStatusSdhc) != 0;
 
     ret = send_command(card, kCmdSelect, kTypeAc, kResponseR1b, static_cast<std::uint32_t>(card.rca) << 16, 0, 0,
                        nullptr, 0);
