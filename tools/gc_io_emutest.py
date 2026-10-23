@@ -54,7 +54,7 @@ EXTRA_FIELDS = {
     "rvz": ("disc_bytes", "chunk_bytes", "group_count", "stored_buffer", "stored_bytes", "dctx_buffer",
             "dctx_bytes", "extent_count", "table_extent_count", "slots", "entry_sector", "table_extents",
             "extents", "header", "groups_loaded"),
-    "bt": ("fd", "stage", "polls", "events"),
+    "bt": ("fd", "stage", "polls", "events", "acl", "event_buf", "event_count"),
     "bt_rq": ("state", "result"),
     "gcad": ("fd", "version", "known_dev", "ticks_per_ms", "polls", "sends", "replies"),
     "disc_change": ("magic", "discs", "current", "state", "due", "alarm", "cover_ticks", "look_ticks"),
@@ -98,6 +98,9 @@ def context_layout(devkitppc):
                 expressions[f"{area}.{name}"] = f"offsetof(struct {type_name}, {name})"
         expressions["crash.card_bytes"] = "GC_CRASH_CARD_BYTES"
         expressions["crash.strip_cell"] = "offsetof(struct gc_crash_strip, cell)"
+        expressions["bt_rq.bytes"] = "sizeof(struct gc_bt_rq)"
+        expressions["bt.event_reads"] = "GC_BT_EVENT_READS"
+        expressions["bt.acl_reads"] = "GC_BT_ACL_READS"
         entries = ",\n".join(expressions.values())
         source.write_text('#include <stddef.h>\n#include "gc_rt.h"\n'
                           '#include "gc_card.h"\n#include "gc_rvz.h"\n'
@@ -307,6 +310,12 @@ class Machine:
             if value == 2 and self.handshake is not None:
                 # Writing Y2 also writes X1=0. A controller timeout
                 # withdraws that doorbell; IOS can still acknowledge late.
+                # gc_ipc_send's failure contract says IOS took nothing:
+                # do not keep an unaccepted controller transfer in flight.
+                physical = words(uc.mem_read(IPC, 4))[0]
+                fields = words(uc.mem_read(physical | 0x80000000, 64))
+                if fields[2] in (3, 4):
+                    self.pending = [request for request in self.pending if request[0] != physical]
                 heapq.heappush(self.abandoned_acks, self.handshake)
                 self.handshake = None
             self.control &= ~value
@@ -407,11 +416,88 @@ def setup_controllers(machine, bt=0x90040000, gcad=0x90050000):
     machine.put("gcad", gcad)
     for name, value in {"fd": 3, "stage": 4}.items():
         machine.put_object(bt, "bt", name, value)
+    # Model an already-open driver: IOS owns every read except the event
+    # completed below. IDLE slots now represent failed sends to retry.
+    for slot in bt_read_slots(machine, bt):
+        machine.put_object(slot, "bt_rq", "state", 1)
     event = bt + machine.layout["bt.events"]
     machine.put_object(event, "bt_rq", "state", 2)
     for name, value in {"fd": 4, "version": 4, "known_dev": 0xFFFFFFFF,
                         "ticks_per_ms": 60750}.items():
         machine.put_object(gcad, "gcad", name, value)
+
+
+def bt_read_slots(machine, bt):
+    slots = []
+    for area in ("event", "acl"):
+        member = "events" if area == "event" else "acl"
+        first = bt + machine.layout[f"bt.{member}"]
+        for index in range(machine.layout[f"bt.{area}_reads"]):
+            slots.append(first + index * machine.layout["bt_rq.bytes"])
+    return slots
+
+
+def test_bt_read_retries(layout):
+    machine = Machine(layout)
+    setup_controllers(machine)
+    function, bt = controller_poll("bt")
+    slots = bt_read_slots(machine, bt)
+    physical_slots = [slot & 0x3FFFFFFF for slot in slots]
+    rejected = []
+
+    def refuse_send(uc, address, size, unused):
+        if address == machine.functions["gc_ipc_send"]:
+            # Inject the send API's refusal, leaving the real driver's
+            # state transitions and poll loops under test.
+            rejected.append(machine.reg(3))
+            machine.set_reg(3, -1000 & 0xFFFFFFFF)
+            uc.reg_write(UC_PPC_REG_PC, uc.reg_read(UC_PPC_REG_LR))
+
+    refusal_hook = machine.uc.hook_add(UC_HOOK_CODE, refuse_send)
+    for slot in slots:
+        machine.put_object(slot, "bt_rq", "state", 0)
+        machine.put_object(slot, "bt_rq", "result", 8)
+    # Stale event bytes must not be interpreted when an IDLE slot retries.
+    machine.uc.mem_write(bt + layout["bt.event_buf"], b"\xFF\0" + bytes(6))
+    for poll in range(3):
+        machine.call(function, machine.ctx, bt)
+        assert rejected == physical_slots * (poll + 1), "reads did not retry once each per poll"
+        assert all(machine.get_object(slot, "bt_rq", "state") == 0 for slot in slots)
+        assert machine.get_object(bt, "bt", "event_count") == 0, "an IDLE slot replayed stale data"
+
+    machine.uc.hook_del(refusal_hook)
+    machine.controller_latency = float("inf")
+    machine.call(function, machine.ctx, bt)
+    assert [physical for physical, _ in machine.sends] == physical_slots
+    assert all(machine.get_object(slot, "bt_rq", "state") == 1 for slot in slots)
+    request_bytes = layout["bt_rq.bytes"]
+    snapshots = [bytes(machine.uc.mem_read(slot, request_bytes)) for slot in slots]
+    machine.call(function, machine.ctx, bt)
+    assert len(machine.sends) == len(slots), "an IOS-owned read was armed twice"
+    assert snapshots == [bytes(machine.uc.mem_read(slot, request_bytes)) for slot in slots]
+
+    # Complete an event and an ACL read through the actual reply router,
+    # then refuse their re-arms. Only the event completion is parsed.
+    completed = (slots[0], slots[layout["bt.event_reads"]])
+    for slot, result in zip(completed, (8, 0)):
+        physical = slot & 0x3FFFFFFF
+        pending = next(request for request in machine.pending if request[0] == physical)
+        machine.pending.remove(pending)
+        machine.uc.mem_write(slot + 4, struct.pack(">I", result))
+        machine.call("gc_bt_on_reply", bt, physical)
+        assert machine.reg(3) == 1
+    rejected.clear()
+    refusal_hook = machine.uc.hook_add(UC_HOOK_CODE, refuse_send)
+    for _ in range(2):
+        machine.call(function, machine.ctx, bt)
+        assert machine.get_object(bt, "bt", "event_count") == 1, "a failed re-arm replayed its completion"
+    assert rejected == [slot & 0x3FFFFFFF for slot in completed] * 2
+    machine.uc.hook_del(refusal_hook)
+    machine.call(function, machine.ctx, bt)
+    assert len(machine.sends) == len(slots) + len(completed)
+    assert all(machine.get_object(slot, "bt_rq", "state") == 1 for slot in slots)
+    print("Wii Remote reads: all idle slots retry once per poll, recover after refusals, "
+          "never replay completions or reuse IOS-owned buffers")
 
 
 def test_controller_overlap(layout):
@@ -644,8 +730,12 @@ def test_controller_timeout(layout):
             assert machine.get("io_pending") == 0 and machine.get("ipc_sending") == 0
 
             polls = machine.get_object(address, kind, "polls")
+            sends = len(machine.sends)
             machine.call(function, machine.ctx, address)
             assert machine.get_object(address, kind, "polls") == polls + 1
+            if kind == "bt":
+                assert len(machine.sends) == sends + 1, "the timed-out Wii Remote read was lost"
+                assert machine.sends[-1] == machine.sends[0], "a different slot replaced the lost read"
             other_kind = "gcad" if kind == "bt" else "bt"
             other_function, other_address = controller_poll(other_kind)
             sends = len(machine.sends)
@@ -1283,6 +1373,7 @@ def main():
     test_reads(layout)
     test_replacement(layout)
     test_drive_timing(layout)
+    test_bt_read_retries(layout)
     test_controller_overlap(layout)
     test_disk_id(layout)
     test_cancel_before_start(layout)
