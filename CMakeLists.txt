@@ -132,4 +132,12 @@ if(BUILD_TESTING)
         # exits 77: shown as skipped, not passed.
         set_tests_properties(${suite} PROPERTIES SKIP_RETURN_CODE 77)
     endforeach()
+    add_executable(channel_entry_tests tests/channel_entry_tests.c)
+    target_include_directories(channel_entry_tests PRIVATE tests/channel_mock)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        # The channel deliberately casts between Wii pointers and 32-bit addresses.
+        target_compile_options(channel_entry_tests PRIVATE -Wall -Wextra -Werror
+            -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast)
+    endif()
+    add_test(NAME channel_entry COMMAND channel_entry_tests)
 endif()
