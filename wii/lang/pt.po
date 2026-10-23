@@ -405,6 +405,18 @@ msgstr "Menu"
 msgid "Finding games"
 msgstr "Procurar jogos"
 
+msgid "Games on the SD card"
+msgstr "Jogos no cartão SD"
+
+msgid "Look for them"
+msgstr "Procurar"
+
+msgid "Don't look"
+msgstr "Não procurar"
+
+msgid "Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work."
+msgstr "Não procurar: o cartão SD não é vasculhado atrás de jogos, nem os de GameCube. Para quem guarda todos os jogos de Wii em um USB; packs, temas e saves no cartão continuam funcionando."
+
 msgid "Online"
 msgstr "Online"
 
@@ -599,6 +611,15 @@ msgstr "Limpar busca"
 
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações."
+
+msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
+msgstr "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades). Coloque seus jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e depois escolha Procurar jogos de novo em Configurações."
+
+msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
+msgstr "Um jogo de GameCube vai numa pasta própria, como usb:/games/<seu ID>/game.iso."
+
+msgid "Look for them: games in sd:/wbfs and sd:/games are listed on Home."
+msgstr "Procurar: os jogos em sd:/wbfs e sd:/games aparecem no Início."
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "De quem vêm as partes do RiftWii, sua licença (a GNU GPL, versão 3 ou posterior) e onde está seu código-fonte."
@@ -1875,11 +1896,14 @@ msgstr "As opções próprias deste jogo: como o disco é lido e os controles."
 msgid "Not made yet"
 msgstr "Ainda não criado"
 
-msgid "Home lists the GameCube games only, from sd:/games."
-msgstr "O Início mostra só os jogos de GameCube, de sd:/games."
+msgid "Home lists the GameCube games only, from sd:/games and usb:/games."
+msgstr "O Início mostra só os jogos de GameCube, de sd:/games e usb:/games."
 
-msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
-msgstr "Um jogo de GameCube vai no cartão SD, como sd:/games/<seu ID>/game.iso."
+msgid "Home lists the GameCube games only, from usb:/games (the SD card is not searched)."
+msgstr "O Início mostra só os jogos de GameCube, de usb:/games (o cartão SD não é procurado)."
+
+msgid "A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive."
+msgstr "Um jogo de GameCube vai numa pasta própria dentro de games, como games/<seu ID>/game.iso, no cartão SD ou no USB."
 
 msgid "Loading speed"
 msgstr "Carregamento"
