@@ -133,12 +133,32 @@ def missing_from_core(core_path=CORE_FONT, full_path=FULL_FONT, repo=REPO):
     return sorted(cp for cp in core_codepoints(full, repo) if cp not in core)
 
 
+def japanese_missing_from_core(core_path=CORE_FONT, repo=REPO):
+    """The characters of the Japanese msgstr values that the core font lacks
+    (sorted). Unlike missing_from_core() this does not ask the full font
+    first: a Japanese character in neither font would draw blank on the
+    Wii, and that must fail here rather than pass unnoticed. (Korean is
+    not checked: Hangul is in neither font and comes from the Wii Menu's.)"""
+    core = read_cmap(core_path)
+    shown = set()
+    with open(os.path.join(repo, "wii", "lang", "ja.po"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith('msgstr "'):
+                shown.update(line[len('msgstr "'):].rstrip("\n").rstrip('"'))
+    return sorted(ord(c) for c in shown if ord(c) not in core and c not in " \t")
+
+
 def main():
     missing = missing_from_core()
     if missing:
         print("wii/font/core.ttf lacks %d character(s) the menu's text uses: %s" %
               (len(missing), "".join(chr(cp) for cp in missing[:40])))
         print("Run: python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf")
+        sys.exit(1)
+    japanese = japanese_missing_from_core()
+    if japanese:
+        print("Japanese text uses %d character(s) in neither font: %s" %
+              (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
         sys.exit(1)
     print("wii/font/core.ttf holds every character of the menu's text")
 

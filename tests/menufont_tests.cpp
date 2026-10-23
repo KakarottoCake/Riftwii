@@ -13,6 +13,7 @@
 #include <iostream>
 #include <iterator>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -213,6 +214,26 @@ static void TestSplit(const std::string& repo) {
         }
     }
     EXPECT_EQ(translationMissing, 0u);
+    // Japanese text is checked against the core alone, without asking the
+    // full font: a character in neither would draw blank on the Wii.
+    // (Only the msgstr lines, which are what the menu shows.)
+    std::size_t japaneseMissing = 0;
+    {
+        const Bytes ja = ReadFile(repo + "/wii/lang/ja.po");
+        std::istringstream lines(std::string(ja.begin(), ja.end()));
+        std::string line;
+        while (std::getline(lines, line)) {
+            if (line.rfind("msgstr \"", 0) != 0) continue;
+            const Bytes shown(line.begin() + 8, line.end());
+            for (std::uint32_t cp : Utf8Characters(shown)) {
+                if (cp == '"' || cp == '\r' || coreChars.count(cp)) continue;
+                std::cerr << "ja.po: U+" << std::hex << cp << std::dec
+                          << " is in neither menu font" << std::endl;
+                ++japaneseMissing;
+            }
+        }
+    }
+    EXPECT_EQ(japaneseMissing, 0u);
     // The core is much smaller than the whole (about a third of the characters).
     EXPECT_TRUE(coreChars.size() < fullChars.size() / 2);
 }

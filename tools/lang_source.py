@@ -6627,6 +6627,13 @@ def main():
               (len(missing), "".join(chr(cp) for cp in missing[:40])))
         print("Run: python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf")
         raise SystemExit(1)
+    # A Japanese character in neither font draws blank, and the check above
+    # cannot see it (it only asks about what the full font has).
+    japanese = menu_font_chars.japanese_missing_from_core()
+    if japanese:
+        print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
+              (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
