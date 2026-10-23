@@ -904,13 +904,13 @@ void RunAutorun() {
                 error = "launch needs a disc";
             } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
                 logf("  nothing enabled and NAND saves selected: booting as is\n");
-                ok = mem::OutOfMemoryAsError(error, [&] { return RunBoot(allow_fallback, error, source); });
+                ok = mem::GuardLaunchMemory(error, [&] { return RunBoot(allow_fallback, error, source); });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             } else {
                 logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
                                         : "launch: handing over to the game\n");
-                ok = mem::OutOfMemoryAsError(error, [&] {
+                ok = mem::GuardLaunchMemory(error, [&] {
                     return RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
                 });
                 if (reload_terminal_failure()) halt_after_terminal_reload();

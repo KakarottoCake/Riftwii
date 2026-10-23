@@ -17,6 +17,7 @@
 
 #include "i18n.hpp"
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/vsdparts.hpp"
 #include "rtvsd.h"
 #include "usbcatalog.hpp"
@@ -81,11 +82,14 @@ bool walk(const std::string& path, int depth, std::vector<riftwii::VsdItem>& ite
         const std::string sub = path + "/" + name;
         struct stat st;
         if (!stat_of("sd:" + sub, st)) continue;
+        // PlanVsdMake words running out of room for the list.
         if (S_ISDIR(st.st_mode)) {
-            items.push_back({sub, true, 0});
+            if (!riftwii::try_push_back(items, riftwii::VsdItem{sub, true, 0})) return false;
             if (!walk(sub, depth + 1, items, error)) return false;
         } else {
-            items.push_back({sub, false, static_cast<std::uint64_t>(st.st_size)});
+            if (!riftwii::try_push_back(items, riftwii::VsdItem{sub, false, static_cast<std::uint64_t>(st.st_size)})) {
+                return false;
+            }
         }
     }
     return true;
@@ -280,6 +284,11 @@ bool plan_make(const std::string& key, const std::string& game_id, VsdMakePlan& 
         }
     }
     out.plan.serial = static_cast<std::uint32_t>(now);
+    // The plan is a tree of every file with its names and a map of paths:
+    // thousands of small allocations, so their sum is asked for first
+    // (about 512 bytes a file, measured generously from VsdPlan::Node).
+    constexpr std::size_t kPlanBytesPerItem = 512;
+    if (!riftwii::have_room(items.size() * kPlanBytesPerItem)) return false;
     std::string why;
     if (!riftwii::plan_vsd_image(items, spare, out.plan, why)) {
         error = tr("The build cannot go into an image: {1}.", {why});
@@ -349,14 +358,14 @@ bool plan_make(const std::string& key, const std::string& game_id, VsdMakePlan& 
 // The list of a big build (tens of thousands of files) and its plan take
 // megabytes: running out is a message, not a crash.
 bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan& out, std::string& error) {
-    try {
-        return plan_make(key, game_id, out, error);
-    } catch (const std::bad_alloc&) {
+    riftwii::clear_out_of_memory();
+    if (plan_make(key, game_id, out, error)) return true;
+    if (riftwii::took_out_of_memory()) {
         out = VsdMakePlan();
         error = tr("The build has too many files to make an image of here (out of memory).");
         logf("Image: out of memory planning %s\n", key.c_str());
-        return false;
     }
+    return false;
 }
 
 bool MakeVsdImage(const VsdMakePlan& plan,

@@ -1683,14 +1683,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		std::vector<std::uint8_t> sound;
 		// Checked before the banner showing is let go: a broken one is
 		// skipped and the one up stays.
-		bool parsed = false;
-		try {
-			// A GameCube disc's picture has no sound; the player checks it.
-			parsed = riftwii::is_gc_banner(bytes.data(), bytes.size()) ||
-				riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
-		} catch (const std::bad_alloc&) {
-			error = "out of memory for the banner";
-		}
+		// A GameCube disc's picture has no sound; the player checks it.
+		riftwii::clear_out_of_memory();
+		const bool parsed = riftwii::is_gc_banner(bytes.data(), bytes.size()) ||
+			riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
+		if (!parsed && riftwii::took_out_of_memory()) error = "out of memory for the banner";
 		if (!parsed) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
 			return false;
@@ -7390,12 +7387,9 @@ static void MenuGcCard(FrontendState& state)
 	RunRowPage(tr("Memory Card"), GameTitle(state), rows, note, [&](int row, const PageAside& aside) {
 		if (row == 0 && !real) aside([&] { MenuGcSdCard(state); });
 		else if (row > 0 && !noSlots) aside([&] {
-			try {
-				CopyRealGcCard(state, row == 2);
-			} catch (const std::bad_alloc&) {
-				logf("Memory card: there was not enough memory to finish the copy; the physical card was not written to.\n");
-				ShowPopup(tr("Memory card"), tr("There is not enough memory to copy this card. Nothing was copied."), tr("OK"));
-			}
+			// The copy asks for its room before it reads or writes anything
+			// (gc_real_have_room) and says when there is not enough.
+			CopyRealGcCard(state, row == 2);
 		});
 		return false;
 	});
@@ -9523,12 +9517,9 @@ static int MenuHome(FrontendState& state)
 	}
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
-	std::string scanStatus;
-	try {
-		scanStatus = ScanPackages(state);
-	} catch (...) {
-		scanStatus = "Package scan failed; go back and try again";
-	}
+	riftwii::clear_out_of_memory();
+	std::string scanStatus = ScanPackages(state);
+	if (riftwii::took_out_of_memory()) scanStatus = "Package scan failed; go back and try again";
 	if (state.use_channel && state.model.game.cios == "auto") state.model.game.cios = "global";
 	// A disc's game (or one Home did not reach yet): its cover, on the
 	// network's thread (the loop below starts it and takes the answer).

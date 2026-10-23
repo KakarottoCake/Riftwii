@@ -11,6 +11,7 @@
 
 #include "banners.hpp"
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/gcbanner.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/tpl.hpp"
@@ -207,16 +208,18 @@ void BannerPlayer::Free() {
 bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error,
                         const std::string& game_id) {
     // A banner that asks for more memory than is free shows as a name tile
-    // instead of ending the menu.
-    try {
-        if (is_gc_banner(opening_bnr.data(), opening_bnr.size()))
-            return LoadGameCube(opening_bnr, icon, gc_card_shift_jis(game_id), error);
-        return LoadParts(opening_bnr, icon, error);
-    } catch (const std::bad_alloc&) {
+    // instead of ending the menu: its archive, pictures and texture are
+    // checked as they are made (the layout and animations parsed from it
+    // are small beside them).
+    clear_out_of_memory();
+    const bool loaded = is_gc_banner(opening_bnr.data(), opening_bnr.size())
+                            ? LoadGameCube(opening_bnr, icon, gc_card_shift_jis(game_id), error)
+                            : LoadParts(opening_bnr, icon, error);
+    if (!loaded && took_out_of_memory()) {
         Free();
         error = "out of memory for the banner";
-        return false;
     }
+    return loaded;
 }
 
 // The disc's picture is drawn through a layout made here (riftwii/gcbanner.hpp's

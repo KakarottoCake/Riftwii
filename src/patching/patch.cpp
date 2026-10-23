@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/patch.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/mempatch.hpp"
 #include <pugixml.hpp>
 #include <algorithm>
@@ -1063,120 +1064,111 @@ bool DiscFilter::matches(const DiscIdentity& disc) const {
     return true;
 }
 bool resolve_path(const std::string& root, const std::string& path, std::string& output) {
-    try {
-        std::string tmp;
-        if (root.find('\0') != std::string::npos || path.find('\0') != std::string::npos) return false;
-        if (root.empty() || path.empty()) return false;
-        if (root.size() > kMaxString || path.size() > kMaxString) return false;
-        if (root[0] != '/') return false;
-        if (HasBadPathChars(root) || HasBadPathChars(path)) return false;
-        std::string combined;
-        if (!path.empty() && path[0] == '/') {
-            combined = path;
-        } else {
-            combined = root;
-            if (!combined.empty() && combined.back() != '/') combined += '/';
-            combined += path;
-        }
-        if (combined.size() > kMaxString * 2) return false;
-        if (HasBadPathChars(combined)) return false;
-        std::vector<std::string> parts;
-        std::string cur;
-        for (std::size_t i = 0; i <= combined.size(); ++i) {
-            char c = (i < combined.size()) ? combined[i] : '/';
-            if (c == '/') {
-                if (!cur.empty()) {
-                    if (cur == ".") {
-                    } else if (cur == "..") {
-                        if (parts.empty()) return false;
-                        parts.pop_back();
-                    } else {
-                        parts.push_back(cur);
-                    }
-                    cur.clear();
-                }
-            } else {
-                cur += c;
-            }
-        }
-        if (parts.empty()) {
-            tmp = "/";
-        } else {
-            tmp = "";
-            for (auto& p : parts) {
-                tmp += '/';
-                tmp += p;
-            }
-        }
-        if (tmp.size() > kMaxString) return false;
-        output = tmp;
-        return true;
-    } catch (...) {
-        return false;
+    std::string tmp;
+    if (root.find('\0') != std::string::npos || path.find('\0') != std::string::npos) return false;
+    if (root.empty() || path.empty()) return false;
+    if (root.size() > kMaxString || path.size() > kMaxString) return false;
+    if (root[0] != '/') return false;
+    if (HasBadPathChars(root) || HasBadPathChars(path)) return false;
+    std::string combined;
+    if (!path.empty() && path[0] == '/') {
+        combined = path;
+    } else {
+        combined = root;
+        if (!combined.empty() && combined.back() != '/') combined += '/';
+        combined += path;
     }
+    if (combined.size() > kMaxString * 2) return false;
+    if (HasBadPathChars(combined)) return false;
+    std::vector<std::string> parts;
+    std::string cur;
+    for (std::size_t i = 0; i <= combined.size(); ++i) {
+        char c = (i < combined.size()) ? combined[i] : '/';
+        if (c == '/') {
+            if (!cur.empty()) {
+                if (cur == ".") {
+                } else if (cur == "..") {
+                    if (parts.empty()) return false;
+                    parts.pop_back();
+                } else {
+                    parts.push_back(cur);
+                }
+                cur.clear();
+            }
+        } else {
+            cur += c;
+        }
+    }
+    if (parts.empty()) {
+        tmp = "/";
+    } else {
+        tmp = "";
+        for (auto& p : parts) {
+            tmp += '/';
+            tmp += p;
+        }
+    }
+    if (tmp.size() > kMaxString) return false;
+    output = tmp;
+    return true;
 }
 bool substitute_params(const std::string& input, const std::vector<Param>& params,
                        const DiscIdentity& disc, std::string& output, std::string& error) {
-    try {
-        std::string out;
-        const std::size_t n = input.size();
-        std::size_t i = 0;
-        while (i < n) {
-            if (input[i] == '{' && i + 1 < n && input[i + 1] == '$') {
-                std::size_t close = input.find('}', i + 2);
-                if (close == std::string::npos) {
-                    error = "unterminated placeholder in '" + input + "'";
-                    return false;
-                }
-                std::string name = input.substr(i + 2, close - (i + 2));
-                if (name.empty()) {
-                    error = "empty placeholder in '" + input + "'";
-                    return false;
-                }
-                std::string value;
-                bool found = false;
-                if (name == "__ngid") {
-                    char id[9];
-                    std::snprintf(id, sizeof(id), "%08X", static_cast<unsigned>(disc.console_id));
-                    value = id;
-                    found = true;
-                } else if (name == "__gameid" || name == "__region" || name == "__maker") {
-                    if (disc.id.size() != 6) {
-                        error = "disc id required for {$" + name + "}";
-                        return false;
-                    }
-                    if (name == "__gameid") value = disc.id.substr(0, 3);
-                    else if (name == "__region") value = disc.id.substr(3, 1);
-                    else value = disc.id.substr(4, 2);
-                    found = true;
-                } else {
-                    for (std::size_t k = params.size(); k > 0; --k) {
-                        if (params[k - 1].name == name) {
-                            value = params[k - 1].value;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                // Riivolution substitutes nothing for a name no param sets.
-                (void)found;
-                out += value;
-                i = close + 1;
-            } else {
-                out += input[i];
-                ++i;
-            }
-            if (out.size() > kMaxString) {
-                error = "substituted path too long";
+    std::string out;
+    const std::size_t n = input.size();
+    std::size_t i = 0;
+    while (i < n) {
+        if (input[i] == '{' && i + 1 < n && input[i + 1] == '$') {
+            std::size_t close = input.find('}', i + 2);
+            if (close == std::string::npos) {
+                error = "unterminated placeholder in '" + input + "'";
                 return false;
             }
+            std::string name = input.substr(i + 2, close - (i + 2));
+            if (name.empty()) {
+                error = "empty placeholder in '" + input + "'";
+                return false;
+            }
+            std::string value;
+            bool found = false;
+            if (name == "__ngid") {
+                char id[9];
+                std::snprintf(id, sizeof(id), "%08X", static_cast<unsigned>(disc.console_id));
+                value = id;
+                found = true;
+            } else if (name == "__gameid" || name == "__region" || name == "__maker") {
+                if (disc.id.size() != 6) {
+                    error = "disc id required for {$" + name + "}";
+                    return false;
+                }
+                if (name == "__gameid") value = disc.id.substr(0, 3);
+                else if (name == "__region") value = disc.id.substr(3, 1);
+                else value = disc.id.substr(4, 2);
+                found = true;
+            } else {
+                for (std::size_t k = params.size(); k > 0; --k) {
+                    if (params[k - 1].name == name) {
+                        value = params[k - 1].value;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            // Riivolution substitutes nothing for a name no param sets.
+            (void)found;
+            out += value;
+            i = close + 1;
+        } else {
+            out += input[i];
+            ++i;
         }
-        output = out;
-        return true;
-    } catch (...) {
-        error = "allocation failure";
-        return false;
+        if (out.size() > kMaxString) {
+            error = "substituted path too long";
+            return false;
+        }
     }
+    output = out;
+    return true;
 }
 bool is_foreign_xml(const std::string& xml) {
     pugi::xml_document doc;
@@ -1186,195 +1178,192 @@ bool is_foreign_xml(const std::string& xml) {
 }
 
 bool parse_package(const std::string& input, Package& output, std::string& error, const std::string& folder) {
-    try {
-        // Anything after the last '>' (NUL padding, a stray line) is not
-        // XML; Riivolution cuts it off too.
-        const std::size_t last = input.find_last_of('>');
-        const std::string xml = input.substr(0, last == std::string::npos ? input.size() : last + 1);
-        const bool trimmed = !IsWhitespaceOnly(input.c_str() + xml.size()) ||
-                             input.find('\0', xml.size()) != std::string::npos;
-        if (folder.empty() || folder[0] != '/' || HasBadPathChars(folder)) {
-            error = "invalid XML folder";
-            return false;
-        }
-        if (xml.find('\0') != std::string::npos) {
-            error = "embedded null not allowed";
-            return false;
-        }
-        if (xml.size() > kMaxXml) {
-            error = "xml too large";
-            return false;
-        }
-        if (HasDoctype(xml)) {
-            error = "doctype not allowed";
-            return false;
-        }
-        {
-            std::string piErr;
-            if (HasForbiddenPi(xml, piErr)) {
-                error = piErr;
-                return false;
-            }
-        }
-        // pugixml keeps every copy of a repeated attribute and reads the
-        // first, as Riivolution's reader does; say so rather than refuse.
-        std::string duplicate_attr;
-        if (!CheckDuplicateAttrs(xml, duplicate_attr)) duplicate_attr += " (the first is used)";
-        else duplicate_attr.clear();
-        pugi::xml_document doc;
-        pugi::xml_parse_result res = doc.load_buffer(xml.data(), xml.size(), pugi::parse_full);
-        if (!res) {
-            error = std::string("xml parse error: ") + res.description();
-            return false;
-        }
-        bool seenDecl = false;
-        bool seenElement = false;
-        for (auto c : doc.children()) {
-            auto t = c.type();
-            if (t == pugi::node_declaration) {
-                if (seenDecl || seenElement) {
-                    error = "xml declaration must come first";
-                    return false;
-                }
-                seenDecl = true;
-                continue;
-            }
-            if (t == pugi::node_pi || t == pugi::node_doctype) {
-                error = "processing instruction or doctype not allowed";
-                return false;
-            }
-            if (t == pugi::node_pcdata || t == pugi::node_cdata) {
-                if (!IsWhitespaceOnly(c.value())) {
-                    error = "unexpected text at top level";
-                    return false;
-                }
-            }
-            if (t == pugi::node_element) seenElement = true;
-        }
-        std::vector<pugi::xml_node> roots;
-        for (auto c : doc.children()) {
-            if (c.type() == pugi::node_element) roots.push_back(c);
-        }
-        if (roots.empty()) {
-            error = "missing root";
-            return false;
-        }
-        if (roots.size() > 1) {
-            error = "multiple roots not allowed";
-            return false;
-        }
-        pugi::xml_node r = roots[0];
-        std::string rname = r.name();
-        if (rname != "wiidisc") {
-            error = "unsupported root '" + rname + "'";
-            return false;
-        }
-        Package tmp;
-        tmp.root = folder;
-        Ctx ctx{tmp, 1, {}, false, {}};
-        if (trimmed) Warn(ctx, "ignoring what follows the last '>'");
-        if (!duplicate_attr.empty()) Warn(ctx, duplicate_attr);
-        static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", nullptr};
-        if (!EnterElement(r, ctx, 1, root_allowed, "wiidisc", error)) return false;
-        if (!AttrPresent(r, "version")) {
-            error = "wiidisc missing version";
-            return false;
-        }
-        {
-            std::string v = AttrValue(r, "version");
-            if (v != "1") {
-                error = "unsupported wiidisc version '" + v + "'";
-                return false;
-            }
-        }
-        // `root=""` is absent (see AttrPresent), so the folder default
-        // survives it. A relative root starts in the XML's folder.
-        if (AttrPresent(r, "root")) {
-            const std::string rt = AttrValue(r, "root");
-            if (HasBadPathChars(rt) || !resolve_path(folder, rt, tmp.root)) {
-                error = "invalid wiidisc root '" + rt + "'";
-                return false;
-            }
-        }
-        if (!ReadBool(r, "shiftfiles", "wiidisc", tmp.shift_files, ctx, error)) return false;
-        bool seenId = false;
-        bool seenOptions = false;
-        for (auto c : r.children()) {
-            if (c.type() != pugi::node_element) continue;
-            std::string cn = c.name();
-            if (cn == "id") {
-                // The first <id> is the filter; a later one is ignored.
-                if (seenId) {
-                    Warn(ctx, "ignoring a second <id>");
-                    continue;
-                }
-                seenId = true;
-                if (!ParseId(c, tmp.filter, ctx, 2, error)) return false;
-            } else if (cn == "region") {
-                if (!ParseRegionNode(c, tmp.filter, ctx, 2, error)) return false;
-            } else if (cn == "options") {
-                // A second <options> block adds its sections to the first.
-                if (seenOptions) Warn(ctx, "more than one <options>; their sections are merged");
-                seenOptions = true;
-                if (!ParseOptions(c, ctx, 2, error)) return false;
-            } else if (cn == "patch") {
-                if (!ParsePatchDef(c, ctx, 2, error) && !Recover(ctx, "a <patch>", error)) return false;
-            } else if (cn == "network") {
-                if (!ParseNetworkNode(c, ctx, 2, error)) return false;
-            } else {
-                WarnUnknownChild(ctx, "wiidisc", c);
-            }
-        }
-        if (!ExpandMacros(ctx, error)) return false;
-        if (ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
-        // References: every definition of a repeated id, and none for an id
-        // no <patch> defines (a warning, as Riivolution just skips it).
-        std::size_t references = 0;
-        for (auto& o : tmp.options) {
-            for (auto& ch : o.choices) {
-                std::vector<std::string> resolved;
-                std::vector<std::vector<Param>> resolved_params;
-                for (std::size_t r = 0; r < ch.patches.size(); ++r) {
-                    const std::string& pid = ch.patches[r];
-                    if (tmp.patches.find(pid) == tmp.patches.end()) {
-                        Warn(ctx, "choice '" + ch.name + "' of option '" + o.name + "' references undefined patch '" +
-                                      pid + "'; ignored");
-                        continue;
-                    }
-                    const std::vector<Param> params =
-                        r < ch.patch_params.size() ? ch.patch_params[r] : std::vector<Param>();
-                    const auto more = ctx.aliases.find(pid);
-                    // A repeated id names all its definitions, in every
-                    // choice that names it: counted against the same budget.
-                    references += 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
-                    if (references > kMaxReferences) {
-                        error = "the package's choices name too many patches";
-                        return false;
-                    }
-                    resolved.push_back(pid);
-                    resolved_params.push_back(params);
-                    if (more != ctx.aliases.end()) {
-                        resolved.insert(resolved.end(), more->second.begin(), more->second.end());
-                        resolved_params.insert(resolved_params.end(), more->second.size(), params);
-                    }
-                }
-                ch.patches = std::move(resolved);
-                ch.patch_params = std::move(resolved_params);
-            }
-        }
-        output = tmp;
-        error.clear();
-        return true;
-    } catch (const std::bad_alloc&) {
-        error = "allocation failure";
-        return false;
-    } catch (const std::exception& e) {
-        try { error = e.what(); } catch (...) { error = "allocation failure"; }
-        return false;
-    } catch (...) {
+    // Anything after the last '>' (NUL padding, a stray line) is not
+    // XML; Riivolution cuts it off too. The copy is as big as the pack's
+    // file, so its room is checked; the parse's own allocations are small
+    // (and pugixml reports running out as a parse error).
+    const std::size_t last = input.find_last_of('>');
+    const std::size_t xml_size = last == std::string::npos ? input.size() : last + 1;
+    std::string xml;
+    if (!try_reserve(xml, xml_size)) {
         error = "allocation failure";
         return false;
     }
+    xml.assign(input, 0, xml_size);
+    const bool trimmed = !IsWhitespaceOnly(input.c_str() + xml.size()) ||
+                         input.find('\0', xml.size()) != std::string::npos;
+    if (folder.empty() || folder[0] != '/' || HasBadPathChars(folder)) {
+        error = "invalid XML folder";
+        return false;
+    }
+    if (xml.find('\0') != std::string::npos) {
+        error = "embedded null not allowed";
+        return false;
+    }
+    if (xml.size() > kMaxXml) {
+        error = "xml too large";
+        return false;
+    }
+    if (HasDoctype(xml)) {
+        error = "doctype not allowed";
+        return false;
+    }
+    {
+        std::string piErr;
+        if (HasForbiddenPi(xml, piErr)) {
+            error = piErr;
+            return false;
+        }
+    }
+    // pugixml keeps every copy of a repeated attribute and reads the
+    // first, as Riivolution's reader does; say so rather than refuse.
+    std::string duplicate_attr;
+    if (!CheckDuplicateAttrs(xml, duplicate_attr)) duplicate_attr += " (the first is used)";
+    else duplicate_attr.clear();
+    pugi::xml_document doc;
+    pugi::xml_parse_result res = doc.load_buffer(xml.data(), xml.size(), pugi::parse_full);
+    if (!res) {
+        error = std::string("xml parse error: ") + res.description();
+        return false;
+    }
+    bool seenDecl = false;
+    bool seenElement = false;
+    for (auto c : doc.children()) {
+        auto t = c.type();
+        if (t == pugi::node_declaration) {
+            if (seenDecl || seenElement) {
+                error = "xml declaration must come first";
+                return false;
+            }
+            seenDecl = true;
+            continue;
+        }
+        if (t == pugi::node_pi || t == pugi::node_doctype) {
+            error = "processing instruction or doctype not allowed";
+            return false;
+        }
+        if (t == pugi::node_pcdata || t == pugi::node_cdata) {
+            if (!IsWhitespaceOnly(c.value())) {
+                error = "unexpected text at top level";
+                return false;
+            }
+        }
+        if (t == pugi::node_element) seenElement = true;
+    }
+    std::vector<pugi::xml_node> roots;
+    for (auto c : doc.children()) {
+        if (c.type() == pugi::node_element) roots.push_back(c);
+    }
+    if (roots.empty()) {
+        error = "missing root";
+        return false;
+    }
+    if (roots.size() > 1) {
+        error = "multiple roots not allowed";
+        return false;
+    }
+    pugi::xml_node r = roots[0];
+    std::string rname = r.name();
+    if (rname != "wiidisc") {
+        error = "unsupported root '" + rname + "'";
+        return false;
+    }
+    Package tmp;
+    tmp.root = folder;
+    Ctx ctx{tmp, 1, {}, false, {}};
+    if (trimmed) Warn(ctx, "ignoring what follows the last '>'");
+    if (!duplicate_attr.empty()) Warn(ctx, duplicate_attr);
+    static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", nullptr};
+    if (!EnterElement(r, ctx, 1, root_allowed, "wiidisc", error)) return false;
+    if (!AttrPresent(r, "version")) {
+        error = "wiidisc missing version";
+        return false;
+    }
+    {
+        std::string v = AttrValue(r, "version");
+        if (v != "1") {
+            error = "unsupported wiidisc version '" + v + "'";
+            return false;
+        }
+    }
+    // `root=""` is absent (see AttrPresent), so the folder default
+    // survives it. A relative root starts in the XML's folder.
+    if (AttrPresent(r, "root")) {
+        const std::string rt = AttrValue(r, "root");
+        if (HasBadPathChars(rt) || !resolve_path(folder, rt, tmp.root)) {
+            error = "invalid wiidisc root '" + rt + "'";
+            return false;
+        }
+    }
+    if (!ReadBool(r, "shiftfiles", "wiidisc", tmp.shift_files, ctx, error)) return false;
+    bool seenId = false;
+    bool seenOptions = false;
+    for (auto c : r.children()) {
+        if (c.type() != pugi::node_element) continue;
+        std::string cn = c.name();
+        if (cn == "id") {
+            // The first <id> is the filter; a later one is ignored.
+            if (seenId) {
+                Warn(ctx, "ignoring a second <id>");
+                continue;
+            }
+            seenId = true;
+            if (!ParseId(c, tmp.filter, ctx, 2, error)) return false;
+        } else if (cn == "region") {
+            if (!ParseRegionNode(c, tmp.filter, ctx, 2, error)) return false;
+        } else if (cn == "options") {
+            // A second <options> block adds its sections to the first.
+            if (seenOptions) Warn(ctx, "more than one <options>; their sections are merged");
+            seenOptions = true;
+            if (!ParseOptions(c, ctx, 2, error)) return false;
+        } else if (cn == "patch") {
+            if (!ParsePatchDef(c, ctx, 2, error) && !Recover(ctx, "a <patch>", error)) return false;
+        } else if (cn == "network") {
+            if (!ParseNetworkNode(c, ctx, 2, error)) return false;
+        } else {
+            WarnUnknownChild(ctx, "wiidisc", c);
+        }
+    }
+    if (!ExpandMacros(ctx, error)) return false;
+    if (ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
+    // References: every definition of a repeated id, and none for an id
+    // no <patch> defines (a warning, as Riivolution just skips it).
+    std::size_t references = 0;
+    for (auto& o : tmp.options) {
+        for (auto& ch : o.choices) {
+            std::vector<std::string> resolved;
+            std::vector<std::vector<Param>> resolved_params;
+            for (std::size_t r = 0; r < ch.patches.size(); ++r) {
+                const std::string& pid = ch.patches[r];
+                if (tmp.patches.find(pid) == tmp.patches.end()) {
+                    Warn(ctx, "choice '" + ch.name + "' of option '" + o.name + "' references undefined patch '" +
+                                  pid + "'; ignored");
+                    continue;
+                }
+                const std::vector<Param> params =
+                    r < ch.patch_params.size() ? ch.patch_params[r] : std::vector<Param>();
+                const auto more = ctx.aliases.find(pid);
+                // A repeated id names all its definitions, in every
+                // choice that names it: counted against the same budget.
+                references += 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
+                if (references > kMaxReferences) {
+                    error = "the package's choices name too many patches";
+                    return false;
+                }
+                resolved.push_back(pid);
+                resolved_params.push_back(params);
+                if (more != ctx.aliases.end()) {
+                    resolved.insert(resolved.end(), more->second.begin(), more->second.end());
+                    resolved_params.insert(resolved_params.end(), more->second.size(), params);
+                }
+            }
+            ch.patches = std::move(resolved);
+            ch.patch_params = std::move(resolved_params);
+        }
+    }
+    output = tmp;
+    error.clear();
+    return true;
 }
 namespace {
 struct Selection {
@@ -1517,199 +1506,188 @@ bool select_choice(Package& package, const std::string& option, const std::strin
 
 bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOptions& options,
                   Plan& output, std::string& error) {
-    try {
-        if (disc.id.size() != 6 || !IsAlnumUpper(disc.id)) {
-            error = "invalid disc id";
+    if (disc.id.size() != 6 || !IsAlnumUpper(disc.id)) {
+        error = "invalid disc id";
+        return false;
+    }
+    if (package.root.empty() || package.root[0] != '/' || package.root.size() > kMaxString || HasBadPathChars(package.root)) {
+        error = "invalid package root";
+        return false;
+    }
+    if (!package.filter.matches(disc)) {
+        output = Plan();
+        error.clear();
+        return true;
+    }
+    std::vector<Selection> selected;
+    for (const auto& o : package.options) {
+        if (o.selected > o.choices.size()) {
+            error = "invalid selection in option '" + o.name + "'";
             return false;
         }
-        if (package.root.empty() || package.root[0] != '/' || package.root.size() > kMaxString || HasBadPathChars(package.root)) {
-            error = "invalid package root";
-            return false;
-        }
-        if (!package.filter.matches(disc)) {
-            output = Plan();
-            error.clear();
-            return true;
-        }
-        std::vector<Selection> selected;
-        for (const auto& o : package.options) {
-            if (o.selected > o.choices.size()) {
-                error = "invalid selection in option '" + o.name + "'";
+        if (o.selected == 0) continue;
+        const Choice& ch = o.choices[o.selected - 1];
+        for (std::size_t r = 0; r < ch.patches.size(); ++r) {
+            const std::string& pid = ch.patches[r];
+            auto it = package.patches.find(pid);
+            if (it == package.patches.end()) {
+                error = "unresolved patch reference '" + pid + "'";
                 return false;
             }
-            if (o.selected == 0) continue;
-            const Choice& ch = o.choices[o.selected - 1];
-            for (std::size_t r = 0; r < ch.patches.size(); ++r) {
-                const std::string& pid = ch.patches[r];
-                auto it = package.patches.find(pid);
-                if (it == package.patches.end()) {
-                    error = "unresolved patch reference '" + pid + "'";
+            Selection s;
+            s.option = &o;
+            s.choice = &ch;
+            s.patch = &it->second;
+            s.patch_id = pid;
+            // Riivolution lets an option's params win over its
+            // choice's, and the reference's own win over both:
+            // later entries win here.
+            s.params = ch.params;
+            s.params.insert(s.params.end(), o.params.begin(), o.params.end());
+            if (r < ch.patch_params.size()) {
+                s.params.insert(s.params.end(), ch.patch_params[r].begin(), ch.patch_params[r].end());
+            }
+            selected.push_back(s);
+        }
+    }
+    Plan tmp;
+    std::vector<std::string> unsupported;
+    std::size_t memory_bytes = 0;
+    for (const auto& sel : selected) {
+        const Patch& p = *sel.patch;
+        std::string base = package.root;
+        if (!p.root.empty()) {
+            if (!ResolveExternal(p.root, package.root, sel, disc, "patch root", base, error)) return false;
+        }
+        // Patches built in code rather than parsed may leave `order`
+        // empty; treat that as kind-by-kind document order so nothing
+        // selected is silently skipped.
+        std::vector<PatchStep> order = p.order;
+        if (order.empty()) {
+            for (std::size_t i = 0; i < p.files.size(); ++i) order.push_back(PatchStep{PatchKind::File, i});
+            for (std::size_t i = 0; i < p.folders.size(); ++i) order.push_back(PatchStep{PatchKind::Folder, i});
+            for (std::size_t i = 0; i < p.memory.size(); ++i) order.push_back(PatchStep{PatchKind::Memory, i});
+            for (std::size_t i = 0; i < p.savegames.size(); ++i) order.push_back(PatchStep{PatchKind::Savegame, i});
+            for (std::size_t i = 0; i < p.shifts.size(); ++i) order.push_back(PatchStep{PatchKind::Shift, i});
+        }
+        for (const auto& step : order) {
+            switch (step.kind) {
+            case PatchKind::File: {
+                if (step.index >= p.files.size()) { error = "corrupt patch order"; return false; }
+                FilePatch f = p.files[step.index];
+                if (!substitute_params(f.disc, sel.params, disc, f.disc, error)) {
+                    error = Where(sel) + ": " + error;
                     return false;
                 }
-                Selection s;
-                s.option = &o;
-                s.choice = &ch;
-                s.patch = &it->second;
-                s.patch_id = pid;
-                // Riivolution lets an option's params win over its
-                // choice's, and the reference's own win over both:
-                // later entries win here.
-                s.params = ch.params;
-                s.params.insert(s.params.end(), o.params.begin(), o.params.end());
-                if (r < ch.patch_params.size()) {
-                    s.params.insert(s.params.end(), ch.patch_params[r].begin(), ch.patch_params[r].end());
+                f.disc = TidyDiscPath(f.disc);
+                {
+                    std::string perr;
+                    if (!CheckDiscPath(f.disc, false, true, f.is_filename, perr)) {
+                        error = Where(sel) + ": file " + perr;
+                        return false;
+                    }
                 }
-                selected.push_back(s);
+                if (!ResolveExternal(f.external, base, sel, disc, "external", f.external, error)) return false;
+                if (f.is_filename && !options.allow_filename_targets) {
+                    unsupported.push_back(Where(sel) + ": <file disc=\"" + f.disc + "\"> file-name lookup is not supported yet");
+                }
+                tmp.files.push_back(f);
+                tmp.order.push_back(PatchStep{PatchKind::File, tmp.files.size() - 1});
+                break;
             }
-        }
-        Plan tmp;
-        std::vector<std::string> unsupported;
-        std::size_t memory_bytes = 0;
-        for (const auto& sel : selected) {
-            const Patch& p = *sel.patch;
-            std::string base = package.root;
-            if (!p.root.empty()) {
-                if (!ResolveExternal(p.root, package.root, sel, disc, "patch root", base, error)) return false;
-            }
-            // Patches built in code rather than parsed may leave `order`
-            // empty; treat that as kind-by-kind document order so nothing
-            // selected is silently skipped.
-            std::vector<PatchStep> order = p.order;
-            if (order.empty()) {
-                for (std::size_t i = 0; i < p.files.size(); ++i) order.push_back(PatchStep{PatchKind::File, i});
-                for (std::size_t i = 0; i < p.folders.size(); ++i) order.push_back(PatchStep{PatchKind::Folder, i});
-                for (std::size_t i = 0; i < p.memory.size(); ++i) order.push_back(PatchStep{PatchKind::Memory, i});
-                for (std::size_t i = 0; i < p.savegames.size(); ++i) order.push_back(PatchStep{PatchKind::Savegame, i});
-                for (std::size_t i = 0; i < p.shifts.size(); ++i) order.push_back(PatchStep{PatchKind::Shift, i});
-            }
-            for (const auto& step : order) {
-                switch (step.kind) {
-                case PatchKind::File: {
-                    if (step.index >= p.files.size()) { error = "corrupt patch order"; return false; }
-                    FilePatch f = p.files[step.index];
+            case PatchKind::Folder: {
+                if (step.index >= p.folders.size()) { error = "corrupt patch order"; return false; }
+                FolderPatch f = p.folders[step.index];
+                if (!f.disc.empty()) {
                     if (!substitute_params(f.disc, sel.params, disc, f.disc, error)) {
                         error = Where(sel) + ": " + error;
                         return false;
                     }
                     f.disc = TidyDiscPath(f.disc);
-                    {
-                        std::string perr;
-                        if (!CheckDiscPath(f.disc, false, true, f.is_filename, perr)) {
-                            error = Where(sel) + ": file " + perr;
-                            return false;
-                        }
-                    }
-                    if (!ResolveExternal(f.external, base, sel, disc, "external", f.external, error)) return false;
-                    if (f.is_filename && !options.allow_filename_targets) {
-                        unsupported.push_back(Where(sel) + ": <file disc=\"" + f.disc + "\"> file-name lookup is not supported yet");
-                    }
-                    tmp.files.push_back(f);
-                    tmp.order.push_back(PatchStep{PatchKind::File, tmp.files.size() - 1});
-                    break;
                 }
-                case PatchKind::Folder: {
-                    if (step.index >= p.folders.size()) { error = "corrupt patch order"; return false; }
-                    FolderPatch f = p.folders[step.index];
-                    if (!f.disc.empty()) {
-                        if (!substitute_params(f.disc, sel.params, disc, f.disc, error)) {
-                            error = Where(sel) + ": " + error;
-                            return false;
-                        }
-                        f.disc = TidyDiscPath(f.disc);
-                    }
-                    {
-                        std::string perr;
-                        if (!CheckDiscPath(f.disc, true, true, f.is_name, perr)) {
-                            error = Where(sel) + ": folder " + perr;
-                            return false;
-                        }
-                    }
-                    if (!ResolveExternal(f.external, base, sel, disc, "external", f.external, error)) return false;
-                    if (!options.allow_folders) {
-                        unsupported.push_back(Where(sel) + ": <folder> patches are not supported yet");
-                    }
-                    tmp.folders.push_back(f);
-                    tmp.order.push_back(PatchStep{PatchKind::Folder, tmp.folders.size() - 1});
-                    break;
-                }
-                case PatchKind::Memory: {
-                    if (step.index >= p.memory.size()) { error = "corrupt patch order"; return false; }
-                    const MemoryPatch& listed = p.memory[step.index];
-                    memory_bytes += listed.value.size() + listed.original.size();
-                    if (memory_bytes > kMaxPlanMemoryBytes) {
-                        error = Where(sel) + ": the selected <memory> patches carry more than 16 MiB of values in all";
+                {
+                    std::string perr;
+                    if (!CheckDiscPath(f.disc, true, true, f.is_name, perr)) {
+                        error = Where(sel) + ": folder " + perr;
                         return false;
                     }
-                    MemoryPatch m = listed;
-                    if (!m.valuefile.empty()) {
-                        if (!ResolveExternal(m.valuefile, base, sel, disc, "valuefile", m.valuefile, error)) return false;
-                    }
-                    if (!options.allow_memory) {
-                        unsupported.push_back(Where(sel) + ": <memory> patches are not supported yet");
-                    }
-                    tmp.memory.push_back(m);
-                    tmp.order.push_back(PatchStep{PatchKind::Memory, tmp.memory.size() - 1});
-                    break;
                 }
-                case PatchKind::Savegame: {
-                    if (step.index >= p.savegames.size()) { error = "corrupt patch order"; return false; }
-                    SavegamePatch s = p.savegames[step.index];
-                    if (!ResolveExternal(s.external, base, sel, disc, "external", s.external, error)) return false;
-                    if (!SavegameFolderAllowed(s.external)) {
-                        error = Where(sel) + ": its <savegame> folder " + s.external +
-                                " is the SD card's root or a folder RiftWii or the Homebrew Channel uses; a save needs a folder of its own";
+                if (!ResolveExternal(f.external, base, sel, disc, "external", f.external, error)) return false;
+                if (!options.allow_folders) {
+                    unsupported.push_back(Where(sel) + ": <folder> patches are not supported yet");
+                }
+                tmp.folders.push_back(f);
+                tmp.order.push_back(PatchStep{PatchKind::Folder, tmp.folders.size() - 1});
+                break;
+            }
+            case PatchKind::Memory: {
+                if (step.index >= p.memory.size()) { error = "corrupt patch order"; return false; }
+                const MemoryPatch& listed = p.memory[step.index];
+                memory_bytes += listed.value.size() + listed.original.size();
+                if (memory_bytes > kMaxPlanMemoryBytes) {
+                    error = Where(sel) + ": the selected <memory> patches carry more than 16 MiB of values in all";
+                    return false;
+                }
+                MemoryPatch m = listed;
+                if (!m.valuefile.empty()) {
+                    if (!ResolveExternal(m.valuefile, base, sel, disc, "valuefile", m.valuefile, error)) return false;
+                }
+                if (!options.allow_memory) {
+                    unsupported.push_back(Where(sel) + ": <memory> patches are not supported yet");
+                }
+                tmp.memory.push_back(m);
+                tmp.order.push_back(PatchStep{PatchKind::Memory, tmp.memory.size() - 1});
+                break;
+            }
+            case PatchKind::Savegame: {
+                if (step.index >= p.savegames.size()) { error = "corrupt patch order"; return false; }
+                SavegamePatch s = p.savegames[step.index];
+                if (!ResolveExternal(s.external, base, sel, disc, "external", s.external, error)) return false;
+                if (!SavegameFolderAllowed(s.external)) {
+                    error = Where(sel) + ": its <savegame> folder " + s.external +
+                            " is the SD card's root or a folder RiftWii or the Homebrew Channel uses; a save needs a folder of its own";
+                    return false;
+                }
+                if (!options.allow_savegames) {
+                    unsupported.push_back(Where(sel) + ": <savegame> redirection is not supported yet");
+                }
+                tmp.savegames.push_back(s);
+                tmp.order.push_back(PatchStep{PatchKind::Savegame, tmp.savegames.size() - 1});
+                break;
+            }
+            case PatchKind::Shift: {
+                if (step.index >= p.shifts.size()) { error = "corrupt patch order"; return false; }
+                ShiftPatch s = p.shifts[step.index];
+                for (std::string* path : {&s.source, &s.destination}) {
+                    if (!substitute_params(*path, sel.params, disc, *path, error)) {
+                        error = Where(sel) + ": " + error;
                         return false;
                     }
-                    if (!options.allow_savegames) {
-                        unsupported.push_back(Where(sel) + ": <savegame> redirection is not supported yet");
+                    *path = TidyDiscPath(*path);
+                    bool is_name = false;
+                    std::string perr;
+                    if (!CheckDiscPath(*path, false, true, is_name, perr) || is_name) {
+                        error = Where(sel) + ": shift " + (perr.empty() ? "path must be absolute" : perr);
+                        return false;
                     }
-                    tmp.savegames.push_back(s);
-                    tmp.order.push_back(PatchStep{PatchKind::Savegame, tmp.savegames.size() - 1});
-                    break;
                 }
-                case PatchKind::Shift: {
-                    if (step.index >= p.shifts.size()) { error = "corrupt patch order"; return false; }
-                    ShiftPatch s = p.shifts[step.index];
-                    for (std::string* path : {&s.source, &s.destination}) {
-                        if (!substitute_params(*path, sel.params, disc, *path, error)) {
-                            error = Where(sel) + ": " + error;
-                            return false;
-                        }
-                        *path = TidyDiscPath(*path);
-                        bool is_name = false;
-                        std::string perr;
-                        if (!CheckDiscPath(*path, false, true, is_name, perr) || is_name) {
-                            error = Where(sel) + ": shift " + (perr.empty() ? "path must be absolute" : perr);
-                            return false;
-                        }
-                    }
-                    tmp.shifts.push_back(s);
-                    tmp.order.push_back(PatchStep{PatchKind::Shift, tmp.shifts.size() - 1});
-                    break;
-                }
-                }
+                tmp.shifts.push_back(s);
+                tmp.order.push_back(PatchStep{PatchKind::Shift, tmp.shifts.size() - 1});
+                break;
+            }
             }
         }
-        if (!unsupported.empty()) {
-            error = "cannot launch: ";
-            for (std::size_t i = 0; i < unsupported.size(); ++i) {
-                if (i > 0) error += "; ";
-                error += unsupported[i];
-            }
-            return false;
+    }
+    if (!unsupported.empty()) {
+        error = "cannot launch: ";
+        for (std::size_t i = 0; i < unsupported.size(); ++i) {
+            if (i > 0) error += "; ";
+            error += unsupported[i];
         }
-        output = tmp;
-        error.clear();
-        return true;
-    } catch (const std::bad_alloc&) {
-        error = "allocation failure";
-        return false;
-    } catch (const std::exception& e) {
-        try { error = e.what(); } catch (...) { error = "allocation failure"; }
-        return false;
-    } catch (...) {
-        error = "allocation failure";
         return false;
     }
+    output = tmp;
+    error.clear();
+    return true;
 }
 }  // namespace riftwii

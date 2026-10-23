@@ -4,6 +4,8 @@
 
 #include <gctypes.h>
 
+#include "riftwii/checkedalloc.hpp"
+
 #include <new>
 #include <string>
 #include <utility>
@@ -93,20 +95,45 @@ bool HeapIntact(std::string& problem);
 // logged as CheckHeap logs it, so a report names the step it followed.
 bool WatchHeap(const char* when);
 
-// A launch that runs out of memory (a big pack: RiiMajor's 5.9 MB main.dol
-// and its files) throws std::bad_alloc; uncaught, it aborted RiftWii straight
-// back to the Homebrew Channel with nothing said. Run through this, it is a
-// failed launch with `error` saying so. For every launch: the menu's,
-// autorun's and a headless one's.
+// What a launch that runs out of memory says (a big pack: RiiMajor's 5.9 MB
+// main.dol and its files). Once, that aborted RiftWii straight back to the
+// Homebrew Channel with nothing said.
+extern const char* const kLaunchOutOfMemory;
+
+// While it lives, a failed allocation ends the launch with
+// kLaunchOutOfMemory instead of throwing std::bad_alloc, which the Wii
+// build cannot catch (no C++ exceptions, issue #242). The launch's big
+// buffers are checked where they are made (riftwii/checkedalloc.hpp) and
+// fail as an ordinary error with that message; any other allocation that
+// fails comes to operator new's handler, which logs the failed launch and
+// restarts RiftWii with the message on screen (as A does on the failed
+// launch screen), or leaves to the Homebrew Channel when it cannot.
+// Nested guards share the outermost one's handler.
+// Logs the step's own error before GuardLaunchMemory replaces it.
+void LogLaunchOutOfMemory(const std::string& step_error);
+
+class LaunchMemoryGuard {
+public:
+    LaunchMemoryGuard();
+    ~LaunchMemoryGuard();
+    LaunchMemoryGuard(const LaunchMemoryGuard&) = delete;
+    LaunchMemoryGuard& operator=(const LaunchMemoryGuard&) = delete;
+};
+
+// Runs a launch (the menu's, autorun's or a headless one) under a
+// LaunchMemoryGuard. A launch that failed because a checked allocation
+// found no room (riftwii/checkedalloc.hpp) ends with kLaunchOutOfMemory as
+// `error`, whatever step it failed in; that step's own words are logged.
 template <typename Run>
-bool OutOfMemoryAsError(std::string& error, Run run) {
-    try {
-        return run();
-    } catch (const std::bad_alloc&) {
-        error = "RiftWii ran out of memory while starting the game (a big pack?); "
-                "turn off menu music or other packs and try again";
-        return false;
+bool GuardLaunchMemory(std::string& error, Run run) {
+    LaunchMemoryGuard guard;
+    clear_out_of_memory();
+    const bool ok = run();
+    if (!ok && took_out_of_memory()) {
+        LogLaunchOutOfMemory(error);
+        error = kLaunchOutOfMemory;
     }
+    return ok;
 }
 
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left

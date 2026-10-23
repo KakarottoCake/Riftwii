@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/disc.hpp"
 
+#include "riftwii/checkedalloc.hpp"
+
 #include <limits>
 
 namespace riftwii {
@@ -49,9 +51,7 @@ bool read_exact(const ByteSource& source, std::uint64_t offset, std::vector<std:
         error = std::string(what) + " lies outside the source";
         return false;
     }
-    try {
-        buffer.assign(length, 0);
-    } catch (...) {
+    if (!try_assign(buffer, length, std::uint8_t(0))) {
         error = "allocation failure";
         return false;
     }

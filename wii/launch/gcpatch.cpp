@@ -18,6 +18,7 @@
 #include "memlimits.hpp"
 #include "progress.hpp"
 #include "usbcatalog.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/vcdiff.hpp"
 
 namespace riftwii::wii {
@@ -144,11 +145,10 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             std::string error;
             // At every start, while the list is made: a damaged patch that
             // still asked for too much memory must not end RiftWii (BUG-02).
-            bool read_head = false;
-            try {
-                read_head = vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60, head,
-                                        checked, error, wii_limits());
-            } catch (const std::bad_alloc&) {
+            clear_out_of_memory();
+            const bool read_head = vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60,
+                                               head, checked, error, wii_limits());
+            if (!read_head && took_out_of_memory()) {
                 error = "the patch asks for more memory than RiftWii has (is the file damaged?)";
             }
             if (!read_head) {
@@ -234,7 +234,7 @@ bool PrepareGcPatch(GcImage& image, std::string& error, const GcPrepareProgress&
         const u64 start = gettime();
         u64 last_label = 0;
         if (!caller_progress) ProgressStage("Preparing the game from its patch (once)", 0);
-        ok = mem::OutOfMemoryAsError(error, [&] { return apply_vcdiff(
+        ok = mem::GuardLaunchMemory(error, [&] { return apply_vcdiff(
             patch.reader(), patch.size, original.reader(), original.size,
             [&](const std::uint8_t* d, std::size_t n) {
                 if (std::fwrite(d, 1, n, out.f) != n) return false;

@@ -58,7 +58,16 @@ DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-lib
 # options for code generation
 #---------------------------------------------------------------------------------
 CFLAGS		=	-g -Os -Wall -Wextra $(MACHDEP) $(INCLUDE) $(FREETYPE_CFLAGS)
-CXXFLAGS	=	$(CFLAGS) -std=c++17
+# No C++ exceptions and no unwind tables (issue #242): their .eh_frame,
+# .eh_frame_hdr and .gcc_except_table took over 500 KiB of the loaded
+# image. A failure is an ordinary error return instead, and a buffer sized
+# by a disc, a pack or a download asks for its memory first
+# (include/riftwii/checkedalloc.hpp); a launch that still runs out ends in
+# operator new's handler (wii/core/memlimits.hpp LaunchMemoryGuard).
+CFLAGS		+=	-fno-asynchronous-unwind-tables
+CXXFLAGS	=	$(CFLAGS) -std=c++17 -fno-exceptions
+# pugixml reports running out of memory as a parse result, not a throw.
+CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 # pugixml without its std::string and stream functions, which RiftWii never
 # calls: their std::istream references alone kept libstdc++'s locale code
 # (about 20 KiB of it) in the DOL. The host build keeps them.

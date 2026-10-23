@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <sys/stat.h>
 
 namespace riftwii {
@@ -104,9 +105,8 @@ OpenStatus FileByteSource::open(const std::string& path, std::unique_ptr<FileByt
         return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::fclose(f);
-    try {
-        out.reset(new FileByteSource(path, size));
-    } catch (...) {
+    out.reset(new (std::nothrow) FileByteSource(path, size));
+    if (!out) {
         error = "allocation failure";
         return OpenStatus::IoError;
     }
@@ -138,9 +138,8 @@ OpenStatus FileByteSource::open(const std::string& path, std::uint64_t size,
         return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::fclose(f);
-    try {
-        out.reset(new FileByteSource(path, size));
-    } catch (...) {
+    out.reset(new (std::nothrow) FileByteSource(path, size));
+    if (!out) {
         error = "allocation failure";
         return OpenStatus::IoError;
     }

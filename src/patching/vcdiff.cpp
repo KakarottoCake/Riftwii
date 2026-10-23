@@ -5,6 +5,7 @@
 // (4.2, 4.3); xdelta3's extensions (the application header and the
 // per-window Adler-32) from xdelta3's format notes.
 #include "riftwii/vcdiff.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,11 +21,17 @@ namespace {
 // the old block and the new one at once. The Wii's menu has about 30 MB
 // to prepare a game in, and a buffer grown in place briefly took twice
 // its size (Super Mario Eclipse's third window found no 8 MB block).
-void fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
+// False when there is no room (riftwii/checkedalloc.hpp).
+bool fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
+    if (n > v.max_size()) return false;
     if (n > v.capacity()) std::vector<std::uint8_t>().swap(v);
-    v.resize(static_cast<std::size_t>(n));
+    return try_resize(v, static_cast<std::size_t>(n));
 }
 
+
+// A window or section that found no room; callers that report running
+// out of memory in their own words check took_out_of_memory instead.
+constexpr const char* kNoRoom = "the patch asks for more memory than is free";
 
 constexpr std::uint8_t kSource = 0x01;   // Win_Indicator: the copy window is in the original
 constexpr std::uint8_t kTarget = 0x02;   // ...or in the patched image made so far
@@ -205,11 +212,11 @@ public:
             if (seg_len > limits_.max_window) return fail("a patch window is larger than RiftWii takes");
         }
         if (seg_whole_) {
-            fresh_size(seg_, seg_len);
+            if (!fresh_size(seg_, seg_len)) return fail(kNoRoom);
             if (seg_len && !read_seg(seg_pos, seg_.data(), seg_.size())) return false;
         }
 
-        fresh_size(out, window_len);
+        if (!fresh_size(out, window_len)) return fail(kNoRoom);
         window_len_ = window_len;
         seg_len_ = seg_len;
         if (!seg_whole_ && seg_len != 0) {
@@ -225,7 +232,7 @@ public:
                     return true;
                 }))
                 return false;
-            if (cache_.size() < region) fresh_size(cache_, region);
+            if (cache_.size() < region && !fresh_size(cache_, region)) return fail(kNoRoom);
             for (std::uint64_t lo = 0; lo < seg_len; lo += region) {
                 const std::uint64_t hi = std::min(seg_len, lo + region);
                 bool any = false;
@@ -354,7 +361,7 @@ private:
     // claimed 32 MiB a section asked for 100 MB and threw (BUG-02).
     bool section(std::vector<std::uint8_t>& out, std::uint64_t n) {
         if (n > patch_size_ - std::min(pos_, patch_size_)) return false;
-        fresh_size(out, n);
+        if (!fresh_size(out, n)) return fail(kNoRoom);
         return n == 0 || take(out.data(), out.size());
     }
 

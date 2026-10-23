@@ -7,6 +7,7 @@
 #include <new>
 
 #include "riftwii/bnr.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/tpl.hpp"
@@ -139,7 +140,11 @@ bool read_gc_disc_file(const ByteSource& disc, const std::string& path, std::vec
         error = "the disc's FST is out of bounds";
         return false;
     }
-    std::vector<std::uint8_t> fst_bytes(fst_size);
+    std::vector<std::uint8_t> fst_bytes;
+    if (!try_resize(fst_bytes, fst_size)) {
+        error = "out of memory for the disc's FST";
+        return false;
+    }
     if (!disc.read(fst_offset, fst_bytes.data(), fst_bytes.size())) {
         error = "cannot read the disc's FST";
         return false;
@@ -156,7 +161,11 @@ bool read_gc_disc_file(const ByteSource& disc, const std::string& path, std::vec
         error = path + " is too large or past the image's end";
         return false;
     }
-    std::vector<std::uint8_t> bytes(entry.size);
+    std::vector<std::uint8_t> bytes;
+    if (!try_resize(bytes, entry.size)) {
+        error = "out of memory for " + path;
+        return false;
+    }
     if (entry.size && !disc.read(entry.offset, bytes.data(), bytes.size())) {
         error = "cannot read " + path;
         return false;
@@ -419,10 +428,9 @@ bool check_gc_banner_download(const std::uint8_t* data, std::size_t size, std::s
         return false;
     }
     OpeningBanner banner;
-    try {
-        if (!parse_opening_bnr(data, size, banner, error, true)) return false;
-    } catch (const std::bad_alloc&) {
-        error = "out of memory for the banner";
+    clear_out_of_memory();
+    if (!parse_opening_bnr(data, size, banner, error, true)) {
+        if (took_out_of_memory()) error = "out of memory for the banner";
         return false;
     }
     if (banner.banner.empty()) {

@@ -252,7 +252,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     }
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
-    const bool booted = mem::OutOfMemoryAsError(error, [&] {
+    const bool booted = mem::GuardLaunchMemory(error, [&] {
         return needs_launch_pipeline(!selections.empty(), state.model.save_mode)
                    ? RunLaunch(selections, error, source, state.model.save_mode, state.game_id)
                    : RunBoot(true, error, source);

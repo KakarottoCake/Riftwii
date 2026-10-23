@@ -4,9 +4,11 @@
 
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cstdio>
 
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii::wii {
 
@@ -21,7 +23,12 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
     }
     FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) return false;
-    out.resize(static_cast<std::size_t>(st.st_size));
+    if (!try_resize(out, static_cast<std::size_t>(st.st_size))) {
+        std::fclose(f);
+        logf("%s is %lld bytes, more than there is memory for; left alone\n", path.c_str(),
+             static_cast<long long>(st.st_size));
+        return false;
+    }
     const std::size_t got = out.empty() ? 0 : std::fread(&out[0], 1, out.size(), f);
     std::fclose(f);
     out.resize(got);
@@ -31,6 +38,8 @@ bool ReadTextFile(const std::string& path, std::string& out, std::size_t cap) {
 namespace {
 
 // ReadWholeFile for a string or a byte vector: both hold the file as it is.
+// False also when there is no memory for the whole file (a pack's file
+// sizes it, so it is checked).
 template <typename Buffer>
 bool read_whole(const std::string& path, Buffer& out) {
     using Byte = typename Buffer::value_type;
@@ -44,14 +53,24 @@ bool read_whole(const std::string& path, Buffer& out) {
     if (std::fseek(f, 0, SEEK_END) == 0) size = std::ftell(f);
     std::rewind(f);
     if (size > 0) {
-        out.resize(static_cast<std::size_t>(size));
+        if (!try_resize(out, static_cast<std::size_t>(size))) {
+            std::fclose(f);
+            logf("%s: no memory for its %ld bytes\n", path.c_str(), size);
+            return false;
+        }
         out.resize(std::fread(&out[0], 1, out.size(), f));
     }
     constexpr std::size_t kChunk = 4096;
     int next = std::fgetc(f);
     while (next != EOF) {
+        // Grown twofold, as the library would, but checked.
+        const std::size_t had = out.size() + 1;
+        if (!try_reserve(out, std::max(had + kChunk, out.capacity() * 2))) {
+            std::fclose(f);
+            logf("%s: no memory for more than its first %u bytes\n", path.c_str(), static_cast<unsigned>(had - 1));
+            return false;
+        }
         out.push_back(static_cast<Byte>(next));
-        const std::size_t had = out.size();
         out.resize(had + kChunk);
         out.resize(had + std::fread(&out[had], 1, kChunk, f));
         next = std::fgetc(f);

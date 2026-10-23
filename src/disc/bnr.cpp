@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/bnr.hpp"
+#include "riftwii/checkedalloc.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 #include "riftwii/disc.hpp"
@@ -97,7 +99,10 @@ bool lz77_decompress(const std::uint8_t* data, std::size_t size, std::vector<std
         return false;
     }
     std::vector<std::uint8_t> o;
-    o.reserve(want);
+    if (!try_reserve(o, want)) {
+        error = "out of memory for the LZ77 data";
+        return false;
+    }
     std::size_t i = 8;
     while (o.size() < want) {
         if (i >= size) {
@@ -148,22 +153,24 @@ bool U8Archive::parse(const std::uint8_t* data, std::size_t size, U8Archive& out
         error = "U8 node count is wrong";
         return false;
     }
-    const std::uint8_t* strings = nodes + static_cast<std::size_t>(count) * 12;
-    const std::size_t strings_size = header - static_cast<std::size_t>(count) * 12;
-    const auto name_of = [&](std::uint32_t off, std::string& name) {
-        if (off >= strings_size) return false;
-        const void* end = std::memchr(strings + off, 0, strings_size - off);
-        if (!end) return false;
-        name.assign(reinterpret_cast<const char*>(strings + off),
-                    static_cast<const std::uint8_t*>(end) - (strings + off));
-        return true;
-    };
-    U8Archive a;
-    a.base_ = data;
     // Every file keeps its whole path, so names and depth are bounded: a
     // crafted archive with 20,000 entries under a 50 KB name used about
     // 1 GB. A real banner has a few dozen short paths.
     constexpr std::size_t kMaxName = 255, kMaxDepth = 16, kMaxPathBytes = 1u << 20;
+    const std::uint8_t* strings = nodes + static_cast<std::size_t>(count) * 12;
+    const std::size_t strings_size = header - static_cast<std::size_t>(count) * 12;
+    // A name past kMaxName is copied only one character past it: enough
+    // for the length check below, without a copy as long as the table.
+    const auto name_of = [&](std::uint32_t off, std::string& name) {
+        if (off >= strings_size) return false;
+        const void* end = std::memchr(strings + off, 0, strings_size - off);
+        if (!end) return false;
+        const std::size_t length = static_cast<const std::uint8_t*>(end) - (strings + off);
+        name.assign(reinterpret_cast<const char*>(strings + off), std::min(length, kMaxName + 1));
+        return true;
+    };
+    U8Archive a;
+    a.base_ = data;
     std::size_t path_bytes = 0;
     // The open directories: where each ends and its path.
     struct Dir {
@@ -204,7 +211,10 @@ bool U8Archive::parse(const std::uint8_t* data, std::size_t size, U8Archive& out
                 error = "U8 archive names too many files";
                 return false;
             }
-            a.files_.push_back({normal_path(dirs.back().path + "/" + name), off, len});
+            if (!try_push_back(a.files_, File{normal_path(dirs.back().path + "/" + name), off, len})) {
+                error = "out of memory for the U8 file list";
+                return false;
+            }
         }
     }
     out = std::move(a);
@@ -286,7 +296,10 @@ bool unpack_banner_bin(const std::uint8_t* data, std::size_t size, std::vector<s
     }
     if (size >= 4 && std::memcmp(data, "LZ77", 4) == 0) return lz77_decompress(data, size, out, error);
     if (size >= 4 && be32(data) == 0x55AA382Du) {
-        out.assign(data, data + size);
+        if (!try_assign_range(out, data, data + size)) {
+            error = "out of memory for the U8 archive";
+            return false;
+        }
         return true;
     }
     error = "the banner holds no U8 archive";
@@ -348,7 +361,10 @@ bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner
         error = "banner.bin: " + error;
         return false;
     }
-    if (u8.find("/meta/sound.bin", part, part_size)) b.sound.assign(part, part + part_size);
+    if (u8.find("/meta/sound.bin", part, part_size) && !try_assign_range(b.sound, part, part + part_size)) {
+        error = "sound.bin: out of memory";
+        return false;
+    }
     out = std::move(b);
     return true;
 }
@@ -361,7 +377,11 @@ bool read_partition_file(const ByteSource& data, const std::string& path, std::v
         error = "FST too large";
         return false;
     }
-    std::vector<std::uint8_t> fst_bytes(static_cast<std::size_t>(header.fst_size));
+    std::vector<std::uint8_t> fst_bytes;
+    if (!try_resize(fst_bytes, static_cast<std::size_t>(header.fst_size))) {
+        error = "out of memory for the FST";
+        return false;
+    }
     if (!data.read(header.fst_offset, fst_bytes.data(), fst_bytes.size())) {
         error = "cannot read the FST";
         return false;
@@ -378,7 +398,11 @@ bool read_partition_file(const ByteSource& data, const std::string& path, std::v
         error = path + " is too large";
         return false;
     }
-    std::vector<std::uint8_t> bytes(e.size);
+    std::vector<std::uint8_t> bytes;
+    if (!try_resize(bytes, e.size)) {
+        error = "out of memory for " + path;
+        return false;
+    }
     if (e.size && !data.read(e.offset, bytes.data(), bytes.size())) {
         error = "cannot read " + path;
         return false;

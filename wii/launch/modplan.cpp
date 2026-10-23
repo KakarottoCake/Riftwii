@@ -17,6 +17,7 @@
 #include "progress.hpp"
 #include "riftwii/apply.hpp"
 #include "riftwii/bnr.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fat32.hpp"
@@ -582,7 +583,10 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                         m.valuefile + "'";
                 return false;
             }
-            m.value.resize(static_cast<std::size_t>(source->size()));
+            if (!try_resize(m.value, static_cast<std::size_t>(source->size()))) {
+                error = "no memory for memory patch valuefile '" + m.valuefile + "'";
+                return false;
+            }
             if (!source->read(0, m.value.data(), m.value.size())) {
                 error = "cannot read memory patch valuefile '" + m.valuefile + "'";
                 return false;
@@ -829,7 +833,11 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
             error = "main.dol: the patched executable is " + std::to_string(file->size()) + " bytes";
             return false;
         }
-        mod.main_dol.resize(static_cast<std::size_t>(file->size()));
+        // Up to 16 MiB (RiiMajor's is 5.9): the launch's biggest buffer.
+        if (!try_resize(mod.main_dol, static_cast<std::size_t>(file->size()))) {
+            error = "main.dol: no memory for the patched executable (" + std::to_string(file->size()) + " bytes)";
+            return false;
+        }
         DolHeader patched;
         // A read that fails says nothing itself (short of memory, or the
         // card): not "not a valid DOL" with an empty reason, as 2.7.0 RC3 said.
@@ -988,7 +996,10 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         }
         MemReplacement m;
         m.virtual_offset = e->vstart;
-        m.bytes.assign(in_memory.begin() + e->source, in_memory.begin() + e->source + e->length);
+        if (!try_assign_range(m.bytes, in_memory.begin() + e->source, in_memory.begin() + e->source + e->length)) {
+            error = "no memory for the small NTFS files that go into memory";
+            return false;
+        }
         mod.mem.push_back(std::move(m));
     }
     if (!in_memory.empty())

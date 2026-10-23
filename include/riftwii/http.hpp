@@ -84,5 +84,9 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
 
 // "%XX" for everything but unreserved characters, for query values.
 std::string url_encode(const std::string& text);
+// The same appended to `out`, and its length beforehand, so a big text's
+// room can be checked before it is encoded (wii/online/reportsend.cpp).
+void url_encode_append(const std::string& text, std::string& out);
+std::size_t url_encoded_size(const std::string& text);
 
 }  // namespace riftwii

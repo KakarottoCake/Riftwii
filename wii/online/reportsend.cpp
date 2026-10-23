@@ -30,6 +30,7 @@
 #include "online.hpp"
 #include "plugins.hpp"
 #include "restart.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/gamefault.hpp"
 #include "riftwii/gccrash.hpp"
 #include "riftwii/http.hpp"
@@ -686,10 +687,17 @@ ReportOutcome SendProblemReport(const std::string& reason) {
         // Form-encoded, the text grows by up to three times: half the
         // size, and out of memory is a failure, not a crash.
         std::string why;
-        try {
-            std::string small = gather(reason, kReportLimit / 2 < report.size() ? kReportLimit / 2 : report.size());
-            std::string().swap(report);
-            const std::string body = "syntax=text&expiry_days=90&content=" + url_encode(small);
+        std::string small = gather(reason, kReportLimit / 2 < report.size() ? kReportLimit / 2 : report.size());
+        std::string().swap(report);
+        // The form body is checked for room before it is made: the encoded
+        // text can be three times the size.
+        static const char kFormStart[] = "syntax=text&expiry_days=90&content=";
+        std::string body;
+        if (!try_reserve(body, sizeof(kFormStart) - 1 + url_encoded_size(small))) {
+            why = "not enough memory to send it";
+        } else {
+            body = kFormStart;
+            url_encode_append(small, body);
             out.bytes = small.size();
             std::string().swap(small);
             status = 0;
@@ -698,8 +706,6 @@ ReportOutcome SendProblemReport(const std::string& reason) {
                 bool partial = false;
                 out.sent = paste_link(status, answer, out.link, partial, why, "dpaste.com");
             }
-        } catch (const std::bad_alloc&) {
-            why = "not enough memory to send it";
         }
         if (!out.sent) out.error += "; dpaste.com: " + why;
     }

@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/sha1.hpp"
 #include "rvz_error.hpp"
@@ -364,12 +365,14 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
     if (file_offset > file_->size() || stored > file_->size() - file_offset) {
         return fail("data at " + std::to_string(file_offset) + " runs past the end of the file");
     }
+    // A damaged table can name up to the whole file: the sizes below are
+    // checked so that is a failed read, not the end of RiftWii.
     if (!compressed) {
-        out.resize(stored);
+        if (!try_resize(out, stored)) return fail("out of memory for a group");
         if (stored != 0 && !file_->read(file_offset, out.data(), stored)) return fail("read error");
         return true;
     }
-    stored_.resize(stored);
+    if (!try_resize(stored_, stored)) return fail("out of memory for a group");
     if (stored != 0 && !file_->read(file_offset, stored_.data(), stored)) return fail("read error");
     std::size_t capacity = expected;
     const unsigned long long known = ZSTD_getFrameContentSize(stored_.data(), stored_.size());
@@ -378,7 +381,7 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
         if (known > std::uint64_t(expected) + kZstdSlack) return fail("a group claims an impossible size");
         capacity = static_cast<std::size_t>(known);
     }
-    out.resize(capacity);
+    if (!try_resize(out, capacity)) return fail("out of memory for a group");
     const std::size_t got =
         ZSTD_decompressDCtx(static_cast<ZSTD_DCtx*>(dctx_), out.data(), out.size(), stored_.data(), stored_.size());
     if (ZSTD_isError(got)) {
@@ -401,7 +404,7 @@ bool RvzImage::load_group(std::uint32_t index, std::uint32_t payload, std::uint6
     if (index >= groups_.size()) return fail("group " + std::to_string(index) + " does not exist");
     const Group& g = groups_[index];
     const std::uint32_t stored = g.size & 0x7FFFFFFFu;
-    cache_.resize(payload);
+    if (!try_resize(cache_, payload)) return fail("out of memory for a group");
     if (stored == 0) {
         std::fill(cache_.begin(), cache_.end(), 0);
         remember(index, payload, data_offset, lists);
