@@ -24,6 +24,7 @@ HARNESS = r'''
 #include <cstring>
 #include <string>
 #include <vector>
+#include <sys/stat.h>
 
 constexpr unsigned GC_CARD_BYTES = 0x200000;
 struct Image {
@@ -32,6 +33,7 @@ struct Image {
 };
 
 bool can_open;
+bool on_disk;
 long file_size;
 std::size_t read_bytes;
 unsigned writes;
@@ -50,6 +52,12 @@ std::FILE* test_open(const char*, const char* mode) {
         return reinterpret_cast<std::FILE*>(1);
     }
     return can_open ? reinterpret_cast<std::FILE*>(1) : nullptr;
+}
+int test_stat(const char*, struct stat* out) {
+    if (!on_disk) return -1;
+    std::memset(out, 0, sizeof(*out));
+    out->st_size = file_size < 0 ? 0 : file_size;
+    return 0;
 }
 int test_seek(std::FILE*, long, int) { return 0; }
 long test_tell(std::FILE*) { return file_size; }
@@ -70,8 +78,10 @@ bool load() {
     return ready;
 }
 
-void check(bool opens, long size, std::size_t bytes, bool erased, bool should_format, bool ready) {
+void check(bool opens, long size, std::size_t bytes, bool erased, bool should_format, bool ready,
+           bool exists = true) {
     can_open = opens;
+    on_disk = opens || exists;
     file_size = size;
     read_bytes = bytes;
     erased_header = erased;
@@ -91,7 +101,9 @@ int main() {
     check(true, GC_CARD_BYTES, GC_CARD_BYTES, false, false, true);
     check(true, GC_CARD_BYTES, GC_CARD_BYTES, true, true, true);
     check(true, 0, 0, false, true, true);
-    check(false, -1, 0, false, true, true);
+    // Missing: formatted. There but its read-open fails: never touched.
+    check(false, -1, 0, false, true, true, false);
+    check(false, GC_CARD_BYTES, 0, false, false, false, true);
     check(true, 0x80000, 0, false, false, false);
     check(true, -1, 0, false, false, false);
     std::puts("GameCube card load: failed reads preserve the file; only new, empty or erased cards format");
@@ -112,6 +124,7 @@ def main():
         substitute = {"fopen": "open", "fseek": "seek", "ftell": "tell",
                       "fclose": "close", "fread": "read", "fwrite": "write"}[name]
         block = block.replace(f"std::{name}", f"test_{substitute}")
+    block = block.replace("stat(path.c_str()", "test_stat(path.c_str()")
     with tempfile.TemporaryDirectory(prefix="riftwii-gc-card-") as directory:
         temporary = Path(directory)
         test = temporary / "card.cpp"
