@@ -277,7 +277,7 @@ starts from):
 | The program's end in MEM1 (`__bss_end`) | `0x810F40A0` | `0x810C2FC0` |
 | MEM1 back to the heap at every start | | 200,928 bytes (196 KiB) |
 | `gamecube.<version>.rwp` on the card | | 192,328 bytes |
-| Its share of the 256 KiB arena | | 180,000 bytes (image 179,936, `.bss` 40, 1,022 relocations) |
+| Its share of the arena (256 KiB at the time; 384 KiB since #286) | | 180,000 bytes (image 179,936, `.bss` 40, 1,022 relocations) |
 
 Of the plugin's image, 75,106 bytes are the three blobs (`riftwii_gc.bin`
 31,488, `riftwii_gc_rvz.zst` 40,822, `riftwii_gc_rvz.rel` 2,796), 90 KiB
