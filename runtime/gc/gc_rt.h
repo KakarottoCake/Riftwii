@@ -5,16 +5,17 @@
  *
  * A GameCube game drives the disc through the DI registers and waits
  * for the DI interrupt; in Wii mode those belong to IOS. So the SDK's
- * low-level commands are replaced: a read is done at once through IOS's
- * /dev/sdio/slot0 (IPC driven by polling, since the game has no IPC
- * code and its interrupt table knows nothing of IOS), and the command's
- * callback runs from one of the game's own OSAlarms a moment later, as
- * the DI interrupt would have run it.
+ * low-level commands are replaced: a private-stack worker polls IOS's
+ * /dev/sdio/slot0 from short OSAlarms, returning to the game while the
+ * card works (the game has no IPC interrupt handler). The command's
+ * callback runs from a separate alarm once its bytes and drive time are
+ * ready, as the DI interrupt would have run it.
  *
  * Layout (gc_entry.S): the header below, the trampolines, the C code,
  * then the context. Position independent (linked at two bases and
  * compared); it sits in MEM1 just below the FST, under the game's arena.
- * Every buffer IOS touches is in the context, 32-byte aligned. */
+ * Storage IPC buffers are in the context, 32-byte aligned; controller
+ * requests and the way back have their own loader-placed memory. */
 #ifndef RIFTWII_GC_RT_H
 #define RIFTWII_GC_RT_H
 
@@ -27,6 +28,11 @@
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
 #define GC_RT_VERSION 9u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
+
+/* The way back owns its IPC memory even when storage DMA is quarantined. */
+#define GC_LEAVE_REQUEST_OFFSET 0x100u
+#define GC_LEAVE_VECTOR_OFFSET 0x140u
+#define GC_LEAVE_BYTES 0x160u
 
 /* The DI interrupt types a DVDLow callback takes. */
 #define GC_DI_TC 1u     /* transfer complete */
@@ -278,6 +284,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_DISC_TEST 8192u  /* tests of a two-disc game's change in Dolphin: the motor is stopped at the 1500th
                                   * pad read and the 2200th (GC_DISC_TEST_*), as DVDLowStopMotor would stop it */
 #define GC_DISC_TEST_FIRST 1500u
+#define GC_FLAG_SD_SLOW 0x20000u  /* tests: SD requests take at least 1.5 ms plus 0.12 ms per KiB */
 #define GC_DISC_TEST_SECOND 2200u  /* early enough that its records stay in the trace's kept part (GC_TRACE_RING) */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
@@ -302,11 +309,9 @@ static inline int gc_trace_allowed(uint32_t flags, uint32_t where) {
  * game's audio as it goes out. In MEM1 beside the blob (loader-placed).
  *
  * The ADPCM comes off the card into a ring ahead of the decoder. The card
- * is read only from the game's own context (its PADRead every frame, its
- * disc reads, the stream's start), never from the AI interrupt: on a Wii
- * a read takes milliseconds, and in the interrupt it held up the game's
- * next audio buffer and was skipped whenever a disc read, a trace write
- * or the Wii Remote driver had the card (the music crackled). The two
+ * is read by worker top-ups queued from PADRead, disc reads and the
+ * stream's start. The AI interrupt only decodes already fetched bytes:
+ * waiting for the card there held up the game's next audio buffer. The two
  * sides each own one counter: `fetched` (the card side) and `consumed`
  * (the decoder), so neither waits for the other. */
 #define GC_STREAM_CHUNK 0x2000u  /* the most one top-up reads: about 0.15 s of music */
@@ -421,7 +426,7 @@ struct gc_rt_context {
     uint32_t ar_dmas;
     uint32_t alarms;
     uint32_t last_ar[4];
-    uint32_t busy;            /* the IPC buffers are in use (a read or a trace write) */
+    uint32_t storage_busy;    /* owns shared IPC, vectors, bounce and trace buffers */
     uint32_t xfb;             /* the frame on screen at the jump (YUYV), turned blue by a crash; 0: none */
     uint32_t xfb_bytes;
     /* The heartbeat: an OSAlarm of its own every half second once the
@@ -470,7 +475,7 @@ struct gc_rt_context {
     /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
      * leave_hold ticks launches the title in leave_buf through /dev/es. */
     uint32_t leave_fd;        /* /dev/es, opened by the loader; 0xFFFFFFFF: no way back */
-    uint32_t leave_buf;       /* 32-byte aligned: the title ID at 0, its ticket view (0xD8 bytes) at 0x20 */
+    uint32_t leave_buf;       /* GC_LEAVE_BYTES, aligned: title at 0, ticket view at 0x20, then private IPC */
     uint32_t leave_hold;      /* timebase ticks */
     uint32_t leave_since;     /* when the hold began (low bit set), 0: not held */
     uint32_t crash_card;      /* the crash screen's card and strip, GC_CRASH_SCREEN_BYTES (loader-placed), 0: none */
@@ -563,6 +568,27 @@ struct gc_rt_context {
      * only answered. In the bytes the struct's 32-byte alignment pads it
      * to anyway, so the context's size stays the same. */
     uint32_t disc_change;
+    /* One cooperative I/O worker, resumed only by io_alarm. Its private
+     * stack keeps the read/RVZ/write continuation while IOS works. */
+    uint32_t io_stack;        /* loader-filled, GC_IO_STACK_BYTES in MEM2 */
+    uint32_t io_sp;
+    uint32_t io_caller_sp;
+    uint32_t io_running;      /* on the private stack now (not merely waiting) */
+    uint32_t io_job;          /* GC_IO_*; nonzero until the worker has returned */
+    uint32_t io_ticks;        /* current CPU slice's start */
+    uint32_t io_reply;        /* shared-buffer reply collected by another IPC user */
+    uint32_t io_pending;      /* shared IPC request's physical address */
+    uint32_t read_generation; /* a replacement command invalidates a suspended copy */
+    uint32_t stream_generation;
+    uint32_t io_maintenance;  /* another bounded card flush is due */
+    uint32_t io_buffer;       /* 64 KiB staging: cancelled reads never publish their DMA */
+    uint32_t io_queued;
+    uint32_t io_trace_where;  /* coalesced diagnostic write, outside game hooks */
+    uint32_t read_tgc_watch;  /* a normal read, not ReadDiskID */
+    uint32_t ipc_sending;     /* X1 sent, Y2 not yet acknowledged; survives a worker yield */
+    uint32_t io_buffers_idle; /* checkpoint/modelled wait: private controller requests may run */
+    uint32_t io_stream_restart; /* a leave discarded an unpublished ring top-up */
+    uint8_t io_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
@@ -599,12 +625,24 @@ void gc_on_di_start(struct gc_rt_context* ctx);
 void gc_set_alarm(struct gc_rt_context* ctx, void* alarm, uint32_t ticks);
 void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_context, uint32_t dsisr, uint32_t dar);
 void gc_on_stray(struct gc_rt_context* ctx, uint32_t os_context, uint32_t ctr);
+/* Controllers own separate request buffers, so storage ownership only
+ * blocks them while filling shared buffers, outside a pending transaction
+ * or an explicit decode/modelled-wait checkpoint.
+ * A suspended send must keep its doorbell until its own caller takes Y2. */
+static inline int gc_ipc_poll_blocked(const struct gc_rt_context* ctx) {
+    return ctx->ipc_sending || (ctx->storage_busy && ctx->io_pending == 0 && !ctx->io_buffers_idle);
+}
 /* Shared with gc_bt.c. */
 void gc_flush(uint32_t address, uint32_t length);
 void gc_invalidate(uint32_t address, uint32_t length);
 void gc_guard(struct gc_rt_context* ctx);
 uint32_t gc_irq_off(void);
 void gc_irq_restore(uint32_t msr);
+/* Private-stack switch: only callee-saved integer state is needed by the
+ * soft-float blob. These functions never enable interrupts. */
+void gc_io_init(uint32_t* saved_sp, uint32_t stack_top, struct gc_rt_context* ctx);
+void gc_io_switch(uint32_t* saved_sp, uint32_t next_sp);
+void gc_io_checkpoint(void* io);
 /* A request to IOS (its physical address), sent and taken; the replies
  * that come meanwhile go to gc_ipc_route. 0, or -1000 when IOS takes
  * nothing. */

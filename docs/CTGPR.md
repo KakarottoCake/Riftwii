@@ -8,7 +8,7 @@ reaches an offline race.
 
 CTGP-R 1.03's Riivolution XML replaces `main.dol` with the CTGP-R Channel
 (`/apps/ctgpr/boot.dol`). `homebrew_app_stand_in` (`wii/launch/modplan.cpp`)
-recognises a choice that only does that, and `RunLaunch` (`wii/launch/autorun.cpp`)
+recognises a choice that only does that, and `RunLaunch` (`wii/launch/launchrun.cpp`)
 starts the app the way the Homebrew Channel does (`StartHomebrewApp`), not
 through the apploader. The save redirect in CTGP's XML cannot apply and is
 dropped.
@@ -91,7 +91,7 @@ The channel skips the exploit when `sd:/ctgpr/config.ini` says so in its
 `[exploit]` section (`disable_ios_exploit = yes`; booleans are `yes`/`no`,
 and CTGP only writes keys that differ from the default). Since 2.7.0 RC9,
 RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
-(`SetCtgpDefaults`, `wii/launch/autorun.cpp`; the INI merge is
+(`SetCtgpDefaults`, `wii/launch/launchrun.cpp`; the INI merge is
 `riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`). A value
 the player set is left alone. The key does not affect networking: online
 play comes from CTGP's patches to the game's code. `boot.log` shows

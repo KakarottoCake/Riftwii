@@ -77,8 +77,13 @@ the Wii from the same sources.
 
 Translations: `python tools/lang_source.py` checks that every table entry
 is still in the menu's sources and writes `wii/lang/*.po`. New Japanese
-text must be in the menu font; `tools/make_menu_font.py` explains how the
-subset is cut.
+text must be in the menu font's core (`wii/font/core.ttf`, in the DOL):
+`lang_source.py` and the `menufont` host test fail when a character is
+missing, and `python tools/make_menu_font.py core wii/font/rounded.ttf
+wii/font/core.ttf` (fontTools) makes the core again. The whole font
+(`wii/font/rounded.ttf`) ships next to the DOL as
+`sd:/apps/riftwii/font.ttf`, read only for characters the core lacks
+(`wii/menu/fullfont.hpp`); `tools/make_menu_font.py` explains both.
 
 ## Running in Dolphin
 
@@ -102,7 +107,16 @@ Two scripts on the card drive a run without hands on a controller:
   `dump <disc path> [sd path]`, `dol [sd path]`, `xml <sd path>`,
   `set <option>=<choice>`, `replace`/`grow`/`sdreplace`/`sdgrow <disc
   path> <sd path>`, `keep <disc path>`, `hook`, `nofallback`, `boot`,
-  `launch`.
+  `launch`. The driver is in the test build only:
+  `make -f Makefile.wii TEST=1` (the DOL is `riftwii.dol` again, so keep a
+  copy of the release one). A release build leaves `wii/launch/autorun.cpp`
+  out, and with an `autorun.txt` on the card it starts the menu and logs one
+  line in `session.log` that it ignored the file. Switching between the two
+  without `clean` is safe: a stamp (`build_wii/riftwii_test.stamp`) rebuilds
+  `main.o` and `memlimits.o` when `TEST` or `WII_DEFINES` changes. The test
+  build must act like the release one, so a test that needs the release
+  build's room must not pass on the test build's extra: use the artificial
+  limits below (`test_limits.txt`) to hold the memory back. CI builds both.
 - `sd:/riftwii/guiscript.txt` plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
@@ -144,6 +158,21 @@ Two scripts on the card drive a run without hands on a controller:
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace
   (`tools/gc_trace.py`), which that run does not need.
+
+  `sd_slow` gives every runtime SD request a minimum duration of 1.5 ms
+  plus 0.12 ms per KiB (9.18 ms for 64 KiB), including writes and SD status
+  commands. The deadline starts before sending to IOS. It delays reporting
+  completion, so it works with instant Dolphin replies and with the
+  asynchronous worker; remove the file to disable it. Boot logs name it
+  once when enabled. Leave `trace` off when comparing audio.
+
+  `py -3.13 tools/gc_io_emutest.py --devkitppc C:/devkitPro/devkitPPC`
+  checks the built PowerPC worker with Unicorn (`pip install unicorn`)
+  and devkitPro's zstd executable. It exercises slow IOS completions,
+  preserved registers/stack, SD/USB bytes, replacement commands, stream
+  cancellation, save changes during writes, and a compressed RVZ group.
+  Its simulated instruction clock is a deadline test, not a hardware
+  performance measurement, and it does not replace game tests in Dolphin.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
@@ -386,6 +415,7 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
    `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`),
+   `font.ttf` (`wii/font/rounded.ttf`, the whole menu font),
    and `plugins/` with every file of `build-plugins/plugins/` from the
    same build (`make_update_pack.py` refuses plugins that don't match the
    zip's `boot.dol`);
@@ -404,9 +434,9 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
    build packs it).
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
-   zip's plugins, channel installer and icon). It fails a zip without
-   `plugins/gamecube.<version>.rwp`: the DOL has no GameCube loader of its
-   own any more. Attach the pack to every release: the in-app update
+   zip's plugins, menu font, channel installer and icon). It fails a zip
+   without `plugins/gamecube.<version>.rwp` (the DOL has no GameCube
+   loader of its own any more) or without `font.ttf` (its kanji). Attach the pack to every release: the in-app update
    downloads it with the DOL and writes its plugins first.
    Before going on, check the zip has the plugin folder: `unzip -l
    riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one

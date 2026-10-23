@@ -351,6 +351,12 @@ std::string plugin_directory_for(const std::string& given) {
     return argv0.substr(0, slash + 1) + "plugins/";
 }
 
+std::string menu_font_path_for(const std::string& argv0) {
+    const std::string plugins = plugin_directory_for(argv0);
+    const std::string folder = plugins.substr(0, plugins.size() - std::string("plugins/").size());
+    return folder + "font.ttf";
+}
+
 bool plugin_describe_address(std::uint32_t address, const PluginRange* ranges, std::size_t count, char* out,
                              std::size_t out_bytes) {
     for (std::size_t i = 0; i < count; ++i) {

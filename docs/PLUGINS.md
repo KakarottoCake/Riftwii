@@ -602,8 +602,8 @@ that rule.
   `FR` still appears in the code. Its search is extended in stage (a) to
   look in `plugins/<name>/` as well, so a plugin's string without its six
   translations fails `lang_source.py` and CI like any other.
-- New Japanese text must exist in the menu font
-  (`tools/make_menu_font.py`) as before.
+- New Japanese text must exist in the menu font's core
+  (`tools/make_menu_font.py core`) as before.
 
 Where the translated text *lives* is the one open point. In stage (a) and
 (b) the plugin's strings stay in the DOL's tables (a few KB per plugin,

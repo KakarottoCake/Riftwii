@@ -3,6 +3,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -91,6 +92,9 @@ struct GcCardInfo {
 // Reads the card: the header, and of each pair of directories and BATs
 // the copy whose checksum holds, the newer by update counter when both do.
 bool gc_card_read(const std::vector<std::uint8_t>& card, GcCardInfo& out, std::string& error);
+// The same for a card kept in a buffer of the caller's (the menu reads a
+// card of up to 16 MB into MEM2, not into a vector in the heap).
+bool gc_card_read(const std::uint8_t* card, std::size_t card_bytes, GcCardInfo& out, std::string& error);
 
 // How full a card is, read from its first five blocks alone (the header,
 // the directories and the block tables), `card_bytes` being the whole
@@ -115,6 +119,8 @@ bool gc_card_delete(std::vector<std::uint8_t>& card, unsigned slot, std::string&
 // The save in `slot` as a .gci: its 64-byte directory entry, then its
 // blocks in file order.
 bool gc_card_export(const std::vector<std::uint8_t>& card, unsigned slot, std::vector<std::uint8_t>& gci,
+                    std::string& error);
+bool gc_card_export(const std::uint8_t* card, std::size_t card_bytes, unsigned slot, std::vector<std::uint8_t>& gci,
                     std::string& error);
 
 // Adds a .gci's save to the card. Refused when the same game code, maker
