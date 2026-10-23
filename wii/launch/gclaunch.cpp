@@ -796,7 +796,15 @@ bool plan_gc_packs(const GcImage& image, const std::vector<PackageChoices>& pack
         error = "cannot read " + image.path;
         return false;
     }
-    std::vector<std::uint8_t> fst_bytes(be32(&boot[0x428]));
+    const std::uint32_t fst_size = be32(&boot[0x428]);
+    // The game keeps the entire FST in MEM1; reject a corrupt size before
+    // letting the disc header choose an allocation in the loader's heap.
+    if (fst_size == 0 || fst_size > 0x01800000u) {
+        error = "the game's FST is empty or larger than MEM1";
+        logf("GameCube: %s\n", error.c_str());
+        return false;
+    }
+    std::vector<std::uint8_t> fst_bytes(fst_size);
     if (fst_bytes.empty() || !iso.read(be32(&boot[0x424]), fst_bytes.data(), fst_bytes.size())) {
         error = "cannot read the game's FST";
         return false;

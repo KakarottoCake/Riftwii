@@ -2099,6 +2099,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // its window), and the game reads that FST from memory.
     if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
     const std::uint32_t fst_size = be32(&boot[0x428]);
+    // The game keeps the entire FST in MEM1; reject a corrupt size before
+    // letting the disc header choose an allocation in the loader's heap.
+    if (fst_size == 0 || fst_size > 0x01800000u) {
+        error = "the game's FST is empty or larger than MEM1";
+        logf("GameCube: %s\n", error.c_str());
+        return false;
+    }
     std::uint32_t fst_max = std::max(be32(&boot[0x42C]), fst_size);
     std::vector<std::uint8_t> fst(fst_size);
     if (pack) {
