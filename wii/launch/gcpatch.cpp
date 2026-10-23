@@ -145,10 +145,10 @@ void ScanGcPatches(std::vector<ImageGame>& games) {
             std::string error;
             // At every start, while the list is made: a damaged patch that
             // still asked for too much memory must not end RiftWii (BUG-02).
-            clear_out_of_memory();
+            OutOfMemoryScope out_of_memory;
             const bool read_head = vcdiff_head(patch.reader(), patch.size, original.reader(), original.size, 0x60,
                                                head, checked, error, wii_limits());
-            if (!read_head && took_out_of_memory()) {
+            if (!read_head && out_of_memory.failed()) {
                 error = "the patch asks for more memory than RiftWii has (is the file damaged?)";
             }
             if (!read_head) {

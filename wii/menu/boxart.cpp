@@ -120,9 +120,9 @@ Background g_background;
 void RunBackgroundFetch() {
     // A full scan unpacks to a few MB: without the room, give up on this box
     // rather than end the thread.
-    clear_out_of_memory();
+    OutOfMemoryScope out_of_memory;
     g_background.got = FetchBoxNow(g_background.id, g_background.error);
-    if (g_background.got != CoverFetch::Stored && took_out_of_memory()) {
+    if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
         g_background.got = CoverFetch::NotFound;
         g_background.error = "out of memory";
         logf("Shelf: no room to cut the box of %s\n", g_background.id.c_str());

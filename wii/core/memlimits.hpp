@@ -127,9 +127,9 @@ public:
 template <typename Run>
 bool GuardLaunchMemory(std::string& error, Run run) {
     LaunchMemoryGuard guard;
-    clear_out_of_memory();
+    OutOfMemoryScope out_of_memory;
     const bool ok = run();
-    if (!ok && took_out_of_memory()) {
+    if (!ok && out_of_memory.failed()) {
         LogLaunchOutOfMemory(error);
         error = kLaunchOutOfMemory;
     }

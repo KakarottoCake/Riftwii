@@ -1684,10 +1684,10 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		// Checked before the banner showing is let go: a broken one is
 		// skipped and the one up stays.
 		// A GameCube disc's picture has no sound; the player checks it.
-		riftwii::clear_out_of_memory();
+		riftwii::OutOfMemoryScope out_of_memory;
 		const bool parsed = riftwii::is_gc_banner(bytes.data(), bytes.size()) ||
 			riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
-		if (!parsed && riftwii::took_out_of_memory()) error = "out of memory for the banner";
+		if (!parsed && out_of_memory.failed()) error = "out of memory for the banner";
 		if (!parsed) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
 			return false;
@@ -9517,9 +9517,9 @@ static int MenuHome(FrontendState& state)
 	}
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
-	riftwii::clear_out_of_memory();
+	riftwii::OutOfMemoryScope out_of_memory;
 	std::string scanStatus = ScanPackages(state);
-	if (riftwii::took_out_of_memory()) scanStatus = "Package scan failed; go back and try again";
+	if (out_of_memory.failed()) scanStatus = "Package scan failed; go back and try again";
 	if (state.use_channel && state.model.game.cios == "auto") state.model.game.cios = "global";
 	// A disc's game (or one Home did not reach yet): its cover, on the
 	// network's thread (the loop below starts it and takes the answer).

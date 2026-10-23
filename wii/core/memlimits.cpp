@@ -38,6 +38,9 @@ u32 Kib(u32 bytes) { return bytes / 1024; }
 }  // namespace
 
 void Init() {
+    // Checked allocations tell the failing thread's own OutOfMemoryScope
+    // (riftwii/checkedalloc.hpp): an LWP thread is known by its handle.
+    set_thread_identity([]() -> std::uintptr_t { return static_cast<std::uintptr_t>(LWP_GetSelf()); });
     g_mem1_floor = Address(SYS_GetArena1Lo());
     g_mem2_libogc_lo = Address(SYS_GetArena2Lo());
     g_mem2_top = Address(SYS_GetArena2Hi());

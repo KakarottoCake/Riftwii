@@ -276,7 +276,8 @@ ifeq ($(PACK),0)
 else
 	@$(PYTHON) $(PROJECT_ROOT)/tools/pack_dol.py "$(UNPACKED)" "$(DOLPACK_STUB)" "$@" --zstd $(ZSTD)
 endif
-$(OUTPUT).elf: $(OFILES)
+# The TLS library too, so new BearSSL flags (Makefile.bearssl) relink the DOL.
+$(OUTPUT).elf: $(OFILES) $(PROJECT_ROOT)/build-bearssl/libbearssl.a
 
 # The plugins, built with this build's version and stamp (Makefile.plugin).
 .PHONY: plugins

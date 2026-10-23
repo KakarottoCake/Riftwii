@@ -69,7 +69,14 @@ bool read_text(const std::string& path, std::string& out) {
     if (!f) return false;
     char buffer[4096];
     std::size_t got;
-    while (out.size() < kReadCap && (got = std::fread(buffer, 1, sizeof(buffer), f)) > 0) out.append(buffer, got);
+    // Checked as it grows: gather's caller says when there is no room.
+    while (out.size() < kReadCap && (got = std::fread(buffer, 1, sizeof(buffer), f)) > 0) {
+        if (!try_append(out, buffer, got)) {
+            std::fclose(f);
+            out.clear();
+            return false;
+        }
+    }
     std::fclose(f);
     return true;
 }
@@ -236,7 +243,11 @@ void add_gc_remotes(std::vector<ReportPart>& parts) {
     }
 }
 
-std::string gather(const std::string& reason, std::size_t limit) {
+// The report in `report`, or false when there is no room to make it: the
+// files are read through checked buffers, and the copies assemble_report
+// makes of them are asked for before it runs.
+bool gather(const std::string& reason, std::size_t limit, std::string& report) {
+    OutOfMemoryScope out_of_memory;
     std::vector<ReportPart> parts;
     parts.push_back(file_part(kCrashFile));
     parts.push_back(file_part(kGameCrashFile));
@@ -280,7 +291,11 @@ std::string gather(const std::string& reason, std::size_t limit) {
     if (boot.text.find("GameCube (native): ") != std::string::npos) add_gc_remotes(parts);
     parts.push_back(listing("sd:/riivolution"));
     parts.push_back(listing("sd:/riftwii"));
-    return assemble_report(describe_system(reason), parts, limit);
+    std::size_t held = 0;
+    for (const ReportPart& part : parts) held += part.text.size();
+    if (out_of_memory.failed() || !have_room(2 * held + limit)) return false;
+    report = assemble_report(describe_system(reason), parts, limit);
+    return true;
 }
 
 }  // namespace
@@ -657,7 +672,12 @@ void NoteCrashAsked() {
 
 ReportOutcome SendProblemReport(const std::string& reason) {
     ReportOutcome out;
-    std::string report = gather(reason, kReportLimit);
+    std::string report;
+    if (!gather(reason, kReportLimit, report)) {
+        out.error = "not enough memory to gather the report";
+        logf("Problem report: not sent: %s\n", out.error.c_str());
+        return out;
+    }
     out.bytes = report.size();
     if (FILE* f = std::fopen(kReportPath, "wb")) {
         out.saved = std::fwrite(report.data(), 1, report.size(), f) == report.size();
@@ -673,13 +693,18 @@ ReportOutcome SendProblemReport(const std::string& reason) {
         // oops"): once more, half the size, before giving up.
         logf("Problem report: paste.rs answered %d to %u bytes; sending a shorter one\n", status,
              static_cast<unsigned>(report.size()));
-        report = gather(reason, kReportLimit / 2 < report.size() / 2 ? kReportLimit / 2 : report.size() / 2);
-        out.bytes = report.size();
+        const std::size_t half = kReportLimit / 2 < report.size() / 2 ? kReportLimit / 2 : report.size() / 2;
+        std::string().swap(report);
         status = 0;
         answer.clear();
         out.error.clear();
-        if (HttpPost(kPasteUrl, "text/plain; charset=utf-8", report, status, answer, out.error)) {
-            out.sent = paste_link(status, answer, out.link, out.partial, out.error);
+        if (!gather(reason, half, report)) {
+            out.error = "not enough memory to gather the report";
+        } else {
+            out.bytes = report.size();
+            if (HttpPost(kPasteUrl, "text/plain; charset=utf-8", report, status, answer, out.error)) {
+                out.sent = paste_link(status, answer, out.link, out.partial, out.error);
+            }
         }
     }
     if (!out.sent) {
@@ -687,13 +712,17 @@ ReportOutcome SendProblemReport(const std::string& reason) {
         // Form-encoded, the text grows by up to three times: half the
         // size, and out of memory is a failure, not a crash.
         std::string why;
-        std::string small = gather(reason, kReportLimit / 2 < report.size() ? kReportLimit / 2 : report.size());
+        // Half the report sent last (or half the limit, when the shorter
+        // try found no room to gather one).
+        const std::size_t keep =
+            report.empty() || kReportLimit / 2 < report.size() ? kReportLimit / 2 : report.size();
         std::string().swap(report);
+        std::string small;
         // The form body is checked for room before it is made: the encoded
         // text can be three times the size.
         static const char kFormStart[] = "syntax=text&expiry_days=90&content=";
         std::string body;
-        if (!try_reserve(body, sizeof(kFormStart) - 1 + url_encoded_size(small))) {
+        if (!gather(reason, keep, small) || !try_reserve(body, sizeof(kFormStart) - 1 + url_encoded_size(small))) {
             why = "not enough memory to send it";
         } else {
             body = kFormStart;

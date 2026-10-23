@@ -33,7 +33,8 @@ $(LIB): $(OBJS)
 	@$(AR) rcs $@ $^
 	@echo built $@
 
-$(OUT)/obj/%.o: %.c | $(OUT)/obj
+# The flags live here: a change to this file rebuilds every object.
+$(OUT)/obj/%.o: %.c Makefile.bearssl | $(OUT)/obj
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/obj:

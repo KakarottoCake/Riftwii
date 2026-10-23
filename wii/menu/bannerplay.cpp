@@ -211,11 +211,11 @@ bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon,
     // instead of ending the menu: its archive, pictures and texture are
     // checked as they are made (the layout and animations parsed from it
     // are small beside them).
-    clear_out_of_memory();
+    OutOfMemoryScope out_of_memory;
     const bool loaded = is_gc_banner(opening_bnr.data(), opening_bnr.size())
                             ? LoadGameCube(opening_bnr, icon, gc_card_shift_jis(game_id), error)
                             : LoadParts(opening_bnr, icon, error);
-    if (!loaded && took_out_of_memory()) {
+    if (!loaded && out_of_memory.failed()) {
         Free();
         error = "out of memory for the banner";
     }

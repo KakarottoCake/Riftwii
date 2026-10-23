@@ -428,9 +428,9 @@ bool check_gc_banner_download(const std::uint8_t* data, std::size_t size, std::s
         return false;
     }
     OpeningBanner banner;
-    clear_out_of_memory();
+    OutOfMemoryScope out_of_memory;
     if (!parse_opening_bnr(data, size, banner, error, true)) {
-        if (took_out_of_memory()) error = "out of memory for the banner";
+        if (out_of_memory.failed()) error = "out of memory for the banner";
         return false;
     }
     if (banner.banner.empty()) {

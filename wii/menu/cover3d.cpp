@@ -114,9 +114,9 @@ struct Background {
 Background g_background;
 
 void RunBackgroundFetch() {
-    clear_out_of_memory();
+    OutOfMemoryScope out_of_memory;
     g_background.got = FetchNow(g_background.id, g_background.error);
-    if (g_background.got != CoverFetch::Stored && took_out_of_memory()) {
+    if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
         g_background.got = CoverFetch::NotFound;
         g_background.error = "out of memory";
         logf("3D covers: no room to read the 3D cover of %s\n", g_background.id.c_str());

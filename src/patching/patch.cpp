@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 #include <map>
 namespace riftwii {
@@ -1109,7 +1110,7 @@ bool resolve_path(const std::string& root, const std::string& path, std::string&
         }
     }
     if (tmp.size() > kMaxString) return false;
-    output = tmp;
+    output = std::move(tmp);
     return true;
 }
 bool substitute_params(const std::string& input, const std::vector<Param>& params,
@@ -1361,7 +1362,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
             ch.patch_params = std::move(resolved_params);
         }
     }
-    output = tmp;
+    output = std::move(tmp);
     error.clear();
     return true;
 }
@@ -1686,7 +1687,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
         }
         return false;
     }
-    output = tmp;
+    output = std::move(tmp);
     error.clear();
     return true;
 }

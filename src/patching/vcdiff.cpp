@@ -30,7 +30,7 @@ bool fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
 
 
 // A window or section that found no room; callers that report running
-// out of memory in their own words check took_out_of_memory instead.
+// out of memory in their own words ask an OutOfMemoryScope instead.
 constexpr const char* kNoRoom = "the patch asks for more memory than is free";
 
 constexpr std::uint8_t kSource = 0x01;   // Win_Indicator: the copy window is in the original
@@ -196,8 +196,8 @@ public:
             if (!take(c, 4)) return fail("a patch window is cut short");
             adler = (std::uint32_t(c[0]) << 24) | (std::uint32_t(c[1]) << 16) | (std::uint32_t(c[2]) << 8) | c[3];
         }
-        if (!section(data_, data_len) || !section(inst_, inst_len) || !section(addr_, addr_len))
-            return fail("a patch window runs past the file's end");
+        // section() says why it failed (past the end, or no room).
+        if (!section(data_, data_len) || !section(inst_, inst_len) || !section(addr_, addr_len)) return false;
         if (pos_ - delta_start != delta_len) return fail("a patch window's length does not match its contents");
 
         // The copy window: from the original, or from the image made so far.
@@ -360,9 +360,11 @@ private:
     // patch before anything is allocated: a 30-byte patch whose header
     // claimed 32 MiB a section asked for 100 MB and threw (BUG-02).
     bool section(std::vector<std::uint8_t>& out, std::uint64_t n) {
-        if (n > patch_size_ - std::min(pos_, patch_size_)) return false;
+        constexpr const char* kPastEnd = "a patch window runs past the file's end";
+        if (n > patch_size_ - std::min(pos_, patch_size_)) return fail(kPastEnd);
         if (!fresh_size(out, n)) return fail(kNoRoom);
-        return n == 0 || take(out.data(), out.size());
+        if (n != 0 && !take(out.data(), out.size())) return fail(kPastEnd);
+        return true;
     }
 
     const VcdiffReadFn& patch_;
