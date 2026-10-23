@@ -202,6 +202,36 @@ inline bool have_room(std::size_t total, std::size_t piece = 64 * 1024) {
     return enough;
 }
 
+// For a step that makes many small allocations as it goes (a pack's
+// options cloned by its macros, a launch plan's patch list): it says how
+// many bytes each item will take, and for every `chunk` of them the budget
+// checks that much is free (have_room) before the step goes on. The sum
+// comes from the input, so a hostile pack fails here with an error instead
+// of in the middle of a copy.
+class RoomBudget {
+public:
+    explicit RoomBudget(std::size_t chunk = 256 * 1024) : chunk_(chunk) {}
+
+    // False when the room for `bytes` more is not there.
+    bool need(std::size_t bytes) {
+        if (bytes > kMaxCheckedBytes - used_) {
+            detail::note_out_of_memory();
+            return false;
+        }
+        used_ += bytes;
+        while (used_ >= checked_) {
+            if (!have_room(chunk_)) return false;
+            checked_ += chunk_;
+        }
+        return true;
+    }
+
+private:
+    std::size_t chunk_;
+    std::size_t used_ = 0;
+    std::size_t checked_ = 0;
+};
+
 // Room for `count` elements, so filling up to there cannot fail.
 template <typename T, typename A>
 bool try_reserve(std::vector<T, A>& v, std::size_t count) {

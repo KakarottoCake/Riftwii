@@ -206,6 +206,10 @@ bool PrepareGcPatch(GcImage& image, std::string& error, const GcPrepareProgress&
         error = "cannot open " + std::string(patch.ok() ? image.patch_source : image.path);
         return false;
     }
+    // A part left by an earlier try that ended without cleaning up (out of
+    // memory restarts RiftWii from inside the patch) would count against
+    // the free space this one needs.
+    std::remove(part.c_str());
     struct statvfs vfs;
     if (statvfs("sd:/", &vfs) == 0) {
         const std::uint64_t free_bytes = std::uint64_t(vfs.f_bavail) * vfs.f_frsize;

@@ -35,6 +35,30 @@ constexpr std::size_t kMaxReferences = 100000;
 constexpr std::size_t kMaxAttributes = 64;
 constexpr std::size_t kMaxWarnings = 64;
 constexpr int kMaxDepth = 16;
+
+// About what a value takes on the heap, for the RoomBudget of a step that
+// copies many of them (macro clones, resolved references, a launch plan).
+std::size_t HeapBytes(const std::string& s) {
+    return sizeof(std::string) + s.size() + 1;
+}
+std::size_t HeapBytes(const std::vector<Param>& params) {
+    std::size_t bytes = sizeof(params);
+    for (const Param& p : params) bytes += HeapBytes(p.name) + HeapBytes(p.value);
+    return bytes;
+}
+std::size_t HeapBytes(const Choice& c) {
+    std::size_t bytes = sizeof(Choice) + HeapBytes(c.name) + HeapBytes(c.params);
+    for (const std::string& id : c.patches) bytes += HeapBytes(id);
+    for (const std::vector<Param>& params : c.patch_params) bytes += HeapBytes(params);
+    return bytes;
+}
+std::size_t HeapBytes(const Option& o) {
+    std::size_t bytes = sizeof(Option) + HeapBytes(o.section) + HeapBytes(o.id) + HeapBytes(o.name) +
+                        HeapBytes(o.config_id) + HeapBytes(o.params);
+    for (const Choice& c : o.choices) bytes += HeapBytes(c);
+    return bytes;
+}
+
 bool IsControl(unsigned char c) {
     return c < 0x20 || c == 0x7F;
 }
@@ -929,9 +953,17 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
     };
     std::size_t total = 0;
     std::vector<Option> expanded;
+    // Every copy's room is asked for before it is made: a pack that passes
+    // the counts above can still be large in bytes (long ids and params).
+    RoomBudget budget;
+    const auto out_of_room = [&error]() {
+        error = "allocation failure";
+        return false;
+    };
     for (const Option& source : ctx.pkg.options) {
         bool cloned = false;
         const std::size_t size = references(source);
+        const std::size_t source_bytes = HeapBytes(source);
         for (const auto& m : ctx.macros) {
             if (source.id.empty() || source.id != m.id) continue;
             total += size;
@@ -939,6 +971,7 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
                 error = "the package's macros expand to too many choices";
                 return false;
             }
+            if (!budget.need(source_bytes + HeapBytes(m.params) + 3 * HeapBytes(m.name))) return out_of_room();
             Option clone = source;
             clone.name = m.name;
             clone.id = source.id + m.name;
@@ -946,7 +979,7 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
             if (!m.section.empty()) clone.section = m.section;
             clone.params = m.params;
             clone.params.insert(clone.params.end(), source.params.begin(), source.params.end());
-            expanded.push_back(clone);
+            if (!try_push_back(expanded, std::move(clone))) return out_of_room();
             cloned = true;
             if (expanded.size() > kMaxNodes) { error = "too many options"; return false; }
         }
@@ -956,7 +989,7 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
                 error = "the package's macros expand to too many choices";
                 return false;
             }
-            expanded.push_back(source);
+            if (!budget.need(source_bytes) || !try_push_back(expanded, source)) return out_of_room();
         }
     }
     ctx.pkg.options = std::move(expanded);
@@ -1330,6 +1363,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
     // References: every definition of a repeated id, and none for an id
     // no <patch> defines (a warning, as Riivolution just skips it).
     std::size_t references = 0;
+    RoomBudget budget;  // the resolved lists are copies, checked as they grow
     for (auto& o : tmp.options) {
         for (auto& ch : o.choices) {
             std::vector<std::string> resolved;
@@ -1349,6 +1383,13 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                 references += 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
                 if (references > kMaxReferences) {
                     error = "the package's choices name too many patches";
+                    return false;
+                }
+                const std::size_t copies = 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
+                if (!budget.need(copies * (HeapBytes(pid) + HeapBytes(params))) ||
+                    !try_reserve(resolved, resolved.size() + copies) ||
+                    !try_reserve(resolved_params, resolved_params.size() + copies)) {
+                    error = "allocation failure";
                     return false;
                 }
                 resolved.push_back(pid);
@@ -1520,6 +1561,13 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
         error.clear();
         return true;
     }
+    // The plan copies every selected patch's entries: each copy's room is
+    // asked for first, so a pack too big for the memory is an error.
+    RoomBudget budget;
+    const auto out_of_room = [&error]() {
+        error = "allocation failure";
+        return false;
+    };
     std::vector<Selection> selected;
     for (const auto& o : package.options) {
         if (o.selected > o.choices.size()) {
@@ -1548,7 +1596,11 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
             if (r < ch.patch_params.size()) {
                 s.params.insert(s.params.end(), ch.patch_params[r].begin(), ch.patch_params[r].end());
             }
-            selected.push_back(s);
+            if (!budget.need(sizeof(Selection) + HeapBytes(pid) + HeapBytes(s.params)) ||
+                !try_push_back(selected, std::move(s))) {
+                error = "allocation failure";
+                return false;
+            }
         }
     }
     Plan tmp;
@@ -1592,8 +1644,11 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 if (f.is_filename && !options.allow_filename_targets) {
                     unsupported.push_back(Where(sel) + ": <file disc=\"" + f.disc + "\"> file-name lookup is not supported yet");
                 }
-                tmp.files.push_back(f);
-                tmp.order.push_back(PatchStep{PatchKind::File, tmp.files.size() - 1});
+                if (!budget.need(sizeof(FilePatch) + sizeof(PatchStep) + HeapBytes(f.disc) + HeapBytes(f.external)) ||
+                    !try_push_back(tmp.files, std::move(f)) ||
+                    !try_push_back(tmp.order, PatchStep{PatchKind::File, tmp.files.size() - 1})) {
+                    return out_of_room();
+                }
                 break;
             }
             case PatchKind::Folder: {
@@ -1617,8 +1672,11 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 if (!options.allow_folders) {
                     unsupported.push_back(Where(sel) + ": <folder> patches are not supported yet");
                 }
-                tmp.folders.push_back(f);
-                tmp.order.push_back(PatchStep{PatchKind::Folder, tmp.folders.size() - 1});
+                if (!budget.need(sizeof(FolderPatch) + sizeof(PatchStep) + HeapBytes(f.disc) + HeapBytes(f.external)) ||
+                    !try_push_back(tmp.folders, std::move(f)) ||
+                    !try_push_back(tmp.order, PatchStep{PatchKind::Folder, tmp.folders.size() - 1})) {
+                    return out_of_room();
+                }
                 break;
             }
             case PatchKind::Memory: {
@@ -1629,6 +1687,10 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                     error = Where(sel) + ": the selected <memory> patches carry more than 16 MiB of values in all";
                     return false;
                 }
+                if (!budget.need(sizeof(MemoryPatch) + sizeof(PatchStep) + listed.value.size() +
+                                 listed.original.size() + HeapBytes(listed.valuefile))) {
+                    return out_of_room();
+                }
                 MemoryPatch m = listed;
                 if (!m.valuefile.empty()) {
                     if (!ResolveExternal(m.valuefile, base, sel, disc, "valuefile", m.valuefile, error)) return false;
@@ -1636,8 +1698,10 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 if (!options.allow_memory) {
                     unsupported.push_back(Where(sel) + ": <memory> patches are not supported yet");
                 }
-                tmp.memory.push_back(m);
-                tmp.order.push_back(PatchStep{PatchKind::Memory, tmp.memory.size() - 1});
+                if (!try_push_back(tmp.memory, std::move(m)) ||
+                    !try_push_back(tmp.order, PatchStep{PatchKind::Memory, tmp.memory.size() - 1})) {
+                    return out_of_room();
+                }
                 break;
             }
             case PatchKind::Savegame: {
@@ -1652,8 +1716,11 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 if (!options.allow_savegames) {
                     unsupported.push_back(Where(sel) + ": <savegame> redirection is not supported yet");
                 }
-                tmp.savegames.push_back(s);
-                tmp.order.push_back(PatchStep{PatchKind::Savegame, tmp.savegames.size() - 1});
+                if (!budget.need(sizeof(SavegamePatch) + sizeof(PatchStep) + HeapBytes(s.external)) ||
+                    !try_push_back(tmp.savegames, std::move(s)) ||
+                    !try_push_back(tmp.order, PatchStep{PatchKind::Savegame, tmp.savegames.size() - 1})) {
+                    return out_of_room();
+                }
                 break;
             }
             case PatchKind::Shift: {
@@ -1672,8 +1739,12 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                         return false;
                     }
                 }
-                tmp.shifts.push_back(s);
-                tmp.order.push_back(PatchStep{PatchKind::Shift, tmp.shifts.size() - 1});
+                if (!budget.need(sizeof(ShiftPatch) + sizeof(PatchStep) + HeapBytes(s.source) +
+                                 HeapBytes(s.destination)) ||
+                    !try_push_back(tmp.shifts, std::move(s)) ||
+                    !try_push_back(tmp.order, PatchStep{PatchKind::Shift, tmp.shifts.size() - 1})) {
+                    return out_of_room();
+                }
                 break;
             }
             }
