@@ -594,7 +594,8 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
                     op->list_bytes += i + 1;
                 }
                 op->count++;
-                op->usage_blocks += (d.size + USAGE_BLOCK - 1) / USAGE_BLOCK;
+                /* Rounding up must not wrap near FAT32's 4 GiB size limit. */
+                op->usage_blocks += ((uint64_t)d.size + USAGE_BLOCK - 1) / USAGE_BLOCK;
             }
             return 0;
     }
