@@ -225,7 +225,8 @@ bool ReadZip(const GameHackingIndex& index, Parts& parts, std::size_t& size, std
 
 }  // namespace
 
-GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error) {
+GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error,
+                                    std::string* zip) {
     text.clear();
     GameHackingIndex index;
     const bool have_cache = LoadIndex(index);
@@ -269,6 +270,7 @@ GameHackingResult GameHackingCheats(const std::string& game_id, std::string& tex
                                               text, error);
     GiveBack();
     if (!read) return GameHackingResult::Unavailable;
+    if (zip) *zip = index.zip;
     logf("Cheats: %s for %s read from %s on the card (no request made)\n", kGameHackingName, game_id.c_str(),
          index.zip.c_str());
     return GameHackingResult::Found;

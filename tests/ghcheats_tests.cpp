@@ -86,6 +86,19 @@ int main() {
         EXPECT_TRUE(http_get_request(url).find("User-Agent: RiftWii\r\n") != std::string::npos);
     }
 
+    // ---- The note kept beside a cheat file that came from GameHacking.org.
+    {
+        std::string zip;
+        EXPECT_EQ(gamehacking_source_text("text_wii_20260927.zip"), "GameHacking.org text_wii_20260927.zip\n");
+        EXPECT_TRUE(gamehacking_source_parse(gamehacking_source_text("text_wii_20260927.zip"), zip));
+        EXPECT_EQ(zip, "text_wii_20260927.zip");
+        EXPECT_TRUE(gamehacking_source_parse("GameHacking.org text_wii_20260927.zip\r\nmore", zip));
+        EXPECT_TRUE(!gamehacking_source_parse("", zip));
+        EXPECT_TRUE(!gamehacking_source_parse("GameHacking.org ../x.zip\n", zip));
+        EXPECT_TRUE(!gamehacking_source_parse("Elsewhere text_wii_20260927.zip\n", zip));
+        EXPECT_TRUE(!gamehacking_source_parse("GameHacking.org text_wii_20260927.zip.bak\n", zip));
+    }
+
     // ---- When a cached copy is looked for again.
     {
         const std::int64_t day = 24 * 60 * 60;

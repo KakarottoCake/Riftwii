@@ -1009,6 +1009,13 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
 
 std::string CheatPath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".txt"; }
 
+std::string CheatSourcePath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".source"; }
+
+bool CheatsFromGameHacking(const std::string& game_id) {
+    std::string text, zip;
+    return ReadTextFile(CheatSourcePath(game_id), text, 1024) && gamehacking_source_parse(text, zip);
+}
+
 namespace {
 
 // Capped as downloads are (DownloadCheats takes at most 1 MB).
@@ -1050,6 +1057,7 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     CheatFile file;
     std::string why;
     CheatSource found_in = CheatSource::Archive;
+    std::string from_zip;
     bool have = false;
     if (HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
         have = parse_cheat_text(std::string(body.begin(), body.end()), file, why);
@@ -1063,7 +1071,7 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         // on the card stands in, fetched only when it is missing or old.
         logf("Cheats: %s (%s); trying %s\n", error.c_str(), game_id.c_str(), kGameHackingName);
         std::string text, from_error;
-        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error);
+        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error, &from_zip);
         if (result == GameHackingResult::Found && parse_cheat_text(text, file, why)) {
             body.assign(text.begin(), text.end());
             found_in = CheatSource::GameHacking;
@@ -1103,6 +1111,16 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
          found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none)"
                                               : "the GeckoCodes archive",
          static_cast<unsigned>(kept));
+    // Where the codes came from is kept beside the file, for the cheats page.
+    const std::string source_path = CheatSourcePath(game_id);
+    if (found_in == CheatSource::GameHacking) {
+        const std::string note = gamehacking_source_text(from_zip);
+        std::string note_error;
+        if (!write_file(source_path, std::vector<std::uint8_t>(note.begin(), note.end()), note_error))
+            logf("Cheats: cannot note the source of %s: %s\n", game_id.c_str(), note_error.c_str());
+    } else {
+        std::remove(source_path.c_str());
+    }
     if (source) *source = found_in;
     return true;
 }

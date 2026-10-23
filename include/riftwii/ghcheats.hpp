@@ -86,4 +86,13 @@ bool gamehacking_read_cheats(const std::uint8_t* data, std::size_t size, const G
                              const std::string& id, const GameHackingLimits& limits, ZipInflater inflate,
                              std::string& text, std::string& error);
 
+// The note kept beside a game's cheat file (sd:/riftwii/cheats/<ID>.source)
+// when its codes came from GameHacking.org, so the cheats page can say so
+// every time it opens. The cheat file itself is left as it came: it is the
+// player's to edit and the merge of their own cheats works on it. A download
+// from the other archive removes the note.
+std::string gamehacking_source_text(const std::string& zip);
+// The zip name in such a note; false for anything else.
+bool gamehacking_source_parse(const std::string& text, std::string& zip);
+
 }  // namespace riftwii

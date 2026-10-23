@@ -330,6 +330,9 @@ T = {
                               "Download dei trucchi..."),
     "{1} cheats. Turn on the ones you want.": ("{1} trucos. Activa los que quieras.", "チートは{1}個です。使うものをオンにしてください。",
                                                "{1} trapaças. Ative as que quiser.", "{1} trucchi. Attiva quelli che vuoi."),
+    "Cheats from GameHacking.org": (
+        "Trucos de GameHacking.org", "GameHacking.orgのチート", "Trapaças do GameHacking.org",
+        "Trucchi da GameHacking.org"),
     "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.": (
         "{1} trucos de GameHacking.org, porque el archivo de RiiConnect24 no tenía ninguno. Activa los que quieras.",
         "RiiConnect24のアーカイブにはなかったため、GameHacking.orgからチートを{1}個取得しました。使うものをオンにしてください。",
@@ -2535,6 +2538,8 @@ KO = {
         "치트 다운로드...",
     "{1} cheats. Turn on the ones you want.":
         "{1} 치트입니다. 원하는 항목을 켜세요.",
+    "Cheats from GameHacking.org":
+        "GameHacking.org의 치트",
     "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.":
         "RiiConnect24 아카이브에 없어서 GameHacking.org에서 치트 {1}개를 받았습니다. 원하는 항목을 켜세요.",
     "Could not download cheats: {1}":
@@ -4370,6 +4375,8 @@ FR = {
         "Téléchargement des codes de triche...",
     "{1} cheats. Turn on the ones you want.":
         "{1} codes de triche. Activez ceux que vous souhaitez.",
+    "Cheats from GameHacking.org":
+        "Codes de GameHacking.org",
     "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.":
         "{1} codes de triche de GameHacking.org, car l'archive de RiiConnect24 n'en avait pas. Activez ceux que vous souhaitez.",
     "Could not download cheats: {1}":

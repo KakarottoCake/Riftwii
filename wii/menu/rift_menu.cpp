@@ -8456,6 +8456,16 @@ static void MenuCheats(FrontendState& state)
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
+	// Under the game's name whenever the codes came from GameHacking.org
+	// (the note beside the file, kept by DownloadCheats).
+	GuiText sourceTxt("", 14, skin::kInkSoft);
+	sourceTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	sourceTxt.SetPosition(-40, 60);
+	const auto showSource = [&]() {
+		const std::string from = tr("Cheats from GameHacking.org");
+		sourceTxt.SetText(riftwii::wii::CheatsFromGameHacking(state.game_id) ? from.c_str() : "");
+	};
+	showSource();
 	NoteCard noteCard;
 	GuiFlowList list(44, 84, 540, 5);
 	list.SetCards(true);
@@ -8477,6 +8487,7 @@ static void MenuCheats(FrontendState& state)
 	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
+	w.Append(&sourceTxt);
 	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
@@ -8496,6 +8507,7 @@ static void MenuCheats(FrontendState& state)
 		riftwii::wii::CheatSource source = riftwii::wii::CheatSource::Archive;
 		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error, state.model.game.cheat_names, &source);
 		HaltGui();
+		showSource();
 		if (ok) {
 			load(false);
 			// Said plainly either way: the same list again looked like

@@ -366,6 +366,9 @@ msgstr "Téléchargement des codes de triche..."
 msgid "{1} cheats. Turn on the ones you want."
 msgstr "{1} codes de triche. Activez ceux que vous souhaitez."
 
+msgid "Cheats from GameHacking.org"
+msgstr "Codes de GameHacking.org"
+
 msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want."
 msgstr "{1} codes de triche de GameHacking.org, car l'archive de RiiConnect24 n'en avait pas. Activez ceux que vous souhaitez."
 

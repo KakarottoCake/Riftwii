@@ -123,6 +123,10 @@ bool TakeNetworkTest(NetworkTest& result);
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
+// The note beside the cheat file that says its codes came from GameHacking.org
+// (riftwii/ghcheats.hpp), and whether it is there and valid.
+std::string CheatSourcePath(const std::string& game_id);
+bool CheatsFromGameHacking(const std::string& game_id);
 
 // Adds <ahb_access/> to the meta.xml next to this boot.dol when it lacks
 // it (an update through the menu replaces only boot.dol): the Homebrew

@@ -24,6 +24,8 @@ enum class GameHackingResult {
 
 // The cheat text for `game_id` (the ID rc24 was asked for: six characters,
 // or a channel's four). May fetch (see above); memory it needs comes from MEM2.
-GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error);
+// `zip` (when given) gets the name of the zip the text was read from.
+GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error,
+                                    std::string* zip = nullptr);
 
 }  // namespace riftwii::wii

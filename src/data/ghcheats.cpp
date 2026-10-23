@@ -225,6 +225,18 @@ bool gamehacking_parse_index(const std::string& text, GameHackingIndex& index, s
     return true;
 }
 
+std::string gamehacking_source_text(const std::string& zip) { return std::string(kGameHackingName) + " " + zip + "\n"; }
+
+bool gamehacking_source_parse(const std::string& text, std::string& zip) {
+    const std::string name = kGameHackingName;
+    if (text.compare(0, name.size() + 1, name + " ") != 0) return false;
+    std::size_t stop = text.find_first_of("\r\n", name.size() + 1);
+    const std::string candidate = text.substr(name.size() + 1, stop == std::string::npos ? std::string::npos : stop - name.size() - 1);
+    if (!gamehacking_zip_name_ok(candidate)) return false;
+    zip = candidate;
+    return true;
+}
+
 bool gamehacking_read_cheats(const std::uint8_t* data, std::size_t size, const GameHackingIndex& index,
                              const std::string& id, const GameHackingLimits& limits, ZipInflater inflate,
                              std::string& text, std::string& error) {
