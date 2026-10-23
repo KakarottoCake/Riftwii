@@ -1316,6 +1316,35 @@ static void TestList(Low& low) {
     EXPECT_EQ(op.found.attributes, 0x20u);
 }
 
+static void TestUsageSizeLimits(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    struct UsageCase {
+        std::uint32_t size;
+        std::uint32_t blocks;
+    };
+    const UsageCase cases[] = {
+        {0u, 0u},
+        {1u, 1u},
+        {16383u, 1u},
+        {16384u, 1u},
+        {16385u, 2u},
+        {0xFFFFC000u, 262143u},
+        {0xFFFFC001u, 262144u},
+        {0xFFFFF000u, 262144u},
+        {0xFFFFFFFFu, 262144u},
+    };
+    for (const UsageCase& usage : cases) {
+        // GetUsage only reads directory metadata, so the image needs no
+        // multi-gigabyte data chain for these FAT32 size-limit cases.
+        const Bytes entry = short_entry("LARGE   BIN", 0x20, 10, usage.size);
+        EXPECT_TRUE(fx.img.write_dir({3}, entry));
+        std::memset(&op, 0, sizeof(op));
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_USAGE), 1);
+        EXPECT_EQ(op.usage_blocks, usage.blocks);
+    }
+}
+
 // ---- a bigger geometry: 8 sectors per cluster, the FAT crossing sectors -----------------
 
 static void TestGeometry(Low& low) {
@@ -1570,6 +1599,7 @@ int main() {
     TestEndMarker(low);
     TestLongNames(low);
     TestList(low);
+    TestUsageSizeLimits(low);
     TestGeometry(low);
     if (g_failures == 0) std::cout << "rtfat tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
