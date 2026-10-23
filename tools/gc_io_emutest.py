@@ -44,6 +44,8 @@ FIELDS = (
     "tgc_dol_end", "disc_change", "di_regs", "vec", "request", "response", "leave_buf", "leave_fd",
     "trace_buf", "xfb", "xfb_bytes", "crash_card", "restart_count", "exec_sector", "tgc_sector",
     "leave_since", "leave_hold", "leave_card_quiet", "leave_card_activity", "last_error",
+    "io_buffers_idle", "io_stream_restart", "io_sp", "read_started", "read_addr", "read_offset",
+    "pending_cb", "pending_type", "crash_chain", "reset_request_at",
 )
 EXTRA_FIELDS = {
     "stream": ("buf", "buf_bytes", "playing", "start", "length", "pos", "fetched", "consumed", "refills"),
@@ -155,7 +157,9 @@ class Machine:
         self.latency = latency
         self.disk = None
         self.writes = []
+        self.sd_write_result = 0
         self.checkpoints = 0
+        self.storage_guards = []
         self.uc.hook_add(UC_HOOK_CODE, self.code)
         self.uc.hook_add(UC_HOOK_MEM_READ, self.mmio_read, begin=IPC, end=IPC + 8)
         self.uc.hook_add(UC_HOOK_MEM_WRITE, self.mmio_write, begin=IPC, end=IPC + 8)
@@ -228,6 +232,7 @@ class Machine:
 
     def finish_ios(self):
         if self.handshake is not None and self.ticks >= self.handshake:
+            self.control &= ~1
             self.control |= 2
             self.handshake = None
         while self.abandoned_acks and self.ticks >= self.abandoned_acks[0]:
@@ -266,7 +271,11 @@ class Machine:
                 payload = (self.disk[sector * 512:sector * 512 + length] if self.disk is not None else
                            bytes((sector * 512 + i) % 251 for i in range(length)))
                 self.uc.mem_write(target, bytes(payload))
-        result = -1017 if fields[2] == 5 else 0  # ES refuses the test's title launch.
+        result = 0
+        if fields[2] == 5:
+            result = -1017  # ES refuses the test's title launch.
+        elif fields[2] == 1 and fields[0] == 7 and command[0] == 0x19:
+            result = self.sd_write_result
         self.uc.mem_write(request + 4, struct.pack(">I", result & 0xFFFFFFFF))
         self.uc.mem_write(IPC + 8, struct.pack(">I", physical))
         self.control |= 4
@@ -291,6 +300,7 @@ class Machine:
                 ack_latency = self.es_ack_latency
             # sd_slow imposes its deadline independently of this IOS latency.
             self.handshake = self.ticks + ack_latency
+            self.control |= 1
             self.pending.append((physical, self.ticks + max(latency, ack_latency)))
             self.sends.append((physical, fields[2]))
         elif value in (2, 4):
@@ -300,6 +310,7 @@ class Machine:
                 heapq.heappush(self.abandoned_acks, self.handshake)
                 self.handshake = None
             self.control &= ~value
+            self.control &= ~1  # X1 is read/write, unlike write-one-to-clear Y1/Y2.
 
     def call(self, function, *arguments, terminal=False):
         self.stop_at = None
@@ -391,16 +402,16 @@ def controller_poll(kind):
     return ("gc_bt_poll" if kind == "bt" else "gc_gcad_poll", address)
 
 
-def setup_controllers(machine):
-    machine.put("bt", 0x90040000)
-    machine.put("gcad", 0x90050000)
+def setup_controllers(machine, bt=0x90040000, gcad=0x90050000):
+    machine.put("bt", bt)
+    machine.put("gcad", gcad)
     for name, value in {"fd": 3, "stage": 4}.items():
-        machine.put_object(0x90040000, "bt", name, value)
-    event = 0x90040000 + machine.layout["bt.events"]
+        machine.put_object(bt, "bt", name, value)
+    event = bt + machine.layout["bt.events"]
     machine.put_object(event, "bt_rq", "state", 2)
     for name, value in {"fd": 4, "version": 4, "known_dev": 0xFFFFFFFF,
                         "ticks_per_ms": 60750}.items():
-        machine.put_object(0x90050000, "gcad", name, value)
+        machine.put_object(gcad, "gcad", name, value)
 
 
 def test_controller_overlap(layout):
@@ -618,6 +629,7 @@ def test_controller_timeout(layout):
             assert machine.get("io_pending") == 0 and machine.get("storage_busy") == 0
             assert machine.get("ipc_sending") == 0, "a controller timeout kept the doorbell forever"
             assert machine.handshake is None, "the timed-out X1 was not withdrawn"
+            assert machine.control & 1 == 0, "PPCCTRL retained X1 after writing Y2 with X1=0"
             if late_ack:
                 machine.ticks += 10000
                 machine.finish_ios()
@@ -815,7 +827,8 @@ def protect_storage(machine):
         raise AssertionError(f"teardown wrote quarantined storage memory at {address:#x}")
 
     for address, length in regions:
-        machine.uc.hook_add(UC_HOOK_MEM_WRITE, forbidden_write, begin=address, end=address + length - 1)
+        guard = machine.uc.hook_add(UC_HOOK_MEM_WRITE, forbidden_write, begin=address, end=address + length - 1)
+        machine.storage_guards.append(guard)
     return regions
 
 
@@ -907,7 +920,7 @@ def test_drain_deadline(layout):
             if interrupts_on:
                 msr |= 0x8000
             machine.uc.reg_write(UC_PPC_REG_MSR, msr)
-            machine.call("gc_io_drain", machine.ctx)
+            machine.call("gc_io_drain", machine.ctx, 0)
             assert machine.reg(3) == 0
             assert machine.uc.reg_read(UC_PPC_REG_MSR) & 0x8000 == msr & 0x8000
             assert machine.get("io_pending") == pending
@@ -954,8 +967,18 @@ def test_late_dma_during_leave(layout):
         check_private_launch(machine, regions)
         assert not machine.pending, "late storage reply was not routed during ES"
         assert machine.get("io_reply") == 1
-        assert machine.get("io_pending") == pending, "a suspended worker lost its DMA ownership"
-        print(f"Late {'USB' if usb else 'SD'} DMA during ES: private launch data survives and the old reply is routed")
+        assert machine.get("io_pending") == 0, "a discarded worker retained completed DMA ownership"
+        assert machine.get("io_job") == 0 and machine.get("read_state") == 1
+        for guard in machine.storage_guards:
+            machine.uc.hook_del(guard)
+        machine.latency = 0
+        machine.ack_latency = 1000
+        machine.drain()
+        assert [kind for _, kind in machine.callbacks] == [1]
+        expected = bytes((10 * 512 + 37 + i) % 251 for i in range(512))
+        assert bytes(machine.uc.mem_read(0x80040000, 512)) == expected
+        print(f"Late {'USB' if usb else 'SD'} DMA during ES: private launch data survives; "
+              "old reply retires and the restarted read completes exactly once")
 
 
 def test_forced_save_timeout(layout):
@@ -988,6 +1011,196 @@ def test_forced_save_timeout(layout):
     assert machine.get("io_pending") != 0 and not machine.writes
     assert IO_TIMEOUT_TICKS <= machine.durations[-1] < IO_TIMEOUT_TICKS + 3000000
     print("Forced exit save never replies: one save attempt, bounded drain, dirty/error record retained, private ES reached")
+
+
+def prepare_returning_leave(machine, failed_save):
+    machine.put("leave_buf", 0x90070000)
+    machine.put("leave_fd", 5)
+    if failed_save:
+        card = 0x90040000
+        machine.put("card", card)
+        for name, value in {"image": 0x90080000, "run_count": 1, "dirty_count": 1}.items():
+            machine.put_object(card, "card", name, value)
+        machine.uc.mem_write(card + machine.layout["card.runs"], struct.pack(">3I", 0, 300, 1))
+        machine.uc.mem_write(card + machine.layout["card.dirty"], b"\x01")
+        machine.uc.mem_write(0x90080000, b"S" * 512)
+        machine.sd_write_result = -5
+
+
+def press_leave(machine, reset=False):
+    """Execute the actual pad hook's held HOME chord or physical Reset fallback."""
+    machine.ticks += 121500001
+    machine.put("leave_since", 1)
+    machine.put("leave_hold", 1)
+    machine.put("leave_card_quiet", 1)
+    if reset:
+        machine.put("reset_request_at", 1)
+        msr = machine.uc.reg_read(UC_PPC_REG_MSR)
+        machine.uc.reg_write(UC_PPC_REG_MSR, msr | 0x8000)
+    buttons = 0 if reset else 0x1070
+    status = 0x80060000
+    machine.uc.mem_write(status, struct.pack(">H", buttons) + bytes(46))
+    machine.uc.mem_write(0xCC003000, struct.pack(">I", 0x10000))
+    machine.call("gc_on_pad_read", machine.ctx, status, 1)
+
+
+def test_returning_leave(layout):
+    for usb in (False, True):
+        for failed_save in (False, True):
+            for reset in (False, True):
+                machine = Machine(layout, latency=60750, usb=usb)
+                prepare_returning_leave(machine, failed_save)
+                destination = 0x80040000
+                length = 0x18000
+                machine.call("gc_on_read", machine.ctx, destination, length, 0, CALLBACK)
+                # Suspend the second piece, after the first has been published.
+                for _ in range(1000):
+                    machine.alarm()
+                    if machine.get("read_length") == 0x8000 and machine.get("io_pending"):
+                        break
+                else:
+                    raise AssertionError("the second read piece never reached IOS")
+                progress = tuple(machine.get(name) for name in ("read_addr", "read_offset", "read_length"))
+                generation = machine.get("read_generation")
+                press_leave(machine, reset)
+                assert machine.get("read_generation") != generation
+                assert tuple(machine.get(name) for name in ("read_addr", "read_offset", "read_length")) == progress
+                assert not machine.callbacks
+                assert bytes(machine.uc.mem_read(destination + 0x10000, 0x8000)) == bytes(0x8000)
+                assert any(fd == 5 for _, fd in machine.sends) == (not failed_save)
+                if failed_save:
+                    assert machine.get_object(machine.get("card"), "card", "dirty_count") == 1
+                machine.drain()
+                expected = bytes((10 * 512 + 37 + i) % 251 for i in range(length))
+                assert bytes(machine.uc.mem_read(destination, length)) == expected
+                assert [kind for _, kind in machine.callbacks] == [1]
+    # Also preserve a completion whose bytes were published before HOME.
+    for failed_save in (False, True):
+        machine = Machine(layout)
+        prepare_returning_leave(machine, failed_save)
+        machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
+        while machine.get("pending_type") == 0:
+            machine.alarm()
+        press_leave(machine)
+        assert machine.get("pending_cb") == CALLBACK and machine.get("pending_type") == 1
+        machine.drain()
+        assert [kind for _, kind in machine.callbacks] == [1]
+    print("HOME and physical Reset returns: failed save and refused ES retain SD/USB progress, "
+          "redo the pending piece and deliver exactly one callback; queued completions survive")
+
+
+def test_returning_stream(layout):
+    for failed_save in (False, True):
+        machine = Machine(layout, latency=60750)
+        prepare_returning_leave(machine, failed_save)
+        stream = 0x90050000
+        machine.put("stream", stream)
+        for name, value in {"buf": 0x900A0000, "buf_bytes": 0x20000, "playing": 1,
+                            "start": 8192, "length": 0x10000, "pos": 8192}.items():
+            machine.put_object(stream, "stream", name, value)
+        machine.call("gc_on_pad_read", machine.ctx, 0, 0)
+        machine.alarm()
+        assert machine.get("io_pending") != 0 and machine.get("io_job") == 2
+        press_leave(machine)
+        assert machine.get_object(stream, "stream", "fetched") == 0
+        assert machine.get_object(stream, "stream", "pos") == 8192
+        machine.drain()
+        fetched = machine.get_object(stream, "stream", "fetched")
+        assert fetched == 0x4000
+        expected = bytes((10 * 512 + 37 + 8192 + i) % 251 for i in range(fetched))
+        assert bytes(machine.uc.mem_read(0x900A0000, fetched)) == expected
+        assert machine.get_object(stream, "stream", "refills") == 2
+    print("Returning HOME restarts unpublished music top-ups; ring bytes and progress publish once")
+
+
+def test_quarantine_error(layout):
+    for missing_ack in (False, True):
+        machine = stalled_storage(layout, missing_ack)
+        machine.ticks += IO_TIMEOUT_TICKS + 1
+        machine.drain()
+        assert [kind for _, kind in machine.callbacks] == [2]
+        protect_storage(machine)
+        # Each subsequent command must get its own normal DE completion,
+        # even when IOS never returns ownership. Include time-base wrap.
+        machine.ticks = 0xFFFF0000
+        for _ in range(2):
+            started = machine.ticks
+            machine.call("gc_on_read", machine.ctx, 0x80050000, 512, 4096, CALLBACK)
+            machine.alarm()
+            machine.ticks += 2 * IO_TIMEOUT_TICKS + 1
+            machine.drain()
+            assert 2 * IO_TIMEOUT_TICKS <= machine.callbacks[-1][0] - started < 2 * IO_TIMEOUT_TICKS + 100000
+            assert machine.callbacks[-1][1] == 2
+            assert machine.get("io_pending") != 0
+            assert machine.get("sd_requests") == 1
+            assert bytes(machine.uc.mem_read(0x80050000, 512)) == bytes(512)
+        assert [kind for _, kind in machine.callbacks] == [2, 2, 2]
+    print("Never-reply quarantine: later reads complete once with DE within ten seconds "
+          "across time-base wrap; DMA buffers stay protected and storage stays down")
+
+
+def test_worker_stack(layout):
+    machine = Machine(layout)
+    stack = machine.get("io_stack")
+    machine.uc.mem_write(stack, b"\xA5" * 0x10000)
+    machine.call("gc_on_read", machine.ctx, 0x80040000, 512, 0, CALLBACK)
+    machine.alarm()
+    assert words(machine.uc.mem_read(stack + 0x10000 - 16, 4)) == (0,)
+    registers = 0x80070000
+    frames = (stack + 0x100, stack + 0x200, stack + 0x300)
+    machine.uc.mem_write(registers + 4, struct.pack(">I", frames[0]))
+    for frame, caller, lr in zip(frames, (*frames[1:], 0), (0, 0x81700100, 0x81700200)):
+        machine.uc.mem_write(frame, struct.pack(">2I", caller, lr))
+
+    def stop_after_chain(uc, address, size, unused):
+        # gc_crash_stack is inlined. Stop fatal after the real capture,
+        # before its storage teardown and deliberate crash-screen loop.
+        if address == machine.functions["gc_io_drain"]:
+            machine.stop_at = address
+            uc.emu_stop()
+
+    machine.uc.hook_add(UC_HOOK_CODE, stop_after_chain)
+    machine.call("gc_on_fatal", machine.ctx, 2, registers, 0, 0, terminal=True)
+    chain = machine.ctx + layout["crash_chain"]
+    assert words(machine.uc.mem_read(chain, 16)) == (0x81700100, 0x81700200, 0, 0)
+    for frame in (stack - 4, stack + 0x10000 - 4, stack + 0x10000, stack + 1, 0x81800000 - 4):
+        machine.uc.mem_write(registers + 4, struct.pack(">I", frame))
+        machine.call("gc_on_fatal", machine.ctx, 2, registers, 0, 0, terminal=True)
+        assert words(machine.uc.mem_read(chain, 16)) == (0, 0, 0, 0)
+    print("Worker crash chain: bootstrap terminates a poisoned stack; MEM2 callers are captured "
+          "and out-of-bounds/unaligned frames stop safely")
+
+
+def poll_idle_storage(machine):
+    assert machine.get("storage_busy") == 1 and machine.get("io_pending") == 0
+    assert machine.get("io_buffers_idle") == 1
+    shared = bytes(machine.uc.mem_read(machine.ctx + machine.layout["ipc"], 160))
+    for kind in ("bt", "gcad"):
+        address = machine.get(kind)
+        function = "gc_bt_poll" if kind == "bt" else "gc_gcad_poll"
+        before = machine.get_object(address, kind, "polls")
+        machine.call(function, machine.ctx, address)
+        assert machine.get_object(address, kind, "polls") == before + 1
+    assert machine.get("storage_busy") == 1
+    assert bytes(machine.uc.mem_read(machine.ctx + machine.layout["ipc"], 160)) == shared
+    machine.call("gc_sd_write", machine.ctx, 300, 1, 0x90070000)
+    assert machine.reg(3) == (-3000 & 0xFFFFFFFF)
+
+
+def test_sd_wait_controllers(layout):
+    machine = Machine(layout, slow=True)
+    setup_controllers(machine)
+    machine.call("gc_on_read", machine.ctx, 0x80020000, 0x10000, 0, CALLBACK)
+    for _ in range(100):
+        machine.alarm()
+        if machine.get("io_buffers_idle") and machine.get("io_pending") == 0:
+            break
+    else:
+        raise AssertionError("sd_slow never yielded after its reply")
+    poll_idle_storage(machine)
+    machine.drain()
+    assert [kind for _, kind in machine.callbacks] == [1]
+    print("sd_slow after-reply wait: both controllers poll using private requests; shared buffers stay owned")
 
 
 def test_rvz(layout, devkitppc):
@@ -1024,13 +1237,41 @@ def read_rvz_fixture(layout, stored, flags, payload, label):
         machine.uc.mem_write(rvz + layout["rvz.slots"] + slot * 24,
                              struct.pack(">6I", buffer, 0x21000, 0xFFFFFFFF, 0, 0, 0))
     machine.uc.mem_write(0x90000000, struct.pack(">5I", 0, len(payload), 0, 0, 3))
+    setup_controllers(machine, gcad=0x90390000)
     machine.call("gc_on_read", machine.ctx, 0x80020000, len(payload) - 128, 128, CALLBACK)
-    machine.drain()
+    decode_polls = 0
+    for _ in range(3000):
+        if not machine.alarms:
+            break
+        checkpoints = machine.checkpoints
+        machine.alarm()
+        if (machine.checkpoints > checkpoints and machine.get("io_buffers_idle") and
+                machine.get("storage_busy") and machine.get("io_pending") == 0):
+            poll_idle_storage(machine)
+            decode_polls += 1
+            if decode_polls == 1:
+                # A refused HOME during decode must discard partial decoder
+                # frames and redo the unpublished read using the same cache.
+                machine.put("leave_buf", 0x903A0000)
+                machine.put("leave_fd", 5)
+                generation = machine.get("read_generation")
+                progress = tuple(machine.get(name) for name in ("read_addr", "read_offset", "read_length"))
+                machine.call("gc_leave", machine.ctx)
+                assert machine.get("read_generation") != generation
+                assert tuple(machine.get(name) for name in ("read_addr", "read_offset", "read_length")) == progress
+                assert not machine.callbacks
+    else:
+        raise AssertionError("RVZ I/O did not finish in 3000 alarms")
+    if flags & 0x80000000:
+        assert decode_polls > 0, "the Zstandard decode never allowed controller polls"
     assert [kind for _, kind in machine.callbacks] == [1]
     assert bytes(machine.uc.mem_read(0x80020000, len(payload) - 128)) == payload[128:]
     assert machine.get_object(rvz, "rvz", "groups_loaded") == 1
     assert max(machine.durations) < 60750, (max(machine.durations), machine.checkpoints)
-    print(f"RVZ {label}: 128 KiB group decodes across short alarms, cache reused; "
+    completion = "uninterrupted completion"
+    if decode_polls:
+        completion = "one refused HOME restart"
+    print(f"RVZ {label}: 128 KiB group, {completion}; {decode_polls} controller poll turns, "
           f"longest {max(machine.durations)} simulated ticks")
 
 
@@ -1057,6 +1298,11 @@ def main():
     test_home_during_stalled_storage(layout)
     test_late_dma_during_leave(layout)
     test_forced_save_timeout(layout)
+    test_returning_leave(layout)
+    test_returning_stream(layout)
+    test_quarantine_error(layout)
+    test_worker_stack(layout)
+    test_sd_wait_controllers(layout)
     test_rvz(layout, args.devkitppc)
 
 
