@@ -124,9 +124,10 @@ public:
 // LaunchMemoryGuard. It also covers the menu-side GameCube patch build
 // (gcpatch.cpp), where an unchecked allocation that fails now restarts
 // RiftWii through operator new's handler instead of showing the menu's own
-// error: intended, for a genuine out-of-memory. A launch that failed because a checked allocation
-// found no room (riftwii/checkedalloc.hpp) ends with kLaunchOutOfMemory as
-// `error`, whatever step it failed in; that step's own words are logged.
+// error: intended, for a genuine out-of-memory. A launch that failed
+// because a checked allocation found no room (riftwii/checkedalloc.hpp)
+// ends with kLaunchOutOfMemory as `error`, whatever step it failed in; that
+// step's own words are logged.
 template <typename Run>
 bool GuardLaunchMemory(std::string& error, Run run) {
     LaunchMemoryGuard guard;
