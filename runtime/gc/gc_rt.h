@@ -586,6 +586,8 @@ struct gc_rt_context {
     uint32_t io_trace_where;  /* coalesced diagnostic write, outside game hooks */
     uint32_t read_tgc_watch;  /* a normal read, not ReadDiskID */
     uint32_t ipc_sending;     /* X1 sent, Y2 not yet acknowledged; survives a worker yield */
+    uint32_t io_buffers_idle; /* checkpoint/modelled wait: private controller requests may run */
+    uint32_t io_stream_restart; /* a leave discarded an unpublished ring top-up */
     uint8_t io_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
 };
 
@@ -624,10 +626,11 @@ void gc_set_alarm(struct gc_rt_context* ctx, void* alarm, uint32_t ticks);
 void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_context, uint32_t dsisr, uint32_t dar);
 void gc_on_stray(struct gc_rt_context* ctx, uint32_t os_context, uint32_t ctr);
 /* Controllers own separate request buffers, so storage ownership only
- * blocks them outside a pending transaction (buffer filling or decoding).
+ * blocks them while filling shared buffers, outside a pending transaction
+ * or an explicit decode/modelled-wait checkpoint.
  * A suspended send must keep its doorbell until its own caller takes Y2. */
 static inline int gc_ipc_poll_blocked(const struct gc_rt_context* ctx) {
-    return ctx->ipc_sending || (ctx->storage_busy && ctx->io_pending == 0);
+    return ctx->ipc_sending || (ctx->storage_busy && ctx->io_pending == 0 && !ctx->io_buffers_idle);
 }
 /* Shared with gc_bt.c. */
 void gc_flush(uint32_t address, uint32_t length);

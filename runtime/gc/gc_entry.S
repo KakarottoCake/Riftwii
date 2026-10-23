@@ -762,6 +762,7 @@ gc_io_init:
     addi 4, 4, -112
     li 6, 0
     stw 6, 0(4)
+    stw 6, 96(4)           /* bootstrap's ABI frame ends the worker back chain */
     stw 6, 80(4)
     stw 5, 8(4)
     stw 2, 84(4)

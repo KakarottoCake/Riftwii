@@ -71,7 +71,13 @@ void gc_io_checkpoint(void* io) {
     uint32_t now;
     if (ctx == 0 || !ctx->io_running) return;
     __asm__ volatile("mftb %0" : "=r"(now));
-    if (now - ctx->io_ticks >= GC_IO_SLICE_TICKS) gc_io_pause(ctx);
+    if (now - ctx->io_ticks >= GC_IO_SLICE_TICKS) {
+        /* Decode/copy checkpoints leave shared IPC buffers untouched.
+         * Controllers use private requests; other storage stays excluded. */
+        ctx->io_buffers_idle = 1;
+        gc_io_pause(ctx);
+        ctx->io_buffers_idle = 0;
+    }
 }
 
 /* Polled callers used during launch/exit retain their old timeout. In
@@ -110,10 +116,12 @@ static void gc_sd_test_wait(struct gc_rt_context* ctx, uint32_t started, uint32_
     if (!(ctx->flags & GC_FLAG_SD_SLOW)) return;
     /* 60.75 ticks/us; transfers are whole sectors (60 us each). */
     ticks = 91125u + (bytes / GC_SECTOR) * 3645u;
+    ctx->io_buffers_idle = 1;
     do {
         __asm__ volatile("mftb %0" : "=r"(now));
         if (now - started < ticks) gc_io_pause(ctx);
     } while (now - started < ticks);
+    ctx->io_buffers_idle = 0;
 }
 
 void gc_flush(uint32_t address, uint32_t length) {
@@ -1384,7 +1392,9 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
     if (alarm == (uint32_t)(uintptr_t)ctx->io_alarm) {
         ctx->io_queued = 0;
         if (ctx->io_job != 0) gc_io_resume(ctx);
-        else if (ctx->io_trace_where != 0) gc_io_start(ctx, GC_IO_TRACE);
+        else if (ctx->io_stream_restart) {
+            if (!gc_io_start(ctx, GC_IO_STREAM)) gc_io_arm(ctx);
+        } else if (ctx->io_trace_where != 0) gc_io_start(ctx, GC_IO_TRACE);
         else if (ctx->io_maintenance && ctx->read_state == GC_READ_NONE) gc_io_start(ctx, GC_IO_BEAT);
         return;
     }
@@ -1416,7 +1426,21 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
     }
     ctx->alarm_queued = 0;  /* out of the OS's queue now: gc_arm may set it again */
     if (ctx->read_state == GC_READ_COPYING) {
-        if (!gc_io_start(ctx, GC_IO_READ)) gc_arm(ctx, GC_IO_POLL_TICKS);
+        if (!gc_io_start(ctx, GC_IO_READ)) {
+            uint32_t now;
+            __asm__ volatile("mftb %0" : "=r"(now));
+            /* A dead request keeps its DMA memory quarantined until IOS
+             * replies. At ten seconds, queue the waiting read's drive
+             * error rather than polling forever while storage is down. */
+            if (ctx->io_job == 0 && (ctx->io_pending != 0 || ctx->ipc_sending) &&
+                now - ctx->read_started >= 2u * GC_IO_TIMEOUT_TICKS) {
+                ctx->read_failed = 1;
+                ctx->read_state = GC_READ_NONE;
+                gc_complete(ctx, ctx->read_cb, GC_DI_DE);
+            } else {
+                gc_arm(ctx, GC_IO_POLL_TICKS);
+            }
+        }
         return;
     }
     if (ctx->io_job == GC_IO_READ) {
@@ -1702,6 +1726,7 @@ static int gc_io_start(struct gc_rt_context* ctx, uint32_t job) {
     }
     if (ctx->io_sp == 0) gc_io_init(&ctx->io_sp, ctx->io_stack + GC_IO_STACK_BYTES, ctx);
     ctx->io_job = job;
+    if (job == GC_IO_STREAM) ctx->io_stream_restart = 0;
     gc_io_arm(ctx);
     gc_irq_restore(msr);
     return 1;
@@ -1751,10 +1776,13 @@ void gc_io_worker(struct gc_rt_context* ctx) {
  * Its OS may stop delivering alarms next. Drain the one DMA in place
  * before dropping the continuation or resetting its buffers; saved card
  * sectors remain dirty and the exit's forced flush writes them again.
- * A failed device gets five seconds; failure keeps its buffers quarantined. */
-static int gc_io_drain(struct gc_rt_context* ctx) {
+ * A failed device gets five seconds; failure keeps its buffers quarantined.
+ * keep_read is for the pad hook's leave: a failed save or refused launch
+ * returns to that same game, so its read and music top-up must restart. */
+static int gc_io_drain(struct gc_rt_context* ctx, int keep_read) {
     uint32_t msr;
     uint32_t started;
+    int storage_ready = 1;
     msr = gc_irq_off();
     __asm__ volatile("mftb %0" : "=r"(started));
     /* A worker's TGC/leave trace can itself time out. Finish that DMA
@@ -1772,31 +1800,46 @@ static int gc_io_drain(struct gc_rt_context* ctx) {
         if (now - started >= GC_IO_TIMEOUT_TICKS) {
             /* IOS still owns this memory. Neither a reset nor diagnostics
              * may reuse it merely because the deadline expired. */
-            gc_irq_restore(msr);
-            return 0;
+            storage_ready = 0;
+            break;
         }
     }
-    ctx->io_pending = 0;
+    if (!storage_ready && !keep_read) {
+        gc_irq_restore(msr);
+        return 0;
+    }
+    if (storage_ready) ctx->io_pending = 0;
     if (ctx->io_running) {
         gc_irq_restore(msr);
-        return 1;
+        return storage_ready;
     }
     ctx->read_generation++;
     ctx->stream_generation++;
-    ctx->read_state = GC_READ_NONE;
-    ctx->pending_cb = 0;
-    ctx->pending_type = 0;
+    if (keep_read) {
+        /* HOME/Reset from PADRead can return after a failed save or ES
+         * refusal. Discard only the continuation: staged bytes have not
+         * advanced read progress or the ring, so the piece can be redone. */
+        if (ctx->io_job == GC_IO_STREAM) ctx->io_stream_restart = 1;
+        if (ctx->read_state != GC_READ_NONE || ctx->pending_type != 0) gc_arm(ctx, GC_IO_POLL_TICKS);
+        if (ctx->io_stream_restart) gc_io_arm(ctx);
+    } else {
+        ctx->read_state = GC_READ_NONE;
+        ctx->pending_cb = 0;
+        ctx->pending_type = 0;
+        ctx->io_stream_restart = 0;
+    }
     ctx->io_sp = 0;
     ctx->io_job = 0;
-    ctx->io_reply = 0;
+    if (storage_ready) ctx->io_reply = 0;
     ctx->io_maintenance = 0;
     ctx->io_trace_where = 0;
     ctx->storage_busy = 0;
+    ctx->io_buffers_idle = 0;
     /* Leave an already queued io_alarm linked until it fires, or until
      * the old OS is discarded. Queuing that same alarm twice corrupts
      * the SDK's alarm list. */
     gc_irq_restore(msr);
-    return 1;
+    return storage_ready;
 }
 
 /* E1: set the stream (or the next one), or cancel it. */
@@ -2014,7 +2057,7 @@ static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
         if (storage_ready) {
             gc_card_flush(ctx, card, 1);
             if (card->dirty_count != 0) {
-                storage_ready = gc_io_drain(ctx);
+                storage_ready = gc_io_drain(ctx, 1);
                 if (storage_ready) return;
             }
         }
@@ -2024,7 +2067,7 @@ static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
         gc_trace(ctx, GC_TRACE_LEAVE);
         /* The exit's own trace can time out too. It must not leave the
          * worker's continuation running during the title launch. */
-        storage_ready = gc_io_drain(ctx);
+        storage_ready = gc_io_drain(ctx, 1);
     }
     /* A Wii Remote's motor would otherwise run on until its link drops. */
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
@@ -2042,7 +2085,7 @@ static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
 }
 
 static void gc_leave(struct gc_rt_context* ctx) {
-    gc_leave_finish(ctx, gc_io_drain(ctx));
+    gc_leave_finish(ctx, gc_io_drain(ctx, 1));
 }
 
 /* HOME on a Wii Remote with an extension or on a Classic Controller (HOME
@@ -2183,7 +2226,7 @@ void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args) {
     ctx->resets_asked++;
     ctx->reset_last = args[0] << 8 | (args[2] & 0xFFu);
     if (args[0] == GC_OS_RESET_SHUTDOWN) return;  /* the OS shuts down and the game goes on: as made */
-    if (!gc_io_drain(ctx)) {
+    if (!gc_io_drain(ctx, 0)) {
         /* MEM1 cannot be restored under a late DMA. Use the private way
          * back instead; on refusal the SDK's reset continues as before. */
         if (ctx->leave_buf != 0 && ctx->leave_fd != 0xFFFFFFFFu) gc_leave_finish(ctx, 0);
@@ -2272,7 +2315,7 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     uint32_t msr;
     int read;
     /* Even an unredirected SDK boot can discard the old OS and its alarms. */
-    if (!gc_io_drain(ctx)) return;  /* leave exec.txt and the quarantined buffers alone */
+    if (!gc_io_drain(ctx, 0)) return;  /* leave exec.txt and the quarantined buffers alone */
     if (ctx->exec_sector == 0 || ctx->leave_buf == 0 || ctx->leave_fd == 0xFFFFFFFFu) return;
     if (target == 0xFFFFFFFFu) {
         const char* p = argc != 0 ? argv[0] : 0;
@@ -2312,7 +2355,7 @@ void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args) {
     gc_leave(ctx);
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the switch up, and the game's own goes on. */
-    if (!gc_io_drain(ctx)) return;  /* no idle-file repair while IOS owns its buffers */
+    if (!gc_io_drain(ctx, 0)) return;  /* no idle-file repair while IOS owns its buffers */
     msr = gc_irq_off();
     ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->exec_sector, 1, (uint32_t)(uintptr_t)buf)) {
@@ -2385,7 +2428,7 @@ static void gc_on_tgc_read(struct gc_rt_context* ctx, uint32_t offset, uint32_t 
     /* Still here: IOS said no. The file back to idle, so no later start
      * of RiftWii takes the start up, and the menu's own goes on. */
     ctx->tgc_count = 0;
-    if (!gc_io_drain(ctx)) return;
+    if (!gc_io_drain(ctx, 0)) return;
     msr = gc_irq_off();
     ctx->storage_busy = 1;
     if (gc_sd_read(ctx, ctx->tgc_sector, 1, (uint32_t)(uintptr_t)buf)) {
@@ -2469,6 +2512,8 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
     ctx->io_sp = 0;
     ctx->io_job = 0;
     ctx->io_running = 0;
+    ctx->io_buffers_idle = 0;
+    ctx->io_stream_restart = 0;
     ctx->io_maintenance = 0;
     ctx->io_queued = 0;
     ctx->io_trace_where = 0;
@@ -2622,7 +2667,7 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     int storage_ready;
     (void)code;  /* the game reads PI's reset register for it, which stays as it was at the first start */
     (void)gc_irq_off();
-    storage_ready = gc_io_drain(ctx);
+    storage_ready = gc_io_drain(ctx, 0);
     if (!storage_ready || ctx->restart_count == 0) {
         /* No restart, or storage DMA that still owns the old memory:
          * back to RiftWii, as holding HOME. A game that switches
@@ -2638,7 +2683,7 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
         struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
         for (i = 0; i < 3 && card->dirty_count != 0; ++i) gc_card_flush(ctx, card, 1);
     }
-    storage_ready = gc_io_drain(ctx);
+    storage_ready = gc_io_drain(ctx, 0);
     if (!storage_ready) gc_hot_reset_leave(ctx, 0);
     /* The GP's last commands done, then the GP reset, before the game
      * sets up a new FIFO. Whether it was still busy goes into the trace,
@@ -2653,7 +2698,7 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     if (!gp_idle) ctx->audio_reset |= GC_RESTART_GP_SLOW << 12;
     gc_vi_restart(ctx);
     gc_trace(ctx, GC_TRACE_RESTART);  /* the audio and the VI as the restarted game finds them */
-    storage_ready = gc_io_drain(ctx);
+    storage_ready = gc_io_drain(ctx, 0);
     /* Neither the snapshot nor the new OS may overwrite late DMA. */
     if (!storage_ready) gc_hot_reset_leave(ctx, 0);
     gc_forget_game(ctx);
@@ -3002,8 +3047,14 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where) {
 
 /* A crashed context's registers and the LRs saved up its stack (each
  * frame's back chain at 0, its caller's LR at 4 of the frame above),
- * while the frames stay in MEM1. */
+ * while the frames stay in MEM1 or the private MEM2 worker stack. */
 static int gc_in_mem1(uint32_t a) { return a >= 0x80000000u && a < 0x81800000u && (a & 3u) == 0; }
+static int gc_stack_frame(const struct gc_rt_context* ctx, uint32_t frame) {
+    if ((frame & 3u) != 0) return 0;
+    if (frame >= 0x80000000u && frame <= 0x81800000u - 8u) return 1;
+    return ctx->io_stack != 0 && frame >= ctx->io_stack &&
+           frame - ctx->io_stack <= GC_IO_STACK_BYTES - 8u;
+}
 static void gc_crash_stack(struct gc_rt_context* ctx, const uint32_t* gpr) {
     uint32_t frame = gpr[1];
     uint32_t i;
@@ -3013,9 +3064,12 @@ static void gc_crash_stack(struct gc_rt_context* ctx, const uint32_t* gpr) {
     ctx->crash_gpr[3] = gpr[5];
     ctx->crash_gpr[4] = gpr[31];
     for (i = 0; i < 4; ++i) {
-        if (!gc_in_mem1(frame)) break;
+        ctx->crash_chain[i] = 0;
+    }
+    for (i = 0; i < 4; ++i) {
+        if (!gc_stack_frame(ctx, frame)) break;
         frame = *(const uint32_t*)(uintptr_t)frame;  /* the caller's frame */
-        if (!gc_in_mem1(frame)) break;
+        if (!gc_stack_frame(ctx, frame)) break;
         ctx->crash_chain[i] = *(const uint32_t*)(uintptr_t)(frame + 4);
     }
 }
@@ -3209,7 +3263,7 @@ void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_cont
      * into its buffers. Drain it before the fatal trace reuses them. */
     (void)gc_irq_off();
     ctx->io_running = 0;
-    if (gc_io_drain(ctx)) gc_trace(ctx, GC_TRACE_FATAL);
+    if (gc_io_drain(ctx, 0)) gc_trace(ctx, GC_TRACE_FATAL);
     gc_crash_screen(ctx, os_context);
     /* Nothing reads the pads now to switch a Wii Remote's motor off. */
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
