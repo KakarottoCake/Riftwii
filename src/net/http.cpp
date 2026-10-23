@@ -189,7 +189,13 @@ bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to
         // A path on the same server: from its root, or beside this one.
         to = from;
         std::string path = where.substr(0, where.find('#'));
-        if (path[0] != '/') {
+        // Without a new path, a query replaces only the old query and a
+        // fragment keeps the whole request target (fragments are not sent).
+        if (path.empty()) {
+            path = from.path;
+        } else if (path[0] == '?') {
+            path = from.path.substr(0, from.path.find('?')) + path;
+        } else if (path[0] != '/') {
             const std::string base = from.path.substr(0, from.path.find('?'));
             path = base.substr(0, base.rfind('/') + 1) + path;
         }
