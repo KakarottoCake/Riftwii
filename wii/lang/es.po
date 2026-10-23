@@ -3131,3 +3131,54 @@ msgstr "4. Juegos en la carpeta /wbfs o /games."
 
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x en el slot 249/250/251."
+
+msgid "Bring your Nintendont saves?"
+msgstr "¿Traer tus partidas de Nintendont?"
+
+msgid "RiftWii found {1} Nintendont memory cards in {2}. Copy their saves? Nintendont's files are not changed."
+msgstr "RiftWii encontró {1} tarjetas de Nintendont en {2}. ¿Copiar sus partidas? Los archivos de Nintendont no cambian."
+
+msgid "Choose saves"
+msgstr "Elegir partidas"
+
+msgid "Bring all"
+msgstr "Traer todas"
+
+msgid "Bring your Nintendont saves"
+msgstr "Traer tus partidas de Nintendont"
+
+msgid "Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed."
+msgstr "Copia las partidas de las tarjetas de memoria de Nintendont (en sd:/saves o usb:/saves) a las de RiftWii. Los archivos de Nintendont no se cambian."
+
+msgid "No saves from Nintendont"
+msgstr "Sin partidas de Nintendont"
+
+msgid "RiftWii found no Nintendont memory cards in {1}. Nintendont keeps them in its saves folder when its memory card emulation is on."
+msgstr "RiftWii no ha encontrado tarjetas de memoria de Nintendont en {1}. Nintendont las guarda en su carpeta saves cuando la emulación de tarjeta de memoria está activada."
+
+msgid "The Nintendont memory cards RiftWii found hold no saves it can bring."
+msgstr "Las tarjetas de memoria de Nintendont encontradas no tienen partidas que RiftWii pueda traer."
+
+msgid "Press A to tick or untick this save."
+msgstr "Pulsa A para marcar o desmarcar esta partida."
+
+msgid "This save is damaged, so it cannot be brought."
+msgstr "Esta partida está dañada, así que no se puede traer."
+
+msgid "Tick all"
+msgstr "Marcar todas"
+
+msgid "Ticks every save that can be brought."
+msgstr "Marca todas las partidas que se pueden traer."
+
+msgid "Bring the ticked saves"
+msgstr "Traer las partidas marcadas"
+
+msgid "Copies the ticked saves to RiftWii's memory cards. Nintendont's files are not changed."
+msgstr "Copia las partidas marcadas a las tarjetas de memoria de RiftWii. Los archivos de Nintendont no se cambian."
+
+msgid "Tick the saves you want to bring first."
+msgstr "Marca primero las partidas que quieras traer."
+
+msgid "Nintendont saves brought"
+msgstr "Partidas de Nintendont traídas"
