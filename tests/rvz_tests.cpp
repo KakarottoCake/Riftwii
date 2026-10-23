@@ -425,6 +425,19 @@ void TestDamage() {
         }
     }
     EXPECT_TRUE(any_failed);
+
+    // A read that works after one that failed leaves no old reason behind
+    // (CodeRabbit on #202: the GameCube plugin adds last_error() to a
+    // launch failure, so a stale one would explain the wrong read).
+    std::unique_ptr<RvzImage> whole;
+    if (!RvzImage::open(source(good), whole, error)) {
+        EXPECT_TRUE(false);
+        return;
+    }
+    EXPECT_FALSE(whole->read_partition(0, whole->partition_data_size(0), out.data(), out.size()));
+    EXPECT_FALSE(whole->last_error().empty());
+    EXPECT_TRUE(whole->read_partition(0, 0, out.data(), out.size()));
+    EXPECT_TRUE(whole->last_error().empty());
 }
 
 // Big-endian fields of an RVZ, and its three SHA-1s brought back in line
