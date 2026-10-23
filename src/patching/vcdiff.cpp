@@ -23,7 +23,10 @@ namespace {
 // its size (Super Mario Eclipse's third window found no 8 MB block).
 // False when there is no room (riftwii/checkedalloc.hpp).
 bool fresh_size(std::vector<std::uint8_t>& v, std::uint64_t n) {
-    if (n > v.max_size()) return false;
+    if (n > v.max_size()) {
+        detail::note_out_of_memory();  // so a caller's OutOfMemoryScope sees it
+        return false;
+    }
     if (n > v.capacity()) std::vector<std::uint8_t>().swap(v);
     return try_resize(v, static_cast<std::size_t>(n));
 }
