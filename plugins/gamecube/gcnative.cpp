@@ -1934,6 +1934,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // SD trace writes stop the game with interrupts off. Enable them only
     // for a diagnostic run, never as part of normal controller polling.
     const bool test_trace = stat("sd:/riftwii/gc/test/trace", &st_press) == 0;
+    const bool test_sd_slow = stat("sd:/riftwii/gc/test/sd_slow", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
     const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
@@ -2764,6 +2765,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     ctx->trace_count = trace_count;
     ctx->trace_buf = trace_addr;
     if (test_trace) ctx->flags |= GC_FLAG_TRACE_GAMEPLAY;
+    if (test_sd_slow) {
+        ctx->flags |= GC_FLAG_SD_SLOW;
+        logf("GameCube: the SD timing test is on, so each SD request takes at least 1.5 ms plus 0.12 ms per KB.\n");
+    }
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
     // opens the Bluetooth controller at the game's first PADRead. After
     // start-up, idle discovery is serviced by the heartbeat.
