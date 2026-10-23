@@ -414,6 +414,23 @@ static void test_ocarina() {
     EXPECT_EQ(mem.word(0x8000400C), std::uint32_t(0x4E800020));
 }
 
+// A plain patch whose original differs where nothing may be written is
+// skipped, as a search passes such matches over, instead of failing the
+// launch. A matching original there still fails, at the write.
+static void test_plain_original_outside_writable() {
+    FakeMemory mem;
+    mem.put(0x80002000, "actual");
+    const std::vector<riftwii::MemoryRegion> writable =
+        riftwii::subtract_memory_regions(kWritable, {{0x80002000u, 16}});
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_TRUE(riftwii::apply_memory_patches({Plain(0x80002000, "patch", "expect")}, {}, writable, mem, notes, err));
+    EXPECT_EQ(mem.str(0x80002000, 6), std::string("actual"));
+    if (!notes.empty()) EXPECT_EQ(notes.back(), std::string("memory 0x80002000: skipped, original differs"));
+    EXPECT_FALSE(riftwii::apply_memory_patches({Plain(0x80002000, "patch", "actual")}, {}, writable, mem, notes, err));
+    EXPECT_EQ(mem.str(0x80002000, 5), std::string("actua"));
+}
+
 // Where a patch lands, as the loader's overlap checks must see it: the
 // same address however the offset was written.
 static void test_target() {
@@ -434,6 +451,7 @@ int main() {
     test_subtract_regions();
     test_target();
     test_plain();
+    test_plain_original_outside_writable();
     test_search();
     test_ocarina();
     if (g_failures == 0) {

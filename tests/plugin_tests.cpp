@@ -595,7 +595,7 @@ static void TestTables() {
     EXPECT_TRUE(RWP_HOST_HAS(&host, crash_register));
     EXPECT_FALSE(RWP_HOST_HAS(&host, format));
     // The arena holds the largest plugin the header accepts.
-    EXPECT_EQ(RWP_ARENA_BYTES, 256u * 1024u);
+    EXPECT_EQ(RWP_ARENA_BYTES, 384u * 1024u);
 }
 
 // tests/fixtures/plugin_selftest.rwp is the selftest plugin as

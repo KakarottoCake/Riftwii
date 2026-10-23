@@ -14,6 +14,14 @@ std::string trim(const std::string& s) {
     return s.substr(a, b - a);
 }
 
+// A cut at `limit` bytes moved back to the start of a UTF-8 character,
+// so a long name never ends inside one (as riftwii/profiles.hpp does).
+std::size_t utf8_cut(const std::string& text, std::size_t limit) {
+    if (text.size() <= limit) return text.size();
+    std::size_t at = limit;
+    while (at > 0 && (static_cast<unsigned char>(text[at]) & 0xC0) == 0x80) --at;
+    return at;
+}
 bool plausible_id(const std::string& id) {
     if (id.size() != 4 && id.size() != 6) return false;
     for (char c : id) {
@@ -37,7 +45,7 @@ void TitleTable::add_text(const std::string& text, const std::set<std::string>* 
         std::string title = trim(line.substr(eq + 3));
         if (!plausible_id(id) || id == "TITLES" || title.empty()) continue;  // "TITLES = <source>" header
         if (wanted && wanted->count(id) == 0) continue;
-        if (title.size() > kMaxTitle) title.resize(kMaxTitle);
+        if (title.size() > kMaxTitle) title.resize(utf8_cut(title, kMaxTitle));
         titles_[id] = title;
     }
 }
@@ -94,7 +102,7 @@ std::string folder_title(const std::string& path, const std::string& id) {
         return "";
     }
     std::string title = trim(folder.substr(0, folder.size() - suffix.size()));
-    if (title.size() > kMaxTitle) title.resize(kMaxTitle);
+    if (title.size() > kMaxTitle) title.resize(utf8_cut(title, kMaxTitle));
     return title;
 }
 
