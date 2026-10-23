@@ -1080,12 +1080,13 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
         // The archive answers 404 for a game it has no cheats for.
         error = "the cheat archive has no cheats for " + game_id;
     }
-    if (!have && !NetFailed()) {
+    if (!have) {
         // codes.rc24.xyz has none or did not answer: GameHacking.org's copy
-        // on the card stands in, fetched only when it is missing or old.
+        // on the card stands in. It is fetched or refreshed only when the
+        // network has not failed; a copy already on the card is used either way.
         logf("Cheats: %s (%s); trying %s\n", error.c_str(), game_id.c_str(), kGameHackingName);
         std::string text, from_error;
-        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error, &from_zip);
+        const GameHackingResult result = GameHackingCheats(archive_id, text, from_error, &from_zip, !NetFailed());
         if (result == GameHackingResult::Found && parse_cheat_text(text, file, why)) {
             body.assign(text.begin(), text.end());
             found_in = CheatSource::GameHacking;
@@ -1122,7 +1123,7 @@ bool DownloadCheats(const std::string& game_id, std::string& error, const std::s
     if (!write_file(CheatPath(game_id), body, error)) return false;
     logf("Cheats: %u for %s from %s, %u of the player's own kept\n", static_cast<unsigned>(file.cheats.size()),
          game_id.c_str(),
-         found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none)"
+         found_in == CheatSource::GameHacking ? "GameHacking.org (the RiiConnect24 archive had none or could not be reached)"
                                               : "the GeckoCodes archive",
          static_cast<unsigned>(kept));
     // Where the codes came from is kept beside the file, for the cheats page.

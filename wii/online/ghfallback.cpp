@@ -131,6 +131,27 @@ bool Fetch(const std::string& url, const Parts& parts, MemoryGet& get, std::stri
     return HttpGetInMemory(url, get, error, 20000);
 }
 
+bool ReadZip(const GameHackingIndex& index, Parts& parts, std::size_t& size, std::string& error);
+
+// Whether the zip on the card still reads as the index says: a card that lost
+// power mid-write or a damaged file must not be kept just because it is there.
+bool CachedZipIsGood(const GameHackingIndex& index, Parts& parts) {
+    std::string why;
+    std::size_t size = 0;
+    if (!ReadZip(index, parts, size, why)) {
+        logf("Cheats: the GameHacking.org copy on the card cannot be used (%s); fetching it again\n", why.c_str());
+        return false;
+    }
+    GameHackingIndex check;
+    if (!gamehacking_build_index(parts.raw, size, GameHackingLimits(), &ZipInflate, check, why) ||
+        check.entry != index.entry) {
+        logf("Cheats: the GameHacking.org copy on the card does not match its index (%s); fetching it again\n",
+             why.empty() ? "different games" : why.c_str());
+        return false;
+    }
+    return true;
+}
+
 // The two requests: the listing, then (unless the cached zip is already the
 // newest) the zip. On success `index` is the cache's new state, on the card.
 bool Refresh(GameHackingIndex& index, bool have_cache, std::string& error) {
@@ -155,7 +176,7 @@ bool Refresh(GameHackingIndex& index, bool have_cache, std::string& error) {
 
     const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
     struct stat st;
-    if (have_cache && index.zip == name && stat(ZipPath(name).c_str(), &st) == 0) {
+    if (have_cache && index.zip == name && stat(ZipPath(name).c_str(), &st) == 0 && CachedZipIsGood(index, parts)) {
         // Nothing newer: keep the copy and count 30 days from now.
         index.fetched = now;
         logf("Cheats: the copy on the card (%s) is still the newest; kept\n", name.c_str());
@@ -226,14 +247,16 @@ bool ReadZip(const GameHackingIndex& index, Parts& parts, std::size_t& size, std
 }  // namespace
 
 GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error,
-                                    std::string* zip) {
+                                    std::string* zip, bool allow_refresh) {
     text.clear();
     GameHackingIndex index;
     const bool have_cache = LoadIndex(index);
     const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
     struct stat st;
     const bool zip_there = have_cache && stat(ZipPath(index.zip).c_str(), &st) == 0;
-    const bool due = !zip_there || gamehacking_stale(index.fetched, now);
+    // With the network down only the copy on the card can answer; an old one
+    // is better than none and is not refreshed.
+    const bool due = allow_refresh && (!zip_there || gamehacking_stale(index.fetched, now));
 
     if (due && !g_asked) {
         g_asked = true;
@@ -252,7 +275,8 @@ GameHackingResult GameHackingCheats(const std::string& game_id, std::string& tex
             }
         }
     } else if (!zip_there) {
-        error = "GameHacking.org was already tried this session";
+        error = allow_refresh ? "GameHacking.org was already tried this session"
+                              : "no GameHacking.org copy on the card and the network is down";
         return GameHackingResult::Unavailable;
     }
 

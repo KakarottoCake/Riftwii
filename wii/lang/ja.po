@@ -369,8 +369,8 @@ msgstr "チートは{1}個です。使うものをオンにしてください。
 msgid "Cheats from GameHacking.org"
 msgstr "GameHacking.orgのチート"
 
-msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want."
-msgstr "RiiConnect24のアーカイブにはなかったため、GameHacking.orgからチートを{1}個取得しました。使うものをオンにしてください。"
+msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want."
+msgstr "RiiConnect24のアーカイブにはなかったか、つながらなかったため、GameHacking.orgからチートを{1}個取得しました。使うものをオンにしてください。"
 
 msgid "Could not download cheats: {1}"
 msgstr "チートをダウンロードできませんでした: {1}"

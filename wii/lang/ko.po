@@ -369,8 +369,8 @@ msgstr "{1} 치트입니다. 원하는 항목을 켜세요."
 msgid "Cheats from GameHacking.org"
 msgstr "GameHacking.org의 치트"
 
-msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want."
-msgstr "RiiConnect24 아카이브에 없어서 GameHacking.org에서 치트 {1}개를 받았습니다. 원하는 항목을 켜세요."
+msgid "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want."
+msgstr "RiiConnect24 아카이브에 없거나 사용할 수 없어서 GameHacking.org에서 치트 {1}개를 받았습니다. 원하는 항목을 켜세요."
 
 msgid "Could not download cheats: {1}"
 msgstr "치트를 다운로드할 수 없음: {1}"

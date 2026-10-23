@@ -25,7 +25,9 @@ enum class GameHackingResult {
 // The cheat text for `game_id` (the ID rc24 was asked for: six characters,
 // or a channel's four). May fetch (see above); memory it needs comes from MEM2.
 // `zip` (when given) gets the name of the zip the text was read from.
+// `allow_refresh` false (the network is known to be down) answers from the
+// copy on the card only, however old, and makes no request.
 GameHackingResult GameHackingCheats(const std::string& game_id, std::string& text, std::string& error,
-                                    std::string* zip = nullptr);
+                                    std::string* zip = nullptr, bool allow_refresh = true);
 
 }  // namespace riftwii::wii

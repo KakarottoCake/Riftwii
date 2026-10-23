@@ -333,11 +333,11 @@ T = {
     "Cheats from GameHacking.org": (
         "Trucos de GameHacking.org", "GameHacking.orgのチート", "Trapaças do GameHacking.org",
         "Trucchi da GameHacking.org"),
-    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.": (
-        "{1} trucos de GameHacking.org, porque el archivo de RiiConnect24 no tenía ninguno. Activa los que quieras.",
-        "RiiConnect24のアーカイブにはなかったため、GameHacking.orgからチートを{1}個取得しました。使うものをオンにしてください。",
-        "{1} trapaças do GameHacking.org, pois o arquivo do RiiConnect24 não tinha nenhuma. Ative as que quiser.",
-        "{1} trucchi da GameHacking.org, perché l'archivio di RiiConnect24 non ne aveva. Attiva quelli che vuoi."),
+    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want.": (
+        "{1} trucos de GameHacking.org, porque el archivo de RiiConnect24 no tenía ninguno o no estaba disponible. Activa los que quieras.",
+        "RiiConnect24のアーカイブにはなかったか、つながらなかったため、GameHacking.orgからチートを{1}個取得しました。使うものをオンにしてください。",
+        "{1} trapaças do GameHacking.org, pois o arquivo do RiiConnect24 não tinha nenhuma ou estava indisponível. Ative as que quiser.",
+        "{1} trucchi da GameHacking.org, perché l'archivio di RiiConnect24 non ne aveva o non era disponibile. Attiva quelli che vuoi."),
     "Could not download cheats: {1}": ("No se pudieron descargar los trucos: {1}", "チートをダウンロードできませんでした: {1}",
                                        "Não foi possível baixar as trapaças: {1}", "Impossibile scaricare i trucchi: {1}"),
     "No cheats found online for this game.": ("No se encontraron trucos en línea para este juego.",
@@ -2540,8 +2540,8 @@ KO = {
         "{1} 치트입니다. 원하는 항목을 켜세요.",
     "Cheats from GameHacking.org":
         "GameHacking.org의 치트",
-    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.":
-        "RiiConnect24 아카이브에 없어서 GameHacking.org에서 치트 {1}개를 받았습니다. 원하는 항목을 켜세요.",
+    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want.":
+        "RiiConnect24 아카이브에 없거나 사용할 수 없어서 GameHacking.org에서 치트 {1}개를 받았습니다. 원하는 항목을 켜세요.",
     "Could not download cheats: {1}":
         "치트를 다운로드할 수 없음: {1}",
     "No cheats found online for this game.":
@@ -4377,8 +4377,8 @@ FR = {
         "{1} codes de triche. Activez ceux que vous souhaitez.",
     "Cheats from GameHacking.org":
         "Codes de GameHacking.org",
-    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.":
-        "{1} codes de triche de GameHacking.org, car l'archive de RiiConnect24 n'en avait pas. Activez ceux que vous souhaitez.",
+    "{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want.":
+        "{1} codes de triche de GameHacking.org, car l'archive de RiiConnect24 n'en avait pas ou était indisponible. Activez ceux que vous souhaitez.",
     "Could not download cheats: {1}":
         "Impossible de télécharger les codes de triche : {1}",
     "No cheats found online for this game.":

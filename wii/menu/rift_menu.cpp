@@ -8914,11 +8914,6 @@ static void MenuCheats(FrontendState& state)
 	// scrolls above it, so it cannot meet the rows or the note card.
 	GuiText sourceTxt("", 12, skin::kInkDim);
 	Place(sourceTxt, NoteCard::kTextX, NoteCard::kY + NoteCard::kH);
-	const auto showSource = [&]() {
-		const std::string from = tr("Cheats from GameHacking.org");
-		sourceTxt.SetText(riftwii::wii::CheatsFromGameHacking(state.game_id) ? from.c_str() : "");
-	};
-	showSource();
 	NoteCard noteCard;
 	GuiFlowList list(44, 84, 540, 5);
 	list.SetCards(true);
@@ -8927,6 +8922,15 @@ static void MenuCheats(FrontendState& state)
 	GuiText noteTxt(fileNote.c_str(), 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	// A fourth line of the note would run to y 410, over the source label, so
+	// the note keeps to three lines (ending by y 389) while the label shows.
+	const auto showSource = [&]() {
+		const bool fromGameHacking = riftwii::wii::CheatsFromGameHacking(state.game_id);
+		const std::string from = tr("Cheats from GameHacking.org");
+		sourceTxt.SetText(fromGameHacking ? from.c_str() : "");
+		noteTxt.SetWrap(true, NoteCard::kTextW, fromGameHacking ? NoteCard::kLines - 1 : NoteCard::kLines);
+	};
+	showSource();
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -8968,7 +8972,7 @@ static void MenuCheats(FrontendState& state)
 			const std::size_t now = loaded ? file.cheats.size() : 0;
 			say(!loaded ? status
 				: source == riftwii::wii::CheatSource::GameHacking
-					? tr("{1} cheats from GameHacking.org, as the RiiConnect24 archive had none. Turn on the ones you want.", {std::to_string(now)})
+					? tr("{1} cheats from GameHacking.org, as the RiiConnect24 archive had none or could not be reached. Turn on the ones you want.", {std::to_string(now)})
 				: hadFile && now == before ? tr("Downloaded: still {1} cheats, the list was already the latest.", {std::to_string(now)})
 				: hadFile ? tr("Downloaded: {1} cheats now ({2} before).", {std::to_string(now), std::to_string(before)})
 				: tr("{1} cheats. Turn on the ones you want.", {std::to_string(now)}));
