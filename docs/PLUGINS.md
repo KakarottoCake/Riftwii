@@ -45,7 +45,7 @@ arena (image 1,984, `.bss` 8, 65 relocations).
 Still to run in Dolphin for stage (a), beyond the runs in the pull
 request:
 
-- **The arena that stays taken.** `ReleaseArena` gives the 256 KiB back
+- **The arena that stays taken.** `ReleaseArena` gives the 384 KiB back
   only when arena 2's high end is still where the loader left it
   (`SYS_GetArena2Hi()` equal to the arena's low end); when something has
   moved it since, the log says `the arena at 0x... stays taken (MEM2's
@@ -277,7 +277,7 @@ starts from):
 | The program's end in MEM1 (`__bss_end`) | `0x810F40A0` | `0x810C2FC0` |
 | MEM1 back to the heap at every start | | 200,928 bytes (196 KiB) |
 | `gamecube.<version>.rwp` on the card | | 192,328 bytes |
-| Its share of the 256 KiB arena | | 180,000 bytes (image 179,936, `.bss` 40, 1,022 relocations) |
+| Its share of the arena (256 KiB at the time; 384 KiB since #286) | | 180,000 bytes (image 179,936, `.bss` 40, 1,022 relocations) |
 
 Of the plugin's image, 75,106 bytes are the three blobs (`riftwii_gc.bin`
 31,488, `riftwii_gc_rvz.zst` 40,822, `riftwii_gc_rvz.rel` 2,796), 90 KiB

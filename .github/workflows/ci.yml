@@ -37,8 +37,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-      - name: Install Ninja
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      - name: Install host build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build zlib1g-dev
       # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
       # warns about a memmove in src/patching/wfcpatch.cpp it can't prove safe.
       - name: Configure
@@ -71,8 +71,8 @@ jobs:
       ASAN_OPTIONS: detect_stack_use_after_return=0
     steps:
       - uses: actions/checkout@v5
-      - name: Install Ninja
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      - name: Install host build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build zlib1g-dev
       # AddressSanitizer and UndefinedBehaviorSanitizer (RIFTWII_SANITIZE in
       # CMakeLists.txt). Leak detection is on, so a test that forgets to free
       # fails too. UBSan stops the test at the first finding.

@@ -59,7 +59,9 @@ bool game_needs_most_of_mem2(const std::string& game_id);
 
 // GameCube games (the native loader, gcnative.cpp) whose ARAM addresses
 // must stay as the SDK gives them: raising them to 0x10004000, for the
-// sound program to read MEM2, breaks a check of their own. Hudson's sound
+// sound program to read MEM2, breaks a check or a size sum of their own
+// (Splinter Cell: Double Agent's VMInit size, 0x01000000 minus the base,
+// wraps; see gxpatches.cpp). Hudson's sound
 // manager in Mario Party 4 to 7 and DDR Mario Mix (msmSysInit, its ARAM end fixed at 0x808000) tests
 // ARGetBaseAddress() plus its sound data's size against that end, sees no
 // room and stops in an endless loop before the first frame. Their
