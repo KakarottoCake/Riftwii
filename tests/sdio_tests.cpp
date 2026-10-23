@@ -28,6 +28,7 @@ struct Scenario {
     u32 if_condition = 0x1AA;
     u32 operation_condition = 0xC0300000;
     u32 rca = 0x1234;
+    u32 rca_flags = 0;  // CMD3's R6 status bits below the address
     u32 app_status = 0x120;  // CMD55's R1: ready for data, application command
     u32 fail_command = 0xFFFFFFFF;
     bool reset_stuck = false;
@@ -61,7 +62,7 @@ s32 command(void* request, void* response) {
         ++scenario.op_condition_calls;
         reply[0] = scenario.operation_condition;
     }
-    if (cmd == 3) reply[0] = scenario.rca << 16;
+    if (cmd == 3) reply[0] = scenario.rca << 16 | scenario.rca_flags;
     if (cmd == 0x37) reply[0] = scenario.app_status;
     if (cmd == 7 && words[3] != 0) CHECK(words[3] == scenario.rca << 16);
     if (cmd == 0x12) scenario.read_argument = words[3];
@@ -141,6 +142,12 @@ void test_manual_initialization_card_error() {
     scenario.status = 1;  // inserted, but IOS did not initialise it
     scenario.app_status = 0x00400000;  // illegal command
     expect_failed_open("the card answered with an error (status 00400000)");
+
+    // CMD3's R6 reply with its illegal-command flag (bit 14): no address taken.
+    scenario = Scenario{};
+    scenario.status = 1;
+    scenario.rca_flags = 0x4000;
+    expect_failed_open("the card answered with an error (status 12344000)");
 }
 
 void test_failures_are_bounded_and_closed() {

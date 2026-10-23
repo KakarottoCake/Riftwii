@@ -54,6 +54,9 @@ constexpr std::uint32_t kResponseR1b = 2;
 // range, address error, CRC error, illegal command, ECC failed, controller
 // error, general error. (The other bits are state, not errors.)
 constexpr std::uint32_t kR1Errors = 0xC0F80000;
+// CMD3's R6 reply: the address in the top half, then the same CRC, illegal
+// command and general error flags squeezed into bits 15, 14 and 13.
+constexpr std::uint32_t kR6Errors = 0x0000E000;
 constexpr std::uint32_t kResponseR2 = 3;
 constexpr std::uint32_t kResponseR3 = 4;
 // IOS's response selectors, as used by libogc (not SD response numbers).
@@ -187,11 +190,13 @@ bool initialize_card(Card& card, std::string& error) {
             error = ipc_error(operation.c_str(), ret);
             return false;
         }
-        // IOS answered, but an R1 reply carries the card's own verdict too.
-        // Only R1 replies do: the others hold the voltage echo, the
-        // operating conditions, the card's ID or its address.
-        const bool card_status = response == kResponseR1 || response == kResponseR1b;
-        if (card_status && (g_response[0] & kR1Errors) != 0) {
+        // IOS answered, but R1 and R6 replies carry the card's own verdict
+        // too. The others hold the voltage echo, the operating conditions or
+        // the card's ID.
+        const bool r1 = response == kResponseR1 || response == kResponseR1b;
+        const bool r6 = response == kResponseRca;
+        const bool card_error = (r1 && (g_response[0] & kR1Errors) != 0) || (r6 && (g_response[0] & kR6Errors) != 0);
+        if (card_error) {
             char status[16];
             std::snprintf(status, sizeof(status), "%08X", static_cast<unsigned>(g_response[0]));
             error = "sdio: " + operation + ": the card answered with an error (status " + status + ")";
