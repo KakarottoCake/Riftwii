@@ -43,6 +43,25 @@ static void gc_write32(uint32_t address, uint32_t value) { *(volatile uint32_t*)
 
 static uint32_t gc_physical(uint32_t address) { return address & 0x3FFFFFFFu; }
 
+/* Match a real card's wait even when Dolphin finishes IOS requests at
+ * once. The deadline starts before sending, not after IOS replies. */
+static uint32_t gc_sd_test_start(struct gc_rt_context* ctx) {
+    uint32_t now = 0;
+    if (ctx->flags & GC_FLAG_SD_SLOW) __asm__ volatile("mftb %0" : "=r"(now));
+    return now;
+}
+
+static void gc_sd_test_wait(struct gc_rt_context* ctx, uint32_t started, uint32_t bytes) {
+    uint32_t now;
+    uint32_t ticks;
+    if (!(ctx->flags & GC_FLAG_SD_SLOW)) return;
+    /* 60.75 ticks/us; transfers are whole sectors (60 us each). */
+    ticks = 91125u + (bytes / GC_SECTOR) * 3645u;
+    do {
+        __asm__ volatile("mftb %0" : "=r"(now));
+    } while (now - started < ticks);
+}
+
 void gc_flush(uint32_t address, uint32_t length) {
     uint32_t a = address & ~31u;
     const uint32_t end = address + length;
@@ -135,6 +154,7 @@ static int32_t gc_ioctlv(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl,
     const uint32_t phys = gc_physical((uint32_t)(uintptr_t)rq);
     uint32_t i;
     uint32_t polls;
+    const uint32_t test_started = gc_sd_test_start(ctx);
     for (i = 0; i < 16; ++i) rq[i] = 0;
     rq[0] = GC_IOS_IOCTLV;
     rq[2] = fd;
@@ -161,6 +181,7 @@ static int32_t gc_ioctlv(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl,
     }
     gc_invalidate((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
     gc_guard(ctx);
+    if (fd == ctx->sdio_fd) gc_sd_test_wait(ctx, test_started, ctx->request[4] * GC_SECTOR);
     return (int32_t)rq[1];
 }
 
@@ -371,6 +392,7 @@ static int32_t gc_ioctl(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, 
     const uint32_t phys = gc_physical((uint32_t)(uintptr_t)rq);
     uint32_t i;
     uint32_t polls;
+    const uint32_t test_started = gc_sd_test_start(ctx);
     for (i = 0; i < 16; ++i) rq[i] = 0;
     rq[0] = 6;  /* IOS_IOCTL */
     rq[2] = fd;
@@ -401,6 +423,7 @@ static int32_t gc_ioctl(struct gc_rt_context* ctx, uint32_t fd, uint32_t ioctl, 
     gc_invalidate((uint32_t)(uintptr_t)rq, sizeof(ctx->ipc));
     gc_invalidate(out, out_len);
     gc_guard(ctx);
+    if (fd == ctx->sdio_fd) gc_sd_test_wait(ctx, test_started, 0);
     return (int32_t)rq[1];
 }
 

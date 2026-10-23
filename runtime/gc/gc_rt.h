@@ -278,6 +278,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_DISC_TEST 8192u  /* tests of a two-disc game's change in Dolphin: the motor is stopped at the 1500th
                                   * pad read and the 2200th (GC_DISC_TEST_*), as DVDLowStopMotor would stop it */
 #define GC_DISC_TEST_FIRST 1500u
+#define GC_FLAG_SD_SLOW 0x20000u  /* tests: SD requests take at least 1.5 ms plus 0.12 ms per KiB */
 #define GC_DISC_TEST_SECOND 2200u  /* early enough that its records stay in the trace's kept part (GC_TRACE_RING) */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
                             * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
