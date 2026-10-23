@@ -35,13 +35,22 @@ struct InflateState {
     ~InflateState() { inflateEnd(&stream); }
 };
 
+// A functor avoids the function-pointer attributes that make
+// `unique_ptr<FILE, decltype(&fclose)>` warn under -Werror on Linux GCC.
+struct FileCloser {
+    void operator()(FILE* file) const {
+        if (file != nullptr) std::fclose(file);
+    }
+};
+using FilePtr = std::unique_ptr<FILE, FileCloser>;
+
 }  // namespace
 
 bool zip_stream_first(const std::string& path, std::uint64_t max_archive_size,
                       std::uint64_t max_unpacked_size, const ZipSink& sink, std::string& error,
                       const std::function<bool(double)>& progress) {
     error.clear();
-    std::unique_ptr<FILE, decltype(&std::fclose)> file(std::fopen(path.c_str(), "rb"), &std::fclose);
+    FilePtr file(std::fopen(path.c_str(), "rb"));
     if (!file) return Fail(error, "the zip file could not be opened");
     if (std::fseek(file.get(), 0, SEEK_END) != 0) return Fail(error, "the zip file could not be measured");
     const long file_size = std::ftell(file.get());
