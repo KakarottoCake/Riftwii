@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <cstdint>
+using u8 = std::uint8_t;
 using s32 = std::int32_t;
 using u32 = std::uint32_t;
 #define ATTRIBUTE_ALIGN(n) __attribute__((aligned(n)))

@@ -7,6 +7,7 @@
 
 #include "covers.hpp"
 
+#include <fat.h>
 #include <gccore.h>
 #include <ogc/es.h>
 #include <ogc/ios.h>
@@ -21,6 +22,8 @@
 #include <cstring>
 
 #include "boot.hpp"
+#include "d2xsd.hpp"
+#include "di.hpp"
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
 #include "menumusic.hpp"
@@ -119,6 +122,17 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     NetStop();
     GcAdapterStop();
     ums::Forget();
+    // d2x's SD device the same way (#270): a launch that failed on one
+    // cIOS slot and was retried on the next read the card through the
+    // first slot's dead handle. Callers are expected to have let libfat go
+    // of the card by now; this is in case one has not, so its cache is
+    // written while the device still answers and libfat is never left on
+    // a dead handle.
+    if (using_d2x_sd()) fatUnmount("sd:");
+    d2x_sd_forget();
+    // And /dev/di: every launch path closes it before reloading, and
+    // di::open would return a handle left open as if it were still good.
+    di::close();
     // The running IOS's NAND permission check, put back while that IOS is
     // still there to put it back in: open, it would read as open for the
     // next IOS too, which nobody patched.

@@ -19,8 +19,15 @@
 // a handle shuts the device's card state down under d2x as well.
 namespace riftwii::wii {
 
-// Opens the device (once) and initialises the card through it.
+// Opens the device (once per IOS) and initialises the card through it.
 bool d2x_sd_open(std::string& error);
+// Before an IOS reload, while the old IOS still runs: closes the handle
+// and goes back to libogc's driver, so the next d2x_sd_open really opens
+// and starts the new IOS's device. reload_ios calls it; libfat must not
+// be mounted on the device by then.
+void d2x_sd_forget();
+// Why the last d2x_sd_open failed ("" after one that worked).
+const std::string& d2x_sd_last_error();
 // The shared handle, or -1 before d2x_sd_open.
 std::int32_t d2x_sd_fd();
 // Sector transfers through the shared handle; any buffer alignment.
@@ -28,7 +35,9 @@ bool d2x_sd_read(std::uint32_t sector, std::uint32_t count, void* buffer);
 bool d2x_sd_write(std::uint32_t sector, std::uint32_t count, const void* buffer);
 
 // Which SD driver the loader uses from now on: d2x's while an SD image
-// game is being launched, else libogc's __io_wiisd.
+// game is being launched, else libogc's __io_wiisd. Chosen after the
+// reload into the game's cIOS; d2x_sd_forget turns it off again before
+// the next reload.
 void use_d2x_sd(bool on);
 bool using_d2x_sd();
 // Each call goes through one lock, so threads never use the card at once.
