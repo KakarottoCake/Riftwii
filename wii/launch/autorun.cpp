@@ -6,6 +6,7 @@
 #include "launchsession.hpp"
 #include "d2xsave.hpp"
 #include "progress.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
 
@@ -437,7 +438,14 @@ void RunAutorun() {
                 state.choices_path = std::string(kChoicesDir) + "/" + source.game.id + ".txt";
             } else IdentifyDisc(state);
             logf("  %s\n", state.disc_status.c_str());
-            logf("  %s\n", ScanPackages(state).c_str());
+            // As the headless launch: a scan that ran out of memory keeps only
+            // the packs read so far, and launching with those would drop mods.
+            bool scan_ran_out = false;
+            {
+                riftwii::OutOfMemoryScope out_of_memory;
+                logf("  %s\n", ScanPackages(state).c_str());
+                scan_ran_out = out_of_memory.failed();
+            }
             for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
                 const auto& p = state.model.packages[i];
                 const std::string detail = p.valid ? "" : " (" + p.detail + ")";
@@ -453,15 +461,19 @@ void RunAutorun() {
             if (state.game_id.empty()) {
                 ok = false;
                 error = "launch needs a disc";
+            } else if (scan_ran_out) {
+                logf("  out of memory reading the packs' folders\n");
+                ok = false;
+                error = "out of memory reading the packs' folders";
             } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
                 logf("  nothing enabled and NAND saves selected: booting as is\n");
-                ok = mem::OutOfMemoryAsError(error, [&] { return RunBoot(allow_fallback, error, source); });
+                ok = mem::GuardLaunchMemory(error, [&] { return RunBoot(allow_fallback, error, source); });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             } else {
                 logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
                                         : "launch: handing over to the game\n");
-                ok = mem::OutOfMemoryAsError(error, [&] {
+                ok = mem::GuardLaunchMemory(error, [&] {
                     return RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
                 });
                 if (reload_terminal_failure()) halt_after_terminal_reload();

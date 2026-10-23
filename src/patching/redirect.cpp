@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/redirect.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -37,7 +38,11 @@ bool push_entry(std::vector<rt_entry>& entries, std::uint64_t vstart, std::uint6
     e.kind = static_cast<std::uint8_t>(kind);
     e.source = source;
     e.skip = static_cast<std::uint16_t>(skip);
-    entries.push_back(e);
+    // A big pack makes thousands of entries.
+    if (!try_push_back(entries, e)) {
+        error = "allocation failure";
+        return false;
+    }
     return true;
 }
 
@@ -46,119 +51,122 @@ bool push_entry(std::vector<rt_entry>& entries, std::uint64_t vstart, std::uint6
 bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const ExternalPlacer& place,
                           std::uint32_t sdio_fd, std::uint64_t tag,
                           std::vector<std::uint8_t>& out, std::string& error) {
-    try {
-        std::vector<rt_entry> entries;
-        for (std::size_t fi = 0; fi < files.size(); ++fi) {
-            const VirtualFileLayout& layout = files[fi];
-            if (layout.file == nullptr) {
-                error = "redirect layout " + std::to_string(fi) + " has no file";
-                return false;
-            }
-            const std::uint64_t size = layout.file->size();
-            if (layout.virtual_offset > std::numeric_limits<std::uint64_t>::max() - size) {
-                error = "redirect layout " + std::to_string(fi) + " wraps the address space";
-                return false;
-            }
-            const std::vector<FlatExtent> flat = layout.file->flatten();
-            for (const FlatExtent& x : flat) {
-                const std::uint64_t vstart = layout.virtual_offset + x.dest;
-                switch (x.kind) {
-                case FlatExtent::Kind::Original: {
-                    const std::uint64_t disc_pos = layout.original_offset + x.source_offset;
-                    if (disc_pos == vstart) break;  // untouched and in place: pass through
-                    if (!push_entry(entries, vstart, x.length, RT_KIND_DISC, disc_pos, 0, error)) return false;
-                    break;
-                }
-                case FlatExtent::Kind::Zero:
-                    if (!push_entry(entries, vstart, x.length, RT_KIND_ZERO, 0, 0, error)) return false;
-                    break;
-                case FlatExtent::Kind::External: {
-                    std::vector<PlacedRun> runs;
-                    if (!place(x.source, x.source_offset, x.length, runs, error)) {
-                        error = "cannot place external bytes for redirect layout " + std::to_string(fi) + ": " + error;
-                        return false;
-                    }
-                    std::uint64_t placed = 0;
-                    for (const PlacedRun& r : runs) {
-                        const bool sectors = r.kind == RT_KIND_SD || r.kind == RT_KIND_USB;
-                        if (r.kind != RT_KIND_MEM && !sectors) {
-                            error = "placement returned an unsupported kind";
-                            return false;
-                        }
-                        if (sectors && r.skip >= RT_SECTOR_BYTES) {
-                            error = "placement returned an SD skip past the sector";
-                            return false;
-                        }
-                        if (r.length == 0 || r.length > x.length - placed) {
-                            error = "placement length does not match the extent";
-                            return false;
-                        }
-                        if (!push_entry(entries, vstart + placed, r.length, r.kind, r.source,
-                                        sectors ? r.skip : 0, error)) return false;
-                        placed += r.length;
-                    }
-                    if (placed != x.length) {
-                        error = "placement did not cover the whole extent";
-                        return false;
-                    }
-                    break;
-                }
-                }
-            }
+    std::vector<rt_entry> entries;
+    for (std::size_t fi = 0; fi < files.size(); ++fi) {
+        const VirtualFileLayout& layout = files[fi];
+        if (layout.file == nullptr) {
+            error = "redirect layout " + std::to_string(fi) + " has no file";
+            return false;
         }
-        std::stable_sort(entries.begin(), entries.end(), [](const rt_entry& a, const rt_entry& b) {
-            return a.vstart < b.vstart;
-        });
-        // Overlap check, then coalesce neighbours that continue the same source.
-        std::vector<rt_entry> merged;
-        for (const rt_entry& e : entries) {
-            if (!merged.empty()) {
-                rt_entry& p = merged.back();
-                const std::uint64_t pend = p.vstart + p.length;
-                if (pend > e.vstart) {
-                    error = "redirect entries overlap at virtual offset " + std::to_string(e.vstart);
+        const std::uint64_t size = layout.file->size();
+        if (layout.virtual_offset > std::numeric_limits<std::uint64_t>::max() - size) {
+            error = "redirect layout " + std::to_string(fi) + " wraps the address space";
+            return false;
+        }
+        const std::vector<FlatExtent> flat = layout.file->flatten();
+        for (const FlatExtent& x : flat) {
+            const std::uint64_t vstart = layout.virtual_offset + x.dest;
+            switch (x.kind) {
+            case FlatExtent::Kind::Original: {
+                const std::uint64_t disc_pos = layout.original_offset + x.source_offset;
+                if (disc_pos == vstart) break;  // untouched and in place: pass through
+                if (!push_entry(entries, vstart, x.length, RT_KIND_DISC, disc_pos, 0, error)) return false;
+                break;
+            }
+            case FlatExtent::Kind::Zero:
+                if (!push_entry(entries, vstart, x.length, RT_KIND_ZERO, 0, 0, error)) return false;
+                break;
+            case FlatExtent::Kind::External: {
+                std::vector<PlacedRun> runs;
+                if (!place(x.source, x.source_offset, x.length, runs, error)) {
+                    error = "cannot place external bytes for redirect layout " + std::to_string(fi) + ": " + error;
                     return false;
                 }
-                // Merged only while the length still fits its 32 bits.
-                const bool contiguous = pend == e.vstart && p.kind == e.kind &&
-                                        std::uint64_t(p.length) + e.length <= std::numeric_limits<std::uint32_t>::max() &&
-                                        (p.kind == RT_KIND_ZERO || linear_source(p) + p.length == linear_source(e));
-                if (contiguous) {
-                    p.length += e.length;
-                    continue;
+                std::uint64_t placed = 0;
+                for (const PlacedRun& r : runs) {
+                    const bool sectors = r.kind == RT_KIND_SD || r.kind == RT_KIND_USB;
+                    if (r.kind != RT_KIND_MEM && !sectors) {
+                        error = "placement returned an unsupported kind";
+                        return false;
+                    }
+                    if (sectors && r.skip >= RT_SECTOR_BYTES) {
+                        error = "placement returned an SD skip past the sector";
+                        return false;
+                    }
+                    if (r.length == 0 || r.length > x.length - placed) {
+                        error = "placement length does not match the extent";
+                        return false;
+                    }
+                    if (!push_entry(entries, vstart + placed, r.length, r.kind, r.source,
+                                    sectors ? r.skip : 0, error)) return false;
+                    placed += r.length;
                 }
+                if (placed != x.length) {
+                    error = "placement did not cover the whole extent";
+                    return false;
+                }
+                break;
             }
-            merged.push_back(e);
+            }
         }
-        if (merged.size() > std::numeric_limits<std::uint32_t>::max()) {
-            error = "too many redirect entries";
-            return false;
-        }
-        rt_header header;
-        std::memset(&header, 0, sizeof(header));
-        header.magic = RT_MAGIC;
-        header.version = RT_VERSION;
-        header.entry_count = static_cast<std::uint32_t>(merged.size());
-        header.sdio_fd = sdio_fd;
-        header.tag = tag;
-        header.entries_crc = rt_crc32(merged.data(), merged.size() * sizeof(rt_entry));
-        std::vector<std::uint8_t> bytes(rt_table_bytes(header.entry_count));
-        std::memcpy(bytes.data(), &header, sizeof(header));
-        if (!merged.empty()) {
-            std::memcpy(bytes.data() + sizeof(header), merged.data(), merged.size() * sizeof(rt_entry));
-        }
-        const int rc = rt_validate(reinterpret_cast<const rt_header*>(bytes.data()), bytes.size());
-        if (rc != RT_OK) {
-            error = "built redirect table failed validation (" + std::to_string(rc) + ")";
-            return false;
-        }
-        out = std::move(bytes);
-        error.clear();
-        return true;
-    } catch (const std::bad_alloc&) {
+    }
+    std::stable_sort(entries.begin(), entries.end(), [](const rt_entry& a, const rt_entry& b) {
+        return a.vstart < b.vstart;
+    });
+    // Overlap check, then coalesce neighbours that continue the same source.
+    std::vector<rt_entry> merged;
+    if (!try_reserve(merged, entries.size())) {
         error = "allocation failure";
         return false;
     }
+    for (const rt_entry& e : entries) {
+        if (!merged.empty()) {
+            rt_entry& p = merged.back();
+            const std::uint64_t pend = p.vstart + p.length;
+            if (pend > e.vstart) {
+                error = "redirect entries overlap at virtual offset " + std::to_string(e.vstart);
+                return false;
+            }
+            // Merged only while the length still fits its 32 bits.
+            const bool contiguous = pend == e.vstart && p.kind == e.kind &&
+                                    std::uint64_t(p.length) + e.length <= std::numeric_limits<std::uint32_t>::max() &&
+                                    (p.kind == RT_KIND_ZERO || linear_source(p) + p.length == linear_source(e));
+            if (contiguous) {
+                p.length += e.length;
+                continue;
+            }
+        }
+        merged.push_back(e);
+    }
+    if (merged.size() > std::numeric_limits<std::uint32_t>::max()) {
+        error = "too many redirect entries";
+        return false;
+    }
+    rt_header header;
+    std::memset(&header, 0, sizeof(header));
+    header.magic = RT_MAGIC;
+    header.version = RT_VERSION;
+    header.entry_count = static_cast<std::uint32_t>(merged.size());
+    header.sdio_fd = sdio_fd;
+    header.tag = tag;
+    header.entries_crc = rt_crc32(merged.data(), merged.size() * sizeof(rt_entry));
+    std::vector<std::uint8_t> bytes;
+    if (!try_resize(bytes, rt_table_bytes(header.entry_count))) {
+        error = "allocation failure";
+        return false;
+    }
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    if (!merged.empty()) {
+        std::memcpy(bytes.data() + sizeof(header), merged.data(), merged.size() * sizeof(rt_entry));
+    }
+    const int rc = rt_validate(reinterpret_cast<const rt_header*>(bytes.data()), bytes.size());
+    if (rc != RT_OK) {
+        error = "built redirect table failed validation (" + std::to_string(rc) + ")";
+        return false;
+    }
+    out = std::move(bytes);
+    error.clear();
+    return true;
 }
 
 }  // namespace riftwii

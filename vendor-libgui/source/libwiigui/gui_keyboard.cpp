@@ -269,8 +269,9 @@ void GuiKeyboard::Update(GuiTrigger * t)
 
 	for (u8 i = 0; i < _elements.size(); i++)
 	{
-		try	{ _elements.at(i)->Update(t); }
-		catch (const std::exception& e) { }
+		if (static_cast<u32>(i) >= _elements.size())
+			break;  // an element's handler can remove others from the list
+		_elements.at(i)->Update(t);
 	}
 
 	bool update = false;

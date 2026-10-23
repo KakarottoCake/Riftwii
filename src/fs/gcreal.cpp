@@ -65,6 +65,19 @@ bool gc_real_plan(const std::vector<std::uint8_t>& source, const std::vector<std
             continue;
         ++out.selected;
         if (out.count.full) continue;
+        // The save's own copy (gc_card_export) is as long as its chain of
+        // blocks, up to most of a card: more than the slack above, so its
+        // room is asked for first.
+        if (save.intact) {
+            const std::size_t save_room[] = {
+                kGcCardEntryBytes + std::size_t(save.block_count) * kGcCardBlockBytes, kGcRealSlack};
+            if (!gc_real_have_room(save_room, 2, allocate)) {
+                out = GcRealPlan{};
+                out.out_of_memory = true;
+                error = "There is not enough free memory to copy the save " + save.game_code + save.maker + ".";
+                return false;
+            }
+        }
         std::vector<std::uint8_t> gci;
         if (!save.intact || !gc_card_export(source, save.slot, gci, error)) {
             ++out.count.unusable;

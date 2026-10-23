@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/source.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <new>
+#include <utility>
 #include <sys/stat.h>
 
 namespace riftwii {
@@ -104,9 +107,15 @@ OpenStatus FileByteSource::open(const std::string& path, std::unique_ptr<FileByt
         return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::fclose(f);
-    try {
-        out.reset(new FileByteSource(path, size));
-    } catch (...) {
+    // The object and its copy of the path, both checked: the copy is made
+    // here and moved in, so the constructor allocates nothing.
+    out.reset();
+    std::string path_copy;
+    if (try_reserve(path_copy, path.size())) {
+        path_copy = path;
+        out.reset(new (std::nothrow) FileByteSource(std::move(path_copy), size));
+    }
+    if (!out) {
         error = "allocation failure";
         return OpenStatus::IoError;
     }
@@ -138,9 +147,15 @@ OpenStatus FileByteSource::open(const std::string& path, std::uint64_t size,
         return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::fclose(f);
-    try {
-        out.reset(new FileByteSource(path, size));
-    } catch (...) {
+    // The object and its copy of the path, both checked: the copy is made
+    // here and moved in, so the constructor allocates nothing.
+    out.reset();
+    std::string path_copy;
+    if (try_reserve(path_copy, path.size())) {
+        path_copy = path;
+        out.reset(new (std::nothrow) FileByteSource(std::move(path_copy), size));
+    }
+    if (!out) {
         error = "allocation failure";
         return OpenStatus::IoError;
     }

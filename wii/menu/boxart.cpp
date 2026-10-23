@@ -17,6 +17,7 @@
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -83,6 +84,9 @@ CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
         std::vector<std::uint8_t> rgba;
         int w = 0, h = 0;
         if (!DecodePngRgba(png, rgba, w, h, why)) {
+            // No room is not "no cover": RunBackgroundFetch says so, and
+            // no miss is noted.
+            if (took_out_of_memory()) return CoverFetch::NotFound;
             logf("Shelf: GameTDB's %s full cover of %s: %s\n", region.c_str(), game_id.c_str(), why.c_str());
             continue;
         }
@@ -116,9 +120,9 @@ Background g_background;
 void RunBackgroundFetch() {
     // A full scan unpacks to a few MB: without the room, give up on this box
     // rather than end the thread.
-    try {
-        g_background.got = FetchBoxNow(g_background.id, g_background.error);
-    } catch (const std::bad_alloc&) {
+    OutOfMemoryScope out_of_memory;
+    g_background.got = FetchBoxNow(g_background.id, g_background.error);
+    if (g_background.got != CoverFetch::Stored && out_of_memory.failed()) {
         g_background.got = CoverFetch::NotFound;
         g_background.error = "out of memory";
         logf("Shelf: no room to cut the box of %s\n", g_background.id.c_str());

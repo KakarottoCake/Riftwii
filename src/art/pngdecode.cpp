@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/pngdecode.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -153,7 +154,9 @@ struct Workspace {
             std::memset(at, 0, bytes);
             return at;
         }
-        heap.assign(bytes, 0);
+        // The size comes from the PNG's header: checked, so a huge one is
+        // "no memory for the PNG" rather than the end of RiftWii.
+        if (!try_assign(heap, bytes, std::uint8_t(0))) return nullptr;
         return heap.data();
     }
 };

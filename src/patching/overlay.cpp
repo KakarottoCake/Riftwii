@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/overlay.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <new>
 #include <string>
 #include <vector>
 
@@ -38,9 +38,7 @@ bool ReadOverlay::append(OverlayExtent extent, std::string& error) {
         error = "Extent source range exceeds source size";
         return false;
     }
-    try {
-        extents_.push_back(extent);
-    } catch (...) {
+    if (!try_push_back(extents_, extent)) {
         error = "Allocation failure";
         return false;
     }
@@ -72,40 +70,36 @@ bool ReadOverlay::read(std::uint64_t offset, std::uint8_t* destination, std::siz
     // Into a scratch buffer first, so `destination` is left as it was when
     // a read fails; the layers below write into that buffer directly.
     std::vector<std::uint8_t> scratch;
-    try {
-        scratch.resize(length);
-    } catch (...) {
-        return false;
-    }
+    if (!try_resize(scratch, length)) return false;
     if (!read_into(offset, scratch.data(), length)) return false;
     std::memcpy(destination, scratch.data(), length);
     return true;
 }
 
 bool ReadOverlay::read_into(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const {
+    // At most the read's two ends, the original's end and both ends of
+    // every extent: room for all of them first, so the pushes below and the
+    // sort (in place) cannot fail.
     std::vector<std::uint64_t> boundaries;
-    try {
-        boundaries.push_back(offset);
-        boundaries.push_back(offset + static_cast<std::uint64_t>(length));
-        std::uint64_t orig_size = original_.size();
-        if (orig_size > offset && orig_size < offset + static_cast<std::uint64_t>(length)) {
-            boundaries.push_back(orig_size);
-        }
-        for (const auto& ext : extents_) {
-            std::uint64_t ext_start = ext.destination;
-            std::uint64_t ext_end = ext.destination + ext.length;
-            if (ext_start > offset && ext_start < offset + static_cast<std::uint64_t>(length)) {
-                boundaries.push_back(ext_start);
-            }
-            if (ext_end > offset && ext_end < offset + static_cast<std::uint64_t>(length)) {
-                boundaries.push_back(ext_end);
-            }
-        }
-        std::sort(boundaries.begin(), boundaries.end());
-        boundaries.erase(std::unique(boundaries.begin(), boundaries.end()), boundaries.end());
-    } catch (...) {
-        return false;
+    if (!try_reserve(boundaries, 3 + 2 * extents_.size())) return false;
+    boundaries.push_back(offset);
+    boundaries.push_back(offset + static_cast<std::uint64_t>(length));
+    std::uint64_t orig_size = original_.size();
+    if (orig_size > offset && orig_size < offset + static_cast<std::uint64_t>(length)) {
+        boundaries.push_back(orig_size);
     }
+    for (const auto& ext : extents_) {
+        std::uint64_t ext_start = ext.destination;
+        std::uint64_t ext_end = ext.destination + ext.length;
+        if (ext_start > offset && ext_start < offset + static_cast<std::uint64_t>(length)) {
+            boundaries.push_back(ext_start);
+        }
+        if (ext_end > offset && ext_end < offset + static_cast<std::uint64_t>(length)) {
+            boundaries.push_back(ext_end);
+        }
+    }
+    std::sort(boundaries.begin(), boundaries.end());
+    boundaries.erase(std::unique(boundaries.begin(), boundaries.end()), boundaries.end());
 
     for (std::size_t i = 0; i + 1 < boundaries.size(); ++i) {
         std::uint64_t seg_start = boundaries[i];

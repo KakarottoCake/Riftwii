@@ -19,6 +19,7 @@
 #include "di.hpp"
 #include "vsdimage.hpp"
 #include "i18n.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/riiconfig.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -277,6 +278,14 @@ std::string ScanPackages(FrontendState& state) {
     for (const PackFile& pack : found) {
         const std::string text = ReadPackText(pack.path);
         state.model.add(pack.file, pack.path, text, disc);
+        // Up to 150 packs of 1 MiB each: grown twofold, but checked.
+        const std::size_t needed = pack_texts.size() + text.size();
+        if (needed > pack_texts.capacity() && !try_reserve(pack_texts, std::max(needed, 2 * pack_texts.capacity())) &&
+            !try_reserve(pack_texts, needed)) {
+            logf("Packages: no memory to read the packs' folders (%u bytes so far)\n",
+                 static_cast<unsigned>(pack_texts.size()));
+            return "Package scan failed; go back and try again";
+        }
         for (char c : text) pack_texts += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
     // Code builds (Project+ and the like) show beside the XML packs. A

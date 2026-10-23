@@ -181,8 +181,8 @@ Nothing may throw, so the `__throw_*` functions and an `operator new`
 that finds no memory do not trap: during a launch they jump back to the
 plugin's `launch` (`__builtin_setjmp`, no library needed) and it returns
 the failure. Out of memory comes back as its own result, and the DOL
-throws `std::bad_alloc` there, so the existing "RiftWii ran out of memory
-while starting the game" message (`mem::OutOfMemoryAsError`) still shows.
+returns the launch's own out-of-memory error for it (`mem::kLaunchOutOfMemory`,
+"RiftWii ran out of memory while starting the game").
 What the launch had allocated is not freed: the failure path restarts
 RiftWii anyway (`OfferRestart`). Outside a launch (its `init`) such a
 failure stops the plugin with a trap, which the crash report names.
@@ -256,8 +256,8 @@ update's order. Build: `make_plugin.py check` for `selftest` and
 Changed from the design while building it:
 
 - `place_on_fragments` moved out of `src/patching/redirect.cpp` into
-  `src/fs/fragments.cpp`: the redirect table's builder beside it catches
-  `std::bad_alloc`, which cannot be built without exceptions, and the
+  `src/fs/fragments.cpp`: the redirect table's builder beside it caught
+  `std::bad_alloc` then, which cannot be built without exceptions, and the
   plugin needs only the one function.
 - `src/patching/launch.cpp` (for `gc_pal_game`) and `runtime/rtrvz.c`
   (the RVZ reader's unpacking) are linked into the plugin too.

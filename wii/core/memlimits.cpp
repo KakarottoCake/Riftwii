@@ -11,10 +11,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <malloc.h>
+#include <new>
+#include <string>
 #include <reent.h>
 
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "restart.hpp"
 #include "skin.hpp"
 #include "stash.hpp"
 
@@ -35,6 +38,9 @@ u32 Kib(u32 bytes) { return bytes / 1024; }
 }  // namespace
 
 void Init() {
+    // Checked allocations tell the failing thread's own OutOfMemoryScope
+    // (riftwii/checkedalloc.hpp): an LWP thread is known by its handle.
+    set_thread_identity([]() -> std::uintptr_t { return static_cast<std::uintptr_t>(LWP_GetSelf()); });
     g_mem1_floor = Address(SYS_GetArena1Lo());
     g_mem2_libogc_lo = Address(SYS_GetArena2Lo());
     g_mem2_top = Address(SYS_GetArena2Hi());
@@ -346,6 +352,55 @@ void PoisonReloadArea() {
     u32* const end = reinterpret_cast<u32*>(kMem2Floor);
     while (p < end) *p++ = 0xDEADBEEF;
     DCFlushRange(reinterpret_cast<void*>(g_mem2_libogc_lo), kMem2Floor - g_mem2_libogc_lo);
+}
+
+const char* const kLaunchOutOfMemory =
+    "RiftWii ran out of memory while starting the game (a big pack?); "
+    "turn off menu music or other packs and try again";
+
+namespace {
+
+// Held while a launch runs and freed first when it runs out, so the log
+// line and the restart after it have room. Small, so that holding it does
+// not itself make a big pack fail.
+constexpr std::size_t kLaunchSpareBytes = 16 * 1024;
+void* g_launch_spare = nullptr;
+int g_launch_guards = 0;
+std::new_handler g_handler_before_launch = nullptr;
+
+// operator new calls this when malloc fails during a launch. It never
+// returns: there is no caller to hand std::bad_alloc to without exceptions.
+// What follows is what the menu does with a failed launch (main.cpp), short
+// of waiting for A, as the launch's state cannot be trusted any more.
+[[noreturn]] void LaunchOutOfMemory() {
+    // Anything that fails from here on is not retried here.
+    std::set_new_handler(nullptr);
+    std::free(g_launch_spare);
+    g_launch_spare = nullptr;
+    if (reload_terminal_failure()) halt_after_terminal_reload();
+    logf("FAILED: %s\n", kLaunchOutOfMemory);
+    if (CanRestart()) WarmRestart(RestartKind::LaunchFailed, std::string("The launch failed: ") + kLaunchOutOfMemory);
+    logf("RiftWii cannot restart itself; leaving to the Homebrew Channel.\n");
+    std::exit(0);
+}
+
+}  // namespace
+
+void LogLaunchOutOfMemory(const std::string& step_error) {
+    logf("Launch: out of memory (%s)\n", step_error.empty() ? "no step said more" : step_error.c_str());
+}
+
+LaunchMemoryGuard::LaunchMemoryGuard() {
+    if (g_launch_guards++ > 0) return;
+    g_launch_spare = std::malloc(kLaunchSpareBytes);
+    g_handler_before_launch = std::set_new_handler(LaunchOutOfMemory);
+}
+
+LaunchMemoryGuard::~LaunchMemoryGuard() {
+    if (--g_launch_guards > 0) return;
+    std::set_new_handler(g_handler_before_launch);
+    std::free(g_launch_spare);
+    g_launch_spare = nullptr;
 }
 
 }  // namespace riftwii::wii::mem

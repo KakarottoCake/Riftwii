@@ -677,7 +677,10 @@ bool read_partition_layout(OpenedPartition& out, std::string& error) {
         error = "FST size " + std::to_string(fst_size) + " is not plausible";
         return false;
     }
-    out.fst_bytes.assign(static_cast<std::size_t>(fst_size), 0);
+    if (!try_assign(out.fst_bytes, static_cast<std::size_t>(fst_size), std::uint8_t(0))) {
+        error = "no memory for the FST (" + std::to_string(fst_size) + " bytes)";
+        return false;
+    }
     if (!data.read(out.data_header.fst_offset, out.fst_bytes.data(), out.fst_bytes.size())) {
         error = "cannot read the FST";
         return false;
@@ -811,7 +814,10 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
     if (!write_sd_file(sd_dir + "/datahdr.bin", buffer.data(), buffer.size(), error)) return false;
     if (!write_sd_file(sd_dir + "/fst.bin", partition.fst_bytes.data(), partition.fst_bytes.size(), error)) return false;
     const std::uint64_t app_bytes = kApploaderHeaderBytes + partition.apploader.total_size();
-    buffer.assign(static_cast<std::size_t>(app_bytes), 0);
+    if (!try_assign(buffer, static_cast<std::size_t>(app_bytes), std::uint8_t(0))) {
+        error = "no memory for the apploader";
+        return false;
+    }
     if (!data.read(kApploaderOffset, buffer.data(), buffer.size())) {
         error = "cannot read the apploader";
         return false;
@@ -1894,7 +1900,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                 // Read now, written last: no patch or hook goes into it.
                 LatePiece piece;
                 piece.address = sec.address;
-                piece.bytes.resize(sec.size);
+                if (!try_resize(piece.bytes, sec.size)) {
+                    error = "no memory for the start file's section over the loader";
+                    return false;
+                }
                 if (!data.read(start_file_offset + sec.offset, piece.bytes.data(), sec.size)) {
                     error = "cannot read the start file's section over the loader";
                     return false;

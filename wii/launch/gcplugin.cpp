@@ -28,6 +28,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "plugins.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
@@ -331,10 +332,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     std::string message;
     const int32_t result = plugin::Launch(kPluginName, &request, sizeof(request), message);
     if (result == RWP_LAUNCH_NO_MEMORY) {
-        // As when the loader was in the DOL: mem::OutOfMemoryAsError turns
-        // it into the launch's out-of-memory message.
+        // The launch's out-of-memory message, as when the loader was in
+        // the DOL.
         logf("GameCube: the gamecube plugin ran out of memory: %s\n", reason);
-        throw std::bad_alloc();
+        error = mem::kLaunchOutOfMemory;
+        return false;
     }
     if (result < 0) {
         logf("GameCube games need RiftWii's gamecube plugin in %s (%s), and it could not be used: %s\n",

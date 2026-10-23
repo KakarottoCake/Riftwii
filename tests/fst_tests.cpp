@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/fst.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <cstring>
 #include <iostream>
+#include <functional>
 #include <string>
+#include <thread>
 #include <vector>
 
 static int g_failures = 0;
@@ -441,7 +444,111 @@ static void test_malformed() {
     EXPECT_EQ(fst.count(), std::uint32_t(7));
 }
 
+// A name longer than the limit is refused before it is copied, with the
+// same message a long terminated name gets.
+static void test_long_name() {
+    Bytes table;
+    const std::string long_name(300, 'a');
+    Name(table, long_name.c_str());
+    Bytes b;
+    Entry(b, 1, 0, 0, 2);
+    Entry(b, 0, 0, 0x40, 0x10);
+    b.insert(b.end(), table.begin(), table.end());
+    riftwii::Fst out;
+    std::string e;
+    EXPECT_FALSE(riftwii::Fst::parse(b.data(), b.size(), true, out, e));
+    EXPECT_EQ(e, std::string("fst entry 1 has an invalid name"));
+}
+
+// The checked allocations the Wii build uses instead of std::bad_alloc
+// (riftwii/checkedalloc.hpp): a request that cannot be met is false and
+// tells the thread's OutOfMemoryScope; the rest behave as the library calls
+// they stand for.
+template <typename Step>
+static bool refused_as_out_of_memory(Step step) {
+    riftwii::OutOfMemoryScope scope;
+    const bool ok = step();
+    return !ok && scope.failed();
+}
+
+static void test_checked_alloc() {
+    riftwii::OutOfMemoryScope scope;
+    std::vector<std::uint32_t> words;
+    EXPECT_TRUE(riftwii::try_resize(words, 1000));
+    EXPECT_EQ(words.size(), 1000u);
+    EXPECT_TRUE(riftwii::try_assign(words, 3, std::uint32_t(7)));
+    EXPECT_EQ(words.size(), 3u);
+    EXPECT_EQ(words[2], 7u);
+    for (std::uint32_t i = 0; i < 100; ++i) EXPECT_TRUE(riftwii::try_push_back(words, i));
+    EXPECT_EQ(words.size(), 103u);
+    EXPECT_EQ(words.back(), 99u);
+    const std::uint8_t piece[] = {1, 2, 3};
+    Bytes bytes;
+    EXPECT_TRUE(riftwii::try_append(bytes, piece, piece + 3));
+    EXPECT_TRUE(riftwii::try_append(bytes, piece, piece + 3));
+    EXPECT_EQ(bytes.size(), 6u);
+    EXPECT_TRUE(riftwii::try_assign_range(bytes, piece + 1, piece + 3));
+    EXPECT_EQ(bytes.size(), 2u);
+    EXPECT_EQ(bytes[0], 2);
+    std::string text = "abc";
+    EXPECT_TRUE(riftwii::try_resize(text, 5, 'x'));
+    EXPECT_EQ(text, std::string("abcxx"));
+    EXPECT_TRUE(riftwii::try_append(text, "yz", 2));
+    EXPECT_EQ(text, std::string("abcxxyz"));
+    EXPECT_TRUE(riftwii::have_room(1u << 20));
+    EXPECT_FALSE(scope.failed());
+
+    // RoomBudget: small needs and one request of many chunks (checked as a
+    // single trial) both pass; a total past the cap is refused, even when
+    // it arrives in pieces.
+    riftwii::RoomBudget budget(4096);
+    EXPECT_TRUE(budget.need(10));
+    EXPECT_TRUE(budget.need(4096 * 20 + 5));
+    EXPECT_TRUE(budget.need(0));
+    EXPECT_FALSE(scope.failed());
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return budget.need(riftwii::kMaxCheckedBytes); }));
+
+    // Past kMaxCheckedBytes, or a count whose size overflows: refused
+    // without asking the allocator, reported, nothing changed.
+    EXPECT_TRUE(refused_as_out_of_memory([] { return riftwii::can_allocate(riftwii::kMaxCheckedBytes + 1); }));
+    EXPECT_TRUE(refused_as_out_of_memory([] { return riftwii::have_room(riftwii::kMaxCheckedBytes + 1); }));
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return riftwii::try_reserve(bytes, riftwii::kMaxCheckedBytes + 1); }));
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return riftwii::try_reserve(bytes, bytes.max_size()); }));
+    EXPECT_EQ(bytes.size(), 2u);
+    // max_size() * 4 bytes would overflow size_t.
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return riftwii::try_resize(words, words.max_size()); }));
+    EXPECT_EQ(words.size(), 103u);
+    EXPECT_TRUE(refused_as_out_of_memory([&] { return riftwii::try_reserve(text, text.max_size()); }));
+
+    // The inner scopes above kept their failures: the outer one saw none.
+    EXPECT_FALSE(scope.failed());
+    EXPECT_FALSE(riftwii::can_allocate(riftwii::kMaxCheckedBytes + 1));
+    EXPECT_TRUE(scope.failed());
+    EXPECT_TRUE(riftwii::took_out_of_memory());
+}
+
+// A failure in another thread does not show in this thread's scope.
+static void test_out_of_memory_per_thread() {
+    riftwii::set_thread_identity([]() -> std::uintptr_t {
+        return static_cast<std::uintptr_t>(std::hash<std::thread::id>()(std::this_thread::get_id()));
+    });
+    riftwii::OutOfMemoryScope mine;
+    bool other_saw = false;
+    std::thread other([&] {
+        riftwii::OutOfMemoryScope theirs;
+        riftwii::can_allocate(riftwii::kMaxCheckedBytes + 1);
+        other_saw = theirs.failed();
+    });
+    other.join();
+    EXPECT_TRUE(other_saw);
+    EXPECT_FALSE(mine.failed());
+    riftwii::set_thread_identity(nullptr);
+}
+
 int main() {
+    test_long_name();
+    test_checked_alloc();
+    test_out_of_memory_per_thread();
     test_parse_and_lookup();
     test_round_trip();
     test_mutation();

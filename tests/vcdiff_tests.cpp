@@ -293,6 +293,36 @@ static void test_checksums_and_refusals() {
         EXPECT_FALSE(ok);
         EXPECT_TRUE(error.find("past the file's end") != std::string::npos);
     }
+    // A section the file does hold but that is past what RiftWii asks the
+    // allocator for (riftwii/checkedalloc.hpp kMaxCheckedBytes): the
+    // decoder's own "no room" error comes back, not the caller's "runs past
+    // the file's end". The patch is 1 GiB of zeros after its header, read
+    // through a callback, so nothing that large is ever held.
+    {
+        Bytes head = {0xD6, 0xC3, 0xC4, 0x00, 0x00, 0x00};
+        Bytes body;
+        put_int(body, 4);           // window length
+        body.push_back(0);          // delta indicator
+        put_int(body, 300u << 20);  // data section: 300 MiB, inside the file
+        put_int(body, 2);
+        put_int(body, 0);
+        put_int(head, body.size() + (300u << 20) + 2);
+        head.insert(head.end(), body.begin(), body.end());
+        static constexpr std::uint64_t patch_size = 1ull << 30;
+        const VcdiffReadFn zeros_after_head = [&head](std::uint64_t at, void* dst, std::size_t n) {
+            if (at > patch_size || n > patch_size - at) return false;
+            std::uint8_t* d = static_cast<std::uint8_t*>(dst);
+            for (std::size_t i = 0; i < n; ++i) d[i] = at + i < head.size() ? head[at + i] : 0;
+            return true;
+        };
+        VcdiffLimits big;
+        big.max_window = 1ull << 40;
+        const Bytes none;
+        EXPECT_FALSE(apply_vcdiff(zeros_after_head, patch_size, reader(none), 0,
+                                  [](const std::uint8_t*, std::size_t) { return true; }, reader(none), {}, error,
+                                  big));
+        EXPECT_TRUE(error.find("more memory than is free") != std::string::npos);
+    }
     // A window whose delta length disagrees with its contents (MIN-08).
     {
         Window ok_window;

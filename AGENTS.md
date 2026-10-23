@@ -119,6 +119,10 @@ Readability beats brevity. For all code you write or change:
 - Runtime code runs inside someone else's game. It gets no heap and no libc
   beyond what is already there, and stays small and position-independent.
   `Makefile.wii` checks the blobs.
+- The Wii build has no C++ exceptions (`-fno-exceptions`): no `try`,
+  `catch` or `throw`. Failures are error returns, and a buffer sized by a
+  disc, a pack, a file or a download asks for its memory through
+  `include/riftwii/checkedalloc.hpp` first.
 - `Makefile.wii` compiles every source into one flat folder, so no two
   sources may share a base name.
 - Nothing hardcoded for one mod. Per-game fixes live in the game lists of
