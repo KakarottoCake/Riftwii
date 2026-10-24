@@ -2364,23 +2364,20 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Wii channels and WiiWare on Home"
-msgstr "WiiチャンネルとWiiWareをホームに"
+msgid "Wii Menu sounds and music in Settings > Menu"
+msgstr "Wiiメニューの音と音楽（設定 > メニュー）"
 
-msgid "Your homebrew apps on Home"
-msgstr "Homebrewアプリをホームに"
+msgid "GameCube memory cards in more games"
+msgstr "ゲームキューブのメモリーカードがより多くのゲームで"
 
-msgid "More themes to download in Settings > Theme"
-msgstr "設定 > テーマで新しいテーマをダウンロード"
+msgid "Bring Nintendont's GameCube saves over"
+msgstr "Nintendontのゲームキューブのセーブを移せます"
 
-msgid "Two-disc GameCube games change discs"
-msgstr "2枚組のゲームキューブのゲームでディスク交換"
+msgid "Hold L+R+Z+Start to leave a Wii game"
+msgstr "L+R+Z+スタートを長押しでWiiのゲームを終了"
 
-msgid "Retro Rewind online works again"
-msgstr "Retro Rewindのオンラインが直りました"
-
-msgid "Settings: Network Test, Games on the SD card"
-msgstr "設定：ネットワークテスト、SDカードのゲーム"
+msgid "Home starts on your last game"
+msgstr "ホームは最後に遊んだゲームから"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
