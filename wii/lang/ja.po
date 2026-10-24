@@ -3,6 +3,9 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "Y: view  Z: settings  L/R: pages"
+msgstr "Y: 表示  Z: 設定  L/R: ページ"
+
 msgid "Games with mods"
 msgstr "MODがあるゲーム"
 
@@ -579,8 +582,8 @@ msgstr "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutio
 msgid "Buttons"
 msgstr "ボタン"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。ゲーム一覧では - と + でページをめくります。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
+msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."
+msgstr "WiiリモコンでポイントしてAを押すか、十字ボタンで動かします。ホームでは-/+でページをめくります。クラシックとゲームキューブはL/Rでもめくれます (ゲームキューブはカチッと押す)。Lを押しながら十字ボタンで文字を選びます。ゲームキューブはホームでZで設定、Bで検索。ほかの画面ではBで戻り、HOME (ゲームキューブはStart) でHOMEメニューを開きます。チャンネルのバナーでは、ゲームキューブのStartでゲームをはじめます。"
 
 msgid "You're all set"
 msgstr "準備完了"
