@@ -339,13 +339,14 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         }
         ISFS_Delete(isfs_path(to));  // a short copy from an interrupted start
         s32 result = ISFS_CreateFile(isfs_path(to), 0, ISFS_OPEN_RW, ISFS_OPEN_RW, ISFS_OPEN_READ);
+        // Undone from here on, even when it cannot be opened.
+        if (result >= 0) written.push_back(to);
         const s32 fd = result < 0 ? result : ISFS_Open(isfs_path(to), ISFS_OPEN_WRITE);
         if (fd < 0) {
             error = to + " could not be created on the Wii (" + std::to_string(fd) + ")";
             ok = false;
             break;
         }
-        written.push_back(to);
         ok = moved.stream(c.id, [&](const std::uint8_t* data, std::size_t length) {
             std::memcpy(buffer.get(), data, length);
             result = ISFS_Write(fd, buffer.get(), length);
