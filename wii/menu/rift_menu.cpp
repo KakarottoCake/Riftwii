@@ -4752,7 +4752,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// Not while the update check (or the scan) has the network.
-		if (!g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		if (!g_sdGone && !g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
 			std::size_t pick = 0;
 			bool onPage = false;
@@ -4820,7 +4820,7 @@ static int MenuSource(FrontendState& state)
 		}
 		// The 3D covers view's pictures once the covers are in (a game
 		// without one shows its cover meanwhile): the ones near the focus first.
-		if (!g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4831,7 +4831,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (!g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4961,7 +4961,11 @@ static int MenuSource(FrontendState& state)
 				}
 				// Mounted afresh when the watch has seen it back in, whether
 				// that was announced now or while the unmount still waited.
-				if (g_sdGone && g_sdWatch.mounted()) {
+				// Like the unmount, only once no scan or download is running: a
+				// scan reads the settings that ReloadSettings replaces, and a
+				// download writes to the card the driver restart pulls away.
+				if (g_sdGone && g_sdWatch.mounted() && riftwii::wii::DriveScanDone() && !g_scanning &&
+					!riftwii::wii::NetBackgroundBusy()) {
 					if (SdWatchRemountForMenu()) {
 						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
 						riftwii::wii::ReloadSettings();
@@ -5382,7 +5386,9 @@ static int MenuSource(FrontendState& state)
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
 			rescanBtn.ResetState();
-			if (g_scanning) {
+			if (g_sdGone) {
+				toast.Show(tr("Put the SD card back in first."), true);
+			} else if (g_scanning) {
 				toast.Show(tr("RiftWii is still reading the drives."), false);
 			} else {
 				// The games stay on Home until the scan's parts replace them;
