@@ -26,7 +26,7 @@ bool d2x_sd_open(std::string& error);
 // Before an IOS reload, while the old IOS still runs: closes the handle
 // and goes back to libogc's driver, so the next d2x_sd_open really opens
 // and starts the new IOS's device. reload_ios calls it; libfat must not
-// be mounted on the device by then.
+// be mounted on the device by then. The hold below is left as it is.
 void d2x_sd_forget();
 // Why the last d2x_sd_open failed ("" after one that worked).
 const std::string& d2x_sd_last_error();
@@ -52,9 +52,19 @@ const DISC_INTERFACE* sd_interface();
 // runtime, a game's own SD driver passed the card) could allocate the same
 // clusters as the save d2x writes, and a second driver could reset the
 // card under it. While held, sd_interface, d2x_sd_read/write and
-// sdio::open_card refuse. d2x_sd_forget ends it: an IOS reload ends the
-// module and its emulation with it.
+// sdio::open_card refuse, as do the libogc_sd_* calls below. It ends with
+// release_d2x_saves or an IOS reload that took place (reload_ios ends it
+// once the old IOS is gone; a reload refused before that keeps it, as the
+// old IOS and its module still run).
 void hold_sd_for_d2x_fat(bool held);
 bool sd_held_by_d2x_fat();
+
+// libogc's own SD driver, for code that starts and stops it itself (around
+// IOS reloads, at RiftWii's start, the menu's card scan): false and
+// nothing done while d2x's FAT module holds the card. Start is libogc's
+// startup and then the card inserted.
+bool libogc_sd_start();
+void libogc_sd_stop();
+bool libogc_sd_inserted();
 
 }  // namespace riftwii::wii

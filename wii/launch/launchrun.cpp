@@ -71,23 +71,13 @@ void SetCtgpDefaults(const std::string& app) {
     logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
 }
 
-bool any_on_sd(const std::vector<PackageChoices>& packages) {
-    for (const PackageChoices& p : packages) {
-        if (p.xml_sd_path.compare(0, 4, "sd:/") == 0) return true;
-    }
-    return false;
-}
-
-// A compiled mod that RiftWii serves from the SD card in the game: a pack
-// read from it, or a table entry on it.
-bool mod_reads_sd(const CompiledMod& mod) {
-    for (const std::string& xml : mod.xml_paths) {
-        if (xml.compare(0, 4, "sd:/") == 0) return true;
-    }
-    for (const rt_entry& entry : mod.entries) {
-        if (entry.kind == RT_KIND_SD) return true;
-    }
-    return false;
+// Before the compile, from the packs' own places (d2xnandemu.hpp): the
+// compile's table can only be checked after the probe that turns d2x's
+// emulation on.
+bool packages_need_sd(const std::vector<PackageChoices>& packages) {
+    std::vector<std::string> xml_paths;
+    for (const PackageChoices& p : packages) xml_paths.push_back(p.xml_sd_path);
+    return packs_need_sd(xml_paths);
 }
 
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
@@ -369,7 +359,8 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
-    s.sd_after_probe = mod_reads_sd(mod) || !CurrentLaunchExtras().code_builds.empty();
+    s.sd_after_probe = packs_need_sd(mod.xml_paths) || entries_need_sd(mod.entries) ||
+                       !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_probe(error)) return false;
     if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
         error = "disc changed since preflight; recompile the selected packages";
@@ -454,9 +445,19 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
-    s.sd_after_probe = any_on_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
+    s.sd_after_probe = packages_need_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    // A pack on the USB drive whose files turned out to be on the SD card:
+    // the runtime would read the card that d2x's emulation holds, and the
+    // emulation cannot be turned off once the game's partition is open.
+    // The launch stops (the session gives d2x's card back) rather than put
+    // two drivers on the card.
+    if (s.d2x_saves && entries_need_sd(mod.entries)) {
+        error = "a pack on the USB drive has files on the SD card, which d2x's NAND emulation keeps to itself while "
+                "the game runs: move the pack's files to the USB drive, or pick another Saves choice for the game";
+        return false;
+    }
     LogCompileNotes(mod);
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
          static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),

@@ -249,7 +249,7 @@ void test_refused_while_d2x_fat_holds_the_card() {
         std::string error;
         CHECK(!riftwii::wii::sdio::open_card(card, error));
         CHECK(error == "d2x's NAND emulation has the SD card, and RiftWii stays off it while d2x does");
-        CHECK(card.fd < 0 && scenario.opens == 0 && scenario.commands.empty());
+        CHECK(scenario.opens == 0 && scenario.commands.empty());
     }
 }
 

@@ -176,6 +176,10 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         return ReloadResult::Failed;
     }
     __ES_Reset();
+    // The old IOS is gone from here, and d2x's FAT module and NAND
+    // emulation with it: RiftWii may use the card again. A reload refused
+    // before this point leaves them running, and the card held.
+    hold_sd_for_d2x_fat(false);
     // What the new kernel's staging does to low MEM2 on a Wii, in Dolphin.
     mem::PoisonReloadArea();
 

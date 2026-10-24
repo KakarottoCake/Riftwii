@@ -8,10 +8,12 @@
 // Where an SD card's file system starts and what it is, from the card's
 // first sectors, for boot.log. d2x's FAT module mounts the card with its
 // own FAT driver, which answered -101 on testers' cards that libfat reads
-// well (#128): it started the card but found no file system on it, either
-// because it could not read the sectors or because it could not make sense
-// of them. One line with the card's layout tells those two apart.
-// Facts only: the line says what is on the card, not what d2x makes of it.
+// well (the "mount -101" lines in their boot.logs, for #128 and WiiWare
+// from an emulated NAND): it mounted no file system on the card. The
+// suspected causes are a read that failed (another driver on the card) or
+// a layout it does not mount; the card's layout in the same log helps
+// tell those apart. Facts only: the line says what is on the card, not
+// what d2x makes of it.
 namespace riftwii {
 
 constexpr std::uint32_t kCardSectorBytes = 512;

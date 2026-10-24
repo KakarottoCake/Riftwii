@@ -5,6 +5,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
+#include "rtable.h"
 
 // d2x's NAND emulation from a folder of the SD card (d2xsave.hpp has the
 // rest of the save handling). d2x reads and writes the card through its
@@ -44,18 +47,27 @@ enum class D2xNandScope { GamePaths, WholeNand };
 // told to let go: either would stop the card under the device.
 //
 // `card_back`, when given, says whether libfat and boot.log have the card
-// after the call.
+// after the call; a refusal before the card was touched (the folder, no
+// FAT module) leaves it as the caller set it.
 bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope = D2xNandScope::GamePaths,
                       bool* card_back = nullptr);
 
 // When the emulation came on but the launch does not go on with it (ES
-// refused the title on this IOS, the launch failed): d2x's FAT module is
-// told to unmount the card (0xF1: it writes what it holds and stops its
-// driver), and RiftWii may use the card again. Not with d2x's own SD
-// device carrying a game on the card: that would stop the card under it,
-// so the card stays d2x's until the next IOS reload. True when RiftWii
-// may mount the card again. Logs what it did; nothing when the emulation
-// was not on.
+// refused the title on this IOS, the launch failed): d2x's emulation is
+// turned off (mode 0, while no title runs) and its FAT module unmounts the
+// card (0xF1: it writes what it holds and stops its driver); d2x's own SD
+// device, if a game on the card used it, is let go too, and RiftWii may
+// use the card again. False when the module would not let go: RiftWii
+// then stays off the card until an IOS reload (its restart does one).
+// Logs what it did and the hand-off's summary line again, for a failure's
+// boot.log. True and nothing done when the emulation was not on.
 bool release_d2x_saves();
+
+// Whether a launch needs the SD card in the game, so d2x's NAND emulation
+// must stay off: a pack read from anywhere but the USB drive (the card's
+// own, a network pack's files cached on it), or a compiled table entry on
+// the card.
+bool packs_need_sd(const std::vector<std::string>& xml_paths);
+bool entries_need_sd(const std::vector<rt_entry>& entries);
 
 }  // namespace riftwii::wii

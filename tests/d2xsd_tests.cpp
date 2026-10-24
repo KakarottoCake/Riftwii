@@ -175,26 +175,32 @@ void test_forget_without_a_handle() {
 }
 
 // While d2x's FAT module holds the card for its NAND emulation, nothing of
-// RiftWii's reaches it, on either driver; an IOS reload ends the hold.
+// RiftWii's reaches it, on either driver, until the hold ends.
 void test_held_card_refuses_until_the_reload() {
     for (bool d2x : {false, true}) {
         start_over();
         riftwii::wii::use_d2x_sd(d2x);
         riftwii::wii::hold_sd_for_d2x_fat(true);
-        CHECK(riftwii::wii::sd_held_by_d2x_fat());
         const DISC_INTERFACE* card = riftwii::wii::sd_interface();
         alignas(32) static u8 sector[512];
         CHECK(!card->startup());
         CHECK(!card->isInserted());
         CHECK(!card->readSectors(0, 1, sector));
         CHECK(!card->writeSectors(0, 1, sector));
-        CHECK(card->shutdown());
         CHECK(!riftwii::wii::d2x_sd_read(0, 1, sector));
         CHECK(!riftwii::wii::d2x_sd_write(0, 1, sector));
+        CHECK(!riftwii::wii::libogc_sd_start());
+        CHECK(!riftwii::wii::libogc_sd_inserted());
         CHECK(ios.opens == 0 && ios.reads == 0 && ios.libogc_startups == 0);
+        // d2x_sd_forget (before every reload) keeps it: a reload refused
+        // early leaves the old IOS and its module running.
         riftwii::wii::d2x_sd_forget();
-        CHECK(!riftwii::wii::sd_held_by_d2x_fat());
+        CHECK(riftwii::wii::sd_held_by_d2x_fat());
+        CHECK(!riftwii::wii::sd_interface()->startup());
+        // reload_ios ends it once the old IOS is gone.
+        riftwii::wii::hold_sd_for_d2x_fat(false);
         CHECK(riftwii::wii::sd_interface()->startup());
+        CHECK(riftwii::wii::libogc_sd_start() && ios.libogc_startups == 2);
     }
 }
 

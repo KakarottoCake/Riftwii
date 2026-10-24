@@ -172,7 +172,7 @@ if(BUILD_TESTING)
     # d2x's NAND emulation from the SD card (#128): the card let go before
     # d2x's FAT module mounts it, against a mocked IOS and libfat.
     add_executable(d2xnandemu_tests tests/d2xnandemu_tests.cpp wii/storage/d2xnandemu.cpp)
-    target_include_directories(d2xnandemu_tests PRIVATE tests/wii_mock wii/storage wii/core)
+    target_include_directories(d2xnandemu_tests PRIVATE tests/wii_mock wii/storage wii/core runtime)
     target_link_libraries(d2xnandemu_tests PRIVATE riftwii)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(d2xnandemu_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)

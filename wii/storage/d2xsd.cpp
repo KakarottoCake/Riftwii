@@ -9,6 +9,7 @@
 #include <sdcard/wiisd_io.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 
 namespace riftwii::wii {
@@ -30,7 +31,9 @@ char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/sdio/sdhc";
 // starting the new IOS's device, and every read through it failed.
 s32 g_fd = -1;
 bool g_active = false;
-bool g_held_by_fat = false;  // hold_sd_for_d2x_fat
+// hold_sd_for_d2x_fat: read by the menu's other threads (covers, screenshots)
+// through sd_interface while the launch thread sets it.
+std::atomic<bool> g_held_by_fat{false};
 // Why the last d2x_sd_open failed, for the launch's error message: libfat
 // mounts through io_startup, which has nowhere to put it.
 std::string g_last_error;
@@ -190,8 +193,8 @@ void d2x_sd_forget() {
     // The next IOS may have no d2x at all (IOS 58 for the menu): libogc's
     // driver again until a launch picks d2x's for that IOS.
     g_active = false;
-    // The reload ends d2x's FAT module and its NAND emulation too.
-    g_held_by_fat = false;
+    // The hold stays: only a reload that took place ends d2x's FAT module
+    // and its emulation (reload_ios ends the hold then).
 }
 
 const std::string& d2x_sd_last_error() { return g_last_error; }
@@ -217,5 +220,22 @@ const DISC_INTERFACE* sd_interface() {
 
 void hold_sd_for_d2x_fat(bool held) { g_held_by_fat = held; }
 bool sd_held_by_d2x_fat() { return g_held_by_fat; }
+
+bool libogc_sd_start() {
+    if (g_held_by_fat) return false;
+    return __io_wiisd.startup() && __io_wiisd.isInserted();
+}
+
+void libogc_sd_stop() {
+    // While held, libogc's driver was shut down before d2x's mount and
+    // stays down: nothing to stop.
+    if (g_held_by_fat) return;
+    __io_wiisd.shutdown();
+}
+
+bool libogc_sd_inserted() {
+    if (g_held_by_fat) return false;
+    return __io_wiisd.isInserted();
+}
 
 }  // namespace riftwii::wii
