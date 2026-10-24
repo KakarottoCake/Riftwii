@@ -209,12 +209,26 @@ bool unpack_channel_program(std::vector<std::uint8_t>& data, std::string& error,
 //      a DOL with a section at or above kHomebrewLoadAddress: a homebrew
 //      loader, left out;
 //   4. the boot content is at most kForwarderMaxBytes and names an app to
-//      start: a forwarder, left out;
+//      start, or it is a loader whose program (forwarder_second_stage, read
+//      whole) names one under /apps/: a forwarder, left out;
 //   5. anything else is a game: a custom Virtual Console inject takes a
 //      made-up code.
 // An ELF or a program that is no DOL is judged by rule 4 only.
 ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
                                       const std::vector<ContentStart>& starts);
+
+// A forwarder can come in two stages: Nintendont's own channel (WWND, on a
+// player's vWii) boots a 4,800-byte loader that starts a 553,600-byte
+// program, and only that program names the app ("%s:/apps/Nintendont/
+// boot.dol", 477 KB in). A second stage up to this size is read whole and
+// searched; an inject's program, emulator and game, is megabytes.
+constexpr std::size_t kForwarderProgramMaxBytes = 1024 * 1024;
+
+// The content to read whole for rule 4 before judging: the program
+// choose_channel_program takes from `starts`, when the boot content is a
+// small loader (at most kForwarderMaxBytes) that starts another content of
+// at most kForwarderProgramMaxBytes. -1 when there is none.
+int forwarder_second_stage(const TmdContents& tmd, const std::vector<ContentStart>& starts);
 
 // The lowest MEM1 address RiftWii's extras (screenshots, the crash
 // recorder, the GameCube adapter, the Wii Remote log) may take in a channel
