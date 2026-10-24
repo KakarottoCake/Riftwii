@@ -449,6 +449,14 @@ void ForgetCover(const std::string& game_id) {
     if (Slot* s = Find(game_id)) SetId(*s, "");
 }
 
+void ForgetAllCovers() {
+    if (g_lock == LWP_MUTEX_NULL) return;
+    Lock lock;
+    g_absent.clear();
+    ++g_forgets;
+    for (int i = 0; i < g_slots; ++i) SetId(g_pool[i], "");
+}
+
 void CoverReserve(int covers) {
     if (g_lock == LWP_MUTEX_NULL) {
         LWP_MutexInit(&g_lock, false);
