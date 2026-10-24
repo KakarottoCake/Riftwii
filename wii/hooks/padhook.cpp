@@ -11,6 +11,7 @@
 #include <ogc/usb.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -552,7 +553,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
-                   std::uint32_t mem1_veneer) {
+                   std::uint32_t mem1_veneer, std::uint32_t stage_base) {
     const rt_pad_header& h = header();
     const bool demo = out.demo;
     if (out.read == 0) {
@@ -594,7 +595,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    addresses) left alone. A pack's patch there turns it off.
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(sizeof(gcad));
-    const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
+    // A code build puts this blob at MEM2's top. The resident runtime's
+    // staged data is still there until the jump, so keep below it too.
+    const std::uint32_t arena2_end = stage_base != 0 && mem1_veneer != 0
+                                       ? std::min(read32(kMem2ArenaEndField), stage_base)
+                                       : read32(kMem2ArenaEndField);
     if (mem1_veneer != 0) {
         const std::uint32_t bytes = out.code_bytes + out.state_bytes;
         const std::uint32_t base = (arena2_end - bytes) & ~31u;

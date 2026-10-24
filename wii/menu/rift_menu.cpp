@@ -4075,6 +4075,17 @@ static bool AskSearch(std::string& text,
 	return keys.Result() > 0;
 }
 
+// Keep DI on this thread: the GUI and drive-scan threads must not share its
+// command buffers. A cover check observes removal without reading the disc.
+static void PollMenuDiscCover()
+{
+	static u64 lastCheck = 0;
+	const u64 now = gettime();
+	if (lastCheck != 0 && diff_msec(lastCheck, now) < 250) return;
+	lastCheck = now;
+	if (!g_scanning) riftwii::wii::PollDiscCover();
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -4476,6 +4487,7 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		PollMenuDiscCover();
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
 		// done on the menu's, each held every press for seconds.
@@ -4897,7 +4909,6 @@ static int MenuSource(FrontendState& state)
 			ResumeGui();
 			bool ok = false;
 			if (entry.kind == HomeEntry::Kind::Disc) {
-				logf("DISC: probing\n");
 				ok = SelectDisc(state, error);
 				riftwii::wii::mem::WatchHeap("after the disc probe");
 				if (!ok && error.empty()) error = "No disc in the drive";
@@ -10214,6 +10225,7 @@ static int MenuHome(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		PollMenuDiscCover();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
 		bool startHandled = false;

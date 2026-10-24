@@ -841,9 +841,13 @@ a USB drive while the adapter is plugged in. On a Wii it stays off for
 games read from the USB drive (and RVZ games or packs read from it),
 where it broke the game's disc reads. **On** tries it there anyway (an
 experiment: if the game then fails to read its disc, go back to
-**Automatic**). RVZ games are the exception: the adapter stays off for
-every RVZ game, even with **On**, until the conflict is solved
-([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)). Games without GameCube controller support
+**Automatic**). Wii RVZ games can use the adapter too; the blanket block
+from [issue #4](https://github.com/KakarottoCake/Riftwii/issues/4) has been
+lifted. The USB-drive restrictions above still apply in **Automatic**.
+Wii RVZ games with the adapter still need testing from both SD and USB.
+If the adapter does not fit beside the RVZ reader, the game starts without
+the adapter, as any other game would, and the log says why; only an RVZ
+reader that cannot be installed stops the launch. Games without GameCube controller support
 ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
@@ -1095,10 +1099,10 @@ yet confirmed on real Wiis and may not work on yours. The menu marks
 them (a note before the launch, or "Experimental" in the Settings note):
 
 - **The GameCube controller adapter** in games (it works in the menu on a
-  Wii U). It stays off for RVZ Wii games
-  ([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)).
-  In GameCube games it has only been tried in Dolphin, which has no
-  adapter.
+  Wii U). Testers have used it with Wii games from WBFS, ISO and disc on
+  2610-670, and with GameCube RVZ games. Wii RVZ games with the adapter
+  still need testing from both SD and USB; use **On** to try a USB RVZ
+  where **Automatic** keeps the adapter off.
 - **RVZ games**: if one does not start or play, use a WBFS or ISO copy.
 - **Packs on the USB drive** (`usb:/riivolution`): if the game does not
   start, copy the pack to the SD card.
