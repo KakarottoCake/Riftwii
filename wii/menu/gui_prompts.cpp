@@ -4,6 +4,7 @@
 
 #include "drawtrace.hpp"
 #include "skin.hpp"
+#include "wiimenusounds.hpp"
 #include "video.h"
 #include "wiidrc.h"
 
@@ -151,6 +152,7 @@ void GuiPrompts::Update(GuiTrigger* t) {
     hover = at;
     if (at >= 0 && (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) {
         clicked = at;
-        soundClick->Play();
+        riftwii::wii::PlayMenuSound(prompts[at].button == "B" ? riftwii::wii::MenuSoundEvent::Back
+                                                            : riftwii::wii::MenuSoundEvent::Click);
     }
 }

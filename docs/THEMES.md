@@ -215,7 +215,12 @@ there are no playlists, but each theme can bring its own.
 - Mono or stereo, 44.1 or 48 kHz. It starts over from the beginning when it
   ends.
 
-Settings > **Menu music** still turns music off.
+Settings > **Menu music** still turns music off. A theme's `music.ogg`
+keeps priority when **Wii Menu music** is on. Without a theme music path,
+that choice tries the console's own System Menu music before the card's
+`music.ogg` and the release's tune. Missing or unsupported NAND resources
+fall back to those Ogg files. No Nintendo audio is included in a theme kit
+or in RiftWii.
 
 ## Sound effects
 
@@ -227,6 +232,12 @@ and 5 seconds; a missing or unreadable one keeps RiftWii's (`session.log`
 says why). Keep `hover.wav` short: it plays every time the selection moves.
 The kit's `sounds/` folder has RiftWii's own four as WAVs. Settings >
 **Menu sounds** sets how loud they are.
+
+When **Wii Menu sounds** is on, each valid theme WAV still wins. An absent
+or invalid WAV falls back to the selected Wii Menu sound, then RiftWii's
+own sound. A theme's `click.wav` also replaces the extra tile, back, popup,
+page-turn and launch cues. Wii Menu audio is read from the console into
+memory only; it is never copied into the theme's folder.
 
 ## Layout and fonts
 

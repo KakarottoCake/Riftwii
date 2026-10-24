@@ -2994,6 +2994,18 @@ msgstr "{1}: sistemazione al suo posto..."
 msgid "1 theme"
 msgstr "1 tema"
 
+msgid "Wii Menu sounds"
+msgstr "Suoni del menu Wii"
+
+msgid "Wii Menu music"
+msgstr "Musica del menu Wii"
+
+msgid "Read this Wii's own menu sounds into memory. A theme's sounds take priority."
+msgstr "Legge in memoria i suoni del menu di questa Wii. I suoni del tema hanno la priorità."
+
+msgid "Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."
+msgstr "Legge in memoria la musica del menu di questa Wii. La musica del tema ha la priorità. Musica del menu ne controlla la riproduzione."
+
 msgid "The SD card was taken out."
 msgstr "La scheda SD è stata rimossa."
 

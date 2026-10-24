@@ -10,7 +10,8 @@
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: separate volumes for the hover sound and the others;
  * a menu theme's sounds in place of the built-in ones, at their own rate;
- * a built-in sound that was not decoded plays nothing.
+ * a built-in sound that was not decoded plays nothing;
+ * resolve replacements at playback, so changing the sound source is live.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
@@ -33,8 +34,6 @@ GuiSound::GuiSound(const u8 * s, s32 l, SOUND t)
 	loop = false;
 	rate = 48000;
 	hover = s == button_over_pcm;
-	if (type == SOUND::PCM && substitute)
-		substitute(sound, length, rate);
 }
 
 /**
@@ -55,18 +54,23 @@ void GuiSound::Play()
 
 	switch(type)
 	{
-		case SOUND::PCM:
+		case SOUND::PCM: {
+		const u8* playingSound = sound;
+		s32 playingLength = length;
+		s32 playingRate = rate;
+		if (substitute) substitute(playingSound, playingLength, playingRate);
 		vol = 255*(volume/100.0) * (hover ? hoverPercent : otherPercent) / 100;
 		if (vol <= 0)
 			break;
 		// RiftWii: a built-in sound that is not decoded (no memory) plays nothing.
-		if (!sound || length <= 0)
+		if (!playingSound || playingLength <= 0)
 			break;
 		voice = ASND_GetFirstUnusedVoice();
 		if(voice >= 0)
-			ASND_SetVoice(voice, VOICE_STEREO_16BIT, rate, 0,
-				(u8 *)sound, length, vol, vol, nullptr);
+			ASND_SetVoice(voice, VOICE_STEREO_16BIT, playingRate, 0,
+				(u8 *)playingSound, playingLength, vol, vol, nullptr);
 		break;
+		}
 
 		case SOUND::OGG:
 		voice = 0;
