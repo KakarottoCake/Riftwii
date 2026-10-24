@@ -1728,6 +1728,11 @@ bool cios_reaches_front_ports(const ImageGame& game, int cios_slot) {
 
 std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd) {
     if (chosen != 0) return {chosen};
+    // d2x reads the SD card for this launch: a game on it, a launch that
+    // keeps it open, or an RVZ on either drive, whose stub d2x boots from
+    // the card (prepare_rvz_launch).
+    const bool reads_sd =
+        game.device == ImageDevice::Sd || uses_sd || game.format == UsbImageFormat::Rvz;
     std::vector<int> order;
     // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
     // that reaches the front USB ports, for games on the SD card and on a
@@ -1749,7 +1754,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     if (!running_in_dolphin() && game.required_ios != 0) {
         std::string why;
         const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
-                                      game.device == ImageDevice::Sd || uses_sd, why);
+                                      reads_sd, why);
         if (pick && std::find(order.begin(), order.end(), pick) == order.end()) {
             logf("cIOS: %s asks for IOS%u; IOS%d %s (USB Loader GX's choice%s%s)\n", game.id.c_str(),
                  static_cast<unsigned>(game.required_ios), pick, order.empty() ? "first" : "next", why.empty() ? "" : ": ",
@@ -1766,7 +1771,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
         // A base-58 d2x has no keyboard driver: a tester's City Folk ran on
         // IOS251 after IOS249 (base 56) did not start the drive, and took
         // no keyboard (2610-412).
-        order = keyboard_slots_first(order, d2x_slots(), game.device == ImageDevice::Sd || uses_sd);
+        order = keyboard_slots_first(order, d2x_slots(), reads_sd);
         std::string list;
         for (int slot : order) list += (list.empty() ? "" : ", ") + std::to_string(slot);
         logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: preferred slots %s\n",
@@ -1776,7 +1781,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     // precedence. Only the remaining known d2x slots extend that order.
     if (!running_in_dolphin()) {
         order = append_d2x_fallbacks(order, d2x_slots(), game.required_ios,
-                                     game.device == ImageDevice::Sd || uses_sd);
+                                     reads_sd);
     }
     return order;
 }
