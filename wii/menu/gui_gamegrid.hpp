@@ -8,6 +8,7 @@
 
 #include "libwiigui/gui.h"
 #include "riftwii/homeinput.hpp"
+#include "riftwii/settingsfile.hpp"
 #include "skin.hpp"
 
 // The home screen's games: a page of 12 tiles like the Wii Menu's
@@ -108,7 +109,7 @@ public:
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
     // Keeps the focus on `index` (and its page).
-    void Focus(int index);
+    void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }
     // Where a game's tile (or box, on the shelf) is on screen, when it is
     // shown: what a transition zooms from.
@@ -116,6 +117,12 @@ public:
     bool ShelfFlightFrom(int index, ShelfFlight& out) const;  // the box as last drawn
     int Page() const { return page; }
     int Pages() const;
+    // Whether the player has pressed a button or pushed a stick on any
+    // controller since the program started (Update sees every frame's
+    // input). The pointer moving does not count, nor does a focus the menu
+    // or the hover sets. Set on the GUI thread, read by the menu's.
+    static const riftwii::PlayerActed& Acted() { return acted; }
+    static void MarkActed() { acted.mark(); }
     // The item A was pressed on since the last call, or -1.
     int GetClicked();
     // Moving games (Home order: Your order), as the Wii Menu moves its
@@ -307,6 +314,7 @@ private:
     GuiSound* soundOver;
     GuiSound* soundClick;
     bool covers = false;
+    static riftwii::PlayerActed acted;
     int page = 0;
     float slide = 0.0f;  // the page's offset while it slides in
     int focus = 0;       // item index

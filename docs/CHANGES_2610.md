@@ -17,7 +17,7 @@ RiftWii now numbers its builds like Dolphin: **2610-325** is the 2610 release li
 - **Themes:** Bookshelf (wood) and Midnight (dark) come in the zip, and anyone can make one with the theme kit (pictures, colours, music). The Wii look stays the default, and Settings > Theme can always go back to it.
 - **Transitions:** pages zoom, slide and pop like the Wii Menu; a shelf box flies to the game page.
 - **Search** games by name or game ID (on-screen keyboard; Z on a GameCube controller on Home).
-- **Favourites** (button 1 on a banner), **Home order** (A to Z, recently played, most played), **Games from** (all, SD, USB, disc), **play history**, and a letter jump.
+- **Favourites** (button 1 on a banner), **Home order** (A to Z, recently played, most played), **Games from** (all, SD, USB, disc), **Home starts on** (the last game played or the first page), **play history**, and a letter jump.
 - **16:9:** a widescreen menu with Settings > Screen size, and banners shown at their full width.
 - **What's new** opens once after an update with the version's main changes (Settings > What's new shows it again).
 - **The Disc Channel** can be on Home (Settings > Disc Channel), and the disc drive has a box of its own.
