@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <set>
@@ -139,7 +140,7 @@ private:
 // told only about input (see), never about the focus: the menu moves that
 // itself and the pointer's hover moves it too. Once set it stays set.
 // mark() is for the player's actions that are not read as input here.
-// Written by the GUI thread, read by the menu's.
+// Written by the GUI thread, read by the menu's (atomic: no data race).
 class PlayerActed {
 public:
     void see(bool input_was_action) {
@@ -149,7 +150,7 @@ public:
     bool acted() const { return acted_; }
 
 private:
-    volatile bool acted_ = false;
+    std::atomic<bool> acted_{false};
 };
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
