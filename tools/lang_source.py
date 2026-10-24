@@ -6284,6 +6284,14 @@ T['1 theme'] = ('1 tema', '1件のテーマ', '1 tema', '1 tema')
 KO['1 theme'] = '테마 1개'
 FR['1 theme'] = '1 thème'
 
+T['The SD card was taken out.'] = ('La tarjeta SD fue retirada.', 'SDカードがはずれました。', 'O cartão SD foi removido.', 'La scheda SD è stata rimossa.')
+KO['The SD card was taken out.'] = 'SD 카드가 제거되었습니다.'
+FR['The SD card was taken out.'] = 'La carte SD a été retirée.'
+
+T['The SD card is back in. Reading it again.'] = ('La tarjeta SD está de vuelta. Leyéndola de nuevo.', 'SDカードがもどりました。よみなおしています。', 'O cartão SD está de volta. Lendo novamente.', 'La scheda SD è di nuovo inserita. Lettura in corso.')
+KO['The SD card is back in. Reading it again.'] = 'SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다.'
+FR['The SD card is back in. Reading it again.'] = 'La carte SD est de retour. Nouvelle lecture en cours.'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"

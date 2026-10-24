@@ -2982,6 +2982,12 @@ msgstr "{1}: sistemazione al suo posto..."
 msgid "1 theme"
 msgstr "1 tema"
 
+msgid "The SD card was taken out."
+msgstr "La scheda SD è stata rimossa."
+
+msgid "The SD card is back in. Reading it again."
+msgstr "La scheda SD è di nuovo inserita. Lettura in corso."
+
 msgid "Channel background"
 msgstr "Sfondo dei canali"
 

@@ -2982,6 +2982,12 @@ msgstr "{1}: 제자리에 놓는 중..."
 msgid "1 theme"
 msgstr "테마 1개"
 
+msgid "The SD card was taken out."
+msgstr "SD 카드가 제거되었습니다."
+
+msgid "The SD card is back in. Reading it again."
+msgstr "SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다."
+
 msgid "Channel background"
 msgstr "채널 배경"
 

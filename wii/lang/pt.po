@@ -2982,6 +2982,12 @@ msgstr "{1}: colocando no lugar..."
 msgid "1 theme"
 msgstr "1 tema"
 
+msgid "The SD card was taken out."
+msgstr "O cartão SD foi removido."
+
+msgid "The SD card is back in. Reading it again."
+msgstr "O cartão SD está de volta. Lendo novamente."
+
 msgid "Channel background"
 msgstr "Fundo dos canais"
 
