@@ -58,6 +58,9 @@ void CoverReserve(int covers);
 void CoverReadAll(const std::vector<std::string>& game_ids);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
+// Drops every cover the pool holds and every "not on the card" it
+// remembers: the SD card was put back and may be another one.
+void ForgetAllCovers();
 // Stops the loader reading the card, waiting for a read in flight: before
 // the card is unmounted, read raw or IOS reloaded. Lifted by
 // CoverLoaderRelease (the menu's ResumeGui).

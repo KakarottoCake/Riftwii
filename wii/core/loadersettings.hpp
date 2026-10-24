@@ -12,6 +12,10 @@ namespace riftwii::wii {
 
 LoaderSettings& Settings();
 bool SaveSettings();
+// The card was taken out and put back (maybe a different one): read
+// settings.txt again. Missing on the new card means the defaults, not the
+// old card's choices.
+void ReloadSettings();
 
 // The menu's language: the setting, or with "auto" the Wii's own when
 // RiftWii has it (English otherwise). "en", "es", "ja", "pt" or "it".
