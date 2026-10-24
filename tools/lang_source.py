@@ -5158,7 +5158,7 @@ FR = {
     "Last game":
         "Dernier jeu",
     "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.":
-        "Dernier jeu : l'accueil s'ouvre sur la page du dernier jeu lancé dès que son disque a été lu, sauf si vous avez déjà appuyé sur un bouton ou bougé le stick. Première page : l'accueil s'ouvre sur la page 1.",
+        "Dernier jeu : l'accueil s'ouvre sur la page du dernier jeu lancé dès que son stockage a été lu, sauf si vous avez déjà appuyé sur un bouton ou bougé le stick. Première page : l'accueil s'ouvre sur la page 1.",
     "Its values":
         "Ses valeurs",
     "Its values could not be found in the file.":
