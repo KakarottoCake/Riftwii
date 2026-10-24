@@ -499,7 +499,10 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
     // the one that says where the channel puts itself.
     ChannelProgram program;
     std::string error;
-    if (choose_channel_program(tmd, starts, program, error) && program.format == "DOL") {
+    // A validated LZ77-packed DOL is judged the same way: a loader packed
+    // that way still loads high and must not be shown as a game.
+    if (choose_channel_program(tmd, starts, program, error) &&
+        (program.format == "DOL" || program.format == "LZ77")) {
         for (const DolSection& section : program.dol.sections) {
             if (!section.used() || section.address < kHomebrewLoadAddress) continue;
             char text[96];
