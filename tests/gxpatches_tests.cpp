@@ -4,6 +4,7 @@
 // writes what GX writes, where GX writes it, and nothing outside the loaded
 // parts. With the GX source next to the repository (../usbloadergx-riftwii),
 // Kirby's table is also checked word for word against kirbypatch.c.
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -377,6 +378,71 @@ void test_keyboard() {
     EXPECT_TRUE((keyboard_slots_first({250, 251}, {{250, 57}, {251, 58}}, true) == std::vector<int>{250, 251}));
 }
 
+void test_d2x_fallbacks() {
+    const std::vector<int> conventional = {249, 250, 251};
+    const std::vector<D2xSlot> standard = {{249, 56}, {250, 57}, {251, 58}};
+    EXPECT_TRUE(append_d2x_fallbacks(conventional, standard, 56, false) == conventional);
+    EXPECT_TRUE((append_d2x_fallbacks({251, 249, 250}, standard, 58, false) == std::vector<int>{251, 249, 250}));
+
+    // The preferred base may be in an unusual slot already; the conventional
+    // slots keep their places even when an extra base is an exact match.
+    const std::vector<D2xSlot> extras = {
+        {255, 38}, {254, 59}, {252, 58}, {248, 56}, {253, 57}, {249, 56}, {250, 57}, {251, 58}
+    };
+    EXPECT_TRUE((append_d2x_fallbacks(conventional, extras, 57, false) ==
+                 std::vector<int>{249, 250, 251, 253, 248, 252, 254, 255}));
+    EXPECT_TRUE((append_d2x_fallbacks({252, 249, 250, 251}, extras, 58, false) ==
+                 std::vector<int>{252, 249, 250, 251, 253, 254, 248, 255}));
+    // Inventory traversal cannot change the result, including ties.
+    std::vector<D2xSlot> reversed = extras;
+    std::reverse(reversed.begin(), reversed.end());
+    EXPECT_TRUE(append_d2x_fallbacks(conventional, reversed, 57, false) ==
+                append_d2x_fallbacks(conventional, extras, 57, false));
+    EXPECT_TRUE((append_d2x_fallbacks(conventional, extras, 0, false) ==
+                 std::vector<int>{249, 250, 251, 248, 252, 253, 254, 255}));
+
+    // Each slot is tried once, including two inventory entries for one slot.
+    EXPECT_TRUE((append_d2x_fallbacks({249, 250, 249, 251}, {{249, 56}, {252, 58}, {252, 58}}, 58, false) ==
+                 std::vector<int>{249, 250, 251, 252}));
+    // No AHBPROT: unknown bases neither add slots nor disturb the old order.
+    EXPECT_TRUE(append_d2x_fallbacks(conventional, {}, 56, false) == conventional);
+    EXPECT_TRUE(append_d2x_fallbacks(conventional, {{248, 0}, {252, 0}, {253, -1}}, 56, false) == conventional);
+    // An SD game falls back only to bases that read the SD card (56-60):
+    // base 38 in 255 is left out, the others keep their order.
+    EXPECT_TRUE((append_d2x_fallbacks(conventional, extras, 57, true) ==
+                 std::vector<int>{249, 250, 251, 253, 248, 252, 254}));
+    EXPECT_TRUE(append_d2x_fallbacks(conventional, {{248, 38}, {252, 70}}, 57, true) == conventional);
+    EXPECT_TRUE(d2x_base_reads_sd(56) && d2x_base_reads_sd(60));
+    EXPECT_TRUE(!d2x_base_reads_sd(55) && !d2x_base_reads_sd(61) && !d2x_base_reads_sd(38));
+
+    // Preserve the existing vWii adapter and keyboard policies verbatim,
+    // including unusual keyboard slots already promoted by that policy.
+    const std::vector<D2xSlot> devices = {{248, 38}, {249, 56}, {250, 57}, {251, 58}, {252, 58}, {253, 59}};
+    const std::vector<int> adapter = {252, 249, 250, 251};
+    EXPECT_TRUE((append_d2x_fallbacks(adapter, devices, 56, false) ==
+                 std::vector<int>{252, 249, 250, 251, 253, 248}));
+    const std::vector<int> keyboard_usb = keyboard_slots_first(adapter, devices, false);
+    EXPECT_TRUE((keyboard_usb == std::vector<int>{249, 248, 252, 250, 251}));
+    EXPECT_TRUE((append_d2x_fallbacks(keyboard_usb, devices, 56, false) ==
+                 std::vector<int>{249, 248, 252, 250, 251, 253}));
+    const std::vector<int> keyboard_sd = keyboard_slots_first(adapter, devices, true);
+    EXPECT_TRUE((keyboard_sd == std::vector<int>{249, 252, 250, 251, 248}));
+    EXPECT_TRUE((append_d2x_fallbacks(keyboard_sd, devices, 56, false) ==
+                 std::vector<int>{249, 252, 250, 251, 248, 253}));
+
+    // The game lists still choose the first slot; appending extras never
+    // undoes Brawl's base 56 or Boating Bash's base 58/38 exception.
+    std::string why;
+    const int brawl = gx_pick_cios("RSBE01", 36, devices, false, why);
+    EXPECT_EQ(brawl, 249);
+    EXPECT_TRUE((append_d2x_fallbacks({brawl, 250, 251}, devices, 36, false) ==
+                 std::vector<int>{249, 250, 251, 248, 252, 253}));
+    const int boating = gx_pick_cios("SBVE78", 53, devices, false, why);
+    EXPECT_EQ(boating, 251);
+    EXPECT_TRUE((append_d2x_fallbacks({boating, 249, 250}, devices, 53, false) ==
+                 std::vector<int>{251, 249, 250, 252, 253, 248}));
+}
+
 }  // namespace
 
 int main() {
@@ -393,6 +459,7 @@ int main() {
     test_preferences();
     test_pick_cios();
     test_keyboard();
+    test_d2x_fallbacks();
     if (g_failures == 0) {
         std::cout << "ALL GXPATCHES TESTS PASSED" << std::endl;
         return 0;

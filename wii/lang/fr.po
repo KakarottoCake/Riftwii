@@ -3096,8 +3096,17 @@ msgstr "Voulez-vous démarrer {1} ?"
 msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
 msgstr "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol"
 
-msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
-msgstr "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii."
+msgid "Apps keep RiftWii's IOS and hardware access."
+msgstr "Les applis gardent l'IOS et l'accès matériel de RiftWii."
+
+msgid "When the app exits, it comes back to RiftWii."
+msgstr "En quittant, l'appli revient à RiftWii."
+
+msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
+msgstr "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii."
+
+msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
+msgstr "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé."
 
 msgid "1: all apps"
 msgstr "1 : toutes les applis"
