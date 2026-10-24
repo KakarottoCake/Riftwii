@@ -3480,6 +3480,14 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     bool refused_identify = false;
     // Whether the game runs in d2x's NAND emulation (not just asked for).
     bool emulated = false;
+    // After d2x let go of the card: libfat and boot.log back on it, as
+    // after an IOS reload (release_d2x_saves only clears the hold).
+    const auto card_again = [&] {
+        if (card || sd_held_by_d2x_fat()) return;
+        card = fatMountSimple("sd", sd_interface());
+        if (card) LogReopen();
+        else logf("Wii channels: the SD card could not be mounted again after d2x let go of it (boot.log ends here)\n");
+    };
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";
@@ -3529,7 +3537,6 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                      IOS_GetRevision(), files.emu_nand.c_str(), emu_error.c_str());
                 note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": NAND emulation: " + emu_error);
                 if (!debug_off("identify")) continue;
-                logf("Wii channels: debug_off: started without the NAND emulation\n");
                 // A refused emulation can still leave the FAT module holding
                 // the card; a channel without emulation gets it back first,
                 // and this IOS is passed over when it cannot.
@@ -3537,6 +3544,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                     note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": d2x kept the SD card");
                     continue;
                 }
+                card_again();
+                logf("Wii channels: debug_off: started without the NAND emulation\n");
             }
         }
         // ES runs the game as its own title, as when the system starts it:
@@ -3573,6 +3582,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
     if (!identified && debug_off("identify") && !sd_held_by_d2x_fat()) {
+        card_again();
         logf("Wii channels: debug_off: started without ES running it as its own title (its saves may not open)\n");
         identified = true;
     }
