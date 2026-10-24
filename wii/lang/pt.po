@@ -2985,6 +2985,9 @@ msgstr "1 tema"
 msgid "The SD card was taken out."
 msgstr "O cartão SD foi removido."
 
+msgid "Put the SD card back in first."
+msgstr "Primeiro coloque o cartão SD de volta."
+
 msgid "The SD card is back in. Reading it again."
 msgstr "O cartão SD está de volta. Lendo novamente."
 

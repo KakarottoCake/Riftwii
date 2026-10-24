@@ -3883,6 +3883,10 @@ static bool g_sdRemovalPending = false;
 
 static bool SdWatchInsertedNow()
 {
+	// A failed remount can leave the driver shut down, and then the slot
+	// reads as empty for good: while the card is gone, each poll starts
+	// it again first (startup() returns at once when it is running).
+	if (g_sdGone) __io_wiisd.startup();
 	return __io_wiisd.isInserted();
 }
 
@@ -4955,6 +4959,12 @@ static int MenuSource(FrontendState& state)
 		// A game picked while the drives were read opens now that they are.
 		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
 		if (menu != MENU_NONE) clicked = -1;
+		// Without the SD card a game's page can't save its choices, so it
+		// can't start: say so instead of opening it.
+		if (g_sdGone && clicked >= 0) {
+			clicked = -1;
+			toast.Show(tr("Put the SD card back in first."), true);
+		}
 		// Opening a game reads its image, which the scan may be mounting:
 		// it waits for the scan, and Home answers meanwhile.
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
@@ -5119,6 +5129,10 @@ static int MenuSource(FrontendState& state)
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
+		} else if (settingsBtn.Clicked() && g_sdGone) {
+			// Settings are saved on the card, and read again when it is back.
+			settingsBtn.button.ResetState();
+			toast.Show(tr("Put the SD card back in first."), true);
 		} else if (settingsBtn.Clicked()) {
 			g_homeFocus = grid.FocusedIndex();
 			LearnHomeHints();
