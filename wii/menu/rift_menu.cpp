@@ -5010,6 +5010,12 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ApplyMenuDisplay();
 						riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
 						riftwii::wii::LoadMenuTheme();
+						// The new card's sound choices, as Settings applies them:
+						// the Wii Menu's effects loaded if now on, and the music
+						// started again from the new theme and settings.
+						riftwii::wii::LoadWiiMenuSounds();
+						riftwii::wii::MenuMusicStop();
+						riftwii::wii::MenuMusicStart();
 						g_forgetPicturesAfterScan = true;
 						StartScan();
 						riftwii::wii::ForgetAppIcons();
