@@ -315,6 +315,29 @@ void test_damage() {
     EXPECT_FALSE(fresh.read_all("/quota/clusters.bin", got, 50000, error));
 }
 
+// An entry whose name's case bitmap would run past its allocation is
+// damaged; one that just fits is read.
+void test_case_bitmap_bounds() {
+    Drive d(512, kKey);
+    const Area root{0, 0xA1B2C3D4, 13};
+    d.put_header(root, 3);
+    Entry fits = inline_file(std::string(168, 'a'), "");
+    fits.force_log2 = 6;  // 0x2B + 21 bitmap bytes: exactly 64
+    Entry over = inline_file(std::string(200, 'b'), "");
+    over.force_log2 = 6;  // 25 bitmap bytes: past the 64-byte allocation
+    TreeBlock top(13, true);
+    top.add_entry(fits);
+    top.add_entry(over);
+    d.put_metadata(root, 3, top.finish());
+    WfsVolume v;
+    std::string error;
+    EXPECT_TRUE(v.open(d.reader(), 0, d.sectors(), kKey, error));
+    WfsEntry e;
+    EXPECT_TRUE(v.find("/" + std::string(168, 'a'), e, error) == WfsFind::Found);
+    EXPECT_TRUE(v.find("/" + std::string(200, 'b'), e, error) == WfsFind::Failed);
+    EXPECT_TRUE(error.find("damaged") != std::string::npos);
+}
+
 void test_block_zero_size_and_drive_end() {
     WfsVolume v;
     std::string error;
@@ -342,6 +365,7 @@ int main() {
     test_partial_reads();
     test_keys();
     test_damage();
+    test_case_bitmap_bounds();
     test_block_zero_size_and_drive_end();
     if (g_failures == 0) std::cout << "wfs tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";

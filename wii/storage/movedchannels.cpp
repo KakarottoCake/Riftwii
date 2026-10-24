@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 
 #include "boot.hpp"
 #include "log.hpp"
@@ -100,13 +101,16 @@ void append_staged(const std::string& nand_path) {
     }
 }
 
-// The title a staged path is under ("/title/00010001/57424d45/content/...").
-bool title_of_staged(const std::string& path, std::uint64_t& title_id) {
-    unsigned upper = 0, lower = 0;
-    char rest[32];
-    if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%31s", &upper, &lower, rest) != 3) return false;
+// The title and content a staged path names. Only the form staging writes
+// ("/title/00010001/57424d45/content/0000000a.app", nand_content_path):
+// the list is a plain file on the card, and nothing else it names (a
+// title's TMD, say) may be deleted.
+bool content_of_staged(const std::string& path, std::uint64_t& title_id, std::uint32_t& content_id) {
+    unsigned upper = 0, lower = 0, content = 0;
+    if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%8x.app", &upper, &lower, &content) != 3) return false;
     title_id = (std::uint64_t(upper) << 32) | lower;
-    return true;
+    content_id = content;
+    return nand_content_path(title_id, content_id) == path;
 }
 
 }  // namespace
@@ -346,12 +350,30 @@ void UnstageMovedChannels() {
     }
     const bool opened = open_nand_permissions("SD card channels");
     unsigned removed = 0, kept = 0;
+    // The content.bin of the title the last paths were under, opened once.
+    std::uint64_t open_title = 0;
+    bool tried = false;
+    std::unique_ptr<MovedChannel> moved;
     for (const std::string& path : paths) {
         std::uint64_t title_id = 0;
-        // Only content files of a channel still on the card: anything else
-        // in the list was not written by RiftWii, or the Wii Menu has since
-        // moved that channel back to the Wii for good.
-        if (!title_of_staged(path, title_id) || moved_channel_file(channel_code(title_id)).empty()) {
+        std::uint32_t content_id = 0;
+        // Only contents staging copies: those the content.bin of a channel
+        // still on the card includes. Anything else in the list was not
+        // written by RiftWii, or the Wii Menu has since moved that channel
+        // back to the Wii for good.
+        if (!content_of_staged(path, title_id, content_id)) {
+            ++kept;
+            continue;
+        }
+        if (!tried || title_id != open_title) {
+            tried = true;
+            open_title = title_id;
+            moved.reset(new (std::nothrow) MovedChannel());
+            const std::string file = moved_channel_file(channel_code(title_id));
+            std::string why;
+            if (moved && (file.empty() || !moved->open(file, title_id, why))) moved.reset();
+        }
+        if (!moved || !moved->has(content_id)) {
             ++kept;
             continue;
         }
@@ -361,7 +383,7 @@ void UnstageMovedChannels() {
     NandClose();
     std::remove(kStagedList);
     logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s\n", removed,
-         kept ? " (some kept: their channel is no longer on the card)" : "");
+         kept ? " (some kept: not contents RiftWii copies, or their channel is no longer on the card)" : "");
 }
 
 }  // namespace riftwii::wii

@@ -66,13 +66,14 @@ struct Entry {
     Bytes units;   // the data units, in the file's order (stored reversed)
     std::size_t unit_bytes = 0;
     Bytes inline_data;
+    std::uint8_t force_log2 = 0;  // a damaged entry: an allocation of this size whatever it holds
 };
 
 inline Bytes entry_bytes(const Entry& e) {
     const std::size_t base = 0x2B + (e.name.size() + 7) / 8;
     const std::size_t count = e.unit_bytes ? e.units.size() / e.unit_bytes : 0;
     const std::size_t used = base + (e.category == 0 ? e.inline_data.size() : e.units.size());
-    const std::uint8_t log2 = std::max<std::uint8_t>(6, log2_at_least(used));
+    const std::uint8_t log2 = e.force_log2 ? e.force_log2 : std::max<std::uint8_t>(6, log2_at_least(used));
     Bytes m(std::size_t{1} << log2, 0);
     be32(&m[0x00], e.flags);
     be32(&m[0x04], e.size_on_disk);
@@ -84,7 +85,7 @@ inline Bytes entry_bytes(const Entry& e) {
     m[0x29] = e.category;
     m[0x2A] = static_cast<std::uint8_t>(e.name.size());
     for (std::size_t i = 0; i < e.name.size(); ++i) {
-        if (e.name[i] >= 'A' && e.name[i] <= 'Z') m[0x2B + i / 8] |= static_cast<std::uint8_t>(1 << (i % 8));
+        if (e.name[i] >= 'A' && e.name[i] <= 'Z' && 0x2B + i / 8 < m.size()) m[0x2B + i / 8] |= static_cast<std::uint8_t>(1 << (i % 8));
     }
     if (e.category == 0) {
         std::copy(e.inline_data.begin(), e.inline_data.end(), m.begin() + static_cast<std::ptrdiff_t>(base));

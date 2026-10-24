@@ -443,7 +443,9 @@ bool WfsVolume::make_entry(const Area& area, const std::string& key, const std::
     const std::uint8_t log2 = metadata[kEntryLog2];
     const std::size_t allocated = std::size_t{1} << std::min<std::uint8_t>(log2, 15);
     const std::uint8_t name_length = metadata[kEntryNameLength];
-    if (log2 < 6 || log2 > 10 || allocated > room || name_length != key.size()) {
+    // The case bitmap, one bit per character, must fit in the entry too.
+    if (log2 < 6 || log2 > 10 || allocated > room || name_length != key.size() ||
+        kEntryCaseBitmap + (name_length + 7u) / 8 > allocated) {
         error = "the entry of \"" + key + "\" is damaged";
         return false;
     }
