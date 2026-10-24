@@ -350,6 +350,21 @@ std::vector<std::uint8_t> dol_at(std::uint32_t address, std::uint32_t text_size 
     return h;
 }
 
+// A DOL packed as literal-only LZ77 (type 0x10), with the "LZ77" tag in front.
+std::vector<std::uint8_t> lz77_wrapped(std::vector<std::uint8_t> image) {
+    image.resize(0x1100);  // header + text, so the header's sections fit the file
+    std::vector<std::uint8_t> packed = {'L', 'Z', '7', '7', 0x10,
+                                        static_cast<std::uint8_t>(image.size() & 0xFF),
+                                        static_cast<std::uint8_t>((image.size() >> 8) & 0xFF),
+                                        static_cast<std::uint8_t>((image.size() >> 16) & 0xFF)};
+    for (std::size_t at = 0; at < image.size(); at += 8) {
+        packed.push_back(0);  // eight literals follow
+        const std::size_t end = std::min(at + 8, image.size());
+        packed.insert(packed.end(), image.begin() + at, image.begin() + end);
+    }
+    return packed;
+}
+
 // A channel with a banner (content 0) and one program (content 1, the boot
 // index) of `program_size` bytes.
 TmdContents one_program_channel(std::uint64_t program_size) {
@@ -454,6 +469,48 @@ void test_unlisted_verdict() {
                                                          {2, 3u << 20, dol_at(0x81000000)}})
                     .left_out);
 
+    // A forwarder in two stages, as Nintendont's own channel (WWND) on a
+    // player's vWii: a 4,800-byte boot DOL with no path, which starts a
+    // 553,600-byte DOL naming "%s:/apps/Nintendont/boot.dol" 477 KB in.
+    TmdContents staged;
+    staged.boot_index = 1;
+    staged.contents = {{0, 0, 1, 0x40000}, {1, 1, 1, 4800}, {2, 2, 1, 553600}};
+    std::vector<std::uint8_t> first_stage = dol_at(0x80004000, 0x1000);
+    first_stage.resize(4800);
+    std::vector<std::uint8_t> second_stage = dol_at(0x80004000, 0x80000);
+    second_stage.resize(553600);
+    const char nintendont[] = "%s:/apps/Nintendont/boot.dol";
+    std::copy(nintendont, nintendont + sizeof nintendont - 1, second_stage.begin() + 0x77428);
+    std::vector<std::uint8_t> second_head(second_stage.begin(), second_stage.begin() + 0x100);
+    // With only the second stage's header (what the listing reads first), it
+    // is the content to read whole, and not yet a forwarder (the path is past it).
+    EXPECT_EQ(forwarder_second_stage(staged, {{1, 4800, first_stage}, {2, 553600, second_head}}), 2);
+    EXPECT_TRUE(!judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, second_head}}).left_out);
+    // Read whole: left out by rule 4, naming the app.
+    const ChannelVerdict two_stage =
+        judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, second_stage}});
+    EXPECT_TRUE(two_stage.left_out);
+    EXPECT_EQ(two_stage.rule, 4);
+    EXPECT_TRUE(two_stage.reason.find("/apps/Nintendont/boot.dol") != std::string::npos);
+    // A second stage naming "boot.dol" but not under /apps/ is a game's text.
+    std::vector<std::uint8_t> no_apps = second_stage;
+    const char loose[] = "data/boot.dol\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+    std::copy(loose, loose + sizeof loose - 1, no_apps.begin() + 0x77428);
+    EXPECT_TRUE(!judge_unlisted_channel("WWND", staged, {{1, 4800, first_stage}, {2, 553600, no_apps}}).left_out);
+    // A WiiWare game behind a small loader: its program is megabytes, never read
+    // whole, never a forwarder, even with a path in it.
+    TmdContents wiiware = staged;
+    wiiware.contents[2].size = 3u << 20;
+    std::vector<std::uint8_t> big_program = second_stage;
+    EXPECT_EQ(forwarder_second_stage(wiiware, {{1, 4800, first_stage}, {2, 3u << 20, second_head}}), -1);
+    EXPECT_TRUE(!judge_unlisted_channel("WGOE", wiiware, {{1, 4800, first_stage}, {2, 3u << 20, big_program}}).left_out);
+    // A boot content over kForwarderMaxBytes is no forwarder's first stage.
+    TmdContents big_boot = staged;
+    big_boot.contents[1].size = 300000;
+    EXPECT_EQ(forwarder_second_stage(big_boot, {{1, 300000, first_stage}, {2, 553600, second_head}}), -1);
+    // A single-stage program has no second stage.
+    EXPECT_EQ(forwarder_second_stage(small, {{1, forwarder.size(), forwarder}}), -1);
+
     // A Virtual Console inject: a 3 MB DOL at 0x80004000, no path. A game.
     EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
     // Just under the line is still a game; a bigger emulator reaching 0x809FFFFF too.
@@ -481,6 +538,17 @@ void test_unlisted_verdict() {
     EXPECT_TRUE(!judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
     std::copy(path, path + sizeof path - 1, elf.begin() + 3000);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
+
+    // A loader packed as LZ77 is judged by where it loads, like a plain DOL;
+    // a normal game DOL, packed the same way, is still listed.
+    for (std::uint32_t address : {0x80d38900u, 0x81000000u}) {
+        const std::vector<std::uint8_t> packed = lz77_wrapped(dol_at(address));
+        const ChannelVerdict packed_loader = judge_unlisted_channel("WRET", big, {{1, packed.size(), packed}});
+        EXPECT_TRUE(packed_loader.left_out);
+        EXPECT_TRUE(packed_loader.rule == 3);
+    }
+    const std::vector<std::uint8_t> packed_game = lz77_wrapped(dol_at(0x80004000));
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, packed_game.size(), packed_game}}).left_out);
 
     // Known homebrew codes, whatever the program.
     EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);

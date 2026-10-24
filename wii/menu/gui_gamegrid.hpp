@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "libwiigui/gui.h"
+#include "riftwii/homeinput.hpp"
 #include "skin.hpp"
 
 // The home screen's games: a page of 12 tiles like the Wii Menu's
@@ -169,11 +170,15 @@ private:
     // Letters, as WiiFlow does: B held (L on a GameCube controller) with
     // right or left goes to the first game of the next or the previous
     // letter, wrapping round; with down or up, a page. B pressed alone goes
-    // to the next letter when it is let go. True while B is held: the
-    // directions are the letters', not the focus's.
+    // to the next letter when it is let go; L alone pages left. True while
+    // B is held: the directions are the letters', not the focus's.
     bool LetterKeys(GuiTrigger* t);
     int LetterTarget(int dir) const;
     bool letterHeld[4] = {};
+    bool letterPadHeld[4] = {};  // L alone pages on release; B alone jumps letters
+    bool padPageHeld[4] = {};    // starts a fresh L click even while carrying a tile
+    riftwii::HomeShoulderPages padPages[4], classicPages[4];
+    int ShoulderPage(GuiTrigger* t);
     int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
@@ -190,7 +195,7 @@ private:
     // the place it would land).
     int ItemAt(int slot) const;
     int ShownItem(int index) const;  // the same for any place in the list (a peeking page's)
-    bool CarryKeys(GuiTrigger* t);
+    bool CarryKeys(GuiTrigger* t, int shoulderPage);
     void CarryTo(int index);
     void PutDown();
     int NearestIndex(int x, int y) const;  // the place under (or nearest) a pointer

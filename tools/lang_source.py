@@ -19,6 +19,11 @@ NAMES = {"es": "Spanish", "ja": "Japanese", "pt": "Portuguese", "it": "Italian"}
 
 # msgid: (es, ja, pt, it)
 T = {
+    "Y: view  Z: settings  L/R: pages": (
+        "Y: vista  Z: ajustes  L/R: páginas",
+        "Y: 表示  Z: 設定  L/R: ページ",
+        "Y: visão  Z: opções  L/R: páginas",
+        "Y: vista  Z: opzioni  L/R: pagine"),
     # Home
     "Games with mods": ("Juegos con mods", "MODがあるゲーム", "Jogos com mods", "Giochi con mod"),
     "All games": ("Todos los juegos", "すべてのゲーム", "Todos os jogos", "Tutti i giochi"),
@@ -519,11 +524,11 @@ T = {
         "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) em sd:/riivolution ou usb:/riivolution. Escolha um jogo, abra Mods, ative um pacote e escolha as opções. Jogar (ou +) inicia o jogo com eles.",
         "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."),
     "Buttons": ("Botones", "ボタン", "Botões", "Pulsanti"),
-    "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.": (
-        "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta; en la lista de juegos, - y + pasan de página. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones.",
-        "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。ゲーム一覧では - と + でページをめくります。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。",
-        "Aponte com o Wii Remote e aperte A, ou mova com o direcional; na lista de jogos, - e + mudam de página. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões.",
-        "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale; nell'elenco dei giochi, - e + cambiano pagina. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."),
+    "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.": (
+        "Apunta con el mando de Wii y pulsa A, o usa la cruceta. -/+ pasan las páginas de Inicio; L/R también en Classic y GameCube (pulsa hasta el clic). Mantén L y usa la cruceta para saltar letras con GameCube. En Inicio, Z abre Ajustes y B busca. B vuelve en otras pantallas; HOME (Start en GameCube) abre el menú HOME; en un banner de Canales, Start en GameCube inicia el juego.",
+        "WiiリモコンでポイントしてAを押すか、十字ボタンで動かします。ホームでは-/+でページをめくります。クラシックとゲームキューブはL/Rでもめくれます (ゲームキューブはカチッと押す)。Lを押しながら十字ボタンで文字を選びます。ゲームキューブはホームでZで設定、Bで検索。ほかの画面ではBで戻り、HOME (ゲームキューブはStart) でHOMEメニューを開きます。チャンネルのバナーでは、ゲームキューブのStartでゲームをはじめます。",
+        "Aponte com o Wii Remote e aperte A, ou use o direcional. -/+ viram as páginas de Início; L/R também no Classic e GameCube (aperte até o clique). Segure L com o direcional para saltar letras no GameCube. Em Início, Z abre Configurações e B busca. B volta em outras telas; HOME (Start no GameCube) abre o menu HOME; em um banner de Canais, Start no GameCube inicia o jogo.",
+        "Punta con il telecomando Wii e premi A, o usa la croce direzionale. -/+ cambiano pagina in Home; anche L/R su Classic e GameCube (premi fino allo scatto). Tieni L e usa la croce per saltare lettere su GameCube. In Home, Z apre Impostazioni e B cerca. B torna indietro nelle altre schermate; HOME (Start su GameCube) apre il menu HOME; su un banner di Canali, Start su GameCube avvia il gioco."),
     "You're all set": ("Todo listo", "準備完了", "Tudo pronto", "Tutto pronto"),
     "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.": (
         "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez.",
@@ -2296,6 +2301,7 @@ T = {
 # Korean, a table of its own (msgid: text), from DDinghoya's translation
 # (pull request 20). A msgid missing here shows in English.
 KO = {
+    "Y: view  Z: settings  L/R: pages": "Y: 보기  Z: 설정  L/R: 페이지",
     "Games with mods":
         "MOD 지원 게임",
     "All games":
@@ -2650,8 +2656,8 @@ KO = {
         "MOD 팩(XML 파일 및 관련 폴더)을 sd:/riivolution 또는 usb:/riivolution 경로에 넣으세요. 게임을 선택하고 'Mods'로 들어가 모드 팩을 활성화한 뒤 옵션을 설정하세요. 시작 (또는 +) 버튼을 누르면 해당 모드가 적용된 상태로 게임이 시작됩니다.",
     "Buttons":
         "버튼",
-    "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.":
-        "위모컨으로 화면을 가리키고 A 버튼을 누르거나 십자 버튼으로 조작할 수 있으며, 게임 목록에서는 - 및 + 버튼으로 페이지를 넘길 수 있습니다. B 버튼은 이전 화면으로 돌아가고, 2 버튼은 설정 메뉴를, 홈 버튼은 홈 메뉴를 엽니다. 클래식 컨트롤러나 게임큐브 컨트롤러도 사용할 수 있으며, 버튼 기능은 동일합니다.",
+    "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.":
+        "위모컨으로 가리키고 A를 누르거나 십자 버튼을 사용하세요. -/+로 홈 페이지를 넘깁니다. 클래식과 게임큐브는 L/R도 됩니다 (게임큐브는 끝까지 눌러 클릭). 게임큐브에서 L을 누른 채 십자 버튼으로 글자를 건너뜁니다. 홈에서 Z는 설정, B는 검색입니다. 다른 화면에서는 B로 돌아가고 HOME (게임큐브 Start)으로 HOME 메뉴를 엽니다. 채널 배너에서는 게임큐브 Start가 게임을 시작합니다.",
     "You're all set":
         "준비 완료",
     "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
@@ -4133,6 +4139,7 @@ KO = {
 # French, a table of its own (msgid: text), from MidyGamy's translation
 # (pull request 22). A msgid missing here shows in English.
 FR = {
+    "Y: view  Z: settings  L/R: pages": "Y: vue  Z: options  L/R: pages",
     "Games with mods":
         "Jeux avec mods",
     "All games":
@@ -4487,8 +4494,8 @@ FR = {
         "Placez les packs de mods (fichier XML et dossiers associés) dans sd:/riivolution ou usb:/riivolution. Choisissez un jeu, ouvrez Mods, activez un pack et ajustez ses options. Démarrer (ou +) lance le jeu.",
     "Buttons":
         "Boutons",
-    "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.":
-        "Pointez avec la Télécommande Wii et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles.",
+    "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.":
+        "Pointez avec la Télécommande Wii et appuyez sur A, ou utilisez la croix. -/+ tournent les pages de l'accueil ; L/R aussi sur Classique et GameCube (jusqu'au clic). Maintenez L avec la croix pour sauter des lettres sur GameCube. À l'accueil, Z ouvre les paramètres et B la recherche. B revient ailleurs ; HOME (Start sur GameCube) ouvre le menu HOME ; sur une bannière de Chaînes, Start sur GameCube lance le jeu.",
     "You're all set":
         "Vous êtes prêt",
     "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
@@ -6435,11 +6442,29 @@ T.update({
         "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
         "il programma è boot.elf e RiftWii avvia solo app boot.dol",
     ),
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
-        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
-        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
-        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
-        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    "Apps keep RiftWii's IOS and hardware access.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii.",
+    ),
+    "When the app exits, it comes back to RiftWii.": (
+        "Al salir, la app vuelve a RiftWii.",
+        "アプリを終了すると、RiftWiiに戻ります。",
+        "Ao sair, o app volta ao RiftWii.",
+        "All'uscita, l'app torna a RiftWii.",
+    ),
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": (
+        "Al salir, la app vuelve al Homebrew Channel, que inició RiftWii.",
+        "アプリを終了すると、RiftWiiを起動したHomebrew Channelに戻ります。",
+        "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii.",
+        "All'uscita, l'app torna all'Homebrew Channel, che ha avviato RiftWii.",
+    ),
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": (
+        "Al salir, la app va al Menú de Wii, según el botón Menú de Wii.",
+        "アプリを終了すると、Wiiメニューボタンの設定どおりWiiメニューに戻ります。",
+        "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii.",
+        "All'uscita, l'app va al Menu Wii, come impostato nel pulsante Menu Wii.",
     ),
     "1: all apps": (
         "1: todas las apps",
@@ -6450,12 +6475,18 @@ T.update({
 })
 MORE["ko"].update({
     "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "Apps keep RiftWii's IOS and hardware access.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다.",
+    "When the app exits, it comes back to RiftWii.": "앱을 종료하면 RiftWii로 돌아옵니다.",
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다.",
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다.",
     "1: all apps": "1: 모든 앱",
 })
 MORE["fr"].update({
     "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "Apps keep RiftWii's IOS and hardware access.": "Les applis gardent l'IOS et l'accès matériel de RiftWii.",
+    "When the app exits, it comes back to RiftWii.": "En quittant, l'appli revient à RiftWii.",
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii.",
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé.",
     "1: all apps": "1 : toutes les applis",
 })
 

@@ -57,10 +57,17 @@ once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
 **Favourite** on its page). **Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
-sides and the D-pad at a page's edge do too). Hold **B** (L on a
+sides and the D-pad at a page's edge do too). **L/R** also turn pages on
+a Classic Controller or GameCube controller. On GameCube, pull all the
+way to the digital click: a light pull does nothing. L alone pages left
+when released; L held with a D-pad letter jump does not page again on
+release. L and R together never page, keeping L+R+Down for screenshots.
+Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
 game of the next or the previous letter, as in WiiFlow (Down and Up turn a
-page); B pressed alone jumps to the next letter. The magnifier button above the settings button (Z on a GameCube controller, ZL
+page); B pressed alone on a Wii Remote, Classic Controller or GamePad jumps
+to the next letter. Letter jumps work in A to Z order. The magnifier button
+above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
@@ -232,7 +239,8 @@ A to keep going. Each arrow goes away at its end of the list.
 
 ### Settings
 
-The gear at the bottom right (or **2**) opens Settings: nine tiles, each
+The gear at the bottom right (or **2**, **Z** on a GameCube controller
+on Home) opens Settings: nine tiles, each
 showing what it is set to now. *Picture* and *Games* are the defaults for
 every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
 sounds, music), *Online*, *Drives* (finding games), *Help* (reports,
@@ -833,9 +841,13 @@ a USB drive while the adapter is plugged in. On a Wii it stays off for
 games read from the USB drive (and RVZ games or packs read from it),
 where it broke the game's disc reads. **On** tries it there anyway (an
 experiment: if the game then fails to read its disc, go back to
-**Automatic**). RVZ games are the exception: the adapter stays off for
-every RVZ game, even with **On**, until the conflict is solved
-([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)). Games without GameCube controller support
+**Automatic**). Wii RVZ games can use the adapter too; the blanket block
+from [issue #4](https://github.com/KakarottoCake/Riftwii/issues/4) has been
+lifted. The USB-drive restrictions above still apply in **Automatic**.
+Wii RVZ games with the adapter still need testing from both SD and USB.
+If the adapter does not fit beside the RVZ reader, the game starts without
+the adapter, as any other game would, and the log says why; only an RVZ
+reader that cannot be installed stops the launch. Games without GameCube controller support
 ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
@@ -1087,10 +1099,10 @@ yet confirmed on real Wiis and may not work on yours. The menu marks
 them (a note before the launch, or "Experimental" in the Settings note):
 
 - **The GameCube controller adapter** in games (it works in the menu on a
-  Wii U). It stays off for RVZ Wii games
-  ([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)).
-  In GameCube games it has only been tried in Dolphin, which has no
-  adapter.
+  Wii U). Testers have used it with Wii games from WBFS, ISO and disc on
+  2610-670, and with GameCube RVZ games. Wii RVZ games with the adapter
+  still need testing from both SD and USB; use **On** to try a USB RVZ
+  where **Automatic** keeps the adapter off.
 - **RVZ games**: if one does not start or play, use a WBFS or ISO copy.
 - **Packs on the USB drive** (`usb:/riivolution`): if the game does not
   start, copy the pack to the SD card.

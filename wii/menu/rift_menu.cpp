@@ -2040,6 +2040,8 @@ static std::string LaunchNote(const FrontendState& state)
 	return note;
 }
 
+static bool g_homePadHints = false;
+
 // Home's count and button line on the Wii Menu's bar, which otherwise holds
 // the date alone: shown until the player has used 1 (the view) or 2
 // (Settings) once, so a first-time player learns them and the look stays
@@ -2140,6 +2142,7 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		: letters ? tr("1: view   2: settings   -/+: pages   B: A to Z")
 		: moving ? tr("1: view   2: settings   -/+: pages   B+A: move")
 		: tr("1: view   2: settings   -/+: pages");
+	if (g_homePadHints) keys = tr("Y: view  Z: settings  L/R: pages");
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + keys;
 }
 
@@ -3537,7 +3540,7 @@ static void ShowTutorial()
 		{"Mods",
 		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
 		{"Buttons",
-		 "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
+		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."},
 		{"You're all set",
 		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
 	};
@@ -4200,6 +4203,13 @@ static int MenuSource(FrontendState& state)
 	// A name over a round button while the pointer rests on it.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
+	const auto setButtonHints = [&] {
+		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
+		const std::string searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
+		settingsHint.SetText(settingsLabel.c_str());
+		searchHint.SetText(searchLabel.c_str());
+	};
+	setButtonHints();
 	// The filter's and the gear's names go above them (80 square, y 384-464),
 	// centred on each; the small search button's to its left, level with it
 	// (the pointer's hand covers what is below or right of the button).
@@ -4250,13 +4260,13 @@ static int MenuSource(FrontendState& state)
 	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 34 - wide, 376, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 530 + wide, 376, nullptr,
-		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
-	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// Search: B on a GameCube controller, ZL on a Classic Controller (a
 	// Wii Remote has no button left; point and press A). Small, in the top
 	// right corner above the page arrow, inside the overscan (ends at x 606,
 	// starts at y 24), so the gear's name has room; in Channels on the bar.
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
-		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch, 0.5f);
+		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -4732,6 +4742,20 @@ static int MenuSource(FrontendState& state)
 			showStatus();
 			coverNoteShown = false;
 		}
+		// Home has its own bar rather than GuiPrompts. Name the buttons of
+		// the controller being used there and on the gear/search hover hints.
+		bool padHints = g_homePadHints;
+		for (int channel = 0; channel < 4; ++channel) {
+			const GuiTrigger& input = userInput[channel];
+			if (input.pad.btns_d || input.pad.btns_h) padHints = true;
+			if ((input.wpad && (input.wpad->btns_d || input.wpad->btns_h)) ||
+			    input.wiidrcdata.btns_d || input.wiidrcdata.btns_h) padHints = false;
+		}
+		if (padHints != g_homePadHints) {
+			g_homePadHints = padHints;
+			setButtonHints();
+			showStatus();
+		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
 		// A hover name fades in while the pointer rests on its button, and out after.
 		const auto fade = [](GuiText& hint, int& a, bool on) {
@@ -4878,7 +4902,20 @@ static int MenuSource(FrontendState& state)
 					about = tr("Would you like to start {1} by {2}?", {FlatCapped(app.name, 40), app.coder});
 				else
 					about = tr("Would you like to start {1}?", {FlatCapped(app.name, 40)});
-				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."));
+				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access."));
+				switch (riftwii::wii::HomebrewExitGoesTo()) {
+				case riftwii::wii::HomebrewExit::RiftWii:
+					about += " " + std::string(tr("When the app exits, it comes back to RiftWii."));
+					break;
+				case riftwii::wii::HomebrewExit::HomebrewChannel:
+					about += " " + std::string(tr("When the app exits, it goes back to the Homebrew Channel, which started RiftWii."));
+					break;
+				case riftwii::wii::HomebrewExit::WiiMenu:
+					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."));
+					break;
+				case riftwii::wii::HomebrewExit::NotSaid:
+					break;
+				}
 				const int choice = ShowPopup(tr("Start {1}?", {FlatCapped(app.name, 40)}), about, tr("Start"), tr("Cancel"));
 				if (choice != 0) {
 					statusTxt.SetText(HomeStatus(state, items).c_str());
@@ -11623,10 +11660,29 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				list.Select(acted);
 			};
 			const auto note = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
-			// Saves the settings; the note is `text`, or why they were not saved.
-			const auto saveAndNote = [&](const std::string& text) {
+			// The settings as they were before this press changed anything. A
+			// row that changes a setting in memory and then saves it keeps
+			// this to put back, so a failed save does not leave the menu
+			// showing (and the games using) a value that is not on the card.
+			const riftwii::LoaderSettings settingsBefore = settings;
+			// Saves the settings. If that fails, puts every setting back as
+			// it was, shows why, and returns false.
+			const auto saveOrUndo = [&]() {
 				const std::string error = saveSettings();
-				note(error.empty() ? text : error);
+				if (error.empty()) return true;
+				// The drive scan reads some settings (strings) on its thread:
+				// wait for it before the whole struct is written back.
+				WaitForDriveScan(noteTxt);
+				settings = settingsBefore;
+				note(error);
+				return false;
+			};
+			// Saves the settings; the note is `text`, or why they were not
+			// saved (and the change undone). Returns whether they were saved.
+			const auto saveAndNote = [&](const std::string& text) {
+				const bool saved = saveOrUndo();
+				if (saved) note(text);
+				return saved;
 			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
 				case kLanguage: {
@@ -11685,11 +11741,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kNonGames: {
 					settings.nand_non_games = !settings.nand_non_games;
-					const std::string error = saveSettings();
-					if (!error.empty()) {
-						note(error);
-						break;
-					}
+					if (!saveOrUndo()) break;
 					note(settings.nand_non_games ? tr("Nintendo's own channels are listed on Home now.")
 									: tr("Only games are listed on Home now."));
 					for (FlowRow& row : rows)
@@ -11748,8 +11800,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 3 && settings.menu_sounds != kSoundChoices[at]) ++at;
 					settings.menu_sounds = kSoundChoices[((at % 3) + 3 + direction) % 3];
-					ApplyMenuSounds();
-					saveAndNote(tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."));
+					// Applied only once it is saved, so a failed save leaves the old sound.
+					if (saveAndNote(tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.")))
+						ApplyMenuSounds();
 					rebuild();
 					break;
 				}
@@ -11793,9 +11846,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kMusic:
 					settings.menu_music = settings.menu_music == "off" ? "on" : "off";
-					if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();
-					else riftwii::wii::MenuMusicStart();
-					saveAndNote((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
+					if (saveOrUndo()) {
+						if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();
+						else riftwii::wii::MenuMusicStart();
+						// The note depends on whether music was found, so it follows the start.
+						note((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
+					}
 					rebuild();
 					break;
 				case kLaunchMusic:
@@ -11812,8 +11868,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kChannelCorners:
 					settings.channel_corners = StepValue(kChannelCornerChoices, settings.channel_corners, direction);
-					skin::SetChannelCorners(settings.channel_corners);
-					saveAndNote(tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."));
+					if (saveAndNote(tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.")))
+						skin::SetChannelCorners(settings.channel_corners);
 					rebuild();
 					break;
 				case kChannelBackground:
@@ -11831,9 +11887,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 3 && settings.menu_widescreen != kWide[at]) ++at;
 					settings.menu_widescreen = kWide[((at % 3) + 3 + direction) % 3];
-					riftwii::wii::ApplyMenuDisplay();
-					skin::EnsureBackgrounds();
-					saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."));
+					if (saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."))) {
+						riftwii::wii::ApplyMenuDisplay();
+						skin::EnsureBackgrounds();
+					}
 					rebuild();
 					break;
 				}
@@ -11842,8 +11899,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.screen_size += direction < 0 ? -5 : 5;
 					if (settings.screen_size > 100) settings.screen_size = 80;
 					if (settings.screen_size < 80) settings.screen_size = 100;
-					riftwii::wii::ApplyMenuDisplay();
-					saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."));
+					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
+						riftwii::wii::ApplyMenuDisplay();
 					rebuild();
 					break;
 				case kTheme: {
@@ -12127,21 +12184,22 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// this setting (a std::string): wait for it before writing.
 					WaitForDriveScan(noteTxt);
 					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
-					// What the last scan found on the card is stale at once: Home, the counts and the
-					// empty-Home card must not show it while the rescan is still to come.
-					if (settings.sd_games == "off") {
-						state.sd_catalog = riftwii::wii::ImageCatalog{};
-						state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
-					}
 					// Games from: SD would list nothing now (GameCube still lists USB games).
 					if (settings.sd_games == "off" && (settings.home_source == "sd"))
 						settings.home_source = "all";
-					// Home reads the drives again when you leave Settings.
-					g_scanned = false;
 					// The note follows the value the row just changed to.
-					saveAndNote(settings.sd_games == "off"
+					if (saveAndNote(settings.sd_games == "off"
 						? tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.")
-						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."));
+						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."))) {
+						// Only once saved: what the last scan found on the card is stale at once, and
+						// Home, the counts and the empty-Home card must not show it while the rescan
+						// is still to come. Home reads the drives again when you leave Settings.
+						if (settings.sd_games == "off") {
+							state.sd_catalog = riftwii::wii::ImageCatalog{};
+							state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
+						}
+						g_scanned = false;
+					}
 					rebuild();
 					break;
 				case kRescan:
