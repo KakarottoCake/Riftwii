@@ -3538,11 +3538,14 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                 logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
                      IOS_GetRevision(), files.emu_nand.c_str(), emu_error.c_str());
                 note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": NAND emulation: " + emu_error);
-                if (!debug_off("identify")) continue;
                 // A refused emulation can still leave the FAT module holding
-                // the card; a channel without emulation gets it back first,
-                // and this IOS is passed over when it cannot.
-                if (!release_d2x_saves()) {
+                // the card. It lets go now (it writes out what it holds), as
+                // after an ES refusal, so the next IOS reload finds the
+                // card's FAT whole; a channel started without emulation needs
+                // the card back, and this IOS is passed over when it cannot.
+                const bool released = release_d2x_saves();
+                if (!debug_off("identify")) continue;
+                if (!released) {
                     note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": d2x kept the SD card");
                     continue;
                 }
