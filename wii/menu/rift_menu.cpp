@@ -96,6 +96,7 @@
 #include "themestore.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
+#include "di.hpp"
 #include "demo.h"
 #include "input.h"
 #include "riftwii/apply.hpp"
@@ -621,7 +622,16 @@ static void* MenuWatchdog(void*)
 		}
 		// No log line here: the menu is stuck, usually on the SD card, and a
 		// write to the log could wait on that card and keep the Wii on.
-		if (ExitRequested == kExitPowerButton) SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+		if (ExitRequested == kExitPowerButton) {
+			// The disc must not keep spinning in standby. This is the
+			// time-limited stop without the log line (see above), and it
+			// uses buffers of its own, so a menu thread stuck inside a DI
+			// call cannot keep the Wii on: the power-off follows within
+			// 1.5 s either way (a stop already waiting fails at once).
+			std::string ignored;
+			riftwii::di::stop_motor(riftwii::di::kStopMotorTimeoutMs, ignored);
+			SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+		}
 		if (home || g_resetPressed) SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 	}
 	return nullptr;
