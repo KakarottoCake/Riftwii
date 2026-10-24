@@ -17,37 +17,25 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-## ⚠️ UPDATE YOUR RIFTWII CHANNEL TO VERSION 14 ⚠️
-**Everyone with the RiftWii channel on the Wii Menu must update it. This is not optional.**
-* **vWii (Wii U):** after updating RiftWii, it asks at start. Press **Update now**. RiftWii won't open until you do.
-* **Wii:** RiftWii won't ask. Go to **Settings > Help > RiftWii channel on the Wii Menu** and update it.
-* If the channel is still the old version afterwards, copy `apps/riftwii_channel` from the new zip to your SD card and update again.
+GameCube memory cards in three more games, Nintendont saves, and GameHacking cheats:
 
-Wii channels, WiiWare and homebrew on Home, themes to download, and Retro Rewind online again:
-
-* Wii channels and WiiWare on Home, with per-channel Game IOS and NAND choice
-* Your homebrew apps on Home: press Y to the Homebrew view
-* Settings > Theme > Get more themes
-* Two-disc GameCube games: one tile, and the disc changes when the game asks
-* Retro Rewind online works again (error 20911)
-* Steadier GameCube controls (Double Dash), and USB games that d2x can't read stop with a message instead of crashing
-* Settings: Network Test, and Games on the SD card (Don't look, for USB-only setups)
-
-Channels, homebrew and two-disc games are checked in Dolphin only.
+* Memory cards in NFSU2, Resident Evil 2 USA and Fire Emblem: Path of Radiance (tested on a real Wii)
+* Bring Nintendont's GameCube saves over, all or chosen ones
+* Cheats fall back to GameHacking.org; Fluidity no longer goes black with a cheat
+* Disc stops spinning on power-off to standby; GameCube sound no longer breaks up or buzzes on the way back (buzz fix not Wii-tested)
+* Wii U GameCube adapter in Wii RVZ games, and sideways Wii Remote in GameCube games on Wii U (both not Wii-tested yet)
+* GameCube controls on Home (L/R pages, Z Settings, B Search, not Wii-tested), tidier Home, and homebrew apps return to RiftWii
 
 To test, please:
 
-1. Start some Wii channels and WiiWare from Home
-2. Start a homebrew app, from the Homebrew Channel and from the RiftWii channel
-3. Retro Rewind online, then HOME Menu > Reset
-4. A two-disc GameCube game up to the disc change
-5. Double Dash or other GameCube games: do the controls feel right now?
-6. A USB game on a Wii U
-7. Update the channel to 14 (see the top). If it froze before, tell us the step its screen shows
+1. A GameCube game that said no memory card (NFSU2, RE2, Fire Emblem)
+2. GameCube adapter in a Wii RVZ game, front and back USB ports
+3. Sideways Wii Remote in a GameCube game on a Wii U
+4. L/R/Z/B on Home with a GameCube controller
+5. Bring Nintendont's saves over
+6. Power off with a disc in and check it stops spinning
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Home with Wii channels and WiiWare](docs/screenshots/2610-615-wii-channels.png)
-![The Homebrew view](docs/screenshots/2610-615-homebrew.png)
-![Get more themes](docs/screenshots/2610-615-get-more-themes.png)
-![What's new](docs/screenshots/2610-615-whats-new.png)
+![Bringing Nintendont's saves over](docs/screenshots/2610-690-nintendont-saves.png)
+![Cheats from GameHacking.org](docs/screenshots/2610-690-gamehacking-cheats.png)
