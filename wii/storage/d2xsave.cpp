@@ -291,6 +291,11 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     // libfat's writes reach the card before d2x reads its FAT.
     LogClose();
     fatUnmount("sd:");
+    // fatUnmount flushes libfat but leaves its SD driver initialized.
+    // d2x's FAT module starts a separate driver: release libogc's card
+    // state before it probes the FAT. The shared d2x SD interface's
+    // shutdown deliberately keeps its handle alive (d2xsd.cpp).
+    const bool sd_released = sd_interface()->shutdown();
     s32 mounted = -1, set = -1;
     const s32 fat = IOS_Open("fat", 0);
     if (fat >= 0) {
@@ -316,6 +321,12 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     // And libfat reads the card afresh after d2x made its folders.
     const bool remounted = fatMountSimple("sd", sd_interface());
     LogReopen();
+    if (using_d2x_sd()) {
+        logf("Saves: the shared d2x SD driver stayed open for d2x's FAT mount.\n");
+    } else {
+        logf("Saves: the SD driver was shut down before d2x's FAT mount (%s).\n",
+             sd_released ? "accepted" : "the driver reported failure");
+    }
     logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d%s\n", dir.c_str(), fat, mounted, set,
          remounted ? "" : "; the SD card did not mount again");
     if (fat < 0 || mounted < 0) {
