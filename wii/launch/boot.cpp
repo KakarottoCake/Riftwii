@@ -3478,6 +3478,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     bool card = true;
     bool identified = false;
     bool refused_identify = false;
+    // Whether the game runs in d2x's NAND emulation (not just asked for).
+    bool emulated = false;
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";
@@ -3550,6 +3552,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             logf("Wii channels: on IOS%d rev %d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
                  IOS_GetRevision(), static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
             identified = true;
+            emulated = emulating;
             break;
         }
         logf("Wii channels: on IOS%d rev %d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), IOS_GetRevision(),
@@ -3606,8 +3609,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Settings > GameCube adapter, with the rules a disc game gets, judged
     // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
-    // base 58). An emulated NAND is d2x's to read while the game runs.
-    const int nand_device = files.emu_nand.empty() ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
+    // base 58). An emulated NAND is d2x's to read while the game runs;
+    // a debug start without the emulation reads nothing through d2x.
+    const int nand_device = !emulated ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
     settle_gc_adapter(IOS_GetVersion(), nand_device, "the emulated NAND", true);
 
     // The program, section by section. Its BSS is cleared by the game's
