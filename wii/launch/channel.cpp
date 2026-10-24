@@ -7,6 +7,7 @@
 #include <malloc.h>
 #include <ogc/es.h>
 
+#include <cstdio>
 #include <sys/stat.h>
 
 #include <cstring>
@@ -15,22 +16,35 @@
 
 #include "boot.hpp"
 #include "dolboot.h"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menumusic.hpp"
 #include "netsock.hpp"
+#include "restart.hpp"
+#include "riftwii/channelupdate.hpp"
 #include "riftwii/returnstub.hpp"
 #include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
+
+const char* const kChannelMarkerError = "the SD card would not save a note before the installer (is it locked?)";
+
 namespace {
 
 // 00010001-UFTW (tools/make_channel.py); up to its version 5 it was
 // 00010001-RFTW, which counts too until the installer replaces it.
 constexpr u64 kChannelTitles[] = {0x0001000155465457ull, 0x0001000152465457ull};
 constexpr const char* kInstaller = "sd:/apps/riftwii_channel/boot.dol";
+constexpr const char* kInstallerMarker = "sd:/riftwii/channel_installer_opened.txt";
+
+void clear_installer_marker(const char* reason) {
+    if (std::remove(kInstallerMarker) == 0) {
+        logf("Channel: the installer marker was cleared because %s.\n", reason);
+    }
+}
 
 bool installer_on_card() {
     struct stat st;
@@ -90,6 +104,36 @@ unsigned ChannelVersionNeeded() {
     return is_wii_u() ? kChannelVersion : 11;
 }
 
+riftwii::ChannelUpdateState ChannelInstallerUpdateState() {
+    struct stat st;
+    const bool opened = stat(kInstallerMarker, &st) == 0;
+    auto attempt = opened ? ChannelInstallerAttempt::Opened : ChannelInstallerAttempt::None;
+    if (FILE* marker = std::fopen(kInstallerMarker, "r")) {
+        char line[32];
+        if (std::fgets(line, sizeof(line), marker)) {
+            line[std::strcspn(line, "\r\n")] = '\0';
+            if (std::strcmp(line, "returned") == 0) attempt = ChannelInstallerAttempt::Returned;
+        }
+        std::fclose(marker);
+    }
+    // A normal installer exit records its return before cold-starting
+    // RiftWii. ChannelDone is only the refused hand-off's warm restart.
+    const bool refused = CurrentRestartNote().kind == RestartKind::ChannelDone;
+    unsigned version = 0;
+    const bool installed = ChannelInstalled(version);
+    const auto state = channel_update_state(installed, version, ChannelVersionNeeded(), attempt, refused);
+    if (state.clear_marker) {
+        clear_installer_marker(refused ? "the installer could not be opened" : "the channel needs no update");
+    }
+    return state;
+}
+
+void ChannelUpdateNotNow() {
+    // Keep the marker so later starts still offer Not now until a completed
+    // update removes it or the channel no longer needs updating.
+    logf("Channel: the update was postponed for this start; Home opens and the next start asks again.\n");
+}
+
 bool ChannelInstallerPresent(std::string& why) {
     if (installer_on_card()) return true;
     why = "Copy apps/riftwii_channel from the RiftWii zip to the SD card first";
@@ -109,17 +153,36 @@ bool ChannelCanInstall(std::string& why) {
     return false;
 }
 
-bool StartChannelInstaller(std::string& error) {
+bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;
     u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); },
                             [](void* p) { std::free(p); });
     if (!dol || !dolboot_valid(dol, size)) {
-        error = std::string("The channel installer (") + kInstaller + ") is missing or damaged";
+        error = tr("The channel installer ({1}) is missing or damaged", {kInstaller});
         logf("Channel: %s\n", error.c_str());
         std::free(dol);
         return false;
     }
+    // Close this before handing off: even a hang before the installer's
+    // first line must leave evidence for the next start.
+    mkdir("sd:/riftwii", 0777);
+    bool marked = false;
+    if (FILE* marker = std::fopen(kInstallerMarker, "w")) {
+        const bool wrote = std::fputs("The channel installer was opened.\n", marker) >= 0;
+        const bool closed = std::fclose(marker) == 0;
+        marked = wrote && closed;
+    }
+    if (!marked && !allow_unmarked) {
+        // The refused restart offers an explicit choice to open without
+        // interruption detection when the card will not save this note.
+        error = kChannelMarkerError;
+        logf("Channel: the installer was not opened: %s\n", error.c_str());
+        std::free(dol);
+        return false;
+    }
+    if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
+    else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
     NetCancelBackground();  // a theme download: fetched again next start
     NetWaitForBackground();
     LogClose();

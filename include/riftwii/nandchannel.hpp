@@ -232,13 +232,20 @@ int forwarder_second_stage(const TmdContents& tmd, const std::vector<ContentStar
 
 // The lowest MEM1 address RiftWii's extras (screenshots, the crash
 // recorder, the GameCube adapter, the Wii Remote log) may take in a channel
-// game RiftWii's loader starts. A channel has no FST: its MEM1 arena runs to
-// the top of MEM1, and the extras' blobs are carved from that top down to
+// game RiftWii's loader starts. A channel has no FST: the extras' blobs
+// are carved from below its BI2 at the top of MEM1 down to
 // this floor. It is above RiftWii's own memory (`loader_end`), which is in
 // use until the game starts, and above every part of the program (sections
 // and BSS) that loads past it, rounded up to 32 bytes. Parts below
 // `loader_end` (the usual case, from 0x80003400 up) do not move it.
 std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end);
+
+// A zero-filled BI2 replaces the NAND boot program's when its main program
+// is loaded directly. Reserve it above the arena and extras, without
+// touching the program, its BSS or the still-running loader. Zero means
+// there is no room; the caller must not clear memory in that case.
+constexpr std::uint32_t kChannelBi2Bytes = 0x2000;
+std::uint32_t channel_bi2_address(const DolHeader& program, std::uint32_t loader_end);
 
 constexpr std::uint32_t kChannelTitleTypes[] = {kDownloadedChannels, kSystemChannels, kHiddenChannels};
 

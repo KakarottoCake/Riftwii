@@ -3711,7 +3711,7 @@ static void rt_restart_close_es(struct rt_restart* rs, int32_t es_fd) {
 #endif
 }
 
-void rt_reset_on_os_restart(struct rt_context* ctx) {
+uint32_t rt_reset_on_os_restart(struct rt_context* ctx) {
     struct rt_restart* rs = &ctx->restart;
 #ifdef RT_TARGET_PPC
     struct rt_restart_block* blk = (struct rt_restart_block*)(uintptr_t)rs->block;
@@ -3728,7 +3728,27 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
      * the game's own restart goes on, as it would without RiftWii. */
     if (blk == 0 || rs->lba == 0 || rs->open_sync == 0 || rs->close_sync == 0 || rs->ioctlv_sync == 0 ||
         rs->refused != 0 || !rt_fs_in_thread()) {
-        return;
+        return 0;
+    }
+    /* With Return to RiftWii patched in, the game leaves through its own
+     * OSReturnToMenu, which shuts its devices down (the disc, Bluetooth,
+     * USB, the NAND) before __OSLaunchMenu starts the channel, as the HOME
+     * Menu's Wii Menu button and the GameCube pad's way back do. Started
+     * directly from here with all of them still running, the channel's
+     * launch could hang on a Wii U (a black screen, the request armed). */
+    if (rs->return_to_menu != 0) {
+        result = rt_restart_write(ctx, rs, blk, blk->armed);
+        rt_restart_report(ctx, 'W', (uint32_t)result);
+        if (result < 0) {
+            rs->last_result = (uint32_t)result;
+            rs->refused++;
+            if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
+            return 0;
+        }
+        rs->written++;
+        rt_restart_settle();
+        rt_restart_report(ctx, 'M', rs->return_to_menu);
+        return rs->return_to_menu;
     }
     /* Open before arming the request: a refused open must not leave a
      * request for a later, unrelated start of RiftWii to consume. */
@@ -3737,7 +3757,7 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     if (es_fd < 0) {
         rs->last_result = (uint32_t)es_fd;
         rs->refused++;
-        return;
+        return 0;
     }
     result = rt_restart_write(ctx, rs, blk, blk->armed);
     rt_restart_report(ctx, 'W', (uint32_t)result);
@@ -3749,7 +3769,7 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
          * as after the armed write. */
         if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
         rt_restart_close_es(rs, es_fd);
-        return;
+        return 0;
     }
     rs->written++;
     rt_restart_settle();
@@ -3762,4 +3782,5 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     rs->last_result = (uint32_t)result;
     rs->refused++;
     if (!rs->keep && rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
+    return 0;
 }

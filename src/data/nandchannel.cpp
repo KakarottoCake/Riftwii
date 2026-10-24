@@ -468,6 +468,11 @@ std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loade
     return aligned > kMem1End ? static_cast<std::uint32_t>(kMem1End) : static_cast<std::uint32_t>(aligned);
 }
 
+std::uint32_t channel_bi2_address(const DolHeader& program, std::uint32_t loader_end) {
+    constexpr std::uint32_t kBi2Address = 0x81800000 - kChannelBi2Bytes;
+    return channel_extras_floor(program, loader_end) <= kBi2Address ? kBi2Address : 0;
+}
+
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) {
     char path[64];
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),
