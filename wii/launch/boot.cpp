@@ -3529,8 +3529,12 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                 if (!debug_off("identify")) continue;
                 logf("Wii channels: debug_off: started without the NAND emulation\n");
                 // A refused emulation can still leave the FAT module holding
-                // the card; a channel without emulation gets it back first.
-                release_d2x_saves();
+                // the card; a channel without emulation gets it back first,
+                // and this IOS is passed over when it cannot.
+                if (!release_d2x_saves()) {
+                    note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": d2x kept the SD card");
+                    continue;
+                }
             }
         }
         // ES runs the game as its own title, as when the system starts it:
@@ -3565,7 +3569,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
-    if (!identified && debug_off("identify")) {
+    if (!identified && debug_off("identify") && !sd_held_by_d2x_fat()) {
         logf("Wii channels: debug_off: started without ES running it as its own title (its saves may not open)\n");
         identified = true;
     }
