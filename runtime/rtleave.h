@@ -20,12 +20,19 @@ struct rtleave {
     uint32_t quiet;     /* ticks a save must have been quiet (loader-filled) */
     uint32_t since;     /* when the hold began (low bit set), 0: not held */
     uint32_t activity;  /* the last save activity (low bit set), 0: none yet */
-    /* The last save request the game handed to IOS, while it is with IOS:
-     * the address of its command word, 0 when none is. */
-    uint32_t pending;
-    uint32_t pending_command;  /* that word as submitted */
-    uint32_t pending_since;    /* when (low bit set) */
+    /* The game's save requests while they are with IOS: each its block's
+     * address with the command in the low bits (the SDK's blocks are 32-byte
+     * aligned), 0 for a free slot; and when it was handed over. */
+    uint32_t pending[4];
+    uint32_t pending_since[4];
+    /* Save requests that found no free slot (low bit set), 0: none. A save
+     * can keep dozens in flight (Brawl's first, in Dolphin); they are over
+     * once the newest save request has its reply: IOS's file system answers
+     * in the order it is asked. Else after the cap. */
+    uint32_t overflow;
+    uint32_t newest;        /* the newest save request, as a slot holds it; 1: one that can't be read back; 0: none or answered */
 };
+#define RTLEAVE_PENDING_SLOTS 4u
 
 /* A save request counts as with IOS for at most this many quiet windows
  * (10 s with the loader's second): request blocks are reused, so a block
@@ -47,18 +54,26 @@ int rtleave_save_request(const uint32_t* block, const uint8_t* arg0, const uint8
 /* A save was written at `now`. */
 void rtleave_note_save(struct rtleave* l, uint32_t now);
 
-/* The save request at `word_address` (its block's command word) went to
- * IOS at `now` with `command` in that word. IOS's reply replaces the
- * word (with 8, the original command moving into the fd's place), and
- * the SDK reads the block again before it uses the reply. */
-void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t word_address, uint32_t command);
+/* The save request whose block (its first word, the command) is at
+ * `block` went to IOS at `now` with `command` there. IOS's reply replaces
+ * that word in memory (with 8, the original command moving into the fd's
+ * place); the pad hook reads it back uncached. A block not
+ * 32-byte aligned, a command above 7 or no free slot: counted as
+ * `overflow` instead, so it still keeps the way back waiting. */
+void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t block, uint32_t command);
 
-/* Whether the pending save request is still with IOS, given its command
- * word as the game sees it now (`word`). When the word has changed (the
- * reply, or the block reused) or RTLEAVE_PENDING_QUIETS windows have
- * passed, it is over: forgotten, and noted as save activity at `now`, so
- * the quiet second counts from its end. 0 when none is pending. */
-int rtleave_pending(struct rtleave* l, uint32_t now, uint32_t word);
+/* The block address a pending slot's `entry` waits on (0: a free slot). */
+#define RTLEAVE_PENDING_BLOCK(entry) ((entry) & ~31u)
+
+/* Whether any of the game's save requests is still with IOS, given each
+ * slot's command word as it is in memory now (`words`, one per slot,
+ * anything for a free one), then the newest request's (`words` has
+ * RTLEAVE_PENDING_SLOTS + 1). A slot whose word has changed (the reply, or
+ * the block reused) or whose RTLEAVE_PENDING_QUIETS windows have passed is
+ * over: freed, and noted as save activity at `now`, so the quiet second
+ * counts from its end. `overflow` ends the same way when the newest
+ * request's word has changed, or at its cap. */
+int rtleave_pending(struct rtleave* l, uint32_t now, const uint32_t* words);
 
 /* The resident runtime's `wrote` while a save write's command is with IOS
  * (its RT_FS_WRITE_WITH_IOS): never quiet then. 0: no write yet; 1: one

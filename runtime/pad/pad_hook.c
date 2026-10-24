@@ -135,27 +135,42 @@ static const uint8_t* pad_cached(uint32_t physical) {
  * addresses, for rtleave_save_request to read where they are paths. */
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
     const uint32_t address = (uint32_t)(uintptr_t)block;
-    /* The game's own memory (MEM1 or MEM2, cached): the block is read
-     * back there, as the game sees it, until IOS's reply replaces its
-     * command word (rtleave_pending). */
-    const int trackable = (address >= 0x80000000u && address < 0x81800000u) ||
-                          (address >= 0x90000000u && address < 0x94000000u);
+    /* The game's own memory (MEM1 or MEM2, cached): the block's command
+     * word is read back uncached (pad_check_pending), where IOS writes its
+     * reply. The SDK may never drop its cached copy of the block, so a
+     * cached read could show the command long after the reply (in Dolphin,
+     * Brawl's saves stayed pending until the cap). */
+    const int in_game_memory = (address >= 0x80000000u && address < 0x81800000u) ||
+                               (address >= 0x90000000u && address < 0x94000000u);
     uint32_t msr;
     uint32_t t;
     if (!rtleave_save_request(block, pad_cached(block[3]), pad_cached(block[4]))) return;
     msr = interrupts_off();
+    /* Memory holds the command from now on, before the submit routine's
+     * own flush: an uncached read can't see what the block held before. */
+    if (in_game_memory) {
+        __asm__ volatile("dcbst 0, %0" : : "r"(block) : "memory");
+        __asm__ volatile("sync" : : : "memory");
+    }
     t = now();
     rtleave_note_save(&c->leave, t);
-    if (trackable) rtleave_note_pending(&c->leave, t, address, block[0]);
+    /* Anywhere else it can't be read back: counted as overflow instead. */
+    rtleave_note_pending(&c->leave, t, in_game_memory ? address : 0, block[0]);
     interrupts_restore(msr);
 }
 
-/* The pending save request, if any: still with IOS, or now over (its
- * command word, as the game sees it, no longer the one submitted).
- * Interrupts off, as at its callers. */
+/* The pending save requests: each still with IOS, or now over (its
+ * command word in memory, read uncached through 0xC0000000/0xD0000000, no
+ * longer the one submitted). Interrupts off, as at its callers. */
 static void pad_check_pending(struct rt_pad_context* c, uint32_t t) {
-    if (c->leave.pending == 0) return;
-    rtleave_pending(&c->leave, t, *(const volatile uint32_t*)(uintptr_t)c->leave.pending);
+    uint32_t words[RTLEAVE_PENDING_SLOTS + 1];
+    uint32_t i;
+    for (i = 0; i <= RTLEAVE_PENDING_SLOTS; ++i) {
+        const uint32_t entry = i < RTLEAVE_PENDING_SLOTS ? c->leave.pending[i] : c->leave.newest;
+        const uint32_t block = RTLEAVE_PENDING_BLOCK(entry);
+        words[i] = block != 0 ? *(const volatile uint32_t*)(uintptr_t)(block | 0x40000000u) : 0;
+    }
+    rtleave_pending(&c->leave, t, words);
 }
 
 /* The resident runtime's last SD save write (rt_fs_state's last_write,

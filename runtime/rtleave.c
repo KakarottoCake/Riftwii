@@ -61,18 +61,49 @@ static uint32_t rtleave_elapsed(uint32_t now, uint32_t stamp) { return now - (st
 
 void rtleave_note_save(struct rtleave* l, uint32_t now) { l->activity = now | 1u; }
 
-void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t word_address, uint32_t command) {
-    l->pending = word_address;
-    l->pending_command = command;
-    l->pending_since = now | 1u;
+void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t block, uint32_t command) {
+    const int trackable = block != 0 && (block & 31u) == 0 && command != 0 && command <= 7u;
+    uint32_t i;
+    /* One that can't be read back: a marker (no block) that never reads
+     * as answered, so an overflow waits for a later one's reply or the cap. */
+    l->newest = trackable ? block | command : 1u;
+    if (trackable) {
+        for (i = 0; i < RTLEAVE_PENDING_SLOTS; ++i) {
+            if (l->pending[i] != 0) continue;
+            l->pending[i] = block | command;
+            l->pending_since[i] = now | 1u;
+            return;
+        }
+    }
+    l->overflow = now | 1u;
 }
 
-int rtleave_pending(struct rtleave* l, uint32_t now, uint32_t word) {
-    if (l->pending == 0) return 0;
-    if (word == l->pending_command && rtleave_elapsed(now, l->pending_since) < RTLEAVE_PENDING_QUIETS * l->quiet) return 1;
-    l->pending = 0;
-    rtleave_note_save(l, now);
-    return 0;
+int rtleave_pending(struct rtleave* l, uint32_t now, const uint32_t* words) {
+    const uint32_t cap = RTLEAVE_PENDING_QUIETS * l->quiet;
+    int with_ios = 0;
+    uint32_t i;
+    for (i = 0; i < RTLEAVE_PENDING_SLOTS; ++i) {
+        const uint32_t entry = l->pending[i];
+        if (entry == 0) continue;
+        if (words[i] == (entry & 31u) && rtleave_elapsed(now, l->pending_since[i]) < cap) {
+            with_ios = 1;
+            continue;
+        }
+        l->pending[i] = 0;
+        rtleave_note_save(l, now);
+    }
+    /* The newest request answered: every earlier one is too (the file
+     * system's order), the untracked ones included. */
+    if (RTLEAVE_PENDING_BLOCK(l->newest) != 0 && words[RTLEAVE_PENDING_SLOTS] != (l->newest & 31u)) l->newest = 0;
+    if (l->overflow != 0) {
+        if (l->newest != 0 && rtleave_elapsed(now, l->overflow) < cap) {
+            with_ios = 1;
+        } else {
+            l->overflow = 0;
+            rtleave_note_save(l, now);
+        }
+    }
+    return with_ios;
 }
 
 int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
@@ -89,12 +120,16 @@ int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, u
 }
 
 int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
+    uint32_t i;
     /* A save write's command is with IOS: never quiet, however long ago it
      * went out (one stuck command on a failing card can outlast the window). */
     if (resident_wrote == RTLEAVE_RESIDENT_WITH_IOS) return 0;
     /* The game's own save request is with IOS: the same (a synchronous
      * save sleeps its thread in the very OSSleepThread that leaves). */
-    if (l->pending != 0) return 0;
+    for (i = 0; i < RTLEAVE_PENDING_SLOTS; ++i) {
+        if (l->pending[i] != 0) return 0;
+    }
+    if (l->overflow != 0) return 0;
     if (l->activity != 0 && rtleave_elapsed(now, l->activity) < l->quiet) return 0;
     if (resident_wrote && now - resident_last_write < l->quiet) return 0;
     return 1;

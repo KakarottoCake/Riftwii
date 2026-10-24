@@ -182,83 +182,145 @@ void TestQuietAtLeave() {
     EXPECT_TRUE(rtleave_quiet(&l, 4209, 1, 4158));
 }
 
-// The game's own save request while IOS holds it (KakarottoCake on #314):
-// a single NAND write longer than the quiet window, or a synchronous save
-// whose thread sleeps in the very OSSleepThread that leaves. Until its
-// command word changes (IOS's reply) it is never quiet; after, the quiet
-// window counts from the reply; a block whose word never changes stops
-// counting after RTLEAVE_PENDING_QUIETS windows.
-void TestPendingSave() {
-    const std::uint32_t kWrite = 4;  // the block's command word as submitted
-    const std::uint32_t kReply = 8;  // what IOS writes there when it answers
-    const std::uint32_t kBlock = 0x80401000u;
+// The game's own save requests while IOS holds them (KakarottoCake and
+// CodeRabbit on #314): a single NAND write longer than the quiet window, a
+// synchronous save whose thread sleeps in the very OSSleepThread that
+// leaves, and several requests in flight at once. Until a request's command
+// word changes (IOS's reply) it is never quiet; after, the quiet window
+// counts from the reply; a block whose word never changes stops counting
+// after RTLEAVE_PENDING_QUIETS windows, and so does a request that found no
+// free slot.
+namespace {
+const std::uint32_t kWrite = 4;  // a block's command word as submitted
+const std::uint32_t kReply = 8;  // what IOS writes there when it answers
+const std::uint32_t kBlockA = 0x80401000u;
+const std::uint32_t kBlockB = 0x80401040u;
+
+rtleave Fresh() {
     rtleave l{};
     l.hold = 100;
     l.quiet = 50;
-    EXPECT_EQ(rtleave_pending(&l, 5000, kWrite), 0);  // nothing pending yet
+    return l;
+}
+
+// Each slot's command word as the game would read it: `a` for kBlockA's
+// slot, `b` for kBlockB's, a reply for anything else.
+int Check(rtleave& l, std::uint32_t now, std::uint32_t a, std::uint32_t b = kReply) {
+    std::uint32_t words[RTLEAVE_PENDING_SLOTS + 1];
+    for (std::uint32_t i = 0; i <= RTLEAVE_PENDING_SLOTS; ++i) {
+        const std::uint32_t entry = i < RTLEAVE_PENDING_SLOTS ? l.pending[i] : l.newest;
+        const std::uint32_t block = RTLEAVE_PENDING_BLOCK(entry);
+        words[i] = block == kBlockA ? a : block == kBlockB ? b : kReply;
+    }
+    return rtleave_pending(&l, now, words);
+}
+}  // namespace
+
+void TestPendingSave() {
+    // One request: long after its submit, no reply: still with IOS.
+    rtleave l = Fresh();
+    EXPECT_EQ(Check(l, 5000, kWrite), 0);  // nothing pending yet
     rtleave_note_save(&l, 5000);
-    rtleave_note_pending(&l, 5000, kBlock, kWrite);
-    EXPECT_EQ(l.pending, kBlock);
-    // Long after the submit, the reply not in: still with IOS, not quiet.
-    EXPECT_EQ(rtleave_pending(&l, 5300, kWrite), 1);
+    rtleave_note_pending(&l, 5000, kBlockA, kWrite);
+    EXPECT_EQ(Check(l, 5300, kWrite), 1);
     EXPECT_FALSE(rtleave_quiet(&l, 5300, 0, 0));
     EXPECT_FALSE(rtleave_due(&l, 1, 5300, 0, 0));
     EXPECT_FALSE(rtleave_due(&l, 1, 5420, 0, 0));  // held long enough, still not
     // The reply: over, and the quiet window counts from here.
-    EXPECT_EQ(rtleave_pending(&l, 5430, kReply), 0);
-    EXPECT_EQ(l.pending, 0u);
+    EXPECT_EQ(Check(l, 5430, kReply), 0);
+    EXPECT_EQ(l.pending[0], 0u);
     EXPECT_FALSE(rtleave_quiet(&l, 5440, 0, 0));
     EXPECT_TRUE(rtleave_quiet(&l, 5481, 0, 0));
     EXPECT_TRUE(rtleave_due(&l, 1, 5481, 0, 0));
 
+    // Two in flight at once: the second's reply doesn't end the first.
+    rtleave t = Fresh();
+    rtleave_note_pending(&t, 6000, kBlockA, kWrite);
+    rtleave_note_pending(&t, 6010, kBlockB, kWrite);
+    EXPECT_EQ(Check(t, 6100, kWrite, kReply), 1);  // B answered, A not
+    EXPECT_FALSE(rtleave_quiet(&t, 6200, 0, 0));
+    EXPECT_FALSE(rtleave_quiet(&t, 6300, 0, 0));  // a quiet window after B's reply: A still holds it
+    EXPECT_EQ(Check(t, 6310, kReply), 0);          // A answered too
+    EXPECT_FALSE(rtleave_quiet(&t, 6320, 0, 0));
+    EXPECT_TRUE(rtleave_quiet(&t, 6361, 0, 0));
+
     // A reused block (another command in the word) ends it the same way.
-    rtleave r{};
-    r.hold = 100;
-    r.quiet = 50;
-    rtleave_note_pending(&r, 6000, kBlock, kWrite);
-    EXPECT_EQ(rtleave_pending(&r, 6010, 1u), 0);
-    EXPECT_EQ(r.pending, 0u);
+    rtleave r = Fresh();
+    rtleave_note_pending(&r, 6000, kBlockA, kWrite);
+    EXPECT_EQ(Check(r, 6010, 1u), 0);
+    EXPECT_EQ(r.pending[0], 0u);
 
     // A word that never changes: counted as with IOS for the cap, then not.
-    rtleave c{};
-    c.hold = 100;
-    c.quiet = 50;
-    rtleave_note_pending(&c, 7000, kBlock, kWrite);
+    rtleave c = Fresh();
+    rtleave_note_pending(&c, 7000, kBlockA, kWrite);
     const std::uint32_t cap = 7000 + RTLEAVE_PENDING_QUIETS * 50;
-    EXPECT_EQ(rtleave_pending(&c, cap - 1, kWrite), 1);
-    EXPECT_EQ(rtleave_pending(&c, cap, kWrite), 0);
-    EXPECT_EQ(c.pending, 0u);
+    EXPECT_EQ(Check(c, cap - 1, kWrite), 1);
+    EXPECT_EQ(Check(c, cap, kWrite), 0);
+    EXPECT_EQ(c.pending[0], 0u);
     EXPECT_FALSE(rtleave_quiet(&c, cap + 10, 0, 0));  // then a quiet window, as after a reply
     EXPECT_TRUE(rtleave_quiet(&c, cap + 51, 0, 0));
 
+    // More requests than slots (Brawl's first save keeps dozens in flight):
+    // the overflow holds until the newest request has its reply, since the
+    // file system answers in order, so every earlier one is done too.
+    rtleave o = Fresh();
+    for (std::uint32_t i = 0; i < RTLEAVE_PENDING_SLOTS; ++i) rtleave_note_pending(&o, 8000, kBlockB + 0x40u * (i + 1), kWrite);
+    EXPECT_EQ(o.overflow, 0u);
+    rtleave_note_pending(&o, 8000, kBlockA, kWrite);  // no free slot: the newest, untracked
+    EXPECT_TRUE(o.overflow != 0u);
+    EXPECT_EQ(o.newest, kBlockA | kWrite);
+    EXPECT_EQ(Check(o, 8100, kWrite), 1);  // every slot answered, the newest not: still waiting
+    EXPECT_FALSE(rtleave_quiet(&o, 8100, 0, 0));
+    EXPECT_EQ(Check(o, 8150, kReply), 0);  // the newest answered: the overflow is over
+    EXPECT_EQ(o.overflow, 0u);
+    EXPECT_FALSE(rtleave_quiet(&o, 8160, 0, 0));
+    EXPECT_TRUE(rtleave_quiet(&o, 8201, 0, 0));
+    // Its newest never answering: the cap ends it.
+    rtleave n = Fresh();
+    for (std::uint32_t i = 0; i < RTLEAVE_PENDING_SLOTS; ++i) rtleave_note_pending(&n, 8000, kBlockB + 0x40u * (i + 1), kWrite);
+    rtleave_note_pending(&n, 8000, kBlockA, kWrite);
+    const std::uint32_t ocap = 8000 + RTLEAVE_PENDING_QUIETS * 50;
+    EXPECT_EQ(Check(n, ocap - 1, kWrite), 1);
+    EXPECT_EQ(Check(n, ocap, kWrite), 0);
+    EXPECT_TRUE(rtleave_quiet(&n, ocap + 51, 0, 0));
+    // One that can't be read back (not 32-byte aligned, a command above 7,
+    // or no address): counted as overflow, and as a newest that never reads
+    // as answered, so only a later one's reply or the cap ends it.
+    rtleave u = Fresh();
+    rtleave_note_pending(&u, 9000, kBlockA + 4u, kWrite);
+    EXPECT_TRUE(u.overflow != 0u && u.pending[0] == 0u && u.newest == 1u);
+    EXPECT_EQ(Check(u, 9100, kReply), 1);
+    rtleave_note_pending(&u, 9200, kBlockA, kWrite);  // a later, readable one
+    EXPECT_EQ(Check(u, 9300, kReply), 0);             // its reply ends both
+    rtleave v = Fresh();
+    rtleave_note_pending(&v, 9000, kBlockA, 9u);
+    EXPECT_TRUE(v.overflow != 0u && v.pending[0] == 0u);
+    EXPECT_EQ(Check(v, 9100, kReply), 1);
+    rtleave z = Fresh();
+    rtleave_note_pending(&z, 9000, 0, kWrite);
+    EXPECT_TRUE(z.overflow != 0u);
+    EXPECT_EQ(Check(z, 9000 + RTLEAVE_PENDING_QUIETS * 50, kReply), 0);  // the cap
+
     // Across the time base's low word wrapping.
-    rtleave w{};
-    w.hold = 100;
-    w.quiet = 50;
-    rtleave_note_pending(&w, 0xFFFFFFF0u, kBlock, kWrite);
-    EXPECT_EQ(rtleave_pending(&w, 0x00000100u, kWrite), 1);
-    EXPECT_EQ(rtleave_pending(&w, 0x00000110u, kReply), 0);
+    rtleave w = Fresh();
+    rtleave_note_pending(&w, 0xFFFFFFF0u, kBlockA, kWrite);
+    EXPECT_EQ(Check(w, 0x00000100u, kWrite), 1);
+    EXPECT_EQ(Check(w, 0x00000110u, kReply), 0);
 
     // The reply seen at the very tick of the quiet check, an even one: its
     // stamp (low bit set: one tick ahead) must not read as long ago. In
     // Dolphin this left Brawl mid-save 78 ms after a write.
-    rtleave s{};
-    s.hold = 100;
-    s.quiet = 50;
-    rtleave_note_pending(&s, 8000, kBlock, kWrite);
-    EXPECT_EQ(rtleave_pending(&s, 8200, kReply), 0);
+    rtleave s = Fresh();
+    rtleave_note_pending(&s, 8000, kBlockA, kWrite);
+    EXPECT_EQ(Check(s, 8200, kReply), 0);
     EXPECT_FALSE(rtleave_quiet(&s, 8200, 0, 0));
     EXPECT_FALSE(rtleave_due(&s, 1, 8200, 0, 0));
     // A save noted at the same even tick as the check, the same.
-    rtleave q{};
-    q.hold = 100;
-    q.quiet = 50;
+    rtleave q = Fresh();
     rtleave_note_save(&q, 9000);
     EXPECT_FALSE(rtleave_quiet(&q, 9000, 0, 0));
     // And a hold that began at this same even tick has not lasted yet.
-    rtleave h{};
-    h.hold = 100;
-    h.quiet = 50;
+    rtleave h = Fresh();
     EXPECT_FALSE(rtleave_due(&h, 1, 9100, 0, 0));
     EXPECT_FALSE(rtleave_due(&h, 1, 9100, 0, 0));
 }
