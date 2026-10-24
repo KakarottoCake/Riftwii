@@ -71,7 +71,8 @@ const char* const kCredits[] = {
     "WiiLink WFC, wfc-patcher-wii (GPL-2.0-or-later): WiiLink online play. Online communications credit "
     "to WiiLink WFC, wfc.wiilink.ca.",
     "",
-    "d2x cIOS: the USB and SD game loading interface.",
+    "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
+    "for its emulated NAND.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
     "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",

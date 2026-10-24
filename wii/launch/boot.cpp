@@ -3436,6 +3436,13 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             note_attempt("IOS" + std::to_string(ios) + " could not start (" + why + ")");
             continue;
         }
+        // Only when the card came back: boot.log is on it.
+        if (card) {
+            logf("Wii channels: IOS%d rev %d runs now (%s); the SD card and boot.log are back%s\n", IOS_GetVersion(),
+                 IOS_GetRevision(),
+                 reload == ReloadResult::AlreadyRunning ? "it was running already" : "reloaded for this try",
+                 files.emu_nand.empty() ? "" : ", next d2x's NAND emulation");
+        }
         // A channel of an emulated NAND runs in it: d2x serves the game's
         // NAND paths from the folder, its saves among them.
         if (!files.emu_nand.empty()) {

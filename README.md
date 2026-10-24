@@ -122,7 +122,8 @@ contains theirs names them in its file header, and
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
   **oggplayer** by Hermes: the menu's toolkit, text and music player.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
-- **d2x cIOS**: the USB and SD game loading interface.
+- **d2x cIOS**: the USB and SD game loading interface, and how its FAT
+  module mounts and lets go of the SD card for its emulated NAND.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;
   libogc also documents the physical GameCube card read protocol, SRAM behavior
