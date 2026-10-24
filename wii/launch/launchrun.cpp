@@ -162,6 +162,9 @@ bool Session::ensure_probe(std::string& error) {
             return false;
         }
     } else {
+        // Cover status cannot identify a swap that happened between menu
+        // polls. Keep the launch's full probe independent of the page cache.
+        di::disc_cache().begin_launch();
         if (usb_packs && MenuCiosSlot() == 0) {
             if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
             on_cios = true;
