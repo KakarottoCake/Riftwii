@@ -31,6 +31,13 @@ s32 IOS_Ioctl(s32 descriptor, s32 command, void*, u32, void* output, u32) {
     return reply;
 }
 s32 IOS_Ioctlv(s32, s32, u32, u32, ioctlv*) { return reply; }
+// di.cpp's stop-motor path (asynchronous requests and its log line) is not
+// used here; these keep the test linking now that di.cpp has it.
+s32 IOS_OpenAsync(const char*, u32, ipccallback, void*) { return -1; }
+s32 IOS_IoctlAsync(s32, s32, void*, u32, void*, u32, ipccallback, void*) { return -1; }
+namespace riftwii::wii {
+void logf(const char*, ...) {}
+}  // namespace riftwii::wii
 
 int main() {
     namespace di = riftwii::di;

@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "di.hpp"
+#include "log.hpp"
 
 #include <gccore.h>
 #include <ogc/cache.h>
 #include <ogc/ipc.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstring>
@@ -21,6 +23,7 @@ constexpr std::uint32_t kOpenPartition = 0x8B;
 constexpr std::uint32_t kClosePartition = 0x8C;
 constexpr std::uint32_t kReadUnencrypted = 0x8D;
 constexpr std::uint32_t kReadBca = 0xDA;
+constexpr std::uint32_t kStopMotor = 0xE3;
 constexpr std::uint32_t kResetDisable = 0xF6;
 constexpr std::uint32_t kFragSet = 0xF9;
 constexpr std::uint32_t kModeGet = 0xFA;
@@ -28,6 +31,10 @@ constexpr std::uint32_t kModeGet = 0xFA;
 char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/di";
 std::uint32_t g_in[8] ATTRIBUTE_ALIGN(32);
 std::uint32_t g_out[8] ATTRIBUTE_ALIGN(32);
+// stop_motor's own request buffers: the menu watchdog may call it while
+// another thread is inside a DI call that uses g_in and g_out.
+std::uint32_t g_stop_in[8] ATTRIBUTE_ALIGN(32);
+std::uint32_t g_stop_out[8] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bca[64] ATTRIBUTE_ALIGN(32);
 ioctlv g_vectors[5] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
@@ -36,6 +43,37 @@ int g_last_reply = 0;
 std::uint32_t g_frag_device = 0;
 std::uint32_t g_reload_block_slot = 0;
 DiscCache g_disc_cache;
+
+// The answer of the request stop_motor is waiting for. stop_motor runs once
+// to completion: after a timeout g_stop_running stays set and every later
+// call fails at once, so a request that answers late finds no other waiting
+// (and IOS may still be writing into g_stop_out, which nothing reuses).
+volatile bool g_async_done = false;
+volatile s32 g_async_result = 0;
+bool g_stop_running = false;
+
+s32 on_async_reply(s32 result, void*) {
+    g_async_result = result;
+    g_async_done = true;
+    return 0;
+}
+
+// Waits for the answer of a request just submitted (`submitted` is what the
+// submit returned), spending from `budget_ms`, which one stop_motor shares
+// between its requests. False on a timeout.
+bool wait_async(s32 submitted, unsigned& budget_ms, s32& result) {
+    if (submitted < 0) {
+        result = submitted;
+        return true;
+    }
+    while (budget_ms > 0 && !g_async_done) {
+        usleep(1000);
+        --budget_ms;
+    }
+    if (!g_async_done) return false;
+    result = g_async_result;
+    return true;
+}
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
 
@@ -122,6 +160,59 @@ void close() {
     g_disc_cache.invalidate();
     if (g_fd >= 0) IOS_Close(g_fd);
     g_fd = -1;
+}
+
+bool stop_motor(unsigned timeout_ms, std::string& error) {
+    if (g_stop_running) {
+        error = "another stop of the drive is already waiting";
+        return false;
+    }
+    g_stop_running = true;
+    unsigned budget_ms = timeout_ms;  // for both requests together
+    s32 fd = g_fd;
+    s32 result = 0;
+    if (fd < 0) {
+        g_async_done = false;
+        if (!wait_async(IOS_OpenAsync(g_path, 0, on_async_reply, nullptr), budget_ms, result)) {
+            error = "/dev/di did not answer the open within " + std::to_string(timeout_ms) + " ms";
+            return false;  // g_stop_running stays set: nothing reuses the buffers of a request still with IOS
+        }
+        if (result < 0) {
+            error = "cannot open /dev/di: IOS error " + std::to_string(result);
+            g_stop_running = false;
+            return false;
+        }
+        fd = result;
+    }
+    std::memset(g_stop_in, 0, sizeof(g_stop_in));  // eject and kill stay off
+    g_stop_in[0] = kStopMotor << 24;
+    std::memset(g_stop_out, 0, sizeof(g_stop_out));
+    g_async_done = false;
+    const s32 submitted = IOS_IoctlAsync(fd, static_cast<s32>(kStopMotor), g_stop_in, sizeof(g_stop_in),
+                                         g_stop_out, sizeof(g_stop_out), on_async_reply, nullptr);
+    // The handle stays open afterwards: the console is going down, and
+    // closing it could wait on a drive that is still busy.
+    if (!wait_async(submitted, budget_ms, result)) {
+        error = "the drive did not answer the stop within " + std::to_string(timeout_ms) + " ms";
+        return false;
+    }
+    g_stop_running = false;
+    if (result != kReplySuccess) {
+        error = describe("stop motor", result);
+        return false;
+    }
+    error.clear();
+    return true;
+}
+
+void stop_motor_for_power_off() {
+    std::string error;
+    if (stop_motor(kStopMotorTimeoutMs, error)) {
+        riftwii::wii::logf("Power off: the disc drive's motor is stopped, so a disc does not keep spinning in standby\n");
+    } else {
+        riftwii::wii::logf("Power off: the disc drive's motor was not stopped (%s); powering off anyway\n",
+                           error.c_str());
+    }
 }
 
 DiscCache& disc_cache() { return g_disc_cache; }
