@@ -17,10 +17,11 @@ namespace riftwii::wii {
 // every later IOS reload (the menu's own) would land in the cIOS instead.
 void ClearIosReloadBlock(std::string& error);
 
-// After a launch that turned d2x's NAND emulation on came back failed:
-// d2x's FAT module lets go of the SD card and libfat and boot.log have it
-// again (release_d2x_saves), so the failure reaches boot.log and the menu
-// gets its card. Nothing when the emulation was not on.
+// After a launch that left the SD card to d2x's FAT module (the emulation
+// on, or a module that would not let go) came back failed: the module lets
+// go and libfat and boot.log have the card again (release_d2x_saves), so
+// the failure reaches boot.log and the menu gets its card. Nothing when
+// the card is not held.
 void TakeCardBackFromD2x();
 
 // A compile's warnings and notes for the log.
@@ -56,7 +57,7 @@ struct Session {
     // every USB/SD game) would send the menu's later IOS reloads, and the
     // next game's, into this cIOS.
     ~Session() {
-        if (d2x_saves) TakeCardBackFromD2x();
+        TakeCardBackFromD2x();  // nothing unless d2x's FAT module still holds the card
         if (keep_reload_block) return;
         std::string ignored;
         ClearIosReloadBlock(ignored);

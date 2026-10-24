@@ -163,13 +163,24 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     // With d2x's own SD device carrying the game, the module is never told
     // to let go: that stops the card under the device too.
     const bool may_release = !d2x_driver;
-    const bool retried = first_mount < 0 && may_release;
-    if (retried) {
+    // A failed 0xF1 anywhere here means the module may still have the
+    // card: RiftWii then treats it as d2x's (held, libfat off) until a
+    // release_d2x_saves that works or an IOS reload.
+    bool module_kept_card = false;
+    bool retried = false;
+    if (first_mount < 0 && may_release) {
         // Once more from the beginning: the unmount stops the module's own
-        // driver too, so the second mount starts the card afresh.
+        // driver too, so the second mount starts the card afresh. Not when
+        // the module would not let go: a second mount over a card it still
+        // holds starts nothing afresh.
         unmount_before_retry = IOS_Ioctlv(fat, kFatUnmountSd, 0, 0, nullptr);
-        usleep(kRemountPauseUs);
-        mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
+        if (unmount_before_retry < 0) {
+            module_kept_card = true;
+        } else {
+            retried = true;
+            usleep(kRemountPauseUs);
+            mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
+        }
     }
     // Only with the card mounted in d2x: emulation turned on over a card
     // d2x could not mount left ES unable to open the game (a tester's
@@ -178,7 +189,7 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     // code keeps the save instead.
     s32 set = -1;
     s32 fs = -1;
-    if (mounted >= 0) {
+    if (mounted >= 0 && !module_kept_card) {
         std::snprintf(g_path, sizeof(g_path), "%s", card_path);
         set = set_mode(wanted_mode, fs);
     }
@@ -187,15 +198,16 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     // own save code is the only one writing to it while the game runs.
     // With d2x's own SD device (no release), a module that mounted but
     // serves nothing writes nothing: libfat goes back on that device.
-    const bool release = !emulating && may_release;
+    const bool release = !emulating && may_release && !module_kept_card;
     const s32 released = release ? IOS_Ioctlv(fat, kFatUnmountSd, 0, 0, nullptr) : 0;
+    if (released < 0) module_kept_card = true;
     IOS_Close(fat);
 
     // With the emulation on, the card is d2x's alone until the next IOS
     // reload: no libfat, no boot.log, no raw reads, no runtime on it. Its
     // lines below wait in memory (and show on screen).
     bool remounted = false;
-    if (emulating) {
+    if (emulating || module_kept_card) {
         g_d2x_driver_at_hold = d2x_driver;
         hold_sd_for_d2x_fat(true);
     } else {
@@ -213,6 +225,10 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
         logf("Saves: libogc's SD driver was shut down (/dev/sdio/slot0 closed), so d2x's FAT module had the card to "
              "itself\n");
     }
+    if (unmount_before_retry < 0) {
+        logf("Saves: d2x's FAT module %s, and it did not let go of the card when told to (%d), so it was not asked "
+             "again\n", mount_answer(first_mount).c_str(), unmount_before_retry);
+    }
     if (retried) {
         logf("Saves: d2x's FAT module %s; it was told to let go of the card (%d) and tried once more after %u ms\n",
              mount_answer(first_mount).c_str(), unmount_before_retry,
@@ -227,11 +243,16 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     } else {
         logf("Saves: the NAND emulation was not asked for, as d2x had not mounted the SD card\n");
     }
-    if (release) {
+    if (release && released < 0) {
+        logf("Saves: d2x's FAT module did not let go of the SD card again (%d)\n", released);
+    } else if (release) {
         logf("Saves: d2x's FAT module was told to let go of the SD card again (%d), so RiftWii's own save code has "
              "it alone\n", released);
     }
-    if (emulating) {
+    if (module_kept_card) {
+        logf("Saves: d2x's FAT module may still have the SD card, so RiftWii stays off it (no libfat, no boot.log) "
+             "until the module lets go or IOS is reloaded\n");
+    } else if (emulating) {
         logf("Saves: the SD card is d2x's now: RiftWii does not mount it again or write to it until the next IOS "
              "reload, and boot.log ends here (the rest is on screen)\n");
     } else if (remounted) {
@@ -244,6 +265,13 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d, mode 0x%x\n", dir.c_str(), fat, mounted,
          set, static_cast<unsigned>(wanted_mode));
 
+    if (module_kept_card) {
+        const s32 answer = unmount_before_retry < 0 ? unmount_before_retry : released;
+        error = "d2x could not " + std::string(mounted < 0 ? "mount the SD card (" + std::to_string(mounted) + ")"
+                                                         : "turn the NAND emulation on (" + std::to_string(set) + ")") +
+                ", and its FAT module did not let go of the card (" + std::to_string(answer) + ")";
+        return false;
+    }
     if (mounted < 0) {
         error = "d2x could not mount the SD card (" + std::to_string(mounted) + ")";
         return false;
@@ -270,7 +298,7 @@ bool release_d2x_saves() {
     const s32 fat = IOS_Open("fat", 0);
     const s32 released = fat >= 0 ? IOS_Ioctlv(fat, kFatUnmountSd, 0, 0, nullptr) : fat;
     if (fat >= 0) IOS_Close(fat);
-    logf("Saves: d2x's NAND emulation earlier in this launch: %s\n", g_summary);
+    logf("Saves: the d2x hand-off earlier in this launch: %s\n", g_summary);
     if (released < 0) {
         logf("Saves: d2x's FAT module did not let go of the SD card (%d; emulation off: %d), so RiftWii stays off the "
              "card until it restarts (the restart reloads IOS, which ends the module)\n", released, off);

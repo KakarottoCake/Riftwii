@@ -124,8 +124,11 @@ bool Session::ensure_probe(std::string& error) {
             else if (sd_after_probe)
                 why = "RiftWii reads the SD card while the game loads and runs (packs or a code build on it), and "
                       "d2x's FAT module must have the card to itself";
-            else if (source.game.device == ImageDevice::Sd && source.game.format == UsbImageFormat::Rvz)
-                why = "an RVZ game on the SD card";
+            // An RVZ on any drive: its group table and stub are files on the
+            // SD card (sd:/riftwii/rvz), read and written at the launch, and
+            // the runtime holds the card for the game's reads.
+            else if (source.game.format == UsbImageFormat::Rvz)
+                why = "an RVZ game (RiftWii keeps its group table on the SD card and reads the card as it runs)";
             else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone,
                                                     own_saves_clone_empty, why);
             if (!d2x_ready) logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
@@ -171,8 +174,16 @@ bool Session::ensure_probe(std::string& error) {
             if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
                      "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
-            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why)))
+            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why))) {
+                // d2x's FAT module would not let go of the card: RiftWii's
+                // own save code could not reach it, so the launch stops
+                // here (the session gives the card back if it can).
+                if (sd_held_by_d2x_fat()) {
+                    error = "Saves: " + why;
+                    return false;
+                }
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
+            }
         }
         open_usb_for_packs();
         logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");

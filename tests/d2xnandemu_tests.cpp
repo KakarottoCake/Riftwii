@@ -58,7 +58,8 @@ struct Console {
     unsigned d2x_device_starts_asked = 0;
     unsigned d2x_forgets = 0;
     bool held = false;                // hold_sd_for_d2x_fat
-    s32 unmount_answer = 0;
+    s32 unmount_answer = 0;           // every 0xF1 once unmount_answers is used up
+    std::deque<s32> unmount_answers;
     u32 set_mode = 0;
     unsigned d2x_shutdowns = 0;
     bool slot_open_at_first_mount = true;
@@ -412,7 +413,7 @@ void test_release_after_the_emulation() {
     CHECK(console.d2x_forgets == 0);  // libogc's driver was the card's: no d2x device to let go
     CHECK(logged("turned off (0) and its FAT module let go of the SD card (0)"));
     // The hand-off's summary again, for a failure's boot.log.
-    CHECK(logged("d2x's NAND emulation earlier in this launch: sd:/nands/01 on IOS251: the card has FAT32"));
+    CHECK(logged("the d2x hand-off earlier in this launch: sd:/nands/01 on IOS251: the card has FAT32"));
     CHECK(logged("mount 0 (first 0), set 0, mode 0x101"));
     // Nothing to do a second time.
     CHECK(riftwii::wii::release_d2x_saves());
@@ -431,6 +432,45 @@ void test_release_refused_keeps_the_hold() {
     CHECK(console.held);
     CHECK(logged("did not let go of the SD card (-1; emulation off: 0), so RiftWii stays off the card until it "
                  "restarts"));
+}
+
+// The 0xF1 before the second try fails: no second mount over a card the
+// module may still hold, the card is treated as d2x's (held, libfat off)
+// until a release works.
+void test_failed_unmount_before_the_retry_holds_the_card() {
+    start_over();
+    put_fat32_card();
+    console.mount_answers = {-101};
+    console.unmount_answers = {-1};
+    std::string error;
+    bool card_back = true;
+    CHECK(!riftwii::wii::enable_d2x_saves("sd:/nands/01", error, riftwii::wii::D2xNandScope::GamePaths, &card_back));
+    CHECK(error == "d2x could not mount the SD card (-101), and its FAT module did not let go of the card (-1)");
+    CHECK(count_of("fat 0xF0") == 1 && count_of("fat 0xF1") == 1 && count_of("fs set") == 0);
+    CHECK(console.held && !card_back);
+    CHECK(count_of("fat mount") == 0 && !console.libfat_mounted && !console.log_open);
+    CHECK(logged("did not let go of the card when told to (-1), so it was not asked again"));
+    CHECK(logged("may still have the SD card, so RiftWii stays off it"));
+    // A later release that works gives the card back.
+    CHECK(riftwii::wii::release_d2x_saves());
+    CHECK(!console.held);
+}
+
+// The emulation is refused and the module will not let go afterwards:
+// held, libfat off, and a release that fails again keeps it so.
+void test_failed_final_unmount_holds_the_card() {
+    start_over();
+    put_fat32_card();
+    console.set_answer = -1;
+    console.unmount_answer = -1;
+    std::string error;
+    CHECK(!riftwii::wii::enable_d2x_saves("sd:/nands/01", error));
+    CHECK(error == "d2x could not turn the NAND emulation on (-1), and its FAT module did not let go of the card (-1)");
+    CHECK(console.held && count_of("fat mount") == 0 && !console.libfat_mounted);
+    CHECK(logged("did not let go of the SD card again (-1)"));
+    CHECK(!riftwii::wii::release_d2x_saves());
+    CHECK(console.held && count_of("fat mount") == 0);
+    CHECK(logged("so RiftWii stays off the card until it restarts"));
 }
 
 // Which launches keep d2x's emulation off because RiftWii needs the card.
@@ -573,7 +613,10 @@ s32 IOS_Ioctlv(s32 fd, s32 command, u32 in, u32, ioctlv* vectors) {
     }
     if (fd == kFatFd && command == kUnmountSd) {
         console.events.push_back("fat 0xF1");
-        return console.unmount_answer;
+        if (console.unmount_answers.empty()) return console.unmount_answer;
+        const s32 answer = console.unmount_answers.front();
+        console.unmount_answers.pop_front();
+        return answer;
     }
     if (fd == kFsFd && command == kSetMode) {
         CHECK(in == 2);
@@ -602,6 +645,8 @@ int main() {
     test_release_after_the_emulation();
     test_release_refused_keeps_the_hold();
     test_what_needs_the_card();
+    test_failed_unmount_before_the_retry_holds_the_card();
+    test_failed_final_unmount_holds_the_card();
     test_not_a_folder_of_the_card();
     test_path_over_255_is_refused();
     if (failures == 0) std::cout << "the SD card is released before d2x's FAT module mounts it, and stays d2x's while the emulation is on\n";

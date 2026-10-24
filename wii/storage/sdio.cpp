@@ -241,7 +241,7 @@ bool initialize_card(Card& card, std::string& error) {
 bool open_card(Card& card, std::string& error) {
     card = Card{};
     if (sd_held_by_d2x_fat()) {
-        error = "d2x's NAND emulation has the SD card, and RiftWii stays off it while d2x does";
+        error = "d2x's FAT module has the SD card, and RiftWii stays off it while it does";
         return false;
     }
     if (using_d2x_sd()) {
