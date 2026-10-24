@@ -2077,7 +2077,7 @@ msgid "Home order"
 msgstr "Ordre de l'accueil"
 
 msgid "Home starts on"
-msgstr "L'accueil s'ouvre sur"
+msgstr "Accueil s'ouvre sur"
 
 msgid "First page"
 msgstr "Première page"
@@ -2085,8 +2085,8 @@ msgstr "Première page"
 msgid "Last game"
 msgstr "Dernier jeu"
 
-msgid "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives."
-msgstr "Où s'ouvre l'accueil : sur le dernier jeu lancé ou sur sa première page. Dernier jeu ne déplace jamais une page que vous regardez déjà pendant que RiftWii lit encore les disques."
+msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1."
+msgstr "Dernier jeu : l'accueil s'ouvre sur le dernier jeu lancé dès que son disque a été lu, sauf si vous avez déjà bougé. Première page : l'accueil s'ouvre sur la page 1."
 
 msgid "Its values"
 msgstr "Ses valeurs"

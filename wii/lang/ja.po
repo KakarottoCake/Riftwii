@@ -2083,10 +2083,10 @@ msgid "First page"
 msgstr "最初のページ"
 
 msgid "Last game"
-msgstr "最後に遊んだゲーム"
+msgstr "最後のゲーム"
 
-msgid "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives."
-msgstr "ホームを開いたときの表示です。最後に遊んだゲーム、または最初のページから始めます。「最後に遊んだゲーム」は、RiftWiiがドライブを読み込み中でも、すでに見ているページを動かしません。"
+msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1."
+msgstr "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームで開きます。すでに操作した場合は動きません。最初のページ: ホームは1ページ目で開きます。"
 
 msgid "Its values"
 msgstr "値"

@@ -1539,50 +1539,6 @@ void TestCoverArt() {
     s.parse("home_source = wii\n");
     EXPECT_EQ(s.home_source, "wii");
     s.home_source = "all";
-    // Home starts on: the last game by default; unknown values keep what was set.
-    EXPECT_EQ(s.home_start, "last");
-    s.parse("home_start = first\n");
-    EXPECT_EQ(s.home_start, "first");
-    EXPECT_TRUE(s.serialize().find("home_start = first\n") != std::string::npos);
-    s.parse("home_start = middle\n");
-    EXPECT_EQ(s.home_start, "first");
-    LoaderSettings reloaded;
-    reloaded.parse(s.serialize());
-    EXPECT_EQ(reloaded.home_start, "first");
-    s.home_start = "last";
-    // The start-up focus: the last game only while the grid is not yet looked at.
-    const std::string last = "last", first = "first";
-    EXPECT_TRUE(home_start_action(last, false, false, true) == HomeStartAction::LastGame);
-    EXPECT_TRUE(home_start_action(last, false, false, false) == HomeStartAction::FirstTile);
-    // Seen: the page stays, whether the last game is listed yet or not.
-    EXPECT_TRUE(home_start_action(last, false, true, true) == HomeStartAction::KeepPage);
-    EXPECT_TRUE(home_start_action(last, false, true, false) == HomeStartAction::KeepPage);
-    // First page: always the first tile, even when the last game is listed.
-    EXPECT_TRUE(home_start_action(first, false, false, true) == HomeStartAction::FirstTile);
-    EXPECT_TRUE(home_start_action(first, false, true, true) == HomeStartAction::FirstTile);
-    // The player moved: their tile is kept, either way.
-    EXPECT_TRUE(home_start_action(last, true, false, true) == HomeStartAction::KeepTile);
-    EXPECT_TRUE(home_start_action(last, true, true, true) == HomeStartAction::KeepTile);
-    EXPECT_TRUE(home_start_action(first, true, true, true) == HomeStartAction::KeepTile);
-    // Moved and back is moved; the menu's own focus changes are not.
-    FocusWatch watch;
-    watch.expect(0, 0);
-    watch.observe(0, 0);
-    EXPECT_TRUE(!watch.moved());
-    watch.expect(5, 0);  // the menu moved the focus itself
-    watch.observe(5, 0);
-    EXPECT_TRUE(!watch.moved());
-    watch.observe(6, 0);  // the player
-    EXPECT_TRUE(watch.moved());
-    watch.observe(5, 0);  // and back
-    EXPECT_TRUE(watch.moved());
-    watch.expect(5, 0);
-    EXPECT_TRUE(watch.moved());
-    FocusWatch pageTurn;
-    pageTurn.expect(3, 0);
-    pageTurn.observe(3, 1);  // a page turn with the same index
-    EXPECT_TRUE(pageTurn.moved());
-    EXPECT_EQ(settings_after_reset(reloaded).home_start, "last");
     EXPECT_EQ(s.gc_rumble, "on");
     s.parse("gc_rumble = off\n");
     EXPECT_EQ(s.gc_rumble, "off");
@@ -2179,6 +2135,176 @@ void TestHistory() {
 
 }  // namespace
 
+// Settings > Home starts on, and where Home puts the focus while the drives
+// are read (include/riftwii/settingsfile.hpp).
+static HomeStartPart start_part(const std::string& start_on, const std::vector<std::string>& games, bool disc_tile,
+                                const std::string& last_key) {
+    HomeStartPart part;
+    part.start_on = start_on;
+    part.last_game_key = last_key;
+    if (disc_tile) {
+        part.identities.push_back("disc");
+        part.keys.push_back("");
+    }
+    for (const std::string& g : games) {
+        part.identities.push_back("sd:" + g);
+        part.keys.push_back(g);
+    }
+    return part;
+}
+
+void TestHomeStart() {
+    // The setting: Last game by default, an unknown value keeps what was set.
+    LoaderSettings s;
+    EXPECT_EQ(s.home_start, "last");
+    s.parse("home_start = first\n");
+    EXPECT_EQ(s.home_start, "first");
+    EXPECT_TRUE(s.serialize().find("home_start = first\n") != std::string::npos);
+    s.parse("home_start = middle\n");
+    EXPECT_EQ(s.home_start, "first");
+    LoaderSettings reloaded;
+    reloaded.parse(s.serialize());
+    EXPECT_EQ(reloaded.home_start, "first");
+    EXPECT_EQ(settings_after_reset(reloaded).home_start, "last");
+
+    // The action.
+    EXPECT_TRUE(home_start_action("last", false, true) == HomeStartAction::LastGame);
+    EXPECT_TRUE(home_start_action("last", false, false) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action("first", false, true) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action("last", true, true) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action("first", true, false) == HomeStartAction::KeepTile);
+
+    // Last game, the SD card's part lacks it and the USB drive's part (however
+    // late) has it: Home stays on tile 0 until then, and goes there.
+    std::vector<std::string> sd = {"AAAA01", "CCCC01", "EEEE01"};
+    bool decided = false;
+    HomeStartPart part = start_part("last", sd, true, "DDDD01");
+    part.focused_identity = "disc";
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(!decided);
+    std::vector<std::string> both = {"AAAA01", "CCCC01", "DDDD01", "EEEE01"};
+    part = start_part("last", both, true, "DDDD01");
+    part.focused_identity = "disc";
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 3);  // the Disc drive tile, then A C D
+    EXPECT_TRUE(decided);
+
+    // The last game in the first part, a later part sorts games in before it:
+    // it is focused again, still undecided.
+    decided = false;
+    part = start_part("last", {"CCCC01", "DDDD01"}, false, "DDDD01");
+    EXPECT_EQ(home_start_focus(part, decided), 1);
+    EXPECT_TRUE(!decided);
+    part = start_part("last", {"AAAA01", "BBBB01", "CCCC01", "DDDD01"}, false, "DDDD01");
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 3);
+    EXPECT_TRUE(decided);
+
+    // The last game is in no part (removed): tile 0, decided with the last part.
+    decided = false;
+    part = start_part("last", sd, false, "ZZZZ01");
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(decided);
+
+    // No history at all.
+    decided = false;
+    part = start_part("last", sd, true, "");
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+
+    // First page: tile 0 whatever joins in, the last game is not looked for.
+    decided = false;
+    part = start_part("first", both, true, "DDDD01");
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(!decided);
+
+    // A player who moved keeps their tile, wherever the new games put it, and
+    // is never moved again (the Disc tile and the last game do not matter).
+    decided = false;
+    part = start_part("last", both, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:EEEE01";
+    EXPECT_EQ(home_start_focus(part, decided), 4);
+    EXPECT_TRUE(decided);
+    part = start_part("first", both, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:AAAA01";
+    EXPECT_EQ(home_start_focus(part, decided), 1);
+    // Their tile is gone (a search or view changed under it): the same place.
+    part.focused_identity = "sd:GONE01";
+    part.index_before = 9;
+    EXPECT_EQ(home_start_focus(part, decided), 4);  // clamped to the last tile
+
+    // An action of the player's (a view change, a search, Settings) ended it.
+    decided = false;
+    part = start_part("last", both, true, "DDDD01");
+    part.already_decided = true;
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 2);
+    EXPECT_TRUE(decided);
+}
+
+void TestFocusWatch() {
+    // The menu's own focus is not a move.
+    FocusWatch watch;
+    watch.expect(0, 0);
+    watch.observe(0, 0, false, 0, 0);
+    EXPECT_TRUE(!watch.moved());
+    // The D-pad: another tile with no pointer. Away and back stays moved.
+    watch.observe(1, 0, false, 0, 0);
+    EXPECT_TRUE(watch.moved());
+    watch.observe(0, 0, false, 0, 0);
+    EXPECT_TRUE(watch.moved());
+
+    // A page turn with the same tile index.
+    FocusWatch pageTurn;
+    pageTurn.expect(3, 0);
+    pageTurn.observe(3, 1, false, 0, 0);
+    EXPECT_TRUE(pageTurn.moved());
+
+    // The pointer parked on a tile at the start: the grid focuses that tile
+    // by itself, frame after frame, and the menu then sets its own focus.
+    FocusWatch parked;
+    parked.expect(0, 0);
+    parked.observe(5, 0, true, 300, 200);  // first sample: the hover
+    EXPECT_TRUE(!parked.moved());
+    parked.observe(5, 0, true, 304, 198);  // tremor
+    EXPECT_TRUE(!parked.moved());
+    parked.expect(0, 0);  // a part joined: the menu focuses tile 0
+    parked.observe(5, 0, true, 302, 201);  // the hover is back
+    EXPECT_TRUE(!parked.moved());
+
+    // The pointer moved to another tile: the player's.
+    FocusWatch pointed;
+    pointed.expect(0, 0);
+    pointed.observe(5, 0, true, 300, 200);
+    EXPECT_TRUE(!pointed.moved());
+    pointed.observe(6, 0, true, 380, 200);
+    EXPECT_TRUE(pointed.moved());
+
+    // A pointer that moved before the menu set its own focus does not make the
+    // hover that follows a move: only motion since then counts.
+    FocusWatch settled;
+    settled.expect(0, 0);
+    settled.observe(0, 0, true, 100, 100);
+    settled.observe(7, 0, true, 350, 250);  // moved: a move
+    EXPECT_TRUE(settled.moved());
+    FocusWatch later;
+    later.expect(0, 0);
+    later.observe(0, 0, true, 100, 100);
+    later.observe(0, 0, true, 350, 250);  // moved over empty space, same focus
+    EXPECT_TRUE(!later.moved());
+    later.expect(0, 0);
+    later.observe(9, 0, true, 352, 249);  // parked there now: the hover
+    EXPECT_TRUE(!later.moved());
+
+    // The player's other actions.
+    FocusWatch acted;
+    acted.mark_moved();
+    EXPECT_TRUE(acted.moved());
+}
+
 int main() {
     TestPlayLogRecord();
     TestReturnTo();
@@ -2198,6 +2324,8 @@ int main() {
     TestGameLanguage();
     TestWfc();
     TestCoverArt();
+    TestHomeStart();
+    TestFocusWatch();
     TestCoverDownloads();
     TestLang();
     TestHistory();

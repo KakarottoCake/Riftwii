@@ -1753,7 +1753,7 @@ T = {
         "Inicio abre en",
         "ホームの起動時",
         "Início abre em",
-        "La Home si apre su"),
+        "Home si apre su"),
     "First page": (
         "Primera página",
         "最初のページ",
@@ -1761,14 +1761,14 @@ T = {
         "Prima pagina"),
     "Last game": (
         "Último juego",
-        "最後に遊んだゲーム",
+        "最後のゲーム",
         "Último jogo",
         "Ultimo gioco"),
-    "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives.": (
-        "Dónde se abre Inicio: en el último juego que jugaste o en su primera página. Último juego nunca cambia una página que ya estás mirando mientras RiftWii aún lee las unidades.",
-        "ホームを開いたときの表示です。最後に遊んだゲーム、または最初のページから始めます。「最後に遊んだゲーム」は、RiftWiiがドライブを読み込み中でも、すでに見ているページを動かしません。",
-        "Onde o Início abre: no último jogo que você jogou ou na primeira página. Último jogo nunca muda uma página que você já está olhando enquanto o RiftWii ainda lê as unidades.",
-        "Dove si apre la Home: sull'ultimo gioco che hai giocato o sulla prima pagina. Ultimo gioco non sposta mai una pagina che stai già guardando mentre RiftWii legge ancora le unità."),
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.": (
+        "Último juego: Inicio se abre en el último juego que jugaste en cuanto se ha leído su unidad, salvo que ya te hayas movido. Primera página: Inicio se abre en la página 1.",
+        "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームで開きます。すでに操作した場合は動きません。最初のページ: ホームは1ページ目で開きます。",
+        "Último jogo: o Início abre no último jogo que você jogou assim que a unidade dele for lida, a menos que você já tenha se movido. Primeira página: o Início abre na página 1.",
+        "Ultimo gioco: la Home si apre sull'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non ti sia già spostato. Prima pagina: la Home si apre sulla pagina 1."),
     "Its values": (
         "Sus valores",
         "値",
@@ -3707,8 +3707,8 @@ KO = {
         "첫 페이지",
     "Last game":
         "마지막 게임",
-    "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives.":
-        "홈이 열리는 위치입니다. 마지막으로 플레이한 게임 또는 첫 페이지에서 시작합니다. 마지막 게임은 RiftWii가 드라이브를 읽는 중에도 이미 보고 있는 페이지를 옮기지 않습니다.",
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.":
+        "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임에서 열립니다. 이미 움직였다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다.",
     "Its values":
         "값",
     "Its values could not be found in the file.":
@@ -5143,13 +5143,13 @@ FR = {
     "Home order":
         "Ordre de l'accueil",
     "Home starts on":
-        "L'accueil s'ouvre sur",
+        "Accueil s'ouvre sur",
     "First page":
         "Première page",
     "Last game":
         "Dernier jeu",
-    "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives.":
-        "Où s'ouvre l'accueil : sur le dernier jeu lancé ou sur sa première page. Dernier jeu ne déplace jamais une page que vous regardez déjà pendant que RiftWii lit encore les disques.",
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.":
+        "Dernier jeu : l'accueil s'ouvre sur le dernier jeu lancé dès que son disque a été lu, sauf si vous avez déjà bougé. Première page : l'accueil s'ouvre sur la page 1.",
     "Its values":
         "Ses valeurs",
     "Its values could not be found in the file.":

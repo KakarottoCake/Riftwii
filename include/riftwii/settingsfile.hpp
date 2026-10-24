@@ -79,37 +79,83 @@ LoaderSettings settings_after_reset(const LoaderSettings& before);
 
 // Where Home puts the focus while the drives are still being read at
 // start-up. Home first shows what is there and the SD card's and the USB
-// drive's games join in as each is read, so a late decision would move the
-// page under the player.
-//   KeepTile   leave the focus on the tile the player chose, wherever the
-//              games that join in put it
-//   KeepPage   stay on the page (and place on it) the player is looking
-//              at, rather than follow a tile they never chose
+// drive's games join in as each is read, however long that takes.
+//   KeepTile   the player has moved: leave the focus on the tile they chose,
+//              wherever the games that join in put it
 //   FirstTile  the first tile, so the first page
 //   LastGame   the tile of the game played last
 // `start_on` is the "home_start" setting; `player_moved` is true once the
-// player has navigated at all (see FocusWatch); `grid_seen` is true once the
-// grid has been on screen long enough to be looked at; `last_game_listed`
-// is true when the last game played has a tile.
-enum class HomeStartAction { KeepTile, KeepPage, FirstTile, LastGame };
-HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
-                                  bool last_game_listed);
+// player has navigated at all (see FocusWatch); `last_game_listed` is true
+// when the last game played has a tile among the games read so far.
+enum class HomeStartAction { KeepTile, FirstTile, LastGame };
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool last_game_listed);
 
-// Whether the player has moved the focus: the menu says where it put the
-// focus itself (expect), and any other focus or page seen afterwards (observe)
-// is the player's. Once moved, always moved: away and back is moved.
+// One part of the scan joining in, as the decision sees it. The tiles are
+// the ones Home lists now, in order: `identities` names each tile as Home
+// tells tiles apart across a refresh (the Disc drive's tile has its own),
+// `keys` are the play history's game keys ("" for a tile that is no game).
+struct HomeStartPart {
+    std::string start_on;
+    bool player_moved = false;     // see FocusWatch
+    bool already_decided = false;  // an earlier part, or an action of the player's, ended the start-up focus
+    std::string last_game_key;     // the game played last; "" if none
+    std::string focused_identity;  // the tile in focus before this part joined; "" if none
+    int index_before = 0;
+    bool last_part = false;
+    std::vector<std::string> identities;
+    std::vector<std::string> keys;
+};
+// The tile to focus after the part. `decided` is set once no later part may
+// change the focus (the last part came, or the player has moved).
+int home_start_focus(const HomeStartPart& part, bool& decided);
+
+// Whether the player has moved the focus. The menu says where it put the
+// focus itself (expect); any other page, or another tile once the Wii Remote
+// pointer has moved, is the player's. A pointer parked on a tile is not: the
+// grid focuses that tile by itself. Once moved, always moved: away and back
+// is moved. mark_moved() is for the player's other actions (a view change,
+// a search, Settings).
 class FocusWatch {
 public:
-    void expect(int index, int page) { index_ = index; page_ = page; }
-    void observe(int index, int page) {
-        if (index != index_ || page != page_) moved_ = true;
+    static constexpr int kPointerSlop = 16;  // pixels of the pointer's own tremor
+
+    void expect(int index, int page) {
+        index_ = index;
+        page_ = page;
+        anchor_x_ = x_;
+        anchor_y_ = y_;
     }
+    void observe(int index, int page, bool pointer_valid, int px, int py) {
+        if (pointer_valid) {
+            x_ = px;
+            y_ = py;
+            if (!pointer_seen_) {
+                pointer_seen_ = true;
+                anchor_x_ = px;
+                anchor_y_ = py;
+            }
+        }
+        if (moved_) return;
+        if (page != page_) {
+            moved_ = true;
+            return;
+        }
+        if (index == index_) return;
+        const int dx = x_ > anchor_x_ ? x_ - anchor_x_ : anchor_x_ - x_;
+        const int dy = y_ > anchor_y_ ? y_ - anchor_y_ : anchor_y_ - y_;
+        if (pointer_valid && dx + dy <= kPointerSlop) index_ = index;  // the parked pointer's hover
+        else moved_ = true;
+    }
+    void mark_moved() { moved_ = true; }
     bool moved() const { return moved_; }
 
 private:
     int index_ = 0;
     int page_ = 0;
     bool moved_ = false;
+    bool pointer_seen_ = false;
+    int x_ = 0, y_ = 0;
+    int anchor_x_ = 0, anchor_y_ = 0;
 };
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":

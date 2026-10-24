@@ -313,16 +313,37 @@ bool parse_cios_choice(const std::string& s, int& slot) {
     return true;
 }
 
-HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
-                                  bool last_game_listed) {
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool last_game_listed) {
     if (player_moved) return HomeStartAction::KeepTile;
-    if (start_on != "last") return HomeStartAction::FirstTile;
-    // Not looked at yet: the last game's tile, again after each part of the
-    // scan, as the games that join in may put it on another page.
-    if (!grid_seen) return last_game_listed ? HomeStartAction::LastGame : HomeStartAction::FirstTile;
-    // Looked at: the page stays, whatever the games that join in sort
-    // before it; the last game is not moved to.
-    return HomeStartAction::KeepPage;
+    // Focused again after each part, as the games that join in may put it on
+    // another page; the player has not moved, so nothing is taken from them.
+    if (start_on == "last" && last_game_listed) return HomeStartAction::LastGame;
+    // First page, or the last game is in no part (removed): the first tile.
+    return HomeStartAction::FirstTile;
+}
+
+int home_start_focus(const HomeStartPart& part, bool& decided) {
+    const int count = static_cast<int>(part.identities.size());
+    int last_index = -1;
+    if (!part.last_game_key.empty()) {
+        for (int i = 0; i < static_cast<int>(part.keys.size()) && last_index < 0; ++i)
+            if (part.keys[static_cast<std::size_t>(i)] == part.last_game_key) last_index = i;
+    }
+    const bool moved = part.player_moved || part.already_decided;
+    int focus = 0;
+    switch (home_start_action(part.start_on, moved, last_index >= 0)) {
+    case HomeStartAction::KeepTile: {
+        int at = -1;
+        for (int i = 0; i < count && at < 0 && !part.focused_identity.empty(); ++i)
+            if (part.identities[static_cast<std::size_t>(i)] == part.focused_identity) at = i;
+        focus = at >= 0 ? at : std::min(part.index_before, std::max(0, count - 1));
+        break;
+    }
+    case HomeStartAction::LastGame: focus = last_index; break;
+    case HomeStartAction::FirstTile: focus = 0; break;
+    }
+    if (moved || part.last_part) decided = true;
+    return focus;
 }
 
 LoaderSettings settings_after_reset(const LoaderSettings& before) {

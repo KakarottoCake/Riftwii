@@ -2085,8 +2085,8 @@ msgstr "Primera página"
 msgid "Last game"
 msgstr "Último juego"
 
-msgid "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives."
-msgstr "Dónde se abre Inicio: en el último juego que jugaste o en su primera página. Último juego nunca cambia una página que ya estás mirando mientras RiftWii aún lee las unidades."
+msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1."
+msgstr "Último juego: Inicio se abre en el último juego que jugaste en cuanto se ha leído su unidad, salvo que ya te hayas movido. Primera página: Inicio se abre en la página 1."
 
 msgid "Its values"
 msgstr "Sus valores"
