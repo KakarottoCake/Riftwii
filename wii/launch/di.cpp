@@ -42,6 +42,7 @@ s32 g_fd = -1;
 int g_last_reply = 0;
 std::uint32_t g_frag_device = 0;
 std::uint32_t g_reload_block_slot = 0;
+DiscCache g_disc_cache;
 
 // The answer of the request stop_motor is waiting for. stop_motor runs once
 // to completion: after a timeout g_stop_running stays set and every later
@@ -84,12 +85,14 @@ std::string describe(const char* what, int reply) {
 bool command(std::uint32_t cmd, const char* what, void* out, std::uint32_t out_len, int expected,
              std::string& error) {
     if (g_fd < 0) {
+        g_disc_cache.invalidate();
         error = std::string(what) + ": /dev/di is not open";
         return false;
     }
     g_in[0] = cmd << 24;
     g_last_reply = IOS_Ioctl(g_fd, static_cast<s32>(cmd), g_in, sizeof(g_in), out, out_len);
     if (g_last_reply != expected) {
+        g_disc_cache.invalidate();
         error = describe(what, g_last_reply);
         return false;
     }
@@ -143,6 +146,7 @@ bool open(std::string& error) {
     }
     const s32 fd = IOS_Open(g_path, 0);
     if (fd < 0) {
+        g_disc_cache.invalidate();
         g_last_reply = fd;
         error = "cannot open /dev/di: IOS error " + std::to_string(fd);
         return false;
@@ -153,6 +157,7 @@ bool open(std::string& error) {
 }
 
 void close() {
+    g_disc_cache.invalidate();
     if (g_fd >= 0) IOS_Close(g_fd);
     g_fd = -1;
 }
@@ -210,15 +215,19 @@ void stop_motor_for_power_off() {
     }
 }
 
+DiscCache& disc_cache() { return g_disc_cache; }
+
 bool cover_status(bool& disc_inserted, std::string& error) {
     std::memset(g_in, 0, sizeof(g_in));
     std::memset(g_out, 0, sizeof(g_out));
     if (!command(kGetCoverStatus, "get cover status", g_out, sizeof(g_out), kReplySuccess, error)) return false;
     disc_inserted = (g_out[0] & 2) != 0;
+    g_disc_cache.observe_cover(disc_inserted);
     return true;
 }
 
 bool reset(bool spin_up, std::string& error) {
+    g_disc_cache.invalidate();
     std::memset(g_in, 0, sizeof(g_in));
     g_in[1] = spin_up ? 1 : 0;
     return command(kReset, "drive reset", nullptr, 0, kReplySuccess, error);
@@ -247,6 +256,8 @@ bool disable_reset(std::string& error) {
 }
 
 bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t bytes, std::string& error) {
+    // A virtual disc replaces the physical drive's replies.
+    g_disc_cache.invalidate();
     if (g_fd < 0) { error = "d2x fragment setup: /dev/di is not open"; return false; }
     if (!list32 || !aligned32(list32) || bytes < 12 || (bytes & 3) != 0) {
         error = "d2x fragment setup needs a 32-byte-aligned nonempty fragment list"; return false;
@@ -370,6 +381,7 @@ bool open_partition(std::uint32_t word_offset, std::uint8_t* tmd_out32, std::siz
     g_last_reply = IOS_Ioctlv(g_fd, static_cast<s32>(kOpenPartition), 3, 2, g_vectors);
     es_result = static_cast<std::int32_t>(g_out[0]);
     if (g_last_reply != kReplySuccess) {
+        g_disc_cache.invalidate();
         error = describe("open partition", g_last_reply) + " (ES " + std::to_string(es_result) + ")";
         return false;
     }
@@ -387,6 +399,7 @@ bool close_partition(std::string& error) {
 bool read(void* buffer32, std::uint32_t length, std::uint32_t word_offset, std::string& error) {
     if (g_partition_data != nullptr) {
         if (!g_partition_data->read(std::uint64_t(word_offset) << 2, static_cast<std::uint8_t*>(buffer32), length)) {
+            g_disc_cache.invalidate();
             error = "partition read of " + std::to_string(length) + " bytes at word " + std::to_string(word_offset) +
                     " from the RVZ failed";
             return false;

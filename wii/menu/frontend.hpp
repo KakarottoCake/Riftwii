@@ -66,9 +66,12 @@ struct FrontendState {
 // Initializes source labels only. It performs no storage enumeration or DI I/O
 // so the source screen appears before a slow/broken device is touched.
 void InitializeFrontend(FrontendState& state);
-// Explicit physical-disc probe, used by DISC selection and headless autorun.
+// Physical-disc selection for the menu and headless autorun; reuses its identity
+// until removal or DI invalidation. Launches still perform their own fresh probe.
 void IdentifyDisc(FrontendState& state, void (*progress)(const char*) = nullptr);
-bool SelectDisc(FrontendState& state, std::string& error);
+bool SelectDisc(FrontendState& state, std::string& error, void (*progress)(const char*) = nullptr);
+// A cover check only, called on the menu thread while Home or a page is idle.
+void PollDiscCover();
 bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error);
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
 // False with `error` when the channel's game data was removed from the Wii.

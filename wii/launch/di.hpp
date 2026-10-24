@@ -8,6 +8,7 @@
 #include <string>
 
 #include "riftwii/overlay.hpp"
+#include "riftwii/disccache.hpp"
 
 // Thin client for the IOS disc interface (/dev/di), written from the
 // command table documented at https://wiibrew.org/wiki//dev/di . Offsets
@@ -23,6 +24,9 @@ constexpr int kReplySuccess = 1;
 // Opens /dev/di. Fails when IOS refuses (no DI module, or already open).
 bool open(std::string& error);
 void close();
+
+// The menu's physical-disc identity; all access stays on the menu/launch thread.
+DiscCache& disc_cache();
 
 // Cover / drive state.
 bool cover_status(bool& disc_inserted, std::string& error);   // 0x88
