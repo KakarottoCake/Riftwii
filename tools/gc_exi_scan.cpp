@@ -116,7 +116,10 @@ int scan(const char* path) {
                                                : ", no EXIProbeEx found (a listed game)";
     std::printf("%s %s: blocks 0x%08x%s, %u table(s) tried, %u resolve%s\n", game_id.c_str(), path, found.blocks,
                 found.blocks ? "" : " (REJECTED)", found.tables_tried, found.resolving_tables, absent);
-    if (found.blocks == 0) std::printf("  partial list from the table at 0x%08x\n", found.partial_blocks);
+    // No partial table when no table had enough users to be tried.
+    if (found.blocks == 0 && found.partial_blocks != 0) {
+        std::printf("  partial list from the table at 0x%08x\n", found.partial_blocks);
+    }
     if (found.listed_refusal != GcExiFunctions::ListedRefusal::None) {
         static const char* const kReasons[] = {"none", "EXIProbe not alone", "EXIAttach does not follow EXIProbe",
                                                "a branch to the probe outside the EXI functions"};
