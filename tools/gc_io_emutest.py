@@ -1287,7 +1287,10 @@ def test_leave_audio(layout):
                 machine.uc.hook_add(UC_HOOK_CODE, check_silent)
                 machine.call("gc_leave_finish", machine.ctx, 1)
                 assert checkpoints, "the leave never reached its save or ES launch"
-                assert not any(address == sample_count for address, _, _ in writes)
+                # Any write touching the register's four bytes, not only one
+                # starting at it.
+                assert not any(address < sample_count + 4 and address + size > sample_count
+                               for address, size, _ in writes)
                 assert struct.unpack(">H", machine.uc.mem_read(dma_control, 2))[0] == original_dma
                 assert stream_state == original_stream
                 assert [entry for entry in writes if entry[0] == dma_control] == [
