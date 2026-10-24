@@ -10,9 +10,9 @@ struct ChannelUpdateState {
     bool clear_marker = false;
 };
 
-// A marker survives an installer that never returns. A completed return
-// or a channel that no longer needs updating retires that attempt.
+// The installer removes its marker before leaving, even without an update.
+// A refused hand-off or a channel that needs no update retires a stale marker.
 ChannelUpdateState channel_update_state(bool installed, unsigned version, unsigned needed,
-                                        bool installer_opened, bool installer_returned);
+                                        bool installer_opened, bool installer_refused);
 
 }  // namespace riftwii

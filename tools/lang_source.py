@@ -1970,7 +1970,6 @@ T = {
     # The channel update RiftWii waits for (channel 11)
     "Update the RiftWii channel": ("Actualiza el canal de RiftWii", "RiftWiiチャンネルを更新してください", "Atualize o canal do RiftWii", "Aggiorna il canale di RiftWii"),
     "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.": ("Tu canal de RiftWii en el Menú de Wii es la versión {1}, y este RiftWii necesita la versión {2}: muestra cada paso al arrancar y un error en vez de congelarse. No se puede usar RiftWii hasta que actualices el canal.", "WiiメニューのRiftWiiチャンネルはバージョン{1}ですが、このRiftWiiにはバージョン{2}が必要です。起動中の各ステップを表示し、止まる代わりにエラーを表示します。チャンネルを更新するまでRiftWiiは使えません。", "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela mostra cada passo ao iniciar e um erro em vez de travar. O RiftWii não pode ser usado até o canal ser atualizado.", "Il canale di RiftWii nel Menu Wii è la versione {1}, e questo RiftWii richiede la versione {2}: mostra ogni passaggio all'avvio e un errore invece di bloccarsi. Non puoi usare RiftWii finché il canale non è aggiornato."),
-    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.": ("El canal sigue en la versión {1} tras el instalador, así que el instalador de tu tarjeta SD es antiguo. Copia apps/riftwii_channel del zip más reciente de RiftWii a la tarjeta y vuelve a actualizar.", "インストーラーのあともチャンネルはバージョン{1}のままです。SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーして、もう一度更新してください。", "O canal continua na versão {1} depois do instalador, então o instalador do seu cartão SD é antigo. Copie apps/riftwii_channel do zip mais recente do RiftWii para o cartão e atualize de novo.", "Il canale è ancora alla versione {1} dopo l'installer, quindi l'installer sulla scheda SD è vecchio. Copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda, poi aggiorna di nuovo."),
     "The installer opens, then brings you back here.": ("Se abre el instalador y luego vuelves aquí.", "インストーラーが開き、そのあとここに戻ります。", "O instalador abre e depois traz você de volta aqui.", "Si apre l'installer, che poi ti riporta qui."),
     "RiftWii can't update it from here: {1}.": ("RiftWii no puede actualizarlo desde aquí: {1}.", "RiftWiiからは更新できません: {1}。", "O RiftWii não consegue atualizá-lo daqui: {1}.", "RiftWii non può aggiornarlo da qui: {1}."),
     "Update now": ("Actualizar ahora", "今すぐ更新", "Atualizar agora", "Aggiorna ora"),
@@ -3799,8 +3798,6 @@ KO = {
         "RiftWii 채널을 업데이트하세요",
     "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.":
         "Wii 메뉴의 RiftWii 채널은 버전 {1}이며, 이 RiftWii에는 버전 {2}이 필요합니다. 시작하는 동안 각 단계를 보여 주고, 멈추는 대신 오류를 표시합니다. 채널을 업데이트할 때까지 RiftWii를 사용할 수 없습니다.",
-    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.":
-        "설치 후에도 채널이 여전히 버전 {1}입니다. SD 카드의 설치 프로그램이 오래된 것입니다. 최신 RiftWii zip의 apps/riftwii_channel을 카드에 복사한 다음 다시 업데이트하세요.",
     "The installer opens, then brings you back here.":
         "설치 프로그램이 열린 다음 여기로 돌아옵니다.",
     "RiftWii can't update it from here: {1}.":
@@ -5637,8 +5634,6 @@ FR = {
         "Mettez à jour la chaîne RiftWii",
     "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.":
         "Votre chaîne RiftWii du Menu Wii est en version {1}, et ce RiftWii a besoin de la version {2} : elle affiche chaque étape au démarrage, et une erreur au lieu de se figer. RiftWii ne peut pas être utilisé tant que la chaîne n'est pas mise à jour.",
-    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.":
-        "La chaîne est toujours en version {1} après l'installateur : celui de votre carte SD est ancien. Copiez apps/riftwii_channel depuis le zip RiftWii le plus récent sur la carte, puis mettez à jour à nouveau.",
     "The installer opens, then brings you back here.":
         "L'installateur s'ouvre, puis vous ramène ici.",
     "RiftWii can't update it from here: {1}.":
@@ -6670,21 +6665,56 @@ FR.update({
 })
 
 
-# Recovery after a channel installer that did not return.
+# Recovery distinguishes an interrupted installer from a refused hand-off.
 T.update({
-    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.": (
-        "El instalador del canal no volvió; incluye sd:/riftwii/channel.log en un informe del problema.",
-        "チャンネルのインストーラーから戻れませんでした。問題の報告にsd:/riftwii/channel.logを付けてください。",
-        "O instalador do canal não voltou; inclua sd:/riftwii/channel.log em um relatório do problema.",
-        "L'installer del canale non è tornato; includi sd:/riftwii/channel.log in una segnalazione del problema."),
+    "The channel installer ({1}) is missing or damaged": (
+        "El instalador del canal ({1}) falta o está dañado",
+        "チャンネルのインストーラー ({1}) がないか、破損しています",
+        "O instalador do canal ({1}) está ausente ou danificado",
+        "L'installer del canale ({1}) è assente o danneggiato"),
+    "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.": (
+        "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda.",
+        "RiftWiiはインストーラーを開きましたが、終了を確認できていません。問題の報告にsd:/riftwii/channel.logを付けてください。",
+        "O RiftWii abriu o instalador e não viu ele terminar. Um relatório do problema com sd:/riftwii/channel.log ajuda.",
+        "RiftWii ha aperto l'installer e non ne ha visto la fine. Una segnalazione con sd:/riftwii/channel.log è utile."),
+    "The channel installer could not be opened: {1}.": (
+        "No se pudo abrir el instalador del canal: {1}.",
+        "チャンネルのインストーラーを開けませんでした: {1}。",
+        "Não foi possível abrir o instalador do canal: {1}.",
+        "Impossibile aprire l'installer del canale: {1}."),
+    "the SD card would not save a note before the installer (is it locked?)": (
+        "la tarjeta SD no guardó la nota antes de abrir el instalador (¿está bloqueada?)",
+        "SDカードにインストーラーを開く前の記録を保存できませんでした (ロックされていますか？)",
+        "o cartão SD não salvou a nota antes do instalador (está bloqueado?)",
+        "la scheda SD non ha salvato la nota prima dell'installer (è bloccata?)"),
+    "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know": (
+        "RiftWii no puede dejar una nota en la tarjeta SD, así que el próximo inicio no sabrá si el instalador se bloquea",
+        "RiftWiiはSDカードに記録を残せないため、インストーラーが止まっても次の起動では確認できません",
+        "O RiftWii não pode deixar uma nota no cartão SD, então o próximo início não saberá se o instalador travar",
+        "RiftWii non può lasciare una nota sulla scheda SD, quindi il prossimo avvio non saprà se l'installer si blocca"),
+    "Open anyway": ("Abrir de todos modos", "それでも開く", "Abrir mesmo assim", "Apri comunque"),
 })
 KO.update({
-    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.":
-        "채널 설치 프로그램에서 돌아오지 못했습니다. 문제 보고에 sd:/riftwii/channel.log를 첨부해 주세요.",
+    "The channel installer ({1}) is missing or damaged": "채널 설치 프로그램 ({1})이 없거나 손상되었습니다",
+    "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
+        "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다.",
+    "The channel installer could not be opened: {1}.": "채널 설치 프로그램을 열지 못했습니다: {1}.",
+    "the SD card would not save a note before the installer (is it locked?)":
+        "SD 카드에 설치 프로그램을 열기 전 기록을 저장하지 못했습니다 (잠겨 있나요?)",
+    "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know":
+        "RiftWii가 SD 카드에 기록을 남길 수 없어 설치 프로그램이 멈춰도 다음 시작에서는 알 수 없습니다",
+    "Open anyway": "그래도 열기",
 })
 FR.update({
-    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.":
-        "L'installateur de la chaîne n'est pas revenu ; joignez sd:/riftwii/channel.log à un rapport de problème.",
+    "The channel installer ({1}) is missing or damaged": "L'installateur de la chaîne ({1}) est absent ou endommagé",
+    "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
+        "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile.",
+    "The channel installer could not be opened: {1}.": "Impossible d'ouvrir l'installateur de la chaîne : {1}.",
+    "the SD card would not save a note before the installer (is it locked?)":
+        "la carte SD n'a pas enregistré de note avant l'installateur (est-elle verrouillée ?)",
+    "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know":
+        "RiftWii ne peut pas laisser de note sur la carte SD ; si l'installateur se bloque, le prochain démarrage ne le saura pas",
+    "Open anyway": "Ouvrir quand même",
 })
 
 

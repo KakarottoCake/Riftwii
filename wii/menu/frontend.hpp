@@ -21,6 +21,8 @@ constexpr const char* kChoicesDir = "sd:/riftwii/choices";
 constexpr const char* kScanReady = "ready";
 
 struct FrontendState {
+    // Accepted for this hand-off only, after saving the installer marker failed.
+    bool channel_allow_unmarked = false;
     std::string game_id;
     std::string disc_title;
     std::string disc_status;

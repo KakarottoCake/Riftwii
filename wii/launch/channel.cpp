@@ -16,6 +16,7 @@
 
 #include "boot.hpp"
 #include "dolboot.h"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -28,6 +29,9 @@
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
+
+const char* const kChannelMarkerError = "the SD card would not save a note before the installer (is it locked?)";
+
 namespace {
 
 // 00010001-UFTW (tools/make_channel.py); up to its version 5 it was
@@ -103,20 +107,21 @@ unsigned ChannelVersionNeeded() {
 bool ChannelInstallerInterrupted() {
     struct stat st;
     const bool opened = stat(kInstallerMarker, &st) == 0;
-    const bool returned = CurrentRestartNote().kind == RestartKind::ChannelDone;
+    // A normal installer exit deletes the marker itself and cold-starts
+    // RiftWii. ChannelDone is only the refused hand-off's warm restart.
+    const bool refused = CurrentRestartNote().kind == RestartKind::ChannelDone;
     unsigned version = 0;
     const bool installed = ChannelInstalled(version);
-    const auto state = channel_update_state(installed, version, ChannelVersionNeeded(), opened, returned);
+    const auto state = channel_update_state(installed, version, ChannelVersionNeeded(), opened, refused);
     if (state.clear_marker) {
-        clear_installer_marker(returned ? "RiftWii returned from the installer" : "the channel needs no update");
+        clear_installer_marker(refused ? "the installer could not be opened" : "the channel needs no update");
     }
     return state.installer_interrupted;
 }
 
 void ChannelUpdateNotNow() {
-    // The marker stays: the installer still has not come back, so the
-    // next start offers Not now again instead of locking the player out
-    // until another attempt at an installer that hangs.
+    // Keep the marker so later starts still offer Not now until a completed
+    // attempt removes it or the channel no longer needs updating.
     logf("Channel: the update was postponed for this start; Home opens and the next start asks again.\n");
 }
 
@@ -139,13 +144,13 @@ bool ChannelCanInstall(std::string& why) {
     return false;
 }
 
-bool StartChannelInstaller(std::string& error) {
+bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;
     u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); },
                             [](void* p) { std::free(p); });
     if (!dol || !dolboot_valid(dol, size)) {
-        error = std::string("The channel installer (") + kInstaller + ") is missing or damaged";
+        error = tr("The channel installer ({1}) is missing or damaged", {kInstaller});
         logf("Channel: %s\n", error.c_str());
         std::free(dol);
         return false;
@@ -159,16 +164,16 @@ bool StartChannelInstaller(std::string& error) {
         const bool closed = std::fclose(marker) == 0;
         marked = wrote && closed;
     }
-    if (!marked) {
-        // Without the marker, an installer that hangs would leave the next
-        // start with no Not now: the lockout of #317 again. So it is not
-        // opened; the restart that follows offers Not now instead.
-        error = "the SD card would not save a note before the installer (is it locked?)";
+    if (!marked && !allow_unmarked) {
+        // The refused restart offers an explicit choice to open without
+        // interruption detection when the card will not save this note.
+        error = kChannelMarkerError;
         logf("Channel: the installer was not opened: %s\n", error.c_str());
         std::free(dol);
         return false;
     }
-    logf("Channel: the launch marker was saved before opening the installer.\n");
+    if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
+    else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
     NetCancelBackground();  // a theme download: fetched again next start
     NetWaitForBackground();
     LogClose();

@@ -2253,9 +2253,6 @@ msgstr "RiftWiiチャンネルを更新してください"
 msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated."
 msgstr "WiiメニューのRiftWiiチャンネルはバージョン{1}ですが、このRiftWiiにはバージョン{2}が必要です。起動中の各ステップを表示し、止まる代わりにエラーを表示します。チャンネルを更新するまでRiftWiiは使えません。"
 
-msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
-msgstr "インストーラーのあともチャンネルはバージョン{1}のままです。SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーして、もう一度更新してください。"
-
 msgid "The installer opens, then brings you back here."
 msgstr "インストーラーが開き、そのあとここに戻ります。"
 
@@ -3204,5 +3201,20 @@ msgstr "先に持ってきたいセーブを選んでください。"
 msgid "Nintendont saves brought"
 msgstr "Nintendontのセーブを持ってきました"
 
-msgid "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."
-msgstr "チャンネルのインストーラーから戻れませんでした。問題の報告にsd:/riftwii/channel.logを付けてください。"
+msgid "The channel installer ({1}) is missing or damaged"
+msgstr "チャンネルのインストーラー ({1}) がないか、破損しています"
+
+msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
+msgstr "RiftWiiはインストーラーを開きましたが、終了を確認できていません。問題の報告にsd:/riftwii/channel.logを付けてください。"
+
+msgid "The channel installer could not be opened: {1}."
+msgstr "チャンネルのインストーラーを開けませんでした: {1}。"
+
+msgid "the SD card would not save a note before the installer (is it locked?)"
+msgstr "SDカードにインストーラーを開く前の記録を保存できませんでした (ロックされていますか？)"
+
+msgid "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know"
+msgstr "RiftWiiはSDカードに記録を残せないため、インストーラーが止まっても次の起動では確認できません"
+
+msgid "Open anyway"
+msgstr "それでも開く"
