@@ -3530,7 +3530,7 @@ static void ShowTutorial()
 		{"Mods",
 		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
 		{"Buttons",
-		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu."},
+		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."},
 		{"You're all set",
 		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
 	};
@@ -4726,7 +4726,8 @@ static int MenuSource(FrontendState& state)
 		for (int channel = 0; channel < 4; ++channel) {
 			const GuiTrigger& input = userInput[channel];
 			if (input.pad.btns_d || input.pad.btns_h) padHints = true;
-			if ((input.wpad && input.wpad->btns_d) || input.wiidrcdata.btns_d) padHints = false;
+			if ((input.wpad && (input.wpad->btns_d || input.wpad->btns_h)) ||
+			    input.wiidrcdata.btns_d || input.wiidrcdata.btns_h) padHints = false;
 		}
 		if (padHints != g_homePadHints) {
 			g_homePadHints = padHints;
