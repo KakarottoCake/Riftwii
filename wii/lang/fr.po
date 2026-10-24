@@ -2076,6 +2076,21 @@ msgstr "Aide"
 msgid "Home order"
 msgstr "Ordre de l'accueil"
 
+msgid "Home starts on"
+msgstr "Accueil s'ouvre sur"
+
+msgid "Home starts on: {1}"
+msgstr "Accueil s'ouvre sur : {1}"
+
+msgid "First page"
+msgstr "Première page"
+
+msgid "Last game"
+msgstr "Dernier jeu"
+
+msgid "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
+msgstr "Dernier jeu : l'accueil s'ouvre sur la page du dernier jeu lancé dès que son stockage a été lu, sauf si vous avez déjà appuyé sur un bouton ou bougé le stick. Première page : l'accueil s'ouvre sur la page 1."
+
 msgid "Its values"
 msgstr "Ses valeurs"
 
