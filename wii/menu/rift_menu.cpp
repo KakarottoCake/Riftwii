@@ -4739,14 +4739,26 @@ static int MenuSource(FrontendState& state)
 				// the slot lost power, so the old mount can only fail (and it
 				// may be another card). Once the scan and any download have
 				// let go of it.
-				if (g_sdRemovalPending && !g_sdGone && riftwii::wii::DriveScanDone() &&
-					!riftwii::wii::NetBackgroundBusy()) {
+				// Also once Home has taken the scan's parts (g_scanning) and no
+				// tile is carried: a part taken later would bring the gone card's
+				// games back, and a refresh mid-carry would drop the tile.
+				if (g_sdRemovalPending && !g_sdGone && riftwii::wii::DriveScanDone() && !g_scanning &&
+					!grid.Carrying() && !riftwii::wii::NetBackgroundBusy()) {
 					riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
 					SdWatchUnmountForRemoval();
 					g_sdGone = true;
 					g_sdRemovalPending = false;
+					// Everything Home took from the card goes with it: its games,
+					// the channels in its emulated NANDs, the packs index (USB's
+					// come back with the rescan at reinsertion) and its apps.
 					state.sd_catalog.games.clear();
 					state.sd_catalog.status = std::string(tr("SD: no card"));
+					state.channels.erase(std::remove_if(state.channels.begin(), state.channels.end(),
+						[](const riftwii::wii::NandChannel& channel) { return channel.emu_nand.rfind("sd:", 0) == 0; }),
+						state.channels.end());
+					g_packs = riftwii::PackIndex{};
+					riftwii::wii::ForgetAppIcons();
+					riftwii::wii::RescanHomebrewApps();
 					const std::string focused = focusedTile();
 					refreshKeepingTile(focused);
 					showStatus();
@@ -4757,6 +4769,15 @@ static int MenuSource(FrontendState& state)
 					if (SdWatchRemountForMenu()) {
 						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
 						riftwii::wii::ReloadSettings();
+						// The card may be another one: what was read from the old
+						// card is read again, so its history, tiles and Home order
+						// are never written onto the new one.
+						riftwii::wii::ForgetCardHistoryAndOrder();
+						riftwii::wii::ForgetProfiles();
+						g_filterLoaded = false;
+						LoadFilter();
+						ApplyMenuSounds();
+						riftwii::wii::ApplyMenuDisplay();
 						riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
 						riftwii::wii::LoadMenuTheme();
 						g_forgetPicturesAfterScan = true;

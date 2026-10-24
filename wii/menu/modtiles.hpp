@@ -16,6 +16,9 @@ constexpr const char* kProfilesPath = "sd:/riftwii/profiles.txt";
 
 // The list, read from the card once.
 ProfileList& Profiles();
+// Forget the tiles read from the SD card; the next Profiles() reads the
+// card again (it was taken out, maybe swapped).
+void ForgetProfiles();
 
 // A new tile for the open game (one on a drive: Home shows a profile's
 // tile only while it lists its game), named `name`, starting with the choices on
