@@ -1239,6 +1239,7 @@ def test_returning_stream(layout):
 def test_leave_audio(layout):
     dma_control = 0xCC005036
     stream_control = 0xCD006C00
+    sample_count = 0xCD006C0C  # AIIT: the stream's sample counter, never touched
     for failed_save in (False, True):
         for dma_running in (True, False):
             for stream_playing in (True, False):
@@ -1281,9 +1282,12 @@ def test_leave_audio(layout):
                                     begin=dma_control, end=dma_control + 1)
                 machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
                                     begin=stream_control, end=stream_control + 3)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=sample_count, end=sample_count + 3)
                 machine.uc.hook_add(UC_HOOK_CODE, check_silent)
                 machine.call("gc_leave_finish", machine.ctx, 1)
                 assert checkpoints, "the leave never reached its save or ES launch"
+                assert not any(address == sample_count for address, _, _ in writes)
                 assert struct.unpack(">H", machine.uc.mem_read(dma_control, 2))[0] == original_dma
                 assert stream_state == original_stream
                 assert [entry for entry in writes if entry[0] == dma_control] == [
