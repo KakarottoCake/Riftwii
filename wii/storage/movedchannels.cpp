@@ -1,0 +1,367 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "movedchannels.hpp"
+
+#include <gccore.h>
+#include <malloc.h>
+
+#include <sys/stat.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+
+#include "boot.hpp"
+#include "log.hpp"
+#include "nanduse.hpp"
+#include "otpkey.hpp"
+#include "riftwii/checkedalloc.hpp"
+
+namespace riftwii::wii {
+namespace {
+
+// Read, decrypted and written this much at a time.
+constexpr std::size_t kChunkBytes = 64 * 1024;
+// A content.bin is a channel's contents (the Shop's biggest were a few
+// hundred MB); past this its offsets would not fit the card's file API.
+constexpr long kMaxFileBytes = 0x7FFFFFFF;
+// BootMii puts a Wii's keys here when it backs up its NAND.
+constexpr const char* kBootMiiKeys = "sd:/keys.bin";
+constexpr const char* kStagedList = "sd:/riftwii/staged_channels.txt";
+constexpr std::size_t kMaxKeysBytes = 0x400;
+constexpr std::size_t kMaxStagedListBytes = 64 * 1024;
+
+using AlignedBuffer = std::unique_ptr<u8, decltype(&std::free)>;
+AlignedBuffer aligned(std::size_t bytes) {
+    return AlignedBuffer(static_cast<u8*>(memalign(32, (bytes + 31) & ~std::size_t(31))), &std::free);
+}
+
+bool read_at(FILE* file, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+    return std::fseek(file, static_cast<long>(offset), SEEK_SET) == 0 && std::fread(out, 1, length, file) == length;
+}
+
+// The key for a content.bin written by the console `console_id`.
+bool key_for(std::uint32_t console_id, BackupKey& out, std::string& error) {
+    BackupKey own;
+    const bool have_own = ConsoleBackupKey(own);
+    if (have_own && own.console_id == console_id) {
+        out = own;
+        return true;
+    }
+    if (FILE* file = std::fopen(kBootMiiKeys, "rb")) {
+        std::uint8_t bytes[kMaxKeysBytes];
+        const std::size_t got = std::fread(bytes, 1, sizeof bytes, file);
+        std::fclose(file);
+        BackupKey other;
+        if (parse_bootmii_keys(bytes, got, other) && other.console_id == console_id) {
+            out = other;
+            other = BackupKey{};
+            return true;
+        }
+    }
+    own = BackupKey{};
+    char text[200];
+    if (!have_own) {
+        std::snprintf(text, sizeof text,
+                      "this Wii's key could not be read, and %s is not the key of the Wii that moved it (%08x)",
+                      kBootMiiKeys, static_cast<unsigned>(console_id));
+    } else {
+        std::snprintf(text, sizeof text,
+                      "another Wii (console %08x) moved it to the card, and %s is not that Wii's key",
+                      static_cast<unsigned>(console_id), kBootMiiKeys);
+    }
+    error = text;
+    return false;
+}
+
+// ISFS wants its path in memory it can reach: a 32-byte-aligned buffer.
+const char* isfs_path(const std::string& path) {
+    static char name[64] ATTRIBUTE_ALIGN(32);
+    std::snprintf(name, sizeof name, "%s", path.c_str());
+    return name;
+}
+
+// The size of a NAND file, or -1 when it is not there.
+s64 nand_file_size(const std::string& path) {
+    const s32 fd = ISFS_Open(isfs_path(path), ISFS_OPEN_READ);
+    if (fd < 0) return -1;
+    static fstats stats ATTRIBUTE_ALIGN(32);
+    const s64 size = ISFS_GetFileStats(fd, &stats) < 0 ? -1 : static_cast<s64>(stats.file_length);
+    ISFS_Close(fd);
+    return size;
+}
+
+void append_staged(const std::string& nand_path) {
+    if (FILE* list = std::fopen(kStagedList, "ab")) {
+        std::fprintf(list, "%s\n", nand_path.c_str());
+        std::fclose(list);
+    }
+}
+
+// The title a staged path is under ("/title/00010001/57424d45/content/...").
+bool title_of_staged(const std::string& path, std::uint64_t& title_id) {
+    unsigned upper = 0, lower = 0;
+    char rest[32];
+    if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%31s", &upper, &lower, rest) != 3) return false;
+    title_id = (std::uint64_t(upper) << 32) | lower;
+    return true;
+}
+
+}  // namespace
+
+std::string moved_channel_file(const std::string& code) {
+    if (code.size() != 4) return "";
+    const std::string path = "sd:" + content_bin_path(code);
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0 || S_ISDIR(st.st_mode)) return "";
+    return path;
+}
+
+MovedChannel::~MovedChannel() {
+    if (file_) std::fclose(file_);
+    key_ = BackupKey{};
+}
+
+bool MovedChannel::open(const std::string& path, std::uint64_t title_id, std::string& error) {
+    file_ = std::fopen(path.c_str(), "rb");
+    if (!file_) {
+        error = path + " could not be opened";
+        return false;
+    }
+    path_ = path;
+    std::fseek(file_, 0, SEEK_END);
+    const long file_size = std::ftell(file_);
+    if (file_size <= 0 || file_size >= kMaxFileBytes) {
+        error = "it is not a size a content.bin has";
+        return false;
+    }
+    std::vector<std::uint8_t> start;
+    const std::size_t search = std::min<std::size_t>(kContentBinSearchBytes, static_cast<std::size_t>(file_size));
+    if (!try_resize(start, search)) {
+        error = "out of memory for " + path;
+        return false;
+    }
+    ContentBinLayout layout;
+    if (!read_at(file_, 0, start.data(), start.size()) ||
+        !find_content_bin_layout(start.data(), start.size(), static_cast<std::uint64_t>(file_size), layout, error)) {
+        if (error.empty()) error = path + " could not be read";
+        return false;
+    }
+    std::vector<std::uint8_t> tmd_bytes(static_cast<std::size_t>(layout.tmd_size));
+    if (!read_at(file_, layout.tmd_offset, tmd_bytes.data(), tmd_bytes.size()) ||
+        !parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd_, error)) {
+        if (error.empty()) error = "its TMD could not be read";
+        return false;
+    }
+    if (tmd_.title_id != title_id) {
+        char text[96];
+        std::snprintf(text, sizeof text, "it holds title %08x-%08x, not this channel",
+                      static_cast<unsigned>(tmd_.title_id >> 32), static_cast<unsigned>(tmd_.title_id));
+        error = text;
+        return false;
+    }
+    if (!content_bin_places(layout, tmd_, places_, error)) return false;
+    return key_for(layout.console_id, key_, error);
+}
+
+const WadContentPlace* MovedChannel::place_of(std::uint32_t content_id) const {
+    for (const WadContentPlace& place : places_)
+        if (place.content.id == content_id) return &place;
+    return nullptr;
+}
+
+bool MovedChannel::has(std::uint32_t content_id) const { return place_of(content_id) != nullptr; }
+
+bool MovedChannel::stream(std::uint32_t content_id,
+                          const std::function<bool(const std::uint8_t*, std::size_t)>& sink, std::string& error) {
+    const WadContentPlace* place = place_of(content_id);
+    char name[32];
+    std::snprintf(name, sizeof name, "content %08x", static_cast<unsigned>(content_id));
+    if (place == nullptr) {
+        error = std::string(name) + " is not in " + path_;
+        return false;
+    }
+    std::vector<std::uint8_t> chunk;
+    if (!try_resize(chunk, kChunkBytes)) {
+        error = "out of memory for " + path_;
+        return false;
+    }
+    WadContentDecrypter decrypter(key_.prng, place->content);
+    for (std::uint64_t done = 0; done < place->stored;) {
+        const std::size_t piece = static_cast<std::size_t>(std::min<std::uint64_t>(kChunkBytes, place->stored - done));
+        if (!read_at(file_, place->offset + done, chunk.data(), piece)) {
+            error = path_ + " could not be read";
+            return false;
+        }
+        const std::size_t own = decrypter.decrypt(chunk.data(), piece);
+        if (own != 0 && !sink(chunk.data(), own)) {
+            if (error.empty()) error = std::string(name) + " could not be written";
+            return false;
+        }
+        done += piece;
+    }
+    if (!decrypter.matches()) {
+        error = std::string(name) + " does not match its hash (a damaged content.bin)";
+        return false;
+    }
+    return true;
+}
+
+bool MovedChannel::read(std::uint32_t content_id, std::uint64_t bytes, std::vector<std::uint8_t>& out,
+                        std::string& error) {
+    const WadContentPlace* place = place_of(content_id);
+    if (place == nullptr) {
+        char text[64];
+        std::snprintf(text, sizeof text, "content %08x is not in the file", static_cast<unsigned>(content_id));
+        error = text;
+        return false;
+    }
+    if (bytes >= place->content.size) {
+        std::vector<std::uint8_t> whole;
+        if (!try_resize(whole, static_cast<std::size_t>(place->content.size))) {
+            error = "out of memory for " + path_;
+            return false;
+        }
+        std::size_t at = 0;
+        const bool read = stream(content_id, [&](const std::uint8_t* data, std::size_t length) {
+            std::memcpy(whole.data() + at, data, length);
+            at += length;
+            return true;
+        }, error);
+        if (!read) return false;
+        out.swap(whole);
+        return true;
+    }
+    // A head only: CBC decrypts from the start without the rest, and the
+    // hash, over the whole content, is left to the full reads.
+    const std::size_t stored = static_cast<std::size_t>((bytes + 15) & ~std::uint64_t(15));
+    std::vector<std::uint8_t> head;
+    if (!try_resize(head, stored) || !read_at(file_, place->offset, head.data(), head.size())) {
+        error = path_ + " could not be read";
+        return false;
+    }
+    WadContentDecrypter decrypter(key_.prng, place->content);
+    decrypter.decrypt(head.data(), head.size());
+    head.resize(static_cast<std::size_t>(bytes));
+    out.swap(head);
+    return true;
+}
+
+bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double)>& progress, std::string& error) {
+    const std::string code = channel_code(title_id);
+    const std::string path = moved_channel_file(code);
+    if (path.empty()) return true;
+    if (NandOpen() < 0) {
+        error = "the Wii's memory could not be opened";
+        return false;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    MovedChannel moved;
+    if (!moved.open(path, title_id, error)) return false;
+    // The title's content folder belongs to ES: the running IOS refuses it
+    // to an app, both what is there and writing to it, until the
+    // permission check is opened. RiftWii writes there only for this.
+    struct Permissions {
+        bool opened = open_nand_permissions("SD card channels");
+        ~Permissions() {
+            if (opened) close_nand_permissions("SD card channels");
+        }
+    } permissions;
+
+    // What the NAND lacks: a staged copy from an earlier start that was not
+    // removed, or the Wii Menu's own, is used as it is.
+    std::vector<TmdContent> missing;
+    std::uint64_t total = 0;
+    for (const TmdContent& c : moved.tmd().contents) {
+        if (!moved.has(c.id)) continue;
+        if (nand_file_size(nand_content_path(title_id, c.id)) == static_cast<s64>(c.size)) continue;
+        missing.push_back(c);
+        total += c.size;
+    }
+    if (missing.empty()) return true;
+    logf("Wii channels: %s was moved to the SD card; copying %u content(s), %llu bytes, to the Wii for this game, "
+         "as the Wii Menu does\n",
+         code.c_str(), static_cast<unsigned>(missing.size()), static_cast<unsigned long long>(total));
+
+    std::vector<std::string> written;
+    const auto undo = [&]() {
+        for (const std::string& file : written) ISFS_Delete(isfs_path(file));
+    };
+    AlignedBuffer buffer = aligned(kChunkBytes);
+    std::uint64_t done = 0;
+    bool ok = buffer != nullptr;
+    if (!ok) error = "out of memory for copying the game";
+    for (const TmdContent& c : missing) {
+        if (!ok) break;
+        const std::string to = nand_content_path(title_id, c.id);
+        ISFS_Delete(isfs_path(to));  // a short copy from an interrupted start
+        append_staged(to);
+        s32 result = ISFS_CreateFile(isfs_path(to), 0, ISFS_OPEN_RW, ISFS_OPEN_RW, ISFS_OPEN_READ);
+        const s32 fd = result < 0 ? result : ISFS_Open(isfs_path(to), ISFS_OPEN_WRITE);
+        if (fd < 0) {
+            error = to + " could not be created on the Wii (" + std::to_string(fd) + ")";
+            ok = false;
+            break;
+        }
+        written.push_back(to);
+        ok = moved.stream(c.id, [&](const std::uint8_t* data, std::size_t length) {
+            std::memcpy(buffer.get(), data, length);
+            result = ISFS_Write(fd, buffer.get(), length);
+            if (result != static_cast<s32>(length)) {
+                error = to + " could not be written (" + std::to_string(result) +
+                        "; is the Wii's memory full?)";
+                return false;
+            }
+            done += length;
+            if (progress && total) progress(static_cast<double>(done) / static_cast<double>(total));
+            return true;
+        }, error);
+        ISFS_Close(fd);
+    }
+    if (!ok) undo();
+    if (ok) logf("Wii channels: %s's contents are on the Wii until RiftWii starts again\n", code.c_str());
+    return ok;
+}
+
+void UnstageMovedChannels() {
+    FILE* list = std::fopen(kStagedList, "rb");
+    if (!list) return;
+    std::vector<std::string> paths;
+    char line[128];
+    std::size_t read = 0;
+    while (std::fgets(line, sizeof line, list) && read < kMaxStagedListBytes) {
+        read += std::strlen(line);
+        std::string path = line;
+        while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+        if (!path.empty() && std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
+    }
+    std::fclose(list);
+    if (paths.empty() || NandOpen() < 0) {
+        std::remove(kStagedList);
+        return;
+    }
+    const bool opened = open_nand_permissions("SD card channels");
+    unsigned removed = 0, kept = 0;
+    for (const std::string& path : paths) {
+        std::uint64_t title_id = 0;
+        // Only content files of a channel still on the card: anything else
+        // in the list was not written by RiftWii, or the Wii Menu has since
+        // moved that channel back to the Wii for good.
+        if (!title_of_staged(path, title_id) || moved_channel_file(channel_code(title_id)).empty()) {
+            ++kept;
+            continue;
+        }
+        if (ISFS_Delete(isfs_path(path)) >= 0) ++removed;
+    }
+    if (opened) close_nand_permissions("SD card channels");
+    NandClose();
+    std::remove(kStagedList);
+    logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s\n", removed,
+         kept ? " (some kept: their channel is no longer on the card)" : "");
+}
+
+}  // namespace riftwii::wii
