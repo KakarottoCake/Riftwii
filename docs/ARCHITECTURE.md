@@ -308,9 +308,20 @@ non-NTSC paths and other game regions keep their own behavior.
   late identification reserves the port on the next read. An unplug while
   disabled remains reserved until an enabled read confirms absence. If the
   enabled-state layout is unsupported, the current-type rule remains.
-  Pad trace records (`where=pad_si`, value 12) reuse nine crash-only words
+  Some games ask `SIProbe` what is in a port and read only the ports it
+  calls a controller: Mario Kart: Double Dash!!'s `JUTGamePad::read`
+  skips a port unless `SIProbe` says a GameCube controller or a WaveBird.
+  A Wii U has no GameCube ports and a Wii's empty port has nothing in it,
+  so `SIProbe` says "no response" and the Wii Remote's port was ignored
+  although its `PADStatus` had err 0. The loader hooks `SIProbe` (found as
+  the small `SIDecodeType(SIGetType(chan))` wrapper whose first call is
+  one of `PADRead`'s), and a port a remote or the adapter filled in the
+  last read (the game's own err -1, err 0 after the fill) answers as a
+  controller while nothing of its own answers there (`gc_ports_probe`).
+  Pad trace records (`where=pad_si`, value 12) reuse ten crash-only words
   for the four full SI types, SISR, enabled bits before/after the read,
-  original errors and the reserved-port mask. Existing `pad_errs` records
+  original errors, the reserved and played port masks, and the `SIProbe`
+  calls and the ones answered as a controller. Existing `pad_errs` records
   the errors after filling, even without Bluetooth. SISR is read without
   writing it or consuming SI input buffers; its latched NOREP bits describe
   past transfers and are diagnostic, not proof of current presence.

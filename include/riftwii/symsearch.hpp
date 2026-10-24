@@ -120,6 +120,14 @@ std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uin
 // ambiguous; callers must validate the resulting small-data address.
 std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read);
 
+// The SDK's SIProbe(chan), which answers SIDecodeType(SIGetType(chan)):
+// a small function of a prologue, those two calls in a row and an
+// epilogue, where the first is one of PADRead's own calls (SIGetType) and
+// the second gives a WaveBird's type, 0x8B100000 (SIDecodeType). Its first
+// word is never a branch, so the hook's replay slot can run it. 0 when
+// there is no PADRead, no such function or more than one.
+std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read);
+
 // The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
 // every exception the game has no handler of its own for ends up, and
 // the game's own crash screens (installed with OSSetErrorHandler) are

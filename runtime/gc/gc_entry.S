@@ -8,7 +8,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 9, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 10, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -38,6 +38,8 @@ _gc_blob_start:
     .long gc_hook_boot_dol - _gc_blob_start, gc_replay_boot_dol - _gc_blob_start
     .long gc_continue_boot_dol - _gc_blob_start
     .long gc_hook_stop_motor - _gc_blob_start
+    .long gc_hook_si_probe - _gc_blob_start, gc_replay_si_probe - _gc_blob_start
+    .long gc_continue_si_probe - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -192,6 +194,42 @@ gc_replay_pad_motor:
     nop
     .globl gc_continue_pad_motor
 gc_continue_pad_motor:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+/* u32 SIProbe(s32 chan): the original through its replay slot, then
+ * gc_on_si_probe(ctx, chan, type) gives the game its answer (a Wii
+ * Remote's port answers as a GameCube controller, gc_ports.h).
+ * Frame: 8 chan. */
+    .globl gc_hook_si_probe
+gc_hook_si_probe:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    bl gc_replay_si_probe
+    mr 5, 3
+    lwz 4, 0x08(1)
+    bl 9f
+9:  mflr 3
+    addi 3, 3, gc_context_data - 9b
+    bl gc_on_si_probe
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+    .balign 16
+    .globl gc_replay_si_probe
+gc_replay_si_probe:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_si_probe
+gc_continue_si_probe:
     lis 12, 0
     ori 12, 12, 0
     mtctr 12

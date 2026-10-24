@@ -271,9 +271,55 @@ void test_slot_for_new_remotes() {
     EXPECT_EQ(gc_ports_slot_for(remotes, address), 2);
 }
 
+// Errors a byte a port, port 1 in the top byte, as gc_pad_errors packs them.
+std::uint32_t errs(std::uint8_t p1, std::uint8_t p2, std::uint8_t p3, std::uint8_t p4) {
+    return static_cast<std::uint32_t>(p1) << 24 | static_cast<std::uint32_t>(p2) << 16 |
+           static_cast<std::uint32_t>(p3) << 8 | p4;
+}
+
+// Issue #135's trace (Double Dash on a Wii U): the game's own read found
+// nothing anywhere, the remote's fill gave port 1 err 0.
+void test_played_ports() {
+    EXPECT_EQ(gc_ports_played(errs(0xFF, 0xFF, 0xFF, 0xFF), errs(0x00, 0xFF, 0xFF, 0xFF)), kPort1);
+    // Nothing filled, or no PADStatus to read (gc_pad_errors' all -1):
+    // nothing played.
+    EXPECT_EQ(gc_ports_played(0xFFFFFFFFu, 0xFFFFFFFFu), 0);
+    // A GameCube controller's own err 0 is the game's, not a fill.
+    EXPECT_EQ(gc_ports_played(errs(0x00, 0xFF, 0xFF, 0xFF), errs(0x00, 0x00, 0xFF, 0xFF)), kPort2);
+    // A controller still starting (-2) is left alone by the fill; a fill
+    // that left anything but err 0 is no controller for the game.
+    EXPECT_EQ(gc_ports_played(errs(0xFE, 0xFF, 0xFF, 0xFF), errs(0xFE, 0xFD, 0xFF, 0x00)), kPort4);
+}
+
+// SIProbe's answers: SIDecodeType gives 8 (no response), 0x40 (unknown,
+// as the Wii U's collisions decode) or 0x80 (busy) where nothing answers.
+void test_probe_answers() {
+    const std::uint32_t no_response = 0x08u;
+    const std::uint32_t unknown = 0x40u;
+    const std::uint32_t busy = 0x80u;
+    const std::uint32_t wavebird = 0x8B100000u;
+    const std::uint32_t gba = 0x00040000u;
+    EXPECT_EQ(gc_ports_probe(0, no_response, kPort1), GC_PORTS_SI_CONTROLLER);
+    EXPECT_EQ(gc_ports_probe(0, unknown, kPort1), GC_PORTS_SI_CONTROLLER);
+    EXPECT_EQ(gc_ports_probe(0, busy, kPort1), GC_PORTS_SI_CONTROLLER);
+    // Ports nobody plays on keep the SDK's answer, so the game still sees
+    // them empty and a real Wii's GameCube controller still answers itself.
+    EXPECT_EQ(gc_ports_probe(1, no_response, kPort1), no_response);
+    EXPECT_EQ(gc_ports_probe(0, GC_PORTS_SI_CONTROLLER, kPort1), GC_PORTS_SI_CONTROLLER);
+    // A device that answers keeps its own type, even on a played port:
+    // a controller plugged in where a remote plays, a GBA.
+    EXPECT_EQ(gc_ports_probe(0, wavebird, kPort1), wavebird);
+    EXPECT_EQ(gc_ports_probe(0, gba, kPort1), gba);
+    // Channels past the four ports are never changed.
+    EXPECT_EQ(gc_ports_probe(4, no_response, kAllPorts), no_response);
+    EXPECT_EQ(gc_ports_probe(0xFFFFFFFFu, no_response, kAllPorts), no_response);
+}
+
 }  // namespace
 
 int main() {
+    test_played_ports();
+    test_probe_answers();
     test_disabled_native_ports();
     test_native_lifecycle();
     test_remote_only();

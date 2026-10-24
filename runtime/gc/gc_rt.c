@@ -833,7 +833,9 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_PAD_ENABLED_BEFORE] = ctx->pad_enabled_before;
         w[GC_TR_PAD_ENABLED_AFTER] = gc_pad_enabled(ctx);
         w[GC_TR_PAD_RAW_ERRS] = ctx->pad_raw_errs;
-        w[GC_TR_PAD_NATIVE] = ctx->native_ports | (types != 0 ? 0x100u : 0u);
+        w[GC_TR_PAD_NATIVE] = (ctx->native_ports & 0xFu) | (ctx->pad_played & 0xFu) << 4 |
+                              (types != 0 ? 0x100u : 0u) | (ctx->si_probe != 0 ? 0x200u : 0u);
+        w[GC_TR_PAD_PROBES] = (ctx->si_probes_answered & 0xFFFFu) << 16 | (ctx->si_probes & 0xFFFFu);
         w[GC_TR_PAD_ERRS] = ctx->pad_filled_errs;
     }
     if (where == GC_TRACE_DISC && ctx->disc_change != 0) {
@@ -2533,6 +2535,7 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
     ctx->pad_enabled_before = GC_PORTS_ENABLED_UNKNOWN;
     ctx->pad_raw_errs = 0xFFFFFFFFu;
     ctx->pad_filled_errs = 0xFFFFFFFFu;
+    ctx->pad_played = 0;
     /* A two-disc game restarts from disc 1, as MEM1 (its FST, its ID) is
      * put back as it was at the jump. */
     if (ctx->disc_change) {
@@ -2802,6 +2805,17 @@ void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command)
     if (ctx->gcad) gc_gcad_motor((struct gc_gcad*)(uintptr_t)ctx->gcad, chan, command);
 }
 
+/* SIProbe(chan) has run (gc_hook_si_probe) and found `type`: the game
+ * gets gc_ports_probe's answer, so a game that only reads a port SIProbe
+ * calls a controller (Mario Kart: Double Dash!!) takes a Wii Remote's
+ * port where no GameCube port answers (a Wii U, an empty port). */
+uint32_t gc_on_si_probe(struct gc_rt_context* ctx, uint32_t chan, uint32_t type) {
+    const uint32_t answer = gc_ports_probe(chan, type, ctx->pad_played);
+    ++ctx->si_probes;
+    if (answer != type) ++ctx->si_probes_answered;
+    return answer;
+}
+
 /* The enabled state must be sampled before the SDK's read: its unplug
  * path clears EnabledBits as well as replacing the cached type with 8. */
 void gc_before_pad_read(struct gc_rt_context* ctx) {
@@ -2822,6 +2836,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     const uint32_t n = ctx->pad_reads++;
     const uint32_t previous_native = ctx->native_ports;
     const uint32_t previous_errors = ctx->pad_raw_errs;
+    const uint32_t previous_played = ctx->pad_played;
     uint32_t native;
     /* The four PADStatus (12 bytes each) the game asked for, read and
      * written below: anything else (a function found as PADRead that takes
@@ -2852,9 +2867,11 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
         }
     }
     ctx->pad_filled_errs = gc_pad_errors((const uint8_t*)(uintptr_t)status);
+    /* Before the test presses below: only a real fill makes a port played. */
+    ctx->pad_played = gc_ports_played(ctx->pad_raw_errs, ctx->pad_filled_errs);
     if (ctx->flags & GC_FLAG_TRACE_GAMEPLAY) {
         const int changed = native != previous_native || ctx->pad_raw_errs != previous_errors ||
-                            ctx->pad_enabled_before != gc_pad_enabled(ctx);
+                            ctx->pad_enabled_before != gc_pad_enabled(ctx) || ctx->pad_played != previous_played;
         if (n % 300 == 0 || changed) ctx->flags |= GC_FLAG_PAD_TRACE_PENDING;
     }
     /* The test of the motor: the game's own PADControlMotor, rumble at

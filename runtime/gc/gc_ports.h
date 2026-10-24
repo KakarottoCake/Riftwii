@@ -17,7 +17,10 @@
  *    where they are: a controller plugged in moves only the remote it
  *    lands on.
  *  - With more controllers than the four ports, the remote left without a
- *    free port sits out until one is free. */
+ *    free port sits out until one is free.
+ *  - A game that asks SIProbe what is in a port hears "a GameCube
+ *    controller" for a port a remote or the adapter plays on, as long as
+ *    no device of its own answers there (gc_ports_probe). */
 #ifndef RIFTWII_GC_PORTS_H
 #define RIFTWII_GC_PORTS_H
 
@@ -80,6 +83,44 @@ static inline uint32_t gc_ports_taken(const uint8_t* status, uint32_t native) {
     for (port = 0; port < GC_PORTS; ++port)
         if (status[12 * port + 10] != 0xFFu) native |= 1u << port;
     return native;
+}
+
+/* The ports a Wii Remote or the adapter played on in the last PADRead:
+ * the game's own read found no controller there (err -1 in `raw_errs`)
+ * and the fill left a controller's err 0 (`filled_errs`). Both are a byte
+ * a port, port 1 in the top byte, as gc_rt.c's gc_pad_errors packs them.
+ * The test presses (GC_FLAG_PRESS) come after the fill, so they never
+ * count here. */
+static inline uint32_t gc_ports_played(uint32_t raw_errs, uint32_t filled_errs) {
+    uint32_t port, played = 0;
+    for (port = 0; port < GC_PORTS; ++port) {
+        const uint32_t shift = 24u - 8u * port;
+        const uint32_t raw = (raw_errs >> shift) & 0xFFu;
+        const uint32_t filled = (filled_errs >> shift) & 0xFFu;
+        if (raw == 0xFFu && filled == 0u) played |= 1u << port;
+    }
+    return played;
+}
+
+/* SIProbe's answer for a GameCube controller (the SDK's SI_GC_CONTROLLER). */
+#define GC_PORTS_SI_CONTROLLER 0x09000000u
+
+/* What the game's SIProbe(chan) answers, from the SDK's own answer
+ * `probed` (gc_hook_si_probe). Some games ask SIProbe which device is in
+ * a port and only read a port's PADStatus when it is a controller:
+ * Mario Kart: Double Dash!!'s JUTGamePad::read takes a port only when
+ * SIProbe says a controller or a WaveBird. A Wii U has no GameCube ports,
+ * and a Wii's empty port has nothing in it either, so SIProbe answers "no
+ * response" there and the Wii Remote's port is skipped although its
+ * PADStatus has err 0. A port in `played` (gc_ports_played) answers as a
+ * controller instead, but only while nothing answers there: any device
+ * the SDK identified (a controller plugged in later, a GBA, a keyboard)
+ * keeps its own answer. The low byte of an answer holds SIDecodeType's
+ * errors (no response, busy, unknown); a device's type has it 0. */
+static inline uint32_t gc_ports_probe(uint32_t chan, uint32_t probed, uint32_t played) {
+    const int nothing_answers = (probed & 0xFFu) != 0;
+    if (chan >= GC_PORTS || (played & (1u << chan)) == 0 || !nothing_answers) return probed;
+    return GC_PORTS_SI_CONTROLLER;
 }
 
 /* `pads`: bit p set when a GameCube controller answers in port p.

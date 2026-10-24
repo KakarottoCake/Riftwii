@@ -728,6 +728,77 @@ std::uint32_t find_gc_si_type_cache(const std::vector<CodeRange>& text, std::uin
     return 0;
 }
 
+namespace {
+
+constexpr std::uint32_t kMtlrR0 = 0x7C0803A6u;
+
+bool is_save_lr(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x90010000u; }  // stw r0,d(r1)
+bool is_load_lr(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x80010000u; }  // lwz r0,d(r1)
+bool is_pop_r1(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x38210000u; }   // addi r1,r1,N
+
+// A small function's three-word prologue in either order MWCC writes it:
+// mflr; stw r0,4(r1); stwu (older SDKs, Double Dash's) or stwu; mflr; stw.
+bool small_prologue(const std::uint32_t* w) {
+    return (w[0] == kMflrR0 && is_save_lr(w[1]) && is_stwu_r1(w[2])) ||
+           (is_stwu_r1(w[0]) && w[1] == kMflrR0 && is_save_lr(w[2]));
+}
+
+// Its four-word epilogue: lwz r0, then mtlr and the frame's pop in either
+// order, then blr.
+bool small_epilogue(const std::uint32_t* w) {
+    if (!is_load_lr(w[0]) || w[3] != kBlr) return false;
+    return (w[1] == kMtlrR0 && is_pop_r1(w[2])) || (is_pop_r1(w[1]) && w[2] == kMtlrR0);
+}
+
+// SIDecodeType's mark: it gives a WaveBird's type, lis rD,0x8B10, among
+// its many returns (so the search does not stop at a blr).
+bool loads_wavebird_type(const std::vector<CodeRange>& text, std::uint32_t fn) {
+    for (std::uint32_t step = 0; step < 0x200; step += 4) {
+        if (!inside(text, fn + step)) return false;
+        if ((word_at(text, fn + step) & 0xFC1FFFFFu) == 0x3C008B10u) return true;
+    }
+    return false;
+}
+
+// The functions PADRead calls directly, up to its blr.
+std::set<std::uint32_t> pad_read_callees(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    std::set<std::uint32_t> callees;
+    for (std::uint32_t offset = 0; offset < 0x600; offset += 4) {
+        const std::uint32_t call = pad_read + offset;
+        if (!inside(text, call)) return {};
+        const std::uint32_t word = word_at(text, call);
+        if (word == kBlr) return callees;
+        if (is_bl(word)) callees.insert(bl_target(call, word));
+    }
+    return {};
+}
+
+}  // namespace
+
+std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
+    if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
+    const std::set<std::uint32_t> callees = pad_read_callees(text, pad_read);
+    if (callees.empty()) return 0;
+    std::set<std::uint32_t> found;
+    for (const CodeRange& range : text) {
+        const std::size_t words = range.size / 4;
+        for (std::size_t i = 0; i + 9 <= words; ++i) {
+            std::uint32_t w[9];
+            for (unsigned k = 0; k < 9; ++k) w[k] = be32(range.bytes + (i + k) * 4);
+            if (!small_prologue(w) || !is_bl(w[3]) || !is_bl(w[4]) || !small_epilogue(w + 5)) continue;
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
+            const std::uint32_t get_type = bl_target(at + 12, w[3]);
+            const std::uint32_t decode = bl_target(at + 16, w[4]);
+            // SIGetType is one of PADRead's own calls (its rumble check);
+            // SIDecodeType is told apart by the WaveBird's type.
+            if (get_type == decode || callees.count(get_type) == 0) continue;
+            if (!loads_wavebird_type(text, decode)) continue;
+            found.insert(at);
+        }
+    }
+    return found.size() == 1 ? *found.begin() : 0;
+}
+
 std::int32_t find_gc_pad_enabled_offset(const std::vector<CodeRange>& text, std::uint32_t pad_read) {
     if (pad_read == 0 || (pad_read & 3u) != 0) return 0;
     std::set<std::int32_t> offsets;

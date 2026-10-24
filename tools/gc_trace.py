@@ -28,7 +28,7 @@ PAD_SI_WHERE = 12
 DISC_WHERE = 13
 DISC_NAMES = ['disc_state', 'disc_stops', 'disc_dicvr', 'disc_step']
 PAD_SI_NAMES = ['si_type_1', 'si_type_2', 'si_type_3', 'si_type_4', 'sisr', 'pad_enabled_before',
-                'pad_enabled_after', 'pad_raw_errs', 'pad_native']
+                'pad_enabled_after', 'pad_raw_errs', 'pad_native', 'pad_probes']
 # Counters read better in decimal; everything else (addresses, registers) in hex.
 # gc_video.h's GC_VI_WIDTH_KEPT, set in the vi_mode word.
 VI_WIDTH_KEPT = 0x10000
@@ -110,7 +110,16 @@ def main():
                 no_response = sum(((value >> (27 - 8 * port)) & 1) << port for port in range(4))
                 fields.append('sisr=0x%08x si_norep=0x%x' % (value, no_response))
             elif name == 'pad_native':
-                fields.append('pad_native=0x%x si_types_known=%d' % (value & 0xF, bool(value & 0x100)))
+                fields.append('pad_native=0x%x pad_played=0x%x si_types_known=%d si_probe_hooked=%d' %
+                              (value & 0xF, (value >> 4) & 0xF, bool(value & 0x100), bool(value & 0x200)))
+            elif name == 'pad_probes':
+                # Only with SIProbe hooked (pad_native's bit 9); older
+                # records have the crash word here.
+                native = record[labels.index('pad_native')]
+                if native & 0x200:
+                    fields.append('si_probes=%d si_probes_answered=%d' % (value & 0xFFFF, value >> 16))
+                else:
+                    fields.append('pad_probes=0x%x (SIProbe not hooked)' % value)
             elif name in ('pad_enabled_before', 'pad_enabled_after') and value == 0xFFFFFFFF:
                 fields.append('%s=unknown' % name)
             elif name in DECIMAL:

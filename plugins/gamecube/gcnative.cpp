@@ -2918,6 +2918,14 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+        // SIProbe: a game that reads only the ports SIProbe calls a
+        // controller (Mario Kart: Double Dash!!) hears one on a Wii
+        // Remote's port where no GameCube port answers, as on a Wii U.
+        const std::uint32_t si_probe = find_gc_si_probe(code.ranges(), pad_read);
+        if (si_probe != 0) {
+            replay_hook(si_probe, h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
+            ctx->si_probe = si_probe;
+        }
         // PADControlMotor: a Wii Remote on the port the game rumbles
         // rumbles too, unless Settings' Wii Remote rumble (or this game's
         // own Rumble) is off, as for Wii games. The game's own function
@@ -3239,6 +3247,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             logf("GameCube: the SDK's controller types were not found, so a port is kept for a GameCube controller "
                  "only while the game reads one there\n");
         }
+    }
+    if (pad_read != 0) {
+        if (ctx->si_probe != 0)
+            logf("GameCube: SIProbe 0x%08x: a port a Wii Remote or the adapter plays on answers as a GameCube "
+                 "controller while no device of its own answers there, for games that ask before they read a port\n",
+                 ctx->si_probe);
+        else
+            logf("GameCube: SIProbe was not found: a game that asks it which ports have a controller sees none "
+                 "for a Wii Remote where the console has no GameCube controller\n");
     }
     logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
          motor == 0 ? " (not found: a Wii Remote does not rumble)"

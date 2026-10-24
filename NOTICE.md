@@ -155,6 +155,15 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   (https://github.com/mariopartyrd/marioparty5, `config/GP5E01_00/symbols.txt`
   for the hang's function, at 5324654; https://github.com/mariopartyrd/marioparty6,
   `src/game/audio.c`, at a56adea): the same sound manager set up the same way.
+- The GameCube SIProbe answer for a Wii Remote's port (`gc_ports_probe` in
+  `runtime/gc/gc_ports.h`, `find_gc_si_probe` in `src/patching/symsearch.cpp`)
+  rests on Mario Kart: Double Dash!!'s community decompilation
+  (https://github.com/doldecomp/mkdd, commit `1d2918ca577817ba431baddb78dda24831e0e0bb`,
+  CC0-1.0): `libs/JSystem/JUtility/JUTGamePad.cpp` (its `read` takes a port's
+  status only when `SIProbe` says a controller or a WaveBird),
+  `src/Osako/PadMgr.cpp` and `libs/dolphin/si/SIBios.c` (`SIProbe` as
+  `SIDecodeType(SIGetType(chan))`), read for behaviour only and checked
+  against the player's own GM4E01 executable; no code was used.
 - Game banners and channel icons (`src/disc/bnr.cpp`, `src/disc/tpl.cpp`,
   `src/disc/brlyt.cpp`, `src/disc/brlan.cpp`, `src/disc/wiicrypt.cpp`, `wii/menu/banners.*`,
   `wii/menu/bannerplay.*`, `wii/menu/otpkey.*`, `src/disc/bnrsound.cpp`, `wii/menu/bannersound.*`)
