@@ -526,5 +526,12 @@ does not list USB apps. ELF-only apps are listed with an explanation.
 Apps inherit RiftWii's current IOS and hardware access. Metadata requests
 such as `ios`, `ahb_access` and `no_ios_reload` do not reload IOS or grant
 AHBPROT access; use the Homebrew Channel for apps needing another environment.
-RiftWii does not install a return stub. When started from the RiftWii channel,
-an app's normal exit returns to the Wii Menu.
+An app's normal exit (libogc's `exit()`, which jumps to `0x80001800` when it
+finds "STUBHAXX" there) comes back to RiftWii: before the app starts, RiftWii
+puts its return stub there (`runtime/stub/`), which launches the RiftWii
+channel, or failing that the Homebrew Channel, or the Wii Menu. When the
+Homebrew Channel started RiftWii, its own stub is left, so the app goes back
+there. When the Wii Menu button is set to the Wii Menu, or the app loads over
+`0x80001800`–`0x80002400`, no stub is put and the exit goes to the Wii Menu.
+The start popup says where (all but an app over the stub, which only
+starting it shows), and `boot.log` says why.

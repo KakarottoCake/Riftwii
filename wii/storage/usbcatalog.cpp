@@ -1728,6 +1728,11 @@ bool cios_reaches_front_ports(const ImageGame& game, int cios_slot) {
 
 std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd) {
     if (chosen != 0) return {chosen};
+    // d2x reads the SD card for this launch: a game on it, a launch that
+    // keeps it open, or an RVZ on either drive, whose stub d2x boots from
+    // the card (prepare_rvz_launch).
+    const bool reads_sd =
+        game.device == ImageDevice::Sd || uses_sd || game.format == UsbImageFormat::Rvz;
     std::vector<int> order;
     // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
     // that reaches the front USB ports, for games on the SD card and on a
@@ -1749,7 +1754,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     if (!running_in_dolphin() && game.required_ios != 0) {
         std::string why;
         const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
-                                      game.device == ImageDevice::Sd || uses_sd, why);
+                                      reads_sd, why);
         if (pick && std::find(order.begin(), order.end(), pick) == order.end()) {
             logf("cIOS: %s asks for IOS%u; IOS%d %s (USB Loader GX's choice%s%s)\n", game.id.c_str(),
                  static_cast<unsigned>(game.required_ios), pick, order.empty() ? "first" : "next", why.empty() ? "" : ": ",
@@ -1766,11 +1771,17 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
         // A base-58 d2x has no keyboard driver: a tester's City Folk ran on
         // IOS251 after IOS249 (base 56) did not start the drive, and took
         // no keyboard (2610-412).
-        order = keyboard_slots_first(order, d2x_slots(), game.device == ImageDevice::Sd || uses_sd);
+        order = keyboard_slots_first(order, d2x_slots(), reads_sd);
         std::string list;
         for (int slot : order) list += (list.empty() ? "" : ", ") + std::to_string(slot);
-        logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: tried in the order %s\n",
+        logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: preferred slots %s\n",
              game.id.c_str(), list.c_str());
+    }
+    // Adapter, per-game, conventional and keyboard choices keep their
+    // precedence. Only the remaining known d2x slots extend that order.
+    if (!running_in_dolphin()) {
+        order = append_d2x_fallbacks(order, d2x_slots(), game.required_ios,
+                                     reads_sd);
     }
     return order;
 }
@@ -1791,6 +1802,25 @@ bool wait_for_usb_drive(int seconds) {
     return false;
 }
 
+// The slots the scans' "no cIOS" warning checks: the usual three, then
+// every other slot holding a d2x a launch would accept, since
+// image_cios_order now falls back to those too (append_d2x_fallbacks).
+// Without them, a Wii whose only d2x sits in an unusual slot was told its
+// image games could not boot. For the SD card's scan, only the extras
+// an SD game falls back to (bases 56-60) count.
+static std::vector<CiosSlotState> readiness_slots(bool sd_card) {
+    std::vector<CiosSlotState> slots = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)},
+                                        {251, slot_has_ticket(251)}};
+    for (const D2xSlot& d2x : d2x_slots()) {
+        if (d2x.slot >= 249 && d2x.slot <= 251) continue;
+        if (sd_card && !d2x_base_reads_sd(d2x.base)) continue;
+        // Only a slot a launch would really use: activate_image_game skips
+        // one without a launchable ticket.
+        slots.push_back(CiosSlotState{d2x.slot, slot_has_ticket(d2x.slot)});
+    }
+    return slots;
+}
+
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
     if (g_usb_raw_disc) {
@@ -1799,8 +1829,8 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         out.status = "USB DVD drive: " + g_usb_disc_game.id;
         logf("%s\n", out.status.c_str());
         if (!running_in_dolphin()) {
-            const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
-            out.cios_note = cios_readiness_note(slots, 3);
+            const std::vector<CiosSlotState> slots = readiness_slots(false);
+            out.cios_note = cios_readiness_note(slots.data(), slots.size());
         }
         error.clear();
         return true;
@@ -1824,8 +1854,16 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     // Dolphin has no cIOS slots by design; warning there would be noise.
     if (!running_in_dolphin()) {
         logf("USB: checking cIOS slots\n");
-        const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
-        out.cios_note = cios_readiness_note(slots, 3);
+        // RVZ games and GameCube games launch through the SD card
+        // (image_cios_order; gclaunch passes uses_sd), so a drive holding
+        // only those counts only SD-capable extras. One WBFS or ISO Wii
+        // game can use any base.
+        bool every_game_reads_sd = !out.games.empty();
+        for (const ImageGame& game : out.games) {
+            if (!game.gamecube && game.format != UsbImageFormat::Rvz) every_game_reads_sd = false;
+        }
+        const std::vector<CiosSlotState> slots = readiness_slots(every_game_reads_sd);
+        out.cios_note = cios_readiness_note(slots.data(), slots.size());
         if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
     }
     error.clear(); return true;
@@ -1877,8 +1915,8 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     logf("%s\n", out.status.c_str());
     if (!running_in_dolphin()) {
         logf("SD: checking cIOS slots\n");
-        const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
-        out.cios_note = cios_readiness_note(slots, 3);
+        const std::vector<CiosSlotState> slots = readiness_slots(true);
+        out.cios_note = cios_readiness_note(slots.data(), slots.size());
         if (!out.cios_note.empty()) logf("SD: %s\n", out.cios_note.c_str());
     }
     error.clear(); return true;
