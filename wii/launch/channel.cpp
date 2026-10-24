@@ -9,12 +9,19 @@
 
 #include <sys/stat.h>
 
+#include <cstring>
+#include <utility>
+#include <vector>
+
 #include "boot.hpp"
 #include "dolboot.h"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "menumusic.hpp"
 #include "netsock.hpp"
+#include "riftwii/returnstub.hpp"
+#include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
@@ -54,9 +61,12 @@ unsigned long long ChannelTitle() {
     return 0;
 }
 
+// RiftWii's own return stub (plant_return_stub, below) has "STUBHAXX" too:
+// a RiftWii started by an app that RiftWii started finds it there, and its
+// way back is then the RiftWii channel, not the Homebrew Channel.
 bool StartedByHomebrewChannel() {
-    const volatile u32* stub = reinterpret_cast<const volatile u32*>(0x80001804);
-    return stub[0] == 0x53545542 && stub[1] == 0x48415858;
+    return riftwii::return_stub_kind(reinterpret_cast<const std::uint8_t*>(RTSTUB_BASE)) ==
+           riftwii::ReturnStubKind::HomebrewChannel;
 }
 
 unsigned long long HomebrewChannelTitle() {
@@ -119,6 +129,108 @@ bool StartChannelInstaller(std::string& error) {
     dolboot_run(dol, kInstaller);
 }
 
+namespace {
+
+constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
+
+// The title's first ticket view, which ES_LaunchTitle takes with it: read
+// now, as the stub has no ES of its own to ask.
+bool first_ticket_view(u64 title, riftwii::ReturnStubTitle& out) {
+    static_assert(sizeof(tikview) == RTSTUB_VIEW_BYTES, "the stub keeps a whole ticket view per title");
+    u32 views = 0;
+    if (ES_GetNumTicketViews(title, &views) < 0 || views == 0) return false;
+    // ES_GetTicketViews fills as many as asked: room for one is enough.
+    static tikview found[4] ATTRIBUTE_ALIGN(32);
+    if (ES_GetTicketViews(title, found, 1) < 0) return false;
+    out.title = title;
+    std::memcpy(out.view.data(), &found[0], RTSTUB_VIEW_BYTES);
+    return true;
+}
+
+// Clears the "STUBHAXX" libogc's exit() looks for at 0x80001804, so the
+// app's exit goes to the Wii Menu instead of into a stub that is stale or
+// that the app's own sections will overwrite.
+void clear_return_stub_magic() {
+    volatile u32* const words = reinterpret_cast<volatile u32*>(RTSTUB_BASE);
+    words[RTSTUB_OFFSET_HBC_MAGIC / 4] = 0;
+    DCFlushRange(reinterpret_cast<void*>(RTSTUB_BASE), 32);
+}
+
+// Where the app's exit goes, settled before it starts. libogc's exit()
+// runs whatever stub is at 0x80001800, and without one goes to the Wii
+// Menu, which nothing but a Wii Remote can leave (a Wii U with only the
+// GameCube adapter). So RiftWii's stub (riftwii/returnstub.h) goes there:
+// the RiftWii channel, then the Homebrew Channel, then the Wii Menu,
+// whichever starts first. Left as it was when the Homebrew Channel started
+// RiftWii (its apps go back to it, as they always have), and not put
+// there when Settings send the Wii Menu button to the Wii Menu.
+void plant_return_stub(const u8* dol, u32 size) {
+    const riftwii::ReturnStubKind there =
+        riftwii::return_stub_kind(reinterpret_cast<const std::uint8_t*>(RTSTUB_BASE));
+    const bool clear = riftwii::dol_clear_of_return_stub(dol, size);
+    if (there == riftwii::ReturnStubKind::HomebrewChannel) {
+        // The app's sections are copied over the same range: a stub they
+        // overwrite only in part would keep its magic and crash the exit.
+        if (!clear) {
+            clear_return_stub_magic();
+            logf("Homebrew app: its exit goes to the Wii Menu (the app loads where the Homebrew Channel's stub is, "
+                 "0x80001800-0x80002400)\n");
+            return;
+        }
+        logf("Homebrew app: its exit goes back to the Homebrew Channel, which started RiftWii\n");
+        return;
+    }
+    const bool back_to_riftwii = Settings().return_to == "riftwii";
+    if (!back_to_riftwii || !clear) {
+        // An earlier RiftWii's stub would still be found: its magic goes.
+        if (there == riftwii::ReturnStubKind::RiftWii) clear_return_stub_magic();
+        logf("Homebrew app: its exit goes to the Wii Menu (%s)\n",
+             !back_to_riftwii ? "the Wii Menu button is set to the Wii Menu"
+                              : "the app loads where the return stub would go, 0x80001800-0x80002400");
+        return;
+    }
+    std::vector<riftwii::ReturnStubTitle> titles;
+    std::string order;
+    const std::pair<u64, const char*> candidates[] = {
+        {ChannelTitle(), "the RiftWii channel"},
+        {HomebrewChannelTitle(), "the Homebrew Channel"},
+        {kWiiMenuTitle, "the Wii Menu"},
+    };
+    for (const auto& [title, name] : candidates) {
+        riftwii::ReturnStubTitle found;
+        if (title == 0 || !first_ticket_view(title, found)) continue;
+        titles.push_back(found);
+        order += order.empty() ? std::string(name) : std::string(", then ") + name;
+    }
+    std::string error;
+    const std::vector<std::uint8_t> image =
+        riftwii::fill_return_stub(riftwii_stub_bin, riftwii_stub_bin_size, titles, error);
+    if (image.empty()) {
+        // Nor an earlier RiftWii's stub, with its old titles.
+        if (there == riftwii::ReturnStubKind::RiftWii) clear_return_stub_magic();
+        logf("Homebrew app: no return stub (%s), so its exit goes to the Wii Menu\n", error.c_str());
+        return;
+    }
+    void* const base = reinterpret_cast<void*>(RTSTUB_BASE);
+    std::memcpy(base, image.data(), image.size());
+    DCFlushRange(base, image.size());
+    ICInvalidateRange(base, image.size());
+    logf("Homebrew app: its exit goes back to %s (the return stub, %u bytes at 0x%08x)\n", order.c_str(),
+         static_cast<unsigned>(image.size()), static_cast<unsigned>(RTSTUB_BASE));
+}
+
+}  // namespace
+
+HomebrewExit HomebrewExitGoesTo() {
+    if (riftwii::return_stub_kind(reinterpret_cast<const std::uint8_t*>(RTSTUB_BASE)) ==
+        riftwii::ReturnStubKind::HomebrewChannel)
+        return HomebrewExit::HomebrewChannel;
+    if (Settings().return_to != "riftwii") return HomebrewExit::WiiMenu;
+    // Without the RiftWii channel the stub starts the Homebrew Channel or
+    // the Wii Menu, whichever has a ticket: not promised in the popup.
+    return ChannelTitle() != 0 ? HomebrewExit::RiftWii : HomebrewExit::NotSaid;
+}
+
 bool StartHomebrewApp(const std::string& path, std::string& error) {
     std::string line = path;
     line.push_back('\0');
@@ -137,6 +249,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         return false;
     }
     logf("Homebrew app: starting %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(size));
+    plant_return_stub(dol, size);
     LaunchMusicEnd("the app starts next");
     LogClose();
     fatUnmount("sd:");
