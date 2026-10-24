@@ -240,6 +240,10 @@ bool initialize_card(Card& card, std::string& error) {
 
 bool open_card(Card& card, std::string& error) {
     card = Card{};
+    if (sd_held_by_d2x_fat()) {
+        error = "d2x's NAND emulation has the SD card, and RiftWii stays off it while d2x does";
+        return false;
+    }
     if (using_d2x_sd()) {
         // The game is on this card and d2x drives it: share its device.
         if (!d2x_sd_open(error)) return false;

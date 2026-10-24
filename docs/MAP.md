@@ -198,7 +198,7 @@ Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs a
 | `gcrealcard.cpp`, `gcrealcard.hpp` | Read-only physical GameCube card sessions: early MEM1 DMA reservation, CARD mount, synchronous raw EXI reads, owned EXI cleanup, sticky removal detection and snapshot verification |
 | `sdfile.cpp` | Where a file's bytes lie on the card |
 | `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card |
-| `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, and takes it back after |
+| `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
 | `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
 | `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |

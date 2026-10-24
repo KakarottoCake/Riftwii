@@ -9,6 +9,7 @@
 #include <malloc.h>
 #include <unistd.h>
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 
@@ -20,31 +21,41 @@ namespace riftwii::wii {
 namespace {
 
 // d2x's FFS plugin (wiidev/d2x-cios, source/ffs-plugin): /dev/fs ioctlv
-// 100 sets the NAND emulation, its mode SD (1) without the full flag
-// (0x100: partial, the game's paths only). Its FAT module
-// (source/fat-module): ioctlv 0xF0 mounts the SD card, 0xF1 unmounts it
-// and stops the module's own SD driver.
+// 100 sets the NAND emulation, its mode SD (1), with the full flag (0x100)
+// for the whole NAND or without it for the game's paths only. Its FAT
+// module (source/fat-module): ioctlv 0xF0 mounts the SD card, 0xF1
+// unmounts it and stops the module's own SD driver.
 constexpr u32 kSetMode = 100;
 constexpr u32 kModeSd = 1;
+constexpr u32 kModeFull = 0x100;
 constexpr u32 kFatMountSd = 0xF0;
 constexpr u32 kFatUnmountSd = 0xF1;
+// The path d2x takes, its terminator included.
+constexpr std::size_t kPathBytes = 256;
 
 // What the FAT module's mount answers. Its SD driver could not start the
-// card: IPC's -4. It started the card but found no file system it could
-// read, through any of the four partition entries: FS_EFATAL, -101.
+// card: IPC's -4. FS_EFATAL, -101: the module did not mount a file system
+// through any of the four partition entries, which covers a card it could
+// not read as well as one with no FAT volume it reads.
 constexpr s32 kFatNoCard = -4;
-constexpr s32 kFatNoFileSystem = -101;
+constexpr s32 kFatNoVolume = -101;
 
 // Between a failed mount, the module's unmount and the second try: the
 // card gets a moment with no driver on it before the module starts it
 // again from the beginning.
 constexpr useconds_t kRemountPauseUs = 100 * 1000;
 
+// Whether d2x's FAT module, while it holds the card for the emulation
+// (sd_held_by_d2x_fat, which an IOS reload ends), may be told to let go:
+// not with d2x's own SD device carrying a game.
+bool g_may_release = false;
+
 std::string mount_answer(s32 code) {
     if (code >= 0) return "mounted the SD card (" + std::to_string(code) + ")";
     if (code == kFatNoCard) return "could not start the SD card (" + std::to_string(code) + ")";
-    if (code == kFatNoFileSystem)
-        return "started the SD card but found no file system it could read on it (" + std::to_string(code) + ")";
+    if (code == kFatNoVolume)
+        return "mounted no file system on the SD card: a read of the card failed, or no partition held a FAT volume "
+               "it could use (" + std::to_string(code) + ")";
     return "could not mount the SD card (" + std::to_string(code) + ")";
 }
 
@@ -71,14 +82,25 @@ std::string card_layout() {
 
 }  // namespace
 
-bool enable_d2x_saves(const std::string& dir, std::string& error) {
+bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope, bool* card_back) {
+    // Nothing is touched before the checks: the card and boot.log stay.
+    if (card_back != nullptr) *card_back = true;
     if (dir.compare(0, 4, "sd:/") != 0) {
-        error = "not a folder of the SD card";
+        error = "RiftWii turns d2x's NAND emulation on only from a folder of the SD card, and " + dir + " is not one";
         return false;
     }
-    static char path[256] ATTRIBUTE_ALIGN(32);
-    std::snprintf(path, sizeof(path), "%s", dir.c_str() + 3);
+    static char path[kPathBytes] ATTRIBUTE_ALIGN(32);
+    const char* card_path = dir.c_str() + 3;  // "/nands/01"
+    const int path_chars = std::snprintf(path, sizeof(path), "%s", card_path);
+    if (path_chars < 0 || static_cast<std::size_t>(path_chars) >= sizeof(path)) {
+        // A cut path would be another folder: d2x would make and use it.
+        error = "the folder's path is " + std::to_string(dir.size() - 3) + " characters long, and d2x takes at most " +
+                std::to_string(kPathBytes - 1);
+        return false;
+    }
     static u32 mode ATTRIBUTE_ALIGN(32) = kModeSd;
+    const u32 wanted_mode = kModeSd | (scope == D2xNandScope::WholeNand ? kModeFull : 0);
+    const char* scope_name = scope == D2xNandScope::WholeNand ? "the whole NAND (full flag 0x100)" : "the game's paths";
     const s32 ios = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
 
@@ -89,25 +111,27 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     if (fat < 0) {
         logf("Saves: IOS%d rev %d has no d2x FAT module (opening it answered %d), so it cannot keep the emulated NAND "
              "of %s; the SD card was left mounted\n", ios, revision, fat, dir.c_str());
-        error = "IOS" + std::to_string(ios) + " has no d2x FAT module (FAT module " + std::to_string(fat) + ")";
+        error = "IOS" + std::to_string(ios) + " has no d2x FAT module (" + std::to_string(fat) + ")";
         return false;
     }
     const bool d2x_driver = using_d2x_sd();
-    logf("Saves: d2x NAND emulation from %s on IOS%d rev %d: d2x's FAT module is open (%d); the SD card has %s; "
-         "RiftWii lets go of the card for d2x now\n", dir.c_str(), ios, revision, fat, card_layout().c_str());
+    logf("Saves: d2x NAND emulation of %s from %s on IOS%d rev %d: d2x's FAT module is open (%d); the SD card has "
+         "%s; RiftWii lets go of the card for d2x now\n", scope_name, dir.c_str(), ios, revision, fat,
+         card_layout().c_str());
 
     // libfat's writes reach the card before d2x reads its FAT, and boot.log
     // goes first, as it is a file on that card.
     LogClose();
     fatUnmount("sd:");
+    if (card_back != nullptr) *card_back = false;
     // libfat's unmount leaves the driver under it running (libfat 2.1.0
     // never calls a device's shutdown), and libogc's driver then still has
-    // /dev/sdio/slot0 open with the card started. The FAT module starts
-    // its own driver on that same slot: with RiftWii's still there it
-    // answered -101 on every d2x slot (#128, on a Wii U and on a Wii),
-    // while loaders that shut their SD driver down first get the emulated
-    // NAND on the same consoles. d2x's own SD device is the exception: it
-    // stays open, as it carries the game on the card.
+    // /dev/sdio/slot0 open with the card started, next to the FAT module's
+    // own driver on that slot. That is the suspected cause of #128's -101 on
+    // every d2x slot (a Wii U and a Wii), since loaders that shut their SD
+    // driver down first get the emulated NAND on the same consoles; only a
+    // Wii can confirm it. d2x's own SD device is the exception: it stays
+    // open, as it carries the game on the card.
     if (!d2x_driver) sd_interface()->shutdown();
 
     const s32 first_mount = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
@@ -133,7 +157,7 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     const s32 fs = mounted >= 0 ? IOS_Open("/dev/fs", 0) : -1;
     if (fs >= 0) {
         static ioctlv vectors[2] ATTRIBUTE_ALIGN(32);
-        mode = kModeSd;
+        mode = wanted_mode;
         vectors[0].data = &mode;
         vectors[0].len = sizeof(mode);
         vectors[1].data = path;
@@ -144,33 +168,27 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     const bool emulating = mounted >= 0 && set >= 0;
     // Without the emulation, d2x lets go of the card again, so RiftWii's
     // own save code is the only one writing to it while the game runs.
+    // With d2x's own SD device (no release), a module that mounted but
+    // serves nothing writes nothing: libfat goes back on that device.
     const bool release = !emulating && may_release;
     const s32 released = release ? IOS_Ioctlv(fat, kFatUnmountSd, 0, 0, nullptr) : 0;
     IOS_Close(fat);
 
-    // And libfat reads the card afresh after d2x made its folders. With the
-    // emulation on, through d2x's own SD device: d2x then drives the card
-    // with its own modules only, as for a game on the card (d2xsd.hpp),
-    // where starting libogc's driver again would reset the card under the
-    // FAT module. The loader's raw reads and the runtime follow the same
-    // choice. libogc's driver only when d2x's device does not start.
-    bool switched_to_d2x = false;
+    // With the emulation on, the card is d2x's alone until the next IOS
+    // reload: no libfat, no boot.log, no raw reads, no runtime on it. Its
+    // lines below wait in memory (and show on screen).
     bool remounted = false;
-    std::string d2x_device_error;
-    if (emulating && !d2x_driver) {
-        use_d2x_sd(true);
+    if (emulating) {
+        g_may_release = may_release;
+        hold_sd_for_d2x_fat(true);
+    } else {
+        // libfat reads the card afresh, through the driver it had.
         remounted = fatMountSimple("sd", sd_interface());
-        switched_to_d2x = remounted;
-        if (!remounted) {
-            d2x_device_error = d2x_sd_last_error();
-            if (d2x_device_error.empty()) d2x_device_error = "libfat found no file system through it";
-            d2x_sd_forget();  // back to libogc's driver, d2x's handle closed
-        }
+        if (remounted) LogReopen();
+        if (card_back != nullptr) *card_back = remounted;
     }
-    if (!remounted) remounted = fatMountSimple("sd", sd_interface());
-    LogReopen();
 
-    // What each step did, now that boot.log can take it.
+    // What each step did, in boot.log when it has the card back.
     logf("Saves: the SD card was unmounted for d2x (libfat wrote its cache and let go; boot.log was closed)\n");
     if (d2x_driver) {
         logf("Saves: d2x's own SD device (/dev/sdio/sdhc) stayed open: the game on the card is read through it\n");
@@ -183,10 +201,9 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
              mount_answer(first_mount).c_str(), unmount_before_retry,
              static_cast<unsigned>(kRemountPauseUs / 1000));
     }
-    logf("Saves: d2x's FAT module %s%s\n", mount_answer(mounted).c_str(),
-         retried ? " at the second try" : "");
+    logf("Saves: d2x's FAT module %s%s\n", mount_answer(mounted).c_str(), retried ? " at the second try" : "");
     if (fs >= 0) {
-        if (set >= 0) logf("Saves: d2x turned the NAND emulation on for %s (%d)\n", dir.c_str(), set);
+        if (set >= 0) logf("Saves: d2x turned the NAND emulation of %s on for %s (%d)\n", scope_name, dir.c_str(), set);
         else logf("Saves: d2x refused the NAND emulation for %s (%d)\n", dir.c_str(), set);
     } else if (mounted >= 0) {
         logf("Saves: the NAND emulation could not be asked for: /dev/fs did not open (%d)\n", fs);
@@ -197,32 +214,45 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
         logf("Saves: d2x's FAT module was told to let go of the SD card again (%d), so RiftWii's own save code has "
              "it alone\n", released);
     }
-    if (!d2x_device_error.empty()) {
-        logf("Saves: d2x's own SD device did not take the card (%s), so libogc's SD driver mounts it again, next to "
-             "d2x's FAT module\n", d2x_device_error.c_str());
+    if (emulating) {
+        logf("Saves: the SD card is d2x's now: RiftWii does not mount it again or write to it until the next IOS "
+             "reload, and boot.log ends here (the rest is on screen)\n");
+    } else if (remounted) {
+        logf("Saves: the SD card was mounted again (libfat, %s)\n",
+             using_d2x_sd() ? "through d2x's SD device" : "through libogc's SD driver");
     }
-    const char* driver = using_d2x_sd() ? "through d2x's SD device" : "through libogc's SD driver";
-    if (remounted) {
-        logf("Saves: the SD card was mounted again (libfat, %s%s)\n", driver,
-             switched_to_d2x ? "; the rest of the launch reads the card through it too" : "");
-    } else {
-        logf("Saves: the SD card did not mount again (libfat, %s)\n", driver);
-    }
-    logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d\n", dir.c_str(), fat, mounted, set);
+    logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d, mode 0x%x\n", dir.c_str(), fat, mounted,
+         set, static_cast<unsigned>(wanted_mode));
 
     if (mounted < 0) {
-        error = "d2x could not mount the SD card (FAT module " + std::to_string(fat) + ", mount " +
-                std::to_string(mounted) + ")";
+        error = "d2x could not mount the SD card (" + std::to_string(mounted) + ")";
         return false;
     }
     if (set < 0) {
-        error = "d2x refused the NAND emulation (set " + std::to_string(set) + ")";
+        error = "d2x refused the NAND emulation (" + std::to_string(set) + ")";
         return false;
     }
-    if (!remounted) {
-        error = "the SD card did not mount again after d2x took it";
+    return true;
+}
+
+bool release_d2x_saves() {
+    if (!sd_held_by_d2x_fat()) return true;
+    if (!g_may_release) {
+        logf("Saves: d2x's NAND emulation stays on until the next IOS reload: its FAT module is not told to let go "
+             "while d2x's own SD device carries the game, so RiftWii stays off the SD card\n");
         return false;
     }
+    const s32 fat = IOS_Open("fat", 0);
+    const s32 released = fat >= 0 ? IOS_Ioctlv(fat, kFatUnmountSd, 0, 0, nullptr) : fat;
+    if (fat >= 0) IOS_Close(fat);
+    if (released < 0) {
+        logf("Saves: d2x's FAT module did not let go of the SD card (%d), so RiftWii stays off it until the next IOS "
+             "reload\n", released);
+        return false;
+    }
+    hold_sd_for_d2x_fat(false);
+    logf("Saves: d2x's FAT module was told to let go of the SD card (%d): it wrote what it held, and RiftWii may "
+         "use the card again\n", released);
     return true;
 }
 

@@ -174,6 +174,30 @@ void test_forget_without_a_handle() {
     CHECK(ios.lock_depth == 0 && ios.deepest_lock >= 1);
 }
 
+// While d2x's FAT module holds the card for its NAND emulation, nothing of
+// RiftWii's reaches it, on either driver; an IOS reload ends the hold.
+void test_held_card_refuses_until_the_reload() {
+    for (bool d2x : {false, true}) {
+        start_over();
+        riftwii::wii::use_d2x_sd(d2x);
+        riftwii::wii::hold_sd_for_d2x_fat(true);
+        CHECK(riftwii::wii::sd_held_by_d2x_fat());
+        const DISC_INTERFACE* card = riftwii::wii::sd_interface();
+        alignas(32) static u8 sector[512];
+        CHECK(!card->startup());
+        CHECK(!card->isInserted());
+        CHECK(!card->readSectors(0, 1, sector));
+        CHECK(!card->writeSectors(0, 1, sector));
+        CHECK(card->shutdown());
+        CHECK(!riftwii::wii::d2x_sd_read(0, 1, sector));
+        CHECK(!riftwii::wii::d2x_sd_write(0, 1, sector));
+        CHECK(ios.opens == 0 && ios.reads == 0 && ios.libogc_startups == 0);
+        riftwii::wii::d2x_sd_forget();
+        CHECK(!riftwii::wii::sd_held_by_d2x_fat());
+        CHECK(riftwii::wii::sd_interface()->startup());
+    }
+}
+
 }  // namespace
 
 const DISC_INTERFACE __io_wiisd = {
@@ -248,6 +272,7 @@ int main() {
     test_failed_start_after_reload_is_reported_and_retried();
     test_missing_device_after_reload();
     test_forget_without_a_handle();
+    test_held_card_refuses_until_the_reload();
     if (failures == 0) std::cout << "d2x SD handle is opened and started again after every IOS reload\n";
     return failures == 0 ? 0 : 1;
 }

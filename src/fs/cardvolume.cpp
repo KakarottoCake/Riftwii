@@ -86,6 +86,12 @@ CardVolumeStart find_card_volume(const std::uint8_t* sector0) {
         start.scheme = CardVolumeStart::Scheme::NoTable;
         return start;
     }
+    // Only the first used entry is described, the one libfat mounts. d2x's
+    // FAT module may try the other entries as well, so a card whose first
+    // entry holds no FAT can still mount in d2x from a later one, and the
+    // type byte is reported as the table has it, not checked against the
+    // boot sector found there. It is a description for boot.log, not a
+    // prediction of what d2x will answer.
     for (int entry = 0; entry < kPartitionEntries; ++entry) {
         const std::uint8_t* row = sector0 + kPartitionTableOffset + entry * kPartitionEntryBytes;
         const std::uint8_t type = row[4];

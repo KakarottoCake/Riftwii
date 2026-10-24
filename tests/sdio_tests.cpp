@@ -35,6 +35,7 @@ struct Scenario {
     bool clock_stuck = false;
     bool reopen_fails = false;
     bool d2x = false;
+    bool held_by_d2x_fat = false;
     unsigned opens = 0;
     unsigned closes = 0;
     unsigned waits = 0;
@@ -237,6 +238,21 @@ void test_d2x_sharing() {
     CHECK(scenario.closes == 0);
 }
 
+// d2x's NAND emulation holds the card: RiftWii's raw card is refused
+// before any device is opened, on either driver.
+void test_refused_while_d2x_fat_holds_the_card() {
+    for (bool d2x : {false, true}) {
+        scenario = Scenario{};
+        scenario.d2x = d2x;
+        scenario.held_by_d2x_fat = true;
+        riftwii::wii::sdio::Card card;
+        std::string error;
+        CHECK(!riftwii::wii::sdio::open_card(card, error));
+        CHECK(error == "d2x's NAND emulation has the SD card, and RiftWii stays off it while d2x does");
+        CHECK(card.fd < 0 && scenario.opens == 0 && scenario.commands.empty());
+    }
+}
+
 }  // namespace
 
 s32 IOS_Open(const char* path, u32 mode) {
@@ -292,6 +308,7 @@ extern "C" void udelay(int) {
 
 namespace riftwii::wii {
 bool using_d2x_sd() { return scenario.d2x; }
+bool sd_held_by_d2x_fat() { return scenario.held_by_d2x_fat; }
 bool d2x_sd_open(std::string&) { return true; }
 std::int32_t d2x_sd_fd() { return 88; }
 bool d2x_sd_read(std::uint32_t, std::uint32_t, void*) {
@@ -306,6 +323,7 @@ int main() {
     test_manual_initialization_card_error();
     test_failures_are_bounded_and_closed();
     test_d2x_sharing();
+    test_refused_while_d2x_fat_holds_the_card();
     if (failures == 0) std::cout << "Raw SD handoff and bounded manual initialization passed\n";
     return failures == 0 ? 0 : 1;
 }

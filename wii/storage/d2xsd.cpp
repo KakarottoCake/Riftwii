@@ -30,6 +30,7 @@ char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/sdio/sdhc";
 // starting the new IOS's device, and every read through it failed.
 s32 g_fd = -1;
 bool g_active = false;
+bool g_held_by_fat = false;  // hold_sd_for_d2x_fat
 // Why the last d2x_sd_open failed, for the launch's error message: libfat
 // mounts through io_startup, which has nowhere to put it.
 std::string g_last_error;
@@ -140,6 +141,20 @@ const DISC_INTERFACE Serial<D>::io = {
     Serial<D>::clear,           Serial<D>::shutdown,
 };
 
+// What RiftWii's code gets while d2x's FAT module holds the card: nothing.
+bool refused_startup() { return false; }
+bool refused_inserted() { return false; }
+bool refused_read(sec_t, sec_t, void*) { return false; }
+bool refused_write(sec_t, sec_t, const void*) { return false; }
+bool refused_clear() { return true; }
+bool refused_shutdown() { return true; }
+const DISC_INTERFACE g_refused = {
+    DEVICE_TYPE_WII_SD, FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_SD,
+    refused_startup,    refused_inserted,
+    refused_read,       refused_write,
+    refused_clear,      refused_shutdown,
+};
+
 }  // namespace
 
 bool d2x_sd_open(std::string& error) {
@@ -175,6 +190,8 @@ void d2x_sd_forget() {
     // The next IOS may have no d2x at all (IOS 58 for the menu): libogc's
     // driver again until a launch picks d2x's for that IOS.
     g_active = false;
+    // The reload ends d2x's FAT module and its NAND emulation too.
+    g_held_by_fat = false;
 }
 
 const std::string& d2x_sd_last_error() { return g_last_error; }
@@ -182,15 +199,23 @@ const std::string& d2x_sd_last_error() { return g_last_error; }
 std::int32_t d2x_sd_fd() { return g_fd; }
 
 bool d2x_sd_read(std::uint32_t sector, std::uint32_t count, void* buffer) {
+    if (g_held_by_fat) return false;
     return chunked(kRead, sector, count, static_cast<u8*>(buffer));
 }
 
 bool d2x_sd_write(std::uint32_t sector, std::uint32_t count, const void* buffer) {
+    if (g_held_by_fat) return false;
     return chunked(kWrite, sector, count, static_cast<u8*>(const_cast<void*>(buffer)));
 }
 
 void use_d2x_sd(bool on) { g_active = on; }
 bool using_d2x_sd() { return g_active; }
-const DISC_INTERFACE* sd_interface() { return g_active ? &Serial<&g_io>::io : &Serial<&__io_wiisd>::io; }
+const DISC_INTERFACE* sd_interface() {
+    if (g_held_by_fat) return &g_refused;
+    return g_active ? &Serial<&g_io>::io : &Serial<&__io_wiisd>::io;
+}
+
+void hold_sd_for_d2x_fat(bool held) { g_held_by_fat = held; }
+bool sd_held_by_d2x_fat() { return g_held_by_fat; }
 
 }  // namespace riftwii::wii

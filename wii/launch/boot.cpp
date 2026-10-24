@@ -3368,6 +3368,9 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     if (reload_terminal_failure()) return false;
     if (g_card_live_for_log) {
         g_card_live_for_log = false;  // failed before the card was released: it and the log are still up
+    } else if (effective.preserve_current_ios && sd_held_by_d2x_fat()) {
+        // d2x's NAND emulation still has the card: the launch's session
+        // has d2x let go of it first (TakeCardBackFromD2x).
     } else if (effective.preserve_current_ios) {
         // The preserved IOS may own a USB virtual disc. Reacquiring all
         // default devices could interfere with it, so recover only SD/log.
@@ -3424,6 +3427,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
+    bool refused_identify = false;
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";
@@ -3454,13 +3458,21 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                  reload == ReloadResult::AlreadyRunning ? "it was running already" : "reloaded for this try",
                  files.emu_nand.empty() ? "" : ", next d2x's NAND emulation");
         }
-        // A channel of an emulated NAND runs in it: d2x serves the game's
-        // NAND paths from the folder, its saves among them.
+        // A channel of an emulated NAND runs in it: d2x serves the whole
+        // NAND from the folder, as that NAND's own system menu would see it
+        // (its shared contents and system files as well as the title's own
+        // paths and saves). With the emulation on, the card is d2x's: libfat
+        // and boot.log stay off it from here (the lines go on screen).
+        bool emulating = false;
         if (!files.emu_nand.empty()) {
             std::string emu_error;
-            if (!enable_d2x_saves(files.emu_nand, emu_error)) {
-                logf("Wii channels: on IOS%d, no NAND emulation of %s: %s\n", IOS_GetVersion(), files.emu_nand.c_str(),
-                     emu_error.c_str());
+            bool card_back = card;
+            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back);
+            card = card_back;
+            if (!emulating) {
+                logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
+                     IOS_GetRevision(), files.emu_nand.c_str(), emu_error.c_str());
+                note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": NAND emulation: " + emu_error);
                 if (!debug_off("identify")) continue;
                 logf("Wii channels: debug_off: started without the NAND emulation\n");
             }
@@ -3484,6 +3496,12 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
              files.game_id.c_str(), result);
         note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
                      " refused ES_Identify (" + std::to_string(result) + ")");
+        refused_identify = true;
+        // The next try reloads IOS, which ends the FAT module with whatever
+        // it still holds in its file system cache. It is told to unmount
+        // first (0xF1), so it writes that out while it still runs and the
+        // reload finds the card's FAT whole.
+        if (emulating) release_d2x_saves();
     }
     if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
@@ -3494,7 +3512,13 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         identified = true;
     }
     if (!identified) {
-        error = "ES would not run it as its own title on any IOS tried";
+        // What each IOS said, so a NAND emulation that never came on is
+        // not reported as ES refusing the title.
+        error = refused_identify ? "ES would not run it as its own title on any IOS tried"
+                                 : "it could not be started on any IOS tried";
+        if (!attempts.empty()) error += " (" + attempts + ")";
+        // The card back for the failure's log, unless d2x still has it.
+        if (!card && !sd_held_by_d2x_fat() && fatMountSimple("sd", sd_interface())) LogReopen();
         return false;
     }
 

@@ -4,6 +4,7 @@
 #include "launchrun.hpp"
 #include "launchsession.hpp"
 #include "d2xsave.hpp"
+#include "d2xsd.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
@@ -70,6 +71,25 @@ void SetCtgpDefaults(const std::string& app) {
     logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
 }
 
+bool any_on_sd(const std::vector<PackageChoices>& packages) {
+    for (const PackageChoices& p : packages) {
+        if (p.xml_sd_path.compare(0, 4, "sd:/") == 0) return true;
+    }
+    return false;
+}
+
+// A compiled mod that RiftWii serves from the SD card in the game: a pack
+// read from it, or a table entry on it.
+bool mod_reads_sd(const CompiledMod& mod) {
+    for (const std::string& xml : mod.xml_paths) {
+        if (xml.compare(0, 4, "sd:/") == 0) return true;
+    }
+    for (const rt_entry& entry : mod.entries) {
+        if (entry.kind == RT_KIND_SD) return true;
+    }
+    return false;
+}
+
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
     for (const PackageChoices& p : packages) {
         if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
@@ -79,6 +99,12 @@ bool any_on_usb(const std::vector<PackageChoices>& packages) {
 
 
 }  // namespace
+
+void TakeCardBackFromD2x() {
+    if (!sd_held_by_d2x_fat()) return;
+    if (!release_d2x_saves()) return;
+    if (fatMountSimple("sd", sd_interface())) LogReopen();
+}
 
 // every later IOS reload (the menu's own) would land in the cIOS instead.
 void ClearIosReloadBlock(std::string& error) {
@@ -105,6 +131,9 @@ bool Session::ensure_probe(std::string& error) {
         if (!own_saves_dir.empty() && !running_in_dolphin()) {
             std::string why;
             if (source.game.title_id == 0) why = "the game's title ID is not known";
+            else if (sd_after_probe)
+                why = "RiftWii reads the SD card while the game loads and runs (packs or a code build on it), and "
+                      "d2x's FAT module must have the card to itself";
             else if (source.game.device == ImageDevice::Sd && source.game.format == UsbImageFormat::Rvz)
                 why = "an RVZ game on the SD card";
             else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone,
@@ -340,6 +369,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
+    s.sd_after_probe = mod_reads_sd(mod) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_probe(error)) return false;
     if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
         error = "disc changed since preflight; recompile the selected packages";
@@ -424,6 +454,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
+    s.sd_after_probe = any_on_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
     LogCompileNotes(mod);
