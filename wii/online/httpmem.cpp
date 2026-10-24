@@ -195,7 +195,11 @@ bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error,
         if (headers.status >= 300 && headers.status < 400 && !headers.location.empty()) {
             // Only to another path on the same server, never to another one.
             HttpUrl next;
-            if (!http_redirect(parsed, headers.location, next, error)) return false;
+            if (!http_redirect(parsed, headers.location, next, error)) {
+                // By host: the refused address can hold a player's ID too.
+                error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect that cannot be followed)";
+                return false;
+            }
             if (!http_redirect_allowed(HttpRedirects::SameHost, parsed, next)) {
                 error = parsed.host + " answered " + std::to_string(headers.status) + " (a redirect to another server, not followed)";
                 return false;

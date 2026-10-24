@@ -149,11 +149,12 @@ bool Open(std::string& error) {
 
 void Close() {
     if (!g_open) return;
-    if (g_running) {
-        NetCancelBackground();
-        NetWaitForBackground();
-        g_running = false;
-    }
+    if (g_running) NetCancelBackground();
+    // Also once g_running is clear but Status has not seen it: the job
+    // clears it a moment before its thread ends, and the buffers are not
+    // given back while that thread runs.
+    if (g_running || g_state == TagState::Loading) NetWaitForBackground();
+    g_running = false;
     g_open = false;
     g_state = TagState::Idle;
     // Last taken, first given back.
