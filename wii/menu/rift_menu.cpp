@@ -11601,10 +11601,26 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				list.Select(acted);
 			};
 			const auto note = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
-			// Saves the settings; the note is `text`, or why they were not saved.
-			const auto saveAndNote = [&](const std::string& text) {
+			// The settings as they were before this press changed anything. A
+			// row that changes a setting in memory and then saves it keeps
+			// this to put back, so a failed save does not leave the menu
+			// showing (and the games using) a value that is not on the card.
+			const riftwii::LoaderSettings settingsBefore = settings;
+			// Saves the settings. If that fails, puts every setting back as
+			// it was, shows why, and returns false.
+			const auto saveOrUndo = [&]() {
 				const std::string error = saveSettings();
-				note(error.empty() ? text : error);
+				if (error.empty()) return true;
+				settings = settingsBefore;
+				note(error);
+				return false;
+			};
+			// Saves the settings; the note is `text`, or why they were not
+			// saved (and the change undone). Returns whether they were saved.
+			const auto saveAndNote = [&](const std::string& text) {
+				const bool saved = saveOrUndo();
+				if (saved) note(text);
+				return saved;
 			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
 				case kLanguage: {
@@ -11663,11 +11679,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kNonGames: {
 					settings.nand_non_games = !settings.nand_non_games;
-					const std::string error = saveSettings();
-					if (!error.empty()) {
-						note(error);
-						break;
-					}
+					if (!saveOrUndo()) break;
 					note(settings.nand_non_games ? tr("Nintendo's own channels are listed on Home now.")
 									: tr("Only games are listed on Home now."));
 					for (FlowRow& row : rows)
@@ -11726,8 +11738,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 3 && settings.menu_sounds != kSoundChoices[at]) ++at;
 					settings.menu_sounds = kSoundChoices[((at % 3) + 3 + direction) % 3];
-					ApplyMenuSounds();
-					saveAndNote(tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."));
+					// Applied only once it is saved, so a failed save leaves the old sound.
+					if (saveAndNote(tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.")))
+						ApplyMenuSounds();
 					rebuild();
 					break;
 				}
@@ -11771,9 +11784,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kMusic:
 					settings.menu_music = settings.menu_music == "off" ? "on" : "off";
-					if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();
-					else riftwii::wii::MenuMusicStart();
-					saveAndNote((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
+					if (saveOrUndo()) {
+						if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();
+						else riftwii::wii::MenuMusicStart();
+						// The note depends on whether music was found, so it follows the start.
+						note((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
+					}
 					rebuild();
 					break;
 				case kLaunchMusic:
@@ -11790,8 +11806,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kChannelCorners:
 					settings.channel_corners = StepValue(kChannelCornerChoices, settings.channel_corners, direction);
-					skin::SetChannelCorners(settings.channel_corners);
-					saveAndNote(tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."));
+					if (saveAndNote(tr("How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.")))
+						skin::SetChannelCorners(settings.channel_corners);
 					rebuild();
 					break;
 				case kChannelBackground:
@@ -11809,9 +11825,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					int at = 0;
 					while (at < 3 && settings.menu_widescreen != kWide[at]) ++at;
 					settings.menu_widescreen = kWide[((at % 3) + 3 + direction) % 3];
-					riftwii::wii::ApplyMenuDisplay();
-					skin::EnsureBackgrounds();
-					saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."));
+					if (saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."))) {
+						riftwii::wii::ApplyMenuDisplay();
+						skin::EnsureBackgrounds();
+					}
 					rebuild();
 					break;
 				}
@@ -11820,8 +11837,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.screen_size += direction < 0 ? -5 : 5;
 					if (settings.screen_size > 100) settings.screen_size = 80;
 					if (settings.screen_size < 80) settings.screen_size = 100;
-					riftwii::wii::ApplyMenuDisplay();
-					saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."));
+					if (saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.")))
+						riftwii::wii::ApplyMenuDisplay();
 					rebuild();
 					break;
 				case kTheme: {
