@@ -104,7 +104,9 @@ bool ChannelInstallerInterrupted() {
 }
 
 void ChannelUpdateNotNow() {
-    clear_installer_marker("the player picked Not now");
+    // The marker stays: the installer still has not come back, so the
+    // next start offers Not now again instead of locking the player out
+    // until another attempt at an installer that hangs.
     logf("Channel: the update was postponed for this start; Home opens and the next start asks again.\n");
 }
 

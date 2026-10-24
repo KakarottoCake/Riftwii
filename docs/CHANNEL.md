@@ -39,10 +39,10 @@ Before opening the installer, RiftWii writes
 `sd:/riftwii/channel_installer_opened.txt`. An old channel with that marker
 and no `ChannelDone` restart note means the installer did not return: the
 update screen asks for `channel.log` in a problem report and offers **Not
-now**, which opens Home for this start. Picking it clears the marker, so
-the next start asks for the update again. A `ChannelDone` restart or a
-channel that no longer needs updating also clears the marker. Exiting
-without choosing **Not now** leaves it for the next start.
+now**, which opens Home for this start. The marker stays, so the next
+start asks for the update again and still offers **Not now**: a player
+whose installer hangs is never locked out. Only a `ChannelDone` restart
+or a channel that no longer needs updating clears the marker.
 
 The channel is title `00010001-55465457` (`UFTW`) and runs under IOS 58. A
 vWii shows a title in 4:3 when its ID starts with C, D, E, F, H, J, L, M,

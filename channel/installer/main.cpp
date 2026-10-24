@@ -59,7 +59,8 @@ void mount_sd() {
 
 bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     installer::Log("trying IOS%d\n", slot);
-    std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
+    if (info.d2x) std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
+    else std::printf("  trying IOS%d (not identified)\n", slot);
     VIDEO_WaitVSync();
     if (g_sd) fatUnmount("sd:");
     __io_wiisd.shutdown();
@@ -84,13 +85,34 @@ bool reload_cios(int slot, const riftwii::D2xInfo& info) {
 void enter_cios() {
     constexpr int slots[] = {249, 250, 251};
     riftwii::D2xInfo candidates[3];
+    bool any_read = false;
     const s32 isfs = ISFS_Initialize();
     if (isfs < 0) {
         installer::Log("The cIOS search could not open the NAND file system (%d).\n", isfs);
+    } else {
+        for (unsigned i = 0; i < 3; ++i) {
+            bool read = false;
+            candidates[i] = installer::ReadCios(slots[i], read);
+            any_read = any_read || read;
+        }
+        ISFS_Deinitialize();
+    }
+
+    // Nothing could be read (no hardware access: started from a RiftWii
+    // running on a cIOS, or IOS's NAND check could not be opened). The
+    // installer then tries the slots with a ticket, as it did before,
+    // rather than refusing a console it simply cannot look into; each
+    // attempt is logged first, so a hang still leaves its slot behind.
+    if (!any_read) {
+        installer::Log("No slot's d2x information could be read; trying the slots that have a ticket.\n");
+        for (int slot : slots) {
+            u32 views = 0;
+            if (ES_GetNumTicketViews(0x0000000100000000ull | slot, &views) < 0 || views == 0) continue;
+            if (reload_cios(slot, riftwii::D2xInfo{})) return;
+        }
+        installer::Log("No cIOS in slots 249, 250 or 251 could be started.\n");
         return;
     }
-    for (unsigned i = 0; i < 3; ++i) candidates[i] = installer::ReadCios(slots[i]);
-    ISFS_Deinitialize();
 
     // Prefer base 58 for the SD card; bases 56 and 57 and other d2x bases
     // remain candidates. Only positively identified d2x slots are tried.

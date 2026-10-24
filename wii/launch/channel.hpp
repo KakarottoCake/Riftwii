@@ -22,7 +22,8 @@ constexpr unsigned kChannelVersion = 14;
 unsigned ChannelVersionNeeded();
 // Retire completed attempts, or report an installer that never returned.
 bool ChannelInstallerInterrupted();
-// Postpone only this start and retire the failed attempt's marker.
+// Postpone only this start. The failed attempt's marker stays, so later
+// starts offer Not now too until the installer returns.
 void ChannelUpdateNotNow();
 // The installed channel's title ID (00010001-UFTW, or the old RFTW), 0
 // when it is not installed.
