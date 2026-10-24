@@ -166,7 +166,8 @@ using HeadReader = std::function<bool(const std::string& path, std::size_t bytes
 // Whether a channel GameTDB's list does not name stays off Home, and if so,
 // logs it by code, banner name and reason. It reads the start of each of the
 // title's own contents (judge_unlisted_channel says what it needs): the boot
-// content's up to kForwarderMaxBytes, the others' a program header's worth.
+// content's up to kForwarderMaxBytes, the others' a program header's worth
+// (a two-stage forwarder's second stage whole).
 bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, const std::string& where) {
     std::vector<ContentStart> starts;
     for (const TmdContent& content : channel.tmd.contents) {
@@ -178,6 +179,19 @@ bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, cons
         const std::size_t bytes = static_cast<std::size_t>(std::min<std::uint64_t>(most, content.size));
         if (bytes != 0 && read(nand_content_path(channel.title_id, content.id), bytes, start.head))
             starts.push_back(std::move(start));
+    }
+    // A forwarder in two stages names its app in the second: that one is read
+    // whole when it is small enough to be one (forwarder_second_stage).
+    const int second = forwarder_second_stage(channel.tmd, starts);
+    for (ContentStart& start : starts) {
+        if (second < 0 || start.index != second) continue;
+        const TmdContent* content = tmd_content_by_index(channel.tmd, start.index);
+        std::vector<u8> whole;
+        if (content != nullptr && read(nand_content_path(channel.title_id, content->id),
+                                       static_cast<std::size_t>(start.size), whole) &&
+            whole.size() == start.size) {
+            start.head = std::move(whole);
+        }
     }
     const ChannelVerdict verdict = judge_unlisted_channel(channel.code, channel.tmd, starts);
     if (!verdict.left_out) return false;

@@ -520,9 +520,35 @@ ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents
             verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
             return verdict;
         }
+        // A loader that names nothing: its program may be a forwarder's second
+        // stage (forwarder_second_stage, which the listing reads whole). A
+        // bigger file than the first stage, so only an app under /apps/ counts.
+        const int second = forwarder_second_stage(tmd, starts);
+        for (const ContentStart& start : starts) {
+            if (second < 0 || start.index != second) continue;
+            const std::string staged = forwarder_app_path(start.head.data(), start.head.size());
+            if (staged.find("/apps/") == std::string::npos) continue;
+            verdict.rule = 4;
+            verdict.reason = "a homebrew forwarder (its loader starts a program that starts " + staged + ")";
+            return verdict;
+        }
     }
     verdict.left_out = false;
     return verdict;
+}
+
+int forwarder_second_stage(const TmdContents& tmd, const std::vector<ContentStart>& starts) {
+    const TmdContent* boot = tmd_content_by_index(tmd, tmd.boot_index);
+    if (boot == nullptr || boot->size == 0 || boot->size > kForwarderMaxBytes) return -1;
+    ChannelProgram program;
+    std::string error;
+    if (!choose_channel_program(tmd, starts, program, error) || !program.past_loader) return -1;
+    const TmdContent* content = tmd_content_by_index(tmd, program.index);
+    if (content == nullptr || (content->type & 0x8000) != 0 || content->size == 0 ||
+        content->size > kForwarderProgramMaxBytes) {
+        return -1;
+    }
+    return program.index;
 }
 
 }  // namespace riftwii
