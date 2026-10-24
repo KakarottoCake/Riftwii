@@ -1289,6 +1289,12 @@ def test_leave_audio(layout):
                 ]
                 assert sum(address == stream_control for address, _, _ in writes) == (
                     2 if stream_playing else 0)
+                # A failed save returns from the flush itself: the card stays
+                # dirty and the ES launch is never sent. The refused-ES case
+                # does send it, so both restore paths are really taken.
+                assert any(fd == 5 for _, fd in machine.sends) == (not failed_save)
+                if failed_save:
+                    assert machine.get_object(machine.get("card"), "card", "dirty_count") == 1
     print("Leaving silences DMA and streaming before save/trace/ES; failed saves and refused ES "
           "restore running and stopped states without clearing the AI interrupt or sample counter")
 
