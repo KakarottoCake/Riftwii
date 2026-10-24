@@ -3,6 +3,9 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "Y: view  Z: settings  L/R: pages"
+msgstr "Y: visão  Z: opções  L/R: páginas"
+
 msgid "Games with mods"
 msgstr "Jogos com mods"
 
@@ -579,8 +582,8 @@ msgstr "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) 
 msgid "Buttons"
 msgstr "Botões"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Aponte com o Wii Remote e aperte A, ou mova com o direcional; na lista de jogos, - e + mudam de página. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões."
+msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."
+msgstr "Aponte com o Wii Remote e aperte A, ou use o direcional. -/+ viram as páginas de Início; L/R também no Classic e GameCube (aperte até o clique). Segure L com o direcional para saltar letras no GameCube. Em Início, Z abre Configurações e B busca. B volta em outras telas; HOME (Start no GameCube) abre o menu HOME; em um banner de Canais, Start no GameCube inicia o jogo."
 
 msgid "You're all set"
 msgstr "Tudo pronto"
@@ -3093,8 +3096,17 @@ msgstr "Quer iniciar {1}?"
 msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
 msgstr "o programa é boot.elf e o RiftWii só inicia apps boot.dol"
 
-msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
-msgstr "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii."
+msgid "Apps keep RiftWii's IOS and hardware access."
+msgstr "Os apps mantêm o IOS e o acesso ao hardware do RiftWii."
+
+msgid "When the app exits, it comes back to RiftWii."
+msgstr "Ao sair, o app volta ao RiftWii."
+
+msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
+msgstr "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii."
+
+msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
+msgstr "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii."
 
 msgid "1: all apps"
 msgstr "1: todos os apps"

@@ -53,6 +53,7 @@ and `vendor-*` is third-party code.
 | Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py`; the in-app update writes them before the DOL (`plan_update_writes` in `src/net/update.cpp`, `wii/online/online.cpp`) |
 | What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
+| The way back from a Wii game by a GameCube controller (L, R, Z and Start held) | `runtime/rtleave.c` (when it goes: the hold, the save guard; `tests/padleave_tests.cpp`), `runtime/pad/` (the submit and OSSleepThread hooks), `find_way_back` and `install_pad_hook` in `wii/hooks/padhook.cpp`, `find_os_return_to_menu` in `src/patching/symsearch.cpp` |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
 | A game's crash record | `runtime/fault/`, `runtime/rtfault.c`, `wii/hooks/faulthook.cpp`, `src/data/gamefault.cpp` |
@@ -67,6 +68,7 @@ and `vendor-*` is third-party code.
 | Packs served from a PC (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
 | A Wii game's own Reset (HOME Menu > Reset) starting the game again through RiftWii | `prepare_restart_request` and `plan_restart` in `wii/launch/boot.cpp`, `RestartArguments` in `wii/menu/gameextras.cpp`, `src/patching/launchargs.cpp` (the request), `src/patching/osrestart.cpp` (OSRestart), `rt_reset_*` in `runtime/resident/`, `HeadlessArguments` in `wii/launch/headless.cpp`, [HEADLESS.md](HEADLESS.md) |
 | Returning to RiftWii (or another title) when a game exits | `src/patching/returnto.cpp`, `apply_return_to` in `wii/launch/boot.cpp`, `wii/core/restart.cpp` |
+| Returning to RiftWii when a homebrew app it started exits (the return stub) | `runtime/stub/`, `include/riftwii/returnstub.h` (its layout), `src/patching/returnstub.cpp`, `plant_return_stub` in `wii/launch/channel.cpp` |
 | GameCube games (RiftWii's own loader, in Wii mode) | `wii/launch/gclaunch.cpp`, `wii/launch/gcplugin.cpp` (the DOL's side: the request, the way back, the crash screen, the card's backup), the `gamecube` plugin (`plugins/gamecube/gcnative.cpp`, `gcentry.cpp`, `gchost.cpp`; `include/riftwii/plugin_gamecube.h` and `src/patching/gcrequest.cpp` for its request), `wii/launch/gcpatch.cpp`, `runtime/gc/`, `src/patching/vcdiff.cpp`, `src/patching/gcoverlay.cpp`, `src/patching/gclayout.cpp`, `src/patching/gcclock.cpp`, `src/patching/gcvideo.cpp`, `src/patching/gcreset.cpp`, `src/patching/gcaram.cpp`, `src/patching/gcexi.cpp`, `src/disc/gctgc.cpp` (TGC images on bonus discs), `src/disc/gcdiscs.cpp` (a two-disc game's second disc), `src/fs/gccard.cpp`, `src/fs/gcbackup.cpp`; their Channels banners: `src/disc/gcbanner.cpp`, `wii/menu/banners.cpp` |
 | Wii Remote controls in GameCube games (the map, `sd:/riftwii/gc/controls/` files, shake) | `src/data/gccontrols.cpp`, `load_gc_controls` in `plugins/gamecube/gcnative.cpp`, `runtime/gc/gc_controls.h`, `runtime/gc/gc_pro.h` (a Wii U Pro Controller's reports), `runtime/gc/gc_bt.c` |
 | Being started by another loader | `wii/launch/headless.cpp`, `src/patching/launchargs.cpp`, `docs/HEADLESS.md` |
@@ -236,7 +238,7 @@ document it.
 | `redirect` | The table of where each replaced file's bytes come from |
 | `mempatch` | Memory patches (plain, search, ocarina) and the regions they may touch |
 | `launch` | `LaunchModel`: the packs and code builds for a game and their choices |
-| `symsearch` | Finding SDK functions (IPC, PAD, the crash handler) in a game's code |
+| `symsearch` | Finding SDK functions (IPC and its submit routine, PAD, the crash handler, OSReturnToMenu) in a game's code |
 | `hook` | Branch encoding and placing the resident runtime |
 | `codehook` | Where the Gecko code handler is called from |
 | `gameconfig` | `gameconfig.txt` / `gc.txt` for code builds |
@@ -247,6 +249,7 @@ document it.
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `osrestart` | A Wii game's own Reset: finding OSRestart and OSSleepThread, the `debug_reset` test switch's stub |
 | `returnto` | Returning to RiftWii from a game |
+| `returnstub` | The return stub for homebrew apps: its image filled with the titles to try, RiftWii's stub told from the Homebrew Channel's, and apps that would load over it |
 | `launchargs` | Arguments from another loader |
 | `vcdiff` | Applying VCDIFF (xdelta) patches |
 | `gcoverlay` | GameCube packs: their files laid out past the image, the new FST, and the runs the GameCube loader serves the disc from |
@@ -344,12 +347,13 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `rtfat.c`, `rtfs.c` | A resumable FAT32 engine, and the NAND (ISFS) requests on top of it, for saves on the card |
 | `rtrvz.c` | Unpacking RVZ groups |
 | `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports), `gc_gcad.c` (the GameCube controller adapter for Wii U, driving `runtime/rtgcad.c`; its port filling and rumble are host-tested in `tests/gcgcad_tests.cpp`) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_disc.h` (a two-disc game's disc change, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
-| `pad/`, `rtgcad.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu) |
+| `pad/`, `rtgcad.c`, `rtleave.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu); with the way back, its hooks on the SDK's IPC submit routine and OSSleepThread, and `rtleave.c`'s decisions (host-tested in `tests/padleave_tests.cpp`) |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
 | `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |
 | `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
+| `stub/` | Not a blob: the return stub for homebrew apps (`include/riftwii/returnstub.h` has the layout), a program of its own at `0x80001800`, where libogc's `exit()` looks; it launches the RiftWii channel, the Homebrew Channel or the Wii Menu through `/dev/es` |
 | `dolpack/` | Not a blob: the packed `boot.dol`'s stub (`dolpack.h` has the format), a program of its own at `0x80900000` that unpacks RiftWii's sections with the vendored Zstandard decoder and starts it (`tools/pack_dol.py` makes the DOL) |
 
 Each blob directory holds `<name>_entry.S` (a header of offsets the

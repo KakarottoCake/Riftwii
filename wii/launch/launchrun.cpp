@@ -119,7 +119,12 @@ bool Session::ensure_probe(std::string& error) {
         std::string first_error;
         std::vector<D2xSlotFailure> usb_failures;
         int used_slot = 0;
-        for (int slot : image_cios_order(source.game, source.cios_slot, sd_in_use)) {
+        const std::vector<int> cios_order = image_cios_order(source.game, source.cios_slot, sd_in_use);
+        std::string slots;
+        for (int slot : cios_order) slots += (slots.empty() ? "IOS" : ", IOS") + std::to_string(slot);
+        logf("%s: %s will try cIOS slots in this order: %s\n",
+             source.kind == LaunchSource::Kind::Usb ? "USB" : "SD", source.game.id.c_str(), slots.c_str());
+        for (int slot : cios_order) {
             if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                     block_ios_reload)) { active=true; used_slot=slot; break; }
             if (reload_terminal_failure()) return false;
@@ -162,6 +167,9 @@ bool Session::ensure_probe(std::string& error) {
             return false;
         }
     } else {
+        // Cover status cannot identify a swap that happened between menu
+        // polls. Keep the launch's full probe independent of the page cache.
+        di::disc_cache().begin_launch();
         if (usb_packs && MenuCiosSlot() == 0) {
             if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
             on_cios = true;

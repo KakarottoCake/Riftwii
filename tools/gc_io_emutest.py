@@ -1133,10 +1133,13 @@ def test_forced_save_timeout(layout):
     print("Forced exit save never replies: one save attempt, bounded drain, dirty/error record retained, private ES reached")
 
 
-def prepare_returning_leave(machine, failed_save):
+def prepare_returning_leave(machine, failed_save, card_saves=False):
+    """A leave that comes back to the game: the save fails (`failed_save`),
+    or ES refuses the launch. `card_saves` also gives the refused-ES case a
+    dirty card that writes, so the successful flush runs too."""
     machine.put("leave_buf", 0x90070000)
     machine.put("leave_fd", 5)
-    if failed_save:
+    if failed_save or card_saves:
         card = 0x90040000
         machine.put("card", card)
         for name, value in {"image": 0x90080000, "run_count": 1, "dirty_count": 1}.items():
@@ -1144,7 +1147,7 @@ def prepare_returning_leave(machine, failed_save):
         machine.uc.mem_write(card + machine.layout["card.runs"], struct.pack(">3I", 0, 300, 1))
         machine.uc.mem_write(card + machine.layout["card.dirty"], b"\x01")
         machine.uc.mem_write(0x90080000, b"S" * 512)
-        machine.sd_write_result = -5
+        machine.sd_write_result = -5 if failed_save else 0
 
 
 def press_leave(machine, reset=False):
@@ -1231,6 +1234,80 @@ def test_returning_stream(layout):
         assert bytes(machine.uc.mem_read(0x900A0000, fetched)) == expected
         assert machine.get_object(stream, "stream", "refills") == 2
     print("Returning HOME restarts unpublished music top-ups; ring bytes and progress publish once")
+
+
+def test_leave_audio(layout):
+    dma_control = 0xCC005036
+    stream_control = 0xCD006C00
+    sample_count = 0xCD006C0C  # AIIT: the stream's sample counter, never touched
+    for failed_save in (False, True):
+        for dma_running in (True, False):
+            for stream_playing in (True, False):
+                machine = Machine(layout)
+                prepare_returning_leave(machine, failed_save, card_saves=True)
+                original_dma = 0x0123 | (0x8000 if dma_running else 0)
+                original_stream = 0x5E | int(stream_playing)
+                machine.uc.mem_write(dma_control, struct.pack(">H", original_dma))
+                machine.uc.mem_write(stream_control, struct.pack(">I", original_stream))
+                stream_state = original_stream
+                writes = []
+                checkpoints = []
+                silent_phases = {machine.functions[name] for name in
+                                 ("gc_card_flush", "gc_trace", "gc_flush")}
+
+                def read_stream(uc, access, address, size, value, unused):
+                    uc.mem_write(address, struct.pack(">I", stream_state))
+
+                def write_audio(uc, access, address, size, value, unused):
+                    nonlocal stream_state
+                    writes.append((address, size, value))
+                    if address == stream_control:
+                        # AICR's pending interrupt is write-one-to-clear;
+                        # stopping playback must not acknowledge it or reset
+                        # the sample counter when the game may resume.
+                        assert value & 0x28 == 0
+                        stream_state = (value & ~0x08) | (stream_state & 0x08)
+
+                def check_silent(uc, address, size, unused):
+                    if address not in silent_phases:
+                        return
+                    current_dma = struct.unpack(">H", uc.mem_read(dma_control, 2))[0]
+                    assert current_dma == original_dma & ~0x8000
+                    assert stream_state == original_stream & ~1
+                    checkpoints.append(address)
+
+                machine.uc.hook_add(UC_HOOK_MEM_READ, read_stream,
+                                    begin=stream_control, end=stream_control + 3)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=dma_control, end=dma_control + 1)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=stream_control, end=stream_control + 3)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=sample_count, end=sample_count + 3)
+                machine.uc.hook_add(UC_HOOK_CODE, check_silent)
+                machine.call("gc_leave_finish", machine.ctx, 1)
+                assert checkpoints, "the leave never reached its save or ES launch"
+                # Any write touching the register's four bytes, not only one
+                # starting at it.
+                assert not any(address < sample_count + 4 and address + size > sample_count
+                               for address, size, _ in writes)
+                assert struct.unpack(">H", machine.uc.mem_read(dma_control, 2))[0] == original_dma
+                assert stream_state == original_stream
+                assert [entry for entry in writes if entry[0] == dma_control] == [
+                    (dma_control, 2, original_dma & ~0x8000),
+                    (dma_control, 2, original_dma),
+                ]
+                assert sum(address == stream_control for address, _, _ in writes) == (
+                    2 if stream_playing else 0)
+                # A failed save returns from the flush itself: the card stays
+                # dirty and the ES launch is never sent. In the refused-ES case
+                # the card's save goes through (silently) and the launch is
+                # sent, so both restore paths are really taken.
+                assert any(fd == 5 for _, fd in machine.sends) == (not failed_save)
+                dirty = machine.get_object(machine.get("card"), "card", "dirty_count")
+                assert dirty == (1 if failed_save else 0)
+    print("Leaving silences DMA and streaming before save/trace/ES; failed saves and refused ES "
+          "restore running and stopped states without clearing the AI interrupt or sample counter")
 
 
 def test_quarantine_error(layout):
@@ -1422,6 +1499,7 @@ def main():
     test_forced_save_timeout(layout)
     test_returning_leave(layout)
     test_returning_stream(layout)
+    test_leave_audio(layout)
     test_quarantine_error(layout)
     test_worker_stack(layout)
     test_sd_wait_controllers(layout)

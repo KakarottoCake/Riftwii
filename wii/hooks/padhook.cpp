@@ -11,6 +11,7 @@
 #include <ogc/usb.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -19,6 +20,7 @@
 #include "log.hpp"
 #include "pad_hook.h"
 #include "riftwii/hook.hpp"
+#include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
 #include "rtgcad.h"
@@ -33,6 +35,13 @@ constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 constexpr std::uint32_t kBusClock = 0x0E7BE2C0;  // the time base runs at a quarter of it
 constexpr unsigned kScratchRegister = 12;             // pad_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
+// The way back (#224): the combo held as long as in GameCube games
+// (runtime/gc's leave_hold), and the quiet a save needs before it goes.
+// The quiet is over twice the longest gap between writes measured inside
+// a save in Dolphin: 0.418 s in Super Smash Bros. Brawl's first save
+// (28,874 calls over 11 s), 0.244 s in Mario Kart Wii's.
+constexpr std::uint32_t kLeaveHoldMs = 2000;
+constexpr std::uint32_t kSaveQuietMs = 1000;
 // v5 serves 16 handles, picked by the open mode: libogc's USB takes 0 and
 // fakemote (a cIOS module) 15. 0 is tried first (free once libogc's USB
 // is shut down; a Wii U's IOS 58 answered nothing on 1), then 1. v4
@@ -470,6 +479,45 @@ AdapterSeen look_for_gc_adapter(std::string& how) {
     return seen;
 }
 
+namespace {
+
+// The way back's three functions: OSReturnToMenu, OSSleepThread (the main
+// thread's, every frame) and the SDK's IPC submit routine (save activity).
+// Any missing: the adapter works without it, and boot.log says why.
+void find_way_back(const DolHeader& dol, const std::vector<CodeRange>& text, PadHook& out) {
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string error;
+    std::uint32_t menu = 0;
+    if (!find_os_return_to_menu(text, all, menu, error)) {
+        logf("GameCube adapter: no way back to RiftWii by the controller: %s\n", error.c_str());
+        return;
+    }
+    const std::uint32_t sleep = find_os_sleep_thread(text);
+    if (sleep == 0) {
+        logf("GameCube adapter: no way back to RiftWii by the controller: OSSleepThread was not found\n");
+        return;
+    }
+    IpcSymbols ipc;
+    IpcApi api;
+    if (!find_ipc_symbols(text, ipc, error) || !find_ipc_api(text, ipc, api, error)) {
+        logf("GameCube adapter: no way back to RiftWii by the controller: the IPC submit routine was not found (%s)\n",
+             error.c_str());
+        return;
+    }
+    out.return_to_menu = menu;
+    out.sleep_thread = sleep;
+    out.ipc_submit = api.submit;
+    logf("GameCube adapter: the way back (L, R, Z and Start held %u seconds): OSReturnToMenu at 0x%08x, "
+         "OSSleepThread at 0x%08x, the IPC submit routine at 0x%08x\n",
+         static_cast<unsigned>(kLeaveHoldMs / 1000), menu, sleep, api.submit);
+}
+
+}  // namespace
+
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
     out = PadHook{};
     out.demo = demo;
@@ -502,6 +550,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     // burn-in reduction on, adapter-only play may then dim the screen.
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
          out.read, out.read_sites, out.motor, out.idle_reset);
+    find_way_back(dol, text, out);
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
         if (!demo) return false;
@@ -552,7 +601,7 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
-                   std::uint32_t mem1_veneer) {
+                   std::uint32_t mem1_veneer, std::uint32_t stage_base) {
     const rt_pad_header& h = header();
     const bool demo = out.demo;
     if (out.read == 0) {
@@ -594,7 +643,11 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    addresses) left alone. A pack's patch there turns it off.
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(sizeof(gcad));
-    const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
+    // A code build puts this blob at MEM2's top. The resident runtime's
+    // staged data is still there until the jump, so keep below it too.
+    const std::uint32_t arena2_end = stage_base != 0 && mem1_veneer != 0
+                                       ? std::min(read32(kMem2ArenaEndField), stage_base)
+                                       : read32(kMem2ArenaEndField);
     if (mem1_veneer != 0) {
         const std::uint32_t bytes = out.code_bytes + out.state_bytes;
         const std::uint32_t base = (arena2_end - bytes) & ~31u;
@@ -676,8 +729,25 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;
-    } sites[2] = {{hook.read, h.hook_read, h.replay_read, h.continue_read, "PADRead"},
-                  {hook.motor, h.hook_motor, h.replay_motor, h.continue_motor, "PADControlMotor"}};
+    } sites[kPadHookSites] = {{hook.read, h.hook_read, h.replay_read, h.continue_read, "PADRead"},
+                              {hook.motor, h.hook_motor, h.replay_motor, h.continue_motor, "PADControlMotor"},
+                              {hook.ipc_submit, h.hook_submit, h.replay_submit, h.continue_submit, "the IPC submit routine"},
+                              {hook.sleep_thread, h.hook_sleep, h.replay_sleep, h.continue_sleep, "OSSleepThread"}};
+    Site& read_site = sites[0];
+    Site& motor_site = sites[1];
+    Site& submit_site = sites[2];
+    Site& sleep_site = sites[3];
+    // The way back needs both of its hooks: without either it stays off
+    // (the one that went in is harmless alone).
+    const auto way_back_off = [&](const char* name, const std::string& reason) {
+        if (hook.return_to_menu == 0) return;
+        logf("GameCube adapter: no way back to RiftWii by the controller: %s %s\n", name, reason.c_str());
+        hook.return_to_menu = 0;
+    };
+    if (hook.return_to_menu == 0) {
+        submit_site.function = 0;
+        sleep_site.function = 0;
+    }
     // Checked now, after the packs' patches: an instruction a pack
     // replaced with a branch of its own cannot be moved.
     for (Site& s : sites) {
@@ -685,14 +755,18 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
         const std::uint32_t first = *reinterpret_cast<const std::uint32_t*>(s.function);
         std::string reason;
         if (!displaceable(first, kScratchRegister, reason)) {
-            if (&s == &sites[0]) {
+            if (&s == &read_site) {
                 char buf[64];
                 std::snprintf(buf, sizeof(buf), "PADRead's first instruction (0x%08x)", first);
                 why = std::string(buf) + " cannot be moved: " + reason + "; a pack or code has hooked it";
                 hook.active = false;
                 return false;
             }
-            logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
+            if (&s == &motor_site) {
+                logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
+            } else {
+                way_back_off(s.name, "cannot be hooked (" + reason + ")");
+            }
             s.function = 0;
             continue;
         }
@@ -719,16 +793,32 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
         std::uint32_t branch = 0;
         if (!encode_branch(s.function, target, branch)) {
             why = std::string(s.name) + " is out of a branch's reach";
-            if (&s == &sites[0]) {
+            if (&s == &read_site) {
                 hook.active = false;
                 return false;
             }
+            if (&s == &submit_site || &s == &sleep_site) way_back_off(s.name, "is out of a branch's reach");
             continue;
         }
         store_words(s.function, &branch, 1);
         sync_code(s.function & ~31u, 32);
     }
-    logf("GameCube adapter: hooked%s\n", sites[1].function == 0 ? " (PADRead only)" : "");
+    // The way back's words in the context, last: return_to_menu, which
+    // turns it on, only once both its hooks are in.
+    rt_pad_context* ctx = reinterpret_cast<rt_pad_context*>(hook.code_base + h.context_offset);
+    ctx->leave.hold = kLeaveHoldMs * ctx->ticks_per_ms;
+    ctx->leave.quiet = kSaveQuietMs * ctx->ticks_per_ms;
+    ctx->resident_last_write = hook.resident_last_write;
+    ctx->resident_busy = hook.resident_busy;
+    ctx->resident_queued = hook.resident_queued;
+    ctx->return_to_menu = hook.return_to_menu;
+    DCFlushRange(ctx, RT_PAD_CONTEXT_BYTES);
+    logf("GameCube adapter: hooked%s\n", motor_site.function == 0 ? " (PADRead only)" : "");
+    if (hook.return_to_menu != 0) {
+        logf("GameCube adapter: the way back is on: the combo held %u ms (%u time base ticks), %u ms after a save\n",
+             static_cast<unsigned>(kLeaveHoldMs), static_cast<unsigned>(ctx->leave.hold),
+             static_cast<unsigned>(kSaveQuietMs));
+    }
     return true;
 }
 

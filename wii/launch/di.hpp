@@ -8,6 +8,7 @@
 #include <string>
 
 #include "riftwii/overlay.hpp"
+#include "riftwii/disccache.hpp"
 
 // Thin client for the IOS disc interface (/dev/di), written from the
 // command table documented at https://wiibrew.org/wiki//dev/di . Offsets
@@ -23,6 +24,9 @@ constexpr int kReplySuccess = 1;
 // Opens /dev/di. Fails when IOS refuses (no DI module, or already open).
 bool open(std::string& error);
 void close();
+
+// The menu's physical-disc identity; all access stays on the menu/launch thread.
+DiscCache& disc_cache();
 
 // Cover / drive state.
 bool cover_status(bool& disc_inserted, std::string& error);   // 0x88
@@ -41,6 +45,22 @@ bool set_ios_reload_block(bool enabled, std::uint32_t slot, std::string& error);
 bool ios_reload_block_active();
 // The device of the last fragment list d2x accepted: 1 USB, 2 SD, 0 none.
 std::uint32_t frag_device();
+
+// Stops the drive's motor (0xE3, no eject and no kill) so a disc does not
+// keep spinning once the console is in standby: IOS leaves the motor to
+// whoever started it. Waits at most `timeout_ms` in all for its two
+// requests (opening /dev/di, unless it is already open here, and the stop
+// itself), so a busy drive or a handle left over from an IOS reload cannot
+// keep the console on. The handle it opens stays open, for the console is
+// going down. On a timeout the request stays with IOS and its buffers stay
+// reserved, so a second call then fails at once. False with `error` saying why. It logs nothing, because the menu
+// watchdog calls it where the log may wait on a stuck card.
+constexpr unsigned kStopMotorTimeoutMs = 1500;
+bool stop_motor(unsigned timeout_ms, std::string& error);
+// stop_motor for a power-off, with the one log line saying what happened;
+// it carries on whatever the drive answers. Call it while the log is still
+// on the card.
+void stop_motor_for_power_off();
 
 // Disc ID (the first 0x20 bytes of the disc, copied to `out32`).
 bool read_disc_id(std::uint8_t out32[32], std::string& error);  // 0x70

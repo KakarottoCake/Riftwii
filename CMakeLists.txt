@@ -47,7 +47,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtpro.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtpro.c runtime/rtleave.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
@@ -56,7 +56,7 @@ set_target_properties(riftwii_runtime PROPERTIES C_STANDARD 99 C_STANDARD_REQUIR
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(riftwii_runtime PRIVATE -ffreestanding -fno-builtin -Wall -Wextra -Wpedantic -Werror)
 endif()
-add_library(riftwii STATIC src/patching/patch.cpp src/patching/patchstream.cpp src/patching/overlay.cpp src/patching/source.cpp src/patching/apply.cpp src/patching/expand.cpp src/patching/mempatch.cpp src/patching/launch.cpp src/disc/fst.cpp src/disc/disc.cpp src/patching/redirect.cpp src/fs/fragments.cpp src/fs/fat32.cpp src/fs/cardvolume.cpp src/fs/ntfs.cpp src/fs/imagevolume.cpp src/fs/wbfspart.cpp src/fs/usbgame.cpp src/data/titles.cpp src/art/canvas.cpp src/disc/dol.cpp src/patching/hook.cpp src/patching/symsearch.cpp src/net/riifs.cpp src/net/riifs_sync.cpp src/net/http.cpp src/data/cheats.cpp src/patching/videopatch.cpp src/patching/gamelang.cpp src/patching/riiconfig.cpp src/net/update.cpp src/patching/wfcpatch.cpp src/data/sha1.cpp src/fs/rvz.cpp src/art/coverart.cpp src/art/pngdecode.cpp src/data/settingsfile.cpp src/data/langfile.cpp src/data/playhistory.cpp src/data/gametdb.cpp src/patching/returnto.cpp src/patching/launchargs.cpp src/data/cardlog.cpp src/patching/codehook.cpp src/patching/gameconfig.cpp src/art/pngencode.cpp src/data/shotfile.cpp src/art/qrcode.cpp src/data/problemreport.cpp src/data/gamefault.cpp src/patching/gxpatches.cpp src/patching/ctgpconfig.cpp src/art/theme.cpp src/art/skinpaint.cpp src/art/inputicons.cpp src/art/inputicons_data.cpp src/net/riitag.cpp src/disc/sysfont.cpp src/disc/brfnt.cpp src/patching/vsdparts.cpp src/patching/vsdbuild.cpp src/art/modart.cpp src/disc/bnr.cpp src/disc/bnrsound.cpp src/art/themepack.cpp src/disc/tpl.cpp src/disc/brlyt.cpp src/disc/brlan.cpp src/disc/wiicrypt.cpp src/data/d2xversion.cpp src/data/nandcheck.cpp src/data/offlinegames.cpp src/art/casecolour.cpp src/patching/extrasbudget.cpp src/patching/wpadlog.cpp src/patching/vcdiff.cpp src/patching/gcoverlay.cpp src/patching/gcrequest.cpp src/fs/gccard.cpp src/fs/gccard_text.cpp src/fs/gcbackup.cpp src/fs/gcimport.cpp src/fs/gcreal.cpp src/data/gccrash.cpp src/patching/gclayout.cpp src/patching/gcload.cpp src/patching/gcclock.cpp src/disc/gcbanner.cpp src/data/sharednand.cpp src/data/nandchannel.cpp src/data/wadfile.cpp src/data/homeorder.cpp src/data/profiles.cpp src/data/gccontrols.cpp src/patching/gcvideo.cpp src/patching/gcfont.cpp src/patching/gcdsp.cpp src/patching/gcreset.cpp src/disc/gctgc.cpp src/patching/gcexi.cpp src/patching/gcaram.cpp src/data/stashimage.cpp src/data/sha256.cpp src/data/appmeta.cpp src/data/pluginfile.cpp src/patching/osrestart.cpp src/data/textlines.cpp src/fs/zipread.cpp src/fs/zipstream.cpp src/art/themelist.cpp src/disc/gcdiscs.cpp src/data/ghcheats.cpp)
+add_library(riftwii STATIC src/patching/patch.cpp src/patching/patchstream.cpp src/patching/overlay.cpp src/patching/source.cpp src/patching/apply.cpp src/patching/expand.cpp src/patching/mempatch.cpp src/patching/launch.cpp src/disc/fst.cpp src/disc/disc.cpp src/patching/redirect.cpp src/fs/fragments.cpp src/fs/fat32.cpp src/fs/cardvolume.cpp src/fs/ntfs.cpp src/fs/imagevolume.cpp src/fs/wbfspart.cpp src/fs/usbgame.cpp src/data/titles.cpp src/art/canvas.cpp src/disc/dol.cpp src/patching/hook.cpp src/patching/symsearch.cpp src/net/riifs.cpp src/net/riifs_sync.cpp src/net/http.cpp src/data/cheats.cpp src/patching/videopatch.cpp src/patching/gamelang.cpp src/patching/riiconfig.cpp src/net/update.cpp src/patching/wfcpatch.cpp src/data/sha1.cpp src/fs/rvz.cpp src/art/coverart.cpp src/art/pngdecode.cpp src/data/settingsfile.cpp src/data/langfile.cpp src/data/playhistory.cpp src/data/gametdb.cpp src/patching/returnto.cpp src/patching/launchargs.cpp src/data/cardlog.cpp src/patching/codehook.cpp src/patching/gameconfig.cpp src/art/pngencode.cpp src/data/shotfile.cpp src/art/qrcode.cpp src/data/problemreport.cpp src/data/gamefault.cpp src/patching/gxpatches.cpp src/patching/ctgpconfig.cpp src/art/theme.cpp src/art/skinpaint.cpp src/art/inputicons.cpp src/art/inputicons_data.cpp src/net/riitag.cpp src/disc/sysfont.cpp src/disc/brfnt.cpp src/patching/vsdparts.cpp src/patching/vsdbuild.cpp src/art/modart.cpp src/disc/bnr.cpp src/disc/bnrsound.cpp src/art/themepack.cpp src/disc/tpl.cpp src/disc/brlyt.cpp src/disc/brlan.cpp src/disc/wiicrypt.cpp src/data/d2xversion.cpp src/data/nandcheck.cpp src/data/offlinegames.cpp src/art/casecolour.cpp src/patching/extrasbudget.cpp src/patching/wpadlog.cpp src/patching/vcdiff.cpp src/patching/gcoverlay.cpp src/patching/gcrequest.cpp src/fs/gccard.cpp src/fs/gccard_text.cpp src/fs/gcbackup.cpp src/fs/gcimport.cpp src/fs/gcreal.cpp src/data/gccrash.cpp src/patching/gclayout.cpp src/patching/gcload.cpp src/patching/gcclock.cpp src/disc/gcbanner.cpp src/data/sharednand.cpp src/data/nandchannel.cpp src/data/wadfile.cpp src/data/homeorder.cpp src/data/profiles.cpp src/data/gccontrols.cpp src/patching/gcvideo.cpp src/patching/gcfont.cpp src/patching/gcdsp.cpp src/patching/gcreset.cpp src/disc/gctgc.cpp src/patching/gcexi.cpp src/patching/gcaram.cpp src/data/stashimage.cpp src/data/sha256.cpp src/data/appmeta.cpp src/data/pluginfile.cpp src/patching/osrestart.cpp src/data/textlines.cpp src/fs/zipread.cpp src/fs/zipstream.cpp src/art/themelist.cpp src/disc/gcdiscs.cpp src/data/ghcheats.cpp src/patching/returnstub.cpp)
 target_include_directories(riftwii PUBLIC include PRIVATE runtime/gc)
 target_link_libraries(riftwii PRIVATE pugixml zstddec ZLIB::ZLIB PUBLIC riftwii_runtime)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -68,6 +68,9 @@ target_link_libraries(ipcscan PRIVATE riftwii)
 # Host tool: an RVZ's verdict and the stub d2x would boot (tools/rvzstub.cpp).
 add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
+# Host tool: the memory-card EXI finder on a GameCube ISO or RVZ (tools/gc_exi_scan.cpp).
+add_executable(gc_exi_scan tools/gc_exi_scan.cpp)
+target_link_libraries(gc_exi_scan PRIVATE riftwii)
 # Host tool: a game's banner and icon, drawn as RiftWii draws them (tools/bannerdump.cpp).
 add_executable(bannerdump tools/bannerdump.cpp)
 target_link_libraries(bannerdump PRIVATE riftwii)
@@ -120,6 +123,24 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME gcrealcard_io COMMAND gcrealcard_io_tests)
     add_test(NAME gcrealcard_nomem1 COMMAND gcrealcard_io_tests no-mem1)
+    # Exercise the menu's real budget calculation without requiring a Wii
+    # build. These headers stand in for bin2o's generated blob declarations.
+    set(memorybudget_blobs riftwii_fault_bin riftwii_pad_bin riftwii_rt_rvz_zst
+        riftwii_rt_zst riftwii_shot_bin riftwii_vsd_bin)
+    foreach(blob IN LISTS memorybudget_blobs)
+        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock/${blob}.h"
+            CONTENT "#include \"memorybudget_blobs.hpp\"\n")
+    endforeach()
+    add_executable(memorybudget_tests tests/memorybudget_tests.cpp wii/menu/memorybudget.cpp)
+    target_include_directories(memorybudget_tests PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock" tests/memorybudget_mock
+        wii/menu wii/core wii/controllers wii/launch wii/storage
+        runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-zstd)
+    target_link_libraries(memorybudget_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME memorybudget COMMAND memorybudget_tests)
     # The Wii DI client itself, against a mocked IOS (tests/wii_mock).
     add_executable(d2xreload_tests tests/d2xreload_tests.cpp wii/launch/di.cpp)
     target_include_directories(d2xreload_tests PRIVATE tests/wii_mock wii wii/core wii/menu wii/launch wii/hooks wii/controllers wii/storage wii/online)
@@ -128,6 +149,13 @@ if(BUILD_TESTING)
         target_compile_options(d2xreload_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME d2xreload COMMAND d2xreload_tests)
+    add_executable(disccache_io_tests tests/disccache_io_tests.cpp wii/launch/di.cpp)
+    target_include_directories(disccache_io_tests PRIVATE tests/wii_mock wii/launch wii/core)
+    target_link_libraries(disccache_io_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(disccache_io_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME disccache_io COMMAND disccache_io_tests)
     add_executable(sdio_tests tests/sdio_tests.cpp wii/storage/sdio.cpp)
     target_include_directories(sdio_tests PRIVATE tests/wii_mock wii/storage)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -157,7 +185,7 @@ if(BUILD_TESTING)
         target_compile_options(hidsession_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME hidsession COMMAND hidsession_tests)
-    foreach(suite patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile homeorder profiles gcvideo gcfont gcreset gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta themebrowse gcdisc ghcheats menufont zipstream cardvolume)
+    foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile homeorder homeinput profiles gcvideo gcfont gcreset gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(suite STREQUAL "zipstream")

@@ -14,3 +14,6 @@ s32 IOS_Ioctl(s32, s32, void*, u32, void*, u32);
 s32 IOS_Ioctlv(s32, s32, u32, u32, ioctlv*);
 s32 IOS_GetVersion();
 s32 IOS_GetRevision();
+using ipccallback = s32 (*)(s32, void*);
+s32 IOS_OpenAsync(const char*, u32, ipccallback, void*);
+s32 IOS_IoctlAsync(s32, s32, void*, u32, void*, u32, ipccallback, void*);

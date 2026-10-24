@@ -104,11 +104,11 @@ static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob'
 // build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
 constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
-// A code build's GameCube adapter blob (in MEM2): its two veneers, PADRead's
-// and PADControlMotor's, right below the stub. The runtime's, the virtual
-// SD card's and the crash blob's run up from kCodeVeneers and end long
-// before.
-constexpr std::uint32_t kPadVeneers = kCodeReturnStub - 2 * 16;
+// A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
+// PADControlMotor's, and the way back's two, padhook.hpp's kPadHookSites),
+// right below the stub. The runtime's, the virtual SD card's and the crash
+// blob's run up from kCodeVeneers and end long before.
+constexpr std::uint32_t kPadVeneers = kCodeReturnStub - kPadHookSites * 16;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kPadVeneers,
               "the adapter's veneers must not meet the others");
 constexpr std::uint32_t kMem1Start = 0x80000000;
@@ -1061,12 +1061,27 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     if (ctx.gc_adapter) {
         std::string why;
         const std::uint32_t pad_veneers = ctx.code_build ? kPadVeneers : 0;
+        const std::uint32_t resident_stage = resident != nullptr && resident->data_base != resident->stage_base
+                                                 ? resident->stage_base : 0;
         if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
                            resident != nullptr ? resident->ioctl_async_original : 0,
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
-                           pad_veneers)) {
+                           pad_veneers, resident_stage)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
-        } else if (out.pad.new_arena2_hi != 0) {
+        } else {
+            // Saves on the SD card are written by the runtime's own card
+            // driver, which the way back's submit hook doesn't read: it
+            // watches the runtime's last save write instead, and whether
+            // its savegame engine has a request in hand or queued.
+            static_assert(offsetof(rt_fs_state, wrote) == offsetof(rt_fs_state, last_write) + 4,
+                          "the pad blob reads last_write, then wrote");
+            if (resident != nullptr && resident->fs_state != 0) {
+                out.pad.resident_last_write = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, last_write));
+                out.pad.resident_busy = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, fs.busy));
+                out.pad.resident_queued = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, queue_count));
+            }
+        }
+        if (out.pad.active && out.pad.new_arena2_hi != 0) {
             // The MEM2 arena's end comes down now, so the crash blob, planned
             // next, goes below the adapter's.
             store32(0x80003128, out.pad.new_arena2_hi);
@@ -2288,6 +2303,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.plain_code_build = plain_code_build;
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
+    // An RVZ game whose adapter could not be planned (or later installed)
+    // starts without it, as every other game does: plan_pad_hook writes
+    // nothing before it fails, and its "GameCube adapter: off" line says why.
     plan_game_extras(dol, extras_context, extras);
     // Never left open for the game (it may keep this IOS).
     close_nand_permissions("Launch");
@@ -3154,13 +3172,6 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             effective.file_device = false;
         }
     }
-    if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {
-        // RVZ games and the adapter conflict (GitHub issue #4): off for
-        // every RVZ launch, even with the setting On, until that is solved.
-        logf("GameCube adapter: off: RVZ games and the adapter do not work together yet (issue #4)\n");
-        g_extras.gc_adapter = GcAdapterMode::Off;
-        g_extras.gc_adapter_forced = false;
-    }
     // Judged under the running IOS: with the adapter on, the game keeps it
     // (below).
     settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
@@ -3400,7 +3411,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const std::string code = files.game_id.substr(0, 4);
     std::string order;
     for (int ios : files.ios_order) order += (order.empty() ? "IOS" : ", IOS") + std::to_string(ios);
-    logf("Wii channels: %s starts with RiftWii's loader: content %u (%s)%s, entry 0x%08x; it asks for IOS%u, tried: %s\n",
+    logf("Wii channels: %s starts with RiftWii's loader: content %u (%s)%s, entry 0x%08x; it asks for IOS%u and will try this IOS order: %s\n",
          files.game_id.c_str(), static_cast<unsigned>(files.program.index), files.program.format.c_str(),
          files.program.past_loader ? " (past its boot loader)" : "", dol.entry,
          static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());

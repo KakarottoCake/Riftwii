@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <string_view>
 #include <vector>
 
 #include "riftwii/pluginfile.hpp"
@@ -44,21 +45,23 @@ bool blank(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 // The value after the key that ends at `at` (just past its closing
 // quote): a string into `text`, or a bare token (number, null) into
 // `bare`. False when no ':' follows.
-bool value_after(const std::string& json, std::size_t at, std::string& text, std::string& bare) {
+bool value_after(const std::string& json, std::size_t at, std::string& text, std::string& bare,
+                 std::size_t end = std::string::npos) {
     text.clear();
     bare.clear();
-    while (at < json.size() && blank(json[at])) ++at;
-    if (at >= json.size() || json[at] != ':') return false;
+    end = std::min(end, json.size());
+    while (at < end && blank(json[at])) ++at;
+    if (at >= end || json[at] != ':') return false;
     ++at;
-    while (at < json.size() && blank(json[at])) ++at;
-    if (at < json.size() && json[at] == '"') {
-        for (++at; at < json.size() && json[at] != '"'; ++at) {
-            if (json[at] == '\\' && at + 1 < json.size()) ++at;  // nothing here needs decoding
+    while (at < end && blank(json[at])) ++at;
+    if (at < end && json[at] == '"') {
+        for (++at; at < end && json[at] != '"'; ++at) {
+            if (json[at] == '\\' && at + 1 < end) ++at;  // nothing here needs decoding
             text += json[at];
         }
-        return at < json.size();
+        return at < end;
     }
-    for (; at < json.size() && json[at] != ',' && json[at] != '}' && json[at] != ']' && !blank(json[at]); ++at)
+    for (; at < end && json[at] != ',' && json[at] != '}' && json[at] != ']' && !blank(json[at]); ++at)
         bare += json[at];
     return true;
 }
@@ -67,6 +70,175 @@ bool value_after(const std::string& json, std::size_t at, std::string& text, std
 std::size_t find_key(const std::string& json, const std::string& key, std::size_t from, std::size_t to) {
     const std::size_t at = json.find("\"" + key + "\"", from);
     return at == std::string::npos || at >= to ? std::string::npos : at;
+}
+
+// Walk structure without allocating skipped values (an uploader or release
+// body can be large). Depth is bounded because API answers are untrusted.
+class JsonReader {
+public:
+    explicit JsonReader(std::string_view text) : text_(text) {}
+
+    void skip_space() {
+        while (at_ < text_.size() && blank(text_[at_])) ++at_;
+    }
+
+    bool take(char c) {
+        skip_space();
+        if (at_ == text_.size() || text_[at_] != c) return false;
+        ++at_;
+        return true;
+    }
+
+    bool done() {
+        skip_space();
+        return at_ == text_.size();
+    }
+
+    bool string(std::string_view& out) {
+        skip_space();
+        const std::size_t start = at_;
+        if (!take('"')) return false;
+        while (at_ < text_.size()) {
+            const unsigned char c = static_cast<unsigned char>(text_[at_++]);
+            if (c == '"') {
+                out = text_.substr(start + 1, at_ - start - 2);
+                return true;
+            }
+            if (c < 0x20) return false;
+            if (c != '\\') continue;
+            if (at_ == text_.size()) return false;
+            const char escape = text_[at_++];
+            if (escape == 'u') {
+                for (unsigned i = 0; i < 4; ++i) {
+                    if (at_ == text_.size() || !std::isxdigit(static_cast<unsigned char>(text_[at_]))) return false;
+                    ++at_;
+                }
+            } else if (std::string_view("\"\\/bfnrt").find(escape) == std::string_view::npos) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    bool value(std::string_view& out, unsigned depth = 0) {
+        if (depth > 12) return false;
+        skip_space();
+        if (at_ == text_.size()) return false;
+        const std::size_t start = at_;
+        const char first = text_[at_];
+        if (first == '"') {
+            std::string_view ignored;
+            if (!string(ignored)) return false;
+        } else if (first == '{' || first == '[') {
+            ++at_;
+            const char close = first == '{' ? '}' : ']';
+            if (!take(close)) {
+                for (;;) {
+                    std::string_view ignored;
+                    if (first == '{' && (!string(ignored) || !take(':'))) return false;
+                    if (!value(ignored, depth + 1)) return false;
+                    if (take(close)) break;
+                    if (!take(',')) return false;
+                }
+            }
+        } else {
+            while (at_ < text_.size() && !blank(text_[at_]) && text_[at_] != ',' &&
+                   text_[at_] != '}' && text_[at_] != ']')
+                ++at_;
+            if (at_ == start) return false;
+            const std::string_view token = text_.substr(start, at_ - start);
+            if (token != "true" && token != "false" && token != "null" && !number(token)) return false;
+        }
+        out = text_.substr(start, at_ - start);
+        return true;
+    }
+
+private:
+    static bool number(std::string_view token) {
+        std::size_t at = token[0] == '-' ? 1 : 0;
+        const auto digits = [&] {
+            const std::size_t start = at;
+            while (at < token.size() && token[at] >= '0' && token[at] <= '9') ++at;
+            return at != start;
+        };
+        if (at == token.size()) return false;
+        if (token[at] == '0') ++at;
+        else if (!digits()) return false;
+        if (at < token.size() && token[at] == '.') {
+            ++at;
+            if (!digits()) return false;
+        }
+        if (at < token.size() && (token[at] == 'e' || token[at] == 'E')) {
+            ++at;
+            if (at < token.size() && (token[at] == '+' || token[at] == '-')) ++at;
+            if (!digits()) return false;
+        }
+        return at == token.size();
+    }
+
+    std::string_view text_;
+    std::size_t at_ = 0;
+};
+
+// Only immediate members count: uploader.name is not the asset's name.
+// The whole document is validated first, so these walks can stop at a match.
+bool member(std::string_view object, const char* wanted, std::string_view& out) {
+    JsonReader reader(object);
+    if (!reader.take('{') || reader.take('}')) return false;
+    do {
+        std::string_view key;
+        std::string_view value;
+        if (!reader.string(key) || !reader.take(':') || !reader.value(value)) return false;
+        if (key == wanted) {
+            out = value;
+            return true;
+        }
+    } while (reader.take(','));
+    return false;
+}
+
+bool member_text(const std::string& json, std::string_view object, const char* key,
+                  std::string& text, std::string& bare) {
+    std::string_view value;
+    if (!member(object, key, value)) return false;
+    // The member's ':' is immediately before its value, apart from spaces.
+    std::size_t colon = static_cast<std::size_t>(value.data() - json.data());
+    while (colon > 0 && blank(json[colon - 1])) --colon;
+    if (colon == 0) return false;
+    const std::size_t end = static_cast<std::size_t>(value.data() - json.data()) + value.size();
+    return value_after(json, colon - 1, text, bare, end);
+}
+
+enum class AssetLookup { Missing, Refused, Found };
+
+AssetLookup release_asset(const std::string& json, std::string_view release, const std::string& name,
+                           ReleaseAsset& out) {
+    std::string_view assets;
+    if (!member(release, "assets", assets)) return AssetLookup::Missing;
+    JsonReader reader(assets);
+    if (!reader.take('[') || reader.take(']')) return AssetLookup::Missing;
+    do {
+        std::string_view object;
+        std::string text, bare;
+        if (!reader.value(object)) return AssetLookup::Refused;
+        if (!member_text(json, object, "name", text, bare) || text != name) continue;
+        ReleaseAsset asset;
+        if (!member_text(json, object, "browser_download_url", text, bare) ||
+            !riftwii_release_asset_url(text)) return AssetLookup::Refused;
+        asset.url = text;
+        if (member_text(json, object, "digest", text, bare) && text.compare(0, 7, "sha256:") == 0 &&
+            text.size() == 7 + 64) {
+            for (std::size_t i = 7; i < text.size(); ++i)
+                asset.sha256 += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
+        }
+        if (member_text(json, object, "size", text, bare) && !bare.empty() &&
+            std::isdigit(static_cast<unsigned char>(bare[0]))) {
+            asset.size = std::strtoull(bare.c_str(), nullptr, 10);
+        }
+        out = asset;
+        return AssetLookup::Found;
+    } while (reader.take(','));
+    return AssetLookup::Missing;
 }
 
 }  // namespace
@@ -103,31 +275,19 @@ bool riftwii_release_asset_url(const std::string& url) {
 }
 
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out) {
-    // GitHub lists an asset's "name" before its "size", "digest" and
-    // "browser_download_url"; nothing of another asset comes between.
-    std::string text, bare;
-    for (std::size_t at = find_key(json, "name", 0, json.size()); at != std::string::npos;
-         at = find_key(json, "name", at + 6, json.size())) {
-        if (!value_after(json, at + 6, text, bare) || text != name) continue;
-        const std::size_t url_at = find_key(json, "browser_download_url", at, json.size());
-        if (url_at == std::string::npos || !value_after(json, url_at + 22, text, bare) || text.empty()) return false;
-        if (!riftwii_release_asset_url(text)) return false;
-        ReleaseAsset asset;
-        asset.url = text;
-        const std::size_t digest_at = find_key(json, "digest", at, url_at);
-        if (digest_at != std::string::npos && value_after(json, digest_at + 8, text, bare) &&
-            text.compare(0, 7, "sha256:") == 0 && text.size() == 7 + 64) {
-            for (std::size_t i = 7; i < text.size(); ++i)
-                asset.sha256 += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
-        }
-        const std::size_t size_at = find_key(json, "size", at, url_at);
-        if (size_at != std::string::npos && value_after(json, size_at + 6, text, bare) && !bare.empty() &&
-            std::isdigit(static_cast<unsigned char>(bare[0]))) {
-            asset.size = std::strtoull(bare.c_str(), nullptr, 10);
-        }
-        out = asset;
-        return true;
-    }
+    JsonReader document(json);
+    std::string_view root;
+    if (!document.value(root) || !document.done()) return false;
+    if (root.front() == '{') return release_asset(json, root, name, out) == AssetLookup::Found;
+    JsonReader releases(root);
+    if (!releases.take('[') || releases.take(']')) return false;
+    do {
+        std::string_view release;
+        if (!releases.value(release)) return false;
+        const AssetLookup result = release_asset(json, release, name, out);
+        // A refused first match must not be replaced by an older release.
+        if (result != AssetLookup::Missing) return result == AssetLookup::Found;
+    } while (releases.take(','));
     return false;
 }
 

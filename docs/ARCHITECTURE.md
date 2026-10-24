@@ -111,6 +111,23 @@ burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
 button or stick change.
 
+The same blob gives Wii games the GameCube games' way back: L, R, Z and
+Start held two seconds on a GameCube controller (the adapter's or the
+console's own ports) leave through the game's own `OSReturnToMenu`, the
+HOME Menu's Wii Menu button, which Return to RiftWii points at the
+channel. The combo is checked in `PADRead`; the leave itself waits for
+the main thread's next `OSSleepThread` (hooked: `PADRead` can run in the
+SI sampling callback), and fires once, since `OSReturnToMenu`'s own NAND
+calls sleep through there again. A hook on the SDK's IPC submit routine,
+which every IOS request passes, notes save activity (a write, a NAND
+file opened for writing, a `/dev/fs` change), and with saves on the SD
+card the blob reads the resident runtime's last save write: the combo
+waits until no save was written for a second (gaps inside a save
+measured in Dolphin: up to 0.418 s in Super Smash Bros. Brawl). The
+decisions are `runtime/rtleave.c`, host-tested. With any of the three
+functions missing, or one of the two hooks impossible, the way back stays
+off and boot.log says why; the adapter works as before.
+
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
 the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's
@@ -669,7 +686,7 @@ ID, including this change, consistently.
 
 | Where | What |
 | --- | --- |
-| `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` and its code list to `0x80003000` (in Wii and GameCube games) |
+| `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` and its code list to `0x80003000` (in Wii and GameCube games); before a homebrew app starts, the return stub at `0x80001800`–`0x80002400` (`include/riftwii/returnstub.h`) |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | Under `0x80900000`, and `0x80900000`–about `0x80940000` (start-up only) | The packed `boot.dol`: its table and Zstandard frames, then the stub with its workspace and stack (`runtime/dolpack/`, `tools/pack_dol.py`). The stub unpacks every section to its address above, clears the BSS, moves the command line to where a loader would have put it for the unpacked DOL, and jumps to crt0; after that it is free memory |
 | `0x81200000` | The game's apploader, while it runs |
