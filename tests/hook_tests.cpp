@@ -1576,6 +1576,36 @@ static void TestFsAsyncIntercept() {
         for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xD0 + i));
     }
 
+    // A save write that fails once still counts for the way back's quiet
+    // check from the failure on, and completes. (The host clock jumps a
+    // whole wait per read, so the pause before it goes again is over at
+    // once here; on the Wii rt_fs_back_off stamps it, 512 ms at most.)
+    {
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xE0 + i);
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x8000104A; args[4] = 0x8000204A;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        bool failed_write = false;
+        while (!ios.queue.empty()) {
+            if (!failed_write && ios.queue[0].kind == 1 && ios.queue[0].write != 0) {
+                failed_write = true;
+                EXPECT_EQ(st->wrote, 1u);
+                const std::uint32_t went_out = st->last_write;
+                ios.fail_transfers = 1;
+                ios.complete_one();
+                EXPECT_TRUE(st->last_write != went_out);  // stamped at the failure, before it goes again
+                continue;
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(failed_write);
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_TRUE(!ios.delivered.empty() && ios.delivered[0].result == 16);
+        ios.delivered.clear();
+    }
+
     // An async write whose transfer IOS first refuses, then fails: it goes
     // again, the game is told it worked, and the bytes are on the card.
     // Both events land in the card log, written to its sector afterwards.

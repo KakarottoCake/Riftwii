@@ -934,7 +934,11 @@ static uint32_t rt_fs_command_status(const struct rt_context* ctx, struct rt_fs_
     return st->response[0];
 }
 
-/* A save write went through: the time the card log measures from. */
+/* A save write is under way or went through: the time the card log
+ * measures from, and the one the pad hook's way back waits a quiet second
+ * after. Stamped at every step of a write (it goes out, the card is still
+ * programming it, a pause before it goes again, it is done), so no gap
+ * between stamps comes near that second. */
 static void rt_fs_wrote(struct rt_fs_state* st) {
     if (!st->req.fat.io_write || st->cardlog_writing) return;
     st->last_write = rt_fs_ticks();
@@ -953,7 +957,11 @@ static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, ui
         rt_cardlog_transfer(ctx, st, RT_CARDLOG_CARD_ERROR, 0, !rt_fs_in_thread(), st->response[0], polls);
     }
     state = (st->response[0] >> 9) & 15u;
-    return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
+    if (state != RT_SD_STATE_RCV && state != RT_SD_STATE_PRG) return 0;
+    /* Still programming a save write: it is still under way for the way
+     * back's quiet check, as at every step of a write (rt_fs_mark_busy). */
+    rt_fs_wrote(st);
+    return 1;
 }
 
 /* Marks the card busy right before a savegame transfer goes out: mod
@@ -1004,6 +1012,9 @@ static void rt_fs_back_off(struct rt_fs_state* st) {
     if (shift > 8u) shift = 8u;
     st->not_before = rt_fs_ticks() + (RT_SD_BACKOFF_TICKS << shift);
     st->backing_off = 1;
+    /* A save write that failed is still under way: the pause before it
+     * goes again (512 ms at most) stays inside the way back's quiet second. */
+    rt_fs_wrote(st);
 }
 
 /* Whether a savegame command must wait before it goes to the card: a

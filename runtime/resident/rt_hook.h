@@ -498,7 +498,7 @@ struct rt_fs_state {
     uint32_t cardlog_writing;      /* the engine is writing the log (its own failures are not noted) */
     uint32_t cardlog_errors;       /* the log's own writes that failed; RT_CARDLOG_MAX_ERRORS stop it */
     uint32_t last_status;          /* the last CMD13's R1 status */
-    uint32_t last_write;           /* time base when a save write last went out or completed */
+    uint32_t last_write;           /* time base of a save write's last step (out, programming, retry pause, done) */
     uint32_t wrote;                /* a save write has gone out (last_write is valid) */
     uint32_t card_wanted;          /* a savegame command waits for the card: mod reads hold back */
     uint32_t gate;                 /* RT_FS_GATE_*: what the FILE record's null round trip in flight is waiting to send */
