@@ -3610,12 +3610,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Wii channels and WiiWare on Home",
-	"Your homebrew apps on Home",
-	"More themes to download in Settings > Theme",
-	"Two-disc GameCube games change discs",
-	"Retro Rewind online works again",
-	"Settings: Network Test, Games on the SD card",
+	"Wii Menu sounds and music in Settings > Menu",
+	"GameCube memory cards in more games",
+	"Bring Nintendont's GameCube saves over",
+	"Cheats from GameHacking.org",
+	"Hold L+R+Z+Start to leave a Wii game",
+	"Home starts on your last game",
 };
 
 static std::string WhatsNewText()
