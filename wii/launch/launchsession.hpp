@@ -17,6 +17,13 @@ namespace riftwii::wii {
 // every later IOS reload (the menu's own) would land in the cIOS instead.
 void ClearIosReloadBlock(std::string& error);
 
+// After a launch that left the SD card to d2x's FAT module (the emulation
+// on, or a module that would not let go) came back failed: the module lets
+// go and libfat and boot.log have the card again (release_d2x_saves), so
+// the failure reaches boot.log and the menu gets its card. Nothing when
+// the card is not held.
+void TakeCardBackFromD2x();
+
 // A compile's warnings and notes for the log.
 void LogCompileNotes(const CompiledMod& mod);
 
@@ -50,6 +57,7 @@ struct Session {
     // every USB/SD game) would send the menu's later IOS reloads, and the
     // next game's, into this cIOS.
     ~Session() {
+        TakeCardBackFromD2x();  // nothing unless d2x's FAT module still holds the card
         if (keep_reload_block) return;
         std::string ignored;
         ClearIosReloadBlock(ignored);
@@ -65,6 +73,12 @@ struct Session {
     // The game reads the SD card as it runs (packs, saves): the cIOS
     // choice keeps to the bases that reach it (image_cios_order).
     bool sd_in_use = false;
+    // RiftWii itself still needs the SD card after the probe, while the
+    // game would be loading and running: packs on the card (compiled after
+    // the probe, read by the runtime in the game) or a code build. d2x's
+    // NAND emulation then stays off and RiftWii's own save code keeps the
+    // save, so the card never has two file systems writing to it.
+    bool sd_after_probe = false;
 
     // Opens the game image (or the disc) and probes it; false with `error`.
     bool ensure_probe(std::string& error);

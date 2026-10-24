@@ -242,10 +242,10 @@ void OfferRestart(const std::string& error) {
 bool MountStartupSd() {
     for (int attempt = 0; attempt < 3; ++attempt) {
         if (attempt > 0) {
-            __io_wiisd.shutdown();
+            riftwii::wii::libogc_sd_stop();
             usleep(250000);
         }
-        if (__io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
+        if (riftwii::wii::libogc_sd_start() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
     }
     return false;
 }

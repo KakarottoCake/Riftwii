@@ -1902,7 +1902,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
         return true;
     }
     logf("SD: scanning for images\n");
-    if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
+    if (!libogc_sd_inserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
     g_misplaced_gc.reset();
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
@@ -1951,7 +1951,7 @@ std::string release_for_reload() {
     release_wii_remotes();
     step("releasing the Wii Remotes");
     fatUnmount("sd:");
-    __io_wiisd.shutdown();
+    libogc_sd_stop();
     g_sd_back = false;
     step("closing the SD card");
     release_usb_driver();
