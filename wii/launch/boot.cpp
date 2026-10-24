@@ -104,11 +104,11 @@ static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob'
 // build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
 constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
-// A code build's GameCube adapter blob (in MEM2): its two veneers, PADRead's
-// and PADControlMotor's, right below the stub. The runtime's, the virtual
-// SD card's and the crash blob's run up from kCodeVeneers and end long
-// before.
-constexpr std::uint32_t kPadVeneers = kCodeReturnStub - 2 * 16;
+// A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
+// PADControlMotor's, and the way back's two, padhook.hpp's kPadHookSites),
+// right below the stub. The runtime's, the virtual SD card's and the crash
+// blob's run up from kCodeVeneers and end long before.
+constexpr std::uint32_t kPadVeneers = kCodeReturnStub - kPadHookSites * 16;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kPadVeneers,
               "the adapter's veneers must not meet the others");
 constexpr std::uint32_t kMem1Start = 0x80000000;
@@ -830,7 +830,7 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 
 // Return to RiftWii, below with the play log.
 u64 return_title();
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
 
@@ -1068,7 +1068,20 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
                            pad_veneers, resident_stage)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
-        } else if (out.pad.new_arena2_hi != 0) {
+        } else {
+            // Saves on the SD card are written by the runtime's own card
+            // driver, which the way back's submit hook doesn't read: it
+            // watches the runtime's last save write instead, and whether
+            // its savegame engine has a request in hand or queued.
+            static_assert(offsetof(rt_fs_state, wrote) == offsetof(rt_fs_state, last_write) + 4,
+                          "the pad blob reads last_write, then wrote");
+            if (resident != nullptr && resident->fs_state != 0) {
+                out.pad.resident_last_write = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, last_write));
+                out.pad.resident_busy = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, fs.busy));
+                out.pad.resident_queued = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, queue_count));
+            }
+        }
+        if (out.pad.active && out.pad.new_arena2_hi != 0) {
             // The MEM2 arena's end comes down now, so the crash blob, planned
             // next, goes below the adapter's.
             store32(0x80003128, out.pad.new_arena2_hi);
@@ -1301,12 +1314,28 @@ void prepare_restart_request(const BootOptions& options) {
              "is what starts RiftWii again\n");
         return;
     }
+    // The restart starts without the menu, so the cIOS this launch runs on
+    // is named in the request when the choice was RiftWii's (a Wii U's
+    // GameCube adapter put IOS251 first only because the menu saw it).
+    // Only a launch that keeps the running IOS runs on it: one that
+    // reloads the game's IOS next leaves the cIOS to the restart (0 names
+    // no slot), as it did before.
     RestartRequest request;
     std::string why;
-    if (!launch_request_sector(g_extras.restart_args, true, kRestartSector, request.armed, why) ||
-        !launch_request_sector(g_extras.restart_args, false, kRestartSector, request.idle, why)) {
+    const int running_ios = IOS_GetVersion();
+    const int launch_ios = options.preserve_current_ios ? running_ios : 0;
+    RestartCios cios = RestartCios::Unchanged;
+    if (!restart_request_sectors(g_extras.restart_args, launch_ios, kRestartSector, request.armed, request.idle, cios,
+                                 why)) {
         logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
         return;
+    }
+    if (cios == RestartCios::Pinned) {
+        logf("Reset: the request names IOS%d, the cIOS this launch runs on, so the restart (which has no menu) "
+             "chooses the same\n", running_ios);
+    } else if (cios == RestartCios::DidNotFit) {
+        logf("Reset: the request leaves the cIOS to the restart: naming IOS%d would not fit its sector, so the "
+             "restart (which has no menu) may choose another\n", running_ios);
     }
     std::FILE* file = std::fopen(kRestartFile, "wb");
     bool written = file != nullptr && std::fwrite(request.idle.data(), 1, kRestartSector, file) == kRestartSector;
@@ -1401,6 +1430,22 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
     logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with its "
          "packs and choices: the request is in sector %u of the card (%s)\n", os_restart, out.request_lba,
          kRestartFile);
+    // The way to the channel: the game's own OSReturnToMenu when Return to
+    // RiftWii is patched in (decided after the patch, in boot_after_unmount),
+    // so the game shuts its devices down first; else a direct launch.
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string menu_error;
+    if (find_os_return_to_menu(text, all, out.return_to_menu, menu_error)) {
+        logf("Reset: it leaves through the game's OSReturnToMenu (0x%08x) when Return to RiftWii is patched in\n",
+             out.return_to_menu);
+    } else {
+        out.return_to_menu = 0;
+        logf("Reset: the channel is launched directly: %s\n", menu_error.c_str());
+    }
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
@@ -2580,8 +2625,23 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else if (plain_code_build) logf("WFC: not patched: a code build starts without RiftWii's extras\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
+    bool returns_to_channel = false;
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
-    else apply_return_to(loaded, return_to, return_stub);
+    else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
+    // The game's own Reset leaves through its OSReturnToMenu once that goes
+    // to the channel the request is for (rt_reset_on_os_restart).
+    if (resident.restart_hooked && restart_plan.return_to_menu != 0 && returns_to_channel &&
+        return_to == restart_plan.title) {
+        rt_context* runtime = reinterpret_cast<rt_context*>(resident.context_now);
+        runtime->restart.return_to_menu = restart_plan.return_to_menu;
+        const std::uint32_t line =
+            static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&runtime->restart.return_to_menu)) & ~31u;
+        DCFlushRange(reinterpret_cast<void*>(line), 64);
+        logf("Reset: leaves through OSReturnToMenu (0x%08x), which now starts the RiftWii channel\n",
+             restart_plan.return_to_menu);
+    } else if (resident.restart_hooked) {
+        logf("Reset: the RiftWii channel is launched directly (Return to RiftWii is not patched in for it)\n");
+    }
     install_wpad_log_last(extras);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
@@ -2873,8 +2933,9 @@ u64 return_title() {
 }
 
 // `stub`: 32 bytes of MEM1 above the game's arena.
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
-    if (title == 0) return;
+// True when the game's __OSLaunchMenu now starts `title`.
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
+    if (title == 0) return false;
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     const ReturnToReport report =
@@ -2900,6 +2961,7 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
     }
     logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
          report.describe().c_str(), d2x >= 0 ? "set" : "not available");
+    return report.patched;
 }
 
 // IOS's file system keeps the Wii Menu's files to the Wii Menu. With

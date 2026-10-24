@@ -45,6 +45,7 @@
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "d2xsd.hpp"
+#include "di.hpp"
 #include "covers.hpp"
 #include "entropy.hpp"
 #include "fullfont.hpp"
@@ -135,7 +136,10 @@ void LeaveTo(int where) {
         StartHomebrewChannelTitle();
     } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says; the drives
-        // finish their writes first, as for the power button.
+        // finish their writes first, as for the power button. The disc
+        // drive's motor stops first, while the log can still reach the
+        // card, or a disc keeps spinning in standby.
+        riftwii::di::stop_motor_for_power_off();
         fatUnmount("sd:");
         fatUnmount("usb:");
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
@@ -144,6 +148,9 @@ void LeaveTo(int where) {
         // or off as the Wii's own setting says, as the Wii Menu's power
         // button does (a tester's Wii, set to standby, went fully off).
         // SYS_POWEROFF_STANDBY would always mean off, with the red light.
+        // The disc drive's motor stops first, while the log can still reach
+        // the card, or a disc keeps spinning in standby.
+        riftwii::di::stop_motor_for_power_off();
         fatUnmount("sd:");
         fatUnmount("usb:");
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);

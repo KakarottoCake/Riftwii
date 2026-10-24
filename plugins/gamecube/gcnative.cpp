@@ -3108,15 +3108,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     }
     // The memory card: the EXI functions to the blob (gc_card.h).
     if (!card_image.empty()) {
-        const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges());
+        // The disc's ID tells the finder the few games whose 0x40-byte SDK
+        // links no EXIProbeEx (gcexi.cpp's links_no_probe_ex).
+        const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges(), image.id);
         const auto& exi = found_exi.hooks;
         const std::uint32_t ecb = found_exi.blocks;
-        bool branches = false;
-        for (std::uint32_t f : exi)
-            if (f != 0 && ((code.at(f) >> 26) == 18 || (code.at(f) >> 26) == 16)) branches = true;
-        if (ecb != 0 && !branches) {
+        // All or nothing (riftwii/gcexi.hpp's decide_gc_exi_hooks): a game
+        // whose card functions are only partly hooked would reach the Wii's
+        // own EXI half way through a card command. Only an EXIProbeEx the
+        // finder says the SDK has none of may stay unhooked.
+        const GcExiDecision decision = decide_gc_exi_hooks(found_exi, code.ranges());
+        if (decision.verdict == GcExiVerdict::Hook) {
             for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
-                if (exi[i] == 0) continue;  // EXIProbeEx, which the 2001 SDK does not have
+                if (exi[i] == 0) continue;  // an EXIProbeEx the game's SDK does not have
                 const std::uint32_t entry = h.exi_hooks + 12 * i;
                 replay_hook(exi[i], load32(blob_addr + entry), load32(blob_addr + entry + 4),
                             load32(blob_addr + entry + 8));
@@ -3127,9 +3131,81 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
             ctx->card = card_addr;
         }
-        logf("GameCube: memory card %s (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n",
-             ctx->card ? "in slot A" : "off: the EXI functions were not all found", ecb, exi[GC_EXI_IMM],
-             exi[GC_EXI_GET_ID]);
+        // The names of the hooks a test picks, for the log.
+        auto names = [](auto picked) {
+            std::string list;
+            for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+                if (picked(i)) list += std::string(list.empty() ? "" : ", ") + gc_exi_function_name(i);
+            }
+            return list;
+        };
+        // Without the hooks the game talks to the Wii's own EXI, which has no
+        // GameCube card: it reports "no card". The first line says why, so a
+        // problem report shows the cause.
+        switch (decision.verdict) {
+        case GcExiVerdict::Hook:
+            logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n", ecb,
+                 exi[GC_EXI_IMM], exi[GC_EXI_GET_ID]);
+            if (found_exi.probe_ex_absent && found_exi.old_sdk) {
+                logf("GameCube: memory card: no EXIProbeEx was found; the 0x38-byte layout is accepted without "
+                     "one, so the other ten EXI functions are hooked\n");
+            } else if (found_exi.probe_ex_absent) {
+                logf("GameCube: memory card: no EXIProbeEx found; %s is on the list of games whose SDK has none, "
+                     "so the other ten EXI functions are hooked\n",
+                     image.id.c_str());
+            }
+            break;
+        case GcExiVerdict::NoTables:
+            logf("GameCube: memory card off: no EXI control-block table with more than 7 users was found\n");
+            break;
+        case GcExiVerdict::NotAllFound:
+            logf("GameCube: memory card off: the EXI functions were not all found (%u table(s) tried)\n",
+                 found_exi.tables_tried);
+            logf("GameCube: memory card: in the table at 0x%08x, the finder could not place these EXI functions: "
+                 "%s\n",
+                 found_exi.partial_blocks,
+                 names([&](unsigned i) { return found_exi.partial[i] == 0; }).c_str());
+            break;
+        case GcExiVerdict::ListedRefused: {
+            // A listed game's other ten functions were all placed; one of the
+            // checks that no EXIProbeEx is hiding said no.
+            using Refusal = GcExiFunctions::ListedRefusal;
+            const char* why = "the check that no EXIProbeEx is hiding refused";
+            if (found_exi.listed_refusal == Refusal::ProbeLike) {
+                why = "EXIProbe is not the only one of its functions calling the probe and EXIGetID";
+            } else if (found_exi.listed_refusal == Refusal::AttachDoesNotFollow) {
+                why = "the code after EXIProbe is not EXIAttach";
+            } else if (found_exi.listed_refusal == Refusal::ProbeCaller) {
+                why = "a branch to the probe outside the placed EXI functions";
+            }
+            logf("GameCube: memory card off: %s is on the list of games without EXIProbeEx, but the listed-game "
+                 "check refused (EXI blocks 0x%08x): %s at 0x%08x\n",
+                 image.id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
+            break;
+        }
+        case GcExiVerdict::Overlapping:
+            logf("GameCube: memory card off: %s (0x%08x) and %s (0x%08x) are closer than a hook's %u bytes, so "
+                 "hooking both would break one\n",
+                 gc_exi_function_name(decision.overlap_first), exi[decision.overlap_first],
+                 gc_exi_function_name(decision.overlap_second), exi[decision.overlap_second], kGcExiHookSpan);
+            break;
+        case GcExiVerdict::SeveralTables:
+            // Hooking the wrong table's functions would leave the real card
+            // functions on the Wii's own EXI, so the card stays off instead.
+            logf("GameCube: memory card off: %u EXI control-block tables each gave a full set of EXI functions "
+                 "(the first at 0x%08x), and RiftWii does not guess which one is the SDK's\n",
+                 found_exi.resolving_tables, found_exi.partial_blocks);
+            break;
+        case GcExiVerdict::Incomplete:
+            logf("GameCube: memory card off: the finder's result at EXI blocks 0x%08x lacks %s\n", ecb,
+                 names([&](unsigned i) { return exi[i] == 0; }).c_str());
+            break;
+        case GcExiVerdict::StartsWithBranch:
+            logf("GameCube: memory card off: every EXI function was found (EXI blocks 0x%08x), but these start "
+                 "with a branch, which a hook cannot replay: %s\n",
+                 ecb, names([&](unsigned i) { return decision.branching[i]; }).c_str());
+            break;
+        }
     }
     const std::uint32_t ar_dma = find_dsp_stores(code, {0xCC005020, 0xCC005022, 0xCC005024, 0xCC005026,
                                                          0xCC005028, 0xCC00502A});

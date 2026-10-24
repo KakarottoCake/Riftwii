@@ -934,11 +934,22 @@ static uint32_t rt_fs_command_status(const struct rt_context* ctx, struct rt_fs_
     return st->response[0];
 }
 
-/* A save write went through: the time the card log measures from. */
+/* A save write is under way or went through: the time the card log
+ * measures from, and the one the pad hook's way back waits a quiet second
+ * after. Stamped at every step of a write (it goes out, the card is still
+ * programming it, a pause before it goes again, it is done), so no gap
+ * between stamps comes near that second. */
 static void rt_fs_wrote(struct rt_fs_state* st) {
     if (!st->req.fat.io_write || st->cardlog_writing) return;
     st->last_write = rt_fs_ticks();
     st->wrote = 1;
+}
+
+/* A save write's command came back from IOS, whatever its result: no
+ * longer RT_FS_WRITE_WITH_IOS. The stamps above still hold the way back
+ * a quiet second after. */
+static void rt_fs_write_back(struct rt_fs_state* st) {
+    if (st->wrote == RT_FS_WRITE_WITH_IOS) st->wrote = 1;
 }
 
 /* The answer of the CMD13 just completed: still receiving or programming?
@@ -953,7 +964,11 @@ static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, ui
         rt_cardlog_transfer(ctx, st, RT_CARDLOG_CARD_ERROR, 0, !rt_fs_in_thread(), st->response[0], polls);
     }
     state = (st->response[0] >> 9) & 15u;
-    return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
+    if (state != RT_SD_STATE_RCV && state != RT_SD_STATE_PRG) return 0;
+    /* Still programming a save write: it is still under way for the way
+     * back's quiet check, as at every step of a write (rt_fs_mark_busy). */
+    rt_fs_wrote(st);
+    return 1;
 }
 
 /* Marks the card busy right before a savegame transfer goes out: mod
@@ -961,6 +976,15 @@ static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, ui
  * it). Interrupts off, together with the send. */
 static void rt_fs_mark_busy(struct rt_context* ctx, struct rt_fs_state* st) {
     if (rt_sd_settles(ctx, st)) st->card_busy = 1;
+    /* A save write counts from when it goes out as well as when it is
+     * done: the pad hook's way back (runtime/rtleave.c) reads last_write
+     * as "a save is under way" and must not take the time a transfer is
+     * in flight, the first of a save above all, for quiet. */
+    rt_fs_wrote(st);
+    /* And while its command is with IOS, the way back doesn't leave at all
+     * (a stamp can't bound how long IOS takes); rt_fs_write_back ends it
+     * at the answer. */
+    if (st->req.fat.io_write && !st->cardlog_writing) st->wrote = RT_FS_WRITE_WITH_IOS;
 }
 
 /* Whether the pause after a failed command still runs. */
@@ -999,6 +1023,9 @@ static void rt_fs_back_off(struct rt_fs_state* st) {
     if (shift > 8u) shift = 8u;
     st->not_before = rt_fs_ticks() + (RT_SD_BACKOFF_TICKS << shift);
     st->backing_off = 1;
+    /* A save write that failed is still under way: the pause before it
+     * goes again (512 ms at most) stays inside the way back's quiet second. */
+    rt_fs_wrote(st);
 }
 
 /* Whether a savegame command must wait before it goes to the card: a
@@ -1154,6 +1181,7 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
         rt_fs_mark_busy(ctx, st);
         rt_interrupts_restore(msr);
         r = rt_fs_sendcmd_call(ctx, st, 0);
+        rt_fs_write_back(st);
         if (r >= 0 && rt_fs_fault(st)) r = RTFAT_EIO;
         st->transfers++;
         st->io_tries++;
@@ -1192,7 +1220,10 @@ static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
         st->card_wanted = 0;
         rt_fs_mark_busy(ctx, st);
         r = rt_fs_sendcmd_call(ctx, st, 1);
-        if (r < 0) st->card_busy = 0;
+        if (r < 0) {
+            st->card_busy = 0;
+            rt_fs_write_back(st);  /* refused: IOS never took it */
+        }
         rt_interrupts_restore(msr);
         st->transfers++;
         st->io_tries++;
@@ -2605,6 +2636,7 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
             /* A CMD13 after the transfer: another, or the wait is over. */
             if (rt_fs_settle_next(ctx, st, *result)) return;
         } else {
+            rt_fs_write_back(st);  /* the transfer's answer, success or not */
             if (*result >= 0 && rt_fs_fault(st)) *result = RTFAT_EIO;
             if (*result < 0) {
                 st->failures++;
@@ -3679,7 +3711,7 @@ static void rt_restart_close_es(struct rt_restart* rs, int32_t es_fd) {
 #endif
 }
 
-void rt_reset_on_os_restart(struct rt_context* ctx) {
+uint32_t rt_reset_on_os_restart(struct rt_context* ctx) {
     struct rt_restart* rs = &ctx->restart;
 #ifdef RT_TARGET_PPC
     struct rt_restart_block* blk = (struct rt_restart_block*)(uintptr_t)rs->block;
@@ -3696,7 +3728,27 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
      * the game's own restart goes on, as it would without RiftWii. */
     if (blk == 0 || rs->lba == 0 || rs->open_sync == 0 || rs->close_sync == 0 || rs->ioctlv_sync == 0 ||
         rs->refused != 0 || !rt_fs_in_thread()) {
-        return;
+        return 0;
+    }
+    /* With Return to RiftWii patched in, the game leaves through its own
+     * OSReturnToMenu, which shuts its devices down (the disc, Bluetooth,
+     * USB, the NAND) before __OSLaunchMenu starts the channel, as the HOME
+     * Menu's Wii Menu button and the GameCube pad's way back do. Started
+     * directly from here with all of them still running, the channel's
+     * launch could hang on a Wii U (a black screen, the request armed). */
+    if (rs->return_to_menu != 0) {
+        result = rt_restart_write(ctx, rs, blk, blk->armed);
+        rt_restart_report(ctx, 'W', (uint32_t)result);
+        if (result < 0) {
+            rs->last_result = (uint32_t)result;
+            rs->refused++;
+            if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
+            return 0;
+        }
+        rs->written++;
+        rt_restart_settle();
+        rt_restart_report(ctx, 'M', rs->return_to_menu);
+        return rs->return_to_menu;
     }
     /* Open before arming the request: a refused open must not leave a
      * request for a later, unrelated start of RiftWii to consume. */
@@ -3705,7 +3757,7 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     if (es_fd < 0) {
         rs->last_result = (uint32_t)es_fd;
         rs->refused++;
-        return;
+        return 0;
     }
     result = rt_restart_write(ctx, rs, blk, blk->armed);
     rt_restart_report(ctx, 'W', (uint32_t)result);
@@ -3717,7 +3769,7 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
          * as after the armed write. */
         if (rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
         rt_restart_close_es(rs, es_fd);
-        return;
+        return 0;
     }
     rs->written++;
     rt_restart_settle();
@@ -3730,4 +3782,5 @@ void rt_reset_on_os_restart(struct rt_context* ctx) {
     rs->last_result = (uint32_t)result;
     rs->refused++;
     if (!rs->keep && rt_restart_write(ctx, rs, blk, blk->idle) >= 0) rt_restart_settle();
+    return 0;
 }
