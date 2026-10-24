@@ -6665,8 +6665,13 @@ FR.update({
 })
 
 
-# Recovery distinguishes an interrupted installer from a refused hand-off.
+# Recovery distinguishes an interrupted installer, a normal return and a refused hand-off.
 T.update({
+    "The installer ran, but the channel is still version {1}.": (
+        "El instalador se ejecutó, pero el canal sigue en la versión {1}.",
+        "インストーラーは実行されましたが、チャンネルはまだバージョン{1}です。",
+        "O instalador foi executado, mas o canal ainda está na versão {1}.",
+        "L'installer è stato eseguito, ma il canale è ancora alla versione {1}."),
     "The channel installer ({1}) is missing or damaged": (
         "El instalador del canal ({1}) falta o está dañado",
         "チャンネルのインストーラー ({1}) がないか、破損しています",
@@ -6696,6 +6701,7 @@ T.update({
 })
 KO.update({
     "The channel installer ({1}) is missing or damaged": "채널 설치 프로그램 ({1})이 없거나 손상되었습니다",
+    "The installer ran, but the channel is still version {1}.": "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}입니다.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다.",
     "The channel installer could not be opened: {1}.": "채널 설치 프로그램을 열지 못했습니다: {1}.",
@@ -6707,6 +6713,7 @@ KO.update({
 })
 FR.update({
     "The channel installer ({1}) is missing or damaged": "L'installateur de la chaîne ({1}) est absent ou endommagé",
+    "The installer ran, but the channel is still version {1}.": "L'installateur a été exécuté, mais la chaîne est toujours en version {1}.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile.",
     "The channel installer could not be opened: {1}.": "Impossible d'ouvrir l'installateur de la chaîne : {1}.",

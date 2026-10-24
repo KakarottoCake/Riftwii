@@ -3201,6 +3201,9 @@ msgstr "先に持ってきたいセーブを選んでください。"
 msgid "Nintendont saves brought"
 msgstr "Nintendontのセーブを持ってきました"
 
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "インストーラーは実行されましたが、チャンネルはまだバージョン{1}です。"
+
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "チャンネルのインストーラー ({1}) がないか、破損しています"
 

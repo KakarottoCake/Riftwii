@@ -3201,6 +3201,9 @@ msgstr "먼저 가져올 저장 데이터를 선택하세요."
 msgid "Nintendont saves brought"
 msgstr "Nintendont 저장 데이터를 가져왔습니다"
 
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}입니다."
+
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "채널 설치 프로그램 ({1})이 없거나 손상되었습니다"
 

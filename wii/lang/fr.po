@@ -3201,6 +3201,9 @@ msgstr "Cochez d'abord les sauvegardes à récupérer."
 msgid "Nintendont saves brought"
 msgstr "Sauvegardes Nintendont récupérées"
 
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "L'installateur a été exécuté, mais la chaîne est toujours en version {1}."
+
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "L'installateur de la chaîne ({1}) est absent ou endommagé"
 

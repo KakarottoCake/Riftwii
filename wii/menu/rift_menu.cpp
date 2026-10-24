@@ -3810,11 +3810,13 @@ static int PickInterruptedChannelUpdate(const std::string& body, const std::stri
 		usleep(20000);
 		HaltGui();
 		const int picked = choices.GetClicked();
-		if (exit.Clicked()) break;
+		// Pointer loss and A can click both the focused tile and a stale
+		// selected Exit in one GUI update. The focused choice takes priority.
 		if (picked >= 0) {
 			result = picked == 0 ? 0 : 2;
 			break;
 		}
+		if (exit.Clicked()) break;
 		ResumeGui();
 	}
 	mainWindow->Remove(&window);
@@ -3838,13 +3840,20 @@ static int RequireChannelUpdate(FrontendState& state)
 	// marker). That offers Not now too, with the actual refusal reason.
 	const riftwii::wii::RestartNote& note = riftwii::wii::CurrentRestartNote();
 	const bool installerRefused = note.kind == riftwii::wii::RestartKind::ChannelDone && !note.message.empty();
-	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted();
-	const bool recovery = interrupted || installerRefused;
+	const auto update = riftwii::wii::ChannelInstallerUpdateState();
+	const bool interrupted = update.installer_interrupted;
+	const bool recovery = update.offer_not_now;
 	const bool markerRefused = installerRefused && note.message == riftwii::wii::kChannelMarkerError;
 	unsigned version = 0;
 	const bool installed = riftwii::wii::ChannelInstalled(version);
 	const bool required = installed && version < riftwii::wii::ChannelVersionNeeded();
-	if (!required && !markerRefused) return MENU_NONE;
+	if (!required) {
+		if (installerRefused) {
+			SetHomeNotice(tr("The channel installer could not be opened: {1}.", {tr(note.message.c_str())}));
+			logf("Channel: the installer could not be opened (%s); Home shows the refusal.\n", note.message.c_str());
+		}
+		return MENU_NONE;
+	}
 	if (riftwii::wii::running_in_dolphin()) {
 		logf("Channel: version %u installed, %u needed; not asked in Dolphin\n", version, riftwii::wii::kChannelVersion);
 		return MENU_NONE;
@@ -3859,6 +3868,8 @@ static int RequireChannelUpdate(FrontendState& state)
 		logf("Channel: the installer could not be opened (%s), so this start offers Not now.\n", note.message.c_str());
 	else if (interrupted)
 		logf("Channel: RiftWii opened the installer and has not seen it finish; this start offers Not now.\n");
+	else if (update.installer_returned)
+		logf("Channel: the installer returned with channel version %u still installed; this start offers Not now.\n", version);
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
@@ -3871,6 +3882,8 @@ static int RequireChannelUpdate(FrontendState& state)
 			body += std::string("\n") + tr("The channel installer could not be opened: {1}.", {tr(note.message.c_str())});
 		else if (interrupted)
 			body += std::string("\n") + tr("RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.");
+		else if (update.installer_returned)
+			body += std::string("\n") + tr("The installer ran, but the channel is still version {1}.", {have});
 		if (markerRefused)
 			body += std::string("\n") + tr("RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know");
 		if (!can) body += std::string("\n") + tr("RiftWii can't update it from here: {1}.", {tr(why.c_str())});
@@ -3898,8 +3911,8 @@ static int RequireChannelUpdate(FrontendState& state)
 			return MENU_CHANNEL;
 		}
 		// Check again: the card may have been fixed meanwhile.
-		if (!markerRefused && (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded())) {
-			riftwii::wii::ChannelInstallerInterrupted();
+		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) {
+			riftwii::wii::ChannelInstallerUpdateState();
 			return MENU_NONE;
 		}
 	}
@@ -4531,6 +4544,13 @@ static int MenuSource(FrontendState& state)
 			else mainWindow->Remove(&w);
 		});
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
+		// Channel recovery can leave a notice after Home's initial toast
+		// and status were drawn. Show it once the start's popups are done.
+		if (!g_homeNotice.empty() && !g_homeNoticeShown) {
+			toast.Show(g_homeNotice, false);
+			g_homeNoticeShown = true;
+			showStatus();
+		}
 		return true;
 	};
 	if (!g_scanned) {

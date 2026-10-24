@@ -392,7 +392,7 @@ int main() {
             riftwii::wii::StartMenuIos(true);
         }
     }
-    if (sd_mounted) riftwii::wii::ChannelInstallerInterrupted();
+    if (sd_mounted) riftwii::wii::ChannelInstallerUpdateState();
     // A marker on the card while the Wii Menu's font is read: reading it
     // may open IOS's NAND permission check, which hung consoles before
     // 3.3.3. Found at the next start, the font is skipped, so a console it
