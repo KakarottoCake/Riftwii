@@ -206,6 +206,13 @@ void plant_return_stub(const u8* dol, u32 size) {
 
 }  // namespace
 
+HomebrewExit HomebrewExitGoesTo() {
+    if (riftwii::return_stub_kind(reinterpret_cast<const std::uint8_t*>(RTSTUB_BASE)) ==
+        riftwii::ReturnStubKind::HomebrewChannel)
+        return HomebrewExit::HomebrewChannel;
+    return Settings().return_to == "riftwii" ? HomebrewExit::RiftWii : HomebrewExit::WiiMenu;
+}
+
 bool StartHomebrewApp(const std::string& path, std::string& error) {
     std::string line = path;
     line.push_back('\0');

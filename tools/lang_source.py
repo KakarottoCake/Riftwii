@@ -6442,11 +6442,29 @@ T.update({
         "o programa é boot.elf e o RiftWii só inicia apps boot.dol",
         "il programma è boot.elf e RiftWii avvia solo app boot.dol",
     ),
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": (
-        "Las apps conservan el IOS y el acceso al hardware de RiftWii. Desde el canal RiftWii, salen al Menú de Wii.",
-        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。RiftWiiチャンネルからは、アプリ終了時にWiiメニューへ戻ります。",
-        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii. Pelo canal RiftWii, saem para o Menu Wii.",
-        "Le app mantengono IOS e accesso hardware di RiftWii. Dal canale RiftWii, escono al Menu Wii.",
+    "Apps keep RiftWii's IOS and hardware access.": (
+        "Las apps conservan el IOS y el acceso al hardware de RiftWii.",
+        "アプリはRiftWiiのIOSとハードウェアへのアクセスを引き継ぎます。",
+        "Os apps mantêm o IOS e o acesso ao hardware do RiftWii.",
+        "Le app mantengono IOS e accesso hardware di RiftWii.",
+    ),
+    "When the app exits, it comes back to RiftWii.": (
+        "Al salir, la app vuelve a RiftWii.",
+        "アプリを終了すると、RiftWiiに戻ります。",
+        "Ao sair, o app volta ao RiftWii.",
+        "All'uscita, l'app torna a RiftWii.",
+    ),
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": (
+        "Al salir, la app vuelve al Homebrew Channel, que inició RiftWii.",
+        "アプリを終了すると、RiftWiiを起動したHomebrew Channelに戻ります。",
+        "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii.",
+        "All'uscita, l'app torna all'Homebrew Channel, che ha avviato RiftWii.",
+    ),
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": (
+        "Al salir, la app va al Menú de Wii, según el botón Menú de Wii.",
+        "アプリを終了すると、Wiiメニューボタンの設定どおりWiiメニューに戻ります。",
+        "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii.",
+        "All'uscita, l'app va al Menu Wii, come impostato nel pulsante Menu Wii.",
     ),
     "1: all apps": (
         "1: todas las apps",
@@ -6457,12 +6475,18 @@ T.update({
 })
 MORE["ko"].update({
     "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다",
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다.",
+    "Apps keep RiftWii's IOS and hardware access.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다.",
+    "When the app exits, it comes back to RiftWii.": "앱을 종료하면 RiftWii로 돌아옵니다.",
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다.",
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다.",
     "1: all apps": "1: 모든 앱",
 })
 MORE["fr"].update({
     "this app's program is a boot.elf, and RiftWii starts boot.dol apps only": "le programme est un boot.elf et RiftWii ne lance que les applis boot.dol",
-    "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu.": "Les applis gardent l'IOS et l'accès matériel de RiftWii. Depuis la chaîne RiftWii, elles quittent vers le Menu Wii.",
+    "Apps keep RiftWii's IOS and hardware access.": "Les applis gardent l'IOS et l'accès matériel de RiftWii.",
+    "When the app exits, it comes back to RiftWii.": "En quittant, l'appli revient à RiftWii.",
+    "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii.",
+    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé.",
     "1: all apps": "1 : toutes les applis",
 })
 
