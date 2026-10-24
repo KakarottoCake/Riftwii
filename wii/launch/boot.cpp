@@ -1302,11 +1302,15 @@ void prepare_restart_request(const BootOptions& options) {
     // The restart starts without the menu, so the cIOS this launch runs on
     // is named in the request when the choice was RiftWii's (a Wii U's
     // GameCube adapter put IOS251 first only because the menu saw it).
+    // Only a launch that keeps the running IOS runs on it: one that
+    // reloads the game's IOS next leaves the cIOS to the restart (0 names
+    // no slot), as it did before.
     RestartRequest request;
     std::string why;
     const int running_ios = IOS_GetVersion();
+    const int launch_ios = options.preserve_current_ios ? running_ios : 0;
     RestartCios cios = RestartCios::Unchanged;
-    if (!restart_request_sectors(g_extras.restart_args, running_ios, kRestartSector, request.armed, request.idle, cios,
+    if (!restart_request_sectors(g_extras.restart_args, launch_ios, kRestartSector, request.armed, request.idle, cios,
                                  why)) {
         logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
         return;
