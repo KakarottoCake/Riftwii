@@ -5,6 +5,7 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
+#include "rtleave.h"
 #include "rtable.h"
 #include "fat32_image.hpp"
 #include "riftwii/fat32.hpp"
@@ -38,6 +39,10 @@ static std::uint8_t* LowBuffer(std::size_t bytes) {
 }
 #elif defined(__linux__)
 #include <sys/mman.h>
+
+// The pad hook reads the resident's `wrote` and refuses to leave on this value.
+static_assert(RT_FS_WRITE_WITH_IOS == RTLEAVE_RESIDENT_WITH_IOS, "the way back must know a write that is with IOS");
+
 static std::uint8_t* LowBuffer(std::size_t bytes) {
     void* p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
     return p == MAP_FAILED ? nullptr : static_cast<std::uint8_t*>(p);
@@ -1505,21 +1510,23 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(st->card_wanted, 0u);
         EXPECT_EQ(st->card_busy, 1u);  // mod reads wait for it
         // 16 bytes into a sector: the sector is read first (no save write
-        // yet), then written. While that write is in flight, not yet
-        // complete, the save already counts (the way back's quiet check
-        // reads last_write, then wrote), and its completion counts again.
+        // yet), then written. While that write's command is with IOS, not
+        // yet answered, the save is marked so (the way back's quiet check
+        // reads last_write, then wrote, and never leaves then); its answer
+        // ends the mark and stamps the time again.
         EXPECT_EQ(st->wrote, 0u);
         bool write_seen = false;
         std::uint32_t went_out = 0;
         while (!ios.queue.empty()) {
             if (ios.queue[0].kind == 1 && ios.queue[0].write != 0 && !write_seen) {
                 write_seen = true;
-                EXPECT_EQ(st->wrote, 1u);
+                EXPECT_EQ(st->wrote, RT_FS_WRITE_WITH_IOS);
                 went_out = st->last_write;
             }
             ios.complete_one();
         }
         EXPECT_TRUE(write_seen);
+        EXPECT_EQ(st->wrote, 1u);
         EXPECT_TRUE(st->last_write != went_out);
         EXPECT_EQ(ios.delivered.size(), std::size_t(1));
         EXPECT_EQ(ios.delivered[0].cb, 0x80001046u);
@@ -1591,7 +1598,7 @@ static void TestFsAsyncIntercept() {
         while (!ios.queue.empty()) {
             if (!failed_write && ios.queue[0].kind == 1 && ios.queue[0].write != 0) {
                 failed_write = true;
-                EXPECT_EQ(st->wrote, 1u);
+                EXPECT_EQ(st->wrote, RT_FS_WRITE_WITH_IOS);
                 const std::uint32_t went_out = st->last_write;
                 ios.fail_transfers = 1;
                 ios.complete_one();
@@ -1601,9 +1608,36 @@ static void TestFsAsyncIntercept() {
             ios.complete_one();
         }
         EXPECT_TRUE(failed_write);
+        EXPECT_EQ(st->wrote, 1u);  // both tries came back from IOS: no mark left behind
         EXPECT_EQ(ios.delivered.size(), std::size_t(1));
         EXPECT_TRUE(!ios.delivered.empty() && ios.delivered[0].result == 16);
         ios.delivered.clear();
+    }
+
+    // A save write whose every try fails: the engine gives up, and no
+    // "with IOS" mark is left behind, or the way back would never leave
+    // again in this game.
+    {
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xF0 + i);
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x8000104C; args[4] = 0x8000204C;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        bool writing = false;
+        while (!ios.queue.empty()) {
+            if (ios.queue[0].kind == 1 && ios.queue[0].write != 0) {
+                writing = true;
+                ios.fail_transfers = 1;  // this try fails, and every one after it
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(writing);
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_TRUE(!ios.delivered.empty() && ios.delivered[0].result < 0);
+        EXPECT_EQ(st->wrote, 1u);
+        ios.delivered.clear();
+        ios.fail_transfers = 0;
     }
 
     // An async write whose transfer IOS first refuses, then fails: it goes

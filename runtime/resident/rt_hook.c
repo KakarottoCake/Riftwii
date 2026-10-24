@@ -945,6 +945,13 @@ static void rt_fs_wrote(struct rt_fs_state* st) {
     st->wrote = 1;
 }
 
+/* A save write's command came back from IOS, whatever its result: no
+ * longer RT_FS_WRITE_WITH_IOS. The stamps above still hold the way back
+ * a quiet second after. */
+static void rt_fs_write_back(struct rt_fs_state* st) {
+    if (st->wrote == RT_FS_WRITE_WITH_IOS) st->wrote = 1;
+}
+
 /* The answer of the CMD13 just completed: still receiving or programming?
  * A write error the card reports on the way is kept for the transfer. */
 static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, uint32_t polls) {
@@ -974,6 +981,10 @@ static void rt_fs_mark_busy(struct rt_context* ctx, struct rt_fs_state* st) {
      * as "a save is under way" and must not take the time a transfer is
      * in flight, the first of a save above all, for quiet. */
     rt_fs_wrote(st);
+    /* And while its command is with IOS, the way back doesn't leave at all
+     * (a stamp can't bound how long IOS takes); rt_fs_write_back ends it
+     * at the answer. */
+    if (st->req.fat.io_write && !st->cardlog_writing) st->wrote = RT_FS_WRITE_WITH_IOS;
 }
 
 /* Whether the pause after a failed command still runs. */
@@ -1170,6 +1181,7 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
         rt_fs_mark_busy(ctx, st);
         rt_interrupts_restore(msr);
         r = rt_fs_sendcmd_call(ctx, st, 0);
+        rt_fs_write_back(st);
         if (r >= 0 && rt_fs_fault(st)) r = RTFAT_EIO;
         st->transfers++;
         st->io_tries++;
@@ -1208,7 +1220,10 @@ static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
         st->card_wanted = 0;
         rt_fs_mark_busy(ctx, st);
         r = rt_fs_sendcmd_call(ctx, st, 1);
-        if (r < 0) st->card_busy = 0;
+        if (r < 0) {
+            st->card_busy = 0;
+            rt_fs_write_back(st);  /* refused: IOS never took it */
+        }
         rt_interrupts_restore(msr);
         st->transfers++;
         st->io_tries++;
@@ -2621,6 +2636,7 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
             /* A CMD13 after the transfer: another, or the wait is over. */
             if (rt_fs_settle_next(ctx, st, *result)) return;
         } else {
+            rt_fs_write_back(st);  /* the transfer's answer, success or not */
             if (*result >= 0 && rt_fs_fault(st)) *result = RTFAT_EIO;
             if (*result < 0) {
                 st->failures++;

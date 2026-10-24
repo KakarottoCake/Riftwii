@@ -292,6 +292,10 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * failed command waits before the next one goes out. */
 #define RT_SD_CARD_WAITS 65536u        /* null round trips a command waits for the card at most */
 #define RT_SD_BACKOFF_TICKS 121500u    /* 2 ms of time base: the pause after a failure (then 8, 32, 128, 512 ms) */
+/* rt_fs_state.wrote while a save write's command is with IOS, from the hand
+ * over to its answer: the pad hook's way back (runtime/rtleave.h,
+ * RTLEAVE_RESIDENT_WITH_IOS) never leaves then, however long IOS takes. */
+#define RT_FS_WRITE_WITH_IOS 2u
 #define RT_FS_GATE_TRANSFER 1u         /* rt_fs_state.gate: the transfer goes out after the wait */
 #define RT_FS_GATE_STATUS 2u           /* the wait's CMD13 goes out after the wait */
 
@@ -499,7 +503,8 @@ struct rt_fs_state {
     uint32_t cardlog_errors;       /* the log's own writes that failed; RT_CARDLOG_MAX_ERRORS stop it */
     uint32_t last_status;          /* the last CMD13's R1 status */
     uint32_t last_write;           /* time base of a save write's last step (out, programming, retry pause, done) */
-    uint32_t wrote;                /* a save write has gone out (last_write is valid) */
+    uint32_t wrote;                /* 0 none yet; 1 a save write has gone out (last_write is valid);
+                                    * RT_FS_WRITE_WITH_IOS while one's command is with IOS */
     uint32_t card_wanted;          /* a savegame command waits for the card: mod reads hold back */
     uint32_t gate;                 /* RT_FS_GATE_*: what the FILE record's null round trip in flight is waiting to send */
     uint32_t gate_polls;           /* null round trips the command has waited so far */

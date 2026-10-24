@@ -67,6 +67,9 @@ int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, u
 }
 
 int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
+    /* A save write's command is with IOS: never quiet, however long ago it
+     * went out (one stuck command on a failing card can outlast the window). */
+    if (resident_wrote == RTLEAVE_RESIDENT_WITH_IOS) return 0;
     if (l->activity != 0 && now - l->activity < l->quiet) return 0;
     if (resident_wrote && now - resident_last_write < l->quiet) return 0;
     return 1;

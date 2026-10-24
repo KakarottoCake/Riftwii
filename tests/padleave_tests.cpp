@@ -145,6 +145,13 @@ void TestDue() {
     EXPECT_FALSE(rtleave_due(&r, 1, 3101, 1, 3080));
     EXPECT_TRUE(rtleave_due(&r, 1, 3131, 1, 3080));
     EXPECT_TRUE(rtleave_due(&r, 1, 3131, 0, 3120));  // no write yet: last_write means nothing
+    // A write's command still with IOS: never quiet, however long since it
+    // went out (a stuck command on a failing card); once it is back, the
+    // usual quiet second after its last step.
+    EXPECT_FALSE(rtleave_due(&r, 1, 3131, RTLEAVE_RESIDENT_WITH_IOS, 3080));
+    EXPECT_FALSE(rtleave_quiet(&r, 900000, RTLEAVE_RESIDENT_WITH_IOS, 3080));
+    EXPECT_TRUE(rtleave_quiet(&r, 900000, 1, 3080));
+    EXPECT_FALSE(rtleave_quiet(&r, 900000, 1, 899990));
 
     // The time base's low word wraps every 70 seconds or so.
     rtleave w{};

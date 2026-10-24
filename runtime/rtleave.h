@@ -37,9 +37,15 @@ int rtleave_save_request(const uint32_t* block, const uint8_t* arg0, const uint8
 /* A save was written at `now`. */
 void rtleave_note_save(struct rtleave* l, uint32_t now);
 
+/* The resident runtime's `wrote` while a save write's command is with IOS
+ * (its RT_FS_WRITE_WITH_IOS): never quiet then. 0: no write yet; 1: one
+ * has gone out, and `resident_last_write` is its last step. */
+#define RTLEAVE_RESIDENT_WITH_IOS 2
+
 /* 1 when no save was written within `quiet` ticks of `now`, neither
  * through the IPC calls nor by the resident runtime (`resident_wrote`,
- * then its `resident_last_write`). */
+ * then its `resident_last_write`), and none of the resident's is with IOS
+ * right now. */
 int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uint32_t resident_last_write);
 
 /* At each pad read: 1 when the combo has been held `hold` ticks and no
