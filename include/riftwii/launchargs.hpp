@@ -106,6 +106,33 @@ bool launch_lines_from_text(const std::string& text, std::vector<std::string>& a
 bool launch_request_sector(const std::vector<std::string>& args, bool armed, std::size_t sector_bytes,
                            std::vector<std::uint8_t>& sector, std::string& why);
 
+// A Wii game's own Reset starts it again headless, without the menu, so a
+// cIOS that Automatic chose from what the menu saw (on a Wii U, the d2x on
+// base 58 when the menu had the GameCube adapter) comes out differently,
+// and the game comes back on a cIOS where the adapter cannot work. When
+// `args` (from headless_launch_arguments) leave the cIOS to RiftWii (no
+// cios key, or "cios=auto"), they name `running_ios` instead, the cIOS the
+// launch runs on, if it is one a launch can name (248 ... 252). True when
+// they were changed.
+bool pin_launch_cios(std::vector<std::string>& args, int running_ios);
+
+// What restart_request_sectors did with the cIOS.
+enum class RestartCios {
+    Unchanged,  // the request already names one, or running_ios is no slot to name
+    Pinned,     // the request names running_ios
+    DidNotFit,  // naming it would not fit the sector: left to the restart, as before
+};
+
+// A Wii game's own Reset request as its two sectors (launch_request_sector,
+// armed and idle), with the cIOS pinned (pin_launch_cios) when the pinned
+// request still fits. A request that fits only without the extra line keeps
+// its packs and leaves the cIOS to the restart (`cios` DidNotFit), rather
+// than losing the Reset hook. False, with `why`, only when `args` themselves
+// do not fit.
+bool restart_request_sectors(const std::vector<std::string>& args, int running_ios, std::size_t sector_bytes,
+                             std::vector<std::uint8_t>& armed, std::vector<std::uint8_t>& idle, RestartCios& cios,
+                             std::string& why);
+
 // Whether `value` is a path (or a name) that stays where it is put: no
 // ".." in it, between slashes or backslashes, at either end or alone.
 bool launch_path_stays_put(const std::string& value);

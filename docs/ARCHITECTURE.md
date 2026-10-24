@@ -784,7 +784,16 @@ waits 50 ms for the card, and launches the channel through ES. A refused
 open leaves the request idle; a refused write or launch closes the handle
 before the game's own restart continues. No extra ES handle is held during
 play: ES has only three contexts, and mods such as Retro Rewind open ES
-themselves to sign an authentication salt. The launch does
+themselves to sign an authentication salt. When Return to RiftWii is
+patched into the game's `__OSLaunchMenu` for the same channel, the
+runtime opens nothing: it writes the sector, waits, and leaves through the
+game's own OSReturnToMenu (found by `find_os_return_to_menu`; the loader
+sets `rt_restart.return_to_menu` after `apply_return_to`), with interrupts
+on, as the HOME Menu's Wii Menu button does. The game then shuts its
+devices down (the disc, Bluetooth, USB, the NAND) before the channel
+starts; a launch straight from OSRestart with all of them running hung on
+a Wii U with an SD game under d2x (a black screen, the request armed),
+while the Wii Menu button reached the channel from the same games. The launch does
 not return when IOS takes it; RiftWii's next start reads `restart.txt`
 once (`HeadlessArguments`, `wii/launch/headless.cpp`) and starts the game
 again. When the write or the launch is refused the sector goes back to
