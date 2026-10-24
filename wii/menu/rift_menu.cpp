@@ -1571,6 +1571,20 @@ static void ForgetIcon(const std::string& id)
 	slot->used = 0;
 }
 
+// With the GUI halted: every icon let go, and which banners were read or
+// missing forgotten, as the SD card was put back and may be another one.
+static void ForgetAllIcons()
+{
+	g_iconIndex.clear();
+	for (IconSlot& slot : g_icons) {
+		slot.id.clear();
+		slot.player.reset();
+		slot.used = 0;
+	}
+	g_bannersTried.clear();
+	g_bannerAbsent.clear();
+}
+
 // The full banner, as the Wii Menu shows a channel before it starts:
 // Start, or Settings for the game's page. The bar starts where the Wii
 // Menu's Disc Channel starts its own (measured in Dolphin), just under
@@ -4748,6 +4762,9 @@ static int MenuSource(FrontendState& state)
 					SdWatchUnmountForRemoval();
 					g_sdGone = true;
 					g_sdRemovalPending = false;
+					// The focused tile's key first: it is read through the catalog
+					// entries about to go.
+					const std::string focused = focusedTile();
 					// Everything Home took from the card goes with it: its games,
 					// the channels in its emulated NANDs, the packs index (USB's
 					// come back with the rescan at reinsertion) and its apps.
@@ -4759,7 +4776,6 @@ static int MenuSource(FrontendState& state)
 					g_packs = riftwii::PackIndex{};
 					riftwii::wii::ForgetAppIcons();
 					riftwii::wii::RescanHomebrewApps();
-					const std::string focused = focusedTile();
 					refreshKeepingTile(focused);
 					showStatus();
 				}
@@ -4776,6 +4792,7 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetProfiles();
 						riftwii::wii::ForgetProfilePictures();
 						riftwii::wii::ForgetAllCovers();
+						ForgetAllIcons();
 						// The view from the new card's settings, or Home's default.
 						g_filter = Filter::Mods;
 						g_filterLoaded = false;
