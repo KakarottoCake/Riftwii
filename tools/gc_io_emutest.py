@@ -1233,6 +1233,66 @@ def test_returning_stream(layout):
     print("Returning HOME restarts unpublished music top-ups; ring bytes and progress publish once")
 
 
+def test_leave_audio(layout):
+    dma_control = 0xCC005036
+    stream_control = 0xCD006C00
+    for failed_save in (False, True):
+        for dma_running in (True, False):
+            for stream_playing in (True, False):
+                machine = Machine(layout)
+                prepare_returning_leave(machine, failed_save)
+                original_dma = 0x0123 | (0x8000 if dma_running else 0)
+                original_stream = 0x5E | int(stream_playing)
+                machine.uc.mem_write(dma_control, struct.pack(">H", original_dma))
+                machine.uc.mem_write(stream_control, struct.pack(">I", original_stream))
+                stream_state = original_stream
+                writes = []
+                checkpoints = []
+                silent_phases = {machine.functions[name] for name in
+                                 ("gc_card_flush", "gc_trace", "gc_flush")}
+
+                def read_stream(uc, access, address, size, value, unused):
+                    uc.mem_write(address, struct.pack(">I", stream_state))
+
+                def write_audio(uc, access, address, size, value, unused):
+                    nonlocal stream_state
+                    writes.append((address, size, value))
+                    if address == stream_control:
+                        # AICR's pending interrupt is write-one-to-clear;
+                        # stopping playback must not acknowledge it or reset
+                        # the sample counter when the game may resume.
+                        assert value & 0x28 == 0
+                        stream_state = (value & ~0x08) | (stream_state & 0x08)
+
+                def check_silent(uc, address, size, unused):
+                    if address not in silent_phases:
+                        return
+                    current_dma = struct.unpack(">H", uc.mem_read(dma_control, 2))[0]
+                    assert current_dma == original_dma & ~0x8000
+                    assert stream_state == original_stream & ~1
+                    checkpoints.append(address)
+
+                machine.uc.hook_add(UC_HOOK_MEM_READ, read_stream,
+                                    begin=stream_control, end=stream_control + 3)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=dma_control, end=dma_control + 1)
+                machine.uc.hook_add(UC_HOOK_MEM_WRITE, write_audio,
+                                    begin=stream_control, end=stream_control + 3)
+                machine.uc.hook_add(UC_HOOK_CODE, check_silent)
+                machine.call("gc_leave_finish", machine.ctx, 1)
+                assert checkpoints, "the leave never reached its save or ES launch"
+                assert struct.unpack(">H", machine.uc.mem_read(dma_control, 2))[0] == original_dma
+                assert stream_state == original_stream
+                assert [entry for entry in writes if entry[0] == dma_control] == [
+                    (dma_control, 2, original_dma & ~0x8000),
+                    (dma_control, 2, original_dma),
+                ]
+                assert sum(address == stream_control for address, _, _ in writes) == (
+                    2 if stream_playing else 0)
+    print("Leaving silences DMA and streaming before save/trace/ES; failed saves and refused ES "
+          "restore running and stopped states without clearing the AI interrupt or sample counter")
+
+
 def test_quarantine_error(layout):
     for missing_ack in (False, True):
         machine = stalled_storage(layout, missing_ack)
@@ -1422,6 +1482,7 @@ def main():
     test_forced_save_timeout(layout)
     test_returning_leave(layout)
     test_returning_stream(layout)
+    test_leave_audio(layout)
     test_quarantine_error(layout)
     test_worker_stack(layout)
     test_sd_wait_controllers(layout)
