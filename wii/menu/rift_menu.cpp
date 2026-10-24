@@ -4426,6 +4426,8 @@ static int MenuSource(FrontendState& state)
 	// later part, as games may sort in before it). A game not in any part is
 	// not waited for beyond the last part. Once the player has moved, their
 	// tile is kept, wherever it goes, and they are never moved again.
+	// Settings > Look for games again does not run this: g_focusRestored is
+	// set by then and the rescan keeps the focused tile as before.
 	// `focused` is the tile in focus before the part joined.
 	const auto refreshKeepingTile = [&](const std::string& focused, bool lastPart) {
 		const int indexBefore = grid.FocusedIndex();
@@ -4446,8 +4448,11 @@ static int MenuSource(FrontendState& state)
 		}
 		bool decided = false;
 		const int target = riftwii::home_start_focus(part, decided);
-		// Only a change: the same tile asks for nothing (a page change fades).
-		if (target != grid.FocusedIndex()) grid.Focus(target);
+		// Only a change, and without the crossfade: Home takes no press while
+		// one runs, and a press as a part joins must reach its tile.
+		// A Wii Remote pointer parked on a tile wins over this focus: the grid
+		// focuses the tile under it on the next frame (the page stays).
+		if (target != grid.FocusedIndex()) grid.Focus(target, false);
 		if (decided) g_focusRestored = true;
 		expectFocusNow();
 	};
@@ -4706,28 +4711,42 @@ static int MenuSource(FrontendState& state)
 		// A press on a tile (A) waiting to be handled when a part joins: the
 		// tile is looked up again by what it is, as the games that come in
 		// move the tiles under it, and A must open the game that was pointed
-		// at, not the one that slid into its place. A tile that is gone drops
-		// the press.
+		// at, not the one that slid into its place. The press is read once,
+		// before the first part of this turn joins (the SD card's and the USB
+		// drive's can both come in one turn), and put back after each. A tile
+		// that is gone, or that cannot be told apart, drops the press, said in
+		// the log.
 		int heldClick = -1;
-		const auto holdClickTile = [&]() { return tileIdentity(grid.GetClicked()); };
-		const auto restoreClick = [&](const std::string& tile) {
-			if (!tile.empty()) heldClick = findTile(tile);
+		bool pressTaken = false;
+		int pressedAt = -1;
+		std::string pressedTile;
+		const auto takePress = [&]() {
+			if (pressTaken) return;
+			pressTaken = true;
+			pressedAt = grid.GetClicked();
+			pressedTile = tileIdentity(pressedAt);
+		};
+		const auto putPressBack = [&]() {
+			if (pressedAt < 0) return;
+			heldClick = pressedTile.empty() ? -1 : findTile(pressedTile);
+			if (heldClick < 0)
+				logf("Home: a press on a tile was dropped as games joined, because the tile could not be found again\n");
 		};
 		if (g_scanning && !grid.Carrying()) {
 			riftwii::wii::DriveScanPart part;
 			if (riftwii::wii::TakeSdScan(part)) {
 				const std::string focused = focusedTile();
-				const std::string pressed = holdClickTile();
+				takePress();
 				TakeSdScanPart(state, part);
 				refreshKeepingTile(focused, false);
-				restoreClick(pressed);
+				putPressBack();
 			}
 			if (riftwii::wii::TakeUsbScan(part)) {
 				const std::string focused = focusedTile();
-				const std::string pressed = holdClickTile();
+				takePress();
 				TakeUsbScanPart(state, part);
 				refreshKeepingTile(focused, true);
-				restoreClick(pressed);
+				putPressBack();
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
 				g_openWhenScanned.clear();
@@ -11843,7 +11862,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kHomeStart:
 					settings.home_start = settings.home_start == "first" ? "last" : "first";
-					saveAndNote(tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1."));
+					saveAndNote(tr("Home starts on: {1}", {settings.home_start == "first" ? tr("First page") : tr("Last game")}));
 					rebuild();
 					break;
 				case kHomeSort: {

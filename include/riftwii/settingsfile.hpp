@@ -112,20 +112,30 @@ int home_start_focus(const HomeStartPart& part, bool& decided);
 // Whether the player has moved the focus. The menu says where it put the
 // focus itself (expect); any other page, or another tile once the Wii Remote
 // pointer has moved, is the player's. A pointer parked on a tile is not: the
-// grid focuses that tile by itself. Once moved, always moved: away and back
-// is moved. mark_moved() is for the player's other actions (a view change,
-// a search, Settings).
+// grid focuses that tile by itself. A pointer that only shows up after the
+// first moments, over another tile than the focused one, is a move. Once
+// moved, always moved: away and back is moved. mark_moved() is for the
+// player's other actions (a view change, a search, Settings).
 class FocusWatch {
 public:
-    static constexpr int kPointerSlop = 16;  // pixels of the pointer's own tremor
+    static constexpr int kPointerSlop = 16;   // pixels of the pointer's own tremor
+    static constexpr int kStartTurns = 60;    // turns of Home in which a pointer showing up is still "there from the start"
 
+    // The menu moved the focus itself. The pointer's anchor follows it only
+    // if the pointer is settled (within the slop of its anchor): a pointer
+    // that swept on since keeps its old anchor, so landing on a tile later
+    // is still its motion.
     void expect(int index, int page) {
         index_ = index;
         page_ = page;
-        anchor_x_ = x_;
-        anchor_y_ = y_;
+        if (distance() <= kPointerSlop) {
+            anchor_x_ = x_;
+            anchor_y_ = y_;
+        }
     }
     void observe(int index, int page, bool pointer_valid, int px, int py) {
+        ++turns_;
+        const bool appeared = pointer_valid && !pointer_seen_;
         if (pointer_valid) {
             x_ = px;
             y_ = py;
@@ -141,17 +151,28 @@ public:
             return;
         }
         if (index == index_) return;
-        const int dx = x_ > anchor_x_ ? x_ - anchor_x_ : anchor_x_ - x_;
-        const int dy = y_ > anchor_y_ ? y_ - anchor_y_ : anchor_y_ - y_;
-        if (pointer_valid && dx + dy <= kPointerSlop) index_ = index;  // the parked pointer's hover
+        // A pointer that came into view after the start, over a tile that is
+        // not the focused one, was brought there by the player.
+        if (appeared && turns_ > kStartTurns) {
+            moved_ = true;
+            return;
+        }
+        if (pointer_valid && distance() <= kPointerSlop) index_ = index;  // the parked pointer's hover
         else moved_ = true;
     }
     void mark_moved() { moved_ = true; }
     bool moved() const { return moved_; }
 
 private:
+    int distance() const {
+        const int dx = x_ > anchor_x_ ? x_ - anchor_x_ : anchor_x_ - x_;
+        const int dy = y_ > anchor_y_ ? y_ - anchor_y_ : anchor_y_ - y_;
+        return dx + dy;
+    }
+
     int index_ = 0;
     int page_ = 0;
+    int turns_ = 0;
     bool moved_ = false;
     bool pointer_seen_ = false;
     int x_ = 0, y_ = 0;

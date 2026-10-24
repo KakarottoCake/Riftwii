@@ -2077,7 +2077,10 @@ msgid "Home order"
 msgstr "Orden de Inicio"
 
 msgid "Home starts on"
-msgstr "Inicio abre en"
+msgstr "Inicio se abre en"
+
+msgid "Home starts on: {1}"
+msgstr "Inicio se abre en: {1}"
 
 msgid "First page"
 msgstr "Primera página"

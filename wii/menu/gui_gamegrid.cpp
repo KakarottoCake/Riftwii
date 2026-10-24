@@ -358,12 +358,14 @@ void GuiGameGrid::SetShelf(bool on) {
     if (shelf) SetCovers(true);
 }
 
-void GuiGameGrid::Focus(int index) {
+void GuiGameGrid::Focus(int index, bool crossfade) {
     if (index < 0 || index >= Count()) index = 0;
     focus = index;
     if (page != focus / kPerPage) {
-        // Another page at once (a letter, a search): crossfaded.
-        riftwii::wii::transition::BeginAuto();
+        // Another page at once (a letter, a search): crossfaded, unless the
+        // caller is placing the focus while Home builds up (the scan), where a
+        // fade would swallow a press (Home takes none while one runs).
+        if (crossfade) riftwii::wii::transition::BeginAuto();
         page = focus / kPerPage;
         laidOut = false;
         leavingPage = -1;

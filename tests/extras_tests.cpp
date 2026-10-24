@@ -2183,6 +2183,7 @@ void TestHomeStart() {
     EXPECT_EQ(home_start_focus(part, decided), 0);
     EXPECT_TRUE(!decided);
     std::vector<std::string> both = {"AAAA01", "CCCC01", "DDDD01", "EEEE01"};
+    decided = false;
     part = start_part("last", both, true, "DDDD01");
     part.focused_identity = "disc";
     part.last_part = true;
@@ -2205,6 +2206,16 @@ void TestHomeStart() {
     part = start_part("last", sd, false, "ZZZZ01");
     part.last_part = true;
     EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(decided);
+
+    // The last game is missing from this part (not the last), and the player
+    // has moved: their tile is kept and the decision is final, though more
+    // parts may follow.
+    decided = false;
+    part = start_part("last", sd, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 2);  // disc, A, C
     EXPECT_TRUE(decided);
 
     // No history at all.
@@ -2293,11 +2304,39 @@ void TestFocusWatch() {
     FocusWatch later;
     later.expect(0, 0);
     later.observe(0, 0, true, 100, 100);
-    later.observe(0, 0, true, 350, 250);  // moved over empty space, same focus
+    later.observe(0, 0, true, 350, 250);  // swept over empty space, same focus
     EXPECT_TRUE(!later.moved());
-    later.expect(0, 0);
-    later.observe(9, 0, true, 352, 249);  // parked there now: the hover
-    EXPECT_TRUE(!later.moved());
+    later.expect(0, 0);                   // a part joined while it was out there
+    later.observe(9, 0, true, 352, 249);  // and it lands on a tile: its motion, not a parked hover
+    EXPECT_TRUE(later.moved());
+
+    // A pointer that settled before the part joined is a parked one.
+    FocusWatch settledBefore;
+    settledBefore.expect(0, 0);
+    settledBefore.observe(0, 0, true, 100, 100);
+    settledBefore.observe(0, 0, true, 104, 102);  // tremor
+    settledBefore.expect(0, 0);
+    settledBefore.observe(4, 0, true, 105, 101);
+    EXPECT_TRUE(!settledBefore.moved());
+
+    // A pointer that first shows up after the first moments over another
+    // tile than the focused one was brought there; within them it was there
+    // from the start (the Wii Remote's pointer takes a few frames to report).
+    FocusWatch late;
+    late.expect(0, 0);
+    for (int turn = 0; turn < FocusWatch::kStartTurns + 5; ++turn) late.observe(0, 0, false, 0, 0);
+    late.observe(6, 0, true, 300, 200);
+    EXPECT_TRUE(late.moved());
+    FocusWatch lateSame;
+    lateSame.expect(0, 0);
+    for (int turn = 0; turn < FocusWatch::kStartTurns + 5; ++turn) lateSame.observe(0, 0, false, 0, 0);
+    lateSame.observe(0, 0, true, 300, 200);  // over the focused tile
+    EXPECT_TRUE(!lateSame.moved());
+    FocusWatch early;
+    early.expect(0, 0);
+    for (int turn = 0; turn < 10; ++turn) early.observe(0, 0, false, 0, 0);
+    early.observe(6, 0, true, 300, 200);
+    EXPECT_TRUE(!early.moved());
 
     // The player's other actions.
     FocusWatch acted;

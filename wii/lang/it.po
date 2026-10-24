@@ -2079,6 +2079,9 @@ msgstr "Ordine della Home"
 msgid "Home starts on"
 msgstr "Home si apre su"
 
+msgid "Home starts on: {1}"
+msgstr "Home si apre su: {1}"
+
 msgid "First page"
 msgstr "Prima pagina"
 

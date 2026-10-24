@@ -1750,10 +1750,15 @@ T = {
         "Ordem do Início",
         "Ordine della Home"),
     "Home starts on": (
-        "Inicio abre en",
+        "Inicio se abre en",
         "ホームの起動時",
         "Início abre em",
         "Home si apre su"),
+    "Home starts on: {1}": (
+        "Inicio se abre en: {1}",
+        "ホームの起動時: {1}",
+        "Início abre em: {1}",
+        "Home si apre su: {1}"),
     "First page": (
         "Primera página",
         "最初のページ",
@@ -3703,6 +3708,8 @@ KO = {
         "홈 정렬 순서",
     "Home starts on":
         "홈 시작 위치",
+    "Home starts on: {1}":
+        "홈 시작 위치: {1}",
     "First page":
         "첫 페이지",
     "Last game":
@@ -5144,6 +5151,8 @@ FR = {
         "Ordre de l'accueil",
     "Home starts on":
         "Accueil s'ouvre sur",
+    "Home starts on: {1}":
+        "Accueil s'ouvre sur : {1}",
     "First page":
         "Première page",
     "Last game":

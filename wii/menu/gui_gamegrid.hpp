@@ -108,7 +108,7 @@ public:
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
     // Keeps the focus on `index` (and its page).
-    void Focus(int index);
+    void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }
     // Where a game's tile (or box, on the shelf) is on screen, when it is
     // shown: what a transition zooms from.
