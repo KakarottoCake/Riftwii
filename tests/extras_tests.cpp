@@ -1539,6 +1539,32 @@ void TestCoverArt() {
     s.parse("home_source = wii\n");
     EXPECT_EQ(s.home_source, "wii");
     s.home_source = "all";
+    // Home starts on: the last game by default; unknown values keep what was set.
+    EXPECT_EQ(s.home_start, "last");
+    s.parse("home_start = first\n");
+    EXPECT_EQ(s.home_start, "first");
+    EXPECT_TRUE(s.serialize().find("home_start = first\n") != std::string::npos);
+    s.parse("home_start = middle\n");
+    EXPECT_EQ(s.home_start, "first");
+    LoaderSettings reloaded;
+    reloaded.parse(s.serialize());
+    EXPECT_EQ(reloaded.home_start, "first");
+    s.home_start = "last";
+    // The start-up focus: the last game only while the grid is not yet looked at.
+    const std::string last = "last", first = "first";
+    EXPECT_TRUE(home_start_action(last, false, false, true, false) == HomeStartAction::LastGame);
+    EXPECT_TRUE(home_start_action(last, false, false, true, true) == HomeStartAction::LastGame);
+    EXPECT_TRUE(home_start_action(last, false, false, false, false) == HomeStartAction::FirstTile);
+    // Seen without the game: it arrives late and must not move the page.
+    EXPECT_TRUE(home_start_action(last, false, true, true, false) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action(last, false, true, true, true) == HomeStartAction::KeepTile);
+    // First page: always the first tile, even when the last game is listed.
+    EXPECT_TRUE(home_start_action(first, false, false, true, false) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action(first, false, true, true, true) == HomeStartAction::FirstTile);
+    // The player moved: left alone, either way.
+    EXPECT_TRUE(home_start_action(last, true, false, true, false) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action(first, true, true, true, false) == HomeStartAction::KeepTile);
+    EXPECT_EQ(settings_after_reset(reloaded).home_start, "last");
     EXPECT_EQ(s.gc_rumble, "on");
     s.parse("gc_rumble = off\n");
     EXPECT_EQ(s.gc_rumble, "off");

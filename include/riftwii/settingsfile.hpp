@@ -40,6 +40,7 @@ struct LoaderSettings {
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
+    std::string home_start = "last";      // last (opens on the last game played), first (always on the first page)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     bool nand_non_games = false;
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
@@ -75,6 +76,23 @@ struct LoaderSettings {
 // play history, order, profiles and mods live in files of their own that
 // a reset never touches.
 LoaderSettings settings_after_reset(const LoaderSettings& before);
+
+// Where Home puts the focus while the drives are still being read at
+// start-up. Home first shows what is there and the SD card's and the USB
+// drive's games join in as each is read, so a late decision would move the
+// page under the player.
+//   KeepTile   leave the focus on the tile it is on (the player moved it,
+//              or is looking at the last game already)
+//   FirstTile  the first tile, so the first page
+//   LastGame   the tile of the game played last
+// `start_on` is the "home_start" setting; `player_moved` is true once the
+// focus is on another tile than the one Home chose; `grid_seen` is true
+// once the grid has been on screen long enough to be looked at;
+// `last_game_listed` is true when the last game played has a tile;
+// `on_last_game` is true when the focus is on that tile already.
+enum class HomeStartAction { KeepTile, FirstTile, LastGame };
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
+                                  bool last_game_listed, bool on_last_game);
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out

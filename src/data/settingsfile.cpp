@@ -97,6 +97,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") launch_music = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
+        } else if (key == "home_start") {
+            if (value == "last" || value == "first") home_start = value;
         } else if (key == "home_source") {
             if (value == "all" || value == "sd" || value == "usb" || value == "gamecube" || value == "wii") home_source = value;
         } else if (key == "home_sort") {
@@ -190,6 +192,7 @@ std::string LoaderSettings::serialize() const {
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
+    s += "home_start = " + home_start + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += std::string("nand_non_games = ") + (nand_non_games ? "on" : "off") + "\n";
     s += "theme = " + theme + "\n";
@@ -308,6 +311,18 @@ bool parse_cios_choice(const std::string& s, int& slot) {
     if (n < kFirstGameCios || n > kLastGameCios) return false;
     slot = n;
     return true;
+}
+
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
+                                  bool last_game_listed, bool on_last_game) {
+    if (player_moved) return HomeStartAction::KeepTile;
+    if (start_on != "last") return HomeStartAction::FirstTile;
+    // Not looked at yet: the last game's tile, again after each part of the
+    // scan, as the games that join in may put it on another page.
+    if (!grid_seen) return last_game_listed ? HomeStartAction::LastGame : HomeStartAction::FirstTile;
+    // Looked at: the last game stays where the player sees it; any other
+    // grid stays on page 1 rather than jump when the game arrives.
+    return on_last_game ? HomeStartAction::KeepTile : HomeStartAction::FirstTile;
 }
 
 LoaderSettings settings_after_reset(const LoaderSettings& before) {

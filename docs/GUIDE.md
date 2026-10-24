@@ -75,7 +75,8 @@ press 1 (the view button), or search with nothing typed, to go back to
 the view.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
-you played. When the Wii is online,
+you played; Settings > Home starts on > First page opens on page 1 instead. While the drives are
+still being read, RiftWii never moves a page you are already looking at. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language. The line at the
 bottom says how many games the view holds.

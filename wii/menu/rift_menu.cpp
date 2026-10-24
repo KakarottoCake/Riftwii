@@ -4402,21 +4402,34 @@ static int MenuSource(FrontendState& state)
 		const int index = focused.empty() ? -1 : findTile(focused);
 		if (index >= 0) grid.Focus(index);
 	};
-	// The first time Home shows, it opens on the last game played, with the
-	// SD card's games or the drive's, whichever has it; not once the player
-	// has moved off the tile Home opened on.
+	// The first time Home shows, it opens on the last game played (Settings >
+	// Home starts on: Last game) or on the first page (First page). The
+	// drives are read while Home shows, and each part of the scan joins its
+	// games in, so this runs after every part. The last game's tile is
+	// focused again after each part until the grid has been on screen for
+	// a second with games on it: it may be on another page once more games are in, but a
+	// page the player has had a look at is never moved from under them (not
+	// once the last game arrives late either). Not once the player has moved
+	// off the tile Home opened on.
 	std::string focusAtOpen;
+	u64 gridShownAt = 0;  // when the grid first had a tile to look at; 0 before
+	constexpr int kGridSeenMs = 1000;
 	const auto restoreFocus = [&](bool moved, bool lastPart) {
 		if (g_focusRestored) return;
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
-		bool found = false;
-		for (std::size_t i = 0; !moved && !recent.empty() && i < items.size() && !found; ++i) {
-			found = items[i].key == recent[0];
-			if (found) grid.Focus(static_cast<int>(i));
-		}
-		if (moved || found) g_focusRestored = true;
+		int lastIndex = -1;
+		for (std::size_t i = 0; !recent.empty() && i < items.size() && lastIndex < 0; ++i)
+			if (items[i].key == recent[0]) lastIndex = static_cast<int>(i);
+		const bool seen = gridShownAt != 0 && diff_msec(gridShownAt, gettime()) >= kGridSeenMs;
+		const bool onLast = lastIndex >= 0 && grid.FocusedIndex() == lastIndex;
+		const riftwii::HomeStartAction action = riftwii::home_start_action(
+			riftwii::wii::Settings().home_start, moved, seen, lastIndex >= 0, onLast);
+		if (action == riftwii::HomeStartAction::LastGame) grid.Focus(lastIndex);
+		else if (action == riftwii::HomeStartAction::FirstTile) grid.Focus(0);
+		// The first tile stays put while more games come in; the decision is
+		// final with the last part, or once the player moves.
+		if (moved || lastPart) g_focusRestored = true;
 		focusAtOpen = focusedTile();
-		if (lastPart) g_focusRestored = true;
 	};
 	// What Home asks after a look at the drives it opened with (the start,
 	// or Settings > Look for games again), once both drives are in. With
@@ -4663,6 +4676,12 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		HaltGui();
+		// The clock for "looked at" starts with the first game tile on screen:
+		// the Disc drive's tile alone is not a page worth keeping.
+		if (gridShownAt == 0) {
+			const std::size_t discTiles = !entries.empty() && entries[0].kind == HomeEntry::Kind::Disc ? 1 : 0;
+			if (entries.size() > discTiles) gridShownAt = gettime();
+		}
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
@@ -11206,7 +11225,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -11296,6 +11315,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		}
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
+		option(tr("Home starts on"), settings.home_start == "first" ? tr("First page") : tr("Last game"),
+			settings.home_start == "first", kHomeStart);
 		option(tr("Play history"), settings.play_history == "off" ? tr("Off") : tr("On"), settings.play_history != "off",
 			kPlayHistory, FlowRow::Kind::Toggle);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
@@ -11468,7 +11489,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
 					return SettingsSection::Controllers;
-				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort:
+				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
@@ -11584,6 +11605,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
+			case kHomeStart: return tr("Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
@@ -11786,6 +11808,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kHomeStart:
+					settings.home_start = settings.home_start == "first" ? "last" : "first";
+					saveAndNote(tr("Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives."));
+					rebuild();
+					break;
 				case kHomeSort: {
 					static const char* const kSortChoices[] = {"az", "recent", "most", "custom"};
 					int at = 0;

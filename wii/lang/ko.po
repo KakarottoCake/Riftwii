@@ -2076,6 +2076,18 @@ msgstr "도움말"
 msgid "Home order"
 msgstr "홈 정렬 순서"
 
+msgid "Home starts on"
+msgstr "홈 시작 위치"
+
+msgid "First page"
+msgstr "첫 페이지"
+
+msgid "Last game"
+msgstr "마지막 게임"
+
+msgid "Where Home opens: on the last game you played, or on its first page. Last game never moves a page you are already looking at while RiftWii is still reading the drives."
+msgstr "홈이 열리는 위치입니다. 마지막으로 플레이한 게임 또는 첫 페이지에서 시작합니다. 마지막 게임은 RiftWii가 드라이브를 읽는 중에도 이미 보고 있는 페이지를 옮기지 않습니다."
+
 msgid "Its values"
 msgstr "값"
 
