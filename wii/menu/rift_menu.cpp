@@ -4397,39 +4397,52 @@ static int MenuSource(FrontendState& state)
 	// replaced a catalog) rather than on its place.
 	// Not crossfaded: Home takes no press while a crossfade runs, and a
 	// press as the SD card's games came in was lost (Ishtar, in Dolphin).
-	const auto refreshKeepingTile = [&](const std::string& focused) {
-		refresh(true, false);
-		const int index = focused.empty() ? -1 : findTile(focused);
-		if (index >= 0) grid.Focus(index);
-	};
+	// Where the player is, while the drives are read: the focus and page the
+	// menu set itself are expected, any other one is the player's (D-pad,
+	// pointer or a page turn), and once seen it stays so, also when they
+	// move away and back.
+	riftwii::FocusWatch focusWatch;
+	const auto expectFocusNow = [&]() { focusWatch.expect(grid.FocusedIndex(), grid.Page()); };
+	const auto watchPlayer = [&]() { focusWatch.observe(grid.FocusedIndex(), grid.Page()); };
 	// The first time Home shows, it opens on the last game played (Settings >
 	// Home starts on: Last game) or on the first page (First page). The
 	// drives are read while Home shows, and each part of the scan joins its
-	// games in, so this runs after every part. The last game's tile is
-	// focused again after each part until the grid has been on screen for
-	// a second with games on it: it may be on another page once more games are in, but a
-	// page the player has had a look at is never moved from under them (not
-	// once the last game arrives late either). Not once the player has moved
-	// off the tile Home opened on.
-	std::string focusAtOpen;
+	// games in (`focused` is the tile in focus before the part), which can
+	// push the focused tile onto another page. So, until the player moves:
+	// First page stays on tile 0; Last game focuses the last game again after
+	// each part while the grid has been on screen under a second with games
+	// on it, and after that keeps the page the player is looking at, rather
+	// than follow a tile they did not choose. Once the player has moved, their
+	// tile is kept, wherever it goes. The decision is final with the last part.
 	u64 gridShownAt = 0;  // when the grid first had a tile to look at; 0 before
 	constexpr int kGridSeenMs = 1000;
-	const auto restoreFocus = [&](bool moved, bool lastPart) {
-		if (g_focusRestored) return;
+	const auto refreshKeepingTile = [&](const std::string& focused, bool lastPart) {
+		const int indexBefore = grid.FocusedIndex();
+		watchPlayer();
+		refresh(true, false);  // the same place, clamped to the games there now
+		const auto keepTile = [&]() {
+			const int index = focused.empty() ? -1 : findTile(focused);
+			if (index >= 0) grid.Focus(index);
+		};
+		if (g_focusRestored) {
+			keepTile();
+			return;
+		}
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
 		int lastIndex = -1;
 		for (std::size_t i = 0; !recent.empty() && i < items.size() && lastIndex < 0; ++i)
 			if (items[i].key == recent[0]) lastIndex = static_cast<int>(i);
 		const bool seen = gridShownAt != 0 && diff_msec(gridShownAt, gettime()) >= kGridSeenMs;
-		const bool onLast = lastIndex >= 0 && grid.FocusedIndex() == lastIndex;
-		const riftwii::HomeStartAction action = riftwii::home_start_action(
-			riftwii::wii::Settings().home_start, moved, seen, lastIndex >= 0, onLast);
-		if (action == riftwii::HomeStartAction::LastGame) grid.Focus(lastIndex);
-		else if (action == riftwii::HomeStartAction::FirstTile) grid.Focus(0);
-		// The first tile stays put while more games come in; the decision is
-		// final with the last part, or once the player moves.
-		if (moved || lastPart) g_focusRestored = true;
-		focusAtOpen = focusedTile();
+		switch (riftwii::home_start_action(riftwii::wii::Settings().home_start, focusWatch.moved(), seen, lastIndex >= 0)) {
+		case riftwii::HomeStartAction::KeepTile: keepTile(); break;
+		case riftwii::HomeStartAction::KeepPage:
+			grid.Focus(std::min(indexBefore, std::max(0, static_cast<int>(items.size()) - 1)));
+			break;
+		case riftwii::HomeStartAction::FirstTile: grid.Focus(0); break;
+		case riftwii::HomeStartAction::LastGame: grid.Focus(lastIndex); break;
+		}
+		if (focusWatch.moved() || lastPart) g_focusRestored = true;
+		expectFocusNow();
 	};
 	// What Home asks after a look at the drives it opened with (the start,
 	// or Settings > Look for games again), once both drives are in. With
@@ -4466,7 +4479,7 @@ static int MenuSource(FrontendState& state)
 		StartScan();
 		g_askAfterScan = true;
 		refresh(true);
-		focusAtOpen = focusedTile();
+		expectFocusNow();
 	} else {
 		showStatus();
 	}
@@ -4678,6 +4691,8 @@ static int MenuSource(FrontendState& state)
 		HaltGui();
 		// The clock for "looked at" starts with the first game tile on screen:
 		// the Disc drive's tile alone is not a page worth keeping.
+		// Every turn, so that a move away and back between two parts is seen.
+		if (!g_focusRestored) watchPlayer();
 		if (gridShownAt == 0) {
 			const std::size_t discTiles = !entries.empty() && entries[0].kind == HomeEntry::Kind::Disc ? 1 : 0;
 			if (entries.size() > discTiles) gridShownAt = gettime();
@@ -4690,14 +4705,12 @@ static int MenuSource(FrontendState& state)
 			if (riftwii::wii::TakeSdScan(part)) {
 				const std::string focused = focusedTile();
 				TakeSdScanPart(state, part);
-				refreshKeepingTile(focused);
-				restoreFocus(focused != focusAtOpen, false);
+				refreshKeepingTile(focused, false);
 			}
 			if (riftwii::wii::TakeUsbScan(part)) {
 				const std::string focused = focusedTile();
 				TakeUsbScanPart(state, part);
-				refreshKeepingTile(focused);
-				restoreFocus(focused != focusAtOpen, true);
+				refreshKeepingTile(focused, true);
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
 				g_openWhenScanned.clear();

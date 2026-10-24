@@ -81,18 +81,36 @@ LoaderSettings settings_after_reset(const LoaderSettings& before);
 // start-up. Home first shows what is there and the SD card's and the USB
 // drive's games join in as each is read, so a late decision would move the
 // page under the player.
-//   KeepTile   leave the focus on the tile it is on (the player moved it,
-//              or is looking at the last game already)
+//   KeepTile   leave the focus on the tile the player chose, wherever the
+//              games that join in put it
+//   KeepPage   stay on the page (and place on it) the player is looking
+//              at, rather than follow a tile they never chose
 //   FirstTile  the first tile, so the first page
 //   LastGame   the tile of the game played last
 // `start_on` is the "home_start" setting; `player_moved` is true once the
-// focus is on another tile than the one Home chose; `grid_seen` is true
-// once the grid has been on screen long enough to be looked at;
-// `last_game_listed` is true when the last game played has a tile;
-// `on_last_game` is true when the focus is on that tile already.
-enum class HomeStartAction { KeepTile, FirstTile, LastGame };
+// player has navigated at all (see FocusWatch); `grid_seen` is true once the
+// grid has been on screen long enough to be looked at; `last_game_listed`
+// is true when the last game played has a tile.
+enum class HomeStartAction { KeepTile, KeepPage, FirstTile, LastGame };
 HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
-                                  bool last_game_listed, bool on_last_game);
+                                  bool last_game_listed);
+
+// Whether the player has moved the focus: the menu says where it put the
+// focus itself (expect), and any other focus or page seen afterwards (observe)
+// is the player's. Once moved, always moved: away and back is moved.
+class FocusWatch {
+public:
+    void expect(int index, int page) { index_ = index; page_ = page; }
+    void observe(int index, int page) {
+        if (index != index_ || page != page_) moved_ = true;
+    }
+    bool moved() const { return moved_; }
+
+private:
+    int index_ = 0;
+    int page_ = 0;
+    bool moved_ = false;
+};
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out

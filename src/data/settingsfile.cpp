@@ -314,15 +314,15 @@ bool parse_cios_choice(const std::string& s, int& slot) {
 }
 
 HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool grid_seen,
-                                  bool last_game_listed, bool on_last_game) {
+                                  bool last_game_listed) {
     if (player_moved) return HomeStartAction::KeepTile;
     if (start_on != "last") return HomeStartAction::FirstTile;
     // Not looked at yet: the last game's tile, again after each part of the
     // scan, as the games that join in may put it on another page.
     if (!grid_seen) return last_game_listed ? HomeStartAction::LastGame : HomeStartAction::FirstTile;
-    // Looked at: the last game stays where the player sees it; any other
-    // grid stays on page 1 rather than jump when the game arrives.
-    return on_last_game ? HomeStartAction::KeepTile : HomeStartAction::FirstTile;
+    // Looked at: the page stays, whatever the games that join in sort
+    // before it; the last game is not moved to.
+    return HomeStartAction::KeepPage;
 }
 
 LoaderSettings settings_after_reset(const LoaderSettings& before) {

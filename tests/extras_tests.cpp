@@ -1552,18 +1552,36 @@ void TestCoverArt() {
     s.home_start = "last";
     // The start-up focus: the last game only while the grid is not yet looked at.
     const std::string last = "last", first = "first";
-    EXPECT_TRUE(home_start_action(last, false, false, true, false) == HomeStartAction::LastGame);
-    EXPECT_TRUE(home_start_action(last, false, false, true, true) == HomeStartAction::LastGame);
-    EXPECT_TRUE(home_start_action(last, false, false, false, false) == HomeStartAction::FirstTile);
-    // Seen without the game: it arrives late and must not move the page.
-    EXPECT_TRUE(home_start_action(last, false, true, true, false) == HomeStartAction::FirstTile);
-    EXPECT_TRUE(home_start_action(last, false, true, true, true) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action(last, false, false, true) == HomeStartAction::LastGame);
+    EXPECT_TRUE(home_start_action(last, false, false, false) == HomeStartAction::FirstTile);
+    // Seen: the page stays, whether the last game is listed yet or not.
+    EXPECT_TRUE(home_start_action(last, false, true, true) == HomeStartAction::KeepPage);
+    EXPECT_TRUE(home_start_action(last, false, true, false) == HomeStartAction::KeepPage);
     // First page: always the first tile, even when the last game is listed.
-    EXPECT_TRUE(home_start_action(first, false, false, true, false) == HomeStartAction::FirstTile);
-    EXPECT_TRUE(home_start_action(first, false, true, true, true) == HomeStartAction::FirstTile);
-    // The player moved: left alone, either way.
-    EXPECT_TRUE(home_start_action(last, true, false, true, false) == HomeStartAction::KeepTile);
-    EXPECT_TRUE(home_start_action(first, true, true, true, false) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action(first, false, false, true) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action(first, false, true, true) == HomeStartAction::FirstTile);
+    // The player moved: their tile is kept, either way.
+    EXPECT_TRUE(home_start_action(last, true, false, true) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action(last, true, true, true) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action(first, true, true, true) == HomeStartAction::KeepTile);
+    // Moved and back is moved; the menu's own focus changes are not.
+    FocusWatch watch;
+    watch.expect(0, 0);
+    watch.observe(0, 0);
+    EXPECT_TRUE(!watch.moved());
+    watch.expect(5, 0);  // the menu moved the focus itself
+    watch.observe(5, 0);
+    EXPECT_TRUE(!watch.moved());
+    watch.observe(6, 0);  // the player
+    EXPECT_TRUE(watch.moved());
+    watch.observe(5, 0);  // and back
+    EXPECT_TRUE(watch.moved());
+    watch.expect(5, 0);
+    EXPECT_TRUE(watch.moved());
+    FocusWatch pageTurn;
+    pageTurn.expect(3, 0);
+    pageTurn.observe(3, 1);  // a page turn with the same index
+    EXPECT_TRUE(pageTurn.moved());
     EXPECT_EQ(settings_after_reset(reloaded).home_start, "last");
     EXPECT_EQ(s.gc_rumble, "on");
     s.parse("gc_rumble = off\n");
