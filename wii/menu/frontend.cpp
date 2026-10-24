@@ -84,36 +84,25 @@ void InitializeFrontend(FrontendState& state) {
     state.disc_status = "Disc: select to probe";
 }
 
-void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
-    // DISC is explicit. Do not enumerate image media here: autorun calls this
-    // for `disc launch`, while GUI startup uses InitializeFrontend instead.
+void PollDiscCover() {
+    // No background spin-up or initial probe. Once identified, watch for an
+    // empty drive even while its page stays open. DI errors forget the cache.
+    if (di::disc_cache().action() != DiscCache::Action::Reuse) return;
+    bool inserted = false;
     std::string error;
-    state.use_usb = false;
-    state.use_sd = false;
-    state.use_channel = false;
-    state.usb_index = 0;
-    state.sd_index = 0;
-    state.has_compiled = false;
-    state.compiled = CompiledMod{};
-    state.profile_key.clear();
-    state.profile_name.clear();
-    if (progress) progress("Probing disc...");
-    if (ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
-        state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
-        state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
-    } else {
-        state.game_id.clear();
-        state.disc_title.clear();
-        state.game_revision = 0;
-        state.game_disc_number = 0;
-        state.choices_path.clear();
-        state.disc_status = "No disc in drive";
+    if (!di::cover_status(inserted, error)) {
+        logf("Disc: could not check whether it stayed inserted (%s)\n", error.c_str());
+    } else if (!inserted) {
+        logf("Disc: removed; its cached identity was discarded\n");
     }
 }
 
-// The game the DISC button boots: a fresh probe, so a swapped disc is
-// picked up. False when no disc answers.
-bool SelectDisc(FrontendState& state, std::string& error) {
+void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
+    std::string error;
+    SelectDisc(state, error, progress);
+}
+
+bool SelectDisc(FrontendState& state, std::string& error, void (*progress)(const char*)) {
     state.profile_key.clear();
     state.profile_name.clear();
     state.launch_warning.clear();
@@ -125,7 +114,30 @@ bool SelectDisc(FrontendState& state, std::string& error) {
     state.use_channel = false;
     state.usb_index = 0;
     state.sd_index = 0;
-    if (!ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
+
+    bool inserted = false;
+    bool ok = di::open(error) && di::cover_status(inserted, error);
+    CachedDisc disc;
+    if (ok && di::disc_cache().action() == DiscCache::Action::Empty) {
+        error = "no disc in the drive";
+        ok = false;
+    } else if (ok && di::disc_cache().action() == DiscCache::Action::Reuse) {
+        disc = di::disc_cache().disc();
+        logf("Disc: reusing %s's cached identity; it stayed inserted\n", disc.game_id.c_str());
+    } else if (ok) {
+        if (progress) progress("Probing disc...");
+        logf("Disc: probing the inserted disc for its menu identity\n");
+        ok = ProbeInserted(disc.game_id, disc.title, error, &disc.revision, &disc.disc_number);
+        if (ok) {
+            std::uint32_t mode = 0;
+            std::string no_d2x;
+            disc.burned = MenuCiosSlot() != 0 && di::probe_d2x(mode, no_d2x) && (mode & 1u) != 0;
+            di::disc_cache().probe_succeeded(disc);
+        } else {
+            di::disc_cache().invalidate();
+        }
+    }
+    if (!ok) {
         state.game_id.clear();
         state.disc_title.clear();
         state.game_revision = 0;
@@ -134,13 +146,16 @@ bool SelectDisc(FrontendState& state, std::string& error) {
         state.disc_status = "No disc in drive";
         return false;
     }
+
+    state.game_id = disc.game_id;
+    state.disc_title = disc.title;
+    state.game_revision = disc.revision;
+    state.game_disc_number = disc.disc_number;
     state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
     state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
-    // A burned disc, read through d2x's DVD-ROM mode (bit 0): harder on
-    // the Wii's drive than a pressed disc, so it is said before each launch.
-    std::uint32_t mode = 0;
-    std::string no_d2x;
-    if (MenuCiosSlot() != 0 && di::probe_d2x(mode, no_d2x) && (mode & 1u) != 0) {
+    // Keep the burned-disc warning when reopening the page without querying
+    // d2x again. warning_shown was cleared, so it is still said before Play.
+    if (disc.burned) {
         logf("Disc: a burned disc, read through d2x's DVD-ROM mode\n");
         state.launch_warning = tr("Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk.");
     }
