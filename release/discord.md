@@ -17,25 +17,23 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-GameCube memory cards in three more games, Nintendont saves, and GameHacking cheats:
+The Wii Menu's own sounds, a GameCube-pad way out of Wii games, and Wii U channel fixes:
 
-* Memory cards in NFSU2, Resident Evil 2 USA and Fire Emblem: Path of Radiance (tested on a real Wii)
-* Bring Nintendont's GameCube saves over, all or chosen ones
-* Cheats fall back to GameHacking.org; Fluidity no longer goes black with a cheat
-* Disc stops spinning on power-off to standby; GameCube sound no longer breaks up or buzzes on the way back (buzz fix not Wii-tested)
-* Wii U GameCube adapter in Wii RVZ games, and sideways Wii Remote in GameCube games on Wii U (both not Wii-tested yet)
-* GameCube controls on Home (L/R pages, Z Settings, B Search, not Wii-tested), tidier Home, and homebrew apps return to RiftWii
+* Wii Menu sounds and music: Settings > Menu (read from your Wii, off until you turn them on)
+* Hold L+R+Z+Start on a GameCube controller to leave a Wii game (adapter on; waits for saves)
+* Wii U: a channel installer that goes black no longer locks you out (Not now), and a game's Reset reaches the channel
+* WiiWare: SD mount fix for emulated NAND on vWii, and a guess for games that quit straight back
+* Pull the SD card and put it back: RiftWii reads it again
+* Home starts on your last game
 
 To test, please:
 
-1. A GameCube game that said no memory card (NFSU2, RE2, Fire Emblem)
-2. GameCube adapter in a Wii RVZ game, front and back USB ports
-3. Sideways Wii Remote in a GameCube game on a Wii U
-4. L/R/Z/B on Home with a GameCube controller
-5. Bring Nintendont's saves over
-6. Power off with a disc in and check it stops spinning
+1. Wii Menu sounds and music on, especially on a Wii U or a non-USA Wii
+2. L+R+Z+Start in a Wii game, and during a save
+3. Wii U owners whose installer went black: try the channel update again
+4. WiiWare games
+5. SD card out and back in on Home
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Bringing Nintendont's saves over](docs/screenshots/2610-690-nintendont-saves.png)
-![Cheats from GameHacking.org](docs/screenshots/2610-690-gamehacking-cheats.png)
+![Wii Menu sounds and music](docs/screenshots/2610-720-wii-menu-sounds.png)
