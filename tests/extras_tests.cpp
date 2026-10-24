@@ -100,6 +100,188 @@ void TestReleaseAssetObjects() {
     }
 }
 
+void TestReleaseMetadataPolicy() {
+    std::string tag;
+    ReleaseAsset out;
+    const std::string url = "https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol";
+    auto asset_doc = [&](const std::string& digest_field, const std::string& size_field) {
+        std::string doc = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\"";
+        if (!digest_field.empty()) doc += "," + digest_field;
+        if (!size_field.empty()) doc += "," + size_field;
+        return doc + "}]}";
+    };
+    auto refused_asset = [&](const std::string& doc) {
+        out.url = "unchanged";
+        out.sha256 = "unchanged";
+        out.size = 17ull;
+        EXPECT_FALSE(release_asset_from_json(doc, "riftwii.dol", out));
+        EXPECT_EQ(out.url, "unchanged");
+        EXPECT_EQ(out.sha256, "unchanged");
+        EXPECT_TRUE(out.size == 17ull);
+    };
+    auto refused_tag = [&](const std::string& doc) {
+        tag = "unchanged";
+        EXPECT_FALSE(release_tag_from_json(doc, tag));
+        EXPECT_EQ(tag, "unchanged");
+    };
+    // Only the root object's own tag counts, never a nested one.
+    EXPECT_TRUE(release_tag_from_json("{\"nested\":{\"tag_name\":\"vFake\"},\"tag_name\":\"vReal\"}", tag));
+    EXPECT_EQ(tag, "vReal");
+    refused_tag("{\"nested\":{\"tag_name\":\"v1\"}}");
+    // A string value that looks like a key never counts.
+    EXPECT_TRUE(release_tag_from_json("{\"body\":\"tag_name\",\"tag_name\":\"v2\"}", tag));
+    EXPECT_EQ(tag, "v2");
+    // An array answer reads the first release only, which must be an object.
+    EXPECT_TRUE(release_tag_from_json("[{\"tag_name\":\"v1\"},{\"tag_name\":\"v2\"}]", tag));
+    EXPECT_EQ(tag, "v1");
+    refused_tag("[42,{\"tag_name\":\"v1\"}]");
+    refused_tag("[\"v1\"]");
+    // The whole document must parse with nothing after it.
+    refused_tag("{\"tag_name\":\"v1\"} trailing");
+    refused_tag("{\"tag_name\":\"v1\"} {}");
+    // After decoding the tag is 1..64 bytes of the URL-safe set.
+    const std::string ok64(64, 'x');
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"" + ok64 + "\"}", tag));
+    EXPECT_EQ(tag, ok64);
+    refused_tag("{\"tag_name\":\"" + std::string(65, 'x') + "\"}");
+    refused_tag("{\"tag_name\":\"\"}");
+    refused_tag("{\"tag_name\":\"a\\nb\"}");
+    // tag_name null, 42, {} and missing.
+    refused_tag("{\"tag_name\":null}");
+    refused_tag("{\"tag_name\":42}");
+    refused_tag("{\"tag_name\":{}}");
+    refused_tag("{}");
+    // Only A-Z a-z 0-9 . _ + - pass; anything else after decoding refuses the tag.
+    refused_tag("{\"tag_name\":\"v1/2\"}");
+    refused_tag("{\"tag_name\":\"v1?2\"}");
+    refused_tag("{\"tag_name\":\"v1%2\"}");
+    refused_tag("{\"tag_name\":\"v1 2\"}");
+    refused_tag("{\"tag_name\":\"v1\\u002f2\"}");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v2610-691\"}", tag));
+    EXPECT_EQ(tag, "v2610-691");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v1.2_3+4-5\"}", tag));
+    EXPECT_EQ(tag, "v1.2_3+4-5");
+    // Escapes decode before the length and character checks.
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"\\u0076\\u00312\"}", tag));
+    EXPECT_EQ(tag, "v12");
+    std::string a64_escaped;
+    for (int i = 0; i < 64; ++i) a64_escaped += "\\u0061";
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"" + a64_escaped + "\"}", tag));
+    EXPECT_EQ(tag, std::string(64, 'a'));
+    std::string a65_escaped;
+    for (int i = 0; i < 65; ++i) a65_escaped += "\\u0061";
+    refused_tag("{\"tag_name\":\"" + a65_escaped + "\"}");
+    // A surrogate pair is refused as a tag now; it still decodes elsewhere.
+    refused_tag("{\"tag_name\":\"v\\uD83D\\uDE00\"}");
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\uD83D\\uDE00.dol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii\xF0\x9F\x98\x80.dol", out));
+    EXPECT_EQ(out.url, url);
+    refused_tag("{\"tag_name\":\"\\uD83D\"}");
+    refused_tag("{\"tag_name\":\"\\uDE00\\uD83D\"}");
+    refused_tag("{\"tag_name\":\"a\\u0000b\"}");
+    // Names and URLs match after decoding.
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\u002edol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii.dol", out));
+    EXPECT_EQ(out.url, url);
+    const std::string slash_url = "https:\\/\\/github.com\\/KakarottoCake\\/Riftwii\\/releases\\/download\\/v1\\/riftwii.dol";
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + slash_url + "\"}]}", "riftwii.dol", out));
+    EXPECT_EQ(out.url, url);
+    // A NUL escape in a name means no match; in a URL or digest it refuses the asset.
+    refused_asset("{\"assets\":[{\"name\":\"riftwii\\u0000.dol\",\"browser_download_url\":\"" + url + "\"}]}");
+    refused_asset("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii\\u0000.dol\"}]}");
+    // A high surrogate not followed by a low surrogate refuses the asset.
+    refused_asset("{\"assets\":[{\"name\":\"riftwii\\uD83DA.dol\",\"browser_download_url\":\"" + url + "\"}]}");
+    // Hex digits in escapes are case-insensitive.
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\uD83D\\uDe00.dol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii\xF0\x9F\x98\x80.dol", out));
+    EXPECT_EQ(out.url, url);
+    // Missing or null digest leaves sha256 empty.
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.sha256.empty());
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":null", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.sha256.empty());
+    const std::string hex(64, 'a');
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":\"sha256:" + hex + "\"", ""), "riftwii.dol", out));
+    EXPECT_EQ(out.sha256, hex);
+    const std::string upper(64, 'A');
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":\"sha256:" + upper + "\"", ""), "riftwii.dol", out));
+    EXPECT_EQ(out.sha256, hex);
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(10, 'a') + "\\u0000" + std::string(53, 'a') + "\"", ""));
+    // Any other present digest refuses the asset.
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(63, 'a') + "\"", ""));
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(64, 'a') + "b\"", ""));
+    std::string nonhex = hex;
+    nonhex[0] = 'z';
+    refused_asset(asset_doc("\"digest\":\"sha256:" + nonhex + "\"", ""));
+    refused_asset(asset_doc("\"digest\":\"sha512:" + hex + "\"", ""));
+    refused_asset(asset_doc("\"digest\":42", ""));
+    refused_asset(asset_doc("\"digest\":true", ""));
+    refused_asset(asset_doc("\"digest\":false", ""));
+    refused_asset(asset_doc("\"digest\":{}", ""));
+    // Missing or null size leaves size unknown.
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 0ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":null"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 0ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":42"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 42ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":18446744073709551615"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 18446744073709551615ull);
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"size\" : 42 }]}", "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 42ull);
+    // Anything but a plain 1..2^64-1 integer refuses the asset.
+    refused_asset(asset_doc("", "\"size\":0"));
+    refused_asset(asset_doc("", "\"size\":-1"));
+    refused_asset(asset_doc("", "\"size\":01"));
+    refused_asset(asset_doc("", "\"size\":1.5"));
+    refused_asset(asset_doc("", "\"size\":1e3"));
+    refused_asset(asset_doc("", "\"size\":\"42\""));
+    refused_asset(asset_doc("", "\"size\":true"));
+    refused_asset(asset_doc("", "\"size\":18446744073709551616"));
+    // A refused first match is never replaced by an older release.
+    {
+        const std::string bad_digest = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"digest\":\"sha256:" + std::string(63, 'a') + "\"}]}";
+        const std::string good_digest = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"digest\":\"sha256:" + hex + "\"}]}";
+        refused_asset("[" + bad_digest + "," + good_digest + "]");
+        const std::string size_zero = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"size\":0}]}";
+        const std::string size_ok = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\"}]}";
+        refused_asset("[" + size_zero + "," + size_ok + "]");
+    }
+    // A realistic /releases/latest object: extra members are skipped.
+    {
+        const std::string real_url = "https://github.com/KakarottoCake/Riftwii/releases/download/v2610-691/riftwii.dol";
+        const std::string latest =
+            "{\"url\":\"https://api.github.com/repos/KakarottoCake/Riftwii/releases/1\","
+            "\"id\":1,"
+            "\"tag_name\":\"v2610-691\","
+            "\"name\":\"v2610-691\","
+            "\"author\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"},"
+            "\"uploader\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"},"
+            "\"assets\":[{"
+            "\"id\":10,"
+            "\"name\":\"riftwii.dol\","
+            "\"label\":null,"
+            "\"content_type\":\"application/octet-stream\","
+            "\"state\":\"uploaded\","
+            "\"size\":12345,"
+            "\"digest\":null,"
+            "\"download_count\":7,"
+            "\"created_at\":\"2026-01-01T00:00:00Z\","
+            "\"browser_download_url\":\"" + real_url + "\","
+            "\"uploader\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"}"
+            "}],"
+            "\"reactions\":{\"total_count\":0}}";
+        EXPECT_TRUE(release_tag_from_json(latest, tag));
+        EXPECT_EQ(tag, "v2610-691");
+        EXPECT_TRUE(release_asset_from_json(latest, "riftwii.dol", out));
+        EXPECT_EQ(out.url, real_url);
+        EXPECT_TRUE(out.size == 12345ull);
+        EXPECT_TRUE(out.sha256.empty());
+    }
+    // "." and ".." would climb out of tags/ in the API address.
+    refused_tag("{\"tag_name\":\".\"}");
+    refused_tag("{\"tag_name\":\"..\"}");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v1.0\"}", tag));
+    EXPECT_EQ(tag, "v1.0");
+}
+
 void TestHttp() {
     HttpUrl url;
     std::string error;
@@ -2422,6 +2604,7 @@ int main() {
     TestFriivolutionArguments();
     TestHttp();
     TestReleaseAssetObjects();
+    TestReleaseMetadataPolicy();
     TestCheats();
     TestCheatRevisions();
     TestVideo();
