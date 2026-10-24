@@ -174,15 +174,17 @@ static void pad_check_pending(struct rt_pad_context* c, uint32_t t) {
 }
 
 /* The resident runtime's last SD save write (rt_fs_state's last_write,
- * then wrote, as it is: RTLEAVE_RESIDENT_WITH_IOS while a write's command
- * is with IOS), with saves on the SD card; nothing otherwise. */
+ * then wrote: RTLEAVE_RESIDENT_WITH_IOS while a write's command is with
+ * IOS, or while its savegame engine has a request in hand or queued), with
+ * saves on the SD card; nothing otherwise. */
 static void pad_resident_write(const struct rt_pad_context* c, int* wrote, uint32_t* last_write) {
     *wrote = 0;
     *last_write = 0;
     if (c->resident_last_write != 0) {
         const volatile uint32_t* w = (const volatile uint32_t*)(uintptr_t)c->resident_last_write;
         *last_write = w[0];
-        *wrote = (int)w[1];
+        *wrote = rtleave_resident(w[1], *(const volatile uint32_t*)(uintptr_t)c->resident_busy,
+                                  *(const volatile uint32_t*)(uintptr_t)c->resident_queued);
     }
 }
 

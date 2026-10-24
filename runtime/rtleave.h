@@ -80,6 +80,14 @@ int rtleave_pending(struct rtleave* l, uint32_t now, const uint32_t* words);
  * has gone out, and `resident_last_write` is its last step. */
 #define RTLEAVE_RESIDENT_WITH_IOS 2
 
+/* The resident's save state as rtleave_due and rtleave_quiet take it: its
+ * `wrote`, but RTLEAVE_RESIDENT_WITH_IOS while its savegame engine has one
+ * of the game's requests in hand (`busy`) or queued behind one (`queued`).
+ * A save write stamps last_write only at its own transfers, so a write
+ * still queued, the reads of the card's tables before its first transfer
+ * and a wait for the card behind a mod read leave no stamp at all. */
+int rtleave_resident(uint32_t wrote, uint32_t busy, uint32_t queued);
+
 /* 1 when no save was written within `quiet` ticks of `now`, neither
  * through the IPC calls nor by the resident runtime (`resident_wrote`,
  * then its `resident_last_write`), and no save is with IOS right now:

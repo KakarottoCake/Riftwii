@@ -71,6 +71,8 @@ struct PadHook {
     std::uint32_t sleep_thread = 0;    // OSSleepThread
     std::uint32_t ipc_submit = 0;      // the SDK's IPC submit routine
     std::uint32_t resident_last_write = 0;  // the resident's save-write time (SD saves), 0: none
+    std::uint32_t resident_busy = 0;        // its savegame engine's busy word (with the above)
+    std::uint32_t resident_queued = 0;      // and its queue count
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.

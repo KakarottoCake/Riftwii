@@ -152,6 +152,14 @@ void TestDue() {
     EXPECT_FALSE(rtleave_quiet(&r, 900000, RTLEAVE_RESIDENT_WITH_IOS, 3080));
     EXPECT_TRUE(rtleave_quiet(&r, 900000, 1, 3080));
     EXPECT_FALSE(rtleave_quiet(&r, 900000, 1, 899990));
+    // The resident's engine with a request in hand or queued (a write not
+    // yet out, or waiting for the card): the same, whatever wrote says.
+    EXPECT_EQ(rtleave_resident(1, 0, 0), 1);
+    EXPECT_EQ(rtleave_resident(0, 0, 0), 0);
+    EXPECT_EQ(rtleave_resident(1, 1, 0), RTLEAVE_RESIDENT_WITH_IOS);
+    EXPECT_EQ(rtleave_resident(0, 0, 2), RTLEAVE_RESIDENT_WITH_IOS);
+    EXPECT_EQ(rtleave_resident(RTLEAVE_RESIDENT_WITH_IOS, 0, 0), RTLEAVE_RESIDENT_WITH_IOS);
+    EXPECT_FALSE(rtleave_quiet(&r, 900000, rtleave_resident(1, 1, 0), 3080));
 
     // The time base's low word wraps every 70 seconds or so.
     rtleave w{};

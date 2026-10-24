@@ -5,7 +5,9 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
+extern "C" {
 #include "rtleave.h"
+}
 #include "rtable.h"
 #include "fat32_image.hpp"
 #include "riftwii/fat32.hpp"
@@ -1413,9 +1415,13 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(result, 0u);
     EXPECT_EQ(st->queued, 1u);
     EXPECT_EQ(st->queue_count, 1u);
+    // The way back reads the engine as in use (CodeRabbit on #314): a save
+    // write queued here has no stamp of its own until it starts.
+    EXPECT_EQ(rtleave_resident(st->wrote, 0, st->queue_count), RTLEAVE_RESIDENT_WITH_IOS);
     EXPECT_EQ(ios.queue.size(), std::size_t(1));  // only the first one's transfer is in flight
     ios.drain();
     EXPECT_EQ(st->queue_count, 0u);
+    EXPECT_EQ(rtleave_resident(st->wrote, st->fs.busy, st->queue_count), static_cast<int>(st->wrote));
     EXPECT_EQ(ios.delivered.size(), std::size_t(2));
     EXPECT_EQ(ios.delivered[0].cb, 0x80001010u);
     EXPECT_EQ(ios.delivered[1].cb, 0x80001011u);
@@ -1500,6 +1506,9 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(st->card_wanted, 1u);
         EXPECT_EQ(st->card_busy, 0u);
         EXPECT_EQ(st->wrote, 0u);  // still waiting: nothing has gone out
+        // But the engine holds it, so the way back waits (CodeRabbit on #314).
+        EXPECT_EQ(st->fs.busy, 1u);
+        EXPECT_EQ(rtleave_resident(st->wrote, st->fs.busy, st->queue_count), RTLEAVE_RESIDENT_WITH_IOS);
         ios.complete_one();  // still reading: another wait
         EXPECT_EQ(ios.queue.size(), std::size_t(1));
         EXPECT_EQ(ios.queue[0].kind, 2);

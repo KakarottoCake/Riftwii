@@ -106,6 +106,10 @@ int rtleave_pending(struct rtleave* l, uint32_t now, const uint32_t* words) {
     return with_ios;
 }
 
+int rtleave_resident(uint32_t wrote, uint32_t busy, uint32_t queued) {
+    return busy != 0 || queued != 0 ? RTLEAVE_RESIDENT_WITH_IOS : (int)wrote;
+}
+
 int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
     if (!held) {
         l->since = 0;

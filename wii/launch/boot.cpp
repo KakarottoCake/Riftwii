@@ -1071,11 +1071,14 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         } else {
             // Saves on the SD card are written by the runtime's own card
             // driver, which the way back's submit hook doesn't read: it
-            // watches the runtime's last save write instead.
+            // watches the runtime's last save write instead, and whether
+            // its savegame engine has a request in hand or queued.
             static_assert(offsetof(rt_fs_state, wrote) == offsetof(rt_fs_state, last_write) + 4,
                           "the pad blob reads last_write, then wrote");
             if (resident != nullptr && resident->fs_state != 0) {
                 out.pad.resident_last_write = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, last_write));
+                out.pad.resident_busy = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, fs.busy));
+                out.pad.resident_queued = resident->fs_state + static_cast<std::uint32_t>(offsetof(rt_fs_state, queue_count));
             }
         }
         if (out.pad.active && out.pad.new_arena2_hi != 0) {

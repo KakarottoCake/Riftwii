@@ -82,6 +82,10 @@ struct rt_pad_context {
      * driver, which the submit hook doesn't read: its rt_fs_state's
      * last_write (then wrote), 0 without the redirect (loader-filled). */
     uint32_t resident_last_write;
+    /* And its savegame engine's busy word and queue count: a request in
+     * hand or queued (rtleave_resident). Loader-filled with the above. */
+    uint32_t resident_busy;
+    uint32_t resident_queued;
 };
 
 #ifdef RT_TARGET_PPC

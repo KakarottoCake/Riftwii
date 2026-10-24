@@ -809,6 +809,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     ctx->leave.hold = kLeaveHoldMs * ctx->ticks_per_ms;
     ctx->leave.quiet = kSaveQuietMs * ctx->ticks_per_ms;
     ctx->resident_last_write = hook.resident_last_write;
+    ctx->resident_busy = hook.resident_busy;
+    ctx->resident_queued = hook.resident_queued;
     ctx->return_to_menu = hook.return_to_menu;
     DCFlushRange(ctx, RT_PAD_CONTEXT_BYTES);
     logf("GameCube adapter: hooked%s\n", motor_site.function == 0 ? " (PADRead only)" : "");
