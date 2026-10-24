@@ -2268,9 +2268,6 @@ msgstr "Mettez à jour la chaîne RiftWii"
 msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated."
 msgstr "Votre chaîne RiftWii du Menu Wii est en version {1}, et ce RiftWii a besoin de la version {2} : elle affiche chaque étape au démarrage, et une erreur au lieu de se figer. RiftWii ne peut pas être utilisé tant que la chaîne n'est pas mise à jour."
 
-msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
-msgstr "La chaîne est toujours en version {1} après l'installateur : celui de votre carte SD est ancien. Copiez apps/riftwii_channel depuis le zip RiftWii le plus récent sur la carte, puis mettez à jour à nouveau."
-
 msgid "The installer opens, then brings you back here."
 msgstr "L'installateur s'ouvre, puis vous ramène ici."
 
@@ -3218,3 +3215,24 @@ msgstr "Cochez d'abord les sauvegardes à récupérer."
 
 msgid "Nintendont saves brought"
 msgstr "Sauvegardes Nintendont récupérées"
+
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "L'installateur a été exécuté, mais la chaîne est toujours en version {1}."
+
+msgid "The channel installer ({1}) is missing or damaged"
+msgstr "L'installateur de la chaîne ({1}) est absent ou endommagé"
+
+msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
+msgstr "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile."
+
+msgid "The channel installer could not be opened: {1}."
+msgstr "Impossible d'ouvrir l'installateur de la chaîne : {1}."
+
+msgid "the SD card would not save a note before the installer (is it locked?)"
+msgstr "la carte SD n'a pas enregistré de note avant l'installateur (est-elle verrouillée ?)"
+
+msgid "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know"
+msgstr "RiftWii ne peut pas laisser de note sur la carte SD ; si l'installateur se bloque, le prochain démarrage ne le saura pas"
+
+msgid "Open anyway"
+msgstr "Ouvrir quand même"
