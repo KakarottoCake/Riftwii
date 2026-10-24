@@ -120,6 +120,24 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME gcrealcard_io COMMAND gcrealcard_io_tests)
     add_test(NAME gcrealcard_nomem1 COMMAND gcrealcard_io_tests no-mem1)
+    # Exercise the menu's real budget calculation without requiring a Wii
+    # build. These headers stand in for bin2o's generated blob declarations.
+    set(memorybudget_blobs riftwii_fault_bin riftwii_pad_bin riftwii_rt_rvz_zst
+        riftwii_rt_zst riftwii_shot_bin riftwii_vsd_bin)
+    foreach(blob IN LISTS memorybudget_blobs)
+        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock/${blob}.h"
+            CONTENT "#include \"memorybudget_blobs.hpp\"\n")
+    endforeach()
+    add_executable(memorybudget_tests tests/memorybudget_tests.cpp wii/menu/memorybudget.cpp)
+    target_include_directories(memorybudget_tests PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock" tests/memorybudget_mock
+        wii/menu wii/core wii/controllers wii/launch wii/storage
+        runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-zstd)
+    target_link_libraries(memorybudget_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME memorybudget COMMAND memorybudget_tests)
     # The Wii DI client itself, against a mocked IOS (tests/wii_mock).
     add_executable(d2xreload_tests tests/d2xreload_tests.cpp wii/launch/di.cpp)
     target_include_directories(d2xreload_tests PRIVATE tests/wii_mock wii wii/core wii/menu wii/launch wii/hooks wii/controllers wii/storage wii/online)

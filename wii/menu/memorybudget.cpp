@@ -102,7 +102,7 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         GcAdapterView view;
         const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
         const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged);
-        if (adapter && !rvz)  // RVZ games and the adapter do not work together yet (issue #4)
+        if (adapter)
             b.add(tr("GameCube adapter"), blob_bytes<rt_pad_header>(riftwii_pad_bin), align(sizeof(gcad)));
     }
     return b;
