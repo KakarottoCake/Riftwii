@@ -14,6 +14,7 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
+#include "wiimenusounds.hpp"
 #include "wiidrc.h"
 
 namespace skin = riftwii::wii::skin;
@@ -551,7 +552,8 @@ void GuiGameGrid::TurnPage(int delta) {
     slide = peek ? std::max(-2 * PageStride(), std::min(2 * PageStride(), slide + delta * PageStride()))
                  : delta * kSlideFrom;
     turning = delta;
-    soundClick->Play();
+    riftwii::wii::PlayMenuSound(delta > 0 ? riftwii::wii::MenuSoundEvent::PageNext
+                                      : riftwii::wii::MenuSoundEvent::PagePrevious);
 }
 
 int GuiGameGrid::SlotAt(int x, int y) const {
@@ -1417,7 +1419,7 @@ void GuiGameGrid::Update(GuiTrigger* t) {
                 hover = -1;
             } else if (slot >= 0) {
                 clicked = page * kPerPage + slot;
-                soundClick->Play();
+                riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
             }
         }
         return;
@@ -1456,6 +1458,6 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     }
     if (PressedA(t)) {
         clicked = focus;
-        soundClick->Play();
+        riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
     }
 }

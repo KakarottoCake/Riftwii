@@ -2364,23 +2364,20 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "Wii channels and WiiWare on Home"
-msgstr "홈에 Wii 채널과 WiiWare"
+msgid "Wii Menu sounds and music in Settings > Menu"
+msgstr "설정 > 메뉴에서 Wii 메뉴 소리와 음악"
 
-msgid "Your homebrew apps on Home"
-msgstr "홈에 홈브류 앱"
+msgid "GameCube memory cards in more games"
+msgstr "더 많은 게임에서 게임큐브 메모리 카드"
 
-msgid "More themes to download in Settings > Theme"
-msgstr "설정 > 테마에서 테마 다운로드"
+msgid "Bring Nintendont's GameCube saves over"
+msgstr "Nintendont의 게임큐브 세이브 가져오기"
 
-msgid "Two-disc GameCube games change discs"
-msgstr "디스크 2장짜리 게임큐브 게임의 디스크 교체"
+msgid "Hold L+R+Z+Start to leave a Wii game"
+msgstr "L+R+Z+Start를 길게 눌러 Wii 게임 종료"
 
-msgid "Retro Rewind online works again"
-msgstr "Retro Rewind 온라인이 다시 작동"
-
-msgid "Settings: Network Test, Games on the SD card"
-msgstr "설정: 네트워크 테스트, SD 카드의 게임"
+msgid "Home starts on your last game"
+msgstr "홈이 마지막 게임에서 시작"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
@@ -2993,6 +2990,18 @@ msgstr "{1}: 제자리에 놓는 중..."
 
 msgid "1 theme"
 msgstr "테마 1개"
+
+msgid "Wii Menu sounds"
+msgstr "Wii 메뉴 소리"
+
+msgid "Wii Menu music"
+msgstr "Wii 메뉴 음악"
+
+msgid "Read this Wii's own menu sounds into memory. A theme's sounds take priority."
+msgstr "이 Wii의 메뉴 소리를 메모리로 읽습니다. 테마의 소리가 우선합니다."
+
+msgid "Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."
+msgstr "이 Wii의 메뉴 음악을 메모리로 읽습니다. 테마의 음악이 우선합니다. 메뉴 음악 설정으로 재생 여부를 정합니다."
 
 msgid "The SD card was taken out."
 msgstr "SD 카드가 제거되었습니다."

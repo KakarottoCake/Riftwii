@@ -2364,23 +2364,20 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
 
-msgid "Wii channels and WiiWare on Home"
-msgstr "Chaînes Wii et WiiWare dans l'Accueil"
+msgid "Wii Menu sounds and music in Settings > Menu"
+msgstr "Sons et musique du menu Wii dans Paramètres > Menu"
 
-msgid "Your homebrew apps on Home"
-msgstr "Vos applis homebrew dans l'Accueil"
+msgid "GameCube memory cards in more games"
+msgstr "Cartes mémoire GameCube dans plus de jeux"
 
-msgid "More themes to download in Settings > Theme"
-msgstr "Thèmes à télécharger dans Paramètres > Thème"
+msgid "Bring Nintendont's GameCube saves over"
+msgstr "Récupérez les sauvegardes GameCube de Nintendont"
 
-msgid "Two-disc GameCube games change discs"
-msgstr "Jeux GameCube à 2 disques : le disque change"
+msgid "Hold L+R+Z+Start to leave a Wii game"
+msgstr "Maintenez L+R+Z+Start pour quitter un jeu Wii"
 
-msgid "Retro Rewind online works again"
-msgstr "Le jeu en ligne de Retro Rewind remarche"
-
-msgid "Settings: Network Test, Games on the SD card"
-msgstr "Paramètres : Test réseau, Jeux sur la carte SD"
+msgid "Home starts on your last game"
+msgstr "L'Accueil s'ouvre sur votre dernier jeu"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"
@@ -2993,6 +2990,18 @@ msgstr "{1} : mise en place..."
 
 msgid "1 theme"
 msgstr "1 thème"
+
+msgid "Wii Menu sounds"
+msgstr "Sons du menu Wii"
+
+msgid "Wii Menu music"
+msgstr "Musique du menu Wii"
+
+msgid "Read this Wii's own menu sounds into memory. A theme's sounds take priority."
+msgstr "Charge les sons du menu de cette Wii en mémoire. Les sons du thème ont la priorité."
+
+msgid "Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."
+msgstr "Charge la musique du menu de cette Wii en mémoire. La musique du thème a la priorité. Musique du menu contrôle sa lecture."
 
 msgid "The SD card was taken out."
 msgstr "La carte SD a été retirée."
