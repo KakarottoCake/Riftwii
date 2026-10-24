@@ -350,6 +350,21 @@ std::vector<std::uint8_t> dol_at(std::uint32_t address, std::uint32_t text_size 
     return h;
 }
 
+// A DOL packed as literal-only LZ77 (type 0x10), with the "LZ77" tag in front.
+std::vector<std::uint8_t> lz77_wrapped(std::vector<std::uint8_t> image) {
+    image.resize(0x1100);  // header + text, so the header's sections fit the file
+    std::vector<std::uint8_t> packed = {'L', 'Z', '7', '7', 0x10,
+                                        static_cast<std::uint8_t>(image.size() & 0xFF),
+                                        static_cast<std::uint8_t>((image.size() >> 8) & 0xFF),
+                                        static_cast<std::uint8_t>((image.size() >> 16) & 0xFF)};
+    for (std::size_t at = 0; at < image.size(); at += 8) {
+        packed.push_back(0);  // eight literals follow
+        const std::size_t end = std::min(at + 8, image.size());
+        packed.insert(packed.end(), image.begin() + at, image.begin() + end);
+    }
+    return packed;
+}
+
 // A channel with a banner (content 0) and one program (content 1, the boot
 // index) of `program_size` bytes.
 TmdContents one_program_channel(std::uint64_t program_size) {
@@ -481,6 +496,17 @@ void test_unlisted_verdict() {
     EXPECT_TRUE(!judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
     std::copy(path, path + sizeof path - 1, elf.begin() + 3000);
     EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
+
+    // A loader packed as LZ77 is judged by where it loads, like a plain DOL;
+    // a normal game DOL, packed the same way, is still listed.
+    for (std::uint32_t address : {0x80d38900u, 0x81000000u}) {
+        const std::vector<std::uint8_t> packed = lz77_wrapped(dol_at(address));
+        const ChannelVerdict packed_loader = judge_unlisted_channel("WRET", big, {{1, packed.size(), packed}});
+        EXPECT_TRUE(packed_loader.left_out);
+        EXPECT_TRUE(packed_loader.rule == 3);
+    }
+    const std::vector<std::uint8_t> packed_game = lz77_wrapped(dol_at(0x80004000));
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, packed_game.size(), packed_game}}).left_out);
 
     // Known homebrew codes, whatever the program.
     EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);

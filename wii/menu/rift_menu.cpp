@@ -12122,21 +12122,22 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// this setting (a std::string): wait for it before writing.
 					WaitForDriveScan(noteTxt);
 					settings.sd_games = settings.sd_games == "off" ? "on" : "off";
-					// What the last scan found on the card is stale at once: Home, the counts and the
-					// empty-Home card must not show it while the rescan is still to come.
-					if (settings.sd_games == "off") {
-						state.sd_catalog = riftwii::wii::ImageCatalog{};
-						state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
-					}
 					// Games from: SD would list nothing now (GameCube still lists USB games).
 					if (settings.sd_games == "off" && (settings.home_source == "sd"))
 						settings.home_source = "all";
-					// Home reads the drives again when you leave Settings.
-					g_scanned = false;
 					// The note follows the value the row just changed to.
-					saveAndNote(settings.sd_games == "off"
+					if (saveAndNote(settings.sd_games == "off"
 						? tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.")
-						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."));
+						: tr("Look for them: games in sd:/wbfs and sd:/games are listed on Home."))) {
+						// Only once saved: what the last scan found on the card is stale at once, and
+						// Home, the counts and the empty-Home card must not show it while the rescan
+						// is still to come. Home reads the drives again when you leave Settings.
+						if (settings.sd_games == "off") {
+							state.sd_catalog = riftwii::wii::ImageCatalog{};
+							state.sd_catalog.device = riftwii::wii::ImageDevice::Sd;
+						}
+						g_scanned = false;
+					}
 					rebuild();
 					break;
 				case kRescan:
