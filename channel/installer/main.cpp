@@ -10,6 +10,7 @@
 #include <fat.h>
 #include <ogc/es.h>
 #include <ogc/isfs.h>
+#include <ogc/machine/processor.h>
 #include <sdcard/wiisd_io.h>
 #include <wiiuse/wpad.h>
 
@@ -27,15 +28,22 @@ namespace {
 
 constexpr const char* kRiftWii = "sd:/apps/riftwii/boot.dol";
 constexpr const char* kLogPath = "sd:/riftwii/channel.log";
+constexpr const char* kInstallerMarker = "sd:/riftwii/channel_installer_opened.txt";
 
 GXRModeObj* g_mode;
 void* g_xfb;
 bool g_sd;
+bool g_pads;
 int g_cios;  // the cIOS slot this runs under, 0 if none
 // Whether g_cios was read and found to be d2x. False after the fallback
 // that tries slots by ticket when no slot could be read: the install is
 // still offered there, but the screen doesn't claim a d2x.
 bool g_cios_identified;
+bool g_ios_state_safe = true;
+
+enum Button { kNone, kInstall, kRemove, kBack };
+Button wait_button();
+void leave();
 
 void video_init() {
     VIDEO_Init();
@@ -61,11 +69,25 @@ void mount_sd() {
     if (g_sd) mkdir("sd:/riftwii", 0777);
 }
 
+void init_pads() {
+    if (g_pads) return;
+    WPAD_Init();
+    PAD_Init();
+    g_pads = true;
+}
+
+void shutdown_pads() {
+    if (!g_pads) return;
+    WPAD_Shutdown();
+    g_pads = false;
+}
+
 bool reload_cios(int slot, const riftwii::D2xInfo& info) {
     installer::Log("trying IOS%d\n", slot);
     if (info.d2x) std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
     else std::printf("  trying IOS%d (not identified)\n", slot);
     VIDEO_WaitVSync();
+    shutdown_pads();
     if (g_sd) fatUnmount("sd:");
     __io_wiisd.shutdown();
     g_sd = false;
@@ -97,7 +119,15 @@ void enter_cios() {
     } else {
         for (unsigned i = 0; i < 3; ++i) {
             bool read = false;
-            candidates[i] = installer::ReadCios(slots[i], read);
+            bool restored = true;
+            candidates[i] = installer::ReadCios(slots[i], read, restored);
+            if (!restored) {
+                g_ios_state_safe = false;
+                ISFS_Deinitialize();
+                installer::Log("The installer cannot continue safely because NAND access was not restored. "
+                               "No IOS will be reloaded; restart the installer from the Homebrew Channel.\n");
+                return;
+            }
             any_read = any_read || read;
         }
         ISFS_Deinitialize();
@@ -105,11 +135,24 @@ void enter_cios() {
 
     // Nothing could be read (no hardware access: started from a RiftWii
     // running on a cIOS, or IOS's NAND check could not be opened). The
-    // installer then tries the slots with a ticket, as it did before,
-    // rather than refusing a console it simply cannot look into; each
-    // attempt is logged first, so a hang still leaves its slot behind.
+    // player may choose the old ticket fallback after an explicit warning.
+    // Each attempt is logged first, so a hang still leaves its slot behind.
     if (!any_read) {
-        installer::Log("No slot's d2x information could be read; trying the slots that have a ticket.\n");
+        installer::Log("No cIOS slot could be checked; waiting for permission to try slots with a ticket.\n");
+        std::printf("\n  No cIOS slot could be checked. Try the slots with a ticket\n  anyway?\n\n");
+        std::printf("  [A] Try     [B] Go back\n");
+        // WPAD belongs to its IOS. Keep it if no ticket can be tried;
+        // reload_cios tears it down immediately before an actual reload.
+        init_pads();
+        for (;;) {
+            const Button button = wait_button();
+            if (button == kBack) {
+                installer::Log("The player declined the unchecked ticket fallback; no cIOS was reloaded.\n");
+                leave();
+            }
+            if (button == kInstall) break;
+        }
+        installer::Log("The player accepted the unchecked ticket fallback; trying slots with a ticket.\n");
         for (int slot : slots) {
             u32 views = 0;
             if (ES_GetNumTicketViews(0x0000000100000000ull | slot, &views) < 0 || views == 0) continue;
@@ -121,6 +164,7 @@ void enter_cios() {
 
     // Prefer base 58 for the SD card; bases 56 and 57 and other d2x bases
     // remain candidates. Only positively identified d2x slots are tried.
+    installer::Log("The cIOS search read slot information; only identified d2x slots will be tried.\n");
     for (bool base58_pass : {true, false}) {
         for (unsigned i = 0; i < 3; ++i) {
             const auto& info = candidates[i];
@@ -132,8 +176,6 @@ void enter_cios() {
     }
     installer::Log("No identified d2x cIOS in slots 249, 250 or 251 could be started.\n");
 }
-
-enum Button { kNone, kInstall, kRemove, kBack };
 
 Button read_button() {
     WPAD_ScanPads();
@@ -186,14 +228,21 @@ void screen(const std::string& status, const std::string& note) {
         std::printf("  \x1b[36;1m[A]\x1b[37;0m      %s\n", !present ? "Install" : installed < ours ? "Update" : "Install again");
         if (present) std::printf("  \x1b[36;1m[-]\x1b[37;0m      Remove            (Y on a GameCube controller)\n");
     }
-    std::printf("  \x1b[36;1m[HOME]\x1b[37;0m   %s   (B or START)\n\n", riftwii_on_card() ? "Back to RiftWii" : "Back");
+    const char* back = !g_ios_state_safe ? "Back to the Homebrew Channel"
+                       : riftwii_on_card() ? "Back to RiftWii" : "Back";
+    std::printf("  \x1b[36;1m[HOME]\x1b[37;0m   %s   (B or START)\n\n", back);
     if (!note.empty()) std::printf("  %s\n", note.c_str());
 }
 
 void leave() {
     installer::Log("Leaving\n");
-    const bool back = riftwii_on_card();
-    WPAD_Shutdown();
+    // A normal exit, including Back or a failed install, is a completed
+    // attempt. RiftWii is cold-started below, without a ChannelDone note.
+    if (g_sd && std::remove(kInstallerMarker) == 0) {
+        installer::Log("The installer launch marker was cleared before unmounting the SD card.\n");
+    }
+    const bool back = g_ios_state_safe && riftwii_on_card();
+    shutdown_pads();
     if (g_sd) {
         fatUnmount("sd:");
         __io_wiisd.shutdown();
@@ -246,13 +295,17 @@ int main() {
     mount_sd();
     installer::Log("RiftWii Channel Installer %u, IOS%d revision %d\n", installer::PackageVersion(),
                    IOS_GetVersion(), IOS_GetRevision());
+    installer::Log("The starting AHBPROT register is 0x%08x.\n", static_cast<unsigned>(read32(0x0D800064)));
     std::printf("  RiftWii Channel Installer: checking d2x cIOS slots...\n");
     if (!dolphin) enter_cios();
-    WPAD_Init();
-    PAD_Init();
+    else installer::Log("Dolphin was detected; the cIOS search and reloads were skipped.\n");
+    init_pads();
 
     std::string status, note;
-    if (dolphin) {
+    if (!g_ios_state_safe) {
+        note = "\x1b[31mThe installer can't continue safely: NAND access was not\n"
+               "  restored. Restart it from the Homebrew Channel.\x1b[37m";
+    } else if (dolphin) {
         note = "Dolphin checks real signatures, so the channel can only be\n  installed on a Wii.";
     } else if (!g_cios) {
         note = "\x1b[33mThis needs a d2x cIOS in slot 249, 250 or 251 (the one\n  RiftWii uses).\x1b[37m";

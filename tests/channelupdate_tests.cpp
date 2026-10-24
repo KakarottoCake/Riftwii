@@ -11,15 +11,16 @@ int main() {
         unsigned version;
         unsigned needed;
         bool opened;
-        bool returned;
+        bool refused;
         riftwii::ChannelUpdateState expected;
     };
     const Case cases[] = {
         {"first old-channel start", true, 13, 14, false, false, {true, false, false}},
-        {"installer did not return", true, 13, 14, true, false, {true, true, false}},
+        {"installer opened without an observed finish", true, 13, 14, true, false, {true, true, false}},
         {"failed attempt still present next start", true, 13, 14, true, false, {true, true, false}},
-        {"installer returned without updating", true, 13, 14, true, true, {true, false, true}},
-        {"returned without a marker", true, 13, 14, false, true, {true, false, false}},
+        {"installer returned without updating and removed its marker", true, 13, 14, false, false, {true, false, false}},
+        {"refused hand-off clears a stale marker", true, 13, 14, true, true, {true, false, true}},
+        {"refused without a marker", true, 13, 14, false, true, {true, false, false}},
         {"channel is current", true, 14, 14, true, false, {false, false, true}},
         {"channel is newer", true, 15, 14, true, false, {false, false, true}},
         {"channel was removed", false, 0, 14, true, false, {false, false, true}},
@@ -29,7 +30,7 @@ int main() {
     unsigned failures = 0;
     for (const Case& test : cases) {
         const auto state = riftwii::channel_update_state(test.installed, test.version, test.needed,
-                                                        test.opened, test.returned);
+                                                        test.opened, test.refused);
         if (state.required != test.expected.required ||
             state.installer_interrupted != test.expected.installer_interrupted ||
             state.clear_marker != test.expected.clear_marker) {

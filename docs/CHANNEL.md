@@ -27,25 +27,51 @@ on a package it uses once.
 The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
 249, 250 or 251. It sets up video and the SD card under the starting IOS,
 then reads each slot's d2x information with the same parser as RiftWii.
-Only identified d2x slots are tried, preferring base 58 for the SD card.
-Its Homebrew Channel metadata asks for hardware access so it can read
-the slot information through IOS58's NAND permission check; a slot that
-cannot be identified is left alone.
-Each attempt is shown and saved to `sd:/riftwii/channel.log` before the
-card is unmounted and IOS is reloaded; the card is mounted again afterwards,
-and a successful reload logs the IOS version and revision.
+When any slot information can be read, only identified d2x slots are tried,
+preferring base 58 for the SD card. Its Homebrew Channel metadata asks for
+hardware access so it can read the slot information through IOS58's NAND
+permission check. The starting AHBPROT register and the chosen search path
+are saved to `sd:/riftwii/channel.log`.
+
+If no slot could be checked (for example, hardware access was lost when
+RiftWii reloaded IOS), the installer asks **No cIOS slot could be checked.
+Try the slots with a ticket anyway?** A accepts this unchecked fallback;
+B goes back without trying a cIOS. An accepted slot remains available for
+installing, but is labelled as not checked for d2x. Each attempt is shown
+and logged before the card is unmounted and IOS is reloaded; the card is
+mounted again afterwards, and a successful reload logs the IOS version
+and revision.
+
+Reading cIOS information temporarily opens IOS's NAND permission check.
+Both the original permission-check word and memory protection register
+must be restored and verified. If either restoration fails, the installer
+stops before any IOS reload, including the return-to-RiftWii reload. It
+shows and logs that it cannot continue safely and must be restarted from
+the Homebrew Channel. Install and Remove are unavailable on this path.
 
 Before opening the installer, RiftWii writes
-`sd:/riftwii/channel_installer_opened.txt`. An old channel with that marker
-and no `ChannelDone` restart note means the installer did not return: the
-update screen asks for `channel.log` in a problem report and offers **Not
-now**, which opens Home for this start. The marker stays, so the next
-start asks for the update again and still offers **Not now**: a player
-whose installer hangs is never locked out. Only a `ChannelDone` restart
-or a channel that no longer needs updating clears the marker. If the card
-won't save the marker (a locked card), the installer isn't opened at all.
-The restart that follows says why and offers **Not now** too, so a hang
-can never happen without the marker that would have offered it.
+`sd:/riftwii/channel_installer_opened.txt`. The installer deletes that
+marker in `leave()` while SD is still mounted, including when the player
+chooses Back or an install fails. It then cold-starts RiftWii (or exits to
+the Homebrew Channel); this normal return has no `ChannelDone` restart
+note. An old channel with a marker still present means RiftWii opened the
+installer and has not seen it finish. Recovery keeps the installed and
+required versions and the update requirement on screen, adds that
+explanation and asks for `channel.log` in a problem report. It also shows
+why updating from here is unavailable, when applicable.
+
+Recovery offers **Not now**, which opens Home for this start. The marker
+stays, so later starts still offer **Not now** until the installer finishes
+or the channel no longer needs updating. A refused hand-off warm-restarts
+with `ChannelDone`, clears any stale marker and shows the actual refusal
+reason in place of the interruption explanation.
+
+If SD cannot save the marker, that refusal screen offers **Open anyway**
+when the installer can otherwise run. It explains that RiftWii cannot leave
+a note on SD, so a hang will not be detected on the next start. Choosing
+it explicitly allows the same installer hand-off without a saved marker;
+**Not now** and **Exit RiftWii** remain available. A normal installer return
+without updating leaves the ordinary update screen on the next start.
 
 The channel is title `00010001-55465457` (`UFTW`) and runs under IOS 58. A
 vWii shows a title in 4:3 when its ID starts with C, D, E, F, H, J, L, M,

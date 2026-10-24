@@ -7,9 +7,10 @@
 namespace installer {
 
 // Read the same first-content information as RiftWii's cIOS search.
-// Failure to read a slot never grants permission to reload into it.
 // `read` says whether the slot's first content was read at all, so a
 // slot that is not d2x can be told from one that could not be checked.
-riftwii::D2xInfo ReadCios(int slot, bool& read);
+// `restored` checks both the permission word and protection register.
+// False forbids any IOS reload, even the ticket fallback or the return to RiftWii.
+riftwii::D2xInfo ReadCios(int slot, bool& read, bool& restored);
 
 }  // namespace installer

@@ -638,7 +638,7 @@ int main() {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.
         std::string error;
-        riftwii::wii::StartChannelInstaller(error);
+        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked);
         riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, error);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();

@@ -3759,58 +3759,82 @@ static bool OfferChannelOnce()
 	return add;
 }
 
-// ShowPopup has two buttons. Use the existing choices-in-a-popup layout
-// for recovery: two tiles and Exit below, as on the code mod start screen.
-static int PickInterruptedChannelUpdate(bool can)
+// Recovery needs the version, the failure and the current installation
+// advice together. Give them a full page so none is cut to a three-line popup.
+static int PickInterruptedChannelUpdate(const std::string& body, const std::string& action)
 {
-	PopupBox box(tr("Update the RiftWii channel"),
-		tr("The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."),
-		"", tr("Exit RiftWii"));
-	box.CenterCancel();
-	box.BodyAtTop(3);
+	skin::GuiBackdrop recoveryBackdrop;
+	GuiText title(tr("Update the RiftWii channel"), 24, skin::kInk);
+	GuiText text(body.c_str(), 16, skin::kInkSoft);
+	Place(title, 0, 36, true);
+	title.SetMaxWidth(544);
+	Place(text, 48, 90);
+	text.SetWrap(true, 544, 11);
+	SkinButton exit(skin::pill, skin::pillOver, 4, 198, 416, tr("Exit RiftWii"),
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
+		PAD_BUTTON_B, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& tile : tiles) {
-		tile.y = 236;
+		tile.y = 344;
 		tile.w = 252;
 		tile.h = 60;
 	}
-	tiles[0].label = can ? tr("Update now") : tr("Check again");
+	tiles[0].label = action;
 	tiles[1].label = tr("Not now");
 	GuiTiles choices;
 	choices.SetTiles(&tiles);
 	choices.Select(0);
-	box.Append(&choices);
+	GuiWindow window(640, 480);
+	window.Append(&recoveryBackdrop);
+	window.Append(&title);
+	window.Append(&text);
+	window.Append(&choices);
+	window.Append(&exit.button);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&window);
+	int result = 1;
 	ResumeGui();
 	for (;;) {
 		usleep(20000);
 		HaltGui();
 		const int picked = choices.GetClicked();
-		if (picked >= 0) return picked == 0 ? 0 : 2;
-		if (box.Pressed()) return 1;
+		if (exit.Clicked()) break;
+		if (picked >= 0) {
+			result = picked == 0 ? 0 : 2;
+			break;
+		}
 		ResumeGui();
 	}
+	mainWindow->Remove(&window);
+	mainWindow->SetState(STATE::DEFAULT);
+	return result;
 }
 
 // An older channel than this release's installer puts on: every start
 // asks for an update (old ones went black on return from a game, #62).
-// An installer that never returned adds Not now for this start. Not in
+// An installer whose marker remains adds Not now for this start. Not in
 // Dolphin (the channel cannot be installed there), and not while an in-app
 // update is still bringing the new installer (the next start asks). A
 // headless launch never comes here. MENU_CHANNEL, MENU_EXIT or MENU_NONE.
-static int RequireChannelUpdate()
+static int RequireChannelUpdate(FrontendState& state)
 {
+	state.channel_allow_unmarked = false;
 	static bool postponed = false;
 	if (postponed) return MENU_NONE;
 	// A ChannelDone restart with a message: the installer never started
 	// (StartChannelInstaller's error, e.g. a card that would not save the
-	// marker). That offers Not now too, as an installer that never came back.
+	// marker). That offers Not now too, with the actual refusal reason.
 	const riftwii::wii::RestartNote& note = riftwii::wii::CurrentRestartNote();
 	const bool installerRefused = note.kind == riftwii::wii::RestartKind::ChannelDone && !note.message.empty();
-	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted() || installerRefused;
+	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted();
+	const bool recovery = interrupted || installerRefused;
+	const bool markerRefused = installerRefused && note.message == riftwii::wii::kChannelMarkerError;
 	unsigned version = 0;
-	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
+	const bool installed = riftwii::wii::ChannelInstalled(version);
+	const bool required = installed && version < riftwii::wii::ChannelVersionNeeded();
+	if (!required && !markerRefused) return MENU_NONE;
 	if (riftwii::wii::running_in_dolphin()) {
 		logf("Channel: version %u installed, %u needed; not asked in Dolphin\n", version, riftwii::wii::kChannelVersion);
 		return MENU_NONE;
@@ -3821,25 +3845,31 @@ static int RequireChannelUpdate()
 		SetHomeNotice(tr("The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."));
 		return MENU_NONE;
 	}
-	const bool stillOld = note.kind == riftwii::wii::RestartKind::ChannelDone && !installerRefused;
 	if (installerRefused)
 		logf("Channel: the installer could not be opened (%s), so this start offers Not now.\n", note.message.c_str());
 	else if (interrupted)
-		logf("Channel: the installer did not return, so this start offers Not now; include sd:/riftwii/channel.log in a problem report.\n");
+		logf("Channel: RiftWii opened the installer and has not seen it finish; this start offers Not now.\n");
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
 		const bool can = riftwii::wii::ChannelCanInstall(why);
-		std::string body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.",
-			{have, need});
-		if (stillOld)
-			body += std::string("\n\n") + tr("The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.",
-				{have});
-		if (can) body += std::string("\n\n") + tr("The installer opens, then brings you back here.");
-		else body += std::string("\n\n") + tr("RiftWii can't update it from here: {1}.", {why});
+		std::string body;
+		if (required)
+			body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.",
+				{have, need});
+		if (installerRefused)
+			body += std::string("\n") + tr("The channel installer could not be opened: {1}.", {tr(note.message.c_str())});
+		else if (interrupted)
+			body += std::string("\n") + tr("RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.");
+		if (markerRefused)
+			body += std::string("\n") + tr("RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know");
+		if (!can) body += std::string("\n") + tr("RiftWii can't update it from here: {1}.", {tr(why.c_str())});
+		else if (!recovery) body += std::string("\n\n") + tr("The installer opens, then brings you back here.");
 		logf("Channel: version %u installed, %u needed; RiftWii waits for the update%s%s\n", version,
 			riftwii::wii::kChannelVersion, can ? "" : ": ", can ? "" : why.c_str());
-		const int choice = interrupted ? PickInterruptedChannelUpdate(can)
+		std::string action = tr("Check again");
+		if (can) action = markerRefused ? tr("Open anyway") : tr("Update now");
+		const int choice = recovery ? PickInterruptedChannelUpdate(body, action)
 			: ShowPopup(tr("Update the RiftWii channel"), body, can ? tr("Update now") : tr("Check again"), tr("Exit RiftWii"));
 		if (choice == 2) {
 			postponed = true;
@@ -3851,13 +3881,14 @@ static int RequireChannelUpdate()
 			return MENU_EXIT;
 		}
 		if (can) {
+			state.channel_allow_unmarked = markerRefused;
+			if (markerRefused)
+				logf("Channel: the player accepted opening the installer without interruption detection.\n");
 			logf("Channel: update to %u accepted\n", riftwii::wii::kChannelVersion);
 			return MENU_CHANNEL;
 		}
-		if (interrupted)
-			ShowPopup(tr("Update the RiftWii channel"), tr("RiftWii can't update it from here: {1}.", {why}), tr("OK"));
 		// Check again: the card may have been fixed meanwhile.
-		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) {
+		if (!markerRefused && (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded())) {
 			riftwii::wii::ChannelInstallerInterrupted();
 			return MENU_NONE;
 		}
@@ -4476,7 +4507,7 @@ static int MenuSource(FrontendState& state)
 		// shows every element again, the ones Home keeps hidden too (the
 		// plain clock under the Wii look's LCD one).
 		mainWindow->Remove(&w);
-		const int channelMenu = RequireChannelUpdate();
+		const int channelMenu = RequireChannelUpdate(state);
 		if (channelMenu != MENU_NONE) {
 			menu = channelMenu;
 			return false;

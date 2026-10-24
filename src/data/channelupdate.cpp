@@ -5,11 +5,11 @@
 namespace riftwii {
 
 ChannelUpdateState channel_update_state(bool installed, unsigned version, unsigned needed,
-                                        bool installer_opened, bool installer_returned) {
+                                        bool installer_opened, bool installer_refused) {
     ChannelUpdateState state;
     state.required = installed && version < needed;
-    state.clear_marker = installer_opened && (installer_returned || !state.required);
-    state.installer_interrupted = state.required && installer_opened && !installer_returned;
+    state.clear_marker = installer_opened && (installer_refused || !state.required);
+    state.installer_interrupted = state.required && installer_opened && !installer_refused;
     return state;
 }
 
