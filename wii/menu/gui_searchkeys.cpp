@@ -8,6 +8,7 @@
 #include "i18n.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
+#include "usbinput.hpp"
 #include "wiidrc.h"
 
 namespace skin = riftwii::wii::skin;
@@ -137,6 +138,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         shift = text.empty() || text.back() == ' ';
         ShowCase();
     }
+    riftwii::wii::UsbInputTyping(true);
 }
 
 void GuiSearchKeys::ShowCase() {
@@ -149,6 +151,7 @@ void GuiSearchKeys::ShowCase() {
 }
 
 GuiSearchKeys::~GuiSearchKeys() {
+    riftwii::wii::UsbInputTyping(false);
     for (Key& k : keys) delete k.caption;
     delete note;
     delete title;
@@ -264,8 +267,56 @@ void GuiSearchKeys::Press(const Key& k) {
     shown->SetText(text.c_str());
 }
 
+void GuiSearchKeys::TypeFromKeyboard() {
+    namespace key = riftwii::wii::key;
+    riftwii::wii::KeyPress press;
+    while (result == 0 && riftwii::wii::UsbInputTyped(press)) {
+        const auto act = [&](Key::Act a) {
+            for (const Key& k : keys)
+                if (k.act == a) Press(k);
+        };
+        if (press.code == key::kEnter || press.code == key::kPadEnter) {
+            soundClick->Play();
+            act(Key::Act::Search);
+            continue;
+        }
+        if (press.code == key::kEscape) {
+            result = -1;
+            continue;
+        }
+        if (press.code == key::kBackspace) {
+            soundClick->Play();
+            act(Key::Act::Back);
+            continue;
+        }
+        if (press.ch == 0) continue;
+        // The card's key for the character (its letters are capitals),
+        // which must be one that can be typed now.
+        const char wanted = static_cast<char>(std::toupper(static_cast<unsigned char>(press.ch)));
+        for (std::size_t i = 0; i < keys.size(); ++i) {
+            const Key& k = keys[i];
+            if ((k.act != Key::Act::Type && k.act != Key::Act::Space) || k.ch != wanted || !Live(k)) continue;
+            focus = static_cast<int>(i);
+            soundClick->Play();
+            if (naming && std::isalpha(static_cast<unsigned char>(press.ch))) {
+                // The case typed, whatever the card's Shift says.
+                if (text.size() < maxLength) text += press.ch;
+                shift = text.empty() || text.back() == ' ';
+                ShowCase();
+                shown->SetText(text.c_str());
+            } else {
+                Press(k);
+            }
+            break;
+        }
+    }
+}
+
 void GuiSearchKeys::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || result != 0) return;
+    // The keyboard is player 1's: read once a frame, with channel 1.
+    if (t->chan == 0) TypeFromKeyboard();
+    if (result != 0) return;
     if (Pressed(t, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
                 WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME) ||
         (t->pad.btns_d & PAD_BUTTON_B)) {

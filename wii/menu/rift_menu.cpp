@@ -83,6 +83,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
 #include "riftwii/canvas.hpp"
@@ -4069,8 +4070,10 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
-	// with only an adapter pad, OK could not be pressed).
+	// with only an adapter pad, OK could not be pressed). The USB keyboard,
+	// mouse and pen tablet too, for the same reason.
 	riftwii::wii::GcAdapterMenuAllowStart();
+	riftwii::wii::UsbInputMenuAllowStart();
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
@@ -8678,6 +8681,8 @@ static bool ControlSeen(const std::string& type, const ConnectedPads& pads, bool
 	else if (type == "classiccontroller") connected = pads.classic;
 	else if (type == "gamecube") connected = pads.gamecube;
 	else if (type == "balanceboard") connected = pads.board;
+	else if (type == "keyboard") connected = riftwii::wii::UsbInputKeyboardConnected();
+	else if (type == "udraw") connected = riftwii::wii::UsbInputUDrawConnected();
 	else return false;
 	return true;
 }

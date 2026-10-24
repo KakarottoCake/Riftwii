@@ -53,6 +53,7 @@ and `vendor-*` is third-party code.
 | Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py`; the in-app update writes them before the DOL (`plan_update_writes` in `src/net/update.cpp`, `wii/online/online.cpp`) |
 | What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
+| USB keyboards, USB mice, pen tablets and the uDraw GameTablet in the menu | `wii/controllers/usbinput.cpp` (into player 1's controls, called from `UpdatePads` in `vendor-libgui/source/input.cpp`), `wii/controllers/usbkeyboard.cpp`, `wii/controllers/pentablet.c` and `tablethid.c` (USB tablets), `wii/controllers/udraw.c`; typing in `wii/menu/gui_searchkeys.cpp` |
 | The way back from a Wii game by a GameCube controller (L, R, Z and Start held) | `runtime/rtleave.c` (when it goes: the hold, the save guard; `tests/padleave_tests.cpp`), `runtime/pad/` (the submit and OSSleepThread hooks), `find_way_back` and `install_pad_hook` in `wii/hooks/padhook.cpp`, `find_os_return_to_menu` in `src/patching/symsearch.cpp` |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
@@ -181,11 +182,15 @@ The build compiles every folder into one, so no two files share a name.
 | `vsdhook.cpp` | Finding `sd.raw` for a launch and installing the virtual SD card blob |
 | `vsdimage.cpp` | `sd.raw` as the menu's read-only `vsd:` drive |
 
-### `wii/controllers/`: the GameCube adapter in the menu and the Wii Remote queues
+### `wii/controllers/`: the GameCube adapter, USB keyboards, mice and pen tablets in the menu, and the Wii Remote queues
 
 | File | What |
 | --- | --- |
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
+| `usbinput.cpp` | A USB keyboard, mouse or pen tablet and the uDraw as player 1's controls in the menu; started after the first drive scan, stopped before an IOS reload and at the menu's end |
+| `usbkeyboard.cpp` | The USB keyboard (libwiikeyboard on a thread of its own): keys held and pressed, characters typed |
+| `pentablet.c`, `tablethid.c` | USB pen tablets (Wacom, Huion, XP-Pen and others) from their HID report descriptors; the link wrap that hides tablets and the GameCube adapter from libogc's own HID scans |
+| `udraw.c` | The uDraw GameTablet on a Wii Remote, through two wiiuse link wraps |
 
 Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs and clear cached textures on rescan.
 

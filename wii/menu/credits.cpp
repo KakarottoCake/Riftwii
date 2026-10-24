@@ -63,6 +63,8 @@ const char* const kCredits[] = {
     "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
+    "libwiiinput by quatric: the USB keyboard, pen tablet and uDraw GameTablet drivers.",
+    "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
     "",
     "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer and libasnd by "

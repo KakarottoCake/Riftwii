@@ -39,6 +39,7 @@
 
 #include "crash.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "gcrealcard.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
@@ -182,6 +183,7 @@ void ExitApp() {
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();
+    riftwii::wii::UsbInputMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
     StopGX();
@@ -568,6 +570,7 @@ int main() {
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
+    riftwii::wii::UsbInputMenuEnd();
     // Stage (a)'s plugins have nothing to do in a launch: shut down before
     // it, their arena given back to the heap (docs/PLUGINS.md, "Loading").
     riftwii::wii::plugin::ShutdownAll("the menu closed");

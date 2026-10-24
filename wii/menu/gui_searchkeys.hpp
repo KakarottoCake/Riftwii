@@ -19,6 +19,10 @@
 // The name mode types a name (a Home tile's): letters in both cases, with
 // a Shift key that capitalises the next letter, on by itself at the start
 // and after a space, as a phone's keyboard; OK in place of Search.
+//
+// A USB keyboard types too (usbinput.hpp): its letters, digits and the
+// characters the card has, Enter as Search (OK), Backspace as Del and Esc
+// as Cancel. A name keeps the case typed.
 class GuiSearchKeys : public GuiElement {
 public:
     static constexpr std::size_t kMaxLength = 32;
@@ -54,6 +58,8 @@ private:
         GuiText* caption;
     };
     void Press(const Key& k);
+    // What a USB keyboard typed since the last frame.
+    void TypeFromKeyboard();
     // Whether `k` can be pressed: an action, or a character still available.
     bool Live(const Key& k) const;
     int KeyAt(int x, int y) const;
