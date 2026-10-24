@@ -3102,8 +3102,17 @@ msgstr "{1}을(를) 시작할까요?"
 msgid "this app's program is a boot.elf, and RiftWii starts boot.dol apps only"
 msgstr "이 앱은 boot.elf이며 RiftWii는 boot.dol 앱만 시작합니다"
 
-msgid "Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."
-msgstr "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다. RiftWii 채널에서 시작한 앱은 종료 시 Wii 메뉴로 돌아갑니다."
+msgid "Apps keep RiftWii's IOS and hardware access."
+msgstr "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다."
+
+msgid "When the app exits, it comes back to RiftWii."
+msgstr "앱을 종료하면 RiftWii로 돌아옵니다."
+
+msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
+msgstr "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다."
+
+msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
+msgstr "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다."
 
 msgid "1: all apps"
 msgstr "1: 모든 앱"
