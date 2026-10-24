@@ -25,8 +25,24 @@ on a package it uses once.
 - **From the Homebrew Channel:** it is listed as RiftWii Channel Installer.
 
 The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
-249, 250 or 251, which it switches to first. What it does is logged to
-`sd:/riftwii/channel.log`.
+249, 250 or 251. It sets up video and the SD card under the starting IOS,
+then reads each slot's d2x information with the same parser as RiftWii.
+Only identified d2x slots are tried, preferring base 58 for the SD card.
+Its Homebrew Channel metadata asks for hardware access so it can read
+the slot information through IOS58's NAND permission check; a slot that
+cannot be identified is left alone.
+Each attempt is shown and saved to `sd:/riftwii/channel.log` before the
+card is unmounted and IOS is reloaded; the card is mounted again afterwards,
+and a successful reload logs the IOS version and revision.
+
+Before opening the installer, RiftWii writes
+`sd:/riftwii/channel_installer_opened.txt`. An old channel with that marker
+and no `ChannelDone` restart note means the installer did not return: the
+update screen asks for `channel.log` in a problem report and offers **Not
+now**, which opens Home for this start. Picking it clears the marker, so
+the next start asks for the update again. A `ChannelDone` restart or a
+channel that no longer needs updating also clears the marker. Exiting
+without choosing **Not now** leaves it for the next start.
 
 The channel is title `00010001-55465457` (`UFTW`) and runs under IOS 58. A
 vWii shows a title in 4:3 when its ID starts with C, D, E, F, H, J, L, M,

@@ -9,6 +9,7 @@
 #include <gccore.h>
 #include <fat.h>
 #include <ogc/es.h>
+#include <ogc/isfs.h>
 #include <sdcard/wiisd_io.h>
 #include <wiiuse/wpad.h>
 
@@ -18,6 +19,7 @@
 #include <string>
 #include <sys/stat.h>
 
+#include "cios.hpp"
 #include "dolboot.h"
 #include "install.hpp"
 
@@ -50,17 +52,58 @@ bool in_dolphin() {
     return fd >= 0;
 }
 
-// A d2x cIOS in 249, 250 or 251, before anything else is opened: its
-// signature patches are what let the fakesigned channel in.
+void mount_sd() {
+    g_sd = fatMountSimple("sd", &__io_wiisd);
+    if (g_sd) mkdir("sd:/riftwii", 0777);
+}
+
+bool reload_cios(int slot, const riftwii::D2xInfo& info) {
+    installer::Log("trying IOS%d\n", slot);
+    std::printf("  trying IOS%d (%s, base %d)\n", slot, riftwii::d2x_name(info).c_str(), info.base);
+    VIDEO_WaitVSync();
+    if (g_sd) fatUnmount("sd:");
+    __io_wiisd.shutdown();
+    g_sd = false;
+    const s32 result = IOS_ReloadIOS(slot);
+    // Like leave(): shutting down before the reload lets libfat's next
+    // mount start the SD interface under the new IOS.
+    mount_sd();
+    if (result < 0 || IOS_GetVersion() != slot) {
+        installer::Log("Reloading IOS%d failed (%d); IOS%d revision %d is running.\n", slot, result,
+                       IOS_GetVersion(), IOS_GetRevision());
+        std::printf("  Reloading IOS%d failed (%d).\n", slot, result);
+        return false;
+    }
+    g_cios = slot;
+    installer::Log("The installer is running on IOS%d revision %d.\n", IOS_GetVersion(), IOS_GetRevision());
+    return true;
+}
+
+// Its signature patches let the fakesigned channel in. Identify all
+// candidates before a reload drops the Homebrew Channel's AHBPROT access.
 void enter_cios() {
-    for (int slot : {249, 250, 251}) {
-        u32 views = 0;
-        if (ES_GetNumTicketViews(0x0000000100000000ull | slot, &views) < 0 || views == 0) continue;
-        if (IOS_ReloadIOS(slot) >= 0 && IOS_GetVersion() == slot) {
-            g_cios = slot;
-            return;
+    constexpr int slots[] = {249, 250, 251};
+    riftwii::D2xInfo candidates[3];
+    const s32 isfs = ISFS_Initialize();
+    if (isfs < 0) {
+        installer::Log("The cIOS search could not open the NAND file system (%d).\n", isfs);
+        return;
+    }
+    for (unsigned i = 0; i < 3; ++i) candidates[i] = installer::ReadCios(slots[i]);
+    ISFS_Deinitialize();
+
+    // Prefer base 58 for the SD card; bases 56 and 57 and other d2x bases
+    // remain candidates. Only positively identified d2x slots are tried.
+    for (bool base58_pass : {true, false}) {
+        for (unsigned i = 0; i < 3; ++i) {
+            const auto& info = candidates[i];
+            if (!info.d2x) continue;
+            const bool has_base58 = info.base == 58;
+            if (has_base58 != base58_pass) continue;
+            if (reload_cios(slots[i], info)) return;
         }
     }
+    installer::Log("No identified d2x cIOS in slots 249, 250 or 251 could be started.\n");
 }
 
 enum Button { kNone, kInstall, kRemove, kBack };
@@ -171,13 +214,14 @@ void Log(const char* format, ...) {
 
 int main() {
     const bool dolphin = in_dolphin();
-    if (!dolphin) enter_cios();
     video_init();
+    mount_sd();
+    installer::Log("RiftWii Channel Installer %u, IOS%d revision %d\n", installer::PackageVersion(),
+                   IOS_GetVersion(), IOS_GetRevision());
+    std::printf("  RiftWii Channel Installer: checking d2x cIOS slots...\n");
+    if (!dolphin) enter_cios();
     WPAD_Init();
     PAD_Init();
-    g_sd = fatMountSimple("sd", &__io_wiisd);
-    if (g_sd) mkdir("sd:/riftwii", 0777);
-    installer::Log("RiftWii Channel Installer %u, IOS%d\n", installer::PackageVersion(), IOS_GetVersion());
 
     std::string status, note;
     if (dolphin) {

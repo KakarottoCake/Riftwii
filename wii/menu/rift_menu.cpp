@@ -3759,15 +3759,51 @@ static bool OfferChannelOnce()
 	return add;
 }
 
-// An older channel than this release's installer puts on: RiftWii is not
-// used until it is updated (the old ones went black when a game's HOME
-// Menu > Wii Menu came back to RiftWii, #62). Every start asks, with no
-// "Not now": Update now opens the installer, else RiftWii exits. Not in
+// ShowPopup has two buttons. Use the existing choices-in-a-popup layout
+// for recovery: two tiles and Exit below, as on the code mod start screen.
+static int PickInterruptedChannelUpdate(bool can)
+{
+	PopupBox box(tr("Update the RiftWii channel"),
+		tr("The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."),
+		"", tr("Exit RiftWii"));
+	box.CenterCancel();
+	box.BodyAtTop(3);
+	std::vector<TileSpec> tiles(2);
+	tiles[0].x = 56;
+	tiles[1].x = 332;
+	for (TileSpec& tile : tiles) {
+		tile.y = 236;
+		tile.w = 252;
+		tile.h = 60;
+	}
+	tiles[0].label = can ? tr("Update now") : tr("Check again");
+	tiles[1].label = tr("Not now");
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(0);
+	box.Append(&choices);
+	ResumeGui();
+	for (;;) {
+		usleep(20000);
+		HaltGui();
+		const int picked = choices.GetClicked();
+		if (picked >= 0) return picked == 0 ? 0 : 2;
+		if (box.Pressed()) return 1;
+		ResumeGui();
+	}
+}
+
+// An older channel than this release's installer puts on: every start
+// asks for an update (old ones went black on return from a game, #62).
+// An installer that never returned adds Not now for this start. Not in
 // Dolphin (the channel cannot be installed there), and not while an in-app
 // update is still bringing the new installer (the next start asks). A
 // headless launch never comes here. MENU_CHANNEL, MENU_EXIT or MENU_NONE.
 static int RequireChannelUpdate()
 {
+	static bool postponed = false;
+	if (postponed) return MENU_NONE;
+	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted();
 	unsigned version = 0;
 	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
 	if (riftwii::wii::running_in_dolphin()) {
@@ -3781,6 +3817,8 @@ static int RequireChannelUpdate()
 		return MENU_NONE;
 	}
 	const bool stillOld = riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone;
+	if (interrupted)
+		logf("Channel: the installer did not return, so this start offers Not now; include sd:/riftwii/channel.log in a problem report.\n");
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
@@ -3794,8 +3832,13 @@ static int RequireChannelUpdate()
 		else body += std::string("\n\n") + tr("RiftWii can't update it from here: {1}.", {why});
 		logf("Channel: version %u installed, %u needed; RiftWii waits for the update%s%s\n", version,
 			riftwii::wii::kChannelVersion, can ? "" : ": ", can ? "" : why.c_str());
-		const int choice = ShowPopup(tr("Update the RiftWii channel"), body, can ? tr("Update now") : tr("Check again"),
-			tr("Exit RiftWii"));
+		const int choice = interrupted ? PickInterruptedChannelUpdate(can)
+			: ShowPopup(tr("Update the RiftWii channel"), body, can ? tr("Update now") : tr("Check again"), tr("Exit RiftWii"));
+		if (choice == 2) {
+			postponed = true;
+			riftwii::wii::ChannelUpdateNotNow();
+			return MENU_NONE;
+		}
 		if (choice != 0) {
 			logf("Channel: update declined; RiftWii exits\n");
 			return MENU_EXIT;
@@ -3804,8 +3847,13 @@ static int RequireChannelUpdate()
 			logf("Channel: update to %u accepted\n", riftwii::wii::kChannelVersion);
 			return MENU_CHANNEL;
 		}
+		if (interrupted)
+			ShowPopup(tr("Update the RiftWii channel"), tr("RiftWii can't update it from here: {1}.", {why}), tr("OK"));
 		// Check again: the card may have been fixed meanwhile.
-		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
+		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) {
+			riftwii::wii::ChannelInstallerInterrupted();
+			return MENU_NONE;
+		}
 	}
 }
 

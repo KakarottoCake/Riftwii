@@ -3194,3 +3194,6 @@ msgstr "Cochez d'abord les sauvegardes à récupérer."
 
 msgid "Nintendont saves brought"
 msgstr "Sauvegardes Nintendont récupérées"
+
+msgid "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."
+msgstr "L'installateur de la chaîne n'est pas revenu ; joignez sd:/riftwii/channel.log à un rapport de problème."

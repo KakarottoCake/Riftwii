@@ -20,6 +20,10 @@ constexpr unsigned kChannelVersion = 14;
 // The oldest channel RiftWii runs with: 11 on a Wii (its L2 clear), 13 on a
 // Wii U (11 and 12 never started on a vWii; 13 has its loader as in 10).
 unsigned ChannelVersionNeeded();
+// Retire completed attempts, or report an installer that never returned.
+bool ChannelInstallerInterrupted();
+// Postpone only this start and retire the failed attempt's marker.
+void ChannelUpdateNotNow();
 // The installed channel's title ID (00010001-UFTW, or the old RFTW), 0
 // when it is not installed.
 unsigned long long ChannelTitle();
