@@ -517,6 +517,9 @@ void RunAutorun() {
         logf("ok\n");
     }
     logf("autorun finished\n");
+    // Only the Dolphin power-off below follows. The stop goes out as the
+    // menu's power-off sends it, so a run shows the log line.
+    if (running_in_dolphin()) di::stop_motor_for_power_off();
     LogClose();
     if (running_in_dolphin()) {
         // Stopping the emulated console makes Dolphin flush the SD image

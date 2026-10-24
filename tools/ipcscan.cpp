@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
             std::printf("  IOS_%-6s async 0x%08x  sync 0x%08x%s\n", names[c], api.async[c], api.sync[c],
                         api.async[c] == 0 || api.sync[c] == 0 ? "  (a form the game never calls is not in its DOL)" : "");
         }
+        std::printf("  their submit routine 0x%08x\n", api.submit);
         // The exception handler the crash record hooks (runtime/fault).
         std::vector<riftwii::CodeRange> all;
         for (std::size_t s = 0; s < riftwii::kDolSections; ++s) {
@@ -70,6 +71,14 @@ int main(int argc, char** argv) {
             std::printf("  __OSUnhandledException 0x%08x\n", unhandled);
         } else {
             std::cout << "  __OSUnhandledException: " << error << std::endl;
+            ++failures;
+        }
+        // The way back that a GameCube-pad combo in a Wii game takes (runtime/pad).
+        std::uint32_t return_to_menu = 0;
+        if (riftwii::find_os_return_to_menu(text, all, return_to_menu, error)) {
+            std::printf("  OSReturnToMenu 0x%08x\n", return_to_menu);
+        } else {
+            std::cout << "  OSReturnToMenu: " << error << std::endl;
             ++failures;
         }
     }
