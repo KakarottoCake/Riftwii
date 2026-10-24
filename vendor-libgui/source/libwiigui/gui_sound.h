@@ -41,8 +41,8 @@ public:
 	//!hover tick (button_over_pcm) by hoverPercent, the rest by otherPercent.
 	static int hoverPercent;
 	static int otherPercent;
-	//!Riftwii: a menu theme's sound in place of a built-in PCM sound
-	//!(wii/themesounds.cpp): given the built-in one, it may change the
+	//!RiftWii: a replacement resolved at each Play, preserving the built-in
+	//!identity (wii/menu/themesounds.cpp). The resolver may change the
 	//!data, its length and its rate (stereo 16-bit samples a second).
 	static void (*substitute)(const u8*& sound, s32& length, s32& rate);
 protected:

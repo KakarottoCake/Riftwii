@@ -6324,6 +6324,23 @@ T['1 theme'] = ('1 tema', '1件のテーマ', '1 tema', '1 tema')
 KO['1 theme'] = '테마 1개'
 FR['1 theme'] = '1 thème'
 
+# System Menu audio, read live from the console.
+T['Wii Menu sounds'] = ('Sonidos del Menú de Wii', 'Wiiメニューの音', 'Sons do Wii Menu', 'Suoni del menu Wii')
+KO['Wii Menu sounds'] = 'Wii 메뉴 소리'
+FR['Wii Menu sounds'] = 'Sons du menu Wii'
+
+T['Wii Menu music'] = ('Música del Menú de Wii', 'Wiiメニューの音楽', 'Música do Wii Menu', 'Musica del menu Wii')
+KO['Wii Menu music'] = 'Wii 메뉴 음악'
+FR['Wii Menu music'] = 'Musique du menu Wii'
+
+T["Read this Wii's own menu sounds into memory. A theme's sounds take priority."] = ('Lee los sonidos del menú de esta Wii en la memoria. Los sonidos del tema tienen prioridad.', 'Wiiメニューの音をこのWiiから読み込みます。テーマの音を先に使います。', 'Lê os sons do menu deste Wii na memória. Os sons do tema têm prioridade.', 'Legge in memoria i suoni del menu di questa Wii. I suoni del tema hanno la priorità.')
+KO["Read this Wii's own menu sounds into memory. A theme's sounds take priority."] = '이 Wii의 메뉴 소리를 메모리로 읽습니다. 테마의 소리가 우선합니다.'
+FR["Read this Wii's own menu sounds into memory. A theme's sounds take priority."] = 'Charge les sons du menu de cette Wii en mémoire. Les sons du thème ont la priorité.'
+
+T["Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."] = ('Lee la música del menú de esta Wii en la memoria. La música del tema tiene prioridad. Música del menú controla la reproducción.', 'Wiiメニューの音楽をこのWiiから読み込みます。テーマの音楽を先に使います。「メニューの音楽」で音楽を使うか設定します。', 'Lê a música do menu deste Wii na memória. A música do tema tem prioridade. Música do menu controla a reprodução.', 'Legge in memoria la musica del menu di questa Wii. La musica del tema ha la priorità. Musica del menu ne controlla la riproduzione.')
+KO["Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."] = '이 Wii의 메뉴 음악을 메모리로 읽습니다. 테마의 음악이 우선합니다. 메뉴 음악 설정으로 재생 여부를 정합니다.'
+FR["Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."] = 'Charge la musique du menu de cette Wii en mémoire. La musique du thème a la priorité. Musique du menu contrôle sa lecture.'
+
 T['The SD card was taken out.'] = ('La tarjeta SD fue retirada.', 'SDカードがはずれました。', 'O cartão SD foi removido.', 'La scheda SD è stata rimossa.')
 KO['The SD card was taken out.'] = 'SD 카드가 제거되었습니다.'
 FR['The SD card was taken out.'] = 'La carte SD a été retirée.'

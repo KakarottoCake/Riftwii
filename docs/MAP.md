@@ -134,7 +134,10 @@ The build compiles every folder into one, so no two files share a name.
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
-| `menumusic.cpp` | The background music |
+| `menumusic.cpp` | The background music: theme/card Ogg or the selected Wii Menu source |
+| `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
+| `themesounds.cpp` | Playback-time theme WAV replacements, then the selected Wii Menu sounds |
+| `menusounds.cpp` | RiftWii's own effects, decoded once at startup |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
@@ -267,10 +270,12 @@ document it.
 | `gcports` | The GameCube loader's Wii Remote ports (`runtime/gc/gc_ports.h`): GameCube controllers keep theirs, a remote moves off one to the next free port, a reconnecting remote gets its slot back |
 | `gccontrols` | The GameCube controls files (`src/data/gccontrols.cpp`): the built-in map, headings, names, unknown ones skipped with a note, the bounds; the blob's map and shake (`runtime/gc/gc_controls.h`); a Wii U Pro Controller's reports decoded (`runtime/gc/gc_pro.h`) |
 
-### `src/disc/`: wii discs, executables, banners and fonts
+### `src/disc/`: wii discs, executables, banners, fonts and sounds
 
 | Name | What |
 | --- | --- |
+| `wiisound`, `wiisound_read.hpp` | Bounded U8, BRSAR, RWSD/RWAR/RWAV and sample-bank readers; PCM8/PCM16 and the shared DSP-ADPCM decoder. Public API: `include/riftwii/wiisound.hpp`; synthetic tests: `tests/wiisound_tests.cpp` |
+| `wiisequence` | Fixed-slot RSEQ/RBNK sample renderer; all bank allocations happen before playback |
 | `fst` | The disc's file system table |
 | `disc` | Wii disc structures (header, partitions, apploader) |
 | `dol` | The DOL executable header |
@@ -392,6 +397,7 @@ to check EXI ownership, failed mounts/reads, deferred close and removal.
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
+| `menusound_list.cpp` | Lists a NAND content copy's U8 files and BRSAR names/types, optionally validates a named sound in memory; never extracts audio |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
