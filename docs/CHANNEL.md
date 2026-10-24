@@ -42,7 +42,10 @@ update screen asks for `channel.log` in a problem report and offers **Not
 now**, which opens Home for this start. The marker stays, so the next
 start asks for the update again and still offers **Not now**: a player
 whose installer hangs is never locked out. Only a `ChannelDone` restart
-or a channel that no longer needs updating clears the marker.
+or a channel that no longer needs updating clears the marker. If the card
+won't save the marker (a locked card), the installer isn't opened at all.
+The restart that follows says why and offers **Not now** too, so a hang
+can never happen without the marker that would have offered it.
 
 The channel is title `00010001-55465457` (`UFTW`) and runs under IOS 58. A
 vWii shows a title in 4:3 when its ID starts with C, D, E, F, H, J, L, M,

@@ -159,8 +159,16 @@ bool StartChannelInstaller(std::string& error) {
         const bool closed = std::fclose(marker) == 0;
         marked = wrote && closed;
     }
-    logf("Channel: %s before opening the installer.\n",
-         marked ? "the launch marker was saved" : "the SD card could not save the launch marker");
+    if (!marked) {
+        // Without the marker, an installer that hangs would leave the next
+        // start with no Not now: the lockout of #317 again. So it is not
+        // opened; the restart that follows offers Not now instead.
+        error = "the SD card would not save a note before the installer (is it locked?)";
+        logf("Channel: the installer was not opened: %s\n", error.c_str());
+        std::free(dol);
+        return false;
+    }
+    logf("Channel: the launch marker was saved before opening the installer.\n");
     NetCancelBackground();  // a theme download: fetched again next start
     NetWaitForBackground();
     LogClose();
