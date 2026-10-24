@@ -53,6 +53,7 @@
 #include "modpicture.hpp"
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
+#include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
@@ -4076,10 +4077,15 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
 	if (prompts) {
 		WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
-		if (wiiuDrive) NoteWiiUDrive();
+		// This Wii's WFS drive (Dragon Quest X's) looks the same until its
+		// key opens it, and is no drive RiftWii "can't read".
+		if (wiiuDrive && !riftwii::wii::WfsDriveFound()) NoteWiiUDrive();
 		if (g_sdScanOk) ReportCardLog();
 	}
-	if (wiiuDrive) {
+	if (wiiuDrive && riftwii::wii::WfsDriveFound()) {
+		logf("USB: only this Wii's WFS drive (Dragon Quest X's) is plugged in\n");
+		state.usb_catalog.status = tr("USB: Dragon Quest X's drive");
+	} else if (wiiuDrive) {
 		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
 		state.usb_catalog.status = WiiUDriveStatus();
 	} else if (!usb) {

@@ -149,6 +149,26 @@ void test_tmd() {
     EXPECT_TRUE(!parse_tmd_contents(nullptr, 0, parsed, error));
 }
 
+void test_wfs_game() {
+    // Dragon Quest X's launcher: a disc channel (00010004) whose TMD's
+    // title type has the WFS flag (0x20).
+    const std::uint64_t id = title(kDiscChannels, "S4MJ");
+    std::vector<std::uint8_t> t = make_tmd(id, 59, 0, {{0, 0, 1, 16}});
+    TmdContents parsed;
+    std::string error;
+    EXPECT_TRUE(parse_tmd_contents(t.data(), t.size(), parsed, error));
+    EXPECT_EQ(parsed.title_type, 0u);
+    EXPECT_TRUE(!is_wfs_game(id, parsed.title_type));
+    put32(t.data() + 0x194, 0x21);
+    EXPECT_TRUE(parse_tmd_contents(t.data(), t.size(), parsed, error));
+    EXPECT_EQ(parsed.title_type, 0x21u);
+    EXPECT_TRUE(is_wfs_game(id, parsed.title_type));
+    // The flag on any other kind of title, or with no code, is not one.
+    EXPECT_TRUE(!is_wfs_game(title(kDownloadedChannels, "S4MJ"), 0x21));
+    EXPECT_TRUE(!is_wfs_game(title(0x00010000, "S4MJ"), 0x21));
+    EXPECT_TRUE(!is_wfs_game(title(kDiscChannels, "ab12"), 0x21));
+}
+
 void test_cheat_code() {
     EXPECT_EQ(channel_cheat_code("NAAE01"), std::string("NAAE"));
     EXPECT_EQ(channel_cheat_code("WGOE5G"), std::string("WGOE"));
@@ -600,6 +620,7 @@ int main() {
     test_codes();
     test_classify();
     test_tmd();
+    test_wfs_game();
     test_paths();
     test_program();
     test_program_compression();

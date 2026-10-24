@@ -1062,6 +1062,9 @@ msgstr "Wii Uのドライブ"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
 
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: ドラゴンクエストXのドライブ"
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
 

@@ -66,6 +66,7 @@
 #include "riftwii/launchargs.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/wfstitle.hpp"
 #include "riftwii/returnto.hpp"
 #include "d2xsave.hpp"
 #include "channel.hpp"
@@ -642,6 +643,10 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     }
     logf("Partitions: %u listed, game partition at 0x%08llx\n", static_cast<unsigned>(table.size()),
          static_cast<unsigned long long>(out.partition.offset));
+    out.wfs_install_disc = is_wfs_install_disc(table);
+    if (out.wfs_install_disc)
+        logf("Partitions: a WFS installer partition: Dragon Quest X's disc, which installs the game onto its "
+             "WFS USB drive\n");
     {
         std::uint8_t region[4] = {};
         if (system_area.read(0x4E000, region, sizeof(region))) {

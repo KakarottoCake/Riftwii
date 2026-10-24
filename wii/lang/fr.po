@@ -1062,6 +1062,9 @@ msgstr "Stockage de Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB : un stockage de Wii U (RiftWii ne l'utilise pas)"
 
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB : le stockage de Dragon Quest X"
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log."
 

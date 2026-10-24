@@ -108,5 +108,7 @@ void SetChannelToStartIos(int ios);
 int ChannelToStartIos();
 void SetChannelToStartDirect(bool direct);
 bool ChannelToStartDirect();
+// A WFS title (Dragon Quest X; ChannelKind::Wfs): only the system starts it.
+bool ChannelToStartWfs();
 
 }  // namespace riftwii::wii

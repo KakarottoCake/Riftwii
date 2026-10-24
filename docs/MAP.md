@@ -49,6 +49,7 @@ and `vendor-*` is third-party code.
 | Cheats | `src/data/cheats.cpp`, `wii/menu/gameextras.cpp`; GameHacking.org as the fallback when rc24 has none: `src/data/ghcheats.cpp`, `wii/online/ghfallback.cpp`, `wii/online/zipinflate.cpp`, `tests/ghcheats_tests.cpp` |
 | A game's extra Home tiles, each with its own mods | `src/data/profiles.cpp`, `wii/menu/modtiles.cpp`, the Mods page and `BuildHome` in `wii/menu/rift_menu.cpp` |
 | WiiWare and Virtual Console games (the Wii's channels, and those in an emulated NAND on the card) | `src/data/nandchannel.cpp` (which titles, their TMD, the program to load), `wii/storage/nandchannels.cpp` (listing, reading their files), `boot_channel` in `wii/launch/boot.cpp` (the start); those the Wii Menu moved to the SD card: `src/data/contentbin.cpp` (the content.bin layout), `wii/storage/movedchannels.cpp` (reading it, copying the contents to the Wii for the game), `tests/contentbin_tests.cpp` |
+| Dragon Quest X on its WFS USB drive ([WFS.md](WFS.md)) | `src/fs/wfs.cpp` (the drive), `src/fs/wfstitle.cpp` (what is installed, the disc's installer partition), `wii/storage/wfsdrive.cpp` (the USB scan's look at the drive), `wii/menu/wfskey.cpp` (the Wii's WFS key), `StartWfsTitle` in `wii/main.cpp` (the start), `tests/wfs_tests.cpp`, `tests/wfstitle_tests.cpp` |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `runtime/gc/gc_rvz.c` (GameCube games), `docs/RVZ.md` |
 | Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py`; the in-app update writes them before the DOL (`plan_update_writes` in `src/net/update.cpp`, `wii/online/online.cpp`) |
 | What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
@@ -140,6 +141,7 @@ The build compiles every folder into one, so no two files share a name.
 | `menusounds.cpp` | RiftWii's own effects, decoded once at startup |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
+| `wfskey.cpp` | The Wii's WFS key (`ConsoleWfsKey`, `otpkey.hpp`) for Dragon Quest X's drive; none yet, so the drive is not read |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
@@ -206,6 +208,7 @@ Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs a
 | `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
+| `wfsdrive.cpp`, `wfsdrive.hpp` | Dragon Quest X's WFS drive as the USB scan finds it: opened with the Wii's WFS key, what is installed on it kept for Home and the start |
 
 ### `wii/online/`: network, downloads, https, problem reports, RiiTag
 
@@ -295,6 +298,7 @@ document it.
 | `gccard` | GameCube memory card images: formatting one, listing its saves and their icons, deleting a save, .gci export and import |
 | `gcreal` | Physical-card import preview: exact game/maker selection, GCI validation, collision/capacity/encoding checks, staged SD commits; `include/riftwii/gcreal.hpp`, `src/fs/gcreal.cpp`, `tests/gcreal_tests.cpp` |
 | `gcbackup` | GameCube memory card backups: the copy made before a start, named by date and time, the newest five kept, none while the card is unchanged |
+| `wfs`, `wfstitle` | Dragon Quest X's WFS drive (read-only, decrypted with the Wii's WFS key): its directories and files; the titles installed on it, the disc's installer partition |
 | `gccard_text`, `sjis_table.inc` | A card's save names and comments as UTF-8 (Shift-JIS through the table `tools/make_sjis_table.py` makes, or Windows-1252) |
 
 ### `src/net/`: hTTP, RiiFS, the update check, RiiTag

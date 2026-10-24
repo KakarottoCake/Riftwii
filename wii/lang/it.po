@@ -1062,6 +1062,9 @@ msgstr "Unità della Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: un'unità della Wii U (RiftWii non la usa)"
 
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: l'unità di Dragon Quest X"
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "I giochi di quell'unità non sono elencati. Controlla l'unità su un computer; i dettagli sono in sd:/riftwii/session.log."
 
