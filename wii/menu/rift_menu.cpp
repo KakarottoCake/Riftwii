@@ -133,6 +133,10 @@
 #include "wadinstall.hpp"
 #include "homebrew.hpp"
 #include "video.h"
+#include <fat.h>
+#include <sdcard/wiisd_io.h>
+#include <sys/stat.h>
+#include "riftwii/sdhotplug.hpp"
 
 namespace transition = riftwii::wii::transition;
 
@@ -3842,6 +3846,42 @@ static void StartScan()
 	riftwii::wii::StartDriveScan();
 }
 
+// The SD card taken out and put back while Home runs (issue: the menu kept
+// the old mount and every later read failed). Home polls the slot, not a
+// thread, so nothing races the scan or a download; the IOS reloads and the
+// installer own the card while Settings leaves Home, so the watch pauses
+// with it. __io_wiisd.isInserted only asks the slot, which stays safe while
+// another thread reads the card, and costs one small IOS call.
+static riftwii::SdHotplug g_sdWatch(true);
+static u64 g_sdWatchLast = 0;
+static bool g_sdGone = false;
+static bool g_sdRemovalPending = false;
+
+static bool SdWatchInsertedNow()
+{
+	return __io_wiisd.isInserted();
+}
+
+static void SdWatchUnmountForRemoval()
+{
+	// Log first, then let go: the unmount wrapper holds the cover loader
+	// and closes the full font, so no read is left in flight on the card.
+	riftwii::wii::LogClose();
+	fatUnmount("sd:");
+}
+
+static bool SdWatchRemountForMenu()
+{
+	// A fresh start for the driver, as after a menu IOS reload
+	// (wii/launch/menuios.cpp): some cards answer only after it.
+	__io_wiisd.shutdown();
+	if (!__io_wiisd.startup() || !__io_wiisd.isInserted()) return false;
+	if (!fatMountSimple("sd", riftwii::wii::sd_interface())) return false;
+	mkdir("sd:/riftwii", 0777);
+	riftwii::wii::LogReopen();
+	return true;
+}
+
 // The SD card's part of the scan, with the GUI halted.
 static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part)
 {
@@ -4680,6 +4720,62 @@ static int MenuSource(FrontendState& state)
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
 			showStatus();
+		// The SD card taken out and put back while Home runs: polled here,
+		// on the menu's thread while the GUI is halted, every 500 ms. Not
+		// on a thread, so nothing races the scan or a download, and not in
+		// Settings or a launch, so the IOS reloads and the installer keep
+		// the card to themselves.
+		{
+			const u64 nowSd = gettime();
+			if (g_sdWatchLast == 0 || diff_msec(g_sdWatchLast, nowSd) >= 500) {
+				g_sdWatchLast = nowSd;
+				const riftwii::SdHotplugEvent sdEvent = g_sdWatch.update(SdWatchInsertedNow());
+				if (sdEvent == riftwii::SdHotplugEvent::Removed && !g_sdGone && !g_sdRemovalPending) {
+					riftwii::wii::NetCancelBackground();
+					g_sdRemovalPending = true;
+					toast.Show(tr("The SD card was taken out."), true);
+				}
+				if (sdEvent == riftwii::SdHotplugEvent::Inserted) {
+					if (g_sdRemovalPending && !g_sdGone) {
+						g_sdRemovalPending = false;
+						riftwii::wii::logf("SD card: back in before it was unmounted; carrying on\n");
+						toast.Show(tr("The SD card is back in. Reading it again."), false);
+					} else if (g_sdGone) {
+						if (SdWatchRemountForMenu()) {
+							riftwii::wii::logf("SD card: back in; mounted again and reread\n");
+							riftwii::wii::ReloadSettings();
+							riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+							riftwii::wii::LoadMenuTheme();
+							g_forgetPicturesAfterScan = true;
+							StartScan();
+							riftwii::wii::ForgetAppIcons();
+							riftwii::wii::RescanHomebrewApps();
+							const std::string focused = focusedTile();
+							refreshKeepingTile(focused);
+							toast.Show(tr("The SD card is back in. Reading it again."), false);
+							showStatus();
+							g_sdGone = false;
+						} else {
+							g_sdWatch = riftwii::SdHotplug(false);
+							riftwii::wii::logf("SD card: back in but it could not be mounted; waiting for a readable card\n");
+						}
+					}
+				}
+				if (g_sdRemovalPending && !g_sdGone && !SdWatchInsertedNow()) {
+					if (riftwii::wii::DriveScanDone() && !riftwii::wii::NetBackgroundBusy()) {
+						SdWatchUnmountForRemoval();
+						riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
+						g_sdGone = true;
+						g_sdRemovalPending = false;
+						state.sd_catalog.games.clear();
+						state.sd_catalog.status = std::string(tr("SD: no card"));
+						const std::string focused = focusedTile();
+						refreshKeepingTile(focused);
+						showStatus();
+					}
+				}
+			}
+		}
 		// The full menu font is not on the card (wii/menu/fullfont.hpp):
 		// said once a session, after the start's popups (What's new and the
 		// others of askAfterLook), which covered a toast shown while they
