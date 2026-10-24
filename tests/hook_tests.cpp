@@ -1487,12 +1487,14 @@ static void TestFsAsyncIntercept() {
         for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xC0 + i);
         args[0] = fd_a; args[1] = 0; args[2] = 0;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;  // no save write yet, for the way back's quiet check below
         args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001046; args[4] = 0x80002046;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
         EXPECT_EQ(ios.queue.size(), std::size_t(1));
         EXPECT_EQ(ios.queue[0].kind, 2);  // a wait, not the transfer
         EXPECT_EQ(st->card_wanted, 1u);
         EXPECT_EQ(st->card_busy, 0u);
+        EXPECT_EQ(st->wrote, 0u);  // still waiting: nothing has gone out
         ios.complete_one();  // still reading: another wait
         EXPECT_EQ(ios.queue.size(), std::size_t(1));
         EXPECT_EQ(ios.queue[0].kind, 2);
@@ -1502,7 +1504,23 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(ios.queue[0].kind, 1);  // now the transfer
         EXPECT_EQ(st->card_wanted, 0u);
         EXPECT_EQ(st->card_busy, 1u);  // mod reads wait for it
-        ios.drain();
+        // 16 bytes into a sector: the sector is read first (no save write
+        // yet), then written. While that write is in flight, not yet
+        // complete, the save already counts (the way back's quiet check
+        // reads last_write, then wrote), and its completion counts again.
+        EXPECT_EQ(st->wrote, 0u);
+        bool write_seen = false;
+        std::uint32_t went_out = 0;
+        while (!ios.queue.empty()) {
+            if (ios.queue[0].kind == 1 && ios.queue[0].write != 0 && !write_seen) {
+                write_seen = true;
+                EXPECT_EQ(st->wrote, 1u);
+                went_out = st->last_write;
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(write_seen);
+        EXPECT_TRUE(st->last_write != went_out);
         EXPECT_EQ(ios.delivered.size(), std::size_t(1));
         EXPECT_EQ(ios.delivered[0].cb, 0x80001046u);
         EXPECT_EQ(ios.delivered[0].result, 16);

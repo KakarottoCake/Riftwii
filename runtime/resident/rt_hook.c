@@ -961,6 +961,11 @@ static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, ui
  * it). Interrupts off, together with the send. */
 static void rt_fs_mark_busy(struct rt_context* ctx, struct rt_fs_state* st) {
     if (rt_sd_settles(ctx, st)) st->card_busy = 1;
+    /* A save write counts from when it goes out as well as when it is
+     * done: the pad hook's way back (runtime/rtleave.c) reads last_write
+     * as "a save is under way" and must not take the time a transfer is
+     * in flight, the first of a save above all, for quiet. */
+    rt_fs_wrote(st);
 }
 
 /* Whether the pause after a failed command still runs. */
