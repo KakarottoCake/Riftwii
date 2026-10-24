@@ -3,6 +3,7 @@
 #include "riftwii/wfstitle.hpp"
 
 #include <cstdio>
+#include <cstring>
 
 namespace riftwii {
 namespace {
@@ -110,6 +111,33 @@ bool is_wfs_install_disc(const std::vector<PartitionEntry>& table) {
 
 bool tmd_is_wfs_title(const std::uint8_t* tmd, std::size_t size) {
     return tmd != nullptr && size >= kTmdFixed && (be32(tmd + kTmdTitleType) & kTitleTypeWfs) != 0;
+}
+
+bool parse_wfs_key(const std::uint8_t* data, std::size_t size, std::uint8_t out[16]) {
+    if (data == nullptr) return false;
+    std::uint8_t key[16] = {};
+    if (size == sizeof key) {
+        std::memcpy(key, data, sizeof key);
+    } else {
+        std::size_t digits = 0;
+        for (std::size_t i = 0; i < size; ++i) {
+            const std::uint8_t c = data[i];
+            int value = -1;
+            if (c >= '0' && c <= '9') value = c - '0';
+            else if (c >= 'a' && c <= 'f') value = c - 'a' + 10;
+            else if (c >= 'A' && c <= 'F') value = c - 'A' + 10;
+            else if (c == ' ' || c == ':' || c == '\t' || c == '\r' || c == '\n') continue;
+            if (value < 0 || digits == 2 * sizeof key) return false;
+            key[digits / 2] = static_cast<std::uint8_t>(key[digits / 2] << 4 | value);
+            ++digits;
+        }
+        if (digits != 2 * sizeof key) return false;
+    }
+    std::uint8_t any = 0;
+    for (std::uint8_t b : key) any |= b;
+    if (any != 0) std::memcpy(out, key, sizeof key);
+    std::memset(key, 0, sizeof key);
+    return any != 0;
 }
 
 std::string wfs_title_text(std::uint64_t title_id) {

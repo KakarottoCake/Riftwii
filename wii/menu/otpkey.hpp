@@ -26,8 +26,8 @@ bool ConsoleBackupKey(BackupKey& out);
 
 // The 16-byte key this Wii's IOS59 encrypts a WFS drive with (Dragon
 // Quest X's; riftwii/wfs.hpp), for reading what is installed on it. The
-// same rules as the keys above. False while RiftWii cannot get it
-// (wfskey.cpp).
+// same rules as the keys above, read from the dump left on the card
+// (wfskey.cpp). False when there is none.
 bool ConsoleWfsKey(std::uint8_t out[16]);
 
 }  // namespace riftwii::wii

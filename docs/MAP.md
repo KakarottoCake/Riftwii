@@ -141,7 +141,7 @@ The build compiles every folder into one, so no two files share a name.
 | `menusounds.cpp` | RiftWii's own effects, decoded once at startup |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
-| `wfskey.cpp` | The Wii's WFS key (`ConsoleWfsKey`, `otpkey.hpp`) for Dragon Quest X's drive; none yet, so the drive is not read |
+| `wfskey.cpp` | The Wii's WFS key (`ConsoleWfsKey`, `otpkey.hpp`) for Dragon Quest X's drive, from the dump on the card (`sd:/riftwii/wfskey.bin`, raw or hex; `parse_wfs_key`) |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |

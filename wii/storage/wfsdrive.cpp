@@ -35,8 +35,8 @@ std::vector<WfsTitle> g_titles;
 bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::string& which) {
     std::uint8_t key[16];
     if (!ConsoleWfsKey(key)) {
-        logf("WFS: %s may be a WFS drive (Dragon Quest X's), but this Wii's WFS key is not available, so it is "
-             "not read\n",
+        logf("WFS: %s may be a WFS drive (Dragon Quest X's), but this Wii's WFS key is not on the SD card "
+             "(sd:/riftwii/wfskey.bin), so it is not read\n",
              which.c_str());
         return false;
     }

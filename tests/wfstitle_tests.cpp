@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wfstitle.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -178,7 +179,40 @@ void test_disc_and_tmd_kinds() {
 
 }  // namespace
 
+// A key file, raw or as hex, opens the drive it is the key of.
+void test_key_file() {
+    std::uint8_t key[16] = {};
+    EXPECT_TRUE(parse_wfs_key(kKey, sizeof kKey, key));
+    EXPECT_TRUE(std::equal(key, key + 16, kKey));
+    const std::string hex = "09 08 07 06 05 04 03 02\r\n01:00:aa:bb:CC:DD:ee:ff\n";
+    std::uint8_t from_hex[16] = {};
+    EXPECT_TRUE(parse_wfs_key(reinterpret_cast<const std::uint8_t*>(hex.data()), hex.size(), from_hex));
+    EXPECT_TRUE(std::equal(from_hex, from_hex + 16, kKey));
+
+    Drive d = installed_drive();
+    WfsVolume v;
+    std::string error;
+    EXPECT_TRUE(v.open(d.reader(), 0, d.sectors(), from_hex, error));
+    std::vector<WfsTitle> titles;
+    std::vector<std::string> notes;
+    EXPECT_TRUE(find_wfs_titles(v, titles, notes, error));
+    EXPECT_EQ(wfs_title_for_disc("S6TJGD", titles), 0);
+
+    std::uint8_t untouched[16] = {0x55};
+    const std::uint8_t zero[16] = {};
+    const std::string short_hex = "0908070605040302010000aabbccddeef";
+    const std::string long_hex = short_hex + "f0";
+    const std::string bad_hex = "0908070605040302010000aabbccddeeg0";
+    EXPECT_FALSE(parse_wfs_key(zero, sizeof zero, untouched));
+    EXPECT_FALSE(parse_wfs_key(reinterpret_cast<const std::uint8_t*>(short_hex.data()), short_hex.size(), untouched));
+    EXPECT_FALSE(parse_wfs_key(reinterpret_cast<const std::uint8_t*>(long_hex.data()), long_hex.size(), untouched));
+    EXPECT_FALSE(parse_wfs_key(reinterpret_cast<const std::uint8_t*>(bad_hex.data()), bad_hex.size(), untouched));
+    EXPECT_FALSE(parse_wfs_key(nullptr, 16, untouched));
+    EXPECT_EQ(untouched[0], 0x55);
+}
+
 int main() {
+    test_key_file();
     test_finds_installed_titles();
     test_disc_to_title();
     test_empty_drive();

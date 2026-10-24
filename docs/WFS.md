@@ -48,10 +48,13 @@ contents (type `0x4001`) are unpacked by `/dev/wfsi` onto the drive as
 
 ## The key
 
-The drive is encrypted with a key IOS59 keeps for each console. Until
-RiftWii can read it, `ConsoleWfsKey` returns false: the drive is then
-not read, Home still calls it a Wii U drive, and the game still starts
-from Wii channels (the system finds out whether it is installed).
+The drive is encrypted with a key IOS59 keeps for each console. RiftWii
+does not work it out: `ConsoleWfsKey` reads the one a key dump left on
+the card, `sd:/riftwii/wfskey.bin`, as the 16 bytes or as 32 hex digits
+(`parse_wfs_key`, `src/fs/wfstitle.cpp`). Like the other console keys it
+is never logged or kept. Without the file the drive is not read, Home
+still calls it a Wii U drive, and the game still starts from Wii
+channels (the system finds out whether it is installed).
 
 ## The format
 

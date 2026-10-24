@@ -69,6 +69,11 @@ bool find_wfs_titles(const WfsVolume& volume, std::vector<WfsTitle>& out, std::v
 // -1 when there is none.
 int wfs_title_for_disc(const std::string& disc_id, const std::vector<WfsTitle>& titles);
 
+// This Wii's WFS key as a key dump leaves it on the SD card: the 16 bytes
+// themselves, or 32 hex digits (spaces, colons and line ends between them
+// are passed over). False for anything else, or an all-zero key.
+bool parse_wfs_key(const std::uint8_t* data, std::size_t size, std::uint8_t out[16]);
+
 // "00010004-S4MJ" style text for logs.
 std::string wfs_title_text(std::uint64_t title_id);
 
