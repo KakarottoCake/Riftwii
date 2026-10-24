@@ -4774,6 +4774,10 @@ static int MenuSource(FrontendState& state)
 						// are never written onto the new one.
 						riftwii::wii::ForgetCardHistoryAndOrder();
 						riftwii::wii::ForgetProfiles();
+						riftwii::wii::ForgetProfilePictures();
+						riftwii::wii::ForgetAllCovers();
+						// The view from the new card's settings, or Home's default.
+						g_filter = Filter::Mods;
 						g_filterLoaded = false;
 						LoadFilter();
 						ApplyMenuSounds();

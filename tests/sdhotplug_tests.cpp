@@ -43,6 +43,10 @@ static void TestSingleHitDoesNotInsert() {
     EXPECT_TRUE(watch.update(true) == SdHotplugEvent::None);
     EXPECT_TRUE(watch.update(false) == SdHotplugEvent::None);
     EXPECT_TRUE(!watch.mounted());
+    // The miss started the count over: two hits again to insert.
+    EXPECT_TRUE(watch.update(true) == SdHotplugEvent::None);
+    EXPECT_TRUE(watch.update(true) == SdHotplugEvent::Inserted);
+    EXPECT_TRUE(watch.mounted());
 }
 
 static void TestRemovalDuringRescanNeedsTwoMisses() {
