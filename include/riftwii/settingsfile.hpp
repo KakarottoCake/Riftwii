@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -40,6 +42,7 @@ struct LoaderSettings {
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
+    std::string home_start = "last";      // last (opens on the last game played), first (always on the first page)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     bool nand_non_games = false;
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
@@ -75,6 +78,80 @@ struct LoaderSettings {
 // play history, order, profiles and mods live in files of their own that
 // a reset never touches.
 LoaderSettings settings_after_reset(const LoaderSettings& before);
+
+// Where Home puts the focus while the drives are still being read at
+// start-up. Home first shows what is there and the SD card's and the USB
+// drive's games join in as each is read, however long that takes.
+//   KeepTile   the player has moved: leave the focus on the tile they chose,
+//              wherever the games that join in put it
+//   FirstTile  the first tile, so the first page
+//   LastGame   the tile of the game played last
+// `start_on` is the "home_start" setting; `player_moved` is true once the
+// player has pressed a button or pushed a stick (see PlayerActed); `last_game_listed` is true
+// when the last game played has a tile among the games read so far.
+enum class HomeStartAction { KeepTile, FirstTile, LastGame };
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool last_game_listed);
+
+// One part of the scan joining in, as the decision sees it. The tiles are
+// the ones Home lists now, in order: `identities` names each tile as Home
+// tells tiles apart across a refresh (the Disc drive's tile has its own),
+// `keys` are the play history's game keys ("" for a tile that is no game).
+struct HomeStartPart {
+    std::string start_on;
+    bool player_moved = false;     // see PlayerActed
+    bool already_decided = false;  // an earlier part, or an action of the player's, ended the start-up focus
+    std::string last_game_key;     // the game played last; "" if none
+    std::string focused_identity;  // the tile in focus before this part joined; "" if none
+    int index_before = 0;
+    bool last_part = false;
+    std::vector<std::string> identities;
+    std::vector<std::string> keys;
+};
+// The tile to focus after the part. `decided` is set once no later part may
+// change the focus (the last part came, or the player has moved).
+int home_start_focus(const HomeStartPart& part, bool& decided);
+
+// Whether input is the player acting on Home: any button newly pressed, or a
+// stick pushed past its dead zone, on any controller. The Wii Remote pointer
+// moving is not.
+inline bool counts_as_player_action(std::uint32_t buttons_pressed, bool stick_pushed) {
+    return buttons_pressed != 0 || stick_pushed;
+}
+
+// A stick counts when it crosses the dead zone, not while it sits past it: a
+// worn pad or an idle GamePad that rests outside from the start is not the
+// player. The first sample only sets the starting side.
+class StickEdge {
+public:
+    bool crossed(bool outside_now) {
+        const bool crossing = seen_ && outside_now && !outside_;
+        outside_ = outside_now;
+        seen_ = true;
+        return crossing;
+    }
+
+private:
+    bool outside_ = false;
+    bool seen_ = false;
+};
+
+// Whether the player has acted since Home started, so that the games joining
+// in while the drives are read never move the focus from under them. It is
+// told only about input (see), never about the focus: the menu moves that
+// itself and the pointer's hover moves it too. Once set it stays set.
+// mark() is for the player's actions that are not read as input here.
+// Written by the GUI thread, read by the menu's (atomic: no data race).
+class PlayerActed {
+public:
+    void see(bool input_was_action) {
+        if (input_was_action) acted_ = true;
+    }
+    void mark() { acted_ = true; }
+    bool acted() const { return acted_; }
+
+private:
+    std::atomic<bool> acted_{false};
+};
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out

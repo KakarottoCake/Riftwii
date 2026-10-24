@@ -97,6 +97,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") launch_music = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
+        } else if (key == "home_start") {
+            if (value == "last" || value == "first") home_start = value;
         } else if (key == "home_source") {
             if (value == "all" || value == "sd" || value == "usb" || value == "gamecube" || value == "wii") home_source = value;
         } else if (key == "home_sort") {
@@ -190,6 +192,7 @@ std::string LoaderSettings::serialize() const {
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
+    s += "home_start = " + home_start + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += std::string("nand_non_games = ") + (nand_non_games ? "on" : "off") + "\n";
     s += "theme = " + theme + "\n";
@@ -308,6 +311,39 @@ bool parse_cios_choice(const std::string& s, int& slot) {
     if (n < kFirstGameCios || n > kLastGameCios) return false;
     slot = n;
     return true;
+}
+
+HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool last_game_listed) {
+    if (player_moved) return HomeStartAction::KeepTile;
+    // Focused again after each part, as the games that join in may put it on
+    // another page; the player has not moved, so nothing is taken from them.
+    if (start_on == "last" && last_game_listed) return HomeStartAction::LastGame;
+    // First page, or the last game is in no part (removed): the first tile.
+    return HomeStartAction::FirstTile;
+}
+
+int home_start_focus(const HomeStartPart& part, bool& decided) {
+    const int count = static_cast<int>(part.identities.size());
+    int last_index = -1;
+    if (!part.last_game_key.empty()) {
+        for (int i = 0; i < static_cast<int>(part.keys.size()) && last_index < 0; ++i)
+            if (part.keys[static_cast<std::size_t>(i)] == part.last_game_key) last_index = i;
+    }
+    const bool moved = part.player_moved || part.already_decided;
+    int focus = 0;
+    switch (home_start_action(part.start_on, moved, last_index >= 0)) {
+    case HomeStartAction::KeepTile: {
+        int at = -1;
+        for (int i = 0; i < count && at < 0 && !part.focused_identity.empty(); ++i)
+            if (part.identities[static_cast<std::size_t>(i)] == part.focused_identity) at = i;
+        focus = at >= 0 ? at : std::min(part.index_before, std::max(0, count - 1));
+        break;
+    }
+    case HomeStartAction::LastGame: focus = last_index; break;
+    case HomeStartAction::FirstTile: focus = 0; break;
+    }
+    decided = moved || part.last_part;  // always assigned: a stale value cannot leak through
+    return focus;
 }
 
 LoaderSettings settings_after_reset(const LoaderSettings& before) {

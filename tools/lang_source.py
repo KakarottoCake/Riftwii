@@ -1749,6 +1749,31 @@ T = {
         "ホームの並び順",
         "Ordem do Início",
         "Ordine della Home"),
+    "Home starts on": (
+        "Inicio se abre en",
+        "ホームの起動時",
+        "Início abre em",
+        "Home si apre su"),
+    "Home starts on: {1}": (
+        "Inicio se abre en: {1}",
+        "ホームの起動時: {1}",
+        "Início abre em: {1}",
+        "Home si apre su: {1}"),
+    "First page": (
+        "Primera página",
+        "最初のページ",
+        "Primeira página",
+        "Prima pagina"),
+    "Last game": (
+        "Último juego",
+        "最後のゲーム",
+        "Último jogo",
+        "Ultimo gioco"),
+    "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.": (
+        "Último juego: Inicio se abre en la página del último juego que jugaste en cuanto se ha leído su unidad, salvo que ya hayas pulsado un botón o movido el stick. Primera página: Inicio se abre en la página 1.",
+        "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームのページで開きます。すでにボタンを押したりスティックを動かしたりした場合は動きません。最初のページ: ホームは1ページ目で開きます。",
+        "Último jogo: o Início abre na página do último jogo que você jogou assim que a unidade dele for lida, a menos que você já tenha apertado um botão ou movido o analógico. Primeira página: o Início abre na página 1.",
+        "Ultimo gioco: la Home si apre sulla pagina dell'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non abbia già premuto un pulsante o mosso lo stick. Prima pagina: la Home si apre sulla pagina 1."),
     "Its values": (
         "Sus valores",
         "値",
@@ -3681,6 +3706,16 @@ KO = {
         "도움말",
     "Home order":
         "홈 정렬 순서",
+    "Home starts on":
+        "홈 시작 위치",
+    "Home starts on: {1}":
+        "홈 시작 위치: {1}",
+    "First page":
+        "첫 페이지",
+    "Last game":
+        "마지막 게임",
+    "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.":
+        "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임의 페이지에서 열립니다. 이미 버튼을 눌렀거나 스틱을 움직였다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다.",
     "Its values":
         "값",
     "Its values could not be found in the file.":
@@ -5114,6 +5149,16 @@ FR = {
         "Aide",
     "Home order":
         "Ordre de l'accueil",
+    "Home starts on":
+        "Accueil s'ouvre sur",
+    "Home starts on: {1}":
+        "Accueil s'ouvre sur : {1}",
+    "First page":
+        "Première page",
+    "Last game":
+        "Dernier jeu",
+    "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.":
+        "Dernier jeu : l'accueil s'ouvre sur la page du dernier jeu lancé dès que son stockage a été lu, sauf si vous avez déjà appuyé sur un bouton ou bougé le stick. Première page : l'accueil s'ouvre sur la page 1.",
     "Its values":
         "Ses valeurs",
     "Its values could not be found in the file.":

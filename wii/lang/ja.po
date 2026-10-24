@@ -2076,6 +2076,21 @@ msgstr "ヘルプ"
 msgid "Home order"
 msgstr "ホームの並び順"
 
+msgid "Home starts on"
+msgstr "ホームの起動時"
+
+msgid "Home starts on: {1}"
+msgstr "ホームの起動時: {1}"
+
+msgid "First page"
+msgstr "最初のページ"
+
+msgid "Last game"
+msgstr "最後のゲーム"
+
+msgid "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
+msgstr "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームのページで開きます。すでにボタンを押したりスティックを動かしたりした場合は動きません。最初のページ: ホームは1ページ目で開きます。"
+
 msgid "Its values"
 msgstr "値"
 

@@ -2251,6 +2251,167 @@ void TestHistory() {
 
 }  // namespace
 
+// Settings > Home starts on, and where Home puts the focus while the drives
+// are read (include/riftwii/settingsfile.hpp).
+static HomeStartPart start_part(const std::string& start_on, const std::vector<std::string>& games, bool disc_tile,
+                                const std::string& last_key) {
+    HomeStartPart part;
+    part.start_on = start_on;
+    part.last_game_key = last_key;
+    if (disc_tile) {
+        part.identities.push_back("disc");
+        part.keys.push_back("");
+    }
+    for (const std::string& g : games) {
+        part.identities.push_back("sd:" + g);
+        part.keys.push_back(g);
+    }
+    return part;
+}
+
+void TestHomeStart() {
+    // The setting: Last game by default, an unknown value keeps what was set.
+    LoaderSettings s;
+    EXPECT_EQ(s.home_start, "last");
+    s.parse("home_start = first\n");
+    EXPECT_EQ(s.home_start, "first");
+    EXPECT_TRUE(s.serialize().find("home_start = first\n") != std::string::npos);
+    s.parse("home_start = middle\n");
+    EXPECT_EQ(s.home_start, "first");
+    LoaderSettings reloaded;
+    reloaded.parse(s.serialize());
+    EXPECT_EQ(reloaded.home_start, "first");
+    EXPECT_EQ(settings_after_reset(reloaded).home_start, "last");
+
+    // The action.
+    EXPECT_TRUE(home_start_action("last", false, true) == HomeStartAction::LastGame);
+    EXPECT_TRUE(home_start_action("last", false, false) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action("first", false, true) == HomeStartAction::FirstTile);
+    EXPECT_TRUE(home_start_action("last", true, true) == HomeStartAction::KeepTile);
+    EXPECT_TRUE(home_start_action("first", true, false) == HomeStartAction::KeepTile);
+
+    // Last game, the SD card's part lacks it and the USB drive's part (however
+    // late) has it: Home stays on tile 0 until then, and goes there.
+    std::vector<std::string> sd = {"AAAA01", "CCCC01", "EEEE01"};
+    bool decided = false;
+    HomeStartPart part = start_part("last", sd, true, "DDDD01");
+    part.focused_identity = "disc";
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(!decided);
+    std::vector<std::string> both = {"AAAA01", "CCCC01", "DDDD01", "EEEE01"};
+    part = start_part("last", both, true, "DDDD01");
+    part.focused_identity = "disc";
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 3);  // the Disc drive tile, then A C D
+    EXPECT_TRUE(decided);
+
+    // The last game in the first part, a later part sorts games in before it:
+    // it is focused again, still undecided.
+    decided = false;
+    part = start_part("last", {"CCCC01", "DDDD01"}, false, "DDDD01");
+    EXPECT_EQ(home_start_focus(part, decided), 1);
+    EXPECT_TRUE(!decided);
+    part = start_part("last", {"AAAA01", "BBBB01", "CCCC01", "DDDD01"}, false, "DDDD01");
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 3);
+    EXPECT_TRUE(decided);
+
+    // The last game is in no part (removed): tile 0, decided with the last part.
+    decided = false;
+    part = start_part("last", sd, false, "ZZZZ01");
+    part.last_part = true;
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(decided);
+
+    // The last game is missing from this part (not the last), and the player
+    // has moved: their tile is kept and the decision is final, though more
+    // parts may follow.
+    decided = false;
+    part = start_part("last", sd, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 2);  // disc, A, C
+    EXPECT_TRUE(decided);
+
+    // No history at all.
+    decided = false;
+    part = start_part("last", sd, true, "");
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+
+    // First page: tile 0 whatever joins in, the last game is not looked for.
+    decided = false;
+    part = start_part("first", both, true, "DDDD01");
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 0);
+    EXPECT_TRUE(!decided);
+
+    // A player who moved keeps their tile, wherever the new games put it, and
+    // is never moved again (the Disc tile and the last game do not matter).
+    decided = false;
+    part = start_part("last", both, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:EEEE01";
+    EXPECT_EQ(home_start_focus(part, decided), 4);
+    EXPECT_TRUE(decided);
+    part = start_part("first", both, true, "DDDD01");
+    part.player_moved = true;
+    part.focused_identity = "sd:AAAA01";
+    EXPECT_EQ(home_start_focus(part, decided), 1);
+    // Their tile is gone (a search or view changed under it): the same place.
+    part.focused_identity = "sd:GONE01";
+    part.index_before = 9;
+    EXPECT_EQ(home_start_focus(part, decided), 4);  // clamped to the last tile
+
+    // An action of the player's (a view change, a search, Settings) ended it.
+    decided = false;
+    part = start_part("last", both, true, "DDDD01");
+    part.already_decided = true;
+    part.focused_identity = "sd:CCCC01";
+    EXPECT_EQ(home_start_focus(part, decided), 2);
+    EXPECT_TRUE(decided);
+}
+
+void TestPlayerActed() {
+    // What counts as input: a button, or a stick past its dead zone. The
+    // pointer moving is neither (it presses no button and pushes no stick).
+    EXPECT_TRUE(!counts_as_player_action(0, false));
+    EXPECT_TRUE(counts_as_player_action(0x0100, false));  // any button bit
+    EXPECT_TRUE(counts_as_player_action(0, true));        // the stick
+    EXPECT_TRUE(counts_as_player_action(0x8000, true));
+
+    // The flag is told about input only. A hover or the menu's own focus never
+    // reaches it, so it stays down until a button or the stick is seen.
+    PlayerActed acted;
+    EXPECT_TRUE(!acted.acted());
+    for (int frame = 0; frame < 100; ++frame) acted.see(counts_as_player_action(0, false));
+    EXPECT_TRUE(!acted.acted());
+    acted.see(counts_as_player_action(0x0008, false));
+    EXPECT_TRUE(acted.acted());
+    acted.see(counts_as_player_action(0, false));  // and stays, away and back
+    EXPECT_TRUE(acted.acted());
+
+    // A stick resting past the dead zone from the first frame (a worn pad, an
+    // idle GamePad) never counts; one that crosses it does, each time.
+    StickEdge worn;
+    PlayerActed idle;
+    for (int frame = 0; frame < 100; ++frame) idle.see(counts_as_player_action(0, worn.crossed(true)));
+    EXPECT_TRUE(!idle.acted());
+    StickEdge pad;
+    EXPECT_TRUE(!pad.crossed(false));
+    EXPECT_TRUE(pad.crossed(true));    // pushed out
+    EXPECT_TRUE(!pad.crossed(true));   // held
+    EXPECT_TRUE(!pad.crossed(false));  // let go
+    EXPECT_TRUE(pad.crossed(true));    // pushed again
+
+    // The stick alone sets it; so do the player's other actions.
+    PlayerActed stick;
+    stick.see(counts_as_player_action(0, true));
+    EXPECT_TRUE(stick.acted());
+    PlayerActed marked;
+    marked.mark();
+    EXPECT_TRUE(marked.acted());
+}
+
 int main() {
     TestPlayLogRecord();
     TestReturnTo();
@@ -2272,6 +2433,8 @@ int main() {
     TestGameLanguage();
     TestWfc();
     TestCoverArt();
+    TestHomeStart();
+    TestPlayerActed();
     TestCoverDownloads();
     TestLang();
     TestHistory();
