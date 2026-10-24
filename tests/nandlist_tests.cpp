@@ -367,7 +367,36 @@ void test_long_name_no_overread() {
 
 }  // namespace
 
+void test_parse_checked() {
+    std::size_t bytes = 0;
+    std::vector<char> list = sized_buffer(3, bytes);
+    pack_entries(list, {"alpha", "beta", "gamma"});
+    std::vector<std::string> names;
+    EXPECT_TRUE(parse_nand_list_checked(list.data(), bytes, 3, 3, names) == NandParse::Ok);
+    EXPECT_EQ(names.size(), std::size_t(3));
+    EXPECT_EQ(names[0], std::string("alpha"));
+    EXPECT_EQ(names[1], std::string("beta"));
+    EXPECT_EQ(names[2], std::string("gamma"));
+    // More back than the buffer was sized for is Bad.
+    names.assign(1, std::string("old"));
+    EXPECT_TRUE(parse_nand_list_checked(list.data(), bytes, 2, 3, names) == NandParse::Bad);
+    EXPECT_TRUE(names.empty());
+    // The last entry running into the end with no NUL is Bad.
+    const char raw[] = {'a', 'b', '\0', 'c', 'd'};
+    names.assign(1, std::string("old"));
+    EXPECT_TRUE(parse_nand_list_checked(raw, sizeof(raw), 2, 2, names) == NandParse::Bad);
+    EXPECT_TRUE(names.empty());
+    // Thirteen characters are Bad.
+    std::size_t one_bytes = 0;
+    std::vector<char> one = sized_buffer(1, one_bytes);
+    pack_entries(one, {"1234567890123"});
+    names.assign(1, std::string("old"));
+    EXPECT_TRUE(parse_nand_list_checked(one.data(), one_bytes, 1, 1, names) == NandParse::Bad);
+    EXPECT_TRUE(names.empty());
+}
+
 int main() {
+    test_parse_checked();
     test_counts();
     test_rounding();
     test_normal_list();

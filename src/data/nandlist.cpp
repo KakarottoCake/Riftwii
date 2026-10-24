@@ -21,13 +21,13 @@ bool nand_list_bytes(std::uint32_t count, std::size_t& bytes) {
     return true;
 }
 
-bool parse_nand_list(const char* list, std::size_t list_bytes, std::uint32_t asked, std::uint32_t got,
-                     std::vector<std::string>& names) {
+NandParse parse_nand_list_checked(const char* list, std::size_t list_bytes, std::uint32_t asked, std::uint32_t got,
+                                  std::vector<std::string>& names) {
     names.clear();
     // The second read must not report more than the buffer was sized for.
-    if (got > asked) return false;
-    if (got == 0) return true;
-    if (list == nullptr) return false;
+    if (got > asked) return NandParse::Bad;
+    if (got == 0) return NandParse::Ok;
+    if (list == nullptr) return NandParse::Bad;
     std::size_t at = 0;
     for (std::uint32_t i = 0; i < got; ++i) {
         // Each entry ends with a NUL within kNandNameMax characters.
@@ -35,24 +35,29 @@ bool parse_nand_list(const char* list, std::size_t list_bytes, std::uint32_t ask
         for (;;) {
             if (at + len >= list_bytes) {
                 names.clear();
-                return false;
+                return NandParse::Bad;
             }
             if (list[at + len] == '\0') break;
             ++len;
             if (len > kNandNameMax) {
                 names.clear();
-                return false;
+                return NandParse::Bad;
             }
         }
         if (len != 0) {
             if (!try_push_back(names, std::string(list + at, len))) {
                 names.clear();
-                return false;
+                return NandParse::NoRoom;
             }
         }
         at += len + 1;
     }
-    return true;
+    return NandParse::Ok;
+}
+
+bool parse_nand_list(const char* list, std::size_t list_bytes, std::uint32_t asked, std::uint32_t got,
+                     std::vector<std::string>& names) {
+    return parse_nand_list_checked(list, list_bytes, asked, got, names) == NandParse::Ok;
 }
 
 NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFree release,
@@ -86,10 +91,11 @@ NandList list_nand_with(NandReadDir read_dir, void* ctx, NandAlloc alloc, NandFr
         count = asked;
         return NandList::Damaged;
     }
-    if (!parse_nand_list(list, bytes, asked, got, names)) {
+    const NandParse parsed = parse_nand_list_checked(list, bytes, asked, got, names);
+    if (parsed != NandParse::Ok) {
         release(block);
         count = asked;
-        return NandList::Damaged;
+        return parsed == NandParse::NoRoom ? NandList::NoRoom : NandList::Damaged;
     }
     release(block);
     count = asked;
