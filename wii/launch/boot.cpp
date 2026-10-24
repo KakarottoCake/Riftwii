@@ -3477,7 +3477,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
-    bool refused_identify = false;
+    // How many IOSes reached ES_Identify and were refused: the ES wording
+    // of the error only when every one tried was.
+    std::size_t identify_refusals = 0;
     // Whether the game runs in d2x's NAND emulation (not just asked for).
     bool emulated = false;
     // After d2x let go of the card: libfat and boot.log back on it, as
@@ -3568,7 +3570,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
              files.game_id.c_str(), result);
         note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
                      " refused ES_Identify (" + std::to_string(result) + ")");
-        refused_identify = true;
+        ++identify_refusals;
         // The next try reloads IOS, which ends the FAT module with whatever
         // it still holds in its file system cache. It is told to unmount
         // first (0xF1), so it writes that out while it still runs and the
@@ -3589,8 +3591,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     if (!identified) {
         // What each IOS said, so a NAND emulation that never came on is
         // not reported as ES refusing the title.
-        error = refused_identify ? "ES would not run it as its own title on any IOS tried"
-                                 : "it could not be started on any IOS tried";
+        const bool all_refused = !files.ios_order.empty() && identify_refusals == files.ios_order.size();
+        error = all_refused ? "ES would not run it as its own title on any IOS tried"
+                            : "it could not be started on any IOS tried";
         if (!attempts.empty()) error += " (" + attempts + ")";
         // The card back for the failure's log, unless d2x still has it.
         if (!card && !sd_held_by_d2x_fat() && fatMountSimple("sd", sd_interface())) LogReopen();
