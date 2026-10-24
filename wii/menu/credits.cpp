@@ -71,6 +71,9 @@ const char* const kCredits[] = {
     "WiiLink WFC, wfc-patcher-wii (GPL-2.0-or-later): WiiLink online play. Online communications credit "
     "to WiiLink WFC, wfc.wiilink.ca.",
     "",
+    "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
+    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md).",
+    "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
     "for its emulated NAND.",
     "",
