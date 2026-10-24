@@ -51,6 +51,9 @@ enum IpcCommand { kIpcOpen = 1, kIpcClose, kIpcRead, kIpcWrite, kIpcSeek, kIpcIo
 struct IpcApi {
     std::uint32_t async[8] = {};  // indexed by IpcCommand (0 unused); 0 = not in the game
     std::uint32_t sync[8] = {};
+    // The submit routine every one of them hands its block to (with the
+    // callback in r4): one place that sees each request the game makes.
+    std::uint32_t submit = 0;
 };
 
 bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, IpcApi& out, std::string& error);
@@ -139,5 +142,20 @@ std::uint32_t find_gc_si_probe(const std::vector<CodeRange>& text, std::uint32_t
 // functions match.
 bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
                               std::uint32_t& out, std::string& error);
+
+// The SDK's OSReturnToMenu(): the game's own way to the Wii Menu, the one
+// the HOME Menu's "Wii Menu" button takes. It shuts the game down as the
+// SDK means it to and ends in the System Menu's launch, which
+// patch_return_to (riftwii/returnto.hpp) points at the RiftWii channel.
+// Release builds keep its panic text (the misspelling is the SDK's): the
+// one function whose code builds that string's address, as
+// find_unhandled_exception reads them, is OSReturnToMenu. __OSReturnToMenu
+// has its own text, which only ends the same way. Found in Super Smash
+// Bros. Brawl, Mario Kart Wii, Naruto: Clash of Ninja Revolution 3 and
+// Kamen Rider: Super Climax Heroes (SDKs from 2007 to 2010). 0 with
+// `error` when no or several functions use it.
+inline constexpr const char* kOsReturnToMenuText = "OSReturnToMenu(): Falied to boot system menu.\n";
+bool find_os_return_to_menu(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
+                            std::uint32_t& out, std::string& error);
 
 }  // namespace riftwii
