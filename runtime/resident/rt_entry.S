@@ -212,10 +212,13 @@ rt_complete_fs:
 
 /* OSRestart(resetCode)'s first word goes here: the runtime writes the
  * launch request and leaves for the RiftWii channel (rt_reset_on_os_restart,
- * rt_hook.c), which does not return. When it does (it could not), the
- * function runs from its replay slot (its displaced first word, then the
- * jump back to its second, loader-filled), every register as the caller
- * left it. Frame: 0 back chain, 4 LR, 8 r3. */
+ * rt_hook.c). When it hands back the game's OSReturnToMenu, interrupts go
+ * on (as the HOME Menu's Wii Menu button has them) and OSReturnToMenu takes
+ * over as if the game had called it, never to return. When it hands back 0
+ * (the channel could not be started), the function runs from its replay
+ * slot (its displaced first word, then the jump back to its second,
+ * loader-filled), every register as the caller left it. Frame: 0 back
+ * chain, 4 LR, 8 r3. */
     .globl rt_reset_os_restart
 rt_reset_os_restart:
     stwu 1, -0x20(1)
@@ -226,11 +229,18 @@ rt_reset_os_restart:
 9:  mflr 3
     addi 3, 3, rt_context_data - 9b
     bl rt_reset_on_os_restart
+    mr 12, 3
     lwz 3, 0x08(1)
     lwz 0, 0x24(1)
     mtlr 0
     addi 1, 1, 0x20
-    b rt_reset_os_restart_replay
+    cmpwi 12, 0
+    beq rt_reset_os_restart_replay
+    mfmsr 11
+    ori 11, 11, 0x8000
+    mtmsr 11
+    mtctr 12
+    bctr
 
     .balign 16
     .globl rt_reset_os_restart_replay

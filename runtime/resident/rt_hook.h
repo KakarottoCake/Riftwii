@@ -685,6 +685,11 @@ struct rt_restart {
     uint32_t written;      /* requests written to the card */
     uint32_t refused;      /* requests undone: the write or the launch was refused */
     uint32_t last_result;  /* the last IOS result that was not a success */
+    /* The game's OSReturnToMenu, set by the loader only when Return to
+     * RiftWii points its __OSLaunchMenu at the same channel; 0: the channel
+     * is launched directly. Leaving that way, the game shuts its devices
+     * down first, as the HOME Menu's Wii Menu button has it do. */
+    uint32_t return_to_menu;
 };
 
 struct rt_context {
@@ -796,9 +801,11 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
                        uintptr_t* callback, uintptr_t* user_data);
 
 /* The game called OSRestart (rt_entry.S's rt_reset_os_restart calls this):
- * the request is written and the RiftWii channel started. Returns only
- * when that was not possible, and the game's own restart then goes on. */
-void rt_reset_on_os_restart(struct rt_context* ctx);
+ * the request is written and the RiftWii channel started. Returns the
+ * game's OSReturnToMenu, which rt_entry.S then jumps to with interrupts on
+ * (it does not return), or 0 when the channel could not be started and the
+ * game's own restart goes on. */
+uint32_t rt_reset_on_os_restart(struct rt_context* ctx);
 
 /* Exposed for the host tests. */
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);
