@@ -4903,6 +4903,8 @@ static int MenuSource(FrontendState& state)
 				case riftwii::wii::HomebrewExit::WiiMenu:
 					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."));
 					break;
+				case riftwii::wii::HomebrewExit::NotSaid:
+					break;
 				}
 				const int choice = ShowPopup(tr("Start {1}?", {FlatCapped(app.name, 40)}), about, tr("Start"), tr("Cancel"));
 				if (choice != 0) {

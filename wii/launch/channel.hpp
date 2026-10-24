@@ -58,8 +58,9 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
 // started RiftWii (its stub is at 0x80001800), to the Wii Menu when the
 // Wii Menu button is set to it, otherwise back to RiftWii (the return
 // stub). An app that loads over the stub also goes to the Wii Menu; only
-// starting it tells.
-enum class HomebrewExit { RiftWii, HomebrewChannel, WiiMenu };
+// starting it tells. NotSaid: back to RiftWii is set but the RiftWii
+// channel is not installed, so the stub's first title is not known yet.
+enum class HomebrewExit { RiftWii, HomebrewChannel, WiiMenu, NotSaid };
 HomebrewExit HomebrewExitGoesTo();
 
 }  // namespace riftwii::wii
