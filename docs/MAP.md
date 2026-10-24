@@ -134,6 +134,7 @@ The build compiles every folder into one, so no two files share a name.
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
+| `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
 | `menumusic.cpp` | The background music: theme/card Ogg or the selected Wii Menu source |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
 | `themesounds.cpp` | Playback-time theme WAV replacements, then the selected Wii Menu sounds |
@@ -303,6 +304,7 @@ document it.
 | `http` | HTTP GET and POST |
 | `update` | The update check |
 | `riifs`, `riifs_sync` | The RiiFS client and its mirror |
+| `riitag` | RiiTag: Wiinnertag.xml, the launch URL, the tag picture's URL for a Discord ID and its fit to the menu |
 
 ### `src/art/`: pictures: the canvas, PNG, QR codes, themes, covers
 

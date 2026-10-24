@@ -125,6 +125,7 @@
 #include "modplan.hpp"
 #include "restart.hpp"
 #include "riitagsend.hpp"
+#include "riitagview.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/textlines.hpp"
@@ -11540,6 +11541,130 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 	return activeDeleted;
 }
 
+// ---------------------------------------------------------------------------
+// My RiiTag (Settings > Online): the player's tag, the picture
+// riitag.t0g3pii.de draws for riitag_id in settings.txt, downloaded each
+// visit (wii/menu/riitagview.hpp). A downloads it again.
+
+// What the My RiiTag row says, and why it does nothing when it can't.
+static std::string RiiTagNote(const riftwii::LoaderSettings& settings)
+{
+	if (!settings.online) return tr("Downloads are off. Turn on Download names and cheats first.");
+	if (settings.riitag_id.empty())
+		return tr("Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).");
+	return tr("Shows your RiiTag, downloaded from riitag.t0g3pii.de.");
+}
+
+// The tag at its own shape: kRiiTagShownWidth x kRiiTagShownHeight is
+// 1200 x 450's 8:3, and the menu's units are square on a 4:3 and a 16:9
+// menu alike (a wide menu is wider, not stretched: Menu_SafeArea).
+class RiiTagPicture : public GuiElement {
+public:
+	static constexpr int kX = (640 - riftwii::kRiiTagShownWidth) / 2, kY = 80;
+	void Draw() override
+	{
+		const int w = riftwii::kRiiTagShownWidth, h = riftwii::kRiiTagShownHeight;
+		skin::DrawNine(skin::card9, kX - 4, kY - 4, w + 8, h + 8, 12);
+		const u8* tex = riftwii::wii::riitag::Texture();
+		if (tex) {
+			Menu_DrawImg(kX, kY, static_cast<u16>(w), static_cast<u16>(h), const_cast<u8*>(tex), 0, 1, 1, 255);
+			return;
+		}
+		Menu_DrawRectangle(kX, kY, w, h, skin::WithAlpha(skin::kInkDim, 40), 1);
+	}
+};
+
+static void MenuRiiTag(const std::string& discordId)
+{
+	namespace riitag = riftwii::wii::riitag;
+	std::string openError;
+	if (!riitag::Open(openError)) {
+		logf("RiiTag: %s\n", openError.c_str());
+		// The caller left the GUI running: a popup is built with it halted.
+		HaltGui();
+		ShowPopup(tr("My RiiTag"), tr("There is not enough free memory to show your tag."), tr("OK"));
+		return;
+	}
+
+	GuiText titleTxt(tr("My RiiTag"), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconOnline);
+	RiiTagPicture picture;
+	GuiText pictureTxt(tr("Downloading your tag..."), 16, skin::kInkDim);
+	pictureTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	pictureTxt.SetPosition(0, RiiTagPicture::kY + riftwii::kRiiTagShownHeight / 2 - 10);
+	NoteCard noteCard;
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	const int promptRefresh = prompts.Add("A", tr("Refresh"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&picture);
+	w.Append(&pictureTxt);
+	w.Append(&noteCard);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	const std::string about = tr("Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.");
+	noteTxt.SetText(about.c_str());
+	// Asked again each turn until the network's thread is free.
+	bool startAsked = true;
+	riitag::TagState shownState = riitag::TagState::Idle;
+	bool done = false;
+	while (!done) {
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		if (startAsked && riitag::Start(discordId)) startAsked = false;
+
+		std::string error;
+		const riitag::TagState state = riitag::Status(error);
+		if (state != shownState) {
+			shownState = state;
+			if (state == riitag::TagState::Ready) {
+				pictureTxt.SetText("");
+				noteTxt.SetText(about.c_str());
+			} else if (state == riitag::TagState::Failed) {
+				pictureTxt.SetText(tr("No tag to show"));
+				noteTxt.SetText(tr("Your tag could not be downloaded: {1}. Press A to try again.", {FlatCapped(error, 120)}).c_str());
+			} else if (state == riitag::TagState::Loading) {
+				pictureTxt.SetText(tr("Downloading your tag..."));
+			}
+		}
+
+		bool refresh = false;
+		for (int i = 0; i < 4; ++i) {
+			const bool a = (userInput[i].wpad && (userInput[i].wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) ||
+				(userInput[i].pad.btns_d & PAD_BUTTON_A);
+			if (a) refresh = true;
+		}
+		const int pressed = prompts.GetClicked();
+		if (pressed == promptBack) backBtn.PressSilently();
+		if (pressed >= 0 && pressed == promptRefresh) refresh = true;
+		if (backBtn.Clicked()) done = true;
+		else if (refresh && state != riitag::TagState::Loading) startAsked = true;
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	// The page's windows are off the screen; its memory goes back.
+	riitag::Close();
+}
+
 // One section of Settings (the hub's tile): its rows only. `backToHub`:
 // left with Back, for the hub (any other way out goes where it says).
 static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
@@ -11566,7 +11691,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -11755,6 +11880,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		covers.dim = !settings.online;
 		rows.push_back(covers);
 		actions.push_back(kMissingCovers);
+		FlowRow tag;
+		tag.kind = FlowRow::Kind::Action;
+		tag.label = tr("My RiiTag");
+		tag.value = tr("Show");
+		tag.dim = !settings.online || settings.riitag_id.empty();
+		rows.push_back(tag);
+		actions.push_back(kRiiTag);
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -11841,7 +11973,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -11962,6 +12094,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
+			case kRiiTag: return RiiTagNote(settings);
 			case kMissingCovers: return tr("Downloads the covers, boxes and 3D covers Home does not have yet from GameTDB. A game GameTDB has no picture for stays without one.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
@@ -12388,6 +12521,23 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					note(settings.menu_font == runningFont ? tr("This is the font on screen now.")
 						: tr("The menu restarts to show it when you leave Settings."));
+					break;
+				}
+				case kRiiTag: {
+					if (!settings.online || settings.riitag_id.empty()) {
+						note(RiiTagNote(settings));
+						break;
+					}
+					// The scan reads the card and the network the page uses.
+					WaitForDriveScan(noteTxt);
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					ResumeGui();
+					MenuRiiTag(settings.riitag_id);
+					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					note(RiiTagNote(settings));
 					break;
 				}
 				case kNetTest: {
