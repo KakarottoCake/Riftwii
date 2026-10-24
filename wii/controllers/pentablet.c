@@ -67,24 +67,41 @@ static int tb_ntablets, tb_nothers;
 static bool tb_probe_unsure; /* a descriptor couldn't be read or parsed */
 
 static tb_info tb_dev;
-static hidp_desc tb_desc;
 static hidp_pen tb_pen;
 static u8 tb_ep;
 static u16 tb_max_packet;
 
 static tb_sample tb_state;
-static tb_sample tb_queue[QUEUE];
 static volatile u32 tb_head, tb_tail;
 static mutex_t tb_lock = LWP_MUTEX_NULL;
 
 static tb_stats tb_st;
 static lwp_t tb_thread = LWP_THREAD_NULL;
-static u8 tb_stack[STACKSIZE] ATTRIBUTE_ALIGN(32);
 
-/* DMA buffers.  Static: a transfer that never completes may still land in
- * them after the device is gone. */
-static u8 tb_ctl[RDESC_MAX] ATTRIBUTE_ALIGN(32);
-static u8 tb_intr[2][INTR_MAX] ATTRIBUTE_ALIGN(32);
+/* The large buffers: the worker's stack, the DMA buffers, the descriptors
+ * and the sample queue.  One block, taken by the first TB_Init from the
+ * allocator TB_SetAlloc names (MEM2 in RiftWii) and never given back: a
+ * stuck worker still runs on the stack, and a transfer that never completes
+ * may still land in the DMA buffers after the device is gone. */
+typedef struct {
+	u8 stack[STACKSIZE] ATTRIBUTE_ALIGN(32);
+	u8 ctl[RDESC_MAX] ATTRIBUTE_ALIGN(32);
+	u8 intr[2][INTR_MAX] ATTRIBUTE_ALIGN(32);
+	u8 cfg[CFG_MAX];
+	u8 rdesc[RDESC_MAX];      /* a report descriptor being read */
+	hidp_desc desc;           /* the pen interface's */
+	hidp_desc touch_desc;     /* the touch interface's, while it is probed */
+	tb_sample queue[QUEUE];
+} tb_mem_t;
+
+static tb_mem_t *tb_mem;
+static void *(*tb_alloc)(u32 bytes);
+
+#define tb_stack (tb_mem->stack)
+#define tb_ctl   (tb_mem->ctl)
+#define tb_intr  (tb_mem->intr)
+#define tb_desc  (tb_mem->desc)
+#define tb_queue (tb_mem->queue)
 
 /* The touch surface of a Bamboo Pen & Touch: a second interface, sending
  * Wacom's fixed touch packets and the tablet's keys. */
@@ -96,6 +113,8 @@ static int (*tb_logger)(const char *fmt, ...);
 #define tb_log(...) (tb_logger ? (void)tb_logger(__VA_ARGS__) : (void)0)
 
 void TB_SetLog(int (*print)(const char *fmt, ...)) { tb_logger = print; }
+
+void TB_SetAlloc(void *(*alloc)(u32 bytes)) { tb_alloc = alloc; }
 
 typedef struct {
 	volatile bool done;
@@ -159,6 +178,9 @@ static s32 tb_ctrl(u8 type, u8 req, u16 val, u16 idx, u16 len, void *data, int m
 {
 	s32 ret;
 
+	/* A transfer that timed out earlier has since completed: tb_ctl is free. */
+	if (tb_ctl_x.pending && tb_ctl_x.done)
+		tb_ctl_x.pending = false;
 	if (len > sizeof(tb_ctl) || tb_ctl_x.pending)
 		return TB_ESTATE;
 
@@ -340,7 +362,7 @@ static void switch_mode(const tb_iface *ifc)
  * tablet's pen interface.  Fills tb_desc and tb_pen when it is. */
 static bool probe_iface(const tb_iface *ifc)
 {
-	static u8 rdesc[RDESC_MAX];
+	u8 *rdesc = tb_mem->rdesc;
 	u16 len = ifc->rdesc_len;
 	s32 ret;
 
@@ -376,8 +398,8 @@ static bool probe_iface(const tb_iface *ifc)
  * packets on first-generation Pen & Touch tablets, 64-byte on later ones. */
 static void find_touch(const tb_iface *ifc)
 {
-	static hidp_desc d;
-	static u8 rdesc[RDESC_MAX];
+	hidp_desc *d = &tb_mem->touch_desc;
+	u8 *rdesc = tb_mem->rdesc;
 	u16 len = ifc->rdesc_len && ifc->rdesc_len <= RDESC_MAX ? ifc->rdesc_len : RDESC_MAX;
 	s32 ret;
 	int i;
@@ -391,9 +413,9 @@ static void find_touch(const tb_iface *ifc)
 
 	ret = tb_ctrl(REQTYPE_STD_IF_IN, USB_REQ_GETDESCRIPTOR, USB_DT_REPORT << 8,
 	              ifc->number, len, rdesc, 500);
-	if (ret > 0 && hidp_parse(rdesc, (u32)(ret > len ? len : ret), &d))
-		for (i = 0; i < d.nfields; i++) {
-			const hidp_field *f = &d.fields[i];
+	if (ret > 0 && hidp_parse(rdesc, (u32)(ret > len ? len : ret), d))
+		for (i = 0; i < d->nfields; i++) {
+			const hidp_field *f = &d->fields[i];
 
 			if (f->type != HIDP_INPUT || f->app == HIDP_GD_MOUSE ||
 			    f->logical_max <= 0)
@@ -414,7 +436,7 @@ static void find_touch(const tb_iface *ifc)
 /* With a device open, decides whether it is a tablet and sets it up. */
 static bool probe_device(u16 vid, u16 pid)
 {
-	static u8 cfg[CFG_MAX];
+	u8 *cfg = tb_mem->cfg;
 	tb_iface ifaces[MAX_IFACES];
 	u8 dev[18];
 	u16 total;
@@ -1182,6 +1204,12 @@ s32 TB_Init(void)
 	if (tb_running)
 		return TB_OK;
 
+	if (!tb_mem) {
+		tb_mem = tb_alloc ? tb_alloc(sizeof(*tb_mem)) : memalign(32, sizeof(*tb_mem));
+		if (!tb_mem)
+			return TB_ENOMEM;
+		memset(tb_mem, 0, sizeof(*tb_mem));
+	}
 	if (tb_lock == LWP_MUTEX_NULL)
 		LWP_MutexInit(&tb_lock, false);
 	USB_Initialize();

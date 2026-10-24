@@ -99,6 +99,10 @@ typedef struct {
 /* Where the device scan and errors go, e.g. TB_SetLog(printf). */
 void TB_SetLog(int (*print)(const char *fmt, ...));
 
+/* Where TB_Init takes its buffers from (about 46 KB, 32-byte aligned, kept
+ * for good); memalign when none is named. */
+void TB_SetAlloc(void *(*alloc)(u32 bytes));
+
 /* Starts the thread that finds and reads the tablet.  Calls USB_Initialize
  * itself.  Not finding a tablet is not an error: it is picked up whenever one
  * is plugged in.  A uDraw needs WPAD_Init, not this, but is read through the

@@ -15,6 +15,7 @@
 #include "libwiigui/gui.h"
 #include "log.hpp"
 #include "pentablet.h"
+#include "skin.hpp"
 #include "video.h"
 
 namespace riftwii::wii {
@@ -24,6 +25,9 @@ constexpr int kChannels = 4;
 // A Remote's pointer moving this far (menu units) takes the pointer back
 // from the mouse or the tablet, as it does from a pad (input.cpp kRemoteMove).
 constexpr float kRemoteMove = 40.0f;
+// A hovering pen moving this far (menu units) takes the pointer; less is
+// the pen's jitter.
+constexpr float kPenMove = 4.0f;
 
 bool g_allowed = false;  // UsbInputMenuAllowStart
 bool g_ended = false;    // UsbInputMenuEnd
@@ -53,6 +57,8 @@ bool g_anchored = false;             // where the Remote pointed when the USB po
 float g_anchor_x = 0, g_anchor_y = 0;
 u8 g_mouse_buttons = 0;              // held last frame
 u8 g_tablet_buttons = 0;             // the USB tablet's, held last frame
+bool g_pen_was_near = false;         // the USB tablet's pen in range last frame
+float g_pen_x = 0, g_pen_y = 0;      // where the pen last took or moved the pointer
 
 // The uDraws, per Wii Remote channel: the latest sample, and its buttons
 // last frame.
@@ -75,6 +81,9 @@ int TabletLog(const char* format, ...) {
     return 0;
 }
 
+// The tablet driver's buffers, in MEM2: MEM1 is the heap's.
+void* TabletAlloc(u32 bytes) { return skin::Mem2Alloc(bytes); }
+
 void Start() {
     g_started = true;
     if (UsbKeyboardStart()) logf("USB keyboard: looking for one\n");
@@ -83,6 +92,7 @@ void Start() {
     g_mouse_started = MOUSE_Init() >= 0;
     if (!g_mouse_started) logf("USB mouse: libogc's driver did not start\n");
     TB_SetLog(TabletLog);
+    TB_SetAlloc(TabletAlloc);
     g_tablet_started = TB_Init() == TB_OK;
     if (!g_tablet_started) logf("Pen tablet: its thread did not start\n");
 }
@@ -247,11 +257,25 @@ void MouseAndTablet() {
     }
     const bool mouse_used = dx || dy || (buttons & ~g_mouse_buttons);
     const bool pen_near = g_tablet_seen && g_tablet.in_range;
+    // The pen takes the pointer when it comes into range, moves or presses,
+    // not while it only hovers, so a Remote can take it back from a still pen.
+    bool pen_used = false;
+    if (pen_near) {
+        float px, py;
+        TabletPoint(g_tablet, px, py);
+        pen_used = !g_pen_was_near || std::hypot(px - g_pen_x, py - g_pen_y) > kPenMove ||
+                   (g_tablet.buttons & ~g_tablet_buttons);
+        if (pen_used) {
+            g_pen_x = px;
+            g_pen_y = py;
+        }
+    }
+    g_pen_was_near = pen_near;
 
     if (g_owner != Owner::None && OtherControlUsed(w)) g_owner = Owner::None;
-    if (pen_near) Take(Owner::Tablet, w);
+    if (pen_used) Take(Owner::Tablet, w);
     else if (mouse_used) Take(Owner::Mouse, w);
-    else if (g_owner == Owner::Tablet) g_owner = Owner::None;  // the pen went away
+    else if (g_owner == Owner::Tablet && !pen_near) g_owner = Owner::None;  // the pen went away
 
     // A wheel notch away from the player is a page back, as on a computer.
     g_pages += wheel;
@@ -308,6 +332,7 @@ void UsbInputStop() {
     g_owner = Owner::None;
     g_keyboard_held = 0;
     g_mouse_buttons = g_tablet_buttons = 0;
+    g_pen_was_near = false;
     g_tablet_seen = false;
     for (int c = 0; c < kChannels; ++c) {
         g_udraw_seen[c] = false;
