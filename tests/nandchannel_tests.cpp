@@ -546,7 +546,30 @@ void test_unlisted_verdict() {
     EXPECT_EQ(forwarder_app_path(nullptr, 0), std::string());
 }
 
+void test_channel_bi2() {
+    DolHeader program;
+    program.sections[0] = {0x100, 0x80004000, 0x500000};
+    program.bss_address = 0x80504000;
+    program.bss_size = 0x100000;
+    EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0x817FE000u);
+
+    // The reserved region is above both the live loader and the game's
+    // BSS, including a BSS which reaches exactly to its lower boundary.
+    program.bss_address = 0x817FC000;
+    program.bss_size = 0x2000;
+    EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0x817FE000u);
+    program.bss_size += 1;
+    EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0u);
+    program.bss_size = 0;
+    EXPECT_EQ(channel_bi2_address(program, 0x817FE001), 0u);
+
+    // A section reaching into the region must never be zeroed for BI2.
+    program.sections[1] = {0x500100, 0x817FE000, 32};
+    EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0u);
+}
+
 int main() {
+    test_channel_bi2();
     test_extras_floor();
     test_codes();
     test_classify();
