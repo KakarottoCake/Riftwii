@@ -1133,10 +1133,13 @@ def test_forced_save_timeout(layout):
     print("Forced exit save never replies: one save attempt, bounded drain, dirty/error record retained, private ES reached")
 
 
-def prepare_returning_leave(machine, failed_save):
+def prepare_returning_leave(machine, failed_save, card_saves=False):
+    """A leave that comes back to the game: the save fails (`failed_save`),
+    or ES refuses the launch. `card_saves` also gives the refused-ES case a
+    dirty card that writes, so the successful flush runs too."""
     machine.put("leave_buf", 0x90070000)
     machine.put("leave_fd", 5)
-    if failed_save:
+    if failed_save or card_saves:
         card = 0x90040000
         machine.put("card", card)
         for name, value in {"image": 0x90080000, "run_count": 1, "dirty_count": 1}.items():
@@ -1144,7 +1147,7 @@ def prepare_returning_leave(machine, failed_save):
         machine.uc.mem_write(card + machine.layout["card.runs"], struct.pack(">3I", 0, 300, 1))
         machine.uc.mem_write(card + machine.layout["card.dirty"], b"\x01")
         machine.uc.mem_write(0x90080000, b"S" * 512)
-        machine.sd_write_result = -5
+        machine.sd_write_result = -5 if failed_save else 0
 
 
 def press_leave(machine, reset=False):
@@ -1240,7 +1243,7 @@ def test_leave_audio(layout):
         for dma_running in (True, False):
             for stream_playing in (True, False):
                 machine = Machine(layout)
-                prepare_returning_leave(machine, failed_save)
+                prepare_returning_leave(machine, failed_save, card_saves=True)
                 original_dma = 0x0123 | (0x8000 if dma_running else 0)
                 original_stream = 0x5E | int(stream_playing)
                 machine.uc.mem_write(dma_control, struct.pack(">H", original_dma))
@@ -1290,11 +1293,12 @@ def test_leave_audio(layout):
                 assert sum(address == stream_control for address, _, _ in writes) == (
                     2 if stream_playing else 0)
                 # A failed save returns from the flush itself: the card stays
-                # dirty and the ES launch is never sent. The refused-ES case
-                # does send it, so both restore paths are really taken.
+                # dirty and the ES launch is never sent. In the refused-ES case
+                # the card's save goes through (silently) and the launch is
+                # sent, so both restore paths are really taken.
                 assert any(fd == 5 for _, fd in machine.sends) == (not failed_save)
-                if failed_save:
-                    assert machine.get_object(machine.get("card"), "card", "dirty_count") == 1
+                dirty = machine.get_object(machine.get("card"), "card", "dirty_count")
+                assert dirty == (1 if failed_save else 0)
     print("Leaving silences DMA and streaming before save/trace/ES; failed saves and refused ES "
           "restore running and stopped states without clearing the AI interrupt or sample counter")
 
