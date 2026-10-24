@@ -133,6 +133,9 @@ int scan(const char* path) {
             std::printf("hook 0x%08x\n", found.hooks[i]);
         } else if (found.partial[i] != 0) {
             std::printf("not hooked, placed at 0x%08x\n", found.partial[i]);
+        } else if (found.blocks != 0 && found.probe_ex_absent &&
+                   std::string(gc_exi_function_name(i)) == "EXIProbeEx") {  // gc_card.h is the runtime's, not ours
+            std::printf("absent (accepted: no EXIProbeEx in this %s)\n", found.old_sdk ? "layout" : "SDK");
         } else {
             std::printf("MISSING\n");
         }
