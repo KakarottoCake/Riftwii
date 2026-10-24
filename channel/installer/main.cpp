@@ -31,7 +31,11 @@ constexpr const char* kLogPath = "sd:/riftwii/channel.log";
 GXRModeObj* g_mode;
 void* g_xfb;
 bool g_sd;
-int g_cios;  // the d2x slot this runs under, 0 if none
+int g_cios;  // the cIOS slot this runs under, 0 if none
+// Whether g_cios was read and found to be d2x. False after the fallback
+// that tries slots by ticket when no slot could be read: the install is
+// still offered there, but the screen doesn't claim a d2x.
+bool g_cios_identified;
 
 void video_init() {
     VIDEO_Init();
@@ -76,6 +80,7 @@ bool reload_cios(int slot, const riftwii::D2xInfo& info) {
         return false;
     }
     g_cios = slot;
+    g_cios_identified = info.d2x;
     installer::Log("The installer is running on IOS%d revision %d.\n", IOS_GetVersion(), IOS_GetRevision());
     return true;
 }
@@ -172,7 +177,8 @@ void screen(const std::string& status, const std::string& note) {
     else if (installed < ours) std::printf("\x1b[33mversion %u (this installer has %u)\x1b[37m\n", installed, ours);
     else std::printf("\x1b[32minstalled\x1b[37m (version %u)\n", installed);
     const char* console = installer::OnVWii() ? "Wii U (vWii)" : "Wii";
-    if (g_cios) std::printf("  Running on:   %s, IOS%d (d2x cIOS)\n\n", console, g_cios);
+    if (g_cios && g_cios_identified) std::printf("  Running on:   %s, IOS%d (d2x cIOS)\n\n", console, g_cios);
+    else if (g_cios) std::printf("  Running on:   %s, IOS%d (cIOS, not checked for d2x)\n\n", console, g_cios);
     else std::printf("  Running on:   %s, IOS%d\n\n", console, IOS_GetVersion());
     if (!status.empty()) std::printf("  %s\n\n", status.c_str());
     else std::printf("\n\n");
