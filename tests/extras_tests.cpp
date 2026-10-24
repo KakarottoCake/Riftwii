@@ -16,6 +16,7 @@
 #include "riftwii/wfcpatch.hpp"
 #include "riftwii/videopatch.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -1733,6 +1734,121 @@ void TestHeadlessArguments() {
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "xml=../ctgp.xml"}, h, error));
 }
 
+// A Wii game's own Reset names the cIOS its launch ran on when the request
+// leaves the choice to RiftWii: the restart starts without the menu, and on
+// a Wii U with the GameCube adapter Automatic chose IOS251 only from what
+// the menu saw (a Wii U, Kamen Rider: Super Climax Heroes from the SD card:
+// the restart came back on IOS249, the adapter off).
+void TestPinLaunchCios() {
+    HeadlessLaunch h;
+    h.game = "SKHJAF";
+    h.from = "sd";
+    h.path = "sd:/wbfs/Kamen Rider [SKHJAF]/SKHJAF.wbfs";
+    h.choices = "SKHJAF.txt";
+    h.packs_given = true;
+    h.xmls = {"krsch_gcpad.xml"};
+    h.gct = "sd:/codes/SKHJAF.gct";
+    h.reset = true;
+    // No cios key (the game's setting is the global one): one is added,
+    // before the keys that end a request, and reads back.
+    std::vector<std::string> args = headless_launch_arguments(h);
+    EXPECT_TRUE(pin_launch_cios(args, 251));
+    HeadlessLaunch back;
+    std::string error;
+    EXPECT_TRUE(parse_headless_launch(args, back, error));
+    EXPECT_EQ(back.settings.cios, std::string("251"));
+    EXPECT_EQ(back.gct, h.gct);
+    EXPECT_TRUE(back.reset);
+    EXPECT_EQ(args.back(), std::string("reset=1"));
+    EXPECT_TRUE(std::find(args.begin(), args.end(), std::string("cios=251")) + 3 == args.end());  // then gct, reset
+    // Once is enough: the request now names it.
+    EXPECT_FALSE(pin_launch_cios(args, 251));
+    // "auto" becomes the slot.
+    h.settings.cios = "auto";
+    args = headless_launch_arguments(h);
+    EXPECT_TRUE(pin_launch_cios(args, 249));
+    EXPECT_TRUE(parse_headless_launch(args, back, error));
+    EXPECT_EQ(back.settings.cios, std::string("249"));
+    // A slot the player chose stays.
+    h.settings.cios = "250";
+    args = headless_launch_arguments(h);
+    const std::vector<std::string> chosen = args;
+    EXPECT_FALSE(pin_launch_cios(args, 251));
+    EXPECT_TRUE(args == chosen);
+    // Not a cIOS a launch can name: IOS 58 (a disc game, the adapter's IOS)
+    // or a slot outside 248 ... 252.
+    h.settings.cios = "global";
+    args = headless_launch_arguments(h);
+    const std::vector<std::string> plain = args;
+    EXPECT_FALSE(pin_launch_cios(args, 58));
+    EXPECT_FALSE(pin_launch_cios(args, 236));
+    EXPECT_FALSE(pin_launch_cios(args, 253));
+    EXPECT_TRUE(args == plain);
+    // A request with nothing after the settings still gets it at the end.
+    std::vector<std::string> bare = {"--launch", "game=RMCE01", "from=usb"};
+    EXPECT_TRUE(pin_launch_cios(bare, 248));
+    EXPECT_EQ(bare.back(), std::string("cios=248"));
+}
+
+// The Reset request's two sectors with the cIOS pinned, and a request that
+// fits only without the extra line: it keeps its packs and leaves the cIOS
+// to the restart, rather than losing the Reset hook (CodeRabbit on #225).
+void TestRestartRequestSectors() {
+    constexpr std::size_t kSector = 512;
+    std::vector<std::uint8_t> armed;
+    std::vector<std::uint8_t> idle;
+    RestartCios cios = RestartCios::Unchanged;
+    std::string why;
+    auto text_of = [](const std::vector<std::uint8_t>& sector) {
+        return std::string(reinterpret_cast<const char*>(sector.data()));
+    };
+
+    // An ordinary request: pinned, in both sectors.
+    const std::vector<std::string> ordinary = {"--launch", "game=SKHJAF", "from=sd", "xml=krsch_gcpad.xml", "reset=1"};
+    EXPECT_TRUE(restart_request_sectors(ordinary, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Pinned);
+    EXPECT_EQ(armed.size(), kSector);
+    EXPECT_TRUE(text_of(armed).find("cios=251\n") != std::string::npos);
+    EXPECT_TRUE(text_of(armed).compare(0, 9, "--launch\n") == 0);
+    EXPECT_TRUE(text_of(idle).compare(0, 9, "--idle--\n") == 0);
+    EXPECT_TRUE(text_of(idle).find("cios=251\n") != std::string::npos);
+
+    // A request that already names a slot, or a launch on IOS 58: unchanged.
+    std::vector<std::string> chosen = ordinary;
+    chosen.insert(chosen.end() - 1, "cios=250");
+    EXPECT_TRUE(restart_request_sectors(chosen, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Unchanged);
+    EXPECT_TRUE(text_of(armed).find("cios=250\n") != std::string::npos);
+    EXPECT_TRUE(restart_request_sectors(ordinary, 58, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::Unchanged);
+    EXPECT_TRUE(text_of(armed).find("cios=") == std::string::npos);
+
+    // Grown to 505 bytes of text: fits a sector, but not with "cios=251\n"
+    // (9 more). The request goes as it was, the packs kept.
+    std::vector<std::string> near_full = ordinary;
+    std::string path = "path=sd:/wbfs/";
+    near_full.insert(near_full.begin() + 3, path);
+    auto text_bytes = [](const std::vector<std::string>& args) {
+        std::size_t n = 0;
+        for (const std::string& a : args) n += a.size() + 1;
+        return n;
+    };
+    while (text_bytes(near_full) < 505) near_full[3] += "x";
+    EXPECT_EQ(text_bytes(near_full), static_cast<std::size_t>(505));
+    EXPECT_TRUE(restart_request_sectors(near_full, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(cios == RestartCios::DidNotFit);
+    EXPECT_TRUE(text_of(armed).find("cios=") == std::string::npos);
+    EXPECT_TRUE(text_of(armed).find("xml=krsch_gcpad.xml\n") != std::string::npos);
+    EXPECT_TRUE(text_of(idle).compare(0, 9, "--idle--\n") == 0);
+
+    // Too long even without it: refused, as launch_request_sector refuses it.
+    std::vector<std::string> too_long = near_full;
+    too_long[3] += std::string(20, 'y');
+    why.clear();
+    EXPECT_FALSE(restart_request_sectors(too_long, 251, kSector, armed, idle, cios, why));
+    EXPECT_TRUE(!why.empty());
+}
+
 // A Wii game's own Reset (docs/HEADLESS.md): the launch RiftWii leaves for
 // itself, written by headless_launch_arguments and read back by the same
 // parser every other launch goes through.
@@ -2301,6 +2417,8 @@ int main() {
     TestReturnTo();
     TestHeadlessArguments();
     TestResetRequest();
+    TestPinLaunchCios();
+    TestRestartRequestSectors();
     TestFriivolutionArguments();
     TestHttp();
     TestReleaseAssetObjects();

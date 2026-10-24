@@ -292,6 +292,10 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * failed command waits before the next one goes out. */
 #define RT_SD_CARD_WAITS 65536u        /* null round trips a command waits for the card at most */
 #define RT_SD_BACKOFF_TICKS 121500u    /* 2 ms of time base: the pause after a failure (then 8, 32, 128, 512 ms) */
+/* rt_fs_state.wrote while a save write's command is with IOS, from the hand
+ * over to its answer: the pad hook's way back (runtime/rtleave.h,
+ * RTLEAVE_RESIDENT_WITH_IOS) never leaves then, however long IOS takes. */
+#define RT_FS_WRITE_WITH_IOS 2u
 #define RT_FS_GATE_TRANSFER 1u         /* rt_fs_state.gate: the transfer goes out after the wait */
 #define RT_FS_GATE_STATUS 2u           /* the wait's CMD13 goes out after the wait */
 
@@ -498,8 +502,9 @@ struct rt_fs_state {
     uint32_t cardlog_writing;      /* the engine is writing the log (its own failures are not noted) */
     uint32_t cardlog_errors;       /* the log's own writes that failed; RT_CARDLOG_MAX_ERRORS stop it */
     uint32_t last_status;          /* the last CMD13's R1 status */
-    uint32_t last_write;           /* time base when a save write last completed */
-    uint32_t wrote;                /* a save write has completed (last_write is valid) */
+    uint32_t last_write;           /* time base of a save write's last step (out, programming, retry pause, done) */
+    uint32_t wrote;                /* 0 none yet; 1 a save write has gone out (last_write is valid);
+                                    * RT_FS_WRITE_WITH_IOS while one's command is with IOS */
     uint32_t card_wanted;          /* a savegame command waits for the card: mod reads hold back */
     uint32_t gate;                 /* RT_FS_GATE_*: what the FILE record's null round trip in flight is waiting to send */
     uint32_t gate_polls;           /* null round trips the command has waited so far */
@@ -680,6 +685,11 @@ struct rt_restart {
     uint32_t written;      /* requests written to the card */
     uint32_t refused;      /* requests undone: the write or the launch was refused */
     uint32_t last_result;  /* the last IOS result that was not a success */
+    /* The game's OSReturnToMenu, set by the loader only when Return to
+     * RiftWii points its __OSLaunchMenu at the same channel; 0: the channel
+     * is launched directly. Leaving that way, the game shuts its devices
+     * down first, as the HOME Menu's Wii Menu button has it do. */
+    uint32_t return_to_menu;
 };
 
 struct rt_context {
@@ -791,9 +801,11 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
                        uintptr_t* callback, uintptr_t* user_data);
 
 /* The game called OSRestart (rt_entry.S's rt_reset_os_restart calls this):
- * the request is written and the RiftWii channel started. Returns only
- * when that was not possible, and the game's own restart then goes on. */
-void rt_reset_on_os_restart(struct rt_context* ctx);
+ * the request is written and the RiftWii channel started. Returns the
+ * game's OSReturnToMenu, which rt_entry.S then jumps to with interrupts on
+ * (it does not return), or 0 when the channel could not be started and the
+ * game's own restart goes on. */
+uint32_t rt_reset_on_os_restart(struct rt_context* ctx);
 
 /* Exposed for the host tests. */
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);
