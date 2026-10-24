@@ -194,4 +194,12 @@ bool ios_has_usb_keyboard(int ios);
 std::vector<int> keyboard_slots_first(const std::vector<int>& order, const std::vector<D2xSlot>& slots,
                                       bool sd_card);
 
+// Keep the existing automatic choices first, then try every other installed
+// d2x slot with a readable base. Extras are nearest to requested_ios by base
+// number, with slot number breaking ties; without a requested IOS, by slot.
+// The caller supplies only allowed d2x slots, never other cIOS families.
+// Unknown bases add nothing, so consoles without AHBPROT keep their order.
+std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const std::vector<D2xSlot>& slots,
+                                      int requested_ios);
+
 }  // namespace riftwii

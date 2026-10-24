@@ -1769,9 +1769,12 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
         order = keyboard_slots_first(order, d2x_slots(), game.device == ImageDevice::Sd || uses_sd);
         std::string list;
         for (int slot : order) list += (list.empty() ? "" : ", ") + std::to_string(slot);
-        logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: tried in the order %s\n",
+        logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: preferred slots %s\n",
              game.id.c_str(), list.c_str());
     }
+    // Adapter, per-game, conventional and keyboard choices keep their
+    // precedence. Only the remaining known d2x slots extend that order.
+    if (!running_in_dolphin()) order = append_d2x_fallbacks(order, d2x_slots(), game.required_ios);
     return order;
 }
 
