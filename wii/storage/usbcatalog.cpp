@@ -1854,16 +1854,15 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     // Dolphin has no cIOS slots by design; warning there would be noise.
     if (!running_in_dolphin()) {
         logf("USB: checking cIOS slots\n");
-        // A drive whose Wii games are all RVZ launches them through the SD
-        // card (image_cios_order), so only SD-capable extras count.
-        bool wii_games = false;
-        bool all_rvz = true;
+        // RVZ games and GameCube games launch through the SD card
+        // (image_cios_order; gclaunch passes uses_sd), so a drive holding
+        // only those counts only SD-capable extras. One WBFS or ISO Wii
+        // game can use any base.
+        bool every_game_reads_sd = !out.games.empty();
         for (const ImageGame& game : out.games) {
-            if (game.gamecube) continue;
-            wii_games = true;
-            if (game.format != UsbImageFormat::Rvz) all_rvz = false;
+            if (!game.gamecube && game.format != UsbImageFormat::Rvz) every_game_reads_sd = false;
         }
-        const std::vector<CiosSlotState> slots = readiness_slots(wii_games && all_rvz);
+        const std::vector<CiosSlotState> slots = readiness_slots(every_game_reads_sd);
         out.cios_note = cios_readiness_note(slots.data(), slots.size());
         if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
     }
