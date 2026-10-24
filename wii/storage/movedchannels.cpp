@@ -33,6 +33,11 @@ constexpr const char* kBootMiiKeys = "sd:/keys.bin";
 constexpr const char* kStagedList = "sd:/riftwii/staged_channels.txt";
 constexpr std::size_t kMaxKeysBytes = 0x400;
 constexpr std::size_t kMaxStagedListBytes = 64 * 1024;
+// The FS attribute byte of each content file staging creates. ES makes the
+// ones it installs (the Wii Menu moving a channel back among them) with 0,
+// so a file with this one is RiftWii's copy: the cleanup removes no other,
+// whatever the list on the card names.
+constexpr u8 kStagedAttribute = 0x52;
 
 using AlignedBuffer = std::unique_ptr<u8, decltype(&std::free)>;
 AlignedBuffer aligned(std::size_t bytes) {
@@ -92,6 +97,17 @@ s64 nand_file_size(const std::string& path) {
     const s64 size = ISFS_GetFileStats(fd, &stats) < 0 ? -1 : static_cast<s64>(stats.file_length);
     ISFS_Close(fd);
     return size;
+}
+
+// Whether the NAND file is a copy staging made (kStagedAttribute). 1 when
+// it is, 0 when it is another's, -106 when it is not there, else an error.
+s32 staged_by_riftwii(const std::string& path) {
+    u32 owner = 0;
+    u16 group = 0;
+    u8 attribute = 0, owner_perm = 0, group_perm = 0, other_perm = 0;
+    const s32 result = ISFS_GetAttr(isfs_path(path), &owner, &group, &attribute, &owner_perm, &group_perm, &other_perm);
+    if (result < 0) return result;
+    return attribute == kStagedAttribute ? 1 : 0;
 }
 
 // False when the list could not be written: the file must then not be
@@ -172,7 +188,11 @@ bool MovedChannel::open(const std::string& path, std::uint64_t title_id, std::st
         if (error.empty()) error = path + " could not be read";
         return false;
     }
-    std::vector<std::uint8_t> tmd_bytes(static_cast<std::size_t>(layout.tmd_size));
+    std::vector<std::uint8_t> tmd_bytes;
+    if (!try_resize(tmd_bytes, static_cast<std::size_t>(layout.tmd_size))) {
+        error = "out of memory for " + path;
+        return false;
+    }
     if (!read_at(file_, layout.tmd_offset, tmd_bytes.data(), tmd_bytes.size()) ||
         !parse_tmd_contents(tmd_bytes.data(), tmd_bytes.size(), tmd_, error)) {
         if (error.empty()) error = "its TMD could not be read";
@@ -333,13 +353,21 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
     for (const TmdContent& c : missing) {
         if (!ok) break;
         const std::string to = nand_content_path(title_id, c.id);
+        // A short copy from an interrupted start is replaced; any other
+        // file there (another version of the content) is not RiftWii's to
+        // remove.
+        if (nand_file_size(to) >= 0 && staged_by_riftwii(to) != 1) {
+            error = to + " is on the Wii already at another size, and it is not a copy RiftWii made";
+            ok = false;
+            break;
+        }
         if (!append_staged(to)) {
             error = std::string(kStagedList) + " could not be written (is the card locked or full?)";
             ok = false;
             break;
         }
-        ISFS_Delete(isfs_path(to));  // a short copy from an interrupted start
-        s32 result = ISFS_CreateFile(isfs_path(to), 0, ISFS_OPEN_RW, ISFS_OPEN_RW, ISFS_OPEN_READ);
+        ISFS_Delete(isfs_path(to));
+        s32 result = ISFS_CreateFile(isfs_path(to), kStagedAttribute, ISFS_OPEN_RW, ISFS_OPEN_RW, ISFS_OPEN_READ);
         // Undone from here on, even when it cannot be opened.
         if (result >= 0) written.push_back(to);
         const s32 fd = result < 0 ? result : ISFS_Open(isfs_path(to), ISFS_OPEN_WRITE);
@@ -401,6 +429,7 @@ void UnstageMovedChannels() {
     std::uint64_t open_title = 0;
     bool tried = false;
     std::unique_ptr<MovedChannel> moved;
+    bool on_card = false;
     for (const std::string& path : paths) {
         std::uint64_t title_id = 0;
         std::uint32_t content_id = 0;
@@ -412,20 +441,42 @@ void UnstageMovedChannels() {
             ++kept;
             continue;
         }
+        // Only RiftWii's own copies: not a file ES installed, which the list
+        // on the card cannot vouch for.
+        const s32 ours = staged_by_riftwii(path);
+        if (ours == -106) {  // already gone
+            ++removed;
+            continue;
+        }
+        if (ours == 0) {
+            ++kept;
+            continue;
+        }
+        if (ours < 0) {
+            left.push_back(path);
+            continue;
+        }
         if (!tried || title_id != open_title) {
             tried = true;
             open_title = title_id;
             moved.reset(new (std::nothrow) MovedChannel());
             const std::string file = moved_channel_file(channel_code(title_id));
+            on_card = !file.empty();
             std::string why;
-            if (moved && (file.empty() || !moved->open(file, title_id, why))) moved.reset();
+            if (moved && (!on_card || !moved->open(file, title_id, why))) moved.reset();
+        }
+        // The card's file is there but cannot be checked now (no key, out
+        // of memory, damaged): kept in the list for the next start.
+        if (on_card && !moved) {
+            left.push_back(path);
+            continue;
         }
         if (!moved || !moved->has(content_id)) {
             ++kept;
             continue;
         }
         const s32 result = ISFS_Delete(isfs_path(path));
-        if (result >= 0 || result == -106) {  // -106: already gone
+        if (result >= 0 || result == -106) {
             ++removed;
         } else {
             left.push_back(path);
@@ -440,8 +491,8 @@ void UnstageMovedChannels() {
         std::fclose(list);
     }
     logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s%s\n", removed,
-         kept ? " (some kept: not contents RiftWii copies, or their channel is no longer on the card)" : "",
-         left.empty() ? "" : " (some could not be removed; tried again next time)");
+         kept ? " (some kept: not copies RiftWii made, or their channel is no longer on the card)" : "",
+         left.empty() ? "" : " (some could not be removed or checked; tried again next time)");
 }
 
 }  // namespace riftwii::wii

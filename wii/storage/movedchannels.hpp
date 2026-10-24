@@ -71,7 +71,9 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
 // for a moved channel, while that channel's content.bin is still on the
 // card (a channel the Wii Menu has since moved back keeps its files).
 // Only exact content paths of channel titles are taken from the list, and
-// it keeps the ones that could not be removed for the next start.
+// only files staging made (marked by their FS attribute), so a file ES
+// installed is never removed. The ones that could not be removed, or whose
+// content.bin could not be checked, stay listed for the next start.
 void UnstageMovedChannels();
 
 }  // namespace riftwii::wii
