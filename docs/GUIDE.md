@@ -837,8 +837,9 @@ experiment: if the game then fails to read its disc, go back to
 from [issue #4](https://github.com/KakarottoCake/Riftwii/issues/4) has been
 lifted. The USB-drive restrictions above still apply in **Automatic**.
 Wii RVZ games with the adapter still need testing from both SD and USB.
-If the runtime and adapter cannot fit together, the launch stops and the
-log says why. Games without GameCube controller support
+If the adapter does not fit beside the RVZ reader, the game starts without
+the adapter, as any other game would, and the log says why; only an RVZ
+reader that cannot be installed stops the launch. Games without GameCube controller support
 ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
