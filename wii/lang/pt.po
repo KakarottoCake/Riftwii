@@ -2076,6 +2076,21 @@ msgstr "Ajuda"
 msgid "Home order"
 msgstr "Ordem do Início"
 
+msgid "Home starts on"
+msgstr "Início abre em"
+
+msgid "Home starts on: {1}"
+msgstr "Início abre em: {1}"
+
+msgid "First page"
+msgstr "Primeira página"
+
+msgid "Last game"
+msgstr "Último jogo"
+
+msgid "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
+msgstr "Último jogo: o Início abre na página do último jogo que você jogou assim que a unidade dele for lida, a menos que você já tenha apertado um botão ou movido o analógico. Primeira página: o Início abre na página 1."
+
 msgid "Its values"
 msgstr "Seus valores"
 
@@ -2252,9 +2267,6 @@ msgstr "Atualize o canal do RiftWii"
 
 msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated."
 msgstr "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela mostra cada passo ao iniciar e um erro em vez de travar. O RiftWii não pode ser usado até o canal ser atualizado."
-
-msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
-msgstr "O canal continua na versão {1} depois do instalador, então o instalador do seu cartão SD é antigo. Copie apps/riftwii_channel do zip mais recente do RiftWii para o cartão e atualize de novo."
 
 msgid "The installer opens, then brings you back here."
 msgstr "O instalador abre e depois traz você de volta aqui."
@@ -3212,3 +3224,24 @@ msgstr "Marque primeiro os saves que quer trazer."
 
 msgid "Nintendont saves brought"
 msgstr "Saves do Nintendont trazidos"
+
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "O instalador foi executado, mas o canal ainda está na versão {1}."
+
+msgid "The channel installer ({1}) is missing or damaged"
+msgstr "O instalador do canal ({1}) está ausente ou danificado"
+
+msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
+msgstr "O RiftWii abriu o instalador e não viu ele terminar. Um relatório do problema com sd:/riftwii/channel.log ajuda."
+
+msgid "The channel installer could not be opened: {1}."
+msgstr "Não foi possível abrir o instalador do canal: {1}."
+
+msgid "the SD card would not save a note before the installer (is it locked?)"
+msgstr "o cartão SD não salvou a nota antes do instalador (está bloqueado?)"
+
+msgid "RiftWii can't leave a note on the SD card, so if the installer hangs the next start won't know"
+msgstr "O RiftWii não pode deixar uma nota no cartão SD, então o próximo início não saberá se o instalador travar"
+
+msgid "Open anyway"
+msgstr "Abrir mesmo assim"

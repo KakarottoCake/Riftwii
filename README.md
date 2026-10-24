@@ -122,6 +122,10 @@ contains theirs names them in its file header, and
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
   **oggplayer** by Hermes: the menu's toolkit, text and music player.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
+- **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
+  application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
+  boot context and SD mount lifetime also follow the behavior documented by
+  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md).
 - **d2x cIOS**: the USB and SD game loading interface.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;

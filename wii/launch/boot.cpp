@@ -4,6 +4,7 @@
 // SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
 // SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
+// SPDX-FileCopyrightText: WiiFlow contributors <https://github.com/Fledge68/WiiFlow_Lite>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
 #include "progress.hpp"
@@ -830,7 +831,7 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 
 // Return to RiftWii, below with the play log.
 u64 return_title();
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
 
@@ -1314,12 +1315,28 @@ void prepare_restart_request(const BootOptions& options) {
              "is what starts RiftWii again\n");
         return;
     }
+    // The restart starts without the menu, so the cIOS this launch runs on
+    // is named in the request when the choice was RiftWii's (a Wii U's
+    // GameCube adapter put IOS251 first only because the menu saw it).
+    // Only a launch that keeps the running IOS runs on it: one that
+    // reloads the game's IOS next leaves the cIOS to the restart (0 names
+    // no slot), as it did before.
     RestartRequest request;
     std::string why;
-    if (!launch_request_sector(g_extras.restart_args, true, kRestartSector, request.armed, why) ||
-        !launch_request_sector(g_extras.restart_args, false, kRestartSector, request.idle, why)) {
+    const int running_ios = IOS_GetVersion();
+    const int launch_ios = options.preserve_current_ios ? running_ios : 0;
+    RestartCios cios = RestartCios::Unchanged;
+    if (!restart_request_sectors(g_extras.restart_args, launch_ios, kRestartSector, request.armed, request.idle, cios,
+                                 why)) {
         logf("Reset: the game's own Reset restarts it without its packs: %s\n", why.c_str());
         return;
+    }
+    if (cios == RestartCios::Pinned) {
+        logf("Reset: the request names IOS%d, the cIOS this launch runs on, so the restart (which has no menu) "
+             "chooses the same\n", running_ios);
+    } else if (cios == RestartCios::DidNotFit) {
+        logf("Reset: the request leaves the cIOS to the restart: naming IOS%d would not fit its sector, so the "
+             "restart (which has no menu) may choose another\n", running_ios);
     }
     std::FILE* file = std::fopen(kRestartFile, "wb");
     bool written = file != nullptr && std::fwrite(request.idle.data(), 1, kRestartSector, file) == kRestartSector;
@@ -1414,6 +1431,22 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
     logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with its "
          "packs and choices: the request is in sector %u of the card (%s)\n", os_restart, out.request_lba,
          kRestartFile);
+    // The way to the channel: the game's own OSReturnToMenu when Return to
+    // RiftWii is patched in (decided after the patch, in boot_after_unmount),
+    // so the game shuts its devices down first; else a direct launch.
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string menu_error;
+    if (find_os_return_to_menu(text, all, out.return_to_menu, menu_error)) {
+        logf("Reset: it leaves through the game's OSReturnToMenu (0x%08x) when Return to RiftWii is patched in\n",
+             out.return_to_menu);
+    } else {
+        out.return_to_menu = 0;
+        logf("Reset: the channel is launched directly: %s\n", menu_error.c_str());
+    }
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
@@ -2593,8 +2626,23 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else if (plain_code_build) logf("WFC: not patched: a code build starts without RiftWii's extras\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
+    bool returns_to_channel = false;
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
-    else apply_return_to(loaded, return_to, return_stub);
+    else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
+    // The game's own Reset leaves through its OSReturnToMenu once that goes
+    // to the channel the request is for (rt_reset_on_os_restart).
+    if (resident.restart_hooked && restart_plan.return_to_menu != 0 && returns_to_channel &&
+        return_to == restart_plan.title) {
+        rt_context* runtime = reinterpret_cast<rt_context*>(resident.context_now);
+        runtime->restart.return_to_menu = restart_plan.return_to_menu;
+        const std::uint32_t line =
+            static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&runtime->restart.return_to_menu)) & ~31u;
+        DCFlushRange(reinterpret_cast<void*>(line), 64);
+        logf("Reset: leaves through OSReturnToMenu (0x%08x), which now starts the RiftWii channel\n",
+             restart_plan.return_to_menu);
+    } else if (resident.restart_hooked) {
+        logf("Reset: the RiftWii channel is launched directly (Return to RiftWii is not patched in for it)\n");
+    }
     install_wpad_log_last(extras);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
@@ -2886,8 +2934,9 @@ u64 return_title() {
 }
 
 // `stub`: 32 bytes of MEM1 above the game's arena.
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
-    if (title == 0) return;
+// True when the game's __OSLaunchMenu now starts `title`.
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
+    if (title == 0) return false;
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     const ReturnToReport report =
@@ -2913,6 +2962,7 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
     }
     logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
          report.describe().c_str(), d2x >= 0 ? "set" : "not available");
+    return report.patched;
 }
 
 // IOS's file system keeps the Wii Menu's files to the Wii Menu. With
@@ -3491,6 +3541,26 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         return false;
     }
 
+    // Read back ES's identity instead of inferring it from Identify's
+    // return code. Use a fresh FS handle so its permissions are those of
+    // the newly identified title, not a handle opened before Identify.
+    alignas(32) u64 active_title = 0;
+    const s32 title_result = ES_GetTitleID(&active_title);
+    alignas(32) char data_dir[ISFS_MAXPATH] = {};
+    const s32 data_result = ES_GetDataDir(files.title_id, data_dir);
+    NandCloseAll();
+    s32 data_read = data_result;
+    u32 data_entries = 0;
+    if (data_result >= 0) {
+        data_read = NandOpen();
+        if (data_read >= 0) data_read = ISFS_ReadDir(data_dir, nullptr, &data_entries);
+        NandCloseAll();
+    }
+    logf("Wii channels: ES reports title %08x-%08x (result %d, %s); data directory lookup %d, read %d.\n",
+         static_cast<unsigned>(active_title >> 32), static_cast<unsigned>(active_title), title_result,
+         title_result >= 0 && active_title == files.title_id ? "matches the game" : "does not confirm the game",
+         data_result, data_read);
+
     // Settings > GameCube adapter, with the rules a disc game gets, judged
     // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
     // base 58). An emulated NAND is d2x's to read while the game runs.
@@ -3518,8 +3588,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // The extras a disc game gets (wii/hooks): the GameCube adapter,
     // screenshots, the crash recorder and the Wii Remote log, planned the
-    // same way. A channel has no FST: its MEM1 arena runs to the top of
-    // MEM1, so their blobs are carved from that top, above this loader and
+    // same way. A channel has no FST: its BI2 goes at the top of MEM1,
+    // with the arena and blobs below it, above this loader and
     // any of the program that loads past it (channel_extras_floor). Their
     // state goes at the bottom of the MEM2 arena, as for a disc. Nothing
     // goes into low memory, where the program may start (0x80003400).
@@ -3528,21 +3598,33 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const bool gx_protected = gx_protected_game(files.game_id);
     const bool clears_mem1_top = game_clears_mem1_top(files.game_id);
     const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+    const std::uint32_t bi2_address = channel_bi2_address(dol, loader_end);
+    const std::uint32_t channel_arena_top = bi2_address != 0 ? bi2_address : kMem1End;
+    if (bi2_address != 0) {
+        // The skipped NAND boot program normally supplies BI2. Keep this
+        // replacement above the arena and every extra, outside the DOL,
+        // BSS and this loader's live memory.
+        std::memset(reinterpret_cast<void*>(bi2_address), 0, kChannelBi2Bytes);
+        DCFlushRange(reinterpret_cast<void*>(bi2_address), kChannelBi2Bytes);
+        logf("Wii channels: a zeroed BI2 is reserved at 0x%08x (%u bytes).\n", bi2_address, kChannelBi2Bytes);
+    } else {
+        logf("Wii channels: no room for BI2 above the program and loader; its pointer will be zero.\n");
+    }
     GameExtras extras;
     const bool adapter_wanted = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected && !clears_mem1_top;
     ExtrasContext extras_context;
-    extras_context.arena1_hi = kMem1End;
+    extras_context.arena1_hi = channel_arena_top;
     extras_context.arena2_lo = read32(0x80003124);
     extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
     extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, extras.pad);
     extras_context.gx_protected = gx_protected;
     extras_context.clears_mem1_top = clears_mem1_top;
     plan_game_extras(dol, extras_context, extras);
-    const std::uint32_t arena1_top = extras.arena1_hi(kMem1End);
+    const std::uint32_t arena1_top = extras.arena1_hi(channel_arena_top);
     const std::uint32_t arena2_low = extras.arena2_lo(extras_context.arena2_lo);
     logf("Wii channels: the game's MEM1 arena ends at 0x%08x, the extras taking %u KB above it (they may use "
          "0x%08x-0x%08x); its MEM2 arena starts at 0x%08x, the extras taking %u KB below it\n",
-         arena1_top, whole_kb(kMem1End - arena1_top), extras_context.mem1_floor, kMem1End, arena2_low,
+         arena1_top, whole_kb(channel_arena_top - arena1_top), extras_context.mem1_floor, channel_arena_top, arena2_low,
          whole_kb(arena2_low - extras_context.arena2_lo));
 
     // Low memory as the system leaves it for a game (as boot_after_unmount
@@ -3556,14 +3638,17 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     if (!running_in_dolphin() || mem::TestConsoleTypeAsWii()) store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));
     store32(0x800000EC, 0x81800000);  // debug monitor location
     store32(0x800000F0, 0x01800000);  // simulated memory size
+    store32(0x800000F4, bi2_address);
     store32(0x800000F8, 0x0E7BE2C0);  // bus clock
     store32(0x800000FC, 0x2B73A840);  // CPU clock
-    // The MEM1 arena runs to the top of MEM1 (there is no FST below it),
-    // or to the lowest of the extras' blobs.
+    // The MEM1 arena ends below BI2 and the lowest of the extras' blobs.
     store32(0x80000034, arena1_top);
     store32(0x80003110, arena1_top);
     std::memcpy(reinterpret_cast<void*>(0x80003180), code.data(), std::min<std::size_t>(code.size(), 4));
-    store32(0x80003184, 0x80000000);  // where the game id lives
+    // The first byte is the SDK's application type: 0x81 for a channel.
+    // The skipped channel boot program would supply this, not disc type 0x80.
+    store32(0x80003184, 0x81000000);
+    store32(0x8000318C, 0);  // ordinary NAND launch, no inherited launch code
     store32(0x80003194, 0);
     store32(0x80003198, 0);
     std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);  // libogc's exception stubs, as for a disc
@@ -3574,12 +3659,16 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // one it asked for, as a cIOS in another slot is; a tester's Liight
     // did so). Uncached and after the flush, as for a disc: 0x3140 is
     // IOS's own field.
-    if (files.required_ios != 0 && static_cast<u32>(IOS_GetVersion()) != files.required_ios) {
+    // IOS_GetVersion reads 0x3140 too: capture the actual slot before the
+    // compatibility write, or the log falsely reports an IOS reload.
+    const int channel_ios = IOS_GetVersion();
+    const int channel_ios_revision = IOS_GetRevision();
+    if (files.required_ios != 0) {
         const u32 pretended = (static_cast<u32>(files.required_ios) << 16) | (read32(0x80003140) & 0xFFFF);
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
-        logf("Wii channels: running IOS%d; reporting IOS%u to the game\n", IOS_GetVersion(),
-             static_cast<unsigned>(files.required_ios));
+        logf("Wii channels: keeping IOS%d rev %d; reporting IOS%u to the game, with channel application type 0x81.\n",
+             channel_ios, channel_ios_revision, static_cast<unsigned>(files.required_ios));
     }
     // The MEM2 arena starts above the extras' state. IOS's own field, like
     // 0x3140: uncached, after the flush.
@@ -3642,6 +3731,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // shuts down next, and the game then takes the DSP.
     LaunchMusicEnd("the game starts next");
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+    // libogc clears this field during shutdown, as in the disc path.
+    store32(0x800000F4, bi2_address);
+    DCFlushRange(reinterpret_cast<void*>(0x800000E0), 32);
     dolboot_system_call_vector();
     reinterpret_cast<void (*)()>(dol.entry)();
     error = "the game's entry point returned";

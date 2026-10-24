@@ -45,7 +45,7 @@ CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I
 ifneq ($(strip $(CHANNEL_TEST_HANG)),)
 FWTEST   := -DCHANNEL_TEST_HANG=$(CHANNEL_TEST_HANG)
 endif
-CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
+CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc -Iinclude
 # libogc's start-up IOS_Close calls go through channel/forwarder/startup.c.
 FWWRAP   := $(foreach f,IOS_Close SYS_PreMain __IOS_LoadStartupIOS,-Wl,--wrap=$(f))
 FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0x80100000 $(FWWRAP)
@@ -153,7 +153,19 @@ $(OBJDIR)/riftwii_channel_%_bin.o $(OBJDIR)/riftwii_channel_%_bin.h: $(OUT)/rift
 bearssl:
 	@$(MAKE) --no-print-directory -f Makefile.bearssl
 
-$(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp | $(OBJDIR)
+$(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp channel/installer/cios.hpp include/riftwii/d2xversion.hpp | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJDIR)/inst_cios.o: channel/installer/cios.cpp channel/installer/cios.hpp channel/installer/install.hpp include/riftwii/d2xversion.hpp include/riftwii/nandcheck.hpp | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJDIR)/inst_d2xversion.o: src/data/d2xversion.cpp include/riftwii/d2xversion.hpp | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJDIR)/inst_nandcheck.o: src/data/nandcheck.cpp include/riftwii/nandcheck.hpp | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -161,7 +173,7 @@ $(OBJDIR)/install.o: channel/installer/install.cpp channel/installer/install.hpp
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -I$(OUT) -c $< -o $@
 
-$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/riftwii_channel_vwii_bin.o $(OBJDIR)/riftwii_channel_wii_bin.o bearssl
+$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/inst_cios.o $(OBJDIR)/inst_d2xversion.o $(OBJDIR)/inst_nandcheck.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/riftwii_channel_vwii_bin.o $(OBJDIR)/riftwii_channel_wii_bin.o bearssl
 	@echo linking ... $(notdir $@)
 	@$(CXX) $(INSTLD) $(filter %.o,$^) -L$(LIBOGC_LIB) -Lbuild-bearssl -lbearssl -lwiiuse -lbte -lfat -logc -lm -o $@
 
