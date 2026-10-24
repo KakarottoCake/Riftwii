@@ -6646,6 +6646,24 @@ FR.update({
 })
 
 
+# Recovery after a channel installer that did not return.
+T.update({
+    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.": (
+        "El instalador del canal no volvió; incluye sd:/riftwii/channel.log en un informe del problema.",
+        "チャンネルのインストーラーから戻れませんでした。問題の報告にsd:/riftwii/channel.logを付けてください。",
+        "O instalador do canal não voltou; inclua sd:/riftwii/channel.log em um relatório do problema.",
+        "L'installer del canale non è tornato; includi sd:/riftwii/channel.log in una segnalazione del problema."),
+})
+KO.update({
+    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.":
+        "채널 설치 프로그램에서 돌아오지 못했습니다. 문제 보고에 sd:/riftwii/channel.log를 첨부해 주세요.",
+})
+FR.update({
+    "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report.":
+        "L'installateur de la chaîne n'est pas revenu ; joignez sd:/riftwii/channel.log à un rapport de problème.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

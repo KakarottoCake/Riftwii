@@ -3194,3 +3194,6 @@ msgstr "먼저 가져올 저장 데이터를 선택하세요."
 
 msgid "Nintendont saves brought"
 msgstr "Nintendont 저장 데이터를 가져왔습니다"
+
+msgid "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."
+msgstr "채널 설치 프로그램에서 돌아오지 못했습니다. 문제 보고에 sd:/riftwii/channel.log를 첨부해 주세요."

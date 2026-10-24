@@ -9,4 +9,5 @@
 RiftWii's Settings opens this installer too, and it goes back to RiftWii when it closes.
 
 Needs a d2x cIOS in slot 249, 250 or 251. Free software under the GPL, version 3 or later.</long_description>
+  <ahb_access/>
 </app>

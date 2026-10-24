@@ -3194,3 +3194,6 @@ msgstr "Marque primeiro os saves que quer trazer."
 
 msgid "Nintendont saves brought"
 msgstr "Saves do Nintendont trazidos"
+
+msgid "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."
+msgstr "O instalador do canal não voltou; inclua sd:/riftwii/channel.log em um relatório do problema."

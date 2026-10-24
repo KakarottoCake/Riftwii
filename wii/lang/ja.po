@@ -3194,3 +3194,6 @@ msgstr "先に持ってきたいセーブを選んでください。"
 
 msgid "Nintendont saves brought"
 msgstr "Nintendontのセーブを持ってきました"
+
+msgid "The channel installer did not return; please include sd:/riftwii/channel.log in a problem report."
+msgstr "チャンネルのインストーラーから戻れませんでした。問題の報告にsd:/riftwii/channel.logを付けてください。"
