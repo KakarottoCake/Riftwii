@@ -61,14 +61,17 @@ private:
 // it, decrypted, as the Wii Menu does before starting one; each is listed
 // in sd:/riftwii/staged_channels.txt before it is written, so
 // UnstageMovedChannels removes it again. Nothing to do for a channel that
-// was not moved. `progress` gets the fraction done. False with `error`
-// when the Wii's memory refused a file (full?) or the card's copy is
-// damaged; what this call wrote is then removed.
+// was not moved, or one the Wii has in full whatever the card's copy is.
+// `progress` gets the fraction done. False with `error` when the list on
+// the card or the Wii's memory refused a file (full?), or the card's copy
+// is damaged or not the Wii's TMD's; what this call wrote is then removed.
 bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double)>& progress, std::string& error);
 
 // At start: removes the contents an earlier session copied to the Wii
 // for a moved channel, while that channel's content.bin is still on the
 // card (a channel the Wii Menu has since moved back keeps its files).
+// Only exact content paths of channel titles are taken from the list, and
+// it keeps the ones that could not be removed for the next start.
 void UnstageMovedChannels();
 
 }  // namespace riftwii::wii

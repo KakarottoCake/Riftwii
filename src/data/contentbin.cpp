@@ -109,6 +109,41 @@ bool content_bin_places(const ContentBinLayout& layout, const TmdContents& tmd, 
     return true;
 }
 
+bool content_bin_matches_tmd(const TmdContents& moved, const TmdContents& installed, std::string& error) {
+    if (moved.title_id != installed.title_id || moved.contents.size() != installed.contents.size()) {
+        error = "its TMD is not the one the Wii has for this channel (an older or other copy of it)";
+        return false;
+    }
+    for (std::size_t i = 0; i < moved.contents.size(); ++i) {
+        const TmdContent& a = moved.contents[i];
+        const TmdContent& b = installed.contents[i];
+        if (a.id != b.id || a.index != b.index || a.type != b.type || a.size != b.size || a.sha1 != b.sha1) {
+            char text[120];
+            std::snprintf(text, sizeof text,
+                          "its content %08x is not the one the Wii's TMD has (an older or other copy of the channel)",
+                          static_cast<unsigned>(a.id));
+            error = text;
+            return false;
+        }
+    }
+    error.clear();
+    return true;
+}
+
+bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id, std::uint32_t& content_id) {
+    unsigned upper = 0, lower = 0, id = 0;
+    if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%8x.app", &upper, &lower, &id) != 3) return false;
+    bool channel_type = false;
+    for (const std::uint32_t type : kChannelTitleTypes) channel_type = channel_type || type == upper;
+    const std::uint64_t title = (std::uint64_t(upper) << 32) | lower;
+    // Only the exact path RiftWii writes: nothing after ".app", no "+",
+    // spaces or short fields that sscanf lets through.
+    if (!channel_type || nand_content_path(title, id) != path) return false;
+    title_id = title;
+    content_id = id;
+    return true;
+}
+
 bool parse_bootmii_keys(const std::uint8_t* data, std::size_t size, BackupKey& out) {
     if (data == nullptr || size < kKeysOtpOffset + kOtpBytes) return false;
     const std::uint8_t* otp = data + kKeysOtpOffset;
