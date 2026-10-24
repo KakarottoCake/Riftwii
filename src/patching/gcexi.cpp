@@ -242,14 +242,34 @@ std::uint32_t find_exi_functions_by(const Words& code, std::uint32_t index_word,
 
 }  // namespace
 
+const char* gc_exi_function_name(unsigned index) {
+    static const char* const kNames[kGcExiHooks] = {"EXIImm",    "EXIDma",     "EXISync",  "EXISelect",
+                                                    "EXIDeselect", "EXILock",  "EXIUnlock", "EXIProbe",
+                                                    "EXIProbeEx", "EXIAttach", "EXIGetID"};
+    return index < kGcExiHooks ? kNames[index] : "?";
+}
+
 GcExiFunctions find_gc_exi_functions(const std::vector<CodeRange>& text) {
     const Words code(text);
     GcExiFunctions found;
     // Try both layouts independently: unrelated game tables may have more
     // users of one stride than the EXI blocks have.
-    found.blocks = find_exi_functions_by(code, 0x54003032, found.hooks);
-    if (found.blocks == 0) found.blocks = find_exi_functions_by(code, 0x1C000038, found.hooks);
-    if (found.blocks == 0) return {};
+    std::array<std::uint32_t, kGcExiHooks> modern{};
+    found.blocks = find_exi_functions_by(code, 0x54003032, modern);
+    found.hooks = modern;
+    if (found.blocks == 0) {
+        std::array<std::uint32_t, kGcExiHooks> old_sdk{};
+        found.blocks = find_exi_functions_by(code, 0x1C000038, old_sdk);
+        found.hooks = old_sdk;
+        if (found.blocks == 0) {
+            auto count = [](const std::array<std::uint32_t, kGcExiHooks>& a) {
+                return std::count_if(a.begin(), a.end(), [](std::uint32_t x) { return x != 0; });
+            };
+            GcExiFunctions rejected;
+            rejected.partial = count(old_sdk) > count(modern) ? old_sdk : modern;
+            return rejected;
+        }
+    }
     return found;
 }
 

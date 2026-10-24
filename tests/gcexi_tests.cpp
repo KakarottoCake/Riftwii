@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "gc_card.h"
@@ -167,11 +168,25 @@ void test_missing_or_ambiguous_functions() {
     unrelated_select.expect_rejected();
 }
 
+// A rejection hooks nothing but still reports what the finder did place, for
+// the launch log.
+void test_rejection_names_what_was_missing() {
+    Sdk missing_select(false);
+    missing_select.text.put(missing_select.expected[GC_EXI_SELECT] + 16, kNop);
+    const auto found = riftwii::find_gc_exi_functions(missing_select.text.ranges());
+    EXPECT_EQ(found.blocks, 0u);
+    EXPECT_EQ(found.partial[GC_EXI_SELECT], 0u);
+    EXPECT_EQ(found.partial[GC_EXI_IMM], missing_select.expected[GC_EXI_IMM]);
+    EXPECT_EQ(found.partial[GC_EXI_LOCK], missing_select.expected[GC_EXI_LOCK]);
+    EXPECT_TRUE(std::string(riftwii::gc_exi_function_name(GC_EXI_GET_ID)) == "EXIGetID");
+}
+
 }  // namespace
 
 int main() {
     test_supported_layouts();
     test_missing_or_ambiguous_functions();
+    test_rejection_names_what_was_missing();
     EXPECT_EQ(riftwii::find_gc_exi_functions({}).blocks, 0u);
     if (g_failures != 0) return 1;
     std::cout << "gcexi tests passed" << std::endl;

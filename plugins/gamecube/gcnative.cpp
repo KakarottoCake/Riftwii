@@ -3130,6 +3130,31 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: memory card %s (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n",
              ctx->card ? "in slot A" : "off: the EXI functions were not all found", ecb, exi[GC_EXI_IMM],
              exi[GC_EXI_GET_ID]);
+        if (ctx->card == 0) {
+            // Without the hooks the game talks to the Wii's own EXI, which has
+            // no GameCube card: it reports "no card". Say which function the
+            // finder could not place (or that one starts with a branch, which
+            // the hook cannot replay), so a problem report shows the cause.
+            std::string missing;
+            std::string branching;
+            for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+                if (found_exi.partial[i] == 0) {
+                    missing += std::string(missing.empty() ? "" : ", ") + gc_exi_function_name(i);
+                }
+                const std::uint32_t at = exi[i];
+                if (at != 0 && ((code.at(at) >> 26) == 18 || (code.at(at) >> 26) == 16)) {
+                    branching += std::string(branching.empty() ? "" : ", ") + gc_exi_function_name(i);
+                }
+            }
+            if (ecb == 0) {
+                logf("GameCube: memory card: the finder could not place these EXI functions: %s\n",
+                     missing.empty() ? "none, but the set is doubtful" : missing.c_str());
+            }
+            if (!branching.empty()) {
+                logf("GameCube: memory card: these EXI functions start with a branch, which a hook cannot "
+                     "replay: %s\n", branching.c_str());
+            }
+        }
     }
     const std::uint32_t ar_dma = find_dsp_stores(code, {0xCC005020, 0xCC005022, 0xCC005024, 0xCC005026,
                                                          0xCC005028, 0xCC00502A});
