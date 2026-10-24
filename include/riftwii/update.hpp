@@ -15,7 +15,8 @@ namespace riftwii {
 
 // The release's own decoded "tag_name" (the first release's for an array answer), 1..64 bytes of
 // A-Z a-z 0-9 . _ + - (it is stored and later appended to a GitHub API URL; release tags look
-// like v2610-691). Any other byte after decoding refuses it. False, with `tag` unchanged, otherwise.
+// like v2610-691), but not "." or "..". Any other byte after decoding refuses it. False, with
+// `tag` unchanged, otherwise.
 bool release_tag_from_json(const std::string& json, std::string& tag);
 
 // A file attached to a release: where to download it, its SHA-256 (lowercase

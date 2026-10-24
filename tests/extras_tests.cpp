@@ -275,6 +275,11 @@ void TestReleaseMetadataPolicy() {
         EXPECT_TRUE(out.size == 12345ull);
         EXPECT_TRUE(out.sha256.empty());
     }
+    // "." and ".." would climb out of tags/ in the API address.
+    refused_tag("{\"tag_name\":\".\"}");
+    refused_tag("{\"tag_name\":\"..\"}");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v1.0\"}", tag));
+    EXPECT_EQ(tag, "v1.0");
 }
 
 void TestHttp() {

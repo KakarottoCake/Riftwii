@@ -348,6 +348,8 @@ bool release_tag_from_json(const std::string& json, std::string& tag) {
                         u == '.' || u == '_' || u == '+' || u == '-';
         if (!ok) return false;
     }
+    // "." and ".." would climb out of tags/ once normalised.
+    if (text == "." || text == "..") return false;
     tag = text;
     return true;
 }
