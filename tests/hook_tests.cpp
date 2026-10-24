@@ -5,6 +5,9 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
+extern "C" {
+#include "rtleave.h"
+}
 #include "rtable.h"
 #include "fat32_image.hpp"
 #include "riftwii/fat32.hpp"
@@ -38,6 +41,10 @@ static std::uint8_t* LowBuffer(std::size_t bytes) {
 }
 #elif defined(__linux__)
 #include <sys/mman.h>
+
+// The pad hook reads the resident's `wrote` and refuses to leave on this value.
+static_assert(RT_FS_WRITE_WITH_IOS == RTLEAVE_RESIDENT_WITH_IOS, "the way back must know a write that is with IOS");
+
 static std::uint8_t* LowBuffer(std::size_t bytes) {
     void* p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
     return p == MAP_FAILED ? nullptr : static_cast<std::uint8_t*>(p);
@@ -437,6 +444,7 @@ static void TestIpcApiSearch() {
         EXPECT_EQ(api.sync[cmd], sync_at[cmd]);
     }
     EXPECT_EQ(api.sync[5], 0u);
+    EXPECT_EQ(api.submit, submit);
 
     // An unknown IOS_IoctlAsync, or one that is not a prologue.
     riftwii::IpcSymbols bad;
@@ -462,6 +470,46 @@ static void TestIpcApiSearch() {
     riftwii::IpcSymbols disagree = s;
     disagree.ioctlv_async = sync_at[7];
     EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, disagree, api, error));
+}
+
+static void TestReturnToMenuSearch() {
+    // The SDK's panic texts: __OSReturnToMenu's at 0x10 (it ends with
+    // OSReturnToMenu's bytes, two in), OSReturnToMenu's own at 0x60.
+    std::vector<std::uint8_t> data(0x100, 0);
+    const char kInner[] = "__OSReturnToMenu(): Falied to boot system menu.\n";
+    std::memcpy(&data[0x10], kInner, sizeof(kInner));
+    std::memcpy(&data[0x60], riftwii::kOsReturnToMenuText, std::strlen(riftwii::kOsReturnToMenuText) + 1);
+    const std::vector<riftwii::CodeRange> strings = {{0x80301000, data.data(), data.size()}};
+    const auto words = [](std::initializer_list<std::uint32_t> list) {
+        std::vector<std::uint8_t> out;
+        for (std::uint32_t w : list) {
+            for (int sh = 24; sh >= 0; sh -= 8) out.push_back(static_cast<std::uint8_t>(w >> sh));
+        }
+        return out;
+    };
+    const std::uint32_t kPrologue = 0x9421FFE0, kMflr = 0x7C0802A6, kBlr = 0x4E800020;
+    // __OSReturnToMenu builds its own text's address (0x80301010), a
+    // stray function the address two bytes into it (0x80301012), and
+    // OSReturnToMenu its own (0x80301060): only the last counts.
+    std::vector<std::uint8_t> code = words({kPrologue, kMflr, 0x3C608030, 0x38631010, kBlr,
+                                            kPrologue, kMflr, 0x3C608030, 0x38631012, kBlr,
+                                            kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr});
+    std::vector<riftwii::CodeRange> text = {{0x80004000, code.data(), code.size()}};
+    std::uint32_t found = 0;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_os_return_to_menu(text, strings, found, error));
+    EXPECT_EQ(found, 0x80004028u);
+    // Only __OSReturnToMenu's text in the game: refused.
+    std::vector<std::uint8_t> inner_only(data.begin(), data.begin() + 0x50);
+    const std::vector<riftwii::CodeRange> no_text = {{0x80301000, inner_only.data(), inner_only.size()}};
+    EXPECT_FALSE(riftwii::find_os_return_to_menu(text, no_text, found, error));
+    EXPECT_EQ(found, 0u);
+    // Two functions use OSReturnToMenu's text: refused.
+    std::vector<std::uint8_t> twice = words({kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr,
+                                             kPrologue, kMflr, 0x3C608030, 0x38631060, kBlr});
+    text = {{0x80005000, twice.data(), twice.size()}};
+    EXPECT_FALSE(riftwii::find_os_return_to_menu(text, strings, found, error));
+    EXPECT_TRUE(error.find("2 functions") != std::string::npos);
 }
 
 static void TestSymbolSearch() {
@@ -1367,9 +1415,13 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(result, 0u);
     EXPECT_EQ(st->queued, 1u);
     EXPECT_EQ(st->queue_count, 1u);
+    // The way back reads the engine as in use (CodeRabbit on #314): a save
+    // write queued here has no stamp of its own until it starts.
+    EXPECT_EQ(rtleave_resident(st->wrote, 0, st->queue_count), RTLEAVE_RESIDENT_WITH_IOS);
     EXPECT_EQ(ios.queue.size(), std::size_t(1));  // only the first one's transfer is in flight
     ios.drain();
     EXPECT_EQ(st->queue_count, 0u);
+    EXPECT_EQ(rtleave_resident(st->wrote, st->fs.busy, st->queue_count), static_cast<int>(st->wrote));
     EXPECT_EQ(ios.delivered.size(), std::size_t(2));
     EXPECT_EQ(ios.delivered[0].cb, 0x80001010u);
     EXPECT_EQ(ios.delivered[1].cb, 0x80001011u);
@@ -1446,12 +1498,17 @@ static void TestFsAsyncIntercept() {
         for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xC0 + i);
         args[0] = fd_a; args[1] = 0; args[2] = 0;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;  // no save write yet, for the way back's quiet check below
         args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001046; args[4] = 0x80002046;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
         EXPECT_EQ(ios.queue.size(), std::size_t(1));
         EXPECT_EQ(ios.queue[0].kind, 2);  // a wait, not the transfer
         EXPECT_EQ(st->card_wanted, 1u);
         EXPECT_EQ(st->card_busy, 0u);
+        EXPECT_EQ(st->wrote, 0u);  // still waiting: nothing has gone out
+        // But the engine holds it, so the way back waits (CodeRabbit on #314).
+        EXPECT_EQ(st->fs.busy, 1u);
+        EXPECT_EQ(rtleave_resident(st->wrote, st->fs.busy, st->queue_count), RTLEAVE_RESIDENT_WITH_IOS);
         ios.complete_one();  // still reading: another wait
         EXPECT_EQ(ios.queue.size(), std::size_t(1));
         EXPECT_EQ(ios.queue[0].kind, 2);
@@ -1461,7 +1518,25 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(ios.queue[0].kind, 1);  // now the transfer
         EXPECT_EQ(st->card_wanted, 0u);
         EXPECT_EQ(st->card_busy, 1u);  // mod reads wait for it
-        ios.drain();
+        // 16 bytes into a sector: the sector is read first (no save write
+        // yet), then written. While that write's command is with IOS, not
+        // yet answered, the save is marked so (the way back's quiet check
+        // reads last_write, then wrote, and never leaves then); its answer
+        // ends the mark and stamps the time again.
+        EXPECT_EQ(st->wrote, 0u);
+        bool write_seen = false;
+        std::uint32_t went_out = 0;
+        while (!ios.queue.empty()) {
+            if (ios.queue[0].kind == 1 && ios.queue[0].write != 0 && !write_seen) {
+                write_seen = true;
+                EXPECT_EQ(st->wrote, RT_FS_WRITE_WITH_IOS);
+                went_out = st->last_write;
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(write_seen);
+        EXPECT_EQ(st->wrote, 1u);
+        EXPECT_TRUE(st->last_write != went_out);
         EXPECT_EQ(ios.delivered.size(), std::size_t(1));
         EXPECT_EQ(ios.delivered[0].cb, 0x80001046u);
         EXPECT_EQ(ios.delivered[0].result, 16);
@@ -1515,6 +1590,63 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
         EXPECT_EQ(result, 16u);
         for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xD0 + i));
+    }
+
+    // A save write that fails once still counts for the way back's quiet
+    // check from the failure on, and completes. (The host clock jumps a
+    // whole wait per read, so the pause before it goes again is over at
+    // once here; on the Wii rt_fs_back_off stamps it, 512 ms at most.)
+    {
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xE0 + i);
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x8000104A; args[4] = 0x8000204A;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        bool failed_write = false;
+        while (!ios.queue.empty()) {
+            if (!failed_write && ios.queue[0].kind == 1 && ios.queue[0].write != 0) {
+                failed_write = true;
+                EXPECT_EQ(st->wrote, RT_FS_WRITE_WITH_IOS);
+                const std::uint32_t went_out = st->last_write;
+                ios.fail_transfers = 1;
+                ios.complete_one();
+                EXPECT_TRUE(st->last_write != went_out);  // stamped at the failure, before it goes again
+                continue;
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(failed_write);
+        EXPECT_EQ(st->wrote, 1u);  // both tries came back from IOS: no mark left behind
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_TRUE(!ios.delivered.empty() && ios.delivered[0].result == 16);
+        ios.delivered.clear();
+    }
+
+    // A save write whose every try fails: the engine gives up, and no
+    // "with IOS" mark is left behind, or the way back would never leave
+    // again in this game.
+    {
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xF0 + i);
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        st->wrote = 0;
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x8000104C; args[4] = 0x8000204C;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        bool writing = false;
+        while (!ios.queue.empty()) {
+            if (ios.queue[0].kind == 1 && ios.queue[0].write != 0) {
+                writing = true;
+                ios.fail_transfers = 1;  // this try fails, and every one after it
+            }
+            ios.complete_one();
+        }
+        EXPECT_TRUE(writing);
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_TRUE(!ios.delivered.empty() && ios.delivered[0].result < 0);
+        EXPECT_EQ(st->wrote, 1u);
+        ios.delivered.clear();
+        ios.fail_transfers = 0;
     }
 
     // An async write whose transfer IOS first refuses, then fails: it goes
@@ -4058,6 +4190,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();
+    TestReturnToMenuSearch();
     TestFsIpcTranslation();
     TestFsSyncIntercept();
     TestFsAsyncIntercept();
