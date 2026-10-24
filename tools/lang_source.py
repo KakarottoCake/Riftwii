@@ -2031,13 +2031,12 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-432
-    "Wii channels and WiiWare on Home": ("Canales Wii y WiiWare en Inicio", "WiiチャンネルとWiiWareをホームに", "Canais Wii e WiiWare no Início", "Canali Wii e WiiWare nella Home"),
-    "Your homebrew apps on Home": ("Tus apps homebrew en Inicio", "Homebrewアプリをホームに", "Seus apps homebrew no Início", "Le tue app homebrew nella Home"),
-    "More themes to download in Settings > Theme": ("Más temas para descargar en Ajustes > Tema", "設定 > テーマで新しいテーマをダウンロード", "Mais temas para baixar em Configurações > Tema", "Altri temi da scaricare in Impostazioni > Tema"),
-    "Two-disc GameCube games change discs": ("Juegos de GameCube de dos discos: cambio de disco", "2枚組のゲームキューブのゲームでディスク交換", "Jogos de GameCube de dois discos trocam de disco", "I giochi GameCube su due dischi cambiano disco"),
-    "Retro Rewind online works again": ("Retro Rewind vuelve a funcionar en línea", "Retro Rewindのオンラインが直りました", "O online do Retro Rewind funciona de novo", "L'online di Retro Rewind funziona di nuovo"),
-    "Settings: Network Test, Games on the SD card": ("Ajustes: Prueba de red, Juegos en la tarjeta SD", "設定：ネットワークテスト、SDカードのゲーム", "Configurações: Teste de rede, Jogos no cartão SD", "Impostazioni: Test di rete, Giochi su scheda SD"),
+    # What's new in the release after 2610-617
+    "Wii Menu sounds and music in Settings > Menu": ("Sonidos y música del Menú de Wii en Ajustes > Menú", "Wiiメニューの音と音楽（設定 > メニュー）", "Sons e música do Wii Menu em Configurações > Menu", "Suoni e musica del menu Wii in Impostazioni > Menu"),
+    "GameCube memory cards in more games": ("Tarjetas de memoria de GameCube en más juegos", "ゲームキューブのメモリーカードがより多くのゲームで", "Cartões de memória de GameCube em mais jogos", "Memory card GameCube in più giochi"),
+    "Bring Nintendont's GameCube saves over": ("Trae las partidas de GameCube de Nintendont", "Nintendontのゲームキューブのセーブを移せます", "Traga os saves de GameCube do Nintendont", "Porta qui i salvataggi GameCube di Nintendont"),
+    "Hold L+R+Z+Start to leave a Wii game": ("Mantén L+R+Z+Start para salir de un juego de Wii", "L+R+Z+スタートを長押しでWiiのゲームを終了", "Segure L+R+Z+Start para sair de um jogo de Wii", "Tieni L+R+Z+Start per uscire da un gioco Wii"),
+    "Home starts on your last game": ("Inicio empieza en tu último juego", "ホームは最後に遊んだゲームから", "O Início abre no seu último jogo", "La Home si apre sull'ultimo gioco"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3897,18 +3896,16 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Wii channels and WiiWare on Home":
-        "홈에 Wii 채널과 WiiWare",
-    "Your homebrew apps on Home":
-        "홈에 홈브류 앱",
-    "More themes to download in Settings > Theme":
-        "설정 > 테마에서 테마 다운로드",
-    "Two-disc GameCube games change discs":
-        "디스크 2장짜리 게임큐브 게임의 디스크 교체",
-    "Retro Rewind online works again":
-        "Retro Rewind 온라인이 다시 작동",
-    "Settings: Network Test, Games on the SD card":
-        "설정: 네트워크 테스트, SD 카드의 게임",
+    "Wii Menu sounds and music in Settings > Menu":
+        "설정 > 메뉴에서 Wii 메뉴 소리와 음악",
+    "GameCube memory cards in more games":
+        "더 많은 게임에서 게임큐브 메모리 카드",
+    "Bring Nintendont's GameCube saves over":
+        "Nintendont의 게임큐브 세이브 가져오기",
+    "Hold L+R+Z+Start to leave a Wii game":
+        "L+R+Z+Start를 길게 눌러 Wii 게임 종료",
+    "Home starts on your last game":
+        "홈이 마지막 게임에서 시작",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5743,18 +5740,16 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Wii channels and WiiWare on Home":
-        "Chaînes Wii et WiiWare dans l'Accueil",
-    "Your homebrew apps on Home":
-        "Vos applis homebrew dans l'Accueil",
-    "More themes to download in Settings > Theme":
-        "Thèmes à télécharger dans Paramètres > Thème",
-    "Two-disc GameCube games change discs":
-        "Jeux GameCube à 2 disques : le disque change",
-    "Retro Rewind online works again":
-        "Le jeu en ligne de Retro Rewind remarche",
-    "Settings: Network Test, Games on the SD card":
-        "Paramètres : Test réseau, Jeux sur la carte SD",
+    "Wii Menu sounds and music in Settings > Menu":
+        "Sons et musique du menu Wii dans Paramètres > Menu",
+    "GameCube memory cards in more games":
+        "Cartes mémoire GameCube dans plus de jeux",
+    "Bring Nintendont's GameCube saves over":
+        "Récupérez les sauvegardes GameCube de Nintendont",
+    "Hold L+R+Z+Start to leave a Wii game":
+        "Maintenez L+R+Z+Start pour quitter un jeu Wii",
+    "Home starts on your last game":
+        "L'Accueil s'ouvre sur votre dernier jeu",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

@@ -2364,23 +2364,20 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "Wii channels and WiiWare on Home"
-msgstr "Canais Wii e WiiWare no Início"
+msgid "Wii Menu sounds and music in Settings > Menu"
+msgstr "Sons e música do Wii Menu em Configurações > Menu"
 
-msgid "Your homebrew apps on Home"
-msgstr "Seus apps homebrew no Início"
+msgid "GameCube memory cards in more games"
+msgstr "Cartões de memória de GameCube em mais jogos"
 
-msgid "More themes to download in Settings > Theme"
-msgstr "Mais temas para baixar em Configurações > Tema"
+msgid "Bring Nintendont's GameCube saves over"
+msgstr "Traga os saves de GameCube do Nintendont"
 
-msgid "Two-disc GameCube games change discs"
-msgstr "Jogos de GameCube de dois discos trocam de disco"
+msgid "Hold L+R+Z+Start to leave a Wii game"
+msgstr "Segure L+R+Z+Start para sair de um jogo de Wii"
 
-msgid "Retro Rewind online works again"
-msgstr "O online do Retro Rewind funciona de novo"
-
-msgid "Settings: Network Test, Games on the SD card"
-msgstr "Configurações: Teste de rede, Jogos no cartão SD"
+msgid "Home starts on your last game"
+msgstr "O Início abre no seu último jogo"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
