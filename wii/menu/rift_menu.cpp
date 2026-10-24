@@ -134,6 +134,10 @@
 #include "wadinstall.hpp"
 #include "homebrew.hpp"
 #include "video.h"
+#include <fat.h>
+#include <sdcard/wiisd_io.h>
+#include <sys/stat.h>
+#include "riftwii/sdhotplug.hpp"
 
 namespace transition = riftwii::wii::transition;
 
@@ -1575,6 +1579,20 @@ static void ForgetIcon(const std::string& id)
 	slot->id.clear();
 	slot->player.reset();
 	slot->used = 0;
+}
+
+// With the GUI halted: every icon let go, and which banners were read or
+// missing forgotten, as the SD card was put back and may be another one.
+static void ForgetAllIcons()
+{
+	g_iconIndex.clear();
+	for (IconSlot& slot : g_icons) {
+		slot.id.clear();
+		slot.player.reset();
+		slot.used = 0;
+	}
+	g_bannersTried.clear();
+	g_bannerAbsent.clear();
 }
 
 // The full banner, as the Wii Menu shows a channel before it starts:
@@ -3951,6 +3969,46 @@ static void StartScan()
 	riftwii::wii::StartDriveScan();
 }
 
+// The SD card taken out and put back while Home runs (issue: the menu kept
+// the old mount and every later read failed). Home polls the slot, not a
+// thread, so nothing races the scan or a download; the IOS reloads and the
+// installer own the card while Settings leaves Home, so the watch pauses
+// with it. __io_wiisd.isInserted only asks the slot, which stays safe while
+// another thread reads the card, and costs one small IOS call.
+static riftwii::SdHotplug g_sdWatch(true);
+static u64 g_sdWatchLast = 0;
+static bool g_sdGone = false;
+static bool g_sdRemovalPending = false;
+
+static bool SdWatchInsertedNow()
+{
+	// A failed remount can leave the driver shut down, and then the slot
+	// reads as empty for good: while the card is gone, each poll starts
+	// it again first (startup() returns at once when it is running).
+	if (g_sdGone) __io_wiisd.startup();
+	return __io_wiisd.isInserted();
+}
+
+static void SdWatchUnmountForRemoval()
+{
+	// Log first, then let go: the unmount wrapper holds the cover loader
+	// and closes the full font, so no read is left in flight on the card.
+	riftwii::wii::LogClose();
+	fatUnmount("sd:");
+}
+
+static bool SdWatchRemountForMenu()
+{
+	// A fresh start for the driver, as after a menu IOS reload
+	// (wii/launch/menuios.cpp): some cards answer only after it.
+	__io_wiisd.shutdown();
+	if (!__io_wiisd.startup() || !__io_wiisd.isInserted()) return false;
+	if (!fatMountSimple("sd", riftwii::wii::sd_interface())) return false;
+	mkdir("sd:/riftwii", 0777);
+	riftwii::wii::LogReopen();
+	return true;
+}
+
 // The SD card's part of the scan, with the GUI halted.
 static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& part)
 {
@@ -4198,6 +4256,9 @@ static void PollMenuDiscCover()
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
+	// Home rebuilds itself (a remounted SD card): the scan just started goes
+	// on, and the new Home takes its parts as they come.
+	bool rebuildingHome = false;
 	LoadFilter();
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
@@ -4694,7 +4755,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// Not while the update check (or the scan) has the network.
-		if (!g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
 			std::size_t pick = 0;
 			bool onPage = false;
@@ -4762,7 +4823,7 @@ static int MenuSource(FrontendState& state)
 		}
 		// The 3D covers view's pictures once the covers are in (a game
 		// without one shows its cover meanwhile): the ones near the focus first.
-		if (!g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4773,7 +4834,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (!g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4855,6 +4916,97 @@ static int MenuSource(FrontendState& state)
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
 			showStatus();
+		// The SD card taken out and put back while Home runs: polled here,
+		// on the menu's thread while the GUI is halted, every 500 ms. Not
+		// on a thread, so nothing races the scan or a download, and not in
+		// Settings or a launch, so the IOS reloads and the installer keep
+		// the card to themselves.
+		{
+			const u64 nowSd = gettime();
+			if (g_sdWatchLast == 0 || diff_msec(g_sdWatchLast, nowSd) >= 500) {
+				g_sdWatchLast = nowSd;
+				const riftwii::SdHotplugEvent sdEvent = g_sdWatch.update(SdWatchInsertedNow());
+				if (sdEvent == riftwii::SdHotplugEvent::Removed && !g_sdGone && !g_sdRemovalPending) {
+					riftwii::wii::NetCancelBackground();
+					g_sdRemovalPending = true;
+					toast.Show(tr("The SD card was taken out."), true);
+				}
+				// A card that left is unmounted even when it is already back:
+				// the slot lost power, so the old mount can only fail (and it
+				// may be another card). Once the scan and any download have
+				// let go of it.
+				// Also once Home has taken the scan's parts (g_scanning) and no
+				// tile is carried: a part taken later would bring the gone card's
+				// games back, and a refresh mid-carry would drop the tile.
+				if (g_sdRemovalPending && !g_sdGone && riftwii::wii::DriveScanDone() && !g_scanning &&
+					!grid.Carrying() && !riftwii::wii::NetBackgroundBusy()) {
+					riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
+					SdWatchUnmountForRemoval();
+					g_sdGone = true;
+					g_sdRemovalPending = false;
+					// The focused tile's key first: it is read through the catalog
+					// entries about to go.
+					const std::string focused = focusedTile();
+					// Everything Home took from the card goes with it: its games,
+					// the channels in its emulated NANDs, the packs index (USB's
+					// come back with the rescan at reinsertion) and its apps.
+					state.sd_catalog.games.clear();
+					state.sd_catalog.status = std::string(tr("SD: no card"));
+					state.channels.erase(std::remove_if(state.channels.begin(), state.channels.end(),
+						[](const riftwii::wii::NandChannel& channel) { return channel.emu_nand.rfind("sd:", 0) == 0; }),
+						state.channels.end());
+					g_packs = riftwii::PackIndex{};
+					riftwii::wii::ForgetAppIcons();
+					riftwii::wii::RescanHomebrewApps();
+					// No scan part is coming: this refresh is the last word.
+					refreshKeepingTile(focused, true);
+					showStatus();
+				}
+				// Mounted afresh when the watch has seen it back in, whether
+				// that was announced now or while the unmount still waited.
+				// Like the unmount, only once no scan or download is running: a
+				// scan reads the settings that ReloadSettings replaces, and a
+				// download writes to the card the driver restart pulls away.
+				if (g_sdGone && g_sdWatch.mounted() && riftwii::wii::DriveScanDone() && !g_scanning &&
+					!riftwii::wii::NetBackgroundBusy()) {
+					if (SdWatchRemountForMenu()) {
+						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
+						riftwii::wii::ReloadSettings();
+						// The card may be another one: what was read from the old
+						// card is read again, so its history, tiles and Home order
+						// are never written onto the new one.
+						riftwii::wii::ForgetCardHistoryAndOrder();
+						riftwii::wii::ForgetProfiles();
+						riftwii::wii::ForgetProfilePictures();
+						riftwii::wii::ForgetAllCovers();
+						ForgetAllIcons();
+						// The view from the new card's settings, or Home's default.
+						g_filter = Filter::Mods;
+						g_filterLoaded = false;
+						LoadFilter();
+						ApplyMenuSounds();
+						riftwii::wii::ApplyMenuDisplay();
+						riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+						riftwii::wii::LoadMenuTheme();
+						g_forgetPicturesAfterScan = true;
+						StartScan();
+						riftwii::wii::ForgetAppIcons();
+						riftwii::wii::RescanHomebrewApps();
+						g_sdGone = false;
+						// Home is built again from the new card's settings (its view,
+						// spacing, channel look, search button), as after Settings; the
+						// rescan just started brings its games to the new Home.
+						g_homeFocus = grid.FocusedIndex();
+						SetHomeNotice(tr("The SD card is back in. Reading it again."));
+						rebuildingHome = true;
+						menu = MENU_SOURCE;
+					} else {
+						g_sdWatch = riftwii::SdHotplug(false);
+						riftwii::wii::logf("SD card: back in but it could not be mounted; waiting for a readable card\n");
+					}
+				}
+			}
+		}
 		// The full menu font is not on the card (wii/menu/fullfont.hpp):
 		// said once a session, after the start's popups (What's new and the
 		// others of askAfterLook), which covered a toast shown while they
@@ -4983,6 +5135,12 @@ static int MenuSource(FrontendState& state)
 		// A game picked while the drives were read opens now that they are.
 		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
 		if (menu != MENU_NONE) clicked = -1;
+		// Without the SD card a game's page can't save its choices, so it
+		// can't start: say so instead of opening it.
+		if (g_sdGone && clicked >= 0) {
+			clicked = -1;
+			toast.Show(tr("Put the SD card back in first."), true);
+		}
 		// Opening a game reads its image, which the scan may be mounting:
 		// it waits for the scan, and Home answers meanwhile.
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
@@ -5147,6 +5305,10 @@ static int MenuSource(FrontendState& state)
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
+		} else if (settingsBtn.Clicked() && g_sdGone) {
+			// Settings are saved on the card, and read again when it is back.
+			settingsBtn.button.ResetState();
+			toast.Show(tr("Put the SD card back in first."), true);
 		} else if (settingsBtn.Clicked()) {
 			g_focusRestored = true;  // the player acted: the start-up focus is theirs now
 			g_homeFocus = grid.FocusedIndex();
@@ -5229,7 +5391,9 @@ static int MenuSource(FrontendState& state)
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
 			rescanBtn.ResetState();
-			if (g_scanning) {
+			if (g_sdGone) {
+				toast.Show(tr("Put the SD card back in first."), true);
+			} else if (g_scanning) {
 				toast.Show(tr("RiftWii is still reading the drives."), false);
 			} else {
 				// The games stay on Home until the scan's parts replace them;
@@ -5255,7 +5419,7 @@ static int MenuSource(FrontendState& state)
 	// A game picked during the scan does not open behind the player's back
 	// once they have gone to Settings.
 	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
-	if (g_scanning && menu != MENU_OPTIONS) {
+	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
 			usleep(50000);

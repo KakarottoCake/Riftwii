@@ -2994,6 +2994,15 @@ msgstr "{1}: colocándolo en su sitio..."
 msgid "1 theme"
 msgstr "1 tema"
 
+msgid "The SD card was taken out."
+msgstr "La tarjeta SD fue retirada."
+
+msgid "Put the SD card back in first."
+msgstr "Primero vuelve a insertar la tarjeta SD."
+
+msgid "The SD card is back in. Reading it again."
+msgstr "La tarjeta SD está de vuelta. Leyéndola de nuevo."
+
 msgid "Channel background"
 msgstr "Fondo de los canales"
 

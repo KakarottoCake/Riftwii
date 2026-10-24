@@ -29,6 +29,13 @@ LoaderSettings& Settings() {
     return g_settings;
 }
 
+void ReloadSettings() {
+    g_settings = LoaderSettings{};
+    g_loaded = true;
+    std::string text;
+    if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text)) g_settings.parse(text);
+}
+
 // Written whole beside it, then put in its place: truncating it first left
 // it empty after a power cut or a full card, and every setting reset.
 bool SaveSettings() {
