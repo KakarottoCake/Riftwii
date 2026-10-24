@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 9u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 10u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -111,6 +111,9 @@ struct gc_rt_header {
     uint32_t replay_boot_dol;
     uint32_t continue_boot_dol;
     uint32_t hook_stop_motor;       /* DVDLowStopMotor(cb): gc_on_stop_motor (a two-disc game's change, gc_disc.h) */
+    uint32_t hook_si_probe;         /* SIProbe(chan): the original, then gc_on_si_probe (gc_ports_probe) */
+    uint32_t replay_si_probe;
+    uint32_t continue_si_probe;
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -221,7 +224,7 @@ enum gc_trace_word {
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
-/* Pad records with SI diagnostics reuse nine crash-only words. A distinct
+/* Pad records with SI diagnostics reuse ten crash-only words. A distinct
  * where value keeps older traces readable without treating crash registers
  * as SI data. All four type words are stored without losing error bits. */
 #define GC_TR_PAD_SI_TYPES GC_TR_CRASH_R1  /* four words, ports 1-4 */
@@ -229,7 +232,10 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TR_PAD_ENABLED_BEFORE (GC_TR_CRASH_R1 + 5)
 #define GC_TR_PAD_ENABLED_AFTER (GC_TR_CRASH_R1 + 6)
 #define GC_TR_PAD_RAW_ERRS (GC_TR_CRASH_R1 + 7)
-#define GC_TR_PAD_NATIVE (GC_TR_CRASH_R1 + 8) /* bits 0-3 reserved; bit 8: type table available */
+#define GC_TR_PAD_NATIVE (GC_TR_CRASH_R1 + 8) /* bits 0-3: native ports; 4-7: played ports (gc_ports_played);
+                                               * bit 8: type table available; bit 9: SIProbe hooked */
+#define GC_TR_PAD_PROBES (GC_TR_CRASH_R1 + 9) /* SIProbe calls answered as a controller << 16 | all its calls,
+                                               * each count's low 16 bits */
 /* A disc change's records (GC_TRACE_DISC, gc_disc.h: written at each stop
  * of the motor, each change and when the cover interrupt is raised or
  * left latched) reuse four of them the same way: the disc in (0: disc 1)
@@ -580,6 +586,10 @@ struct gc_rt_context {
     uint32_t native_ports;      /* controllers identified earlier, until an enabled read finds an unplug */
     uint32_t pad_raw_errs;      /* original PADRead errors, a byte per port, port 1 first */
     uint32_t pad_filled_errs;   /* errors after adapter and remote filling */
+    uint32_t pad_played;        /* the ports a remote or the adapter filled in the last PADRead (gc_ports_played) */
+    uint32_t si_probe;          /* the game's SIProbe, hooked; 0: not found, the game's own answers stand */
+    uint32_t si_probes;         /* the game's SIProbe calls */
+    uint32_t si_probes_answered; /* those answered as a controller for a remote's or the adapter's port */
     /* A bonus disc's menu starting a game packed in a TGC image on the
      * disc (gc_on_tgc_read): exec.txt's sector again (0: such starts run
      * as the menu makes them), and for each TGC its offset on the disc and
@@ -652,6 +662,7 @@ void gc_after_ar_dma(struct gc_rt_context* ctx);
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result);
 void gc_before_pad_read(struct gc_rt_context* ctx);
 void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command);
+uint32_t gc_on_si_probe(struct gc_rt_context* ctx, uint32_t chan, uint32_t type);
 uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);

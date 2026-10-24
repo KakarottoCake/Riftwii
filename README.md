@@ -135,6 +135,9 @@ contains theirs names them in its file header, and
   other loaders pass (both read as documentation, nothing copied).
 - **projectPiki's Pikmin 2 decompilation**: GameCube SDK controller
   lifecycle behaviour, read as documentation; no code copied.
+- **The Mario Kart: Double Dash!! decompilation** (doldecomp): how the
+  game asks SIProbe before it reads a controller port, read as
+  documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
