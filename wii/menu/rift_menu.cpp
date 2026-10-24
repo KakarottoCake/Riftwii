@@ -3803,7 +3803,12 @@ static int RequireChannelUpdate()
 {
 	static bool postponed = false;
 	if (postponed) return MENU_NONE;
-	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted();
+	// A ChannelDone restart with a message: the installer never started
+	// (StartChannelInstaller's error, e.g. a card that would not save the
+	// marker). That offers Not now too, as an installer that never came back.
+	const riftwii::wii::RestartNote& note = riftwii::wii::CurrentRestartNote();
+	const bool installerRefused = note.kind == riftwii::wii::RestartKind::ChannelDone && !note.message.empty();
+	const bool interrupted = riftwii::wii::ChannelInstallerInterrupted() || installerRefused;
 	unsigned version = 0;
 	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
 	if (riftwii::wii::running_in_dolphin()) {
@@ -3816,8 +3821,10 @@ static int RequireChannelUpdate()
 		SetHomeNotice(tr("The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."));
 		return MENU_NONE;
 	}
-	const bool stillOld = riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone;
-	if (interrupted)
+	const bool stillOld = note.kind == riftwii::wii::RestartKind::ChannelDone && !installerRefused;
+	if (installerRefused)
+		logf("Channel: the installer could not be opened (%s), so this start offers Not now.\n", note.message.c_str());
+	else if (interrupted)
 		logf("Channel: the installer did not return, so this start offers Not now; include sd:/riftwii/channel.log in a problem report.\n");
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
