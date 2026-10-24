@@ -68,6 +68,9 @@ target_link_libraries(ipcscan PRIVATE riftwii)
 # Host tool: an RVZ's verdict and the stub d2x would boot (tools/rvzstub.cpp).
 add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
+# Host tool: the memory-card EXI finder on a GameCube ISO or RVZ (tools/gc_exi_scan.cpp).
+add_executable(gc_exi_scan tools/gc_exi_scan.cpp)
+target_link_libraries(gc_exi_scan PRIVATE riftwii)
 # Host tool: a game's banner and icon, drawn as RiftWii draws them (tools/bannerdump.cpp).
 add_executable(bannerdump tools/bannerdump.cpp)
 target_link_libraries(bannerdump PRIVATE riftwii)

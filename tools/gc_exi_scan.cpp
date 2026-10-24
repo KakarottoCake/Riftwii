@@ -1,0 +1,126 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Host diagnostic for GameCube memory-card reports: runs the loader's EXI
+// finder (riftwii/gcexi.hpp) on a GameCube disc's main.dol, read-only, and
+// prints the control blocks, each hook and what a rejection did place, as
+// the launch log would. It reads ISO and RVZ images and writes nothing.
+//   gc_exi_scan <game.iso|game.rvz> [...]
+// Built by CMake with the host tests (build-host/gc_exi_scan). Its output is
+// addresses only; keep the images and anything read from them out of the
+// repository.
+#include <algorithm>
+#include <cstdio>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "riftwii/dol.hpp"
+#include "riftwii/gcexi.hpp"
+#include "riftwii/rvz.hpp"
+
+using namespace riftwii;
+
+namespace {
+
+class StreamSource final : public ByteSource {
+public:
+    explicit StreamSource(const char* path) : in_(path, std::ios::binary) {
+        in_.seekg(0, std::ios::end);
+        size_ = in_ ? static_cast<std::uint64_t>(in_.tellg()) : 0;
+    }
+    bool ok() const { return static_cast<bool>(in_); }
+    std::uint64_t size() const override { return size_; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        in_.clear();
+        in_.seekg(static_cast<std::streamoff>(offset));
+        in_.read(reinterpret_cast<char*>(destination), static_cast<std::streamsize>(length));
+        return static_cast<std::size_t>(in_.gcount()) == length;
+    }
+
+private:
+    mutable std::ifstream in_;
+    std::uint64_t size_ = 0;
+};
+
+std::uint32_t be32(const std::uint8_t* p) {
+    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
+}
+
+int scan(const char* path) {
+    auto file = std::make_shared<StreamSource>(path);
+    if (!file->ok()) {
+        std::printf("%s: cannot open\n", path);
+        return 1;
+    }
+    std::uint8_t magic[4] = {};
+    file->read(0, magic, sizeof magic);
+    std::unique_ptr<RvzDiscSource> rvz;
+    const ByteSource* disc = file.get();
+    std::string error;
+    if (magic[0] == 'R' && magic[1] == 'V' && magic[2] == 'Z') {
+        if (!RvzDiscSource::open(file, rvz, error)) {
+            std::printf("%s: cannot open the RVZ: %s\n", path, error.c_str());
+            return 1;
+        }
+        disc = rvz.get();
+    }
+    std::uint8_t header[0x440] = {};
+    if (!disc->read(0, header, sizeof header)) {
+        std::printf("%s: cannot read the disc header\n", path);
+        return 1;
+    }
+    const std::string game_id(reinterpret_cast<const char*>(header), 6);
+    const std::uint32_t dol_at = be32(header + 0x420);
+    std::vector<std::uint8_t> head(0x100);
+    DolHeader dol;
+    if (!disc->read(dol_at, head.data(), head.size()) || !parse_dol_header(head.data(), head.size(), dol, error)) {
+        std::printf("%s: cannot parse the DOL header: %s\n", path, error.c_str());
+        return 1;
+    }
+    // The DOL's size: the end of its furthest section.
+    std::size_t total = 0;
+    for (std::size_t s = 0; s < kDolSections; ++s) {
+        if (dol.sections[s].used()) {
+            total = std::max<std::size_t>(total, dol.sections[s].offset + dol.sections[s].size);
+        }
+    }
+    std::vector<std::uint8_t> bytes(total);
+    if (!disc->read(dol_at, bytes.data(), bytes.size())) {
+        std::printf("%s: cannot read the DOL\n", path);
+        return 1;
+    }
+    std::vector<CodeRange> text;
+    for (std::size_t s = 0; s < kDolTextSections; ++s) {
+        const DolSection& section = dol.sections[s];
+        if (!section.used() || section.offset + section.size > bytes.size()) continue;
+        text.push_back({section.address, bytes.data() + section.offset, section.size});
+    }
+    const GcExiFunctions found = find_gc_exi_functions(text, game_id);
+    std::printf("%s %s: blocks 0x%08x%s, %u table(s) resolve%s\n", game_id.c_str(), path, found.blocks,
+                found.blocks ? "" : " (REJECTED)", found.resolving_tables,
+                found.probe_ex_absent ? ", no EXIProbeEx in this SDK" : "");
+    for (unsigned i = 0; i < kGcExiHooks; ++i) {
+        std::printf("  %-11s ", gc_exi_function_name(i));
+        if (found.hooks[i] != 0) {
+            std::printf("hook 0x%08x\n", found.hooks[i]);
+        } else if (found.partial[i] != 0) {
+            std::printf("not hooked, placed at 0x%08x\n", found.partial[i]);
+        } else {
+            std::printf("MISSING\n");
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::fprintf(stderr, "usage: gc_exi_scan <game.iso|game.rvz> [...]\n");
+        return 2;
+    }
+    int status = 0;
+    for (int i = 1; i < argc; ++i) status |= scan(argv[i]);
+    return status;
+}
