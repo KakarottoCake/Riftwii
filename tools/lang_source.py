@@ -6287,6 +6287,9 @@ FR['1 theme'] = '1 thème'
 T['The SD card was taken out.'] = ('La tarjeta SD fue retirada.', 'SDカードがはずれました。', 'O cartão SD foi removido.', 'La scheda SD è stata rimossa.')
 KO['The SD card was taken out.'] = 'SD 카드가 제거되었습니다.'
 FR['The SD card was taken out.'] = 'La carte SD a été retirée.'
+T['Put the SD card back in first.'] = ('Primero vuelve a insertar la tarjeta SD.', 'さきにSDカードを入れてください。', 'Primeiro coloque o cartão SD de volta.', 'Prima reinserisci la scheda SD.')
+KO['Put the SD card back in first.'] = '먼저 SD 카드를 다시 넣어 주세요.'
+FR['Put the SD card back in first.'] = 'Remettez d’abord la carte SD.'
 
 T['The SD card is back in. Reading it again.'] = ('La tarjeta SD está de vuelta. Leyéndola de nuevo.', 'SDカードがもどりました。よみなおしています。', 'O cartão SD está de volta. Lendo novamente.', 'La scheda SD è di nuovo inserita. Lettura in corso.')
 KO['The SD card is back in. Reading it again.'] = 'SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다.'

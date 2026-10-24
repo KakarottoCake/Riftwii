@@ -2985,6 +2985,9 @@ msgstr "1件のテーマ"
 msgid "The SD card was taken out."
 msgstr "SDカードがはずれました。"
 
+msgid "Put the SD card back in first."
+msgstr "さきにSDカードを入れてください。"
+
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
