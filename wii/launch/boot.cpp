@@ -3494,7 +3494,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             error = why;
             return false;
         }
-        card = fatMountSimple("sd", sd_interface());
+        // A reload that did not happen leaves the FAT module holding the card
+        // when the emulation came on last time: libfat stays off it until a
+        // release or a reload that works clears the hold.
+        card = !sd_held_by_d2x_fat() && fatMountSimple("sd", sd_interface());
         if (card) LogReopen();
         if (reload == ReloadResult::NotInstalled || reload == ReloadResult::Failed) {
             logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
