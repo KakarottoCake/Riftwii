@@ -1106,10 +1106,16 @@ int GuiGameGrid::LetterTarget(int dir) const {
 
 bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     if (t->chan < 0 || t->chan > 3) return false;
+    const int ch = t->chan;
     // A letter jump means something only in A to Z order (Home order:
     // Recently played or Most played jumped to games out of order).
-    if (riftwii::wii::Settings().home_sort != "az") return false;
-    const int ch = t->chan;
+    if (riftwii::wii::Settings().home_sort != "az") {
+        const bool padHeld = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
+        if (padHeld && !letterPadHeld[ch]) letterUsed[ch] = false;
+        letterPadHeld[ch] = padHeld;
+        letterHeld[ch] = false;
+        return false;
+    }
     const bool held = (t->wpad && (t->wpad->btns_h & (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B))) ||
                       (t->pad.btns_h & PAD_TRIGGER_L) || (t->wiidrcdata.btns_h & WIIDRC_BUTTON_B);
     const auto go = [&](int target) {
@@ -1120,14 +1126,16 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
         soundOver->Play();
     };
     if (!held) {
-        if (letterHeld[ch] && !letterUsed[ch]) go(LetterTarget(1));
+        if (letterHeld[ch] && !letterUsed[ch] && !letterPadHeld[ch]) go(LetterTarget(1));
         letterHeld[ch] = false;
+        letterPadHeld[ch] = false;
         return false;
     }
     if (!letterHeld[ch]) {
         letterHeld[ch] = true;
         letterUsed[ch] = false;
     }
+    letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
     // L and R together are the screenshot combo (with Down): not letters,
     // and letting go of L afterwards is no letter either.
     if (t->pad.btns_h & PAD_TRIGGER_R) {
@@ -1217,7 +1225,7 @@ void GuiGameGrid::PutDown() {
 
 // Picking a game up, moving it and putting it down (SetMovable). True
 // while that has the controller's buttons.
-bool GuiGameGrid::CarryKeys(GuiTrigger* t) {
+bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
     if (carryDropped) return true;
     const int ch = t->chan;
     const auto letters_done = [&]() {
@@ -1225,6 +1233,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t) {
         if (ch < 0 || ch > 3) return;
         letterHeld[ch] = true;
         letterUsed[ch] = true;
+        letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
     };
     if (carryFrom < 0) {
         if (!movable || shelf || !PressedA(t) || !HeldLetterB(t)) return false;
@@ -1293,14 +1302,18 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t) {
         CarryTo(carryFrom);
         PutDown();
         letters_done();
+        // Home uses B for search otherwise; this press only cancels the move.
+        t->pad.btns_d &= ~PAD_BUTTON_B;
         return true;
     }
     const int cols = Cols();
     const int slot = carryTo % kPerPage, column = slot % cols;
     const int rowStart = carryTo - column;
     int target = carryTo;
-    if (PressedPage(t, -1) || PressedPage(t, 1)) {
-        target = carryTo + (PressedPage(t, -1) ? -kPerPage : kPerPage);
+    if (shoulderPage != 0 || PressedPage(t, -1) || PressedPage(t, 1)) {
+        int delta = shoulderPage;
+        if (delta == 0) delta = PressedPage(t, -1) ? -1 : 1;
+        target = carryTo + delta * kPerPage;
     } else if (t->Right()) {
         // Past the right column: the next page, the same row's first place.
         target = column == cols - 1 ? rowStart + kPerPage : carryTo + 1;
@@ -1317,10 +1330,44 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t) {
     return true;
 }
 
+int GuiGameGrid::ShoulderPage(GuiTrigger* t) {
+    if (t->chan < 0 || t->chan > 3) return 0;
+    const int channel = t->chan;
+    riftwii::HomeShoulderInput pad;
+    // Digital clicks only. Analogue triggerL/triggerR never enter this path.
+    pad.left_pressed = (t->pad.btns_d & PAD_TRIGGER_L) != 0;
+    pad.right_pressed = (t->pad.btns_d & PAD_TRIGGER_R) != 0;
+    pad.left_held = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
+    pad.right_held = (t->pad.btns_h & PAD_TRIGGER_R) != 0;
+    if (pad.left_held && !padPageHeld[channel]) letterUsed[channel] = false;
+    padPageHeld[channel] = pad.left_held;
+    pad.left_used = letterUsed[channel];
+    const int padPage = padPages[channel].update(pad);
+
+    riftwii::HomeShoulderInput classic;
+    if (t->wpad) {
+        classic.left_pressed = (t->wpad->btns_d & WPAD_CLASSIC_BUTTON_FULL_L) != 0;
+        classic.right_pressed = (t->wpad->btns_d & WPAD_CLASSIC_BUTTON_FULL_R) != 0;
+        classic.left_held = (t->wpad->btns_h & WPAD_CLASSIC_BUTTON_FULL_L) != 0;
+        classic.right_held = (t->wpad->btns_h & WPAD_CLASSIC_BUTTON_FULL_R) != 0;
+    }
+    const int classicPage = classicPages[channel].update(classic);
+    return padPage != 0 ? padPage : classicPage;
+}
+
 void GuiGameGrid::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || Count() == 0) return;
-    if (CarryKeys(t)) return;
+    const int shoulderPage = ShoulderPage(t);
+    if (t->chan >= 0 && t->chan < 4 &&
+        (padPages[t->chan].chord || classicPages[t->chan].chord)) return;
+    if (CarryKeys(t, shoulderPage)) return;
     if (LetterKeys(t)) return;
+    if (shoulderPage != 0) {
+        if (shelf) ShelfStep(shoulderPage);
+        else TurnPage(shoulderPage);
+        hover = shelfHover = -1;
+        return;
+    }
     if (shelf) {
         UpdateShelf(t);
         return;

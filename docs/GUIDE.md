@@ -57,10 +57,17 @@ once you have played something, **Recently played**, then
 **Favourites** once you mark a game as one (the star on its banner, or
 **Favourite** on its page). **Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
-sides and the D-pad at a page's edge do too). Hold **B** (L on a
+sides and the D-pad at a page's edge do too). **L/R** also turn pages on
+a Classic Controller or GameCube controller. On GameCube, pull all the
+way to the digital click: a light pull does nothing. L alone pages left
+when released; L held with a D-pad letter jump does not page again on
+release. L and R together never page, keeping L+R+Down for screenshots.
+Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
 game of the next or the previous letter, as in WiiFlow (Down and Up turn a
-page); B pressed alone jumps to the next letter. The magnifier button above the settings button (Z on a GameCube controller, ZL
+page); B pressed alone on a Wii Remote, Classic Controller or GamePad jumps
+to the next letter. Letter jumps work in A to Z order. The magnifier button
+above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
@@ -232,7 +239,8 @@ A to keep going. Each arrow goes away at its end of the list.
 
 ### Settings
 
-The gear at the bottom right (or **2**) opens Settings: nine tiles, each
+The gear at the bottom right (or **2**, **Z** on a GameCube controller
+on Home) opens Settings: nine tiles, each
 showing what it is set to now. *Picture* and *Games* are the defaults for
 every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
 sounds, music), *Online*, *Drives* (finding games), *Help* (reports,
