@@ -56,6 +56,26 @@ is never logged or kept. Without the file the drive is not read, Home
 still calls it a Wii U drive, and the game still starts from Wii
 channels (the system finds out whether it is installed).
 
+## Checking it in Dolphin
+
+Dolphin emulates IOS59's `/dev/wfsi` and `/dev/usb/wfssrv` with a host
+folder (`<user>/WFS/vol/msc01`, the drive already decrypted), so the
+listing and the start can be checked there; the USB scan and the key
+cannot (Dolphin has no WFS USB drive to read, so the install check says
+"no WFS drive was read" and the start goes ahead). To set it up, as the
+installer would: the title's TMD and ticket, the banner and `wfsboot`
+(its type 1 contents) go in the NAND under their content IDs, and each
+type `0x4001` content, a U8 archive, is unpacked into
+`WFS/vol/msc01/title/GD/S4MJ/content`, with the TMD at
+`.../meta/0001000453344d4a.tmd`. Then, with Home showing all games
+(`view=all` in `sd:/riftwii/settings.txt`), Dragon Quest X is listed from
+the Wii with its cover, and Play logs the WFS start; Dolphin's log
+(`IOS_ES`, `IOS_WFS`) shows ES starting 00010004-S4MJ on IOS59, `wfsboot`
+running, and `IOCTL_WFSI_LOAD_DOL` loading `default.dol` from the drive,
+as when Dolphin starts the title itself. The game then reads its files
+from the drive; the disc and its patch do not hold its menus (the game
+downloads them), so it goes no further in Dolphin.
+
 ## The format
 
 Read from wfslib's layout (NOTICE.md has the commits): 4 KB physical
