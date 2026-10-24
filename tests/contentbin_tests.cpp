@@ -221,17 +221,19 @@ void test_matches_tmd() {
 
 void test_staged_paths() {
     std::uint64_t title = 0;
-    EXPECT_TRUE(parse_staged_content_path("/title/00010001/57424d45/content/00000002.app", title));
+    std::uint32_t content = 0;
+    EXPECT_TRUE(parse_staged_content_path("/title/00010001/57424d45/content/0000001a.app", title, content));
     EXPECT_EQ(title, kTitle);
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/title.tmd", title));
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/00000002.app.bak", title));
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/2.app", title));
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424D45/content/00000002.app", title));
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/data/00000002.app", title));
+    EXPECT_EQ(content, 0x1Au);
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/title.tmd", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/00000002.app.bak", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/2.app", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424D45/content/00000002.app", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/data/00000002.app", title, content));
     // Not a channel: a system title (IOS 58) or a disc game's.
-    EXPECT_TRUE(!parse_staged_content_path("/title/00000001/0000003a/content/00000002.app", title));
-    EXPECT_TRUE(!parse_staged_content_path("/title/00010000/52534245/content/00000002.app", title));
-    EXPECT_TRUE(!parse_staged_content_path("", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00000001/0000003a/content/00000002.app", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010000/52534245/content/00000002.app", title, content));
+    EXPECT_TRUE(!parse_staged_content_path("", title, content));
 }
 
 void test_path() {

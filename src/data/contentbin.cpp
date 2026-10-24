@@ -130,7 +130,7 @@ bool content_bin_matches_tmd(const TmdContents& moved, const TmdContents& instal
     return true;
 }
 
-bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id) {
+bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id, std::uint32_t& content_id) {
     unsigned upper = 0, lower = 0, id = 0;
     if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%8x.app", &upper, &lower, &id) != 3) return false;
     bool channel_type = false;
@@ -140,6 +140,7 @@ bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id)
     // spaces or short fields that sscanf lets through.
     if (!channel_type || nand_content_path(title, id) != path) return false;
     title_id = title;
+    content_id = id;
     return true;
 }
 

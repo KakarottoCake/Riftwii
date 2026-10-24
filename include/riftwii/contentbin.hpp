@@ -76,11 +76,11 @@ bool content_bin_places(const ContentBinLayout& layout, const TmdContents& tmd, 
 // the Wii's TMD starts. False with `error` in a plain clause.
 bool content_bin_matches_tmd(const TmdContents& moved, const TmdContents& installed, std::string& error);
 
-// The title of a line in RiftWii's list of contents it copied to the Wii
-// for a moved channel, when the line is exactly such a content's path
-// (nand_content_path of a channel title type); false for anything else,
-// so the list on the card cannot name another file to delete.
-bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id);
+// The title and content of a line in RiftWii's list of contents it copied
+// to the Wii for a moved channel, when the line is exactly such a
+// content's path (nand_content_path of a channel title type); false for
+// anything else, so the list on the card cannot name another file to delete.
+bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id, std::uint32_t& content_id);
 
 // The key that decrypts a content.bin's contents, and the console it is
 // of: a Wii decrypts only the files it wrote itself.
