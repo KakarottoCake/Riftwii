@@ -257,9 +257,12 @@ New in 3.2 (beta):
 - 2610-587: real GameCube memory cards; the Zelda bonus
   discs; HOME Menu Reset keeps a Wii game's mods; Mario Party
   5-7, Pikmin 2 RVZ, Doshin, Eternal Darkness and more fixed.
-- {{VERSION}}: Wii channels, WiiWare and homebrew apps on
+- 2610-617: Wii channels, WiiWare and homebrew apps on
   Home; themes to download; two-disc GameCube games; Retro
   Rewind online again; steadier GameCube controls.
+- {{VERSION}}: GameCube memory cards in Need for Speed
+  Underground 2, Resident Evil 2 and Fire Emblem; Nintendont
+  saves; GameHacking.org cheats; the disc stops on power-off.
 - 2610-280 (RC3): the GameCube adapter set to On no longer stops
   SD games from booting; no Wii Remote rumble for screenshots (it
   crashed Need for Speed: ProStreet). Cars 2 warning.

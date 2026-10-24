@@ -111,6 +111,23 @@ burn-in reduction leaves the screen lit; for the adapter's pads the
 blob calls the same reset (found by the call near PADRead) on each
 button or stick change.
 
+The same blob gives Wii games the GameCube games' way back: L, R, Z and
+Start held two seconds on a GameCube controller (the adapter's or the
+console's own ports) leave through the game's own `OSReturnToMenu`, the
+HOME Menu's Wii Menu button, which Return to RiftWii points at the
+channel. The combo is checked in `PADRead`; the leave itself waits for
+the main thread's next `OSSleepThread` (hooked: `PADRead` can run in the
+SI sampling callback), and fires once, since `OSReturnToMenu`'s own NAND
+calls sleep through there again. A hook on the SDK's IPC submit routine,
+which every IOS request passes, notes save activity (a write, a NAND
+file opened for writing, a `/dev/fs` change), and with saves on the SD
+card the blob reads the resident runtime's last save write: the combo
+waits until no save was written for a second (gaps inside a save
+measured in Dolphin: up to 0.418 s in Super Smash Bros. Brawl). The
+decisions are `runtime/rtleave.c`, host-tested. With any of the three
+functions missing, or one of the two hooks impossible, the way back stays
+off and boot.log says why; the adapter works as before.
+
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
 the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's

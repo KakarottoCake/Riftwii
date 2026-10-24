@@ -194,6 +194,9 @@ bool slot_has_ticket(int slot);
 // game's or the global setting) alone when set; on automatic, USB Loader
 // GX's choice first (riftwii/gxpatches.hpp's gx_pick_cios: the d2x slot
 // whose base is the IOS the game asks for), then 249, 250 and 251.
+// After the adapter and keyboard preferences below, append the remaining
+// installed d2x slots with readable bases (append_d2x_fallbacks): nearest
+// to the requested IOS, then by slot number. Unknown bases add nothing.
 //
 // A Wii U with the GameCube adapter in use (seen in the menu, or the
 // setting On) gets a d2x slot on base 58 first: a tester's Wii U showed
