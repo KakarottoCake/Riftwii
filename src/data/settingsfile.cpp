@@ -118,6 +118,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "wii") menu_font = value;
         } else if (key == "screenshots") {
             if (value == "on" || value == "off" || value == "demo") screenshots = value;
+        } else if (key == "wii_menu_sounds") {
+            if (value == "on" || value == "off") wii_menu_sounds = value == "on";
+        } else if (key == "wii_menu_music") {
+            if (value == "on" || value == "off") wii_menu_music = value == "on";
         } else if (key == "menu_sounds") {
             if (value == "normal" || value == "quiet" || value == "off") menu_sounds = value;
         } else if (key == "online") {
@@ -186,6 +190,8 @@ std::string LoaderSettings::serialize() const {
     s += "page_peek = " + page_peek + "\n";
     s += "menu_widescreen = " + menu_widescreen + "\n";
     s += "screen_size = " + std::to_string(screen_size) + "\n";
+    s += std::string("wii_menu_sounds = ") + (wii_menu_sounds ? "on\n" : "off\n");
+    s += std::string("wii_menu_music = ") + (wii_menu_music ? "on\n" : "off\n");
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "launch_music = " + launch_music + "\n";

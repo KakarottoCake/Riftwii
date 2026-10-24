@@ -10,7 +10,7 @@
 #include <string>
 
 #include "log.hpp"
-#include "oggplayer.h"
+#include "menumusic.hpp"
 #include "riftwii/bnrsound.hpp"
 
 namespace riftwii::wii {
@@ -28,7 +28,7 @@ bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
     BannerSoundStop(false);
     // A banner with no sound of its own: the menu's music plays on.
     const auto silent = [] {
-        if (g_music_paused) PauseOgg(0);
+        if (g_music_paused) MenuMusicPause(false);
         g_music_paused = false;
         return false;
     };
@@ -73,7 +73,7 @@ bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
         g_voice = -1;
         return false;
     }
-    PauseOgg(1);
+    MenuMusicPause(true);
     g_music_paused = true;
     logf("Banner sound: %u Hz, %.1f s%s\n", g_rate, g_bytes / 4.0 / g_rate, g_loop ? ", looping" : "");
     return true;
@@ -95,7 +95,7 @@ void BannerSoundStop(bool resume_music) {
     g_bytes = 0;
     g_loop = g_looping = false;
     if (!resume_music) return;
-    if (g_music_paused) PauseOgg(0);
+    if (g_music_paused) MenuMusicPause(false);
     g_music_paused = false;
 }
 

@@ -15,6 +15,7 @@
 #include "menutheme.hpp"
 #include "riftwii/bnrsound.hpp"
 #include "skin.hpp"
+#include "wiimenusounds.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -50,6 +51,7 @@ void Substitute(const u8*& sound, s32& length, s32& rate) {
             return;
         }
     }
+    SubstituteWiiMenuSound(sound, length, rate);
 }
 
 bool Load(Slot& slot, const std::string& path, std::string& why) {
@@ -96,6 +98,7 @@ void LoadThemeSounds() {
     static bool loaded = false;
     if (loaded) return;
     loaded = true;
+    GuiSound::substitute = Substitute;
     const std::string& dir = MenuThemeDir();
     if (dir.empty()) return;
     unsigned replaced = 0;
@@ -107,10 +110,12 @@ void LoadThemeSounds() {
                  static_cast<unsigned>(slot.bytes / 4 * 1000ull / static_cast<unsigned>(slot.rate)),
                  static_cast<unsigned>(slot.rate));
         } else if (!why.empty()) {
-            logf("Theme: %s skipped (%s); RiftWii's own sound plays\n", slot.file, why.c_str());
+            logf("Theme: %s skipped (%s); the menu's fallback sound plays\n", slot.file, why.c_str());
         }
     }
     if (replaced) GuiSound::substitute = Substitute;
 }
+
+bool ThemeClickSoundFound() { return g_slots[1].data != nullptr; }
 
 }  // namespace riftwii::wii

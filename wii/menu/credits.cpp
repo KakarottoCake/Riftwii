@@ -65,8 +65,8 @@ const char* const kCredits[] = {
     "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
     "",
-    "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer by "
-    "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player.",
+    "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer and libasnd by "
+    "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player, and the streaming mixer API reference.",
     "",
     "WiiLink WFC, wfc-patcher-wii (GPL-2.0-or-later): WiiLink online play. Online communications credit "
     "to WiiLink WFC, wfc.wiilink.ca.",

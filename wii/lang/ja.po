@@ -2997,6 +2997,18 @@ msgstr "{1}: 所定の場所に置いています..."
 msgid "1 theme"
 msgstr "1件のテーマ"
 
+msgid "Wii Menu sounds"
+msgstr "Wiiメニューの音"
+
+msgid "Wii Menu music"
+msgstr "Wiiメニューの音楽"
+
+msgid "Read this Wii's own menu sounds into memory. A theme's sounds take priority."
+msgstr "Wiiメニューの音をこのWiiから読み込みます。テーマの音を先に使います。"
+
+msgid "Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."
+msgstr "Wiiメニューの音楽をこのWiiから読み込みます。テーマの音楽を先に使います。「メニューの音楽」で音楽を使うか設定します。"
+
 msgid "Channel background"
 msgstr "チャンネルの背景"
 

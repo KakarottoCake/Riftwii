@@ -93,6 +93,7 @@
 #include "menumusic.hpp"
 #include "menutheme.hpp"
 #include "themesounds.hpp"
+#include "wiimenusounds.hpp"
 #include "themestore.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
@@ -407,6 +408,7 @@ UpdateGUI(void *arg)
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
 			LogRemotesChanged();
+			riftwii::wii::MenuMusicUpdate();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
@@ -691,6 +693,8 @@ struct SkinButton {
 	GuiTrigger trigA;
 	GuiTrigger trigHot[kMaxHot];
 	GuiButton button;
+	bool backAction = false;
+	bool clickReported = false;
 	// `x`, `y`: where the visible shape starts; `margin`: the texture's
 	// transparent border around it; `scale` shrinks the button (and its
 	// hit area) around the same top left corner.
@@ -701,6 +705,7 @@ struct SkinButton {
 		  text(label, 22, skin::kInk),
 		  button(static_cast<int>(face.w * scale), static_cast<int>(face.h * scale))
 	{
+		backAction = (wpadHot & WPAD_BUTTON_B) != 0 || (padHot & PAD_BUTTON_B) != 0;
 		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 		button.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		button.SetPosition(x - static_cast<int>(margin * scale), y - static_cast<int>(margin * scale));
@@ -730,7 +735,15 @@ struct SkinButton {
 		}
 		button.SetEffectGrow();
 	}
-	bool Clicked() { return button.GetState() == STATE::CLICKED; }
+	bool Clicked(bool playSound = true) {
+		const bool clicked = button.GetState() == STATE::CLICKED;
+		if (playSound && clicked && !clickReported && riftwii::wii::Settings().wii_menu_sounds) {
+			const auto event = backAction ? riftwii::wii::MenuSoundEvent::Back : riftwii::wii::MenuSoundEvent::Click;
+			riftwii::wii::PlayMenuSound(event);
+		}
+		clickReported = clicked;
+		return clicked;
+	}
 };
 
 // libwiigui only clears a hover-selected button while the pointer is live:
@@ -2484,6 +2497,8 @@ public:
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
+		if (riftwii::wii::Settings().wii_menu_sounds)
+			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
 		Place(titleTxt, 0, kTitleY, true);
 		titleTxt.SetMaxWidth(528 + 2 * extra);
 		// A list (lines of its own) reads better from the left.
@@ -3088,7 +3103,7 @@ static int ShowHomeMenu()
 		else if (menuBtn.Clicked()) choice = 2;
 		else if (priiBtn.Clicked()) choice = 3;
 		else if (offBtn.Clicked()) choice = 4;
-		else if (closeBtn.Clicked()) choice = 0;
+		else if (closeBtn.Clicked(false)) choice = 0;  // closeSound owns this cue
 		if (choice < 0) ResumeGui();
 	}
 	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off"};
@@ -11268,7 +11283,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -11382,6 +11397,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Disable clock on Home screen"), tr("Off"), false, kNoClock, FlowRow::Kind::Toggle);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
+		option(tr("Wii Menu sounds"), settings.wii_menu_sounds ? tr("On") : tr("Off"), settings.wii_menu_sounds,
+			kWiiSounds, FlowRow::Kind::Toggle);
+		option(tr("Wii Menu music"), settings.wii_menu_music ? tr("On") : tr("Off"), settings.wii_menu_music,
+			kWiiMusic, FlowRow::Kind::Toggle);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
 		option(tr("Launch music"), settings.launch_music == "off" ? tr("Fade out") : tr("Keep playing"),
@@ -11536,7 +11555,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kMusic: case kLaunchMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
 				case kOnline: case kNetTest: case kNames: case kMissingCovers: case kServer: case kUpdate:
@@ -11641,6 +11660,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kNoClock: return tr("Turns off the clock on Home.");
 			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
+			case kWiiSounds: return tr("Read this Wii's own menu sounds into memory. A theme's sounds take priority.");
+			case kWiiMusic: return tr("Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
@@ -11865,6 +11886,19 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kWiiSounds:
+					settings.wii_menu_sounds = !settings.wii_menu_sounds;
+					if (saveOrUndo()) riftwii::wii::LoadWiiMenuSounds();
+					rebuild();
+					break;
+				case kWiiMusic:
+					settings.wii_menu_music = !settings.wii_menu_music;
+					if (saveOrUndo()) {
+						riftwii::wii::MenuMusicStop();
+						riftwii::wii::MenuMusicStart();
+					}
+					rebuild();
+					break;
 				case kSounds: {
 					static const char* const kSoundChoices[] = {"normal", "quiet", "off"};
 					int at = 0;
@@ -12662,6 +12696,7 @@ int MainMenu(int menu, FrontendState& state)
 	const u64 musicStart = gettime();
 	riftwii::wii::MenuMusicStart();
 	logf("Startup: music started in %u ms\n", static_cast<unsigned>(diff_msec(musicStart, gettime())));
+	riftwii::wii::LoadWiiMenuSounds();
 	riftwii::wii::LoadThemeSounds();  // before the first GuiSound
 	soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	mainWindow = new GuiWindow(screenwidth, screenheight);
@@ -12728,6 +12763,8 @@ int MainMenu(int menu, FrontendState& state)
 	riftwii::wii::WaitDriveScan();
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
+		if (riftwii::wii::Settings().wii_menu_sounds && currentMenu != MENU_DUMP)
+			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Start);
 		// The GUI thread is halted after this; main prints the boot log
 		// into the card of the frame left on screen.
 		ShowLaunchFrame(state, currentMenu);
