@@ -2035,7 +2035,6 @@ T = {
     "Wii Menu sounds and music in Settings > Menu": ("Sonidos y música del Menú de Wii en Ajustes > Menú", "Wiiメニューの音と音楽（設定 > メニュー）", "Sons e música do Wii Menu em Configurações > Menu", "Suoni e musica del menu Wii in Impostazioni > Menu"),
     "GameCube memory cards in more games": ("Tarjetas de memoria de GameCube en más juegos", "ゲームキューブのメモリーカードがより多くのゲームで", "Cartões de memória de GameCube em mais jogos", "Memory card GameCube in più giochi"),
     "Bring Nintendont's GameCube saves over": ("Trae las partidas de GameCube de Nintendont", "Nintendontのゲームキューブのセーブを移せます", "Traga os saves de GameCube do Nintendont", "Porta qui i salvataggi GameCube di Nintendont"),
-    "Cheats from GameHacking.org": ("Trucos de GameHacking.org", "GameHacking.orgのチート", "Truques do GameHacking.org", "Trucchi da GameHacking.org"),
     "Hold L+R+Z+Start to leave a Wii game": ("Mantén L+R+Z+Start para salir de un juego de Wii", "L+R+Z+スタートを長押しでWiiのゲームを終了", "Segure L+R+Z+Start para sair de um jogo de Wii", "Tieni L+R+Z+Start per uscire da un gioco Wii"),
     "Home starts on your last game": ("Inicio empieza en tu último juego", "ホームは最後に遊んだゲームから", "O Início abre no seu último jogo", "La Home si apre sull'ultimo gioco"),
     # Game page: memory for RiftWii's extras
@@ -3903,8 +3902,6 @@ KO = {
         "더 많은 게임에서 게임큐브 메모리 카드",
     "Bring Nintendont's GameCube saves over":
         "Nintendont의 게임큐브 세이브 가져오기",
-    "Cheats from GameHacking.org":
-        "GameHacking.org의 치트",
     "Hold L+R+Z+Start to leave a Wii game":
         "L+R+Z+Start를 길게 눌러 Wii 게임 종료",
     "Home starts on your last game":
@@ -5749,8 +5746,6 @@ FR = {
         "Cartes mémoire GameCube dans plus de jeux",
     "Bring Nintendont's GameCube saves over":
         "Récupérez les sauvegardes GameCube de Nintendont",
-    "Cheats from GameHacking.org":
-        "Codes de triche de GameHacking.org",
     "Hold L+R+Z+Start to leave a Wii game":
         "Maintenez L+R+Z+Start pour quitter un jeu Wii",
     "Home starts on your last game":
