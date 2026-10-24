@@ -165,6 +165,14 @@ const std::vector<std::string>& HomeOrder() {
     return g_home_order;
 }
 
+void ForgetCardHistoryAndOrder() {
+    g_history = PlayHistory{};
+    g_history_loaded = false;
+    g_home_order.clear();
+    g_home_order_loaded = false;
+    g_home_order_unreadable = false;
+}
+
 void SaveHomeOrder(const std::vector<std::string>& order) {
     HomeOrder();
     g_home_order = order;
