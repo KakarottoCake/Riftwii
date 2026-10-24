@@ -735,6 +735,11 @@ struct SkinButton {
 		}
 		button.SetEffectGrow();
 	}
+	// A prompt already played the sound for this press.
+	void PressSilently() {
+		button.SetState(STATE::CLICKED);
+		clickReported = true;
+	}
 	bool Clicked(bool playSound = true) {
 		const bool clicked = button.GetState() == STATE::CLICKED;
 		if (playSound && clicked && !clickReported && riftwii::wii::Settings().wii_menu_sounds) {
@@ -2497,6 +2502,7 @@ public:
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
+		if (safeFirst) okBtn.backAction = false;
 		if (riftwii::wii::Settings().wii_menu_sounds)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
 		Place(titleTxt, 0, kTitleY, true);
@@ -4282,6 +4288,7 @@ static int MenuSource(FrontendState& state)
 	// starts at y 24), so the gear's name has room; in Channels on the bar.
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
+	searchBtn.backAction = false;
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -6839,7 +6846,7 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 			if (!rows.empty()) list.Select(std::min<int>(acted, static_cast<int>(rows.size()) - 1));
 			shownRow = -1;
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -8904,7 +8911,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 			if (minus) update = true;
 		}
 		const int pressed = prompts.GetClicked();
-		if (pressed == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (pressed == promptBack) backBtn.PressSilently();
 		if (pressed >= 0 && pressed == promptUpdate) update = true;
 		if (backBtn.Clicked() || update) done = true;
 		ResumeGui();
@@ -9240,7 +9247,7 @@ static void MenuCheats(FrontendState& state)
 				shownRow = -1;
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -9395,7 +9402,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 				noteTxt.SetText(help.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -9724,7 +9731,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				shownRow = -1;
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -10128,7 +10135,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				shownRow = ref.what == RowRef::What::GcCard && riftwii::wii::is_wii_u() ? acted : -1;
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -10475,8 +10482,8 @@ static int MenuHome(FrontendState& state)
 			}
 		}
 		const int prompt = prompts.GetClicked();
-		if (prompt == promptBack) backBtn.button.SetState(STATE::CLICKED);
-		else if (prompt == promptPlay) startBtn.button.SetState(STATE::CLICKED);
+		if (prompt == promptBack) backBtn.PressSilently();
+		else if (prompt == promptPlay) startBtn.PressSilently();
 
 		if (backBtn.Clicked()) {
 			if (saveOrSay()) menu = MENU_SOURCE;
@@ -10765,7 +10772,7 @@ static void GcAdapterTestPage()
 				portTxt[p].SetText(line.c_str());
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -10824,7 +10831,7 @@ static void CreditsPage()
 		ClearStaleButtons({&backBtn.button});
 		list.GetClicked();
 		list.GetClickedBack();
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		if (!done && !readItAll && list.AtEnd()) {
 			readItAll = true;
@@ -11246,7 +11253,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 				}
 			}
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (backBtn.Clicked()) done = true;
 		ResumeGui();
 	}
@@ -11727,7 +11734,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				ShowPopup(tr("Network Test"), tr(networkTest.error.c_str()), tr("OK"));
 		}
 		ClearStaleButtons({&backBtn.button});
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		const int focused = list.Selected();
 		if (focused != shownRow && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
 			shownRow = focused;
@@ -12525,7 +12532,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 			focus = clicked;
 			picked = clicked;
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		if (picked == -2 && backBtn.Clicked()) picked = -1;
 		ResumeGui();
 	}

@@ -148,7 +148,11 @@ bool ReadArchive(std::string& why) {
             const std::string name = file.name.substr(slash == std::string::npos ? 0 : slash + 1);
             if (name != "IplSound.brsar") continue;
             WiiSoundArchive checked;
-            if (file.bytes.size > kMaxArchive || !checked.load(file.bytes, why)) return false;
+            if (file.bytes.size > kMaxArchive) {
+                why = file.name + " exceeds the archive budget of " + std::to_string(kMaxArchive) + " bytes";
+                return false;
+            }
+            if (!checked.load(file.bytes, why)) return false;
             u8* kept = skin::Mem2Alloc(file.bytes.size);
             if (!kept) {
                 why = "there is no MEM2 for the System Menu sound archive";
@@ -165,7 +169,7 @@ bool ReadArchive(std::string& why) {
             return true;
         }
     }
-    if (why.empty()) why = "the System Menu has no readable IplSound.brsar";
+    why = "the System Menu has no readable IplSound.brsar";
     return false;
 }
 

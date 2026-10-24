@@ -13,7 +13,8 @@
 
 namespace {
 
-bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* selected, unsigned depth, std::size_t& entries_left, bool& rendered) {
+bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* selected, unsigned depth,
+             std::size_t& entries_left, bool& recognized, bool& rendered) {
     if (depth > 4) return true;
     std::string error;
     if (bytes.contains(0, 4) && std::memcmp(bytes.data, "RSAR", 4) == 0) {
@@ -23,7 +24,10 @@ bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* sel
             std::fprintf(stderr, "%s: %s\n", path.c_str(), error.c_str());
             return false;
         }
+        recognized = true;
+        bool selected_found = false;
         for (const auto& sound : sounds) {
+            if (selected && sound.name == selected) selected_found = true;
             if (entries_left == 0) {
                 std::fprintf(stderr, "Listing exceeds 10000 resources and sound names.\n");
                 return false;
@@ -38,8 +42,8 @@ bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* sel
                         sound.name.c_str(), sound.type, sound.volume, sound.file_id,
                         file.size >= 4 ? reinterpret_cast<const char*>(file.data) : "????", file.size, audio.size);
         }
-        if (selected && !rendered) {
-            rendered = true;
+        // A U8 may hold several RSARs; keep looking until the name matches.
+        if (selected_found && !rendered) {
             riftwii::WiiSoundPlayer player;
             if (!player.prepare(archive, selected, true, error)) {
                 std::fprintf(stderr, "%s: %s\n", selected, error.c_str());
@@ -59,6 +63,7 @@ bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* sel
             }
             std::printf("Rendered %s: %zu frames, %zu sample bytes, peak %d; no audio written.\n",
                         selected, frames, player.sample_bytes(), peak);
+            rendered = true;
         }
         return true;
     }
@@ -68,6 +73,7 @@ bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* sel
         std::fprintf(stderr, "%s: %s\n", path.c_str(), error.c_str());
         return false;
     }
+    recognized = true;
     for (const auto& file : files) {
         if (entries_left == 0) {
             std::fprintf(stderr, "Nested listing exceeds 10000 resources.\n");
@@ -78,7 +84,7 @@ bool inspect(riftwii::SoundBytes bytes, const std::string& path, const char* sel
         std::printf("%s: %zu bytes, magic %02x %02x %02x %02x\n", name.c_str(), file.bytes.size,
                     file.bytes.size > 0 ? file.bytes.data[0] : 0, file.bytes.size > 1 ? file.bytes.data[1] : 0,
                     file.bytes.size > 2 ? file.bytes.data[2] : 0, file.bytes.size > 3 ? file.bytes.data[3] : 0);
-        if (!inspect(file.bytes, name, selected, depth + 1, entries_left, rendered)) return false;
+        if (!inspect(file.bytes, name, selected, depth + 1, entries_left, recognized, rendered)) return false;
     }
     return true;
 }
@@ -107,8 +113,21 @@ int main(int argc, char** argv) {
     const bool read = std::fread(bytes.data(), 1, bytes.size(), file) == bytes.size();
     std::fclose(file);
     std::size_t entries_left = 10000;
+    bool recognized = false;
     bool rendered = false;
-    const bool valid = read && inspect({bytes.data(), bytes.size()}, argv[1],
-                                       argc == 3 ? argv[2] : nullptr, 0, entries_left, rendered);
-    return valid ? 0 : 1;
+    if (!read) {
+        std::fprintf(stderr, "%s: could not read the complete file.\n", argv[1]);
+        return 1;
+    }
+    if (!inspect({bytes.data(), bytes.size()}, argv[1], argc == 3 ? argv[2] : nullptr,
+                 0, entries_left, recognized, rendered)) return 1;
+    if (!recognized) {
+        std::fprintf(stderr, "%s: no supported RSAR or U8 archive was recognized.\n", argv[1]);
+        return 1;
+    }
+    if (argc == 3 && !rendered) {
+        std::fprintf(stderr, "%s: the sound was not found and rendered.\n", argv[2]);
+        return 1;
+    }
+    return 0;
 }
