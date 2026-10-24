@@ -4735,43 +4735,42 @@ static int MenuSource(FrontendState& state)
 					g_sdRemovalPending = true;
 					toast.Show(tr("The SD card was taken out."), true);
 				}
-				if (sdEvent == riftwii::SdHotplugEvent::Inserted) {
-					if (g_sdRemovalPending && !g_sdGone) {
-						g_sdRemovalPending = false;
-						riftwii::wii::logf("SD card: back in before it was unmounted; carrying on\n");
-						toast.Show(tr("The SD card is back in. Reading it again."), false);
-					} else if (g_sdGone) {
-						if (SdWatchRemountForMenu()) {
-							riftwii::wii::logf("SD card: back in; mounted again and reread\n");
-							riftwii::wii::ReloadSettings();
-							riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
-							riftwii::wii::LoadMenuTheme();
-							g_forgetPicturesAfterScan = true;
-							StartScan();
-							riftwii::wii::ForgetAppIcons();
-							riftwii::wii::RescanHomebrewApps();
-							const std::string focused = focusedTile();
-							refreshKeepingTile(focused);
-							toast.Show(tr("The SD card is back in. Reading it again."), false);
-							showStatus();
-							g_sdGone = false;
-						} else {
-							g_sdWatch = riftwii::SdHotplug(false);
-							riftwii::wii::logf("SD card: back in but it could not be mounted; waiting for a readable card\n");
-						}
-					}
+				// A card that left is unmounted even when it is already back:
+				// the slot lost power, so the old mount can only fail (and it
+				// may be another card). Once the scan and any download have
+				// let go of it.
+				if (g_sdRemovalPending && !g_sdGone && riftwii::wii::DriveScanDone() &&
+					!riftwii::wii::NetBackgroundBusy()) {
+					riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
+					SdWatchUnmountForRemoval();
+					g_sdGone = true;
+					g_sdRemovalPending = false;
+					state.sd_catalog.games.clear();
+					state.sd_catalog.status = std::string(tr("SD: no card"));
+					const std::string focused = focusedTile();
+					refreshKeepingTile(focused);
+					showStatus();
 				}
-				if (g_sdRemovalPending && !g_sdGone && !SdWatchInsertedNow()) {
-					if (riftwii::wii::DriveScanDone() && !riftwii::wii::NetBackgroundBusy()) {
-						SdWatchUnmountForRemoval();
-						riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
-						g_sdGone = true;
-						g_sdRemovalPending = false;
-						state.sd_catalog.games.clear();
-						state.sd_catalog.status = std::string(tr("SD: no card"));
+				// Mounted afresh when the watch has seen it back in, whether
+				// that was announced now or while the unmount still waited.
+				if (g_sdGone && g_sdWatch.mounted()) {
+					if (SdWatchRemountForMenu()) {
+						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
+						riftwii::wii::ReloadSettings();
+						riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+						riftwii::wii::LoadMenuTheme();
+						g_forgetPicturesAfterScan = true;
+						StartScan();
+						riftwii::wii::ForgetAppIcons();
+						riftwii::wii::RescanHomebrewApps();
 						const std::string focused = focusedTile();
 						refreshKeepingTile(focused);
+						toast.Show(tr("The SD card is back in. Reading it again."), false);
 						showStatus();
+						g_sdGone = false;
+					} else {
+						g_sdWatch = riftwii::SdHotplug(false);
+						riftwii::wii::logf("SD card: back in but it could not be mounted; waiting for a readable card\n");
 					}
 				}
 			}
