@@ -95,15 +95,21 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
     // (up to 192 KB of table) loses more than shown.
     if (runtime && !protected_game && !whole_mem1)
         b.add(tr("SD card for the game"), blob_bytes<vsd_header>(riftwii_vsd_bin), align(vsd_state_bytes(1)));
+    GcAdapterView view;
+    const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
+    const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged);
     if (!protected_game && !whole_mem1) {
         b.add(tr("crash recorder"), blob_bytes<rt_fault_header>(riftwii_fault_bin), align(sizeof(rt_fault_state)));
         if (settings.screenshots != "off")
             b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
-        GcAdapterView view;
-        const bool plugged = GcAdapterMenuLastView(view) && view.open && view.link != GCAD_LINK_NONE;
-        const bool adapter = settings.gc_adapter == "on" || (settings.gc_adapter == "auto" && plugged);
         if (adapter)
             b.add(tr("GameCube adapter"), blob_bytes<rt_pad_header>(riftwii_pad_bin), align(sizeof(gcad)));
+    } else if (!protected_game && code_build && adapter) {
+        // A code build keeps all of MEM1: the adapter's code and state both
+        // go to the top of the MEM2 arena, reached through veneers in low
+        // memory (wii/hooks/padhook.cpp).
+        b.add(tr("GameCube adapter"), 0,
+              blob_bytes<rt_pad_header>(riftwii_pad_bin) + align(sizeof(gcad)));
     }
     return b;
 }

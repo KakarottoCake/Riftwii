@@ -2290,12 +2290,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.plain_code_build = plain_code_build;
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
+    // An RVZ game whose adapter could not be planned (or later installed)
+    // starts without it, as every other game does: plan_pad_hook writes
+    // nothing before it fails, and its "GameCube adapter: off" line says why.
     plan_game_extras(dol, extras_context, extras);
-    if (rvz.enabled && gc_adapter && !extras.pad.active) {
-        error = "the RVZ game and GameCube adapter could not be planned together; see the adapter's log line";
-        logf("RVZ launch stopped: %s\n", error.c_str());
-        return false;
-    }
     // Never left open for the game (it may keep this IOS).
     close_nand_permissions("Launch");
     logf("Handing over\n");

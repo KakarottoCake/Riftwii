@@ -64,8 +64,37 @@ static void test_adapter_budget() {
     }
 }
 
+// A code build keeps all of MEM1, so the adapter's code and state both go
+// to MEM2 (wii/hooks/padhook.cpp's veneers): the estimate must say so.
+static void test_code_build_adapter_budget() {
+    for (UsbImageFormat format : {UsbImageFormat::Wbfs, UsbImageFormat::Rvz}) {
+        FrontendState state;
+        state.game_id = "RSBE01";
+        state.model.save_mode = "nand";
+        state.use_sd = true;
+        ImageGame game;
+        game.format = format;
+        state.sd_catalog.games.push_back(game);
+        LaunchPackage build;
+        build.enabled = true;
+        build.gct_path = "sd:/codes/RSBE01.gct";
+        state.model.packages.push_back(build);
+
+        adapter_plugged = false;
+        settings.gc_adapter = "off";
+        const ExtrasBudget without_adapter = EstimateExtras(state);
+        settings.gc_adapter = "on";
+        const ExtrasBudget with_adapter = EstimateExtras(state);
+        const auto state_bytes = (sizeof(gcad) + 31) & ~std::size_t(31);
+        EXPECT_EQ(with_adapter.mem1(), without_adapter.mem1());
+        EXPECT_EQ(with_adapter.mem2() - without_adapter.mem2(), budget_pad.size + state_bytes);
+        EXPECT_TRUE(with_adapter.list().find("GameCube adapter") != std::string::npos);
+    }
+}
+
 int main() {
     test_adapter_budget();
+    test_code_build_adapter_budget();
     if (g_failures != 0) return 1;
     std::cout << "ALL MEMORYBUDGET TESTS PASSED" << std::endl;
     return 0;
