@@ -24,16 +24,19 @@ namespace {
 
 // Whether this controller's input of the frame is the player acting: any
 // button newly pressed (Wii Remote with its expansions, Classic, GameCube,
-// Wii U Pro/GamePad) or a stick past the dead zone libwiigui uses. The
-// pointer moving is not input here. Read at the input, not from the focus,
-// which the menu moves itself and the pointer's hover moves too.
+// Wii U Pro/GamePad) or a stick crossing the dead zone libwiigui uses (not
+// resting past it: a worn pad). The pointer moving is not input here. Read
+// at the input, not from the focus, which the menu moves itself and the
+// pointer's hover moves too. One edge detector per controller channel.
 bool PlayerActedThisFrame(GuiTrigger* t) {
+    static riftwii::StickEdge sticks[5];
     std::uint32_t pressed = t->pad.btns_d | t->wiidrcdata.btns_d;
     if (t->wpad) pressed |= t->wpad->btns_d;
-    const bool stick = std::abs(static_cast<int>(t->pad.stickX)) > PADCAL || std::abs(static_cast<int>(t->pad.stickY)) > PADCAL ||
+    const bool outside = std::abs(static_cast<int>(t->pad.stickX)) > PADCAL || std::abs(static_cast<int>(t->pad.stickY)) > PADCAL ||
         std::abs(static_cast<int>(t->WPAD_StickX(0))) > PADCAL || std::abs(static_cast<int>(t->WPAD_StickY(0))) > PADCAL ||
         std::abs(static_cast<int>(t->wiidrcdata.stickX)) > WIIDRCCAL || std::abs(static_cast<int>(t->wiidrcdata.stickY)) > WIIDRCCAL;
-    return riftwii::counts_as_player_action(pressed, stick);
+    const int channel = t->chan >= 0 && t->chan < 4 ? t->chan : 4;
+    return riftwii::counts_as_player_action(pressed, sticks[channel].crossed(outside));
 }
 
 constexpr int kTitleSize = 15;       // names: the tile's two lines
@@ -1374,7 +1377,11 @@ int GuiGameGrid::ShoulderPage(GuiTrigger* t) {
 }
 
 void GuiGameGrid::Update(GuiTrigger* t) {
-    if (t && state != STATE::DISABLED) acted.see(PlayerActedThisFrame(t));
+    // Nothing disables the grid itself: a popup, the search keyboard or a
+    // banner screen over Home disables its parent window, which then does not
+    // call this Update at all, and those are the player's own doing (they end
+    // the start-up focus in the menu). So the input is counted for every call.
+    if (t) acted.see(PlayerActedThisFrame(t));
     if (state == STATE::DISABLED || !t || Count() == 0) return;
     const int shoulderPage = ShoulderPage(t);
     if (t->chan >= 0 && t->chan < 4 &&

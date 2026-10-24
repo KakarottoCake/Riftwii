@@ -117,6 +117,23 @@ inline bool counts_as_player_action(std::uint32_t buttons_pressed, bool stick_pu
     return buttons_pressed != 0 || stick_pushed;
 }
 
+// A stick counts when it crosses the dead zone, not while it sits past it: a
+// worn pad or an idle GamePad that rests outside from the start is not the
+// player. The first sample only sets the starting side.
+class StickEdge {
+public:
+    bool crossed(bool outside_now) {
+        const bool crossing = seen_ && outside_now && !outside_;
+        outside_ = outside_now;
+        seen_ = true;
+        return crossing;
+    }
+
+private:
+    bool outside_ = false;
+    bool seen_ = false;
+};
+
 // Whether the player has acted since Home started, so that the games joining
 // in while the drives are read never move the focus from under them. It is
 // told only about input (see), never about the focus: the menu moves that

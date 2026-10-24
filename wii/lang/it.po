@@ -2088,8 +2088,8 @@ msgstr "Prima pagina"
 msgid "Last game"
 msgstr "Ultimo gioco"
 
-msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
-msgstr "Ultimo gioco: la Home si apre sull'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non abbia già premuto un pulsante o mosso lo stick. Prima pagina: la Home si apre sulla pagina 1."
+msgid "Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
+msgstr "Ultimo gioco: la Home si apre sulla pagina dell'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non abbia già premuto un pulsante o mosso lo stick. Prima pagina: la Home si apre sulla pagina 1."
 
 msgid "Its values"
 msgstr "I suoi valori"

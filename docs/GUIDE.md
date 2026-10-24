@@ -76,7 +76,8 @@ the view.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
-pressed a button or moved the stick (Settings > Home starts on > First page opens on page 1 instead). When the Wii is online,
+pressed a button or moved the stick (Settings > Home > Home starts on > First page opens on page 1
+instead). When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language. The line at the
 bottom says how many games the view holds.
@@ -266,11 +267,14 @@ the tiles.
 - **Home order**: *A to Z* (a leading "The" is skipped), *Last played* or
   *Most played*. The last two put the games you played from RiftWii
   first, the rest after them A to Z.
-- **Home starts on**: *Last game* opens Home on the game you played last,
-  as soon as its drive has been read (the SD card's games come first, then
-  the USB drive's), unless you have already pressed a button or moved
-  the stick; *First page* always opens on page 1. Pointing with the Wii
-  Remote does not count. Once you have, RiftWii never moves you again.
+- **Home starts on** (Settings > Home): *Last game* opens Home on the page
+  of the game you played last, with that game selected, as soon as its
+  drive has been read (the SD card's games come first, then the USB
+  drive's), unless you have already pressed a button or moved the stick;
+  *First page* always opens on page 1. Pointing with the Wii Remote does
+  not count as moving: a tile it rests over is the one selected, on the
+  last game's page. After a button or the stick, your game stays selected
+  (more games can still come in around it and change its page).
 - **Disc Channel**: the Disc drive's tile on Home, for playing from a
   disc. A new SD card asks whether you want it after the tour.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers

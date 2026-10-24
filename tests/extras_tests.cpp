@@ -2274,6 +2274,19 @@ void TestPlayerActed() {
     acted.see(counts_as_player_action(0, false));  // and stays, away and back
     EXPECT_TRUE(acted.acted());
 
+    // A stick resting past the dead zone from the first frame (a worn pad, an
+    // idle GamePad) never counts; one that crosses it does, each time.
+    StickEdge worn;
+    PlayerActed idle;
+    for (int frame = 0; frame < 100; ++frame) idle.see(counts_as_player_action(0, worn.crossed(true)));
+    EXPECT_TRUE(!idle.acted());
+    StickEdge pad;
+    EXPECT_TRUE(!pad.crossed(false));
+    EXPECT_TRUE(pad.crossed(true));    // pushed out
+    EXPECT_TRUE(!pad.crossed(true));   // held
+    EXPECT_TRUE(!pad.crossed(false));  // let go
+    EXPECT_TRUE(pad.crossed(true));    // pushed again
+
     // The stick alone sets it; so do the player's other actions.
     PlayerActed stick;
     stick.see(counts_as_player_action(0, true));

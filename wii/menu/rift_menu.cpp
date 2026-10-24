@@ -4429,7 +4429,8 @@ static int MenuSource(FrontendState& state)
 		part.last_part = lastPart;
 		for (std::size_t i = 0; i < items.size(); ++i) {
 			part.identities.push_back(tileIdentity(static_cast<int>(i)));
-			part.keys.push_back(entries[i].kind == HomeEntry::Kind::Disc ? std::string() : items[i].key);
+			const bool noGame = i >= entries.size() || entries[i].kind == HomeEntry::Kind::Disc;
+			part.keys.push_back(noGame ? std::string() : items[i].key);
 		}
 		bool decided = false;
 		const int target = riftwii::home_start_focus(part, decided);
@@ -11647,7 +11648,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
-			case kHomeStart: return tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
+			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
