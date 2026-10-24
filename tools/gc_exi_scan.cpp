@@ -71,21 +71,35 @@ int scan(const char* path) {
         return 1;
     }
     const std::string game_id(reinterpret_cast<const char*>(header), 6);
+    // The header is the image's, not ours: every size it gives is checked
+    // against the disc before anything is allocated or read.
+    const std::uint64_t disc_bytes = disc->size();
     const std::uint32_t dol_at = be32(header + 0x420);
     std::vector<std::uint8_t> head(0x100);
+    if (std::uint64_t(dol_at) + head.size() > disc_bytes) {
+        std::printf("%s: the DOL offset 0x%08x is past the disc's end\n", path, dol_at);
+        return 1;
+    }
     DolHeader dol;
     if (!disc->read(dol_at, head.data(), head.size()) || !parse_dol_header(head.data(), head.size(), dol, error)) {
         std::printf("%s: cannot parse the DOL header: %s\n", path, error.c_str());
         return 1;
     }
-    // The DOL's size: the end of its furthest section.
-    std::size_t total = 0;
+    // The DOL's size: the end of its furthest section, in 64 bits so that an
+    // offset and a size near 4 GB cannot wrap, and at most kLargestDol.
+    constexpr std::uint64_t kLargestDol = 64u << 20;
+    std::uint64_t total = 0;
     for (std::size_t s = 0; s < kDolSections; ++s) {
         if (dol.sections[s].used()) {
-            total = std::max<std::size_t>(total, dol.sections[s].offset + dol.sections[s].size);
+            total = std::max<std::uint64_t>(total, std::uint64_t(dol.sections[s].offset) + dol.sections[s].size);
         }
     }
-    std::vector<std::uint8_t> bytes(total);
+    if (total > kLargestDol || dol_at + total > disc_bytes) {
+        std::printf("%s: the DOL's sections end 0x%llx bytes in, past the disc or the 64 MB limit\n", path,
+                    static_cast<unsigned long long>(total));
+        return 1;
+    }
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(total));
     if (!disc->read(dol_at, bytes.data(), bytes.size())) {
         std::printf("%s: cannot read the DOL\n", path);
         return 1;
@@ -93,13 +107,16 @@ int scan(const char* path) {
     std::vector<CodeRange> text;
     for (std::size_t s = 0; s < kDolTextSections; ++s) {
         const DolSection& section = dol.sections[s];
-        if (!section.used() || section.offset + section.size > bytes.size()) continue;
+        if (!section.used() || std::uint64_t(section.offset) + section.size > bytes.size()) continue;
         text.push_back({section.address, bytes.data() + section.offset, section.size});
     }
     const GcExiFunctions found = find_gc_exi_functions(text, game_id);
-    std::printf("%s %s: blocks 0x%08x%s, %u table(s) resolve%s\n", game_id.c_str(), path, found.blocks,
-                found.blocks ? "" : " (REJECTED)", found.resolving_tables,
-                found.probe_ex_absent ? ", no EXIProbeEx in this SDK" : "");
+    const char* absent = !found.probe_ex_absent ? ""
+                         : found.old_sdk       ? ", no EXIProbeEx found (the 2001 SDK has none)"
+                                               : ", no EXIProbeEx found (a listed game)";
+    std::printf("%s %s: blocks 0x%08x%s, %u table(s) tried, %u resolve%s\n", game_id.c_str(), path, found.blocks,
+                found.blocks ? "" : " (REJECTED)", found.tables_tried, found.resolving_tables, absent);
+    if (found.blocks == 0) std::printf("  partial list from the table at 0x%08x\n", found.partial_blocks);
     for (unsigned i = 0; i < kGcExiHooks; ++i) {
         std::printf("  %-11s ", gc_exi_function_name(i));
         if (found.hooks[i] != 0) {

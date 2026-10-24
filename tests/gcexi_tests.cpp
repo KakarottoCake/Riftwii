@@ -32,6 +32,11 @@ std::uint32_t branch_link(std::uint32_t from, std::uint32_t to) {
     return 0x48000001u | ((to - from) & 0x03FFFFFC);
 }
 
+// A tail call: b, no link.
+std::uint32_t branch(std::uint32_t from, std::uint32_t to) {
+    return 0x48000000u | ((to - from) & 0x03FFFFFC);
+}
+
 std::uint32_t clear_bit(unsigned bit) {
     const unsigned first = (32 - bit) % 32;
     const unsigned last = (30 - bit) % 32;
@@ -356,6 +361,184 @@ void test_listed_game_negatives() {
     unknown_caller.expect_rejected("GHAE08");
 }
 
+// A decoy that looks partly like the SDK: one function sets the selected and
+// locked bits, another clears them, another stores a buffer and length, with
+// enough users to be tried. It must not resolve on its own, and next to the
+// real SDK the real table is taken.
+void add_partial_decoy(Text& text) {
+    text.add_function(false, kDecoyBlocks, {0x60000004, 0x60000010});
+    text.add_function(false, kDecoyBlocks, {clear_bit(2), clear_bit(4)});
+    text.add_function(false, kDecoyBlocks, {0x90040010, 0x90040014, 0x60000002});
+    for (int i = 0; i < 10; ++i) text.add_function(false, kDecoyBlocks, {kNop});
+}
+
+void test_partial_decoy_does_not_resolve() {
+    Text decoy_only;
+    add_partial_decoy(decoy_only);
+    const auto alone = riftwii::find_gc_exi_functions(decoy_only.ranges());
+    EXPECT_EQ(alone.blocks, 0u);
+    EXPECT_EQ(alone.resolving_tables, 0u);
+    EXPECT_EQ(alone.tables_tried, 1u);
+    EXPECT_EQ(alone.partial_blocks, kDecoyBlocks);
+    EXPECT_TRUE(alone.partial[GC_EXI_IMM] != 0);  // the log names what the decoy placed
+
+    Sdk sdk(modern_shape());
+    add_partial_decoy(sdk.text);
+    sdk.expect_found();
+    EXPECT_EQ(sdk.find().tables_tried, 2u);
+}
+
+// #318 review: in the no-EXIProbeEx case every branch to the internal probe
+// must come from a function already placed. An EXIProbeEx with an early blr
+// between its probe call and its EXIGetID call looks like two functions to a
+// nearest-blr search; a tail call (b) is not a bl at all. Both reject.
+void test_listed_game_strict_probe_callers() {
+    Sdk early_blr(no_probe_ex_shape());
+    const std::uint32_t split = early_blr.text.add_function(false, kBlocks, {kNop, kBlr, kNop, kMinusOne});
+    early_blr.text.call(split, 0, early_blr.probe);
+    early_blr.text.call(split, 2, early_blr.expected[GC_EXI_GET_ID]);
+    early_blr.expect_rejected("GHAE08");
+
+    Sdk tail_call(no_probe_ex_shape());
+    const std::uint32_t outside = tail_call.text.add_function(false, kNoTable, {kNop, kNop});
+    tail_call.text.put(outside + 16, branch(outside + 16, tail_call.probe));
+    tail_call.expect_rejected("GHAE08");
+
+    // A conditional tail call too (bc 12,2: beq).
+    Sdk conditional(no_probe_ex_shape());
+    const std::uint32_t cond = conditional.text.add_function(false, kNoTable, {kNop, kNop});
+    const std::uint32_t at = cond + 16;
+    conditional.text.put(at, 0x41820000u | ((conditional.probe - at) & 0xFFFC));
+    conditional.expect_rejected("GHAE08");
+}
+
+// A 0x40-byte SDK without EXIProbeEx, with a function no table lists
+// between EXIDeselect and EXILock (where Resident Evil 2 USA's EXI start-up
+// sits), `gap_words` long; the tests fill it in.
+struct GapSdk {
+    Text text;
+    std::uint32_t probe = 0;
+    std::uint32_t gap = 0;
+    std::uint32_t get_id = 0;
+
+    explicit GapSdk(unsigned gap_words) {
+        auto add = [&](const std::vector<std::uint32_t>& body) { return text.add_function(false, kBlocks, body); };
+        const std::uint32_t imm = add({0x90040010, 0x90040014, 0x60000002});
+        add({0x60000003});
+        const std::uint32_t sync = add({});
+        const std::uint32_t select = add({0x60000004, kNop});
+        add({clear_bit(2)});
+        gap = text.add_function(false, kNoTable, std::vector<std::uint32_t>(gap_words, kNop), 16 + 4 * gap_words + 8);
+        const std::uint32_t lock = add({0x60000010});
+        add({clear_bit(4)});
+        probe = add({});
+        const std::uint32_t exi_probe = add({kNop, kNop});
+        const std::uint32_t attach = add({0x60000008, kNop});
+        get_id = add({kProbeTimes, kNop, kNop, kNop, kNop});
+        text.call(select, 1, probe);
+        text.call(attach, 1, probe);
+        text.call(get_id, 1, lock);
+        text.call(get_id, 2, select);
+        text.call(get_id, 3, imm);
+        text.call(get_id, 4, sync);
+        text.call(exi_probe, 0, probe);
+        text.call(exi_probe, 1, get_id);
+    }
+
+    bool found() { return riftwii::find_gc_exi_functions(text.ranges(), "GHAE08").blocks == kBlocks; }
+};
+
+// Rule (b): a branch to the probe from code between placed functions passes
+// only when that span holds no EXIGetID call and no li r3,-1.
+void test_listed_game_bracketed_callers() {
+    GapSdk plain(4);
+    EXPECT_TRUE(plain.found());
+
+    GapSdk init_like(4);  // probes channels 0 and 1, as an EXI start-up does
+    init_like.text.call(init_like.gap, 0, init_like.probe);
+    init_like.text.call(init_like.gap, 2, init_like.probe);
+    EXPECT_TRUE(init_like.found());
+
+    GapSdk split(4);  // an EXIProbeEx with an early return between its two calls
+    split.text.call(split.gap, 0, split.probe);
+    split.text.put(split.gap + 16 + 4, kBlr);
+    split.text.call(split.gap, 2, split.get_id);
+    EXPECT_TRUE(!split.found());
+
+    GapSdk minus_one(4);  // a probe call and a -1: an EXIProbeEx with GetID inlined away
+    minus_one.text.call(minus_one.gap, 0, minus_one.probe);
+    minus_one.text.put(minus_one.gap + 16 + 8, kMinusOne);
+    EXPECT_TRUE(!minus_one.found());
+
+    // The same code with an EXIProbeEx found is never held to the rule:
+    // a game not on the list rejects the gap SDK (no EXIProbeEx), as before.
+    GapSdk unlisted(4);
+    EXPECT_EQ(riftwii::find_gc_exi_functions(unlisted.text.ranges(), "GMSE01").blocks, 0u);
+}
+
+// One table resolving in each layout: rejected, and the log's partial list
+// is the first resolving table's, with its address.
+void test_cross_layout_partial() {
+    Text mixed;
+    Sdk modern(modern_shape(), mixed);
+    SdkShape old_other = old_shape();
+    old_other.table = kOtherBlocks;
+    Sdk old(old_other, mixed);
+    add_partial_decoy(mixed);  // a decoy placing more than nothing must not take the log
+    const auto found = modern.find();
+    EXPECT_EQ(found.blocks, 0u);
+    EXPECT_EQ(found.resolving_tables, 2u);
+    EXPECT_EQ(found.partial_blocks, kBlocks);
+    for (unsigned index = 0; index < riftwii::kGcExiHooks; ++index)
+        EXPECT_EQ(found.partial[index], modern.expected[index]);
+}
+
+// The loader's all-or-nothing gate (decide_gc_exi_hooks), case by case.
+void test_hook_decision() {
+    using riftwii::GcExiVerdict;
+    Sdk sdk(modern_shape());
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(sdk.find(), sdk.text.ranges()).verdict == GcExiVerdict::Hook);
+
+    Sdk listed(no_probe_ex_shape());
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(listed.find("GHAE08"), listed.text.ranges()).verdict ==
+                GcExiVerdict::Hook);
+
+    // A function starting with a branch: everything found, nothing hooked.
+    Sdk branching(modern_shape());
+    branching.text.put(branching.expected[GC_EXI_IMM], 0x48000008);  // b +8
+    const auto with_branch = branching.find();
+    EXPECT_EQ(with_branch.blocks, kBlocks);
+    const auto decided = riftwii::decide_gc_exi_hooks(with_branch, branching.text.ranges());
+    EXPECT_TRUE(decided.verdict == GcExiVerdict::StartsWithBranch);
+    EXPECT_TRUE(decided.branching[GC_EXI_IMM]);
+    EXPECT_TRUE(!decided.branching[GC_EXI_DMA]);
+
+    // A result with one hook missing is never hooked, even with blocks set.
+    auto incomplete = sdk.find();
+    incomplete.hooks[GC_EXI_SYNC] = 0;
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(incomplete, sdk.text.ranges()).verdict == GcExiVerdict::Incomplete);
+    // And EXIProbeEx 0 without the finder saying it is absent.
+    auto no_probe_ex = sdk.find();
+    no_probe_ex.hooks[GC_EXI_PROBE_EX] = 0;
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(no_probe_ex, sdk.text.ranges()).verdict == GcExiVerdict::Incomplete);
+
+    Text shared;
+    Sdk first(modern_shape(), shared);
+    SdkShape second_shape = modern_shape();
+    second_shape.table = kOtherBlocks;
+    Sdk second(second_shape, shared);
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(first.find(), shared.ranges()).verdict ==
+                GcExiVerdict::SeveralTables);
+
+    Sdk missing(modern_shape());
+    missing.text.put(missing.expected[GC_EXI_SELECT] + 16, kNop);
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(missing.find(), missing.text.ranges()).verdict ==
+                GcExiVerdict::NotAllFound);
+
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(riftwii::find_gc_exi_functions({}), {}).verdict ==
+                GcExiVerdict::NoTables);
+}
+
 // A rejection hooks nothing but still reports what the finder did place, for
 // the launch log.
 void test_rejection_names_what_was_missing() {
@@ -380,6 +563,11 @@ int main() {
     test_two_resolving_tables_are_rejected();
     test_listed_game_without_probe_ex();
     test_listed_game_negatives();
+    test_partial_decoy_does_not_resolve();
+    test_listed_game_strict_probe_callers();
+    test_listed_game_bracketed_callers();
+    test_cross_layout_partial();
+    test_hook_decision();
     test_rejection_names_what_was_missing();
     EXPECT_EQ(riftwii::find_gc_exi_functions({}).blocks, 0u);
     if (g_failures != 0) return 1;

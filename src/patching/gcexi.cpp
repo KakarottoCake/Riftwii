@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <iterator>
 #include <map>
-#include <set>
 #include <string>
 
 #include "gc_card.h"
@@ -51,6 +50,25 @@ std::uint32_t bl_target(std::uint32_t at, std::uint32_t w) {
     return at + d;
 }
 
+// Where any relative branch goes, linked or not, conditional or not (b, bl,
+// bc, bcl): a tail call reaches a function as surely as a call does. 0 for
+// anything else and for absolute branches.
+std::uint32_t any_branch_target(std::uint32_t at, std::uint32_t w) {
+    const unsigned op = w >> 26;
+    if ((w & 2) != 0) return 0;  // AA: an absolute address, not code reached from here
+    if (op == 18) {
+        std::int32_t d = static_cast<std::int32_t>(w & 0x03FFFFFC);
+        if (d & 0x02000000) d -= 0x04000000;
+        return at + d;
+    }
+    if (op == 16) {
+        std::int32_t d = static_cast<std::int32_t>(w & 0xFFFC);
+        if (d & 0x8000) d -= 0x10000;
+        return at + d;
+    }
+    return 0;
+}
+
 std::uint32_t function_start(const Words& code, std::uint32_t at) {
     for (std::uint32_t a = at - 4; code.has(a) && at - a < 0x400; a -= 4)
         if (code.at(a) == 0x4E800020) return a + 4;
@@ -86,10 +104,20 @@ struct BlockTables {
     std::map<std::uint32_t, std::uint32_t> base_of;  // function -> its table
 };
 
-BlockTables find_block_tables(const Words& code, std::uint32_t index_word) {
-    BlockTables tables;
+// Both block sizes' tables in one pass over the code: the pass is most of the
+// finder's time (Splinter Cell: Double Agent's 5.6 MB of code), and a second
+// one for the 2001 SDK's size doubled it.
+struct BothTables {
+    BlockTables modern;  // kModernIndex
+    BlockTables old;     // kOldIndex
+};
+
+BothTables find_block_tables(const Words& code) {
+    BothTables both;
     code.each([&](std::uint32_t a, std::uint32_t w) {
-        if ((w & 0xFC00FFFF) != index_word) return;
+        const std::uint32_t index = w & 0xFC00FFFF;
+        if (index != kModernIndex && index != kOldIndex) return;
+        BlockTables& tables = index == kModernIndex ? both.modern : both.old;
         const std::uint32_t f = function_start(code, a);
         if (f == 0 || a - f > 0x40) return;
         std::uint32_t hi[32] = {};
@@ -110,7 +138,7 @@ BlockTables find_block_tables(const Words& code, std::uint32_t index_word) {
             }
         }
     });
-    return tables;
+    return both;
 }
 
 // The first instruction after the function ending at `end`, past the zero
@@ -119,33 +147,6 @@ std::uint32_t next_function(const Words& code, std::uint32_t end) {
     std::uint32_t a = end;
     while (code.has(a) && (code.at(a) == 0 || code.at(a) == 0x60000000) && a - end < 0x40) a += 4;
     return code.has(a) ? a : 0;
-}
-
-// Whether no function outside EXIProbe, EXIAttach and EXIGetID calls both
-// the internal probe and EXIGetID, as an EXIProbeEx would: a game whose
-// EXIProbeEx the finder only failed to see must not run it on the real bus
-// while the rest of slot A is hooked. A call to the probe from a function
-// whose start cannot be found is doubtful too.
-bool nothing_else_probes_and_gets_id(const Words& code, std::uint32_t probe,
-                                     const std::array<std::uint32_t, kGcExiHooks>& out) {
-    std::set<std::uint32_t> probe_callers;
-    bool doubtful = false;
-    code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (bl_target(a, w) != probe) return;
-        const std::uint32_t f = function_start(code, a);
-        if (f == 0) doubtful = true;
-        probe_callers.insert(f);
-    });
-    if (doubtful) return false;
-    const std::uint32_t allowed[] = {out[GC_EXI_PROBE], out[GC_EXI_ATTACH], out[GC_EXI_GET_ID]};
-    bool clear = true;
-    code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (bl_target(a, w) != out[GC_EXI_GET_ID]) return;
-        const std::uint32_t f = function_start(code, a);
-        if (f == 0 || probe_callers.count(f) == 0) return;
-        if (std::find(std::begin(allowed), std::end(allowed), f) == std::end(allowed)) clear = false;
-    });
-    return clear;
 }
 
 // The functions using one table, and whether all of them were placed. `out`
@@ -279,12 +280,67 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
             }
         }
     }
+    // Whether every branch to the internal probe anywhere in the code (bl,
+    // b, bc: a tail call reaches it as surely as a call) is one an EXIProbeEx
+    // the finder missed cannot be. A function's start found by the nearest
+    // blr before it can be half of a real EXIProbeEx with an early return, so
+    // such a guess never vouches for a branch. A branch passes when it is
+    //  (a) inside a placed function (or the probe itself), between its start
+    //      and its first blr; or
+    //  (b) in code bracketed by placed functions, from the end of the nearest
+    //      one before it to the start of the nearest one after it, when that
+    //      whole span has no branch to EXIGetID and no li r3,-1: no piece of
+    //      an EXIProbeEx, whose GetID call or -1 would sit in the same span.
+    //      The SDK's EXI start-up, which probes channels 0 and 1, sits there
+    //      in Resident Evil 2 USA.
+    // Anything else rejects: a branch from outside the EXI functions, a span
+    // longer than kLongestSpan, a placed function of unknown size.
+    constexpr std::uint32_t kLongestSpan = 0x1000;
+    auto only_exi_code_branches_to_probe = [&]() {
+        std::vector<const Fn*> placed_functions;
+        for (std::uint32_t address : out) {
+            if (address == 0) continue;
+            const Fn* fn = function_at(address);
+            if (fn == nullptr || fn->size == 0) return false;
+            placed_functions.push_back(fn);
+        }
+        const Fn* probe_function = function_at(probe);
+        if (probe_function == nullptr || probe_function->size == 0) return false;
+        placed_functions.push_back(probe_function);
+        auto bracketed_span_is_clean = [&](std::uint32_t a) {
+            std::uint32_t span_start = 0;
+            std::uint32_t span_end = 0;
+            for (const Fn* fn : placed_functions) {
+                const std::uint32_t end = fn->start + fn->size;
+                if (end <= a && end > span_start) span_start = end;
+                if (fn->start > a && (span_end == 0 || fn->start < span_end)) span_end = fn->start;
+            }
+            if (span_start == 0 || span_end == 0 || span_end - span_start > kLongestSpan) return false;
+            for (std::uint32_t s = span_start; s < span_end; s += 4) {
+                if (!code.has(s)) return false;
+                const std::uint32_t w = code.at(s);
+                if (w == 0x3860FFFF) return false;  // li r3,-1
+                if (any_branch_target(s, w) == get_id) return false;
+            }
+            return true;
+        };
+        bool clear = true;
+        code.each([&](std::uint32_t a, std::uint32_t w) {
+            if (!clear || any_branch_target(a, w) != probe) return;
+            const bool inside_placed = std::any_of(placed_functions.begin(), placed_functions.end(),
+                                                   [a](const Fn* fn) { return a >= fn->start && a < fn->start + fn->size; });
+            if (!inside_placed && !bracketed_span_is_clean(a)) clear = false;
+        });
+        return clear;
+    };
     // A 0x40-byte SDK without EXIProbeEx (Resident Evil 2 USA links one),
     // allowed only for the games listed by the caller and only when nothing
     // could be an EXIProbeEx the finder missed: EXIProbe is the one function
     // here calling the probe and EXIGetID (the -1 aside), the SDK's next
     // function after it is EXIAttach (where EXIProbeEx sits otherwise), and
-    // nothing else anywhere calls both.
+    // nothing else branches to the internal probe in a way an EXIProbeEx
+    // could (only_exi_code_branches_to_probe). Games with an EXIProbeEx found
+    // never get here.
     bool modern_without_probe_ex = false;
     if (!old_sdk && probe_ex_may_be_absent && out[GC_EXI_PROBE_EX] == 0 && out[GC_EXI_PROBE] != 0 &&
         out[GC_EXI_ATTACH] != 0 && probe != 0) {
@@ -296,7 +352,7 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
                                     next_function(code, probe_function->start + probe_function->size) ==
                                         out[GC_EXI_ATTACH];
         modern_without_probe_ex = probe_like == out[GC_EXI_PROBE] && attach_follows &&
-                                  nothing_else_probes_and_gets_id(code, probe, out);
+                                  only_exi_code_branches_to_probe();
     }
     for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
         const bool may_be_absent = i == GC_EXI_PROBE_EX && (old_probe || modern_without_probe_ex);
@@ -317,34 +373,36 @@ unsigned placed(const std::array<std::uint32_t, kGcExiHooks>& hooks) {
 // 2 USA has one with 60 against the EXI blocks' 16), so the count cannot
 // pick; and two tables that both resolve are doubtful.
 struct LayoutResult {
-    std::uint32_t blocks = 0;
+    unsigned tables_tried = 0;
     unsigned resolving_tables = 0;
+    // The first table that resolved every function, with its hooks.
+    std::uint32_t first_blocks = 0;
+    std::array<std::uint32_t, kGcExiHooks> first_hooks{};
     bool probe_ex_absent = false;
-    std::array<std::uint32_t, kGcExiHooks> hooks{};
+    // Of the tables that did not resolve, the one placing the most functions
+    // (for the log only).
+    std::uint32_t best_partial_blocks = 0;
     std::array<std::uint32_t, kGcExiHooks> best_partial{};
 };
 
-LayoutResult find_exi_functions_by(const Words& code, std::uint32_t index_word, bool probe_ex_may_be_absent) {
+LayoutResult find_exi_functions_by(const Words& code, std::uint32_t index_word, const BlockTables& tables,
+                                   bool probe_ex_may_be_absent) {
     LayoutResult result;
-    const BlockTables tables = find_block_tables(code, index_word);
     for (const auto& [table, users] : tables.users) {
         if (users <= 7) continue;
+        ++result.tables_tried;
         std::array<std::uint32_t, kGcExiHooks> hooks{};
         bool absent = false;
         if (resolve_exi_functions(code, index_word, table, tables, probe_ex_may_be_absent, hooks, absent)) {
             if (++result.resolving_tables == 1) {
-                result.blocks = table;
-                result.hooks = hooks;
+                result.first_blocks = table;
+                result.first_hooks = hooks;
                 result.probe_ex_absent = absent;
             }
-        } else if (placed(hooks) > placed(result.best_partial)) {
+        } else if (result.best_partial_blocks == 0 || placed(hooks) > placed(result.best_partial)) {
+            result.best_partial_blocks = table;
             result.best_partial = hooks;
         }
-    }
-    if (result.resolving_tables > 1) {
-        result.best_partial = result.hooks;
-        result.blocks = 0;
-        result.hooks.fill(0);
     }
     return result;
 }
@@ -359,7 +417,7 @@ bool links_no_probe_ex(const std::string& game_id) {
         "GHAE08",  // Resident Evil 2 (USA), #318
     };
     for (const char* id : kGames) {
-        if (game_id.compare(0, 6, id) == 0 && game_id.size() >= 6) return true;
+        if (game_id.compare(0, 6, id) == 0) return true;  // a shorter ID never compares equal
     }
     return false;
 }
@@ -377,24 +435,68 @@ GcExiFunctions find_gc_exi_functions(const std::vector<CodeRange>& text, const s
     const Words code(text);
     // Both layouts, each on its own: one table across the two must resolve
     // every function, and a second one anywhere makes the choice doubtful.
-    const LayoutResult modern = find_exi_functions_by(code, kModernIndex, links_no_probe_ex(game_id));
-    const LayoutResult old_sdk = find_exi_functions_by(code, kOldIndex, false);
+    const BothTables tables = find_block_tables(code);
+    const LayoutResult modern = find_exi_functions_by(code, kModernIndex, tables.modern, links_no_probe_ex(game_id));
+    const LayoutResult old_sdk = find_exi_functions_by(code, kOldIndex, tables.old, false);
     GcExiFunctions found;
+    found.tables_tried = modern.tables_tried + old_sdk.tables_tried;
     found.resolving_tables = modern.resolving_tables + old_sdk.resolving_tables;
+    const LayoutResult& first_resolving = modern.resolving_tables != 0 ? modern : old_sdk;
     if (found.resolving_tables == 1) {
-        const LayoutResult& chosen = modern.blocks != 0 ? modern : old_sdk;
-        found.blocks = chosen.blocks;
-        found.hooks = chosen.hooks;
-        found.probe_ex_absent = chosen.probe_ex_absent;
+        found.blocks = first_resolving.first_blocks;
+        found.hooks = first_resolving.first_hooks;
+        found.probe_ex_absent = first_resolving.probe_ex_absent;
+        found.old_sdk = &first_resolving == &old_sdk;
         return found;
     }
     if (found.resolving_tables > 1) {
-        found.partial = modern.resolving_tables != 0 ? modern.best_partial : old_sdk.best_partial;
+        // The log names the first table that resolved, never a decoy's
+        // partial set: both full sets were there, the choice was the doubt.
+        found.partial = first_resolving.first_hooks;
+        found.partial_blocks = first_resolving.first_blocks;
         return found;
     }
-    found.partial = placed(old_sdk.best_partial) > placed(modern.best_partial) ? old_sdk.best_partial
-                                                                                : modern.best_partial;
+    const bool old_placed_more = old_sdk.best_partial_blocks != 0 &&
+                                 (modern.best_partial_blocks == 0 ||
+                                  placed(old_sdk.best_partial) > placed(modern.best_partial));
+    const LayoutResult& best = old_placed_more ? old_sdk : modern;
+    found.partial = best.best_partial;
+    found.partial_blocks = best.best_partial_blocks;
     return found;
+}
+
+GcExiDecision decide_gc_exi_hooks(const GcExiFunctions& found, const std::vector<CodeRange>& text) {
+    GcExiDecision decision;
+    if (found.blocks == 0) {
+        if (found.resolving_tables > 1) {
+            decision.verdict = GcExiVerdict::SeveralTables;
+        } else if (found.tables_tried == 0) {
+            decision.verdict = GcExiVerdict::NoTables;
+        } else {
+            decision.verdict = GcExiVerdict::NotAllFound;
+        }
+        return decision;
+    }
+    for (unsigned i = 0; i < kGcExiHooks; ++i) {
+        const bool may_be_absent = i == GC_EXI_PROBE_EX && found.probe_ex_absent;
+        if (found.hooks[i] == 0 && !may_be_absent) {
+            decision.verdict = GcExiVerdict::Incomplete;
+            return decision;
+        }
+    }
+    // The hook replays the first instruction elsewhere, so it must not be a
+    // relative branch (b or bc), which would go somewhere else from there.
+    const Words code(text);
+    bool any_branch = false;
+    for (unsigned i = 0; i < kGcExiHooks; ++i) {
+        const std::uint32_t at = found.hooks[i];
+        if (at == 0) continue;
+        const unsigned op = code.at(at) >> 26;
+        decision.branching[i] = op == 18 || op == 16;
+        any_branch = any_branch || decision.branching[i];
+    }
+    decision.verdict = any_branch ? GcExiVerdict::StartsWithBranch : GcExiVerdict::Hook;
+    return decision;
 }
 
 }  // namespace riftwii
