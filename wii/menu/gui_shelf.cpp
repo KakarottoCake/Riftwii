@@ -38,6 +38,7 @@
 #include "skin.hpp"
 #include "video.h"
 #include "wiidrc.h"
+#include "wiimenusounds.hpp"
 
 namespace skin = riftwii::wii::skin;
 
@@ -1279,25 +1280,25 @@ void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
             } else if (dragPress >= 0) {
                 if (dragPress == focus) {
                     clicked = focus;
-                    soundClick->Play();
+                    riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
                 } else {
                     // A box on the shelf is pulled out first; A again opens it.
                     focus = dragPress;
                     page = focus / kPerPage;
                     shelfHover = -1;
-                    soundClick->Play();
+                    riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
                 }
             }
         } else if (PressedA(t) && hit >= 0) {
             // A Classic Controller's or a GameCube controller's A while pointing.
             if (hit == focus) {
                 clicked = focus;
-                soundClick->Play();
+                riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
             } else {
                 focus = hit;
                 page = focus / kPerPage;
                 shelfHover = -1;
-                soundClick->Play();
+                riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
             }
         }
         return;
@@ -1323,6 +1324,6 @@ void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
     }
     if (PressedA(t)) {
         clicked = focus;
-        soundClick->Play();
+        riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
     }
 }

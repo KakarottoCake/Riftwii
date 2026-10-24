@@ -16,6 +16,7 @@
 #include "menutheme.hpp"
 #include "oggplayer.h"
 #include "skin.hpp"
+#include "wiimenusounds.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -36,6 +37,7 @@ u8* g_music = nullptr;
 long g_bytes = 0;
 bool g_tried = false;
 bool g_playing = false;
+bool g_using_wii = false;
 bool g_kept_for_launch = false;
 s32 g_resume_at_ms = -1;  // where the track was when a cIOS reload paused it
 
@@ -74,11 +76,16 @@ void Load() {
     }
 }
 
+void MusicVolume(int volume) {
+    if (g_using_wii) WiiMenuMusicVolume(volume);
+    else SetVolumeOgg(volume);
+}
+
 // The half-second fade both endings of the music share, so they cannot drift
 // apart: the volume steps down to silence, the decoder keeps running.
 void FadeVolumeToZero() {
     for (int step = kFadeSteps - 1; step >= 0; --step) {
-        SetVolumeOgg(kVolume * step / kFadeSteps);
+        MusicVolume(kVolume * step / kFadeSteps);
         usleep(kFadeStepUs);
     }
 }
@@ -87,6 +94,14 @@ void FadeVolumeToZero() {
 
 void MenuMusicStart() {
     if (g_playing || Settings().menu_music == "off") return;
+    // A theme keeps its music; otherwise the selected NAND source precedes
+    // the card's and RiftWii's own Ogg files.
+    g_using_wii = Settings().wii_menu_music && MenuThemeMusic().empty() && WiiMenuMusicStart();
+    if (g_using_wii) {
+        WiiMenuMusicVolume(kVolume);
+        g_playing = true;
+        return;
+    }
     Load();
     if (!g_music) return;
     if (PlayOgg(g_music, g_bytes, 0, OGG_INFINITE_TIME) < 0) {
@@ -97,12 +112,26 @@ void MenuMusicStart() {
     g_playing = true;
 }
 
+void MenuMusicUpdate() {
+    if (!g_using_wii || !WiiMenuMusicFailed()) return;
+    WiiMenuMusicStop();
+    g_using_wii = false;
+    g_playing = false;
+    MenuMusicStart();
+}
+
 void MenuMusicStop() {
     g_kept_for_launch = false;
     g_resume_at_ms = -1;
     if (!g_playing) return;
-    StopOgg();
+    if (g_using_wii) WiiMenuMusicStop();
+    else StopOgg();
     g_playing = false;
+}
+
+void MenuMusicPause(bool pause) {
+    if (g_using_wii) WiiMenuMusicPause(pause);
+    else PauseOgg(pause ? 1 : 0);
 }
 
 void MenuMusicFadeOut() {
@@ -112,6 +141,7 @@ void MenuMusicFadeOut() {
 }
 
 bool MenuMusicFound() {
+    if (Settings().wii_menu_music && MenuThemeMusic().empty() && WiiMenuMusicFound()) return true;
     Load();
     return g_music != nullptr;
 }
@@ -165,7 +195,7 @@ void LaunchMusicPauseForReload(const char* why) {
     // playing across the reload into d2x (IOS249) damaged RiftWii's heap
     // and the decoder's state (2610-452, a USB game), which Dolphin did
     // not show. Stopped here, as for the game, and started again after.
-    const s32 at_ms = GetTimeOgg();
+    const s32 at_ms = g_using_wii ? 0 : GetTimeOgg();
     FadeOutAndStop(why, at_ms >= 0 ? at_ms : 0);
 }
 
@@ -174,22 +204,28 @@ void LaunchMusicResumeAfterReload() {
     const s32 at_ms = g_resume_at_ms;
     g_resume_at_ms = -1;
     InitAudio();
-    if (PlayOgg(g_music, g_bytes, at_ms, OGG_INFINITE_TIME) < 0) {
+    const bool resumed = g_using_wii ? WiiMenuMusicStart()
+                                    : PlayOgg(g_music, g_bytes, at_ms, OGG_INFINITE_TIME) >= 0;
+    if (!resumed) {
         ShutdownAudio();
         logf("Menu music: not resumed after the reload (the player refused the file)\n");
         return;
     }
     // PlayOgg starts at full volume; its thread hands the mixer nothing
     // before its second decode, after it has yielded back to here.
-    SetVolumeOgg(0);
+    MusicVolume(0);
     g_playing = true;
     g_kept_for_launch = true;
     for (int step = 1; step <= kFadeInSteps; ++step) {
-        SetVolumeOgg(kVolume * step / kFadeInSteps);
+        MusicVolume(kVolume * step / kFadeInSteps);
         usleep(kFadeStepUs);
     }
-    logf("Menu music: back after the reload, %d.%01d s into the track\n", static_cast<int>(at_ms / 1000),
-         static_cast<int>(at_ms % 1000 / 100));
+    if (g_using_wii) {
+        logf("Menu music: the System Menu sequence continued after the reload\n");
+    } else {
+        logf("Menu music: back after the reload, %d.%01d s into the track\n", static_cast<int>(at_ms / 1000),
+             static_cast<int>(at_ms % 1000 / 100));
+    }
 }
 
 }  // namespace riftwii::wii
