@@ -662,7 +662,8 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         return false;
     }
     // Prefer the installed title's own ticket. The synthetic identity is
-    // only a fallback when a copied NAND lacks it; IOS may still refuse it.
+    // a fallback when a copied NAND lacks it or ES refuses it at launch;
+    // IOS may still refuse the synthetic ticket too.
     constexpr u32 kMaxTicketBytes = 0x1000;
     char ticket_path[64];
     std::snprintf(ticket_path, sizeof(ticket_path), "/ticket/%08x/%08x.tik",
@@ -675,6 +676,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         logf("Wii channels: the installed ticket could not be read (%s); trying a synthetic identity.\n",
              ticket_error.c_str());
         files.ticket = riftwii::make_fake_ticket();
+        files.ticket_synthetic = true;
     }
     // The certificates are the same on every Wii: an emulated NAND's own
     // copy when it has one, else the Wii's.
