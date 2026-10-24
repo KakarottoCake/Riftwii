@@ -104,24 +104,33 @@ unsigned ChannelVersionNeeded() {
     return is_wii_u() ? kChannelVersion : 11;
 }
 
-bool ChannelInstallerInterrupted() {
+riftwii::ChannelUpdateState ChannelInstallerUpdateState() {
     struct stat st;
     const bool opened = stat(kInstallerMarker, &st) == 0;
-    // A normal installer exit deletes the marker itself and cold-starts
+    auto attempt = opened ? ChannelInstallerAttempt::Opened : ChannelInstallerAttempt::None;
+    if (FILE* marker = std::fopen(kInstallerMarker, "r")) {
+        char line[32];
+        if (std::fgets(line, sizeof(line), marker)) {
+            line[std::strcspn(line, "\r\n")] = '\0';
+            if (std::strcmp(line, "returned") == 0) attempt = ChannelInstallerAttempt::Returned;
+        }
+        std::fclose(marker);
+    }
+    // A normal installer exit records its return before cold-starting
     // RiftWii. ChannelDone is only the refused hand-off's warm restart.
     const bool refused = CurrentRestartNote().kind == RestartKind::ChannelDone;
     unsigned version = 0;
     const bool installed = ChannelInstalled(version);
-    const auto state = channel_update_state(installed, version, ChannelVersionNeeded(), opened, refused);
+    const auto state = channel_update_state(installed, version, ChannelVersionNeeded(), attempt, refused);
     if (state.clear_marker) {
         clear_installer_marker(refused ? "the installer could not be opened" : "the channel needs no update");
     }
-    return state.installer_interrupted;
+    return state;
 }
 
 void ChannelUpdateNotNow() {
     // Keep the marker so later starts still offer Not now until a completed
-    // attempt removes it or the channel no longer needs updating.
+    // update removes it or the channel no longer needs updating.
     logf("Channel: the update was postponed for this start; Home opens and the next start asks again.\n");
 }
 

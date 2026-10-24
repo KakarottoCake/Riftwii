@@ -3201,6 +3201,9 @@ msgstr "Marque primeiro os saves que quer trazer."
 msgid "Nintendont saves brought"
 msgstr "Saves do Nintendont trazidos"
 
+msgid "The installer ran, but the channel is still version {1}."
+msgstr "O instalador foi executado, mas o canal ainda está na versão {1}."
+
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "O instalador do canal ({1}) está ausente ou danificado"
 

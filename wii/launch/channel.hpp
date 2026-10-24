@@ -3,6 +3,7 @@
 #pragma once
 
 #include <string>
+#include "riftwii/channelupdate.hpp"
 
 // The RiftWii channel (docs/CHANNEL.md): a Wii Menu channel that starts
 // RiftWii from apps/riftwii/boot.dol on the SD card or USB drive. Its
@@ -20,10 +21,10 @@ constexpr unsigned kChannelVersion = 14;
 // The oldest channel RiftWii runs with: 11 on a Wii (its L2 clear), 13 on a
 // Wii U (11 and 12 never started on a vWii; 13 has its loader as in 10).
 unsigned ChannelVersionNeeded();
-// Retire stale attempts, or report an installer whose marker is still there.
-bool ChannelInstallerInterrupted();
+// Retire stale attempts and distinguish an interrupted installer from a normal return.
+riftwii::ChannelUpdateState ChannelInstallerUpdateState();
 // Postpone only this start. The failed attempt's marker stays, so later
-// starts offer Not now too until the installer removes its marker.
+// starts offer Not now too until the channel no longer needs updating.
 void ChannelUpdateNotNow();
 // The installed channel's title ID (00010001-UFTW, or the old RFTW), 0
 // when it is not installed.

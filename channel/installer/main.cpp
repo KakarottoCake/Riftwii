@@ -45,6 +45,22 @@ enum Button { kNone, kInstall, kRemove, kBack };
 Button wait_button();
 void leave();
 
+bool wait_for_release() {
+    // Allow a newly connected Wii Remote time to report its held buttons.
+    // A stuck controller must not trap the player or accept the fallback.
+    for (unsigned frame = 0; frame < 180; ++frame) {
+        VIDEO_WaitVSync();
+        WPAD_ScanPads();
+        PAD_ScanPads();
+        bool held = SYS_ResetButtonDown();
+        for (int channel = 0; channel < 4; ++channel) {
+            held = held || WPAD_ButtonsHeld(channel) != 0 || PAD_ButtonsHeld(channel) != 0;
+        }
+        if (frame >= 60 && !held) return true;
+    }
+    return false;
+}
+
 void video_init() {
     VIDEO_Init();
     g_mode = VIDEO_GetPreferredMode(nullptr);
@@ -139,11 +155,17 @@ void enter_cios() {
     // Each attempt is logged first, so a hang still leaves its slot behind.
     if (!any_read) {
         installer::Log("No cIOS slot could be checked; waiting for permission to try slots with a ticket.\n");
-        std::printf("\n  No cIOS slot could be checked. Try the slots with a ticket\n  anyway?\n\n");
+        std::printf("\n  An unchecked cIOS can freeze the console; if it does, hold\n"
+                    "  POWER to turn it off.\n\n");
+        std::printf("  No cIOS slot could be checked. Try the slots with a ticket\n  anyway?\n\n");
         std::printf("  [A] Try     [B] Go back\n");
         // WPAD belongs to its IOS. Keep it if no ticket can be tried;
         // reload_cios tears it down immediately before an actual reload.
         init_pads();
+        if (!wait_for_release()) {
+            installer::Log("Buttons were still held after waiting for release; no unchecked cIOS was reloaded.\n");
+            leave();
+        }
         for (;;) {
             const Button button = wait_button();
             if (button == kBack) {
@@ -236,10 +258,25 @@ void screen(const std::string& status, const std::string& note) {
 
 void leave() {
     installer::Log("Leaving\n");
-    // A normal exit, including Back or a failed install, is a completed
-    // attempt. RiftWii is cold-started below, without a ChannelDone note.
-    if (g_sd && std::remove(kInstallerMarker) == 0) {
-        installer::Log("The installer launch marker was cleared before unmounting the SD card.\n");
+    // RiftWii is cold-started below, without a ChannelDone note. Preserve
+    // unsuccessful attempts so its next start still offers Not now.
+    if (g_sd) {
+        unsigned installed = 0;
+        const bool current = g_ios_state_safe && installer::Installed(installed) && installed >= installer::PackageVersion();
+        if (current) {
+            if (std::remove(kInstallerMarker) == 0) {
+                installer::Log("The installer launch marker was cleared because the channel is up to date.\n");
+            }
+        } else {
+            bool saved = false;
+            if (FILE* marker = std::fopen(kInstallerMarker, "w")) {
+                const bool wrote = std::fputs("returned\n", marker) >= 0;
+                const bool closed = std::fclose(marker) == 0;
+                saved = wrote && closed;
+            }
+            if (saved) installer::Log("The installer return was recorded before unmounting the SD card.\n");
+            else installer::Log("The installer return could not be recorded on the SD card.\n");
+        }
     }
     const bool back = g_ios_state_safe && riftwii_on_card();
     shutdown_pads();
