@@ -342,7 +342,7 @@ int home_start_focus(const HomeStartPart& part, bool& decided) {
     case HomeStartAction::LastGame: focus = last_index; break;
     case HomeStartAction::FirstTile: focus = 0; break;
     }
-    if (moved || part.last_part) decided = true;
+    decided = moved || part.last_part;  // always assigned: a stale value cannot leak through
     return focus;
 }
 

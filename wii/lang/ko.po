@@ -2088,8 +2088,8 @@ msgstr "첫 페이지"
 msgid "Last game"
 msgstr "마지막 게임"
 
-msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1."
-msgstr "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임에서 열립니다. 방향 버튼이나 스틱으로 이미 움직였거나 페이지를 넘겼다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다."
+msgid "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1."
+msgstr "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임에서 열립니다. 이미 버튼을 눌렀거나 스틱을 움직였다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다."
 
 msgid "Its values"
 msgstr "값"

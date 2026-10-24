@@ -2255,66 +2255,32 @@ void TestHomeStart() {
     EXPECT_TRUE(decided);
 }
 
-void TestFocusWatch() {
-    // The menu's own focus is not a move.
-    FocusWatch menu;
-    menu.expect(0, 0);
-    menu.observe(0, 0, false);
-    EXPECT_TRUE(!menu.moved());
-    menu.expect(5, 0);
-    menu.observe(5, 0, false);
-    EXPECT_TRUE(!menu.moved());
+void TestPlayerActed() {
+    // What counts as input: a button, or a stick past its dead zone. The
+    // pointer moving is neither (it presses no button and pushes no stick).
+    EXPECT_TRUE(!counts_as_player_action(0, false));
+    EXPECT_TRUE(counts_as_player_action(0x0100, false));  // any button bit
+    EXPECT_TRUE(counts_as_player_action(0, true));        // the stick
+    EXPECT_TRUE(counts_as_player_action(0x8000, true));
 
-    // The D-pad or stick: another tile with no pointer. Away and back stays moved.
-    FocusWatch dpad;
-    dpad.expect(0, 0);
-    dpad.observe(1, 0, false);
-    EXPECT_TRUE(dpad.moved());
-    dpad.observe(0, 0, false);
-    EXPECT_TRUE(dpad.moved());
+    // The flag is told about input only. A hover or the menu's own focus never
+    // reaches it, so it stays down until a button or the stick is seen.
+    PlayerActed acted;
+    EXPECT_TRUE(!acted.acted());
+    for (int frame = 0; frame < 100; ++frame) acted.see(counts_as_player_action(0, false));
+    EXPECT_TRUE(!acted.acted());
+    acted.see(counts_as_player_action(0x0008, false));
+    EXPECT_TRUE(acted.acted());
+    acted.see(counts_as_player_action(0, false));  // and stays, away and back
+    EXPECT_TRUE(acted.acted());
 
-    // The pointer's hover never moves: any number of tiles under it, on the page.
-    FocusWatch hover;
-    hover.expect(0, 0);
-    hover.observe(5, 0, true);
-    hover.observe(6, 0, true);
-    hover.observe(11, 0, true);
-    hover.observe(0, 0, true);
-    EXPECT_TRUE(!hover.moved());
-    // The menu's focus under a parked pointer, then the hover again.
-    hover.expect(3, 0);
-    hover.observe(8, 0, true);
-    EXPECT_TRUE(!hover.moved());
-    // ...and it is the hover's tile that is expected afterwards: the D-pad
-    // (the pointer gone) from there is a move.
-    hover.observe(9, 0, false);
-    EXPECT_TRUE(hover.moved());
-
-    // A page turn, with the same tile index and with the pointer on screen too.
-    FocusWatch pageTurn;
-    pageTurn.expect(3, 0);
-    pageTurn.observe(3, 1, false);
-    EXPECT_TRUE(pageTurn.moved());
-    FocusWatch pointedTurn;
-    pointedTurn.expect(3, 0);
-    pointedTurn.observe(15, 1, true);
-    EXPECT_TRUE(pointedTurn.moved());
-
-    // The page boundary: the D-pad's Right on the last tile of a page turns the
-    // page and focuses the first of the next; the tile before the edge does not.
-    FocusWatch edge;
-    edge.expect(10, 0);
-    edge.observe(11, 0, false);  // still on the page: a move
-    EXPECT_TRUE(edge.moved());
-    FocusWatch across;
-    across.expect(11, 0);
-    across.observe(12, 1, false);
-    EXPECT_TRUE(across.moved());
-
-    // The player's other actions.
-    FocusWatch acted;
-    acted.mark_moved();
-    EXPECT_TRUE(acted.moved());
+    // The stick alone sets it; so do the player's other actions.
+    PlayerActed stick;
+    stick.see(counts_as_player_action(0, true));
+    EXPECT_TRUE(stick.acted());
+    PlayerActed marked;
+    marked.mark();
+    EXPECT_TRUE(marked.acted());
 }
 
 int main() {
@@ -2337,7 +2303,7 @@ int main() {
     TestWfc();
     TestCoverArt();
     TestHomeStart();
-    TestFocusWatch();
+    TestPlayerActed();
     TestCoverDownloads();
     TestLang();
     TestHistory();

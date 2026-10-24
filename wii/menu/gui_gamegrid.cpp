@@ -18,7 +18,23 @@
 
 namespace skin = riftwii::wii::skin;
 
+riftwii::PlayerActed GuiGameGrid::acted;
+
 namespace {
+
+// Whether this controller's input of the frame is the player acting: any
+// button newly pressed (Wii Remote with its expansions, Classic, GameCube,
+// Wii U Pro/GamePad) or a stick past the dead zone libwiigui uses. The
+// pointer moving is not input here. Read at the input, not from the focus,
+// which the menu moves itself and the pointer's hover moves too.
+bool PlayerActedThisFrame(GuiTrigger* t) {
+    std::uint32_t pressed = t->pad.btns_d | t->wiidrcdata.btns_d;
+    if (t->wpad) pressed |= t->wpad->btns_d;
+    const bool stick = std::abs(static_cast<int>(t->pad.stickX)) > PADCAL || std::abs(static_cast<int>(t->pad.stickY)) > PADCAL ||
+        std::abs(static_cast<int>(t->WPAD_StickX(0))) > PADCAL || std::abs(static_cast<int>(t->WPAD_StickY(0))) > PADCAL ||
+        std::abs(static_cast<int>(t->wiidrcdata.stickX)) > WIIDRCCAL || std::abs(static_cast<int>(t->wiidrcdata.stickY)) > WIIDRCCAL;
+    return riftwii::counts_as_player_action(pressed, stick);
+}
 
 constexpr int kTitleSize = 15;       // names: the tile's two lines
 constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
@@ -1358,6 +1374,7 @@ int GuiGameGrid::ShoulderPage(GuiTrigger* t) {
 }
 
 void GuiGameGrid::Update(GuiTrigger* t) {
+    if (t && state != STATE::DISABLED) acted.see(PlayerActedThisFrame(t));
     if (state == STATE::DISABLED || !t || Count() == 0) return;
     const int shoulderPage = ShoulderPage(t);
     if (t->chan >= 0 && t->chan < 4 &&

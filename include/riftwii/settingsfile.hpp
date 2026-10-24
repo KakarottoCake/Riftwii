@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -85,7 +86,7 @@ LoaderSettings settings_after_reset(const LoaderSettings& before);
 //   FirstTile  the first tile, so the first page
 //   LastGame   the tile of the game played last
 // `start_on` is the "home_start" setting; `player_moved` is true once the
-// player has navigated at all (see FocusWatch); `last_game_listed` is true
+// player has pressed a button or pushed a stick (see PlayerActed); `last_game_listed` is true
 // when the last game played has a tile among the games read so far.
 enum class HomeStartAction { KeepTile, FirstTile, LastGame };
 HomeStartAction home_start_action(const std::string& start_on, bool player_moved, bool last_game_listed);
@@ -96,7 +97,7 @@ HomeStartAction home_start_action(const std::string& start_on, bool player_moved
 // `keys` are the play history's game keys ("" for a tile that is no game).
 struct HomeStartPart {
     std::string start_on;
-    bool player_moved = false;     // see FocusWatch
+    bool player_moved = false;     // see PlayerActed
     bool already_decided = false;  // an earlier part, or an action of the player's, ended the start-up focus
     std::string last_game_key;     // the game played last; "" if none
     std::string focused_identity;  // the tile in focus before this part joined; "" if none
@@ -109,36 +110,29 @@ struct HomeStartPart {
 // change the focus (the last part came, or the player has moved).
 int home_start_focus(const HomeStartPart& part, bool& decided);
 
-// Whether the player has moved the focus: the D-pad or stick (another tile
-// with no pointer on the screen) or a page turn (also with one). The menu
-// says where it put the focus itself (expect). The Wii Remote pointer never
-// counts: while it points, the grid focuses the tile under it on its own,
-// stays on its page and takes no D-pad, so a changed tile then is only the
-// hover. Once moved, always moved: away and back is moved. mark_moved() is
-// for the player's other actions (a view change, a search, Settings).
-class FocusWatch {
+// Whether input is the player acting on Home: any button newly pressed, or a
+// stick pushed past its dead zone, on any controller. The Wii Remote pointer
+// moving is not.
+inline bool counts_as_player_action(std::uint32_t buttons_pressed, bool stick_pushed) {
+    return buttons_pressed != 0 || stick_pushed;
+}
+
+// Whether the player has acted since Home started, so that the games joining
+// in while the drives are read never move the focus from under them. It is
+// told only about input (see), never about the focus: the menu moves that
+// itself and the pointer's hover moves it too. Once set it stays set.
+// mark() is for the player's actions that are not read as input here.
+// Written by the GUI thread, read by the menu's.
+class PlayerActed {
 public:
-    void expect(int index, int page) {
-        index_ = index;
-        page_ = page;
+    void see(bool input_was_action) {
+        if (input_was_action) acted_ = true;
     }
-    void observe(int index, int page, bool pointing) {
-        if (moved_) return;
-        if (page != page_) {
-            moved_ = true;
-            return;
-        }
-        if (index == index_) return;
-        if (pointing) index_ = index;  // the hover
-        else moved_ = true;
-    }
-    void mark_moved() { moved_ = true; }
-    bool moved() const { return moved_; }
+    void mark() { acted_ = true; }
+    bool acted() const { return acted_; }
 
 private:
-    int index_ = 0;
-    int page_ = 0;
-    bool moved_ = false;
+    volatile bool acted_ = false;
 };
 
 // The extra game folders for one drive ("sd" or "usb"), as "/path":

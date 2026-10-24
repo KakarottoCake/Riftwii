@@ -4397,23 +4397,12 @@ static int MenuSource(FrontendState& state)
 	// replaced a catalog) rather than on its place.
 	// Not crossfaded: Home takes no press while a crossfade runs, and a
 	// press as the SD card's games came in was lost (Ishtar, in Dolphin).
-	// Where the player is, while the drives are read. The focus and page the
-	// menu set itself are expected; a changed page, or a changed tile with no
-	// Wii Remote pointer on the screen, is the D-pad, the stick or a page turn
-	// and so the player's move. The pointer never counts: while one points,
-	// the grid focuses the tile under it by itself and takes no D-pad, so a
-	// changed tile then is only its hover (a page turn still shows as a page).
-	// Once moved it stays so, also when they move away and back. A view
-	// change, a search or Settings is an action of theirs too: it ends the
-	// start-up focus (g_focusRestored).
-	riftwii::FocusWatch focusWatch;
-	const auto expectFocusNow = [&]() { focusWatch.expect(grid.FocusedIndex(), grid.Page()); };
-	const auto watchPlayer = [&]() {
-		bool pointing = false;
-		for (int c = 0; c < 4 && !pointing; ++c)
-			pointing = userInput[c].wpad && userInput[c].wpad->ir.valid;
-		focusWatch.observe(grid.FocusedIndex(), grid.Page(), pointing);
-	};
+	// Whether the player has moved while the drives are read: they have
+	// pressed a button or pushed a stick on any controller (the grid sees
+	// every frame's input, GuiGameGrid::Acted). The pointer moving does not
+	// count, and neither does a focus or page the menu or the pointer's hover
+	// set. A view change, a search or Settings is an action of theirs too: it
+	// ends the start-up focus (g_focusRestored).
 	// The first time Home shows, it opens on the last game played (Settings >
 	// Home starts on: Last game) or on the first page (First page). The
 	// drives are read while Home shows, and each part of the scan joins its
@@ -4428,11 +4417,10 @@ static int MenuSource(FrontendState& state)
 	// `focused` is the tile in focus before the part joined.
 	const auto refreshKeepingTile = [&](const std::string& focused, bool lastPart) {
 		const int indexBefore = grid.FocusedIndex();
-		watchPlayer();
 		refresh(true, false);  // the same place, clamped to the games there now
 		riftwii::HomeStartPart part;
 		part.start_on = riftwii::wii::Settings().home_start;
-		part.player_moved = focusWatch.moved();
+		part.player_moved = GuiGameGrid::Acted().acted();
 		part.already_decided = g_focusRestored;
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
 		if (!recent.empty()) part.last_game_key = recent[0];
@@ -4453,7 +4441,6 @@ static int MenuSource(FrontendState& state)
 		// Over no tile, this focus stays.
 		if (target != grid.FocusedIndex()) grid.Focus(target, false);
 		if (decided) g_focusRestored = true;
-		expectFocusNow();
 	};
 	// What Home asks after a look at the drives it opened with (the start,
 	// or Settings > Look for games again), once both drives are in. With
@@ -4493,9 +4480,6 @@ static int MenuSource(FrontendState& state)
 	} else {
 		showStatus();
 	}
-	// Home's own first focus (also when Home is built again mid-scan, after
-	// Settings) is not the player's move.
-	expectFocusNow();
 	ResumeGui();
 
 	// Covers still to fetch, one per turn of the loop while the GUI
@@ -4702,8 +4686,6 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		HaltGui();
-		// Every turn, so that a move away and back between two parts is seen.
-		if (!g_focusRestored) watchPlayer();
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
@@ -4733,12 +4715,12 @@ static int MenuSource(FrontendState& state)
 			heldClick = -1;
 			if (pressedAt < 0) return;
 			if (pressedTile.empty()) {
-				logf("Home: a press on a tile that is not a game was dropped as games joined\n");
+				logf("Home: a press was dropped as games joined: the tile is not a game tile, or could not be found\n");
 				return;
 			}
 			heldClick = findTile(pressedTile);
 			if (heldClick < 0)
-				logf("Home: a press on %s was dropped as games joined: the tile is gone\n",pressedTile.c_str());
+				logf("Home: a press on %s was dropped as games joined: the tile could not be found again\n", pressedTile.c_str());
 		};
 		if (g_scanning && !grid.Carrying()) {
 			riftwii::wii::DriveScanPart part;
@@ -11665,7 +11647,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
-			case kHomeStart: return tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1.");
+			case kHomeStart: return tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
