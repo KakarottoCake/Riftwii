@@ -2047,9 +2047,18 @@ static int32_t gc_leave_launch(struct gc_rt_context* ctx) {
 }
 
 static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
+    const uint16_t game_ai_dma = gc_read16(GC_AI_DMA_CONTROL);
+    const uint32_t game_ai_cr = gc_read32(GC_AI_CR) & ~(GC_AI_INT | GC_AI_SCRESET);
     uint32_t game_vi[GC_VI_HANDOVER_WORDS];
     int32_t result;
     uint32_t msr;
+    /* A running DMA loops the game's last buffer while saves and the IOS
+     * reload hold the game here: a loud buzz until the menu starts. Keep
+     * the stream quiet too, without clearing its interrupt or counter. */
+    gc_write16(GC_AI_DMA_CONTROL, game_ai_dma & ~GC_AI_DMA_ON);
+    if (game_ai_cr & GC_AI_PSTAT) {
+        gc_write32(GC_AI_CR, game_ai_cr & ~GC_AI_PSTAT);
+    }
     /* The memory card first: what the game saved is in MEM2 until a
      * heartbeat writes it back. A sector that will not write keeps the
      * game here, to try again, unless IOS has stopped answering entirely.
@@ -2060,7 +2069,7 @@ static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
             gc_card_flush(ctx, card, 1);
             if (card->dirty_count != 0) {
                 storage_ready = gc_io_drain(ctx, 1);
-                if (storage_ready) return;
+                if (storage_ready) goto restore_audio;
             }
         }
         if (!storage_ready && card->dirty_count != 0) card->flush_error = -1000;
@@ -2084,6 +2093,12 @@ static void gc_leave_finish(struct gc_rt_context* ctx, int storage_ready) {
     gc_vi_take_back(ctx, game_vi);
     gc_irq_restore(msr);
     if (storage_ready) gc_trace(ctx, GC_TRACE_LEAVE);
+restore_audio:
+    /* A failed save or refused launch leaves the game running. */
+    if (game_ai_cr & GC_AI_PSTAT) {
+        gc_write32(GC_AI_CR, game_ai_cr);
+    }
+    gc_write16(GC_AI_DMA_CONTROL, game_ai_dma);
 }
 
 static void gc_leave(struct gc_rt_context* ctx) {
