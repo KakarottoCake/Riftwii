@@ -4940,7 +4940,20 @@ static int MenuSource(FrontendState& state)
 					about = tr("Would you like to start {1} by {2}?", {FlatCapped(app.name, 40), app.coder});
 				else
 					about = tr("Would you like to start {1}?", {FlatCapped(app.name, 40)});
-				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access. From the RiftWii channel, an app exits to the Wii Menu."));
+				about += "\n" + std::string(tr("Apps keep RiftWii's IOS and hardware access."));
+				switch (riftwii::wii::HomebrewExitGoesTo()) {
+				case riftwii::wii::HomebrewExit::RiftWii:
+					about += " " + std::string(tr("When the app exits, it comes back to RiftWii."));
+					break;
+				case riftwii::wii::HomebrewExit::HomebrewChannel:
+					about += " " + std::string(tr("When the app exits, it goes back to the Homebrew Channel, which started RiftWii."));
+					break;
+				case riftwii::wii::HomebrewExit::WiiMenu:
+					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."));
+					break;
+				case riftwii::wii::HomebrewExit::NotSaid:
+					break;
+				}
 				const int choice = ShowPopup(tr("Start {1}?", {FlatCapped(app.name, 40)}), about, tr("Start"), tr("Cancel"));
 				if (choice != 0) {
 					statusTxt.SetText(HomeStatus(state, items).c_str());

@@ -937,7 +937,11 @@ bool ready_usb(GcImage& image, const UsbCheck& pack_check, std::string& error) {
     // Wii game.
     std::string first_error;
     std::vector<D2xSlotFailure> usb_failures;
-    for (int slot : image_cios_order(game, image.cios_slot, true)) {
+    const std::vector<int> cios_order = image_cios_order(game, image.cios_slot, true);
+    std::string slots;
+    for (int slot : cios_order) slots += (slots.empty() ? "IOS" : ", IOS") + std::to_string(slot);
+    logf("GameCube: %s will try cIOS slots for the USB drive in this order: %s\n", game.id.c_str(), slots.c_str());
+    for (int slot : cios_order) {
         if (activate_gamecube_usb(first, check_sector, slot, nullptr, error)) {
             image.usb_in_use = true;
             return true;
