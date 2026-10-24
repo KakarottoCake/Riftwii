@@ -72,6 +72,11 @@ ProfileList& Profiles() {
     return g_profiles;
 }
 
+void ForgetProfiles() {
+    g_profiles = ProfileList{};
+    g_profilesRead = false;
+}
+
 bool CreateProfile(const FrontendState& state, const std::string& name, std::string& key, std::string& error) {
     switch (Profiles().add(state.game_id, name, FirstModPicture(state), key)) {
         case ProfileList::AddResult::Added: break;
