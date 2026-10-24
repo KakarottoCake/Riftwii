@@ -29,8 +29,19 @@ enum class NandList { Ok, NotThere, Damaged, NoRoom };
 // count cannot come from a real NAND.
 bool nand_list_bytes(std::uint32_t count, std::size_t& bytes);
 
+// What parsing a list buffer found. Bad is a list no real NAND could
+// report (the caller reports it); NoRoom is a name that had no room
+// (the caller reports that instead).
+enum class NandParse { Ok, Bad, NoRoom };
+
 // Names from a list buffer sized for `asked` entries holding `got` ones.
-// False, with `names` cleared, when the buffer does not hold `got` names.
+// Bad, with `names` cleared, when the buffer does not hold `got` names;
+// NoRoom, with `names` cleared, when a name had no room.
+NandParse parse_nand_list_checked(const char* list, std::size_t list_bytes, std::uint32_t asked, std::uint32_t got,
+                                  std::vector<std::string>& names);
+
+// True when the checked parse finds Ok. Kept so the old callers compile
+// unchanged.
 bool parse_nand_list(const char* list, std::size_t list_bytes, std::uint32_t asked, std::uint32_t got,
                      std::vector<std::string>& names);
 
