@@ -1804,7 +1804,9 @@ static std::vector<CiosSlotState> readiness_slots() {
                                         {251, slot_has_ticket(251)}};
     for (const D2xSlot& d2x : d2x_slots()) {
         if (d2x.slot >= 249 && d2x.slot <= 251) continue;
-        slots.push_back(CiosSlotState{d2x.slot, true});
+        // Only a slot a launch would really use: activate_image_game skips
+        // one without a launchable ticket.
+        slots.push_back(CiosSlotState{d2x.slot, slot_has_ticket(d2x.slot)});
     }
     return slots;
 }
