@@ -32,6 +32,73 @@ namespace {
 
 std::vector<std::uint8_t> bytes(const std::string& s) { return std::vector<std::uint8_t>(s.begin(), s.end()); }
 
+void TestReleaseAssetObjects() {
+    const std::string url = "https://github.com/KakarottoCake/Riftwii/releases/download/v2610/";
+    const std::string digest(64, 'a');
+    const std::string next = "{\"name\":\"other.zip\",\"size\":99,\"digest\":\"sha256:" + digest +
+                             "\",\"browser_download_url\":\"" + url + "other.zip\"}";
+    ReleaseAsset asset;
+    asset.url = "unchanged";
+    asset.sha256 = "unchanged";
+    asset.size = 17;
+
+    // A missing field belongs to this asset, never the next asset or release.
+    EXPECT_FALSE(release_asset_from_json(
+        "{\"assets\":[{\"name\":\"riftwii.dol\"}," + next + "]}", "riftwii.dol", asset));
+    EXPECT_EQ(asset.url, "unchanged");
+    EXPECT_EQ(asset.sha256, "unchanged");
+    EXPECT_TRUE(asset.size == 17);
+
+    // GitHub's field order is not part of the asset's identity.
+    const std::string reordered = "{\"assets\":[{\"browser_download_url\":\"" + url +
+        "riftwii.dol\",\"digest\":\"sha256:" + digest + "\",\"size\":42,\"name\":\"riftwii.dol\"}]}";
+    EXPECT_TRUE(release_asset_from_json(reordered, "riftwii.dol", asset));
+    EXPECT_EQ(asset.url, url + "riftwii.dol");
+    EXPECT_EQ(asset.sha256, digest);
+    EXPECT_TRUE(asset.size == 42);
+
+    // An uploader's members and braces in a string cannot become asset fields.
+    const std::string nested = "{\"assets\":[{\"name\":\"riftwii.dol\",\"uploader\":{\"size\":999,"
+        "\"digest\":\"sha256:" + std::string(64, 'b') + "\",\"note\":\"} \\\" {\","
+        "\"browser_download_url\":\"" + url + "wrong.zip\"},\"size\":42,\"digest\":\"sha256:" + digest +
+        "\",\"browser_download_url\":\"" + url + "riftwii.dol\"}]}";
+    EXPECT_TRUE(release_asset_from_json(nested, "riftwii.dol", asset));
+    EXPECT_EQ(asset.url, url + "riftwii.dol");
+    EXPECT_EQ(asset.sha256, digest);
+    EXPECT_TRUE(asset.size == 42);
+
+    EXPECT_FALSE(release_asset_from_json("{\"name\":\"riftwii.dol\",\"assets\":[" + next + "]}",
+                                         "riftwii.dol", asset));
+    EXPECT_FALSE(release_asset_from_json("{\"assets\":[{\"uploader\":{\"name\":\"riftwii.dol\"},"
+        "\"browser_download_url\":\"" + url + "other.zip\"}]}", "riftwii.dol", asset));
+
+    // Optional metadata after the URL must still be retained.
+    const std::string after_url = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" +
+        url + "riftwii.dol\",\"size\":42,\"digest\":\"sha256:" + digest + "\"}]}]";
+    EXPECT_TRUE(release_asset_from_json(after_url, "riftwii.dol", asset));
+    EXPECT_EQ(asset.sha256, digest);
+    EXPECT_TRUE(asset.size == 42);
+    EXPECT_FALSE(release_asset_from_json(after_url.substr(0, after_url.size() - 3), "riftwii.dol", asset));
+    EXPECT_FALSE(release_asset_from_json("[{\"assets\":[{\"name\":\"riftwii.dol\"}]}," +
+        reordered + "]", "riftwii.dol", asset));
+    EXPECT_TRUE(release_asset_from_json("[{\"assets\":[]}," + reordered + "]", "riftwii.dol", asset));
+
+    // Skipped JSON values need no allocations and have a fixed depth limit.
+    const std::string valid = "{\"ignored\":[true,false,null,-1.5e+2,{\"body\":\"\\u1234\"}],\"assets\":["
+        "{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "riftwii.dol\"}]}";
+    EXPECT_TRUE(release_asset_from_json(valid, "riftwii.dol", asset));
+    EXPECT_TRUE(asset.sha256.empty());
+    EXPECT_TRUE(asset.size == 0);
+    EXPECT_FALSE(release_asset_from_json(valid + " trailing", "riftwii.dol", asset));
+    EXPECT_FALSE(release_asset_from_json("{\"ignored\":" + std::string(20, '[') + "0" +
+        std::string(20, ']') + ",\"assets\":[]}", "riftwii.dol", asset));
+    for (const char* invalid : {"", "{", "[}", "{\"assets\":[,]}", "{\"assets\":[],,}",
+                                "{\"ignored\":01}", "{\"ignored\":1e+}", "{\"ignored\":\"\\q\"}",
+                                "{\"ignored\":\"\\uXYZ0\"}"}) {
+        EXPECT_FALSE(release_asset_from_json(invalid, "riftwii.dol", asset));
+    }
+}
+
 void TestHttp() {
     HttpUrl url;
     std::string error;
@@ -2075,6 +2142,7 @@ int main() {
     TestResetRequest();
     TestFriivolutionArguments();
     TestHttp();
+    TestReleaseAssetObjects();
     TestCheats();
     TestCheatRevisions();
     TestVideo();

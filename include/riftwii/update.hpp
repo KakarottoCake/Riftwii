@@ -31,8 +31,10 @@ struct ReleaseAsset {
 bool riftwii_release_asset_url(const std::string& url);
 
 // The first asset named `name` in a GitHub API answer (its
-// "browser_download_url", "digest": "sha256:..." and "size"). False when
-// there is none or its address is not riftwii_release_asset_url's.
+// "browser_download_url", "digest": "sha256:..." and "size"). Only direct
+// members of that object in a release's assets array count, in any order.
+// False when the JSON is malformed, there is no such asset or its address
+// is not riftwii_release_asset_url's. Failure leaves `out` unchanged.
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out);
 
 // Orders versions such as "2.0.0-beta", "v1.0.9-beta" and "2.0.1": the
