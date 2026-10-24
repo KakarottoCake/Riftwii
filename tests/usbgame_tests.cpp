@@ -442,6 +442,10 @@ void test_cios_readiness_note() {
     EXPECT_TRUE(cios_readiness_note(one, 3).empty());
     CiosSlotState all[] = {{249, true}, {250, true}, {251, true}};
     EXPECT_TRUE(cios_readiness_note(all, 3).empty());
+    // The scans add every other slot holding a d2x a launch would try
+    // (readiness_slots, usbcatalog.cpp): d2x only in 252 is not "no cIOS".
+    CiosSlotState unusual[] = {{249, false}, {250, false}, {251, false}, {252, true}};
+    EXPECT_TRUE(cios_readiness_note(unusual, 4).empty());
     EXPECT_TRUE(cios_readiness_note(nullptr, 0).empty() == false);
     EXPECT_TRUE(cios_revision_is_stub(65280));
     EXPECT_FALSE(cios_revision_is_stub(65535));  // guided d2x installs stamp this whatever the version
