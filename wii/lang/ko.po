@@ -582,8 +582,8 @@ msgstr "MOD 팩(XML 파일 및 관련 폴더)을 sd:/riivolution 또는 usb:/rii
 msgid "Buttons"
 msgstr "버튼"
 
-msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu."
-msgstr "위모컨으로 가리키고 A를 누르거나 십자 버튼을 사용하세요. -/+로 홈 페이지를 넘깁니다. 클래식과 게임큐브는 L/R도 됩니다 (게임큐브는 끝까지 눌러 클릭). 게임큐브에서 L을 누른 채 십자 버튼으로 글자를 건너뜁니다. 홈에서 Z는 설정, B는 검색입니다. 다른 화면에서는 B로 돌아가고 HOME (게임큐브 Start)으로 HOME 메뉴를 엽니다."
+msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."
+msgstr "위모컨으로 가리키고 A를 누르거나 십자 버튼을 사용하세요. -/+로 홈 페이지를 넘깁니다. 클래식과 게임큐브는 L/R도 됩니다 (게임큐브는 끝까지 눌러 클릭). 게임큐브에서 L을 누른 채 십자 버튼으로 글자를 건너뜁니다. 홈에서 Z는 설정, B는 검색입니다. 다른 화면에서는 B로 돌아가고 HOME (게임큐브 Start)으로 HOME 메뉴를 엽니다. 채널 배너에서는 게임큐브 Start가 게임을 시작합니다."
 
 msgid "You're all set"
 msgstr "준비 완료"

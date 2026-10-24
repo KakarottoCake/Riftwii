@@ -582,8 +582,8 @@ msgstr "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) 
 msgid "Buttons"
 msgstr "Botões"
 
-msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu."
-msgstr "Aponte com o Wii Remote e aperte A, ou use o direcional. -/+ viram as páginas de Início; L/R também no Classic e GameCube (aperte até o clique). Segure L com o direcional para saltar letras no GameCube. Em Início, Z abre Configurações e B busca. B volta em outras telas; HOME (Start no GameCube) abre o menu HOME."
+msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."
+msgstr "Aponte com o Wii Remote e aperte A, ou use o direcional. -/+ viram as páginas de Início; L/R também no Classic e GameCube (aperte até o clique). Segure L com o direcional para saltar letras no GameCube. Em Início, Z abre Configurações e B busca. B volta em outras telas; HOME (Start no GameCube) abre o menu HOME; em um banner de Canais, Start no GameCube inicia o jogo."
 
 msgid "You're all set"
 msgstr "Tudo pronto"

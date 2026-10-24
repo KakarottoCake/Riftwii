@@ -16,7 +16,7 @@ RiftWii now numbers its builds like Dolphin: **2610-325** is the 2610 release li
   - **The shelf**: your games stand as boxes, spine out. The one you're on slides out with a reflection on the shelf and a blurred backdrop from its cover. Up and Down turn the box round to its back; hold Left or Right and it speeds up; with a Wii Remote, hold A and drag it.
 - **Themes:** Bookshelf (wood) and Midnight (dark) come in the zip, and anyone can make one with the theme kit (pictures, colours, music). The Wii look stays the default, and Settings > Theme can always go back to it.
 - **Transitions:** pages zoom, slide and pop like the Wii Menu; a shelf box flies to the game page.
-- **Search** games by name or game ID (on-screen keyboard; B on a GameCube controller on Home).
+- **Search** games by name or game ID (on-screen keyboard; Z on a GameCube controller on Home).
 - **Favourites** (button 1 on a banner), **Home order** (A to Z, recently played, most played), **Games from** (all, SD, USB, disc), **play history**, and a letter jump.
 - **16:9:** a widescreen menu with Settings > Screen size, and banners shown at their full width.
 - **What's new** opens once after an update with the version's main changes (Settings > What's new shows it again).
