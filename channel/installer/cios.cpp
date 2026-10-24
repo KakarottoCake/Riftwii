@@ -72,7 +72,8 @@ private:
 
 }  // namespace
 
-riftwii::D2xInfo ReadCios(int slot) {
+riftwii::D2xInfo ReadCios(int slot, bool& read) {
+    read = false;
     const u64 title = 0x0000000100000000ull | static_cast<u32>(slot);
     // IOS TMD views are small. A fixed, bounded buffer keeps the installer
     // independent of the app's allocator and large platform modules.
@@ -106,6 +107,7 @@ riftwii::D2xInfo ReadCios(int slot) {
         Log("IOS%d was skipped because its d2x information could not be read (%d).\n", slot, got);
         return {};
     }
+    read = true;
     const auto info = riftwii::parse_d2x_info(head, static_cast<std::size_t>(got));
     if (!info.d2x) Log("IOS%d was skipped because it is not a d2x cIOS.\n", slot);
     else Log("IOS%d holds %s with base %d.\n", slot, riftwii::d2x_name(info).c_str(), info.base);

@@ -18,7 +18,6 @@ int main() {
         {"first old-channel start", true, 13, 14, false, false, {true, false, false}},
         {"installer did not return", true, 13, 14, true, false, {true, true, false}},
         {"failed attempt still present next start", true, 13, 14, true, false, {true, true, false}},
-        {"Not now cleared the marker", true, 13, 14, false, false, {true, false, false}},
         {"installer returned without updating", true, 13, 14, true, true, {true, false, true}},
         {"returned without a marker", true, 13, 14, false, true, {true, false, false}},
         {"channel is current", true, 14, 14, true, false, {false, false, true}},
