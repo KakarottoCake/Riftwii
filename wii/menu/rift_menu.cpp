@@ -11611,6 +11611,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			const auto saveOrUndo = [&]() {
 				const std::string error = saveSettings();
 				if (error.empty()) return true;
+				// The drive scan reads some settings (strings) on its thread:
+				// wait for it before the whole struct is written back.
+				WaitForDriveScan(noteTxt);
 				settings = settingsBefore;
 				note(error);
 				return false;
