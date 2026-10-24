@@ -3,6 +3,9 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8\n"
 
+msgid "Y: view  Z: settings  L/R: pages"
+msgstr "Y: vista  Z: ajustes  L/R: páginas"
+
 msgid "Games with mods"
 msgstr "Juegos con mods"
 
@@ -579,8 +582,8 @@ msgstr "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompaña
 msgid "Buttons"
 msgstr "Botones"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta; en la lista de juegos, - y + pasan de página. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones."
+msgid "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu."
+msgstr "Apunta con el mando de Wii y pulsa A, o usa la cruceta. -/+ pasan las páginas de Inicio; L/R también en Classic y GameCube (pulsa hasta el clic). Mantén L y usa la cruceta para saltar letras con GameCube. En Inicio, Z abre Ajustes y B busca. B vuelve en otras pantallas; HOME (Start en GameCube) abre el menú HOME."
 
 msgid "You're all set"
 msgstr "Todo listo"

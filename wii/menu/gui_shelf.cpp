@@ -1207,6 +1207,8 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
 void SetShelfFlying(const std::string& id) { g_flying = id; }
 
 void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
+    // Digital L/R clicks take the same one-box step in Update, shared
+    // with the grid's letter-jump and screenshot-chord handling.
     // + and -: one box at a time (a grid's page means nothing on the
     // shelf: it skipped 12 boxes), and held, they keep going.
     if (t->chan >= 0 && t->chan < 4) {
