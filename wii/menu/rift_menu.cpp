@@ -2030,6 +2030,8 @@ static std::string LaunchNote(const FrontendState& state)
 	return note;
 }
 
+static bool g_homePadHints = false;
+
 // Home's count and button line on the Wii Menu's bar, which otherwise holds
 // the date alone: shown until the player has used 1 (the view) or 2
 // (Settings) once, so a first-time player learns them and the look stays
@@ -2130,6 +2132,7 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		: letters ? tr("1: view   2: settings   -/+: pages   B: A to Z")
 		: moving ? tr("1: view   2: settings   -/+: pages   B+A: move")
 		: tr("1: view   2: settings   -/+: pages");
+	if (g_homePadHints) keys = tr("Y: view  Z: settings  L/R: pages");
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + keys;
 }
 
@@ -3527,7 +3530,7 @@ static void ShowTutorial()
 		{"Mods",
 		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
 		{"Buttons",
-		 "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
+		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."},
 		{"You're all set",
 		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
 	};
@@ -4190,6 +4193,13 @@ static int MenuSource(FrontendState& state)
 	// A name over a round button while the pointer rests on it.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
+	const auto setButtonHints = [&] {
+		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
+		const std::string searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
+		settingsHint.SetText(settingsLabel.c_str());
+		searchHint.SetText(searchLabel.c_str());
+	};
+	setButtonHints();
 	// The filter's and the gear's names go above them (80 square, y 384-464),
 	// centred on each; the small search button's to its left, level with it
 	// (the pointer's hand covers what is below or right of the button).
@@ -4240,13 +4250,13 @@ static int MenuSource(FrontendState& state)
 	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 34 - wide, 376, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 530 + wide, 376, nullptr,
-		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
-	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// Search: B on a GameCube controller, ZL on a Classic Controller (a
 	// Wii Remote has no button left; point and press A). Small, in the top
 	// right corner above the page arrow, inside the overscan (ends at x 606,
 	// starts at y 24), so the gear's name has room; in Channels on the bar.
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
-		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch, 0.5f);
+		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -4721,6 +4731,20 @@ static int MenuSource(FrontendState& state)
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
 			showStatus();
 			coverNoteShown = false;
+		}
+		// Home has its own bar rather than GuiPrompts. Name the buttons of
+		// the controller being used there and on the gear/search hover hints.
+		bool padHints = g_homePadHints;
+		for (int channel = 0; channel < 4; ++channel) {
+			const GuiTrigger& input = userInput[channel];
+			if (input.pad.btns_d || input.pad.btns_h) padHints = true;
+			if ((input.wpad && (input.wpad->btns_d || input.wpad->btns_h)) ||
+			    input.wiidrcdata.btns_d || input.wiidrcdata.btns_h) padHints = false;
+		}
+		if (padHints != g_homePadHints) {
+			g_homePadHints = padHints;
+			setButtonHints();
+			showStatus();
 		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
 		// A hover name fades in while the pointer rests on its button, and out after.
