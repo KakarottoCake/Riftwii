@@ -29,7 +29,7 @@ have it, or that haven't changed since the last release's tag.
 
 ### Home
 
-- **GameCube controls on Home:** L/R turn pages (full clicks), Z opens Settings, and B opens Search. Hold L with the D-pad to jump by letter.
+- **GameCube controls on Home:** L/R turn pages (full clicks), Z opens Settings, and B opens Search. With Home sorted A to Z, hold L and press Left or Right to jump by letter.
 
 - **Wii channels and WiiWare on Home,** with their banners. Settings > Games > Show non-game channels adds Nintendo's own channels too. A channel's settings have its own Game IOS, and Boot picks the Wii's NAND or the emulated one. Settings > Home > Channel background puts a white card behind banners that would look see-through. Checked in Dolphin; WiiWare and Virtual Console still need testing on a real Wii.
 - **Your homebrew apps on Home.** Press Y until the view says Homebrew: every app in `sd:/apps` is there, and A starts it. An app keeps RiftWii's IOS and hardware access; started from the RiftWii channel, it exits to the Wii Menu.
