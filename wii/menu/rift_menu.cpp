@@ -4256,6 +4256,9 @@ static void PollMenuDiscCover()
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
+	// Home rebuilds itself (a remounted SD card): the scan just started goes
+	// on, and the new Home takes its parts as they come.
+	bool rebuildingHome = false;
 	LoadFilter();
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
@@ -4995,6 +4998,7 @@ static int MenuSource(FrontendState& state)
 						// rescan just started brings its games to the new Home.
 						g_homeFocus = grid.FocusedIndex();
 						SetHomeNotice(tr("The SD card is back in. Reading it again."));
+						rebuildingHome = true;
 						menu = MENU_SOURCE;
 					} else {
 						g_sdWatch = riftwii::SdHotplug(false);
@@ -5415,7 +5419,7 @@ static int MenuSource(FrontendState& state)
 	// A game picked during the scan does not open behind the player's back
 	// once they have gone to Settings.
 	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
-	if (g_scanning && menu != MENU_OPTIONS) {
+	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
 			usleep(50000);
