@@ -190,6 +190,50 @@ void test_bootmii_keys() {
     EXPECT_TRUE(!parse_bootmii_keys(blank.data(), blank.size(), key));
 }
 
+void test_matches_tmd() {
+    const Built b = build_content_bin(0x200);
+    ContentBinLayout layout;
+    std::string error;
+    EXPECT_TRUE(find_content_bin_layout(b.file.data(), b.file.size(), b.file.size(), layout, error));
+    TmdContents moved;
+    EXPECT_TRUE(parse_tmd_contents(b.file.data() + layout.tmd_offset, layout.tmd_size, moved, error));
+    TmdContents installed = moved;
+    EXPECT_TRUE(content_bin_matches_tmd(moved, installed, error));
+    // The channel was updated on the Wii after it was moved.
+    installed.contents[2].sha1[0] ^= 1;
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+    installed = moved;
+    installed.contents[2].size += 0x10;
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+    installed = moved;
+    installed.contents[0].id = 0x99;
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+    installed = moved;
+    installed.contents[1].type = 1;
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+    installed = moved;
+    installed.contents.pop_back();
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+    installed = moved;
+    installed.title_id ^= 1;
+    EXPECT_TRUE(!content_bin_matches_tmd(moved, installed, error));
+}
+
+void test_staged_paths() {
+    std::uint64_t title = 0;
+    EXPECT_TRUE(parse_staged_content_path("/title/00010001/57424d45/content/00000002.app", title));
+    EXPECT_EQ(title, kTitle);
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/title.tmd", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/00000002.app.bak", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/content/2.app", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424D45/content/00000002.app", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010001/57424d45/data/00000002.app", title));
+    // Not a channel: a system title (IOS 58) or a disc game's.
+    EXPECT_TRUE(!parse_staged_content_path("/title/00000001/0000003a/content/00000002.app", title));
+    EXPECT_TRUE(!parse_staged_content_path("/title/00010000/52534245/content/00000002.app", title));
+    EXPECT_TRUE(!parse_staged_content_path("", title));
+}
+
 void test_path() {
     EXPECT_EQ(content_bin_path("WBME"), std::string("/private/wii/title/WBME/content.bin"));
 }
@@ -200,6 +244,8 @@ int main() {
     test_layout_and_contents();
     test_bad_files();
     test_bootmii_keys();
+    test_matches_tmd();
+    test_staged_paths();
     test_path();
     if (g_failures == 0) std::cout << "contentbin tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
