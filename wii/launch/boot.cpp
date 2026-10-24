@@ -3528,6 +3528,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                 note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": NAND emulation: " + emu_error);
                 if (!debug_off("identify")) continue;
                 logf("Wii channels: debug_off: started without the NAND emulation\n");
+                // A refused emulation can still leave the FAT module holding
+                // the card; a channel without emulation gets it back first.
+                release_d2x_saves();
             }
         }
         // ES runs the game as its own title, as when the system starts it:
@@ -3554,7 +3557,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         // it still holds in its file system cache. It is told to unmount
         // first (0xF1), so it writes that out while it still runs and the
         // reload finds the card's FAT whole.
-        if (emulating) release_d2x_saves();
+        // Also when the emulation was refused but the module kept the card
+        // (release does nothing when d2x holds nothing).
+        release_d2x_saves();
     }
     if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
