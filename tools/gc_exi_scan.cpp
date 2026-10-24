@@ -112,11 +112,21 @@ int scan(const char* path) {
     }
     const GcExiFunctions found = find_gc_exi_functions(text, game_id);
     const char* absent = !found.probe_ex_absent ? ""
-                         : found.old_sdk       ? ", no EXIProbeEx found (the 2001 SDK has none)"
+                         : found.old_sdk       ? ", no EXIProbeEx found (the 0x38-byte layout)"
                                                : ", no EXIProbeEx found (a listed game)";
     std::printf("%s %s: blocks 0x%08x%s, %u table(s) tried, %u resolve%s\n", game_id.c_str(), path, found.blocks,
                 found.blocks ? "" : " (REJECTED)", found.tables_tried, found.resolving_tables, absent);
     if (found.blocks == 0) std::printf("  partial list from the table at 0x%08x\n", found.partial_blocks);
+    if (found.listed_refusal != GcExiFunctions::ListedRefusal::None) {
+        static const char* const kReasons[] = {"none", "EXIProbe not alone", "EXIAttach does not follow EXIProbe",
+                                               "a branch to the probe outside the EXI functions"};
+        std::printf("  listed-game check refused: %s at 0x%08x\n",
+                    kReasons[static_cast<unsigned>(found.listed_refusal)], found.listed_refusal_at);
+    }
+    const GcExiDecision decision = decide_gc_exi_hooks(found, text);
+    if (decision.verdict != GcExiVerdict::Hook && found.blocks != 0) {
+        std::printf("  the loader's gate would refuse it (verdict %u)\n", static_cast<unsigned>(decision.verdict));
+    }
     for (unsigned i = 0; i < kGcExiHooks; ++i) {
         std::printf("  %-11s ", gc_exi_function_name(i));
         if (found.hooks[i] != 0) {

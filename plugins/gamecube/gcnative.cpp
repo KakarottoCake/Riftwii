@@ -3147,8 +3147,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n", ecb,
                  exi[GC_EXI_IMM], exi[GC_EXI_GET_ID]);
             if (found_exi.probe_ex_absent && found_exi.old_sdk) {
-                logf("GameCube: memory card: no EXIProbeEx found; the 2001 SDK (0x38-byte EXI blocks) has none, "
-                     "so the other ten EXI functions are hooked\n");
+                logf("GameCube: memory card: no EXIProbeEx was found; the 0x38-byte layout is accepted without "
+                     "one, so the other ten EXI functions are hooked\n");
             } else if (found_exi.probe_ex_absent) {
                 logf("GameCube: memory card: no EXIProbeEx found; %s is on the list of games whose SDK has none, "
                      "so the other ten EXI functions are hooked\n",
@@ -3165,6 +3165,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                  "%s\n",
                  found_exi.partial_blocks,
                  names([&](unsigned i) { return found_exi.partial[i] == 0; }).c_str());
+            break;
+        case GcExiVerdict::ListedRefused: {
+            // A listed game's other ten functions were all placed; one of the
+            // checks that no EXIProbeEx is hiding said no.
+            using Refusal = GcExiFunctions::ListedRefusal;
+            const char* why = "the check that no EXIProbeEx is hiding refused";
+            if (found_exi.listed_refusal == Refusal::ProbeLike) {
+                why = "EXIProbe is not the only one of its functions calling the probe and EXIGetID";
+            } else if (found_exi.listed_refusal == Refusal::AttachDoesNotFollow) {
+                why = "the code after EXIProbe is not EXIAttach";
+            } else if (found_exi.listed_refusal == Refusal::ProbeCaller) {
+                why = "a branch to the probe outside the placed EXI functions";
+            }
+            logf("GameCube: memory card off: %s is on the list of games without EXIProbeEx, but the listed-game "
+                 "check refused (EXI blocks 0x%08x): %s at 0x%08x\n",
+                 image.id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
+            break;
+        }
+        case GcExiVerdict::Overlapping:
+            logf("GameCube: memory card off: %s (0x%08x) and %s (0x%08x) are closer than a hook's %u bytes, so "
+                 "hooking both would break one\n",
+                 gc_exi_function_name(decision.overlap_first), exi[decision.overlap_first],
+                 gc_exi_function_name(decision.overlap_second), exi[decision.overlap_second], kGcExiHookSpan);
             break;
         case GcExiVerdict::SeveralTables:
             // Hooking the wrong table's functions would leave the real card

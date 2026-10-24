@@ -33,7 +33,25 @@ struct GcExiFunctions {
     // of a game on the list (not `old_sdk`).
     bool probe_ex_absent = false;
     bool old_sdk = false;
+    // For a listed game (see find_gc_exi_functions) whose other ten functions
+    // were all placed but whose missing EXIProbeEx was not accepted: which
+    // check refused, and where (0 when no single address explains it). Only
+    // for the log; set with the table `partial` belongs to.
+    enum class ListedRefusal {
+        None,
+        ProbeLike,           // not exactly one function calls the probe and EXIGetID: EXIProbe is not alone
+        AttachDoesNotFollow, // the code after EXIProbe is not EXIAttach (`listed_refusal_at`)
+        ProbeCaller,         // a branch to the probe (`listed_refusal_at`) an EXIProbeEx could hide in
+    };
+    ListedRefusal listed_refusal = ListedRefusal::None;
+    std::uint32_t listed_refusal_at = 0;
 };
+
+// How far apart two hooked functions must start: a hook overwrites the
+// function's first word with a branch, and its replay jumps back to the second
+// word, so a second hook within these 8 bytes would be overwritten or entered
+// half way.
+constexpr std::uint32_t kGcExiHookSpan = 8;
 
 // The SDK's EXI control blocks and all the functions needed for slot A,
 // or an empty result when any required function is missing or ambiguous.
@@ -54,12 +72,17 @@ enum class GcExiVerdict {
     Hook,              // every function placed (EXIProbeEx only when absent by design)
     NoTables,          // no control-block table had more than seven users
     NotAllFound,       // tables were tried, none resolved every function
+    ListedRefused,     // a listed game's missing EXIProbeEx was refused (found.listed_refusal says why)
     SeveralTables,     // more than one table resolved: the finder will not guess
     Incomplete,        // a result with a function missing (never from the finder)
     StartsWithBranch,  // a function starts with a branch, which a hook cannot replay
+    Overlapping,       // two hooks within kGcExiHookSpan of each other (the same address, say)
 };
 struct GcExiDecision {
     GcExiVerdict verdict = GcExiVerdict::NotAllFound;
+    // For Overlapping: the first pair of hooks that collide (gc_card.h's order).
+    unsigned overlap_first = 0;
+    unsigned overlap_second = 0;
     // For StartsWithBranch: which hooks start with a relative branch.
     std::array<bool, kGcExiHooks> branching{};
 };

@@ -298,18 +298,39 @@ void test_listed_game_without_probe_ex() {
     with_probe_ex.expect_found("GHAE08");
 }
 
+using Reason = riftwii::GcExiFunctions::ListedRefusal;
+
+// A listed game refused, by the check `reason`, at `at` (kAnyAddress: not
+// checked), and the loader's gate saying so.
+constexpr std::uint32_t kAnyAddress = 0xFFFFFFFF;
+void expect_listed_refusal(const std::vector<riftwii::CodeRange>& ranges, Reason reason, std::uint32_t at) {
+    const auto found = riftwii::find_gc_exi_functions(ranges, "GHAE08");
+    EXPECT_EQ(found.blocks, 0u);
+    for (std::uint32_t address : found.hooks) EXPECT_EQ(address, 0u);
+    EXPECT_TRUE(found.listed_refusal == reason);
+    if (at != kAnyAddress) EXPECT_EQ(found.listed_refusal_at, at);
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(found, ranges).verdict == riftwii::GcExiVerdict::ListedRefused);
+}
+
+// Each case is refused by the check named in its assertion. Where another
+// check would refuse it too, the comment says so: the checks overlap on
+// purpose, and the assertion names the first that refuses.
 void test_listed_game_negatives() {
     // Something like an EXIProbeEx (it calls the probe and EXIGetID) that
-    // the finder did not take as one: too long for EXIProbe, no -1.
+    // the finder did not take as one: too long for EXIProbe, no -1. Refused
+    // because EXIProbe is not then the only function calling both; its
+    // branch to the probe (after the last placed function) would fail the
+    // probe-caller check as well.
     Sdk probe_ex_like(no_probe_ex_shape());
     const std::uint32_t like = probe_ex_like.text.add_function(false, kBlocks, {kNop, kNop}, 0x140);
     probe_ex_like.text.call(like, 0, probe_ex_like.probe);
     probe_ex_like.text.call(like, 1, probe_ex_like.expected[GC_EXI_GET_ID]);
-    probe_ex_like.expect_rejected("GHAE08");
+    expect_listed_refusal(probe_ex_like.text.ranges(), Reason::ProbeLike, kAnyAddress);
 
     // EXIAttach does not directly follow EXIProbe: something sits where an
     // EXIProbeEx would. Built by hand so a function no table lists lands
-    // between the two.
+    // between the two; nothing else differs from an accepted SDK, so only
+    // the attach-follows check refuses it.
     {
         Text text;
         const bool old_sdk = false;
@@ -323,7 +344,7 @@ void test_listed_game_negatives() {
         e[GC_EXI_UNLOCK] = text.add_function(old_sdk, kBlocks, {clear_bit(4)});
         const std::uint32_t probe = text.add_function(old_sdk, kBlocks, {});
         e[GC_EXI_PROBE] = text.add_function(old_sdk, kBlocks, {kNop, kNop});
-        text.add_function(old_sdk, kNoTable, {kNop});  // in EXIProbeEx's place
+        const std::uint32_t in_between = text.add_function(old_sdk, kNoTable, {kNop});  // in EXIProbeEx's place
         e[GC_EXI_ATTACH] = text.add_function(old_sdk, kBlocks, {0x60000008, kNop});
         e[GC_EXI_GET_ID] = text.add_function(old_sdk, kBlocks, {kProbeTimes, kNop, kNop, kNop, kNop});
         text.call(e[GC_EXI_SELECT], 1, probe);
@@ -334,9 +355,7 @@ void test_listed_game_negatives() {
         text.call(e[GC_EXI_GET_ID], 4, e[GC_EXI_SYNC]);
         text.call(e[GC_EXI_PROBE], 0, probe);
         text.call(e[GC_EXI_PROBE], 1, e[GC_EXI_GET_ID]);
-        const auto found = riftwii::find_gc_exi_functions(text.ranges(), "GHAE08");
-        EXPECT_EQ(found.blocks, 0u);
-        EXPECT_EQ(found.hooks[GC_EXI_IMM], 0u);
+        expect_listed_refusal(text.ranges(), Reason::AttachDoesNotFollow, in_between);
         // The same code with that function taken out is accepted, so the
         // gap alone made the difference.
         Sdk control(no_probe_ex_shape());
@@ -344,21 +363,22 @@ void test_listed_game_negatives() {
     }
 
     // A function outside the control blocks calls both the probe and
-    // EXIGetID, as an EXIProbeEx the finder missed would.
+    // EXIGetID, as an EXIProbeEx the finder missed would. No table lists it,
+    // so only the probe-caller check sees it.
     Sdk outside_caller(no_probe_ex_shape());
     const std::uint32_t outside = outside_caller.text.add_function(false, kNoTable, {kNop, kNop});
     outside_caller.text.call(outside, 0, outside_caller.probe);
     outside_caller.text.call(outside, 1, outside_caller.expected[GC_EXI_GET_ID]);
-    outside_caller.expect_rejected("GHAE08");
+    expect_listed_refusal(outside_caller.text.ranges(), Reason::ProbeCaller, outside + 16);
 
     // A call to the probe from code whose function start cannot be found
-    // (no blr within reach before it) is doubtful too.
+    // (no blr within reach before it): the probe-caller check refuses it.
     Sdk unknown_caller(no_probe_ex_shape());
     for (int i = 0; i < 0x110; ++i) unknown_caller.text.words.push_back(kNop);
     const std::uint32_t at = kBase + 4 * static_cast<std::uint32_t>(unknown_caller.text.words.size());
     unknown_caller.text.words.push_back(branch_link(at, unknown_caller.probe));
     unknown_caller.text.words.push_back(kBlr);
-    unknown_caller.expect_rejected("GHAE08");
+    expect_listed_refusal(unknown_caller.text.ranges(), Reason::ProbeCaller, at);
 }
 
 // A decoy that looks partly like the SDK: one function sets the selected and
@@ -389,27 +409,31 @@ void test_partial_decoy_does_not_resolve() {
 }
 
 // #318 review: in the no-EXIProbeEx case every branch to the internal probe
-// must come from a function already placed. An EXIProbeEx with an early blr
-// between its probe call and its EXIGetID call looks like two functions to a
-// nearest-blr search; a tail call (b) is not a bl at all. Both reject.
+// must come from a function already placed, or a clean span between them.
+// These three pass the EXIProbe-alone and attach-follows checks (which see
+// only bl calls up to a function's first blr), so only the probe-caller
+// check refuses them; the pre-review check accepted all three.
 void test_listed_game_strict_probe_callers() {
+    // An EXIProbeEx with an early blr between its probe call and its
+    // EXIGetID call: two functions to a nearest-blr search.
     Sdk early_blr(no_probe_ex_shape());
     const std::uint32_t split = early_blr.text.add_function(false, kBlocks, {kNop, kBlr, kNop, kMinusOne});
     early_blr.text.call(split, 0, early_blr.probe);
     early_blr.text.call(split, 2, early_blr.expected[GC_EXI_GET_ID]);
-    early_blr.expect_rejected("GHAE08");
+    expect_listed_refusal(early_blr.text.ranges(), Reason::ProbeCaller, split + 16);
 
+    // A tail call (b) from outside: not a bl at all.
     Sdk tail_call(no_probe_ex_shape());
     const std::uint32_t outside = tail_call.text.add_function(false, kNoTable, {kNop, kNop});
     tail_call.text.put(outside + 16, branch(outside + 16, tail_call.probe));
-    tail_call.expect_rejected("GHAE08");
+    expect_listed_refusal(tail_call.text.ranges(), Reason::ProbeCaller, outside + 16);
 
     // A conditional tail call too (bc 12,2: beq).
     Sdk conditional(no_probe_ex_shape());
     const std::uint32_t cond = conditional.text.add_function(false, kNoTable, {kNop, kNop});
     const std::uint32_t at = cond + 16;
     conditional.text.put(at, 0x41820000u | ((conditional.probe - at) & 0xFFFC));
-    conditional.expect_rejected("GHAE08");
+    expect_listed_refusal(conditional.text.ranges(), Reason::ProbeCaller, at);
 }
 
 // A 0x40-byte SDK without EXIProbeEx, with a function no table lists
@@ -463,12 +487,12 @@ void test_listed_game_bracketed_callers() {
     split.text.call(split.gap, 0, split.probe);
     split.text.put(split.gap + 16 + 4, kBlr);
     split.text.call(split.gap, 2, split.get_id);
-    EXPECT_TRUE(!split.found());
+    expect_listed_refusal(split.text.ranges(), Reason::ProbeCaller, split.gap + 16);
 
     GapSdk minus_one(4);  // a probe call and a -1: an EXIProbeEx with GetID inlined away
     minus_one.text.call(minus_one.gap, 0, minus_one.probe);
     minus_one.text.put(minus_one.gap + 16 + 8, kMinusOne);
-    EXPECT_TRUE(!minus_one.found());
+    expect_listed_refusal(minus_one.text.ranges(), Reason::ProbeCaller, minus_one.gap + 16);
 
     // The same code with an EXIProbeEx found is never held to the rule:
     // a game not on the list rejects the gap SDK (no EXIProbeEx), as before.
@@ -512,6 +536,24 @@ void test_hook_decision() {
     EXPECT_TRUE(decided.verdict == GcExiVerdict::StartsWithBranch);
     EXPECT_TRUE(decided.branching[GC_EXI_IMM]);
     EXPECT_TRUE(!decided.branching[GC_EXI_DMA]);
+
+    // Two roles on one address, or two hooks closer than kGcExiHookSpan (the
+    // branch word and the word its replay jumps back to): never hooked.
+    auto same = sdk.find();
+    same.hooks[GC_EXI_SYNC] = same.hooks[GC_EXI_IMM];
+    const auto same_decided = riftwii::decide_gc_exi_hooks(same, sdk.text.ranges());
+    EXPECT_TRUE(same_decided.verdict == GcExiVerdict::Overlapping);
+    EXPECT_EQ(same_decided.overlap_first, static_cast<unsigned>(GC_EXI_IMM));
+    EXPECT_EQ(same_decided.overlap_second, static_cast<unsigned>(GC_EXI_SYNC));
+    auto adjacent = sdk.find();
+    adjacent.hooks[GC_EXI_SYNC] = adjacent.hooks[GC_EXI_IMM] + 4;
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(adjacent, sdk.text.ranges()).verdict == GcExiVerdict::Overlapping);
+    auto below = sdk.find();
+    below.hooks[GC_EXI_IMM] = below.hooks[GC_EXI_SYNC] + 4;  // order does not matter
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(below, sdk.text.ranges()).verdict == GcExiVerdict::Overlapping);
+    auto spaced = sdk.find();
+    spaced.hooks[GC_EXI_SYNC] = spaced.hooks[GC_EXI_IMM] + riftwii::kGcExiHookSpan;
+    EXPECT_TRUE(riftwii::decide_gc_exi_hooks(spaced, sdk.text.ranges()).verdict == GcExiVerdict::Hook);
 
     // A result with one hook missing is never hooked, even with blocks set.
     auto incomplete = sdk.find();

@@ -149,13 +149,21 @@ std::uint32_t next_function(const Words& code, std::uint32_t end) {
     return code.has(a) ? a : 0;
 }
 
+// Why a listed game's missing EXIProbeEx was not accepted (for the log).
+struct Refusal {
+    GcExiFunctions::ListedRefusal reason = GcExiFunctions::ListedRefusal::None;
+    std::uint32_t at = 0;
+};
+
 // The functions using one table, and whether all of them were placed. `out`
 // keeps what was placed either way (for the log); a doubtful one stays 0.
 bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uint32_t ecb,
                            const BlockTables& tables, bool probe_ex_may_be_absent,
-                           std::array<std::uint32_t, kGcExiHooks>& out, bool& probe_ex_absent) {
+                           std::array<std::uint32_t, kGcExiHooks>& out, bool& probe_ex_absent,
+                           Refusal& refusal) {
     out.fill(0);
     probe_ex_absent = false;
+    refusal = Refusal{};
     struct Fn {
         std::uint32_t start = 0;
         std::uint32_t size = 0;
@@ -296,7 +304,12 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
     // Anything else rejects: a branch from outside the EXI functions, a span
     // longer than kLongestSpan, a placed function of unknown size.
     constexpr std::uint32_t kLongestSpan = 0x1000;
+    // The first branch to the probe that failed, for the log.
+    std::uint32_t refused_branch = 0;
     auto only_exi_code_branches_to_probe = [&]() {
+        // A 0 target is what any_branch_target gives a word that is not a
+        // branch: never compared against.
+        if (probe == 0 || get_id == 0) return false;
         std::vector<const Fn*> placed_functions;
         for (std::uint32_t address : out) {
             if (address == 0) continue;
@@ -320,16 +333,22 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
                 if (!code.has(s)) return false;
                 const std::uint32_t w = code.at(s);
                 if (w == 0x3860FFFF) return false;  // li r3,-1
-                if (any_branch_target(s, w) == get_id) return false;
+                const std::uint32_t target = any_branch_target(s, w);
+                if (target != 0 && target == get_id) return false;
             }
             return true;
         };
         bool clear = true;
         code.each([&](std::uint32_t a, std::uint32_t w) {
-            if (!clear || any_branch_target(a, w) != probe) return;
+            if (!clear) return;
+            const std::uint32_t target = any_branch_target(a, w);
+            if (target == 0 || target != probe) return;
             const bool inside_placed = std::any_of(placed_functions.begin(), placed_functions.end(),
                                                    [a](const Fn* fn) { return a >= fn->start && a < fn->start + fn->size; });
-            if (!inside_placed && !bracketed_span_is_clean(a)) clear = false;
+            if (!inside_placed && !bracketed_span_is_clean(a)) {
+                clear = false;
+                refused_branch = a;
+            }
         });
         return clear;
     };
@@ -348,11 +367,29 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
             return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && !fn.sets[3] && fn.start != get_id;
         });
         const Fn* probe_function = function_at(out[GC_EXI_PROBE]);
-        const bool attach_follows = probe_function != nullptr && probe_function->size != 0 &&
-                                    next_function(code, probe_function->start + probe_function->size) ==
-                                        out[GC_EXI_ATTACH];
-        modern_without_probe_ex = probe_like == out[GC_EXI_PROBE] && attach_follows &&
-                                  only_exi_code_branches_to_probe();
+        const std::uint32_t after_probe = probe_function != nullptr && probe_function->size != 0
+                                              ? next_function(code, probe_function->start + probe_function->size)
+                                              : 0;
+        const bool attach_follows = after_probe != 0 && after_probe == out[GC_EXI_ATTACH];
+        // The checks in turn, the first that refuses named for the log.
+        using Reason = GcExiFunctions::ListedRefusal;
+        Refusal why;
+        if (probe_like != out[GC_EXI_PROBE]) {
+            why.reason = Reason::ProbeLike;
+        } else if (!attach_follows) {
+            why = {Reason::AttachDoesNotFollow, after_probe};
+        } else if (!only_exi_code_branches_to_probe()) {
+            why = {Reason::ProbeCaller, refused_branch};
+        } else {
+            modern_without_probe_ex = true;
+        }
+        // Named only when the other ten were all placed: otherwise a missing
+        // function is the reason, and the log says that.
+        bool others_placed = true;
+        for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+            if (i != GC_EXI_PROBE_EX && out[i] == 0) others_placed = false;
+        }
+        if (others_placed) refusal = why;
     }
     for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
         const bool may_be_absent = i == GC_EXI_PROBE_EX && (old_probe || modern_without_probe_ex);
@@ -383,6 +420,7 @@ struct LayoutResult {
     // (for the log only).
     std::uint32_t best_partial_blocks = 0;
     std::array<std::uint32_t, kGcExiHooks> best_partial{};
+    Refusal best_partial_refusal;
 };
 
 LayoutResult find_exi_functions_by(const Words& code, std::uint32_t index_word, const BlockTables& tables,
@@ -393,7 +431,8 @@ LayoutResult find_exi_functions_by(const Words& code, std::uint32_t index_word, 
         ++result.tables_tried;
         std::array<std::uint32_t, kGcExiHooks> hooks{};
         bool absent = false;
-        if (resolve_exi_functions(code, index_word, table, tables, probe_ex_may_be_absent, hooks, absent)) {
+        Refusal refusal;
+        if (resolve_exi_functions(code, index_word, table, tables, probe_ex_may_be_absent, hooks, absent, refusal)) {
             if (++result.resolving_tables == 1) {
                 result.first_blocks = table;
                 result.first_hooks = hooks;
@@ -402,6 +441,7 @@ LayoutResult find_exi_functions_by(const Words& code, std::uint32_t index_word, 
         } else if (result.best_partial_blocks == 0 || placed(hooks) > placed(result.best_partial)) {
             result.best_partial_blocks = table;
             result.best_partial = hooks;
+            result.best_partial_refusal = refusal;
         }
     }
     return result;
@@ -462,6 +502,8 @@ GcExiFunctions find_gc_exi_functions(const std::vector<CodeRange>& text, const s
     const LayoutResult& best = old_placed_more ? old_sdk : modern;
     found.partial = best.best_partial;
     found.partial_blocks = best.best_partial_blocks;
+    found.listed_refusal = best.best_partial_refusal.reason;
+    found.listed_refusal_at = best.best_partial_refusal.at;
     return found;
 }
 
@@ -472,6 +514,8 @@ GcExiDecision decide_gc_exi_hooks(const GcExiFunctions& found, const std::vector
             decision.verdict = GcExiVerdict::SeveralTables;
         } else if (found.tables_tried == 0) {
             decision.verdict = GcExiVerdict::NoTables;
+        } else if (found.listed_refusal != GcExiFunctions::ListedRefusal::None) {
+            decision.verdict = GcExiVerdict::ListedRefused;
         } else {
             decision.verdict = GcExiVerdict::NotAllFound;
         }
@@ -482,6 +526,24 @@ GcExiDecision decide_gc_exi_hooks(const GcExiFunctions& found, const std::vector
         if (found.hooks[i] == 0 && !may_be_absent) {
             decision.verdict = GcExiVerdict::Incomplete;
             return decision;
+        }
+    }
+    // Every hooked function at least kGcExiHookSpan from every other: two
+    // roles on one address would replay the first hook's branch (the word
+    // the second one copies) and loop, and one 4 bytes on would be jumped
+    // into by the first one's replay.
+    for (unsigned i = 0; i < kGcExiHooks; ++i) {
+        for (unsigned j = i + 1; j < kGcExiHooks; ++j) {
+            const std::uint32_t a = found.hooks[i];
+            const std::uint32_t b = found.hooks[j];
+            if (a == 0 || b == 0) continue;
+            const std::uint32_t apart = a > b ? a - b : b - a;
+            if (apart < kGcExiHookSpan) {
+                decision.verdict = GcExiVerdict::Overlapping;
+                decision.overlap_first = i;
+                decision.overlap_second = j;
+                return decision;
+            }
         }
     }
     // The hook replays the first instruction elsewhere, so it must not be a
