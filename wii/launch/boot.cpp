@@ -1061,10 +1061,12 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     if (ctx.gc_adapter) {
         std::string why;
         const std::uint32_t pad_veneers = ctx.code_build ? kPadVeneers : 0;
+        const std::uint32_t resident_stage = resident != nullptr && resident->data_base != resident->stage_base
+                                                 ? resident->stage_base : 0;
         if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
                            resident != nullptr ? resident->ioctl_async_original : 0,
                            resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
-                           pad_veneers)) {
+                           pad_veneers, resident_stage)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
         } else if (out.pad.new_arena2_hi != 0) {
             // The MEM2 arena's end comes down now, so the crash blob, planned
@@ -2289,6 +2291,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     extras_context.clears_mem1_top = clears_mem1_top;
     extras_context.retail_bca = options.retail_bca;
     plan_game_extras(dol, extras_context, extras);
+    if (rvz.enabled && gc_adapter && !extras.pad.active) {
+        error = "the RVZ game and GameCube adapter could not be planned together; see the adapter's log line";
+        logf("RVZ launch stopped: %s\n", error.c_str());
+        return false;
+    }
     // Never left open for the game (it may keep this IOS).
     close_nand_permissions("Launch");
     logf("Handing over\n");
@@ -3153,13 +3160,6 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             effective.savegame_clone_empty = false;
             effective.file_device = false;
         }
-    }
-    if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {
-        // RVZ games and the adapter conflict (GitHub issue #4): off for
-        // every RVZ launch, even with the setting On, until that is solved.
-        logf("GameCube adapter: off: RVZ games and the adapter do not work together yet (issue #4)\n");
-        g_extras.gc_adapter = GcAdapterMode::Off;
-        g_extras.gc_adapter_forced = false;
     }
     // Judged under the running IOS: with the adapter on, the game keeps it
     // (below).
