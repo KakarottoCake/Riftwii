@@ -182,6 +182,87 @@ void TestQuietAtLeave() {
     EXPECT_TRUE(rtleave_quiet(&l, 4209, 1, 4158));
 }
 
+// The game's own save request while IOS holds it (KakarottoCake on #314):
+// a single NAND write longer than the quiet window, or a synchronous save
+// whose thread sleeps in the very OSSleepThread that leaves. Until its
+// command word changes (IOS's reply) it is never quiet; after, the quiet
+// window counts from the reply; a block whose word never changes stops
+// counting after RTLEAVE_PENDING_QUIETS windows.
+void TestPendingSave() {
+    const std::uint32_t kWrite = 4;  // the block's command word as submitted
+    const std::uint32_t kReply = 8;  // what IOS writes there when it answers
+    const std::uint32_t kBlock = 0x80401000u;
+    rtleave l{};
+    l.hold = 100;
+    l.quiet = 50;
+    EXPECT_EQ(rtleave_pending(&l, 5000, kWrite), 0);  // nothing pending yet
+    rtleave_note_save(&l, 5000);
+    rtleave_note_pending(&l, 5000, kBlock, kWrite);
+    EXPECT_EQ(l.pending, kBlock);
+    // Long after the submit, the reply not in: still with IOS, not quiet.
+    EXPECT_EQ(rtleave_pending(&l, 5300, kWrite), 1);
+    EXPECT_FALSE(rtleave_quiet(&l, 5300, 0, 0));
+    EXPECT_FALSE(rtleave_due(&l, 1, 5300, 0, 0));
+    EXPECT_FALSE(rtleave_due(&l, 1, 5420, 0, 0));  // held long enough, still not
+    // The reply: over, and the quiet window counts from here.
+    EXPECT_EQ(rtleave_pending(&l, 5430, kReply), 0);
+    EXPECT_EQ(l.pending, 0u);
+    EXPECT_FALSE(rtleave_quiet(&l, 5440, 0, 0));
+    EXPECT_TRUE(rtleave_quiet(&l, 5481, 0, 0));
+    EXPECT_TRUE(rtleave_due(&l, 1, 5481, 0, 0));
+
+    // A reused block (another command in the word) ends it the same way.
+    rtleave r{};
+    r.hold = 100;
+    r.quiet = 50;
+    rtleave_note_pending(&r, 6000, kBlock, kWrite);
+    EXPECT_EQ(rtleave_pending(&r, 6010, 1u), 0);
+    EXPECT_EQ(r.pending, 0u);
+
+    // A word that never changes: counted as with IOS for the cap, then not.
+    rtleave c{};
+    c.hold = 100;
+    c.quiet = 50;
+    rtleave_note_pending(&c, 7000, kBlock, kWrite);
+    const std::uint32_t cap = 7000 + RTLEAVE_PENDING_QUIETS * 50;
+    EXPECT_EQ(rtleave_pending(&c, cap - 1, kWrite), 1);
+    EXPECT_EQ(rtleave_pending(&c, cap, kWrite), 0);
+    EXPECT_EQ(c.pending, 0u);
+    EXPECT_FALSE(rtleave_quiet(&c, cap + 10, 0, 0));  // then a quiet window, as after a reply
+    EXPECT_TRUE(rtleave_quiet(&c, cap + 51, 0, 0));
+
+    // Across the time base's low word wrapping.
+    rtleave w{};
+    w.hold = 100;
+    w.quiet = 50;
+    rtleave_note_pending(&w, 0xFFFFFFF0u, kBlock, kWrite);
+    EXPECT_EQ(rtleave_pending(&w, 0x00000100u, kWrite), 1);
+    EXPECT_EQ(rtleave_pending(&w, 0x00000110u, kReply), 0);
+
+    // The reply seen at the very tick of the quiet check, an even one: its
+    // stamp (low bit set: one tick ahead) must not read as long ago. In
+    // Dolphin this left Brawl mid-save 78 ms after a write.
+    rtleave s{};
+    s.hold = 100;
+    s.quiet = 50;
+    rtleave_note_pending(&s, 8000, kBlock, kWrite);
+    EXPECT_EQ(rtleave_pending(&s, 8200, kReply), 0);
+    EXPECT_FALSE(rtleave_quiet(&s, 8200, 0, 0));
+    EXPECT_FALSE(rtleave_due(&s, 1, 8200, 0, 0));
+    // A save noted at the same even tick as the check, the same.
+    rtleave q{};
+    q.hold = 100;
+    q.quiet = 50;
+    rtleave_note_save(&q, 9000);
+    EXPECT_FALSE(rtleave_quiet(&q, 9000, 0, 0));
+    // And a hold that began at this same even tick has not lasted yet.
+    rtleave h{};
+    h.hold = 100;
+    h.quiet = 50;
+    EXPECT_FALSE(rtleave_due(&h, 1, 9100, 0, 0));
+    EXPECT_FALSE(rtleave_due(&h, 1, 9100, 0, 0));
+}
+
 }  // namespace
 
 int main() {
@@ -189,6 +270,7 @@ int main() {
     TestSaveRequests();
     TestDue();
     TestQuietAtLeave();
+    TestPendingSave();
     if (g_failures == 0) {
         std::cout << "ALL PAD LEAVE TESTS PASSED" << std::endl;
         return 0;

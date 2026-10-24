@@ -134,7 +134,28 @@ static const uint8_t* pad_cached(uint32_t physical) {
  * routine): a save's is noted. The request's first two arguments as
  * addresses, for rtleave_save_request to read where they are paths. */
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block) {
-    if (rtleave_save_request(block, pad_cached(block[3]), pad_cached(block[4]))) rtleave_note_save(&c->leave, now());
+    const uint32_t address = (uint32_t)(uintptr_t)block;
+    /* The game's own memory (MEM1 or MEM2, cached): the block is read
+     * back there, as the game sees it, until IOS's reply replaces its
+     * command word (rtleave_pending). */
+    const int trackable = (address >= 0x80000000u && address < 0x81800000u) ||
+                          (address >= 0x90000000u && address < 0x94000000u);
+    uint32_t msr;
+    uint32_t t;
+    if (!rtleave_save_request(block, pad_cached(block[3]), pad_cached(block[4]))) return;
+    msr = interrupts_off();
+    t = now();
+    rtleave_note_save(&c->leave, t);
+    if (trackable) rtleave_note_pending(&c->leave, t, address, block[0]);
+    interrupts_restore(msr);
+}
+
+/* The pending save request, if any: still with IOS, or now over (its
+ * command word, as the game sees it, no longer the one submitted).
+ * Interrupts off, as at its callers. */
+static void pad_check_pending(struct rt_pad_context* c, uint32_t t) {
+    if (c->leave.pending == 0) return;
+    rtleave_pending(&c->leave, t, *(const volatile uint32_t*)(uintptr_t)c->leave.pending);
 }
 
 /* The resident runtime's last SD save write (rt_fs_state's last_write,
@@ -165,6 +186,7 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
         return;
     }
     if (c->leave_asked) return;
+    pad_check_pending(c, t);
     pad_resident_write(c, &resident_wrote, &resident_last_write);
     if (rtleave_due(&c->leave, held, t, resident_wrote, resident_last_write)) c->leave_asked = RT_PAD_LEAVE_ASKED;
 }
@@ -185,11 +207,15 @@ uint32_t pad_on_sleep(struct rt_pad_context* c) {
     const uint32_t running = *(volatile uint32_t*)(uintptr_t)0x800000E4u;
     const uint32_t main_thread = *(volatile uint32_t*)(uintptr_t)0x800000D8u;
     int resident_wrote, quiet;
-    uint32_t resident_last_write, msr;
+    uint32_t resident_last_write, msr, t;
     if (c->leave_asked != RT_PAD_LEAVE_ASKED || running != main_thread) return 0;
     msr = interrupts_off();
+    t = now();
+    /* A save this very thread is waiting for sleeps it here: its request
+     * is still pending, so this sleep doesn't leave. */
+    pad_check_pending(c, t);
     pad_resident_write(c, &resident_wrote, &resident_last_write);
-    quiet = rtleave_quiet(&c->leave, now(), resident_wrote, resident_last_write);
+    quiet = rtleave_quiet(&c->leave, t, resident_wrote, resident_last_write);
     c->leave_asked = quiet ? RT_PAD_LEAVE_GONE : 0;
     interrupts_restore(msr);
     return quiet ? c->return_to_menu : 0;

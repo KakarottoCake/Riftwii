@@ -51,7 +51,29 @@ int rtleave_save_request(const uint32_t* block, const uint8_t* arg0, const uint8
     return 0;
 }
 
+/* Ticks from a stamp to `now`. Stamps keep their low bit set (so a
+ * stamp is never 0, which means none), and a stamp made at an even tick
+ * would read one tick ahead: from the same `now` the difference would wrap
+ * to a long time ago. Measured with that bit cleared, a stamp never lies
+ * ahead of a later `now` (in Dolphin, a reply seen at the tick of the
+ * quiet check left Brawl mid-save). */
+static uint32_t rtleave_elapsed(uint32_t now, uint32_t stamp) { return now - (stamp & ~1u); }
+
 void rtleave_note_save(struct rtleave* l, uint32_t now) { l->activity = now | 1u; }
+
+void rtleave_note_pending(struct rtleave* l, uint32_t now, uint32_t word_address, uint32_t command) {
+    l->pending = word_address;
+    l->pending_command = command;
+    l->pending_since = now | 1u;
+}
+
+int rtleave_pending(struct rtleave* l, uint32_t now, uint32_t word) {
+    if (l->pending == 0) return 0;
+    if (word == l->pending_command && rtleave_elapsed(now, l->pending_since) < RTLEAVE_PENDING_QUIETS * l->quiet) return 1;
+    l->pending = 0;
+    rtleave_note_save(l, now);
+    return 0;
+}
 
 int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
     if (!held) {
@@ -62,7 +84,7 @@ int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, u
         l->since = now | 1u;
         return 0;
     }
-    if (now - l->since < l->hold) return 0;
+    if (rtleave_elapsed(now, l->since) < l->hold) return 0;
     return rtleave_quiet(l, now, resident_wrote, resident_last_write);
 }
 
@@ -70,7 +92,10 @@ int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uin
     /* A save write's command is with IOS: never quiet, however long ago it
      * went out (one stuck command on a failing card can outlast the window). */
     if (resident_wrote == RTLEAVE_RESIDENT_WITH_IOS) return 0;
-    if (l->activity != 0 && now - l->activity < l->quiet) return 0;
+    /* The game's own save request is with IOS: the same (a synchronous
+     * save sleeps its thread in the very OSSleepThread that leaves). */
+    if (l->pending != 0) return 0;
+    if (l->activity != 0 && rtleave_elapsed(now, l->activity) < l->quiet) return 0;
     if (resident_wrote && now - resident_last_write < l->quiet) return 0;
     return 1;
 }
