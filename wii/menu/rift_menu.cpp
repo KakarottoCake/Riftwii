@@ -4752,7 +4752,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// Not while the update check (or the scan) has the network.
-		if (!g_sdGone && !g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
 			std::size_t pick = 0;
 			bool onPage = false;
@@ -4820,7 +4820,7 @@ static int MenuSource(FrontendState& state)
 		}
 		// The 3D covers view's pictures once the covers are in (a game
 		// without one shows its cover meanwhile): the ones near the focus first.
-		if (!g_sdGone && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4831,7 +4831,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (!g_sdGone && !g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -4989,12 +4989,13 @@ static int MenuSource(FrontendState& state)
 						StartScan();
 						riftwii::wii::ForgetAppIcons();
 						riftwii::wii::RescanHomebrewApps();
-						const std::string focused = focusedTile();
-						// The rescan just started brings its parts later.
-						refreshKeepingTile(focused, false);
-						toast.Show(tr("The SD card is back in. Reading it again."), false);
-						showStatus();
 						g_sdGone = false;
+						// Home is built again from the new card's settings (its view,
+						// spacing, channel look, search button), as after Settings; the
+						// rescan just started brings its games to the new Home.
+						g_homeFocus = grid.FocusedIndex();
+						SetHomeNotice(tr("The SD card is back in. Reading it again."));
+						menu = MENU_SOURCE;
 					} else {
 						g_sdWatch = riftwii::SdHotplug(false);
 						riftwii::wii::logf("SD card: back in but it could not be mounted; waiting for a readable card\n");
