@@ -5,7 +5,6 @@
 #include "d2xsave.hpp"
 
 #include <dirent.h>
-#include <fat.h>
 #include <gccore.h>
 #include <malloc.h>
 #include <sys/stat.h>
@@ -17,20 +16,11 @@
 #include <vector>
 
 #include "boot.hpp"
-#include "d2xsd.hpp"
 #include "log.hpp"
 #include "nanduse.hpp"
 
 namespace riftwii::wii {
 namespace {
-
-// d2x's FFS plugin (wiidev/d2x-cios, source/ffs-plugin): /dev/fs ioctlv
-// 100 sets the NAND emulation, its mode SD (1) without the full flag
-// (0x100: partial, the game's paths only); the FAT module's ioctlv 0xF0
-// mounts the SD card for it (the commands USB Loader GX sends).
-constexpr u32 kSetMode = 100;
-constexpr u32 kModeSd = 1;
-constexpr u32 kFatMountSd = 0xF0;
 
 std::string hex8(std::uint32_t v) {
     char text[9];
@@ -275,60 +265,6 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
     // has the card mounted (two FAT drivers allocating on one card).
     if (!make_dirs(data)) {
         error = "cannot create the save folder " + data;
-        return false;
-    }
-    return true;
-}
-
-bool enable_d2x_saves(const std::string& dir, std::string& error) {
-    if (dir.compare(0, 4, "sd:/") != 0) {
-        error = "not a folder of the SD card";
-        return false;
-    }
-    static char path[256] ATTRIBUTE_ALIGN(32);
-    std::snprintf(path, sizeof(path), "%s", dir.c_str() + 3);
-    static u32 mode ATTRIBUTE_ALIGN(32) = kModeSd;
-    // libfat's writes reach the card before d2x reads its FAT.
-    LogClose();
-    fatUnmount("sd:");
-    s32 mounted = -1, set = -1;
-    const s32 fat = IOS_Open("fat", 0);
-    if (fat >= 0) {
-        mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
-        IOS_Close(fat);
-    }
-    // Only with the card mounted in d2x: emulation turned on over a card
-    // d2x could not mount left ES unable to open the game (a tester's
-    // Wii Sports Resort from USB on IOS249: "mount -101, set 0", then
-    // "open partition failed: DI reply 64 (ES -101)"). RiftWii's own save
-    // code keeps the save instead.
-    const s32 fs = mounted >= 0 ? IOS_Open("/dev/fs", 0) : -1;
-    if (fs >= 0) {
-        static ioctlv vectors[2] ATTRIBUTE_ALIGN(32);
-        mode = kModeSd;
-        vectors[0].data = &mode;
-        vectors[0].len = sizeof(mode);
-        vectors[1].data = path;
-        vectors[1].len = sizeof(path);
-        set = IOS_Ioctlv(fs, kSetMode, 2, 0, vectors);
-        IOS_Close(fs);
-    }
-    // And libfat reads the card afresh after d2x made its folders.
-    const bool remounted = fatMountSimple("sd", sd_interface());
-    LogReopen();
-    logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d%s\n", dir.c_str(), fat, mounted, set,
-         remounted ? "" : "; the SD card did not mount again");
-    if (fat < 0 || mounted < 0) {
-        error = "d2x could not mount the SD card (FAT module " + std::to_string(fat) + ", mount " +
-                std::to_string(mounted) + ")";
-        return false;
-    }
-    if (set < 0) {
-        error = "d2x refused the NAND emulation (set " + std::to_string(set) + ")";
-        return false;
-    }
-    if (!remounted) {
-        error = "the SD card did not mount again after d2x took it";
         return false;
     }
     return true;

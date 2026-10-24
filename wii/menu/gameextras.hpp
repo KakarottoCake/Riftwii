@@ -54,6 +54,9 @@ std::string PlayNote(const std::string& game_id);
 // Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
 // once; and written back after the player moves a game.
 const std::vector<std::string>& HomeOrder();
+// Forget the play history and Home order read from the SD card, so the
+// next use reads them again (the card was taken out, maybe swapped).
+void ForgetCardHistoryAndOrder();
 void SaveHomeOrder(const std::vector<std::string>& order);
 
 }  // namespace riftwii::wii

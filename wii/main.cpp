@@ -242,10 +242,10 @@ void OfferRestart(const std::string& error) {
 bool MountStartupSd() {
     for (int attempt = 0; attempt < 3; ++attempt) {
         if (attempt > 0) {
-            __io_wiisd.shutdown();
+            riftwii::wii::libogc_sd_stop();
             usleep(250000);
         }
-        if (__io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
+        if (riftwii::wii::libogc_sd_start() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
     }
     return false;
 }
@@ -392,6 +392,7 @@ int main() {
             riftwii::wii::StartMenuIos(true);
         }
     }
+    if (sd_mounted) riftwii::wii::ChannelInstallerUpdateState();
     // A marker on the card while the Wii Menu's font is read: reading it
     // may open IOS's NAND permission check, which hung consoles before
     // 3.3.3. Found at the next start, the font is skipped, so a console it
@@ -644,7 +645,7 @@ int main() {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.
         std::string error;
-        riftwii::wii::StartChannelInstaller(error);
+        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked);
         riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, error);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();
