@@ -199,7 +199,12 @@ std::vector<int> keyboard_slots_first(const std::vector<int>& order, const std::
 // number, with slot number breaking ties; without a requested IOS, by slot.
 // The caller supplies only allowed d2x slots, never other cIOS families.
 // Unknown bases add nothing, so consoles without AHBPROT keep their order.
+// For a game read from the SD card, only extras whose base can read it
+// (d2x_base_reads_sd) are added.
 std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const std::vector<D2xSlot>& slots,
-                                      int requested_ios);
+                                      int requested_ios, bool sd_card);
+
+// The d2x bases USB Loader GX starts SD card games on: 56 to 60.
+bool d2x_base_reads_sd(int base);
 
 }  // namespace riftwii

@@ -559,8 +559,12 @@ std::vector<int> keyboard_slots_first(const std::vector<int>& order, const std::
     return sorted;
 }
 
+bool d2x_base_reads_sd(int base) {
+    return base >= 56 && base <= 60;
+}
+
 std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const std::vector<D2xSlot>& slots,
-                                      int requested_ios) {
+                                      int requested_ios, bool sd_card) {
     std::vector<int> order;
     for (int slot : preferred) {
         if (std::find(order.begin(), order.end(), slot) == order.end()) {
@@ -571,6 +575,7 @@ std::vector<int> append_d2x_fallbacks(const std::vector<int>& preferred, const s
     std::vector<D2xSlot> extras;
     for (const D2xSlot& slot : slots) {
         if (slot.slot < 200 || slot.slot > 255 || slot.base <= 0 || slot.base > 255) continue;
+        if (sd_card && !d2x_base_reads_sd(slot.base)) continue;
         if (std::find(order.begin(), order.end(), slot.slot) == order.end()) {
             extras.push_back(slot);
         }
@@ -627,7 +632,7 @@ int gx_pick_cios(const std::string& game_id, int requested, std::vector<D2xSlot>
     } else if (sd_card) {
         const std::size_t before = unique.size();
         unique.erase(std::remove_if(unique.begin(), unique.end(),
-                                    [](const D2xSlot& s) { return s.base < 56 || s.base > 60; }),
+                                    [](const D2xSlot& s) { return !d2x_base_reads_sd(s.base); }),
                      unique.end());
         restricted = unique.size() != before;
         if (unique.empty()) {
