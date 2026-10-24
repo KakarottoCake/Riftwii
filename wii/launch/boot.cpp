@@ -830,7 +830,7 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 
 // Return to RiftWii, below with the play log.
 u64 return_title();
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
 
@@ -1411,6 +1411,22 @@ void plan_restart(const DolHeader& dol, bool game_checks_its_code, bool runtime_
     logf("Reset: the game's own Reset (OSRestart 0x%08x) starts it again through the RiftWii channel, with its "
          "packs and choices: the request is in sector %u of the card (%s)\n", os_restart, out.request_lba,
          kRestartFile);
+    // The way to the channel: the game's own OSReturnToMenu when Return to
+    // RiftWii is patched in (decided after the patch, in boot_after_unmount),
+    // so the game shuts its devices down first; else a direct launch.
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string menu_error;
+    if (find_os_return_to_menu(text, all, out.return_to_menu, menu_error)) {
+        logf("Reset: it leaves through the game's OSReturnToMenu (0x%08x) when Return to RiftWii is patched in\n",
+             out.return_to_menu);
+    } else {
+        out.return_to_menu = 0;
+        logf("Reset: the channel is launched directly: %s\n", menu_error.c_str());
+    }
 }
 
 // Test switch: settings.txt "debug_reset = <N>" makes the game restart
@@ -2587,8 +2603,23 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else if (plain_code_build) logf("WFC: not patched: a code build starts without RiftWii's extras\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
+    bool returns_to_channel = false;
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
-    else apply_return_to(loaded, return_to, return_stub);
+    else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
+    // The game's own Reset leaves through its OSReturnToMenu once that goes
+    // to the channel the request is for (rt_reset_on_os_restart).
+    if (resident.restart_hooked && restart_plan.return_to_menu != 0 && returns_to_channel &&
+        return_to == restart_plan.title) {
+        rt_context* runtime = reinterpret_cast<rt_context*>(resident.context_now);
+        runtime->restart.return_to_menu = restart_plan.return_to_menu;
+        const std::uint32_t line =
+            static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&runtime->restart.return_to_menu)) & ~31u;
+        DCFlushRange(reinterpret_cast<void*>(line), 64);
+        logf("Reset: leaves through OSReturnToMenu (0x%08x), which now starts the RiftWii channel\n",
+             restart_plan.return_to_menu);
+    } else if (resident.restart_hooked) {
+        logf("Reset: the RiftWii channel is launched directly (Return to RiftWii is not patched in for it)\n");
+    }
     install_wpad_log_last(extras);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
@@ -2880,8 +2911,9 @@ u64 return_title() {
 }
 
 // `stub`: 32 bytes of MEM1 above the game's arena.
-void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
-    if (title == 0) return;
+// True when the game's __OSLaunchMenu now starts `title`.
+bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
+    if (title == 0) return false;
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     const ReturnToReport report =
@@ -2907,6 +2939,7 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
     }
     logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
          report.describe().c_str(), d2x >= 0 ? "set" : "not available");
+    return report.patched;
 }
 
 // IOS's file system keeps the Wii Menu's files to the Wii Menu. With

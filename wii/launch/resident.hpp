@@ -73,6 +73,10 @@ struct RestartOptions {
     std::uint64_t title = 0;          // the RiftWii channel
     std::vector<std::uint8_t> view;   // its ticket view (0xD8 bytes)
     bool keep = false;                // test switch: a launch IOS refused leaves the request armed
+    // The game's OSReturnToMenu (0: not found). The runtime leaves through
+    // it only once Return to RiftWii is patched in (boot.cpp sets that after
+    // apply_return_to); until then the channel is launched directly.
+    std::uint32_t return_to_menu = 0;
 };
 
 struct ResidentOptions {

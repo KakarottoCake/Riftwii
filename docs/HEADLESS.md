@@ -106,8 +106,11 @@ settings, not at its menu:
 2. The runtime hooks the game's `OSRestart`. When the game calls it, the
    runtime writes the same sector back with `--launch` for the first line
    (it holds a copy, so it composes nothing), through the card handle it
-   already has, and starts the RiftWii channel through `/dev/es` (the
-   ticket view was read at the launch). The channel starts RiftWii.
+   already has, and starts the RiftWii channel: with Return to RiftWii
+   patched in, through the game's own OSReturnToMenu, so the game shuts
+   its devices down first as for the HOME Menu's Wii Menu button;
+   otherwise through `/dev/es` (the ticket view was read at the launch).
+   The channel starts RiftWii.
 3. RiftWii's start reads `restart.txt` once, as it does `launch.txt`, and
    deletes it, and starts the game as the launch says: the log line
    `The game's own Reset: SMNP03 starts again, with the packs and choices it had`.

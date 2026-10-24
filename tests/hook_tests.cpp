@@ -4049,6 +4049,40 @@ static void TestRestart() {
     EXPECT_EQ(g_restart_es_handles, 2u);
     EXPECT_EQ(ctx.restart.last_result, static_cast<std::uint32_t>(-6));
 
+    // Return to RiftWii patched in: the armed sector is written and the game
+    // leaves through its own OSReturnToMenu (rt_entry.S jumps to what comes
+    // back), which shuts its devices down before __OSLaunchMenu starts the
+    // channel. ES is neither opened nor asked to launch here.
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.return_to_menu = 0x8027ff00u;
+    EXPECT_EQ(rt_reset_on_os_restart(&ctx), 0x8027ff00u);
+    EXPECT_EQ(g_restart_events, std::string("W"));
+    EXPECT_EQ(g_restart_es_handles, 2u);
+    EXPECT_TRUE(g_restart_calls.size() == 1u && g_restart_calls[0].armed_sector && g_restart_calls[0].ioctl == 7u);
+    EXPECT_EQ(ctx.restart.written, 1u);
+    EXPECT_EQ(ctx.restart.refused, 0u);
+    // Its write refused: the idle sector goes back and the game's own
+    // restart goes on (0), as on the direct way.
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.return_to_menu = 0x8027ff00u;
+    g_restart_write_result = -1;
+    EXPECT_EQ(rt_reset_on_os_restart(&ctx), 0u);
+    EXPECT_EQ(g_restart_events, std::string("WI"));
+    EXPECT_EQ(ctx.restart.written, 0u);
+    EXPECT_EQ(ctx.restart.refused, 1u);
+    // An interrupt handler's call is still left alone.
+    RestartContext(ctx, block, 0, 4000);
+    ctx.restart.return_to_menu = 0x8027ff00u;
+    rt_host_fs_in_thread = 0;
+    EXPECT_EQ(rt_reset_on_os_restart(&ctx), 0u);
+    rt_host_fs_in_thread = 1;
+    EXPECT_TRUE(g_restart_events.empty());
+    // The direct way hands back 0 too: the launch either never returns or
+    // was refused.
+    RestartContext(ctx, block, 0, 4000);
+    EXPECT_EQ(rt_reset_on_os_restart(&ctx), 0u);
+    EXPECT_EQ(g_restart_events, std::string("OWLCI"));
+
     // Left alone: no block (the loader found no channel, card or OSRestart
     // to go with it), no sector, missing synchronous IOS calls, or a
     // caller that cannot wait for IOS (an interrupt handler).
