@@ -3,6 +3,7 @@
 #include "riitagview.hpp"
 
 #include <ogc/cache.h>
+#include <ogc/gx.h>
 #include <zlib.h>
 
 #include <cstddef>
@@ -173,9 +174,14 @@ bool Start(const std::string& id) {
     if (NetBackgroundBusy()) return false;
     g_url = url;
     g_running = true;
-    if (!NetRunInBackground(RunDownload, true)) {
+    // Never here and now: the page would hang for the download's 20 s
+    // before it could draw Loading or take B.
+    if (!NetRunInBackground(RunDownload, true, false)) {
         g_running = false;
-        return false;
+        g_state = TagState::Failed;
+        g_error = "the download could not start (no thread for it)";
+        logf("RiiTag: %s\n", g_error.c_str());
+        return true;
     }
     g_state = TagState::Loading;
     logf("RiiTag: downloading the tag's picture from riitag.t0g3pii.de\n");
@@ -185,6 +191,8 @@ bool Start(const std::string& id) {
 TagState Status(std::string& error) {
     if (g_state == TagState::Loading && !g_running) {
         g_state = g_jobOk ? TagState::Ready : TagState::Failed;
+        // A refresh rewrote the texture where GX may still cache the last one.
+        if (g_jobOk) GX_InvalidateTexAll();
         g_error = g_jobError;
         if (!g_jobOk) logf("RiiTag: the tag's picture could not be shown: %s\n", g_error.c_str());
     }

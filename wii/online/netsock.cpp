@@ -129,7 +129,7 @@ void NetStop() {
     g_up = false;
 }
 
-bool NetRunInBackground(void (*job)(), bool cancellable) {
+bool NetRunInBackground(void (*job)(), bool cancellable, bool run_here) {
     if (!g_job_done) return false;
     NetWaitForBackground();  // a finished one's thread
     g_job = job;
@@ -140,6 +140,7 @@ bool NetRunInBackground(void (*job)(), bool cancellable) {
     if (LWP_CreateThread(&g_job_thread, run_job, nullptr, nullptr, 32768, 40) < 0) {
         g_job_thread = LWP_THREAD_NULL;
         g_job_done = true;
+        if (!run_here) return false;
         job();
     }
     return true;

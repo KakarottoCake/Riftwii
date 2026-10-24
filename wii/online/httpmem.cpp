@@ -209,7 +209,9 @@ bool HttpGetInMemory(const std::string& url, MemoryGet& get, std::string& error,
         }
         return true;
     }
-    error = "too many redirects for " + http_url_for_messages(url);
+    // By host, as above: the path can hold a player's ID (RiiTag), and this
+    // text reaches session.log.
+    error = "too many redirects from " + parsed.host;
     return false;
 }
 
