@@ -309,13 +309,21 @@ void PlayMenuSound(MenuSoundEvent event) {
     // The theme's click takes priority over extra contextual events too.
     if (Settings().wii_menu_sounds && !ThemeClickSoundFound()) {
         const Effect& effect = g_effects[static_cast<unsigned>(event)];
-        if (effect.pcm && GuiSound::otherPercent > 0) {
+        // An unavailable contextual cue falls back to RiftWii's PCM itself.
+        // Passing its identity through GuiSound would substitute the NAND
+        // generic click again, contradicting the per-effect failure log.
+        const u8* pcm = effect.pcm ? effect.pcm : button_click_pcm;
+        const s32 bytes = effect.pcm ? effect.bytes : button_click_pcm_size;
+        const s32 rate = effect.pcm ? WiiSoundPlayer::kRate : 48000;
+        if (pcm && bytes > 0 && GuiSound::otherPercent > 0) {
             const s32 voice = ASND_GetFirstUnusedVoice();
             const int volume = 255 * GuiSound::otherPercent / 100;
-            if (voice >= 0) ASND_SetVoice(voice, VOICE_STEREO_16BIT, WiiSoundPlayer::kRate, 0,
-                                         effect.pcm, effect.bytes, volume, volume, nullptr);
-            return;
+            if (voice >= 0) {
+                ASND_SetVoice(voice, VOICE_STEREO_16BIT, rate, 0,
+                              const_cast<u8*>(pcm), bytes, volume, volume, nullptr);
+            }
         }
+        return;
     }
     GuiSound fallback(button_click_pcm, button_click_pcm_size, SOUND::PCM);
     fallback.Play();
