@@ -4398,24 +4398,21 @@ static int MenuSource(FrontendState& state)
 	// Not crossfaded: Home takes no press while a crossfade runs, and a
 	// press as the SD card's games came in was lost (Ishtar, in Dolphin).
 	// Where the player is, while the drives are read. The focus and page the
-	// menu set itself are expected; any other page, or another tile once the
-	// pointer has moved, is the player's move (a pointer parked on a tile is
-	// not: the grid focuses that tile by itself). D-pad, stick and page turns
-	// all show as a changed focus or page. Once moved it stays so, also when
-	// they move away and back. A view change, a search or Settings is an
-	// action of theirs too: it ends the start-up focus (g_focusRestored).
+	// menu set itself are expected; a changed page, or a changed tile with no
+	// Wii Remote pointer on the screen, is the D-pad, the stick or a page turn
+	// and so the player's move. The pointer never counts: while one points,
+	// the grid focuses the tile under it by itself and takes no D-pad, so a
+	// changed tile then is only its hover (a page turn still shows as a page).
+	// Once moved it stays so, also when they move away and back. A view
+	// change, a search or Settings is an action of theirs too: it ends the
+	// start-up focus (g_focusRestored).
 	riftwii::FocusWatch focusWatch;
 	const auto expectFocusNow = [&]() { focusWatch.expect(grid.FocusedIndex(), grid.Page()); };
 	const auto watchPlayer = [&]() {
 		bool pointing = false;
-		int pointerX = 0, pointerY = 0;
-		for (int c = 0; c < 4 && !pointing; ++c) {
-			if (!userInput[c].wpad || !userInput[c].wpad->ir.valid) continue;
-			pointing = true;
-			pointerX = static_cast<int>(userInput[c].wpad->ir.x);
-			pointerY = static_cast<int>(userInput[c].wpad->ir.y);
-		}
-		focusWatch.observe(grid.FocusedIndex(), grid.Page(), pointing, pointerX, pointerY);
+		for (int c = 0; c < 4 && !pointing; ++c)
+			pointing = userInput[c].wpad && userInput[c].wpad->ir.valid;
+		focusWatch.observe(grid.FocusedIndex(), grid.Page(), pointing);
 	};
 	// The first time Home shows, it opens on the last game played (Settings >
 	// Home starts on: Last game) or on the first page (First page). The
@@ -4450,8 +4447,10 @@ static int MenuSource(FrontendState& state)
 		const int target = riftwii::home_start_focus(part, decided);
 		// Only a change, and without the crossfade: Home takes no press while
 		// one runs, and a press as a part joins must reach its tile.
-		// A Wii Remote pointer parked on a tile wins over this focus: the grid
-		// focuses the tile under it on the next frame (the page stays).
+		// A Wii Remote pointer over a tile wins over this focus on the next
+		// frame: the grid focuses the tile under it, on the page set here
+		// (the hover uses the grid's own page, so it never turns it back).
+		// Over no tile, this focus stays.
 		if (target != grid.FocusedIndex()) grid.Focus(target, false);
 		if (decided) g_focusRestored = true;
 		expectFocusNow();
@@ -4727,10 +4726,19 @@ static int MenuSource(FrontendState& state)
 			pressedTile = tileIdentity(pressedAt);
 		};
 		const auto putPressBack = [&]() {
+			// heldClick is set only here, from a press read this turn:
+			// GetClicked() hands a press out once and clears it, and this
+			// variable is made new every turn, so no index from an earlier
+			// turn (or from before a merge) can be left in it.
+			heldClick = -1;
 			if (pressedAt < 0) return;
-			heldClick = pressedTile.empty() ? -1 : findTile(pressedTile);
+			if (pressedTile.empty()) {
+				logf("Home: a press on a tile that is not a game was dropped as games joined\n");
+				return;
+			}
+			heldClick = findTile(pressedTile);
 			if (heldClick < 0)
-				logf("Home: a press on a tile was dropped as games joined, because the tile could not be found again\n");
+				logf("Home: a press on %s was dropped as games joined: the tile is gone\n",pressedTile.c_str());
 		};
 		if (g_scanning && !grid.Carrying()) {
 			riftwii::wii::DriveScanPart part;
@@ -11657,7 +11665,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return HomeSourceNote(settings.home_source);
-			case kHomeStart: return tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.");
+			case kHomeStart: return tr("Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");

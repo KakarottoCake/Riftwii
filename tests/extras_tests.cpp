@@ -2183,7 +2183,6 @@ void TestHomeStart() {
     EXPECT_EQ(home_start_focus(part, decided), 0);
     EXPECT_TRUE(!decided);
     std::vector<std::string> both = {"AAAA01", "CCCC01", "DDDD01", "EEEE01"};
-    decided = false;
     part = start_part("last", both, true, "DDDD01");
     part.focused_identity = "disc";
     part.last_part = true;
@@ -2258,85 +2257,59 @@ void TestHomeStart() {
 
 void TestFocusWatch() {
     // The menu's own focus is not a move.
-    FocusWatch watch;
-    watch.expect(0, 0);
-    watch.observe(0, 0, false, 0, 0);
-    EXPECT_TRUE(!watch.moved());
-    // The D-pad: another tile with no pointer. Away and back stays moved.
-    watch.observe(1, 0, false, 0, 0);
-    EXPECT_TRUE(watch.moved());
-    watch.observe(0, 0, false, 0, 0);
-    EXPECT_TRUE(watch.moved());
+    FocusWatch menu;
+    menu.expect(0, 0);
+    menu.observe(0, 0, false);
+    EXPECT_TRUE(!menu.moved());
+    menu.expect(5, 0);
+    menu.observe(5, 0, false);
+    EXPECT_TRUE(!menu.moved());
 
-    // A page turn with the same tile index.
+    // The D-pad or stick: another tile with no pointer. Away and back stays moved.
+    FocusWatch dpad;
+    dpad.expect(0, 0);
+    dpad.observe(1, 0, false);
+    EXPECT_TRUE(dpad.moved());
+    dpad.observe(0, 0, false);
+    EXPECT_TRUE(dpad.moved());
+
+    // The pointer's hover never moves: any number of tiles under it, on the page.
+    FocusWatch hover;
+    hover.expect(0, 0);
+    hover.observe(5, 0, true);
+    hover.observe(6, 0, true);
+    hover.observe(11, 0, true);
+    hover.observe(0, 0, true);
+    EXPECT_TRUE(!hover.moved());
+    // The menu's focus under a parked pointer, then the hover again.
+    hover.expect(3, 0);
+    hover.observe(8, 0, true);
+    EXPECT_TRUE(!hover.moved());
+    // ...and it is the hover's tile that is expected afterwards: the D-pad
+    // (the pointer gone) from there is a move.
+    hover.observe(9, 0, false);
+    EXPECT_TRUE(hover.moved());
+
+    // A page turn, with the same tile index and with the pointer on screen too.
     FocusWatch pageTurn;
     pageTurn.expect(3, 0);
-    pageTurn.observe(3, 1, false, 0, 0);
+    pageTurn.observe(3, 1, false);
     EXPECT_TRUE(pageTurn.moved());
+    FocusWatch pointedTurn;
+    pointedTurn.expect(3, 0);
+    pointedTurn.observe(15, 1, true);
+    EXPECT_TRUE(pointedTurn.moved());
 
-    // The pointer parked on a tile at the start: the grid focuses that tile
-    // by itself, frame after frame, and the menu then sets its own focus.
-    FocusWatch parked;
-    parked.expect(0, 0);
-    parked.observe(5, 0, true, 300, 200);  // first sample: the hover
-    EXPECT_TRUE(!parked.moved());
-    parked.observe(5, 0, true, 304, 198);  // tremor
-    EXPECT_TRUE(!parked.moved());
-    parked.expect(0, 0);  // a part joined: the menu focuses tile 0
-    parked.observe(5, 0, true, 302, 201);  // the hover is back
-    EXPECT_TRUE(!parked.moved());
-
-    // The pointer moved to another tile: the player's.
-    FocusWatch pointed;
-    pointed.expect(0, 0);
-    pointed.observe(5, 0, true, 300, 200);
-    EXPECT_TRUE(!pointed.moved());
-    pointed.observe(6, 0, true, 380, 200);
-    EXPECT_TRUE(pointed.moved());
-
-    // A pointer that moved before the menu set its own focus does not make the
-    // hover that follows a move: only motion since then counts.
-    FocusWatch settled;
-    settled.expect(0, 0);
-    settled.observe(0, 0, true, 100, 100);
-    settled.observe(7, 0, true, 350, 250);  // moved: a move
-    EXPECT_TRUE(settled.moved());
-    FocusWatch later;
-    later.expect(0, 0);
-    later.observe(0, 0, true, 100, 100);
-    later.observe(0, 0, true, 350, 250);  // swept over empty space, same focus
-    EXPECT_TRUE(!later.moved());
-    later.expect(0, 0);                   // a part joined while it was out there
-    later.observe(9, 0, true, 352, 249);  // and it lands on a tile: its motion, not a parked hover
-    EXPECT_TRUE(later.moved());
-
-    // A pointer that settled before the part joined is a parked one.
-    FocusWatch settledBefore;
-    settledBefore.expect(0, 0);
-    settledBefore.observe(0, 0, true, 100, 100);
-    settledBefore.observe(0, 0, true, 104, 102);  // tremor
-    settledBefore.expect(0, 0);
-    settledBefore.observe(4, 0, true, 105, 101);
-    EXPECT_TRUE(!settledBefore.moved());
-
-    // A pointer that first shows up after the first moments over another
-    // tile than the focused one was brought there; within them it was there
-    // from the start (the Wii Remote's pointer takes a few frames to report).
-    FocusWatch late;
-    late.expect(0, 0);
-    for (int turn = 0; turn < FocusWatch::kStartTurns + 5; ++turn) late.observe(0, 0, false, 0, 0);
-    late.observe(6, 0, true, 300, 200);
-    EXPECT_TRUE(late.moved());
-    FocusWatch lateSame;
-    lateSame.expect(0, 0);
-    for (int turn = 0; turn < FocusWatch::kStartTurns + 5; ++turn) lateSame.observe(0, 0, false, 0, 0);
-    lateSame.observe(0, 0, true, 300, 200);  // over the focused tile
-    EXPECT_TRUE(!lateSame.moved());
-    FocusWatch early;
-    early.expect(0, 0);
-    for (int turn = 0; turn < 10; ++turn) early.observe(0, 0, false, 0, 0);
-    early.observe(6, 0, true, 300, 200);
-    EXPECT_TRUE(!early.moved());
+    // The page boundary: the D-pad's Right on the last tile of a page turns the
+    // page and focuses the first of the next; the tile before the edge does not.
+    FocusWatch edge;
+    edge.expect(10, 0);
+    edge.observe(11, 0, false);  // still on the page: a move
+    EXPECT_TRUE(edge.moved());
+    FocusWatch across;
+    across.expect(11, 0);
+    across.observe(12, 1, false);
+    EXPECT_TRUE(across.moved());
 
     // The player's other actions.
     FocusWatch acted;

@@ -1769,11 +1769,11 @@ T = {
         "最後のゲーム",
         "Último jogo",
         "Ultimo gioco"),
-    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.": (
-        "Último juego: Inicio se abre en el último juego que jugaste en cuanto se ha leído su unidad, salvo que ya te hayas movido. Primera página: Inicio se abre en la página 1.",
-        "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームで開きます。すでに操作した場合は動きません。最初のページ: ホームは1ページ目で開きます。",
-        "Último jogo: o Início abre no último jogo que você jogou assim que a unidade dele for lida, a menos que você já tenha se movido. Primeira página: o Início abre na página 1.",
-        "Ultimo gioco: la Home si apre sull'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non ti sia già spostato. Prima pagina: la Home si apre sulla pagina 1."),
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1.": (
+        "Último juego: Inicio se abre en el último juego que jugaste en cuanto se ha leído su unidad, salvo que ya te hayas movido con la cruceta o el stick, o cambiado de página. Primera página: Inicio se abre en la página 1.",
+        "最後のゲーム: そのゲームのドライブを読み込むとすぐ、ホームは最後に遊んだゲームで開きます。十字ボタンやスティックですでに動かした場合や、ページを切り替えた場合は動きません。最初のページ: ホームは1ページ目で開きます。",
+        "Último jogo: o Início abre no último jogo que você jogou assim que a unidade dele for lida, a menos que você já tenha se movido com o direcional ou o analógico, ou mudado de página. Primeira página: o Início abre na página 1.",
+        "Ultimo gioco: la Home si apre sull'ultimo gioco che hai giocato appena la sua unità è stata letta, a meno che tu non ti sia già spostato con la croce direzionale o lo stick, o cambiato pagina. Prima pagina: la Home si apre sulla pagina 1."),
     "Its values": (
         "Sus valores",
         "値",
@@ -3714,8 +3714,8 @@ KO = {
         "첫 페이지",
     "Last game":
         "마지막 게임",
-    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.":
-        "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임에서 열립니다. 이미 움직였다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다.",
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1.":
+        "마지막 게임: 해당 드라이브를 읽는 대로 홈이 마지막으로 플레이한 게임에서 열립니다. 방향 버튼이나 스틱으로 이미 움직였거나 페이지를 넘겼다면 바뀌지 않습니다. 첫 페이지: 홈이 1페이지에서 열립니다.",
     "Its values":
         "값",
     "Its values could not be found in the file.":
@@ -5157,8 +5157,8 @@ FR = {
         "Première page",
     "Last game":
         "Dernier jeu",
-    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved. First page: Home opens on page 1.":
-        "Dernier jeu : l'accueil s'ouvre sur le dernier jeu lancé dès que son disque a été lu, sauf si vous avez déjà bougé. Première page : l'accueil s'ouvre sur la page 1.",
+    "Last game: Home opens on the last game you played as soon as its drive has been read, unless you have already moved with the D-pad or stick, or changed page. First page: Home opens on page 1.":
+        "Dernier jeu : l'accueil s'ouvre sur le dernier jeu lancé dès que son disque a été lu, sauf si vous avez déjà bougé avec la croix directionnelle ou le stick, ou changé de page. Première page : l'accueil s'ouvre sur la page 1.",
     "Its values":
         "Ses valeurs",
     "Its values could not be found in the file.":
