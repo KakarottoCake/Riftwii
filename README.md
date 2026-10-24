@@ -48,7 +48,7 @@
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves, or in the same emulated NAND as USB Loader GX's.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
+- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
 - **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), and USB pads through fakemote.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
@@ -120,7 +120,8 @@ contains theirs names them in its file header, and
 - **Mario Party 4 community decompilation**: documentation of GameCube font
   encoding behavior (read only; no code copied).
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
-  **oggplayer** by Hermes: the menu's toolkit, text and music player.
+  **oggplayer** and **libasnd** by Hermes: the menu's toolkit, text and music
+    player, and the streaming mixer API reference.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
 - **d2x cIOS**: the USB and SD game loading interface.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector

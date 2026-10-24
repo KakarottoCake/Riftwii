@@ -313,6 +313,19 @@ the tiles.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
+- **Wii Menu sounds** and **Wii Menu music** (both Off at first): use your
+  console's own System Menu sounds and background music. RiftWii reads
+  `IplSound.brsar` from the System Menu title on your Wii's NAND, once per
+  menu session, and keeps it in memory. Nothing is downloaded or saved to
+  the card, and no Nintendo audio comes with RiftWii. A theme's sounds and
+  music take priority; missing or unsupported sounds use RiftWii's own
+  instead, with the reason in `session.log`. **Menu sounds** still sets the
+  volume and **Menu music** still switches music off. Saved as
+  `wii_menu_sounds = on|off` and `wii_menu_music = on|off`.
+  The music uses the console's sequence and instrument samples; RiftWii's
+  renderer approximates envelopes and does not reproduce Nintendo's
+  reverb or filters exactly. Different regions, menu versions and vWii
+  need checking on those consoles.
 - **Launch music** (Keep playing, Fade out; right after Menu
   music): *Keep playing* lets the menu's music play on under the launch
   screen's blue bar and log and fade out before the game takes over (it

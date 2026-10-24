@@ -2997,6 +2997,18 @@ msgstr "{1}: 제자리에 놓는 중..."
 msgid "1 theme"
 msgstr "테마 1개"
 
+msgid "Wii Menu sounds"
+msgstr "Wii 메뉴 소리"
+
+msgid "Wii Menu music"
+msgstr "Wii 메뉴 음악"
+
+msgid "Read this Wii's own menu sounds into memory. A theme's sounds take priority."
+msgstr "이 Wii의 메뉴 소리를 메모리로 읽습니다. 테마의 소리가 우선합니다."
+
+msgid "Read this Wii's own menu music into memory. A theme's music takes priority. Menu music sets whether it plays."
+msgstr "이 Wii의 메뉴 음악을 메모리로 읽습니다. 테마의 음악이 우선합니다. 메뉴 음악 설정으로 재생 여부를 정합니다."
+
 msgid "Channel background"
 msgstr "채널 배경"
 
