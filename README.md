@@ -126,7 +126,8 @@ contains theirs names them in its file header, and
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
   USB Loader GX, d2x and Dolphin (source commits in NOTICE.md).
-- **d2x cIOS**: the USB and SD game loading interface.
+- **d2x cIOS**: the USB and SD game loading interface, and how its FAT
+  module mounts and lets go of the SD card for its emulated NAND.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;
   libogc also documents the physical GameCube card read protocol, SRAM behavior

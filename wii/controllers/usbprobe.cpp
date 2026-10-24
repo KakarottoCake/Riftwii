@@ -35,11 +35,11 @@ bool Reload(int ios, bool sd_mounted, std::string& error) {
     if (sd_mounted) {
         LogClose();
         fatUnmount("sd:");
-        __io_wiisd.shutdown();
+        libogc_sd_stop();
     }
     const ReloadResult r = reload_ios(ios, error, true);
     if (r == ReloadResult::Terminal) halt_after_terminal_reload();
-    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", sd_interface())) LogReopen();
+    if (sd_mounted && libogc_sd_start() && fatMountSimple("sd", sd_interface())) LogReopen();
     forget_usb_hid_stuck();  // a request left unanswered went with the old IOS
     return (r == ReloadResult::Ok || r == ReloadResult::AlreadyRunning) && IOS_GetVersion() == ios;
 }

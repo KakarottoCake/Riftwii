@@ -4,6 +4,7 @@
 #include "launchrun.hpp"
 #include "launchsession.hpp"
 #include "d2xsave.hpp"
+#include "d2xsd.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
@@ -70,6 +71,15 @@ void SetCtgpDefaults(const std::string& app) {
     logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
 }
 
+// Before the compile, from the packs' own places (d2xnandemu.hpp): the
+// compile's table can only be checked after the probe that turns d2x's
+// emulation on.
+bool packages_need_sd(const std::vector<PackageChoices>& packages) {
+    std::vector<std::string> xml_paths;
+    for (const PackageChoices& p : packages) xml_paths.push_back(p.xml_sd_path);
+    return packs_need_sd(xml_paths);
+}
+
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
     for (const PackageChoices& p : packages) {
         if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
@@ -79,6 +89,12 @@ bool any_on_usb(const std::vector<PackageChoices>& packages) {
 
 
 }  // namespace
+
+void TakeCardBackFromD2x() {
+    if (!sd_held_by_d2x_fat()) return;
+    if (!release_d2x_saves()) return;
+    if (fatMountSimple("sd", sd_interface())) LogReopen();
+}
 
 // every later IOS reload (the menu's own) would land in the cIOS instead.
 void ClearIosReloadBlock(std::string& error) {
@@ -105,8 +121,14 @@ bool Session::ensure_probe(std::string& error) {
         if (!own_saves_dir.empty() && !running_in_dolphin()) {
             std::string why;
             if (source.game.title_id == 0) why = "the game's title ID is not known";
-            else if (source.game.device == ImageDevice::Sd && source.game.format == UsbImageFormat::Rvz)
-                why = "an RVZ game on the SD card";
+            else if (sd_after_probe)
+                why = "RiftWii reads the SD card while the game loads and runs (packs or a code build on it), and "
+                      "d2x's FAT module must have the card to itself";
+            // An RVZ on any drive: its group table and stub are files on the
+            // SD card (sd:/riftwii/rvz), read and written at the launch, and
+            // the runtime holds the card for the game's reads.
+            else if (source.game.format == UsbImageFormat::Rvz)
+                why = "an RVZ game (RiftWii keeps its group table on the SD card and reads the card as it runs)";
             else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone,
                                                     own_saves_clone_empty, why);
             if (!d2x_ready) logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
@@ -152,8 +174,16 @@ bool Session::ensure_probe(std::string& error) {
             if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
                      "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
-            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why)))
+            else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why))) {
+                // d2x's FAT module would not let go of the card: RiftWii's
+                // own save code could not reach it, so the launch stops
+                // here (the session gives the card back if it can).
+                if (sd_held_by_d2x_fat()) {
+                    error = "Saves: " + why;
+                    return false;
+                }
                 logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
+            }
         }
         open_usb_for_packs();
         logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
@@ -340,6 +370,8 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
+    s.sd_after_probe = packs_need_sd(mod.xml_paths) || entries_need_sd(mod.entries) ||
+                       !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_probe(error)) return false;
     if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
         error = "disc changed since preflight; recompile the selected packages";
@@ -424,8 +456,19 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     if (!FindSharedSaves(save_mode, game_id, shared_nand, error)) return false;
     SetOwnSaves(s, save_mode, game_id, shared_nand);
     s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
+    s.sd_after_probe = packages_need_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    // A pack on the USB drive whose files turned out to be on the SD card:
+    // the runtime would read the card that d2x's emulation holds, and the
+    // emulation cannot be turned off once the game's partition is open.
+    // The launch stops (the session gives d2x's card back) rather than put
+    // two drivers on the card.
+    if (s.d2x_saves && entries_need_sd(mod.entries)) {
+        error = "a pack on the USB drive has files on the SD card, which d2x's NAND emulation keeps to itself while "
+                "the game runs: move the pack's files to the USB drive, or pick another Saves choice for the game";
+        return false;
+    }
     LogCompileNotes(mod);
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
          static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),

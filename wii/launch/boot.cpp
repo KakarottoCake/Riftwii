@@ -3418,6 +3418,9 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     if (reload_terminal_failure()) return false;
     if (g_card_live_for_log) {
         g_card_live_for_log = false;  // failed before the card was released: it and the log are still up
+    } else if (effective.preserve_current_ios && sd_held_by_d2x_fat()) {
+        // d2x's NAND emulation still has the card: the launch's session
+        // has d2x let go of it first (TakeCardBackFromD2x).
     } else if (effective.preserve_current_ios) {
         // The preserved IOS may own a USB virtual disc. Reacquiring all
         // default devices could interfere with it, so recover only SD/log.
@@ -3474,6 +3477,19 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
+    // How many IOSes reached ES_Identify and were refused: the ES wording
+    // of the error only when every one tried was.
+    std::size_t identify_refusals = 0;
+    // Whether the game runs in d2x's NAND emulation (not just asked for).
+    bool emulated = false;
+    // After d2x let go of the card: libfat and boot.log back on it, as
+    // after an IOS reload (release_d2x_saves only clears the hold).
+    const auto card_again = [&] {
+        if (card || sd_held_by_d2x_fat()) return;
+        card = fatMountSimple("sd", sd_interface());
+        if (card) LogReopen();
+        else logf("Wii channels: the SD card could not be mounted again after d2x let go of it (boot.log ends here)\n");
+    };
     std::string attempts;
     const auto note_attempt = [&attempts](const std::string& line) {
         if (!attempts.empty()) attempts += "; ";
@@ -3490,21 +3506,50 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             error = why;
             return false;
         }
-        card = fatMountSimple("sd", sd_interface());
+        // A reload that did not happen leaves the FAT module holding the card
+        // when the emulation came on last time: libfat stays off it until a
+        // release or a reload that works clears the hold.
+        card = !sd_held_by_d2x_fat() && fatMountSimple("sd", sd_interface());
         if (card) LogReopen();
         if (reload == ReloadResult::NotInstalled || reload == ReloadResult::Failed) {
             logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
             note_attempt("IOS" + std::to_string(ios) + " could not start (" + why + ")");
             continue;
         }
-        // A channel of an emulated NAND runs in it: d2x serves the game's
-        // NAND paths from the folder, its saves among them.
+        // Only when the card came back: boot.log is on it.
+        if (card) {
+            logf("Wii channels: IOS%d rev %d runs now (%s); the SD card and boot.log are back%s\n", IOS_GetVersion(),
+                 IOS_GetRevision(),
+                 reload == ReloadResult::AlreadyRunning ? "it was running already" : "reloaded for this try",
+                 files.emu_nand.empty() ? "" : ", next d2x's NAND emulation");
+        }
+        // A channel of an emulated NAND runs in it: d2x serves the whole
+        // NAND from the folder, as that NAND's own system menu would see it
+        // (its shared contents and system files as well as the title's own
+        // paths and saves). With the emulation on, the card is d2x's: libfat
+        // and boot.log stay off it from here (the lines go on screen).
+        bool emulating = false;
         if (!files.emu_nand.empty()) {
             std::string emu_error;
-            if (!enable_d2x_saves(files.emu_nand, emu_error)) {
-                logf("Wii channels: on IOS%d, no NAND emulation of %s: %s\n", IOS_GetVersion(), files.emu_nand.c_str(),
-                     emu_error.c_str());
+            bool card_back = card;
+            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back);
+            card = card_back;
+            if (!emulating) {
+                logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
+                     IOS_GetRevision(), files.emu_nand.c_str(), emu_error.c_str());
+                note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": NAND emulation: " + emu_error);
+                // A refused emulation can still leave the FAT module holding
+                // the card. It lets go now (it writes out what it holds), as
+                // after an ES refusal, so the next IOS reload finds the
+                // card's FAT whole; a channel started without emulation needs
+                // the card back, and this IOS is passed over when it cannot.
+                const bool released = release_d2x_saves();
                 if (!debug_off("identify")) continue;
+                if (!released) {
+                    note_attempt("IOS" + std::to_string(IOS_GetVersion()) + ": d2x kept the SD card");
+                    continue;
+                }
+                card_again();
                 logf("Wii channels: debug_off: started without the NAND emulation\n");
             }
         }
@@ -3521,23 +3566,40 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             logf("Wii channels: on IOS%d rev %d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
                  IOS_GetRevision(), static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
             identified = true;
+            emulated = emulating;
             break;
         }
         logf("Wii channels: on IOS%d rev %d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), IOS_GetRevision(),
              files.game_id.c_str(), result);
         note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
                      " refused ES_Identify (" + std::to_string(result) + ")");
+        ++identify_refusals;
+        // The next try reloads IOS, which ends the FAT module with whatever
+        // it still holds in its file system cache. It is told to unmount
+        // first (0xF1), so it writes that out while it still runs and the
+        // reload finds the card's FAT whole.
+        // Also when the emulation was refused but the module kept the card
+        // (release does nothing when d2x holds nothing).
+        release_d2x_saves();
     }
     if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
-    if (!identified && debug_off("identify")) {
+    if (!identified && debug_off("identify") && !sd_held_by_d2x_fat()) {
+        card_again();
         logf("Wii channels: debug_off: started without ES running it as its own title (its saves may not open)\n");
         identified = true;
     }
     if (!identified) {
-        error = "ES would not run it as its own title on any IOS tried";
+        // What each IOS said, so a NAND emulation that never came on is
+        // not reported as ES refusing the title.
+        const bool all_refused = !files.ios_order.empty() && identify_refusals == files.ios_order.size();
+        error = all_refused ? "ES would not run it as its own title on any IOS tried"
+                            : "it could not be started on any IOS tried";
+        if (!attempts.empty()) error += " (" + attempts + ")";
+        // The card back for the failure's log, unless d2x still has it.
+        if (!card && !sd_held_by_d2x_fat() && fatMountSimple("sd", sd_interface())) LogReopen();
         return false;
     }
 
@@ -3563,8 +3625,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Settings > GameCube adapter, with the rules a disc game gets, judged
     // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
-    // base 58). An emulated NAND is d2x's to read while the game runs.
-    const int nand_device = files.emu_nand.empty() ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
+    // base 58). An emulated NAND is d2x's to read while the game runs;
+    // a debug start without the emulation reads nothing through d2x.
+    const int nand_device = !emulated ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
     settle_gc_adapter(IOS_GetVersion(), nand_device, "the emulated NAND", true);
 
     // The program, section by section. Its BSS is cleared by the game's
