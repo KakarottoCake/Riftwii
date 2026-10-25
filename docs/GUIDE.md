@@ -354,6 +354,7 @@ the tiles.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
+- **My RiiTag** shows your RiiTag (see RiiTag below).
 - **Look for games again**, **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
@@ -667,6 +668,18 @@ When you press Start, RiftWii tells each server the game's ID, while the
 Wii is still online (not with Settings > Online off). `session.log` says
 `RiiTag: ... updated`, or what the server answered. The key never goes in
 the logs or problem reports.
+
+To see your tag on the TV, put your Discord ID in the same file:
+
+```
+riitag_id = 123456789012345678
+```
+
+(in Discord: Settings > Advanced > Developer Mode, then right-click
+yourself and Copy User ID). **Settings > Online > My RiiTag** then
+downloads `https://riitag.t0g3pii.de/<id>/tag.max.png` and shows it; A
+downloads it again. It needs the Wii online and Settings > Online's
+downloads on. Like the key, the ID is hidden in problem reports.
 
 ### Mario Kart Wii distributions
 

@@ -6809,6 +6809,65 @@ FR.update({
 })
 
 
+T.update({
+    # Settings > Online > My RiiTag
+    "My RiiTag": ("Mi RiiTag", "マイRiiTag", "Minha RiiTag", "La mia RiiTag"),
+    "Refresh": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
+    "Downloading your tag...": ("Descargando tu tag...", "タグをダウンロード中...", "Baixando sua tag...", "Download della tua tag..."),
+    "No tag to show": ("No hay tag que mostrar", "表示するタグがありません", "Nenhuma tag para mostrar", "Nessuna tag da mostrare"),
+    "There is not enough free memory to show your tag.": (
+        "No hay suficiente memoria libre para mostrar tu tag.",
+        "タグを表示するための空きメモリが足りません。",
+        "Não há memória livre suficiente para mostrar sua tag.",
+        "Non c'è abbastanza memoria libera per mostrare la tua tag."),
+    "Your tag could not be downloaded: {1}. Press A to try again.": (
+        "No se pudo descargar tu tag: {1}. Pulsa A para intentarlo de nuevo.",
+        "タグをダウンロードできませんでした: {1}。Aでもう一度試します。",
+        "Não foi possível baixar sua tag: {1}. Aperte A para tentar de novo.",
+        "Impossibile scaricare la tua tag: {1}. Premi A per riprovare."),
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.": (
+        "Tu tag de riitag.t0g3pii.de, del ID de Discord riitag_id en sd:/riftwii/settings.txt. Muestra el último juego que jugaste si riitag_key también está puesto.",
+        "riitag.t0g3pii.deのタグです (sd:/riftwii/settings.txtのriitag_idのDiscord ID)。riitag_keyも設定すると、最後に遊んだゲームが表示されます。",
+        "Sua tag de riitag.t0g3pii.de, do ID do Discord riitag_id em sd:/riftwii/settings.txt. Ela mostra o último jogo que você jogou se riitag_key também estiver definido.",
+        "La tua tag da riitag.t0g3pii.de, per l'ID Discord riitag_id in sd:/riftwii/settings.txt. Mostra l'ultimo gioco a cui hai giocato se è impostato anche riitag_key."),
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).": (
+        "Muestra tu RiiTag. Primero pon riitag_id = <tu ID de Discord> en sd:/riftwii/settings.txt (Discord: Ajustes > Avanzado > Modo desarrollador, luego Copiar ID de usuario).",
+        "RiiTagを表示します。先にsd:/riftwii/settings.txtにriitag_id = <DiscordのID> を書いてください (Discord: 設定 > 詳細設定 > 開発者モード、そしてユーザーIDをコピー)。",
+        "Mostra sua RiiTag. Primeiro coloque riitag_id = <seu ID do Discord> em sd:/riftwii/settings.txt (Discord: Configurações > Avançado > Modo de desenvolvedor, depois Copiar ID do usuário).",
+        "Mostra la tua RiiTag. Prima metti riitag_id = <il tuo ID Discord> in sd:/riftwii/settings.txt (Discord: Impostazioni > Avanzate > Modalità sviluppatore, poi Copia ID utente)."),
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": (
+        "Muestra tu RiiTag, descargada de riitag.t0g3pii.de.",
+        "riitag.t0g3pii.deからダウンロードしたRiiTagを表示します。",
+        "Mostra sua RiiTag, baixada de riitag.t0g3pii.de.",
+        "Mostra la tua RiiTag, scaricata da riitag.t0g3pii.de."),
+})
+KO.update({
+    "My RiiTag": "내 RiiTag",
+    "Refresh": "새로 고침",
+    "Downloading your tag...": "태그를 다운로드하는 중...",
+    "No tag to show": "표시할 태그가 없습니다",
+    "There is not enough free memory to show your tag.": "태그를 표시할 여유 메모리가 부족합니다.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "태그를 다운로드하지 못했습니다: {1}. A를 눌러 다시 시도하세요.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "sd:/riftwii/settings.txt의 riitag_id(Discord ID)에 해당하는 riitag.t0g3pii.de의 태그입니다. riitag_key도 설정하면 마지막으로 플레이한 게임이 표시됩니다.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id = <Discord ID>를 넣으세요 (Discord: 설정 > 고급 > 개발자 모드, 그다음 사용자 ID 복사).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다.",
+})
+FR.update({
+    "My RiiTag": "Ma RiiTag",
+    "Refresh": "Actualiser",
+    "Downloading your tag...": "Téléchargement de votre tag...",
+    "No tag to show": "Aucun tag à afficher",
+    "There is not enough free memory to show your tag.": "Il n'y a pas assez de mémoire libre pour afficher votre tag.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "Impossible de télécharger votre tag : {1}. Appuyez sur A pour réessayer.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "Votre tag de riitag.t0g3pii.de, pour l'ID Discord riitag_id de sd:/riftwii/settings.txt. Il affiche le dernier jeu joué si riitag_key est aussi défini.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "Affiche votre RiiTag. Mettez d'abord riitag_id = <votre ID Discord> dans sd:/riftwii/settings.txt (Discord : Paramètres > Avancés > Mode développeur, puis Copier l'identifiant).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de.",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
