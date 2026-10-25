@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,12 +32,18 @@ constexpr long kMaxFileBytes = 0x7FFFFFFF;
 // BootMii puts a Wii's keys here when it backs up its NAND.
 constexpr const char* kBootMiiKeys = "sd:/keys.bin";
 constexpr const char* kStagedList = "sd:/riftwii/staged_channels.txt";
-// The list is rewritten into kStagedNew and swapped in, the old one kept as
-// kStagedOld until then; both are read at start, so no step loses it.
+// Older rewrites left a backup here. Both copies are read and merged
+// before a replacement is published, so neither copy can lose a path.
 constexpr const char* kStagedNew = "sd:/riftwii/staged_channels.new";
 constexpr const char* kStagedOld = "sd:/riftwii/staged_channels.old";
+// Only a complete, closed .new is renamed here. At start this publication
+// is finished before another rewrite or append can change the list.
+constexpr const char* kStagedReady = "sd:/riftwii/staged_channels.ready";
 constexpr std::size_t kMaxKeysBytes = 0x400;
 constexpr std::size_t kMaxStagedListBytes = 64 * 1024;
+// Read older lists that grew past the append limit, without accepting an
+// unbounded file from the card. A failed read leaves every copy intact.
+constexpr long kMaxStagedReadBytes = 4 * 1024 * 1024;
 // The FS attribute byte of each content file staging creates. ES makes the
 // ones it installs (the Wii Menu moving a channel back among them) with 0,
 // so a file with this one is RiftWii's copy: the cleanup removes no other,
@@ -116,26 +123,75 @@ s32 staged_by_riftwii(const std::string& path) {
 
 // False when the list could not be written: the file must then not be
 // made, or nothing would remove it again.
-bool append_staged(const std::string& nand_path) {
-    FILE* list = std::fopen(kStagedList, "ab");
-    if (!list) return false;
+bool append_staged(const std::string& nand_path, std::string& error) {
+    struct stat pending;
+    if (stat(kStagedReady, &pending) == 0) {
+        error = "the SD card channels' cleanup list could not be published; start RiftWii again to retry";
+        return false;
+    }
+    FILE* list = std::fopen(kStagedList, "a+b");
+    if (!list) {
+        error = std::string(kStagedList) + " could not be written (is the card locked or full?)";
+        return false;
+    }
+    const bool sought = std::fseek(list, 0, SEEK_END) == 0;
+    const long size = sought ? std::ftell(list) : -1;
+    const std::size_t entry_bytes = nand_path.size() + 1;
+    if (size < 0 || entry_bytes > kMaxStagedListBytes ||
+        static_cast<unsigned long>(size) > kMaxStagedListBytes - entry_bytes) {
+        std::fclose(list);
+        error = "the SD card channels' cleanup list is full or could not be sized; no new copy was made";
+        return false;
+    }
+    // A failed earlier append may have left half a line. Do not join a
+    // new path to it, since cleanup would not recognize the combined line.
+    if (size > 0 && (std::fseek(list, -1, SEEK_END) != 0 || std::fgetc(list) != '\n')) {
+        std::fclose(list);
+        error = "the SD card channels' cleanup list has an unfinished line; start RiftWii again to retry";
+        return false;
+    }
+    if (std::fseek(list, 0, SEEK_END) != 0) {
+        std::fclose(list);
+        error = "the SD card channels' cleanup list could not be written";
+        return false;
+    }
     const bool wrote = std::fprintf(list, "%s\n", nand_path.c_str()) > 0;
-    return std::fclose(list) == 0 && wrote;
+    const bool closed = std::fclose(list) == 0;
+    if (!wrote || !closed) {
+        error = std::string(kStagedList) + " could not be written (is the card locked or full?)";
+        return false;
+    }
+    return true;
 }
 
 // Adds the paths in a staged list to `paths`, each once.
-void read_staged(const char* file, std::vector<std::string>& paths) {
+bool read_staged(const char* file, std::vector<std::string>& paths) {
     FILE* list = std::fopen(file, "rb");
-    if (!list) return;
+    if (!list) return errno == ENOENT;
+    const bool sought = std::fseek(list, 0, SEEK_END) == 0;
+    const long size = sought ? std::ftell(list) : -1;
+    if (size < 0 || size > kMaxStagedReadBytes || std::fseek(list, 0, SEEK_SET) != 0) {
+        std::fclose(list);
+        return false;
+    }
+    // A valid path is 45 bytes without its newline. Reserve enough for
+    // this file before building a list whose size comes from the card.
+    if (!try_reserve(paths, paths.size() + static_cast<std::size_t>(size) / 45 + 1)) {
+        std::fclose(list);
+        return false;
+    }
     char line[128];
-    std::size_t read = 0;
-    while (std::fgets(line, sizeof line, list) && read < kMaxStagedListBytes) {
-        read += std::strlen(line);
+    while (std::fgets(line, sizeof line, list)) {
         std::string path = line;
         while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
-        if (!path.empty() && std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
+        std::uint64_t title_id = 0;
+        std::uint32_t content_id = 0;
+        if (parse_staged_content_path(path, title_id, content_id) &&
+            std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
     }
-    std::fclose(list);
+    const bool read = std::ferror(list) == 0;
+    const bool closed = std::fclose(list) == 0;
+    return read && closed;
 }
 
 bool file_exists(const char* path) {
@@ -143,46 +199,48 @@ bool file_exists(const char* path) {
     return stat(path, &st) == 0;
 }
 
-// Replaces the staged list with `paths` (none: removes it). The new list
-// is written whole and checked first, and the old one is renamed aside
-// rather than cut short, so a failure or power cut at any step leaves a
-// list, or its kStagedOld copy, that start reads.
-void write_staged(const std::vector<std::string>& paths) {
-    if (paths.empty()) {
-        std::remove(kStagedList);
-        std::remove(kStagedOld);
-        return;
-    }
-    // After an interrupted rewrite, each list can hold paths the other
-    // lacks. Keep both until cleanup finishes rather than discard either
-    // before a replacement has been published.
-    if (file_exists(kStagedList) && file_exists(kStagedOld)) return;
-    FILE* list = std::fopen(kStagedNew, "wb");
-    bool wrote = list != nullptr;
+// Finish publishing a complete replacement. Keep the old backup until the
+// replacement has its final name; .ready survives a failed rename or a cut
+// in power after the main list was removed.
+bool publish_staged() {
+    if (!file_exists(kStagedReady)) return true;
+    if (file_exists(kStagedList) && std::remove(kStagedList) != 0) return false;
+    if (std::rename(kStagedReady, kStagedList) != 0) return false;
+    return !file_exists(kStagedOld) || std::remove(kStagedOld) == 0;
+}
+
+// Both input lists have already been read and merged, and `paths` holds
+// every entry still needed. Mark the checked replacement as ready before
+// touching either input, so an interrupted rewrite can always finish.
+bool write_staged(const std::vector<std::string>& paths) {
+    if (!publish_staged()) return false;
+    std::size_t bytes = 0;
     for (const std::string& path : paths) {
-        if (!wrote) break;
-        wrote = std::fprintf(list, "%s\n", path.c_str()) > 0;
+        const std::size_t entry_bytes = path.size() + 1;
+        if (entry_bytes > static_cast<std::size_t>(kMaxStagedReadBytes) - bytes) return false;
+        bytes += entry_bytes;
     }
-    if (list && std::fclose(list) != 0) wrote = false;
-    if (!wrote) {
-        std::remove(kStagedNew);  // the list as it was stays
-        return;
-    }
-    // The card's file system renames only onto a name not in use.
-    const bool had_list = file_exists(kStagedList);
-    if (had_list) {
-        if (std::rename(kStagedList, kStagedOld) != 0) {
-            std::remove(kStagedNew);
-            return;
+    FILE* list = std::fopen(kStagedNew, "wb");
+    if (!list) return false;
+    bool wrote = true;
+    for (const std::string& path : paths) {
+        if (std::fprintf(list, "%s\n", path.c_str()) <= 0) {
+            wrote = false;
+            break;
         }
     }
-    if (std::rename(kStagedNew, kStagedList) != 0) {
-        // Back as it was; when even that fails, kStagedOld is read next time.
-        if (had_list) std::rename(kStagedOld, kStagedList);
-        std::remove(kStagedNew);
-        return;
+    if (std::fclose(list) != 0) wrote = false;
+    if (!wrote) {
+        std::remove(kStagedNew);  // the list as it was stays
+        return false;
     }
-    std::remove(kStagedOld);
+    if (std::rename(kStagedNew, kStagedReady) != 0) {
+        std::remove(kStagedNew);
+        return false;
+    }
+    if (!publish_staged()) return false;
+    if (paths.empty()) std::remove(kStagedList);
+    return true;
 }
 
 // The TMD the Wii keeps for the title, as ES gives it.
@@ -427,8 +485,7 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
             ok = false;
             break;
         }
-        if (!append_staged(to)) {
-            error = std::string(kStagedList) + " could not be written (is the card locked or full?)";
+        if (!append_staged(to, error)) {
             ok = false;
             break;
         }
@@ -462,11 +519,17 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
 }
 
 void UnstageMovedChannels() {
+    if (!publish_staged()) {
+        logf("Wii channels: the SD card channels' cleanup list could not be published; cleanup is tried next time\n");
+        return;
+    }
     // A rewrite cut short leaves a kStagedNew, never read: it may be partial.
     std::remove(kStagedNew);
     std::vector<std::string> paths;
-    read_staged(kStagedList, paths);
-    read_staged(kStagedOld, paths);
+    if (!read_staged(kStagedList, paths) || !read_staged(kStagedOld, paths)) {
+        logf("Wii channels: the SD card channels' cleanup lists could not be read in full; both are kept for next time\n");
+        return;
+    }
     if (paths.empty()) {
         write_staged(paths);
         return;
@@ -539,7 +602,9 @@ void UnstageMovedChannels() {
     }
     close_nand_permissions("SD card channels");
     NandClose();
-    write_staged(left);
+    if (!write_staged(left)) {
+        logf("Wii channels: the SD card channels' cleanup list could not be rewritten; its recovery copies are kept\n");
+    }
     logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s%s\n", removed,
          kept ? " (some kept: not copies RiftWii made, or not included in their channel's card file)" : "",
          left.empty() ? "" : " (some could not be removed or checked; tried again next time)");

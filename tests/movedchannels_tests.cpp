@@ -23,6 +23,8 @@ unsigned failures = 0;
 constexpr u64 kTitle = 0x0001000157424d45ull;
 constexpr const char* kList = "sd:/riftwii/staged_channels.txt";
 constexpr const char* kOld = "sd:/riftwii/staged_channels.old";
+constexpr const char* kNew = "sd:/riftwii/staged_channels.new";
+constexpr const char* kReady = "sd:/riftwii/staged_channels.ready";
 constexpr const char* kCardFile = "sd:/private/wii/title/WBME/content.bin";
 const std::string first_path = nand_content_path(kTitle, 0x10);
 const std::string second_path = nand_content_path(kTitle, 0x11);
@@ -33,6 +35,7 @@ s32 delete_result = 0;
 bool fail_rename = false;
 bool have_key = true;
 u8 nand_attribute = 0x52;
+unsigned create_calls = 0;
 
 void put_be(std::vector<u8>& bytes, std::size_t offset, u64 value, std::size_t count) {
     for (std::size_t i = 0; i < count; ++i) {
@@ -64,6 +67,7 @@ void reset_files() {
     fail_rename = false;
     have_key = true;
     nand_attribute = 0x52;
+    create_calls = 0;
 }
 
 void make_card_file(bool include_second = true) {
@@ -153,18 +157,101 @@ void test_rewrite_failure_keeps_both_lists() {
     reset_files();
     write_file(kList, first_path + "\n");
     write_file(kOld, second_path + "\n");
-    fail_rename = true;
+    fs::create_directory(kNew);  // the replacement cannot be opened
+    write_file("sd:/riftwii/staged_channels.new/block", "keep the directory nonempty");
     UnstageMovedChannels();
     CHECK(deleted.empty());
     CHECK(read_file(kList) == first_path + "\n");
     CHECK(read_file(kOld) == second_path + "\n");
 
-    fail_rename = false;
+    fs::remove_all(kNew);
+    UnstageMovedChannels();
+    CHECK(read_file(kList) == first_path + "\n" + second_path + "\n");
+    CHECK(!fs::exists(kOld));
+    CHECK(!fs::exists(kReady));
     make_card_file();
     UnstageMovedChannels();
     CHECK(deleted == (std::vector<std::string>{first_path, second_path}));
     CHECK(!fs::exists(kList));
     CHECK(!fs::exists(kOld));
+}
+
+void test_merge_and_legacy_overflow() {
+    reset_files();
+    std::string large;
+    while (large.size() <= 64 * 1024) large += first_path + "\r\n";
+    large += second_path + "\n";
+    write_file(kList, large);
+    write_file(kOld, second_path + "\n" + first_path + "\n");
+    UnstageMovedChannels();
+    CHECK(deleted.empty());
+    CHECK(read_file(kList) == first_path + "\n" + second_path + "\n");
+    CHECK(!fs::exists(kOld));
+    CHECK(!fs::exists(kReady));
+}
+
+void test_ready_publication_recovery() {
+    // A closed replacement can survive with both originals, or after the
+    // main list was removed. It supersedes their already-cleaned entries.
+    for (bool have_main : {false, true}) {
+        reset_files();
+        if (have_main) write_file(kList, first_path + "\n");
+        write_file(kOld, first_path + "\n");
+        write_file(kReady, second_path + "\n");
+        write_file(kNew, "unfinished");
+        UnstageMovedChannels();
+        CHECK(read_file(kList) == second_path + "\n");
+        CHECK(!fs::exists(kOld));
+        CHECK(!fs::exists(kReady));
+        CHECK(!fs::exists(kNew));
+    }
+}
+
+void test_unreadable_list_is_preserved() {
+    reset_files();
+    const std::string too_large(4 * 1024 * 1024 + 1, '\n');
+    write_file(kList, too_large);
+    write_file(kOld, first_path + "\n");
+    UnstageMovedChannels();
+    CHECK(deleted.empty());
+    CHECK(read_file(kList) == too_large);
+    CHECK(read_file(kOld) == first_path + "\n");
+}
+
+void test_append_limit_and_unfinished_line() {
+    constexpr std::size_t limit = 64 * 1024;
+    const std::size_t entry_bytes = first_path.size() + 1;
+    for (std::size_t spare : {entry_bytes, entry_bytes - 1, std::size_t(0)}) {
+        reset_files();
+        make_card_file();
+        const std::string original(limit - spare, '\n');
+        write_file(kList, original);
+        std::string error;
+        CHECK(!stage_moved_channel(kTitle, {}, error));
+        if (spare == entry_bytes) {
+            CHECK(create_calls == 1);
+            CHECK(fs::file_size(kList) == limit);
+        } else {
+            CHECK(create_calls == 0);
+            CHECK(error.find("cleanup list is full") != std::string::npos);
+            CHECK(read_file(kList) == original);
+        }
+    }
+
+    reset_files();
+    make_card_file();
+    write_file(kList, "unfinished");
+    std::string error;
+    CHECK(!stage_moved_channel(kTitle, {}, error));
+    CHECK(create_calls == 0);
+    CHECK(error.find("unfinished line") != std::string::npos);
+    CHECK(read_file(kList) == "unfinished");
+
+    write_file(kList, "");
+    write_file(kReady, first_path + "\n");
+    CHECK(!stage_moved_channel(kTitle, {}, error));
+    CHECK(create_calls == 0);
+    CHECK(error.find("could not be published") != std::string::npos);
 }
 
 #ifdef RIFTWII_TEST_WRAP_RENAME
@@ -173,13 +260,14 @@ void test_publication_and_rollback_failure() {
     write_file(kList, first_path + "\n");
     fail_rename = true;
     UnstageMovedChannels();
-    CHECK(read_file(kOld) == first_path + "\n");
+    CHECK(read_file(kReady) == first_path + "\n");
     CHECK(!fs::exists(kList));
 
     fail_rename = false;
     UnstageMovedChannels();
     CHECK(read_file(kList) == first_path + "\n");
     CHECK(!fs::exists(kOld));
+    CHECK(!fs::exists(kReady));
 }
 #endif
 
@@ -214,7 +302,10 @@ s32 ISFS_Delete(const char* path) {
     deleted.emplace_back(path);
     return delete_result;
 }
-s32 ISFS_CreateFile(const char*, u8, u8, u8, u8) { return -1; }
+s32 ISFS_CreateFile(const char*, u8, u8, u8, u8) {
+    ++create_calls;
+    return -1;
+}
 s32 ISFS_Write(s32, const void*, u32) { return -1; }
 
 namespace riftwii::wii {
@@ -235,6 +326,10 @@ int main() {
     test_verified_content_only();
     test_nand_failures_keep_list();
     test_rewrite_failure_keeps_both_lists();
+    test_merge_and_legacy_overflow();
+    test_ready_publication_recovery();
+    test_unreadable_list_is_preserved();
+    test_append_limit_and_unfinished_line();
 #ifdef RIFTWII_TEST_WRAP_RENAME
     test_publication_and_rollback_failure();
 #endif
