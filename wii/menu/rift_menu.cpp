@@ -4997,6 +4997,7 @@ static int MenuSource(FrontendState& state)
 					if (SdWatchRemountForMenu()) {
 						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
 						riftwii::wii::ReloadSettings();
+						riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
 						// The card may be another one: what was read from the old
 						// card is read again, so its history, tiles and Home order
 						// are never written onto the new one.
@@ -12454,8 +12455,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kUsbInput:
 					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
-					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
+					// After the save: one that fails puts the setting back, and
+					// the drivers follow what the row shows.
 					saveAndNote(tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."));
+					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
 				case kGcAdapter: {
