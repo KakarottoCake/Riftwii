@@ -252,8 +252,9 @@ the tiles.
 
 - **Language**: English, Español, 日本語, Português, Italiano, Français,
   한국어 (Korean) or *Wii* to follow the console. Korean needs **Menu font** set
-  to *Wii Menu* on a Korean Wii, whose font has Hangul (RiftWii's own font
-  has none); otherwise the menu stays in English and says so. A
+  to *RiftWii* with `apps/riftwii/korean.ttf` from the release zip beside
+  `boot.dol`, or to *Wii Menu* on a Korean Wii whose font has Hangul.
+  Without either, the menu stays in English and says which file to copy. A
   translation can be corrected by putting a copy of `wii/lang/<lang>.po` at
   `sd:/riftwii/lang/<lang>.po`.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,

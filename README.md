@@ -148,7 +148,9 @@ contains theirs names them in its file header, and
   by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
-  lacks (fetched at most once a month, when a game needs them), **M+ Fonts** for the menu font, **Zane Little** for the menu
+  lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
+  for the menu font, **Adobe and the Noto authors** for Noto Sans KR
+  (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures.
 - **Animated GameCube banners**: the community's banners, hosted by
   RiiConnect24 (banner.rc24.xyz).
