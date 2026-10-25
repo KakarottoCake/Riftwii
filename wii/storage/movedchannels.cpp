@@ -208,11 +208,16 @@ bool read_staged(const char* file, std::vector<std::string>& paths) {
         while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
         std::uint64_t title_id = 0;
         std::uint32_t content_id = 0;
-        if (parse_staged_content_path(path, title_id, content_id) &&
-            std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
+        if (parse_staged_content_path(path, title_id, content_id)) paths.push_back(path);
     }
     const bool read = std::ferror(list) == 0;
     const bool closed = std::fclose(list) == 0;
+    // Sorted in place and repeats dropped once, not searched per line: a
+    // full list would take quadratic time before the menu appears. Sorting
+    // also keeps each title's paths together, so cleanup opens its
+    // content.bin once.
+    std::sort(paths.begin(), paths.end());
+    paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
     return read && closed;
 }
 
