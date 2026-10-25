@@ -90,6 +90,33 @@ bool wait_for(std::int32_t socket, std::uint32_t events, int timeout_ms) {
     return poll_for(socket, events, timeout_ms, revents) > 0 && (revents & events) != 0;
 }
 
+// Reads the decimal number at `text` (digits only, at most `max_digits` of
+// them) and moves `text` past it. By hand: RiftWii calls no scanf, which
+// costs MEM1 (docs/MEMORY.md, "Linked out").
+bool read_decimal(const char*& text, unsigned max_digits, unsigned& value) {
+    unsigned digits = 0;
+    value = 0;
+    while (digits < max_digits && *text >= '0' && *text <= '9') {
+        value = value * 10 + unsigned(*text - '0');
+        ++text;
+        ++digits;
+    }
+    return digits > 0;
+}
+
+// Reads a dotted IPv4 address ("192.168.1.20") at `text` and moves `text`
+// past it.
+bool read_ipv4(const char*& text, std::uint32_t& ip) {
+    ip = 0;
+    for (int part = 0; part < 4; ++part) {
+        if (part > 0 && *text++ != '.') return false;
+        unsigned octet = 0;
+        if (!read_decimal(text, 3, octet) || octet > 255) return false;
+        ip = (ip << 8) | octet;
+    }
+    return true;
+}
+
 }  // namespace
 
 bool NetStart(std::string& error, bool retry) {
@@ -172,21 +199,22 @@ std::string NetServer::folder() const {
 }
 
 bool ParseServerFolder(const std::string& name, NetServer& out) {
-    unsigned a, b, c, d, port;
-    char tail;
-    if (std::sscanf(name.c_str(), "%u.%u.%u.%u_%u%c", &a, &b, &c, &d, &port, &tail) != 5) return false;
-    if (a > 255 || b > 255 || c > 255 || d > 255 || port == 0 || port > 65535) return false;
-    out.ip = (a << 24) | (b << 16) | (c << 8) | d;
+    const char* text = name.c_str();
+    std::uint32_t ip = 0;
+    unsigned port = 0;
+    if (!read_ipv4(text, ip) || *text++ != '_') return false;
+    if (!read_decimal(text, 5, port) || *text != '\0') return false;
+    if (port == 0 || port > 65535) return false;
+    out.ip = ip;
     out.port = static_cast<std::uint16_t>(port);
     return true;
 }
 
 bool ResolveServer(const std::string& address, std::uint16_t port, NetServer& out, std::string& error) {
-    unsigned a, b, c, d;
-    char tail;
-    if (std::sscanf(address.c_str(), "%u.%u.%u.%u%c", &a, &b, &c, &d, &tail) == 4 && a < 256 && b < 256 && c < 256 &&
-        d < 256) {
-        out.ip = (a << 24) | (b << 16) | (c << 8) | d;
+    const char* text = address.c_str();
+    std::uint32_t dotted = 0;
+    if (read_ipv4(text, dotted) && *text == '\0') {
+        out.ip = dotted;
         out.port = port;
         return true;
     }

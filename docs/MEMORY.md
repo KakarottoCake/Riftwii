@@ -224,6 +224,26 @@ start instead of 850 ms, and a Brawl launch from disc ended 122 ms
 later; with the list at `-O2` both are as fast as with `-O2` for
 everything.
 
+### Linked out
+
+Two things the DOL carried and never used, 45 KiB of MEM1 together (on
+main 21172fe0 the program's end went from `0x80ED37A0` to `0x80EC8280`):
+
+- `.eh_frame_hdr`, 17 KiB: the sorted index of the unwinding tables
+  that the prebuilt libraries (libstdc++, libogc, FreeType and the
+  others) still carry since RiftWii's own code is built without
+  exceptions. libgcc's unwinder here finds frames through the list
+  `crtbegin.o` registers at start (`__register_frame_info`) and reads
+  the index only through `dl_iterate_phdr`, which a DOL has not.
+  `Makefile.wii` links with `--no-eh-frame-hdr`. (Checked in Dolphin
+  before exceptions went, when it was 61 KiB: a `std::bad_alloc` thrown
+  by `operator new` was still caught.)
+- libc's `sscanf` and `fscanf`, 28 KiB: newlib's formatted input, for a
+  handful of one-line files and an IP address. Those are read by hand
+  now and RiftWii calls no scanf; the first call would bring about 13
+  KiB back for `sscanf` and 13 more for `fscanf`. (`siscanf` stays:
+  libfat's `mktime` reads the time zone with it.)
+
 ### The MEM2 copy
 
 The copy goes to `mem::kStashArea`, which is `0x90809000`, right above the
