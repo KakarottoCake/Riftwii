@@ -31,6 +31,10 @@ constexpr long kMaxFileBytes = 0x7FFFFFFF;
 // BootMii puts a Wii's keys here when it backs up its NAND.
 constexpr const char* kBootMiiKeys = "sd:/keys.bin";
 constexpr const char* kStagedList = "sd:/riftwii/staged_channels.txt";
+// The list is rewritten into kStagedNew and swapped in, the old one kept as
+// kStagedOld until then; both are read at start, so no step loses it.
+constexpr const char* kStagedNew = "sd:/riftwii/staged_channels.new";
+constexpr const char* kStagedOld = "sd:/riftwii/staged_channels.old";
 constexpr std::size_t kMaxKeysBytes = 0x400;
 constexpr std::size_t kMaxStagedListBytes = 64 * 1024;
 // The FS attribute byte of each content file staging creates. ES makes the
@@ -117,6 +121,65 @@ bool append_staged(const std::string& nand_path) {
     if (!list) return false;
     const bool wrote = std::fprintf(list, "%s\n", nand_path.c_str()) > 0;
     return std::fclose(list) == 0 && wrote;
+}
+
+// Adds the paths in a staged list to `paths`, each once.
+void read_staged(const char* file, std::vector<std::string>& paths) {
+    FILE* list = std::fopen(file, "rb");
+    if (!list) return;
+    char line[128];
+    std::size_t read = 0;
+    while (std::fgets(line, sizeof line, list) && read < kMaxStagedListBytes) {
+        read += std::strlen(line);
+        std::string path = line;
+        while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
+        if (!path.empty() && std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
+    }
+    std::fclose(list);
+}
+
+bool file_exists(const char* path) {
+    struct stat st;
+    return stat(path, &st) == 0;
+}
+
+// Replaces the staged list with `paths` (none: removes it). The new list
+// is written whole and checked first, and the old one is renamed aside
+// rather than cut short, so a failure or power cut at any step leaves a
+// list, or its kStagedOld copy, that start reads.
+void write_staged(const std::vector<std::string>& paths) {
+    if (paths.empty()) {
+        std::remove(kStagedList);
+        std::remove(kStagedOld);
+        return;
+    }
+    FILE* list = std::fopen(kStagedNew, "wb");
+    bool wrote = list != nullptr;
+    for (const std::string& path : paths) {
+        if (!wrote) break;
+        wrote = std::fprintf(list, "%s\n", path.c_str()) > 0;
+    }
+    if (list && std::fclose(list) != 0) wrote = false;
+    if (!wrote) {
+        std::remove(kStagedNew);  // the list as it was stays
+        return;
+    }
+    // The card's file system renames only onto a name not in use.
+    const bool had_list = file_exists(kStagedList);
+    if (had_list) {
+        std::remove(kStagedOld);  // read with the list this start: in `paths` if still needed
+        if (std::rename(kStagedList, kStagedOld) != 0) {
+            std::remove(kStagedNew);
+            return;
+        }
+    }
+    if (std::rename(kStagedNew, kStagedList) != 0) {
+        // Back as it was; when even that fails, kStagedOld is read next time.
+        if (had_list) std::rename(kStagedOld, kStagedList);
+        std::remove(kStagedNew);
+        return;
+    }
+    std::remove(kStagedOld);
 }
 
 // The TMD the Wii keeps for the title, as ES gives it.
@@ -396,20 +459,13 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
 }
 
 void UnstageMovedChannels() {
-    FILE* list = std::fopen(kStagedList, "rb");
-    if (!list) return;
+    // A rewrite cut short leaves a kStagedNew, never read: it may be partial.
+    std::remove(kStagedNew);
     std::vector<std::string> paths;
-    char line[128];
-    std::size_t read = 0;
-    while (std::fgets(line, sizeof line, list) && read < kMaxStagedListBytes) {
-        read += std::strlen(line);
-        std::string path = line;
-        while (!path.empty() && (path.back() == '\n' || path.back() == '\r')) path.pop_back();
-        if (!path.empty() && std::find(paths.begin(), paths.end(), path) == paths.end()) paths.push_back(path);
-    }
-    std::fclose(list);
+    read_staged(kStagedList, paths);
+    read_staged(kStagedOld, paths);
     if (paths.empty()) {
-        std::remove(kStagedList);
+        write_staged(paths);
         return;
     }
     // The list stays for the next start when the files cannot be removed now.
@@ -484,12 +540,7 @@ void UnstageMovedChannels() {
     }
     close_nand_permissions("SD card channels");
     NandClose();
-    if (left.empty()) {
-        std::remove(kStagedList);
-    } else if (FILE* list = std::fopen(kStagedList, "wb")) {
-        for (const std::string& path : left) std::fprintf(list, "%s\n", path.c_str());
-        std::fclose(list);
-    }
+    write_staged(left);
     logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s%s\n", removed,
          kept ? " (some kept: not copies RiftWii made, or their channel is no longer on the card)" : "",
          left.empty() ? "" : " (some could not be removed or checked; tried again next time)");
