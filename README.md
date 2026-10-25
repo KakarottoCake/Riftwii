@@ -123,6 +123,9 @@ contains theirs names them in its file header, and
   **oggplayer** and **libasnd** by Hermes: the menu's toolkit, text and music
     player, and the streaming mixer API reference.
 - **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
+- **wad2bin** and **Yet Another BlueDump Mod** by DarkMatterCore (GPL-3.0):
+  the layout of the content.bin the Wii Menu writes when it moves a
+  channel to the SD card, which RiftWii reads to start such a game.
 - **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by

@@ -37,6 +37,10 @@ struct NandChannel {
     // Wii's own. Its files are read from the card, and it runs under d2x's
     // NAND emulation of that folder, its saves kept there.
     std::string emu_nand;
+    // sd:/private/wii/title/<code>/content.bin when the Wii Menu moved the
+    // game to the SD card (movedchannels.hpp): its banner and program are
+    // read from there, and the Wii only keeps its TMD, ticket and save.
+    std::string content_bin;
     bool non_game = false;
 };
 
