@@ -105,6 +105,7 @@ bool NetStart(std::string& error, bool retry) {
         // A cancelled job stops within a tenth of a second, not after 20 s.
         if (cancelled()) {
             // Not a failure of the network: the next start tries at once.
+            g_failed = false;
             error = "stopped before the network started";
             return false;
         }
@@ -115,6 +116,7 @@ bool NetStart(std::string& error, bool retry) {
         // A job cancelled meanwhile leaves no failure behind: whoever
         // starts the network next tries it for themselves.
         if (cancelled()) {
+            g_failed = false;
             error = "stopped before the network started";
             return false;
         }
