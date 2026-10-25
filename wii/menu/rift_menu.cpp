@@ -863,7 +863,9 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
 	if (catalog.status == tr("USB: a Wii U drive (RiftWii leaves it alone)")) return "";  // nor is a Wii U's own drive
-	if (catalog.status == tr("USB: Dragon Quest X's drive")) return "";  // nor Dragon Quest X's, whose game is a channel
+	// Nor is Dragon Quest X's, whose game is a channel: the same test that
+	// gave the status, not its translated text.
+	if (std::strcmp(tag, "USB") == 0 && riftwii::wii::usb_only_wiiu_drive() && riftwii::wii::WfsDriveFound()) return "";
 	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
