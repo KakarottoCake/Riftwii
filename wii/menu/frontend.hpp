@@ -6,6 +6,7 @@
 
 #include "modplan.hpp"
 #include "nandchannels.hpp"
+#include "packcatalog.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/profiles.hpp"
 #include "usbcatalog.hpp"
@@ -29,6 +30,7 @@ struct FrontendState {
     std::uint8_t game_revision = 0;
     std::uint8_t game_disc_number = 0;
     riftwii::LaunchModel model;
+    PackageCatalog package_catalog;
     std::string choices_path;
     // A profile's tile was opened (riftwii/profiles.hpp): its key and name,
     // and choices_path is its own choices file. Empty for the game's own tile.
@@ -79,7 +81,9 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
 // False with `error` when the channel's game data was removed from the Wii.
 bool SelectChannel(FrontendState& state, std::size_t index, std::string& error);
 LaunchSource SelectedSource(const FrontendState& state);
-std::string ScanPackages(FrontendState& state);
+// Explicit rescans read a new catalog; opening a page reuses Home's snapshot.
+// Saved choices are always read afresh for the selected game or profile.
+std::string ScanPackages(FrontendState& state, bool reuse_catalog = false);
 // Why the game cannot start with its mods where they are, or "": a code
 // build on the USB drive, or one turned on with the game on the SD card. `brief` is
 // the short form for the game page.

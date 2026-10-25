@@ -30,11 +30,17 @@ std::string ReadPackText(const std::string& path);
 struct PackFile {
     std::string file;  // the name the menu keys choices by: "mod.xml", "mod.xml @ 192.168.1.20:1137"
     std::string path;  // "sd:/riivolution/mod.xml", "sd:/riftwii/riifs/…/riivolution/mod.xml"
+    std::string text;
+    bool text_cached = false;  // distinguishes an unreadable/empty file from an uncached one
 };
+constexpr std::size_t kPackTextCacheBytes = 2u << 20;
 // Every pack XML: sd:/riivolution and sd:/apps/riivolution first, then
 // usb:/riivolution and usb:/apps/riivolution (" @ USB"), then each
 // server's cached lists (the same two folders).
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited);
+// keep_text retains at most 2 MiB of the text already read to distinguish
+// server-only XMLs. Larger libraries still list in full; uncached XMLs are
+// read when needed. The scan owns the result until it hands it to the menu.
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text = false);
 
 // The folder a pack XML's paths start from, as the pack sees it:
 // "/riivolution" or "/apps/riivolution" (for a network pack, the folder on
