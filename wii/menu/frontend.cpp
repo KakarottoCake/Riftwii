@@ -271,7 +271,7 @@ LaunchSource SelectedSource(const FrontendState& state) {
     return source;
 }
 
-std::string ScanPackages(FrontendState& state) {
+std::string ScanPackages(FrontendState& state, bool reuse_catalog) {
     state.model.packages.clear();
     // A reused frontend state must not carry game A's saved mode, cheats or
     // settings into game B. restore() below may replace these defaults.
@@ -279,8 +279,9 @@ std::string ScanPackages(FrontendState& state) {
     // sd:/riivolution, then the packs cached from RiiFS servers. Hidden
     // files are never packs: macOS leaves a binary "._name.xml"
     // (AppleDouble) beside every file it copies to FAT.
-    bool limited = false;
-    const std::vector<PackFile> found = ListPackFiles(kMaxPackages, limited);
+    if (!reuse_catalog || !state.package_catalog.ready) state.package_catalog = ReadPackageCatalog();
+    const PackageCatalog& catalog = state.package_catalog;
+    const bool limited = catalog.limited || catalog.files.size() > kMaxPackages;
     DiscIdentity identity;
     const DiscIdentity* disc = nullptr;
     if (!state.game_id.empty()) {
@@ -290,8 +291,11 @@ std::string ScanPackages(FrontendState& state) {
         disc = &identity;
     }
     std::string pack_texts;  // lower case, to tell a pack's own folders
-    for (const PackFile& pack : found) {
-        const std::string text = ReadPackText(pack.path);
+    const std::size_t count = std::min(kMaxPackages, catalog.files.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        const PackFile& pack = catalog.files[i];
+        const std::string uncached_text = pack.text_cached ? std::string() : ReadPackText(pack.path);
+        const std::string& text = pack.text_cached ? pack.text : uncached_text;
         state.model.add(pack.file, pack.path, text, disc);
         // Up to 150 packs of 1 MiB each: grown twofold, but checked.
         const std::size_t needed = pack_texts.size() + text.size();
@@ -308,7 +312,7 @@ std::string ScanPackages(FrontendState& state) {
     // from is that pack's own (Wii Party's Combined Mods ships its codes'
     // source in wp-combined-mods/codes/SUPE01.gct and patches main.dol
     // itself): not a build of its own. One picked by hand still shows.
-    for (const CodeBuildFile& b : ListCodeBuilds()) {
+    for (const CodeBuildFile& b : catalog.code_builds) {
         std::string top = b.name;
         for (char& c : top) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         const bool packs_folder = !b.picked && b.gct.compare(0, 4, "sd:/") == 0 && !top.empty() &&

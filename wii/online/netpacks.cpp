@@ -212,9 +212,10 @@ bool connect_server(SocketTransport& transport, riifs::Client& client, const Net
 
 std::string ReadPackText(const std::string& path) { return read_text(path); }
 
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text) {
     limited = false;
     std::vector<PackFile> out;
+    std::size_t cached_bytes = 0;
     // The menu keys saved choices by `file`: a name already taken by the
     // first folder gets the second folder's name in front.
     const auto add = [&](const std::string& name, const std::string& path, const std::string& suffix) {
@@ -225,20 +226,25 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
                 break;
             }
         }
-        out.push_back({file, path});
+        out.push_back({file, path, "", false});
     };
     for (const char* folder : {kPackageDir, kPackageDir2}) {
         for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
             const std::string path = std::string(folder) + "/" + name;
             // An XML that only names a server (Riivolution's way of pointing
             // at one) is not a pack; with no <id> it would show for every game.
-            const std::string text = read_text(path);
+            std::string text = read_text(path);
             if (text.find("<network") != std::string::npos) {
                 Package package;
                 std::string ignored;
                 if (parse_package(text, package, ignored) && !package.networks.empty() && package.options.empty()) continue;
             }
             add(name, path, "");
+            if (keep_text && text.size() <= kPackTextCacheBytes - cached_bytes) {
+                cached_bytes += text.size();
+                out.back().text.swap(text);
+                out.back().text_cached = true;
+            }
         }
     }
     // The USB drive's (FAT32 or NTFS), through the menu's mount of it; at

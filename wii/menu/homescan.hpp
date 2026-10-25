@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "nandchannels.hpp"
+#include "packcatalog.hpp"
 #include "riftwii/launch.hpp"
 #include "usbcatalog.hpp"
 
@@ -27,6 +28,7 @@ struct DriveScanPart {
     // Every pack and code build found so far: the SD card's after its part,
     // the USB drive's with them after the drive's.
     PackIndex packs;
+    PackageCatalog package_catalog;
     // The SD card's part only: the Wii's channels (and those in another
     // loader's emulated NAND on the card), and what looking for network
     // packs came to (empty when there was nothing to say).
