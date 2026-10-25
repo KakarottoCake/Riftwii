@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 
 #include "netsock.hpp"
 #include "tls.hpp"
@@ -73,22 +74,62 @@ void ReadHeaders(const std::uint8_t* buffer, std::size_t used, Headers& h) {
     }
 }
 
+// A whole size line, including any extension. Both the receive-time limit
+// and the final copy use this parser, so they agree on each chunk's size.
+bool ReadChunkSize(const std::uint8_t* buffer, std::size_t from, std::size_t used,
+                   std::size_t& chunk, std::size_t& data_at) {
+    std::size_t end = from;
+    while (end + 1 < used && !(buffer[end] == '\r' && buffer[end + 1] == '\n')) ++end;
+    if (end + 1 >= used) return false;
+    chunk = 0;
+    std::size_t at = from;
+    for (; at < end && buffer[at] != ';' && buffer[at] != ' ' && buffer[at] != '\t'; ++at) {
+        const unsigned char c = buffer[at];
+        unsigned digit = 0;
+        if (c >= '0' && c <= '9') digit = c - '0';
+        else if (c >= 'a' && c <= 'f') digit = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') digit = c - 'A' + 10;
+        else return false;
+        if (chunk > (std::numeric_limits<std::size_t>::max() - digit) / 16) return false;
+        chunk = chunk * 16 + digit;
+    }
+    if (at == from) return false;
+    while (at < end && (buffer[at] == ' ' || buffer[at] == '\t')) ++at;
+    if (at < end && buffer[at] != ';') return false;
+    data_at = end + 2;
+    return true;
+}
+
+struct ChunkLimit {
+    std::size_t next = 0;
+    std::size_t counted = 0;
+};
+
+// Count payload, excluding framing, as size lines arrive. Completed chunks
+// are skipped on later reads; an oversized chunk is refused before its data
+// needs to arrive. Malformed or unfinished framing is rejected by Dechunk.
+bool ChunkBodyTooLarge(const std::uint8_t* buffer, std::size_t from, std::size_t used,
+                       std::size_t limit, ChunkLimit& reading) {
+    if (reading.next == 0) reading.next = from;
+    for (;;) {
+        std::size_t chunk = 0;
+        std::size_t data_at = 0;
+        if (!ReadChunkSize(buffer, reading.next, used, chunk, data_at)) return false;
+        if (chunk > limit - reading.counted) return true;
+        if (chunk == 0) return false;
+        if (chunk > used - data_at || used - data_at - chunk < 2) return false;
+        reading.counted += chunk;
+        reading.next = data_at + chunk + 2;
+    }
+}
+
 // A chunked body in buffer[from, used) rewritten in place as plain bytes;
 // false when it is not whole or not well formed. `length` gets its size.
 bool Dechunk(std::uint8_t* buffer, std::size_t from, std::size_t used, std::size_t& length) {
     std::size_t read = from, written = from;
     for (;;) {
-        std::size_t line_end = read;
-        while (line_end + 1 < used && !(buffer[line_end] == '\r' && buffer[line_end + 1] == '\n')) ++line_end;
-        if (line_end + 1 >= used) return false;
-        char digits[12];
-        const std::size_t digit_count = std::min<std::size_t>(line_end - read, sizeof(digits) - 1);
-        std::memcpy(digits, buffer + read, digit_count);
-        digits[digit_count] = '\0';
-        char* stop = nullptr;
-        const unsigned long chunk = std::strtoul(digits, &stop, 16);
-        if (stop == digits) return false;
-        read = line_end + 2;
+        std::size_t chunk = 0;
+        if (!ReadChunkSize(buffer, read, used, chunk, read)) return false;
         if (chunk == 0) break;
         if (chunk > used - read || used - read - chunk < 2) return false;
         std::memmove(buffer + written, buffer + read, chunk);
@@ -132,6 +173,7 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
     }
     std::size_t used = 0;
     headers = Headers{};
+    ChunkLimit chunk_limit;
     const auto too_big = [&] {
         error = url.host + " sent more than the " + std::to_string(get.max_body) + " bytes RiftWii takes";
         return false;
@@ -157,12 +199,18 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
         if (progress) progress(used);
         if (!headers.whole) ReadHeaders(get.buffer, used, headers);
         if (headers.whole) {
-            // A chunked body's framing makes it a little longer on the wire:
-            // that one is measured once it is put together, below.
-            if (get.max_body && (headers.has_length ? headers.length > get.max_body
-                                                    : !headers.chunked && used - headers.body_at > get.max_body))
-                return too_big();
-            if (headers.has_length && used - headers.body_at >= headers.length) break;
+            if (get.max_body) {
+                if (headers.chunked) {
+                    if (ChunkBodyTooLarge(get.buffer, headers.body_at, used, get.max_body, chunk_limit))
+                        return too_big();
+                } else if (headers.has_length) {
+                    if (headers.length > get.max_body) return too_big();
+                } else if (used - headers.body_at > get.max_body) {
+                    return too_big();
+                }
+            }
+            // Transfer-Encoding takes precedence over Content-Length.
+            if (!headers.chunked && headers.has_length && used - headers.body_at >= headers.length) break;
             if (headers.chunked && used - headers.body_at >= 5 &&
                 std::memcmp(get.buffer + used - 5, "0\r\n\r\n", 5) == 0)
                 break;
