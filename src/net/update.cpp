@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -41,36 +41,6 @@ Version parse(const std::string& text) {
 namespace {
 
 bool blank(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
-
-// The value after the key that ends at `at` (just past its closing
-// quote): a string into `text`, or a bare token (number, null) into
-// `bare`. False when no ':' follows.
-bool value_after(const std::string& json, std::size_t at, std::string& text, std::string& bare,
-                 std::size_t end = std::string::npos) {
-    text.clear();
-    bare.clear();
-    end = std::min(end, json.size());
-    while (at < end && blank(json[at])) ++at;
-    if (at >= end || json[at] != ':') return false;
-    ++at;
-    while (at < end && blank(json[at])) ++at;
-    if (at < end && json[at] == '"') {
-        for (++at; at < end && json[at] != '"'; ++at) {
-            if (json[at] == '\\' && at + 1 < end) ++at;  // nothing here needs decoding
-            text += json[at];
-        }
-        return at < end;
-    }
-    for (; at < end && json[at] != ',' && json[at] != '}' && json[at] != ']' && !blank(json[at]); ++at)
-        bare += json[at];
-    return true;
-}
-
-// The first `"key"` at or after `from` and before `to`; npos when none.
-std::size_t find_key(const std::string& json, const std::string& key, std::size_t from, std::size_t to) {
-    const std::size_t at = json.find("\"" + key + "\"", from);
-    return at == std::string::npos || at >= to ? std::string::npos : at;
-}
 
 // Walk structure without allocating skipped values (an uploader or release
 // body can be large). Depth is bounded because API answers are untrusted.
@@ -197,43 +167,150 @@ bool member(std::string_view object, const char* wanted, std::string_view& out) 
     return false;
 }
 
-bool member_text(const std::string& json, std::string_view object, const char* key,
-                  std::string& text, std::string& bare) {
+// The text between the quotes, with JSON escapes resolved to bytes.
+// A lone or reversed surrogate and a NUL character escape are malformed.
+bool decode_json_string(std::string_view raw, std::string& out) {
+    out.clear();
+    std::size_t at = 0;
+    const auto hex_value = [](char c, unsigned& v) {
+        if (c >= '0' && c <= '9') v = static_cast<unsigned>(c - '0');
+        else if (c >= 'a' && c <= 'f') v = static_cast<unsigned>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') v = static_cast<unsigned>(c - 'A' + 10);
+        else return false;
+        return true;
+    };
+    const auto unit_at = [&](std::size_t pos, unsigned& unit) {
+        if (pos + 4 > raw.size()) return false;
+        unit = 0;
+        for (unsigned i = 0; i < 4; ++i) {
+            unsigned v = 0;
+            if (!hex_value(raw[pos + i], v)) return false;
+            unit = unit * 16 + v;
+        }
+        return true;
+    };
+    const auto append_utf8 = [&](unsigned point) {
+        if (point < 0x80) {
+            out += static_cast<char>(point);
+        } else if (point < 0x800) {
+            out += static_cast<char>(0xc0 | (point >> 6));
+            out += static_cast<char>(0x80 | (point & 0x3f));
+        } else if (point < 0x10000) {
+            out += static_cast<char>(0xe0 | (point >> 12));
+            out += static_cast<char>(0x80 | ((point >> 6) & 0x3f));
+            out += static_cast<char>(0x80 | (point & 0x3f));
+        } else {
+            out += static_cast<char>(0xf0 | (point >> 18));
+            out += static_cast<char>(0x80 | ((point >> 12) & 0x3f));
+            out += static_cast<char>(0x80 | ((point >> 6) & 0x3f));
+            out += static_cast<char>(0x80 | (point & 0x3f));
+        }
+    };
+    while (at < raw.size()) {
+        const char c = raw[at];
+        if (c == '\\') {
+            if (at + 1 >= raw.size()) return false;
+            const char escape = raw[at + 1];
+            if (escape == '"') out += '"';
+            else if (escape == '\\') out += '\\';
+            else if (escape == '/') out += '/';
+            else if (escape == 'b') out += '\b';
+            else if (escape == 'f') out += '\f';
+            else if (escape == 'n') out += '\n';
+            else if (escape == 'r') out += '\r';
+            else if (escape == 't') out += '\t';
+            else if (escape == 'u') {
+                unsigned unit = 0;
+                if (!unit_at(at + 2, unit)) return false;
+                if (unit >= 0xd800 && unit <= 0xdbff) {
+                    if (at + 8 >= raw.size() || raw[at + 6] != '\\' || raw[at + 7] != 'u') return false;
+                    unsigned low = 0;
+                    if (!unit_at(at + 8, low)) return false;
+                    if (low < 0xdc00 || low > 0xdfff) return false;
+                    append_utf8(0x10000u + ((unit - 0xd800u) << 10) + (low - 0xdc00u));
+                    at += 12;
+                    continue;
+                }
+                if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+                if (unit == 0) return false;
+                append_utf8(unit);
+                at += 6;
+                continue;
+            } else {
+                return false;
+            }
+            at += 2;
+            continue;
+        }
+        if (c == '"' || static_cast<unsigned char>(c) < 0x20) return false;
+        out += c;
+        ++at;
+    }
+    return true;
+}
+
+// A raw value decoded when it is a string; false when not a string or malformed.
+bool decode_string_value(std::string_view value, std::string& text) {
+    if (value.size() < 2 || value.front() != '"' || value.back() != '"') return false;
+    return decode_json_string(value.substr(1, value.size() - 2), text);
+}
+
+// A direct member decoded as a string; false when missing, not a string,
+// or malformed, so callers can tell a match from a refusal.
+bool member_text(std::string_view object, const char* key, std::string& text) {
     std::string_view value;
     if (!member(object, key, value)) return false;
-    // The member's ':' is immediately before its value, apart from spaces.
-    std::size_t colon = static_cast<std::size_t>(value.data() - json.data());
-    while (colon > 0 && blank(json[colon - 1])) --colon;
-    if (colon == 0) return false;
-    const std::size_t end = static_cast<std::size_t>(value.data() - json.data()) + value.size();
-    return value_after(json, colon - 1, text, bare, end);
+    return decode_string_value(value, text);
 }
 
 enum class AssetLookup { Missing, Refused, Found };
 
-AssetLookup release_asset(const std::string& json, std::string_view release, const std::string& name,
-                           ReleaseAsset& out) {
+// The first asset named by the caller in one release, with decoded strings; a missing or null
+// digest/size stays empty/0 while any other present digest/size refuses the asset.
+AssetLookup release_asset(std::string_view release, const std::string& name, ReleaseAsset& out) {
     std::string_view assets;
     if (!member(release, "assets", assets)) return AssetLookup::Missing;
     JsonReader reader(assets);
     if (!reader.take('[') || reader.take(']')) return AssetLookup::Missing;
     do {
         std::string_view object;
-        std::string text, bare;
+        std::string text;
         if (!reader.value(object)) return AssetLookup::Refused;
-        if (!member_text(json, object, "name", text, bare) || text != name) continue;
+        if (object.empty() || object.front() != '{') continue;
+        if (!member_text(object, "name", text) || text != name) continue;
         ReleaseAsset asset;
-        if (!member_text(json, object, "browser_download_url", text, bare) ||
+        if (!member_text(object, "browser_download_url", text) ||
             !riftwii_release_asset_url(text)) return AssetLookup::Refused;
         asset.url = text;
-        if (member_text(json, object, "digest", text, bare) && text.compare(0, 7, "sha256:") == 0 &&
-            text.size() == 7 + 64) {
-            for (std::size_t i = 7; i < text.size(); ++i)
-                asset.sha256 += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
+        std::string_view digest_value;
+        if (member(object, "digest", digest_value)) {
+            if (digest_value != "null") {
+                if (!decode_string_value(digest_value, text)) return AssetLookup::Refused;
+                if (text.size() != 7 + 64 || text.compare(0, 7, "sha256:") != 0) return AssetLookup::Refused;
+                asset.sha256.clear();
+                for (std::size_t i = 7; i < text.size(); ++i) {
+                    if (!std::isxdigit(static_cast<unsigned char>(text[i]))) return AssetLookup::Refused;
+                    asset.sha256 += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
+                }
+            }
         }
-        if (member_text(json, object, "size", text, bare) && !bare.empty() &&
-            std::isdigit(static_cast<unsigned char>(bare[0]))) {
-            asset.size = std::strtoull(bare.c_str(), nullptr, 10);
+        std::string_view size_value;
+        if (member(object, "size", size_value)) {
+            if (size_value != "null") {
+                if (size_value.empty()) return AssetLookup::Refused;
+                for (const char c : size_value) {
+                    if (!std::isdigit(static_cast<unsigned char>(c))) return AssetLookup::Refused;
+                }
+                if (size_value.front() == '0') return AssetLookup::Refused;
+                unsigned long long value = 0;
+                constexpr unsigned long long kMax = std::numeric_limits<unsigned long long>::max();
+                for (const char c : size_value) {
+                    const unsigned digit = static_cast<unsigned>(c - '0');
+                    if (value > (kMax - digit) / 10) return AssetLookup::Refused;
+                    value = value * 10 + digit;
+                }
+                asset.size = value;
+            }
         }
         out = asset;
         return AssetLookup::Found;
@@ -244,10 +321,35 @@ AssetLookup release_asset(const std::string& json, std::string_view release, con
 }  // namespace
 
 bool release_tag_from_json(const std::string& json, std::string& tag) {
-    const std::size_t at = find_key(json, "tag_name", 0, json.size());
-    std::string text, bare;
-    if (at == std::string::npos || !value_after(json, at + 10, text, bare)) return false;
+    JsonReader document(json);
+    std::string_view root;
+    if (!document.value(root) || !document.done()) return false;
+    std::string_view release;
+    if (root.front() == '{') {
+        release = root;
+    } else if (root.front() == '[') {
+        JsonReader releases(root);
+        if (!releases.take('[') || releases.take(']')) return false;
+        std::string_view first;
+        if (!releases.value(first)) return false;
+        if (first.empty() || first.front() != '{') return false;
+        release = first;
+    } else {
+        return false;
+    }
+    std::string text;
+    if (!member_text(release, "tag_name", text)) return false;
+    // Tags are stored and later appended to a GitHub API URL (releases look like "v2610-691"),
+    // so only A-Z a-z 0-9 . _ + - pass.
     if (text.empty() || text.size() > 64) return false;
+    for (const char c : text) {
+        const unsigned char u = static_cast<unsigned char>(c);
+        const bool ok = (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') ||
+                        u == '.' || u == '_' || u == '+' || u == '-';
+        if (!ok) return false;
+    }
+    // "." and ".." would climb out of tags/ once normalised.
+    if (text == "." || text == "..") return false;
     tag = text;
     return true;
 }
@@ -278,13 +380,13 @@ bool release_asset_from_json(const std::string& json, const std::string& name, R
     JsonReader document(json);
     std::string_view root;
     if (!document.value(root) || !document.done()) return false;
-    if (root.front() == '{') return release_asset(json, root, name, out) == AssetLookup::Found;
+    if (root.front() == '{') return release_asset(root, name, out) == AssetLookup::Found;
     JsonReader releases(root);
     if (!releases.take('[') || releases.take(']')) return false;
     do {
         std::string_view release;
         if (!releases.value(release)) return false;
-        const AssetLookup result = release_asset(json, release, name, out);
+        const AssetLookup result = release_asset(release, name, out);
         // A refused first match must not be replaced by an older release.
         if (result != AssetLookup::Missing) return result == AssetLookup::Found;
     } while (releases.take(','));
@@ -356,14 +458,17 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         return false;
     }
     std::vector<UpdateWrite> plugins;
-    UpdateWrite font;
+    std::vector<UpdateWrite> fonts;
     for (const ThemePackFile& file : apps.files) {
-        // The full menu font: beside the new DOL, whose core font lacks
-        // what it holds (wii/menu/fullfont.hpp).
-        if (file.path == kMenuFontFile) {
-            font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + "font.ttf";
+        // Both external fonts and their license follow the renamed DOL,
+        // before that DOL replaces the old version.
+        if (is_menu_font_file(file.path)) {
+            UpdateWrite font;
+            const std::string filename = file.path.substr(file.path.rfind('/') + 1);
+            font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + filename;
             font.offset = file.offset;
             font.size = file.size;
+            fonts.push_back(font);
             continue;
         }
         if (file.path.compare(0, kPluginsFolder.size(), kPluginsFolder) != 0) continue;  // the next start's
@@ -385,7 +490,7 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         plugins.push_back(write);
     }
     out = plugins;
-    if (!font.path.empty()) out.push_back(font);
+    out.insert(out.end(), fonts.begin(), fonts.end());
     UpdateWrite dol;
     dol.path = dol_path;
     dol.dol = true;

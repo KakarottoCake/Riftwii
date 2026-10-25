@@ -684,6 +684,19 @@ static void TestUpdateOrder() {
         EXPECT_FALSE(writes[2].dol);
         EXPECT_TRUE(writes[3].dol);
     }
+    // Both fonts and the Korean license follow a renamed DOL, before it.
+    withFont.files.push_back(ThemePackFile{"riftwii/korean.ttf", 1604450, 468080});
+    withFont.files.push_back(ThemePackFile{"riftwii/Korean-OFL.txt", 2072530, 4300});
+    EXPECT_TRUE(riftwii::plan_update_writes(withFont, "v2610-500", folder,
+                                         "sd:/apps/renamed/boot.dol", writes, why));
+    EXPECT_EQ(writes.size(), 6u);
+    if (writes.size() == 6) {
+        EXPECT_EQ(writes[3].path, std::string("sd:/apps/renamed/korean.ttf"));
+        EXPECT_EQ(writes[3].offset, 1604450u);
+        EXPECT_EQ(writes[3].size, 468080u);
+        EXPECT_EQ(writes[4].path, std::string("sd:/apps/renamed/Korean-OFL.txt"));
+        EXPECT_TRUE(writes[5].dol);
+    }
     // A pack with no plugins: the DOL alone.
     ThemePack plain;
     plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};

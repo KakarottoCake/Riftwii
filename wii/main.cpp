@@ -17,6 +17,7 @@
 
 #include "boot.hpp"
 #include "homebrew.hpp"
+#include "movedchannels.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "menusounds.hpp"
@@ -85,6 +86,27 @@ void StartHomebrewChannelTitle() {
     WII_LaunchTitle(title);  // returns only when it could not
 }
 
+// A game the Wii Menu moved to the SD card gets its contents copied back
+// to the Wii first, as the Wii Menu does to start one: the game opens them
+// through ES while it runs (movedchannels.hpp). Nothing for any other.
+bool StageMovedChannel(u64 title, std::string& error) {
+    if (!riftwii::wii::ChannelToStartNand().empty()) return true;
+    riftwii::wii::ProgressStage("Copying the game from the SD card to the Wii", 32);
+    return riftwii::wii::stage_moved_channel(title, [](double done) {
+        riftwii::wii::ProgressWithin(static_cast<unsigned long long>(done * 1000), 1000, 32, 45);
+    }, error);
+}
+
+// The game could not be copied from the SD card: neither RiftWii's loader
+// nor the system can start it, so back to RiftWii, which says why.
+void StagingFailed(const std::string& error) {
+    riftwii::wii::logf("Wii channels: the game could not be copied from the SD card: %s\n", error.c_str());
+    if (riftwii::wii::CanRestart())
+        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
+                                  "The game could not be copied from the SD card: " + error);
+    std::exit(0);
+}
+
 // A WiiWare or Virtual Console game, on the launch screen (boot.log open):
 // RiftWii's own loader starts it with the extras a disc game gets
 // (boot_channel). When the loader cannot, a game installed on the Wii is
@@ -96,6 +118,7 @@ void StartChannel(u64 title) {
                        static_cast<unsigned>(title));
     if (riftwii::wii::ChannelToStartDirect()) {
         riftwii::wii::logf("Wii channels: the system starts it as the Wii Menu does, with none of RiftWii's loader\n");
+        if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
         riftwii::wii::LaunchMusicEnd("the system starts the game");
         riftwii::wii::LogClose();
         fatUnmount("sd:");
@@ -108,7 +131,10 @@ void StartChannel(u64 title) {
     std::string error;
     riftwii::wii::ChannelBootFiles files;
     const std::string emu_nand = riftwii::wii::ChannelToStartNand();
-    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos())) {
+    const bool read = riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos());
+    // Before either way of starting it: the system's needs the contents too.
+    if (std::string staging_error; !StageMovedChannel(title, staging_error)) StagingFailed(staging_error);
+    if (read) {
         riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
     }
@@ -393,6 +419,9 @@ int main() {
         }
     }
     if (sd_mounted) riftwii::wii::ChannelInstallerUpdateState();
+    // Games copied to the Wii from the SD card for the last session go
+    // again, so they take no room on the Wii past the game they were for.
+    if (sd_mounted) riftwii::wii::UnstageMovedChannels();
     // A marker on the card while the Wii Menu's font is read: reading it
     // may open IOS's NAND permission check, which hung consoles before
     // 3.3.3. Found at the next start, the font is skipped, so a console it
@@ -518,7 +547,7 @@ int main() {
         riftwii::wii::SetMenuLanguage("en");
         riftwii::wii::logf("Language: %s cannot be drawn with this font; English instead\n",
                            riftwii::wii::MenuLanguage().c_str());
-        SetHomeNotice(riftwii::wii::kKoreanNeedsFont);
+        SetHomeNotice(riftwii::wii::tr(riftwii::wii::kKoreanNeedsFont));
     }
     InitGUIThreads();
     timed("FreeType and the GUI thread");

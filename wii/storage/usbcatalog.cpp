@@ -1690,8 +1690,11 @@ int wii_u_adapter_slot(std::string* why) {
         char line[256];
         int found = 0;
         while (!found && std::fgets(line, sizeof(line), f)) {
-            int ios = 0;
-            if (std::sscanf(line, "IOS%d", &ios) == 1 && ios >= 200 && ios <= 255 &&
+            // strtol, not sscanf: RiftWii calls no scanf, which costs MEM1
+            // (docs/MEMORY.md, "Linked out").
+            if (std::strncmp(line, "IOS", 3) != 0) continue;
+            const int ios = static_cast<int>(std::strtol(line + 3, nullptr, 10));
+            if (ios >= 200 && ios <= 255 &&
                 std::strstr(line, ": adapter plugged in") && slot_has_ticket(ios))
                 found = ios;
         }

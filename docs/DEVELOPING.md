@@ -87,6 +87,12 @@ wii/font/core.ttf` (fontTools) makes the core again. The whole font
 (`wii/font/rounded.ttf`) ships next to the DOL as
 `sd:/apps/riftwii/font.ttf`, read only for characters the core lacks
 (`wii/menu/fullfont.hpp`); `tools/make_menu_font.py` explains both.
+Korean uses a third font, `wii/font/korean.ttf`, shipped as
+`apps/riftwii/korean.ttf` with `Korean-OFL.txt`, never embedded. The same
+stream, cache and close holds serve it. `tools/make_korean_font.py` builds
+it from the pinned Noto Sans KR source; [KOREAN_FONT.md](KOREAN_FONT.md)
+records its coverage and checks. Translation checks also verify Korean
+against this file.
 
 ## Running in Dolphin
 
@@ -418,7 +424,8 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
    `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`),
-   `font.ttf` (`wii/font/rounded.ttf`, the whole menu font),
+   `font.ttf` (`wii/font/rounded.ttf`, the whole menu font), `korean.ttf`
+   and `Korean-OFL.txt` (both from `wii/font/`),
    and `plugins/` with every file of `build-plugins/plugins/` from the
    same build (`make_update_pack.py` refuses plugins that don't match the
    zip's `boot.dol`);
@@ -439,7 +446,8 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
    zip's plugins, menu font, channel installer and icon). It fails a zip
    without `plugins/gamecube.<version>.rwp` (the DOL has no GameCube
-   loader of its own any more) or without `font.ttf` (its kanji). Attach the pack to every release: the in-app update
+   loader of its own any more), `font.ttf` (its kanji), `korean.ttf` or
+   `Korean-OFL.txt`. Attach the pack to every release: the in-app update
    downloads it with the DOL and writes its plugins first.
    Before going on, check the zip has the plugin folder: `unzip -l
    riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one

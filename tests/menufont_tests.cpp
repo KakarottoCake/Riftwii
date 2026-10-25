@@ -201,7 +201,7 @@ static void TestSplit(const std::string& repo) {
     EXPECT_EQ(blockMissing, 0u);
     // Every character of every translation (and the English msgids) that
     // the font has is in the core, so the menu's own text never needs the
-    // SD card. (Hangul is not in the font: Korean needs the Wii Menu's.)
+    // SD card. Hangul is checked separately against korean.ttf.
     std::size_t translationMissing = 0;
     for (const auto& entry : std::filesystem::directory_iterator(repo + "/wii/lang")) {
         if (entry.path().extension() != ".po") continue;
@@ -238,6 +238,39 @@ static void TestSplit(const std::string& repo) {
     EXPECT_TRUE(coreChars.size() < fullChars.size() / 2);
 }
 
+static void TestKorean(const std::string& repo) {
+    const Bytes font = ReadFile(repo + "/wii/font/korean.ttf");
+    EXPECT_TRUE(!font.empty());
+    EXPECT_TRUE(font.size() < 512u * 1024u);
+    const auto characters = ReadCmap(font);
+    const Bytes translation = ReadFile(repo + "/wii/lang/ko.po");
+    std::size_t missing = 0;
+    for (std::uint32_t cp : Utf8Characters(translation)) {
+        if (cp < 0x20 || cp == 0x7F || characters.count(cp)) continue;
+        std::cerr << "ko.po: U+" << std::hex << cp << std::dec << " is absent from korean.ttf\n";
+        ++missing;
+    }
+    EXPECT_EQ(missing, 0u);
+    // Conjoining and compatibility Jamo, including the extended blocks.
+    for (const auto& range : std::vector<std::pair<unsigned, unsigned>>{
+             {0x1100, 0x11FF}, {0x3131, 0x318E}, {0xA960, 0xA97C},
+             {0xD7B0, 0xD7C6}, {0xD7CB, 0xD7FB}}) {
+        for (unsigned cp = range.first; cp <= range.second; ++cp) {
+            EXPECT_TRUE(characters.count(cp) != 0);
+        }
+    }
+    // GameTDB KO currently uses these syllables beyond KS X 1001.
+    EXPECT_TRUE(characters.count(0xD019) != 0);
+    EXPECT_TRUE(characters.count(0xD6D5) != 0);
+    EXPECT_EQ(TableOffset(font, "fvar"), 0u);
+    EXPECT_EQ(TableOffset(font, "fpgm"), 0u);
+    EXPECT_EQ(TableOffset(font, "GPOS"), 0u);
+    EXPECT_EQ(TableOffset(font, "GSUB"), 0u);
+    int simpleGlyphs = 0;
+    EXPECT_EQ(GlyphsOffGrid(font, simpleGlyphs), 0);
+    EXPECT_TRUE(simpleGlyphs > 2350);
+}
+
 static void TestRounded(const std::string& repo) {
     for (const char* name : {"/wii/font/core.ttf", "/wii/font/rounded.ttf"}) {
         int simple = 0;
@@ -255,6 +288,7 @@ int main(int argc, char** argv) {
     const std::string repo = argv[1];
     TestSplit(repo);
     TestRounded(repo);
+    TestKorean(repo);
     if (g_failures == 0) std::cout << "menufont: all tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

@@ -61,6 +61,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_wfc_server(value, server)) wfc_server = value;
         } else if (key == "riitag_key") {
             if (value.empty() || valid_riitag_key(value)) riitag_key = value;
+        } else if (key == "riitag_id") {
+            if (value.empty() || valid_riitag_id(value)) riitag_id = value;
         } else if (key == "wfc_domain") {
             if (value.empty() || valid_wfc_domain(value)) wfc_domain = value;
         } else if (key == "game_cios") {
@@ -208,6 +210,7 @@ std::string LoaderSettings::serialize() const {
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
+    if (!riitag_id.empty()) s += "riitag_id = " + riitag_id + "\n";
     s += "gc_rumble = " + gc_rumble + "\n";
     s += "wiimote_rumble = " + wiimote_rumble + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";

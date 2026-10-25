@@ -142,6 +142,20 @@ Readability beats brevity. For all code you write or change:
 - Log lines (`logf`) are read by testers and by us in problem reports. Write
   them as plain sentences that say what happened and why.
 
+## Talking to people
+
+Everything an agent writes for a person, the maintainers included, is in
+plain, everyday words: replies, summaries, review notes, messages, issue
+and PR comments, and PR descriptions. Someone who doesn't read code should
+understand it on the first read.
+
+- Say what happened, what it means for players, and what (if anything) the
+  reader needs to do, in that order.
+- Avoid jargon, acronyms and code names. When one can't be avoided (a file,
+  an error number, a setting), explain it in a few words the first time.
+- Keep it short. Leave the full technical detail in the code, the commit or
+  a collapsed section for whoever needs it.
+
 ## Clean room, licensing and security
 
 - No Riivolution source code, ever: not copied, not read. Riivolution's

@@ -25,9 +25,10 @@ bool NetFailed();
 // while the network comes up (seconds). Until it ends, NetStart and
 // NetStop from other threads wait for it, and so must anything that
 // leaves RiftWii or reloads IOS (NetWaitForBackground). Runs `job` here
-// and now when no thread can be made. False when a job is still running.
+// and now when no thread can be made, unless `run_here` is false (then
+// false, as when a job is still running).
 // A `cancellable` job (the theme download) can be told to stop.
-bool NetRunInBackground(void (*job)(), bool cancellable = false);
+bool NetRunInBackground(void (*job)(), bool cancellable = false, bool run_here = true);
 bool NetBackgroundBusy();
 void NetWaitForBackground();
 // Stops a cancellable job's network calls: each fails within a tenth of a

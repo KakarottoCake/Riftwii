@@ -26,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, ".."))
 CORE_FONT = os.path.join(REPO, "wii", "font", "core.ttf")
 FULL_FONT = os.path.join(REPO, "wii", "font", "rounded.ttf")
+KOREAN_FONT = os.path.join(REPO, "wii", "font", "korean.ttf")
 
 # Whole blocks kept in the core whatever the text uses, so a game name or
 # a pack's text in kana or Latin never needs the SD card.
@@ -137,8 +138,8 @@ def japanese_missing_from_core(core_path=CORE_FONT, repo=REPO):
     """The characters of the Japanese msgstr values that the core font lacks
     (sorted). Unlike missing_from_core() this does not ask the full font
     first: a Japanese character in neither font would draw blank on the
-    Wii, and that must fail here rather than pass unnoticed. (Korean is
-    not checked: Hangul is in neither font and comes from the Wii Menu's.)"""
+    Wii, and that must fail here rather than pass unnoticed. Korean has
+    its own external font, checked by korean_missing_characters()."""
     core = read_cmap(core_path)
     shown = set()
     with open(os.path.join(repo, "wii", "lang", "ja.po"), encoding="utf-8") as f:
@@ -146,6 +147,24 @@ def japanese_missing_from_core(core_path=CORE_FONT, repo=REPO):
             if line.startswith('msgstr "'):
                 shown.update(line[len('msgstr "'):].rstrip("\n").rstrip('"'))
     return sorted(ord(c) for c in shown if ord(c) not in core and c not in " \t")
+
+
+def korean_missing_characters(repo=REPO):
+    """Printable ko.po characters, all 2,350 common syllables and Jamo."""
+    font = read_cmap(os.path.join(repo, "wii", "font", "korean.ttf"))
+    with open(os.path.join(repo, "wii", "lang", "ko.po"), encoding="utf-8") as source:
+        wanted = {ord(char) for char in source.read() if char.isprintable()}
+    for lead in range(0xB0, 0xC9):
+        for trail in range(0xA1, 0xFF):
+            wanted.add(ord(bytes((lead, trail)).decode("euc_kr")))
+    for low, high in ((0x1100, 0x11FF), (0x3131, 0x318E), (0xA960, 0xA97C),
+                      (0xD7B0, 0xD7C6), (0xD7CB, 0xD7FB)):
+        wanted.update(range(low, high + 1))
+    with open(os.path.join(repo, "tools", "korean_title_chars.txt"), encoding="utf-8") as source:
+        for line in source:
+            if line.strip() and not line.startswith("#"):
+                wanted.update(int(point, 16) for point in line.split())
+    return sorted(wanted - font)
 
 
 def main():
@@ -160,7 +179,12 @@ def main():
         print("Japanese text uses %d character(s) in neither font: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
         sys.exit(1)
-    print("wii/font/core.ttf holds every character of the menu's text")
+    korean = korean_missing_characters()
+    if korean:
+        print("wii/font/korean.ttf lacks required characters: " +
+              ", ".join("U+%04X" % cp for cp in korean[:40]))
+        sys.exit(1)
+    print("The core and Korean fonts cover the menu's text")
 
 
 if __name__ == "__main__":
