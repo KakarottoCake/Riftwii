@@ -75,6 +75,12 @@ CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
 LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue
+# No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
+# libraries still carry. libgcc's unwinder here would find frames through
+# the list crtbegin.o registers (__register_frame_info), never through
+# that index (it needs dl_iterate_phdr, which a DOL has not), so its
+# 17 KiB sat in MEM1 unread (docs/MEMORY.md, "Linked out").
+LDFLAGS		+=	-Wl,--no-eh-frame-hdr
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project

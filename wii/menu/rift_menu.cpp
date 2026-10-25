@@ -3677,7 +3677,10 @@ static void ShowWhatsNewOnce(bool newCard)
 	for (unsigned char c : list) key = (key ^ c) * 16777619u;
 	unsigned seen = 0;
 	if (FILE* f = std::fopen(kMarker, "r")) {
-		if (std::fscanf(f, "%u", &seen) != 1) seen = 0;
+		// fgets and strtoul, not fscanf: RiftWii calls no scanf, which
+		// costs MEM1 (docs/MEMORY.md, "Linked out").
+		char text[16];
+		if (std::fgets(text, sizeof(text), f)) seen = static_cast<unsigned>(std::strtoul(text, nullptr, 10));
 		std::fclose(f);
 	}
 	if (seen == key) return;
