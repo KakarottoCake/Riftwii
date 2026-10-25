@@ -132,6 +132,10 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
     }
     std::size_t used = 0;
     headers = Headers{};
+    const auto too_big = [&] {
+        error = url.host + " sent more than the " + std::to_string(get.max_body) + " bytes RiftWii takes";
+        return false;
+    };
     for (;;) {
         if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) return too_slow();
         if (used == get.capacity) {
@@ -153,6 +157,11 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
         if (progress) progress(used);
         if (!headers.whole) ReadHeaders(get.buffer, used, headers);
         if (headers.whole) {
+            // A chunked body's framing makes it a little longer on the wire:
+            // that one is measured once it is put together, below.
+            if (get.max_body && (headers.has_length ? headers.length > get.max_body
+                                                    : !headers.chunked && used - headers.body_at > get.max_body))
+                return too_big();
             if (headers.has_length && used - headers.body_at >= headers.length) break;
             if (headers.chunked && used - headers.body_at >= 5 &&
                 std::memcmp(get.buffer + used - 5, "0\r\n\r\n", 5) == 0)
@@ -178,6 +187,7 @@ bool Exchange(const HttpUrl& url, MemoryGet& get, Headers& headers, std::string&
     } else {
         get.body_length = used - headers.body_at;
     }
+    if (get.max_body && get.body_length > get.max_body) return too_big();
     get.body_offset = headers.body_at;
     return true;
 }

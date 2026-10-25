@@ -6,6 +6,7 @@
 #include <ogc/gx.h>
 #include <zlib.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 
@@ -60,8 +61,9 @@ WorkParts g_parts;
 
 bool g_open = false;
 // The download's thread writes g_jobOk and g_jobError while g_running is
-// true; the menu thread reads them only once it is false.
-volatile bool g_running = false;
+// true; the menu thread reads them only once it is false and the thread is
+// joined. Atomic, so neither write can be moved after the flag's.
+std::atomic<bool> g_running{false};
 bool g_jobOk = false;
 std::string g_jobError;
 std::string g_url;
@@ -90,14 +92,10 @@ void RunDownload() {
     MemoryGet get;
     get.buffer = g_parts.raw;
     get.capacity = kRawBytes;
+    get.max_body = kRiiTagImageMaxBytes;
     get.tls_block = g_parts.tls;
     get.tls_bytes = TlsStream::memory_needed();
     if (!HttpGetInMemory(g_url, get, g_jobError, 20000)) {
-        g_running = false;
-        return;
-    }
-    if (get.body_length > kRiiTagImageMaxBytes) {
-        g_jobError = "the tag is bigger than RiftWii takes (1.5 MB)";
         g_running = false;
         return;
     }
@@ -191,6 +189,8 @@ bool Start(const std::string& id) {
 
 TagState Status(std::string& error) {
     if (g_state == TagState::Loading && !g_running) {
+        // Its last moments: the result is read once the thread has ended.
+        NetWaitForBackground();
         g_state = g_jobOk ? TagState::Ready : TagState::Failed;
         // A refresh rewrote the texture where GX may still cache the last one.
         if (g_jobOk) GX_InvalidateTexAll();
