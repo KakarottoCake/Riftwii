@@ -5917,9 +5917,11 @@ static std::size_t ShownPacks(const FrontendState& state, std::size_t* enabled =
 static const riftwii::wii::ImageGame* SelectedGcGame(const FrontendState& state);
 
 // `settingsOnly`: the Game settings page's rows (the picture, the language
-// and the rest), without the ones the game page has as tiles.
+// and the rest), without the ones the game page has as tiles. File details
+// are left blank and dimmed until the page has drawn: a slow card must
+// not hold up its first frame.
 static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows, std::vector<RowRef>& refs,
-	bool settingsOnly = false)
+	bool settingsOnly = false, bool readFiles = true)
 {
 	rows.clear();
 	refs.clear();
@@ -6037,10 +6039,14 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			FlowRow nand;
 			nand.kind = FlowRow::Kind::Option;
 			nand.label = tr("Boot from");
-			const ChannelCopies copies = CopiesOf(state);
-			nand.value = game.nand_source == "real" ? (copies.wii ? tr("Real NAND") : tr("Real NAND (not here)"))
-				: game.nand_source == "emu" ? (copies.emu ? tr("Emulated NAND") : tr("Emulated NAND (not here)"))
-				: tr("Automatic");
+			if (readFiles) {
+				const ChannelCopies copies = CopiesOf(state);
+				nand.value = game.nand_source == "real" ? (copies.wii ? tr("Real NAND") : tr("Real NAND (not here)"))
+					: game.nand_source == "emu" ? (copies.emu ? tr("Emulated NAND") : tr("Emulated NAND (not here)"))
+					: tr("Automatic");
+			} else {
+				nand.dim = true;
+			}
 			nand.on = game.nand_source != "auto";
 			add(nand, {RowRef::What::NandSource});
 		}
@@ -6073,7 +6079,10 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow cover;
 		cover.kind = FlowRow::Kind::Action;
 		cover.label = tr("Cover");
-		cover.value = riftwii::wii::CoverStored(state.game_id) ? tr("Download again") : tr("Download");
+		if (readFiles)
+			cover.value = riftwii::wii::CoverStored(state.game_id) ? tr("Download again") : tr("Download");
+		else
+			cover.dim = true;
 		add(cover, {RowRef::What::Cover});
 	}
 
@@ -10190,7 +10199,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 {
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
-	BuildGameRows(state, rows, refs, true);
+	BuildGameRows(state, rows, refs, true, false);
 
 	GuiText titleTxt(tr("Game settings"), 30, skin::kInk);
 	Place(titleTxt, 78, 28);
@@ -10227,6 +10236,26 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
 	mainWindow->Append(&w);
+	const u32 firstFrame = FrameTimer;
+	ResumeGui();
+	// FrameTimer advances after Menu_Render has presented the frame.
+	// Show the settings already in memory before touching the card.
+	while (FrameTimer == firstFrame) usleep(1000);
+
+	const auto refreshRows = [&] {
+		// Build into separate vectors while the GUI keeps drawing its own.
+		// Read fresh details on each refresh, including a cover that a
+		// download may have finished while this page was open.
+		ResumeGui();
+		std::vector<FlowRow> readyRows;
+		std::vector<RowRef> readyRefs;
+		BuildGameRows(state, readyRows, readyRefs, true);
+		HaltGui();
+		rows.swap(readyRows);
+		refs.swap(readyRefs);
+		list.Refresh();
+	};
+	refreshRows();
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
@@ -10405,8 +10434,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			if (changed) {
 				std::string error;
 				if (!SaveChoices(state, error)) say(error);
-				BuildGameRows(state, rows, refs, true);
-				list.Refresh();
+				refreshRows();
 				list.Select(acted);
 				shownRow = ref.what == RowRef::What::GcCard && riftwii::wii::is_wii_u() ? acted : -1;
 			}
