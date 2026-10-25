@@ -6084,6 +6084,9 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 					: game.nand_source == "emu" ? (copies.emu ? tr("Emulated NAND") : tr("Emulated NAND (not here)"))
 					: tr("Automatic");
 			} else {
+				// Not pressable until its copies are read (the rows are
+				// rebuilt once the page draws).
+				nand.kind = FlowRow::Kind::Info;
 				nand.dim = true;
 			}
 			nand.on = game.nand_source != "auto";
@@ -6120,8 +6123,11 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		cover.label = tr("Cover");
 		if (readFiles)
 			cover.value = riftwii::wii::CoverStored(state.game_id) ? tr("Download again") : tr("Download");
-		else
+		else {
+			// Not pressable until the stored cover is checked.
+			cover.kind = FlowRow::Kind::Info;
 			cover.dim = true;
+		}
 		add(cover, {RowRef::What::Cover});
 	}
 
@@ -10633,8 +10639,12 @@ static int MenuHome(FrontendState& state)
 		g_gamePageTiming.Shown();
 	}
 	// The mod warning may inspect enabled XML files and a replacement app.
-	// Its note can appear once the page is drawing.
-	statusTxt.SetText(ModsNote(state, scanStatus));
+	// Its note can appear once the page is drawing: worked out while the
+	// GUI draws, set with the GUI halted, as the GUI thread reads the text.
+	const std::string modsNote = ModsNote(state, scanStatus);
+	HaltGui();
+	statusTxt.SetText(modsNote);
+	ResumeGui();
 	// Downloads need no part of the first frame. Check their files with
 	// drawing running, once the page (or the continuing Start banner) is up.
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
