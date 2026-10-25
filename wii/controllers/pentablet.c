@@ -1203,6 +1203,14 @@ s32 TB_Init(void)
 {
 	if (tb_running)
 		return TB_OK;
+	/* A worker TB_Shutdown left stuck still runs on tb_stack: no second
+	 * one until it has returned. */
+	if (tb_thread != LWP_THREAD_NULL) {
+		if (!tb_exited)
+			return TB_ESTATE;
+		LWP_JoinThread(tb_thread, NULL);
+		tb_thread = LWP_THREAD_NULL;
+	}
 
 	if (!tb_mem) {
 		tb_mem = tb_alloc ? tb_alloc(sizeof(*tb_mem)) : memalign(32, sizeof(*tb_mem));
@@ -1242,13 +1250,15 @@ void TB_Shutdown(void)
 	/* The worker can be inside a libogc call with no deadline (opening a
 	 * USBV5 HID device reads its descriptors synchronously), and joining it
 	 * would then hang the caller.  Give it half a second; if it is still
-	 * stuck, leave it to the IOS reload that normally follows. */
+	 * stuck, leave it to the IOS reload that normally follows, and keep its
+	 * handle so TB_Init joins it before starting another. */
 	for (ms = 0; ms < 500 && !tb_exited; ms += 10)
 		usleep(10 * 1000);
-	if (tb_exited)
-		LWP_JoinThread(tb_thread, NULL);
-	else
+	if (!tb_exited) {
 		tb_log("  tablet thread did not stop\n");
+		return;
+	}
+	LWP_JoinThread(tb_thread, NULL);
 	tb_thread = LWP_THREAD_NULL;
 }
 

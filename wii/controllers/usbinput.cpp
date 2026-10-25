@@ -93,8 +93,10 @@ void Start() {
     if (!g_mouse_started) logf("USB mouse: libogc's driver did not start\n");
     TB_SetLog(TabletLog);
     TB_SetAlloc(TabletAlloc);
-    g_tablet_started = TB_Init() == TB_OK;
-    if (!g_tablet_started) logf("Pen tablet: its thread did not start\n");
+    const s32 tablet = TB_Init();
+    g_tablet_started = tablet == TB_OK;
+    if (tablet == TB_ESTATE) logf("Pen tablet: not started (an earlier scan is still waiting)\n");
+    else if (!g_tablet_started) logf("Pen tablet: its thread did not start\n");
 }
 
 // One line each time something is plugged in or taken out.

@@ -108,6 +108,9 @@ void TB_SetAlloc(void *(*alloc)(u32 bytes));
  * is plugged in.  A uDraw needs WPAD_Init, not this, but is read through the
  * calls below either way. */
 s32 TB_Init(void);
+/* Stops the thread, giving it half a second.  One that is still stuck in a
+ * read is left to the next IOS reload; TB_Init returns TB_ESTATE until it
+ * has returned. */
 void TB_Shutdown(void);
 
 /* A USB tablet is open, or a uDraw is reporting. */
