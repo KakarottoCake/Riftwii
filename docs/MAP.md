@@ -141,6 +141,7 @@ The build compiles every folder into one, so no two files share a name.
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
+| `packcatalog.cpp` | The pack text and code mod list shared by Home's scan and each game's page |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |

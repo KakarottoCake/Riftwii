@@ -136,13 +136,20 @@ if(BUILD_TESTING)
     add_executable(memorybudget_tests tests/memorybudget_tests.cpp wii/menu/memorybudget.cpp)
     target_include_directories(memorybudget_tests PRIVATE
         "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock" tests/memorybudget_mock
-        wii/menu wii/core wii/controllers wii/launch wii/storage
+        wii/menu wii/core wii/controllers wii/launch wii/storage wii/online
         runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-zstd)
     target_link_libraries(memorybudget_tests PRIVATE riftwii)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    add_executable(packcatalog_tests tests/packcatalog_tests.cpp wii/menu/packcatalog.cpp)
+    target_include_directories(packcatalog_tests PRIVATE wii/menu wii/core wii/launch wii/storage wii/online)
+    target_link_libraries(packcatalog_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(packcatalog_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME packcatalog COMMAND packcatalog_tests)
     # The installer's temporary NAND access must be restored on every exit.
     add_executable(installer_cios_tests tests/installer_cios_tests.cpp channel/installer/cios.cpp)
     target_include_directories(installer_cios_tests PRIVATE tests/installer_mock channel/installer)
