@@ -122,6 +122,13 @@ Japanese with RiftWii's font.
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
+Korean is supplied separately by `apps/riftwii/korean.ttf` (457 KiB,
+Noto Sans KR under OFL 1.1), never in the stash or the DOL. The external
+fonts share the existing 384 KiB MEM2 pool and FreeType library; opening
+the Korean face does not load its entire file or take a second pool.
+It is tried after the core and full fonts, and both streams close before
+unmounts. [KOREAN_FONT.md](KOREAN_FONT.md) records the measurements.
+
 The **start-up stash** keeps these files in `boot.dol`, so the DOL alone
 still works, but not in RiftWii's resident image. `tools/dol_stash.py` adds
 them after the link as one more DOL data section placed right above `.bss`,
