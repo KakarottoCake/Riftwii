@@ -112,6 +112,12 @@ bool NetStart(std::string& error, bool retry) {
         if (rc == -EAGAIN) usleep(100 * 1000);
     }
     if (rc < 0) {
+        // A job cancelled meanwhile leaves no failure behind: whoever
+        // starts the network next tries it for themselves.
+        if (cancelled()) {
+            error = "stopped before the network started";
+            return false;
+        }
         g_failed = true;
         error = "the network did not start (" + std::to_string(rc) +
                 "); check the connection in the Wii's Internet settings";
