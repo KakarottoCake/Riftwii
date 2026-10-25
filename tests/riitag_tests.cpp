@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <cstdint>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "riftwii/riitag.hpp"
 
@@ -49,10 +51,63 @@ static void test_key() {
     EXPECT_FALSE(valid_riitag_key(std::string(129, 'a')));
 }
 
+static void test_id() {
+    EXPECT_TRUE(valid_riitag_id("1202176528943681576"));
+    EXPECT_TRUE(valid_riitag_id("123456789012345"));
+    EXPECT_FALSE(valid_riitag_id(""));
+    EXPECT_FALSE(valid_riitag_id("12345678901234"));          // too short for a Discord ID
+    EXPECT_FALSE(valid_riitag_id("123456789012345678901"));   // too long
+    EXPECT_FALSE(valid_riitag_id("12345678901234567a"));
+    EXPECT_FALSE(valid_riitag_id("../12345678901234567"));
+    EXPECT_EQ(riitag_image_url("1202176528943681576"),
+              std::string("https://riitag.t0g3pii.de/1202176528943681576/tag.max.png"));
+    EXPECT_EQ(riitag_image_url("x"), std::string(""));
+}
+
+static void test_fit() {
+    // 4 x 2 opaque red halved into 2 x 1: still red, still opaque.
+    std::vector<std::uint8_t> red(4 * 2 * 4);
+    for (std::size_t i = 0; i < red.size(); i += 4) {
+        red[i] = 255;
+        red[i + 3] = 255;
+    }
+    std::vector<std::uint8_t> out(2 * 1 * 4, 7);
+    fit_rgba_into(red.data(), 4, 2, out.data(), 2, 1);
+    EXPECT_EQ(int(out[0]), 255);
+    EXPECT_EQ(int(out[1]), 0);
+    EXPECT_EQ(int(out[3]), 255);
+    EXPECT_EQ(int(out[7]), 255);
+
+    // A transparent black pixel beside an opaque white one: white at half
+    // alpha, not grey.
+    const std::uint8_t pair[] = {0, 0, 0, 0, 255, 255, 255, 255};
+    std::uint8_t one[4] = {};
+    fit_rgba_into(pair, 2, 1, one, 1, 1);
+    EXPECT_EQ(int(one[0]), 255);
+    EXPECT_EQ(int(one[3]), 127);
+
+    // The menu's box has tag.max.png's shape, so the tag is never stretched.
+    EXPECT_EQ(kRiiTagShownWidth * 450, kRiiTagShownHeight * 1200);
+    // 1200 x 450 into the menu's box fills it edge to edge (same shape),
+    // and a square one is centred with transparent sides.
+    std::vector<std::uint8_t> tag(1200u * 450u * 4u, 255);
+    std::vector<std::uint8_t> shown(kRiiTagShownWidth * kRiiTagShownHeight * 4);
+    fit_rgba_into(tag.data(), 1200, 450, shown.data(), kRiiTagShownWidth, kRiiTagShownHeight);
+    EXPECT_EQ(int(shown[3]), 255);
+    EXPECT_EQ(int(shown[shown.size() - 1]), 255);
+    std::vector<std::uint8_t> square(8 * 8 * 4, 255);
+    std::vector<std::uint8_t> boxed(16 * 8 * 4, 9);
+    fit_rgba_into(square.data(), 8, 8, boxed.data(), 16, 8);
+    EXPECT_EQ(int(boxed[3]), 0);                    // left edge: transparent
+    EXPECT_EQ(int(boxed[8 * 4 + 3]), 255);          // first row, middle: the picture
+}
+
 int main() {
     test_parse();
     test_url();
     test_key();
+    test_id();
+    test_fit();
     if (g_failures == 0) {
         std::cout << "ALL RIITAG TESTS PASSED" << std::endl;
         return 0;

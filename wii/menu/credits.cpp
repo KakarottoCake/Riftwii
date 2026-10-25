@@ -71,6 +71,9 @@ const char* const kCredits[] = {
     "WiiLink WFC, wfc-patcher-wii (GPL-2.0-or-later): WiiLink online play. Online communications credit "
     "to WiiLink WFC, wfc.wiilink.ca.",
     "",
+    "wad2bin and Yet Another BlueDump Mod by DarkMatterCore (GPL-3.0): the layout of the content.bin the Wii "
+    "Menu writes when it moves a channel to the SD card.",
+    "",
     "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
     "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md).",
     "",
@@ -98,6 +101,8 @@ const char* const kCredits[] = {
     "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
+    "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
     "",
     "Korean translation: DDinghoya. French translation: MidyGamy.",
