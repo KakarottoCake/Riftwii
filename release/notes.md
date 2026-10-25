@@ -16,22 +16,31 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** A small update: a fix for Virtual Console and WiiWare games in an emulated NAND on the SD card that would not start on a Wii U. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Korean menus on any Wii, WiiWare and Virtual Console games the Wii Menu moved to the SD card, your RiiTag in Settings, and a game's Settings page that opens at once. Every RiftWii offers this update by itself (Settings > Check for a new version).
+
+![RiftWii's Settings in Korean]({{SCREENSHOTS}}2610-korean-settings.png)
 
 ## What changed
 
-- **Virtual Console and WiiWare games in an emulated NAND** (for example `sd:/nands/01`) that stopped with "ES would not run it as its own title" on every cIOS: when the Wii's system refuses the game's own ticket, RiftWii now tries again with a generic one on the same cIOS, as USB Loader GX does, before moving on. Reported with Super Mario 64 and Cruis'n USA on a Wii U. Not tested on a console yet: please try it if your games stopped this way.
-- **Check for a new version** reads the release information more strictly, so a damaged reply can't confuse it.
+- **Korean menus on any Wii or Wii U.** Until now Korean text only showed with a Korean Wii's own menu font. RiftWii now brings its own: a small, cut-down copy of Noto Sans KR (free license, credited in Settings > Credits), in `apps/riftwii/korean.ttf` beside RiftWii and read from the SD card only when Korean text is on screen. Updating from the menu puts it in place by itself; if you copy RiftWii by hand, copy `korean.ttf` and its license too. Without the file, the menu shows in English and the log says which file to copy.
+- **A game's Settings page opens at once.** Pressing Settings on a game's banner screen used to lock the menu for a few seconds (the banner and its music kept playing) while RiftWii read every mod pack on the SD card again. It now uses what Home already read: in a test with 48 packs and a card as slow as a real SD card, from almost 10 seconds to a fifth of a second. Problem reports now say how long the page took to open.
+- **WiiWare and Virtual Console games the Wii Menu moved to the SD card** (Data Management > Channels > Move) show on Home again and start. As the Wii Menu does, RiftWii copies the game back to the Wii for the session (you need that much free space on the Wii) and removes the copy the next time RiftWii starts. A card from another Wii works with that Wii's BootMii `keys.bin` at `sd:/keys.bin`. Checked in Dolphin with the real Wii Menu doing the move; not yet on a real console. Thanks to quatric.
+- **See your RiiTag on the TV:** put your Discord ID in `sd:/riftwii/settings.txt` as `riitag_id = <your ID>`, and Settings > Online > My RiiTag downloads your tag and shows it (the Guide says how to find the ID). Thanks to quatric.
+- **45 KiB more free memory** for the menu and games, with nothing you can see. Thanks to grantendo.
+- **From 2610-697:** Virtual Console and WiiWare games in an emulated NAND that the Wii refused to start now try again with a generic ticket. If you had one that wouldn't start, please try it again.
 
 ## What to test
 
-1. **A Virtual Console or WiiWare game from an emulated NAND on the SD card**, especially on a Wii U, and especially one that would not start in 2610-693. Send a problem report either way: it now says which ticket the system accepted.
+1. **Korean:** set the menu to Korean (Settings > Language) and look around Home, Settings and a game's page. Korean Wii owners: also try it with Settings > Menu font set to the Wii Menu's.
+2. **A game's Settings page:** press Settings on a few games' banner screens, with your usual SD card full of mods. It should open right away. A problem report afterwards shows the time it took.
+3. **A WiiWare or VC game moved to the SD card** with the Wii Menu: does it show on Home and start? Start RiftWii again afterwards (it removes the copy). A problem report shows the copying and the cleanup.
+4. **My RiiTag** (Settings > Online), if you have a RiiTag.
+5. **VC and WiiWare from an emulated NAND**, if one didn't start before 2610-697.
 
 ## Known issues
 
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
 - **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
-- **The RiftWii channel freezes on some vWii consoles** (#228). Channel 14, which RiftWii offers on a vWii, shows the step it stops at; please send what the screen says.
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
 - **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
 - **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
