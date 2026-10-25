@@ -350,6 +350,10 @@ the tiles.
   (a game's own page has **Rumble** for that game alone). In a GameCube
   game a Wii Remote rumbles when the game rumbles the port it plays on, and
   stops when the game stops it, leaves or crashes.
+- **USB keyboard, mouse and tablet** (on at first): a USB keyboard, a USB
+  mouse, a USB pen tablet or a uDraw GameTablet works the menu as player 1.
+  *Off* leaves them all alone; turn it off if the menu acts up with one
+  plugged in, or with none, and say so in a problem report.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).

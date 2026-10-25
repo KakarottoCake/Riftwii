@@ -103,6 +103,14 @@ void TB_SetLog(int (*print)(const char *fmt, ...));
  * for good); memalign when none is named. */
 void TB_SetAlloc(void *(*alloc)(u32 bytes));
 
+/* RiftWii: whether the three wrappers above do their part (on until told
+ * otherwise).  Off, each one only calls libogc's own function: no uDraw is
+ * recognised, wiiuse's stalled commands are not sent again and the HID lists
+ * are not filtered, as before the wrappers were linked.  The menu's "USB
+ * keyboard, mouse and tablet" setting (usb_input) turns them off with the drivers.
+ * A uDraw recognised while they were on stays recognised until unplugged. */
+void TB_SetHooks(bool on);
+
 /* Starts the thread that finds and reads the tablet.  Calls USB_Initialize
  * itself.  Not finding a tablet is not an error: it is picked up whenever one
  * is plugged in.  A uDraw needs WPAD_Init, not this, but is read through the

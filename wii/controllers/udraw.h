@@ -8,6 +8,9 @@
 
 #include "pentablet.h"
 
+/* TB_SetHooks: off, the wiiuse wrappers only call wiiuse. */
+extern volatile bool tb_hooks_on;
+
 bool tb_udraw_pop(tb_sample *out);
 bool tb_udraw_state(tb_sample *out);
 bool tb_udraw_info(tb_info *info);

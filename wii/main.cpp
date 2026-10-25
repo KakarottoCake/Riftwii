@@ -472,6 +472,9 @@ int main() {
     InitVideo();
     // Logged either side: with four Wii Remotes connected the menu froze on a
     // Wii (#138), and the last line of the log names how far it got.
+    // Before WPAD_Init: off, the uDraw's wrappers in wiiuse stay out of
+    // the way from the first Remote on.
+    riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
     riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
     riftwii::wii::logf("Pads: started\n");

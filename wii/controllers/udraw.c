@@ -93,7 +93,7 @@ static u32 now_ms(void)
 int __wrap_classic_ctrl_handshake(struct wiimote_t *wm, struct classic_ctrl_t *cc, ubyte *data, uword len)
 {
 	/* the ID is the last six bytes of the 224 read from 0xa40020 */
-	if (data && len >= 224 && !memcmp(data + 218, udraw_id, sizeof(udraw_id))) {
+	if (tb_hooks_on && data && len >= 224 && !memcmp(data + 218, udraw_id, sizeof(udraw_id))) {
 		u32 level;
 		wm->exp.type = EXP_UDRAW;
 		if (wm->unid >= 0 && wm->unid < CHANNELS) {
@@ -129,7 +129,9 @@ static void resend_stalled(struct wiimote_t *wm)
 
 	if (i < 0 || i >= WIIMOTES)
 		return;
-	if (!cmd || cmd->state != CMD_SENT) {
+	/* Off (TB_SetHooks), the command's wait is not timed: turned on again,
+	 * timing starts afresh. */
+	if (!tb_hooks_on || !cmd || cmd->state != CMD_SENT) {
 		ud_sent[i].cmd = NULL;
 		return;
 	}

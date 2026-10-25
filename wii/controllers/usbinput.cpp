@@ -30,6 +30,7 @@ constexpr float kRemoteMove = 40.0f;
 constexpr float kPenMove = 4.0f;
 
 bool g_allowed = false;  // UsbInputMenuAllowStart
+bool g_enabled = true;   // UsbInputSetEnabled
 bool g_ended = false;    // UsbInputMenuEnd
 bool g_started = false;
 bool g_mouse_started = false;
@@ -332,6 +333,12 @@ void UDraws() {
 
 void UsbInputMenuAllowStart() { g_allowed = true; }
 
+void UsbInputSetEnabled(bool on) {
+    if (on != g_enabled) logf("USB keyboard, mouse and pen tablet: turned %s in Settings\n", on ? "on" : "off");
+    g_enabled = on;
+    TB_SetHooks(on);
+}
+
 void UsbInputStop() {
     if (!g_started) return;
     g_started = false;
@@ -362,7 +369,10 @@ void UsbInputMenuEnd() {
 void UsbInputIosReloaded() { UsbKeyboardIosReloaded(); }
 
 void UsbInputBeforePointers() {
-    if (!g_started && g_allowed && !g_ended) Start();
+    // Stopped here, on the GUI thread that reads them, not where the
+    // setting changed.
+    if (g_started && !g_enabled) UsbInputStop();
+    if (!g_started && g_allowed && !g_ended && g_enabled) Start();
     g_pad_pressed = 0;
     g_pages = 0;  // a page asked for while Home was not shown is not turned later
     if (!g_started) return;

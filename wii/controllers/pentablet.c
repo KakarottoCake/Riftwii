@@ -116,6 +116,11 @@ void TB_SetLog(int (*print)(const char *fmt, ...)) { tb_logger = print; }
 
 void TB_SetAlloc(void *(*alloc)(u32 bytes)) { tb_alloc = alloc; }
 
+/* Read in interrupt context by the wiiuse wrappers (udraw.c). */
+volatile bool tb_hooks_on = true;
+
+void TB_SetHooks(bool on) { tb_hooks_on = on; }
+
 typedef struct {
 	volatile bool done;
 	volatile bool pending;
@@ -688,7 +693,7 @@ s32 __wrap_USB_GetDeviceList(usb_device_entry *list, u8 max, u8 cls, u8 *count)
 	s32 ret = __real_USB_GetDeviceList(list, max, cls, count);
 	u8 i, kept = 0;
 
-	if (ret < 0 || !list || !count)
+	if (!tb_hooks_on || ret < 0 || !list || !count)
 		return ret;
 	for (i = 0; i < *count; i++) {
 		u16 vid = list[i].vid, pid = list[i].pid;

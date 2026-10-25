@@ -11571,7 +11571,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -11642,6 +11642,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		gcTest.value = tr("Test");
 		rows.push_back(gcTest);
 		actions.push_back(kGcTest);
+		option(tr("USB keyboard, mouse and tablet"), settings.usb_input == "off" ? tr("Off") : tr("On"),
+			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
@@ -11837,7 +11839,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Picture;
 				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
 					return SettingsSection::Games;
-				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
+				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
@@ -11972,6 +11974,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kUsbInput: return tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -12447,6 +12450,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kWiiRumble:
 					settings.wiimote_rumble = settings.wiimote_rumble == "off" ? "on" : "off";
 					saveAndNote(tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."));
+					rebuild();
+					break;
+				case kUsbInput:
+					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
+					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
+					saveAndNote(tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."));
 					rebuild();
 					break;
 				case kGcAdapter: {

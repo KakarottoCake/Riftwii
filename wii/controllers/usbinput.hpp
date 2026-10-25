@@ -25,6 +25,12 @@
 //    the drawing area, the tip as A and the lower rocker as B.
 namespace riftwii::wii {
 
+// The "USB keyboard, mouse and tablet" setting (usb_input). Off, the
+// drivers stop at the next frame and don't start, and the libogc wrappers
+// they need only call libogc (TB_SetHooks), so a tester whose menu misbehaves
+// with them can turn them all off. main sets it before the Wii Remotes start.
+void UsbInputSetEnabled(bool on);
+
 // The menu's first drive scan is over: the drivers may start (their USB
 // traffic waits, as the adapter's does: GcAdapterMenuAllowStart).
 void UsbInputMenuAllowStart();
