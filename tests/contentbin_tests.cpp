@@ -188,6 +188,16 @@ void test_bootmii_keys() {
     EXPECT_TRUE(!parse_bootmii_keys(keys.data(), 0x150, key));
     std::vector<std::uint8_t> blank(0x400, 0);
     EXPECT_TRUE(!parse_bootmii_keys(blank.data(), blank.size(), key));
+
+    // Dolphin's default console: a real console ID with an all-zero PRNG key.
+    std::vector<std::uint8_t> dolphin(0x400, 0);
+    std::memcpy(dolphin.data(), header, sizeof header - 1);
+    put32(dolphin.data() + 0x100 + 0x24, kConsoleId);
+    BackupKey zero_key;
+    EXPECT_TRUE(parse_bootmii_keys(dolphin.data(), dolphin.size(), zero_key));
+    EXPECT_EQ(zero_key.console_id, kConsoleId);
+    const std::uint8_t zeros[16] = {};
+    EXPECT_TRUE(std::memcmp(zero_key.prng, zeros, 16) == 0);
 }
 
 void test_matches_tmd() {
