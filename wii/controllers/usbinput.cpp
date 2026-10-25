@@ -34,6 +34,7 @@ bool g_ended = false;    // UsbInputMenuEnd
 bool g_started = false;
 bool g_mouse_started = false;
 bool g_tablet_started = false;
+bool g_tablet_waiting = false;  // TB_Init refused: an earlier scan was still stuck
 
 // What the logs said last, so each change is one line.
 bool g_said_keyboard = false, g_said_mouse = false, g_said_tablet = false;
@@ -84,6 +85,17 @@ int TabletLog(const char* format, ...) {
 // The tablet driver's buffers, in MEM2: MEM1 is the heap's.
 void* TabletAlloc(u32 bytes) { return skin::Mem2Alloc(bytes); }
 
+// Starts the tablet driver. While an earlier, stuck scan has not returned,
+// TB_Init refuses, and each frame tries again until it has.
+void StartTablet() {
+    const s32 tablet = TB_Init();
+    g_tablet_started = tablet == TB_OK;
+    if (g_tablet_started && g_tablet_waiting) logf("Pen tablet: the earlier scan returned, started\n");
+    else if (tablet == TB_ESTATE && !g_tablet_waiting) logf("Pen tablet: not started yet (an earlier scan is still waiting)\n");
+    else if (!g_tablet_started && tablet != TB_ESTATE) logf("Pen tablet: its thread did not start\n");
+    g_tablet_waiting = tablet == TB_ESTATE;
+}
+
 void Start() {
     g_started = true;
     if (UsbKeyboardStart()) logf("USB keyboard: looking for one\n");
@@ -93,10 +105,7 @@ void Start() {
     if (!g_mouse_started) logf("USB mouse: libogc's driver did not start\n");
     TB_SetLog(TabletLog);
     TB_SetAlloc(TabletAlloc);
-    const s32 tablet = TB_Init();
-    g_tablet_started = tablet == TB_OK;
-    if (tablet == TB_ESTATE) logf("Pen tablet: not started (an earlier scan is still waiting)\n");
-    else if (!g_tablet_started) logf("Pen tablet: its thread did not start\n");
+    StartTablet();
 }
 
 // One line each time something is plugged in or taken out.
@@ -331,6 +340,7 @@ void UsbInputStop() {
     g_mouse_started = false;
     if (g_tablet_started) TB_Shutdown();
     g_tablet_started = false;
+    g_tablet_waiting = false;
     g_owner = Owner::None;
     g_keyboard_held = 0;
     g_mouse_buttons = g_tablet_buttons = 0;
@@ -356,6 +366,7 @@ void UsbInputBeforePointers() {
     g_pad_pressed = 0;
     g_pages = 0;  // a page asked for while Home was not shown is not turned later
     if (!g_started) return;
+    if (g_tablet_waiting) StartTablet();
     LogChanges();
     KeyboardToPad();
 }
