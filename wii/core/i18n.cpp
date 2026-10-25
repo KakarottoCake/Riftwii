@@ -6,6 +6,7 @@
 
 #include "FreeTypeGX.h"
 #include "gettext.h"
+#include "fullfont.hpp"
 #include "log.hpp"
 #include "riftwii/langfile.hpp"
 #include "stash.hpp"
@@ -38,6 +39,9 @@ std::string Unpack(const char* lang) {
 
 }  // namespace
 
+const char* const kKoreanNeedsFont =
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.";
+
 void SetMenuLanguage(const std::string& lang) {
     g_catalog.clear();
     std::size_t built_in = 0;
@@ -53,7 +57,7 @@ void SetMenuLanguage(const std::string& lang) {
 }
 
 bool MenuLanguageDrawable(const std::string& lang) {
-    return lang != "ko" || FontHasChar(0xD55C);  // 한
+    return lang != "ko" || FontHasChar(0xD55C) || fullfont::HasKoreanCharacters();  // 한
 }
 
 const char* tr(const char* english) {

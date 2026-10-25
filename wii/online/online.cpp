@@ -615,7 +615,7 @@ bool PluginFileAllowed(const std::string& path) {
 }
 
 bool AppsFileAllowed(const std::string& path) {
-    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || path == kMenuFontFile ||
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || is_menu_font_file(path) ||
            PluginFileAllowed(path);
 }
 
@@ -633,8 +633,10 @@ std::string PluginTargetDirectory() {
 // (PluginTargetDirectory) and the menu font, which go beside the running
 // boot.dol when that is on the SD card.
 std::string AppsFileTarget(const std::string& path) {
-    if (path == kMenuFontFile) {
-        const std::string beside = fullfont::FullFontPath();
+    if (is_menu_font_file(path)) {
+        const std::string full = fullfont::FullFontPath();
+        const std::string filename = path.substr(path.rfind('/') + 1);
+        const std::string beside = full.substr(0, full.rfind('/') + 1) + filename;
         return beside.compare(0, 4, "sd:/") == 0 ? beside : "sd:/apps/" + path;
     }
     if (!PluginFileAllowed(path)) return "sd:/apps/" + path;
