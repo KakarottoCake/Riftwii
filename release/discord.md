@@ -17,13 +17,22 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-A small fix for Virtual Console and WiiWare games in an emulated NAND on the SD card:
+Korean menus, SD card channels, RiiTag and a faster game Settings page:
 
-* Games that stopped with "ES would not run it as its own title" on every cIOS (seen with Super Mario 64 and Cruis'n USA on a Wii U): RiftWii now retries with a generic ticket, as USB Loader GX does
-* Check for a new version reads the release info more strictly
+* Korean menus on any Wii or Wii U: RiftWii now brings its own small Korean font (korean.ttf beside RiftWii; updating from the menu adds it for you)
+* Pressing Settings on a game's banner screen no longer locks the menu for a few seconds: it reuses what Home already read instead of rereading every mod on the SD card
+* WiiWare/VC games the Wii Menu moved to the SD card show on Home and start (RiftWii copies them back to the Wii for the session)
+* Settings > Online > My RiiTag shows your RiiTag (add riitag_id = <your Discord ID> to settings.txt)
+* From 2610-697: VC and WiiWare from an emulated NAND that wouldn't start try again with a generic ticket
 
 To test, please:
 
-1. Start a VC or WiiWare game from your emulated NAND, especially one that wouldn't start in 2610-693
+1. Set the menu to Korean (Settings > Language) and look around
+2. Press Settings on a few games' banner screens with your usual SD card: it should open right away
+3. A WiiWare/VC game moved to the SD card with the Wii Menu: start it from RiftWii, then restart RiftWii
+4. My RiiTag, if you have one
+5. Any VC or WiiWare game from your emulated NAND that didn't start before
 
-Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested. The report now says which ticket the system took.
+Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
+
+![RiftWii in Korean](docs/screenshots/2610-korean-settings.png)
