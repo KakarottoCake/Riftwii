@@ -577,12 +577,11 @@ void UnstageMovedChannels() {
         logf("Wii channels: the Wii's memory could not be opened; the SD card channels' copies are removed next time\n");
         return;
     }
-    const bool opened = open_nand_permissions("SD card channels");
-    if (!opened) {
-        NandClose();
-        logf("Wii channels: the SD card channels' copies could not be reached; they are removed next time\n");
-        return;
-    }
+    // Tried without the opened check too, as staging is: an IOS that lets
+    // RiftWii write the copies (Dolphin's has no check to open) lets it
+    // remove them, and one that refuses keeps each path for next time.
+    if (!open_nand_permissions("SD card channels"))
+        logf("Wii channels: removing the SD card channels' copies without the NAND permission check opened\n");
     unsigned removed = 0, kept = 0;
     std::vector<std::string> left;
     // The content.bin of the title the last paths were under, opened once.

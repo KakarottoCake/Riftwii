@@ -39,6 +39,7 @@ s32 nand_result = 0;
 s32 delete_result = 0;
 bool fail_rename = false;
 bool have_key = true;
+bool permission_check_found = true;
 u8 nand_attribute = 0x52;
 s32 attr_result = 0;
 unsigned create_calls = 0;
@@ -79,6 +80,7 @@ void reset_files() {
     delete_result = 0;
     fail_rename = false;
     have_key = true;
+    permission_check_found = true;
     nand_attribute = 0x52;
     attr_result = 0;
     create_calls = 0;
@@ -222,6 +224,24 @@ void test_nand_failures_keep_list() {
 
     nand_result = 0;
     delete_result = -1;
+    UnstageMovedChannels();
+    CHECK(read_file(kList) == first_path + "\n");
+}
+
+void test_cleanup_without_permission_patch() {
+    // An IOS without the check to open (Dolphin's) still lets RiftWii remove
+    // the copies it was let write; one that refuses keeps them listed.
+    reset_files();
+    make_card_file();
+    write_file(kList, first_path + "\n");
+    permission_check_found = false;
+    UnstageMovedChannels();
+    CHECK(deleted == std::vector<std::string>{first_path});
+    CHECK(!fs::exists(kList));
+
+    write_file(kList, first_path + "\n");
+    deleted.clear();
+    delete_result = -102;  // ISFS_EPERM
     UnstageMovedChannels();
     CHECK(read_file(kList) == first_path + "\n");
 }
@@ -399,7 +419,7 @@ s32 ISFS_Write(s32, const void*, u32) { return -1; }
 namespace riftwii::wii {
 s32 NandOpen() { return nand_result; }
 void NandClose() {}
-bool open_nand_permissions(const char*) { return true; }
+bool open_nand_permissions(const char*) { return permission_check_found; }
 void close_nand_permissions(const char*) {}
 void logf(const char*, ...) {}
 bool ConsoleBackupKey(BackupKey& out) {
@@ -415,6 +435,7 @@ int main() {
     test_damaged_card_keeps_copy();
     test_staging_checks_nand_files();
     test_nand_failures_keep_list();
+    test_cleanup_without_permission_patch();
     test_rewrite_failure_keeps_both_lists();
     test_merge_and_legacy_overflow();
     test_ready_publication_recovery();
