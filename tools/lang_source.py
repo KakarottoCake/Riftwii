@@ -6352,6 +6352,22 @@ NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
 
 
+# Korean's separate font may be missing; the fallback catalog is English.
+T.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": (
+        "El menú está en inglés: copia apps/riftwii/korean.ttf del zip de RiftWii a la tarjeta SD y elige la fuente de RiftWii, o usa la fuente del Menú de Wii en una Wii coreana.",
+        "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。",
+        "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano.",
+        "Il menu è in inglese: copia apps/riftwii/korean.ttf dallo zip di RiftWii sulla scheda SD e scegli il carattere di RiftWii, oppure usa il carattere del Menu Wii su una Wii coreana."),
+})
+KO.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "메뉴가 영어로 표시됩니다. RiftWii zip의 apps/riftwii/korean.ttf를 SD 카드에 복사하고 RiftWii 메뉴 글꼴을 선택하거나, 한국 Wii에서 Wii 메뉴 글꼴을 사용하세요.",
+})
+FR.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne.",
+})
+
+
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -6796,7 +6812,7 @@ FR.update({
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
@@ -6883,6 +6899,12 @@ def main():
     if japanese:
         print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
+        raise SystemExit(1)
+
+    korean = menu_font_chars.korean_missing_characters()
+    if korean:
+        print("wii/font/korean.ttf lacks required characters: " +
+              ", ".join("U+%04X" % cp for cp in korean[:40]))
         raise SystemExit(1)
 
 

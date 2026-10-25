@@ -3012,6 +3012,9 @@ msgstr "Primeiro coloque o cartão SD de volta."
 msgid "The SD card is back in. Reading it again."
 msgstr "O cartão SD está de volta. Lendo novamente."
 
+msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
+msgstr "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano."
+
 msgid "Channel background"
 msgstr "Fundo dos canais"
 

@@ -45,6 +45,9 @@ REQUIRED_PLUGINS = ("gamecube",)
 # The full menu font (wii/menu/fullfont.hpp): the in-app update writes it
 # next to the new DOL with the plugins, before the DOL.
 MENU_FONT = "riftwii/font.ttf"
+KOREAN_FONT = "riftwii/korean.ttf"
+KOREAN_LICENSE = "riftwii/Korean-OFL.txt"
+FONT_FILES = (MENU_FONT, KOREAN_FONT, KOREAN_LICENSE)
 
 
 def fail(message):
@@ -112,7 +115,7 @@ def apps_part(zip_path):
     count = 0
     found = set()
     plugins = {}
-    font = None
+    fonts = {}
     with zipfile.ZipFile(zip_path) as z:
         for info in sorted(z.infolist(), key=lambda i: i.filename):
             if info.is_dir() or not info.filename.startswith(APPS):
@@ -121,8 +124,8 @@ def apps_part(zip_path):
             if path.startswith(PLUGINS):
                 plugins[path[len(PLUGINS):]] = z.read(info)
                 continue
-            if path == MENU_FONT:
-                font = z.read(info)
+            if path in FONT_FILES:
+                fonts[path] = z.read(info)
                 continue
             if not (path.startswith("riftwii_channel/") or path == "riftwii/icon.png"):
                 continue
@@ -155,10 +158,14 @@ def apps_part(zip_path):
             fail("the zip has no %s%s%s.<version>.rwp, which its boot.dol needs" % (APPS, PLUGINS, needed))
     # A TrueType font ("\0\1\0\0"), after the plugins: the update writes
     # both before the DOL.
-    if font is None or font[:4] != b"\x00\x01\x00\x00":
-        fail("the zip has no TrueType %s%s, which its boot.dol needs" % (APPS, MENU_FONT))
-    parts.append(file_entry(MENU_FONT, font))
-    count += 1
+    for path in FONT_FILES:
+        data = fonts.get(path)
+        if data is None or not data:
+            fail("the zip has no %s%s, which its boot.dol needs" % (APPS, path))
+        if path.endswith(".ttf") and data[:4] != b"\x00\x01\x00\x00":
+            fail("the zip's %s%s is not TrueType" % (APPS, path))
+        parts.append(file_entry(path, data))
+        count += 1
     parts.extend(others)
     # The installer the channel prompt runs, by name: three files of any
     # kind used to be enough.

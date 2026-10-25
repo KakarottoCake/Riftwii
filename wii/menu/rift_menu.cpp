@@ -12064,10 +12064,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					riftwii::wii::SetMenuLanguage(drawable ? lang : "en");
 					namesStale = true;  // fetched once, on the way out
 					titleTxt.SetText(SectionName(section).c_str());
-					// Korean is drawn only by the Wii Menu's font of a Korean
-					// Wii: said in English, which every font has.
+					// With no Hangul source the catalog above is English, so
+					// the player can still read how to copy the font.
 					if (error.empty() && !drawable)
-						note(riftwii::wii::kKoreanNeedsFont);
+						note(tr(riftwii::wii::kKoreanNeedsFont));
 					else
 						note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
 					rebuild();

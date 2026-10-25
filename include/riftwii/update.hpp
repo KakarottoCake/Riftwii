@@ -61,12 +61,19 @@ struct UpdateWrite {
 // own plugins and never a new DOL without its plugins. Every plugin must
 // be of `release` (the release's tag; a leading 'v' is not part of the
 // version): one of another version would be written for a DOL that is not
-// coming. The full menu font (kMenuFontFile, wii/menu/fullfont.hpp) follows
-// the plugins, as font.ttf in `dol_path`'s folder: the new DOL's core font
-// needs it. The rest of the apps part is left to the new DOL's first start.
+// coming. Both external menu fonts and their license follow the plugins,
+// in `dol_path`'s folder. The rest of the apps part waits for the new DOL's
+// first start.
 // False, with `error`, and nothing to write, otherwise.
 // The apps part's name for the full menu font (tools/make_update_pack.py).
 constexpr const char* kMenuFontFile = "riftwii/font.ttf";
+constexpr const char* kKoreanFontFile = "riftwii/korean.ttf";
+constexpr const char* kKoreanFontLicense = "riftwii/Korean-OFL.txt";
+
+// Fonts and their license go beside the DOL, before the new DOL is written.
+inline bool is_menu_font_file(const std::string& path) {
+    return path == kMenuFontFile || path == kKoreanFontFile || path == kKoreanFontLicense;
+}
 
 bool plan_update_writes(const ThemePack& apps, const std::string& release, const std::string& plugin_dir,
                         const std::string& dol_path, std::vector<UpdateWrite>& out, std::string& error);
