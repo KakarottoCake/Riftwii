@@ -153,6 +153,10 @@ void write_staged(const std::vector<std::string>& paths) {
         std::remove(kStagedOld);
         return;
     }
+    // After an interrupted rewrite, each list can hold paths the other
+    // lacks. Keep both until cleanup finishes rather than discard either
+    // before a replacement has been published.
+    if (file_exists(kStagedList) && file_exists(kStagedOld)) return;
     FILE* list = std::fopen(kStagedNew, "wb");
     bool wrote = list != nullptr;
     for (const std::string& path : paths) {
@@ -167,7 +171,6 @@ void write_staged(const std::vector<std::string>& paths) {
     // The card's file system renames only onto a name not in use.
     const bool had_list = file_exists(kStagedList);
     if (had_list) {
-        std::remove(kStagedOld);  // read with the list this start: in `paths` if still needed
         if (std::rename(kStagedList, kStagedOld) != 0) {
             std::remove(kStagedNew);
             return;
@@ -485,14 +488,11 @@ void UnstageMovedChannels() {
     std::uint64_t open_title = 0;
     bool tried = false;
     std::unique_ptr<MovedChannel> moved;
-    bool on_card = false;
     for (const std::string& path : paths) {
         std::uint64_t title_id = 0;
         std::uint32_t content_id = 0;
-        // Only contents staging copies: those the content.bin of a channel
-        // still on the card includes. Anything else in the list was not
-        // written by RiftWii, or the Wii Menu has since moved that channel
-        // back to the Wii for good.
+        // Only exact paths of contents staging can copy. Other entries in
+        // the card's list cannot authorize removing a NAND file.
         if (!parse_staged_content_path(path, title_id, content_id)) {
             ++kept;
             continue;
@@ -517,17 +517,16 @@ void UnstageMovedChannels() {
             open_title = title_id;
             moved.reset(new (std::nothrow) MovedChannel());
             const std::string file = moved_channel_file(channel_code(title_id));
-            on_card = !file.empty();
             std::string why;
-            if (moved && (!on_card || !moved->open(file, title_id, why))) moved.reset();
+            if (moved && (file.empty() || !moved->open(file, title_id, why))) moved.reset();
         }
-        // The card's file is there but cannot be checked now (no key, out
-        // of memory, damaged): kept in the list for the next start.
-        if (on_card && !moved) {
+        // A missing or unreadable card file cannot establish which contents
+        // were copied. Keep the paths so cleanup can retry with that file.
+        if (!moved) {
             left.push_back(path);
             continue;
         }
-        if (!moved || !moved->has(content_id)) {
+        if (!moved->has(content_id)) {
             ++kept;
             continue;
         }
@@ -542,7 +541,7 @@ void UnstageMovedChannels() {
     NandClose();
     write_staged(left);
     logf("Wii channels: removed %u content file(s) copied to the Wii for SD card channels last time%s%s\n", removed,
-         kept ? " (some kept: not copies RiftWii made, or their channel is no longer on the card)" : "",
+         kept ? " (some kept: not copies RiftWii made, or not included in their channel's card file)" : "",
          left.empty() ? "" : " (some could not be removed or checked; tried again next time)");
 }
 

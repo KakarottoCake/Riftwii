@@ -82,6 +82,22 @@ add_executable(menusound_list tools/menusound_list.cpp)
 target_link_libraries(menusound_list PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
+    # The SD channel cleanup itself, with NAND mocks and failed FAT renames.
+    add_executable(movedchannels_tests tests/movedchannels_tests.cpp wii/storage/movedchannels.cpp)
+    target_include_directories(movedchannels_tests PRIVATE
+        tests/movedchannels_mock wii/storage wii/core wii/menu wii/launch)
+    target_link_libraries(movedchannels_tests PRIVATE riftwii)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CYGWIN OR MSYS OR MINGW)
+        target_link_options(movedchannels_tests PRIVATE -Wl,--wrap=rename)
+        target_compile_definitions(movedchannels_tests PRIVATE RIFTWII_TEST_WRAP_RENAME)
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(movedchannels_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/movedchannels-test")
+    add_test(NAME movedchannels COMMAND movedchannels_tests)
+    set_tests_properties(movedchannels PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/movedchannels-test")
     # The production GameTDB caller and its disk cache, with no network or UI.
     add_executable(gameinfo_tests tests/gameinfo_tests.cpp wii/online/gameinfo.cpp)
     target_include_directories(gameinfo_tests PRIVATE wii/online wii/core)
