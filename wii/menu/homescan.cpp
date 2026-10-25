@@ -40,14 +40,9 @@ void SetStatus(const char* line) {
 
 // The packs and code builds on the drives as they are mounted now (Home's
 // "Games with mods" view and the tiles' mod badges).
-PackIndex ReadPackIndex() {
+PackIndex ReadPackIndex(PackageCatalog& catalog) {
     PackIndex packs;
-    bool limited = false;
-    for (const PackFile& pack : ListPackFiles(256, limited)) {
-        const std::string text = ReadPackText(pack.path);
-        if (!text.empty()) packs.add(text);
-    }
-    for (const CodeBuildFile& build : ListCodeBuilds()) packs.add_game(build.game_id);
+    catalog = ReadPackageCatalog(&packs);
     logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(packs.size()));
     return packs;
 }
@@ -61,7 +56,7 @@ void ReadSdCard(DriveScanPart& part) {
     // And those USB Loader GX keeps in an emulated NAND on the card.
     const SharedNandLookup emu = look_up_channel_nand();
     if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus, true);
-    part.packs = ReadPackIndex();
+    part.packs = ReadPackIndex(part.package_catalog);
     mem::CheckHeap("after the pack index");
 }
 
@@ -70,7 +65,7 @@ void ReadUsbDrive(DriveScanPart& part) {
     part.ok = scan_usb_games(part.catalog, part.error);
     mem::CheckHeap("after the USB scan");
     // After the USB scan: packs on the drive count too.
-    part.packs = ReadPackIndex();
+    part.packs = ReadPackIndex(part.package_catalog);
     mem::CheckHeap("after the pack index");
 }
 
