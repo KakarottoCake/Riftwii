@@ -3257,3 +3257,30 @@ msgstr "RiftWii no puede dejar una nota en la tarjeta SD, así que el próximo i
 
 msgid "Open anyway"
 msgstr "Abrir de todos modos"
+
+msgid "My RiiTag"
+msgstr "Mi RiiTag"
+
+msgid "Refresh"
+msgstr "Actualizar"
+
+msgid "Downloading your tag..."
+msgstr "Descargando tu tag..."
+
+msgid "No tag to show"
+msgstr "No hay tag que mostrar"
+
+msgid "There is not enough free memory to show your tag."
+msgstr "No hay suficiente memoria libre para mostrar tu tag."
+
+msgid "Your tag could not be downloaded: {1}. Press A to try again."
+msgstr "No se pudo descargar tu tag: {1}. Pulsa A para intentarlo de nuevo."
+
+msgid "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too."
+msgstr "Tu tag de riitag.t0g3pii.de, del ID de Discord riitag_id en sd:/riftwii/settings.txt. Muestra el último juego que jugaste si riitag_key también está puesto."
+
+msgid "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID)."
+msgstr "Muestra tu RiiTag. Primero pon riitag_id = <tu ID de Discord> en sd:/riftwii/settings.txt (Discord: Ajustes > Avanzado > Modo desarrollador, luego Copiar ID de usuario)."
+
+msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
+msgstr "Muestra tu RiiTag, descargada de riitag.t0g3pii.de."

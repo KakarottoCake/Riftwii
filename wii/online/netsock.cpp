@@ -129,10 +129,24 @@ bool NetStart(std::string& error, bool retry) {
     // IOS answers -EAGAIN while the interface comes up.
     s32 rc = -EAGAIN;
     for (int tries = 0; tries < 200 && rc == -EAGAIN; ++tries) {
+        // A cancelled job stops within a tenth of a second, not after 20 s.
+        if (cancelled()) {
+            // Not a failure of the network: the next start tries at once.
+            g_failed = false;
+            error = "stopped before the network started";
+            return false;
+        }
         rc = net_init();
         if (rc == -EAGAIN) usleep(100 * 1000);
     }
     if (rc < 0) {
+        // A job cancelled meanwhile leaves no failure behind: whoever
+        // starts the network next tries it for themselves.
+        if (cancelled()) {
+            g_failed = false;
+            error = "stopped before the network started";
+            return false;
+        }
         g_failed = true;
         error = "the network did not start (" + std::to_string(rc) +
                 "); check the connection in the Wii's Internet settings";
@@ -156,7 +170,7 @@ void NetStop() {
     g_up = false;
 }
 
-bool NetRunInBackground(void (*job)(), bool cancellable) {
+bool NetRunInBackground(void (*job)(), bool cancellable, bool run_here) {
     if (!g_job_done) return false;
     NetWaitForBackground();  // a finished one's thread
     g_job = job;
@@ -167,6 +181,7 @@ bool NetRunInBackground(void (*job)(), bool cancellable) {
     if (LWP_CreateThread(&g_job_thread, run_job, nullptr, nullptr, 32768, 40) < 0) {
         g_job_thread = LWP_THREAD_NULL;
         g_job_done = true;
+        if (!run_here) return false;
         job();
     }
     return true;

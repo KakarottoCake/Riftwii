@@ -3257,3 +3257,30 @@ msgstr "RiftWii가 SD 카드에 기록을 남길 수 없어 설치 프로그램�
 
 msgid "Open anyway"
 msgstr "그래도 열기"
+
+msgid "My RiiTag"
+msgstr "내 RiiTag"
+
+msgid "Refresh"
+msgstr "새로 고침"
+
+msgid "Downloading your tag..."
+msgstr "태그를 다운로드하는 중..."
+
+msgid "No tag to show"
+msgstr "표시할 태그가 없습니다"
+
+msgid "There is not enough free memory to show your tag."
+msgstr "태그를 표시할 여유 메모리가 부족합니다."
+
+msgid "Your tag could not be downloaded: {1}. Press A to try again."
+msgstr "태그를 다운로드하지 못했습니다: {1}. A를 눌러 다시 시도하세요."
+
+msgid "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too."
+msgstr "sd:/riftwii/settings.txt의 riitag_id(Discord ID)에 해당하는 riitag.t0g3pii.de의 태그입니다. riitag_key도 설정하면 마지막으로 플레이한 게임이 표시됩니다."
+
+msgid "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID)."
+msgstr "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id = <Discord ID>를 넣으세요 (Discord: 설정 > 고급 > 개발자 모드, 그다음 사용자 ID 복사)."
+
+msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
+msgstr "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다."

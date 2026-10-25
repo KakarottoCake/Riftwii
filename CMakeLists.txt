@@ -109,6 +109,14 @@ if(BUILD_TESTING)
         target_compile_options(netsock_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME netsock COMMAND netsock_tests)
+    # The in-memory HTTP client's body limits, against a fragmented response.
+    add_executable(httpmem_tests tests/httpmem_tests.cpp wii/online/httpmem.cpp)
+    target_include_directories(httpmem_tests PRIVATE tests/netsock_mock wii/online)
+    target_link_libraries(httpmem_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(httpmem_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME httpmem COMMAND httpmem_tests)
     # Use the plugin's actual Zstandard shim against a mocked host table,
     # without its libc replacements or a second decoder defining the API.
     add_executable(rwpzstd_tests tests/rwpzstd_tests.cpp plugins/common/rwpzstd.cpp)

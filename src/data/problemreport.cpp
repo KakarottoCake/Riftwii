@@ -164,6 +164,15 @@ std::string game_id_at(const std::string& text) {
     return id;
 }
 
+// Whether `line` sets `name` (its key starting at `at`): the name whole,
+// then a space or the '='.
+bool secret_key(const std::string& line, std::size_t at, const char* name) {
+    const std::size_t length = std::char_traits<char>::length(name);
+    if (line.compare(at, length, name) != 0) return false;
+    const std::size_t after = at + length;
+    return after < line.size() && (line[after] == ' ' || line[after] == '\t' || line[after] == '=');
+}
+
 }  // namespace
 
 std::string hide_settings_secrets(const std::string& settings) {
@@ -174,7 +183,7 @@ std::string hide_settings_secrets(const std::string& settings) {
         if (end == std::string::npos) end = settings.size();
         std::string line = settings.substr(at, end - at);
         std::size_t key = line.find_first_not_of(" \t");
-        if (key != std::string::npos && line.compare(key, 10, "riitag_key") == 0) {
+        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id"))) {
             const std::size_t eq = line.find('=', key);
             if (eq != std::string::npos) {
                 const bool cr = !line.empty() && line.back() == '\r';
