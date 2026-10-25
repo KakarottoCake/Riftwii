@@ -91,7 +91,8 @@ struct BackupKey {
 
 // Another Wii's key from its BootMii backup (keys.bin: a 0x100-byte
 // header, then that Wii's OTP), for a card that came from it. False when
-// `data` is too short or its OTP is blank.
+// `data` is too short or its OTP is blank (console ID 0). An all-zero
+// PRNG key with a console ID is accepted: Dolphin's default console has one.
 bool parse_bootmii_keys(const std::uint8_t* data, std::size_t size, BackupKey& out);
 
 }  // namespace riftwii

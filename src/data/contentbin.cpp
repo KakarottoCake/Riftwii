@@ -149,13 +149,13 @@ bool parse_bootmii_keys(const std::uint8_t* data, std::size_t size, BackupKey& o
     const std::uint8_t* otp = data + kKeysOtpOffset;
     BackupKey key;
     key.console_id = be32(otp + kOtpConsoleId);
-    std::uint8_t any = 0;
     for (std::size_t i = 0; i < sizeof key.prng; ++i) {
         key.prng[i] = otp[kOtpPrngKey + i];
-        any |= key.prng[i];
     }
-    // A zeroed OTP is a dump that went wrong, not a key.
-    if (any == 0 || key.console_id == 0) return false;
+    // A zeroed OTP is a dump that went wrong, not a key; its console ID is 0
+    // too. A zero PRNG key alone is real: Dolphin's default console has one.
+    // A wrong key still fails at the content hash check.
+    if (key.console_id == 0) return false;
     out = key;
     return true;
 }

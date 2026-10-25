@@ -21,7 +21,9 @@ bool ConsoleCommonKey(std::uint8_t out[16]);
 // This Wii's console ID (OTP word 9) and PRNG key (words 26 to 29), which
 // decrypt the channels its Wii Menu moved to the SD card
 // (riftwii/contentbin.hpp). The same rules as the common key: read when
-// wanted, never kept, logged or written. False as above.
+// wanted, never kept, logged or written. False without hardware access or
+// when the console ID reads back 0; an all-zero PRNG key with a console ID
+// is real (Dolphin's default console) and is returned.
 bool ConsoleBackupKey(BackupKey& out);
 
 }  // namespace riftwii::wii

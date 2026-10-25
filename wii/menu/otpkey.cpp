@@ -45,7 +45,10 @@ bool ConsoleCommonKey(std::uint8_t out[16]) {
 bool ConsoleBackupKey(BackupKey& out) {
     if (read32(kAhbprot) != 0xFFFFFFFF) return false;
     out.console_id = read_otp_word(kConsoleIdWord);
-    return read_otp_key(kPrngKeyWord, out.prng) && out.console_id != 0;
+    // An empty OTP reads back console ID 0. The PRNG key may be all zeros on
+    // a console that has an ID (Dolphin's default one), so it is kept.
+    read_otp_key(kPrngKeyWord, out.prng);
+    return out.console_id != 0;
 }
 
 }  // namespace riftwii::wii
