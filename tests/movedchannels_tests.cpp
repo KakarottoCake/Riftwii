@@ -5,12 +5,17 @@
 
 #include <gccore.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <map>
+
+#include "riftwii/sha1.hpp"
+#include "riftwii/wiicrypt.hpp"
 
 namespace {
 namespace fs = std::filesystem;
@@ -35,7 +40,15 @@ s32 delete_result = 0;
 bool fail_rename = false;
 bool have_key = true;
 u8 nand_attribute = 0x52;
+s32 attr_result = 0;
 unsigned create_calls = 0;
+// NAND files that ISFS_Open finds, by path, and the one open for reading.
+std::map<std::string, std::string> nand_files;
+std::string open_path;
+std::size_t read_at = 0;
+// The mocked console key (ConsoleBackupKey below) and each content's bytes.
+const u8 kKey[16] = {1};
+const std::string plain[2] = {std::string(16, 'A'), std::string(16, 'B')};
 
 void put_be(std::vector<u8>& bytes, std::size_t offset, u64 value, std::size_t count) {
     for (std::size_t i = 0; i < count; ++i) {
@@ -67,10 +80,12 @@ void reset_files() {
     fail_rename = false;
     have_key = true;
     nand_attribute = 0x52;
+    attr_result = 0;
     create_calls = 0;
+    nand_files.clear();
 }
 
-void make_card_file(bool include_second = true) {
+void make_card_file(bool include_second = true, bool damaged = false) {
     stored_tmd.assign(0x1e4 + 2 * 36, 0);
     put_be(stored_tmd, 0x18c, kTitle, 8);
     put_be(stored_tmd, 0x1de, 2, 2);
@@ -80,6 +95,8 @@ void make_card_file(bool include_second = true) {
         put_be(stored_tmd, record + 4, i, 2);
         put_be(stored_tmd, record + 6, 1, 2);
         put_be(stored_tmd, record + 8, 16, 8);
+        const Sha1Digest hash = sha1(reinterpret_cast<const u8*>(plain[i].data()), plain[i].size());
+        std::memcpy(stored_tmd.data() + record + 16, hash.data(), hash.size());
     }
     constexpr std::size_t bk = 0x640;
     constexpr std::size_t tmd_offset = bk + 0x80;
@@ -93,8 +110,15 @@ void make_card_file(bool include_second = true) {
     put_be(bytes, bk + 0x1c, bytes.size() - bk, 4);
     bytes[bk + 0x20] = include_second ? 3 : 1;
     std::memcpy(bytes.data() + tmd_offset, stored_tmd.data(), stored_tmd.size());
-    // Cleanup checks the records, not the encrypted payload. No console key
-    // or game data is needed for this fixture.
+    // Each included content, encrypted with the mocked console key, in its
+    // own 64-byte-aligned slot. Cleanup decrypts it to its hash.
+    for (unsigned i = 0; i < (include_second ? 2u : 1u); ++i) {
+        u8 iv[16] = {};
+        iv[1] = static_cast<u8>(i);
+        u8* slot = bytes.data() + data_offset + i * 0x40;
+        Aes128(kKey).cbc_encrypt(iv, reinterpret_cast<const u8*>(plain[i].data()), slot, plain[i].size());
+    }
+    if (damaged) bytes[data_offset] ^= 1;
     write_file(kCardFile, std::string(bytes.begin(), bytes.end()));
 }
 
@@ -136,6 +160,55 @@ void test_verified_content_only() {
     UnstageMovedChannels();
     CHECK(deleted.empty());
     CHECK(!fs::exists(kList));
+}
+
+void test_damaged_card_keeps_copy() {
+    // With the card's copy damaged, the Wii's copy is the only good one.
+    reset_files();
+    make_card_file(true, true);
+    write_file(kList, first_path + "\n");
+    UnstageMovedChannels();
+    CHECK(deleted.empty());
+    CHECK(read_file(kList) == first_path + "\n");
+}
+
+void test_staging_checks_nand_files() {
+    // A file ES installed that cannot be read is not replaced.
+    reset_files();
+    make_card_file();
+    nand_attribute = 0;
+    std::string error;
+    CHECK(!stage_moved_channel(kTitle, {}, error));
+    CHECK(error.find("could not be read") != std::string::npos);
+    CHECK(create_calls == 0);
+    CHECK(deleted.empty());
+
+    // Nor one whose attributes cannot be read.
+    reset_files();
+    make_card_file();
+    attr_result = -102;
+    error.clear();
+    CHECK(!stage_moved_channel(kTitle, {}, error));
+    CHECK(error.find("could not be checked") != std::string::npos);
+    CHECK(create_calls == 0);
+    CHECK(deleted.empty());
+
+    // RiftWii's copies from an earlier start are used when their bytes are
+    // the contents'.
+    reset_files();
+    make_card_file();
+    nand_files[first_path] = plain[0];
+    nand_files[second_path] = plain[1];
+    error.clear();
+    CHECK(stage_moved_channel(kTitle, {}, error));
+    CHECK(create_calls == 0);
+    CHECK(deleted.empty());
+
+    // At the right size with the wrong bytes, a copy is made again.
+    nand_files[first_path] = std::string(16, 'Z');
+    CHECK(!stage_moved_channel(kTitle, {}, error));  // the mock refuses to create it
+    CHECK(create_calls == 1);
+    CHECK(deleted == std::vector<std::string>{first_path});
 }
 
 void test_nand_failures_keep_list() {
@@ -291,12 +364,27 @@ s32 ES_GetStoredTMD(u64, signed_blob* data, u32 size) {
     std::memcpy(data, stored_tmd.data(), size);
     return 0;
 }
-s32 ISFS_Open(const char*, u8) { return -106; }
+s32 ISFS_Open(const char* path, u8) {
+    if (nand_files.count(path) == 0) return -106;
+    open_path = path;
+    read_at = 0;
+    return 3;
+}
 s32 ISFS_Close(s32) { return 0; }
-s32 ISFS_GetFileStats(s32, fstats*) { return -1; }
+s32 ISFS_GetFileStats(s32, fstats* stats) {
+    stats->file_length = static_cast<u32>(nand_files[open_path].size());
+    return 0;
+}
+s32 ISFS_Read(s32, void* data, u32 size) {
+    const std::string& file = nand_files[open_path];
+    const std::size_t piece = std::min<std::size_t>(size, file.size() - read_at);
+    std::memcpy(data, file.data() + read_at, piece);
+    read_at += piece;
+    return static_cast<s32>(piece);
+}
 s32 ISFS_GetAttr(const char*, u32*, u16*, u8* attribute, u8*, u8*, u8*) {
     *attribute = nand_attribute;
-    return 0;
+    return attr_result;
 }
 s32 ISFS_Delete(const char* path) {
     deleted.emplace_back(path);
@@ -324,6 +412,8 @@ bool ConsoleBackupKey(BackupKey& out) {
 int main() {
     test_missing_and_unreadable_card();
     test_verified_content_only();
+    test_damaged_card_keeps_copy();
+    test_staging_checks_nand_files();
     test_nand_failures_keep_list();
     test_rewrite_failure_keeps_both_lists();
     test_merge_and_legacy_overflow();

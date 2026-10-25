@@ -20,6 +20,7 @@
 #include "nanduse.hpp"
 #include "otpkey.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/sha1.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -100,7 +101,7 @@ const char* isfs_path(const std::string& path) {
     return name;
 }
 
-// The size of a NAND file, or -1 when it is not there.
+// The size of a NAND file, or -1 when it is not there or cannot be read.
 s64 nand_file_size(const std::string& path) {
     const s32 fd = ISFS_Open(isfs_path(path), ISFS_OPEN_READ);
     if (fd < 0) return -1;
@@ -108,6 +109,27 @@ s64 nand_file_size(const std::string& path) {
     const s64 size = ISFS_GetFileStats(fd, &stats) < 0 ? -1 : static_cast<s64>(stats.file_length);
     ISFS_Close(fd);
     return size;
+}
+
+// Whether the NAND file's bytes are the content's: its full size and the
+// TMD's hash. False when it cannot be read.
+bool nand_file_matches(const std::string& path, const TmdContent& content) {
+    const s32 fd = ISFS_Open(isfs_path(path), ISFS_OPEN_READ);
+    if (fd < 0) return false;
+    AlignedBuffer buffer = aligned(kChunkBytes);
+    Sha1 hash;
+    std::uint64_t done = 0;
+    bool read = buffer != nullptr;
+    while (read && done < content.size) {
+        const u32 piece = static_cast<u32>(std::min<std::uint64_t>(kChunkBytes, content.size - done));
+        read = ISFS_Read(fd, buffer.get(), piece) == static_cast<s32>(piece);
+        if (read) {
+            hash.update(buffer.get(), piece);
+            done += piece;
+        }
+    }
+    ISFS_Close(fd);
+    return read && hash.finish() == content.sha1;
 }
 
 // Whether the NAND file is a copy staging made (kStagedAttribute). 1 when
@@ -451,13 +473,30 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         return true;
     }
 
-    // What the NAND lacks: a staged copy from an earlier start that was not
-    // removed, or the Wii Menu's own, is used as it is.
+    // What the NAND lacks. A file ES installed (the Wii Menu's own) at full
+    // size is used as it is, as the Wii Menu would. A copy from an earlier
+    // start that was not removed is used only when its bytes are the
+    // content's; otherwise it is copied again. A file that cannot be checked
+    // stops the start: it may be ES's, which staging must not replace.
     std::vector<TmdContent> missing;
     std::uint64_t total = 0;
     for (const TmdContent& c : moved.tmd().contents) {
         if (!moved.has(c.id)) continue;
-        if (nand_file_size(nand_content_path(title_id, c.id)) == static_cast<s64>(c.size)) continue;
+        const std::string to = nand_content_path(title_id, c.id);
+        const s32 ours = staged_by_riftwii(to);
+        const bool absent = ours == -106;
+        if (ours < 0 && !absent) {
+            error = to + " could not be checked on the Wii (" + std::to_string(ours) + ")";
+            return false;
+        }
+        if (ours == 0) {
+            const s64 size = nand_file_size(to);
+            if (size == static_cast<s64>(c.size)) continue;
+            error = size < 0 ? to + " is on the Wii but could not be read, and it is not a copy RiftWii made"
+                             : to + " is on the Wii already at another size, and it is not a copy RiftWii made";
+            return false;
+        }
+        if (!absent && nand_file_matches(to, c)) continue;
         missing.push_back(c);
         total += c.size;
     }
@@ -476,15 +515,9 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
     if (!ok) error = "out of memory for copying the game";
     for (const TmdContent& c : missing) {
         if (!ok) break;
+        // Only absent files and RiftWii's own copies are in `missing`; a
+        // short or wrong copy from an earlier start is replaced.
         const std::string to = nand_content_path(title_id, c.id);
-        // A short copy from an interrupted start is replaced; any other
-        // file there (another version of the content) is not RiftWii's to
-        // remove.
-        if (nand_file_size(to) >= 0 && staged_by_riftwii(to) != 1) {
-            error = to + " is on the Wii already at another size, and it is not a copy RiftWii made";
-            ok = false;
-            break;
-        }
         if (!append_staged(to, error)) {
             ok = false;
             break;
@@ -591,6 +624,15 @@ void UnstageMovedChannels() {
         }
         if (!moved->has(content_id)) {
             ++kept;
+            continue;
+        }
+        // The card's copy must still read back whole, to its hash, before
+        // the Wii's goes: with a damaged content.bin, the copy on the Wii is
+        // the only good one, and the next start uses it as it is.
+        std::string why;
+        const bool card_whole = moved->stream(content_id, [](const std::uint8_t*, std::size_t) { return true; }, why);
+        if (!card_whole) {
+            left.push_back(path);
             continue;
         }
         const s32 result = ISFS_Delete(isfs_path(path));
