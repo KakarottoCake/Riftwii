@@ -796,8 +796,14 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     if (!ticket_read) {
         logf("Wii channels: the installed ticket could not be read (%s); trying a synthetic identity.\n",
              ticket_error.c_str());
-        files.ticket = riftwii::make_fake_ticket();
+        files.ticket = riftwii::make_identify_ticket({}, title_id);
         files.ticket_synthetic = true;
+    } else if (files.ticket.size() > kSignedTicketBytes) {
+        // A .tik can hold several tickets; ES_Identify takes exactly one
+        // (libogc refuses any other size before asking IOS).
+        logf("Wii channels: the ticket file holds %u bytes; the first ticket (%u bytes) is used.\n",
+             static_cast<unsigned>(files.ticket.size()), static_cast<unsigned>(kSignedTicketBytes));
+        files.ticket.resize(kSignedTicketBytes);
     }
     // The certificates are the same on every Wii: an emulated NAND's own
     // copy when it has one, else the Wii's.

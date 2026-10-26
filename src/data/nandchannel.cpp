@@ -299,6 +299,51 @@ std::vector<std::uint8_t> make_fake_ticket() {
     return ticket;
 }
 
+namespace {
+
+// Ticket fields (WiiBrew, "Ticket"). The signature covers everything from
+// the issuer on.
+constexpr std::size_t kTicketSignature = 0x004;
+constexpr std::size_t kTicketSignatureBytes = 0x100;
+constexpr std::size_t kTicketSignedFrom = 0x140;
+constexpr std::size_t kTicketEcdh = 0x180;
+constexpr std::size_t kTicketEcdhBytes = 0x3C;
+constexpr std::size_t kTicketConsoleId = 0x1D8;
+constexpr std::size_t kTicketTitleId = 0x1DC;
+// 0x1F2-0x221 is unknown and zero in the tickets the Wii Shop issues; its
+// last two bytes are the ones fakesigning changes.
+constexpr std::size_t kTicketFiller = 0x220;
+
+}  // namespace
+
+std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& installed,
+                                               std::uint64_t title_id) {
+    // A .tik file can hold several tickets; ES_Identify takes exactly one.
+    std::vector<std::uint8_t> ticket = installed.size() >= kSignedTicketBytes
+        ? std::vector<std::uint8_t>(installed.begin(), installed.begin() + kSignedTicketBytes)
+        : make_fake_ticket();
+    // ES compares the ticket's title with the TMD's: the generic ticket
+    // carries none of its own.
+    for (int i = 0; i < 8; ++i) ticket[kTicketTitleId + i] = static_cast<std::uint8_t>(title_id >> (56 - 8 * i));
+    // A ticket the Shop issued to another console names that console and
+    // carries its key exchange data: an emulated NAND copied from another
+    // Wii, or from a Wii to a Wii U. The NAND keeps contents decrypted, so
+    // nothing here needs the title key to work on this console.
+    std::memset(ticket.data() + kTicketConsoleId, 0, 4);
+    std::memset(ticket.data() + kTicketEcdh, 0, kTicketEcdhBytes);
+    // Fakesigned: IOSes with the signing bug (d2x restores it) compare the
+    // hash in a zeroed signature as a string, which ends at its first zero
+    // byte. A signed part whose SHA-1 starts with zero then passes; the
+    // filler is changed until it does, 1 try in 256 on average.
+    std::memset(ticket.data() + kTicketSignature, 0, kTicketSignatureBytes);
+    for (std::uint32_t filler = 0; filler <= 0xFFFF; ++filler) {
+        ticket[kTicketFiller] = static_cast<std::uint8_t>(filler >> 8);
+        ticket[kTicketFiller + 1] = static_cast<std::uint8_t>(filler);
+        if (sha1(ticket.data() + kTicketSignedFrom, ticket.size() - kTicketSignedFrom)[0] == 0) break;
+    }
+    return ticket;
+}
+
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error) {
     if (tmd == nullptr || size < kTmdContentsOffset) {
         error = "the TMD is too small";

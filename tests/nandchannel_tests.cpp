@@ -34,6 +34,11 @@ void put64(std::uint8_t* p, std::uint64_t v) {
     put32(p, std::uint32_t(v >> 32));
     put32(p + 4, std::uint32_t(v));
 }
+std::uint64_t be64(const std::uint8_t* p) {
+    std::uint64_t v = 0;
+    for (int i = 0; i < 8; ++i) v = (v << 8) | p[i];
+    return v;
+}
 
 // A stored TMD (signature in front, as ES_GetStoredTMD gives it) with the
 // given content records: {id, index, type, size}.
@@ -594,7 +599,45 @@ void test_channel_bi2() {
     EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0u);
 }
 
+// The ticket offered when ES refuses the installed one: that title, no
+// console, a zeroed signature over a part whose SHA-1 starts with zero.
+void test_identify_ticket() {
+    const std::uint64_t sm64 = title(kDownloadedChannels, "NAAE");
+    const auto signed_part_hash = [](const std::vector<std::uint8_t>& t) {
+        return sha1(t.data() + 0x140, t.size() - 0x140);
+    };
+    const auto all_zero = [](const std::vector<std::uint8_t>& t, std::size_t from, std::size_t count) {
+        return std::all_of(t.begin() + from, t.begin() + from + count, [](std::uint8_t b) { return b == 0; });
+    };
+
+    // No installed ticket: the generic one, with the title filled in.
+    const auto generic = make_identify_ticket({}, sm64);
+    EXPECT_EQ(generic.size(), kSignedTicketBytes);
+    EXPECT_EQ(be64(generic.data() + 0x1DC), sm64);
+    EXPECT_TRUE(all_zero(generic, 0x004, 0x100));
+    EXPECT_EQ(signed_part_hash(generic)[0], 0);
+
+    // Another console's ticket, two to the file: the first, with its
+    // title key kept and its console and key exchange data cleared.
+    std::vector<std::uint8_t> installed(kSignedTicketBytes * 2, 0x5A);
+    put32(installed.data(), 0x00010001);
+    put64(installed.data() + 0x1DC, sm64);
+    const auto made = make_identify_ticket(installed, sm64);
+    EXPECT_EQ(made.size(), kSignedTicketBytes);
+    EXPECT_EQ(be64(made.data() + 0x1DC), sm64);
+    EXPECT_TRUE(all_zero(made, 0x004, 0x100));
+    EXPECT_TRUE(all_zero(made, 0x180, 0x3C));
+    EXPECT_TRUE(all_zero(made, 0x1D8, 4));
+    EXPECT_TRUE(std::equal(made.begin() + 0x1BF, made.begin() + 0x1CF, installed.begin() + 0x1BF));
+    EXPECT_EQ(signed_part_hash(made)[0], 0);
+
+    // A ticket for another title takes the launched one's.
+    put64(installed.data() + 0x1DC, title(kDownloadedChannels, "WA4E"));
+    EXPECT_EQ(be64(make_identify_ticket(installed, sm64).data() + 0x1DC), sm64);
+}
+
 int main() {
+    test_identify_ticket();
     test_channel_bi2();
     test_extras_floor();
     test_codes();
