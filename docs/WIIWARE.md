@@ -56,26 +56,73 @@ by RiftWii's test build (`channelboot <title>` in `autorun.txt`).
 
 ## Findings
 
-### Dolphin refuses `ES_Identify`, so a channel can't open its save
+### Dolphin answers `ES_Identify` with -1017, so no channel gets past its first save
 
 RiftWii starts a channel the way a loader does: it asks IOS to run
 RiftWii as that title (`ES_Identify`) and jumps to the game's program.
-Dolphin answers -1017 to both the installed ticket and the synthetic
-one. With `debug_off = identify` the launch carries on as title
-00000000-00000000, and WarioWare stops on the "Wii system memory" error
-because it can't open its own save folder. Until this works in Dolphin,
-no channel can be tested there past its first save access.
+On a Wii, `ES_Identify` and `ES_DIVerify` are the same request (0x1C).
+Dolphin's ES handles 0x1C from the game's side with one line that answers
+-1017 (`ESDevice::DIVerify(const IOCtlVRequest&)`); the full version it
+uses for discs (`DIVerify(tmd, ticket)`: title context, user and group
+ID, data folder) is only reachable from its own disc code.
 
-Next: find out from Dolphin's own source (GPL, an allowed reference)
-what its ES needs before it accepts `ES_Identify`, or which other way
-of starting a title it supports.
+Every game asks ES which title it is (`ES_GetTitleID`) and where its data
+folder is (`ES_GetDataDir`) as soon as its NAND library starts. Without a
+title those fail, the game has no save folder, and its first save access
+shows "An error occurred while accessing Wii system memory". That is what
+WarioWare does here with `debug_off = identify`.
+
+`tools/dolphin/es-identify.patch` adds the missing part to Felk's Dolphin
+(the build in `build-dolphin/felk`): it reads the ticket and TMD from the
+request and runs the disc steps, marking the title as a channel. It's
+written and checked to apply; building it is waiting for the maintainer
+(it builds Dolphin from source, which needs their go-ahead).
+
+### The Virtual Console reads its game through ES, not from files
+
+From the N64 Virtual Console decompilation (zeldaret/oot-vc, which covers
+Super Mario 64, Mario Kart 64 and Ocarina of Time; read as a reference,
+nothing copied): the emulator opens its ROM archive as content 5 of the
+running title and its HOME Menu files as content 4, through ES's "open
+content of the running title" request. It never names a file. So a VC
+game only starts when:
+
+1. ES runs it as its own title (`ES_Identify` accepted), and
+2. ES finds that title's content files where it looks: the real NAND, or
+   d2x's emulated NAND when the game comes from one.
+
+If either fails, the emulator stops at its first read, before it draws
+anything: a black screen, as reported.
+
+### Super Mario 64 from an emulated NAND on a vWii (report on 2610-693)
+
+The player's report shows d2x's NAND emulation coming on for
+`sd:/nands/01` on IOS247, 249, 250, 251 and 246, and ES refusing to run
+RiftWii as NAAE01 with -1029 (invalid ticket) on every one: the emulated
+NAND's own ticket. 2610-697 added a retry with a generic ticket for
+exactly this case, so this report needs a new try on 2610-697 or later.
+
+Two things the same report shows that are still open:
+
+- On IOS248 and IOS252, d2x's FAT module couldn't mount that SD card
+  (-101) and didn't let go of it. Each such try still costs an IOS
+  reload. Remembering which IOS failed to mount the card, and skipping it
+  for the rest of the session, would save time and leave the card alone.
+- All eight IOSes were tried one after another: about 18 seconds before
+  the failure was shown. When every d2x IOS gives the same ticket answer,
+  trying more of them doesn't help.
 
 ## Who does what
 
 - **RiftWii maintainers (this branch):** the test runs above, Dolphin's
   `ES_Identify`, and the research on decompilation projects.
-- **Jack:** the four Wii Remotes in channels. Anything else you'd like
-  to take, say so in the PR and it comes off this list.
+- **Jack (@JackW6809):** the four Wii Remotes in channels.
+- **Cyan (@cyanpurr):** the emulated NAND side, if you'd like it: you
+  wrote it (#220).
+- **grantendo:** reviews, and the memory side.
+
+Anything else you'd like to take, say so in the PR and it comes off this
+list.
 
 ## Rules for this work
 
