@@ -93,6 +93,7 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 class PackIndex {
 public:
     void add(const std::string& xml);
+    void add_filter(const DiscFilter& filter);
     void add_game(const std::string& game_id);  // a code build's game
     bool has_packs(const std::string& game_id) const;
     std::size_t size() const { return filters_.size(); }

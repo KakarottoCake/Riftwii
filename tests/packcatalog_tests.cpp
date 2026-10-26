@@ -13,6 +13,8 @@ std::vector<riftwii::wii::PackFile> files;
 std::map<std::string, std::string> contents;
 std::vector<std::string> reads;
 unsigned enumerations = 0;
+std::vector<riftwii::wii::CodeBuildFile> builds = {
+    {"mod/codes/RMGE01.gct", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", true}};
 
 void expect(bool condition, const char* message) {
     if (condition) return;
@@ -22,6 +24,8 @@ void expect(bool condition, const char* message) {
 }
 
 namespace riftwii::wii {
+void logf(const char*, ...) {}
+
 std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text) {
     expect(limit == 256 && keep_text, "Home's full index is retained with its already-read text");
     ++enumerations;
@@ -35,7 +39,7 @@ std::string ReadPackText(const std::string& path) {
 }
 
 std::vector<CodeBuildFile> ListCodeBuilds() {
-    return {{"mod/codes/RMGE01.gct", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", true}};
+    return builds;
 }
 }
 
@@ -88,5 +92,69 @@ int main() {
            "Home indexes both retained and uncached packs");
     expect(reads.size() == 1 && !indexed.files[1].text_cached,
            "indexing a pack beyond the cache limit reads it only once");
+
+    // Match the old full parse's visibility and details, including
+    // revision/region filters, invalid packs and packs for every game.
+    builds.clear();
+    const std::string options = "<options><section name=\"Test\"><option name=\"Mode\">"
+                                "<choice name=\"On\"><patch id=\"p\"/></choice></option></section></options>"
+                                "<patch id=\"p\"><memory offset=\"0x80004000\" value=\"60000000\"/></patch>";
+    const std::vector<std::string> xmls = {
+        "<wiidisc version=\"1\"><id game=\"RMG\"/>" + options + "</wiidisc>",
+        "<wiidisc version=\"1\"><id game=\"RMC\"/>" + options + "</wiidisc>",
+        "<wiidisc version=\"1\"><id game=\"RMG\" revision=\"1\"/>" + options + "</wiidisc>",
+        "<wiidisc version=\"1\"><id game=\"RMG\" developer=\"02\"><region type=\"P\"/></id>" + options + "</wiidisc>",
+        "<wiidisc version=\"1\">" + options + "</wiidisc>",
+        "<wiidisc><id game=\"RMG\"/><broken>",
+        "<wiidisc><id game=\"RMC\"/><broken>",
+        "<unrelated/>"};
+    files.clear();
+    for (std::size_t i = 0; i < xmls.size(); ++i) {
+        const std::string name = "pack-" + std::to_string(i) + ".xml";
+        files.push_back({name, name, xmls[i], true});
+    }
+    PackageCatalog summarized = ReadPackageCatalog();
+    riftwii::DiscIdentity disc;
+    disc.id = "RMGE01";
+    riftwii::LaunchModel expected, actual;
+    for (const PackFile& pack : files) expected.add(pack.file, pack.path, pack.text, &disc);
+    AddCatalogPackages(summarized, actual, &disc);
+    expect(actual.packages.size() == expected.packages.size(), "summaries preserve the full pack list");
+    for (std::size_t i = 0; i < actual.packages.size(); ++i) {
+        const auto& got = actual.packages[i];
+        const auto& want = expected.packages[i];
+        expect(got.file == want.file && got.valid == want.valid && got.for_disc == want.for_disc &&
+               got.detail == want.detail, "a summary preserves validity, visibility and the displayed reason");
+        if (want.for_disc) {
+            expect(got.package.options.size() == want.package.options.size() &&
+                   got.package.patches.size() == want.package.patches.size(),
+                   "matching and universal packs retain their complete options and patches");
+        } else if (want.valid) {
+            expect(got.package.options.empty() && got.package.patches.empty(),
+                   "an unrelated pack does not build unused options and patches");
+        }
+    }
+
+    // Even a pack beyond the text limit requires no card access when it
+    // belongs to another game. A matching pack still reads its full text.
+    summarized.files[1].text.clear();
+    summarized.files[1].text_cached = false;
+    contents[summarized.files[1].path] = xmls[1];
+    reads.clear();
+    actual.packages.clear();
+    AddCatalogPackages(summarized, actual, &disc);
+    expect(reads.empty(), "unrelated packs beyond the text cache do not touch storage");
+    disc.id = "RMCE01";
+    actual.packages.clear();
+    AddCatalogPackages(summarized, actual, &disc);
+    expect(reads.size() == 1 && reads[0] == summarized.files[1].path,
+           "an uncached pack is read when its own game is selected");
+
+    files = {{"folder.xml", "folder", "<wiidisc version=\"1\" root=\"/MoD/\">" + options + "</wiidisc>", true}};
+    builds = {{"auto", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", false},
+              {"picked", "mod", "sd:/mod/codes", "sd:/mod/codes/RMGE01.gct", "RMGE01", true}};
+    const PackageCatalog filtered = ReadPackageCatalog();
+    expect(filtered.code_builds.size() == 1 && filtered.code_builds[0].picked,
+           "folder checks ignore case and retain a code build chosen by hand");
     return failures == 0 ? 0 : 1;
 }

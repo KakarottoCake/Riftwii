@@ -4073,6 +4073,7 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 	state.sd_catalog = std::move(part.catalog);
 	state.channels = std::move(part.channels);
 	state.package_catalog = std::move(part.package_catalog);
+	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
 	g_sdScanOk = part.ok;
 	if (g_renameAfterScan) riftwii::wii::RenameGames(state.sd_catalog);
@@ -4099,6 +4100,7 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	}
 	state.usb_catalog = std::move(part.catalog);
 	state.package_catalog = std::move(part.package_catalog);
+	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
 	if (g_renameAfterScan) {
 		riftwii::wii::RenameGames(state.usb_catalog);
@@ -5013,6 +5015,7 @@ static int MenuSource(FrontendState& state)
 					// come back with the rescan at reinsertion) and its apps.
 					state.sd_catalog.games.clear();
 					state.package_catalog = riftwii::wii::PackageCatalog{};
+					state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 					state.sd_catalog.status = std::string(tr("SD: no card"));
 					state.channels.erase(std::remove_if(state.channels.begin(), state.channels.end(),
 						[](const riftwii::wii::NandChannel& channel) { return channel.emu_nand.rfind("sd:", 0) == 0; }),
@@ -5237,6 +5240,11 @@ static int MenuSource(FrontendState& state)
 					const HomeEntry& e = entries[static_cast<std::size_t>(i)];
 					if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) return false;
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
+					// The banner already reads the card. Prepare this tile's
+					// choices and cached facts here so Settings uses memory.
+					riftwii::wii::PrepareGameChoices(state, id, e.profile);
+					riftwii::GameInfo info;
+					riftwii::wii::PeekGameInfo(id, info);
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
 					std::string why;
@@ -5250,6 +5258,7 @@ static int MenuSource(FrontendState& state)
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
 				const bool go = choice != ChannelChoice::Back;
+				if (!go) state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 				g_startOnOpen = choice == ChannelChoice::Start;
 				if (choice == ChannelChoice::Page) g_reopenBanner = items[static_cast<std::size_t>(shown)].key;
 				if (shown != clicked) {
@@ -10514,9 +10523,9 @@ static int MenuHome(FrontendState& state)
 	}
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
+	g_gamePageTiming.Step("finishing Home");
 	riftwii::OutOfMemoryScope out_of_memory;
-	std::string scanStatus = ScanPackages(state, true);
-	g_gamePageTiming.Step("reading the packs and saved choices");
+	std::string scanStatus = ScanPackages(state, true, [](const char* step) { g_gamePageTiming.Step(step); });
 	if (out_of_memory.failed()) scanStatus = "Package scan failed; go back and try again";
 	if (state.use_channel && state.model.game.cios == "auto") state.model.game.cios = "global";
 	std::vector<TileSpec> tiles;
@@ -10566,7 +10575,9 @@ static int MenuHome(FrontendState& state)
 		titleTxt.SetWrap(true, kTilesW, 2);
 	}
 	const int titleY = titleWraps ? 44 : 48, factsY = titleWraps ? 92 : 86;
+	g_gamePageTiming.Step("building the banner text");
 	const std::string facts = GameFacts(state);
+	g_gamePageTiming.Step("checking cached game information");
 	GuiText factsTxt(facts.c_str(), 15, kFactsInk);
 	factsTxt.SetMaxWidth(kTilesW);
 	OutlinedText whereOutlined(whereTxt, kTilesX + 1, kWhereY, kWhereInk, 1, 1);
@@ -13285,6 +13296,7 @@ int MainMenu(int menu, FrontendState& state)
 	// The compiler and the game need this memory. After a failed launch,
 	// the next game page reads a fresh catalog when it sees this one empty.
 	state.package_catalog = riftwii::wii::PackageCatalog{};
+	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
 		if (riftwii::wii::Settings().wii_menu_sounds && currentMenu != MENU_DUMP)
