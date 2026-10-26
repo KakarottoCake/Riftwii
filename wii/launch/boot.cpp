@@ -3561,23 +3561,42 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         // ES runs the game as its own title, as when the system starts it:
         // its saves (/title/.../data) and its files are its own.
         u32 key = 0;
-        const s32 result = ES_Identify(reinterpret_cast<const signed_blob*>(files.certs.data()),
-                                       static_cast<u32>(files.certs.size()),
-                                       reinterpret_cast<const signed_blob*>(files.tmd.data()),
-                                       static_cast<u32>(files.tmd.size()),
-                                       reinterpret_cast<const signed_blob*>(files.ticket.data()),
-                                       static_cast<u32>(files.ticket.size()), &key);
+        const auto identify = [&](const std::vector<std::uint8_t>& ticket) {
+            return ES_Identify(reinterpret_cast<const signed_blob*>(files.certs.data()),
+                               static_cast<u32>(files.certs.size()),
+                               reinterpret_cast<const signed_blob*>(files.tmd.data()),
+                               static_cast<u32>(files.tmd.size()),
+                               reinterpret_cast<const signed_blob*>(ticket.data()),
+                               static_cast<u32>(ticket.size()), &key);
+        };
+        const char* ticket_kind = files.ticket_synthetic ? "synthetic" : "installed";
+        s32 result = identify(files.ticket);
+        std::string attempt = "IOS" + std::to_string(IOS_GetVersion()) + " rev " +
+                              std::to_string(IOS_GetRevision()) + ": ES_Identify ";
+        if (result < 0 && !files.ticket_synthetic) {
+            // WiiBrew's /dev/es error table names -1029 "invalid ticket",
+            // not a proven console mismatch. Retry a generated identity on
+            // this IOS before releasing d2x's NAND emulation or reloading.
+            logf("Wii channels: on IOS%d rev %d, ES refused the installed ticket (%d%s); trying the synthetic ticket on the same IOS\n",
+                 IOS_GetVersion(), IOS_GetRevision(), result, result == -1029 ? ", invalid ticket" : "");
+            attempt += "refused the installed ticket (" + std::to_string(result) + "); ";
+            const auto synthetic_ticket = riftwii::make_fake_ticket();
+            result = identify(synthetic_ticket);
+            ticket_kind = "synthetic";
+        }
         if (result >= 0) {
-            logf("Wii channels: on IOS%d rev %d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
-                 IOS_GetRevision(), static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
+            logf("Wii channels: on IOS%d rev %d, ES accepted the %s ticket (%d) and runs RiftWii as %08x-%08x now\n",
+                 IOS_GetVersion(), IOS_GetRevision(), ticket_kind, result,
+                 static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
+            note_attempt(attempt + "accepted the " + ticket_kind + " ticket (" + std::to_string(result) + ")");
             identified = true;
             emulated = emulating;
             break;
         }
-        logf("Wii channels: on IOS%d rev %d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), IOS_GetRevision(),
-             files.game_id.c_str(), result);
-        note_attempt("IOS" + std::to_string(IOS_GetVersion()) + " rev " + std::to_string(IOS_GetRevision()) +
-                     " refused ES_Identify (" + std::to_string(result) + ")");
+        logf("Wii channels: on IOS%d rev %d, ES refused the %s ticket (%d%s) and would not run RiftWii as %s\n",
+             IOS_GetVersion(), IOS_GetRevision(), ticket_kind, result, result == -1029 ? ", invalid ticket" : "",
+             files.game_id.c_str());
+        note_attempt(attempt + "refused the " + ticket_kind + " ticket (" + std::to_string(result) + ")");
         ++identify_refusals;
         // The next try reloads IOS, which ends the FAT module with whatever
         // it still holds in its file system cache. It is told to unmount

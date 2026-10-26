@@ -121,6 +121,8 @@ def zip_entries(args, values, commit_time):
         # The whole menu font, uncompressed so the menu can read a glyph in
         # place: the DOL carries only its core (wii/menu/fullfont.hpp).
         (apps + "riftwii/font.ttf", (ROOT / "wii" / "font" / "rounded.ttf").read_bytes()),
+        (apps + "riftwii/korean.ttf", (ROOT / "wii" / "font" / "korean.ttf").read_bytes()),
+        (apps + "riftwii/Korean-OFL.txt", (ROOT / "wii" / "font" / "Korean-OFL.txt").read_bytes()),
     ]
     for path in plugin_files(args.plugins, args.version).values():
         entries.append((apps + "riftwii/plugins/" + path.name, path.read_bytes()))

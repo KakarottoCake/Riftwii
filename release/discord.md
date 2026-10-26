@@ -17,23 +17,22 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-The Wii Menu's own sounds, a GameCube-pad way out of Wii games, and Wii U channel fixes:
+Korean menus, SD card channels, RiiTag and a faster game Settings page:
 
-* Wii Menu sounds and music: Settings > Menu (read from your Wii, off until you turn them on)
-* Hold L+R+Z+Start on a GameCube controller to leave a Wii game (adapter on; waits for saves)
-* Wii U: a channel installer that goes black no longer locks you out (Not now), and a game's Reset reaches the channel
-* WiiWare: SD mount fix for emulated NAND on vWii, and a guess for games that quit straight back
-* Pull the SD card and put it back: RiftWii reads it again
-* Home starts on your last game
+* Korean menus on any Wii or Wii U: RiftWii now brings its own small Korean font (korean.ttf beside RiftWii; updating from the menu adds it for you)
+* Pressing Settings on a game's banner screen no longer locks the menu for a few seconds: it reuses what Home already read instead of rereading every mod on the SD card
+* WiiWare/VC games the Wii Menu moved to the SD card show on Home and start (RiftWii copies them back to the Wii for the session)
+* Settings > Online > My RiiTag shows your RiiTag (add riitag_id = <your Discord ID> to settings.txt)
+* From 2610-697: VC and WiiWare from an emulated NAND that wouldn't start try again with a generic ticket
 
 To test, please:
 
-1. Wii Menu sounds and music on, especially on a Wii U or a non-USA Wii
-2. L+R+Z+Start in a Wii game, and during a save
-3. Wii U owners whose installer went black: try the channel update again
-4. WiiWare games
-5. SD card out and back in on Home
+1. Set the menu to Korean (Settings > Language) and look around
+2. Press Settings on a few games' banner screens with your usual SD card: it should open right away
+3. A WiiWare/VC game moved to the SD card with the Wii Menu: start it from RiftWii, then restart RiftWii
+4. My RiiTag, if you have one
+5. Any VC or WiiWare game from your emulated NAND that didn't start before
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Wii Menu sounds and music](docs/screenshots/2610-720-wii-menu-sounds.png)
+![RiftWii in Korean](docs/screenshots/2610-korean-settings.png)

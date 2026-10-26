@@ -19,6 +19,9 @@ struct MemoryGet {
     // The whole answer is read into this: headers and body together.
     std::uint8_t* buffer = nullptr;
     std::size_t capacity = 0;
+    // The longest body taken, or 0 for whatever fits. A longer one fails as
+    // soon as its Content-Length or its bytes show it.
+    std::size_t max_body = 0;
     // The TLS connection's state (TlsStream::memory_needed() bytes), or null
     // for the heap.
     void* tls_block = nullptr;

@@ -263,9 +263,14 @@ New in 3.2 (beta):
 - 2610-683: GameCube memory cards in Need for Speed
   Underground 2, Resident Evil 2 and Fire Emblem; Nintendont
   saves; GameHacking.org cheats; the disc stops on power-off.
-- {{VERSION}}: the Wii Menu's sounds and music; L+R+Z+Start
+- 2610-693: the Wii Menu's sounds and music; L+R+Z+Start
   on a GameCube pad leaves a Wii game; Wii U channel installer
   and Reset fixes; WiiWare fixes; SD card out and back in.
+- 2610-697: VC and WiiWare games in an emulated NAND that the
+  Wii refused to start now try again with a generic ticket.
+- {{VERSION}}: Korean menus on any Wii (korean.ttf beside
+  RiftWii); channels moved to the SD card start; My RiiTag;
+  a game's Settings page opens at once.
 - 2610-280 (RC3): the GameCube adapter set to On no longer stops
   SD games from booting; no Wii Remote rumble for screenshots (it
   crashed Need for Speed: ProStreet). Cars 2 warning.

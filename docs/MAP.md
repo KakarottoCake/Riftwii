@@ -135,6 +135,7 @@ The build compiles every folder into one, so no two files share a name.
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
+| `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
 | `menumusic.cpp` | The background music: theme/card Ogg or the selected Wii Menu source |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
 | `themesounds.cpp` | Playback-time theme WAV replacements, then the selected Wii Menu sounds |
@@ -143,6 +144,7 @@ The build compiles every folder into one, so no two files share a name.
 | `credits.cpp` | Settings > Credits and license |
 | `wfskey.cpp` | The Wii's WFS key (`ConsoleWfsKey`, `otpkey.hpp`) for Dragon Quest X's drive, from the dump on the card (`sd:/riftwii/wfskey.bin`, raw or hex; `parse_wfs_key`) |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
+| `packcatalog.cpp` | The pack text and code mod list shared by Home's scan and each game's page |
 | `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
@@ -308,6 +310,7 @@ document it.
 | `http` | HTTP GET and POST |
 | `update` | The update check |
 | `riifs`, `riifs_sync` | The RiiFS client and its mirror |
+| `riitag` | RiiTag: Wiinnertag.xml, the launch URL, the tag picture's URL for a Discord ID and its fit to the menu |
 
 ### `src/art/`: pictures: the canvas, PNG, QR codes, themes, covers
 

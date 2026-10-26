@@ -87,6 +87,7 @@ struct ChannelBootFiles {
     std::vector<std::uint8_t> dol;  // the program content, whole
     std::vector<std::uint8_t> tmd;
     std::vector<std::uint8_t> ticket;
+    bool ticket_synthetic = false;  // generated because the installed ticket could not be read
     std::vector<std::uint8_t> certs;
 };
 

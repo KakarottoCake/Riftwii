@@ -125,6 +125,14 @@ if(BUILD_TESTING)
         target_compile_options(netsock_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME netsock COMMAND netsock_tests)
+    # The in-memory HTTP client's body limits, against a fragmented response.
+    add_executable(httpmem_tests tests/httpmem_tests.cpp wii/online/httpmem.cpp)
+    target_include_directories(httpmem_tests PRIVATE tests/netsock_mock wii/online)
+    target_link_libraries(httpmem_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(httpmem_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME httpmem COMMAND httpmem_tests)
     # Use the plugin's actual Zstandard shim against a mocked host table,
     # without its libc replacements or a second decoder defining the API.
     add_executable(rwpzstd_tests tests/rwpzstd_tests.cpp plugins/common/rwpzstd.cpp)
@@ -152,13 +160,20 @@ if(BUILD_TESTING)
     add_executable(memorybudget_tests tests/memorybudget_tests.cpp wii/menu/memorybudget.cpp)
     target_include_directories(memorybudget_tests PRIVATE
         "${CMAKE_CURRENT_BINARY_DIR}/memorybudget_mock" tests/memorybudget_mock
-        wii/menu wii/core wii/controllers wii/launch wii/storage
+        wii/menu wii/core wii/controllers wii/launch wii/storage wii/online
         runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-zstd)
     target_link_libraries(memorybudget_tests PRIVATE riftwii)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(memorybudget_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME memorybudget COMMAND memorybudget_tests)
+    add_executable(packcatalog_tests tests/packcatalog_tests.cpp wii/menu/packcatalog.cpp)
+    target_include_directories(packcatalog_tests PRIVATE wii/menu wii/core wii/launch wii/storage wii/online)
+    target_link_libraries(packcatalog_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(packcatalog_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME packcatalog COMMAND packcatalog_tests)
     # The installer's temporary NAND access must be restored on every exit.
     add_executable(installer_cios_tests tests/installer_cios_tests.cpp channel/installer/cios.cpp)
     target_include_directories(installer_cios_tests PRIVATE tests/installer_mock channel/installer)
