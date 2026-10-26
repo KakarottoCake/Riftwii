@@ -53,8 +53,11 @@ RIM = (214, 206, 255)        # the thin light rim
 # What every lit tile is filled with: gold-tinted glass, bronze enough that
 # the engine's white names (and the gold of Play's, accent_ink) stay readable
 # on it, since the engine draws no other text colour on a lit tile.
-GOLD_GLASS = dict(body_tl=(108, 74, 22), body_br=(62, 38, 10), sheen=0.10, reflection=0.04, rainbow_edge=0.0)
-GOLD_GLASS_PRIMARY = dict(body_tl=(94, 60, 15), body_br=(48, 28, 8), sheen=0.10, reflection=0.04, rainbow_edge=0.0)
+# White on its lightest corner is about 4.9:1 (6.4:1 on the primary): still
+# gold, where the first version's 3.5:1 washed the names out and a darker
+# bronze turned the gold brown.
+GOLD_GLASS = dict(body_tl=(150, 104, 22), body_br=(86, 52, 10), sheen=0.15, reflection=0.07, rainbow_edge=0.0)
+GOLD_GLASS_PRIMARY = dict(body_tl=(128, 86, 16), body_br=(70, 42, 8), sheen=0.15, reflection=0.07, rainbow_edge=0.0)
 
 INI = """[theme]
 name = Indigo
