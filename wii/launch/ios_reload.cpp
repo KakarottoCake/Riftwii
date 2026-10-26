@@ -23,6 +23,7 @@
 
 #include "boot.hpp"
 #include "d2xsd.hpp"
+#include "d2xreturnto.hpp"
 #include "di.hpp"
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
@@ -181,6 +182,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         return ReloadResult::Failed;
     }
     __ES_Reset();
+    forget_d2x_return_to();
     // The old IOS is gone from here, and d2x's FAT module and NAND
     // emulation with it: RiftWii may use the card again. A reload refused
     // before this point leaves them running, and the card held.
