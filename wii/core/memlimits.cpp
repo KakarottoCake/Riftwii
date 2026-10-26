@@ -48,8 +48,8 @@ void Init() {
     // Arena 2 starts above the restart area and the start-up stash's copy.
     const u32 mem2_lo = stash::ReservedEnd();
     if (Address(SYS_GetArena2Lo()) < mem2_lo) SYS_SetArena2Lo(reinterpret_cast<void*>(mem2_lo));
-    // Asked now, while IOS is up: PoisonReloadArea runs mid-reload.
-    g_dolphin = running_in_dolphin();
+    // Do not probe IOS before the log can open. A stuck IPC request here
+    // used to leave neither a screen nor a line naming the call.
 }
 
 namespace {
@@ -132,6 +132,8 @@ bool TestWiiMem2Top() { return g_wii_mem2_top; }
 bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
 
 void LogLimits() {
+    // Asked while IOS is up, after LogOpen: PoisonReloadArea runs mid-reload.
+    g_dolphin = running_in_dolphin();
     const u32 mem1_size = *reinterpret_cast<volatile u32*>(0x80000028);
     const u32 mem2_size = *reinterpret_cast<volatile u32*>(0x80003118);
     logf("Memory: MEM1 %u MiB, MEM2 %u MiB%s\n", mem1_size >> 20, mem2_size >> 20,

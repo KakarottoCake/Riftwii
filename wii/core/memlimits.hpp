@@ -36,6 +36,10 @@ constexpr u32 kMem2Floor = 0x90800000;    // below: an IOS reload's
 // (wii/core/restart.hpp); the heap starts after them.
 constexpr u32 kRestartArea = kMem2Floor;
 constexpr u32 kRestartBytes = 0x9000;
+// The restart snapshot and handoff end before this tail (restart.cpp).
+// Two cache-aligned slots survive BSS clearing and IOS reloads.
+constexpr u32 kStartupTrace = kRestartArea + 0x8800;
+constexpr u32 kNandPermissionNote = kRestartArea + 0x8900;
 // Above the restart area: the start-up stash, copied there by crt0
 // (wii/core/stash.hpp), up to 2 MiB; the heap's MEM2 part starts after it.
 // Clear of the GameCube runtime's MEM2 (0x91200000 up) and IOS at the top.
