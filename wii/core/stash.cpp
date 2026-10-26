@@ -68,6 +68,10 @@ extern "C" void riftwii_take_stash() {
 
 namespace riftwii::wii::stash {
 
+bool FreshStart() {
+    return note()->magic == kNoteMagic && note()->outcome == kTakenNow;
+}
+
 void Check() {
     if (g_checked) return;
     g_checked = true;

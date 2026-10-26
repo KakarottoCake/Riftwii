@@ -16,6 +16,7 @@
 #include "netsock.hpp"
 #include "memlimits.hpp"
 #include "stash.hpp"
+#include "startuptrace.hpp"
 
 // crt0's pieces (libogc's linker script and tuxedo/common_crt0.S).
 extern "C" {
@@ -51,7 +52,8 @@ struct Handoff {
     char message[kMessageMax];
 };
 
-static_assert(sizeof(Snapshot) + sizeof(Handoff) <= mem::kRestartBytes, "restart area too small");
+static_assert(sizeof(Snapshot) + sizeof(Handoff) <= mem::kStartupTrace - mem::kRestartArea,
+              "restart snapshot overlaps start-up breadcrumbs");
 
 Snapshot* snapshot() { return reinterpret_cast<Snapshot*>(mem::kRestartArea); }
 Handoff* handoff() { return reinterpret_cast<Handoff*>(mem::kRestartArea + sizeof(Snapshot)); }
@@ -66,9 +68,11 @@ RestartNote g_note;
 // before libogc is up: fixed addresses and memcpy only.
 extern "C" void __wrap___CheckARGV() {
     using namespace riftwii::wii;
+    startup::Begin();
     // First: libogc's __CheckARGV moves the command line to the heap's
     // start, where the start-up stash still lies (stash.hpp).
     riftwii_take_stash();
+    startup::Mark(startup::Step::Arguments);
     Snapshot* s = snapshot();
     const u32 size = data_size();
     if (size <= kSnapshotMax) {
@@ -81,6 +85,14 @@ extern "C" void __wrap___CheckARGV() {
         s->magic = 0;
     }
     Handoff* h = handoff();
+    // A freshly loaded DOL must use its new loader's arguments, never a
+    // handoff left by a different run with the same writable-data size.
+    // A warm restart has no fresh stash and owns the bounded inline copy.
+    if (stash::FreshStart() || h->kind == 0 || h->kind > static_cast<u32>(RestartKind::SdRetry) ||
+        h->argv_length > kArgvMax ||
+        (h->argv_length != 0 && h->argv[h->argv_length - 1] != '\0')) {
+        h->magic = 0;
+    }
     if (h->magic == kHandoffMagic && h->image == size) {
         // The old run's argv strings lived in its heap; give crt0 the copy.
         if (h->argv_length != 0) {
@@ -92,6 +104,7 @@ extern "C" void __wrap___CheckARGV() {
         }
     }
     __real___CheckARGV();
+    startup::Mark(startup::Step::Libogc);
 }
 
 namespace riftwii::wii {

@@ -291,6 +291,31 @@ is gone, so crt0 keeps the MEM2 copy. Each copy carries the build's version
 and a checksum. `stash::Check` tests both once per start, so a copy left
 by another build, or one that was damaged, is never used.
 
+### Start-up breadcrumbs and the saved NAND patch
+
+The restart area's last half page holds two small records below the
+stash, so a start that dies before the log can open still leaves a trace
+for the next one (`mem::kStartupTrace` at `0x90808800`,
+`mem::kNandPermissionNote` at `0x90808900`, inside `kRestartBytes` up to
+`0x90809000`; the snapshot and handoff above them are capped by a
+`static_assert`). IOS reloads write below `0x90800000`, the heap starts
+above the stash, and a soft return to the Homebrew Channel keeps MEM2,
+so both records survive exactly the starts that need them; only a
+power-off clears them.
+
+- The start-up note (`wii/core/startuptrace.cpp`, `include/riftwii/startupnote.hpp`) records each step reached before the log opens. Once
+the log is open it reports `The last start stopped at: <step>` when the
+previous start never got that far, then clears the note.
+- The NAND permission note (`wii/launch/nandpermissions.cpp`) is written
+before the running IOS's permission check is patched open, and the next
+start closes a patch an interrupted run left behind before anything else
+runs. Neither record is trusted on its own: the start-up note carries a
+magic, a layout tag, the build version and a checksum; the NAND
+permission note a magic and a checksum over the IOS number, the patched
+word's address (inside IOS's code) and the instruction word before and
+after, and the next start restores it only when the live word is exactly
+the one RiftWii wrote.
+
 ### `riftwii.elf`
 
 The stash is added to the DOL only. A `riftwii.elf` started directly has
