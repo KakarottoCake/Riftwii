@@ -48,11 +48,34 @@ put in the repository.
 
 "Direct" is the game started by Dolphin itself, without RiftWii: it
 shows whether Dolphin runs the game at all. "RiftWii" is the game started
-by RiftWii's test build (`channelboot <title>` in `autorun.txt`).
+by RiftWii's test build (`channelboot <title>` in `autorun.txt`) in the
+Dolphin built with `tools/dolphin/es-identify.patch`, with no
+`debug_off`. Both are a screenshot after about 50 and 75 seconds with no
+input, the games installed on the Wii's own NAND.
 
-| Game | Title | Direct | RiftWii in Dolphin | Real Wii |
-| --- | --- | --- | --- | --- |
-| WarioWare: D.I.Y. Showcase | 00010001-WA4E | Runs, makes its save | All files read; stops at "An error occurred while accessing Wii system memory" (see below) | Not yet |
+| Game | Title | IOS | Direct | RiftWii in Dolphin | Real Wii |
+| --- | --- | --- | --- | --- | --- |
+| WarioWare: D.I.Y. Showcase | 00010001-WA4E | IOS55 | Creates its save | Creates its save | Not yet |
+| Super Mario 64 | 00010001-NAAE | IOS9 | Title demo | Title demo | Not yet |
+| Cruis'n USA | 00010001-NASE | IOS33 | Attract screens | Attract screens | Not yet |
+| Dr. Mario Online Rx | 00010001-WDME | IOS37 | ESRB notice, title | Title screen | Not yet |
+| Fluidity | 00010001-WFLE | IOS56 | Hold-the-remote screen | Hold-the-remote screen | Not yet |
+| Super Mario Bros. | 00010001-FAGE | IOS9 | Title demo | Title demo | Not yet |
+| Mario Adventure | 00010001-F1TE | IOS9 | Title screen | Title screen | Not yet |
+| Sonic the Hedgehog | 00010001-MAHE | IOS9 | Demo play | Demo play | Not yet |
+| Victory Run | 00010001-PAFE | IOS53 | Controller setup | Controller setup | Not yet |
+| Final Fantasy Crystal Chronicles: My Life as a King | 00010001-WFCE | IOS37 | Creates its save | Creates its save | Not yet |
+| Mega Man 9 | 00010001-WR9E | IOS37 | Player name | Player name | Not yet |
+| Pokémon Rumble | 00010001-WPSE | IOS56 | Controller notice | Controller notice | Not yet |
+| World of Goo | 00010001-WGOE | IOS35 | Title screen | Title screen | Not yet |
+| Tetris Party | 00010001-WTPE | IOS35 | Title screen | Title screen | Not yet |
+
+All 14 reach the same screen through RiftWii as when Dolphin starts them
+itself (2026-10-26, branch at 209b308c). In WarioWare, Dolphin's log
+shows the game asking ES for its title and data folder and reading its
+own content through ES, as it does when started directly. Not covered
+yet: an emulated NAND (d2x's emulation can't run in Dolphin), channels
+the Wii Menu moved to the SD card, saving, and going back to RiftWii.
 
 ## Findings
 
