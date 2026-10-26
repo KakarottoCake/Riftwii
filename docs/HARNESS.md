@@ -116,3 +116,23 @@ Dolphin after SECS. Dolphin log lands in
   `Stop-Process -Name Dolphin -Force` from PowerShell.
 - Game-list "Refreshing..." on boot can stall on slow drives;
   it is the browser, not the emulation.
+
+## WiiWare and Virtual Console
+
+Felk's Dolphin answers `ES_Identify` with -1017, so a channel RiftWii
+starts has no title of its own: no save folder, no content (see
+docs/WIIWARE.md). `tools/dolphin/es-identify.patch` adds it, and a
+DolphinTool `installwad` command, to the same Felk source; the build goes
+in `build-dolphin/felk-identify`:
+
+- `FELK_DIR=felk-identify felk-run.sh <card> <test dol>` runs it, with an
+  `autorun.txt` of `channelboot <16-digit title>`. No `debug_off =
+  identify`: ES runs the game as its own title, as on a console.
+- `felk-identify/DolphinTool.exe installwad build-dolphin/user-felk
+  <wad>...` installs WADs for good. A WAD booted directly with `-e` is
+  only installed until emulation stops; its contents are removed then.
+- `build-dolphin/frameshot.py` is a Felk script for unattended runs: it
+  saves the frame at set frame counts (`FRAMESHOT_OUT`, `FRAMESHOT_AT`).
+  Give Dolphin its paths with forward slashes, and the card settings
+  `felk-run.sh` passes: left out, Dolphin rebuilds whatever card it used
+  last at every boot.
