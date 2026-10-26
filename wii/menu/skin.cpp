@@ -186,17 +186,16 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
-    // Keep the dials on Home, with a quiet wall behind other screens' text.
-    const bool clockHome = std::strcmp(im.name, "background") == 0 ||
+    // The clock-dial theme paints its own wall, at 640 and natively at 856
+    // (only the two: every screen's wall falls back to them, so the clocks
+    // stay behind Settings and the game pages too).
+    const bool clockWall = std::strcmp(im.name, "background") == 0 ||
         std::strcmp(im.name, "background_wide") == 0;
-    const bool clockPlain = std::strcmp(im.name, "background_plain") == 0 ||
-        std::strcmp(im.name, "background_plain_wide") == 0;
-    if (std::strncmp(im.name, "background", 10) == 0 &&
-        !(MenuTheme().clock_dials && (clockHome || clockPlain)))
+    if (std::strncmp(im.name, "background", 10) == 0 && !(MenuTheme().clock_dials && clockWall))
         return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
-    if (MenuTheme().clock_dials && clockHome) AddSoyjak(c);
+    if (MenuTheme().clock_dials && clockWall) AddSoyjak(c);
     return Upload(c);
 }
 
@@ -388,9 +387,7 @@ void EnsureBackgrounds() {
             if (std::strcmp(im.name, name) == 0) *tex = Pick(im);
     };
     for (Wall& w : walls) {
-        const bool paintsWide = MenuTheme().clock_dials &&
-            (std::strcmp(w.wide_name, "background_wide") == 0 ||
-             std::strcmp(w.wide_name, "background_plain_wide") == 0);
+        const bool paintsWide = MenuTheme().clock_dials && std::strcmp(w.wide_name, "background_wide") == 0;
         if (wide && (ThemeImageExists(w.wide_name) || paintsWide)) {
             if (!w.tried_wide) load(w.wide_name, w.wide_tex);
             w.tried_wide = true;
