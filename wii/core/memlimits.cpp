@@ -57,6 +57,7 @@ unsigned g_ballast_kib = 0;
 unsigned g_game_mem1_kib = 0, g_game_mem2_kib = 0, g_game_mem2_top_kib = 0;
 bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
+bool g_cios_in_dolphin = false;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 
@@ -98,6 +99,7 @@ void TestBallast() {
         else if (ReadSetting(line, "game_mem2_top_kib", v)) g_game_mem2_top_kib = v;
         else if (ReadSetting(line, "wii_mem2_top", v)) g_wii_mem2_top = v != 0;
         else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
+        else if (ReadSetting(line, "cios_in_dolphin", v)) g_cios_in_dolphin = v == 1;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -130,6 +132,7 @@ void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib) {
 
 bool TestWiiMem2Top() { return g_wii_mem2_top; }
 bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
+bool TestCiosInDolphin() { return g_cios_in_dolphin; }
 
 void DetectDolphin() {
     // Asked while IOS is up: PoisonReloadArea runs mid-reload. Once is
@@ -150,6 +153,8 @@ void LogLimits() {
          kMem1Ceiling, kMem2Floor, g_mem2_top, kMem2Floor, g_dolphin ? ", poisoned in Dolphin" : "");
     stash::Log();
     if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
+    if (g_dolphin && g_cios_in_dolphin)
+        logf("cIOS: test_limits.txt enables cIOS selection and checks in Dolphin.\n");
 }
 
 // libogc's kernel heap (lwp_wkspace.c), 64 KiB: thread stacks without a

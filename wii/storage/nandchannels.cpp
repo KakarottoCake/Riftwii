@@ -650,7 +650,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
             files.ios_order.push_back(ios);
     };
     if (ios_choice != 0) add_ios(ios_choice);
-    if (!running_in_dolphin()) {
+    if (cios_paths_enabled()) {
         ImageGame as_image;
         as_image.id = files.game_id;
         as_image.required_ios = files.required_ios;
@@ -662,10 +662,10 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     }
     // A stock IOS cannot serve the copied NAND. After the d2x attempts,
     // reloading it would only repeat the launch with the content missing.
-    // Real NAND channels still get this fallback. Dolphin has no d2x, so
-    // there it stays for a copied NAND too: `debug_off = identify` starts
-    // the game without the emulation, for testing.
-    const bool stock_fallback = !emulated || running_in_dolphin();
+    // Real NAND channels still get this fallback. Ordinary Dolphin also
+    // keeps it for copied NAND tests without emulation. With the d2x
+    // test switch, copied NAND channels require d2x, as on a Wii.
+    const bool stock_fallback = !emulated || !cios_paths_enabled();
     if (stock_fallback && files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
     if (emulated && files.ios_order.empty()) {
         error = "no installed d2x IOS is available to serve the copied NAND";

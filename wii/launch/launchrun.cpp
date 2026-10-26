@@ -118,7 +118,7 @@ bool Session::ensure_probe(std::string& error) {
         // for an RVZ on the card (RiftWii reads it from the card while
         // the game runs) or a game whose title ID is not known.
         bool d2x_ready = false;
-        if (!own_saves_dir.empty() && !running_in_dolphin()) {
+        if (!own_saves_dir.empty() && cios_paths_enabled()) {
             std::string why;
             if (source.game.title_id == 0) why = "the game's title ID is not known";
             else if (sd_after_probe)

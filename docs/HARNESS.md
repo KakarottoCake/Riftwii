@@ -139,3 +139,51 @@ repository's `es-identify` branch):
   Give Dolphin its paths with forward slashes, and the card settings
   `felk-run.sh` passes: left out, Dolphin rebuilds whatever card it used
   last at every boot.
+
+### Testing cIOS selection with the d2x Dolphin fork
+
+The fork's `d2x-emulation` branch can recognise a synthetic d2x IOS slot.
+Use that build for these tests; ordinary Dolphin cannot run the cIOS
+paths. Stop emulation before editing its isolated user folder:
+
+```sh
+python tools/dolphin/make_d2x_slot.py build-dolphin/user-felk 249 56
+python tools/dolphin/make_d2x_slot.py build-dolphin/user-felk 250 57 --major 11 --revision 21011 --release beta3
+```
+
+The arguments are the Dolphin user folder (the one passed with `-u`),
+the slot (200-255, in decimal), and its base IOS (for example 56, 57 or
+58). Defaults are d2x v11 beta3, revision 21011. Under the user folder's
+`Wii/`, this writes `title/00000001/000000f9/content/title.tmd`,
+`00000000.app` beside it, and `ticket/00000001/000000f9.tik` for slot
+249. Other slots use their own eight-digit hexadecimal name. The content
+is only a 64-byte version block; the TMD lists its size and SHA-1. There
+is no d2x program, Nintendo data, key or real signature. These records
+are for the emulator only. Repeating the same command is safe; different
+existing records are refused, so choose an unused slot instead.
+
+Build RiftWii with both test switches:
+
+```sh
+make -f Makefile.wii TEST=1 WII_DEFINES=-DRIFTWII_TEST_LIMITS -j8
+```
+
+Put `cios_in_dolphin = 1` in the test card's
+`riftwii/test_limits.txt`. RiftWii then reads and checks the installed
+cIOS slots and chooses them as on a Wii: image launches, channels,
+d2x saves, and the menu's cIOS paths. Copied NAND channels require d2x
+instead of falling back to a stock IOS. A cIOS reload needs an installed
+ticket. The session log says the switch is enabled. Missing or zero
+keeps the usual Dolphin behavior; a build without
+`RIFTWII_TEST_LIMITS` ignores the key entirely. Dolphin's memory poisoning,
+console type, and other hardware adjustments stay in place. Channel
+installation remains blocked because the switch does not bypass signature
+checks.
+
+This is preparation for the fork's d2x support, not evidence that all
+d2x commands work. Slot recognition alone does not provide NAND emulation,
+game images on USB or SD, reload blocking, or return-to behavior. Test
+those only once the fork implements them; card mounting and real-console
+timing still need a Wii. The metadata layout follows
+[WiiBrew's Title metadata page](https://wiibrew.org/wiki/Title_metadata)
+and was checked against Dolphin's `TMDReader::IsValid`.
