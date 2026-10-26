@@ -116,7 +116,9 @@ Two scripts on the card drive a run without hands on a controller:
   `dump <disc path> [sd path]`, `dol [sd path]`, `xml <sd path>`,
   `set <option>=<choice>`, `replace`/`grow`/`sdreplace`/`sdgrow <disc
   path> <sd path>`, `keep <disc path>`, `hook`, `nofallback`, `boot`,
-  `launch`. The driver is in the test build only:
+  `launch`, `channelread <16-digit-title>` (reads a channel's program,
+  ticket and certificates as a launch does, without starting it) and
+  `channelboot <16-digit-title>` (reads them and starts the channel). The driver is in the test build only:
   `make -f Makefile.wii TEST=1` (the DOL is `riftwii.dol` again, so keep a
   copy of the release one). A release build leaves `wii/launch/autorun.cpp`
   out, and with an `autorun.txt` on the card it starts the menu and logs one

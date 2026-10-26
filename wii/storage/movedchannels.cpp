@@ -449,8 +449,14 @@ bool MovedChannel::read(std::uint32_t content_id, std::uint64_t bytes, std::vect
 
 bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double)>& progress, std::string& error) {
     const std::string code = channel_code(title_id);
+    logf("Wii channels: looking for %s's content.bin on the SD card.\n", code.c_str());
+    LogSync();
     const std::string path = moved_channel_file(code);
-    if (path.empty()) return true;
+    if (path.empty()) {
+        logf("Wii channels: no content.bin for %s; no contents will be staged.\n", code.c_str());
+        return true;
+    }
+    logf("Wii channels: opening the Wii filesystem to stage %s.\n", code.c_str());
     if (NandOpen() < 0) {
         error = "the Wii's memory could not be opened";
         return false;
@@ -468,6 +474,7 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         }
     } permissions;
     MovedChannel moved;
+    logf("Wii channels: opening %s before staging its contents.\n", path.c_str());
     if (!moved.open(path, title_id, error)) {
         // A content.bin left on the card (damaged, another Wii's, or older
         // than the channel) does not stop a channel the Wii has in full.
@@ -488,6 +495,7 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
     for (const TmdContent& c : moved.tmd().contents) {
         if (!moved.has(c.id)) continue;
         const std::string to = nand_content_path(title_id, c.id);
+        logf("Wii channels: checking %s before staging it.\n", to.c_str());
         const s32 ours = staged_by_riftwii(to);
         const bool absent = ours == -106;
         if (ours < 0 && !absent) {
@@ -523,6 +531,8 @@ bool stage_moved_channel(std::uint64_t title_id, const std::function<void(double
         // Only absent files and RiftWii's own copies are in `missing`; a
         // short or wrong copy from an earlier start is replaced.
         const std::string to = nand_content_path(title_id, c.id);
+        logf("Wii channels: staging %s (%llu bytes).\n", to.c_str(), static_cast<unsigned long long>(c.size));
+        LogSync();
         if (!append_staged(to, error)) {
             ok = false;
             break;

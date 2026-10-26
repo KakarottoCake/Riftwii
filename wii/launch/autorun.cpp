@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "boot.hpp"
 #include "channel.hpp"
@@ -29,6 +30,8 @@
 #include "memlimits.hpp"
 #include "menuios.hpp"
 #include "menumusic.hpp"
+#include "movedchannels.hpp"
+#include "nandchannels.hpp"
 #include "modplan.hpp"
 #include "netpacks.hpp"
 #include "sdfile.hpp"
@@ -265,6 +268,26 @@ void RunAutorun() {
             else if (!serve_disc_from_rvz(path, error)) ok=false;
         } else if (cmd == "disc") {
             source=LaunchSource{}; s=Session(source, kAutorunLogPath);
+        } else if (cmd == "channelread" || cmd == "channelboot") {
+            std::string title_text;
+            words.next(title_text);
+            char* end = nullptr;
+            const u64 title = std::strtoull(title_text.c_str(), &end, 16);
+            if (title_text.size() != 16 || end == nullptr || *end != '\0' || channel_code(title).empty()) {
+                ok = false;
+                error = "channelread/channelboot needs a 16-digit channel title ID";
+            } else {
+                ChannelBootFiles files;
+                ok = mem::GuardLaunchMemory(error, [&] {
+                    return read_channel_boot(title, "", files, error);
+                });
+                if (ok && cmd == "channelboot") {
+                    ok = mem::GuardLaunchMemory(error, [&] {
+                        return stage_moved_channel(title, {}, error) && boot_channel(std::move(files), error);
+                    });
+                    if (reload_terminal_failure()) halt_after_terminal_reload();
+                }
+            }
         } else if (cmd == "netscan") {
             // The network packs' list, as the menu's scan fetches it.
             const std::string line = RefreshNetworkPacks(nullptr);
