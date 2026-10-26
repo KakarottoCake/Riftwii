@@ -163,9 +163,16 @@ void PackIndex::add(const std::string& xml) {
         filter.game = sniff_game(xml);
         if (filter.game.empty()) return;  // no game named: not listed under any
     }
-    filter.revision = -1;
-    filter.number = -1;
-    filters_.push_back(std::move(filter));
+    add_filter(filter);
+}
+
+void PackIndex::add_filter(const DiscFilter& filter) {
+    if (filter.game.empty()) return;
+    DiscFilter badge_filter = filter;
+    // Home's badge covers every revision and disc of the title.
+    badge_filter.revision = -1;
+    badge_filter.number = -1;
+    filters_.push_back(std::move(badge_filter));
 }
 
 void PackIndex::add_game(const std::string& game_id) {
