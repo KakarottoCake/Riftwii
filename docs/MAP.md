@@ -119,6 +119,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
+| `startuptrace.cpp` | The start-up note: the step each start reached before its log opened, reported by the next start as "The last start stopped at" (`include/riftwii/startupnote.hpp`, `tests/startupnote_tests.cpp`) |
 | `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
@@ -158,6 +159,7 @@ The build compiles every folder into one, so no two files share a name.
 | `progress.cpp` | The launch screen's progress line |
 | `menuios.cpp` | Which IOS the menu runs under (58 or a d2x cIOS slot) |
 | `ios_reload.cpp` | IOS reloads, and telling Dolphin apart from a Wii |
+| `nandpermissions.cpp` | Opening and closing the running IOS's NAND permission check, with a note saved first so the next start closes a patch an interrupted run left open (`include/riftwii/nandcheck.hpp`, `tests/nandpermissions_tests.cpp`) |
 | `channel.cpp` | Offering and installing the Wii Menu channel |
 | `codebuilds.cpp` | Finding code builds (on the card and inside `sd.raw`) and preparing their codes |
 | `modplan.cpp` | Compiling the chosen packs into boot options |

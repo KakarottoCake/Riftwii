@@ -397,6 +397,9 @@ int main() {
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).
     riftwii::wii::startup::Mark(Step::ArgumentsRead);
+    // Before any launch path can reload IOS; after the SD card, so a start
+    // that stops here is named by the start-up note.
+    riftwii::wii::mem::DetectDolphin();
     if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
@@ -410,6 +413,9 @@ int main() {
     // The Dolphin harness's test driver (make -f Makefile.wii TEST=1).
     riftwii::wii::startup::Mark(Step::Autorun);
     if (riftwii::wii::AutorunPresent()) {
+        // As the menu does at start: copies a `channelboot` staged last
+        // time go before the driver runs again.
+        if (sd_mounted) riftwii::wii::UnstageMovedChannels();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunAutorun();

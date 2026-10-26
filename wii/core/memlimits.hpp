@@ -76,6 +76,10 @@ bool TestConsoleTypeAsWii();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.
+// Asks IOS once whether this is Dolphin, for PoisonReloadArea. Logs
+// nothing, so a launch path that never opens the session log (headless)
+// still sets it before its first IOS reload.
+void DetectDolphin();
 void LogLimits();
 void LogUsage(const char* when);
 
