@@ -158,12 +158,13 @@ Two things the same report shows that are still open:
 
 ### Still open (from a review of the channel start)
 
-- **A missing content file is only found by the game.** RiftWii checks the
-  program it loads, not that ES can open every content the game will read.
-  An emulated NAND missing the N64 ROM (content 5) or a shared content
-  starts, then goes black. Opening each needed content through ES after
-  `ES_Identify`, and naming the one that fails, would turn that into a
-  message. Optional contents must stay optional, so this needs care.
+- **A missing content file still lets the game start.** Since 994137df
+  RiftWii opens every needed content through ES after `ES_Identify` and
+  names any it can't open in boot.log (checked in Dolphin: Super Mario 64
+  with `/shared1` moved aside logs contents 2, 3 and 4), but the game is
+  started anyway, as the check could be wrong on some IOS. Refusing the
+  start with a message is the next step once Wii reports show the check
+  is reliable.
 - **Emulated NANDs on a USB drive aren't supported by the channel start.**
   The folder lookup and d2x's emulation set-up both take only the SD card.
 - **A game that reloads IOS itself** loses both its identity and d2x's
