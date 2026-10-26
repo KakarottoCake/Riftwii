@@ -298,6 +298,10 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     return true;
 }
 
+bool d2x_nand_emulation_active() {
+    return g_emulation_on && sd_held_by_d2x_fat();
+}
+
 bool release_d2x_saves() {
     if (!sd_held_by_d2x_fat()) return true;
     // The emulation off first, so no NAND request goes to a file system
@@ -315,6 +319,7 @@ bool release_d2x_saves() {
              off, fs);
         return false;
     }
+    if (off >= 0) g_emulation_on = false;
     // Then the module writes what it holds and lets go of the card. With
     // a game on the card through d2x's own device, the launch is over by
     // now (no game reads through it any more), so this is safe as well.

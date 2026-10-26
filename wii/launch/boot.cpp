@@ -79,8 +79,6 @@
 
 namespace riftwii::wii {
 
-u64 return_title();
-
 namespace {
 
 using ApploaderReport = void (*)(const char* format, ...);
@@ -659,7 +657,11 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     }
     // Opening the partition identifies the game in ES. With this IOS
     // kept for the launch, even the probe is too late after that point.
-    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
+    out.return_to = 0;
+    if (!debug_off("returnto")) {
+        out.return_to = options.return_to ? *options.return_to : return_title();
+    }
+    prepare_d2x_return_to(out.return_to);
     if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
     out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
     out.running_ios = IOS_GetVersion();
@@ -1307,6 +1309,12 @@ RestartRequest g_restart_request;
 void prepare_restart_request(const BootOptions& options) {
     g_restart_request = RestartRequest{};
     if (g_extras.restart_args.empty()) return;
+    if (d2x_nand_emulation_active()) {
+        // The request cannot be written while d2x owns the SD card, and
+        // a direct channel launch would use its redirected ticket lookup.
+        logf("Reset: the game's own Reset is kept because d2x's NAND emulation holds the SD card needed for the restart request.\n");
+        return;
+    }
     if (!options.install_resident) {
         logf("Reset: the game's own Reset restarts it as it always does: no RiftWii runtime goes into this game, "
              "and the runtime is what takes the Reset\n");
@@ -1540,7 +1548,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // A reloaded IOS lost the probe's setting. An unchanged IOS keeps it
     // without another request while ES still has the probed title.
-    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
+    const bool nand_emulated = d2x_nand_emulation_active();
+    u64 selected_return_to = 0;
+    if (!debug_off("returnto")) {
+        selected_return_to = nand_emulated ? probe.return_to : return_title();
+    }
+    const bool d2x_return_accepted = prepare_d2x_return_to(selected_return_to);
     Tmd tmd;
     std::int32_t es_result = 0;
     if (!open_game_partition(probe.partition, tmd, es_result, error)) return false;
@@ -2119,7 +2132,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // to the runtime, just below. ES is opened only when Reset is called:
     // holding an extra handle during play can exhaust the game's ES contexts.
     RestartOptions restart_plan;
-    plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
+    // No direct channel fallback under emulation: its ticket is redirected
+    // and the SD card needed for the restart request belongs to d2x.
+    if (!nand_emulated) {
+        plan_restart(dol, gx_protected, runtime_code_in_mem2, card_required || file_device, restart_plan);
+    }
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements, savegame redirection and RVZ games need the resident runtime";
@@ -2385,9 +2402,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
-    const u64 return_to = clears_mem1_top || gx_protected || plain_code_build ? 0 : return_title();
+    const u64 return_to = clears_mem1_top || gx_protected || plain_code_build ? 0 : selected_return_to;
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
-    const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
+    const bool patch_channel_return = !debug_off("returnto") &&
+                                     should_patch_game_return_to(return_to, nand_emulated, d2x_return_accepted);
+    std::uint32_t return_stub = 0;
+    if (patch_channel_return) {
+        return_stub = code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
+    }
     const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
     if (options.install_resident || vsd.active || extras.any() || return_stub != 0) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
@@ -2637,7 +2659,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     bool returns_to_channel = false;
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
-    else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
+    else if (patch_channel_return) returns_to_channel = apply_return_to(loaded, return_to, return_stub);
     // The game's own Reset leaves through its OSReturnToMenu once that goes
     // to the channel the request is for (rt_reset_on_os_restart).
     if (resident.restart_hooked && restart_plan.return_to_menu != 0 && returns_to_channel &&
@@ -2922,11 +2944,12 @@ bool is_wii_u() {
 }
 
 // Return to RiftWii (Settings): a game's HOME Menu "Wii Menu" starts the
-// RiftWii channel, which starts RiftWii. Two ways, both tried: d2x's own
+// RiftWii channel, which starts RiftWii. Two ways: d2x's own
 // "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
-// (src/patching/returnto.cpp) for one under any IOS.
-u64 return_title() {
+// (src/patching/returnto.cpp) when NAND emulation is off. With it on, the
+// game must ask for the Wii Menu so d2x first turns the emulation off.
+std::uint64_t return_title() {
     if (g_extras.return_to_menu) return 0;
     if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return 0;
     const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
@@ -3404,6 +3427,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     D2xNandMountFailures mount_failures;
     // Whether the game runs in d2x's NAND emulation (not just asked for).
     bool emulated = false;
+    bool d2x_return_accepted = false;
     // After d2x let go of the card: libfat and boot.log back on it, as
     // after an IOS reload (release_d2x_saves only clears the hold).
     const auto card_again = [&] {
@@ -3451,7 +3475,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
         // After this try's reload, before ES_Identify marks a title as
         // running, and while boot.log still has the card.
-        prepare_d2x_return_to(return_to);
+        d2x_return_accepted = prepare_d2x_return_to(return_to);
         // A channel of an emulated NAND runs in it: d2x serves the whole
         // NAND from the folder, as that NAND's own system menu would see it
         // (its shared contents and system files as well as the title's own
@@ -3774,7 +3798,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
-    apply_return_to(loaded, return_to, kCodeReturnStub);
+    if (should_patch_game_return_to(return_to, emulated, d2x_return_accepted)) {
+        apply_return_to(loaded, return_to, kCodeReturnStub);
+    }
     install_wpad_log_last(extras);
 
     ProgressStage("Starting the game", 100);

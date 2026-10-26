@@ -93,16 +93,16 @@ void logf(const char* format, ...) {
 int main() {
     using namespace riftwii::wii;
 
-    prepare_d2x_return_to(0);
+    CHECK(!prepare_d2x_return_to(0));
     ios = 58;
-    prepare_d2x_return_to(kChannel);
+    CHECK(!prepare_d2x_return_to(kChannel));
     ios = 249;
     base = 0;
-    prepare_d2x_return_to(kChannel);
+    CHECK(!prepare_d2x_return_to(kChannel));
     CHECK(opens == 0 && requests == 0 && logs.empty());
 
     base = 56;
-    prepare_d2x_return_to(kChannel);
+    CHECK(prepare_d2x_return_to(kChannel));
     CHECK(accepted_title == kChannel);
     CHECK(requests == 1 && closes == 1);
     CHECK(logs.size() == 1 && logs.back().find("accepted") != std::string::npos);
@@ -110,7 +110,7 @@ int main() {
     // The probe identifies a title. Preparing again before handoff must
     // retain the accepted setting rather than send a refused late request.
     title_running = true;
-    prepare_d2x_return_to(kChannel);
+    CHECK(prepare_d2x_return_to(kChannel));
     CHECK(requests == 1 && logs.size() == 1);
 
     // A real reload (including the same slot) loses both ES title context
@@ -118,28 +118,60 @@ int main() {
     forget_d2x_return_to();
     title_running = false;
     accepted_title = 0;
-    prepare_d2x_return_to(kChannel);
+    CHECK(prepare_d2x_return_to(kChannel));
     CHECK(requests == 2 && accepted_title == kChannel);
 
     // A changed selection can clear an earlier setting before a title runs.
-    prepare_d2x_return_to(0);
+    CHECK(!prepare_d2x_return_to(0));
     CHECK(requests == 3 && accepted_title == 0);
 
     title_running = true;
-    prepare_d2x_return_to(kChannel);
+    CHECK(!prepare_d2x_return_to(kChannel));
     CHECK(logs.back().find("refused") != std::string::npos);
     title_running = false;
     request_result = -1017;
-    prepare_d2x_return_to(kChannel);
+    CHECK(!prepare_d2x_return_to(kChannel));
     CHECK(requests == 5 && accepted_title == 0);
     request_result = 0;
     open_result = -6;
-    prepare_d2x_return_to(kChannel);
+    CHECK(!prepare_d2x_return_to(kChannel));
     CHECK(requests == 5 && opens == 6 && closes == 5);
     CHECK(logs.back().find("(-6)") != std::string::npos);
     open_result = 42;
-    prepare_d2x_return_to(kChannel);
+    CHECK(prepare_d2x_return_to(kChannel));
     CHECK(requests == 6 && accepted_title == kChannel);
+
+    // Without NAND emulation, keep the existing game patch even when
+    // d2x did not accept the title (including a stock IOS launch).
+    logs.clear();
+    CHECK(should_patch_game_return_to(kChannel, false, true));
+    CHECK(should_patch_game_return_to(kChannel, false, false));
+    CHECK(logs.empty());
+
+    // Both NAND scopes redirect the channel ticket. Acceptance changes
+    // where d2x sends the Wii Menu exit, never whether the game is patched.
+    CHECK(!should_patch_game_return_to(kChannel, true, true));
+    CHECK(logs.size() == 1);
+    CHECK(logs.back().find("d2x starts the selected channel") != std::string::npos);
+    CHECK(!should_patch_game_return_to(kChannel, true, false));
+    CHECK(logs.size() == 2);
+    CHECK(logs.back().find("HOME > Wii Menu goes to the Wii Menu") != std::string::npos);
+
+    // A selected Wii Menu exit stays alone regardless of IOS or emulation.
+    for (bool emulated : {false, true}) {
+        for (bool accepted : {false, true}) {
+            CHECK(!should_patch_game_return_to(0, emulated, accepted));
+        }
+    }
+    CHECK(logs.size() == 2);
+
+    // A refused change must not claim that d2x accepted the new target.
+    const std::uint64_t other_channel = kChannel + 1;
+    title_running = true;
+    CHECK(!prepare_d2x_return_to(other_channel));
+    CHECK(prepare_d2x_return_to(kChannel));
+    forget_d2x_return_to();
+    CHECK(!prepare_d2x_return_to(kChannel));
 
     return failures == 0 ? 0 : 1;
 }

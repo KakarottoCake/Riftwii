@@ -714,7 +714,54 @@ s32 IOS_Ioctlv(s32 fd, s32 command, u32 in, u32, ioctlv* vectors) {
     return -1;
 }
 
+namespace {
+
+void test_active_emulation_state() {
+    using namespace riftwii::wii;
+    for (D2xNandScope scope : {D2xNandScope::GamePaths, D2xNandScope::WholeNand}) {
+        start_over();
+        put_fat32_card();
+        CHECK(!d2x_nand_emulation_active());
+        std::string error;
+        CHECK(enable_d2x_saves("sd:/nands/test", error, scope));
+        CHECK(d2x_nand_emulation_active());
+
+        // Refusing to turn it off keeps the emulation and backing card.
+        console.set_answer = -6;
+        CHECK(!release_d2x_saves());
+        CHECK(d2x_nand_emulation_active());
+
+        // A FAT module may hold the card even after emulation is off.
+        console.set_answer = 0;
+        console.unmount_answer = -6;
+        CHECK(!release_d2x_saves());
+        CHECK(console.held);
+        CHECK(!d2x_nand_emulation_active());
+        console.unmount_answer = 0;
+        CHECK(release_d2x_saves());
+        CHECK(!d2x_nand_emulation_active());
+
+        CHECK(enable_d2x_saves("sd:/nands/test", error, scope));
+        CHECK(d2x_nand_emulation_active());
+        // IOS reload clears this hold; the old emulation is gone too.
+        hold_sd_for_d2x_fat(false);
+        CHECK(!d2x_nand_emulation_active());
+    }
+
+    start_over();
+    put_fat32_card();
+    console.set_answer = -6;
+    console.unmount_answer = -6;
+    std::string error;
+    CHECK(!enable_d2x_saves("sd:/nands/test", error));
+    CHECK(console.held);
+    CHECK(!d2x_nand_emulation_active());
+}
+
+}  // namespace
+
 int main() {
+    test_active_emulation_state();
     test_channel_mount_failures_are_kept_for_one_launch();
     test_channel_mount_retry_still_runs();
     test_channel_mount_failure_keeps_the_card_when_unmount_fails();
