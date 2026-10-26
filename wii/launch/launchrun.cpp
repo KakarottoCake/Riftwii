@@ -168,7 +168,12 @@ bool Session::ensure_probe(std::string& error) {
         // emulation on only while no title runs. A game on the SD card
         // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
         // the others cannot read the game and keep the save on one card).
+        ProbeOptions virtual_disc;
+        virtual_disc.virtual_source = true;
         if (d2x_ready) {
+            // Partial emulation redirects /ticket/00010001 too. Resolve
+            // the real NAND's return channel before that lookup changes.
+            virtual_disc.return_to = debug_off("returnto") ? 0 : return_title();
             const int base = d2x_base(used_slot);
             std::string why;
             if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
@@ -187,8 +192,6 @@ bool Session::ensure_probe(std::string& error) {
         }
         open_usb_for_packs();
         logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
-        ProbeOptions virtual_disc;
-        virtual_disc.virtual_source = true;
         if (!probe_disc(probe, error, virtual_disc)) return false;
         mem::CheckHeap("after the disc probe");
         if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||

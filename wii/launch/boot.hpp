@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,8 @@ struct DiscProbe {
     std::vector<std::uint8_t> tmd_bytes;  // the raw reply, for dumps
     std::int32_t es_result = 0;         // ES verification result reported by DI
     int running_ios = 0;                // IOS at probe time
+    // Resolved before NAND emulation can hide the installed return channel.
+    std::uint64_t return_to = 0;
     // The disc's region setting (disc offset 0x4E000): 0 Japan, 1 USA,
     // 2 Europe, 4 Korea; -1 when it could not be read.
     std::int32_t disc_region = -1;
@@ -57,7 +60,15 @@ struct ProbeOptions {
     // until the next IOS reload d2x then refuses to open its USB and SD
     // devices (its stealth mode), which libogc's USB driver needs too.
     bool header_only = false;
+    // Image launches resolve this before turning d2x's NAND emulation on.
+    // An explicit zero keeps the Wii Menu; an absent value is resolved by
+    // the probe itself.
+    std::optional<std::uint64_t> return_to;
 };
+
+// The selected return channel on the real NAND, or zero for the Wii Menu.
+// Resolve before enabling d2x's NAND emulation, which redirects its ticket.
+std::uint64_t return_title();
 
 // Brings the drive up and identifies the disc, its game partition and the
 // IOS the title wants. Leaves /dev/di open with the partition open.

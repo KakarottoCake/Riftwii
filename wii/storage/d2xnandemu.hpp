@@ -62,6 +62,10 @@ struct D2xNandMountFailures {
 bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope = D2xNandScope::GamePaths,
                       bool* card_back = nullptr, D2xNandMountFailures* mount_failures = nullptr);
 
+// A successful enable still in effect on this IOS, rather than a FAT
+// module holding the card after a failure. An IOS reload clears the hold.
+bool d2x_nand_emulation_active();
+
 // When the emulation came on but the launch does not go on with it (ES
 // refused the title on this IOS, the launch failed): d2x's emulation is
 // turned off (mode 0, while no title runs) and its FAT module unmounts the
