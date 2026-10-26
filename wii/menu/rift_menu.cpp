@@ -1852,10 +1852,10 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
 	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
-	SkinButton prevBtn(skin::arrowLeft, skin::arrowLeftOver, 2, 10 - wide, 155, nullptr,
+	SkinButton prevBtn(skin::arrowLeft, skin::arrowLeftOver, 2, 26 - wide, 155, nullptr,
 		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT | WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_LEFT,
 		WIIDRC_BUTTON_LEFT | WIIDRC_BUTTON_MINUS);
-	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 586 + wide, 155, nullptr,
+	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 570 + wide, 155, nullptr,
 		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_RIGHT,
 		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
 	// Favourite: a small round button in the top right corner (or 1), its
@@ -2346,7 +2346,7 @@ private:
 // the empty tiles of the second row.
 class EmptyHomeNote : public GuiElement {
 public:
-	static constexpr int kW = 440, kH = 146, kTop = 136;
+	static constexpr int kW = 520, kH = 184, kTop = 112;
 	EmptyHomeNote()
 		: words(riftwii::wii::Settings().sd_games == "off"
 			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
@@ -2355,7 +2355,8 @@ public:
 		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
 		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-		text.SetWrap(true, kW - 40, 6);
+		// Leave room for the GameCube paths in the longer translations.
+		text.SetWrap(true, kW - 40, 8);
 	}
 	void Draw() override {
 		if (!IsVisible()) return;
@@ -4580,7 +4581,13 @@ static int MenuSource(FrontendState& state)
 		shownScanStatus = riftwii::wii::DriveScanStatus();
 		return shownScanStatus;
 	};
-	const auto showStatus = [&]() { statusTxt.SetText(homeStatusText().c_str()); };
+	const auto showStatus = [&]() {
+		statusTxt.SetText(homeStatusText().c_str());
+		// Also restore the note when Home is rebuilt after leaving Settings.
+		// The first scan has not found its games yet, so it gets no note.
+		emptyNote.SetVisible(g_scanned && !g_scanning && state.sd_catalog.games.empty() &&
+			state.usb_catalog.games.empty() && state.channels.empty());
+	};
 	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
@@ -4593,9 +4600,6 @@ static int MenuSource(FrontendState& state)
 		SetHomeMovable(grid, entries);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		showStatus();
-		// Not "no games" while the drives are still being read.
-		emptyNote.SetVisible(!g_scanning && state.sd_catalog.games.empty() && state.usb_catalog.games.empty() &&
-			state.channels.empty());
 	};
 	// A tile across a refresh: its drive as well as its game (one game on
 	// both the card and the drive has two tiles with the same key), and
@@ -13209,11 +13213,12 @@ int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
 
+	// Pick the native widescreen pictures using the saved display width.
+	riftwii::wii::ApplyMenuDisplay();
 	const u64 skinStart = gettime();
 	skin::Init();
 	logf("Startup: menu art drawn in %u ms\n", static_cast<unsigned>(diff_msec(skinStart, gettime())));
 	ApplyMenuSounds();
-	riftwii::wii::ApplyMenuDisplay();
 	const u64 musicStart = gettime();
 	riftwii::wii::MenuMusicStart();
 	logf("Startup: music started in %u ms\n", static_cast<unsigned>(diff_msec(musicStart, gettime())));

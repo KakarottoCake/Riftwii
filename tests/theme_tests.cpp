@@ -503,6 +503,36 @@ static void test_painted_images() {
     EXPECT_TRUE(paint_theme_image("tile", square, square_tile));
     EXPECT_TRUE(square_tile.at(8, 8).a == 255);
     EXPECT_TRUE(round_tile.at(8, 8).a < square_tile.at(8, 8).a);
+
+    // Wrapped notes need an opaque backplate even near the ends of their
+    // first and last lines, where a tall capsule used to expose the tiles.
+    Canvas note(0, 0);
+    paint_hint_box(def, 520, 184, note);
+    for (int y : {12, 172}) {
+        for (int x : {20, 500}) {
+            EXPECT_EQ(int(note.at(kHintBoxMargin + x, kHintBoxMargin + y).a), 255);
+        }
+    }
+
+    // The clock dials belong to Home; Settings needs a plain wall at both
+    // widths so its read-only text cannot land on a bright clock face.
+    Theme clocks = red;
+    clocks.clock_dials = true;
+    for (const char* name : {"background_plain", "background_plain_wide"}) {
+        Canvas plain(0, 0);
+        EXPECT_TRUE(paint_theme_image(name, clocks, plain));
+        for (int y = 0; y < plain.height(); ++y) {
+            for (int x = 0; x < plain.width(); ++x) {
+                const Rgba pixel = plain.at(x, y);
+                EXPECT_TRUE(pixel.r == 1 && pixel.g == 2 && pixel.b == 3 && pixel.a == 255);
+            }
+        }
+    }
+    Canvas dials(0, 0);
+    Canvas plain_wide(0, 0);
+    EXPECT_TRUE(paint_theme_image("background_wide", clocks, dials));
+    EXPECT_TRUE(paint_theme_image("background_plain_wide", clocks, plain_wide));
+    EXPECT_TRUE(dials.pixels() != plain_wide.pixels());
 }
 
 // The stick and D-pad pictures RiftWii draws itself (the GameCube controls
