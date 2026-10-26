@@ -21,6 +21,16 @@ constexpr const char* kChoicesDir = "sd:/riftwii/choices";
 // shows its hotkey line instead (it says the same, and more).
 constexpr const char* kScanReady = "ready";
 
+// Read while opening a banner, then consumed by its Settings or Start.
+// Keeping one pending tile bounds memory and avoids stale choices after
+// saving, switching profiles, rescanning or returning from a game page.
+struct PreparedGameChoices {
+    std::string path;
+    std::string text;
+    bool riivolution = false;
+    std::vector<std::string> usb_mods;
+};
+
 struct FrontendState {
     // Accepted for this hand-off only, after saving the installer marker failed.
     bool channel_allow_unmarked = false;
@@ -32,6 +42,7 @@ struct FrontendState {
     riftwii::LaunchModel model;
     PackageCatalog package_catalog;
     std::string choices_path;
+    PreparedGameChoices prepared_choices;
     // A profile's tile was opened (riftwii/profiles.hpp): its key and name,
     // and choices_path is its own choices file. Empty for the game's own tile.
     std::string profile_key;
@@ -82,8 +93,11 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
 bool SelectChannel(FrontendState& state, std::size_t index, std::string& error);
 LaunchSource SelectedSource(const FrontendState& state);
 // Explicit rescans read a new catalog; opening a page reuses Home's snapshot.
-// Saved choices are always read afresh for the selected game or profile.
-std::string ScanPackages(FrontendState& state, bool reuse_catalog = false);
+// A banner prepares its tile's choices afresh before Settings can be pressed.
+void PrepareGameChoices(FrontendState& state, const std::string& game_id, const std::string& profile_key,
+                        void (*step)(const char*) = nullptr);
+std::string ScanPackages(FrontendState& state, bool reuse_catalog = false,
+                         void (*step)(const char*) = nullptr);
 // Why the game cannot start with its mods where they are, or "": a code
 // build on the USB drive, or one turned on with the game on the SD card. `brief` is
 // the short form for the game page.
