@@ -251,4 +251,13 @@ constexpr std::uint32_t kChannelTitleTypes[] = {kDownloadedChannels, kSystemChan
 
 std::vector<std::uint8_t> make_fake_ticket();
 
+// One signed ticket, as ES_Identify takes it.
+constexpr std::size_t kSignedTicketBytes = 0x2A4;
+
+// The ticket RiftWii offers ES_Identify when the installed one is refused or
+// missing: the installed ticket's first one (the generic ticket without),
+// with `title_id` as its title, no console of its own, and fakesigned for
+// IOSes with the signing bug (d2x). Exactly one ticket, as ES takes it.
+std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& installed, std::uint64_t title_id);
+
 }  // namespace riftwii

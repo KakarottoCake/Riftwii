@@ -3486,12 +3486,15 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                               std::to_string(IOS_GetRevision()) + ": ES_Identify ";
         if (result < 0 && !files.ticket_synthetic) {
             // WiiBrew's /dev/es error table names -1029 "invalid ticket",
-            // not a proven console mismatch. Retry a generated identity on
-            // this IOS before releasing d2x's NAND emulation or reloading.
+            // not a proven console mismatch. Retry on this IOS, before
+            // releasing d2x's NAND emulation or reloading, with the same
+            // ticket made console-free and fakesigned for d2x's signing bug
+            // (an emulated NAND copied from another console: Super Mario 64
+            // on a vWii got -1029 from every d2x).
             logf("Wii channels: on IOS%d rev %d, ES refused the installed ticket (%d%s); trying the synthetic ticket on the same IOS\n",
                  IOS_GetVersion(), IOS_GetRevision(), result, result == -1029 ? ", invalid ticket" : "");
             attempt += "refused the installed ticket (" + std::to_string(result) + "); ";
-            const auto synthetic_ticket = riftwii::make_fake_ticket();
+            const auto synthetic_ticket = riftwii::make_identify_ticket(files.ticket, files.title_id);
             result = identify(synthetic_ticket);
             ticket_kind = "synthetic";
         }
