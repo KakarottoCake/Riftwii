@@ -896,8 +896,8 @@ struct Painter {
 
     // What the menu draws behind every screen without a background.png:
     // the backdrop colour, with a 2-pixel stripe every 4 rows.
-    Canvas Background(int w = 640) const {
-        if (dials) return Dials(w);
+    Canvas Background(int w = 640, bool decorated = true) const {
+        if (dials && decorated) return Dials(w);
         Canvas c(w, 480);
         c.fill(backdrop);
         if (stripes) {
@@ -910,7 +910,10 @@ struct Painter {
 }  // namespace
 
 void paint_hint_box(const Theme& theme, int w, int h, Canvas& out) {
-    out = Painter(theme).Card(w, h, kHintBoxMargin, h / 2.0f, false);
+    // A tall capsule cuts into the first and last lines of a wrapped note.
+    // Short hints keep their round ends; multiline notes get small corners.
+    const float radius = h <= 48 ? h / 2.0f : 18.0f;
+    out = Painter(theme).Card(w, h, kHintBoxMargin, radius, false);
 }
 
 void paint_clock_digits(const Theme& theme, Canvas& out) { out = Painter(theme).ClockDigits(); }
@@ -1066,8 +1069,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},
         {"background_shelf", [](const Painter& q) { return q.Background(640); }},
         {"background_shelf_wide", [](const Painter& q) { return q.Background(856); }},
-        {"background_plain", [](const Painter& q) { return q.Background(640); }},
-        {"background_plain_wide", [](const Painter& q) { return q.Background(856); }},
+        {"background_plain", [](const Painter& q) { return q.Background(640, false); }},
+        {"background_plain_wide", [](const Painter& q) { return q.Background(856, false); }},
         {"background_channels", [](const Painter& q) { return q.Background(640); }},
         {"background_channels_wide", [](const Painter& q) { return q.Background(856); }},
         {"banner_stripes", [](const Painter& q) { return q.Stripes(); }},
