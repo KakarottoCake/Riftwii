@@ -122,12 +122,14 @@ bool WiiSoundPlayer::prepare(const WiiSoundArchive& archive, const std::string& 
     repeat_ = repeat;
     for (unsigned i = 0; i < envelope_gains_.size(); ++i)
         envelope_gains_[i] = i == 904 ? 0.0f : static_cast<float>(std::pow(10.0, -static_cast<double>(i) / 200));
-    // Attack is exponential in attenuation. These are the high-end 5 ms
-    // factor numerators; taking the fifth root gives the per-ms factor.
-    constexpr unsigned fast_attack[] = {143, 137, 132, 127, 123, 116, 109, 100, 92,
-                                         84, 73, 63, 51, 38, 26, 14, 5, 1, 0};
+    // Attack is exponential in attenuation: each value is a 5 ms factor
+    // out of 256, and its fifth root the per-ms factor. Up to 108 the
+    // numerator is 255 - value. RiftWii's own rule for the fastest 19
+    // (109 to 127): the same line's 146 at 108 falls evenly to 0 at 127,
+    // where the note starts at full volume. A note's first milliseconds
+    // differ by a fraction of a millisecond from any other smooth choice.
     for (unsigned value = 0; value < attack_factors_.size(); ++value) {
-        const unsigned numerator = value < 109 ? 255 - value : fast_attack[value - 109];
+        const double numerator = value <= 108 ? 255.0 - value : 146.0 * (127 - value) / 19.0;
         attack_factors_[value] = static_cast<float>(std::pow(numerator / 256.0, 1.0 / 5));
     }
     // Error reporting on the producer thread must not allocate either.

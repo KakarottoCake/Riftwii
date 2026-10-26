@@ -48,6 +48,12 @@ int main(int argc, char** argv) {
     char* end = nullptr;
     const unsigned long seconds = std::strtoul(argv[4], &end, 10);
     if (*end || seconds < 1 || seconds > 180) return 2;
+    // Writing the WAV over the archive would destroy the console's file.
+    // Only the same spelling is caught; a different path to it is not.
+    if (std::strcmp(argv[1], argv[3]) == 0) {
+        std::fprintf(stderr, "the output file is the input file\n");
+        return 2;
+    }
     FILE* input = std::fopen(argv[1], "rb");
     if (!input) return 1;
     std::fseek(input, 0, SEEK_END);
@@ -96,6 +102,11 @@ int main(int argc, char** argv) {
         position += count;
     }
     if (std::fclose(output) != 0) written = false;
+    if (!written) {
+        // Its header already claims the whole length: not a file to keep.
+        std::remove(argv[3]);
+        return 1;
+    }
     std::printf("Rendered %zu frames at %u Hz in %.3f seconds of rendering.\n", frames, player.kRate, render_seconds);
-    return written ? 0 : 1;
+    return 0;
 }
