@@ -271,6 +271,11 @@ void RunAutorun() {
         } else if (cmd == "channelread" || cmd == "channelboot") {
             std::string title_text;
             words.next(title_text);
+            // Optional: the emulated NAND folder on the SD card that holds
+            // the channel (sd:/nands/<name>), as the menu's Channels view
+            // passes it; d2x then serves the channel from there.
+            std::string emu_nand;
+            words.next(emu_nand);
             char* end = nullptr;
             const u64 title = std::strtoull(title_text.c_str(), &end, 16);
             if (title_text.size() != 16 || end == nullptr || *end != '\0' || channel_code(title).empty()) {
@@ -279,7 +284,7 @@ void RunAutorun() {
             } else {
                 ChannelBootFiles files;
                 ok = mem::GuardLaunchMemory(error, [&] {
-                    return read_channel_boot(title, "", files, error);
+                    return read_channel_boot(title, emu_nand, files, error);
                 });
                 if (ok && cmd == "channelboot") {
                     ok = mem::GuardLaunchMemory(error, [&] {
