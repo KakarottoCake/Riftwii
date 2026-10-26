@@ -16,26 +16,23 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Korean menus on any Wii, WiiWare and Virtual Console games the Wii Menu moved to the SD card, your RiiTag in Settings, and a game's Settings page that opens at once. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** A fix for a black screen when starting RiftWii again after the Homebrew Channel, a game's Settings page that now really opens at once, themes polished for widescreen TVs, and Wii Menu music that sounds more like the Wii's own. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![RiftWii's Settings in Korean]({{SCREENSHOTS}}2610-korean-settings.png)
+![Settings in the Indigo theme on a widescreen TV]({{SCREENSHOTS}}2610-indigo-settings.png)
 
 ## What changed
 
-- **Korean menus on any Wii or Wii U.** Until now Korean text only showed with a Korean Wii's own menu font. RiftWii now brings its own: a small, cut-down copy of Noto Sans KR (free license, credited in Settings > Credits), in `apps/riftwii/korean.ttf` beside RiftWii and read from the SD card only when Korean text is on screen. Updating from the menu puts it in place by itself; if you copy RiftWii by hand, copy `korean.ttf` and its license too. Without the file, the menu shows in English and the log says which file to copy.
-- **A game's Settings page opens at once.** Pressing Settings on a game's banner screen used to lock the menu for a few seconds (the banner and its music kept playing) while RiftWii read every mod pack on the SD card again. It now uses what Home already read: in a test with 48 packs and a card as slow as a real SD card, from almost 10 seconds to a fifth of a second. Problem reports now say how long the page took to open.
-- **WiiWare and Virtual Console games the Wii Menu moved to the SD card** (Data Management > Channels > Move) show on Home again and start. As the Wii Menu does, RiftWii copies the game back to the Wii for the session (you need that much free space on the Wii) and removes the copy the next time RiftWii starts. A card from another Wii works with that Wii's BootMii `keys.bin` at `sd:/keys.bin`. Checked in Dolphin with the real Wii Menu doing the move; not yet on a real console. Thanks to quatric.
-- **See your RiiTag on the TV:** put your Discord ID in `sd:/riftwii/settings.txt` as `riitag_id = <your ID>`, and Settings > Online > My RiiTag downloads your tag and shows it (the Guide says how to find the ID). Thanks to quatric.
-- **45 KiB more free memory** for the menu and games, with nothing you can see. Thanks to grantendo.
-- **From 2610-697:** Virtual Console and WiiWare games in an emulated NAND that the Wii refused to start now try again with a generic ticket. If you had one that wouldn't start, please try it again.
+- **No more black screen when starting RiftWii again after the Homebrew Channel.** After a WiiWare game failed to start, a Wii could show a black screen at every RiftWii start until it was switched off. To read a game's files, RiftWii makes a small change inside the Wii's system software; if a session stops before putting it back, the next start now puts it back. RiftWii also no longer trusts notes left in memory by a session that isn't its own. Reading a WiiWare or Virtual Console game's files now writes a log line for each step, and a start that stops early is named in the next `session.log` ("The last start stopped at: ..."). Not yet tested on a real Wii.
+- **A game's Settings page opens at once, this time for real.** On a real Wii with lots of mods, 2610-703 still paused for about a second and a half: the page read every mod's options again, even mods for other games. Home now keeps a short summary of each mod, and the banner screen gets the game's saved choices ready while you look at it. In Dolphin with 19 big mods: from 2 seconds to under a tenth of a second.
+- **Themes look right on widescreen TVs.** Every built-in theme got a pass at 16:9 and 4:3: button sizes, the banner stripes (no more seam where they meet), and Indigo's gold highlight, now easier to read with white text. Indigo in Get more themes has the same fix.
+- **Wii Menu music sounds closer to the Wii's.** With the Wii Menu's sounds on (Settings > Menu), notes now fade in, fade out and mix as on the console, checked against recordings from Dolphin. It isn't identical yet in the upper-middle tones; tell us if something sounds off.
 
 ## What to test
 
-1. **Korean:** set the menu to Korean (Settings > Language) and look around Home, Settings and a game's page. Korean Wii owners: also try it with Settings > Menu font set to the Wii Menu's.
-2. **A game's Settings page:** press Settings on a few games' banner screens, with your usual SD card full of mods. It should open right away. A problem report afterwards shows the time it took.
-3. **A WiiWare or VC game moved to the SD card** with the Wii Menu: does it show on Home and start? Start RiftWii again afterwards (it removes the copy). A problem report shows the copying and the cleanup.
-4. **My RiiTag** (Settings > Online), if you have a RiiTag.
-5. **VC and WiiWare from an emulated NAND**, if one didn't start before 2610-697.
+1. **Going back to the Homebrew Channel and starting RiftWii again**, a few times, also after a WiiWare or Virtual Console game. If you get a black screen: switch the Wii off, start RiftWii, and send a problem report.
+2. **A game's Settings page** with your usual SD card full of mods: it should open right away.
+3. **Your theme on a widescreen TV** (and on 4:3 if you can): anything cut off, too big or out of place?
+4. **The Wii Menu's music** (Settings > Menu): does it sound like your Wii Menu?
 
 ## Known issues
 

@@ -268,9 +268,13 @@ New in 3.2 (beta):
   and Reset fixes; WiiWare fixes; SD card out and back in.
 - 2610-697: VC and WiiWare games in an emulated NAND that the
   Wii refused to start now try again with a generic ticket.
-- {{VERSION}}: Korean menus on any Wii (korean.ttf beside
+- 2610-703: Korean menus on any Wii (korean.ttf beside
   RiftWii); channels moved to the SD card start; My RiiTag;
   a game's Settings page opens at once.
+- {{VERSION}}: no black screen when starting again after the
+  Homebrew Channel; a game's Settings page opens at once with
+  lots of mods; themes polished for widescreen TVs; Wii Menu
+  music closer to the Wii's.
 - 2610-280 (RC3): the GameCube adapter set to On no longer stops
   SD games from booting; no Wii Remote rumble for screenshots (it
   crashed Need for Speed: ProStreet). Cars 2 warning.

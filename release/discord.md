@@ -17,22 +17,20 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Korean menus, SD card channels, RiiTag and a faster game Settings page:
+Fixes and polish:
 
-* Korean menus on any Wii or Wii U: RiftWii now brings its own small Korean font (korean.ttf beside RiftWii; updating from the menu adds it for you)
-* Pressing Settings on a game's banner screen no longer locks the menu for a few seconds: it reuses what Home already read instead of rereading every mod on the SD card
-* WiiWare/VC games the Wii Menu moved to the SD card show on Home and start (RiftWii copies them back to the Wii for the session)
-* Settings > Online > My RiiTag shows your RiiTag (add riitag_id = <your Discord ID> to settings.txt)
-* From 2610-697: VC and WiiWare from an emulated NAND that wouldn't start try again with a generic ticket
+* Starting RiftWii again after the Homebrew Channel no longer gives a black screen after a game failed to start (RiftWii now cleans up what the stopped session left behind)
+* A game's Settings page now really opens at once, even with lots of mods on the SD card
+* Every theme polished for widescreen TVs: button sizes, no seam in the banner stripes, a more readable gold in Indigo
+* The Wii Menu's music sounds closer to the real thing
 
 To test, please:
 
-1. Set the menu to Korean (Settings > Language) and look around
+1. Go back to the Homebrew Channel and start RiftWii again, a few times, also after a WiiWare or VC game. Black screen? Switch the Wii off, start RiftWii and send a report
 2. Press Settings on a few games' banner screens with your usual SD card: it should open right away
-3. A WiiWare/VC game moved to the SD card with the Wii Menu: start it from RiftWii, then restart RiftWii
-4. My RiiTag, if you have one
-5. Any VC or WiiWare game from your emulated NAND that didn't start before
+3. Look at your theme on a widescreen TV: anything cut off or out of place?
+4. Turn on the Wii Menu's music (Settings > Menu): does it sound right?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![RiftWii in Korean](docs/screenshots/2610-korean-settings.png)
+![Settings in the Indigo theme](docs/screenshots/2610-indigo-settings.png)
