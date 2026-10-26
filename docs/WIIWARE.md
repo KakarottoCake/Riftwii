@@ -16,9 +16,10 @@ Menu.
 | Report | What happens |
 | --- | --- |
 | Super Mario 64 (VC, N64) | Doesn't start (problem report from a player). |
-| Cruis'n USA (VC, N64) | Same as Super Mario 64. |
+| Cruis'n USA (VC, N64) | Reported not starting. Starts and plays on grantendo's vWii from the Wii's own memory since 2610-689 (#323); a report that still fails may be the emulated NAND case, as Super Mario 64. |
 | WarioWare: D.I.Y. Showcase on the Wii itself | Stopped after the cIOS line in `boot.log`; every start after it was a black screen until the Wii was switched off. #342 added log lines for each step and the clean-up at the next start. |
 | Four Wii Remotes in some channels | Jack's work. |
+| The GameCube pad's way back in N64 VC games | Doesn't leave the game: it waits for the game's main thread to pause, and the N64 emulator's never does (a second thread reads the pads). SNES VC and WiiWare games tried pause normally. grantendo has a fix (leave from the pad thread's pause after half a second) to test on a Wii U. |
 
 ## Test games
 
@@ -162,7 +163,7 @@ Two things the same report shows that are still open:
 - **Jack (@JackW6809):** the four Wii Remotes in channels.
 - **Cyan (@cyanpurr):** the emulated NAND side, if you'd like it: you
   wrote it (#220).
-- **grantendo:** reviews, and the memory side.
+- **grantendo:** the GameCube pad's way back in N64 VC games, reviews, and the memory side.
 
 Anything else you'd like to take, say so in the PR and it comes off this
 list.
