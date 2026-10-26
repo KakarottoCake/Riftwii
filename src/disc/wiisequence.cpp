@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: OGWS decompilation contributors (behavior reference)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wiisound.hpp"
 
@@ -75,14 +76,29 @@ float pitch_float(const std::uint8_t* data) {
     return pitch;
 }
 
-// A compact envelope in sample time. The bank's 127 is immediate; lower
-// values extend the stage exponentially. This is RiftWii's renderer, not
-// Nintendo's DSP: reverb, filtering and the exact hardware envelope curve
-// are deliberately not claimed to be bit-identical.
-float envelope_step(unsigned value, unsigned rate) {
-    if (value >= 127) return 1;
-    const double seconds = 0.001 * std::pow(2.0, (127.0 - value) / 8.0);
-    return static_cast<float>(1.0 / (seconds * rate));
+// Bank decay/release units describe tenths of a decibel per millisecond,
+// not a duration or a linear amplitude ramp. See NOTICE.md for the public
+// behavior reference. A 3 ms control interval matches the Wii audio frame.
+constexpr unsigned kEnvelopeFrames = WiiSoundPlayer::kRate * 3 / 1000;
+
+float fall_rate(unsigned value) {
+    if (value == 127) return 65535.0f;
+    if (value == 126) return 24.0f;
+    if (value < 50) return (value * 2 + 1) / 640.0f;
+    return 12.0f / (126 - value);
+}
+
+float squared_volume(unsigned value) {
+    const float ratio = value / 127.0f;
+    return ratio * ratio;
+}
+
+float sustain_level(unsigned value) {
+    // The two lowest nonzero entries have a finite floor in the bank's
+    // decibel scale. Generate the rest mathematically instead of embedding
+    // the console's volume table.
+    if (value < 3) return -723.0f + value;
+    return static_cast<float>(static_cast<int>(400 * std::log10(value / 127.0)));
 }
 
 }  // namespace
@@ -104,6 +120,19 @@ bool WiiSoundPlayer::prepare(const WiiSoundArchive& archive, const std::string& 
                              bool repeat, std::string& error) {
     *this = WiiSoundPlayer{};
     repeat_ = repeat;
+    for (unsigned i = 0; i < envelope_gains_.size(); ++i)
+        envelope_gains_[i] = i == 904 ? 0.0f : static_cast<float>(std::pow(10.0, -static_cast<double>(i) / 200));
+    // Attack is exponential in attenuation: each value is a 5 ms factor
+    // out of 256, and its fifth root the per-ms factor. Up to 108 the
+    // numerator is 255 - value. RiftWii's own rule for the fastest 19
+    // (109 to 127): from the same line's 146 at 109 it falls evenly to 0
+    // at 127, where the note starts at full volume. A note's first
+    // milliseconds differ by a fraction of a millisecond from any other
+    // smooth choice.
+    for (unsigned value = 0; value < attack_factors_.size(); ++value) {
+        const double numerator = value <= 108 ? 255.0 - value : 146.0 * (127 - value) / 18.0;
+        attack_factors_[value] = static_cast<float>(std::pow(numerator / 256.0, 1.0 / 5));
+    }
     // Error reporting on the producer thread must not allocate either.
     if (!try_reserve(error_, 128)) return reject(error, "no memory for the sound renderer");
     ArchiveSound sound;
@@ -130,7 +159,8 @@ bool WiiSoundPlayer::prepare(const WiiSoundArchive& archive, const std::string& 
         voice.ignore_off = true;
         voice.envelope = 1;
         voice.stage = 2;
-        voice.gain_left = voice.gain_right = 1;
+        voice.gain_left = voice.gain_right = archive_volume_ / 127.0f;
+        voice.attenuation = 0;
         voice.step = static_cast<double>(waves_[0].rate) / kRate;
         voice.remaining = std::numeric_limits<std::uint32_t>::max();
         return true;
@@ -197,18 +227,16 @@ bool WiiSoundPlayer::note(unsigned track_index, unsigned key, unsigned velocity,
     voice.step = waves_[wave_index].rate / static_cast<double>(kRate) * pitch * std::pow(2.0, semitones / 12);
     if (!std::isfinite(voice.step) || voice.step < 0.001 || voice.step > 256)
         return fail("the sequence pitch is outside the renderer's range");
-    const float velocity_gain = static_cast<float>(velocity) / 127;
-    const float gain = velocity_gain * velocity_gain * entry.data[13] / 127;
-    const int pan = std::clamp(static_cast<int>(track.pan) + entry.data[14] - 64, 0, 127);
-    voice.gain_left = gain * static_cast<float>(std::sqrt((127 - pan) / 127.0));
-    voice.gain_right = gain * static_cast<float>(std::sqrt(pan / 127.0));
+    voice.gain = squared_volume(velocity) * entry.data[13] / 127;
+    voice.pan = static_cast<int>(entry.data[14]) + static_cast<int>(track.initial_pan) - 128;
     const auto parameter = [&](int override_value, unsigned field) {
         return override_value >= 0 ? static_cast<unsigned>(override_value) : std::min<unsigned>(entry.data[field], 127);
     };
-    voice.attack = envelope_step(parameter(track.attack, 4), kRate);
-    voice.decay = envelope_step(parameter(track.decay, 5), kRate);
-    voice.sustain = parameter(track.sustain, 6) / 127.0f;
-    voice.release = envelope_step(parameter(track.release, 7), kRate);
+    voice.attack = attack_factors_[parameter(track.attack, 4)];
+    voice.decay = fall_rate(parameter(track.decay, 5));
+    voice.sustain = sustain_level(parameter(track.sustain, 6));
+    voice.release = fall_rate(parameter(track.release, 7));
+    if (voice.attack == 0) voice.envelope = 1;
     voice.ignore_off = entry.data[10] == 1 || duration == 0;
     voice.remaining = duration == 0 ? std::numeric_limits<std::uint32_t>::max() : duration;
     return true;
@@ -296,9 +324,11 @@ bool WiiSoundPlayer::commands(unsigned index) {
                     track.loop_position = track.position;
                     track.loop_count = value == 0 ? 256 : static_cast<unsigned>(value);
                     break;
+                case 0xd5: track.expression = static_cast<unsigned>(std::clamp(value, 0, 127)); break;
+                case 0xdc: track.initial_pan = static_cast<unsigned>(std::clamp(value, 0, 127)); break;
                 // These describe console mixing effects or allocation priority;
                 // they do not change the bytecode's control flow.
-                case 0xc6: case 0xd7: case 0xd8: case 0xd9: case 0xda: case 0xdb: case 0xdc: case 0xde:
+                case 0xc6: case 0xd7: case 0xd8: case 0xd9: case 0xda: case 0xdb: case 0xde:
                     break;
                 default: return fail("the sequence uses an unsupported controller");
             }
@@ -336,7 +366,45 @@ bool WiiSoundPlayer::tick() {
         if (track.wait) --track.wait;
         if (!commands(i)) return false;
     }
+    if (bank_data_.data) update_mix();
     return true;
+}
+
+void WiiSoundPlayer::update_mix() {
+    const float volume = squared_volume(master_) * archive_volume_ / 127;
+    for (Voice& voice : voices_) {
+        if (!voice.active) continue;
+        const Track& track = tracks_[voice.track];
+        const float gain = voice.gain * squared_volume(track.volume) * squared_volume(track.expression) * volume;
+        // 64 is exactly center; 1 and 127 are the two ends of the signed
+        // 63-step pan range. Bank pan and live track pan add before clamping.
+        const float pan = std::clamp((voice.pan + static_cast<int>(track.pan) - 64) / 63.0f, -1.0f, 1.0f);
+        voice.gain_left = gain * std::sqrt((1 - pan) / 2);
+        voice.gain_right = gain * std::sqrt((1 + pan) / 2);
+    }
+}
+
+void WiiSoundPlayer::update_envelope(Voice& voice) {
+    if (voice.stage == 0) {
+        for (unsigned ms = 0; ms < 3; ++ms) voice.attenuation *= voice.attack;
+        if (voice.attenuation > -1.0f / 32) {
+            voice.attenuation = 0;
+            voice.stage = 1;
+        }
+    } else if (voice.stage == 1) {
+        voice.attenuation = std::max(voice.sustain, voice.attenuation - voice.decay * 3);
+        if (voice.attenuation == voice.sustain) voice.stage = 2;
+    } else if (voice.stage == 3) {
+        voice.attenuation = std::max(-904.0f, voice.attenuation - voice.release * 3);
+        if (voice.attenuation == -904 && voice.envelope == 0) voice.active = false;
+    }
+    const unsigned index = static_cast<unsigned>(-voice.attenuation);
+    const float target = envelope_gains_[std::min(index, 904u)];
+    // The DSP ramps amplitude between consecutive control frames. This
+    // avoids stair steps without a pow() or a table search per sample.
+    voice.envelope_delta = (target - voice.envelope) / kEnvelopeFrames;
+    voice.envelope_target = target;
+    voice.envelope_frames = kEnvelopeFrames;
 }
 
 bool WiiSoundPlayer::finished() const {
@@ -366,27 +434,18 @@ bool WiiSoundPlayer::render(std::int16_t* stereo, std::size_t frames) {
                     continue;
                 }
             }
-            if (voice.stage == 0) {
-                voice.envelope = std::min(1.0f, voice.envelope + voice.attack);
-                if (voice.envelope == 1) voice.stage = 1;
-            } else if (voice.stage == 1) {
-                voice.envelope = std::max(voice.sustain, voice.envelope - voice.decay);
-                if (voice.envelope == voice.sustain) voice.stage = 2;
-            } else if (voice.stage == 3) {
-                voice.envelope = std::max(0.0f, voice.envelope - voice.release);
-                if (voice.envelope == 0) {
-                    voice.active = false;
-                    continue;
-                }
-            }
+            if (voice.envelope_frames == 0) update_envelope(voice);
+            if (!voice.active) continue;
+            voice.envelope = std::clamp(voice.envelope + voice.envelope_delta, 0.0f, 1.0f);
+            if (--voice.envelope_frames == 0) voice.envelope = voice.envelope_target;
             const std::size_t at = static_cast<std::size_t>(voice.position);
-            const std::size_t next = std::min(at + 1, wave.frames() - 1);
+            const std::size_t next = at + 1 < wave.frames() ? at + 1 :
+                (wave.loop && (repeat_ || !voice.ignore_off) ? wave.loop_start : at);
             const float fraction = static_cast<float>(voice.position - at);
             const float sample_left = wave.pcm[at * 2] + (wave.pcm[next * 2] - wave.pcm[at * 2]) * fraction;
             const float sample_right = wave.pcm[at * 2 + 1] + (wave.pcm[next * 2 + 1] - wave.pcm[at * 2 + 1]) * fraction;
-            const float volume = tracks_[voice.track].volume * master_ * archive_volume_ / (127.0f * 127 * 127);
-            left += sample_left * voice.gain_left * voice.envelope * volume;
-            right += sample_right * voice.gain_right * voice.envelope * volume;
+            left += sample_left * voice.gain_left * voice.envelope;
+            right += sample_right * voice.gain_right * voice.envelope;
             voice.position += voice.step;
         }
         stereo[frame * 2] = static_cast<std::int16_t>(std::clamp(left, -32768.0f, 32767.0f));

@@ -119,6 +119,8 @@ contains theirs names them in its file header, and
   idea of the packed DOL (RiftWii's own stub and format).
 - **Mario Party 4 community decompilation**: documentation of GameCube font
   encoding behavior (read only; no code copied).
+- **OGWS community decompilation**: documentation of Wii sequence envelopes,
+  volume controls and pan, checked against the Wii Menu in Dolphin.
 - **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
   **oggplayer** and **libasnd** by Hermes: the menu's toolkit, text and music
     player, and the streaming mixer API reference.

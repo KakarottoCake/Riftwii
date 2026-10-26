@@ -233,18 +233,39 @@ void StreamCallback(s32) {
 
 void* MusicThread(void*) {
     unsigned buffer = 1;
+#ifdef RIFTWII_TEST_BUILD
+    u64 render_ticks = 0;
+    u64 longest_render = 0;
+    unsigned rendered_blocks = 0;
+#endif
     while (g_running.load(std::memory_order_acquire)) {
         u8* data = g_stream + buffer * kStreamBytes;
         if (g_paused.load() || ASND_TestPointer(0, data) != 0) {
             usleep(2000);
             continue;
         }
+#ifdef RIFTWII_TEST_BUILD
+        const u64 render_start = gettime();
+#endif
         if (!g_music_player.render(reinterpret_cast<std::int16_t*>(data), kStreamFrames)) {
             logf("Wii Menu music: playback stopped because %s; RiftWii's own music is used\n", g_music_player.error().c_str());
             g_failed.store(true, std::memory_order_release);
             g_running.store(false, std::memory_order_release);
             break;
         }
+#ifdef RIFTWII_TEST_BUILD
+        const u64 elapsed = gettime() - render_start;
+        render_ticks += elapsed;
+        longest_render = std::max(longest_render, elapsed);
+        if (++rendered_blocks == 500) {
+            logf("Wii Menu music: rendering 64 ms of audio took %u us on average and %u us at most over 500 buffers\n",
+                 static_cast<unsigned>(ticks_to_microsecs(render_ticks) / rendered_blocks),
+                 static_cast<unsigned>(ticks_to_microsecs(longest_render)));
+            render_ticks = 0;
+            longest_render = 0;
+            rendered_blocks = 0;
+        }
+#endif
         DCFlushRange(data, kStreamBytes);
         while (g_running.load() && ASND_TestVoiceBufferReady(0) != 1) usleep(2000);
         if (!g_running.load()) break;
