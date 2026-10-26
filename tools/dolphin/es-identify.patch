@@ -13,12 +13,17 @@ reads the ticket and TMD the request carries and runs the steps it already
 takes for a disc (title context, user and group ID, data folder), marking
 the title as a channel.
 
+It also gives DolphinTool `installwad <user folder> <wad>...`, which
+installs WADs for good, as Tools > Install WAD does: a WAD booted with -e is
+only installed until emulation stops, and its contents are then removed.
+
 Made against Felk's scripting fork, tag scripting-preview4 (a22afcb10b), the
 Dolphin build in build-dolphin/felk. To use it: clone that tag with its
 submodules, `git apply` this file, build Source/dolphin-emu.sln
-(Release, x64) with Visual Studio 2022, and run the result in place of
-build-dolphin/felk/Dolphin.exe. Not meant for Dolphin itself as it stands:
-it skips the ticket and TMD checks a console makes.
+(Release, x64) with Visual Studio 2022, and copy Binary/x64 to
+build-dolphin/felk-identify; `FELK_DIR=felk-identify felk-run.sh ...` runs
+it. Not meant for Dolphin itself as it stands: it skips the ticket and TMD
+checks a console makes.
 
 diff --git a/Source/Core/Core/IOS/ES/ES.cpp b/Source/Core/Core/IOS/ES/ES.cpp
 index bf388a5..b27edea 100644
@@ -68,3 +73,59 @@ index bf388a5..b27edea 100644
  }
  
  static ReturnCode WriteTmdForDiVerify(FS::FileSystem* fs, const ES::TMDReader& tmd)
+diff --git a/Source/Core/DolphinTool/ToolMain.cpp b/Source/Core/DolphinTool/ToolMain.cpp
+index 224ead3..ede6b6c 100644
+--- a/Source/Core/DolphinTool/ToolMain.cpp
++++ b/Source/Core/DolphinTool/ToolMain.cpp
+@@ -13,6 +13,8 @@
+ 
+ #include "Common/StringUtil.h"
+ #include "Core/Core.h"
++#include "Core/WiiUtils.h"
++#include "UICommon/UICommon.h"
+ 
+ #include "DolphinTool/ConvertCommand.h"
+ #include "DolphinTool/ExtractCommand.h"
+@@ -23,7 +25,32 @@ static void PrintUsage()
+ {
+   fmt::print(std::cerr, "usage: dolphin-tool COMMAND -h\n"
+                         "\n"
+-                        "commands supported: [convert, verify, header, extract]\n");
++                        "commands supported: [convert, verify, header, extract, installwad]\n");
++}
++
++// installwad <user folder> <wad>...: installs each WAD into that user
++// folder's NAND for good, as Tools > Install WAD does (booting a WAD only
++// installs it until emulation stops). For RiftWii's channel tests.
++static int InstallWads(const std::vector<std::string>& args)
++{
++  if (args.size() < 2)
++  {
++    fmt::print(std::cerr, "usage: dolphin-tool installwad <user folder> <wad>...\n");
++    return EXIT_FAILURE;
++  }
++  UICommon::SetUserDirectory(args[0]);
++  UICommon::CreateDirectories();
++  UICommon::Init();
++  int failed = 0;
++  for (size_t i = 1; i < args.size(); ++i)
++  {
++    const bool installed = WiiUtils::InstallWAD(args[i]);
++    fmt::print(std::cerr, "{}: {}\n", args[i], installed ? "installed" : "FAILED");
++    if (!installed)
++      ++failed;
++  }
++  UICommon::Shutdown();
++  return failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+ }
+ 
+ #ifdef _WIN32
+@@ -52,6 +79,8 @@ int main(int argc, char* argv[])
+     return DolphinTool::HeaderCommand(args);
+   else if (command_str == "extract")
+     return DolphinTool::Extract(args);
++  else if (command_str == "installwad")
++    return InstallWads(args);
+   PrintUsage();
+   return EXIT_FAILURE;
+ }
