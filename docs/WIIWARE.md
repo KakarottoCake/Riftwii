@@ -89,7 +89,9 @@ RiftWii start removed the four copies again, leaving the TMD as before.
 Super Mario 64 (VC) started through RiftWii opens its HOME Menu over the
 game: the emulator's second read through ES (content 4) works too. The
 retry ticket's fakesigning uses the same bytes and rule as the channel
-installer, which is proven on d2x Wiis and vWiis.
+installer, whose own fakesigned files d2x Wiis and vWiis accept. That is
+evidence for the signing only: the retry itself (ES_Identify with that
+ticket on d2x) hasn't been tried on a Wii yet.
 
 Saving and leaving, Final Fantasy Crystal Chronicles: My Life as a King
 started through RiftWii: it made its save (ARCH.SAV, DAT0-2.SAV and the
