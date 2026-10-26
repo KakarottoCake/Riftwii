@@ -28,8 +28,9 @@ void ForgetWfsDrive();
 bool WfsDriveFound();
 
 enum class WfsInstall {
-    Unchecked,  // no WFS drive was read (no key, or none plugged in): the game's own start says
-    Missing,    // the drive was read, and the title is not on it or its install is not whole
+    Unchecked,  // not known: no WFS drive was read (no key, none plugged in) or a read on it failed;
+                // the game's own start says
+    Missing,    // the drive was read whole, and the title is not on it or its install is not whole
     Ready,
 };
 

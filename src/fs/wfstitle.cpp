@@ -48,7 +48,8 @@ std::uint32_t code_value(const std::string& code) {
 
 // One title's folder: its TMD (the one whose ID ends in its code), the
 // others as add-ons, and its program.
-bool read_title(const WfsVolume& volume, WfsTitle& title, std::string& why) {
+// `read_failed`: false came from a read error, not from what is there.
+bool read_title(const WfsVolume& volume, WfsTitle& title, std::string& why, bool& read_failed) {
     std::string error;
     WfsEntry meta;
     const WfsFind found = volume.find(title.path + "/meta", meta, error);
@@ -59,6 +60,7 @@ bool read_title(const WfsVolume& volume, WfsTitle& title, std::string& why) {
     std::vector<WfsEntry> metas;
     if (found != WfsFind::Found || !volume.list(meta, metas, error, 256)) {
         why = error;
+        read_failed = true;
         return false;
     }
     for (const WfsEntry& m : metas) {
@@ -71,6 +73,7 @@ bool read_title(const WfsVolume& volume, WfsTitle& title, std::string& why) {
         std::vector<std::uint8_t> tmd;
         if (!volume.read_all(title.path + "/meta/" + m.name, tmd, kMaxTmdBytes, error)) {
             why = "its TMD: " + error;
+            read_failed = true;
             return false;
         }
         Tmd parsed;
@@ -93,10 +96,12 @@ bool read_title(const WfsVolume& volume, WfsTitle& title, std::string& why) {
         return false;
     }
     WfsEntry program;
-    if (volume.find(title.path + "/content/default.dol", program, error) == WfsFind::Found && !program.directory) {
+    const WfsFind program_found = volume.find(title.path + "/content/default.dol", program, error);
+    if (program_found == WfsFind::Found && !program.directory) {
         title.program = true;
         title.program_bytes = program.size;
     }
+    title.program_checked = program_found != WfsFind::Failed;
     return true;
 }
 
@@ -153,12 +158,17 @@ std::string wfs_title_text(std::uint64_t title_id) {
 }
 
 bool find_wfs_titles(const WfsVolume& volume, std::vector<WfsTitle>& out, std::vector<std::string>& notes,
-                     std::string& error) {
+                     std::string& error, bool* complete) {
+    bool whole = true;
+    bool ignored = true;
+    bool& all_read = complete ? *complete : ignored;
+    all_read = false;
     out.clear();
     WfsEntry title_root;
     const WfsFind found = volume.find("/title", title_root, error);
     if (found == WfsFind::Missing) {
         error = "the drive has no /title folder (nothing is installed on it)";
+        all_read = true;
         return false;
     }
     std::vector<WfsEntry> groups;
@@ -172,6 +182,7 @@ bool find_wfs_titles(const WfsVolume& volume, std::vector<WfsTitle>& out, std::v
         std::string why;
         if (!volume.list(group, codes, why, 256)) {
             notes.push_back("/title/" + group.name + ": " + why);
+            whole = false;
             continue;
         }
         for (const WfsEntry& code : codes) {
@@ -182,19 +193,23 @@ bool find_wfs_titles(const WfsVolume& volume, std::vector<WfsTitle>& out, std::v
             }
             if (out.size() >= kMaxTitles) {
                 notes.push_back("more than " + std::to_string(kMaxTitles) + " titles; the rest are left out");
-                return true;
+                return true;  // not complete: the rest were not read
             }
             WfsTitle title;
             title.path = path;
             title.group = group.name;
             title.code = code.name;
-            if (!read_title(volume, title, why)) {
+            bool read_failed = false;
+            if (!read_title(volume, title, why, read_failed)) {
                 notes.push_back(path + ": " + why);
+                whole = whole && !read_failed;
                 continue;
             }
+            whole = whole && title.program_checked;
             out.push_back(std::move(title));
         }
     }
+    all_read = whole;
     return true;
 }
 

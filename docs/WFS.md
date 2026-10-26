@@ -38,8 +38,10 @@ contents (type `0x4001`) are unpacked by `/dev/wfsi` onto the drive as
   IOS59 refuses titles that ES_Identify set up, so RiftWii's loader
   cannot start it: the system starts it with `WII_LaunchTitle`, as the
   Wii Menu does (`StartWfsTitle`, `wii/main.cpp`). When the scan read
-  the drive and the game is not on it (or its install is not whole),
-  RiftWii goes back to its menu and says why instead.
+  the whole drive and the game is not on it (or its install is not
+  whole), RiftWii goes back to its menu and says why instead. A read
+  error on the drive proves nothing, so then the game is started anyway
+  and finds out itself.
 - **Disc images.** An image of the disc (WBFS, ISO, RVZ) would only run
   the installer, which needs IOS59 and a real disc; RiftWii stops with a
   message that says so and names the installed game when the drive has

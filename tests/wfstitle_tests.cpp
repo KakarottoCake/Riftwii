@@ -179,6 +179,54 @@ void test_disc_and_tmd_kinds() {
 
 }  // namespace
 
+// Whether the list of titles is the whole answer: a drive read whole, or
+// one with no /title, is; a read error in a group or a title is not, so a
+// game left out of the list is not taken as missing.
+void test_complete_scan() {
+    WfsVolume v;
+    std::string error;
+    std::vector<WfsTitle> titles;
+    std::vector<std::string> notes;
+    bool complete = false;
+
+    // The test drive's odd folders and a TMD naming another title are
+    // what is there, not read errors.
+    Drive whole = installed_drive();
+    EXPECT_TRUE(v.open(whole.reader(), 0, whole.sectors(), kKey, error));
+    EXPECT_TRUE(find_wfs_titles(v, titles, notes, error, &complete));
+    EXPECT_TRUE(complete);
+    if (!titles.empty()) EXPECT_TRUE(titles[0].program_checked);
+
+    // The root area's block b is physical block 2b: /title/GD's tree is
+    // block 7, S4MJ's content folder block 13.
+    Drive bad_group = installed_drive();
+    bad_group.image()[14 * 4096 + 300] ^= 0x01;
+    EXPECT_TRUE(v.open(bad_group.reader(), 0, bad_group.sectors(), kKey, error));
+    EXPECT_TRUE(find_wfs_titles(v, titles, notes, error, &complete));
+    EXPECT_FALSE(complete);
+    EXPECT_EQ(titles.size(), std::size_t(0));
+
+    Drive bad_content = installed_drive();
+    bad_content.image()[26 * 4096 + 300] ^= 0x01;
+    EXPECT_TRUE(v.open(bad_content.reader(), 0, bad_content.sectors(), kKey, error));
+    EXPECT_TRUE(find_wfs_titles(v, titles, notes, error, &complete));
+    EXPECT_FALSE(complete);
+    EXPECT_EQ(titles.size(), std::size_t(1));
+    if (!titles.empty()) {
+        EXPECT_FALSE(titles[0].program);
+        EXPECT_FALSE(titles[0].program_checked);
+    }
+
+    // No /title: nothing is installed, and that is known.
+    Drive empty(64, kKey);
+    const Area root{0, 1, 13};
+    empty.put_header(root, 3);
+    put_dir(empty, root, 3, {});
+    EXPECT_TRUE(v.open(empty.reader(), 0, empty.sectors(), kKey, error));
+    EXPECT_FALSE(find_wfs_titles(v, titles, notes, error, &complete));
+    EXPECT_TRUE(complete);
+}
+
 // A key file, raw or as hex, opens the drive it is the key of.
 void test_key_file() {
     std::uint8_t key[16] = {};
@@ -212,6 +260,7 @@ void test_key_file() {
 }
 
 int main() {
+    test_complete_scan();
     test_key_file();
     test_finds_installed_titles();
     test_disc_to_title();

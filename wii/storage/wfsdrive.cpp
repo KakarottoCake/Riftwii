@@ -28,6 +28,7 @@ struct Locked {
 };
 
 bool g_found = false;
+bool g_complete = false;  // every read the list of titles rests on worked
 std::vector<WfsTitle> g_titles;
 
 }  // namespace
@@ -53,7 +54,10 @@ bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::
          static_cast<unsigned>(volume.sectors()), static_cast<unsigned>((1u << volume.root_block_log2()) / 1024));
     std::vector<WfsTitle> titles;
     std::vector<std::string> notes;
-    if (!find_wfs_titles(volume, titles, notes, error)) logf("WFS: nothing installed is listed: %s\n", error.c_str());
+    bool complete = false;
+    if (!find_wfs_titles(volume, titles, notes, error, &complete))
+        logf("WFS: nothing installed is listed: %s\n", error.c_str());
+    if (!complete) logf("WFS: part of what is installed could not be read; a game not listed may still be there\n");
     for (const std::string& note : notes) logf("WFS: %s\n", note.c_str());
     for (const WfsTitle& t : titles) {
         std::string add_ons;
@@ -67,6 +71,7 @@ bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::
     }
     Locked lock;
     g_found = true;
+    g_complete = complete;
     g_titles = std::move(titles);
     return true;
 }
@@ -74,6 +79,7 @@ bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::
 void ForgetWfsDrive() {
     Locked lock;
     g_found = false;
+    g_complete = false;
     g_titles.clear();
 }
 
@@ -90,12 +96,21 @@ WfsInstall WfsInstallOf(std::uint64_t title_id, std::string& detail) {
     }
     for (const WfsTitle& t : g_titles) {
         if (t.title_id != title_id) continue;
+        if (!t.program && !t.program_checked) {
+            detail = "its program on the WFS drive (" + t.path + "/content/default.dol) could not be read";
+            return WfsInstall::Unchecked;
+        }
         if (!t.program) {
             detail = "its install on the WFS drive did not finish (" + t.path + "/content/default.dol is missing)";
             return WfsInstall::Missing;
         }
         detail = "installed on the WFS drive at " + t.path + ", version " + std::to_string(t.version);
         return WfsInstall::Ready;
+    }
+    // Only a drive read whole says the game is not on it.
+    if (!g_complete) {
+        detail = "the WFS drive could not be read whole, so whether it holds it is not known";
+        return WfsInstall::Unchecked;
     }
     detail = "the WFS drive plugged in does not hold it";
     return WfsInstall::Missing;

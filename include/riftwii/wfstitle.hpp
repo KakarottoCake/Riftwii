@@ -50,6 +50,7 @@ struct WfsTitle {
     std::uint32_t ios = 0;
     bool wfs_type = false;       // its TMD has the WFS title type
     bool program = false;        // content/default.dol is there
+    bool program_checked = true; // false: looking for it failed (a read error), so `program` says nothing
     std::uint32_t program_bytes = 0;
     // The other TMDs in its meta folder: add-ons (later discs) installed
     // onto it, by title ID.
@@ -59,9 +60,12 @@ struct WfsTitle {
 
 // The titles installed on the drive. A folder that is not a title's, or
 // a title whose TMD cannot be read, is left out and named in `notes`;
-// false only when /title itself cannot be read.
+// false only when /title itself cannot be read. `complete`, when given,
+// is true only when every listing and read the answer rests on worked:
+// then a title not in `out` is not on the drive. A drive with no /title
+// is complete (nothing is installed); a read error anywhere is not.
 bool find_wfs_titles(const WfsVolume& volume, std::vector<WfsTitle>& out, std::vector<std::string>& notes,
-                     std::string& error);
+                     std::string& error, bool* complete = nullptr);
 
 // Which installed title a disc (by its ID6) installs: the one with the
 // disc's code, else the one of its maker's group (every Dragon Quest X
