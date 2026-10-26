@@ -397,10 +397,10 @@ int main() {
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).
     riftwii::wii::startup::Mark(Step::ArgumentsRead);
-    // Before any launch path can reload IOS; after the SD card, so a start
-    // that stops here is named by the start-up note.
-    riftwii::wii::mem::DetectDolphin();
     if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
+        // A headless start has no log before its first IOS reload, so it
+        // asks here; the menu and autorun ask once their logs are open.
+        riftwii::wii::mem::DetectDolphin();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunHeadless(args);
@@ -428,6 +428,9 @@ int main() {
     // Home is on screen before the drives are read (a big USB drive takes a
     // while); the disc is only probed when its tile is picked.
     OpenSessionLog(sd_mounted);
+    // Before StartMenuIos can reload IOS. With a card the log line above
+    // has already asked; without one this is the first question.
+    riftwii::wii::mem::DetectDolphin();
     // A chosen cIOS (fakemote's USB pads) must be running before the pads
     // and the drives are brought up.
     if (restart.kind != riftwii::wii::RestartKind::None) {
