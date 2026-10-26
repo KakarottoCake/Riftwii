@@ -186,13 +186,16 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
-    // The clock-dial theme paints its own (only the two: the others fall back to them).
-    if (std::strncmp(im.name, "background", 10) == 0 &&
-        !(MenuTheme().clock_dials && (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0)))
+    // The clock-dial theme paints its own wall, at 640 and natively at 856
+    // (only the two: every screen's wall falls back to them, so the clocks
+    // stay behind Settings and the game pages too).
+    const bool clockWall = std::strcmp(im.name, "background") == 0 ||
+        std::strcmp(im.name, "background_wide") == 0;
+    if (std::strncmp(im.name, "background", 10) == 0 && !(MenuTheme().clock_dials && clockWall))
         return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
-    if (MenuTheme().clock_dials && std::strncmp(im.name, "background", 10) == 0) AddSoyjak(c);
+    if (MenuTheme().clock_dials && clockWall) AddSoyjak(c);
     return Upload(c);
 }
 
@@ -655,14 +658,14 @@ void GuiBackdrop::DrawBackdrop() {
         // Every other screen: the theme's plain wall when it has one
         // (Bookshelf: no shelves behind Settings' panels).
         if (wide && backgroundPlainWide.data) pick = &backgroundPlainWide;
-        else if (backgroundPlain.data && !(wide && backgroundWide.data)) pick = &backgroundPlain;
+        else if (backgroundPlain.data) pick = &backgroundPlain;
     } else if (g_homeWall == HomeWall::Shelf) {
         if (wide && backgroundShelfWide.data) pick = &backgroundShelfWide;
-        else if (backgroundShelf.data && !(wide && backgroundWide.data)) pick = &backgroundShelf;
+        else if (backgroundShelf.data) pick = &backgroundShelf;
     } else if (g_homeWall == HomeWall::Channels) {
         // Channels' own wall (Bookshelf: a shelf under each row of channels).
         if (wide && backgroundChannelsWide.data) pick = &backgroundChannelsWide;
-        else if (backgroundChannels.data && !(wide && backgroundWide.data)) pick = &backgroundChannels;
+        else if (backgroundChannels.data) pick = &backgroundChannels;
     }
     const Tex& picture = *pick;
     if (picture.data) {
