@@ -733,7 +733,11 @@ struct Painter {
 
     Canvas Stripes() const {
         Canvas c(640, 192);
-        c.diagonal_stripes(28, 12, banner_stripe);
+        // A widescreen band lays copies of this side by side, 640 apart, so
+        // the stripes must repeat a whole number of times across it: 23
+        // periods of 640/23 (about 28). At 28 the copies met 24 pixels out
+        // of step, a visible seam where one copy ends.
+        c.diagonal_stripes(640.0f / 23.0f, 12, banner_stripe);
         return c;
     }
 
@@ -896,8 +900,8 @@ struct Painter {
 
     // What the menu draws behind every screen without a background.png:
     // the backdrop colour, with a 2-pixel stripe every 4 rows.
-    Canvas Background(int w = 640, bool decorated = true) const {
-        if (dials && decorated) return Dials(w);
+    Canvas Background(int w = 640) const {
+        if (dials) return Dials(w);
         Canvas c(w, 480);
         c.fill(backdrop);
         if (stripes) {
@@ -1069,8 +1073,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},
         {"background_shelf", [](const Painter& q) { return q.Background(640); }},
         {"background_shelf_wide", [](const Painter& q) { return q.Background(856); }},
-        {"background_plain", [](const Painter& q) { return q.Background(640, false); }},
-        {"background_plain_wide", [](const Painter& q) { return q.Background(856, false); }},
+        {"background_plain", [](const Painter& q) { return q.Background(640); }},
+        {"background_plain_wide", [](const Painter& q) { return q.Background(856); }},
         {"background_channels", [](const Painter& q) { return q.Background(640); }},
         {"background_channels_wide", [](const Painter& q) { return q.Background(856); }},
         {"banner_stripes", [](const Painter& q) { return q.Stripes(); }},

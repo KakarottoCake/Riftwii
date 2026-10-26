@@ -514,25 +514,33 @@ static void test_painted_images() {
         }
     }
 
-    // The clock dials belong to Home; Settings needs a plain wall at both
-    // widths so its read-only text cannot land on a bright clock face.
+    // The clock wall is painted natively at 16:9 (856 wide), so the menu
+    // never has to mirror the 640 one's sides: mirrored, its NOTHINGs read
+    // backwards and the figure stood in the middle of Settings.
     Theme clocks = red;
     clocks.clock_dials = true;
-    for (const char* name : {"background_plain", "background_plain_wide"}) {
-        Canvas plain(0, 0);
-        EXPECT_TRUE(paint_theme_image(name, clocks, plain));
-        for (int y = 0; y < plain.height(); ++y) {
-            for (int x = 0; x < plain.width(); ++x) {
-                const Rgba pixel = plain.at(x, y);
-                EXPECT_TRUE(pixel.r == 1 && pixel.g == 2 && pixel.b == 3 && pixel.a == 255);
-            }
-        }
-    }
     Canvas dials(0, 0);
-    Canvas plain_wide(0, 0);
-    EXPECT_TRUE(paint_theme_image("background_wide", clocks, dials));
-    EXPECT_TRUE(paint_theme_image("background_plain_wide", clocks, plain_wide));
-    EXPECT_TRUE(dials.pixels() != plain_wide.pixels());
+    Canvas dials_wide(0, 0);
+    EXPECT_TRUE(paint_theme_image("background", clocks, dials));
+    EXPECT_TRUE(paint_theme_image("background_wide", clocks, dials_wide));
+    EXPECT_EQ(dials.width(), 640);
+    EXPECT_EQ(dials_wide.width(), 856);
+    EXPECT_EQ(dials_wide.height(), 480);
+
+    // A 16:9 game page lays copies of banner_stripes side by side, so the
+    // picture's first column must carry on from its last one. Along a
+    // stripe x + y is constant: what column 640 would hold at row y is what
+    // column 639 holds at row y + 1. At a 28-pixel spacing they met 24
+    // pixels out of step, a seam on every widescreen game page.
+    Canvas stripes(0, 0);
+    EXPECT_TRUE(paint_theme_image("banner_stripes", def, stripes));
+    int seams = 0;
+    for (int y = 0; y + 1 < stripes.height(); ++y) {
+        const int first = stripes.at(0, y).a;
+        const int next = stripes.at(stripes.width() - 1, y + 1).a;
+        if (std::abs(first - next) > 8) ++seams;
+    }
+    EXPECT_EQ(seams, 0);
 }
 
 // The stick and D-pad pictures RiftWii draws itself (the GameCube controls
