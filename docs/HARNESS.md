@@ -131,7 +131,7 @@ in `build-dolphin/felk-identify`:
 - `felk-identify/DolphinTool.exe installwad build-dolphin/user-felk
   <wad>...` installs WADs for good. A WAD booted directly with `-e` is
   only installed until emulation stops; its contents are removed then.
-- `build-dolphin/frameshot.py` is a Felk script for unattended runs: it
+- `tools/dolphin/frameshot.py` is a Felk script for unattended runs: it
   saves the frame at set frame counts (`FRAMESHOT_OUT`, `FRAMESHOT_AT`).
   Give Dolphin its paths with forward slashes, and the card settings
   `felk-run.sh` passes: left out, Dolphin rebuilds whatever card it used
