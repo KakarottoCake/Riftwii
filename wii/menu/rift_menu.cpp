@@ -4584,8 +4584,9 @@ static int MenuSource(FrontendState& state)
 	const auto showStatus = [&]() {
 		statusTxt.SetText(homeStatusText().c_str());
 		// Also restore the note when Home is rebuilt after leaving Settings.
-		// The first scan has not found its games yet, so it gets no note.
-		emptyNote.SetVisible(g_scanned && !g_scanning && state.sd_catalog.games.empty() &&
+		// The first scan has not found its games yet, so it gets no note,
+		// and a view with tiles (the Homebrew view's apps) is never covered.
+		emptyNote.SetVisible(g_scanned && !g_scanning && items.empty() && state.sd_catalog.games.empty() &&
 			state.usb_catalog.games.empty() && state.channels.empty());
 	};
 	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
