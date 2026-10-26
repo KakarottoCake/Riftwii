@@ -422,6 +422,7 @@ void NandClose() {}
 bool open_nand_permissions(const char*) { return permission_check_found; }
 void close_nand_permissions(const char*) {}
 void logf(const char*, ...) {}
+void LogSync() {}
 bool ConsoleBackupKey(BackupKey& out) {
     out.console_id = 1;
     out.prng[0] = 1;
