@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "d2xsd.hpp"
+#include "d2xreturnto.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
@@ -78,6 +79,9 @@
 #include "nanduse.hpp"
 
 namespace riftwii::wii {
+
+u64 return_title();
+
 namespace {
 
 using ApploaderReport = void (*)(const char* format, ...);
@@ -661,6 +665,9 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
         error.clear();
         return true;
     }
+    // Opening the partition identifies the game in ES. With this IOS
+    // kept for the launch, even the probe is too late after that point.
+    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
     if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
     out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
     out.running_ios = IOS_GetVersion();
@@ -838,7 +845,6 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 }
 
 // Return to RiftWii, below with the play log.
-u64 return_title();
 bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
@@ -1540,6 +1546,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         error = "the disc changed during the IOS reload";
         return false;
     }
+    // A reloaded IOS lost the probe's setting. An unchanged IOS keeps it
+    // without another request while ES still has the probed title.
+    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
     Tmd tmd;
     std::int32_t es_result = 0;
     if (!open_game_partition(probe.partition, tmd, es_result, error)) return false;
@@ -2968,19 +2977,8 @@ bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
         }
     }
-    alignas(32) static u64 target;
-    target = title;
-    s32 d2x = -1;
-    const s32 es = IOS_Open("/dev/es", 0);
-    if (es >= 0) {
-        alignas(32) static ioctlv vector[1];
-        vector[0].data = &target;
-        vector[0].len = sizeof target;
-        d2x = IOS_Ioctlv(es, 0xA1, 1, 0, vector);
-        IOS_Close(es);
-    }
-    logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
-         report.describe().c_str(), d2x >= 0 ? "set" : "not available");
+    logf("Return to %08x-%08x: game %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
+         report.describe().c_str());
     return report.patched;
 }
 
@@ -3405,6 +3403,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
          static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());
     if (files.ios_order.empty()) files.ios_order.push_back(IOS_GetVersion());
 
+    // Resolve the installed RiftWii channel before NAND emulation changes
+    // which titles ES sees. The same target is used for the later patch.
+    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+
     // As for a disc game: the Wii Remotes, the log and the card go before
     // each reload kills their handles; the card comes back after it, for
     // the log, until the jump.
@@ -3466,6 +3468,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
                  reload == ReloadResult::AlreadyRunning ? "it was running already" : "reloaded for this try",
                  files.emu_nand.empty() ? "" : ", next d2x's NAND emulation");
         }
+        // After this try's reload, before ES_Identify marks a title as
+        // running, and while boot.log still has the card.
+        prepare_d2x_return_to(return_to);
         // A channel of an emulated NAND runs in it: d2x serves the whole
         // NAND from the folder, as that NAND's own system menu would see it
         // (its shared contents and system files as well as the title's own
@@ -3775,7 +3780,6 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
     // Channels use the low-memory stub. Leave the full cheat area available
     // when the return setting or debug switch leaves that stub unused.
-    const u64 return_to = debug_off("returnto") ? 0 : return_title();
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
     if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
