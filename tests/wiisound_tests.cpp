@@ -106,8 +106,8 @@ Bytes sequence(const Bytes& commands) {
     return file;
 }
 
-Bytes archive(const Bytes& commands = {0x81, 0, 60, 127, 0, 0xff}) {
-    const Bytes seq = sequence(commands), instrument_bank = bank();
+Bytes archive(const Bytes& commands = {0x81, 0, 60, 127, 0, 0xff}, const Bytes& instrument_bank = bank()) {
+    const Bytes seq = sequence(commands);
     const std::size_t group_start = 640;
     const std::size_t audio_start = group_start + seq.size() + instrument_bank.size();
     Bytes file(audio_start + 8);
@@ -360,6 +360,152 @@ void test_settings() {
     EXPECT(!roundtrip.wii_menu_sounds && !roundtrip.wii_menu_music);
 }
 
+// A constant, looping wave makes the renderer's amplitude directly
+// observable without borrowing a bank or any samples from a console.
+Bytes constant_archive(const Bytes& commands, unsigned attack = 127, unsigned decay = 127,
+                       unsigned sustain = 127, unsigned release = 127) {
+    Bytes file = archive(commands);
+    const std::size_t instrument_bank = 640 + sequence(commands).size();
+    file[instrument_bank + 56] = static_cast<std::uint8_t>(attack);
+    file[instrument_bank + 57] = static_cast<std::uint8_t>(decay);
+    file[instrument_bank + 58] = static_cast<std::uint8_t>(sustain);
+    file[instrument_bank + 59] = static_cast<std::uint8_t>(release);
+    file[instrument_bank + 137] = 1;
+    for (unsigned i = 0; i < 4; ++i) half(file, file.size() - 8 + i * 2, 10000);
+    return file;
+}
+
+std::vector<std::int16_t> render_synthetic(const Bytes& file, std::size_t frames) {
+    WiiSoundArchive parsed;
+    WiiSoundPlayer player;
+    std::string error;
+    std::vector<std::int16_t> pcm(frames * 2);
+    EXPECT(parsed.load(view(file), error));
+    EXPECT(player.prepare(parsed, "test", true, error));
+    EXPECT(player.render(pcm.data(), frames));
+    return pcm;
+}
+
+void test_envelopes() {
+    const Bytes note = {60, 127, 0, 0xff};
+    const auto decay = render_synthetic(constant_archive(note, 127, 80, 0), 8000);
+    // Decay 80 falls about 26 dB/s. At 100 ms a constant note must still
+    // have roughly 74% of its peak, rather than having vanished at 59 ms.
+    EXPECT(decay[3200 * 2] > 5100 && decay[3200 * 2] < 5400);
+    EXPECT(decay[6400 * 2] > 3800 && decay[6400 * 2] < 4000);
+    const auto attack = render_synthetic(constant_archive(note, 32), 8000);
+    EXPECT(attack[0] == 0);
+    EXPECT(attack[3200 * 2] > 3500 && attack[3200 * 2] < 3900);
+    EXPECT(attack[6400 * 2] > 6700);
+    const auto sustain = render_synthetic(constant_archive(note, 127, 127, 64), 8000);
+    EXPECT(sustain[3200 * 2] > 1750 && sustain[3200 * 2] < 1850);
+    const auto release = render_synthetic(constant_archive({60, 127, 48, 0xff}, 127, 127, 127, 122), 20000);
+    EXPECT(release[15900 * 2] > 7000);
+    EXPECT(release[16640 * 2] > 3400 && release[16640 * 2] < 3900);
+    EXPECT(release[19900 * 2] < 200);
+}
+
+void test_volume_and_pan() {
+    const auto full = render_synthetic(constant_archive({60, 127, 0, 0xff}), 1600);
+    EXPECT(full[0] == full[1]);
+    const auto volume = render_synthetic(constant_archive({0xc1, 64, 60, 127, 0, 0xff}), 1600);
+    EXPECT(volume[0] > 1750 && volume[0] < 1850);
+    const auto expression = render_synthetic(constant_archive({0xd5, 64, 60, 127, 0, 0xff}), 1600);
+    EXPECT(volume == expression);
+    const auto master = render_synthetic(constant_archive({0xc2, 64, 60, 127, 0, 0xff}), 1600);
+    EXPECT(volume == master);
+    Bytes bank_volume = constant_archive({60, 127, 0, 0xff});
+    const std::size_t bank_at = 640 + sequence({60, 127, 0, 0xff}).size();
+    bank_volume[bank_at + 65] = 64;
+    const auto instrument = render_synthetic(bank_volume, 1600);
+    EXPECT(instrument[0] > 3500 && instrument[0] < 3600);
+    bank_volume[136 + 124] = 64;
+    const auto archive_volume = render_synthetic(bank_volume, 1600);
+    EXPECT(archive_volume[0] > 1750 && archive_volume[0] < 1850);
+
+    // Controllers affect an already sounding voice, including after the
+    // track ends. Initial pan belongs only to subsequently started notes.
+    const auto live = render_synthetic(constant_archive({0xc7, 0, 60, 127, 0, 0x80, 1,
+        0xc0, 127, 0xc1, 64, 0xff}), 1600);
+    EXPECT(live[0] == live[1]);
+    EXPECT(live[1000 * 2] == 0);
+    EXPECT(live[1000 * 2 + 1] > 2500 && live[1000 * 2 + 1] < 2600);
+    const auto left = render_synthetic(constant_archive({0xc0, 1, 60, 127, 0, 0xff}), 16);
+    EXPECT(left[0] == 10000 && left[1] == 0);
+    const auto initial = render_synthetic(constant_archive({0xdc, 127, 60, 127, 0, 0xff}), 16);
+    EXPECT(initial[0] == 0 && initial[1] == 10000);
+}
+
+void test_interpolation_and_chunking() {
+    const Bytes commands = {60, 127, 0, 0xff};
+    Bytes file = constant_archive(commands);
+    // Four samples at 8 kHz, played at 32 kHz. Check the fractional
+    // samples between frames and across the end-to-loop-start boundary.
+    for (unsigned i = 0; i < 4; ++i) half(file, file.size() - 8 + i * 2, i * 1000);
+    const auto pcm = render_synthetic(file, 3200);
+    EXPECT(pcm[2] > 170 && pcm[2] < 180);
+    EXPECT(pcm[12 * 2] > 2100 && pcm[12 * 2] < 2130);
+    EXPECT(pcm[14 * 2] > 1050 && pcm[14 * 2] < 1070);
+    EXPECT(pcm[16 * 2] == 0);
+
+    const Bytes enveloped = constant_archive(commands, 32, 80, 0);
+    const auto whole = render_synthetic(enveloped, 8000);
+    WiiSoundArchive parsed;
+    WiiSoundPlayer player;
+    std::string error;
+    EXPECT(parsed.load(view(enveloped), error));
+    EXPECT(player.prepare(parsed, "test", true, error));
+    std::vector<std::int16_t> split(whole.size());
+    for (std::size_t frame = 0; frame < 8000;) {
+        const std::size_t count = std::min<std::size_t>(137, 8000 - frame);
+        EXPECT(player.render(split.data() + frame * 2, count));
+        frame += count;
+    }
+    EXPECT(whole == split);
+}
+
+void test_instrument_regions() {
+    const Bytes original = bank();
+    Bytes split_bank(512);
+    file_header(split_bank, "RBNK");
+    section(split_bank, 16, 32, 192, "DATA");
+    section(split_bank, 24, 224, 288, "WAVE");
+    word(split_bank, 40, 1);
+    reference(split_bank, 44, 12, 2);
+    split_bank[52] = 2;
+    split_bank[53] = 60;
+    split_bank[54] = 127;
+    reference(split_bank, 56, 64, 1);
+    reference(split_bank, 64, 84, 1);
+    for (unsigned offset : {104u, 124u})
+        std::copy(original.begin() + 52, original.begin() + 72, split_bank.begin() + offset);
+    split_bank[118] = 1;
+    split_bank[138] = 127;
+    word(split_bank, 232, 1);
+    reference(split_bank, 236, 16);
+    const Bytes metadata = wave_metadata();
+    std::copy(metadata.begin(), metadata.end(), split_bank.begin() + 248);
+    const auto low_key = render_synthetic(archive({60, 64, 0, 0xff}, split_bank), 16);
+    const auto high_key = render_synthetic(archive({61, 64, 0, 0xff}, split_bank), 16);
+    EXPECT(low_key[0] > 200 && low_key[1] == 0);
+    EXPECT(high_key[0] == 0 && high_key[1] > 200);
+
+    // A single key leads to a velocity split. All references are relative
+    // to the DATA body, including this second level of the instrument.
+    reference(split_bank, 44, 12, 3);
+    split_bank[52] = split_bank[53] = 60;
+    reference(split_bank, 56, 32, 2);
+    split_bank[72] = 2;
+    split_bank[73] = 64;
+    split_bank[74] = 127;
+    reference(split_bank, 76, 64, 1);
+    reference(split_bank, 84, 84, 1);
+    const auto low_velocity = render_synthetic(archive({60, 64, 0, 0xff}, split_bank), 16);
+    const auto high_velocity = render_synthetic(archive({60, 100, 0, 0xff}, split_bank), 16);
+    EXPECT(low_velocity[0] > 200 && low_velocity[1] == 0);
+    EXPECT(high_velocity[0] == 0 && high_velocity[1] > 600);
+}
+
 }  // namespace
 
 int main() {
@@ -368,5 +514,9 @@ int main() {
     test_u8();
     test_archive_and_sequence();
     test_settings();
+    test_envelopes();
+    test_volume_and_pan();
+    test_interpolation_and_chunking();
+    test_instrument_regions();
     return failures ? 1 : 0;
 }

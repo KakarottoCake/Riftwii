@@ -86,7 +86,7 @@ private:
         std::size_t loop_position = 0;
         unsigned loop_count = 0;
         std::uint32_t wait = 0;
-        unsigned program = 0, volume = 127, pan = 64;
+        unsigned program = 0, volume = 127, expression = 127, pan = 64, initial_pan = 64;
         int transpose = 0, bend = 0;
         unsigned bend_range = 2;
         int attack = -1, decay = -1, sustain = -1, release = -1;
@@ -96,12 +96,18 @@ private:
         unsigned wave = 0, track = 0;
         double position = 0, step = 1;
         float gain_left = 0, gain_right = 0, envelope = 0;
-        float attack = 1, decay = 0, sustain = 1, release = 1;
+        float gain = 1;
+        int pan = 0;
+        float attenuation = -904, envelope_delta = 0, envelope_target = 0;
+        float attack = 0, decay = 0, sustain = 0, release = 0;
+        unsigned envelope_frames = 0;
         std::uint32_t remaining = 0;
         unsigned stage = 0;
         bool active = false, ignore_off = false;
     };
     bool tick();
+    void update_mix();
+    void update_envelope(Voice& voice);
     bool commands(unsigned track);
     bool note(unsigned track, unsigned key, unsigned velocity, std::uint32_t duration);
     bool fail(const char* why);
@@ -109,6 +115,8 @@ private:
     std::vector<BannerSound> waves_;
     std::array<Track, 16> tracks_{};
     std::array<Voice, 64> voices_{};
+    std::array<float, 905> envelope_gains_{};
+    std::array<float, 128> attack_factors_{};
     unsigned tempo_ = 120, timebase_ = 48, master_ = 127, archive_volume_ = 127;
     double until_tick_ = 0;
     bool repeat_ = false;

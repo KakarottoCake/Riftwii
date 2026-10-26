@@ -80,6 +80,8 @@ add_executable(theme_kit tools/theme_kit.cpp)
 target_link_libraries(theme_kit PRIVATE riftwii)
 add_executable(menusound_list tools/menusound_list.cpp)
 target_link_libraries(menusound_list PRIVATE riftwii)
+add_executable(menusound_render tools/menusound_render.cpp)
+target_link_libraries(menusound_render PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
     # The SD channel cleanup itself, with NAND mocks and failed FAT renames.
