@@ -123,7 +123,10 @@ Felk's Dolphin answers `ES_Identify` with -1017, so a channel RiftWii
 starts has no title of its own: no save folder, no content (see
 docs/WIIWARE.md). `tools/dolphin/es-identify.patch` adds it, and a
 DolphinTool `installwad` command, to the same Felk source; the build goes
-in `build-dolphin/felk-identify`:
+in `build-dolphin/felk-identify`. A ready Windows build is the
+`riftwii-felk-identify.zip` of
+https://github.com/RiftWii/dolphin-felk-riftwii/releases (source: that
+repository's `es-identify` branch):
 
 - `FELK_DIR=felk-identify felk-run.sh <card> <test dol>` runs it, with an
   `autorun.txt` of `channelboot <16-digit title>`. No `debug_off =
