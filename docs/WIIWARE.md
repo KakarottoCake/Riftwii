@@ -75,7 +75,15 @@ itself (2026-10-26, branch at 209b308c). In WarioWare, Dolphin's log
 shows the game asking ES for its title and data folder and reading its
 own content through ES, as it does when started directly. Not covered
 yet: an emulated NAND (d2x's emulation can't run in Dolphin), channels
-the Wii Menu moved to the SD card, saving, and going back to RiftWii.
+the Wii Menu moved to the SD card, and going back to RiftWii (needs the
+RiftWii channel installed in the test NAND).
+
+Saving and leaving, Final Fantasy Crystal Chronicles: My Life as a King
+started through RiftWii: it made its save (ARCH.SAV, DAT0-2.SAV and the
+banner.bin the Wii Menu shows, in /title/00010001/57464345/data) and
+reached its main menu; started again, it went straight to "Press A Button
+to Start" with no save prompt; HOME > Wii Menu > Yes landed on the Wii
+Menu.
 
 ## Findings
 
