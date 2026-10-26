@@ -287,7 +287,7 @@ std::string channel_cheat_code(const std::string& game_id) {
 std::vector<std::uint8_t> make_fake_ticket() {
     constexpr std::size_t kIssuer = 0x140;
     constexpr std::size_t kContentIndexMask = 0x222;
-    constexpr std::size_t kMaskBytes = 32;
+    constexpr std::size_t kMaskBytes = 0x40;
     std::vector<std::uint8_t> ticket(0x2A4, 0);
     ticket[0] = 0x00;
     ticket[1] = 0x01;
@@ -310,8 +310,9 @@ constexpr std::size_t kTicketEcdh = 0x180;
 constexpr std::size_t kTicketEcdhBytes = 0x3C;
 constexpr std::size_t kTicketConsoleId = 0x1D8;
 constexpr std::size_t kTicketTitleId = 0x1DC;
-// 0x1F2-0x221 is unknown and zero in the tickets the Wii Shop issues; its
-// last two bytes are the ones fakesigning changes.
+// WiiBrew marks 0x1F5-0x221 as unknown; 0x1F4 can be nonzero for VC.
+// Keep the existing two-byte fakesigning field, away from the key index
+// and content permissions. Its use still needs confirmation on hardware.
 constexpr std::size_t kTicketFiller = 0x220;
 
 }  // namespace
@@ -327,8 +328,10 @@ std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& 
     for (int i = 0; i < 8; ++i) ticket[kTicketTitleId + i] = static_cast<std::uint8_t>(title_id >> (56 - 8 * i));
     // A ticket the Shop issued to another console names that console and
     // carries its key exchange data: an emulated NAND copied from another
-    // Wii, or from a Wii to a Wii U. The NAND keeps contents decrypted, so
-    // nothing here needs the title key to work on this console.
+    // Wii, or from a Wii to a Wii U. NAND contents are already decrypted,
+    // but ES can still set up a title key during Identify. Keep the key,
+    // its common-key index and the ticket ID together; clearing the
+    // console binding is not a conversion between encryption keys.
     std::memset(ticket.data() + kTicketConsoleId, 0, 4);
     std::memset(ticket.data() + kTicketEcdh, 0, kTicketEcdhBytes);
     // Fakesigned: IOSes with the signing bug (d2x restores it) compare the
@@ -342,6 +345,17 @@ std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& 
         if (sha1(ticket.data() + kTicketSignedFrom, ticket.size() - kTicketSignedFrom)[0] == 0) break;
     }
     return ticket;
+}
+
+std::vector<std::uint16_t> required_content_indexes(const TmdContents& contents) {
+    // Bit 0x4000 of a content's type marks it optional (WiiBrew, "Title
+    // metadata"): a game's downloadable extras, absent until bought.
+    constexpr std::uint16_t kOptionalContent = 0x4000;
+    std::vector<std::uint16_t> indexes;
+    for (const TmdContent& content : contents.contents) {
+        if ((content.type & kOptionalContent) == 0) indexes.push_back(content.index);
+    }
+    return indexes;
 }
 
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error) {

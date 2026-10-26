@@ -106,7 +106,7 @@ struct ChannelVerdict {
 struct TmdContent {
     std::uint32_t id = 0;     // the file's name on the NAND, %08x.app
     std::uint16_t index = 0;  // 0 is the banner, the boot index the program
-    std::uint16_t type = 0;   // 1 normal, 0x4001 and 0x8001 shared
+    std::uint16_t type = 0;   // 1 normal, 0x4001 optional (downloadable extras), 0x8001 shared
     std::uint64_t size = 0;
     Sha1Digest sha1{};        // of its plain bytes
 };
@@ -125,6 +125,11 @@ struct TmdContents {
 // in front, as ES_GetStoredTMD returns it). False when it is too small
 // for its own content count.
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error);
+
+// The contents a channel opens through ES while it runs and can't do
+// without: all but the optional ones (downloadable extras, which may never
+// have been bought). Their indexes, in TMD order.
+std::vector<std::uint16_t> required_content_indexes(const TmdContents& contents);
 
 // The six-character ID RiftWii keys a channel by, as a disc game's is its
 // four-letter code and its maker ("WBME01"): favourites, play history,

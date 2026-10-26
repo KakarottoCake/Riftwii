@@ -26,6 +26,12 @@ namespace riftwii::wii {
 // Virtual Console titles on an emulated NAND.
 enum class D2xNandScope { GamePaths, WholeNand };
 
+// Kept by one channel launch, never across launches or card changes. A
+// failed mount is not repeated on the same IOS, even after a reload.
+struct D2xNandMountFailures {
+    bool ios[256] = {};
+};
+
 // After the reload into d2x and before the game's partition is opened
 // (d2x refuses it once a title runs). In order: the folder's path is
 // checked (d2x takes at most 255 characters); d2x's FAT module is opened
@@ -49,15 +55,20 @@ enum class D2xNandScope { GamePaths, WholeNand };
 // `card_back`, when given, says whether libfat and boot.log have the card
 // after the call; a refusal before the card was touched (the folder, no
 // FAT module) leaves it as the caller set it.
+// `mount_failures`, when given by a channel launch, records an IOS whose
+// module could not mount the card (after its retry), so that launch does
+// not reload it again. A remembered failure returns before touching the
+// card; cleanup after a new failure still runs.
 bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope = D2xNandScope::GamePaths,
-                      bool* card_back = nullptr);
+                      bool* card_back = nullptr, D2xNandMountFailures* mount_failures = nullptr);
 
 // When the emulation came on but the launch does not go on with it (ES
 // refused the title on this IOS, the launch failed): d2x's emulation is
 // turned off (mode 0, while no title runs) and its FAT module unmounts the
 // card (0xF1: it writes what it holds and stops its driver); d2x's own SD
 // device, if a game on the card used it, is let go too, and RiftWii may
-// use the card again. False when the module would not let go: RiftWii
+// use the card again. False when the emulation could not be turned off
+// or the module would not let go: RiftWii
 // then stays off the card until an IOS reload (its restart does one).
 // Logs what it did and the hand-off's summary line again, for a failure's
 // boot.log. True and nothing done when the emulation was not on.
