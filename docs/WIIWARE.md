@@ -74,9 +74,16 @@ All 14 reach the same screen through RiftWii as when Dolphin starts them
 itself (2026-10-26, branch at 209b308c). In WarioWare, Dolphin's log
 shows the game asking ES for its title and data folder and reading its
 own content through ES, as it does when started directly. Not covered
-yet: an emulated NAND (d2x's emulation can't run in Dolphin), channels
-the Wii Menu moved to the SD card, and going back to RiftWii (needs the
-RiftWii channel installed in the test NAND).
+yet: an emulated NAND (d2x's emulation can't run in Dolphin) and going
+back to RiftWii (needs the RiftWii channel installed in the test NAND).
+
+A channel the Wii Menu moved to the SD card, Super Mario Bros. (VC, NES):
+the real Wii Menu in this Dolphin moved it (Data Management > Channels >
+Move), leaving only its TMD on the Wii and a 2.5 MB content.bin on the
+card. RiftWii decrypted that with the default Dolphin console's keys.bin,
+copied its four contents back (listed in staged_channels.txt), ran as the
+game, and the game played its demo, reading its ROM through ES. The next
+RiftWii start removed the four copies again, leaving the TMD as before.
 
 Saving and leaving, Final Fantasy Crystal Chronicles: My Life as a King
 started through RiftWii: it made its save (ARCH.SAV, DAT0-2.SAV and the
