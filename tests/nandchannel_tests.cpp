@@ -631,12 +631,51 @@ void test_identify_ticket() {
     EXPECT_TRUE(std::equal(made.begin() + 0x1BF, made.begin() + 0x1CF, installed.begin() + 0x1BF));
     EXPECT_EQ(signed_part_hash(made)[0], 0);
 
+    // Apart from identity and signature fields, preserve the installed
+    // ticket byte for byte. In particular, changing the common-key index
+    // without re-encrypting the title key would give ES the wrong key.
+    for (std::uint8_t key_index : {0, 1, 2}) {
+        installed[0x1F1] = key_index;
+        const auto preserved = make_identify_ticket(installed, sm64);
+        EXPECT_EQ(preserved[0x1F1], key_index);
+        EXPECT_EQ(be64(preserved.data() + 0x1D0), be64(installed.data() + 0x1D0));
+        EXPECT_EQ(preserved[0x1F4], installed[0x1F4]);
+        EXPECT_EQ(preserved[0x21F], installed[0x21F]);
+        EXPECT_EQ(preserved[0x222], installed[0x222]);
+        EXPECT_EQ(signed_part_hash(preserved)[0], 0);
+        for (std::size_t offset = 0; offset < kSignedTicketBytes; ++offset) {
+            const bool changed_field = (offset >= 0x004 && offset < 0x104) ||
+                                       (offset >= 0x180 && offset < 0x1BC) ||
+                                       (offset >= 0x1D8 && offset < 0x1E4) ||
+                                       (offset >= 0x220 && offset < 0x222);
+            if (!changed_field) EXPECT_EQ(preserved[offset], installed[offset]);
+        }
+    }
+    EXPECT_TRUE(std::all_of(generic.begin() + 0x222, generic.begin() + 0x262,
+                           [](std::uint8_t byte) { return byte == 0xFF; }));
+    EXPECT_EQ(generic[0x262], 0);
+    EXPECT_EQ(generic[0x263], 0);
+    EXPECT_TRUE(make_identify_ticket({0x5A}, sm64) == generic);
+
     // A ticket for another title takes the launched one's.
     put64(installed.data() + 0x1DC, title(kDownloadedChannels, "WA4E"));
     EXPECT_EQ(be64(make_identify_ticket(installed, sm64).data() + 0x1DC), sm64);
 }
 
+// Every content but the optional ones (downloadable extras) is checked
+// after ES_Identify: normal and shared contents both count.
+void test_required_contents() {
+    TmdContents tmd;
+    tmd.contents = {{0, 0, 0x0001, 0, {}}, {1, 1, 0x0001, 0, {}}, {2, 5, 0x8001, 0, {}},
+                    {3, 6, 0x4001, 0, {}}, {4, 7, 0x0001, 0, {}}};
+    const auto needed = required_content_indexes(tmd);
+    EXPECT_EQ(needed.size(), 4u);
+    EXPECT_TRUE((needed == std::vector<std::uint16_t>{0, 1, 5, 7}));
+    EXPECT_TRUE(required_content_indexes(TmdContents{}).empty());
+}
+
 int main() {
+    test_required_contents();
     test_identify_ticket();
     test_channel_bi2();
     test_extras_floor();

@@ -660,7 +660,17 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
             if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) add_ios(slot);
         }
     }
-    if (files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
+    // A stock IOS cannot serve the copied NAND. After the d2x attempts,
+    // reloading it would only repeat the launch with the content missing.
+    // Real NAND channels still get this fallback. Dolphin has no d2x, so
+    // there it stays for a copied NAND too: `debug_off = identify` starts
+    // the game without the emulation, for testing.
+    const bool stock_fallback = !emulated || running_in_dolphin();
+    if (stock_fallback && files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
+    if (emulated && files.ios_order.empty()) {
+        error = "no installed d2x IOS is available to serve the copied NAND";
+        return false;
+    }
 
     NandAccess access;
     access.trace = true;

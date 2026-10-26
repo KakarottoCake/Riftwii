@@ -50,6 +50,10 @@ constexpr useconds_t kRemountPauseUs = 100 * 1000;
 // d2x's own SD device carried a game on the card when it took it.
 bool g_d2x_driver_at_hold = false;
 
+// Whether the NAND emulation came on in the last hand-off: only then can a
+// failed "off" leave ES reading through the card.
+bool g_emulation_on = false;
+
 // What the hand-off ended with, in one line: during a launch boot.log
 // stays closed from the hand-off on, and its backlog in memory keeps only
 // the newest lines, so release_d2x_saves logs this again for a failure's
@@ -108,7 +112,8 @@ std::string card_layout() {
 
 }  // namespace
 
-bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope, bool* card_back) {
+bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope scope, bool* card_back,
+                      D2xNandMountFailures* mount_failures) {
     // Nothing is touched before the checks: the card, boot.log and
     // *card_back stay as they are.
     if (dir.compare(0, 4, "sd:/") != 0) {
@@ -126,6 +131,12 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
     const char* scope_name = scope == D2xNandScope::WholeNand ? "the whole NAND (full flag 0x100)" : "the game's paths";
     const s32 ios = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
+    const bool remember_mount = mount_failures != nullptr && ios >= 0 && ios < 256;
+    if (remember_mount && mount_failures->ios[ios]) {
+        error = "d2x already failed to mount the SD card on IOS" + std::to_string(ios) + " in this launch";
+        logf("Saves: %s; the card was left alone.\n", error.c_str());
+        return false;
+    }
 
     // The module first, before the card is touched: an IOS that is not d2x
     // (the game's own IOS, last in a channel's list) has none, and the card
@@ -182,6 +193,9 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
             mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
         }
     }
+    // A channel launch tries each IOS in turn: one whose module could not
+    // mount the card, even after the retry, is not reloaded for it again.
+    if (remember_mount && mounted < 0) mount_failures->ios[ios] = true;
     // Only with the card mounted in d2x: emulation turned on over a card
     // d2x could not mount left ES unable to open the game (a tester's
     // Wii Sports Resort from USB on IOS249: "mount -101, set 0", then
@@ -194,6 +208,7 @@ bool enable_d2x_saves(const std::string& dir, std::string& error, D2xNandScope s
         set = set_mode(wanted_mode, fs);
     }
     const bool emulating = mounted >= 0 && set >= 0;
+    g_emulation_on = emulating;
     // Without the emulation, d2x lets go of the card again, so RiftWii's
     // own save code is the only one writing to it while the game runs.
     // With d2x's own SD device (no release), a module that mounted but
@@ -292,6 +307,14 @@ bool release_d2x_saves() {
     g_path[0] = '\0';
     s32 fs = -1;
     const s32 off = set_mode(0, fs);
+    if (off < 0 && g_emulation_on) {
+        // ES may still route NAND reads to the card. Removing its backing
+        // filesystem now would leave IOS using an unmounted device.
+        logf("Saves: the d2x hand-off earlier in this launch: %s\n", g_summary);
+        logf("Saves: d2x's NAND emulation could not be turned off (%d; /dev/fs %d), so its FAT module keeps the SD card until IOS is reloaded.\n",
+             off, fs);
+        return false;
+    }
     // Then the module writes what it holds and lets go of the card. With
     // a game on the card through d2x's own device, the launch is over by
     // now (no game reads through it any more), so this is safe as well.
@@ -308,6 +331,7 @@ bool release_d2x_saves() {
     // driver from here.
     if (g_d2x_driver_at_hold) d2x_sd_forget();
     hold_sd_for_d2x_fat(false);
+    g_emulation_on = false;
     logf("Saves: d2x's NAND emulation was turned off (%d) and its FAT module let go of the SD card (%d): RiftWii "
          "may use the card again\n", off, released);
     return true;

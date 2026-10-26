@@ -156,6 +156,24 @@ Two things the same report shows that are still open:
   the failure was shown. When every d2x IOS gives the same ticket answer,
   trying more of them doesn't help.
 
+### Still open (from a review of the channel start)
+
+- **A missing content file is only found by the game.** RiftWii checks the
+  program it loads, not that ES can open every content the game will read.
+  An emulated NAND missing the N64 ROM (content 5) or a shared content
+  starts, then goes black. Opening each needed content through ES after
+  `ES_Identify`, and naming the one that fails, would turn that into a
+  message. Optional contents must stay optional, so this needs care.
+- **Emulated NANDs on a USB drive aren't supported by the channel start.**
+  The folder lookup and d2x's emulation set-up both take only the SD card.
+- **A game that reloads IOS itself** loses both its identity and d2x's
+  emulation: the channel start doesn't install the disc start's reload
+  block. None of the 14 test games does this.
+- **ELF programs** (Dr. Mario Online Rx, Fluidity) rely on the game's own
+  start-up clearing its memory; only the first segment's zero-filled tail
+  is recorded. Both start, but an ELF needing more from the loader would
+  not.
+
 ## Who does what
 
 - **RiftWii maintainers (this branch):** the test runs above, Dolphin's
