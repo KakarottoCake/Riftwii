@@ -3182,7 +3182,7 @@ static int ShowHomeMenu()
 // `error` becomes what Home's status line shows.
 static void OfferBurnedDisc(std::string& error)
 {
-	if (riftwii::wii::running_in_dolphin()) return;
+	if (!riftwii::wii::cios_paths_enabled()) return;
 	if (riftwii::wii::MenuCiosSlot() != 0) {
 		error = tr("The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad.");
 		return;

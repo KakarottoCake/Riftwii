@@ -76,6 +76,10 @@ bool running_in_dolphin() {
     return cached == 1;
 }
 
+bool cios_paths_enabled() {
+    return !running_in_dolphin() || mem::TestCiosInDolphin();
+}
+
 bool reload_terminal_failure() { return g_terminal_failure; }
 
 u64 g_reloaded_at = 0;  // gettime() at the last reload that worked
@@ -161,12 +165,13 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
             restore_subsystems();
             return ReloadResult::Failed;
         }
-    } else if (!running_in_dolphin()) {
+    } else if (!running_in_dolphin() || (version >= 200 && mem::TestCiosInDolphin())) {
         error = "IOS" + std::to_string(version) + " is not installed on this console";
         restore_subsystems();
         return ReloadResult::NotInstalled;
     }
-    // A zeroed view is enough for Dolphin's HLE, which ignores it.
+    // Stock IOS can still use a zeroed view in Dolphin. Test cIOS slots
+    // need an installed ticket, as on a Wii.
 
     write32(kIosVersionAddress, 0);
     res = ES_LaunchTitleBackground(title, &g_view);

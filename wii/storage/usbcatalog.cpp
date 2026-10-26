@@ -1648,7 +1648,7 @@ bool d2x_slot_allowed(int slot, std::string& why) {
 
 CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd) {
     CiosCheck check;
-    if (running_in_dolphin()) return check;
+    if (!cios_paths_enabled()) return check;
     for (int slot : image_cios_order(game, chosen, uses_sd)) {
         if (!slot_has_ticket(slot)) continue;
         std::string why;
@@ -1740,7 +1740,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
     // that reaches the front USB ports, for games on the SD card and on a
     // USB drive (a tester's Brawl from USB on IOS251 played with it).
-    if (!running_in_dolphin() && is_wii_u()) {
+    if (cios_paths_enabled() && is_wii_u()) {
         const std::string& mode = Settings().gc_adapter;
         GcAdapterView seen;
         const bool adapter = mode == "on" || (mode == "auto" && GcAdapterMenuLastView(seen));
@@ -1754,7 +1754,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
             logf("cIOS: the GameCube adapter on a Wii U: no d2x on base 58 found\n");
         }
     }
-    if (!running_in_dolphin() && game.required_ios != 0) {
+    if (cios_paths_enabled() && game.required_ios != 0) {
         std::string why;
         const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
                                       reads_sd, why);
@@ -1782,7 +1782,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     }
     // Adapter, per-game, conventional and keyboard choices keep their
     // precedence. Only the remaining known d2x slots extend that order.
-    if (!running_in_dolphin()) {
+    if (cios_paths_enabled()) {
         order = append_d2x_fallbacks(order, d2x_slots(), game.required_ios,
                                      reads_sd);
     }
@@ -1831,7 +1831,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         apply_titles(out);
         out.status = "USB DVD drive: " + g_usb_disc_game.id;
         logf("%s\n", out.status.c_str());
-        if (!running_in_dolphin()) {
+        if (cios_paths_enabled()) {
             const std::vector<CiosSlotState> slots = readiness_slots(false);
             out.cios_note = cios_readiness_note(slots.data(), slots.size());
         }
@@ -1854,8 +1854,8 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     const std::string unreadable = (g_usb_wbfs ? "Cannot read the WBFS drive: " : "No valid USB images: ") + failure;
     out.status = out.games.empty() ? (failure.empty() ? empty_drive : unreadable) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
-    // Dolphin has no cIOS slots by design; warning there would be noise.
-    if (!running_in_dolphin()) {
+    // Ordinary Dolphin has no cIOS slots; the d2x test build checks them.
+    if (cios_paths_enabled()) {
         logf("USB: checking cIOS slots\n");
         // RVZ games and GameCube games launch through the SD card
         // (image_cios_order; gclaunch passes uses_sd), so a drive holding
@@ -1916,7 +1916,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
-    if (!running_in_dolphin()) {
+    if (cios_paths_enabled()) {
         logf("SD: checking cIOS slots\n");
         const std::vector<CiosSlotState> slots = readiness_slots(true);
         out.cios_note = cios_readiness_note(slots.data(), slots.size());
@@ -1994,7 +1994,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
         if (!slot) continue;
         std::string why;
         // Vetted while this IOS still runs, as for USB games.
-        if (!running_in_dolphin() && !slot_title_is_launchable(slot, why)) {
+        if (cios_paths_enabled() && !slot_title_is_launchable(slot, why)) {
             logf("Disc: skipping IOS%d (%s)\n", slot, why.c_str());
             skipped += (skipped.empty() ? "" : ", ") + std::string("IOS") + std::to_string(slot) + ": " + why;
             continue;
@@ -2152,7 +2152,7 @@ bool activate_gamecube_usb(const std::uint8_t* first_bytes, std::uint64_t first_
         return false;
     }
     // Vetted while IPC, SD and USB are still up, as for a Wii game.
-    if (!running_in_dolphin()) {
+    if (cios_paths_enabled()) {
         std::string why;
         if (!slot_title_is_launchable(cios_slot, why)) {
             error = "IOS slot " + std::to_string(cios_slot) + ": " + why +
@@ -2250,8 +2250,8 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
     // Vet the slot while IPC, SD and USB are still up: past the teardown
     // below a title that fails to start cannot be reported or recovered.
-    // Dolphin has no cIOS slots and reload_ios() special-cases it there.
-    if (!running_in_dolphin()) {
+    // Ordinary Dolphin skips this check; the d2x test build needs it.
+    if (cios_paths_enabled()) {
         std::string why;
         if (!slot_title_is_launchable(cios_slot, why)) {
             error = "IOS slot " + std::to_string(cios_slot) + ": " + why +

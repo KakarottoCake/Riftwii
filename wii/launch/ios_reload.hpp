@@ -9,6 +9,10 @@ namespace riftwii::wii {
 // True when the loader runs under Dolphin (its IOS exposes /dev/dolphin).
 bool running_in_dolphin();
 
+// cIOS paths run on a Wii, or in Dolphin with the test limits switch.
+// Keep running_in_dolphin() for emulator memory and hardware adjustments.
+bool cios_paths_enabled();
+
 enum class ReloadResult {
     Ok,              // now running the requested IOS
     AlreadyRunning,  // nothing to do
@@ -19,7 +23,8 @@ enum class ReloadResult {
 
 // Reloads IOS the way libogc's IOS_ReloadIOS does, except that a missing
 // ticket view is tolerated under Dolphin, whose HLE boots any IOS it
-// knows without needing one installed in the NAND. Every IOS file
+// knows without needing one installed in the NAND. With cios_in_dolphin,
+// slots 200-255 require a ticket as on a Wii. Every IOS file
 // descriptor (DI, SD, ...) is invalid afterwards.
 // `force` reloads even when `version` is already running (a fresh IOS for
 // a game when the menu runs under the same cIOS).

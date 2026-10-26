@@ -73,6 +73,9 @@ bool TestWiiMem2Top();
 // Test builds: "console_type_as_wii = 1" writes the console type at the
 // launch in Dolphin too, as on a Wii.
 bool TestConsoleTypeAsWii();
+// Test limits builds: "cios_in_dolphin = 1" enables cIOS selection and
+// checks in a Dolphin build that emulates d2x. False in ordinary builds.
+bool TestCiosInDolphin();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.

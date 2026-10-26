@@ -494,7 +494,7 @@ int main() {
     // copy. Asked after the IOS above is up, since a restart's reload
     // changes what the menu has. Not when a menu IOS is chosen in Settings.
     if (sd_mounted && riftwii::wii::Settings().menu_font == "wii" && !font_tried_before &&
-        read32(0x0D800064) != 0xFFFFFFFF && !riftwii::wii::running_in_dolphin() &&
+        read32(0x0D800064) != 0xFFFFFFFF && riftwii::wii::cios_paths_enabled() &&
         riftwii::wii::MenuCiosSlot() == 0 && riftwii::wii::LoadMenuIos() == 0 && !riftwii::wii::WiiMenuFontCached()) {
         const int slot = riftwii::wii::BurnedDiscSlot();
         if (slot != 0 && riftwii::wii::StartMenuIos(sd_mounted, false, slot,
