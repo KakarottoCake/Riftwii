@@ -108,6 +108,9 @@ public:
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
+    // B held for something else (Home's random game on the search button):
+    // letting go of it is not the jump to the next letter.
+    void ForgetLetterPress();
     // Keeps the focus on `index` (and its page).
     void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }

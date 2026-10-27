@@ -226,7 +226,10 @@ on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
 press 1 (the view button), or search with nothing typed, to go back to
-the view.
+the view. Point at the magnifier and hold **B** on a Wii Remote for about a
+second to start a game at random from the ones shown (not the disc drive or
+a homebrew app); its page presses Start for you, so its checks and warnings
+still come up.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
