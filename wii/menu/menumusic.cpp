@@ -468,6 +468,9 @@ void MenuMusicForgetPick() {
     g_pick_failed = false;
     g_songs.clear();
     g_scan_remaining = 0;
+    // The block's bytes may be from a card that is gone, at the same path as
+    // a file on this one: read again. The callers stop the music first.
+    g_loaded.clear();
 }
 
 bool MenuMusicRetryFailedPick() {
