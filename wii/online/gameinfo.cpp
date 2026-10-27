@@ -288,25 +288,28 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     return true;
 }
 
-// The list file's text, when it is within the size budget and there is
-// room for it.
-static bool ReadHomebrewTitlesFile(const struct stat& st, std::string& text) {
-    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return false;
+// Reading the list file: no room for it is the menu's, not the file's
+// fault, so it is not a reason to make the list again; a file that can't
+// be opened or comes back short (a card error, or the file changed under
+// it) is.
+enum class ListRead { Ok, NoRoom, Failed };
+
+static ListRead ReadHomebrewTitlesFile(const struct stat& st, std::string& text) {
+    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return ListRead::Failed;
     // Its size comes from the card: a checked allocation.
-    if (!try_resize(text, static_cast<std::size_t>(st.st_size))) return false;
+    if (!try_resize(text, static_cast<std::size_t>(st.st_size))) return ListRead::NoRoom;
     FILE* f = std::fopen(kHomebrewTitlesPath, "rb");
-    if (!f) return false;
+    if (!f) return ListRead::Failed;
     const std::size_t got = std::fread(&text[0], 1, text.size(), f);
     std::fclose(f);
-    // A short read (a card error, or the file changed under it) is not the list.
-    return got == text.size();
+    return got == text.size() ? ListRead::Ok : ListRead::Failed;
 }
 
 bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
     out.clear();
     struct stat st;
     std::string text;
-    if (!Stat(kHomebrewTitlesPath, st) || !ReadHomebrewTitlesFile(st, text)) return false;
+    if (!Stat(kHomebrewTitlesPath, st) || ReadHomebrewTitlesFile(st, text) != ListRead::Ok) return false;
     return parse_homebrew_titles(text, out);
 }
 
@@ -327,7 +330,13 @@ bool HomebrewTitlesNeedReading() {
     // its time would keep it from being made again.
     if (st.st_size == g_homebrew_checked_size && st.st_mtime == g_homebrew_checked_time) return false;
     std::string text;
-    if (!ReadHomebrewTitlesFile(st, text)) return false;  // no room to check now: as before
+    const ListRead read = ReadHomebrewTitlesFile(st, text);
+    if (read == ListRead::NoRoom) return false;  // no room to check now: as before
+    if (read == ListRead::Failed) {
+        logf("Homebrew: %s could not be read in full; it is made again from the game database\n",
+             kHomebrewTitlesPath);
+        return true;
+    }
     if (!homebrew_titles_usable(text)) {
         logf("Homebrew: %s is damaged; it is made again from the game database\n", kHomebrewTitlesPath);
         return true;

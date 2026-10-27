@@ -228,15 +228,18 @@ std::string HomebrewMatcher::best(const std::string& name, const std::string& ke
     // Exact: the entry whose name is the app's letter for letter ("WiiMC",
     // not "WiiMC+", which compares the same), else the first with that key
     // (GameTDB lists the same app once for each region at times, all with
-    // the same cover).
+    // the same cover). Two different apps with that key ("WiiMC" and
+    // "WiiMC+" for an app called "WiiMC!") are neither a safe guess.
     const std::string plain = plain_name(name);
     const Key* exact = nullptr;
+    bool ambiguous = false;
     for (const Key& k : keys_) {
         if (k.key != key) continue;
         if (k.plain == plain) return ids_[k.title];
         if (!exact) exact = &k;
+        else if (ids_[k.title] != ids_[exact->title] && k.plain != exact->plain) ambiguous = true;
     }
-    if (exact) return ids_[exact->title];
+    if (exact) return ambiguous ? "" : ids_[exact->title];
     if (key.size() < kMinFuzzyKey) return "";
     const Counts counts = count_letters(key);
     double best_score = 0.0;

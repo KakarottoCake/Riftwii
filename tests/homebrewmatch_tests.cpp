@@ -90,6 +90,14 @@ void test_matcher() {
     expect(matcher.match("SaveGame Manger GX", "x") == "DSMA", "a letter off still matches");
     expect(matcher.match("WiiMC 1.3.8", "wiimc") == "DWMA", "the version is not part of the name");
     expect(matcher.match("Some Other App", "wiimc") == "DWMA", "the folder's name as the fallback");
+    // "WiiMC!" compares as both WiiMC and WiiMC+ and is neither by name.
+    expect(homebrew_match_key("WiiMC!") == homebrew_match_key("WiiMC+") &&
+               homebrew_match_key("WiiMC!") == homebrew_match_key("WiiMC"),
+           "WiiMC, WiiMC+ and WiiMC! share a key");
+    expect(matcher.match("WiiMC!", "x").empty(), "two apps with the same key are neither");
+    // The same app listed for two regions is still found.
+    const HomebrewMatcher regions({{"DWMA", {"WiiMC"}}, {"DWME", {"WiiMC"}}});
+    expect(regions.match("WIIMC", "x") == "DWMA", "one app in two regions is the first");
     expect(matcher.match("", "homebrew_browser") == "DHBA", "no meta.xml: the folder's name");
     expect(matcher.match("WiiFlow Lite", "wiiflow") == "DWFA", "another app's Korean title is not WiiFlow");
     expect(matcher.match("Pix", "pix") == "DP5A", "a short name matches exactly");
