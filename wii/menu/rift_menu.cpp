@@ -5446,7 +5446,11 @@ static int MenuSource(FrontendState& state)
 			// picked
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
+			// A pair pressed in the HOME Menu is not Home's: Home starts
+			// watching afresh once it closes.
+			riftwii::wii::WatchViewChord(false);
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
+			riftwii::wii::WatchViewChord(true);
 		} else if (riftwii::wii::TakeViewChord()) {
 			// 1 and 2 together: the next view, as Settings > Home tiles
 			// steps to, with Home built again around the same game.
