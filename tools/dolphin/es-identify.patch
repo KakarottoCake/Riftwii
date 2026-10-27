@@ -1,0 +1,131 @@
+SPDX-FileCopyrightText: 2026 RiftWii contributors
+SPDX-FileCopyrightText: Dolphin Emulator Project
+SPDX-License-Identifier: GPL-2.0-or-later
+
+ES_Identify for Dolphin, so RiftWii's channel starts can be tested there.
+
+On a Wii, ES_Identify and ES_DIVerify are the same request (0x1C). Dolphin
+answers it from the game's side with -1017, so a loader can't run a WiiWare
+or Virtual Console game as its own title: the game then finds no title ID,
+no save folder and none of its own content files (the N64 Virtual Console
+reads its ROM as content 5 of the running title). With this patch Dolphin
+reads the ticket and TMD the request carries and runs the steps it already
+takes for a disc (title context, user and group ID, data folder), marking
+the title as a channel.
+
+It also gives DolphinTool `installwad <user folder> <wad>...`, which
+installs WADs for good, as Tools > Install WAD does: a WAD booted with -e is
+only installed until emulation stops, and its contents are then removed.
+
+Made against Felk's scripting fork, tag scripting-preview4 (a22afcb10b), the
+Dolphin build in build-dolphin/felk. To use it: clone that tag with its
+submodules, `git apply` this file, build Source/dolphin-emu.sln
+(Release, x64) with Visual Studio 2022, and copy Binary/x64 to
+build-dolphin/felk-identify; `FELK_DIR=felk-identify felk-run.sh ...` runs
+it. Not meant for Dolphin itself as it stands: it skips the ticket and TMD
+checks a console makes.
+
+diff --git a/Source/Core/Core/IOS/ES/ES.cpp b/Source/Core/Core/IOS/ES/ES.cpp
+index bf388a5..b27edea 100644
+--- a/Source/Core/Core/IOS/ES/ES.cpp
++++ b/Source/Core/Core/IOS/ES/ES.cpp
+@@ -794,7 +794,42 @@ std::optional<IPCReply> ESDevice::LaunchBC(const IOCtlVRequest& request)
+ // So we block access to it from the IPC interface.
+ IPCReply ESDevice::DIVerify(const IOCtlVRequest& request)
+ {
+-  return IPCReply(ES_EINVAL);
++  // ES_Identify from the PPC, as a loader sends it to run a channel as that
++  // title: certificates, an empty vector, the ticket and the TMD in; the key
++  // ID and the contents' hashes out (RiftWii's test build of Dolphin).
++  // One ticket, and a TMD of at most 512 contents (the header, then 0x24
++  // bytes a content): sizes the guest gives are checked before anything is
++  // allocated for them.
++  constexpr u32 TICKET_BYTES = 0x2A4;
++  constexpr u32 MAX_TMD_BYTES = 0x1E4 + 512 * 0x24;
++  if (request.in_vectors.size() != 4 || request.io_vectors.size() < 1 ||
++      request.in_vectors[2].size != TICKET_BYTES || request.in_vectors[3].size == 0 ||
++      request.in_vectors[3].size > MAX_TMD_BYTES || request.io_vectors[0].size < sizeof(u32))
++  {
++    return IPCReply(ES_EINVAL);
++  }
++
++  auto& system = GetSystem();
++  auto& memory = system.GetMemory();
++  std::vector<u8> ticket_bytes(request.in_vectors[2].size);
++  memory.CopyFromEmu(ticket_bytes.data(), request.in_vectors[2].address, ticket_bytes.size());
++  std::vector<u8> tmd_bytes(request.in_vectors[3].size);
++  memory.CopyFromEmu(tmd_bytes.data(), request.in_vectors[3].address, tmd_bytes.size());
++  const ES::TicketReader ticket{std::move(ticket_bytes)};
++  const ES::TMDReader tmd{std::move(tmd_bytes)};
++
++  const ReturnCode ret = DIVerify(tmd, ticket);
++  if (ret != IPC_SUCCESS)
++  {
++    ERROR_LOG_FMT(IOS_ES, "ES_Identify: refused ({})", static_cast<int>(ret));
++    return IPCReply(ret);
++  }
++  // A channel, not a disc: as LaunchTitle sets it for an installed title.
++  m_core.m_title_context.Update(tmd, ticket, DiscIO::Platform::WiiWAD);
++  NOTICE_LOG_FMT(IOS_ES, "ES_Identify: running as {:016x} (uid {:08x}, gid {:04x})", tmd.GetTitleId(),
++                 GetEmulationKernel().GetUidForPPC(), GetEmulationKernel().GetGidForPPC());
++  memory.Write_U32(0, request.io_vectors[0].address);
++  return IPCReply(IPC_SUCCESS);
+ }
+ 
+ static ReturnCode WriteTmdForDiVerify(FS::FileSystem* fs, const ES::TMDReader& tmd)
+diff --git a/Source/Core/DolphinTool/ToolMain.cpp b/Source/Core/DolphinTool/ToolMain.cpp
+index 224ead3..ede6b6c 100644
+--- a/Source/Core/DolphinTool/ToolMain.cpp
++++ b/Source/Core/DolphinTool/ToolMain.cpp
+@@ -13,6 +13,8 @@
+ 
+ #include "Common/StringUtil.h"
+ #include "Core/Core.h"
++#include "Core/WiiUtils.h"
++#include "UICommon/UICommon.h"
+ 
+ #include "DolphinTool/ConvertCommand.h"
+ #include "DolphinTool/ExtractCommand.h"
+@@ -23,7 +25,32 @@ static void PrintUsage()
+ {
+   fmt::print(std::cerr, "usage: dolphin-tool COMMAND -h\n"
+                         "\n"
+-                        "commands supported: [convert, verify, header, extract]\n");
++                        "commands supported: [convert, verify, header, extract, installwad]\n");
++}
++
++// installwad <user folder> <wad>...: installs each WAD into that user
++// folder's NAND for good, as Tools > Install WAD does (booting a WAD only
++// installs it until emulation stops). For RiftWii's channel tests.
++static int InstallWads(const std::vector<std::string>& args)
++{
++  if (args.size() < 2)
++  {
++    fmt::print(std::cerr, "usage: dolphin-tool installwad <user folder> <wad>...\n");
++    return EXIT_FAILURE;
++  }
++  UICommon::SetUserDirectory(args[0]);
++  UICommon::CreateDirectories();
++  UICommon::Init();
++  int failed = 0;
++  for (size_t i = 1; i < args.size(); ++i)
++  {
++    const bool installed = WiiUtils::InstallWAD(args[i]);
++    fmt::print(std::cerr, "{}: {}\n", args[i], installed ? "installed" : "FAILED");
++    if (!installed)
++      ++failed;
++  }
++  UICommon::Shutdown();
++  return failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+ }
+ 
+ #ifdef _WIN32
+@@ -52,6 +79,8 @@ int main(int argc, char* argv[])
+     return DolphinTool::HeaderCommand(args);
+   else if (command_str == "extract")
+     return DolphinTool::Extract(args);
++  else if (command_str == "installwad")
++    return InstallWads(args);
+   PrintUsage();
+   return EXIT_FAILURE;
+ }

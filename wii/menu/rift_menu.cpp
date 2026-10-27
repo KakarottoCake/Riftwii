@@ -29,6 +29,7 @@
 #include <string.h>
 #include <strings.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <atomic>
@@ -83,6 +84,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "ratingbadge.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
 #include "riftwii/canvas.hpp"
@@ -881,8 +883,10 @@ static std::string ReturnToNote()
 	// A test switch in settings.txt turns it off whatever this says.
 	if (riftwii::wii::debug_off("returnto"))
 		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.");
+	if (riftwii::wii::Settings().return_to == "menu")
+		return tr("Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.");
 	unsigned version = 0;
-	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
+	return riftwii::wii::ChannelInstalled(version) ? tr("Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
 static const char* HomeSourceName(const std::string& v)
 {
@@ -5409,7 +5413,7 @@ static int MenuSource(FrontendState& state)
 					about += " " + std::string(tr("When the app exits, it goes back to the Homebrew Channel, which started RiftWii."));
 					break;
 				case riftwii::wii::HomebrewExit::WiiMenu:
-					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."));
+					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."));
 					break;
 				case riftwii::wii::HomebrewExit::NotSaid:
 					break;
@@ -8971,19 +8975,41 @@ public:
 	HeroCover(const HeroCover&) = delete;
 	HeroCover& operator=(const HeroCover&) = delete;
 	~HeroCover() override { free(rounded); }
+	// The page's tile the box is (GameTile::Cover): lit, it grows a little
+	// and gets a ring in the accent's colour, as a tile does.
+	void Light(const GuiTiles* grid, int tile) {
+		litGrid = grid;
+		litTile = tile;
+	}
+	// A box or cover was drawn: there is something to see up close. Read
+	// by the menu thread, as the textures are the GUI thread's.
+	bool HasArt() const { return hasArt; }
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's cover");
-		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
-		if (const u8* art = RoundedArt()) {
+		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
+		const float grow = 1.0f + 0.035f * lit;
+		const float w = kHeroW * grow, h = kHeroH * grow;
+		const float x = kHeroX - (w - kHeroW) / 2, y = kHeroY - (h - kHeroH) / 2;
+		const auto ring = [&] {
+			if (lit <= 0.0f) return;
+			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
+			for (int i = 3; i <= 5; ++i) Menu_DrawRectangle(x - i, y - i, w + 2 * i, h + 2 * i, c, 0);
+		};
+		const u8* art = RoundedArt();
+		hasArt = art != nullptr || (!id.empty() && riftwii::wii::BoxTexture(id)) ||
+			 (!id.empty() && riftwii::wii::CoverTexture(id));
+		if (art) {
 			// A drop shadow, as if the box stood a little off the page, lit
 			// from above.
 			constexpr float kDrop = 6.0f;
 			const float m = riftwii::kShadowMargin;
 			skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + kDrop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner);
 			skin::DrawRgb5a3Part(art, roundedW, roundedH, 0.0f, 1.0f, x, y, w, h);
+			ring();
 			return;
 		}
 		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
+		ring();
 		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
 		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
 			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
@@ -9038,13 +9064,159 @@ private:
 	bool disc;
 	bool channel;
 	GXColor hue;
+	const GuiTiles* litGrid = nullptr;
+	int litTile = -1;
+	volatile bool hasArt = false;
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
 	const u8* roundedFrom = nullptr;
 	int roundedW = 0, roundedH = 0;
 };
 
+// The game's box up close (A on the box on its page): it grows out of the
+// box over the dimmed page to most of the screen's height; Down turns it
+// over to its back, Up back to its front, B puts it back. The back comes
+// from the full cover the shelf keeps (wii/menu/boxart.hpp); with only the
+// small cover there is a front alone.
+class CoverCloseup : public GuiElement {
+public:
+	explicit CoverCloseup(std::string id) : id(std::move(id)) {
+		width = screenwidth;
+		height = screenheight;
+		selectable = true;
+	}
+	// The side to show; the box turns to it.
+	void ShowBack(bool back) { wantBack = back; }
+	bool ShowingBack() const { return wantBack; }
+	// A back to turn to: the full cover is in memory. Read by the menu thread.
+	bool HasBack() const { return hasBack; }
+	// Shrinks back into the page's box, turning to its front on the way
+	// as the page shows it; Closed() once it is there.
+	void Close() {
+		closing = true;
+		wantBack = false;
+	}
+	bool Closed() const { return closing && open <= 0.0f; }
+	// Down, Up and B since the last call, from any controller.
+	bool TakeDown() { return Take(down); }
+	bool TakeUp() { return Take(up); }
+	bool TakeBack() { return Take(back); }
+
+	void Draw() override {
+		riftwii::wii::DrawTrace trace("the cover up close");
+		open += ((closing ? 0.0f : 1.0f) - open) * 0.25f;
+		if (open < 0.01f) open = 0.0f;
+		if (open > 0.99f) open = 1.0f;
+		const float target = wantBack && hasBack ? 1.0f : 0.0f;
+		turn += (target - turn) * 0.2f;
+		if (std::fabs(target - turn) < 0.01f) turn = target;
+
+		f32 vx, vy, vw, vh;
+		Menu_VisibleArea(&vx, &vy, &vw, &vh);
+		Menu_DrawRectangle(vx, vy, vw, vh, (GXColor){0, 0, 0, static_cast<u8>(200 * open)}, 1);
+
+		const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
+		hasBack = box != nullptr;
+		if (!box && !cover) return;
+		// Large: as tall as fits between the band's top and the prompts,
+		// as wide as the art's own shape; grown out of the page's box.
+		const float artW = box ? riftwii::kBoxFrontWidth : riftwii::kCoverWidth;
+		const float artH = box ? riftwii::kBoxHeight : riftwii::kCoverHeight;
+		constexpr float kBigH = 340.0f, kBigY = 40.0f;
+		const float bigW = kBigH * artW / artH, bigX = (screenwidth - bigW) / 2;
+		const float e = open * open * (3 - 2 * open);  // eased
+		const float w = kHeroW + (bigW - kHeroW) * e, h = kHeroH + (kBigH - kHeroH) * e;
+		const float x = kHeroX + (bigX - kHeroX) * e, y = kHeroY + (kBigY - kHeroY) * e;
+		// Turned about its middle: narrower towards the half turn, where the
+		// side changes.
+		const float face = std::fabs(std::cos(turn * static_cast<float>(M_PI)));
+		const float fw = std::max(1.0f, w * face), fx = x + (w - fw) / 2;
+		const bool showBack = turn > 0.5f;
+		const float m = riftwii::kShadowMargin;
+		skin::DrawNine(skin::dropShadow9, fx - m + 2, y - m + 8, fw + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner,
+			       static_cast<int>(255 * open));
+		if (box) {
+			const float spine = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
+			const float front = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
+			if (showBack) skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, front, 1.0f, fx, y, fw, h);
+			else skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, spine, front, fx, y, fw, h);
+		} else {
+			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, fx, y, fw, h);
+		}
+	}
+	void Update(GuiTrigger* t) override {
+		if (state == STATE::DISABLED || !t || closing) return;
+		if (t->Down()) down = true;
+		else if (t->Up()) up = true;
+		const u32 wpadB = WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B;
+		if ((t->wpad && (t->wpad->btns_d & wpadB)) || (t->pad.btns_d & PAD_BUTTON_B) ||
+		    (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B))
+			back = true;
+	}
+
+private:
+	static bool Take(bool& flag) {
+		const bool was = flag;
+		flag = false;
+		return was;
+	}
+	std::string id;
+	float open = 0.0f, turn = 0.0f;
+	bool wantBack = false, closing = false;
+	volatile bool hasBack = false;
+	bool down = false, up = false, back = false;
+};
+
+// Shows the game's box up close until B (or the Close prompt), over the
+// game page, which stays where it is underneath.
+static void MenuCoverCloseup(const std::string& game_id)
+{
+	CoverCloseup closeup(game_id);
+	GuiPrompts prompts;
+	const int promptClose = prompts.Add("B", tr("Close"));
+	const int promptTurn = prompts.Add("D-pad", tr("Back of the box"));
+	prompts.SetShown(promptTurn, false);
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&closeup);
+	w.Append(&prompts);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&w);
+	w.SetState(STATE::DEFAULT);
+	ResumeGui();
+	bool shownBack = false, shownTurn = false, closing = false;
+	while (!closeup.Closed()) {
+		usleep(10000);
+		HaltGui();
+		const int prompt = prompts.GetClicked();
+		if (closing) {
+			// shrinking back: no more presses
+		} else if (closeup.TakeBack() || prompt == promptClose) {
+			closeup.Close();
+			closing = true;
+			prompts.SetShown(promptClose, false);
+		} else if (closeup.HasBack()) {
+			if (closeup.TakeDown()) closeup.ShowBack(true);
+			if (closeup.TakeUp()) closeup.ShowBack(false);
+			if (prompt == promptTurn) closeup.ShowBack(!closeup.ShowingBack());
+		}
+		// Down for the back, or Up for the front: the other side's name.
+		const bool turnShown = closeup.HasBack() && !closing;
+		if (turnShown != shownTurn || closeup.ShowingBack() != shownBack) {
+			shownTurn = turnShown;
+			shownBack = closeup.ShowingBack();
+			prompts.SetShown(promptTurn, shownTurn);
+			prompts.SetAction(promptTurn, shownBack ? tr("Front of the box") : tr("Back of the box"));
+		}
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	mainWindow->SetState(STATE::DEFAULT);
+}
+
 // The About page's body, right of the box and under it: the facts in two
-// columns, the age rating as a badge in the band, the controllers as
+// columns, the age rating as a badge in the band (the rating board's own
+// mark when RiftWii has it, else the rating written out), the controllers as
 // icons, the story as a paragraph that scrolls (Up and Down, or the
 // arrows). Everything here is read, not pressed: plain text and icons.
 class AboutBody : public GuiElement {
@@ -9060,9 +9232,9 @@ public:
 	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
 
 	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
-		const std::string& story)
+		const skin::Tex& ratingMark, const std::string& story)
 		: facts(std::move(facts)), controls(std::move(controls)), rating(std::move(rating)),
-		  ratingSystem(std::move(ratingSystem))
+		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark)
 	{
 		width = screenwidth;
 		height = screenheight;
@@ -9126,12 +9298,19 @@ public:
 		if (HasRating()) {
 			const float bx = 548, by = 32, bw = 52, bh = 62;
 			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
-			ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
-			ratingTxt->Draw();
-			systemTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			systemTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + bh - 19));
-			systemTxt->Draw();
+			if (ratingMark.data) {
+				// The mark (64 high at most), centred on the card.
+				const float mx = bx + (bw - ratingMark.w) / 2.0f;
+				const float my = by + (bh - ratingMark.h) / 2.0f;
+				skin::Draw(ratingMark, mx, my, alpha);
+			} else {
+				ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+				ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
+				ratingTxt->Draw();
+				systemTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+				systemTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + bh - 19));
+				systemTxt->Draw();
+			}
 		}
 		// The story, a window of it at a time.
 		if (!lines.empty()) {
@@ -9216,6 +9395,7 @@ private:
 	std::vector<Fact> facts;
 	std::vector<Control> controls;
 	std::string rating, ratingSystem;
+	skin::Tex ratingMark;  // the board's mark (ratingbadge.hpp), kept for the menu phase; none without data
 	std::vector<std::unique_ptr<GuiText>> names, values, shown;
 	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
 	std::vector<std::string> lines;
@@ -9276,7 +9456,9 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
 	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
-	AboutBody body(facts, controls, info.rating, info.rating_system, riftwii::plain_punctuation(info.synopsis));
+	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
+	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
+		riftwii::plain_punctuation(info.synopsis));
 	// The band's text as on the game page: an overline, the name.
 	std::string overline = tr("About this game");
 	for (char& ch : overline)
@@ -10261,11 +10443,12 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	return changed;
 }
 
-enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About };
+enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover };
 
 // The game page's tiles: Play first and largest, the mods beside it, then
 // what is changed most (cheats, saves), then the rest; the favourite
-// switch under the box.
+// switch under the box, and the box itself (drawn by HeroCover), which A
+// shows up close.
 static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& tiles, std::vector<GameTile>& what)
 {
 	tiles.clear();
@@ -10284,6 +10467,11 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		t.primary = kind == GameTile::Play;
 		tiles.push_back(t);
 		what.push_back(kind);
+	};
+	const auto addCover = [&] {
+		if (state.game_id.empty()) return;
+		add(GameTile::Cover, kHeroX, kHeroY, kHeroW, kHeroH, "", "", nullptr, false);
+		tiles.back().hidden = true;
 	};
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
@@ -10328,6 +10516,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 		add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+		addCover();
 		return;
 	}
 	add(GameTile::Play, kTilesX, 132, 252, 84, play, playValue, &skin::iconPlay, false);
@@ -10347,6 +10536,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
 	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+	addCover();
 }
 
 // A game's own settings (the game page's Game settings tile): the picture,
@@ -10688,6 +10878,11 @@ static int MenuHome(FrontendState& state)
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
+	const auto lightHero = [&] {
+		const auto at = std::find(tileWhat.begin(), tileWhat.end(), GameTile::Cover);
+		hero.Light(&tileGrid, at == tileWhat.end() ? -1 : static_cast<int>(at - tileWhat.begin()));
+	};
+	lightHero();
 
 
 	// B and + (Start) as ever, named by the prompts along the bottom.
@@ -10801,6 +10996,7 @@ static int MenuHome(FrontendState& state)
 	const auto rebuildTiles = [&]() {
 		BuildGameTiles(state, tiles, tileWhat);
 		tileGrid.Refresh();
+		lightHero();
 		factsTxt.SetText(GameFacts(state).c_str());
 		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
@@ -10881,6 +11077,9 @@ static int MenuHome(FrontendState& state)
 				case GameTile::About:
 					say(tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
 					break;
+				case GameTile::Cover:
+					say(tr("The game's box. Press A to see it up close, then Down for its back."));
+					break;
 			}
 		}
 
@@ -10889,6 +11088,9 @@ static int MenuHome(FrontendState& state)
 			const GameTile tile = tileWhat[static_cast<std::size_t>(acted)];
 			if (tile == GameTile::Play) {
 				startBtn.button.SetState(STATE::CLICKED);
+			} else if (tile == GameTile::Cover) {
+				if (hero.HasArt()) MenuCoverCloseup(state.game_id);
+				else say(tr("There is no box art for this game yet."));
 			} else if (tile == GameTile::Saves && SelectedGcGame(state)) {
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
@@ -11763,13 +11965,13 @@ public:
 	void Draw() override
 	{
 		const int w = riftwii::kRiiTagShownWidth, h = riftwii::kRiiTagShownHeight;
-		skin::DrawNine(skin::card9, kX - 4, kY - 4, w + 8, h + 8, 12);
-		const u8* tex = riftwii::wii::riitag::Texture();
-		if (tex) {
+		// Sliced where the card's own corners end (kCardCorner): sliced
+		// nearer, the curve was stretched along the edges, and showed
+		// through while there is no tag yet. The card alone is the
+		// empty place.
+		skin::DrawNine(skin::card9, kX - 8, kY - 8, w + 16, h + 16, riftwii::kCardCorner);
+		if (const u8* tex = riftwii::wii::riitag::Texture())
 			Menu_DrawImg(kX, kY, static_cast<u16>(w), static_cast<u16>(h), const_cast<u8*>(tex), 0, 1, 1, 255);
-			return;
-		}
-		Menu_DrawRectangle(kX, kY, w, h, skin::WithAlpha(skin::kInkDim, 40), 1);
 	}
 };
 
@@ -11935,7 +12137,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
 			settings.nand_non_games, kNonGames, FlowRow::Kind::Toggle);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
-		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
+		option(tr("Quitting a game"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
 			settings.return_to != "menu", kReturnTo);
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
@@ -13077,7 +13279,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		{SettingsSection::Picture, &skin::iconPicture, VideoModeName(settings.video_mode),
 			"How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."},
 		{SettingsSection::Games, &skin::iconPlay, GameLanguageName(settings.game_language),
-			"The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."},
+			"The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."},
 		{SettingsSection::Controllers, &skin::iconControllers, "",
 			"The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."},
 		{SettingsSection::HomeScreen, &skin::iconHome, tiles,

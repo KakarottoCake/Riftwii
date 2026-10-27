@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "riftwii/nandchannel.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -69,6 +71,12 @@ std::vector<std::string> cover_regions(const std::string& game_id, const std::st
     add("US");
     add("JA");
     return out;
+}
+
+std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
+    const std::string code = channel_cheat_code(game_id);
+    if (code.empty()) return {game_id};
+    return {code, game_id};
 }
 
 std::string cover_url(const std::string& region, const std::string& game_id) {

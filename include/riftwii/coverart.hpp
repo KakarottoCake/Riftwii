@@ -28,6 +28,13 @@ constexpr std::size_t kCoverFileSize = kCoverHeaderSize + kCoverPixelBytes;
 // EN, US and JA. A homebrew app's four-letter code has no region: US
 // first, then EN and JA.
 std::vector<std::string> cover_regions(const std::string& game_id, const std::string& menu_language);
+// The IDs to ask GameTDB for a game's pictures under, best first. It
+// files WiiWare and Virtual Console games under their four-letter code
+// ("NAAE" for Super Mario 64; "NAAE01" has none), so a channel's ID gets
+// that code first, then the six characters: a GameCube disc's ID can look
+// like a channel's ("PZLE01" is a disc, not a TurboGrafx-16 game). Any
+// other game: its six-character ID alone.
+std::vector<std::string> gametdb_art_ids(const std::string& game_id);
 std::string cover_url(const std::string& region, const std::string& game_id);
 
 // The status a server answered with, read from a failed download's error

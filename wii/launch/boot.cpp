@@ -100,13 +100,13 @@ constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x
 constexpr std::uint32_t kFaultVeneers = kCodeVeneers + VSD_ENTRIES * 16;
 static_assert(kFaultVeneers + 2 * 16 <= 0x80003000, "the crash blob's veneers must end before 0x80003000");
 static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob's veneers must follow the SD card's");
-// A code build's Return to RiftWii stub (20 bytes): the end of the same
-// room, far past every veneer. Below the MEM1 arena's top it was in the
-// build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
-constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
+// Return to RiftWii for code builds and games that clear MEM1's top:
+// the end of the same room, far past every veneer. PMEX Remix's heaps
+// overwrote an arena-top stub; RE4 clears past the arena's end outright.
+constexpr std::uint32_t kCodeReturnStub = kLowReturnStub;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
 // A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
-// PADControlMotor's, and the way back's two, padhook.hpp's kPadHookSites),
+// PADControlMotor's, and the way back's three, padhook.hpp's kPadHookSites),
 // right below the stub. The runtime's, the virtual SD card's and the crash
 // blob's run up from kCodeVeneers and end long before.
 constexpr std::uint32_t kPadVeneers = kCodeReturnStub - kPadHookSites * 16;
@@ -181,13 +181,16 @@ void install_dol_switch(const std::vector<CodeRange>& text, const std::uint32_t*
 // the end of the game's video retrace handler. Leaves the game untouched
 // and says why when that cannot be done.
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
-                    const std::vector<MemoryRegion>& keep_out, std::string& why) {
+                    const std::vector<MemoryRegion>& keep_out, std::string& why,
+                    std::uint32_t default_list_end = kCodeListEnd) {
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
     const bool moved = g_extras.code_list_start != 0;
     const std::uint32_t list = moved ? g_extras.code_list_start : kCodeListAddress;
-    const std::uint32_t list_end = moved ? g_extras.code_list_end : kCodeListEnd;
+    // A low-memory return stub owns the last 32 bytes of the ordinary
+    // list's room. Keep both the list and its clearing memset below it.
+    const std::uint32_t list_end = moved ? g_extras.code_list_end : default_list_end;
     const auto overlap = [](std::uint32_t a, std::uint32_t a_end, std::uint32_t b, std::uint32_t b_end) {
         return a < b_end && b < a_end;
     };
@@ -2373,13 +2376,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                        : options.install_resident      ? resident.new_arena1_hi
                                                                        : load32(0x80000038);
     const std::uint32_t arena1_top = extras.arena1_hi(below_extras);
-    // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
-    const u64 return_to = clears_mem1_top || gx_protected || plain_code_build ? 0 : return_title();
+    const bool return_disabled = debug_off("returnto");
+    const u64 return_to = gx_protected || plain_code_build || return_disabled ? 0 : return_title();
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
-    const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
-    const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
+    const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, code_build || clears_mem1_top);
+    const std::uint32_t return_stub = return_plan.address;
+    const std::uint32_t arena1_end = return_plan.arena1_hi;
+    if (return_stub != 0 && clears_mem1_top) {
+        logf("Return to RiftWii: the stub uses low memory at 0x%08x because the game clears MEM1 above its arena.\n",
+             return_stub);
+    }
     if (options.install_resident || vsd.active || extras.any() || return_stub != 0) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     {
@@ -2596,7 +2604,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end))
+            logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
     if (!gx_protected) {
@@ -2627,7 +2636,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
     bool returns_to_channel = false;
-    if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
+    if (return_disabled) logf("Return to: debug_off: the game is not patched\n");
     else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
     // The game's own Reset leaves through its OSReturnToMenu once that goes
     // to the channel the request is for (rt_reset_on_os_restart).
@@ -2933,7 +2942,7 @@ u64 return_title() {
     return title;
 }
 
-// `stub`: 32 bytes of MEM1 above the game's arena.
+// `stub`: 32 reserved bytes, above the game's arena or in low memory.
 // True when the game's __OSLaunchMenu now starts `title`.
 bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
     if (title == 0) return false;
@@ -2944,6 +2953,11 @@ bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
     if (report.patched) {
         DCFlushRange(reinterpret_cast<void*>(stub), 32);
         ICInvalidateRange(reinterpret_cast<void*>(stub), 32);
+        if (stub == kLowReturnStub) {
+            const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(stub);
+            logf("Return to: the 32 bytes at 0x%08x are %08x %08x %08x %08x %08x %08x %08x %08x.\n",
+                 stub, words[0], words[1], words[2], words[3], words[4], words[5], words[6], words[7]);
+        }
         for (const MemoryRegion& r : loaded) {
             DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
@@ -3396,6 +3410,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // How many IOSes reached ES_Identify and were refused: the ES wording
     // of the error only when every one tried was.
     std::size_t identify_refusals = 0;
+    s32 first_ticket_error = 0;
+    s32 first_synthetic_error = 0;
+    bool same_ticket_errors = true;
+    D2xNandMountFailures mount_failures;
     // Whether the game runs in d2x's NAND emulation (not just asked for).
     bool emulated = false;
     // After d2x let go of the card: libfat and boot.log back on it, as
@@ -3412,6 +3430,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         attempts += line;
     };
     for (int ios : files.ios_order) {
+        if (ios >= 0 && ios < 256 && mount_failures.ios[ios]) {
+            logf("Wii channels: IOS%d is skipped because d2x already failed to mount the SD card in this launch.\n", ios);
+            continue;
+        }
         LogClose();
         fatUnmount("sd:");
         fatUnmount("usb:");
@@ -3448,7 +3470,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (!files.emu_nand.empty()) {
             std::string emu_error;
             bool card_back = card;
-            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back);
+            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back,
+                                         &mount_failures);
             card = card_back;
             if (!emulating) {
                 logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
@@ -3482,16 +3505,20 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         };
         const char* ticket_kind = files.ticket_synthetic ? "synthetic" : "installed";
         s32 result = identify(files.ticket);
+        const s32 installed_result = result;
         std::string attempt = "IOS" + std::to_string(IOS_GetVersion()) + " rev " +
                               std::to_string(IOS_GetRevision()) + ": ES_Identify ";
         if (result < 0 && !files.ticket_synthetic) {
             // WiiBrew's /dev/es error table names -1029 "invalid ticket",
-            // not a proven console mismatch. Retry a generated identity on
-            // this IOS before releasing d2x's NAND emulation or reloading.
+            // not a proven console mismatch. Retry on this IOS, before
+            // releasing d2x's NAND emulation or reloading, with the same
+            // ticket made console-free and fakesigned for d2x's signing bug
+            // (an emulated NAND copied from another console: Super Mario 64
+            // on a vWii got -1029 from every d2x).
             logf("Wii channels: on IOS%d rev %d, ES refused the installed ticket (%d%s); trying the synthetic ticket on the same IOS\n",
                  IOS_GetVersion(), IOS_GetRevision(), result, result == -1029 ? ", invalid ticket" : "");
             attempt += "refused the installed ticket (" + std::to_string(result) + "); ";
-            const auto synthetic_ticket = riftwii::make_fake_ticket();
+            const auto synthetic_ticket = riftwii::make_identify_ticket(files.ticket, files.title_id);
             result = identify(synthetic_ticket);
             ticket_kind = "synthetic";
         }
@@ -3508,6 +3535,12 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
              IOS_GetVersion(), IOS_GetRevision(), ticket_kind, result, result == -1029 ? ", invalid ticket" : "",
              files.game_id.c_str());
         note_attempt(attempt + "refused the " + ticket_kind + " ticket (" + std::to_string(result) + ")");
+        if (identify_refusals == 0) {
+            first_ticket_error = installed_result;
+            first_synthetic_error = result;
+        } else if (installed_result != first_ticket_error || result != first_synthetic_error) {
+            same_ticket_errors = false;
+        }
         ++identify_refusals;
         // The next try reloads IOS, which ends the FAT module with whatever
         // it still holds in its file system cache. It is told to unmount
@@ -3518,6 +3551,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         release_d2x_saves();
     }
     if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
+    if (!identified && !files.emu_nand.empty() && identify_refusals != 0 && same_ticket_errors) {
+        logf("Wii channels: every IOS that reached ES refused the offered ticket with %d and the synthetic ticket with %d; no stock fallback can serve the copied NAND.\n",
+             first_ticket_error, first_synthetic_error);
+    }
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
@@ -3557,6 +3594,35 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
          static_cast<unsigned>(active_title >> 32), static_cast<unsigned>(active_title), title_result,
          title_result >= 0 && active_title == files.title_id ? "matches the game" : "does not confirm the game",
          data_result, data_read);
+
+    // The game reads its contents through ES by index (the N64 Virtual
+    // Console its ROM as content 5), never by path: one ES can't open stops
+    // it at that read, with nothing on screen. Each needed content is opened
+    // and closed again here, so a problem report names the missing one (an
+    // emulated NAND copied without it, a shared content the Wii lacks). Only
+    // logged: the game is started either way.
+    TmdContents tmd_contents;
+    std::string tmd_error;
+    if (title_result >= 0 && active_title == files.title_id &&
+        parse_tmd_contents(files.tmd.data(), files.tmd.size(), tmd_contents, tmd_error)) {
+        std::string unopened;
+        for (std::uint16_t index : required_content_indexes(tmd_contents)) {
+            const s32 content = ES_OpenContent(index);
+            if (content >= 0) {
+                ES_CloseContent(content);
+                continue;
+            }
+            if (!unopened.empty()) unopened += ", ";
+            unopened += std::to_string(index) + " (" + std::to_string(content) + ")";
+        }
+        if (unopened.empty()) {
+            logf("Wii channels: ES opens all %u contents the game needs.\n",
+                 static_cast<unsigned>(required_content_indexes(tmd_contents).size()));
+        } else {
+            logf("Wii channels: ES could not open content %s; the game is likely to stop when it reads it.\n",
+                 unopened.c_str());
+        }
+    }
 
     // Settings > GameCube adapter, with the rules a disc game gets, judged
     // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
@@ -3702,6 +3768,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
     }
     apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
+    // Channels use the low-memory stub. Leave the full cheat area available
+    // when the return setting or debug switch leaves that stub unused.
+    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+    const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
     if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
         logf("Codes are off: %s\n", codes_refused.c_str());
@@ -3709,7 +3779,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end)) {
+            logf("Codes are off: %s\n", why.c_str());
+        }
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
@@ -3717,8 +3789,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
-    const u64 return_to = debug_off("returnto") ? 0 : return_title();
-    apply_return_to(loaded, return_to, kCodeReturnStub);
+    apply_return_to(loaded, return_to, return_plan.address);
     install_wpad_log_last(extras);
 
     ProgressStage("Starting the game", 100);
