@@ -298,8 +298,8 @@ static bool ReadHomebrewTitlesFile(const struct stat& st, std::string& text) {
     if (!f) return false;
     const std::size_t got = std::fread(&text[0], 1, text.size(), f);
     std::fclose(f);
-    text.resize(got);
-    return true;
+    // A short read (a card error, or the file changed under it) is not the list.
+    return got == text.size();
 }
 
 bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {

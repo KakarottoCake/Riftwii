@@ -318,14 +318,21 @@ bool parse_homebrew_titles(const std::string& text, std::vector<HomebrewTitle>& 
 }
 
 bool homebrew_titles_usable(const std::string& text) {
-    std::vector<HomebrewTitle> titles;
-    if (parse_homebrew_titles(text, titles)) return true;
-    // Nothing parsed: only the empty list's header and blank lines may be left.
+    // Every line the writer makes is a comment or an app with a name to
+    // compare, so any other line, even after good ones, is damage.
     LineReader lines(text);
     std::string line;
+    std::size_t apps = 0;
     while (lines.next(line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (!line.empty() && line[0] != '#') return false;
+        if (line.empty() || line[0] == '#') continue;
+        if (++apps > kMaxHomebrewTitles) return false;
+        LineReader fields(line, '\t');
+        std::string field;
+        HomebrewTitle title;
+        if (!fields.next(title.id) || !is_homebrew_id(title.id)) return false;
+        while (fields.next(field)) add_name(title, field);
+        if (title.names.empty()) return false;
     }
     return true;
 }

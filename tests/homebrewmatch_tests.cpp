@@ -154,6 +154,12 @@ void test_usable_index() {
     expect(riftwii::homebrew_titles_usable("# header\r\n\r\n"), "blank lines with CR are still the empty list");
     expect(!riftwii::homebrew_titles_usable("# header\nnot a list line\n"), "a line that is not an app is damage");
     expect(!riftwii::homebrew_titles_usable(std::string(64, '\x01')), "binary junk is damage");
+    expect(!riftwii::homebrew_titles_usable("9XGX\tSNES9xGX\nnot a list line\n"), "a bad line after a good one is damage");
+    expect(!riftwii::homebrew_titles_usable("9XGX\n"), "an app line without a name is damage");
+    // What the writer makes always reads back as usable.
+    std::string written;
+    expect(riftwii::serialize_homebrew_titles(catalogue(), written) && riftwii::homebrew_titles_usable(written),
+           "a written index is usable");
 }
 
 void test_index_file() {
