@@ -3396,6 +3396,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // How many IOSes reached ES_Identify and were refused: the ES wording
     // of the error only when every one tried was.
     std::size_t identify_refusals = 0;
+    s32 first_ticket_error = 0;
+    s32 first_synthetic_error = 0;
+    bool same_ticket_errors = true;
+    D2xNandMountFailures mount_failures;
     // Whether the game runs in d2x's NAND emulation (not just asked for).
     bool emulated = false;
     // After d2x let go of the card: libfat and boot.log back on it, as
@@ -3412,6 +3416,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         attempts += line;
     };
     for (int ios : files.ios_order) {
+        if (ios >= 0 && ios < 256 && mount_failures.ios[ios]) {
+            logf("Wii channels: IOS%d is skipped because d2x already failed to mount the SD card in this launch.\n", ios);
+            continue;
+        }
         LogClose();
         fatUnmount("sd:");
         fatUnmount("usb:");
@@ -3448,7 +3456,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         if (!files.emu_nand.empty()) {
             std::string emu_error;
             bool card_back = card;
-            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back);
+            emulating = enable_d2x_saves(files.emu_nand, emu_error, D2xNandScope::WholeNand, &card_back,
+                                         &mount_failures);
             card = card_back;
             if (!emulating) {
                 logf("Wii channels: on IOS%d rev %d, no NAND emulation of %s: %s\n", IOS_GetVersion(),
@@ -3482,16 +3491,20 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         };
         const char* ticket_kind = files.ticket_synthetic ? "synthetic" : "installed";
         s32 result = identify(files.ticket);
+        const s32 installed_result = result;
         std::string attempt = "IOS" + std::to_string(IOS_GetVersion()) + " rev " +
                               std::to_string(IOS_GetRevision()) + ": ES_Identify ";
         if (result < 0 && !files.ticket_synthetic) {
             // WiiBrew's /dev/es error table names -1029 "invalid ticket",
-            // not a proven console mismatch. Retry a generated identity on
-            // this IOS before releasing d2x's NAND emulation or reloading.
+            // not a proven console mismatch. Retry on this IOS, before
+            // releasing d2x's NAND emulation or reloading, with the same
+            // ticket made console-free and fakesigned for d2x's signing bug
+            // (an emulated NAND copied from another console: Super Mario 64
+            // on a vWii got -1029 from every d2x).
             logf("Wii channels: on IOS%d rev %d, ES refused the installed ticket (%d%s); trying the synthetic ticket on the same IOS\n",
                  IOS_GetVersion(), IOS_GetRevision(), result, result == -1029 ? ", invalid ticket" : "");
             attempt += "refused the installed ticket (" + std::to_string(result) + "); ";
-            const auto synthetic_ticket = riftwii::make_fake_ticket();
+            const auto synthetic_ticket = riftwii::make_identify_ticket(files.ticket, files.title_id);
             result = identify(synthetic_ticket);
             ticket_kind = "synthetic";
         }
@@ -3508,6 +3521,12 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
              IOS_GetVersion(), IOS_GetRevision(), ticket_kind, result, result == -1029 ? ", invalid ticket" : "",
              files.game_id.c_str());
         note_attempt(attempt + "refused the " + ticket_kind + " ticket (" + std::to_string(result) + ")");
+        if (identify_refusals == 0) {
+            first_ticket_error = installed_result;
+            first_synthetic_error = result;
+        } else if (installed_result != first_ticket_error || result != first_synthetic_error) {
+            same_ticket_errors = false;
+        }
         ++identify_refusals;
         // The next try reloads IOS, which ends the FAT module with whatever
         // it still holds in its file system cache. It is told to unmount
@@ -3518,6 +3537,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         release_d2x_saves();
     }
     if (!attempts.empty()) logf("Wii channels: the IOS tried, and what each said: %s\n", attempts.c_str());
+    if (!identified && !files.emu_nand.empty() && identify_refusals != 0 && same_ticket_errors) {
+        logf("Wii channels: every IOS that reached ES refused the offered ticket with %d and the synthetic ticket with %d; no stock fallback can serve the copied NAND.\n",
+             first_ticket_error, first_synthetic_error);
+    }
     // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
     // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
     // can only be tried there with the game running as RiftWii.
@@ -3557,6 +3580,35 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
          static_cast<unsigned>(active_title >> 32), static_cast<unsigned>(active_title), title_result,
          title_result >= 0 && active_title == files.title_id ? "matches the game" : "does not confirm the game",
          data_result, data_read);
+
+    // The game reads its contents through ES by index (the N64 Virtual
+    // Console its ROM as content 5), never by path: one ES can't open stops
+    // it at that read, with nothing on screen. Each needed content is opened
+    // and closed again here, so a problem report names the missing one (an
+    // emulated NAND copied without it, a shared content the Wii lacks). Only
+    // logged: the game is started either way.
+    TmdContents tmd_contents;
+    std::string tmd_error;
+    if (title_result >= 0 && active_title == files.title_id &&
+        parse_tmd_contents(files.tmd.data(), files.tmd.size(), tmd_contents, tmd_error)) {
+        std::string unopened;
+        for (std::uint16_t index : required_content_indexes(tmd_contents)) {
+            const s32 content = ES_OpenContent(index);
+            if (content >= 0) {
+                ES_CloseContent(content);
+                continue;
+            }
+            if (!unopened.empty()) unopened += ", ";
+            unopened += std::to_string(index) + " (" + std::to_string(content) + ")";
+        }
+        if (unopened.empty()) {
+            logf("Wii channels: ES opens all %u contents the game needs.\n",
+                 static_cast<unsigned>(required_content_indexes(tmd_contents).size()));
+        } else {
+            logf("Wii channels: ES could not open content %s; the game is likely to stop when it reads it.\n",
+                 unopened.c_str());
+        }
+    }
 
     // Settings > GameCube adapter, with the rules a disc game gets, judged
     // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
