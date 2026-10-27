@@ -1176,6 +1176,14 @@ int GuiGameGrid::LetterTarget(int dir) const {
     return focus;
 }
 
+void GuiGameGrid::LettersDone(GuiTrigger* t) {
+    const int ch = t->chan;
+    if (ch < 0 || ch > 3) return;
+    letterHeld[ch] = true;
+    letterUsed[ch] = true;
+    letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
+}
+
 bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     if (t->chan < 0 || t->chan > 3) return false;
     const int ch = t->chan;
@@ -1300,13 +1308,6 @@ void GuiGameGrid::PutDown() {
 bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
     if (carryDropped) return true;
     const int ch = t->chan;
-    const auto letters_done = [&]() {
-        // B let go after this is no letter (LetterKeys).
-        if (ch < 0 || ch > 3) return;
-        letterHeld[ch] = true;
-        letterUsed[ch] = true;
-        letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
-    };
     if (carryFrom < 0) {
         if (!movable || shelf || !PressedA(t) || !HeldLetterB(t)) return false;
         const bool pointing = t->wpad && t->wpad->ir.valid;
@@ -1328,7 +1329,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         focus = index;
         hover = -1;
         arrowHover = 0;
-        letters_done();
+        LettersDone(t);
         soundClick->Play();
         return true;
     }
@@ -1373,7 +1374,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         // Back where it was, nothing moved.
         CarryTo(carryFrom);
         PutDown();
-        letters_done();
+        LettersDone(t);
         // Home uses B for search otherwise; this press only cancels the move.
         t->pad.btns_d &= ~PAD_BUTTON_B;
         return true;
@@ -1523,6 +1524,9 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
             zoomClosing = true;
             riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Back);
         }
+        // LetterKeys does not run meanwhile: B that closed the zoom, let go
+        // after it has gone, must not jump to the next letter as well.
+        LettersDone(t);
         if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
         t->pad.btns_d &= ~(PAD_BUTTON_A | PAD_BUTTON_B);
         t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);

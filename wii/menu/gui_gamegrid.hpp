@@ -194,6 +194,8 @@ private:
     // to the next letter when it is let go; L alone pages left. True while
     // B is held: the directions are the letters', not the focus's.
     bool LetterKeys(GuiTrigger* t);
+    // B (or L) let go after this is no letter: it was another control's.
+    void LettersDone(GuiTrigger* t);
     int LetterTarget(int dir) const;
     bool letterHeld[4] = {};
     bool letterPadHeld[4] = {};  // L alone pages on release; B alone jumps letters
