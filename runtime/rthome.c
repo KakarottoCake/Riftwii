@@ -153,6 +153,13 @@ uint32_t rthome_stand_in(struct rthome* h, uint32_t now) {
 
 int rthome_menu_open(const struct rthome* h) { return h->phase == RTHOME_OPEN; }
 
+int rthome_reads_pads(const struct rthome* h, uint32_t now, uint32_t window) {
+    if (h->phase == RTHOME_PRESSING || h->phase == RTHOME_WAITING || h->phase == RTHOME_OPEN ||
+        h->phase == RTHOME_ASIDE)
+        return 1;
+    return h->menu_seen != 0 && elapsed(now, h->menu_seen) < window;
+}
+
 /* A stick's reading as a fraction of RTHOME_AXIS_FULL, past the dead zone. */
 static int32_t stick(int32_t v, int32_t full) {
     int32_t out;
