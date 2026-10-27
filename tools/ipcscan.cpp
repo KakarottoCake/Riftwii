@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Runs the structural IPC search on a game's main.dol (as dumped by the
 // autorun's `dol` command) and prints what it finds: a check of the
-// search on titles before they ever meet the runtime.
+// search on titles before they ever meet the runtime. Also the way back's
+// and the HOME Menu's functions (runtime/pad).
 //   ipcscan <main.dol> [<main.dol> ...]
 #include <cstdio>
 #include <fstream>
@@ -12,6 +13,9 @@
 #include <vector>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/hbmsearch.hpp"
+#include "riftwii/nandchannel.hpp"
+#include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
 
 int main(int argc, char** argv) {
@@ -24,15 +28,28 @@ int main(int argc, char** argv) {
         std::ifstream in(argv[i], std::ios::binary);
         std::stringstream ss;
         ss << in.rdbuf();
-        const std::string bytes = ss.str();
+        const std::string file = ss.str();
+        std::vector<std::uint8_t> program(file.begin(), file.end());
         riftwii::DolHeader dol;
         std::string error;
         std::cout << argv[i] << ":" << std::endl;
-        if (!in || !riftwii::parse_dol_header(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size(), dol, error)) {
+        // A channel's program (a WiiWare or Virtual Console content) as the
+        // channel loader reads it: unpacked first when it is compressed.
+        if (riftwii::channel_program_compressed(program.data(), program.size()) &&
+            !riftwii::unpack_channel_program(program, error)) {
+            std::cout << "  cannot unpack the program: " << error << std::endl;
+            ++failures;
+            continue;
+        }
+        std::string format = "DOL";
+        if (!in || (!riftwii::parse_dol_header(program.data(), program.size(), dol, error) &&
+                    !riftwii::parse_channel_program(program.data(), program.size(), dol, format, error))) {
             std::cout << "  cannot read the DOL: " << error << std::endl;
             ++failures;
             continue;
         }
+        if (format != "DOL") std::cout << "  read as " << format << std::endl;
+        const std::string bytes(program.begin(), program.end());
         std::vector<riftwii::CodeRange> text;
         for (std::size_t s = 0; s < riftwii::kDolTextSections; ++s) {
             const riftwii::DolSection& sec = dol.sections[s];
@@ -81,6 +98,19 @@ int main(int argc, char** argv) {
             std::cout << "  OSReturnToMenu: " << error << std::endl;
             ++failures;
         }
+        std::printf("  OSSleepThread 0x%08x, OSSuspendThread 0x%08x\n", riftwii::find_os_sleep_thread(text),
+                    riftwii::find_os_suspend_thread(text));
+        // The HOME Menu by a GameCube controller (#224 part 1): a game
+        // without any of these keeps the way back above.
+        const riftwii::KpadRead kpad = riftwii::find_kpad_read(text);
+        const std::uint32_t probe = riftwii::find_wpad_probe(text);
+        const std::uint32_t small_data = riftwii::find_small_data_base(all, dol.entry);
+        const riftwii::HbmFunctions hbm = riftwii::find_hbm_functions(text, all, small_data);
+        std::printf("  KPAD read 0x%08x (status %u bytes%s), WPADProbe 0x%08x, r13 0x%08x, HBMInit 0x%08x, "
+                    "HBMCalc 0x%08x%s\n",
+                    kpad.address, kpad.status_bytes, kpad.takes_error ? ", takes the error's address" : "", probe,
+                    small_data, hbm.init, hbm.calc,
+                    kpad.address && probe && hbm.calc ? "" : "  (HOME Menu by a GameCube controller: off)");
     }
     return failures == 0 ? 0 : 1;
 }
