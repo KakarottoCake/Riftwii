@@ -126,6 +126,24 @@ static void test_font() {
     EXPECT_EQ(g.width, 3);
     EXPECT_TRUE(g.pixels[0] > 100 && g.pixels[0] < 160);
     EXPECT_EQ(g.pixels[g.width + 1], 255);  // row 1 (row 0 starts a little above the glyph)
+    // A 16:9 menu's pixels, 3/4 of a unit across: the bitmap is that much
+    // narrower (and starts that much nearer the pen), its height and the
+    // advance (menu units) are as at 4:3.
+    // Left 1 at 1.5 pixels a texel: 1.5 in, the first column half covered.
+    EXPECT_TRUE(font.render('A', 65, g, 0.75f, 1.0f));
+    EXPECT_EQ(g.width, 7);
+    EXPECT_EQ(g.rows, 16);
+    EXPECT_EQ(g.left, 1);
+    EXPECT_TRUE(g.pixels[0] > 100 && g.pixels[0] < 160);
+    EXPECT_EQ(g.pixels[1], 255);
+    EXPECT_EQ(g.advance, 10);
+    EXPECT_EQ(g.top, 12);
+    // A 528-line PAL frame's: 1.1 pixels down to a unit.
+    EXPECT_TRUE(font.render('A', 65, g, 1.0f, 1.1f));
+    EXPECT_EQ(g.width, 8);
+    EXPECT_EQ(g.top, 14);
+    EXPECT_EQ(g.advance, 10);
+    EXPECT_FALSE(font.render('A', 65, g, 0.0f, 1.0f));
     // A space: nothing to draw, an advance all the same.
     EXPECT_TRUE(font.render('B', 65, g));
     EXPECT_EQ(g.width, 0);
