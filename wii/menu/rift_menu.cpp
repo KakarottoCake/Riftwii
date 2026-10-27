@@ -1246,6 +1246,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 			if (searching && !MatchesSearch(searchName, apps[i].name, false)) continue;
 			GridItem item;
 			item.title = apps[i].name;
+			// GameTDB's ID when the app is in its list: the tile gets its cover.
+			item.id = apps[i].gametdb_id;
 			item.badge = apps[i].path.empty() ? "ELF" : "APP";
 			item.key = "app:" + apps[i].folder;
 			item.hue = skin::HueFor(apps[i].name);
@@ -4341,6 +4343,37 @@ static void PollMenuDiscCover()
 	if (!g_scanning) riftwii::wii::PollDiscCover();
 }
 
+// GameTDB's homebrew apps out of the game database on the card, for the
+// Homebrew view's covers, under the game details' popup and bar while that
+// takes seconds (Stop leaves it until the next session). The GUI halted
+// before and after, as for FetchGameInfo.
+static bool ReadHomebrewTitlesNow()
+{
+	std::string error;
+	std::unique_ptr<ProgressBar> bar;
+	std::unique_ptr<PopupBox> box;
+	const auto progress = [&](double done) {
+		if (!box) {
+			bar.reset(new ProgressBar(56, 280, 528));
+			box.reset(new PopupBox(tr("Reading game details..."), "", "", tr("Stop")));
+			box->Add(bar.get(), 528);
+			ResumeGui();
+		}
+		HaltGui();
+		bar->Set(done);
+		const bool stop = box->Pressed();
+		ResumeGui();
+		return !stop;
+	};
+	const bool read = riftwii::wii::ReadHomebrewTitles(error, progress);
+	if (box) {
+		HaltGui();
+		box.reset();
+		bar.reset();
+	}
+	return read;
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -4746,14 +4779,36 @@ static int MenuSource(FrontendState& state)
 	// Covers still to fetch, one per turn of the loop while the GUI
 	// thread keeps drawing: the page on screen first.
 	std::vector<std::string> coverQueue;
-	const auto queueCovers = [&]() {
-		coverQueue.clear();
+	// The tiles shown now that were not looked at yet join the queue (a
+	// view with other tiles, the Homebrew view's apps).
+	const auto addCovers = [&]() {
 		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
 			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
 			    riftwii::wii::CoverWanted(item.id))
 				coverQueue.push_back(item.id);
 		}
+	};
+	const auto queueCovers = [&]() {
+		coverQueue.clear();
+		addCovers();
+	};
+	// The Homebrew view's covers: GameTDB's homebrew apps read out of the
+	// game database once (and again when it is newer), then each app found
+	// in them by its name (wii/storage/homebrew.hpp), again once a game's
+	// About page read the database. Without a database on the card,
+	// nothing: it is downloaded from a game's About page. GUI halted.
+	const auto matchHomebrewCovers = [&]() {
+		if (g_filter != Filter::Homebrew || riftwii::wii::Settings().home_tiles == "names") return;
+		if (riftwii::wii::HomebrewApps().empty()) return;
+		if (riftwii::wii::HomebrewTitlesNeedReading()) {
+			if (!ReadHomebrewTitlesNow()) return;
+		} else if (!riftwii::wii::HomebrewMatchStale()) {
+			return;
+		}
+		riftwii::wii::MatchHomebrewApps();
+		refresh(true, false);
+		addCovers();
 	};
 	if (g_retryMissingCovers) {
 		// Asked for by name, so even the games GameTDB had no picture for
@@ -4770,6 +4825,9 @@ static int MenuSource(FrontendState& state)
 		     static_cast<unsigned>(items.size()));
 	}
 	queueCovers();
+	HaltGui();
+	matchHomebrewCovers();
+	ResumeGui();
 
 	SetHomeMovable(grid, entries);
 	int shownPage = -1, shownPages = -1;
@@ -5499,6 +5557,8 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::Settings().other["home_hints"] = "learned";
 			riftwii::wii::SaveSettings();
 			refresh(false);
+			matchHomebrewCovers();
+			addCovers();
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
 			rescanBtn.ResetState();
 			if (g_sdGone) {

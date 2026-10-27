@@ -6,6 +6,7 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "riftwii/gametdb.hpp"
 
@@ -36,6 +37,20 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
 // facts. Reads nothing but the cache file (once a session), never the
 // database.
 bool PeekGameInfo(const std::string& id, GameInfo& out);
+
+// GameTDB's homebrew apps (riftwii/homebrewmatch.hpp), kept in
+// sd:/riftwii/homebrew-titles.txt whenever the database is read, for the
+// Homebrew view's covers. False when there is no such file.
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out);
+// How many times that file was written this session: the apps are matched
+// again once it changes (a game's About page read the database).
+unsigned HomebrewTitlesWritten();
+// Whether the database on the card is newer than that file (or there is
+// no file yet), and was not read for it this session.
+bool HomebrewTitlesNeedReading();
+// Reads the database for its homebrew apps alone and keeps them;
+// `progress` as FindGameInfo's.
+bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.

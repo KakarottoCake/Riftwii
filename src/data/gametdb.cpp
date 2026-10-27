@@ -153,6 +153,12 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
 }
 
 void WiitdbScanner::take_block(const std::string& block) {
+    // Homebrew apps are kept whether or not they are wanted: they are
+    // matched to the apps on the card by name later, not by ID.
+    if (block.find("<type>Homebrew</type>") != std::string::npos && homebrew_.size() < kMaxHomebrewTitles) {
+        HomebrewTitle title;
+        if (parse_wiitdb_homebrew(block, title)) homebrew_.push_back(std::move(title));
+    }
     const std::string id = raw_id(block);
     if (!wanted_.count(id) || found_.count(id)) return;
     GameInfo info;

@@ -19,11 +19,21 @@ struct HomebrewApp {
     std::string description;
     std::vector<std::string> arguments;
     std::string problem;
+    std::string meta_name;   // meta.xml's <name>, empty without one
+    // GameTDB's ID for the app (riftwii/homebrewmatch.hpp), found by its
+    // name, for its cover; empty when GameTDB's list has no such app or
+    // is not on the card.
+    std::string gametdb_id;
 };
 
 const std::vector<HomebrewApp>& HomebrewApps();
 void RescanHomebrewApps();
 bool HomebrewFoldersRead();
+// Finds each app's GameTDB entry again (sd:/riftwii/homebrew-titles.txt
+// just made), without reading sd:/apps again.
+void MatchHomebrewApps();
+// Whether that file was written since the apps were last matched.
+bool HomebrewMatchStale();
 
 void SetHomebrewToStart(const HomebrewApp& app);
 const HomebrewApp& HomebrewToStart();

@@ -31,6 +31,15 @@ const char* const kOtherDatabases[] = {
     "sd:/apps/usbloader_gx/wiitdb.xml", "sd:/wiitdb.xml", "sd:/config/wiitdb.xml", "sd:/usb-loader/wiitdb.xml",
 };
 
+// Not per language: the file keeps every language's title of each app.
+constexpr const char* kHomebrewTitlesPath = "sd:/riftwii/homebrew-titles.txt";
+// About 700 apps made 18 KB (2026).
+constexpr off_t kMaxHomebrewTitlesFile = 512 << 10;
+// Read from the database this session already, for the same reason as
+// Cache::read_now.
+bool g_homebrew_read_now = false;
+unsigned g_homebrew_written = 0;
+
 std::string CachePath(const std::string& lang) { return "sd:/riftwii/gameinfo-" + lang + ".txt"; }
 std::string ZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-" + lang + ".zip"; }
 std::string MenuLocale() { return gametdb_locale(MenuLanguage()); }
@@ -98,6 +107,26 @@ bool SaveCache() {
         return false;
     }
     g_cache.written = std::time(nullptr);
+    return true;
+}
+
+bool SaveHomebrewTitles(const std::vector<HomebrewTitle>& titles) {
+    g_homebrew_read_now = true;
+    if (titles.empty()) return true;
+    const std::string text = serialize_homebrew_titles(titles);
+    const std::string temp = std::string(kHomebrewTitlesPath) + ".part";
+    FILE* f = std::fopen(temp.c_str(), "wb");
+    if (!f) return false;
+    const bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    std::fclose(f);
+    std::remove(kHomebrewTitlesPath);
+    if (!ok || std::rename(temp.c_str(), kHomebrewTitlesPath) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    ++g_homebrew_written;
+    logf("Homebrew: %u of GameTDB's apps kept in %s, for their covers\n", static_cast<unsigned>(titles.size()),
+         kHomebrewTitlesPath);
     return true;
 }
 
@@ -204,6 +233,8 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     }
     g_cache.games = scanner.games();
     g_cache.read_now = true;
+    // The same pass found the homebrew apps: kept for the Homebrew view.
+    if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -222,6 +253,57 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     const auto found = g_cache.games.find(id);
     if (found == g_cache.games.end()) return false;
     out = found->second;
+    return true;
+}
+
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
+    out.clear();
+    struct stat st;
+    if (!Stat(kHomebrewTitlesPath, st) || st.st_size > kMaxHomebrewTitlesFile) return false;
+    FILE* f = std::fopen(kHomebrewTitlesPath, "rb");
+    if (!f) return false;
+    std::string text(static_cast<std::size_t>(st.st_size), '\0');
+    const std::size_t got = std::fread(&text[0], 1, text.size(), f);
+    std::fclose(f);
+    text.resize(got);
+    return parse_homebrew_titles(text, out);
+}
+
+unsigned HomebrewTitlesWritten() { return g_homebrew_written; }
+
+bool HomebrewTitlesNeedReading() {
+    if (g_homebrew_read_now) return false;
+    std::string source;
+    std::time_t source_time = 0;
+    if (!GameInfoSource(source, source_time)) return false;
+    struct stat st;
+    return !Stat(kHomebrewTitlesPath, st) || source_time > st.st_mtime;
+}
+
+bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress) {
+    std::string source;
+    std::time_t source_time = 0;
+    if (!GameInfoSource(source, source_time)) {
+        error = "there is no game database on the SD card";
+        return false;
+    }
+    // No game wanted: only the homebrew apps the scanner keeps anyway.
+    WiitdbScanner scanner({}, MenuLocale());
+    const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
+    logf("Homebrew: reading %s for GameTDB's homebrew apps\n", source.c_str());
+    const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
+    if (!read) {
+        logf("Homebrew: %s not read: %s\n", source.c_str(), error.c_str());
+        // Stopped by the player: asked again next session, not every time
+        // the view is opened.
+        g_homebrew_read_now = true;
+        return false;
+    }
+    if (!SaveHomebrewTitles(scanner.homebrew())) {
+        error = std::string("could not write ") + kHomebrewTitlesPath + " (card full?)";
+        logf("Homebrew: %s\n", error.c_str());
+        return false;
+    }
     return true;
 }
 
@@ -254,8 +336,10 @@ bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t r
         return false;
     }
     logf("Game details: %u bytes of GameTDB's database saved to %s\n", static_cast<unsigned>(body.size()), path.c_str());
-    // The next FindGameInfo reads the new database.
+    // The next FindGameInfo reads the new database, and the homebrew
+    // apps are read from it again.
     g_cache = Cache();
+    g_homebrew_read_now = false;
     return true;
 }
 

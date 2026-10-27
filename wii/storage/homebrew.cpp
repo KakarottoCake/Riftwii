@@ -13,8 +13,10 @@
 #include <utility>
 
 #include "channel.hpp"
+#include "gameinfo.hpp"
 #include "log.hpp"
 #include "riftwii/appmeta.hpp"
+#include "riftwii/homebrewmatch.hpp"
 #include "textfile.hpp"
 
 namespace riftwii::wii {
@@ -27,6 +29,7 @@ struct Scan {
     std::vector<HomebrewApp> apps;
     bool read = false;
     bool done = false;
+    unsigned matched_with = 0;  // HomebrewTitlesWritten() at the last match
 };
 
 Scan& scan() {
@@ -70,6 +73,7 @@ void add_app(Scan& state, const std::string& badge, const std::string& path, con
     app.date = app_release_date(meta.release_date);
     app.description = meta.description;
     app.arguments = meta.arguments;
+    app.meta_name = meta.name;
     if (elf) {
         app.problem = "this app's program is a boot.elf, and RiftWii starts boot.dol apps only";
     } else {
@@ -100,6 +104,27 @@ void scan_drive(Scan& state, const char* device, const char* badge) {
     closedir(dir);
 }
 
+// Each app's GameTDB entry, by its meta.xml name, else its folder's
+// name. Nothing when GameTDB's list is not on the card yet.
+void match_apps(Scan& state) {
+    state.matched_with = HomebrewTitlesWritten();
+    std::vector<HomebrewTitle> titles;
+    if (!LoadHomebrewTitles(titles)) {
+        for (HomebrewApp& app : state.apps) app.gametdb_id.clear();
+        return;
+    }
+    const HomebrewMatcher matcher(titles);
+    unsigned matched = 0;
+    for (HomebrewApp& app : state.apps) {
+        const std::size_t slash = app.folder.find_last_of('/');
+        const std::string folder_name = slash == std::string::npos ? app.folder : app.folder.substr(slash + 1);
+        app.gametdb_id = matcher.match(app.meta_name, folder_name);
+        if (!app.gametdb_id.empty()) ++matched;
+    }
+    logf("Homebrew: %u of %u app(s) found in GameTDB's list of %u, for their covers\n", matched,
+         static_cast<unsigned>(state.apps.size()), static_cast<unsigned>(titles.size()));
+}
+
 }
 
 void RescanHomebrewApps() {
@@ -116,6 +141,17 @@ void RescanHomebrewApps() {
     state.done = true;
     logf("Homebrew: %u app(s) in sd:/apps%s\n", static_cast<unsigned>(state.apps.size()),
          state.read ? "" : " (the apps folder could not be opened)");
+    if (!state.apps.empty()) match_apps(state);
+}
+
+bool HomebrewMatchStale() {
+    const Scan& state = scan();
+    return state.done && state.matched_with != HomebrewTitlesWritten();
+}
+
+void MatchHomebrewApps() {
+    Scan& state = scan();
+    if (state.done && !state.apps.empty()) match_apps(state);
 }
 
 const std::vector<HomebrewApp>& HomebrewApps() {
