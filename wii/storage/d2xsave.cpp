@@ -18,18 +18,20 @@
 #include "boot.hpp"
 #include "log.hpp"
 #include "nanduse.hpp"
+#include "riftwii/checkedalloc.hpp"
+#include "riftwii/nandlist.hpp"
 
 namespace riftwii::wii {
 namespace {
 
 std::string hex8(std::uint32_t v) {
-    char text[9];
+    char text[9] = {};
     std::snprintf(text, sizeof(text), "%08x", static_cast<unsigned>(v));
     return text;
 }
 
 bool is_dir(const std::string& path) {
-    struct stat st;
+    struct stat st = {};
     return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 
@@ -53,7 +55,7 @@ bool write_file(const std::string& path, const std::uint8_t* data, std::size_t s
 // opened for a game's save, as for the menu font, and closed once the save
 // is copied; `refused` stops asking again after it could not be opened).
 bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, bool& refused, std::string& why) {
-    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32);
+    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
     std::snprintf(name, sizeof(name), "%s", path.c_str());
     s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
     if (fd == -102 && !refused) {
@@ -64,7 +66,7 @@ bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, boo
         why = path + " could not be opened (" + std::to_string(fd) + ")";
         return false;
     }
-    static fstats stats ATTRIBUTE_ALIGN(32);
+    static fstats stats ATTRIBUTE_ALIGN(32) = {};
     const u32 size = ISFS_GetFileStats(fd, &stats) < 0 ? 0xFFFFFFFFu : stats.file_length;
     if (size > 64u * 1024 * 1024) {
         ISFS_Close(fd);
@@ -84,39 +86,55 @@ bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, boo
         why = path + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
         return false;
     }
-    out.assign(buffer, buffer + size);
+    if (!try_assign_range(out, buffer, buffer + size)) {
+        std::free(buffer);
+        why = "no room for " + path;
+        return false;
+    }
     std::free(buffer);
     return true;
 }
 
-// The names in a NAND folder; false when it is not one (or not there).
-bool list_nand(const std::string& path, std::vector<std::string>& names) {
-    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32);
+std::int32_t nand_read_dir(void* ctx, char* list, std::uint32_t* count) {
+    char* name = static_cast<char*>(ctx);
+    u32 wii_count = 0;
+    if (count != nullptr) wii_count = static_cast<u32>(*count);
+    const s32 result = ISFS_ReadDir(name, list, &wii_count);
+    if (count != nullptr) *count = static_cast<std::uint32_t>(wii_count);
+    return static_cast<std::int32_t>(result);
+}
+
+void* nand_alloc(std::size_t bytes) {
+    return memalign(32, bytes);
+}
+
+void nand_release(void* block) {
+    std::free(block);
+}
+
+// The names in a NAND folder; NotThere when it is not one (or not there).
+NandList list_nand(const std::string& path, std::vector<std::string>& names, std::uint32_t& count) {
+    static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32) = {};
     std::snprintf(name, sizeof(name), "%s", path.c_str());
-    u32 count = 0;
-    if (ISFS_ReadDir(name, nullptr, &count) < 0) return false;
-    names.clear();
-    if (count == 0) return true;
-    char* list = static_cast<char*>(memalign(32, (count * 13 + 31) & ~31u));
-    if (list == nullptr) return false;
-    std::memset(list, 0, count * 13);
-    if (ISFS_ReadDir(name, list, &count) < 0) {
-        std::free(list);
-        return false;
-    }
-    for (u32 i = 0, at = 0; i < count; ++i) {
-        const std::string entry(list + at);
-        at += static_cast<u32>(entry.size()) + 1;
-        if (!entry.empty()) names.push_back(entry);
-    }
-    std::free(list);
-    return true;
+    count = 0;
+    return list_nand_with(nand_read_dir, name, nand_alloc, nand_release, names, count);
 }
 
 // The Wii's save folder into the card's, its subfolders too.
 bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, bool& refused, std::string& why) {
     std::vector<std::string> names;
-    if (!list_nand(nand, names)) return true;  // no save on the Wii: a new one starts
+    std::uint32_t count = 0;
+    const NandList listed = list_nand(nand, names, count);
+    if (listed == NandList::NotThere) return true;  // no save on the Wii: a new one starts
+    if (listed == NandList::NoRoom) {
+        why = "no room to list " + nand;
+        return false;
+    }
+    if (listed == NandList::Damaged) {
+        logf("Saves: %s lists a damaged folder (count %u)\n", nand.c_str(), static_cast<unsigned>(count));
+        why = nand + " lists a damaged folder";
+        return false;
+    }
     if (!make_dirs(sd)) {
         why = "cannot create " + sd;
         return false;
@@ -124,9 +142,20 @@ bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& fi
     for (const std::string& n : names) {
         const std::string from = nand + "/" + n, to = sd + "/" + n;
         std::vector<std::string> inner;
-        if (list_nand(from, inner)) {
+        std::uint32_t inner_count = 0;
+        const NandList inner_listed = list_nand(from, inner, inner_count);
+        if (inner_listed == NandList::Ok) {
             if (!copy_nand_tree(from, to, files, refused, why)) return false;
             continue;
+        }
+        if (inner_listed == NandList::NoRoom) {
+            why = "no room to list " + from;
+            return false;
+        }
+        if (inner_listed == NandList::Damaged) {
+            logf("Saves: %s lists a damaged folder (count %u)\n", from.c_str(), static_cast<unsigned>(inner_count));
+            why = from + " lists a damaged folder";
+            return false;
         }
         std::vector<std::uint8_t> bytes;
         if (!read_nand_file(from, bytes, refused, why)) return false;
@@ -182,7 +211,7 @@ bool move_flat_saves(const std::string& dir, const std::string& data_dir, std::s
     }
     for (const std::string& n : flat) {
         const std::string from = dir + "/" + n, to = data_dir + "/" + n;
-        struct stat st;
+        struct stat st = {};
         if (stat(to.c_str(), &st) == 0) continue;  // moved before, the old copy left: the newer stays
         if (std::rename(from.c_str(), to.c_str()) != 0) {
             error = "cannot move " + from + " into " + data_dir;
@@ -230,7 +259,7 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
         error = "cannot create " + content;
         return false;
     }
-    struct stat st;
+    struct stat st = {};
     const std::string tmd = content + "/title.tmd";
     if (!game.tmd.empty() && stat(tmd.c_str(), &st) != 0 && !write_file(tmd, game.tmd.data(), game.tmd.size())) {
         error = "cannot write " + tmd;
