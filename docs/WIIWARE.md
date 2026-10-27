@@ -74,9 +74,16 @@ input, the games installed on the Wii's own NAND.
 All 14 reach the same screen through RiftWii as when Dolphin starts them
 itself (2026-10-26, branch at 209b308c). In WarioWare, Dolphin's log
 shows the game asking ES for its title and data folder and reading its
-own content through ES, as it does when started directly. Not covered
-yet: an emulated NAND (d2x's emulation can't run in Dolphin) and going
-back to RiftWii (needs the RiftWii channel installed in the test NAND).
+own content through ES, as it does when started directly.
+
+In the d2x Dolphin (2026-10-27, `d2x-dolphin` with this branch), World of
+Goo also starts from an emulated NAND on the SD card (`channelboot
+0001000157474F45 sd:/nands/ww`): the shared contents the copied NAND
+lacked are copied in, the game reaches its title screen and writes its
+save in the emulated NAND, and HOME > Wii Menu > Yes starts the RiftWii
+channel (`d2x: launching 0001000155465457 in place of the Wii Menu`),
+which starts RiftWii again. The other 13 games from an emulated NAND, and
+all of it on a real Wii, are still to do.
 
 A channel the Wii Menu moved to the SD card, Super Mario Bros. (VC, NES):
 the real Wii Menu in this Dolphin moved it (Data Management > Channels >
@@ -120,9 +127,9 @@ WarioWare does here with `debug_off = identify`.
 
 `tools/dolphin/es-identify.patch` adds the missing part to Felk's Dolphin
 (the build in `build-dolphin/felk`): it reads the ticket and TMD from the
-request and runs the disc steps, marking the title as a channel. It's
-written and checked to apply; building it is waiting for the maintainer
-(it builds Dolphin from source, which needs their go-ahead).
+request and runs the disc steps, marking the title as a channel. A ready
+Windows build is linked in [HARNESS.md](HARNESS.md), and the d2x Dolphin
+(RiftWii/dolphin-felk-riftwii, `d2x-emulation`) has it built in.
 
 ### The Virtual Console reads its game through ES, not from files
 
