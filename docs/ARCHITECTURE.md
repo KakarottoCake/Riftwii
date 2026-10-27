@@ -118,7 +118,15 @@ HOME Menu's Wii Menu button, which Return to RiftWii points at the
 channel. The combo is checked in `PADRead`; the leave itself waits for
 the main thread's next `OSSleepThread` (hooked: `PADRead` can run in the
 SI sampling callback), and fires once, since `OSReturnToMenu`'s own NAND
-calls sleep through there again. A hook on the SDK's IPC submit routine,
+calls sleep through there again. The main thread is the oldest live one
+(`0x800000DC`, the head of the OS's thread list), not `0x800000D8`, which
+names whichever thread last had its floating-point registers saved. N64
+Virtual Console games never sleep their main thread, and the thread that
+reads their pads waits each frame by suspending itself: half a second
+after the ask, that thread's own `OSSuspendThread` (hooked too, found by
+its one add-1 to a thread's suspend count) leaves under the same rules,
+as would its `OSSleepThread`. Without `OSSuspendThread` only sleeps
+leave. A hook on the SDK's IPC submit routine,
 which every IOS request passes, notes save activity (a write, a NAND
 file opened for writing, a `/dev/fs` change), and with saves on the SD
 card the blob reads the resident runtime's last save write: the combo

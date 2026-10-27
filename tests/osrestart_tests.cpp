@@ -134,6 +134,56 @@ void os_sleep_thread_is_found() {
     EXPECT_EQ(riftwii::find_os_sleep_thread(one_range(other_thread)), 0u);
 }
 
+// OSSuspendThread's start, as in Cruis'n USA (Virtual Console, 0x800a49a0):
+// its frame, interrupts off, the thread's suspend count up by one.
+std::vector<std::uint32_t> suspend_thread_shape() {
+    return {
+        0x4E800020,  // the function before ends
+        0x9421FFE0,  // stwu r1,-32(r1)
+        0x7C0802A6,  // mflr r0
+        0x90010024,  // stw r0,36(r1)
+        0x93E1001C,  // stw r31,28(r1)
+        0x93C10018,  // stw r30,24(r1)
+        0x93A10014,  // stw r29,20(r1)
+        0x7C7D1B78,  // mr r29,r3: the thread
+        0x48000001,  // bl (interrupts off)
+        0x83DD02CC,  // lwz r30,0x2CC(r29): its suspend count
+        0x7C7F1B78,  // mr r31,r3
+        0x381E0001,  // addi r0,r30,1
+        0x2C1E0000,  // cmpwi r30,0
+        0x901D02CC,  // stw r0,0x2CC(r29)
+        0x40820138,  // bne
+        0x4E800020,
+    };
+}
+
+void os_suspend_thread_is_found() {
+    const Bytes text = words_to_bytes(suspend_thread_shape());
+    EXPECT_EQ(riftwii::find_os_suspend_thread(one_range(text)), kBase + 4);
+    // OSResumeThread takes one away: not it.
+    std::vector<std::uint32_t> words = suspend_thread_shape();
+    words[11] = 0x381EFFFF;  // addi r0,r30,-1
+    const Bytes resume = words_to_bytes(words);
+    EXPECT_EQ(riftwii::find_os_suspend_thread(one_range(resume)), 0u);
+    // The sum stored in another thread's record: not it either.
+    words = suspend_thread_shape();
+    words[13] = 0x901F02CC;  // stw r0,0x2CC(r31)
+    const Bytes other_thread = words_to_bytes(words);
+    EXPECT_EQ(riftwii::find_os_suspend_thread(one_range(other_thread)), 0u);
+    // The count loaded into r0: `addi r0,r0,1` is `li r0,1`, no increment.
+    words = suspend_thread_shape();
+    words[9] = 0x801D02CC;   // lwz r0,0x2CC(r29)
+    words[11] = 0x38000001;  // addi r0,r0,1 (li r0,1)
+    const Bytes zero_base = words_to_bytes(words);
+    EXPECT_EQ(riftwii::find_os_suspend_thread(one_range(zero_base)), 0u);
+    // Two of them: neither is trusted.
+    std::vector<std::uint32_t> twice = suspend_thread_shape();
+    const std::vector<std::uint32_t> again = suspend_thread_shape();
+    twice.insert(twice.end(), again.begin() + 1, again.end());
+    const Bytes two = words_to_bytes(twice);
+    EXPECT_EQ(riftwii::find_os_suspend_thread(one_range(two)), 0u);
+}
+
 void the_trigger_stub() {
     constexpr std::uint32_t kStub = 0x80001200;
     constexpr std::uint32_t kSleep = 0x801AA9B8;
@@ -174,6 +224,7 @@ void the_trigger_stub() {
 int main() {
     os_restart_is_found();
     os_sleep_thread_is_found();
+    os_suspend_thread_is_found();
     the_trigger_stub();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
