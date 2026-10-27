@@ -104,7 +104,7 @@ The build compiles every folder into one, so no two files share a name.
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
 | `font/` | The menu font's source (`rounded.ttf`, OFL) |
 | `font/` | The menu font (`tools/make_menu_font.py`): `core.ttf`, packed into the DOL by the build, and the whole `rounded.ttf`, shipped as `apps/riftwii/font.ttf` (`wii/menu/fullfont.cpp` reads it) |
-| `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (drawn by KakarottoCake) |
+| `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (drawn by KakarottoCake); `rating_*.png`, the age rating boards' marks for the About page (NOTICE.md) |
 
 ### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
 
@@ -192,6 +192,8 @@ The build compiles every folder into one, so no two files share a name.
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
 
 Homebrew app icons: `wii/menu/appicon.cpp` and `appicon.hpp` load bounded PNGs and clear cached textures on rescan.
+
+Age rating marks: `src/art/ratingmark.cpp` picks the mark for GameTDB's rating (ESRB, PEGI, CERO, GRB/GRAC, CSRR/GSRR); `wii/menu/ratingbadge.cpp` decodes the embedded PNG once and the About page draws it in place of the written-out rating.
 
 ### `wii/storage/`: sD cards and USB drives: game images, raw access, d2x devices, saves
 
