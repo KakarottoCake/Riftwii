@@ -12,6 +12,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "online.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/zipstream.hpp"
 
@@ -30,6 +31,21 @@ constexpr std::uint64_t kMaxXml = 160ull << 20;
 const char* const kOtherDatabases[] = {
     "sd:/apps/usbloader_gx/wiitdb.xml", "sd:/wiitdb.xml", "sd:/config/wiitdb.xml", "sd:/usb-loader/wiitdb.xml",
 };
+
+// Not per language: the file keeps every language's title of each app.
+constexpr const char* kHomebrewTitlesPath = "sd:/riftwii/homebrew-titles.txt";
+// Read from the database this session already (and the file written), for
+// the same reason as Cache::read_now; or stopped by the player.
+bool g_homebrew_read_now = false;
+// Reads that failed this session (a scan or the file's write): tried again
+// when the view is opened, but not every time on a card that keeps failing.
+unsigned g_homebrew_failed = 0;
+constexpr unsigned kMaxHomebrewTries = 3;
+unsigned g_homebrew_written = 0;
+// The list file last found usable, by its size and time, so it is read
+// to check once and not on every visit to the Homebrew view.
+off_t g_homebrew_checked_size = -1;
+std::time_t g_homebrew_checked_time = 0;
 
 std::string CachePath(const std::string& lang) { return "sd:/riftwii/gameinfo-" + lang + ".txt"; }
 std::string ZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-" + lang + ".zip"; }
@@ -101,6 +117,51 @@ bool SaveCache() {
     return true;
 }
 
+// Written even with no apps (a database without homebrew): the file's
+// time says the database was read, so it is not read again next session.
+// The old file stays until the new one is whole.
+bool SaveHomebrewTitles(const std::vector<HomebrewTitle>& titles) {
+    std::string text;
+    if (!serialize_homebrew_titles(titles, text)) {
+        logf("Homebrew: no room in memory for the list of GameTDB's apps\n");
+        return false;
+    }
+    // serialize_homebrew_titles keeps within the budget; checked again so
+    // the file is never one LoadHomebrewTitles refuses.
+    if (text.size() > kMaxHomebrewTitlesBytes) return false;
+    const std::string temp = std::string(kHomebrewTitlesPath) + ".part";
+    FILE* f = std::fopen(temp.c_str(), "wb");
+    if (!f) return false;
+    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    ok = std::fclose(f) == 0 && ok;
+    if (!ok) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    // FAT can't rename over a file: the old list is moved aside first and
+    // put back if the new one can't take its place, so a failed save never
+    // leaves the view with no list at all.
+    const std::string backup = std::string(kHomebrewTitlesPath) + ".backup";
+    struct stat st;
+    const bool had_old = stat(kHomebrewTitlesPath, &st) == 0;
+    std::remove(backup.c_str());
+    if (had_old && std::rename(kHomebrewTitlesPath, backup.c_str()) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (std::rename(temp.c_str(), kHomebrewTitlesPath) != 0) {
+        if (had_old) std::rename(backup.c_str(), kHomebrewTitlesPath);
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (had_old) std::remove(backup.c_str());
+    g_homebrew_read_now = true;
+    ++g_homebrew_written;
+    logf("Homebrew: %u of GameTDB's apps kept in %s, for their covers\n", static_cast<unsigned>(titles.size()),
+         kHomebrewTitlesPath);
+    return true;
+}
+
 std::uint32_t Le(const std::uint8_t* p, int bytes) {
     std::uint32_t v = 0;
     for (int i = bytes - 1; i >= 0; --i) v = (v << 8) | p[i];
@@ -137,6 +198,12 @@ bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error
             ok = false;
             break;
         }
+    }
+    // A read error ends the loop as the file's end does: without this
+    // check a part of the database would pass for all of it.
+    if (ok && std::ferror(f)) {
+        error = "could not read all of " + path;
+        ok = false;
     }
     std::fclose(f);
     return ok;
@@ -204,6 +271,8 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     }
     g_cache.games = scanner.games();
     g_cache.read_now = true;
+    // The same pass found the homebrew apps: kept for the Homebrew view.
+    if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -222,6 +291,105 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     const auto found = g_cache.games.find(id);
     if (found == g_cache.games.end()) return false;
     out = found->second;
+    return true;
+}
+
+// Reading the list file: no room for it is the menu's, not the file's
+// fault, so it is not a reason to make the list again; a file that can't
+// be opened or comes back short (a card error, or the file changed under
+// it) is.
+enum class ListRead { Ok, NoRoom, Failed };
+
+static ListRead ReadHomebrewTitlesFile(const struct stat& st, std::string& text) {
+    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return ListRead::Failed;
+    // Its size comes from the card: a checked allocation.
+    if (!try_resize(text, static_cast<std::size_t>(st.st_size))) return ListRead::NoRoom;
+    FILE* f = std::fopen(kHomebrewTitlesPath, "rb");
+    if (!f) return ListRead::Failed;
+    const std::size_t got = std::fread(&text[0], 1, text.size(), f);
+    std::fclose(f);
+    return got == text.size() ? ListRead::Ok : ListRead::Failed;
+}
+
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
+    out.clear();
+    struct stat st;
+    std::string text;
+    if (!Stat(kHomebrewTitlesPath, st) || ReadHomebrewTitlesFile(st, text) != ListRead::Ok) return false;
+    // The same test as HomebrewTitlesNeedReading's, so a list it would
+    // make again (a bad line among good ones) is not used meanwhile.
+    if (!homebrew_titles_usable(text)) return false;
+    // A database without homebrew writes the empty list: read, with no apps in it.
+    parse_homebrew_titles(text, out);
+    return true;
+}
+
+unsigned HomebrewTitlesWritten() { return g_homebrew_written; }
+
+bool HomebrewTitlesNeedReading() {
+    if (g_homebrew_read_now || g_homebrew_failed >= kMaxHomebrewTries) return false;
+    std::string source;
+    std::time_t source_time = 0;
+    if (!GameInfoSource(source, source_time)) return false;
+    struct stat st;
+    if (!Stat(kHomebrewTitlesPath, st)) return true;
+    // A list too big to load (an older RiftWii's, or a damaged one) is
+    // made again, however new it is.
+    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return true;
+    if (source_time > st.st_mtime) return true;
+    // So is one that is new enough but damaged: it would never load, and
+    // its time would keep it from being made again.
+    if (st.st_size == g_homebrew_checked_size && st.st_mtime == g_homebrew_checked_time) return false;
+    std::string text;
+    const ListRead read = ReadHomebrewTitlesFile(st, text);
+    if (read == ListRead::NoRoom) return false;  // no room to check now: as before
+    if (read == ListRead::Failed) {
+        logf("Homebrew: %s could not be read in full; it is made again from the game database\n",
+             kHomebrewTitlesPath);
+        return true;
+    }
+    if (!homebrew_titles_usable(text)) {
+        logf("Homebrew: %s is damaged; it is made again from the game database\n", kHomebrewTitlesPath);
+        return true;
+    }
+    g_homebrew_checked_size = st.st_size;
+    g_homebrew_checked_time = st.st_mtime;
+    return false;
+}
+
+void ForgetHomebrewTitlesRead() {
+    g_homebrew_read_now = false;
+    g_homebrew_failed = 0;
+}
+
+bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress) {
+    std::string source;
+    std::time_t source_time = 0;
+    if (!GameInfoSource(source, source_time)) {
+        error = "there is no game database on the SD card";
+        return false;
+    }
+    // No game wanted: only the homebrew apps the scanner keeps anyway.
+    WiitdbScanner scanner({}, MenuLocale());
+    const bool zip = source.size() > 4 && source.compare(source.size() - 4, 4, ".zip") == 0;
+    logf("Homebrew: reading %s for GameTDB's homebrew apps\n", source.c_str());
+    const bool read = zip ? ScanZip(source, scanner, error, progress) : ScanXml(source, scanner, error, progress);
+    if (!read) {
+        logf("Homebrew: %s not read: %s\n", source.c_str(), error.c_str());
+        // Stopped by the player: asked again next session, not every time
+        // the view is opened. Any other failure is tried again.
+        if (error == "stopped")
+            g_homebrew_read_now = true;
+        else
+            ++g_homebrew_failed;
+        return false;
+    }
+    if (!SaveHomebrewTitles(scanner.homebrew())) {
+        ++g_homebrew_failed;
+        error = std::string("could not write ") + kHomebrewTitlesPath + " (card full?)";
+        logf("Homebrew: %s\n", error.c_str());
+        return false;
+    }
     return true;
 }
 
@@ -254,8 +422,11 @@ bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t r
         return false;
     }
     logf("Game details: %u bytes of GameTDB's database saved to %s\n", static_cast<unsigned>(body.size()), path.c_str());
-    // The next FindGameInfo reads the new database.
+    // The next FindGameInfo reads the new database, and the homebrew
+    // apps are read from it again.
     g_cache = Cache();
+    g_homebrew_read_now = false;
+    g_homebrew_failed = 0;
     return true;
 }
 
