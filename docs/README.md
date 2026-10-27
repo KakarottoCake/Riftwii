@@ -8,6 +8,7 @@ The other pages are for people working on it.
 
 | Page | What it covers |
 | --- | --- |
+| [TESTING.md](TESTING.md) | The test plan for testers (also linked above) |
 | [MAP.md](MAP.md) | Every file and folder, and where to start for each feature |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How a launch works, which file owns what, the memory map, the files on the SD card |
 | [DEVELOPING.md](DEVELOPING.md) | Building, tests, Dolphin runs, test scripts, releasing, ground rules |
@@ -17,9 +18,13 @@ The other pages are for people working on it.
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
 | [CTGPR.md](CTGPR.md) | CTGP-R 1.03: how it is started, d2x's IOS reload block, what a console test must show |
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
+| [RVZ.md](RVZ.md) | Reading Dolphin's RVZ disc images without unpacking them |
+| [CHANNEL.md](CHANNEL.md) | The Wii Menu channel: forwarder, installer and banner |
+| [KOREAN_FONT.md](KOREAN_FONT.md) | The Korean menu font: source, rebuild and checks |
 | [HEADLESS.md](HEADLESS.md) | Starting a game through RiftWii from another loader |
 | [MEMORY.md](MEMORY.md) | What takes RiftWii's MEM1, the limits, and the start-up stash that moves the font and translations to MEM2 |
 | [PLUGINS.md](PLUGINS.md) | Plugins: optional code bundled with RiftWii, loaded from the card into MEM2 on first use to relieve MEM1 (stage (a), the loader and a test plugin, built; the rest a design) |
+| [ATTRIBUTION_AUDIT.md](ATTRIBUTION_AUDIT.md) | Checking NOTICE.md against the code (how to run the audit) |
 | [BLUETOOTH.md](BLUETOOTH.md) | Research: other Bluetooth controllers without a cIOS, and what exists toward it |
 
 ## History
@@ -42,3 +47,4 @@ the parts of USB Loader GX that RiftWii does follow is in
 | [CONDUCTOR_REVIEW_2.md](CONDUCTOR_REVIEW_2.md) | The runtime design and the gates it passed, with the Dolphin findings (section 23: why the runtime's code lives in MEM1) |
 | [MUSE_HANDOFF_1.md](MUSE_HANDOFF_1.md) | Early implementation tasks |
 | [HANDOFF_2026-09-20.md](HANDOFF_2026-09-20.md) | Savegame review fixes before the first hardware run |
+| [CHANGES_2610.md](CHANGES_2610.md) | Dated release notes for the 2610 line (history, kept as written) |
