@@ -1531,6 +1531,12 @@ void TestCoverArt() {
     EXPECT_EQ(cover_regions("RMCP01", "ja")[0], "EN");
     EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
     EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once
+    // A homebrew app's code: US first whatever its last letter or the menu's language.
+    const std::vector<std::string> homebrew = cover_regions("9XGX", "fr");
+    EXPECT_EQ(homebrew.size(), 3u);
+    EXPECT_EQ(homebrew[0], "US");
+    EXPECT_EQ(homebrew[1], "EN");
+    EXPECT_EQ(cover_regions("D01A", "en")[0], "US");
     EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
 
     // 2x2 averages to 1x1; 1 pixel spreads to 3x3.
