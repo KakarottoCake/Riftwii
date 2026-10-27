@@ -118,8 +118,12 @@ void TB_SetHooks(bool on);
 s32 TB_Init(void);
 /* Stops the thread, giving it half a second.  One that is still stuck in a
  * read is left to the next IOS reload; TB_Init returns TB_ESTATE until it
- * has returned. */
+ * has returned.  TB_Init also refuses while a read the tablet was left with
+ * (oh0, the pen away) has not answered: its buffers are not reused before. */
 void TB_Shutdown(void);
+/* RiftWii: an IOS reload went through, and the reads the old IOS held are
+ * gone with it, answered or not. */
+void TB_IosReloaded(void);
 
 /* A USB tablet is open, or a uDraw is reporting. */
 bool TB_Connected(void);

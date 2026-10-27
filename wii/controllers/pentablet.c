@@ -146,6 +146,12 @@ typedef struct {
 #define TOUCH 1
 static tb_pipe tb_pipes[2];
 
+/* close_tablet had to leave a read out (oh0, the pen away): the pipes, their
+ * transfer records and buffers, and the handle stay that read's until it
+ * answers (settle_stranded).  Reusing them sooner would let its late answer
+ * pass for a new read's, and two reads share one buffer. */
+static bool tb_stranded;
+
 static s32 tb_xfer_cb(s32 result, void *arg)
 {
 	tb_xfer *x = arg;
@@ -808,19 +814,47 @@ static void close_tablet(void)
 	 * handle to the IOS reload that ends the app.  USBV5's close never
 	 * reaches IOS. */
 	if (tb_oh0 && ((tb_pipes[PEN].x.pending && !tb_wait(&tb_pipes[PEN].x, 50)) ||
-	               (tb_pipes[TOUCH].x.pending && !tb_wait(&tb_pipes[TOUCH].x, 50))))
-		tb_log("  tablet left open: a read is outstanding\n");
-	else {
-		if (tb_pipes[TOUCH].own_fd)
-			USB_CloseDevice(&tb_pipes[TOUCH].fd);
-		USB_CloseDevice(&tb_fd);
+	               (tb_pipes[TOUCH].x.pending && !tb_wait(&tb_pipes[TOUCH].x, 50)))) {
+		tb_log("  tablet left open until its outstanding read answers\n");
+		tb_stranded = true;
+		tb_fd = -1;
+		tb_opened = false;
+		tb_ctl_x.pending = false;
+		return;
 	}
+	if (tb_pipes[TOUCH].own_fd)
+		USB_CloseDevice(&tb_pipes[TOUCH].fd);
+	USB_CloseDevice(&tb_fd);
 	tb_fd = -1;
 	tb_opened = false;
-	/* Whatever was outstanding belongs to the old device now. */
 	memset(tb_pipes, 0, sizeof(tb_pipes));
 	tb_ctl_x.pending = false;
 	tb_log("  tablet closed\n");
+}
+
+/* Whether a read close_tablet left out has still not answered. */
+static bool reads_out(void)
+{
+	return (tb_pipes[PEN].x.pending && !tb_pipes[PEN].x.done) ||
+	       (tb_pipes[TOUCH].x.pending && !tb_pipes[TOUCH].x.done);
+}
+
+/* Once the reads close_tablet left out have answered, closes the handle
+ * they went through and frees the pipes for the next tablet.  True when
+ * nothing is left out. */
+static bool settle_stranded(void)
+{
+	if (!tb_stranded)
+		return true;
+	if (reads_out())
+		return false;
+	if (tb_pipes[TOUCH].own_fd)
+		USB_CloseDevice(&tb_pipes[TOUCH].fd);
+	USB_CloseDevice(&tb_pipes[PEN].fd);
+	memset(tb_pipes, 0, sizeof(tb_pipes));
+	tb_stranded = false;
+	tb_log("  tablet closed (its outstanding read answered)\n");
+	return true;
 }
 
 /* ---- reports ------------------------------------------------------------- */
@@ -1131,6 +1165,11 @@ static void *tb_worker(void *arg)
 		if (!tb_opened) {
 			int ms;
 
+			/* No tablet is opened over a read still out. */
+			if (!settle_stranded()) {
+				usleep(10 * 1000);
+				continue;
+			}
 			if (open_tablet() == TB_OK)
 				continue;
 			/* Nothing yet: look again in a second. */
@@ -1216,6 +1255,10 @@ s32 TB_Init(void)
 		LWP_JoinThread(tb_thread, NULL);
 		tb_thread = LWP_THREAD_NULL;
 	}
+	/* Nor while a read the last worker left out has not answered: a new
+	 * worker would reuse its records and buffers. */
+	if (!settle_stranded())
+		return TB_ESTATE;
 
 	if (!tb_mem) {
 		tb_mem = tb_alloc ? tb_alloc(sizeof(*tb_mem)) : memalign(32, sizeof(*tb_mem));
@@ -1265,6 +1308,15 @@ void TB_Shutdown(void)
 	}
 	LWP_JoinThread(tb_thread, NULL);
 	tb_thread = LWP_THREAD_NULL;
+}
+
+void TB_IosReloaded(void)
+{
+	/* Their handles went with the IOS: nothing is left to close. */
+	if (!tb_stranded || tb_running)
+		return;
+	memset(tb_pipes, 0, sizeof(tb_pipes));
+	tb_stranded = false;
 }
 
 bool TB_Connected(void)

@@ -87,13 +87,14 @@ int TabletLog(const char* format, ...) {
 // The tablet driver's buffers, in MEM2: MEM1 is the heap's.
 void* TabletAlloc(u32 bytes) { return skin::Mem2Alloc(bytes); }
 
-// Starts the tablet driver. While an earlier, stuck scan has not returned,
-// TB_Init refuses, and each frame tries again until it has.
+// Starts the tablet driver. While an earlier, stuck scan or a read the old
+// tablet was left with has not returned, TB_Init refuses, and each frame
+// tries again until it has.
 void StartTablet() {
     const s32 tablet = TB_Init();
     g_tablet_started = tablet == TB_OK;
-    if (g_tablet_started && g_tablet_waiting) logf("Pen tablet: the earlier scan returned, started\n");
-    else if (tablet == TB_ESTATE && !g_tablet_waiting) logf("Pen tablet: not started yet (an earlier scan is still waiting)\n");
+    if (g_tablet_started && g_tablet_waiting) logf("Pen tablet: the earlier scan or read returned, started\n");
+    else if (tablet == TB_ESTATE && !g_tablet_waiting) logf("Pen tablet: not started yet (an earlier scan or read is still waiting)\n");
     else if (!g_tablet_started && tablet != TB_ESTATE) logf("Pen tablet: its thread did not start\n");
     g_tablet_waiting = tablet == TB_ESTATE;
 }
@@ -397,7 +398,10 @@ void UsbInputMenuEnd() {
     UsbInputStop();
 }
 
-void UsbInputIosReloaded() { UsbKeyboardIosReloaded(); }
+void UsbInputIosReloaded() {
+    UsbKeyboardIosReloaded();
+    TB_IosReloaded();
+}
 
 void UsbInputBeforePointers() {
     // Stopped here, on the GUI thread that reads them, not where the
