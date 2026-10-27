@@ -4625,6 +4625,30 @@ static int MenuSource(FrontendState& state)
 		emptyNote.SetVisible(g_scanned && !g_scanning && items.empty() && state.sd_catalog.games.empty() &&
 			state.usb_catalog.games.empty() && state.channels.empty());
 	};
+	// Covers still to fetch, one per turn of the loop while the GUI
+	// thread keeps drawing: the page on screen first. The full covers (the
+	// shelf's boxes, and the back of a game's box up close) follow the same
+	// way for every game once the covers are in. They used to be asked for
+	// only for the boxes either side of the shelf's focus, so a game's full
+	// cover came only once the shelf had been scrolled to it.
+	std::vector<std::string> coverQueue;
+	// Appends the games listed now and not looked at yet: called again as
+	// the list changes (another view, a search, a part of the scan), as a
+	// game the Mods view leaves out is first listed under All games.
+	const auto queueCovers = [&]() {
+		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		for (const GridItem& item : items) {
+			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
+			    riftwii::wii::CoverWanted(item.id))
+				coverQueue.push_back(item.id);
+		}
+		if (g_boxesOff) return;
+		for (const GridItem& item : items) {
+			if (g_boxesChecked.insert(item.id).second && item.id != riftwii::wii::BoxFetchGame() &&
+			    riftwii::wii::BoxWanted(item.id))
+				g_boxQueue.push_back(item.id);
+		}
+	};
 	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
@@ -4632,6 +4656,7 @@ static int MenuSource(FrontendState& state)
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
+		queueCovers();
 		bannerPageDone = -1;
 		grid.SetItems(&items);
 		SetHomeMovable(grid, entries);
@@ -4752,28 +4777,6 @@ static int MenuSource(FrontendState& state)
 	}
 	ResumeGui();
 
-	// Covers still to fetch, one per turn of the loop while the GUI
-	// thread keeps drawing: the page on screen first. The full covers (the
-	// shelf's boxes, and the back of a game's box up close) follow the same
-	// way for every game once the covers are in. They used to be asked for
-	// only for the boxes either side of the shelf's focus, so a game's full
-	// cover came only once the shelf had been scrolled to it.
-	std::vector<std::string> coverQueue;
-	const auto queueCovers = [&]() {
-		coverQueue.clear();
-		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
-		for (const GridItem& item : items) {
-			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
-			    riftwii::wii::CoverWanted(item.id))
-				coverQueue.push_back(item.id);
-		}
-		if (g_boxesOff) return;
-		for (const GridItem& item : items) {
-			if (g_boxesChecked.insert(item.id).second && item.id != riftwii::wii::BoxFetchGame() &&
-			    riftwii::wii::BoxWanted(item.id))
-				g_boxQueue.push_back(item.id);
-		}
-	};
 	if (g_retryMissingCovers) {
 		// Asked for by name, so even the games GameTDB had no picture for
 		// in the last week are asked again (it may have one by now).
@@ -4783,6 +4786,7 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::ForgetCover3dMiss(item.id);
 		}
 		ResetCoverDownloads();
+		coverQueue.clear();  // queued by the first refresh, before the misses were forgotten
 		g_retryMissingCovers = false;
 		logf("Covers: downloading the missing covers, boxes and 3D covers again for %u game(s), "
 		     "including those GameTDB had none for (Settings > Online > Download missing covers)\n",
@@ -5043,6 +5047,7 @@ static int MenuSource(FrontendState& state)
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
+				coverQueue.clear();
 				queueCovers();
 			}
 		}
