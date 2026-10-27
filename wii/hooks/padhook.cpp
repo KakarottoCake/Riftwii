@@ -511,9 +511,13 @@ void find_way_back(const DolHeader& dol, const std::vector<CodeRange>& text, Pad
     out.return_to_menu = menu;
     out.sleep_thread = sleep;
     out.ipc_submit = api.submit;
+    // Optional: without it, a thread that suspends itself to wait (N64
+    // Virtual Console's pad thread) can't leave, and every other way still can.
+    out.suspend_thread = find_os_suspend_thread(text);
     logf("GameCube adapter: the way back (L, R, Z and Start held %u seconds): OSReturnToMenu at 0x%08x, "
-         "OSSleepThread at 0x%08x, the IPC submit routine at 0x%08x\n",
-         static_cast<unsigned>(kLeaveHoldMs / 1000), menu, sleep, api.submit);
+         "OSSleepThread at 0x%08x, the IPC submit routine at 0x%08x, OSSuspendThread %s0x%08x\n",
+         static_cast<unsigned>(kLeaveHoldMs / 1000), menu, sleep, api.submit,
+         out.suspend_thread != 0 ? "at " : "not found, ", out.suspend_thread);
 }
 
 }  // namespace
@@ -732,11 +736,14 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     } sites[kPadHookSites] = {{hook.read, h.hook_read, h.replay_read, h.continue_read, "PADRead"},
                               {hook.motor, h.hook_motor, h.replay_motor, h.continue_motor, "PADControlMotor"},
                               {hook.ipc_submit, h.hook_submit, h.replay_submit, h.continue_submit, "the IPC submit routine"},
-                              {hook.sleep_thread, h.hook_sleep, h.replay_sleep, h.continue_sleep, "OSSleepThread"}};
+                              {hook.sleep_thread, h.hook_sleep, h.replay_sleep, h.continue_sleep, "OSSleepThread"},
+                              {hook.suspend_thread, h.hook_suspend, h.replay_suspend, h.continue_suspend,
+                               "OSSuspendThread"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
+    Site& suspend_site = sites[4];
     // The way back needs both of its hooks: without either it stays off
     // (the one that went in is harmless alone).
     const auto way_back_off = [&](const char* name, const std::string& reason) {
@@ -747,6 +754,7 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     if (hook.return_to_menu == 0) {
         submit_site.function = 0;
         sleep_site.function = 0;
+        suspend_site.function = 0;
     }
     // Checked now, after the packs' patches: an instruction a pack
     // replaced with a branch of its own cannot be moved.
@@ -764,6 +772,9 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             }
             if (&s == &motor_site) {
                 logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
+            } else if (&s == &suspend_site) {
+                logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
+                     reason.c_str());
             } else {
                 way_back_off(s.name, "cannot be hooked (" + reason + ")");
             }
@@ -798,6 +809,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 return false;
             }
             if (&s == &submit_site || &s == &sleep_site) way_back_off(s.name, "is out of a branch's reach");
+            if (&s == &suspend_site)
+                logf("GameCube adapter: OSSuspendThread is out of a branch's reach; the way back leaves only from sleeps\n");
             continue;
         }
         store_words(s.function, &branch, 1);

@@ -6,12 +6,13 @@
     .section .text.pad_entry, "ax", @progbits
     .globl _pad_blob_start
 _pad_blob_start:
-    .long 0x52575044, 3, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
+    .long 0x52575044, 4, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
     .long pad_hook_read - _pad_blob_start, pad_replay_read - _pad_blob_start, pad_continue_read - _pad_blob_start
     .long pad_hook_motor - _pad_blob_start, pad_replay_motor - _pad_blob_start, pad_continue_motor - _pad_blob_start
     .long pad_complete - _pad_blob_start
     .long pad_hook_submit - _pad_blob_start, pad_replay_submit - _pad_blob_start, pad_continue_submit - _pad_blob_start
     .long pad_hook_sleep - _pad_blob_start, pad_replay_sleep - _pad_blob_start, pad_continue_sleep - _pad_blob_start
+    .long pad_hook_suspend - _pad_blob_start, pad_replay_suspend - _pad_blob_start, pad_continue_suspend - _pad_blob_start
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -99,8 +100,9 @@ pad_hook_submit:
     b pad_replay_submit
 
 /* OSSleepThread(queue): pad_on_sleep(ctx) returns the game's
- * OSReturnToMenu when the way back was asked for and this is the main
- * thread, else 0. With an address, interrupts go on (as the HOME Menu's
+ * OSReturnToMenu when the way back was asked for and this sleep may
+ * leave (the main thread's, or the pad-reading thread's after the
+ * fallback wait), else 0. With an address, interrupts go on (as the HOME Menu's
  * Wii Menu button has them) and OSReturnToMenu takes over, never to
  * return; otherwise OSSleepThread runs from its first word, as if called
  * directly. Frame: 8 queue. */
@@ -121,6 +123,35 @@ pad_hook_sleep:
     addi 1, 1, 0x20
     cmpwi 12, 0
     beq pad_replay_sleep
+    mfmsr 11
+    ori 11, 11, 0x8000
+    mtmsr 11
+    mtctr 12
+    bctr
+
+/* OSSuspendThread(thread): pad_on_suspend(ctx, thread) returns the game's
+ * OSReturnToMenu when the way back was asked for and this is the running
+ * thread suspending itself, at a moment pad_on_sleep would leave from,
+ * else 0. Then as pad_hook_sleep: OSReturnToMenu with interrupts on, or
+ * OSSuspendThread from its first word. Frame: 8 thread. */
+    .globl pad_hook_suspend
+pad_hook_suspend:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    mr 4, 3
+    bl 6f
+6:  mflr 3
+    addi 3, 3, pad_context_data - 6b
+    bl pad_on_suspend
+    mr 12, 3
+    lwz 3, 0x08(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    cmpwi 12, 0
+    beq pad_replay_suspend
     mfmsr 11
     ori 11, 11, 0x8000
     mtmsr 11
@@ -148,6 +179,7 @@ pad_continue_\name:
     PAD_REPLAY motor
     PAD_REPLAY submit
     PAD_REPLAY sleep
+    PAD_REPLAY suspend
 
     .balign 32
     .globl pad_context_data

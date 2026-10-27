@@ -106,7 +106,7 @@ static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob'
 constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
 // A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
-// PADControlMotor's, and the way back's two, padhook.hpp's kPadHookSites),
+// PADControlMotor's, and the way back's three, padhook.hpp's kPadHookSites),
 // right below the stub. The runtime's, the virtual SD card's and the crash
 // blob's run up from kCodeVeneers and end long before.
 constexpr std::uint32_t kPadVeneers = kCodeReturnStub - kPadHookSites * 16;

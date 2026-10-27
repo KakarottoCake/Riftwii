@@ -190,6 +190,42 @@ void TestQuietAtLeave() {
     EXPECT_TRUE(rtleave_quiet(&l, 4209, 1, 4158));
 }
 
+// Which sleep leaves. The main thread's always does (every game that
+// works today). In N64 Virtual Console games the main thread never sleeps
+// and a second thread reads the pads (Cruis'n USA, in Dolphin): that
+// thread's sleep leaves once the fallback wait has passed since the ask,
+// any other thread's never does.
+void TestSleepLeaves() {
+    const std::uint32_t kMain = 0x8018df78u, kPadThread = 0x80186048u, kOther = 0x80184af0u;
+    const std::uint32_t kAsked = 1000u | 1u, kFallback = 500u;
+    // The main thread: at once, whoever read the pads.
+    EXPECT_TRUE(rtleave_sleep_leaves(kMain, kMain, kMain, kAsked, 1002, kFallback));
+    EXPECT_TRUE(rtleave_sleep_leaves(kMain, kMain, kPadThread, kAsked, 1002, kFallback));
+    // The pad-reading thread: only after the wait.
+    EXPECT_FALSE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, kAsked, 1002, kFallback));
+    EXPECT_FALSE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, kAsked, 1499, kFallback));
+    EXPECT_TRUE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, kAsked, 1500, kFallback));
+    // Any other thread: never.
+    EXPECT_FALSE(rtleave_sleep_leaves(kOther, kMain, kPadThread, kAsked, 9000, kFallback));
+    // No ask open, or no thread noted at it (a PADRead from an interrupt
+    // with no thread running): only the main thread.
+    EXPECT_FALSE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, 0, 9000, kFallback));
+    EXPECT_FALSE(rtleave_sleep_leaves(0, kMain, 0, kAsked, 9000, kFallback));
+    // The time base's low word wraps: the wait still counts across it.
+    EXPECT_FALSE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, 0xFFFFFF01u, 0x000000F0u, kFallback));
+    EXPECT_TRUE(rtleave_sleep_leaves(kPadThread, kMain, kPadThread, 0xFFFFFF01u, 0x00000200u, kFallback));
+    // OSSuspendThread: only the pad-reading thread suspending itself waits
+    // there (Cruis'n USA's, every frame); suspending another thread, a
+    // third thread's own suspend, or no thread running, is not where it
+    // leaves.
+    EXPECT_TRUE(rtleave_self_suspend(kPadThread, kPadThread, kPadThread));
+    EXPECT_FALSE(rtleave_self_suspend(kOther, kPadThread, kPadThread));
+    EXPECT_FALSE(rtleave_self_suspend(kPadThread, kMain, kPadThread));
+    EXPECT_FALSE(rtleave_self_suspend(kOther, kOther, kPadThread));
+    EXPECT_FALSE(rtleave_self_suspend(kMain, kMain, kPadThread));
+    EXPECT_FALSE(rtleave_self_suspend(0, 0, 0));
+}
+
 // The game's own save requests while IOS holds them (KakarottoCake and
 // CodeRabbit on #314): a single NAND write longer than the quiet window, a
 // synchronous save whose thread sleeps in the very OSSleepThread that
@@ -340,6 +376,7 @@ int main() {
     TestSaveRequests();
     TestDue();
     TestQuietAtLeave();
+    TestSleepLeaves();
     TestPendingSave();
     if (g_failures == 0) {
         std::cout << "ALL PAD LEAVE TESTS PASSED" << std::endl;

@@ -77,6 +77,43 @@ std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text) {
     return matches == 1 ? found : 0;
 }
 
+std::uint32_t find_os_suspend_thread(const std::vector<CodeRange>& text) {
+    constexpr std::uint32_t kSuspendOffset = 0x2CC;  // OSThread.suspend, past its OSContext
+    constexpr std::size_t kWithin = 3;               // words between the load, the add and the store
+    std::uint32_t found = 0;
+    unsigned matches = 0;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr) continue;
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 1; i < words; ++i) {
+            const std::uint32_t load = be32(r.bytes + 4 * i);  // lwz rX,0x2CC(rT)
+            if ((load >> 26) != 32 || (load & 0xFFFFu) != kSuspendOffset) continue;
+            const std::uint32_t count_reg = (load >> 21) & 31u;
+            const std::uint32_t thread_reg = (load >> 16) & 31u;
+            // A base of r0 reads as zero: `addi rY,0,1` is `li rY,1`, and a
+            // load from 0x2CC itself is not a thread's field.
+            if (count_reg == 0 || thread_reg == 0) continue;
+            bool stored = false;
+            for (std::size_t j = i + 1; j <= i + kWithin && j < words && !stored; ++j) {
+                const std::uint32_t add = be32(r.bytes + 4 * j);  // addi rY,rX,1
+                if ((add >> 26) != 14 || ((add >> 16) & 31u) != count_reg || (add & 0xFFFFu) != 1) continue;
+                const std::uint32_t sum_reg = (add >> 21) & 31u;
+                for (std::size_t k = j + 1; k <= j + kWithin && k < words && !stored; ++k) {
+                    const std::uint32_t store = be32(r.bytes + 4 * k);  // stw rY,0x2CC(rT)
+                    stored = (store >> 26) == 36 && ((store >> 21) & 31u) == sum_reg &&
+                             ((store >> 16) & 31u) == thread_reg && (store & 0xFFFFu) == kSuspendOffset;
+                }
+            }
+            if (!stored) continue;
+            const std::uint32_t start = function_start(r, i);
+            if (start == 0) continue;
+            found = start;
+            ++matches;
+        }
+    }
+    return matches == 1 ? found : 0;
+}
+
 std::uint32_t find_os_restart(const std::vector<CodeRange>& text) {
     std::uint32_t found = 0;
     unsigned matches = 0;

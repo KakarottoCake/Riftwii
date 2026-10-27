@@ -35,6 +35,9 @@
 // HOME Menu's Wii Menu button, which Return to RiftWii already points at
 // the channel), once no save has been written for a moment. Missing any
 // of them, the adapter works as before, without the way back.
+// OSSuspendThread, hooked too where it is found, lets a thread that
+// suspends itself to wait leave as a sleeping one would (N64 Virtual
+// Console's pad-reading thread); without it only sleeps leave.
 //
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
@@ -44,9 +47,9 @@
 // wins: its own branch replaces ours and the adapter goes quiet.
 namespace riftwii::wii {
 
-// The blob's hooks: PADRead, PADControlMotor, the IPC submit routine and
-// OSSleepThread (a code build's veneers, one each).
-constexpr std::uint32_t kPadHookSites = 4;
+// The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
+// OSSleepThread and OSSuspendThread (a code build's veneers, one each).
+constexpr std::uint32_t kPadHookSites = 5;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -69,6 +72,7 @@ struct PadHook {
     // The way back; return_to_menu 0: off (missing, or a hook failed).
     std::uint32_t return_to_menu = 0;  // OSReturnToMenu
     std::uint32_t sleep_thread = 0;    // OSSleepThread
+    std::uint32_t suspend_thread = 0;  // OSSuspendThread, 0: only sleeps leave (N64 VC's pad thread suspends itself)
     std::uint32_t ipc_submit = 0;      // the SDK's IPC submit routine
     std::uint32_t resident_last_write = 0;  // the resident's save-write time (SD saves), 0: none
     std::uint32_t resident_busy = 0;        // its savegame engine's busy word (with the above)

@@ -38,6 +38,13 @@ std::uint32_t find_os_restart(const std::vector<CodeRange>& text);
 // (the function's `stwu`), or 0. Found in Mario Kart Wii.
 std::uint32_t find_os_sleep_thread(const std::vector<CodeRange>& text);
 
+// The SDK's OSSuspendThread(thread): the one function that adds 1 to a
+// thread's suspend count (`lwz rX,0x2CC(rT)`, `addi rY,rX,1`, `stw
+// rY,0x2CC(rT)`: OSThread.suspend; OSResumeThread takes 1 away). Its
+// address (the function's `stwu`), or 0. Found in Cruis'n USA (Virtual
+// Console), Mario Kart Wii and Super Smash Bros. Brawl.
+std::uint32_t find_os_suspend_thread(const std::vector<CodeRange>& text);
+
 // Test switch (settings.txt `debug_reset = N`): the game restarts itself
 // as the HOME Menu's Reset does, N seconds after its main thread first
 // sleeps, so Dolphin can show a restart with no controller driven. The
