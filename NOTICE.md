@@ -80,7 +80,7 @@ for two lists derived from GameTDB's database (https://www.gametdb.com,
 `src/data/offlinegames.inc`, made by `tools/make_offline_games.py` for the game
 page's Online server row, and the games whose case is not white,
 `src/art/casecolours.inc`, made by `tools/make_case_colours.py` for the Home
-shelf's boxes.
+shelf's boxes (the player can add their own in `sd:/riftwii/case_colours.txt`).
 The "Would You Look at the Time" theme (Settings' "Disable clock on Home
 screen" row) shows a soyjak cut from a soyjak.party image,
 `themes/TheTime/soyjak.png` (cut out by `tools/timesong/cutout.py`), used
@@ -127,6 +127,18 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   and which byte to change so a reloaded IOS keeps hardware access
   (`keep_hardware_access` in `wii/launch/boot.cpp`). Those bytes are IOS's, not
   the library's; RiftWii's code is its own.
+- The Home shelf's case colours (`src/art/casecolour.cpp`,
+  `wii/menu/gui_shelf.cpp`) follow how WiiFlow Lite (GPL-3.0) colours its
+  cover flow's boxes, read for behaviour only at commit
+  `69c0d4d61984f4ed6fca51b4520320cadfac960d`: `source/list/ListGenerator.cpp`
+  (`AddISO`: the player's `custom_titles.ini` colour, then GameTDB's
+  `<case color>`, then a built-in list, with black for GameCube games) and
+  `source/gui/coverflow.cpp` (`InternalCoverColor`: New Super Mario Bros.
+  Wii red by its first three ID characters; `_drawCoverBox`: the case's
+  plastic in that colour) and `source/gui/boxmesh.cpp` (the plastic shell
+  a little larger than the paper, its bevelled border showing above,
+  below and along the open edge). RiftWii's file format, lookup, sizes
+  and drawing are its own; no code was used.
 - Screenshots (`wii/menu/screenshot.cpp`, `wii/hooks/shothook.cpp`, `runtime/shot/`,
   `runtime/rtshot.c`) follow wiibrew's pages on the Video Interface
   registers, `/dev/fs`, `/dev/usb/oh1` and the Wii Remote's HID reports,

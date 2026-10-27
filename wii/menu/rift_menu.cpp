@@ -1298,6 +1298,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		item.mods = mods || profile;
 		item.to_build = r.game && !r.game->gc_patch_source.empty();
 		item.hue = skin::HueFor(r.id);
+		std::uint8_t caseRgb[3];
+		riftwii::resolve_case_colour(r.id, gamecube, riftwii::wii::PlayerCaseColours(), caseRgb);
+		item.caseColour = {caseRgb[0], caseRgb[1], caseRgb[2], 255};
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
 	}
@@ -13295,7 +13298,7 @@ int MainMenu(int menu, FrontendState& state)
 			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE && g_flightOn) {
 				// From the page's cover back onto the shelf, where the game
 				// stands lit; its place stays empty until it lands.
-				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue);
+				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue, g_flight.caseColour);
 				SetShelfFlying(g_flight.id);
 				transition::SetActor(FlightBack, FlightLanded);
 				transition::Begin(transition::Kind::Fade);
