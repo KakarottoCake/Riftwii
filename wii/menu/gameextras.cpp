@@ -27,7 +27,7 @@ constexpr const char* kHomeOrderPath = "sd:/riftwii/order.txt";
 std::vector<std::string> g_home_order;
 bool g_home_order_loaded = false;
 bool g_home_order_unreadable = false;  // there, but not read: never written over
-constexpr const char* kCaseColoursPath = "sd:/riftwii/case_colours.txt";
+constexpr const char* kCaseColoursPath = "sd:/riftwii/case_colors.txt";
 CaseColourOverrides g_case_colours;
 bool g_case_colours_loaded = false;
 
@@ -174,9 +174,9 @@ const CaseColourOverrides& PlayerCaseColours() {
         std::string text;
         if (read_text(kCaseColoursPath, text)) {
             const int skipped = parse_case_colour_overrides(text, g_case_colours);
-            logf("Case colours: %u line(s) in %s\n", static_cast<unsigned>(g_case_colours.size()), kCaseColoursPath);
+            logf("Case colors: %u line(s) in %s\n", static_cast<unsigned>(g_case_colours.size()), kCaseColoursPath);
             if (skipped > 0)
-                logf("Case colours: %d line(s) in %s were left out: not an ID and an rrggbb colour, or past the "
+                logf("Case colors: %d line(s) in %s were left out: not an ID and an rrggbb color, or past the "
                      "first %u\n",
                      skipped, kCaseColoursPath, static_cast<unsigned>(kMaxCaseColourOverrides));
         }

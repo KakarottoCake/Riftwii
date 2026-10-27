@@ -487,6 +487,10 @@ void Dim(Face& f, float k) {
     f.color.r = static_cast<u8>(f.color.r * k);
     f.color.g = static_cast<u8>(f.color.g * k);
     f.color.b = static_cast<u8>(f.color.b * k);
+    // The rim round the paper (DrawRimmedFace) darkens with it.
+    f.plastic.r = static_cast<u8>(f.plastic.r * k);
+    f.plastic.g = static_cast<u8>(f.plastic.g * k);
+    f.plastic.b = static_cast<u8>(f.plastic.b * k);
 }
 
 // The upright faces' lower part, mirrored under the plank and fading out

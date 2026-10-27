@@ -55,7 +55,7 @@ std::string PlayNote(const std::string& game_id);
 // Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
 // once; and written back after the player moves a game.
 const std::vector<std::string>& HomeOrder();
-// The player's own case colours (sd:/riftwii/case_colours.txt,
+// The player's own case colours (sd:/riftwii/case_colors.txt,
 // riftwii/casecolour.hpp), read once; none when there is no file.
 const CaseColourOverrides& PlayerCaseColours();
 
