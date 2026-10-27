@@ -57,10 +57,10 @@
 
 ## Getting started
 
-You need a Wii (or a Wii U in Wii mode) with the Homebrew Channel and a FAT32 SD card. Games on USB or SD need a [d2x cIOS](docs/GUIDE.md#what-you-need).
+You need a Wii (or a Wii U in Wii mode) with the Homebrew Channel and a FAT32 SD card. Wii games on USB or SD, and GameCube games on USB, need a [d2x cIOS](docs/GUIDE.md#what-you-need).
 
 1. Download the zip from [Releases](https://github.com/KakarottoCake/Riftwii/releases/latest).
-2. Copy its `sd-card` folder to your SD card (and `usb-drive` to your USB drive, if you use one).
+2. Copy everything inside its `sd-card` folder to the top of your SD card (and everything inside `usb-drive` to the top of your USB drive, if you use one).
 3. Put mod packs in `sd:/riivolution` (or `usb:/riivolution`) and games in `wbfs` or `games` on the SD card or USB drive.
 4. Start RiftWii from the Homebrew Channel.
 
