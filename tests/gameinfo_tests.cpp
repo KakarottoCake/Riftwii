@@ -123,7 +123,8 @@ void TestStoredTruncationPreservesCache() {
     // the database is not read again for them next session.
     CHECK(fs::exists(kHomebrewPath));
     std::vector<riftwii::HomebrewTitle> titles;
-    CHECK(!LoadHomebrewTitles(titles) && titles.empty());
+    // The empty list loads: read, with no apps, so the match is done.
+    CHECK(LoadHomebrewTitles(titles) && titles.empty());
     // Kept, it is not read again; a list too big to load is, however new.
     ForgetHomebrewTitlesRead();
     CHECK(!HomebrewTitlesNeedReading());

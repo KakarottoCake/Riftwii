@@ -316,7 +316,9 @@ bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
     struct stat st;
     std::string text;
     if (!Stat(kHomebrewTitlesPath, st) || ReadHomebrewTitlesFile(st, text) != ListRead::Ok) return false;
-    return parse_homebrew_titles(text, out);
+    if (parse_homebrew_titles(text, out)) return true;
+    // A database without homebrew writes the empty list: read, with no apps in it.
+    return homebrew_titles_usable(text);
 }
 
 unsigned HomebrewTitlesWritten() { return g_homebrew_written; }

@@ -40,7 +40,8 @@ bool PeekGameInfo(const std::string& id, GameInfo& out);
 
 // GameTDB's homebrew apps (riftwii/homebrewmatch.hpp), kept in
 // sd:/riftwii/homebrew-titles.txt whenever the database is read, for the
-// Homebrew view's covers. False when there is no such file.
+// Homebrew view's covers. False when there is no such file or it can't be
+// read; true with no apps for the empty list (a database without homebrew).
 bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out);
 // How many times that file was written this session: the apps are matched
 // again once it changes (a game's About page read the database).
