@@ -427,6 +427,28 @@ void TestKeep() {
     }
 }
 
+// When the blob may read the pads itself at a probe (the game stopped
+// calling PADRead): with a stand-in up, or a HOME Menu running, not otherwise.
+void TestReadsPads() {
+    constexpr std::uint32_t kWindow = 100;
+    rthome h = Fresh();
+    EXPECT_TRUE(!rthome_reads_pads(&h, 1000, kWindow));  // an ordinary probe: no
+    HoldCombo(h, 0, 2016);
+    EXPECT_TRUE(rthome_reads_pads(&h, 2016, kWindow));   // pressing
+    (void)rthome_stand_in(&h, 2016 + kPress);
+    EXPECT_TRUE(rthome_reads_pads(&h, 2016 + kPress, kWindow));  // waiting for the menu
+    rthome_menu_frame(&h, 2700);
+    (void)rthome_stand_in(&h, 2700 + kLinger);  // closed again
+    EXPECT_EQ(h.phase, RTHOME_DONE);
+    // A Virtual Console game's own HOME Menu, no stand-in: HBMCalc each frame,
+    // the emulator (and its PADRead) stopped.
+    rthome v = Fresh();
+    rthome_menu_frame(&v, 5000);
+    EXPECT_TRUE(rthome_reads_pads(&v, 5000 + kWindow - 1, kWindow));
+    EXPECT_TRUE(!rthome_reads_pads(&v, 5000 + kWindow, kWindow));  // the menu has closed
+    EXPECT_TRUE(!rthome_reads_pads(&v, 60000, kWindow));            // a loading screen later
+}
+
 void TestFloatBits() {
     EXPECT_EQ(rthome_float_bits(0), 0u);
     EXPECT_EQ(rthome_float_bits(RTHOME_AXIS_FULL), 0x3F800000u);       // 1.0
@@ -462,6 +484,7 @@ int main() {
     TestRemoteSide();
     TestPointer();
     TestKeep();
+    TestReadsPads();
     TestFloatBits();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

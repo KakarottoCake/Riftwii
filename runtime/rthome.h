@@ -122,6 +122,14 @@ void rthome_selected(struct rthome* h, int32_t button);
  * refused) or has closed ends the stand-in. */
 uint32_t rthome_stand_in(struct rthome* h, uint32_t now);
 
+/* Whether the blob may read the pads itself at a WPADProbe, when the game
+ * has stopped calling PADRead: only while a stand-in is up, or while a
+ * HOME Menu runs (HBMCalc within `window` ticks; a Virtual Console game's
+ * emulator stops while its menu is open, and the combo, let go there,
+ * would never arm again). Not on an ordinary probe, such as a loading
+ * screen's, where the game's own pad reads have simply paused. */
+int rthome_reads_pads(const struct rthome* h, uint32_t now, uint32_t window);
+
 /* Whether the menu counts as open (for the status's data format: 8, with
  * the pointer, while it is, as KPAD reports it then; 7 otherwise). */
 int rthome_menu_open(const struct rthome* h);
