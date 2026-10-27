@@ -3,7 +3,9 @@
 #include "riftwii/usbgame.hpp"
 
 #include "riftwii/disc.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/langfile.hpp"
+#include "riftwii/titles.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -373,6 +375,82 @@ bool has_extension(const std::string& name, const char* extension) {
 }
 
 }  // namespace
+
+bool catalog_image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
+    if (name.empty() || name[0] == '.' || name.find_first_of("/\\:") != std::string::npos) return false;
+    if (has_extension(name, ".rvz")) {
+        out = UsbImageFormat::Rvz;
+        return true;
+    }
+    if (has_extension(name, ".iso")) {
+        out = UsbImageFormat::Iso;
+        return true;
+    }
+    if (folder != UsbImageFormat::Iso && has_extension(name, ".wbfs")) {
+        out = UsbImageFormat::Wbfs;
+        return true;
+    }
+    return false;
+}
+
+bool is_gc_image_name(const std::string& name) {
+    if (name.empty() || name[0] == '.' || name.find_first_of("/\\:") != std::string::npos) return false;
+    return has_extension(name, ".iso") || has_extension(name, ".gcm") || has_extension(name, ".rvz");
+}
+
+bool gc_scan_should_open(const std::string& path, bool known_wii) {
+    if (known_wii) return false;
+    const std::string id = id_from_image_path(path);
+    return id.empty() || (id[0] != 'R' && id[0] != 'S');
+}
+
+bool join_game_path(const std::string& directory, const std::string& name, std::string& out) {
+    constexpr std::size_t kMaxPath = 240;
+    if (name.empty() || name[0] == '.' || name.find_first_of("/\\:") != std::string::npos ||
+        name.find('\0') != std::string::npos) return false;
+    if (directory.size() >= kMaxPath || name.size() > kMaxPath - directory.size() - 1) return false;
+    out = directory + "/" + name;
+    return true;
+}
+
+std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images) {
+    std::vector<int> hidden_by;
+    if (!try_assign(hidden_by, images.size(), -1)) return hidden_by;
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        const GcCatalogImage& image = images[i];
+        const std::size_t slash = image.path.rfind('/');
+        if (slash == std::string::npos) continue;
+        const std::string directory = image.path.substr(0, slash);
+        const bool loose = directory == "sd:/games" || directory == "sd:/wbfs" ||
+                           directory == "usb:/games" || directory == "usb:/wbfs";
+        const std::size_t device_end = image.path.find('/');
+        const std::string device = image.path.substr(0, device_end + 1);
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (i == j || image.id != images[j].id) continue;
+            // Overlapping custom roots can encounter the same file twice.
+            if (j < i && image.path == images[j].path) {
+                hidden_by[i] = static_cast<int>(j);
+                break;
+            }
+            const std::size_t other_slash = images[j].path.rfind('/');
+            if (other_slash == std::string::npos) continue;
+            const std::string other_directory = images[j].path.substr(0, other_slash);
+            if (image.disc_number == 1 && images[j].disc_number == 0 && directory == other_directory) {
+                hidden_by[i] = static_cast<int>(j);
+                break;
+            }
+            // Prefer an existing game folder to a loose copy, without
+            // merging games on different devices or distinct mod folders.
+            const bool other_nested = other_directory.compare(0, device.size() + 6, device + "games/") == 0 ||
+                                      other_directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
+            if (loose && other_nested && image.disc_number == images[j].disc_number) {
+                hidden_by[i] = static_cast<int>(j);
+                break;
+            }
+        }
+    }
+    return hidden_by;
+}
 
 std::vector<int> gc_second_disc_of(const std::vector<GcFolderImage>& images) {
     std::vector<int> first_disc(images.size(), -1);
