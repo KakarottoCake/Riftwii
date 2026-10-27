@@ -84,6 +84,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "ratingbadge.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
 #include "riftwii/canvas.hpp"
@@ -9142,7 +9143,8 @@ static void MenuCoverCloseup(const std::string& game_id)
 }
 
 // The About page's body, right of the box and under it: the facts in two
-// columns, the age rating as a badge in the band, the controllers as
+// columns, the age rating as a badge in the band (the rating board's own
+// mark when RiftWii has it, else the rating written out), the controllers as
 // icons, the story as a paragraph that scrolls (Up and Down, or the
 // arrows). Everything here is read, not pressed: plain text and icons.
 class AboutBody : public GuiElement {
@@ -9158,9 +9160,9 @@ public:
 	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
 
 	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
-		const std::string& story)
+		const skin::Tex& ratingMark, const std::string& story)
 		: facts(std::move(facts)), controls(std::move(controls)), rating(std::move(rating)),
-		  ratingSystem(std::move(ratingSystem))
+		  ratingSystem(std::move(ratingSystem)), ratingMark(ratingMark)
 	{
 		width = screenwidth;
 		height = screenheight;
@@ -9224,12 +9226,19 @@ public:
 		if (HasRating()) {
 			const float bx = 548, by = 32, bw = 52, bh = 62;
 			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
-			ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
-			ratingTxt->Draw();
-			systemTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-			systemTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + bh - 19));
-			systemTxt->Draw();
+			if (ratingMark.data) {
+				// The mark (64 high at most), centred on the card.
+				const float mx = bx + (bw - ratingMark.w) / 2.0f;
+				const float my = by + (bh - ratingMark.h) / 2.0f;
+				skin::Draw(ratingMark, mx, my, alpha);
+			} else {
+				ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+				ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
+				ratingTxt->Draw();
+				systemTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+				systemTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + bh - 19));
+				systemTxt->Draw();
+			}
 		}
 		// The story, a window of it at a time.
 		if (!lines.empty()) {
@@ -9314,6 +9323,7 @@ private:
 	std::vector<Fact> facts;
 	std::vector<Control> controls;
 	std::string rating, ratingSystem;
+	skin::Tex ratingMark;  // the board's mark (ratingbadge.hpp), kept for the menu phase; none without data
 	std::vector<std::unique_ptr<GuiText>> names, values, shown;
 	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
 	std::vector<std::string> lines;
@@ -9374,7 +9384,9 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
 	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
-	AboutBody body(facts, controls, info.rating, info.rating_system, riftwii::plain_punctuation(info.synopsis));
+	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
+	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
+		riftwii::plain_punctuation(info.synopsis));
 	// The band's text as on the game page: an overline, the name.
 	std::string overline = tr("About this game");
 	for (char& ch : overline)
