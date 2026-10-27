@@ -134,7 +134,11 @@ contains theirs names them in its file header, and
 - **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
-  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md).
+  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its cover
+  flow's boxes are the model for the Home shelf's cases: the plastic
+  showing round the paper in the case's color, chosen from the player's
+  own colors, then GameTDB's, then a series', then black for GameCube
+  cases and white for Wii ones.
 - **d2x cIOS**: the USB and SD game loading interface, and how its FAT
   module mounts and lets go of the SD card for its emulated NAND.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
