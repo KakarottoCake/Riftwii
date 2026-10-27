@@ -42,8 +42,10 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 
+// A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
+// Snes9x GX, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
-    if (id.size() != 6) return false;
+    if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     }
@@ -345,31 +347,33 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
-    for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
-        std::vector<std::uint8_t> png;
-        std::string why;
-        if (!HttpGet(cover_url(region, game_id), png, why, 512u << 10, 8000)) {
-            // GameTDB's refusal (a 404 most often) means no cover in this
-            // region; anything else is no answer about this game at all.
-            if (cover_answer_means_missing(http_answered_status(why))) continue;
-            error = why;
-            return CoverFetch::NoAnswer;
+    for (const std::string& art_id : gametdb_art_ids(game_id)) {
+        for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
+            std::vector<std::uint8_t> png;
+            std::string why;
+            if (!HttpGet(cover_url(region, art_id), png, why, 512u << 10, 8000)) {
+                // GameTDB's refusal (a 404 most often) means no cover in this
+                // region; anything else is no answer about this game at all.
+                if (cover_answer_means_missing(http_answered_status(why))) continue;
+                error = why;
+                return CoverFetch::NoAnswer;
+            }
+            std::vector<std::uint8_t> rgba;
+            int w = 0, h = 0;
+            if (!DecodePng(png, rgba, w, h)) {
+                logf("Covers: GameTDB's %s cover of %s is not a PNG we can read\n", region.c_str(), game_id.c_str());
+                continue;
+            }
+            const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
+            if (file.empty()) continue;
+            if (!WriteAll(CoverPath(game_id), file)) {
+                error = "cannot write " + CoverPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            std::remove(MissPath(game_id).c_str());
+            logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
+            return CoverFetch::Stored;
         }
-        std::vector<std::uint8_t> rgba;
-        int w = 0, h = 0;
-        if (!DecodePng(png, rgba, w, h)) {
-            logf("Covers: GameTDB's %s cover of %s is not a PNG we can read\n", region.c_str(), game_id.c_str());
-            continue;
-        }
-        const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
-        if (file.empty()) continue;
-        if (!WriteAll(CoverPath(game_id), file)) {
-            error = "cannot write " + CoverPath(game_id) + " (card full?)";
-            return CoverFetch::Failed;
-        }
-        std::remove(MissPath(game_id).c_str());
-        logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
-        return CoverFetch::Stored;
     }
     WriteAll(MissPath(game_id), {});
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());

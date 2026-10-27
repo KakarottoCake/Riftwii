@@ -28,12 +28,16 @@ namespace riftwii {
 constexpr std::uint32_t kDownloadedChannels = 0x00010001;
 constexpr std::uint32_t kSystemChannels = 0x00010002;
 constexpr std::uint32_t kHiddenChannels = 0x00010008;
+// Titles a disc installs: Dragon Quest X's launcher among them
+// (riftwii/wfstitle.hpp).
+constexpr std::uint32_t kDiscChannels = 0x00010004;
 
 enum class ChannelKind {
     None,           // not a game: a Nintendo channel, a homebrew channel, RiftWii's own
     WiiWare,
     VirtualConsole,
     Other,          // a custom inject or hand-made channel whose code starts with none of the letters above
+    Wfs,            // Dragon Quest X: its boot program on the Wii, its game on a WFS USB drive (is_wfs_game)
 };
 
 // The first letter of Nintendo's own channels' codes (HAA Photo, HAB Shop,
@@ -72,6 +76,12 @@ bool is_homebrew_code(const std::string& code);
 
 bool is_nintendo_channel(std::uint64_t title_id);
 
+// Whether a title is a game whose program IOS59 serves from a WFS USB
+// drive (Dragon Quest X; riftwii/wfstitle.hpp): one a disc installed
+// (00010004) whose TMD has the WFS title type. classify_channel leaves
+// those titles out; the listing reads their TMD and asks this.
+bool is_wfs_game(std::uint64_t title_id, std::uint32_t title_type);
+
 // A forwarder channel's program is a few tens of KB; an inject's holds an
 // emulator and a game, megabytes. Programs above this are never forwarders,
 // and the listing reads no more than this much of one.
@@ -106,7 +116,7 @@ struct ChannelVerdict {
 struct TmdContent {
     std::uint32_t id = 0;     // the file's name on the NAND, %08x.app
     std::uint16_t index = 0;  // 0 is the banner, the boot index the program
-    std::uint16_t type = 0;   // 1 normal, 0x4001 and 0x8001 shared
+    std::uint16_t type = 0;   // 1 normal, 0x4001 optional (downloadable extras), 0x8001 shared
     std::uint64_t size = 0;
     Sha1Digest sha1{};        // of its plain bytes
 };
@@ -115,6 +125,7 @@ struct TmdContents {
     std::uint64_t title_id = 0;
     std::uint32_t required_ios = 0;  // 0 when the TMD names no IOS
     std::uint16_t boot_index = 0;    // the content the system starts
+    std::uint32_t title_type = 0;    // 0x20: a WFS title (riftwii/wfstitle.hpp)
     // The two-letter maker code (the TMD's group ID, "01" for Nintendo),
     // empty when its bytes are not letters or digits.
     std::string maker;
@@ -125,6 +136,11 @@ struct TmdContents {
 // in front, as ES_GetStoredTMD returns it). False when it is too small
 // for its own content count.
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error);
+
+// The contents a channel opens through ES while it runs and can't do
+// without: all but the optional ones (downloadable extras, which may never
+// have been bought). Their indexes, in TMD order.
+std::vector<std::uint16_t> required_content_indexes(const TmdContents& contents);
 
 // The six-character ID RiftWii keys a channel by, as a disc game's is its
 // four-letter code and its maker ("WBME01"): favourites, play history,
@@ -257,5 +273,14 @@ std::uint32_t channel_bi2_address(const DolHeader& program, std::uint32_t loader
 constexpr std::uint32_t kChannelTitleTypes[] = {kDownloadedChannels, kSystemChannels, kHiddenChannels};
 
 std::vector<std::uint8_t> make_fake_ticket();
+
+// One signed ticket, as ES_Identify takes it.
+constexpr std::size_t kSignedTicketBytes = 0x2A4;
+
+// The ticket RiftWii offers ES_Identify when the installed one is refused or
+// missing: the installed ticket's first one (the generic ticket without),
+// with `title_id` as its title, no console of its own, and fakesigned for
+// IOSes with the signing bug (d2x). Exactly one ticket, as ES takes it.
+std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& installed, std::uint64_t title_id);
 
 }  // namespace riftwii

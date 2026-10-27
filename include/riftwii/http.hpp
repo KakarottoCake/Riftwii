@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ctime>
 #include <map>
 #include <string>
 #include <vector>
@@ -86,6 +87,10 @@ bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState&
 bool http_response_complete(const std::vector<std::uint8_t>& raw);
 // Parses a response read to its end (or to the connection's close).
 bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error);
+
+// Why a TLS handshake failed, from BearSSL's error number and the Wii's
+// clock at verification: empty when the certificate was not the problem.
+std::string tls_failure_reason(int bearssl_code, std::time_t wii_now);
 
 // "%XX" for everything but unreserved characters, for query values.
 std::string url_encode(const std::string& text);

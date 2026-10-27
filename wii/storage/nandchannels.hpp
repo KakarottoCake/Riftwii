@@ -81,7 +81,9 @@ struct ChannelBootFiles {
     // The IOSes to try, in order: ES runs a game as its own title
     // (ES_Identify) only for the Wii Menu on Nintendo's IOSes, and for
     // anyone on a d2x cIOS, so the d2x slots image games would take come
-    // first, then the IOS the title asks for. In Dolphin only that one.
+    // first, then the IOS the title asks for on the real NAND. A copied
+    // NAND needs d2x, so it gets no stock fallback. In Dolphin (no d2x)
+    // only the requested IOS is used, for either.
     std::vector<int> ios_order;
     ChannelProgram program;
     std::vector<std::uint8_t> dol;  // the program content, whole
@@ -117,5 +119,7 @@ void SetChannelToStartIos(int ios);
 int ChannelToStartIos();
 void SetChannelToStartDirect(bool direct);
 bool ChannelToStartDirect();
+// A WFS title (Dragon Quest X; ChannelKind::Wfs): only the system starts it.
+bool ChannelToStartWfs();
 
 }  // namespace riftwii::wii

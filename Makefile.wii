@@ -74,7 +74,8 @@ CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
-LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
+				-Wl,--wrap=classic_ctrl_handshake,--wrap=parse_event,--wrap=USB_GetDeviceList
 # No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
 # libraries still carry. libgcc's unwinder here would find frames through
 # the list crtbegin.o registers (__register_frame_info), never through
@@ -86,7 +87,12 @@ LDFLAGS		+=	-Wl,--no-eh-frame-hdr
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
 # libbearssl.a comes from Makefile.bearssl (the TLS client, wii/online/tls.cpp).
-LIBS :=	-lbearssl -lz -lfat -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
+# libwiikeyboard: the menu's USB keyboard (wii/controllers/usbkeyboard.cpp).
+# The pen tablet driver (wii/controllers/pentablet.c, udraw.c) wraps three of
+# libogc's functions above: two keep wiiuse from taking a uDraw for a Classic
+# Controller, one hides tablets and the GameCube adapter from libogc's own
+# USB mouse and keyboard scans.
+LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib

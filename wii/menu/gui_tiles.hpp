@@ -23,6 +23,7 @@ struct TileSpec {
     bool on = false;   // the value in the accent's colour (something switched on)
     bool dim = false;  // greyed: still lit and pressed, its page says why
     bool warn = false; // the value in the theme's warning colour (a memory card that is full)
+    bool hidden = false; // not drawn: lit and pressed as any other, drawn by its own element (the game page's box)
 };
 
 class GuiTiles : public GuiElement {
@@ -37,6 +38,10 @@ public:
     int Selected() const { return hover >= 0 ? hover : focus; }
     // The tile A was pressed on since the last call; -1 when none.
     int GetClicked();
+    // How lit the tile looks, 0 to 1, for a hidden tile's own element.
+    float Lift(int index) const {
+        return index >= 0 && index < static_cast<int>(lift.size()) ? lift[index] : 0.0f;
+    }
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
