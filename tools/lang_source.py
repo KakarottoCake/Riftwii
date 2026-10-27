@@ -1005,6 +1005,15 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
+    "USB: Dragon Quest X's drive": ("USB: la unidad de Dragon Quest X", "USB: ドラゴンクエストXのドライブ", "USB: a unidade de Dragon Quest X", "USB: l'unità di Dragon Quest X"),
+    "Encrypted drive": ("Unidad cifrada", "ロックされたドライブ", "Unidade criptografada", "Unità cifrata"),
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)": ("USB: una unidad cifrada, quizá la de Dragon Quest X (RiftWii no la usa)", "USB: ロックされたドライブ(ドラゴンクエストXのものかも。RiftWiiは使いません)", "USB: uma unidade criptografada, talvez a de Dragon Quest X (o RiftWii não a usa)", "USB: un'unità cifrata, forse quella di Dragon Quest X (RiftWii non la usa)"),
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.": (
+        "La unidad USB conectada está cifrada: puede ser la de Dragon Quest X o la propia de una Wii U. RiftWii no puede leerla sin la clave WFS de esta Wii (sd:/riftwii/wfskey.bin), así que no la usa. Si contiene Dragon Quest X, déjala como está: el juego se inicia desde los canales de la Wii.",
+        "接続されているUSBドライブはロックされています。ドラゴンクエストXのドライブか、Wii U本体のドライブかもしれません。このWiiのWFSキー(sd:/riftwii/wfskey.bin)がないとRiftWiiは読めないので、使いません。ドラゴンクエストXが入っているなら、そのままにしてください。ゲームはWiiのチャンネルから起動します。",
+        "A unidade USB conectada está criptografada: pode ser a de Dragon Quest X ou a própria de um Wii U. O RiftWii não consegue lê-la sem a chave WFS deste Wii (sd:/riftwii/wfskey.bin), então não a usa. Se ela tiver Dragon Quest X, deixe-a como está: o jogo inicia pelos canais do Wii.",
+        "L'unità USB collegata è cifrata: può essere quella di Dragon Quest X o quella di una Wii U. RiftWii non può leggerla senza la chiave WFS di questa Wii (sd:/riftwii/wfskey.bin), quindi non la usa. Se contiene Dragon Quest X, lasciala così com'è: il gioco si avvia dai canali della Wii.",
+    ),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -2995,6 +3004,14 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
+    "USB: Dragon Quest X's drive":
+        "USB: 드래곤 퀘스트 X 드라이브",
+    "Encrypted drive":
+        "암호화된 드라이브",
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)":
+        "USB: 암호화된 드라이브, 드래곤 퀘스트 X의 것일 수도 있음 (RiftWii는 사용하지 않음)",
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.":
+        "연결된 USB 드라이브는 암호화되어 있습니다. 드래곤 퀘스트 X의 드라이브이거나 Wii U 본체의 드라이브일 수 있습니다. 이 Wii의 WFS 키(sd:/riftwii/wfskey.bin)가 없으면 RiftWii가 읽을 수 없으므로 사용하지 않습니다. 드래곤 퀘스트 X가 들어 있다면 그대로 두세요. 게임은 Wii 채널에서 시작됩니다.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -4843,6 +4860,14 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
+    "USB: Dragon Quest X's drive":
+        "USB : le stockage de Dragon Quest X",
+    "Encrypted drive":
+        "Stockage chiffré",
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)":
+        "USB : un stockage chiffré, peut-être celui de Dragon Quest X (RiftWii ne l'utilise pas)",
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.":
+        "Le stockage USB branché est chiffré : ce peut être celui de Dragon Quest X, ou celui d'une Wii U. RiftWii ne peut pas le lire sans la clé WFS de cette Wii (sd:/riftwii/wfskey.bin), il ne l'utilise donc pas. S'il contient Dragon Quest X, laissez-le tel quel : le jeu se lance depuis les chaînes de la Wii.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":

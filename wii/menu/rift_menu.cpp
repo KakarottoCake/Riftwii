@@ -54,6 +54,7 @@
 #include "modpicture.hpp"
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
+#include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
@@ -865,7 +866,9 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
 	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
-	if (catalog.status == tr("USB: a Wii U drive (RiftWii leaves it alone)")) return "";  // nor is a Wii U's own drive
+	// Nor is a Wii U's own drive, Dragon Quest X's, or an encrypted one that
+	// may be either: the same test that gave the status, not its text.
+	if (std::strcmp(tag, "USB") == 0 && riftwii::wii::usb_only_wiiu_drive()) return "";
 	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
@@ -3628,6 +3631,27 @@ static void NoteWiiUDrive()
 	other["wiiu_drive_note"] = "shown";
 	riftwii::wii::SaveSettings();
 }
+// An encrypted drive this Wii's WFS key (not on the card) might open, with
+// Dragon Quest X on the Wii: it may be the game's drive, which formatting
+// would wipe, so the note does not suggest it. Said once, as above.
+static bool MaybeWfsDrive(const FrontendState& state)
+{
+	if (!riftwii::wii::WfsDriveUnchecked()) return false;
+	for (const riftwii::wii::NandChannel& channel : state.channels)
+		if (channel.kind.kind == riftwii::ChannelKind::Wfs && channel.emu_nand.empty()) return true;
+	return false;
+}
+static void NoteEncryptedDrive()
+{
+	auto& other = riftwii::wii::Settings().other;
+	const auto seen = other.find("encrypted_drive_note");
+	if (seen != other.end() && seen->second == "shown") return;
+	ShowPopup(tr("Encrypted drive"),
+		tr("The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."),
+		tr("OK"));
+	other["encrypted_drive_note"] = "shown";
+	riftwii::wii::SaveSettings();
+}
 
 // What the last game's card log noted (wii/launch/boot.hpp TakeCardLog): into
 // the session log and sd:/riftwii/cardlog.txt, with a popup. Once per run.
@@ -4171,12 +4195,23 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
+	// This Wii's WFS drive (Dragon Quest X's) looks the same until its key
+	// opens it: without the key it is not called a Wii U drive.
+	const bool wfsDrive = wiiuDrive && riftwii::wii::WfsDriveFound();
+	const bool maybeWfs = wiiuDrive && !wfsDrive && MaybeWfsDrive(state);
 	if (prompts) {
 		WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
-		if (wiiuDrive) NoteWiiUDrive();
+		if (maybeWfs) NoteEncryptedDrive();
+		else if (wiiuDrive && !wfsDrive) NoteWiiUDrive();
 		if (g_sdScanOk) ReportCardLog();
 	}
-	if (wiiuDrive) {
+	if (wfsDrive) {
+		logf("USB: only this Wii's WFS drive (Dragon Quest X's) is plugged in\n");
+		state.usb_catalog.status = tr("USB: Dragon Quest X's drive");
+	} else if (maybeWfs) {
+		logf("USB: only an encrypted drive is plugged in, maybe Dragon Quest X's (no WFS key on the card); left alone\n");
+		state.usb_catalog.status = tr("USB: an encrypted drive, maybe Dragon Quest X's (left alone)");
+	} else if (wiiuDrive) {
 		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
 		state.usb_catalog.status = WiiUDriveStatus();
 	} else if (!usb) {

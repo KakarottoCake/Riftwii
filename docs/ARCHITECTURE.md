@@ -24,6 +24,7 @@ below names the files that own it.
 | Menu state: the picked game, its packs, the choices | `wii/menu/frontend.cpp`, `src/patching/launch.cpp` (`LaunchModel`) |
 | Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/patching/riiconfig.cpp`, `wii/menu/frontend.cpp` |
 | Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS), and USB drives formatted as WBFS | `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
+| Dragon Quest X on its WFS USB drive: the drive read with the Wii's WFS key, the game started by the system with IOS59 ([WFS.md](WFS.md)) | `src/fs/wfs.cpp`, `src/fs/wfstitle.cpp`, `wii/storage/wfsdrive.cpp`, `wii/main.cpp` |
 | Cover art (GameTDB), stored as ready GX textures | `wii/menu/covers.cpp`, `src/art/coverart.cpp`, `wii/menu/gui_gamegrid.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online/online.cpp`, `src/data/titles.cpp`, `src/data/cheats.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp` |
 | Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
