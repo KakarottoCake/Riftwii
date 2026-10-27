@@ -9016,8 +9016,12 @@ public:
 	bool ShowingBack() const { return wantBack; }
 	// A back to turn to: the full cover is in memory. Read by the menu thread.
 	bool HasBack() const { return hasBack; }
-	// Shrinks back into the page's box; Closed() once it is there.
-	void Close() { closing = true; }
+	// Shrinks back into the page's box, turning to its front on the way
+	// as the page shows it; Closed() once it is there.
+	void Close() {
+		closing = true;
+		wantBack = false;
+	}
 	bool Closed() const { return closing && open <= 0.0f; }
 	// Down, Up and B since the last call, from any controller.
 	bool TakeDown() { return Take(down); }
@@ -9106,22 +9110,24 @@ static void MenuCoverCloseup(const std::string& game_id)
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
 	ResumeGui();
-	bool shownBack = false, shownTurn = false;
+	bool shownBack = false, shownTurn = false, closing = false;
 	while (!closeup.Closed()) {
 		usleep(10000);
 		HaltGui();
 		const int prompt = prompts.GetClicked();
-		if (closeup.TakeBack() || prompt == promptClose) {
+		if (closing) {
+			// shrinking back: no more presses
+		} else if (closeup.TakeBack() || prompt == promptClose) {
 			closeup.Close();
+			closing = true;
 			prompts.SetShown(promptClose, false);
-			prompts.SetShown(promptTurn, false);
 		} else if (closeup.HasBack()) {
 			if (closeup.TakeDown()) closeup.ShowBack(true);
 			if (closeup.TakeUp()) closeup.ShowBack(false);
 			if (prompt == promptTurn) closeup.ShowBack(!closeup.ShowingBack());
 		}
 		// Down for the back, or Up for the front: the other side's name.
-		const bool turnShown = closeup.HasBack() && !closeup.Closed();
+		const bool turnShown = closeup.HasBack() && !closing;
 		if (turnShown != shownTurn || closeup.ShowingBack() != shownBack) {
 			shownTurn = turnShown;
 			shownBack = closeup.ShowingBack();
