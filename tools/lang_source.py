@@ -815,6 +815,11 @@ T = {
         "RiftWiiチャンネルをインストールすると(設定)、HOMEメニューの「Wiiメニュー」ボタンでゲームをやめたときRiftWiiに戻れます。",
         "Sair do jogo com o botão Menu Wii do menu HOME pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
         "Uscire dal gioco con il pulsante Menu Wii del menu HOME può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.": (
+        "Salir del juego con el botón Menú de Wii del menú HOME te lleva al Menú de Wii.",
+        "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとWiiメニューに戻ります。",
+        "Sair do jogo com o botão Menu Wii do menu HOME leva você ao Menu Wii.",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME ti porta al Menu Wii."),
     # Menu music (Settings)
     "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
     "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
@@ -2888,6 +2893,8 @@ KO = {
         "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 RiftWii로 돌아갑니다. RiftWii 채널이 설치되어 있어야 합니다.",
     "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
         "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면, RiftWii 채널이 설치된 경우(설정) RiftWii로 돌아갈 수 있습니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 Wii 메뉴로 갑니다.",
     "Menu music":
         "메뉴 음악",
     "In-game screenshots":
@@ -4734,6 +4741,8 @@ FR = {
         "Quitter le jeu avec le bouton « Menu Wii » du menu HOME vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
     "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
         "Quitter le jeu avec le bouton « Menu Wii » du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME ramène au Menu Wii.",
     "Menu music":
         "Musique du menu",
     "In-game screenshots":

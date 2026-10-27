@@ -883,6 +883,8 @@ static std::string ReturnToNote()
 	// A test switch in settings.txt turns it off whatever this says.
 	if (riftwii::wii::debug_off("returnto"))
 		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.");
+	if (riftwii::wii::Settings().return_to == "menu")
+		return tr("Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.");
 	unsigned version = 0;
 	return riftwii::wii::ChannelInstalled(version) ? tr("Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
