@@ -3124,7 +3124,10 @@ static int ShowHomeMenu()
 	const int row1 = (kHomeBandTop + kHomeBandBottom) / 2 - 85, row2 = row1 + 98;
 	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row1, tr("Homebrew Channel"), 0, 0, 0);
 	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row1, tr("Wii Menu"), 0, 0, 0);
-	const bool restart = HomeRestartsConsole();
+	bool restart = HomeRestartsConsole();
+	// Opened during the drive scan, the button starts as Priiloader
+	// (HomeRestartsConsole); it is looked at again once the scan is done.
+	bool settled = riftwii::wii::DriveScanDone();
 	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, restart ? tr("Restart") : "Priiloader", 0, 0, 0);
 	// iOS 6: Power off is the red one, as an action sheet's destructive button.
 	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
@@ -3175,6 +3178,11 @@ static int ShowHomeMenu()
 	while (choice < 0) {
 		usleep(20000);
 		HaltGui();
+		if (!settled && riftwii::wii::DriveScanDone()) {
+			settled = true;
+			restart = HomeRestartsConsole();
+			if (restart) priiBtn.text.SetText(tr("Restart"));
+		}
 		if (hbcBtn.Clicked()) choice = 1;
 		else if (menuBtn.Clicked()) choice = 2;
 		else if (priiBtn.Clicked()) choice = restart ? 6 : 3;
