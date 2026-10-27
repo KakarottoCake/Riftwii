@@ -31,6 +31,7 @@
 #include "umsdev.hpp"
 #include "nanduse.hpp"
 #include "padhook.hpp"
+#include "usbinput.hpp"
 
 extern "C" void udelay(int us);
 
@@ -122,6 +123,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // screenshot import left one) went with heap damage on the next IOS.
     NetStop();
     GcAdapterStop();
+    UsbInputStop();
     ums::Forget();
     // d2x's SD device the same way (#270): a launch that failed on one
     // cIOS slot and was retried on the next read the card through the
@@ -216,6 +218,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
 
     const s32 now = IOS_GetVersion();
     __IOS_InitializeSubsystems();
+    UsbInputIosReloaded();  // whatever IOS came up, the old one's reads are gone
     if (now != version) {
         error = "asked for IOS" + std::to_string(version) + " but IOS" + std::to_string(now) + " came up";
         return ReloadResult::Failed;

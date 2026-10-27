@@ -47,6 +47,7 @@
 #include "progress.hpp"
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "netsock.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
@@ -1953,6 +1954,8 @@ std::string release_for_reload() {
     libogc_sd_stop();
     g_sd_back = false;
     step("closing the SD card");
+    UsbInputStop();
+    step("stopping the USB keyboard, mouse and pen tablet");
     release_usb_driver();
     step("closing the USB drive");
     di::close();

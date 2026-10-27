@@ -19,6 +19,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "pad_hook.h"
+#include "pentablet.h"
 #include "riftwii/hook.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
@@ -343,12 +344,12 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
     u8 count = 0;
     dev_id = -1;
     devices.clear();
-    s32 ret = USB_GetDeviceList(list, 32, USB_CLASS_HID, &count);
+    s32 ret = USB_GetDeviceListUnfiltered(list, 32, USB_CLASS_HID, &count);
     if (ret < 0 && USB_Initialize() >= 0) {
         // libogc's USB was not started (it is on the menu's paths):
         // started now, its list comes in its first device-change reply.
         for (int i = 0; i < 30; ++i) {
-            ret = USB_GetDeviceList(list, 32, USB_CLASS_HID, &count);
+            ret = USB_GetDeviceListUnfiltered(list, 32, USB_CLASS_HID, &count);
             if (ret < 0 || count > 0) break;
             usleep(10000);
         }

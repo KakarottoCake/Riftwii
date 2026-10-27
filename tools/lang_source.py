@@ -1964,6 +1964,16 @@ T = {
         "どのポート?",
         "Qual porta?",
         "Quale porta?"),
+    "USB keyboard, mouse and tablet": (
+        "Teclado, ratón y tableta USB",
+        "USBキーボード・マウス・タブレット",
+        "Teclado, mouse e mesa digitalizadora USB",
+        "Tastiera, mouse e tavoletta USB"),
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.": (
+        "Desactivado: RiftWii no usa teclados, ratones ni tabletas USB, ni la uDraw. Desactívalo si el menú falla con uno conectado, o sin ninguno.",
+        "オフ: RiftWiiはUSBキーボード、マウス、ペンタブレット、uDrawを使いません。どれかをつないだとき、またはつないでいないときにメニューの動きがおかしければ、オフにしてください。",
+        "Desligado: o RiftWii não usa teclados, mouses nem mesas digitalizadoras USB, nem a uDraw. Desligue se o menu falhar com um conectado, ou sem nenhum.",
+        "Spento: RiftWii non usa tastiere, mouse e tavolette USB, né la uDraw. Spegnilo se il menu dà problemi con uno collegato, o senza nessuno."),
     "Wii Remote rumble": (
         "Vibración del Wii Remote",
         "Wiiリモコンの振動",
@@ -3815,6 +3825,10 @@ KO = {
         "어댑터가 어느 USB 포트에 꽂혀 있나요?",
     "Which port?":
         "어느 포트인가요?",
+    "USB keyboard, mouse and tablet":
+        "USB 키보드, 마우스, 태블릿",
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
+        "끔: RiftWii가 USB 키보드, 마우스, 펜 태블릿, uDraw를 사용하지 않습니다. 하나를 연결했을 때나 아무것도 연결하지 않았을 때 메뉴가 이상하면 끄세요.",
     "Wii Remote rumble":
         "Wii 리모컨 진동",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -5266,6 +5280,10 @@ FR = {
         "Sur quel port USB l'adaptateur est-il branché ?",
     "Which port?":
         "Quel port ?",
+    "USB keyboard, mouse and tablet":
+        "Clavier, souris et tablette USB",
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
+        "Désactivé : RiftWii n'utilise ni claviers, souris et tablettes USB, ni la uDraw. Désactivez-le si le menu se comporte mal avec l'un d'eux branché, ou sans aucun.",
     "Wii Remote rumble":
         "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":

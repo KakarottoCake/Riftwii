@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC).
+ * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC), and a USB keyboard, mouse and pen tablet (and the uDraw) on channel 1's controls.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -24,6 +24,7 @@
 #include "libwiigui/gui.h"
 #include "wiidrc.h"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "loadersettings.hpp"
 
 static void UpdatePadPointers();
@@ -106,7 +107,12 @@ void UpdatePads()
 		if (a.trigger_r > p.triggerR) p.triggerR = a.trigger_r;
 	}
 
+	// Riftwii: a USB keyboard's buttons on channel 1's pad before the
+	// pointers are sorted out, a USB mouse's and the pen tablets' pointers
+	// after, which would otherwise be hidden (wii/controllers/usbinput.hpp).
+	riftwii::wii::UsbInputBeforePointers();
 	UpdatePadPointers();
+	riftwii::wii::UsbInputAfterPointers();
 }
 
 /****************************************************************************

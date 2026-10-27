@@ -20,6 +20,7 @@
 #include "log.hpp"
 #include "usbcatalog.hpp"
 #include "padhook.hpp"
+#include "pentablet.h"
 #include "skin.hpp"
 
 namespace riftwii::wii {
@@ -168,7 +169,7 @@ void ServeShared() {
     if (g_list_wanted && g_ogc_changed) {
         g_ogc_changed = false;
         have_list = true;
-        if (USB_GetDeviceList(list, 32, USB_CLASS_HID, &count) < 0) count = 0;
+        if (USB_GetDeviceListUnfiltered(list, 32, USB_CLASS_HID, &count) < 0) count = 0;
     } else if (g_list_wanted && !g_notify_armed) {
         g_notify_armed = true;  // left set when refused: libogc has no HID list to follow
         USB_DeviceChangeNotifyAsync(USB_CLASS_HID, OnOgcChange, nullptr);

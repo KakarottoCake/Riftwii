@@ -23,6 +23,7 @@
 
 #include "boot.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -526,6 +527,8 @@ std::string DescribeControllers() {
         add(s + (any ? ")" : " empty)"));
     }
     if (WiiDRC_Inited() && WiiDRC_Connected()) add("Wii U GamePad");
+    const std::string usb = UsbInputDescribe();
+    if (!usb.empty()) add(usb);
     if (out.empty()) out = "none found";
     const PadPairings pairings = ReadPadPairings();
     return out + "; " + DescribePadPairings(pairings);
