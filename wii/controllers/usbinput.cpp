@@ -36,6 +36,7 @@ bool g_started = false;
 bool g_mouse_started = false;
 bool g_tablet_started = false;
 bool g_tablet_waiting = false;  // TB_Init refused: an earlier scan was still stuck
+bool g_keyboard_waiting = false;  // turned off and on again: the last read had not come back
 
 // What the logs said last, so each change is one line.
 bool g_said_keyboard = false, g_said_mouse = false, g_said_tablet = false;
@@ -97,10 +98,25 @@ void StartTablet() {
     g_tablet_waiting = tablet == TB_ESTATE;
 }
 
+// Starts the keyboard's thread. While the one from before USB input was
+// turned off still waits for its last read (the keyboard sends nothing
+// until a key is pressed), each frame tries again until it has ended.
+void StartKeyboard() {
+    const bool waited = g_keyboard_waiting;
+    g_keyboard_waiting = false;
+    if (UsbKeyboardStart()) {
+        logf("USB keyboard: looking for one\n");
+    } else if (UsbKeyboardDraining()) {
+        if (!waited) logf("USB keyboard: not started yet (its last read, from before it was turned off, is still waiting)\n");
+        g_keyboard_waiting = true;
+    } else {
+        logf("USB keyboard: not started (libwiikeyboard has no IPC heap, or a read is waiting in the old IOS)\n");
+    }
+}
+
 void Start() {
     g_started = true;
-    if (UsbKeyboardStart()) logf("USB keyboard: looking for one\n");
-    else logf("USB keyboard: not started (libwiikeyboard has no IPC heap, or an earlier read is still waiting)\n");
+    StartKeyboard();
     // libogc's mouse driver follows plugging in by itself.
     g_mouse_started = MOUSE_Init() >= 0;
     if (!g_mouse_started) logf("USB mouse: libogc's driver did not start\n");
@@ -339,10 +355,19 @@ void UsbInputSetEnabled(bool on) {
     TB_SetHooks(on);
 }
 
-void UsbInputStop() {
-    if (!g_started) return;
+namespace {
+
+// With an IOS reload next, a keyboard read still waiting is parked for
+// the reload; turned off in Settings, it is left to come back by itself.
+void Stop(bool ios_reload_next) {
+    g_keyboard_waiting = false;
+    if (!g_started) {
+        // Turned off earlier, its last read perhaps still out.
+        if (ios_reload_next) UsbKeyboardStop(true);
+        return;
+    }
     g_started = false;
-    const bool keyboard_closed = UsbKeyboardStop();
+    const bool keyboard_closed = UsbKeyboardStop(ios_reload_next);
     if (g_mouse_started) MOUSE_Deinit();
     g_mouse_started = false;
     if (g_tablet_started) TB_Shutdown();
@@ -357,9 +382,15 @@ void UsbInputStop() {
         g_udraw_seen[c] = false;
         g_udraw_buttons[c] = 0;
     }
-    logf("USB keyboard, mouse and pen tablet stopped%s\n",
-         keyboard_closed ? "" : " (the keyboard's read was still waiting: left to the next IOS reload)");
+    const char* keyboard_note = "";
+    if (!keyboard_closed && ios_reload_next) keyboard_note = " (the keyboard's read was still waiting: left to the IOS reload)";
+    if (!keyboard_closed && !ios_reload_next) keyboard_note = " (the keyboard's read is still waiting: it closes when a key is pressed)";
+    logf("USB keyboard, mouse and pen tablet stopped%s\n", keyboard_note);
 }
+
+}  // namespace
+
+void UsbInputStop() { Stop(true); }
 
 void UsbInputMenuEnd() {
     g_ended = true;
@@ -371,12 +402,13 @@ void UsbInputIosReloaded() { UsbKeyboardIosReloaded(); }
 void UsbInputBeforePointers() {
     // Stopped here, on the GUI thread that reads them, not where the
     // setting changed.
-    if (g_started && !g_enabled) UsbInputStop();
+    if (g_started && !g_enabled) Stop(false);
     if (!g_started && g_allowed && !g_ended && g_enabled) Start();
     g_pad_pressed = 0;
     g_pages = 0;  // a page asked for while Home was not shown is not turned later
     if (!g_started) return;
     if (g_tablet_waiting) StartTablet();
+    if (g_keyboard_waiting) StartKeyboard();
     LogChanges();
     KeyboardToPad();
 }

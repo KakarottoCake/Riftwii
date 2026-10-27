@@ -34,10 +34,15 @@ struct KeyPress {
 bool UsbKeyboardStart();
 // Stops the thread and closes the keyboard. libwiikeyboard's scan waits in
 // IOS for the keyboard's next report, which an idle keyboard may not send
-// for a while: after half a second the thread is suspended where it waits
-// and the keyboard left to the IOS reload that follows (the launch's or the
-// exit's); the keyboard is not started again until then. False then.
-bool UsbKeyboardStop();
+// for a while. After half a second, false, and:
+// - with an IOS reload next (a launch, the exit), the thread is suspended
+//   where it waits and the keyboard left to the reload; it is not started
+//   again until then (UsbKeyboardIosReloaded);
+// - otherwise (USB input turned off in Settings) the thread ends when the
+//   read comes back, and UsbKeyboardStart refuses until it has.
+bool UsbKeyboardStop(bool ios_reload_next);
+// Stopped without an IOS reload, with the last read still waiting.
+bool UsbKeyboardDraining();
 bool UsbKeyboardRunning();
 bool UsbKeyboardConnected();
 // Once per frame, on the thread that reads the keys below: what was
