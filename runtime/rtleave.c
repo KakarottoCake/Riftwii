@@ -123,6 +123,18 @@ int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, u
     return rtleave_quiet(l, now, resident_wrote, resident_last_write);
 }
 
+int rtleave_sleep_leaves(uint32_t running, uint32_t main_thread, uint32_t pad_thread, uint32_t asked, uint32_t now,
+                         uint32_t fallback) {
+    if (running == main_thread) return 1;
+    /* A thread that isn't one (no thread at the ask) never matches. */
+    if (asked == 0 || pad_thread == 0 || running != pad_thread) return 0;
+    return rtleave_elapsed(now, asked) >= fallback;
+}
+
+int rtleave_self_suspend(uint32_t thread, uint32_t running, uint32_t pad_thread) {
+    return running != 0 && thread == running && running == pad_thread;
+}
+
 int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uint32_t resident_last_write) {
     uint32_t i;
     /* A save write's command is with IOS: never quiet, however long ago it
