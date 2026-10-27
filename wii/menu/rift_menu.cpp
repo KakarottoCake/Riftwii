@@ -4553,6 +4553,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&searchBtn.button);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
+	// A cover zoomed with 1 or 2 comes up over the bar as well.
+	GuiCoverZoom coverZoom(grid);
+	w.Append(&coverZoom);
 	Toast toast;
 	w.Append(&toast);
 	mainWindow->Append(&w);

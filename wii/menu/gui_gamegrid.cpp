@@ -4,10 +4,13 @@
 #include "loadersettings.hpp"
 #include "transition.hpp"
 
+#include <ogc/lwp_watchdog.h>
+
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
+#include "boxart.hpp"
 #include "covers.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
@@ -145,6 +148,41 @@ bool HeldLetterB(GuiTrigger* t) {
 bool PressedB(GuiTrigger* t) {
     return (t->wpad && (t->wpad->btns_d & (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B))) || (t->pad.btns_d & PAD_BUTTON_B) ||
            (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B);
+}
+
+// The cover zoom (GuiGameGrid::CoverZoomed): the cover comes up this tall,
+// in the middle of the screen and inside a TV's overscan (y 64 to 416),
+// in this long each way, over Home dimmed this much.
+constexpr float kZoomHeight = 352.0f;
+constexpr float kZoomMs = 260.0f;
+constexpr int kZoomDim = 175;
+
+// What the zoom shows: the front of the game's shelf box when one is kept
+// (128 x 176, sharper made large), else its cover (80 x 112).
+struct ZoomArt {
+    const u8* data = nullptr;
+    int texW = 0, texH = 0;
+    float u0 = 0.0f, u1 = 1.0f;
+    float aspect = 1.0f;  // width over height of the part drawn
+};
+
+ZoomArt ZoomArtFor(const std::string& id) {
+    ZoomArt art;
+    if (id.empty()) return art;
+    if (const u8* box = riftwii::wii::BoxTexture(id)) {
+        art.data = box;
+        art.texW = riftwii::kBoxWidth;
+        art.texH = riftwii::kBoxHeight;
+        art.u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
+        art.u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
+        art.aspect = static_cast<float>(riftwii::kBoxFrontWidth) / riftwii::kBoxHeight;
+    } else if (const u8* cover = riftwii::wii::CoverTexture(id)) {
+        art.data = cover;
+        art.texW = riftwii::kCoverWidth;
+        art.texH = riftwii::kCoverHeight;
+        art.aspect = static_cast<float>(riftwii::kCoverWidth) / riftwii::kCoverHeight;
+    }
+    return art;
 }
 
 // A game picked up is drawn this much larger, over the others.
@@ -317,6 +355,7 @@ void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
     carryFrom = carryTo = -1;
     carryDropped = false;
     shiftPage = -1;
+    EndCoverZoom();  // its index was into the old list too
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
     page = focus / kPerPage;
     laidOut = false;
@@ -327,6 +366,7 @@ void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
 void GuiGameGrid::SetCovers(bool on) {
     if (covers == on) return;
     covers = on;
+    EndCoverZoom();
     for (Slot* set : {slots, leaving}) {
         for (int i = 0; i < kPerPage; ++i)
             for (GuiText* line : set[i].lines) line->SetFontSize(covers ? kCoverTitleSize : kTitleSize);
@@ -370,6 +410,7 @@ void GuiGameGrid::SetRing(bool on) {
 void GuiGameGrid::SetShelf(bool on) {
     if (shelf == on) return;
     shelf = on;
+    EndCoverZoom();
     poses.clear();
     spineFit.clear();
     captionFor = -1;
@@ -1385,6 +1426,7 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     // the start-up focus in the menu). So the input is counted for every call.
     if (t) acted.see(PlayerActedThisFrame(t));
     if (state == STATE::DISABLED || !t || Count() == 0) return;
+    if (CoverZoomKeys(t)) return;
     const int shoulderPage = ShoulderPage(t);
     if (t->chan >= 0 && t->chan < 4 &&
         (padPages[t->chan].chord || classicPages[t->chan].chord)) return;
@@ -1460,4 +1502,85 @@ void GuiGameGrid::Update(GuiTrigger* t) {
         clicked = focus;
         riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
     }
+}
+
+bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
+    constexpr u32 kZoomKeys = WPAD_BUTTON_1 | WPAD_BUTTON_2;
+    if (zoomItem >= 0) {
+        // Up (or on its way down): the zoom takes 1, 2, A and B from every
+        // controller, so neither a tile under it nor the bar's buttons
+        // (View on 1, Settings on 2) answer them, and the grid stays still.
+        const bool wpadKey = t->wpad && (t->wpad->btns_d & kZoomKeys);
+        if (!zoomClosing && (wpadKey || PressedA(t) || PressedB(t))) {
+            zoomClosing = true;
+            riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Back);
+        }
+        if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
+        t->pad.btns_d &= ~(PAD_BUTTON_A | PAD_BUTTON_B);
+        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);
+        return true;
+    }
+    // Only a Wii Remote pointing at a cover in the Covers view: 1 and 2
+    // stay the bar's everywhere else.
+    if (!covers || shelf || channels || carryFrom >= 0) return false;
+    if (!t->wpad || !t->wpad->ir.valid || !(t->wpad->btns_d & kZoomKeys)) return false;
+    const int slot = SlotAt(static_cast<int>(t->wpad->ir.x), static_cast<int>(t->wpad->ir.y));
+    if (slot < 0 || page * kPerPage + slot >= Count()) return false;
+    const int index = ItemAt(slot);
+    if (!ZoomArtFor((*items)[index].id).data) return false;  // a name tile: no cover to show
+    zoomItem = index;
+    zoomSlot = slot;
+    zoomClosing = false;
+    zoomShown = 0.0f;
+    zoomLastFrame = 0;
+    t->wpad->btns_d &= ~kZoomKeys;
+    riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+    return true;
+}
+
+void GuiGameGrid::DrawCoverZoom() {
+    if (zoomItem < 0) return;
+    if (!IsVisible() || zoomItem >= Count() || zoomSlot < 0) {
+        EndCoverZoom();
+        return;
+    }
+    // Paced by the clock rather than by frames, so it takes as long at
+    // 50 Hz as at 60. A frame held up (a card read) is counted as a short
+    // one, so the zoom is still seen moving instead of jumping to its end.
+    const u64 now = gettime();
+    float frameMs = zoomLastFrame ? ticks_to_microsecs(now - zoomLastFrame) / 1000.0f : 0.0f;
+    zoomLastFrame = now;
+    frameMs = std::min(frameMs, 50.0f);
+    const float step = frameMs / (kZoomMs * riftwii::wii::transition::SlowMotion());
+    zoomShown = zoomClosing ? std::max(0.0f, zoomShown - step) : std::min(1.0f, zoomShown + step);
+    if (zoomClosing && zoomShown <= 0.0f) {
+        EndCoverZoom();
+        return;
+    }
+    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id);
+    if (!art.data) {
+        EndCoverZoom();
+        return;
+    }
+    // One curve both ways, so a zoom sent back halfway up turns round
+    // where it is.
+    const float e = riftwii::wii::transition::Ease(zoomShown);
+    const int alpha = GetAlpha();
+    // From the cover as its tile draws it (lit, a little larger) to the
+    // middle of the screen.
+    const float tileScale = slots[zoomSlot].scale * CoverScale();
+    const float fromH = riftwii::kCoverHeight * tileScale;
+    const float fromW = riftwii::kCoverWidth * tileScale;
+    const float fromCx = TileX(zoomSlot) + Geo().tileW / 2.0f, fromCy = TileY(zoomSlot) + Geo().tileH / 2.0f;
+    const float toH = kZoomHeight, toW = kZoomHeight * art.aspect;
+    const float w = fromW + (toW - fromW) * e, h = fromH + (toH - fromH) * e;
+    const float cx = fromCx + (320.0f - fromCx) * e, cy = fromCy + (240.0f - fromCy) * e;
+    const float x = cx - w / 2.0f, y = cy - h / 2.0f;
+    Menu_FillWholeScreen((GXColor){0, 0, 0, static_cast<u8>(kZoomDim * e * alpha / 255)});
+    // A soft shadow under it, as if lifted off the screen, growing with it.
+    const float m = riftwii::kShadowMargin;
+    const float drop = 8.0f * e;
+    skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + drop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner,
+                   static_cast<int>(alpha * e));
+    skin::DrawRgb5a3Part(art.data, art.texW, art.texH, art.u0, art.u1, x, y, w, h, alpha);
 }

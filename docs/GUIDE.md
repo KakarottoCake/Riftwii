@@ -73,6 +73,9 @@ or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
 press 1 (the view button), or search with nothing typed, to go back to
 the view.
+In the Covers view, point at a game's cover and press **1** or **2** to
+see the cover up close; press 1, 2, A or B to put it back. Pointing at
+anything else, 1 and 2 stay the view and settings buttons.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
