@@ -69,37 +69,39 @@ CoverFetch FetchNow(const std::string& game_id, std::string& error) {
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kDir, 0777);
-    for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
-        std::vector<std::uint8_t> png;
-        std::string why;
-        if (!HttpGet(cover3d_url(region, game_id), png, why, kMaxPng, 15000)) {
-            // A refusal means none in this region (the covers' rule,
-            // riftwii/coverart.hpp); anything else is no answer at all.
-            if (cover_answer_means_missing(http_answered_status(why))) continue;
-            error = why;
-            return CoverFetch::NoAnswer;
+    for (const std::string& art_id : gametdb_art_ids(game_id)) {
+        for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
+            std::vector<std::uint8_t> png;
+            std::string why;
+            if (!HttpGet(cover3d_url(region, art_id), png, why, kMaxPng, 15000)) {
+                // A refusal means none in this region (the covers' rule,
+                // riftwii/coverart.hpp); anything else is no answer at all.
+                if (cover_answer_means_missing(http_answered_status(why))) continue;
+                error = why;
+                return CoverFetch::NoAnswer;
+            }
+            std::vector<std::uint8_t> rgba;
+            int w = 0, h = 0;
+            if (!DecodePngRgba(png, rgba, w, h, why)) {
+                // No room is not "no cover": RunBackgroundFetch says so, and
+                // no miss is noted.
+                if (took_out_of_memory()) return CoverFetch::NotFound;
+                logf("3D covers: GameTDB's %s 3D cover of %s: %s\n", region.c_str(), game_id.c_str(), why.c_str());
+                continue;
+            }
+            const std::vector<std::uint8_t> file = make_cover3d_file(rgba.data(), w, h);
+            if (file.empty()) {
+                logf("3D covers: GameTDB's %s 3D cover of %s is an unusable %dx%d\n", region.c_str(), game_id.c_str(), w, h);
+                continue;
+            }
+            if (!WriteAll(StorePath(game_id), file)) {
+                error = "cannot write " + StorePath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            std::remove(MissPath(game_id).c_str());
+            logf("3D covers: %s stored (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
+            return CoverFetch::Stored;
         }
-        std::vector<std::uint8_t> rgba;
-        int w = 0, h = 0;
-        if (!DecodePngRgba(png, rgba, w, h, why)) {
-            // No room is not "no cover": RunBackgroundFetch says so, and
-            // no miss is noted.
-            if (took_out_of_memory()) return CoverFetch::NotFound;
-            logf("3D covers: GameTDB's %s 3D cover of %s: %s\n", region.c_str(), game_id.c_str(), why.c_str());
-            continue;
-        }
-        const std::vector<std::uint8_t> file = make_cover3d_file(rgba.data(), w, h);
-        if (file.empty()) {
-            logf("3D covers: GameTDB's %s 3D cover of %s is an unusable %dx%d\n", region.c_str(), game_id.c_str(), w, h);
-            continue;
-        }
-        if (!WriteAll(StorePath(game_id), file)) {
-            error = "cannot write " + StorePath(game_id) + " (card full?)";
-            return CoverFetch::Failed;
-        }
-        std::remove(MissPath(game_id).c_str());
-        logf("3D covers: %s stored (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
-        return CoverFetch::Stored;
     }
     WriteAll(MissPath(game_id), {});
     logf("3D covers: GameTDB has no 3D cover of %s\n", game_id.c_str());

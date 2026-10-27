@@ -1532,6 +1532,15 @@ void TestCoverArt() {
     EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
     EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once
     EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    // WiiWare and Virtual Console art is under the four-letter code, a
+    // disc's under its six characters; a GameCube disc that looks like a
+    // channel ("PZLE01") still gets its own ID after the code.
+    EXPECT_TRUE(gametdb_art_ids("RMCE01") == (std::vector<std::string>{"RMCE01"}));
+    EXPECT_TRUE(gametdb_art_ids("NAAE01") == (std::vector<std::string>{"NAAE", "NAAE01"}));
+    EXPECT_TRUE(gametdb_art_ids("WGOE01") == (std::vector<std::string>{"WGOE", "WGOE01"}));
+    EXPECT_TRUE(gametdb_art_ids("FAAE01") == (std::vector<std::string>{"FAAE", "FAAE01"}));
+    EXPECT_TRUE(gametdb_art_ids("PZLE01") == (std::vector<std::string>{"PZLE", "PZLE01"}));
+    EXPECT_TRUE(gametdb_art_ids("HAAA01") == (std::vector<std::string>{"HAAA01"}));
 
     // 2x2 averages to 1x1; 1 pixel spreads to 3x3.
     const std::uint8_t four[16] = {0, 0, 0, 255, 100, 100, 100, 255, 200, 200, 200, 255, 100, 100, 100, 255};
