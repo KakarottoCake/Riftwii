@@ -156,7 +156,8 @@ bool parse_wiitdb_homebrew(const std::string& block, HomebrewTitle& out) {
     pugi::xml_document doc;
     if (!doc.load_buffer(block.data(), block.size())) return false;
     const pugi::xml_node game = doc.child("game");
-    if (!game || std::string(game.child_value("type")) != "Homebrew") return false;
+    // Spaces around the type's text ("<type> Homebrew </type>") are let through.
+    if (!game || clean_name(game.child_value("type")) != "Homebrew") return false;
     HomebrewTitle title;
     title.id = clean_name(game.child_value("id"));
     if (!is_homebrew_id(title.id)) return false;
@@ -314,6 +315,19 @@ bool parse_homebrew_titles(const std::string& text, std::vector<HomebrewTitle>& 
         if (!title.names.empty()) out.push_back(std::move(title));
     }
     return !out.empty();
+}
+
+bool homebrew_titles_usable(const std::string& text) {
+    std::vector<HomebrewTitle> titles;
+    if (parse_homebrew_titles(text, titles)) return true;
+    // Nothing parsed: only the empty list's header and blank lines may be left.
+    LineReader lines(text);
+    std::string line;
+    while (lines.next(line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty() && line[0] != '#') return false;
+    }
+    return true;
 }
 
 }  // namespace riftwii

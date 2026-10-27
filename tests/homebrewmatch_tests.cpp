@@ -131,6 +131,29 @@ void test_wiitdb_blocks() {
         "\t<locale lang=\"EN\">\n\t\t<title>WiiMC</title>\n\t</locale>\n</game>\n</datafile>\n";
     spaced.feed(spaced_xml.data(), spaced_xml.size());
     expect(spaced.homebrew().size() == 1 && spaced.homebrew()[0].id == "DMCA", "a type tag with spaces is kept");
+    // So are spaces and line breaks around the word itself.
+    riftwii::WiitdbScanner padded({}, "EN");
+    const std::string padded_xml =
+        "<datafile>\n<game name=\"WiiMC\">\n\t<id>DMCA</id>\n\t<type> Homebrew\n\t</type>\n"
+        "\t<locale lang=\"EN\">\n\t\t<title>WiiMC</title>\n\t</locale>\n</game>\n</datafile>\n";
+    padded.feed(padded_xml.data(), padded_xml.size());
+    expect(padded.homebrew().size() == 1 && padded.homebrew()[0].id == "DMCA", "spaces around Homebrew are kept");
+    // A game that only mentions homebrew in its title is not one.
+    HomebrewTitle not_one;
+    expect(!riftwii::parse_wiitdb_homebrew(
+               "<game name=\"Homebrew Hero\"><id>RHHE01</id><type></type><locale lang=\"EN\"><title>Homebrew Hero</title>"
+               "</locale></game>",
+               not_one),
+           "a title with Homebrew in it is not a homebrew app");
+}
+
+void test_usable_index() {
+    expect(riftwii::homebrew_titles_usable("9XGX\tSNES9xGX\n"), "a list with an app is usable");
+    expect(riftwii::homebrew_titles_usable("# RiftWii's homebrew list\n"), "the empty list's header is usable");
+    expect(riftwii::homebrew_titles_usable(""), "an empty text is the empty list");
+    expect(riftwii::homebrew_titles_usable("# header\r\n\r\n"), "blank lines with CR are still the empty list");
+    expect(!riftwii::homebrew_titles_usable("# header\nnot a list line\n"), "a line that is not an app is damage");
+    expect(!riftwii::homebrew_titles_usable(std::string(64, '\x01')), "binary junk is damage");
 }
 
 void test_index_file() {
@@ -178,5 +201,6 @@ int main() {
     test_matcher();
     test_wiitdb_blocks();
     test_index_file();
+    test_usable_index();
     return failures == 0 ? 0 : 1;
 }

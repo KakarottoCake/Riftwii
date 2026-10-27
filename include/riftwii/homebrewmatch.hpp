@@ -93,5 +93,9 @@ private:
 // when there was no room for it.
 bool serialize_homebrew_titles(const std::vector<HomebrewTitle>& titles, std::string& out);
 bool parse_homebrew_titles(const std::string& text, std::vector<HomebrewTitle>& out);
+// Whether the index's text is one this RiftWii wrote: it parses, or it is
+// the empty list (comments and blank lines only, written for a database
+// without homebrew). A damaged one is made again, however new it is.
+bool homebrew_titles_usable(const std::string& text);
 
 }  // namespace riftwii

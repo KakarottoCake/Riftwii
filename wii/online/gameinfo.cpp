@@ -42,6 +42,10 @@ bool g_homebrew_read_now = false;
 unsigned g_homebrew_failed = 0;
 constexpr unsigned kMaxHomebrewTries = 3;
 unsigned g_homebrew_written = 0;
+// The list file last found usable, by its size and time, so it is read
+// to check once and not on every visit to the Homebrew view.
+off_t g_homebrew_checked_size = -1;
+std::time_t g_homebrew_checked_time = 0;
 
 std::string CachePath(const std::string& lang) { return "sd:/riftwii/gameinfo-" + lang + ".txt"; }
 std::string ZipPath(const std::string& lang) { return "sd:/riftwii/wiitdb-" + lang + ".zip"; }
@@ -284,18 +288,25 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     return true;
 }
 
-bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
-    out.clear();
-    struct stat st;
-    if (!Stat(kHomebrewTitlesPath, st) || static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return false;
+// The list file's text, when it is within the size budget and there is
+// room for it.
+static bool ReadHomebrewTitlesFile(const struct stat& st, std::string& text) {
+    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return false;
     // Its size comes from the card: a checked allocation.
-    std::string text;
     if (!try_resize(text, static_cast<std::size_t>(st.st_size))) return false;
     FILE* f = std::fopen(kHomebrewTitlesPath, "rb");
     if (!f) return false;
     const std::size_t got = std::fread(&text[0], 1, text.size(), f);
     std::fclose(f);
     text.resize(got);
+    return true;
+}
+
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
+    out.clear();
+    struct stat st;
+    std::string text;
+    if (!Stat(kHomebrewTitlesPath, st) || !ReadHomebrewTitlesFile(st, text)) return false;
     return parse_homebrew_titles(text, out);
 }
 
@@ -311,7 +322,19 @@ bool HomebrewTitlesNeedReading() {
     // A list too big to load (an older RiftWii's, or a damaged one) is
     // made again, however new it is.
     if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return true;
-    return source_time > st.st_mtime;
+    if (source_time > st.st_mtime) return true;
+    // So is one that is new enough but damaged: it would never load, and
+    // its time would keep it from being made again.
+    if (st.st_size == g_homebrew_checked_size && st.st_mtime == g_homebrew_checked_time) return false;
+    std::string text;
+    if (!ReadHomebrewTitlesFile(st, text)) return false;  // no room to check now: as before
+    if (!homebrew_titles_usable(text)) {
+        logf("Homebrew: %s is damaged; it is made again from the game database\n", kHomebrewTitlesPath);
+        return true;
+    }
+    g_homebrew_checked_size = st.st_size;
+    g_homebrew_checked_time = st.st_mtime;
+    return false;
 }
 
 void ForgetHomebrewTitlesRead() {

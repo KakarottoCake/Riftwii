@@ -130,6 +130,15 @@ void TestStoredTruncationPreservesCache() {
     const std::string oversized(riftwii::kMaxHomebrewTitlesBytes + 1, 'x');
     Write(kHomebrewPath, oversized.data(), oversized.size());
     CHECK(HomebrewTitlesNeedReading());
+    // So is one within the budget and new enough, but damaged.
+    const std::string damaged = "# RiftWii's homebrew list\nnot an app line\n";
+    Write(kHomebrewPath, damaged.data(), damaged.size());
+    CHECK(HomebrewTitlesNeedReading());
+    // An intact one is not, checked once and then remembered.
+    const std::string intact_list = "# RiftWii's homebrew list\n9XGX\tSNES9xGX\n";
+    Write(kHomebrewPath, intact_list.data(), intact_list.size());
+    CHECK(!HomebrewTitlesNeedReading());
+    CHECK(!HomebrewTitlesNeedReading());
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
