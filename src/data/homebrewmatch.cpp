@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/textlines.hpp"
 
 #include "pugixml.hpp"
@@ -277,18 +278,25 @@ std::string HomebrewMatcher::match(const std::string& meta_name, const std::stri
     return best(folder_name, folder_key, kFolderLikeness);
 }
 
-std::string serialize_homebrew_titles(const std::vector<HomebrewTitle>& titles) {
-    std::string out = "# GameTDB's homebrew apps, made by RiftWii from wiitdb.xml\n";
+bool serialize_homebrew_titles(const std::vector<HomebrewTitle>& titles, std::string& out) {
+    out.clear();
+    static const char kHeader[] = "# GameTDB's homebrew apps, made by RiftWii from wiitdb.xml\n";
+    if (!try_append(out, kHeader, sizeof(kHeader) - 1)) return false;
     std::size_t written = 0;
+    std::string line;
     for (const HomebrewTitle& title : titles) {
         if (written >= kMaxHomebrewTitles) break;
         if (!is_homebrew_id(title.id) || title.names.empty()) continue;
-        out += title.id;
-        for (std::size_t i = 0; i < title.names.size() && i < kMaxHomebrewNames; ++i) out += "\t" + clean_name(title.names[i]);
-        out += "\n";
+        line = title.id;
+        for (std::size_t i = 0; i < title.names.size() && i < kMaxHomebrewNames; ++i) line += "\t" + clean_name(title.names[i]);
+        line += "\n";
+        // A file the reader would refuse is not written: the entries past
+        // the budget are left out.
+        if (out.size() + line.size() > kMaxHomebrewTitlesBytes) break;
+        if (!try_append(out, line.data(), line.size())) return false;
         ++written;
     }
-    return out;
+    return true;
 }
 
 bool parse_homebrew_titles(const std::string& text, std::vector<HomebrewTitle>& out) {

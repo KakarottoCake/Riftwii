@@ -128,7 +128,8 @@ void test_wiitdb_blocks() {
 
 void test_index_file() {
     const std::vector<HomebrewTitle> titles = catalogue();
-    const std::string text = riftwii::serialize_homebrew_titles(titles);
+    std::string text;
+    expect(riftwii::serialize_homebrew_titles(titles, text), "the index is written");
     std::vector<HomebrewTitle> back;
     expect(riftwii::parse_homebrew_titles(text, back), "the index reads back");
     expect(back.size() == titles.size() && back[2].id == "DULA" && back[2].names[0] == "USB Loader GX", "every entry, in order");
@@ -143,6 +144,23 @@ void test_index_file() {
     expect(back.size() == 1 && back[0].names.size() == riftwii::kMaxHomebrewNames &&
                back[0].names[0].size() == riftwii::kMaxHomebrewNameBytes,
            "names an entry and bytes a name are bounded");
+    // Every bound at once is more than the reader takes: the writer stops
+    // at the same budget, so what it writes always reads back.
+    std::vector<HomebrewTitle> largest;
+    for (std::size_t i = 0; i < riftwii::kMaxHomebrewTitles; ++i) {
+        HomebrewTitle title;
+        title.id = std::string(1, static_cast<char>('A' + i / 26 / 26 % 26)) + static_cast<char>('A' + i / 26 % 26) +
+                   static_cast<char>('A' + i % 26) + "A";
+        for (std::size_t n = 0; n < riftwii::kMaxHomebrewNames; ++n)
+            title.names.push_back(std::string(riftwii::kMaxHomebrewNameBytes - 1, 'a') + static_cast<char>('a' + n));
+        largest.push_back(std::move(title));
+    }
+    std::string big;
+    expect(riftwii::serialize_homebrew_titles(largest, big), "the largest index is written");
+    expect(big.size() <= riftwii::kMaxHomebrewTitlesBytes, "within the reader's budget");
+    expect(riftwii::parse_homebrew_titles(big, back) && back.size() > 1000 && back.size() < largest.size() &&
+               back.back().id == largest[back.size() - 1].id,
+           "the entries past the budget are left out, the rest read back in order");
 }
 
 }  // namespace

@@ -28,6 +28,10 @@ struct HomebrewTitle {
 constexpr std::size_t kMaxHomebrewTitles = 2048;
 constexpr std::size_t kMaxHomebrewNames = 4;
 constexpr std::size_t kMaxHomebrewNameBytes = 96;
+// The most the index file below may hold, written and read alike. About
+// 700 apps made 18 KB (2026); every bound above at once would be about
+// 800 KB, so the writer leaves out the entries that go past it.
+constexpr std::size_t kMaxHomebrewTitlesBytes = 512u << 10;
 
 // Reads one wiitdb.xml <game> block; false when it is not a homebrew app
 // with a usable ID and at least one name.
@@ -84,8 +88,10 @@ private:
 // The index of GameTDB's homebrew kept on the card
 // (sd:/riftwii/homebrew-titles.txt): one line an app, its ID and its
 // names separated by tabs. Reading it back is as careful as reading the
-// database.
-std::string serialize_homebrew_titles(const std::vector<HomebrewTitle>& titles);
+// database. Serializing stops at kMaxHomebrewTitlesBytes (the entries
+// after that are left out) and its string is a checked allocation: false
+// when there was no room for it.
+bool serialize_homebrew_titles(const std::vector<HomebrewTitle>& titles, std::string& out);
 bool parse_homebrew_titles(const std::string& text, std::vector<HomebrewTitle>& out);
 
 }  // namespace riftwii
