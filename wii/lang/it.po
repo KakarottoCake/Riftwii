@@ -1065,6 +1065,18 @@ msgstr "Unità della Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: un'unità della Wii U (RiftWii non la usa)"
 
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: l'unità di Dragon Quest X"
+
+msgid "Encrypted drive"
+msgstr "Unità cifrata"
+
+msgid "USB: an encrypted drive, maybe Dragon Quest X's (left alone)"
+msgstr "USB: un'unità cifrata, forse quella di Dragon Quest X (RiftWii non la usa)"
+
+msgid "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."
+msgstr "L'unità USB collegata è cifrata: può essere quella di Dragon Quest X o quella di una Wii U. RiftWii non può leggerla senza la chiave WFS di questa Wii (sd:/riftwii/wfskey.bin), quindi non la usa. Se contiene Dragon Quest X, lasciala così com'è: il gioco si avvia dai canali della Wii."
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "I giochi di quell'unità non sono elencati. Controlla l'unità su un computer; i dettagli sono in sd:/riftwii/session.log."
 

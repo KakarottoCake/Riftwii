@@ -28,6 +28,7 @@
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "wfsdrive.hpp"
 #include "menuios.hpp"
 #include "netsock.hpp"
 #include "riftwii/apply.hpp"
@@ -343,7 +344,26 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
                     ok = games = true;
                     what = "a WBFS drive";
                 } else if (bytes == 512 && classify_drive_block0(b) == DriveBlock0::WiiU) {
-                    what = "a Wii U's own drive (encrypted; left alone)";
+                    // Encrypted: a Wii U's own drive, or this Wii's WFS drive
+                    // (Dragon Quest X's), which only this Wii's key opens.
+                    const u8 l = static_cast<u8>(lun);
+                    const BlockReader read = [&h, l](std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
+                        while (count > 0) {
+                            const u32 n = std::min<u32>(count, kPickedBounce / 512);
+                            if (sector > 0xFFFFFFFFull ||
+                                USBStorage_Read(&h, l, static_cast<u32>(sector), static_cast<u16>(n), g_picked.bounce) < 0)
+                                return false;
+                            std::memcpy(out, g_picked.bounce, n * 512);
+                            out += n * 512;
+                            sector += n;
+                            count -= n;
+                        }
+                        return true;
+                    };
+                    char which[48];
+                    std::snprintf(which, sizeof which, "drive %04x:%04x LUN %d", d.vid, d.pid, static_cast<int>(lun));
+                    what = ProbeWfsDrive(read, sectors, which) ? "this Wii's WFS drive (Dragon Quest X's; its game is not read from here)"
+                                                               : "a Wii U's own drive (encrypted; left alone)";
                     saw_wiiu = true;
                 }
             }
@@ -460,6 +480,7 @@ bool open_usb_raw_disc(std::string& error) {
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc || g_usb_wbfs)) return true;
     g_usb_wiiu_drive = false;
+    ForgetWfsDrive();
     // libogc's storage driver and d2x each pick one drive, not always the
     // same one when two are plugged in (a Wii U's own drive and the games'),
     // so with more than one RiftWii picks the drive it can read itself.
@@ -554,9 +575,18 @@ bool ensure_usb(std::string& error) {
             unmount_usb_games();
             return false;
         }
-        // A Wii U's own drive: named as such, and left alone.
+        // A Wii U's own drive: named as such, and left alone. Or this
+        // Wii's WFS drive (Dragon Quest X's), which looks the same until
+        // this Wii's key opens it; its size is worked out from the drive.
         static std::uint8_t block0[512] ATTRIBUTE_ALIGN(32);
         if (usb_read(0, 1, block0) && classify_drive_block0(block0) == DriveBlock0::WiiU) {
+            if (ProbeWfsDrive(&usb_read, 0, "the USB drive")) {
+                logf("USB: the drive is this Wii's WFS drive (Dragon Quest X's); it holds no Wii game images\n");
+                g_usb_wiiu_drive = true;
+                error = kWiiUDriveError;
+                unmount_usb_games();
+                return false;
+            }
             logf("USB: %s\n", kWiiUDriveError);
             g_usb_wiiu_drive = true;
             error = kWiiUDriveError;

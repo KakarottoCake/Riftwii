@@ -38,6 +38,9 @@ struct DiscProbe {
     // The disc's region setting (disc offset 0x4E000): 0 Japan, 1 USA,
     // 2 Europe, 4 Korea; -1 when it could not be read.
     std::int32_t disc_region = -1;
+    // Dragon Quest X's disc (riftwii/wfstitle.hpp): its game partition is
+    // a launcher that installs the game onto the WFS USB drive with IOS59.
+    bool wfs_install_disc = false;
 };
 
 // The card log (riftwii/cardlog.hpp): created blank before a game with

@@ -303,6 +303,17 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool
         NandChannel channel;
         channel.title_id = titles[i];
         channel.kind = classify_channel(channel.title_id);
+        // Dragon Quest X's boot program is a disc channel (00010004) the
+        // Wii keeps; the game it starts is on the WFS USB drive.
+        if (channel.kind.kind == ChannelKind::None && static_cast<u32>(channel.title_id >> 32) == kDiscChannels) {
+            std::string ignored;
+            if (read_stored_tmd(channel.title_id, channel.tmd, ignored) &&
+                is_wfs_game(channel.title_id, channel.tmd.title_type)) {
+                channel.kind.kind = ChannelKind::Wfs;
+                logf("Wii channels: %s is a WFS title (Dragon Quest X): its game is on the WFS USB drive\n",
+                     channel_code(channel.title_id).c_str());
+            }
+        }
         channel.non_game = channel.kind.kind == ChannelKind::None && include_non_games &&
                            is_nintendo_channel(channel.title_id);
         if (channel.kind.kind == ChannelKind::None && !channel.non_game) {
@@ -314,7 +325,8 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool
         // WWND), and custom injects take made-up ones GameTDB does not list.
         // A code its list lacks is judged below from the title itself.
         // A code with no Shop letter (a custom inject's) is always judged,
-        const bool not_in_list = !channel.non_game &&
+        // A WFS title is Nintendo's own, whatever the list says.
+        const bool not_in_list = !channel.non_game && channel.kind.kind != ChannelKind::Wfs &&
                                  (channel.kind.kind == ChannelKind::Other ||
                                   (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty()));
         std::string why;
@@ -832,11 +844,13 @@ std::uint64_t g_channel_to_start = 0;
 std::string g_channel_nand;
 int g_channel_ios = 0;
 bool g_channel_direct = false;
+bool g_channel_wfs = false;
 }  // namespace
 
 void SetChannelToStart(const NandChannel& channel) {
     g_channel_to_start = channel.title_id;
     g_channel_nand = channel.emu_nand;
+    g_channel_wfs = channel.kind.kind == ChannelKind::Wfs;
 }
 std::uint64_t ChannelToStart() { return g_channel_to_start; }
 const std::string& ChannelToStartNand() { return g_channel_nand; }
@@ -845,6 +859,7 @@ void SetChannelToStartIos(int ios) { g_channel_ios = ios; }
 int ChannelToStartIos() { return g_channel_ios; }
 void SetChannelToStartDirect(bool direct) { g_channel_direct = direct; }
 bool ChannelToStartDirect() { return g_channel_direct; }
+bool ChannelToStartWfs() { return g_channel_wfs; }
 
 std::string nand_channel_name(const NandChannel& channel, int language) {
     // GameTDB's name first, as for disc games: it is in the menu's language.

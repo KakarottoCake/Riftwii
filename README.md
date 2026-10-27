@@ -131,6 +131,9 @@ contains theirs names them in its file header, and
 - **wad2bin** and **Yet Another BlueDump Mod** by DarkMatterCore (GPL-3.0):
   the layout of the content.bin the Wii Menu writes when it moves a
   channel to the SD card, which RiftWii reads to start such a game.
+- **wfslib** and **wfs-tools** by koolkdev (MIT), with **Dolphin**'s IOS59
+  WFS devices: the WFS drive format Dragon Quest X installs to, which
+  RiftWii reads to find the game (its own reader; commits in NOTICE.md).
 - **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by

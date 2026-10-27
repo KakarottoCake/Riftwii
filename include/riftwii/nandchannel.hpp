@@ -28,12 +28,16 @@ namespace riftwii {
 constexpr std::uint32_t kDownloadedChannels = 0x00010001;
 constexpr std::uint32_t kSystemChannels = 0x00010002;
 constexpr std::uint32_t kHiddenChannels = 0x00010008;
+// Titles a disc installs: Dragon Quest X's launcher among them
+// (riftwii/wfstitle.hpp).
+constexpr std::uint32_t kDiscChannels = 0x00010004;
 
 enum class ChannelKind {
     None,           // not a game: a Nintendo channel, a homebrew channel, RiftWii's own
     WiiWare,
     VirtualConsole,
     Other,          // a custom inject or hand-made channel whose code starts with none of the letters above
+    Wfs,            // Dragon Quest X: its boot program on the Wii, its game on a WFS USB drive (is_wfs_game)
 };
 
 // The first letter of Nintendo's own channels' codes (HAA Photo, HAB Shop,
@@ -71,6 +75,12 @@ std::string channel_left_out_reason(std::uint64_t title_id);
 bool is_homebrew_code(const std::string& code);
 
 bool is_nintendo_channel(std::uint64_t title_id);
+
+// Whether a title is a game whose program IOS59 serves from a WFS USB
+// drive (Dragon Quest X; riftwii/wfstitle.hpp): one a disc installed
+// (00010004) whose TMD has the WFS title type. classify_channel leaves
+// those titles out; the listing reads their TMD and asks this.
+bool is_wfs_game(std::uint64_t title_id, std::uint32_t title_type);
 
 // A forwarder channel's program is a few tens of KB; an inject's holds an
 // emulator and a game, megabytes. Programs above this are never forwarders,
@@ -115,6 +125,7 @@ struct TmdContents {
     std::uint64_t title_id = 0;
     std::uint32_t required_ios = 0;  // 0 when the TMD names no IOS
     std::uint16_t boot_index = 0;    // the content the system starts
+    std::uint32_t title_type = 0;    // 0x20: a WFS title (riftwii/wfstitle.hpp)
     // The two-letter maker code (the TMD's group ID, "01" for Nintendo),
     // empty when its bytes are not letters or digits.
     std::string maker;
