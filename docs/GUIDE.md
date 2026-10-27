@@ -314,7 +314,7 @@ the tiles.
   read copies the font to `sd:/riftwii/fontcache/`, and later starts read
   that copy (quicker, and it needs no hardware access or cIOS). Delete
   the folder to read it from the Wii again.
-- **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
+- **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is

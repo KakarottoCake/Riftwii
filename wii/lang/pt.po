@@ -888,17 +888,20 @@ msgstr "Baixo"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo."
 
-msgid "Wii Menu button"
-msgstr "Botão Menu Wii"
+msgid "Quitting a game"
+msgstr "Ao sair do jogo"
 
 msgid "Back to RiftWii"
 msgstr "Voltar ao RiftWii"
 
-msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
-msgstr "O botão Menu Wii do menu HOME de um jogo leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado."
+msgid "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "Sair do jogo com o botão Menu Wii do menu HOME leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado."
 
-msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
-msgstr "O botão Menu Wii do menu HOME de um jogo pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações)."
+msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "Sair do jogo com o botão Menu Wii do menu HOME pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações)."
+
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "Sair do jogo com o botão Menu Wii do menu HOME leva você ao Menu Wii."
 
 msgid "Menu music"
 msgstr "Música do menu"
@@ -2604,8 +2607,8 @@ msgstr "{1} alterados"
 msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
 msgstr "Como os jogos aparecem na TV: largura da imagem, filtro de cintilação, bordas pretas, modo de vídeo e proporção."
 
-msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
-msgstr "O idioma informado aos jogos, o cIOS em que rodam, para onde leva o botão Menu Wii e as capturas no jogo."
+msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
+msgstr "O idioma informado aos jogos, o cIOS em que rodam, para onde você vai ao sair do jogo e as capturas no jogo."
 
 msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
 msgstr "O adaptador de controles do GameCube para Wii U, e a vibração dos controles do GameCube e dos Wii Remotes."
@@ -3141,8 +3144,8 @@ msgstr "Ao sair, o app volta ao RiftWii."
 msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
 msgstr "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii."
 
-msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
-msgstr "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii."
+msgid "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."
+msgstr "Ao sair, o app vai para o Menu Wii, porque Ao sair do jogo está em Menu Wii."
 
 msgid "1: all apps"
 msgstr "1: todos os apps"
