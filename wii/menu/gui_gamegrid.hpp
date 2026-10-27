@@ -212,9 +212,6 @@ private:
     int ShoulderPage(GuiTrigger* t);
     int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
-    // This hold of B (or L) was another control's (LettersDone, such as
-    // closing a cover's zoom): no letter jump or page turn until it is let go.
-    bool letterTaken[4] = {};
     int SlotAt(int x, int y) const;
     // Moving a game (SetMovable). carryFrom is its index in the list,
     // carryTo the place it would land; the tiles between them shift by one.

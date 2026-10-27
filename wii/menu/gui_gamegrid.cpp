@@ -1186,7 +1186,6 @@ void GuiGameGrid::LettersDone(GuiTrigger* t) {
     if (ch < 0 || ch > 3) return;
     letterHeld[ch] = true;
     letterUsed[ch] = true;
-    letterTaken[ch] = true;
     letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
 }
 
@@ -1215,7 +1214,6 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
         if (letterHeld[ch] && !letterUsed[ch] && !letterPadHeld[ch]) go(LetterTarget(1));
         letterHeld[ch] = false;
         letterPadHeld[ch] = false;
-        letterTaken[ch] = false;
         return false;
     }
     if (!letterHeld[ch]) {
@@ -1229,10 +1227,6 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
         letterUsed[ch] = true;
         return true;
     }
-    // Still the hold that closed a cover's zoom (or did another control's
-    // job): the D-pad waits for B to be let go. Not letterUsed, which is
-    // also set by a first jump, after which more jumps follow.
-    if (letterTaken[ch]) return true;
     if (t->Right() || t->Left()) {
         go(LetterTarget(t->Right() ? 1 : -1));
         letterUsed[ch] = true;
