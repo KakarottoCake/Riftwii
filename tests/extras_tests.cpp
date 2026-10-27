@@ -2280,6 +2280,15 @@ void TestReturnPlans() {
     }
     EXPECT_EQ(plan_return_stub(16, true, false).address, 0u);
 
+    // A channel's cheats may fill the ordinary area when return is off.
+    // Enabling its low-memory stub reserves exactly the last 32 bytes.
+    const std::size_t full_gct_bytes = kCodeListEnd - kCodeListAddress;
+    const ReturnStubPlan channel_return_off = plan_return_stub(arena1_top, false, true);
+    const ReturnStubPlan channel_return_on = plan_return_stub(arena1_top, true, true);
+    EXPECT_EQ(full_gct_bytes, channel_return_off.code_list_end - kCodeListAddress);
+    EXPECT_TRUE(full_gct_bytes > channel_return_on.code_list_end - kCodeListAddress);
+    EXPECT_EQ(full_gct_bytes - kReturnStubBytes, channel_return_on.code_list_end - kCodeListAddress);
+
     constexpr std::uint64_t channel = 0x0001000155465457ull;
     constexpr std::uint64_t legacy_channel = 0x0001000152465457ull;
     constexpr std::uint64_t hbc = 0x000100014C554C5Aull;

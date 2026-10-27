@@ -2378,7 +2378,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const std::uint32_t arena1_top = extras.arena1_hi(below_extras);
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
-    const u64 return_to = gx_protected || plain_code_build ? 0 : return_title();
+    const bool return_disabled = debug_off("returnto");
+    const u64 return_to = gx_protected || plain_code_build || return_disabled ? 0 : return_title();
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, code_build || clears_mem1_top);
     const std::uint32_t return_stub = return_plan.address;
@@ -2635,7 +2636,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
     bool returns_to_channel = false;
-    if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
+    if (return_disabled) logf("Return to: debug_off: the game is not patched\n");
     else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
     // The game's own Reset leaves through its OSReturnToMenu once that goes
     // to the channel the request is for (rt_reset_on_os_restart).
@@ -3715,6 +3716,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
     }
     apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
+    // Channels use the low-memory stub. Leave the full cheat area available
+    // when the return setting or debug switch leaves that stub unused.
+    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+    const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
     if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
         logf("Codes are off: %s\n", codes_refused.c_str());
@@ -3722,7 +3727,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end)) {
+            logf("Codes are off: %s\n", why.c_str());
+        }
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
@@ -3730,8 +3737,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
-    const u64 return_to = debug_off("returnto") ? 0 : return_title();
-    apply_return_to(loaded, return_to, kCodeReturnStub);
+    apply_return_to(loaded, return_to, return_plan.address);
     install_wpad_log_last(extras);
 
     ProgressStage("Starting the game", 100);
