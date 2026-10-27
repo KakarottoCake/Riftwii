@@ -3287,3 +3287,15 @@ msgstr "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id 
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다."
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "게임 패키지입니다. A로 크게 보고, 아래로 뒷면을 볼 수 있습니다."
+
+msgid "There is no box art for this game yet."
+msgstr "이 게임의 패키지 이미지가 아직 없습니다."
+
+msgid "Back of the box"
+msgstr "뒷면"
+
+msgid "Front of the box"
+msgstr "앞면"

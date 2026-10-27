@@ -178,6 +178,7 @@ void GuiTiles::Draw() {
         l += ((i == lit ? 1.0f : 0.0f) - l) * 0.3f;
         if (l < 0.01f) l = 0.0f;
         if (l > 0.99f) l = 1.0f;
+        if (s.hidden) continue;
         // Lit, the tile grows a little about its middle and its ring fades in.
         const float grow = 1.0f + kLiftScale * l;
         const float w = s.w * grow, h = s.h * grow;

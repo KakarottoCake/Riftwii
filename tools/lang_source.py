@@ -6877,6 +6877,37 @@ FR.update({
     "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de.",
 })
 
+T.update({
+    # The game page: its box up close
+    "The game's box. Press A to see it up close, then Down for its back.": (
+        "La caja del juego. Pulsa A para verla de cerca y luego Abajo para ver su parte trasera.",
+        "ゲームのパッケージです。Aで大きく表示し、下で裏面を見られます。",
+        "A caixa do jogo. Aperte A para vê-la de perto e depois Baixo para ver o verso.",
+        "La confezione del gioco. Premi A per vederla da vicino, poi Giù per il retro."),
+    "There is no box art for this game yet.": (
+        "Aún no hay portada para este juego.",
+        "このゲームのパッケージ画像はまだありません。",
+        "Ainda não há capa para este jogo.",
+        "Non c'è ancora una copertina per questo gioco."),
+    "Back of the box": ("Parte trasera", "裏面", "Verso da caixa", "Retro della confezione"),
+    "Front of the box": ("Parte delantera", "表面", "Frente da caixa", "Fronte della confezione"),
+})
+KO.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "게임 패키지입니다. A로 크게 보고, 아래로 뒷면을 볼 수 있습니다.",
+    "There is no box art for this game yet.": "이 게임의 패키지 이미지가 아직 없습니다.",
+    "Back of the box": "뒷면",
+    "Front of the box": "앞면",
+})
+FR.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "La boîte du jeu. Appuyez sur A pour la voir de près, puis sur Bas pour son dos.",
+    "There is no box art for this game yet.": "Pas encore de jaquette pour ce jeu.",
+    "Back of the box": "Dos de la boîte",
+    "Front of the box": "Face de la boîte",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

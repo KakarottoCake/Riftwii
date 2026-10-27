@@ -151,6 +151,12 @@ pressed too.
 - **Play** (the large tile, or Plus) starts the game; it says how many
   mods are on.
 
+- **The box** can be lit too (Left from Play, Up from Favourite, or
+  point at it). A shows it up close, as large as the screen takes; Down
+  turns it over to its back and Up to its front again, and B puts it
+  back. The back comes with the full cover the Home shelf downloads;
+  with only the small cover, there is a front alone.
+
 - **Mods** opens the packs made for this game. Each pack has an On/Off
   switch; once it is on, its settings show under it, with arrows on
   either side of the value (Minus steps back). A pack whose XML is broken
