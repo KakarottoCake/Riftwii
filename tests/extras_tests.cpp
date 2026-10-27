@@ -282,6 +282,47 @@ void TestReleaseMetadataPolicy() {
     EXPECT_EQ(tag, "v1.0");
 }
 
+void TestTlsFailureReason() {
+    EXPECT_EQ(tls_failure_reason(31, 0), "");
+    EXPECT_EQ(tls_failure_reason(0, 0), "");
+    EXPECT_EQ(tls_failure_reason(32, 0), "");
+    EXPECT_EQ(tls_failure_reason(33, 0), "the certificate was not accepted");
+    EXPECT_EQ(tls_failure_reason(63, 0), "");
+    EXPECT_EQ(tls_failure_reason(100, 0), "");
+    EXPECT_EQ(tls_failure_reason(256 + 40, 0), "");
+    EXPECT_EQ(tls_failure_reason(512 + 40, 0), "");
+    EXPECT_EQ(tls_failure_reason(54, 0),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "1970-01-01; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(54, 951782400),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "2000-02-29; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(53, 0),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "1970-01-01; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(56, 0),
+              "the certificate is for a different server; something on the network may be "
+              "redirecting the connection");
+    EXPECT_EQ(tls_failure_reason(52, 0),
+              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+              "list may be out of date, or something on the network is intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(55, 0),
+              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+              "list may be out of date, or something on the network is intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(58, 0),
+              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+              "list may be out of date, or something on the network is intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(62, 0),
+              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+              "list may be out of date, or something on the network is intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(49, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
+    EXPECT_EQ(tls_failure_reason(51, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
+    EXPECT_EQ(tls_failure_reason(60, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
+}
+
 void TestHttp() {
     HttpUrl url;
     std::string error;
@@ -2612,6 +2653,7 @@ int main() {
     TestRestartRequestSectors();
     TestFriivolutionArguments();
     TestHttp();
+    TestTlsFailureReason();
     TestReleaseAssetObjects();
     TestReleaseMetadataPolicy();
     TestCheats();
