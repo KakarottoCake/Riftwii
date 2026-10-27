@@ -1127,6 +1127,10 @@ int GuiGameGrid::LetterTarget(int dir) const {
     return focus;
 }
 
+void GuiGameGrid::ForgetLetterPress() {
+    for (bool& used : letterUsed) used = true;
+}
+
 bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     if (t->chan < 0 || t->chan > 3) return false;
     const int ch = t->chan;

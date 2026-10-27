@@ -1094,6 +1094,25 @@ struct HomeEntry {
 	std::string searchName;
 };
 
+// B held on the search button: a game at random from the ones Home shows.
+// Not the disc drive's tile or a homebrew app, and not a profile's tile
+// (a game with profiles would come up more often than one without).
+static int RandomHomeGame(const std::vector<HomeEntry>& entries)
+{
+	std::vector<int> games;
+	for (std::size_t i = 0; i < entries.size(); ++i) {
+		const HomeEntry& e = entries[i];
+		if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) continue;
+		if (!e.profile.empty()) continue;
+		games.push_back(static_cast<int>(i));
+	}
+	if (games.empty()) return -1;
+	// The time base runs at tens of millions of ticks a second, and no two
+	// holds end on the same tick: as good as a die, with nothing to seed.
+	const std::size_t roll = static_cast<std::size_t>(gettime() % games.size());
+	return games[roll];
+}
+
 static std::string ChannelName(const riftwii::wii::NandChannel& c)
 {
 	return riftwii::wii::nand_channel_name(c, riftwii::wii::BannerLanguageIndex());
@@ -4033,6 +4052,9 @@ static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
 static std::string g_openWhenScanned;  // the tile picked during the scan, by its key
+// That tile was a game at random (B held on the search button): it starts
+// once the drives are read, as it would have straight away.
+static bool g_startWhenScanned = false;
 // Home's rescan: the profiles' pictures are looked for again once it is
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
@@ -4052,6 +4074,7 @@ static void StartScan()
 	g_sdScanOk = false;
 	g_sdScanError.clear();
 	g_openWhenScanned.clear();
+	g_startWhenScanned = false;
 	g_scanning = true;
 	g_scanned = true;
 	riftwii::wii::StartDriveScan();
@@ -4520,6 +4543,12 @@ static int MenuSource(FrontendState& state)
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
+	// Point at the search button and hold B on a Wii Remote: a game at
+	// random starts, as Start on its page would. Long enough (about a
+	// second) that a B pressed in passing is not taken for it.
+	constexpr u32 kRandomHoldFrames = 50;
+	bool randomHolding = false, randomHoldUsed = false;
+	u32 randomHoldFrom = 0;
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -4954,6 +4983,7 @@ static int MenuSource(FrontendState& state)
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
+		bool startOpenNow = false;
 		// A press on a tile (A) waiting to be handled when a part joins: the
 		// tile is looked up again by what it is, as the games that come in
 		// move the tiles under it, and A must open the game that was pointed
@@ -5004,7 +5034,9 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
+				startOpenNow = g_startWhenScanned;
 				g_openWhenScanned.clear();
+				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
@@ -5226,7 +5258,39 @@ static int MenuSource(FrontendState& state)
 				: tr("D-pad: move   A: put it down   B: put it back");
 			statusTxt.SetText(note.c_str());
 		}
-		int clicked = heldClick >= 0 ? heldClick : grid.GetClicked();
+		// B held with a Wii Remote pointing at the search button: a game at
+		// random, once per hold. Not while a game is carried, where B puts it back.
+		bool bOnSearch = false;
+		for (int channel = 0; channel < 4 && !grid.Carrying(); ++channel) {
+			const WPADData* remote = userInput[channel].wpad;
+			if (!remote || !remote->ir.valid || !(remote->btns_h & WPAD_BUTTON_B)) continue;
+			const int pointerX = static_cast<int>(remote->ir.x), pointerY = static_cast<int>(remote->ir.y);
+			if (searchBtn.button.IsInside(pointerX, pointerY)) bOnSearch = true;
+		}
+		int randomPick = -1;
+		if (!bOnSearch) {
+			randomHolding = false;
+			randomHoldUsed = false;
+		} else {
+			// Letting go of B here is not the grid's jump to the next letter.
+			grid.ForgetLetterPress();
+			if (!randomHolding) {
+				randomHolding = true;
+				randomHoldFrom = FrameTimer;
+			} else if (!randomHoldUsed && FrameTimer - randomHoldFrom >= kRandomHoldFrames) {
+				randomHoldUsed = true;
+				randomPick = RandomHomeGame(entries);
+				if (randomPick >= 0) {
+					logf("Home: B held on the search button, %s picked at random\n",
+						items[static_cast<std::size_t>(randomPick)].title.c_str());
+					grid.Focus(randomPick, false);  // Home comes back to it
+				} else {
+					logf("Home: B held on the search button, but no game is shown to pick from\n");
+				}
+			}
+		}
+		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
+		bool randomStart = randomPick >= 0;
 		bool reopening = false;
 		if (!g_reopenBanner.empty()) {
 			// Only while Home still shows channels (else it would open the page).
@@ -5238,7 +5302,10 @@ static int MenuSource(FrontendState& state)
 			g_reopenBanner.clear();
 		}
 		// A game picked while the drives were read opens now that they are.
-		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
+		if (clicked < 0 && !openNow.empty()) {
+			clicked = findTile(openNow);
+			randomStart = clicked >= 0 && startOpenNow;
+		}
 		if (menu != MENU_NONE) clicked = -1;
 		// Without the SD card a game's page can't save its choices, so it
 		// can't start: say so instead of opening it.
@@ -5251,6 +5318,7 @@ static int MenuSource(FrontendState& state)
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
+			g_startWhenScanned = randomStart;
 			logf("Home: %s picked while the drives are read; it opens once they are\n", g_openWhenScanned.c_str());
 			toast.Show(tr("{1} opens once RiftWii has finished reading the drives.", {picked.title}), false);
 			clicked = -1;
@@ -5262,9 +5330,10 @@ static int MenuSource(FrontendState& state)
 			if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 			g_openRect = tile;
 			// Channels: the game's banner first, as the Wii Menu opens a
-			// channel: out of its tile, and back into it.
+			// channel: out of its tile, and back into it. Not for a game at
+			// random, which starts straight away.
 			bool fromChannel = false;
-			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
+			if (grid.Channels() && !randomStart && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
 				transition::Begin(reopening ? transition::Kind::Fade : transition::Kind::ZoomIn, tile);
 				// Another game's banner, from the arrows: read from its image
@@ -5390,6 +5459,9 @@ static int MenuSource(FrontendState& state)
 			HaltGui();
 			if (ok) {
 				menu = MENU_HOME;
+				// A game at random: its page presses Start for the player,
+				// so its checks and warnings still stand.
+				if (randomStart) g_startOnOpen = true;
 				g_flightOn = grid.Shelf() && grid.ShelfFlightFrom(clicked, g_flight);
 				if (g_flightOn) {
 					// Off the shelf and onto the page's cover, the screens
@@ -5532,7 +5604,10 @@ static int MenuSource(FrontendState& state)
 	// tester's Settings took 12 s to open behind a 326-game WBFS drive).
 	// A game picked during the scan does not open behind the player's back
 	// once they have gone to Settings.
-	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
+	if (menu == MENU_OPTIONS) {
+		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
+	}
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
@@ -5547,6 +5622,7 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::TakeSdScan(part)) TakeSdScanPart(state, part);
 		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part, menu != MENU_EXIT);
 		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
 		g_focusRestored = true;
 		// Not when leaving RiftWii: the popups would only hold it up.
 		if (menu != MENU_EXIT && !askAfterLook()) return menu;
