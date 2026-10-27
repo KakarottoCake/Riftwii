@@ -3302,3 +3302,45 @@ msgstr "裏面"
 
 msgid "Front of the box"
 msgstr "表面"
+
+msgid "Music file"
+msgstr "音楽ファイル"
+
+msgid "RiftWii's own"
+msgstr "RiftWiiのもの"
+
+msgid "{1} (shuffled)"
+msgstr "{1} (シャッフル)"
+
+msgid "Your music is on the USB drive. It starts once RiftWii has read the drive."
+msgstr "音楽はUSBドライブにあります。RiftWiiがドライブを読み終えると始まります。"
+
+msgid "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else."
+msgstr "{1} の中に流せる曲がないため、RiftWiiの音楽を流します。Aでほかのものを選びます。"
+
+msgid "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it."
+msgstr "自分のメニュー音楽: SDカードかUSBドライブの曲、プレイリスト、またはフォルダ全体をシャッフルで。Aで選びます。"
+
+msgid "Menu music is off. Turn it on first."
+msgstr "メニューの音楽がオフです。先にオンにしてください。"
+
+msgid "RiftWii's own music"
+msgstr "RiftWiiの音楽"
+
+msgid "Up a folder"
+msgstr "ひとつ上のフォルダ"
+
+msgid "Shuffle this folder"
+msgstr "このフォルダをシャッフル"
+
+msgid "Shuffle"
+msgstr "シャッフル"
+
+msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
+msgstr "曲 (.ogg か .mp3) かプレイリスト (.m3u) を選ぶか、フォルダを開いて「このフォルダをシャッフル」を選ぶと、その中の曲をすべてシャッフルで流します。"
+
+msgid "There is no USB drive, or RiftWii has not finished reading it yet."
+msgstr "USBドライブがないか、RiftWiiがまだ読み終えていません。"
+
+msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
+msgstr "このフォルダとその中のフォルダに .ogg や .mp3 の曲がありません。"

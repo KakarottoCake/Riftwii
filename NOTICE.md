@@ -91,7 +91,8 @@ by `tools/timesong/timesong.py` (GPL-3.0-or-later like the rest).
 RiftWii contains no Nintendo keys or assets.
 
 Build-time dependencies that are not vendored: devkitPPC/libogc, libfat,
-zlib, FreeType, libogg/libvorbisidec, bzip2 (devkitPro portlibs),
+zlib, FreeType, libogg/libvorbisidec, bzip2 (devkitPro portlibs), libmad
+(GPL-2.0-or-later, with libogc's MP3 player, for the player's own .mp3 menu music),
 each under its own license. libpng is not linked: `wii/menu/ftnopng.c` answers
 FreeType's colour-bitmap PNG calls with a failure (the menu font has no
 such glyphs). brotli is not linked either: `wii/menu/ftnobrotli.c` fails FreeType's

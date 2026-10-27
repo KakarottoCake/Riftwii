@@ -8,6 +8,7 @@
 #include <cctype>
 
 #include "riftwii/gamelang.hpp"
+#include "riftwii/musiclist.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -97,6 +98,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "music_file") {
+            if (music_choice_valid(value)) music_file = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_start") {
@@ -197,6 +200,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "music_file = " + music_file + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";

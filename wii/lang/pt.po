@@ -3302,3 +3302,45 @@ msgstr "Verso da caixa"
 
 msgid "Front of the box"
 msgstr "Frente da caixa"
+
+msgid "Music file"
+msgstr "Arquivo de música"
+
+msgid "RiftWii's own"
+msgstr "A do RiftWii"
+
+msgid "{1} (shuffled)"
+msgstr "{1} (aleatório)"
+
+msgid "Your music is on the USB drive. It starts once RiftWii has read the drive."
+msgstr "Sua música está na unidade USB. Ela começa quando o RiftWii terminar de ler a unidade."
+
+msgid "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else."
+msgstr "Nada em {1} pôde ser tocado, então toca a música do RiftWii. Aperte A para escolher outra coisa."
+
+msgid "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it."
+msgstr "Sua própria música do menu: uma música, uma playlist ou uma pasta inteira em ordem aleatória, do cartão SD ou da unidade USB. Aperte A para escolher."
+
+msgid "Menu music is off. Turn it on first."
+msgstr "A música do menu está desligada. Ligue-a primeiro."
+
+msgid "RiftWii's own music"
+msgstr "A música do RiftWii"
+
+msgid "Up a folder"
+msgstr "Subir uma pasta"
+
+msgid "Shuffle this folder"
+msgstr "Esta pasta em aleatório"
+
+msgid "Shuffle"
+msgstr "Aleatório"
+
+msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
+msgstr "Escolha uma música (.ogg ou .mp3) ou uma playlist (.m3u), ou abra uma pasta e escolha Esta pasta em aleatório para ouvir todas as músicas dela em ordem aleatória."
+
+msgid "There is no USB drive, or RiftWii has not finished reading it yet."
+msgstr "Não há unidade USB, ou o RiftWii ainda não terminou de lê-la."
+
+msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
+msgstr "Não há músicas .ogg nem .mp3 nesta pasta nem nas pastas dentro dela."

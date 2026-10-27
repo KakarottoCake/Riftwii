@@ -143,7 +143,7 @@ The build compiles every folder into one, so no two files share a name.
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `themestore.cpp` | The theme browser's engine (Settings > Theme > Get more themes): the list, the previews, the download and safe install, all in MEM2 on the network's background thread; the page is `MenuThemeBrowser` in `rift_menu.cpp` |
 | `riitagview.cpp` | Settings > Online > My RiiTag: the player's tag picture (`riitag_id`) downloaded on the network's background thread, decoded and shrunk in MEM2; the page is `MenuRiiTag` in `rift_menu.cpp` |
-| `menumusic.cpp` | The background music: theme/card Ogg or the selected Wii Menu source |
+| `menumusic.cpp` | The background music: the player's own pick (an Ogg or MP3 song, a playlist or a shuffled folder, Settings > Music file), theme/card Ogg or the selected Wii Menu source |
 | `wiimenusounds.cpp` | Reads the console's System Menu sound archive through IOS, renders bounded effects in MEM2 and streams sequence music; no disk cache |
 | `themesounds.cpp` | Playback-time theme WAV replacements, then the selected Wii Menu sounds |
 | `menusounds.cpp` | RiftWii's own effects, decoded once at startup |
@@ -381,6 +381,7 @@ reader helpers stay beside their source.
 | `wadfile` | `.wad` files: their layout, each content decrypted and checked against its TMD hash, `/shared1/content.map` |
 | `contentbin` | A channel the Wii Menu moved to the SD card (`content.bin`): its "Bk" header found past the SD-key parts, which contents it holds and where, a BootMii `keys.bin` |
 | `nandchannel` | WiiWare and Virtual Console titles: which titles are games, a stored TMD's contents, the content RiftWii loads, their cheats' code |
+| `musiclist` | The player's own menu music (`music_file`): which files are songs (`.ogg`, `.mp3`) or playlists (`.m3u`), playlist lines as PC players write them, a folder's songs and the shuffle |
 | `textlines` | Lines and words split from a text file by the rules of `std::getline` and `>>`, without the streams (which bring close to 500 KiB of libstdc++'s locale code into the DOL) |
 | `pluginfile` | A plugin file (`.rwp`): its header and every refusal, its relocations and file names |
 | `channelupdate` | Deciding whether the installed RiftWii channel needs an update and tracking installer attempts |
