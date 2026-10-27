@@ -4458,6 +4458,11 @@ static int MenuSource(FrontendState& state)
 	// on, and the new Home takes its parts as they come.
 	bool rebuildingHome = false;
 	LoadFilter();
+	// The menu's language or the online setting may have changed in
+	// Settings (the cache is per language): look again for the games the
+	// cache hasn't looked for. Cheap when it has them all; no download
+	// after the network has failed.
+	g_gameInfoReadDue = true;
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
 	BuildHome(state, items, entries);
@@ -5267,6 +5272,8 @@ static int MenuSource(FrontendState& state)
 						// Classifications and homebrew titles come from this
 						// card's database, even with the same menu language.
 						riftwii::wii::ForgetGameInfo();
+						// This card may lack the banners the old one had.
+						g_gcBannersAsked.clear();
 						// The view from the new card's settings, or Home's default.
 						g_filter = Filter::Mods;
 						g_filterLoaded = false;
