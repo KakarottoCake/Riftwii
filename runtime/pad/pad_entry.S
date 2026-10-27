@@ -6,13 +6,16 @@
     .section .text.pad_entry, "ax", @progbits
     .globl _pad_blob_start
 _pad_blob_start:
-    .long 0x52575044, 4, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
+    .long 0x52575044, 5, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
     .long pad_hook_read - _pad_blob_start, pad_replay_read - _pad_blob_start, pad_continue_read - _pad_blob_start
     .long pad_hook_motor - _pad_blob_start, pad_replay_motor - _pad_blob_start, pad_continue_motor - _pad_blob_start
     .long pad_complete - _pad_blob_start
     .long pad_hook_submit - _pad_blob_start, pad_replay_submit - _pad_blob_start, pad_continue_submit - _pad_blob_start
     .long pad_hook_sleep - _pad_blob_start, pad_replay_sleep - _pad_blob_start, pad_continue_sleep - _pad_blob_start
     .long pad_hook_suspend - _pad_blob_start, pad_replay_suspend - _pad_blob_start, pad_continue_suspend - _pad_blob_start
+    .long pad_hook_kpad - _pad_blob_start, pad_replay_kpad - _pad_blob_start, pad_continue_kpad - _pad_blob_start
+    .long pad_hook_probe - _pad_blob_start, pad_replay_probe - _pad_blob_start, pad_continue_probe - _pad_blob_start
+    .long pad_hook_menu - _pad_blob_start, pad_replay_menu - _pad_blob_start, pad_continue_menu - _pad_blob_start
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -158,6 +161,76 @@ pad_hook_suspend:
     mtctr 12
     bctr
 
+/* s32 KPADReadEx(chan, status[], count, &error) (the 2007 read takes
+ * three): the original first, then pad_on_kpad(ctx, chan, status, its
+ * result, error) puts the stand-in's status in and returns the count.
+ * Frame: 8 chan, 12 status, 16 error. */
+    .globl pad_hook_kpad
+pad_hook_kpad:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 6, 0x10(1)
+    bl pad_replay_kpad
+    mr 6, 3
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    lwz 7, 0x10(1)
+    bl 7f
+7:  mflr 3
+    addi 3, 3, pad_context_data - 7b
+    bl pad_on_kpad
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+/* s32 WPADProbe(chan, &type): the original first, then pad_on_probe(ctx,
+ * chan, type, its result) answers for the stand-in's channel. Frame: 8
+ * chan, 12 type. */
+    .globl pad_hook_probe
+pad_hook_probe:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    bl pad_replay_probe
+    mr 6, 3
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    bl 8f
+8:  mflr 3
+    addi 3, 3, pad_context_data - 8b
+    bl pad_on_probe
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+/* HBMCalc(controller data), once a frame while the HOME Menu is open:
+ * pad_on_menu(ctx) notes it, then HBMCalc runs from its first word, as if
+ * called directly. Frame: 8 r3, 12 r4. */
+    .globl pad_hook_menu
+pad_hook_menu:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    bl 9f
+9:  mflr 3
+    addi 3, 3, pad_context_data - 9b
+    bl pad_on_menu
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    b pad_replay_menu
+
 /* Loader-filled: the hooked function's first word (and nops), then the
  * jump to its second word through r12. */
     .macro PAD_REPLAY name
@@ -180,9 +253,12 @@ pad_continue_\name:
     PAD_REPLAY submit
     PAD_REPLAY sleep
     PAD_REPLAY suspend
+    PAD_REPLAY kpad
+    PAD_REPLAY probe
+    PAD_REPLAY menu
 
     .balign 32
     .globl pad_context_data
 pad_context_data:
     .long 0x52575043
-    .fill 47, 4, 0
+    .fill 87, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */

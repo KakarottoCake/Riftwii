@@ -7,9 +7,12 @@
  * way back (#224), L, R, Z and Start held on a GameCube controller leave
  * the game through its own OSReturnToMenu: three more hooks, the SDK's IPC
  * submit routine (save activity), OSSleepThread (where it leaves) and
- * OSSuspendThread (where a thread that suspends itself to wait leaves). Its own
- * small blob beside the resident runtime, so a game without the adapter
- * option never carries it and the resident's ABI is untouched.
+ * OSSuspendThread (where a thread that suspends itself to wait leaves). With
+ * the HOME Menu (#224 part 1), the same combo opens the game's HOME Menu
+ * instead where it can: three more hooks, the KPAD read, WPADProbe and
+ * HBMCalc, stand a Classic Controller in on a free channel (rthome.h). Its
+ * own small blob beside the resident runtime, so a game without the
+ * adapter option never carries it and the resident's ABI is untouched.
  *
  * Layout (pad_entry.S): the header below, the two trampolines with
  * their loader-filled replay slots, the IPC completion entry, the C
@@ -22,12 +25,13 @@
 #include <stdint.h>
 
 #include "rtgcad.h"
+#include "rthome.h"
 #include "rtleave.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 4u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 192u
+#define RT_PAD_CONTEXT_BYTES 352u  /* also pad_entry.S's fill */
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -65,6 +69,15 @@ struct rt_pad_header {
     uint32_t hook_suspend;     /* OSSuspendThread's (or from a thread suspending itself) */
     uint32_t replay_suspend;
     uint32_t continue_suspend;
+    uint32_t hook_kpad;        /* the KPAD read's (the stand-in Classic Controller's status) */
+    uint32_t replay_kpad;
+    uint32_t continue_kpad;
+    uint32_t hook_probe;       /* WPADProbe's (the stand-in's channel answers "Classic Controller") */
+    uint32_t replay_probe;
+    uint32_t continue_probe;
+    uint32_t hook_menu;        /* HBMCalc's (the HOME Menu is open) */
+    uint32_t replay_menu;
+    uint32_t continue_menu;
 };
 
 struct rt_pad_context {
@@ -100,6 +113,27 @@ struct rt_pad_context {
      * then) and when (low bit set), both 0 while none is open. */
     uint32_t leave_thread;
     uint32_t leave_asked_at;
+    /* The HOME Menu (#224 part 1); home_on 0: off, the combo is the way
+     * back. Loader-filled: the KPAD status's size, whether the read takes
+     * the error's address, the game's PADRead (hooked: read again when the
+     * game stops reading its pads while its menu is up), the timings in
+     * home, then home_on once all three hooks are in. */
+    uint32_t home_on;
+    uint32_t kpad_status_bytes;
+    uint32_t kpad_takes_error;
+    uint32_t pad_read;
+    struct rthome home;
+    uint32_t home_buffer;      /* the KPAD buffer the stand-in's status went into last */
+    uint32_t home_fresh;       /* the KPAD read wrote it since the HOME Menu's last probe */
+    uint32_t home_writes;      /* statuses written in this stand-in's time */
+    uint32_t last_pad_read;    /* when PADRead last ran (low bit set) */
+    /* Counters for a memory read in Dolphin: KPAD reads, the channels the
+     * game reads (a bit each), probes, HOME Menu frames. */
+    uint32_t kpad_reads;
+    uint32_t kpad_channels;
+    uint32_t probes;
+    uint32_t menu_frames;
+    uint8_t pad_scratch[48];   /* PADStatus[4] for that read of our own */
 };
 
 #ifdef RT_TARGET_PPC

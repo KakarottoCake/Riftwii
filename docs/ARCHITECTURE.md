@@ -137,6 +137,29 @@ decisions are `runtime/rtleave.c`, host-tested. With any of the three
 functions missing, or one of the two hooks impossible, the way back stays
 off and boot.log says why; the adapter works as before.
 
+Where it can, the same combo opens the game's own HOME Menu instead
+(#224 part 1). Three more hooks, found by structure in
+`src/patching/hbmsearch.cpp`: the KPAD read (its ring buffer of statuses
+walked backwards gives the status's size), `WPADProbe` and `HBMCalc` (the
+function after `HBMInit`, which the HOME Menu's version banner leads to).
+The blob stands a Classic Controller in on a free Wii Remote channel:
+`WPADProbe` says it is there, and the KPAD read gives its status, HOME held
+for 0.6 s (a Virtual Console game wants half a second). The game then opens
+its menu, or doesn't (mid-save, it shows its crossed-out HOME icon), and
+`HBMCalc` running tells the blob the menu is up: the stand-in then carries
+the pad (A, B, X, Y, Start as HOME to close it, the sticks with a dead
+zone, the combo's own buttons ignored until let go). Some games stop their
+own KPAD reads and `PADRead` while the menu is up (Kamen Rider: Super
+Climax Heroes); the blob then reads the pads itself from the menu's
+`WPADProbe` and refreshes the status the KPAD read last filled. Once
+`HBMCalc` stops, the stand-in is gone, so games that read GameCube
+controllers themselves never see an extra player. Missing any of the
+three, the combo stays the way back; a game that never reads the
+stand-in's channel turns it back into the way back the first time.
+The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
+Console programs (Super Mario World, A Link to the Past, Bomberman '93)
+have neither the banner nor this KPAD layout, and keep the way back.
+
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
 the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's

@@ -7,6 +7,7 @@
 #include "pad_hook.h"
 
 #include "rtgcad.h"
+#include "rthome.h"
 
 #define PAD_STATUS_BYTES 12u  /* PADStatus: button, stick x/y, substick x/y, L, R, analog A/B, err, pad */
 
@@ -16,6 +17,9 @@ void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
 uint32_t pad_on_sleep(struct rt_pad_context* c);
 uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
+int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t result, int32_t* error);
+int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result);
+void pad_on_menu(struct rt_pad_context* c);
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -195,10 +199,16 @@ static void pad_resident_write(const struct rt_pad_context* c, int* wrote, uint3
  * ask back, and the hold starts over. The ask notes the thread this
  * PADRead runs on, the one a game whose main thread never sleeps leaves
  * from (rtleave_sleep_leaves). */
+static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t);
+
 static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
     int resident_wrote;
     uint32_t resident_last_write;
     const int held = rtleave_held(status);
+    if (c->home_on) {
+        pad_home_check(c, status, t);
+        return;
+    }
     if (c->return_to_menu == 0) return;
     if (c->leave_asked == RT_PAD_LEAVE_ASKED && !held) {
         c->leave_asked = 0;
@@ -277,6 +287,147 @@ uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread) {
     return pad_on_sleep(c);
 }
 
+/* ---- The HOME Menu (#224 part 1): the same combo, the game's own menu ---- */
+
+/* The game's own memory, where it keeps its KPAD buffers and its answers. */
+static int pad_in_ram(const void* p) {
+    const uint32_t a = (uint32_t)(uintptr_t)p;
+    return (a >= 0x80000000u && a < 0x81800000u) || (a >= 0x90000000u && a < 0x94000000u);
+}
+
+static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = v; }
+
+/* KPADStatus's fields, laid out alike from the 2007 SDK (132 bytes) to the
+ * 2010 one (240): the Wii Remote's buttons, the device type, the error, the
+ * pointer's validity, the data format, then the Classic Controller's
+ * buttons, sticks and triggers. */
+#define PAD_KPAD_HOLD 0x00u
+#define PAD_KPAD_TRIG 0x04u
+#define PAD_KPAD_RELEASE 0x08u
+#define PAD_KPAD_DEV_TYPE 0x5Cu
+#define PAD_KPAD_WPAD_ERR 0x5Du
+#define PAD_KPAD_DPD_VALID 0x5Eu
+#define PAD_KPAD_DATA_FORMAT 0x5Fu
+#define PAD_KPAD_CL_HOLD 0x60u
+#define PAD_KPAD_CL_AXES 0x6Cu  /* left stick x/y, right stick x/y, L, R: six floats */
+#define PAD_KPAD_END 0x84u
+#define PAD_DEV_CLASSIC 2u
+/* The format KPAD reports for a Classic Controller: with the pointer (8)
+ * while the HOME Menu is open, without (7) otherwise (seen in Naruto, Mario
+ * Kart Wii and Brawl, 23 Oct). A game may check it: Ranger Cross waited
+ * forever on a stand-in that reported another format than it asked for. */
+#define PAD_FORMAT_CLASSIC 7u
+#define PAD_FORMAT_CLASSIC_POINTER 8u
+
+/* The stand-in's status into the game's buffer: a Classic Controller, no
+ * error, no pointer. Interrupts off, at its callers. */
+static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t t) {
+    uint32_t hold, trig, release, i;
+    int32_t axes[6];
+    rthome_classic(&c->home, t, &hold, &trig, &release, axes);
+    pad_put32(status + PAD_KPAD_HOLD, 0);
+    pad_put32(status + PAD_KPAD_TRIG, 0);
+    pad_put32(status + PAD_KPAD_RELEASE, 0);
+    status[PAD_KPAD_DEV_TYPE] = PAD_DEV_CLASSIC;
+    status[PAD_KPAD_WPAD_ERR] = 0;
+    status[PAD_KPAD_DPD_VALID] = 0;
+    status[PAD_KPAD_DATA_FORMAT] =
+        (uint8_t)(rthome_menu_open(&c->home) ? PAD_FORMAT_CLASSIC_POINTER : PAD_FORMAT_CLASSIC);
+    pad_put32(status + PAD_KPAD_CL_HOLD, hold);
+    pad_put32(status + PAD_KPAD_CL_HOLD + 4, trig);
+    pad_put32(status + PAD_KPAD_CL_HOLD + 8, release);
+    for (i = 0; i < 6; ++i) pad_put32(status + PAD_KPAD_CL_AXES + 4 * i, rthome_float_bits(axes[i]));
+    ++c->home_writes;
+}
+
+/* At each PADRead, in place of the way back: the combo starts the stand-in
+ * (rthome_pads). A stand-in that ended without the game ever reading it (no
+ * KPAD read on its channel: a game that reads only the channels it knows
+ * have a controller) means this game can't take it: the combo is the way
+ * back from then on, where the way back is in. */
+static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
+    const uint32_t before = c->home.phase;
+    (void)rthome_stand_in(&c->home, t);
+    if (before != RTHOME_DONE && c->home.phase == RTHOME_DONE && c->home.menu_seen == 0 && c->home_writes == 0 &&
+        c->return_to_menu != 0) {
+        c->home_on = 0;
+        return;
+    }
+    rthome_pads(&c->home, status, t);
+    if (c->home.phase == RTHOME_PRESSING && before == RTHOME_IDLE) {
+        c->home_writes = 0;
+        c->home_buffer = 0;
+        c->home_fresh = 0;
+    }
+}
+
+/* The KPAD read: on the stand-in's channel the newest status is the
+ * stand-in's, and there is one. */
+int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t result, int32_t* error) {
+    uint32_t msr, t, stand_in;
+    if (!c->home_on) return result;
+    msr = interrupts_off();
+    t = now();
+    ++c->kpad_reads;
+    if (chan >= 0 && chan < (int32_t)RTHOME_CHANNELS) c->kpad_channels |= 1u << chan;
+    stand_in = rthome_stand_in(&c->home, t);
+    if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in || !pad_in_ram(status) ||
+        c->kpad_status_bytes < PAD_KPAD_END) {
+        interrupts_restore(msr);
+        return result;
+    }
+    pad_home_status(c, status, t);
+    c->home_buffer = (uint32_t)(uintptr_t)status;
+    c->home_fresh = 1;
+    if (c->kpad_takes_error && pad_in_ram(error)) *error = 0;
+    interrupts_restore(msr);
+    return 1;
+}
+
+/* WPADProbe: the stand-in's channel has a Classic Controller. The HOME
+ * Menu probes every channel each of its frames, and some games stop their
+ * own KPAD reads (and their PADRead) while it is up (Kamen Rider: Super
+ * Climax Heroes): then the pads are read here, and the stand-in's status
+ * goes into the buffer the KPAD read last filled. Only when the KPAD read
+ * hasn't written it since the last probe: a second write in one frame
+ * would take its newly pressed buttons away before the menu saw them.
+ * Other channels' answers say which channels are free. */
+int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result) {
+    uint32_t msr, t, stand_in;
+    if (!c->home_on) return result;
+    t = now();
+    stand_in = rthome_stand_in(&c->home, t);
+    if (stand_in != RTHOME_NO_CHANNEL && (uint32_t)chan == stand_in && c->pad_read != 0 &&
+        t - c->last_pad_read > 50u * c->ticks_per_ms) {
+        /* The game's PADRead, through the hook, so the adapter fills it and
+         * the stand-in keeps up with the pad. Interrupts on, as a game
+         * thread calls it. */
+        ((uint32_t(*)(uint8_t*))(uintptr_t)c->pad_read)(c->pad_scratch);
+    }
+    msr = interrupts_off();
+    ++c->probes;
+    stand_in = rthome_stand_in(&c->home, t);
+    if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in) {
+        if (chan >= 0) rthome_probed(&c->home, (uint32_t)chan, result);
+        interrupts_restore(msr);
+        return result;
+    }
+    if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
+    if (!c->home_fresh && pad_in_ram((const void*)(uintptr_t)c->home_buffer))
+        pad_home_status(c, (uint8_t*)(uintptr_t)c->home_buffer, t);
+    c->home_fresh = 0;
+    interrupts_restore(msr);
+    return 0;
+}
+
+/* HBMCalc: the HOME Menu runs this frame. */
+void pad_on_menu(struct rt_pad_context* c) {
+    const uint32_t msr = interrupts_off();
+    ++c->menu_frames;
+    if (c->home_on) rthome_menu_frame(&c->home, now());
+    interrupts_restore(msr);
+}
+
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {
     const uint32_t msr = interrupts_off();
     const uint32_t t = now();
@@ -323,6 +474,7 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     }
     c->overlay_mask = mask;
     ++c->reads;
+    c->last_pad_read = t | 1u;
     pad_leave_check(c, status, t);
     interrupts_restore(msr);
     return motor;

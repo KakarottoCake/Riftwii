@@ -58,6 +58,7 @@ headers, generated data and assets with the code that uses them.
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | USB keyboards, USB mice, pen tablets and the uDraw GameTablet in the menu | `wii/controllers/usbinput.cpp` (into player 1's controls, called from `UpdatePads` in `vendor-libgui/source/input.cpp`), `wii/controllers/usbkeyboard.cpp`, `wii/controllers/pentablet.c` and `tablethid.c` (USB tablets), `wii/controllers/udraw.c`; typing in `wii/menu/gui_searchkeys.cpp` |
 | The way back from a Wii game by a GameCube controller (L, R, Z and Start held) | `runtime/rtleave.c` (when it goes: the hold, the save guard; `tests/padleave_tests.cpp`), `runtime/pad/` (the submit, OSSleepThread and OSSuspendThread hooks), `find_way_back` and `install_pad_hook` in `wii/hooks/padhook.cpp`, `find_os_return_to_menu` in `src/patching/symsearch.cpp` |
+| The HOME Menu from a GameCube controller (the same combo, where the game allows it) | `runtime/rthome.c` (the stand-in Classic Controller: when it comes and goes, its channel, its buttons; `tests/padhome_tests.cpp`), `runtime/pad/` (the KPAD read, WPADProbe and HBMCalc hooks), `find_home_menu` in `wii/hooks/padhook.cpp`, `src/patching/hbmsearch.cpp` (`tests/hbmsearch_tests.cpp`; `tools/ipcscan.cpp` runs it on a dumped program) |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
 | A game's crash record | `runtime/fault/`, `runtime/rtfault.c`, `wii/hooks/faulthook.cpp`, `src/data/gamefault.cpp` |
@@ -285,6 +286,7 @@ reader helpers stay beside their source.
 | `wpadlog` | The Wii Remote log: the game's empty print functions, its HOME Menu exit, and the saved log as text |
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `osrestart` | A Wii game's own Reset: finding OSRestart and OSSleepThread, the `debug_reset` test switch's stub; finding OSSuspendThread (the way back in N64 Virtual Console games) |
+| `hbmsearch` | The HOME Menu by a GameCube controller: finding the KPAD read (and its status size), WPADProbe, the small-data base, HBMInit and HBMCalc |
 | `returnto` | Returning to RiftWii from a game |
 | `returnstub` | The return stub for homebrew apps: its image filled with the titles to try, RiftWii's stub told from the Homebrew Channel's, and apps that would load over it |
 | `launchargs` | Arguments from another loader |
@@ -419,7 +421,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `rtfat.c`, `rtfs.c` | A resumable FAT32 engine, and the NAND (ISFS) requests on top of it, for saves on the card |
 | `rtrvz.c` | Unpacking RVZ groups |
 | `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports), `gc_gcad.c` (the GameCube controller adapter for Wii U, driving `runtime/rtgcad.c`; its port filling and rumble are host-tested in `tests/gcgcad_tests.cpp`) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_disc.h` (a two-disc game's disc change, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
-| `pad/`, `rtgcad.c`, `rtleave.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu); with the way back, its hooks on the SDK's IPC submit routine and OSSleepThread, and `rtleave.c`'s decisions (host-tested in `tests/padleave_tests.cpp`) |
+| `pad/`, `rtgcad.c`, `rtleave.c`, `rthome.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu); with the way back, its hooks on the SDK's IPC submit routine and OSSleepThread, and `rtleave.c`'s decisions (host-tested in `tests/padleave_tests.cpp`); with the HOME Menu, its hooks on the KPAD read, WPADProbe and HBMCalc, and `rthome.c`'s decisions (`tests/padhome_tests.cpp`) |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
