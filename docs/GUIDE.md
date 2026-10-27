@@ -99,7 +99,9 @@ name tiles.
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
 shelf (hold one to speed up), Minus and Plus jump 12 games, and A opens
-the game. Up or Down turns the box round to show its back. With the
+the game. Up or Down turns the box round to show its back. Point at a
+box and press **1** or **2** to see it up close, as in the Covers view
+(its back, if you turned it round). With the
 pointer, point at a spine (it lifts), press A to pull that box out, and
 A again to open it; hold A and move the pointer sideways to drag the
 shelf, and let go while moving to send it gliding. Behind the shelf

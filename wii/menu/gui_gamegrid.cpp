@@ -158,29 +158,35 @@ constexpr float kZoomMs = 260.0f;
 constexpr int kZoomDim = 175;
 
 // What the zoom shows: the front of the game's shelf box when one is kept
-// (128 x 176, sharper made large), else its cover (80 x 112).
+// (128 x 176, sharper made large), else its cover (80 x 112). A box the
+// shelf has turned round (Up or Down) shows its back instead: the box's
+// own, or one made up from the cover as the shelf makes it up.
 struct ZoomArt {
     const u8* data = nullptr;
     int texW = 0, texH = 0;
     float u0 = 0.0f, u1 = 1.0f;
     float aspect = 1.0f;  // width over height of the part drawn
+    bool madeUpBack = false;  // `data` is the cover to make the back up from
 };
 
-ZoomArt ZoomArtFor(const std::string& id) {
+ZoomArt ZoomArtFor(const std::string& id, bool back) {
     ZoomArt art;
     if (id.empty()) return art;
     if (const u8* box = riftwii::wii::BoxTexture(id)) {
+        const int from = riftwii::kBoxSpineWidth + (back ? riftwii::kBoxFrontWidth : 0);
+        const int width = back ? riftwii::kBoxBackWidth : riftwii::kBoxFrontWidth;
         art.data = box;
         art.texW = riftwii::kBoxWidth;
         art.texH = riftwii::kBoxHeight;
-        art.u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
-        art.u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
-        art.aspect = static_cast<float>(riftwii::kBoxFrontWidth) / riftwii::kBoxHeight;
+        art.u0 = static_cast<float>(from) / riftwii::kBoxWidth;
+        art.u1 = static_cast<float>(from + width) / riftwii::kBoxWidth;
+        art.aspect = static_cast<float>(width) / riftwii::kBoxHeight;
     } else if (const u8* cover = riftwii::wii::CoverTexture(id)) {
         art.data = cover;
         art.texW = riftwii::kCoverWidth;
         art.texH = riftwii::kCoverHeight;
         art.aspect = static_cast<float>(riftwii::kCoverWidth) / riftwii::kCoverHeight;
+        art.madeUpBack = back;
     }
     return art;
 }
@@ -397,12 +403,14 @@ void GuiGameGrid::SetChannels(bool on, IconDrawer icon) {
 void GuiGameGrid::SetCarousel(bool on) {
     if (carousel == on) return;
     carousel = on;
+    EndCoverZoom();  // its box's place on screen was the old layout's
     poses.clear();
 }
 
 void GuiGameGrid::SetRing(bool on) {
     if (ring == on) return;
     ring = on;
+    EndCoverZoom();
     ringPlaced = false;
     poses.clear();
 }
@@ -1520,16 +1528,36 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);
         return true;
     }
-    // Only a Wii Remote pointing at a cover in the Covers view: 1 and 2
-    // stay the bar's everywhere else.
-    if (!covers || shelf || channels || carryFrom >= 0) return false;
+    // Only a Wii Remote pointing at a cover in the Covers view, or at a box
+    // on the shelf or the carousel (not the ring's pictures): 1 and 2 stay
+    // the bar's everywhere else.
+    if (channels || carryFrom >= 0 || (shelf ? ring : !covers)) return false;
     if (!t->wpad || !t->wpad->ir.valid || !(t->wpad->btns_d & kZoomKeys)) return false;
-    const int slot = SlotAt(static_cast<int>(t->wpad->ir.x), static_cast<int>(t->wpad->ir.y));
-    if (slot < 0 || page * kPerPage + slot >= Count()) return false;
-    const int index = ItemAt(slot);
-    if (!ZoomArtFor((*items)[index].id).data) return false;  // a name tile: no cover to show
+    const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
+    int index = -1, slot = -1;
+    bool back = false;
+    if (shelf) {
+        index = ShelfHit(px, py);
+        if (index < 0) return false;
+        // From the box as last drawn; the focused box turned round shows
+        // its back up close too.
+        const SpineRect* rect = nullptr;
+        for (const SpineRect& r : spineRects)
+            if (r.index == index) rect = &r;
+        if (!rect) return false;
+        zoomFromX = (rect->x0 + rect->x1) / 2.0f;
+        zoomFromY = (rect->y0 + rect->y1) / 2.0f;
+        zoomFromH = rect->y1 - rect->y0;
+        back = index == focus && shelfFlip;
+    } else {
+        slot = SlotAt(px, py);
+        if (slot < 0 || page * kPerPage + slot >= Count()) return false;
+        index = ItemAt(slot);
+    }
+    if (!ZoomArtFor((*items)[index].id, back).data) return false;  // a name tile: no cover to show
     zoomItem = index;
     zoomSlot = slot;
+    zoomBack = back;
     zoomClosing = false;
     zoomShown = 0.0f;
     zoomLastFrame = 0;
@@ -1540,7 +1568,7 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
 
 void GuiGameGrid::DrawCoverZoom() {
     if (zoomItem < 0) return;
-    if (!IsVisible() || zoomItem >= Count() || zoomSlot < 0) {
+    if (!IsVisible() || zoomItem >= Count() || (!shelf && zoomSlot < 0)) {
         EndCoverZoom();
         return;
     }
@@ -1557,7 +1585,7 @@ void GuiGameGrid::DrawCoverZoom() {
         EndCoverZoom();
         return;
     }
-    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id);
+    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id, zoomBack);
     if (!art.data) {
         EndCoverZoom();
         return;
@@ -1566,12 +1594,21 @@ void GuiGameGrid::DrawCoverZoom() {
     // where it is.
     const float e = riftwii::wii::transition::Ease(zoomShown);
     const int alpha = GetAlpha();
-    // From the cover as its tile draws it (lit, a little larger) to the
-    // middle of the screen.
-    const float tileScale = slots[zoomSlot].scale * CoverScale();
-    const float fromH = riftwii::kCoverHeight * tileScale;
-    const float fromW = riftwii::kCoverWidth * tileScale;
-    const float fromCx = TileX(zoomSlot) + Geo().tileW / 2.0f, fromCy = TileY(zoomSlot) + Geo().tileH / 2.0f;
+    // From the cover as its tile draws it (lit, a little larger), or the
+    // box as the shelf drew it, to the middle of the screen.
+    float fromW, fromH, fromCx, fromCy;
+    if (zoomSlot >= 0) {
+        const float tileScale = slots[zoomSlot].scale * CoverScale();
+        fromH = riftwii::kCoverHeight * tileScale;
+        fromW = riftwii::kCoverWidth * tileScale;
+        fromCx = TileX(zoomSlot) + Geo().tileW / 2.0f;
+        fromCy = TileY(zoomSlot) + Geo().tileH / 2.0f;
+    } else {
+        fromH = zoomFromH;
+        fromW = zoomFromH * art.aspect;
+        fromCx = zoomFromX;
+        fromCy = zoomFromY;
+    }
     const float toH = kZoomHeight, toW = kZoomHeight * art.aspect;
     const float w = fromW + (toW - fromW) * e, h = fromH + (toH - fromH) * e;
     const float cx = fromCx + (320.0f - fromCx) * e, cy = fromCy + (240.0f - fromCy) * e;
@@ -1582,5 +1619,6 @@ void GuiGameGrid::DrawCoverZoom() {
     const float drop = 8.0f * e;
     skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + drop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner,
                    static_cast<int>(alpha * e));
-    skin::DrawRgb5a3Part(art.data, art.texW, art.texH, art.u0, art.u1, x, y, w, h, alpha);
+    if (art.madeUpBack) DrawMadeUpBoxBack(art.data, (*items)[zoomItem].hue, x, y, w, h, alpha);
+    else skin::DrawRgb5a3Part(art.data, art.texW, art.texH, art.u0, art.u1, x, y, w, h, alpha);
 }

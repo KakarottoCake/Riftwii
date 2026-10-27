@@ -35,6 +35,10 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
 ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue);
 // The shelf leaves this game's place empty while its box flies ("" none).
 void SetShelfFlying(const std::string& id);
+// A box's back made up from its cover (as the shelf makes one up without
+// GameTDB's full scan), flat at x, y, w x h on screen: the cover zoom of a
+// box turned round.
+void DrawMadeUpBoxBack(const u8* cover, GXColor hue, float x, float y, float w, float h, int alpha);
 
 struct GridItem {
     std::string title;  // the display name, fitted to the tile
@@ -144,7 +148,9 @@ public:
     // up large in the middle of the screen, the rest dimmed behind it; 1,
     // 2, A or B zooms it back down into its tile. While it is up those
     // presses are the zoom's only (not the View or Settings button's). A
-    // tile without a cover leaves 1 and 2 to the bar. Drawn by
+    // tile without a cover leaves 1 and 2 to the bar. On the shelf and the
+    // carousel it is a box pointed at, its back if it is the focused box
+    // turned round (Up or Down). Drawn by
     // GuiCoverZoom, over everything else on Home.
     bool CoverZoomed() const { return zoomItem >= 0; }
     void DrawCoverZoom();
@@ -236,12 +242,15 @@ private:
     void DrawNeighbourPages(int alpha);
     void DrawCoverTile(int i, bool on, int alpha);
     // The cover zoom (CoverZoomed). zoomItem is the game zoomed (-1 none),
-    // zoomSlot its tile; zoomShown runs from 0 (in its tile) to 1 (up),
-    // towards 0 once zoomClosing, at the pace of the time between frames.
+    // zoomSlot its tile (-1 on the shelf, which zooms from the box's middle
+    // and height, zoomFrom*); zoomBack shows the box's back. zoomShown runs
+    // from 0 (in its tile) to 1 (up), towards 0 once zoomClosing, at the
+    // pace of the time between frames.
     bool CoverZoomKeys(GuiTrigger* t);
     void EndCoverZoom() { zoomItem = zoomSlot = -1; }
     int zoomItem = -1, zoomSlot = -1;
-    bool zoomClosing = false;
+    bool zoomClosing = false, zoomBack = false;
+    float zoomFromX = 0.0f, zoomFromY = 0.0f, zoomFromH = 0.0f;
     float zoomShown = 0.0f;
     u64 zoomLastFrame = 0;
     void PrefetchCovers();
