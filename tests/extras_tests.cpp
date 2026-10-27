@@ -3,6 +3,7 @@
 // The launch extras: HTTP for the downloads, cheat files and their GCT,
 // the video mode patcher, and the settings file.
 #include "riftwii/cheats.hpp"
+#include "riftwii/codehook.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/http.hpp"
@@ -2252,6 +2253,51 @@ void TestFriivolutionArguments() {
     EXPECT_EQ(args[1], "path=usb:/wbfs/x.wbfs");
 }
 
+void TestReturnPlans() {
+    const std::uint32_t arena1_top = 0x817E0000;
+    const ReturnStubPlan ordinary = plan_return_stub(arena1_top, true, false);
+    EXPECT_EQ(ordinary.address, arena1_top - kReturnStubBytes);
+    EXPECT_EQ(ordinary.arena1_hi, ordinary.address);
+    EXPECT_EQ(ordinary.code_list_end, kCodeListEnd);
+    EXPECT_EQ(plan_return_stub(arena1_top + 15, true, false).address, ordinary.address);
+
+    // RE4 and code builds keep every byte of their MEM1 arena. The stub
+    // survives a clear from the game's start to its FST, and normal cheats
+    // cannot fill those last 32 bytes of low memory.
+    const ReturnStubPlan low = plan_return_stub(arena1_top, true, true);
+    EXPECT_EQ(low.address, kLowReturnStub);
+    EXPECT_EQ(low.arena1_hi, arena1_top);
+    EXPECT_EQ(low.code_list_end, low.address);
+    EXPECT_EQ(kCodeListEnd - low.code_list_end, kReturnStubBytes);
+    EXPECT_TRUE(low.address + kReturnStubBytes <= 0x80003000);
+    EXPECT_TRUE(low.address < 0x80004000);
+
+    for (bool needs_low_memory : {false, true}) {
+        const ReturnStubPlan disabled = plan_return_stub(arena1_top, false, needs_low_memory);
+        EXPECT_EQ(disabled.address, 0u);
+        EXPECT_EQ(disabled.arena1_hi, arena1_top);
+        EXPECT_EQ(disabled.code_list_end, kCodeListEnd);
+    }
+    EXPECT_EQ(plan_return_stub(16, true, false).address, 0u);
+
+    constexpr std::uint64_t channel = 0x0001000155465457ull;
+    constexpr std::uint64_t legacy_channel = 0x0001000152465457ull;
+    constexpr std::uint64_t hbc = 0x000100014C554C5Aull;
+    constexpr std::uint64_t menu = 0x0000000100000002ull;
+    // A failed channel ticket leaves HBC next, even with both installed.
+    EXPECT_TRUE(gamecube_return_titles(true, true, channel, hbc) ==
+                (std::vector<std::uint64_t>{channel, hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, legacy_channel, hbc) ==
+                (std::vector<std::uint64_t>{legacy_channel, hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, channel, 0) == (std::vector<std::uint64_t>{channel, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, 0, hbc) == (std::vector<std::uint64_t>{hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, 0, 0) == (std::vector<std::uint64_t>{menu}));
+    // HBC is not a fallback when another app started RiftWii.
+    EXPECT_TRUE(gamecube_return_titles(true, false, channel, hbc) == (std::vector<std::uint64_t>{channel, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, false, 0, hbc) == (std::vector<std::uint64_t>{menu}));
+    EXPECT_TRUE(gamecube_return_titles(false, true, channel, hbc) == (std::vector<std::uint64_t>{menu}));
+}
+
 void TestReturnTo() {
     auto put = [](std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
         b[at] = v >> 24; b[at + 1] = (v >> 16) & 0xFF; b[at + 2] = (v >> 8) & 0xFF; b[at + 3] = v & 0xFF;
@@ -2295,6 +2341,35 @@ void TestReturnTo() {
     put(high, 0x108, 0x38A00000);
     EXPECT_TRUE(patch_return_to({{high.data(), high.size(), 0x81000000}}, 0x55465457, stub2.data(), 0x80F00000).patched);
     EXPECT_EQ(0x81000100u + (get(high, 0x100) & 0x03FFFFFCu) - 0x04000000u, 0x80F00000u);
+    // The low-memory slot is behind the callers, in both SDK layouts.
+    // Only its five instructions are written; the rest of the reserved
+    // cache line remains intact for the before/after memory comparison.
+    for (bool old_sdk : {false, true}) {
+        std::vector<std::uint8_t> low_text(0x400, 0);
+        std::vector<std::uint8_t> low_stub(kReturnStubBytes, 0xCC);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            put(low_text, at, old_sdk ? 0x38C00002 : 0x38800002);
+            put(low_text, at + 4, old_sdk ? 0x38A00001 : 0x38600001);
+        }
+        put(low_text, 0x108, old_sdk ? 0x38E00000 : 0x38A00000);
+        const ReturnStubPlan plan = plan_return_stub(0x817E0000, true, true);
+        const ReturnToReport low_report = patch_return_to(
+            {{low_text.data(), low_text.size(), 0x80004000}}, 0x55465457, low_stub.data(), plan.address);
+        EXPECT_TRUE(low_report.patched);
+        EXPECT_EQ(low_report.old_sdk, old_sdk);
+        EXPECT_EQ(get(low_stub, 0), old_sdk ? 0x3CA00001u : 0x3C600001u);
+        EXPECT_EQ(get(low_stub, 8), old_sdk ? 0x3CC05546u : 0x3C805546u);
+        EXPECT_EQ(get(low_stub, 16), 0x4E800020u);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            const std::uint32_t call = get(low_text, at);
+            EXPECT_EQ(call & 0xFC000003u, 0x48000001u);
+            const std::uint32_t signed_displacement = (call & 0x03FFFFFCu) | 0xFC000000u;
+            EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + signed_displacement, plan.address);
+        }
+        for (std::size_t at = 20; at < low_stub.size(); ++at) {
+            EXPECT_EQ(low_stub[at], 0xCC);
+        }
+    }
     // Two places only, or no stub: nothing written.
     std::vector<std::uint8_t> short_text(0x400, 0), short_stub(32, 0);
     for (std::size_t at : {0x100u, 0x180u}) {
@@ -2605,6 +2680,7 @@ void TestPlayerActed() {
 
 int main() {
     TestPlayLogRecord();
+    TestReturnPlans();
     TestReturnTo();
     TestHeadlessArguments();
     TestResetRequest();

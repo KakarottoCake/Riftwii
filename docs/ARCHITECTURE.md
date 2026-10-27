@@ -488,7 +488,8 @@ the clock switch above would remove it.
 **Leaving and crashing.** Holding HOME (HOME and - on a Wii Remote
 alone; L, R, Z and Start on a GameCube controller) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
-RiftWii channel when it is installed, else the Wii Menu, through
+RiftWii channel first, then the Homebrew Channel if it started RiftWii and
+the channel cannot be used, then the Wii Menu, through
 `ES_LaunchTitle` with the ticket view the loader read. The memory card is
 written back first. Normal gameplay does not write SD trace records;
 `sd:/riftwii/gc/test/trace` enables them for diagnostics. PAD trace requests
@@ -699,6 +700,7 @@ ID, including this change, consistently.
 | Under `0x80900000`, and `0x80900000`–about `0x80940000` (start-up only) | The packed `boot.dol`: its table and Zstandard frames, then the stub with its workspace and stack (`runtime/dolpack/`, `tools/pack_dol.py`). The stub unpacks every section to its address above, clears the BSS, moves the command line to where a loader would have put it for the unpacked DOL, and jumps to crt0; after that it is free memory |
 | `0x81200000` | The game's apploader, while it runs |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
+| `0x80002FE0`–`0x80003000` | Return to RiftWii's stub for code builds and games that clear MEM1's top (RE4, older LEGO games, Ghostbusters). Below the OS globals and past every veneer; an ordinary cheat list ends before it. Other games keep the stub above their MEM1 arena, away from mod loaders' low-memory code |
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
