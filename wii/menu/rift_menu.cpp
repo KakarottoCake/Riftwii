@@ -12976,7 +12976,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Game names updated."));
 					} else {
 						logf("Titles: update failed: %s\n", error.c_str());
-						note(tr("Could not download game names: {1}", {FlatCapped(error, 90)}));
+						// TLS reason follows host and error number.
+						note(tr("Could not download game names: {1}", {FlatCapped(error, 220)}));
 					}
 					break;
 				}
@@ -13173,7 +13174,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					HaltGui();
 					if (!ok) {
 						logf("Update check: %s\n", error.c_str());
-						note(tr("Could not check: {1}", {FlatCapped(error, 90)}));
+						// TLS reason follows host and error number.
+						note(tr("Could not check: {1}", {FlatCapped(error, 220)}));
 					} else if (newer) {
 						RunUpdate(latest);
 						note(riftwii::wii::UpdateInstalled(latest)
