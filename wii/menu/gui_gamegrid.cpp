@@ -1520,7 +1520,12 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         // controller, so neither a tile under it nor the bar's buttons
         // (View on 1, Settings on 2) answer them, and the grid stays still.
         const bool wpadKey = t->wpad && (t->wpad->btns_d & kZoomKeys);
-        if (!zoomClosing && (wpadKey || PressedA(t) || PressedB(t))) {
+        if (zoomClosing && wpadKey) {
+            // 1 or 2 again on its way down brings it back up from where it
+            // is; A and B only ever put it back.
+            zoomClosing = false;
+            riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+        } else if (!zoomClosing && (wpadKey || PressedA(t) || PressedB(t))) {
             zoomClosing = true;
             riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Back);
         }
