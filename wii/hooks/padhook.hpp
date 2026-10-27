@@ -42,9 +42,12 @@
 // The HOME Menu (#224 part 1): with the KPAD read, WPADProbe and HBMCalc
 // found and hooked (riftwii/hbmsearch.hpp), the same combo opens the game's
 // own HOME Menu instead, on a Classic Controller the blob stands in on a
-// free channel until the menu closes (runtime/rthome.h). Missing any of the
-// three, or in a game that never reads the stand-in's channel, the combo
-// is the way back as before.
+// free channel until the menu closes (runtime/rthome.h); the stand-in's
+// Wii Remote carries the same presses and a pointer, for games that look
+// only at the Remote (Bomberman Blast). Missing any of the three, in a game
+// that never reads the stand-in's channel, or in one that reads it but
+// opens no menu twice in a row (Mario Kart Wii), the combo is the way back
+// as before.
 //
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
