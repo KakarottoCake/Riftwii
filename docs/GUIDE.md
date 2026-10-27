@@ -51,7 +51,7 @@ USB drive (FAT32 or NTFS). On a USB drive, make the same `wbfs` and
 | Wii game, `.wbfs` | `wbfs` | `wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs` or just `wbfs/RMCE01.wbfs` |
 | Wii game, `.iso` | `wbfs` or `games` | `games/Mario Kart Wii.iso` |
 | Wii game, `.rvz` | `games` | `games/Mario Kart Wii.rvz` |
-| GameCube game (`.iso` or `.rvz`) | a **folder of its own** inside `games` | `games/Luigi's Mansion/game.iso` |
+| GameCube game (`.iso`, `.gcm` or `.rvz`) | a **folder of its own** inside `games` | `games/Luigi's Mansion/game.iso` |
 
 A big `.wbfs` that was split into pieces (`.wbfs`, `.wbf1`, `.wbf2`, …)
 is fine: keep all the pieces together in the same folder.
@@ -139,7 +139,7 @@ Now RiftWii has its own channel on the Wii Menu. It also lets games go
 
 1. Start RiftWii again.
 2. If it crashed, it asks whether to send a **problem report**: choose
-   **Send**. Otherwise go to **Settings > Send a problem report**.
+   **Send**. Otherwise go to **Settings > Help > Send a problem report**.
 3. A link and a QR code appear. Send that link to us on the
    [Discord](https://discord.gg/gGsTdjjQaK), with what you did and what
    you saw. No need to take out your SD card.
