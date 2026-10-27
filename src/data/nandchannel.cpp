@@ -480,6 +480,13 @@ std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) 
     return path;
 }
 
+std::string priiloader_copy_path(const TmdContents& wii_menu) {
+    const TmdContent* boot = tmd_content_by_index(wii_menu, wii_menu.boot_index);
+    if (boot == nullptr) return std::string();
+    const std::uint32_t copy_id = 0x10000000u | (boot->id & 0x0FFFFFFFu);
+    return nand_content_path(wii_menu.title_id, copy_id);
+}
+
 ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
                                       const std::vector<ContentStart>& starts) {
     ChannelVerdict verdict;

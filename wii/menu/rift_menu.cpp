@@ -98,6 +98,7 @@
 #include "screenshot.hpp"
 #include "boot.hpp"
 #include "di.hpp"
+#include "nandchannels.hpp"
 #include "demo.h"
 #include "input.h"
 #include "riftwii/apply.hpp"
@@ -2906,8 +2907,22 @@ private:
 
 // Where the player leaves to, for wii/main.cpp's ExitApp: 1 the loader
 // that started RiftWii (the Homebrew Channel), 2 the Wii Menu,
-// 3 Priiloader, 4 power off.
+// 3 Priiloader, 4 power off, 6 a restart.
 static int g_leave = 1;
+
+// The HOME Menu's third button restarts the console where Priiloader is
+// not installed: there it only started the Wii Menu. On a Wii U a restart
+// is also the way back from the Wii side (the vWii's own "Wii U Menu"
+// channel does just that). It stays Priiloader where Priiloader is, or
+// where it could not be looked for. Not looked for while the drive scan
+// runs: it reads the Wii's channels through the same NAND path buffer and
+// permission patch, and the look would close the scan's patch (or read a
+// path the scan was writing). The button is Priiloader until then.
+static bool HomeRestartsConsole()
+{
+	if (!riftwii::wii::DriveScanDone()) return false;
+	return riftwii::wii::PriiloaderInstalled() == riftwii::wii::PriiloaderFound::No;
+}
 
 // The HOME Menu, as the Wii's: black bands across the top (its name and
 // Close) and the bottom (the Remotes' batteries), each edged with a fine
@@ -3082,7 +3097,8 @@ private:
 };
 
 // The HOME Menu, like the Wii's own: leave to the Homebrew Channel, the
-// Wii Menu or Priiloader, or turn the Wii off. Close, B or HOME goes
+// Wii Menu or Priiloader (or restart, HomeRestartsConsole), or turn the
+// Wii off. Close, B or HOME goes
 // back. 0 when closed, else where to go (g_leave). Built and closed with
 // the GUI halted.
 static int ShowHomeMenu()
@@ -3108,7 +3124,11 @@ static int ShowHomeMenu()
 	const int row1 = (kHomeBandTop + kHomeBandBottom) / 2 - 85, row2 = row1 + 98;
 	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row1, tr("Homebrew Channel"), 0, 0, 0);
 	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row1, tr("Wii Menu"), 0, 0, 0);
-	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, "Priiloader", 0, 0, 0);
+	bool restart = HomeRestartsConsole();
+	// Opened during the drive scan, the button starts as Priiloader
+	// (HomeRestartsConsole); it is looked at again once the scan is done.
+	bool settled = riftwii::wii::DriveScanDone();
+	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, restart ? tr("Restart") : "Priiloader", 0, 0, 0);
 	// iOS 6: Power off is the red one, as an action sheet's destructive button.
 	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
 		row2, tr("Power off"), 0, 0, 0);
@@ -3158,14 +3178,19 @@ static int ShowHomeMenu()
 	while (choice < 0) {
 		usleep(20000);
 		HaltGui();
+		if (!settled && riftwii::wii::DriveScanDone()) {
+			settled = true;
+			restart = HomeRestartsConsole();
+			if (restart) priiBtn.text.SetText(tr("Restart"));
+		}
 		if (hbcBtn.Clicked()) choice = 1;
 		else if (menuBtn.Clicked()) choice = 2;
-		else if (priiBtn.Clicked()) choice = 3;
+		else if (priiBtn.Clicked()) choice = restart ? 6 : 3;
 		else if (offBtn.Clicked()) choice = 4;
 		else if (closeBtn.Clicked(false)) choice = 0;  // closeSound owns this cue
 		if (choice < 0) ResumeGui();
 	}
-	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off"};
+	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off", "", "restart"};
 	logf("HOME Menu: %s\n", kWhere[choice]);
 	if (choice == 0) closeSound.Play();  // leaving RiftWii: its own sounds stop anyway
 	transition::Begin(transition::Kind::PopClose);
@@ -12228,7 +12253,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
-			case kExit: return tr("Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.");
+			case kExit:
+				if (HomeRestartsConsole())
+					return tr("Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.");
+				return tr("Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.");
 			case kHeading: return "";
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
@@ -12994,7 +13022,8 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 			"Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."},
 		// Not a section: the HOME Menu's ways out, as a tile of its own.
 		{SettingsSection::Count, &skin::iconPower, "",
-			"Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."},
+			HomeRestartsConsole() ? "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
+				: "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."},
 	};
 	// Three across, three down, inside a TV's overscan.
 	std::vector<TileSpec> tilesSpec;

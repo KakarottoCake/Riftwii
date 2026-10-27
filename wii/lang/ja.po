@@ -1260,6 +1260,9 @@ msgstr "とじる"
 msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
 msgstr "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。"
 
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
+msgstr "行き先を選びます：Homebrew Channel、Wiiメニュー、本体の再起動、または電源オフ。"
+
 msgid "Sending a report"
 msgstr "レポートを送信中"
 

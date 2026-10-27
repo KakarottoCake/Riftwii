@@ -374,8 +374,10 @@ the tiles.
 ### HOME Menu
 
 HOME on Home (or **Leave RiftWii** in Settings) opens the HOME Menu, as
-on the Wii: **Homebrew Channel**, **Wii Menu**, **Priiloader** (its menu;
-the Wii Menu if Priiloader is not installed) or **Power off**. **Close**,
+on the Wii: **Homebrew Channel**, **Wii Menu**, **Priiloader** (its menu)
+or **Power off**. Where Priiloader is not installed, the third button is
+**Restart**: it restarts the console, which on a Wii U leaves the Wii side
+for the Wii U Menu (or whatever starts at power-on). **Close**,
 B or HOME goes back, so a HOME pressed by mistake costs nothing. Without
 a pointer, the D-pad moves between the buttons, starting on Close. The
 bar at the bottom shows each Wii Remote's batteries.
