@@ -100,10 +100,10 @@ constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x
 constexpr std::uint32_t kFaultVeneers = kCodeVeneers + VSD_ENTRIES * 16;
 static_assert(kFaultVeneers + 2 * 16 <= 0x80003000, "the crash blob's veneers must end before 0x80003000");
 static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob's veneers must follow the SD card's");
-// A code build's Return to RiftWii stub (20 bytes): the end of the same
-// room, far past every veneer. Below the MEM1 arena's top it was in the
-// build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
-constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
+// Return to RiftWii for code builds and games that clear MEM1's top:
+// the end of the same room, far past every veneer. PMEX Remix's heaps
+// overwrote an arena-top stub; RE4 clears past the arena's end outright.
+constexpr std::uint32_t kCodeReturnStub = kLowReturnStub;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
 // A code build's GameCube adapter blob (in MEM2): its veneers (PADRead's,
 // PADControlMotor's, and the way back's three, padhook.hpp's kPadHookSites),
@@ -181,13 +181,16 @@ void install_dol_switch(const std::vector<CodeRange>& text, const std::uint32_t*
 // the end of the game's video retrace handler. Leaves the game untouched
 // and says why when that cannot be done.
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
-                    const std::vector<MemoryRegion>& keep_out, std::string& why) {
+                    const std::vector<MemoryRegion>& keep_out, std::string& why,
+                    std::uint32_t default_list_end = kCodeListEnd) {
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
     const bool moved = g_extras.code_list_start != 0;
     const std::uint32_t list = moved ? g_extras.code_list_start : kCodeListAddress;
-    const std::uint32_t list_end = moved ? g_extras.code_list_end : kCodeListEnd;
+    // A low-memory return stub owns the last 32 bytes of the ordinary
+    // list's room. Keep both the list and its clearing memset below it.
+    const std::uint32_t list_end = moved ? g_extras.code_list_end : default_list_end;
     const auto overlap = [](std::uint32_t a, std::uint32_t a_end, std::uint32_t b, std::uint32_t b_end) {
         return a < b_end && b < a_end;
     };
@@ -2373,13 +2376,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                        : options.install_resident      ? resident.new_arena1_hi
                                                                        : load32(0x80000038);
     const std::uint32_t arena1_top = extras.arena1_hi(below_extras);
-    // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
-    const u64 return_to = clears_mem1_top || gx_protected || plain_code_build ? 0 : return_title();
+    const bool return_disabled = debug_off("returnto");
+    const u64 return_to = gx_protected || plain_code_build || return_disabled ? 0 : return_title();
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
-    const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
-    const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
+    const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, code_build || clears_mem1_top);
+    const std::uint32_t return_stub = return_plan.address;
+    const std::uint32_t arena1_end = return_plan.arena1_hi;
+    if (return_stub != 0 && clears_mem1_top) {
+        logf("Return to RiftWii: the stub uses low memory at 0x%08x because the game clears MEM1 above its arena.\n",
+             return_stub);
+    }
     if (options.install_resident || vsd.active || extras.any() || return_stub != 0) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     {
@@ -2596,7 +2604,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end))
+            logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
     if (!gx_protected) {
@@ -2627,7 +2636,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
     bool returns_to_channel = false;
-    if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
+    if (return_disabled) logf("Return to: debug_off: the game is not patched\n");
     else returns_to_channel = apply_return_to(loaded, return_to, return_stub);
     // The game's own Reset leaves through its OSReturnToMenu once that goes
     // to the channel the request is for (rt_reset_on_os_restart).
@@ -2933,7 +2942,7 @@ u64 return_title() {
     return title;
 }
 
-// `stub`: 32 bytes of MEM1 above the game's arena.
+// `stub`: 32 reserved bytes, above the game's arena or in low memory.
 // True when the game's __OSLaunchMenu now starts `title`.
 bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
     if (title == 0) return false;
@@ -2944,6 +2953,11 @@ bool apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
     if (report.patched) {
         DCFlushRange(reinterpret_cast<void*>(stub), 32);
         ICInvalidateRange(reinterpret_cast<void*>(stub), 32);
+        if (stub == kLowReturnStub) {
+            const std::uint32_t* words = reinterpret_cast<const std::uint32_t*>(stub);
+            logf("Return to: the 32 bytes at 0x%08x are %08x %08x %08x %08x %08x %08x %08x %08x.\n",
+                 stub, words[0], words[1], words[2], words[3], words[4], words[5], words[6], words[7]);
+        }
         for (const MemoryRegion& r : loaded) {
             DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
@@ -3754,6 +3768,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         }
     }
     apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
+    // Channels use the low-memory stub. Leave the full cheat area available
+    // when the return setting or debug switch leaves that stub unused.
+    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+    const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, true);
     const std::string codes_refused = channel_codes_refusal(files.program);
     if (!g_extras.cheat_gct.empty() && !codes_refused.empty()) {
         logf("Codes are off: %s\n", codes_refused.c_str());
@@ -3761,7 +3779,9 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end)) {
+            logf("Codes are off: %s\n", why.c_str());
+        }
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
@@ -3769,8 +3789,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
-    const u64 return_to = debug_off("returnto") ? 0 : return_title();
-    apply_return_to(loaded, return_to, kCodeReturnStub);
+    apply_return_to(loaded, return_to, return_plan.address);
     install_wpad_log_last(extras);
 
     ProgressStage("Starting the game", 100);

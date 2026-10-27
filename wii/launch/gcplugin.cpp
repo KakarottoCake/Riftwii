@@ -34,6 +34,7 @@
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcrequest.hpp"
 #include "riftwii/pluginfile.hpp"
+#include "riftwii/returnto.hpp"
 #include "umsdev.hpp"
 #include "riftwii/plugin_gamecube.h"
 #include "sdfile.hpp"
@@ -50,27 +51,38 @@ std::vector<std::uint8_t> g_crash_screen;
 bool g_crash_screen_way_back = false;
 
 // Where the way back goes, as Settings > Return to says and as a Wii
-// game's HOME Menu goes (boot.cpp's return_title): on "riftwii", back to
-// what started RiftWii (the Homebrew Channel when its stub is there, else
-// the RiftWii channel when it is installed), else the Wii Menu. The first
-// of those with a ticket, with its first ticket view; 0 when none has one.
-u64 way_back_title(GcWayBack& kind, tikview& view) {
-    std::vector<std::pair<u64, GcWayBack>> titles;
-    if (Settings().return_to == "riftwii") {
-        if (StartedByHomebrewChannel()) {
-            if (const u64 hbc = HomebrewChannelTitle()) titles.emplace_back(hbc, GcWayBack::HomebrewChannel);
-        }
-        if (const u64 channel = ChannelTitle()) titles.emplace_back(channel, GcWayBack::Channel);
-    }
-    titles.emplace_back(kWiiMenuTitle, GcWayBack::WiiMenu);
-    for (const auto& [title, what] : titles) {
+// game's HOME Menu goes (boot.cpp's return_title): on "riftwii", the
+// installed RiftWii channel. If its ticket cannot be used, try the Homebrew
+// Channel when it started RiftWii, then the Wii Menu. Only an actual launch
+// logs the destination; the crash-screen hint's earlier lookup stays quiet.
+u64 way_back_title(GcWayBack& kind, tikview& view, bool log_destination = false) {
+    const bool back_to_riftwii = Settings().return_to == "riftwii";
+    const bool started_by_hbc = back_to_riftwii && StartedByHomebrewChannel();
+    const u64 channel = back_to_riftwii ? ChannelTitle() : 0;
+    const u64 hbc = started_by_hbc ? HomebrewChannelTitle() : 0;
+    for (const std::uint64_t title : gamecube_return_titles(back_to_riftwii, started_by_hbc, channel, hbc)) {
         u32 views = 0;
         if (ES_GetNumTicketViews(title, &views) < 0 || views == 0) continue;
         // ES_GetTicketViews fills as many as asked: room for one is enough.
         static tikview found[4] ATTRIBUTE_ALIGN(32);
         if (ES_GetTicketViews(title, found, 1) < 0) continue;
         view = found[0];
-        kind = what;
+        if (title == kWiiMenuTitle) {
+            kind = GcWayBack::WiiMenu;
+        } else if (title == channel) {
+            kind = GcWayBack::Channel;
+        } else {
+            kind = GcWayBack::HomebrewChannel;
+        }
+        if (log_destination && kind == GcWayBack::Channel) {
+            logf("GameCube: holding HOME returns to RiftWii through its installed channel.\n");
+        } else if (log_destination && kind == GcWayBack::HomebrewChannel) {
+            if (channel == 0) {
+                logf("GameCube: holding HOME returns to the Homebrew Channel because the RiftWii channel is not installed.\n");
+            } else {
+                logf("GameCube: holding HOME returns to the Homebrew Channel because the RiftWii channel could not be opened.\n");
+            }
+        }
         return title;
     }
     kind = GcWayBack::None;
@@ -316,7 +328,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
 
     GcWayBack kind = GcWayBack::None;
     static tikview view ATTRIBUTE_ALIGN(32);
-    request.way_back_title = way_back_title(kind, view);
+    request.way_back_title = way_back_title(kind, view, true);
     request.way_back_kind = way_back_kind(kind);
     if (kind != GcWayBack::None) {
         request.way_back_view = &view;
