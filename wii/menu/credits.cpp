@@ -79,7 +79,8 @@ const char* const kCredits[] = {
     "Menu writes when it moves a channel to the SD card.",
     "",
     "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
-    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md).",
+    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md). "
+    "WiiFlow Lite's cover flow: the shelf's plastic cases round the paper, and how their colors are chosen.",
     "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
     "for its emulated NAND.",

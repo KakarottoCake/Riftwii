@@ -840,6 +840,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
 | `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |
+| `sd:/riftwii/case_colors.txt` | The player's own case colors for the Home shelf, one a line as `ID rrggbb`; a full six-character ID is one game, a three to five character ID covers every game it starts (`src/art/casecolour.cpp`) |
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
 | `sd:/riftwii/riifs/` | Files copied from network packs |

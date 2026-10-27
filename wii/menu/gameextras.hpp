@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "frontend.hpp"
+#include "riftwii/casecolour.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/launchargs.hpp"
 #include "riftwii/playhistory.hpp"
@@ -54,8 +55,13 @@ std::string PlayNote(const std::string& game_id);
 // Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
 // once; and written back after the player moves a game.
 const std::vector<std::string>& HomeOrder();
-// Forget the play history and Home order read from the SD card, so the
-// next use reads them again (the card was taken out, maybe swapped).
+// The player's own case colours (sd:/riftwii/case_colors.txt,
+// riftwii/casecolour.hpp), read once; none when there is no file.
+const CaseColourOverrides& PlayerCaseColours();
+
+// Forget the play history, Home order and case colours read from the SD
+// card, so the next use reads them again (the card was taken out, maybe
+// swapped).
 void ForgetCardHistoryAndOrder();
 void SaveHomeOrder(const std::vector<std::string>& order);
 
