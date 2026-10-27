@@ -35,7 +35,9 @@ class BitmapFont {
 public:
     // One glyph, scaled: 8-bit coverage, `width` by `rows`; `left` from the
     // pen to its first column, `top` from the baseline up to its first row,
-    // `advance` to the next pen position. As FreeType gives them.
+    // `advance` to the next pen position. As FreeType gives them. All but
+    // `advance` are in the pixels render() was asked for; `advance` is in
+    // menu units (the pixel size's).
     struct Glyph {
         std::vector<std::uint8_t> pixels;
         int width = 0, rows = 0, left = 0, top = 0, advance = 0;
@@ -52,9 +54,12 @@ public:
     std::size_t sheet_bytes() const { return sheet_bytes_; }
 
     // `ch` at FreeType pixel size `pixel_size` (a line as wide as the
-    // TrueType font's at that size: the font's 32 pixels at 32.5). False
-    // when the font has no such character.
-    bool render(std::uint32_t ch, int pixel_size, Glyph& out);
+    // TrueType font's at that size: the font's 32 pixels at 32.5). The
+    // bitmap has `pixels_x` by `pixels_y` pixels to a unit of that size:
+    // the screen's pixels where the menu is drawn smaller than its units
+    // (3/4 across on a 16:9 TV, the screen size setting). False when the
+    // font has no such character.
+    bool render(std::uint32_t ch, int pixel_size, Glyph& out, float pixels_x = 1.0f, float pixels_y = 1.0f);
 
     // Reads only the header, for the slots' size: false when not a BRFNT.
     static bool sheet_size(const std::uint8_t* data, std::size_t size, std::size_t& bytes);
