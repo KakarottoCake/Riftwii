@@ -1342,6 +1342,16 @@ void TestSettings() {
     adapterAgain.parse(adapter.serialize());
     EXPECT_EQ(adapterAgain.gc_adapter, "on");
     EXPECT_EQ(adapterAgain.other.count("gc_adapter"), 0u);
+    LoaderSettings usb;
+    EXPECT_EQ(usb.usb_input, "on");  // the default
+    usb.parse("usb_input = off\n");
+    EXPECT_EQ(usb.usb_input, "off");
+    usb.parse("usb_input = maybe\n");  // unknown values are ignored
+    EXPECT_EQ(usb.usb_input, "off");
+    LoaderSettings usbAgain;
+    usbAgain.parse(usb.serialize());
+    EXPECT_EQ(usbAgain.usb_input, "off");
+    EXPECT_EQ(usbAgain.other.count("usb_input"), 0u);
 
     GameSettings g;
     VideoSettings v = effective_video(g, s);

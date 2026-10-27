@@ -24,6 +24,7 @@ below names the files that own it.
 | Menu state: the picked game, its packs, the choices | `wii/menu/frontend.cpp`, `src/patching/launch.cpp` (`LaunchModel`) |
 | Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/patching/riiconfig.cpp`, `wii/menu/frontend.cpp` |
 | Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS), and USB drives formatted as WBFS | `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
+| Dragon Quest X on its WFS USB drive: the drive read with the Wii's WFS key, the game started by the system with IOS59 ([WFS.md](WFS.md)) | `src/fs/wfs.cpp`, `src/fs/wfstitle.cpp`, `wii/storage/wfsdrive.cpp`, `wii/main.cpp` |
 | Cover art (GameTDB), stored as ready GX textures | `wii/menu/covers.cpp`, `src/art/coverart.cpp`, `wii/menu/gui_gamegrid.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online/online.cpp`, `src/data/titles.cpp`, `src/data/cheats.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp` |
 | Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
@@ -840,6 +841,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
 | `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |
+| `sd:/riftwii/case_colors.txt` | The player's own case colors for the Home shelf, one a line as `ID rrggbb`; a full six-character ID is one game, a three to five character ID covers every game it starts (`src/art/casecolour.cpp`) |
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
 | `sd:/riftwii/riifs/` | Files copied from network packs |

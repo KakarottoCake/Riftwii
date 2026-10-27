@@ -54,6 +54,7 @@
 #include "modpicture.hpp"
 #include "modtiles.hpp"
 #include "vsdimage.hpp"
+#include "wfsdrive.hpp"
 #include "appicon.hpp"
 #include "riftwii/modart.hpp"
 #include "bannerplay.hpp"
@@ -84,6 +85,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "ratingbadge.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
@@ -865,7 +867,9 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
 	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
-	if (catalog.status == tr("USB: a Wii U drive (RiftWii leaves it alone)")) return "";  // nor is a Wii U's own drive
+	// Nor is a Wii U's own drive, Dragon Quest X's, or an encrypted one that
+	// may be either: the same test that gave the status, not its text.
+	if (std::strcmp(tag, "USB") == 0 && riftwii::wii::usb_only_wiiu_drive()) return "";
 	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
@@ -1094,6 +1098,25 @@ struct HomeEntry {
 	std::string searchName;
 };
 
+// B held on the search button: a game at random from the ones Home shows.
+// Not the disc drive's tile or a homebrew app, and not a profile's tile
+// (a game with profiles would come up more often than one without).
+static int RandomHomeGame(const std::vector<HomeEntry>& entries)
+{
+	std::vector<int> games;
+	for (std::size_t i = 0; i < entries.size(); ++i) {
+		const HomeEntry& e = entries[i];
+		if (e.kind == HomeEntry::Kind::Disc || e.kind == HomeEntry::Kind::App) continue;
+		if (!e.profile.empty()) continue;
+		games.push_back(static_cast<int>(i));
+	}
+	if (games.empty()) return -1;
+	// The time base runs at tens of millions of ticks a second, and no two
+	// holds end on the same tick: as good as a die, with nothing to seed.
+	const std::size_t roll = static_cast<std::size_t>(gettime() % games.size());
+	return games[roll];
+}
+
 static std::string ChannelName(const riftwii::wii::NandChannel& c)
 {
 	return riftwii::wii::nand_channel_name(c, riftwii::wii::BannerLanguageIndex());
@@ -1304,6 +1327,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		item.mods = mods || profile;
 		item.to_build = r.game && !r.game->gc_patch_source.empty();
 		item.hue = skin::HueFor(r.id);
+		std::uint8_t caseRgb[3];
+		riftwii::resolve_case_colour(r.id, gamecube, riftwii::wii::PlayerCaseColours(), caseRgb);
+		item.caseColour = {caseRgb[0], caseRgb[1], caseRgb[2], 255};
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
 	}
@@ -3610,6 +3636,27 @@ static void NoteWiiUDrive()
 	other["wiiu_drive_note"] = "shown";
 	riftwii::wii::SaveSettings();
 }
+// An encrypted drive this Wii's WFS key (not on the card) might open, with
+// Dragon Quest X on the Wii: it may be the game's drive, which formatting
+// would wipe, so the note does not suggest it. Said once, as above.
+static bool MaybeWfsDrive(const FrontendState& state)
+{
+	if (!riftwii::wii::WfsDriveUnchecked()) return false;
+	for (const riftwii::wii::NandChannel& channel : state.channels)
+		if (channel.kind.kind == riftwii::ChannelKind::Wfs && channel.emu_nand.empty()) return true;
+	return false;
+}
+static void NoteEncryptedDrive()
+{
+	auto& other = riftwii::wii::Settings().other;
+	const auto seen = other.find("encrypted_drive_note");
+	if (seen != other.end() && seen->second == "shown") return;
+	ShowPopup(tr("Encrypted drive"),
+		tr("The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."),
+		tr("OK"));
+	other["encrypted_drive_note"] = "shown";
+	riftwii::wii::SaveSettings();
+}
 
 // What the last game's card log noted (wii/launch/boot.hpp TakeCardLog): into
 // the session log and sd:/riftwii/cardlog.txt, with a popup. Once per run.
@@ -4037,6 +4084,9 @@ static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
 static std::string g_openWhenScanned;  // the tile picked during the scan, by its key
+// That tile was a game at random (B held on the search button): it starts
+// once the drives are read, as it would have straight away.
+static bool g_startWhenScanned = false;
 // Home's rescan: the profiles' pictures are looked for again once it is
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
@@ -4056,6 +4106,7 @@ static void StartScan()
 	g_sdScanOk = false;
 	g_sdScanError.clear();
 	g_openWhenScanned.clear();
+	g_startWhenScanned = false;
 	g_scanning = true;
 	g_scanned = true;
 	riftwii::wii::StartDriveScan();
@@ -4144,17 +4195,30 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
-	// with only an adapter pad, OK could not be pressed).
+	// with only an adapter pad, OK could not be pressed). The USB keyboard,
+	// mouse and pen tablet too, for the same reason.
 	riftwii::wii::GcAdapterMenuAllowStart();
+	riftwii::wii::UsbInputMenuAllowStart();
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
+	// This Wii's WFS drive (Dragon Quest X's) looks the same until its key
+	// opens it: without the key it is not called a Wii U drive.
+	const bool wfsDrive = wiiuDrive && riftwii::wii::WfsDriveFound();
+	const bool maybeWfs = wiiuDrive && !wfsDrive && MaybeWfsDrive(state);
 	if (prompts) {
 		WarnAboutDrives(g_sdScanError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
-		if (wiiuDrive) NoteWiiUDrive();
+		if (maybeWfs) NoteEncryptedDrive();
+		else if (wiiuDrive && !wfsDrive) NoteWiiUDrive();
 		if (g_sdScanOk) ReportCardLog();
 	}
-	if (wiiuDrive) {
+	if (wfsDrive) {
+		logf("USB: only this Wii's WFS drive (Dragon Quest X's) is plugged in\n");
+		state.usb_catalog.status = tr("USB: Dragon Quest X's drive");
+	} else if (maybeWfs) {
+		logf("USB: only an encrypted drive is plugged in, maybe Dragon Quest X's (no WFS key on the card); left alone\n");
+		state.usb_catalog.status = tr("USB: an encrypted drive, maybe Dragon Quest X's (left alone)");
+	} else if (wiiuDrive) {
 		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
 		state.usb_catalog.status = WiiUDriveStatus();
 	} else if (!usb) {
@@ -4555,6 +4619,12 @@ static int MenuSource(FrontendState& state)
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
+	// Point at the search button and hold B on a Wii Remote: a game at
+	// random starts, as Start on its page would. Long enough (about a
+	// second) that a B pressed in passing is not taken for it.
+	constexpr u32 kRandomHoldFrames = 50;
+	bool randomHolding = false, randomHoldUsed = false;
+	u32 randomHoldFrom = 0;
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -5016,6 +5086,7 @@ static int MenuSource(FrontendState& state)
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
+		bool startOpenNow = false;
 		// A press on a tile (A) waiting to be handled when a part joins: the
 		// tile is looked up again by what it is, as the games that come in
 		// move the tiles under it, and A must open the game that was pointed
@@ -5066,7 +5137,9 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
+				startOpenNow = g_startWhenScanned;
 				g_openWhenScanned.clear();
+				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
@@ -5136,6 +5209,7 @@ static int MenuSource(FrontendState& state)
 					if (SdWatchRemountForMenu()) {
 						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
 						riftwii::wii::ReloadSettings();
+						riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
 						// The card may be another one: what was read from the old
 						// card is read again, so its history, tiles and Home order
 						// are never written onto the new one.
@@ -5294,7 +5368,39 @@ static int MenuSource(FrontendState& state)
 				: tr("D-pad: move   A: put it down   B: put it back");
 			statusTxt.SetText(note.c_str());
 		}
-		int clicked = heldClick >= 0 ? heldClick : grid.GetClicked();
+		// B held with a Wii Remote pointing at the search button: a game at
+		// random, once per hold. Not while a game is carried, where B puts it back.
+		bool bOnSearch = false;
+		for (int channel = 0; channel < 4 && !grid.Carrying(); ++channel) {
+			const WPADData* remote = userInput[channel].wpad;
+			if (!remote || !remote->ir.valid || !(remote->btns_h & WPAD_BUTTON_B)) continue;
+			const int pointerX = static_cast<int>(remote->ir.x), pointerY = static_cast<int>(remote->ir.y);
+			if (searchBtn.button.IsInside(pointerX, pointerY)) bOnSearch = true;
+		}
+		int randomPick = -1;
+		if (!bOnSearch) {
+			randomHolding = false;
+			randomHoldUsed = false;
+		} else {
+			// Letting go of B here is not the grid's jump to the next letter.
+			grid.ForgetLetterPress();
+			if (!randomHolding) {
+				randomHolding = true;
+				randomHoldFrom = FrameTimer;
+			} else if (!randomHoldUsed && FrameTimer - randomHoldFrom >= kRandomHoldFrames) {
+				randomHoldUsed = true;
+				randomPick = RandomHomeGame(entries);
+				if (randomPick >= 0) {
+					logf("Home: B held on the search button, %s picked at random\n",
+						items[static_cast<std::size_t>(randomPick)].title.c_str());
+					grid.Focus(randomPick, false);  // Home comes back to it
+				} else {
+					logf("Home: B held on the search button, but no game is shown to pick from\n");
+				}
+			}
+		}
+		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
+		bool randomStart = randomPick >= 0;
 		bool reopening = false;
 		if (!g_reopenBanner.empty()) {
 			// Only while Home still shows channels (else it would open the page).
@@ -5306,7 +5412,10 @@ static int MenuSource(FrontendState& state)
 			g_reopenBanner.clear();
 		}
 		// A game picked while the drives were read opens now that they are.
-		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
+		if (clicked < 0 && !openNow.empty()) {
+			clicked = findTile(openNow);
+			randomStart = clicked >= 0 && startOpenNow;
+		}
 		if (menu != MENU_NONE) clicked = -1;
 		// Without the SD card a game's page can't save its choices, so it
 		// can't start: say so instead of opening it.
@@ -5319,6 +5428,7 @@ static int MenuSource(FrontendState& state)
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
+			g_startWhenScanned = randomStart;
 			logf("Home: %s picked while the drives are read; it opens once they are\n", g_openWhenScanned.c_str());
 			toast.Show(tr("{1} opens once RiftWii has finished reading the drives.", {picked.title}), false);
 			clicked = -1;
@@ -5330,9 +5440,10 @@ static int MenuSource(FrontendState& state)
 			if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 			g_openRect = tile;
 			// Channels: the game's banner first, as the Wii Menu opens a
-			// channel: out of its tile, and back into it.
+			// channel: out of its tile, and back into it. Not for a game at
+			// random, which starts straight away.
 			bool fromChannel = false;
-			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
+			if (grid.Channels() && !randomStart && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
 				transition::Begin(reopening ? transition::Kind::Fade : transition::Kind::ZoomIn, tile);
 				// Another game's banner, from the arrows: read from its image
@@ -5458,6 +5569,9 @@ static int MenuSource(FrontendState& state)
 			HaltGui();
 			if (ok) {
 				menu = MENU_HOME;
+				// A game at random: its page presses Start for the player,
+				// so its checks and warnings still stand.
+				if (randomStart) g_startOnOpen = true;
 				g_flightOn = grid.Shelf() && grid.ShelfFlightFrom(clicked, g_flight);
 				if (g_flightOn) {
 					// Off the shelf and onto the page's cover, the screens
@@ -5602,7 +5716,10 @@ static int MenuSource(FrontendState& state)
 	// tester's Settings took 12 s to open behind a 326-game WBFS drive).
 	// A game picked during the scan does not open behind the player's back
 	// once they have gone to Settings.
-	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
+	if (menu == MENU_OPTIONS) {
+		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
+	}
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
@@ -5617,6 +5734,7 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::TakeSdScan(part)) TakeSdScanPart(state, part);
 		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part, menu != MENU_EXIT);
 		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
 		g_focusRestored = true;
 		// Not when leaving RiftWii: the popups would only hold it up.
 		if (menu != MENU_EXIT && !askAfterLook()) return menu;
@@ -8849,6 +8967,8 @@ static bool ControlSeen(const std::string& type, const ConnectedPads& pads, bool
 	else if (type == "classiccontroller") connected = pads.classic;
 	else if (type == "gamecube") connected = pads.gamecube;
 	else if (type == "balanceboard") connected = pads.board;
+	else if (type == "keyboard") connected = riftwii::wii::UsbInputKeyboardConnected();
+	else if (type == "udraw") connected = riftwii::wii::UsbInputUDrawConnected();
 	else return false;
 	return true;
 }
@@ -12092,7 +12212,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12163,6 +12283,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		gcTest.value = tr("Test");
 		rows.push_back(gcTest);
 		actions.push_back(kGcTest);
+		option(tr("USB keyboard, mouse and tablet"), settings.usb_input == "off" ? tr("Off") : tr("On"),
+			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
@@ -12365,7 +12487,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Picture;
 				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
 					return SettingsSection::Games;
-				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
+				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
@@ -12501,6 +12623,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kUsbInput: return tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -12997,6 +13120,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kWiiRumble:
 					settings.wiimote_rumble = settings.wiimote_rumble == "off" ? "on" : "off";
 					saveAndNote(tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."));
+					rebuild();
+					break;
+				case kUsbInput:
+					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
+					// After the save: one that fails puts the setting back, and
+					// the drivers follow what the row shows.
+					saveAndNote(tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."));
+					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
 				case kGcAdapter: {
@@ -13569,7 +13700,7 @@ int MainMenu(int menu, FrontendState& state)
 			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE && g_flightOn) {
 				// From the page's cover back onto the shelf, where the game
 				// stands lit; its place stays empty until it lands.
-				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue);
+				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue, g_flight.caseColour);
 				SetShelfFlying(g_flight.id);
 				transition::SetActor(FlightBack, FlightLanded);
 				transition::Begin(transition::Kind::Fade);

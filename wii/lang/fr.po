@@ -1065,6 +1065,18 @@ msgstr "Stockage de Wii U"
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB : un stockage de Wii U (RiftWii ne l'utilise pas)"
 
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB : le stockage de Dragon Quest X"
+
+msgid "Encrypted drive"
+msgstr "Stockage chiffré"
+
+msgid "USB: an encrypted drive, maybe Dragon Quest X's (left alone)"
+msgstr "USB : un stockage chiffré, peut-être celui de Dragon Quest X (RiftWii ne l'utilise pas)"
+
+msgid "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."
+msgstr "Le stockage USB branché est chiffré : ce peut être celui de Dragon Quest X, ou celui d'une Wii U. RiftWii ne peut pas le lire sans la clé WFS de cette Wii (sd:/riftwii/wfskey.bin), il ne l'utilise donc pas. S'il contient Dragon Quest X, laissez-le tel quel : le jeu se lance depuis les chaînes de la Wii."
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log."
 
@@ -2201,6 +2213,12 @@ msgstr "Sur quel port USB l'adaptateur est-il branché ?"
 
 msgid "Which port?"
 msgstr "Quel port ?"
+
+msgid "USB keyboard, mouse and tablet"
+msgstr "Clavier, souris et tablette USB"
+
+msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
+msgstr "Désactivé : RiftWii n'utilise ni claviers, souris et tablettes USB, ni la uDraw. Désactivez-le si le menu se comporte mal avec l'un d'eux branché, ou sans aucun."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrations Télécommande Wii"

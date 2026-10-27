@@ -33,7 +33,6 @@
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "menutheme.hpp"
-#include "riftwii/casecolour.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -54,6 +53,10 @@ constexpr float kBoxH = 164.0f;
 // A Wii case's shape: a DVD keep case, 190 x 135 x 14 mm.
 constexpr float kBoxW = kBoxH * 135.0f / 190.0f;  // spine to front edge, along z
 constexpr float kBoxT = kBoxH * 14.0f / 190.0f;   // the spine's width
+// The plastic showing round the paper, as a share of the face: about 4 mm
+// of a Wii case's 190 mm height, and of its 135 mm width at the open edge.
+constexpr float kRimHeight = 4.0f / 190.0f;
+constexpr float kRimOpenEdge = 4.0f / 135.0f;
 // The plank lands on the lower shelf a theme paints under Home's second
 // row of covers (themes/Bookshelf): its top seen from 247 to 250, its front
 // edge down to 268.
@@ -174,6 +177,12 @@ struct Face {
     GXColor accent = {0, 0, 0, 255};
     // The open edge of a keep case: rounded across its thickness.
     bool rounded = false;
+    // The case's plastic showing round the paper under its sleeve, as a
+    // share of the face on each side (c[0]'s edge to c[1]'s is "left" to
+    // "right", c[0]'s to c[3]'s "top" to "bottom"), in `plastic`. The
+    // paper (the colour, texture or made-up back above) is drawn inside.
+    float rimLeft = 0, rimRight = 0, rimTop = 0, rimBottom = 0;
+    GXColor plastic = {238, 238, 236, 255};
 };
 
 V3 Mix(V3 a, V3 b, float t) { return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t}; }
@@ -248,7 +257,48 @@ void DrawMadeUpBack(const Face& f, float light, u8 a) {
     }
 }
 
+void DrawFace(const Face& f, int alpha);
+
+// A face with a plastic rim (Face::rimLeft...): the plastic over the whole
+// face, a darker line where its bevel meets the paper, then the paper
+// inside. Each corner's fade is carried over to the inner corners.
+void DrawRimmedFace(const Face& f, int alpha) {
+    const float light = Light(f.normal);
+    const auto shade = [&](u8 c, float k) { return static_cast<u8>(std::min(255.0f, c * light * k)); };
+    const u8 a = static_cast<u8>(f.plastic.a * f.color.a / 255 * alpha / 255);
+    const auto at = [&](const V3 (&c)[4], float u, float v) { return Mix(Mix(c[0], c[1], u), Mix(c[3], c[2], u), v); };
+    const auto fadeAt = [&](float u, float v) {
+        const float top = f.fade[0] + (f.fade[1] - f.fade[0]) * u;
+        const float bottom = f.fade[3] + (f.fade[2] - f.fade[3]) * u;
+        return static_cast<u8>(top + (bottom - top) * v);
+    };
+    const float l = f.rimLeft, r = 1 - f.rimRight, t = f.rimTop, b = 1 - f.rimBottom;
+    Quad(f.c, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a}, f.fade, nullptr, 0, 0, 0,
+         1, 0, 1, false, false);
+    // The bevel's foot: a hair outside the paper, a shade darker.
+    constexpr float kFoot = 0.35f;  // of the rim, on each side that has one
+    const float fl = l * (1 - kFoot), fr = 1 - f.rimRight * (1 - kFoot);
+    const float ft = t * (1 - kFoot), fb = 1 - f.rimBottom * (1 - kFoot);
+    const V3 foot[4] = {at(f.c, fl, ft), at(f.c, fr, ft), at(f.c, fr, fb), at(f.c, fl, fb)};
+    const u8 footFade[4] = {fadeAt(fl, ft), fadeAt(fr, ft), fadeAt(fr, fb), fadeAt(fl, fb)};
+    Quad(foot, GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a}, footFade,
+         nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    Face paper = f;
+    paper.rimLeft = paper.rimRight = paper.rimTop = paper.rimBottom = 0;
+    const V3 inner[4] = {at(f.c, l, t), at(f.c, r, t), at(f.c, r, b), at(f.c, l, b)};
+    const u8 innerFade[4] = {fadeAt(l, t), fadeAt(r, t), fadeAt(r, b), fadeAt(l, b)};
+    for (int i = 0; i < 4; ++i) {
+        paper.c[i] = inner[i];
+        paper.fade[i] = innerFade[i];
+    }
+    DrawFace(paper, alpha);
+}
+
 void DrawFace(const Face& f, int alpha) {
+    if (f.rimLeft > 0 || f.rimRight > 0 || f.rimTop > 0 || f.rimBottom > 0) {
+        DrawRimmedFace(f, alpha);
+        return;
+    }
     // Lit from above and the left, never darker than half.
     const float light = Light(f.normal);
     const auto shade = [&](u8 c) { return static_cast<u8>(std::min(255.0f, c * light)); };
@@ -326,22 +376,24 @@ void LoadPerspective() {
     GX_SetZMode(GX_FALSE, GX_LEQUAL, GX_FALSE);
 }
 
-// The case's plastic: white, unless GameTDB knows it another colour (New
-// Super Mario Bros. Wii's red); a black one is lifted a little so its
-// edges show.
-GXColor CasePlastic(const std::string& id) {
+// The case's plastic in the game's case colour (GridItem::caseColour):
+// white a little off so it is not paper, and a black one lifted a little
+// so its edges show.
+GXColor CasePlastic(const std::string& id, GXColor caseColour) {
     if (id.empty()) return {184, 205, 230, 255};  // the disc drive's box: pale blue, as its picture
-    std::uint8_t rgb[3];
-    if (!riftwii::game_case_colour(id, rgb)) return {238, 238, 236, 255};
-    return {static_cast<u8>(28 + rgb[0] * 210 / 255), static_cast<u8>(28 + rgb[1] * 210 / 255),
-            static_cast<u8>(28 + rgb[2] * 210 / 255), 255};
+    const bool white = caseColour.r == 255 && caseColour.g == 255 && caseColour.b == 255;
+    if (white) return {238, 238, 236, 255};
+    return {static_cast<u8>(28 + caseColour.r * 210 / 255), static_cast<u8>(28 + caseColour.g * 210 / 255),
+            static_cast<u8>(28 + caseColour.b * 210 / 255), 255};
 }
 
 // A box's five faces you can see (not its bottom), covered with its scan,
 // its cover or plain white. Spine, front, back, top, open edge; the top
 // and the open edge are the case's own plastic, in its colour (a scan is
-// drawn through its face's colour, so the paper faces stay white).
-void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
+// drawn through its face's colour, so the paper faces stay white). With
+// no scan the spine is the bare plastic too, as an empty case's is.
+void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, GXColor caseColour,
+              Face (&faces)[5]) {
     const GXColor plastic = {238, 238, 236, 255};
     // Corners by bits: x (1) y (2) z (4).
     const auto face = [&](int a, int bb, int c, int d) {
@@ -363,7 +415,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // The top (-y) and the open edge (-z).
     faces[3] = face(0, 1, 5, 4);
     faces[4] = face(1, 0, 2, 3);
-    faces[3].color = faces[4].color = CasePlastic(id);
+    faces[3].color = faces[4].color = CasePlastic(id, caseColour);
     faces[4].rounded = true;
     if (art) {
         faces[0].tex = art;
@@ -402,11 +454,22 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // No scan: a back made up from the front cover, laid out as a Wii
     // case's back is.
     if (!art) {
+        faces[0].color = faces[3].color;
         faces[2].color = {244, 244, 242, 255};
         faces[2].madeUpBack = true;
         faces[2].art = cover;
         faces[2].accent = {hue.r, hue.g, hue.b, 255};
     }
+    // The case round its paper: a keep case's sleeve leaves a few
+    // millimetres of plastic showing above and below the paper and along
+    // the open edge, front and back (the paper wraps round the spine).
+    // A spine with no scan is bare plastic already.
+    for (Face& f : faces) f.plastic = faces[3].color;
+    faces[1].rimTop = faces[1].rimBottom = kRimHeight;
+    faces[1].rimRight = kRimOpenEdge;  // the front: c[1] is on the open edge
+    faces[2].rimTop = faces[2].rimBottom = kRimHeight;
+    faces[2].rimLeft = kRimOpenEdge;  // the back: c[0] is on the open edge
+    if (art) faces[0].rimTop = faces[0].rimBottom = kRimHeight;
 }
 
 // The game whose box is flying (DrawShelfFlight): the shelf leaves its
@@ -431,6 +494,10 @@ void Dim(Face& f, float k) {
     f.color.r = static_cast<u8>(f.color.r * k);
     f.color.g = static_cast<u8>(f.color.g * k);
     f.color.b = static_cast<u8>(f.color.b * k);
+    // The rim round the paper (DrawRimmedFace) darkens with it.
+    f.plastic.r = static_cast<u8>(f.plastic.r * k);
+    f.plastic.g = static_cast<u8>(f.plastic.g * k);
+    f.plastic.b = static_cast<u8>(f.plastic.b * k);
 }
 
 // The upright faces' lower part, mirrored under the plank and fading out
@@ -808,7 +875,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const u8* art = riftwii::wii::BoxTexture(item.id);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(item.id),
-                 item.hue, faces);
+                 item.hue, item.caseColour, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
     // The plank: its top, then its front edge, wider than the screen (none
@@ -871,7 +938,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
-        BoxFaces(item.id, b, art, cover, item.hue, faces);
+        BoxFaces(item.id, b, art, cover, item.hue, item.caseColour, faces);
         float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         bool spineShown = false;
         const float k = dimFor(i);
@@ -963,8 +1030,14 @@ void GuiGameGrid::DrawShelf(int alpha) {
     if (static_cast<int>(spineFit.size()) != Count()) spineFit.assign(Count(), {});
     for (const SpineLabel& l : labels) {
         auto& fit = spineFit[l.index];
-        const std::string& title = (*items)[l.index].title;
+        const GridItem& item = (*items)[l.index];
+        const std::string& title = item.title;
         if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};
+        // Dark letters on a light case, light ones on a dark case (black,
+        // red: Rec. 601 brightness under half).
+        const GXColor plastic = CasePlastic(item.id, item.caseColour);
+        const int brightness = (plastic.r * 299 + plastic.g * 587 + plastic.b * 114) / 1000;
+        spineText->SetColor(brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255});
         spineText->SetText(fit.second.c_str());
         spineText->SetFontSize(kSpineTextSize);
         spineText->SetAlpha(alpha);
@@ -1161,6 +1234,7 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     const BoxPose& p = poses[index];
     out.id = (*items)[index].id;
     out.hue = (*items)[index].hue;
+    out.caseColour = (*items)[index].caseColour;
     out.x = p.x;
     out.z = p.z;
     out.turn = p.turn;
@@ -1168,10 +1242,11 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     return true;
 }
 
-ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue) {
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue, GXColor caseColour) {
     ShelfFlight f;
     f.id = id;
     f.hue = hue;
+    f.caseColour = caseColour;
     f.x = 320.0f;
     f.z = kPullZ;
     f.turn = static_cast<float>(M_PI) / 2;
@@ -1198,7 +1273,7 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const u8* art = riftwii::wii::BoxTexture(from.id);
     const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
     Face faces[5];
-    BoxFaces(from.id, box, art, cover, from.hue, faces);
+    BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();
     // Back to front by distance from the eye: the faces of one box.
     int order[5] = {0, 1, 2, 3, 4};
