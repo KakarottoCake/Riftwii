@@ -199,6 +199,12 @@ bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error
             break;
         }
     }
+    // A read error ends the loop as the file's end does: without this
+    // check a part of the database would pass for all of it.
+    if (ok && std::ferror(f)) {
+        error = "could not read all of " + path;
+        ok = false;
+    }
     std::fclose(f);
     return ok;
 }

@@ -30,6 +30,10 @@ struct Scan {
     bool read = false;
     bool done = false;
     unsigned matched_with = 0;  // HomebrewTitlesWritten() at the last match
+    // Whether that match had GameTDB's list to work from. One that didn't
+    // is tried again on the next look, so a list that could not be read
+    // then (but is on the card) still gives the apps their covers.
+    bool matched_ok = false;
 };
 
 Scan& scan() {
@@ -109,7 +113,8 @@ void scan_drive(Scan& state, const char* device, const char* badge) {
 void match_apps(Scan& state) {
     state.matched_with = HomebrewTitlesWritten();
     std::vector<HomebrewTitle> titles;
-    if (!LoadHomebrewTitles(titles)) {
+    state.matched_ok = LoadHomebrewTitles(titles);
+    if (!state.matched_ok) {
         for (HomebrewApp& app : state.apps) app.gametdb_id.clear();
         return;
     }
@@ -146,7 +151,7 @@ void RescanHomebrewApps() {
 
 bool HomebrewMatchStale() {
     const Scan& state = scan();
-    return state.done && state.matched_with != HomebrewTitlesWritten();
+    return state.done && (!state.matched_ok || state.matched_with != HomebrewTitlesWritten());
 }
 
 void MatchHomebrewApps() {

@@ -32,7 +32,8 @@ bool HomebrewFoldersRead();
 // Finds each app's GameTDB entry again (sd:/riftwii/homebrew-titles.txt
 // just made), without reading sd:/apps again.
 void MatchHomebrewApps();
-// Whether that file was written since the apps were last matched.
+// Whether that file was written since the apps were last matched, or the
+// last match could not read it.
 bool HomebrewMatchStale();
 
 void SetHomebrewToStart(const HomebrewApp& app);
