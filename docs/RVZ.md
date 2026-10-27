@@ -15,7 +15,8 @@ involves encryption, hashing or Nintendo's keys. Format: Dolphin's
    runtime later) skips hash exception lists and decodes RVZ packing.
    Zstandard is decoded by `vendor-zstd/` (1.5.7, decoder only).
 2. **Menu and loader (done; Dolphin-tested).** `.rvz` files in
-   `sd:/games` and `usb:/games` are listed with the ISOs. Picking one
+   `sd:/games`, `sd:/wbfs`, `usb:/games` and `usb:/wbfs` are listed with
+   the ISOs, loose or one folder down in `wbfs`. Picking one
    reads only its headers (`wii/storage/usbcatalog.cpp`): a refused file says why,
    one at the player's own risk shows its warning on the first press of
    Start and plays on the second. At launch the loader writes the stub
@@ -134,14 +135,20 @@ as a Wii disc's, seeded by the disc's ID and its offset on the disc, and
 RVZ packing keeps the seed, so the reader only needs the disc offset of
 the group's start.
 
+GameCube RVZ, ISO and GCM files in `games/` or `wbfs/`, loose or one
+folder down, are listed on the SD card and USB drive. Custom
+`game_folders` are scanned the same way. The usual
 `sd:/games/<folder>/game.rvz` is listed as a GameCube game, as an ISO is
 (`ScanGcImages`), with its ID, title, cover and the disc's own banner,
 read through `RvzDiscSource` (`OpenGcDisc`). `check_rvz` gives it the same
 verdicts as a Wii game's: the table above. A refused one says why at
 Start; otherwise the first press of Start shows the note every RVZ gets
 (experimental), with the reasons when it plays at the player's risk, as
-for a Wii game. A GameCube RVZ elsewhere (`sd:/wbfs`, the top of `sd:/games`, the USB drive)
-is listed refused, with a pointer to the folder it goes in. Patch-only
+for a Wii game. The disc does not need a folder of its own: memory cards
+already live in `sd:/riftwii/gc` and use the game's ID. A loose copy of a
+game also present in a game folder is left out in favor of the folder
+copy, with both paths in the log. Disc 2 stays beside disc 1 and is found
+by its ID and disc number, including when both are loose. Patch-only
 mods (`sd:/riftwii/patches`) are made from ISOs only.
 
 At launch (`plugins/gamecube/gcnative.cpp`) the loader reads boot.bin, bi2.bin,

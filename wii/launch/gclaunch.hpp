@@ -18,7 +18,7 @@
 namespace riftwii::wii {
 
 struct GcImage {
-    std::string path;  // sd:/games/.../game.iso, or game.rvz (GcImageIsRvz); usb:/games/... on the USB drive
+    std::string path;  // an ISO, GCM or RVZ on sd:/ or usb:/; loose or in a game folder
     std::string id;    // ID6 from its header
     std::string patch_source;  // set: `path` is a patch (gcpatch.hpp) to make the game from this original
     bool real_card = false;
@@ -62,18 +62,20 @@ struct GcImage {
 // Whether the image at `path` is on the USB drive ("usb:/...").
 bool GcImageOnUsb(const std::string& path);
 
-// A GameCube image on the SD card in games/<folder>/ (.iso, .gcm or .rvz)
-// whose ID starts with `game`, or the image at `path` when given.
+// A GameCube image whose ID starts with `game`, or the image at `path`
+// when given. The same folders and duplicate rules as the menu scan.
 bool FindGcImage(const std::string& game, const std::string& path, GcImage& out);
 
-// Every GameCube image in sd:/games/<folder>/ (.iso, .gcm or .rvz), for
-// the game list: opened (header read), never needing d2x. An RVZ carries
+// GameCube images in sd:/games and sd:/wbfs, loose or one folder down,
+// plus custom game_folders, for the game list: opened (header read), never
+// needing d2x. A folder copy takes precedence over a loose duplicate.
+// An RVZ carries
 // check_rvz's verdict (refused ones are listed, and say why at Start).
 // The .ciso files beside them, which RiftWii does not play, are noted in
 // `ciso` when given (the same walk, so the card is not read twice).
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso = nullptr);
 
-// The same on the USB drive, in usb:/games/<folder>/, through the menu's
+// The same on the USB drive, through the menu's
 // view of the drive (usbcatalog.hpp): listed beside its Wii games.
 void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso = nullptr);
 // Whether the image at `path` is an RVZ (by its name, as the scan lists it).
