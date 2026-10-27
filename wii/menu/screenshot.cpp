@@ -218,6 +218,11 @@ struct Chord {
 };
 Chord g_remote[4];
 Chord g_pad_l[4], g_pad_r[4];
+// 1 and 2 together on Home: 2 is kept back as 1 is, so the pair works
+// whichever goes down first, but only while Home watches for it.
+Chord g_remote_two[4];
+volatile bool g_view_chord_on = false;
+volatile bool g_view_chord = false;  // the pair was pressed; Home takes it
 
 void Fire() {
     if (g_busy || g_want) return;
@@ -269,6 +274,16 @@ void ScreenshotPoll() {
                 g_remote[i].used = true;
                 Fire();
             }
+            // A 2 already kept back is still let go here when Home stops
+            // watching, so its press is never lost.
+            const bool one = g_remote[i].held_back && (w->btns_h & WPAD_BUTTON_1);
+            if (g_view_chord_on || g_remote_two[i].held_back) {
+                const bool two = Modifier(g_remote_two[i], down, w->btns_h, WPAD_BUTTON_2);
+                if (one && two && !g_remote_two[i].used) {
+                    g_remote[i].used = g_remote_two[i].used = true;
+                    if (g_view_chord_on) g_view_chord = true;
+                }
+            }
             w->btns_d = down;
         }
         PADData& p = userInput[i].pad;
@@ -304,5 +319,16 @@ void ScreenshotAfterFrame(const void* xfb, int width, int height) {
 }
 
 int ScreenshotFlash() { return g_flash; }
+
+void WatchViewChord(bool on) {
+    g_view_chord_on = on;
+    g_view_chord = false;
+}
+
+bool TakeViewChord() {
+    if (!g_view_chord) return false;
+    g_view_chord = false;
+    return true;
+}
 
 }  // namespace riftwii::wii

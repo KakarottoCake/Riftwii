@@ -93,6 +93,10 @@ For things that worked, a short "works" with the game, where it ran from
   screen saver is on, and wakes up on any button.
 - [ ] **Menu screenshots.** Hold 1 and press HOME on a Wii Remote. A PNG
   appears in `sd:/riftwii/screenshots`.
+- [ ] **Home view change.** On Home, press 1 and 2 together on a Wii
+  Remote, 1 first and then 2 first: Home steps to the next of Settings >
+  Home tiles, on the same game, and neither the view list nor Settings
+  opens. 1 alone and 2 alone still open them when let go.
 - [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader (or
   Restart where Priiloader is not installed: the console restarts) and
   Power off.
