@@ -348,16 +348,22 @@ static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t 
 static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
     const uint32_t before = c->home.phase;
     (void)rthome_stand_in(&c->home, t);
-    if (before != RTHOME_DONE && c->home.phase == RTHOME_DONE && c->home.menu_seen == 0 && c->home_writes == 0 &&
-        c->return_to_menu != 0) {
-        c->home_on = 0;
-        return;
+    /* Judged once, whichever hook saw the stand-in end. One that never came
+     * (every channel has a controller) proves nothing. */
+    if (c->home.phase == RTHOME_DONE && !c->home_judged) {
+        c->home_judged = 1;
+        if (c->home.channel != RTHOME_NO_CHANNEL && c->home.menu_seen == 0 && c->home_writes == 0 &&
+            c->return_to_menu != 0) {
+            c->home_on = 0;
+            return;
+        }
     }
     rthome_pads(&c->home, status, t);
     if (c->home.phase == RTHOME_PRESSING && before == RTHOME_IDLE) {
         c->home_writes = 0;
         c->home_buffer = 0;
         c->home_fresh = 0;
+        c->home_judged = 0;
     }
 }
 
@@ -396,7 +402,11 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
     uint32_t msr, t, stand_in;
     if (!c->home_on) return result;
     t = now();
+    /* Interrupts off for the state, as everywhere (the SI callback's
+     * PADRead changes it too), then on again for the game's PADRead. */
+    msr = interrupts_off();
     stand_in = rthome_stand_in(&c->home, t);
+    interrupts_restore(msr);
     if (stand_in != RTHOME_NO_CHANNEL && (uint32_t)chan == stand_in && c->pad_read != 0 &&
         t - c->last_pad_read > 50u * c->ticks_per_ms) {
         /* The game's PADRead, through the hook, so the adapter fills it and
@@ -405,6 +415,7 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         ((uint32_t(*)(uint8_t*))(uintptr_t)c->pad_read)(c->pad_scratch);
     }
     msr = interrupts_off();
+    t = now();  /* again: that PADRead may have noted a later time */
     ++c->probes;
     stand_in = rthome_stand_in(&c->home, t);
     if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in) {

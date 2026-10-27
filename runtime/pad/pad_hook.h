@@ -126,6 +126,7 @@ struct rt_pad_context {
     uint32_t home_buffer;      /* the KPAD buffer the stand-in's status went into last */
     uint32_t home_fresh;       /* the KPAD read wrote it since the HOME Menu's last probe */
     uint32_t home_writes;      /* statuses written in this stand-in's time */
+    uint32_t home_judged;      /* this stand-in's end has been looked at (pad_home_check) */
     uint32_t last_pad_read;    /* when PADRead last ran (low bit set) */
     /* Counters for a memory read in Dolphin: KPAD reads, the channels the
      * game reads (a bit each), probes, HOME Menu frames. */
