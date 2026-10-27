@@ -272,9 +272,10 @@ bool BitmapFont::glyph_index(std::uint32_t ch, std::uint16_t& index) const {
     return true;
 }
 
-bool BitmapFont::render(std::uint32_t ch, int pixel_size, Glyph& out) {
+bool BitmapFont::render(std::uint32_t ch, int pixel_size, Glyph& out, float pixels_x, float pixels_y) {
     std::uint16_t g;
     if (!data_ || pixel_size <= 0 || !glyph_index(ch, g)) return false;
+    if (!(pixels_x > 0) || !(pixels_y > 0)) return false;
     if (g < widths_first_ || g - widths_first_ >= widths_.size()) return false;
     const Width w = widths_[g - widths_first_];
     const unsigned per_sheet = columns_ * rows_;
@@ -285,17 +286,21 @@ bool BitmapFont::render(std::uint32_t ch, int pixel_size, Glyph& out) {
     const int src_w = std::min<int>(w.glyph, cell_w_), src_h = cell_h_;
 
     const float scale = pixel_size / kAsFreeType;
+    // The bitmap is drawn at the screen's own pixels (`pixels_x` and
+    // `pixels_y` to a menu unit), so the GPU draws it texel for pixel. At
+    // menu units, a 16:9 menu's 3/4 across resampled it a second time.
+    const float scale_x = scale * pixels_x, scale_y = scale * pixels_y;
     // The glyph lands where it falls, a fraction of a pixel in: only the
     // bitmap's corner is whole (rounding each glyph's start left gaps such
     // as "d rive" at small sizes).
-    const float lx = w.left * scale, ty = baseline_ * scale;
+    const float lx = w.left * scale_x, ty = baseline_ * scale_y;
     out.left = static_cast<int>(std::floor(lx));
     const float fx = lx - out.left;
     out.advance = static_cast<int>(std::lround(w.advance * scale));
     out.top = static_cast<int>(std::ceil(ty));
     const float fy = out.top - ty;
-    out.width = src_w > 0 ? std::max(1, static_cast<int>(std::ceil(src_w * scale + fx))) : 0;
-    out.rows = src_w > 0 ? std::max(1, static_cast<int>(std::ceil(src_h * scale + fy))) : 0;
+    out.width = src_w > 0 ? std::max(1, static_cast<int>(std::ceil(src_w * scale_x + fx))) : 0;
+    out.rows = src_w > 0 ? std::max(1, static_cast<int>(std::ceil(src_h * scale_y + fy))) : 0;
     out.pixels.assign(std::size_t(out.width) * out.rows, 0);
     if (out.width == 0) return true;
 
@@ -308,11 +313,11 @@ bool BitmapFont::render(std::uint32_t ch, int pixel_size, Glyph& out) {
     };
     // Each pixel out averages the part of the glyph it covers (a box filter):
     // smaller sizes keep the hand-drawn shapes' weight.
-    const float step = 1.0f / scale;
+    const float step_x = 1.0f / scale_x, step_y = 1.0f / scale_y;
     for (int oy = 0; oy < out.rows; ++oy) {
-        const float sy0 = (oy - fy) * step, sy1 = sy0 + step;
+        const float sy0 = (oy - fy) * step_y, sy1 = sy0 + step_y;
         for (int ox = 0; ox < out.width; ++ox) {
-            const float sx0 = (ox - fx) * step, sx1 = sx0 + step;
+            const float sx0 = (ox - fx) * step_x, sx1 = sx0 + step_x;
             float sum = 0, area = 0;
             for (int y = static_cast<int>(std::floor(sy0)); y < static_cast<int>(std::ceil(sy1)); ++y) {
                 const float hy = std::min<float>(sy1, y + 1) - std::max<float>(sy0, y);

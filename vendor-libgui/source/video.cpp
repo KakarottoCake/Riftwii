@@ -6,13 +6,14 @@
  * Video routines
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, the display scale (widescreen and screen size), and a camera
+ * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, the display scale (widescreen and screen size) and the menu font's pixels under it, and a camera
  * that moves and scales everything drawn (the menu's transitions), the GX
  * trace's texture hook and Menu_Render's step (settings.txt debug_gx).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
 #include <ogcsys.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -350,6 +351,27 @@ void Menu_MenuToXfb(f32 x, f32 y, int* px, int* py)
 	*py = (int)((240.0f + (y - 240.0f) * displayY) * Menu_XfbHeight() / 480.0f + 0.5f);
 }
 
+// Frame-buffer pixels to a menu unit, the camera aside: fewer across on a
+// widescreen menu, more down on a 528-line PAL frame.
+void Menu_GlyphPixels(f32* x, f32* y)
+{
+	*x = displayX * Menu_XfbWidth() / 640.0f;
+	*y = displayY * Menu_EfbHeight() / 480.0f;
+}
+
+// The point drawn at the corner of the frame-buffer pixel nearest
+// (x, y), through the camera, so a picture drawn texel for pixel from
+// there (a menu font glyph) is not resampled half a pixel off.
+void Menu_SnapToPixel(f32* x, f32* y)
+{
+	const MenuCamera& c = cameraStack[cameraDepth];
+	const f32 ex = Menu_XfbWidth() / 640.0f, ey = Menu_EfbHeight() / 480.0f;
+	const f32 px = roundf((320.0f + (c.k * *x + c.tx - 320.0f) * displayX) * ex);
+	const f32 py = roundf((240.0f + (c.k * *y + c.ty - 240.0f) * displayY) * ey);
+	*x = (320.0f + (px / ex - 320.0f) / displayX - c.tx) / c.k;
+	*y = (240.0f + (py / ey - 240.0f) / displayY - c.ty) / c.k;
+}
+
 f32 Menu_ScreenToMenuX(f32 x) { return 320.0f + (x - 320.0f) / displayX; }
 f32 Menu_ScreenToMenuY(f32 y) { return 240.0f + (y - 240.0f) / displayY; }
 
@@ -463,6 +485,8 @@ void Menu_Render()
 	GX_CopyDisp(xfb[whichfb],GX_TRUE);
 	menuRenderStep = "GX_DrawDone";
 	GX_DrawDone();
+	// The GPU has drawn the frame: no glyph replaced during it is read again.
+	FreeRetiredGlyphs();
 	VIDEO_SetNextFramebuffer(xfb[whichfb]);
 	VIDEO_Flush();
 	menuRenderStep = "vsync";

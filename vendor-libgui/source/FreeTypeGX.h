@@ -57,6 +57,13 @@ typedef struct ftgxCharData_ {
 	int16_t renderOffsetMin;	/**< Texture Y axis bearing minimum value. */
 
 	uint8_t* glyphDataTexture;	/**< Glyph texture bitmap data buffer. */
+
+	// RiftWii: a glyph of the bitmap source, drawn texel for pixel. Its
+	// texture and renderOffsetX/Y are in frame-buffer pixels, pixelsX by
+	// pixelsY of them to a menu unit (Menu_GlyphPixels when it was made);
+	// the advance and renderOffsetMax/Min stay in menu units.
+	bool screenPixels;
+	f32 pixelsX, pixelsY;
 } ftgxCharData;
 
 /*! \struct ftgxDataOffset_
@@ -120,7 +127,16 @@ bool FontHasChar(wchar_t charCode);
 // The source answers false for a character it lacks, which FreeType draws.
 struct FtgxBitmapGlyph { const uint8_t* pixels; int width, rows, left, top, advance; };
 typedef bool (*FtgxBitmapGlyphSource)(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out);
-void SetBitmapGlyphSource(FtgxBitmapGlyphSource source);
+// The bitmap font's glyph is drawn at the screen's pixels, `pixelsX` by
+// `pixelsY` to a menu unit (Menu_GlyphPixels): all but `advance` (menu
+// units) are in those pixels. It is drawn texel for pixel at a whole
+// pixel, so a 16:9 menu's narrower units don't resample it.
+typedef bool (*FtgxScreenGlyphSource)(wchar_t charCode, int pixelSize, float pixelsX, float pixelsY,
+	FtgxBitmapGlyph* out);
+void SetBitmapGlyphSource(FtgxScreenGlyphSource source);
+// The textures of glyphs drawn again at a new display scale, freed once
+// the GPU has drawn the frame that may still read them (Menu_Render).
+void FreeRetiredGlyphs();
 // RiftWii: glyphs for the characters the face lacks (the full menu font on
 // the SD card, wii/menu/fullfont.hpp), asked again for a character until it
 // gives one, then cached as the face's are. The glyph's texture comes from
@@ -170,14 +186,16 @@ class FreeTypeGX {
 
 		void unloadFont();
 		ftgxCharData *cacheGlyphData(wchar_t charCode);
+		ftgxCharData *glyphFor(wchar_t charCode);
 		uint16_t cacheGlyphDataComplete();
 		void loadGlyphData(FT_Bitmap *bmp, ftgxCharData *charData, bool missingSource = false);
-		ftgxCharData *cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource);
+		ftgxCharData *cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource,
+			f32 pixelsX = 1.0f, f32 pixelsY = 1.0f);
 
 		void setDefaultMode();
 
 		void drawTextFeature(int16_t x, int16_t y, uint16_t width, ftgxDataOffset *offsetData, uint16_t format, GXColor color);
-		void copyTextureToFramebuffer(GXTexObj *texObj, f32 texWidth, f32 texHeight, int16_t screenX, int16_t screenY, GXColor color);
+		void copyTextureToFramebuffer(GXTexObj *texObj, f32 quadWidth, f32 quadHeight, f32 screenX, f32 screenY, GXColor color);
 		void copyFeatureToFramebuffer(f32 featureWidth, f32 featureHeight, int16_t screenX, int16_t screenY,  GXColor color);
 
 	public:

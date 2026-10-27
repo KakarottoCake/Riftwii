@@ -25,7 +25,8 @@
  * FontHasChar (the Korean menu needs a font with Hangul); RenderTextCoverage (a GameCube game's crash
  * screen, drawn without GX: centred or left-aligned, narrowed for 16:9, its widest line measured);
  * each glyph drawn is told to the GX trace (Menu_TextureHook, settings.txt debug_gx);
- * a character the face lacks comes from SetMissingGlyphSource's source (the full menu font).
+ * a character the face lacks comes from SetMissingGlyphSource's source (the full menu font);
+ * the bitmap source's glyphs are made at the screen's pixels and drawn texel for pixel (crisp on 16:9).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
@@ -33,6 +34,9 @@
 
 #include FT_MODULE_H
 #include FT_SIZES_H
+
+#include <math.h>
+#include <vector>
 
 #define ALIGN8(x) (((x) + 7) & ~7)
 
@@ -59,11 +63,23 @@ static FT_GlyphSlot ftSlot;		/**< FreeType reusable FT_GlyphSlot glyph container
 
 FreeTypeGX *fontSystem[MAX_FONT_SIZE+1];
 
-static FtgxBitmapGlyphSource bitmapGlyphSource = nullptr;  // RiftWii: SetBitmapGlyphSource
+static FtgxScreenGlyphSource bitmapGlyphSource = nullptr;  // RiftWii: SetBitmapGlyphSource
 
-void SetBitmapGlyphSource(FtgxBitmapGlyphSource source)
+void SetBitmapGlyphSource(FtgxScreenGlyphSource source)
 {
 	bitmapGlyphSource = source;
+}
+
+// RiftWii: textures of glyphs made again at a new display scale. Text
+// drawn earlier in the frame may still read them, so they wait for
+// Menu_Render's GX_DrawDone.
+static std::vector<void*> retiredGlyphs;
+
+void FreeRetiredGlyphs()
+{
+	for (void* texture : retiredGlyphs)
+		free(texture);
+	retiredGlyphs.clear();
 }
 
 static const FtgxMissingGlyphSource* missingGlyphSource = nullptr;  // RiftWii: SetMissingGlyphSource
@@ -274,7 +290,9 @@ FreeTypeGX::~FreeTypeGX()
 void FreeTypeGX::setVertexFormat(uint8_t vertexIndex)
 {
 	this->vertexIndex = vertexIndex;
-	GX_SetVtxAttrFmt(this->vertexIndex, GX_VA_POS, GX_POS_XY, GX_S16, 0);
+	// RiftWii: float positions, for glyphs placed on a whole pixel of a
+	// widescreen or smaller menu (a fraction of a menu unit).
+	GX_SetVtxAttrFmt(this->vertexIndex, GX_VA_POS, GX_POS_XY, GX_F32, 0);
 	GX_SetVtxAttrFmt(this->vertexIndex, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 	GX_SetVtxAttrFmt(this->vertexIndex, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
 }
@@ -392,10 +410,12 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 	FT_UInt gIndex;
 	uint16_t textureWidth = 0, textureHeight = 0;
 
-	// RiftWii: the bitmap font's glyph when it has one.
+	// RiftWii: the bitmap font's glyph when it has one, at the screen's pixels.
 	FtgxBitmapGlyph bitmap;
-	if (bitmapGlyphSource && bitmapGlyphSource(charCode, this->ftPointSize, &bitmap))
-		return this->cacheBitmapGlyph(charCode, bitmap, false);
+	f32 pixelsX, pixelsY;
+	Menu_GlyphPixels(&pixelsX, &pixelsY);
+	if (bitmapGlyphSource && bitmapGlyphSource(charCode, this->ftPointSize, pixelsX, pixelsY, &bitmap))
+		return this->cacheBitmapGlyph(charCode, bitmap, false, pixelsX, pixelsY);
 
 	gIndex = FT_Get_Char_Index(ftFace, (FT_ULong) charCode);
 	// RiftWii: a character the face lacks, from the missing-glyph source
@@ -429,6 +449,9 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 			this->fontData[charCode].renderOffsetMax = (int16_t) ftFace->glyph->bitmap_top;
 			this->fontData[charCode].renderOffsetMin = (int16_t) glyphBitmap->rows - ftFace->glyph->bitmap_top;
 			this->fontData[charCode].glyphDataTexture = nullptr;
+			this->fontData[charCode].screenPixels = false;
+			this->fontData[charCode].pixelsX = 1.0f;
+			this->fontData[charCode].pixelsY = 1.0f;
 
 			this->loadGlyphData(glyphBitmap, &this->fontData[charCode]);
 
@@ -441,7 +464,11 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 // RiftWii: a glyph given as 8-bit coverage (a bitmap font's, or one from
 // the missing-glyph source), cached as FreeType's are. Glyph index 0: no
 // FreeType kerning against it, as it is not one of the face's glyphs.
-ftgxCharData *FreeTypeGX::cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource)
+// The bitmap font's comes at the screen's pixels, `pixelsX` by `pixelsY`
+// to a menu unit; its height above and below the baseline is kept in
+// menu units for the text's alignment.
+ftgxCharData *FreeTypeGX::cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGlyph& bitmap, bool missingSource,
+	f32 pixelsX, f32 pixelsY)
 {
 	FT_Bitmap bmp;
 	memset(&bmp, 0, sizeof(bmp));
@@ -456,11 +483,39 @@ ftgxCharData *FreeTypeGX::cacheBitmapGlyph(wchar_t charCode, const FtgxBitmapGly
 	data.textureWidth = (uint16_t) (bitmap.width > 0 ? ALIGN8(bitmap.width) : 8);
 	data.textureHeight = (uint16_t) (bitmap.rows > 0 ? ALIGN8(bitmap.rows) : 8);
 	data.renderOffsetY = (int16_t) bitmap.top;
-	data.renderOffsetMax = (int16_t) bitmap.top;
-	data.renderOffsetMin = (int16_t) (bitmap.rows - bitmap.top);
+	data.renderOffsetMax = (int16_t) lroundf(bitmap.top / pixelsY);
+	data.renderOffsetMin = (int16_t) lroundf((bitmap.rows - bitmap.top) / pixelsY);
 	data.glyphDataTexture = nullptr;
+	data.screenPixels = !missingSource;
+	data.pixelsX = pixelsX;
+	data.pixelsY = pixelsY;
 	this->loadGlyphData(&bmp, &data, missingSource);
 	return &data;
+}
+
+// RiftWii: the cached glyph, made now if it is not. A bitmap font glyph
+// made at another display scale (Settings > Widescreen or Screen size since)
+// is made again; its old texture is retired, not freed, as text drawn
+// earlier in this frame may still read it.
+ftgxCharData *FreeTypeGX::glyphFor(wchar_t charCode)
+{
+	std::map<wchar_t, ftgxCharData>::iterator found = this->fontData.find(charCode);
+	if (found == this->fontData.end())
+		return this->cacheGlyphData(charCode);
+	ftgxCharData *glyph = &found->second;
+	if (glyph->screenPixels)
+	{
+		f32 pixelsX, pixelsY;
+		Menu_GlyphPixels(&pixelsX, &pixelsY);
+		if (glyph->pixelsX != pixelsX || glyph->pixelsY != pixelsY)
+		{
+			if (glyph->glyphDataTexture)
+				retiredGlyphs.push_back(glyph->glyphDataTexture);
+			this->fontData.erase(found);
+			return this->cacheGlyphData(charCode);
+		}
+	}
+	return glyph;
 }
 
 /**
@@ -629,15 +684,7 @@ uint16_t FreeTypeGX::drawText(int16_t x, int16_t y, wchar_t *text, GXColor color
 	int i = 0;
 	while (text[i])
 	{
-		ftgxCharData* glyphData = nullptr;
-		if (this->fontData.find(text[i]) != this->fontData.end())
-		{
-			glyphData = &this->fontData[text[i]];
-		}
-		else
-		{
-			glyphData = this->cacheGlyphData(text[i]);
-		}
+		ftgxCharData* glyphData = this->glyphFor(text[i]);
 
 		if (glyphData != nullptr)
 		{
@@ -649,7 +696,20 @@ uint16_t FreeTypeGX::drawText(int16_t x, int16_t y, wchar_t *text, GXColor color
 
 			if (Menu_TextureHook) Menu_TextureHook(glyphData->glyphDataTexture, glyphData->textureWidth, glyphData->textureHeight, GX_TF_I4);
 			GX_InitTexObj(&glyphTexture, glyphData->glyphDataTexture, glyphData->textureWidth, glyphData->textureHeight, GX_TF_I4, GX_CLAMP, GX_CLAMP, GX_FALSE);
-			this->copyTextureToFramebuffer(&glyphTexture, glyphData->textureWidth, glyphData->textureHeight, x_pos + glyphData->renderOffsetX + x_offset, y - glyphData->renderOffsetY + y_offset, color);
+			if (glyphData->screenPixels)
+			{
+				// RiftWii: from the pen's nearest pixel, a whole number of
+				// pixels on, the texture's own size in pixels: each texel
+				// lands on one pixel, and the GPU's filter leaves it be.
+				f32 penX = (int16_t) (x_pos + x_offset), penY = (int16_t) (y + y_offset);
+				Menu_SnapToPixel(&penX, &penY);
+				this->copyTextureToFramebuffer(&glyphTexture,
+					glyphData->textureWidth / glyphData->pixelsX, glyphData->textureHeight / glyphData->pixelsY,
+					penX + glyphData->renderOffsetX / glyphData->pixelsX,
+					penY - glyphData->renderOffsetY / glyphData->pixelsY, color);
+			}
+			else
+				this->copyTextureToFramebuffer(&glyphTexture, glyphData->textureWidth, glyphData->textureHeight, (int16_t) (x_pos + glyphData->renderOffsetX + x_offset), (int16_t) (y - glyphData->renderOffsetY + y_offset), color);
 
 			x_pos += glyphData->glyphAdvanceX;
 			++printed;
@@ -702,15 +762,7 @@ uint16_t FreeTypeGX::getWidth(wchar_t *text)
 	int i = 0;
 	while (text[i])
 	{
-		ftgxCharData* glyphData = nullptr;
-		if (this->fontData.find(text[i]) != this->fontData.end())
-		{
-			glyphData = &this->fontData[text[i]];
-		}
-		else
-		{
-			glyphData = this->cacheGlyphData(text[i]);
-		}
+		ftgxCharData* glyphData = this->glyphFor(text[i]);
 
 		if (glyphData != nullptr)
 		{
@@ -778,15 +830,7 @@ void FreeTypeGX::getOffset(wchar_t *text, ftgxDataOffset* offset)
 	int i = 0;
 	while (text[i])
 	{
-		ftgxCharData* glyphData = nullptr;
-		if (this->fontData.find(text[i]) != this->fontData.end())
-		{
-			glyphData = &this->fontData[text[i]];
-		}
-		else
-		{
-			glyphData = this->cacheGlyphData(text[i]);
-		}
+		ftgxCharData* glyphData = this->glyphFor(text[i]);
 
 		if(glyphData != nullptr)
 		{
@@ -816,13 +860,13 @@ void FreeTypeGX::getOffset(wchar_t const *text, ftgxDataOffset* offset)
  * This routine uses the in-built GX quad builder functions to define the texture bounds and location on the EFB target.
  *
  * @param texObj	A pointer to the glyph's initialized texture object.
- * @param texWidth	The pixel width of the texture object.
- * @param texHeight	The pixel height of the texture object.
+ * @param quadWidth	The width the texture is drawn (RiftWii: in menu units; its pixel width, or less on a widescreen menu).
+ * @param quadHeight	The height the texture is drawn, likewise.
  * @param screenX	The screen X coordinate at which to output the rendered texture.
  * @param screenY	The screen Y coordinate at which to output the rendered texture.
  * @param color	Color to apply to the texture.
  */
-void FreeTypeGX::copyTextureToFramebuffer(GXTexObj *texObj, f32 texWidth, f32 texHeight, int16_t screenX, int16_t screenY, GXColor color)
+void FreeTypeGX::copyTextureToFramebuffer(GXTexObj *texObj, f32 quadWidth, f32 quadHeight, f32 screenX, f32 screenY, GXColor color)
 {
 	GX_LoadTexObj(texObj, GX_TEXMAP0);
 	GX_InvalidateTexAll();
@@ -831,19 +875,19 @@ void FreeTypeGX::copyTextureToFramebuffer(GXTexObj *texObj, f32 texWidth, f32 te
 	GX_SetVtxDesc (GX_VA_TEX0, GX_DIRECT);
 
 	GX_Begin(GX_QUADS, this->vertexIndex, 4);
-	GX_Position2s16(screenX, screenY);
+	GX_Position2f32(screenX, screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 	GX_TexCoord2f32(0.0f, 0.0f);
 
-	GX_Position2s16(texWidth + screenX, screenY);
+	GX_Position2f32(quadWidth + screenX, screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 	GX_TexCoord2f32(1.0f, 0.0f);
 
-	GX_Position2s16(texWidth + screenX, texHeight + screenY);
+	GX_Position2f32(quadWidth + screenX, quadHeight + screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 	GX_TexCoord2f32(1.0f, 1.0f);
 
-	GX_Position2s16(screenX, texHeight + screenY);
+	GX_Position2f32(screenX, quadHeight + screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 	GX_TexCoord2f32(0.0f, 1.0f);
 	GX_End();
@@ -868,16 +912,16 @@ void FreeTypeGX::copyFeatureToFramebuffer(f32 featureWidth, f32 featureHeight, i
 	GX_SetVtxDesc (GX_VA_TEX0, GX_NONE);
 
 	GX_Begin(GX_QUADS, this->vertexIndex, 4);
-	GX_Position2s16(screenX, screenY);
+	GX_Position2f32(screenX, screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 
-	GX_Position2s16(featureWidth + screenX, screenY);
+	GX_Position2f32(featureWidth + screenX, screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 
-	GX_Position2s16(featureWidth + screenX, featureHeight + screenY);
+	GX_Position2f32(featureWidth + screenX, featureHeight + screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 
-	GX_Position2s16(screenX, featureHeight + screenY);
+	GX_Position2f32(screenX, featureHeight + screenY);
 	GX_Color4u8(color.r, color.g, color.b, color.a);
 	GX_End();
 

@@ -123,8 +123,10 @@ BitmapFont g_bitmap;
 BitmapFont::Glyph g_glyph;  // the last one, until FreeTypeGX has copied it
 constexpr unsigned kSheetSlots = 8;  // unpacked sheets kept (64 KiB each in the Wii Menu's)
 
-bool bitmap_glyph(wchar_t ch, int pixel_size, FtgxBitmapGlyph* out) {
-    if (!g_bitmap.render(static_cast<std::uint32_t>(ch), pixel_size, g_glyph)) return false;
+// At the screen's pixels (`pixels_x` by `pixels_y` to a menu unit), so a
+// 16:9 menu draws it as sharp as a 4:3 one.
+bool bitmap_glyph(wchar_t ch, int pixel_size, float pixels_x, float pixels_y, FtgxBitmapGlyph* out) {
+    if (!g_bitmap.render(static_cast<std::uint32_t>(ch), pixel_size, g_glyph, pixels_x, pixels_y)) return false;
     *out = FtgxBitmapGlyph{g_glyph.pixels.data(), g_glyph.width, g_glyph.rows, g_glyph.left, g_glyph.top,
                            g_glyph.advance};
     return true;
