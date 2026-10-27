@@ -201,6 +201,7 @@ struct GcCatalogImage {
 // For each image, the index that replaces it in the list, or -1 to list
 // it. Disc 2 belongs to disc 1 in the same directory. A loose copy in
 // games/ or wbfs/ yields to a copy in a game's folder on the same device.
+// A loose pair stays listed instead if the folder copy lacks disc 2.
 // Copies in separate game folders remain separate (they may be mods).
 std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images);
 

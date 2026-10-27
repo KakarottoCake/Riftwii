@@ -673,6 +673,30 @@ void test_gc_catalog_selection() {
         EXPECT_EQ(gc_catalog_hidden_by(images)[0], 1);
         images[1].path = root + "/Different folder/game.rvz";
         EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);  // Never pair across folders.
+
+        // A folder containing only disc 1 must not replace a loose pair:
+        // the game needs disc 2 in the same directory when it changes discs.
+        images = {{root + "/game.iso", "GXXE01", 0},
+                  {root + "/disc2.iso", "GXXE01", 1},
+                  {root + "/Copy/game.iso", "GXXE01", 0}};
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_TRUE(hidden == (std::vector<int>{-1, 0, 0}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{2, 2, -1}));
+        std::reverse(images.begin(), images.end());
+
+        // Once the folder has its own disc 2, prefer that complete copy.
+        images.push_back({root + "/Copy/disc2.iso", "GXXE01", 1});
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{2, 0, -1, 2}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{1, -1, 0, 1}));
+
+        // With no disc 2 in either place, the folder still takes priority.
+        images = {{root + "/game.iso", "GXXE01", 0},
+                  {root + "/Copy/game.iso", "GXXE01", 0}};
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{1, -1}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, 0}));
     }
     const std::vector<GcCatalogImage> separate_devices = {
         {"sd:/games/Luigi.iso", "GLME01", 0}, {"usb:/games/Luigi/game.rvz", "GLME01", 0}

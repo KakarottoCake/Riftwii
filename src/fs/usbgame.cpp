@@ -416,6 +416,22 @@ bool join_game_path(const std::string& directory, const std::string& name, std::
 std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images) {
     std::vector<int> hidden_by;
     if (!try_assign(hidden_by, images.size(), -1)) return hidden_by;
+    std::vector<std::uint8_t> has_second_disc;
+    if (!try_assign(has_second_disc, images.size(), std::uint8_t(0))) return {};
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        if (images[i].disc_number != 0) continue;
+        const std::size_t slash = images[i].path.rfind('/');
+        if (slash == std::string::npos) continue;
+        const std::string directory = images[i].path.substr(0, slash);
+        for (const GcCatalogImage& candidate : images) {
+            if (candidate.disc_number != 1 || candidate.id != images[i].id) continue;
+            const std::size_t candidate_slash = candidate.path.rfind('/');
+            if (candidate_slash != std::string::npos && candidate.path.substr(0, candidate_slash) == directory) {
+                has_second_disc[i] = 1;
+                break;
+            }
+        }
+    }
     for (std::size_t i = 0; i < images.size(); ++i) {
         const GcCatalogImage& image = images[i];
         const std::size_t slash = image.path.rfind('/');
@@ -425,6 +441,8 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
                            directory == "usb:/games" || directory == "usb:/wbfs";
         const std::size_t device_end = image.path.find('/');
         const std::string device = image.path.substr(0, device_end + 1);
+        const bool nested = directory.compare(0, device.size() + 6, device + "games/") == 0 ||
+                            directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
             // Overlapping custom roots can encounter the same file twice.
@@ -439,11 +457,18 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }
-            // Prefer an existing game folder to a loose copy, without
-            // merging games on different devices or distinct mod folders.
+            // Prefer a game folder unless that would strand the loose
+            // copy's disc 2. Never merge devices or distinct mod folders.
             const bool other_nested = other_directory.compare(0, device.size() + 6, device + "games/") == 0 ||
                                       other_directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
             if (loose && other_nested && image.disc_number == images[j].disc_number) {
+                if (has_second_disc[i] && !has_second_disc[j]) continue;
+                hidden_by[i] = static_cast<int>(j);
+                break;
+            }
+            const bool other_loose = other_directory == device + "games" || other_directory == device + "wbfs";
+            if (nested && other_loose && image.disc_number == 0 && images[j].disc_number == 0 &&
+                !has_second_disc[i] && has_second_disc[j]) {
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }
