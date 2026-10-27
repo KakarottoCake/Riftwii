@@ -57,9 +57,9 @@ namespace riftwii::wii {
 void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
-// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe and HBMCalc (a
-// code build's veneers, one each).
-constexpr std::uint32_t kPadHookSites = 8;
+// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe, HBMCalc and
+// HBMGetSelectBtnNum (a code build's veneers, one each).
+constexpr std::uint32_t kPadHookSites = 9;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -105,6 +105,7 @@ struct PadHook {
     bool kpad_takes_error = false;        // its fourth argument is the error's address
     std::uint32_t wpad_probe = 0;         // WPADProbe
     std::uint32_t hbm_calc = 0;           // HBMCalc
+    std::uint32_t hbm_select = 0;         // HBMGetSelectBtnNum, 0: the Operations Guide can't be told from Close
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
