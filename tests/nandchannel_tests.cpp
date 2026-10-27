@@ -34,6 +34,11 @@ void put64(std::uint8_t* p, std::uint64_t v) {
     put32(p, std::uint32_t(v >> 32));
     put32(p + 4, std::uint32_t(v));
 }
+std::uint64_t be64(const std::uint8_t* p) {
+    std::uint64_t v = 0;
+    for (int i = 0; i < 8; ++i) v = (v << 8) | p[i];
+    return v;
+}
 
 // A stored TMD (signature in front, as ES_GetStoredTMD gives it) with the
 // given content records: {id, index, type, size}.
@@ -606,7 +611,84 @@ void test_channel_bi2() {
     EXPECT_EQ(channel_bi2_address(program, 0x81300000), 0u);
 }
 
+// The ticket offered when ES refuses the installed one: that title, no
+// console, a zeroed signature over a part whose SHA-1 starts with zero.
+void test_identify_ticket() {
+    const std::uint64_t sm64 = title(kDownloadedChannels, "NAAE");
+    const auto signed_part_hash = [](const std::vector<std::uint8_t>& t) {
+        return sha1(t.data() + 0x140, t.size() - 0x140);
+    };
+    const auto all_zero = [](const std::vector<std::uint8_t>& t, std::size_t from, std::size_t count) {
+        return std::all_of(t.begin() + from, t.begin() + from + count, [](std::uint8_t b) { return b == 0; });
+    };
+
+    // No installed ticket: the generic one, with the title filled in.
+    const auto generic = make_identify_ticket({}, sm64);
+    EXPECT_EQ(generic.size(), kSignedTicketBytes);
+    EXPECT_EQ(be64(generic.data() + 0x1DC), sm64);
+    EXPECT_TRUE(all_zero(generic, 0x004, 0x100));
+    EXPECT_EQ(signed_part_hash(generic)[0], 0);
+
+    // Another console's ticket, two to the file: the first, with its
+    // title key kept and its console and key exchange data cleared.
+    std::vector<std::uint8_t> installed(kSignedTicketBytes * 2, 0x5A);
+    put32(installed.data(), 0x00010001);
+    put64(installed.data() + 0x1DC, sm64);
+    const auto made = make_identify_ticket(installed, sm64);
+    EXPECT_EQ(made.size(), kSignedTicketBytes);
+    EXPECT_EQ(be64(made.data() + 0x1DC), sm64);
+    EXPECT_TRUE(all_zero(made, 0x004, 0x100));
+    EXPECT_TRUE(all_zero(made, 0x180, 0x3C));
+    EXPECT_TRUE(all_zero(made, 0x1D8, 4));
+    EXPECT_TRUE(std::equal(made.begin() + 0x1BF, made.begin() + 0x1CF, installed.begin() + 0x1BF));
+    EXPECT_EQ(signed_part_hash(made)[0], 0);
+
+    // Apart from identity and signature fields, preserve the installed
+    // ticket byte for byte. In particular, changing the common-key index
+    // without re-encrypting the title key would give ES the wrong key.
+    for (std::uint8_t key_index : {0, 1, 2}) {
+        installed[0x1F1] = key_index;
+        const auto preserved = make_identify_ticket(installed, sm64);
+        EXPECT_EQ(preserved[0x1F1], key_index);
+        EXPECT_EQ(be64(preserved.data() + 0x1D0), be64(installed.data() + 0x1D0));
+        EXPECT_EQ(preserved[0x1F4], installed[0x1F4]);
+        EXPECT_EQ(preserved[0x21F], installed[0x21F]);
+        EXPECT_EQ(preserved[0x222], installed[0x222]);
+        EXPECT_EQ(signed_part_hash(preserved)[0], 0);
+        for (std::size_t offset = 0; offset < kSignedTicketBytes; ++offset) {
+            const bool changed_field = (offset >= 0x004 && offset < 0x104) ||
+                                       (offset >= 0x180 && offset < 0x1BC) ||
+                                       (offset >= 0x1D8 && offset < 0x1E4) ||
+                                       (offset >= 0x220 && offset < 0x222);
+            if (!changed_field) EXPECT_EQ(preserved[offset], installed[offset]);
+        }
+    }
+    EXPECT_TRUE(std::all_of(generic.begin() + 0x222, generic.begin() + 0x262,
+                           [](std::uint8_t byte) { return byte == 0xFF; }));
+    EXPECT_EQ(generic[0x262], 0);
+    EXPECT_EQ(generic[0x263], 0);
+    EXPECT_TRUE(make_identify_ticket({0x5A}, sm64) == generic);
+
+    // A ticket for another title takes the launched one's.
+    put64(installed.data() + 0x1DC, title(kDownloadedChannels, "WA4E"));
+    EXPECT_EQ(be64(make_identify_ticket(installed, sm64).data() + 0x1DC), sm64);
+}
+
+// Every content but the optional ones (downloadable extras) is checked
+// after ES_Identify: normal and shared contents both count.
+void test_required_contents() {
+    TmdContents tmd;
+    tmd.contents = {{0, 0, 0x0001, 0, {}}, {1, 1, 0x0001, 0, {}}, {2, 5, 0x8001, 0, {}},
+                    {3, 6, 0x4001, 0, {}}, {4, 7, 0x0001, 0, {}}};
+    const auto needed = required_content_indexes(tmd);
+    EXPECT_EQ(needed.size(), 4u);
+    EXPECT_TRUE((needed == std::vector<std::uint16_t>{0, 1, 5, 7}));
+    EXPECT_TRUE(required_content_indexes(TmdContents{}).empty());
+}
+
 int main() {
+    test_required_contents();
+    test_identify_ticket();
     test_channel_bi2();
     test_extras_floor();
     test_codes();
