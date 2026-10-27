@@ -2,13 +2,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The case colours (riftwii/casecolour.hpp): GameTDB's, the series', the
 // consoles' and the player's own.
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <new>
 #include <string>
 
 #include "riftwii/casecolour.hpp"
 
 static int g_failures = 0;
+
+// The largest single allocation since it was last reset: the player's file
+// must not be copied a line at a time on the Wii's small menu heap.
+static std::size_t g_largestAllocation = 0;
+void* operator new(std::size_t size) {
+    if (size > g_largestAllocation) g_largestAllocation = size;
+    if (void* block = std::malloc(size ? size : 1)) return block;
+    throw std::bad_alloc();
+}
+void operator delete(void* block) noexcept { std::free(block); }
+void operator delete(void* block, std::size_t) noexcept { std::free(block); }
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_FALSE(cond) EXPECT_TRUE(!(cond))
 
@@ -91,6 +104,20 @@ int main() {
     for (std::size_t i = 0; i < riftwii::kMaxCaseColourOverrides + 3; ++i) many += "RMCE01 000000\n";
     EXPECT_TRUE(riftwii::parse_case_colour_overrides(many, overrides) == 3);
     EXPECT_TRUE(overrides.size() == riftwii::kMaxCaseColourOverrides);
+    // A line as long as the file may be (256 KiB) with no space in it, and
+    // one with a colour as long: skipped, without copying either.
+    const std::size_t kFileCap = 256 * 1024;
+    std::string junk(kFileCap - 64, 'A');
+    junk += "\nRMCE01 00ff00\n";
+    g_largestAllocation = 0;
+    EXPECT_TRUE(riftwii::parse_case_colour_overrides(junk, overrides) == 1);
+    EXPECT_TRUE(g_largestAllocation < 1024);
+    EXPECT_TRUE(overrides.size() == 1 && overrides[0].id == "RMCE01" && overrides[0].rgb[1] == 0xff);
+    std::string longColour = "RMCE01 " + std::string(kFileCap - 64, 'f') + "\n";
+    g_largestAllocation = 0;
+    EXPECT_TRUE(riftwii::parse_case_colour_overrides(longColour, overrides) == 1);
+    EXPECT_TRUE(g_largestAllocation < 1024);
+    EXPECT_TRUE(overrides.empty());
 
     if (g_failures == 0) std::cout << "casecolour: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

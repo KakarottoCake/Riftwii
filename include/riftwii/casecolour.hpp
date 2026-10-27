@@ -16,9 +16,10 @@ namespace riftwii {
 bool game_case_colour(const std::string& game_id, std::uint8_t (&rgb)[3]);
 
 // The player's own case colours, from sd:/riftwii/case_colors.txt: one
-// game a line, "<ID> <rrggbb>" ("SMNE01 ff0000"). An ID of three to five
-// characters covers every game it starts ("SMN" is New Super Mario Bros.
-// Wii in every region); the longest match wins. "#" starts a comment.
+// game a line, "<ID> <rrggbb>" ("SMNE01 ff0000"). A full six-character ID
+// is one game; an ID of three to five characters covers every game it
+// starts ("SMN" is New Super Mario Bros. Wii in every region). The longest
+// match wins. "#" starts a comment.
 struct CaseColourOverride {
     std::string id;  // upper case, three to six characters
     std::array<std::uint8_t, 3> rgb{};

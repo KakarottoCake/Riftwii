@@ -4,8 +4,7 @@
 
 #include <cctype>
 #include <cstring>
-
-#include "riftwii/textlines.hpp"
+#include <string_view>
 
 namespace riftwii {
 namespace {
@@ -29,8 +28,9 @@ const Series kSeries[] = {
     {"SMN", {0xff, 0x00, 0x00}},  // New Super Mario Bros. Wii: red
 };
 
-// The ID, upper case, if it is three to six letters and digits.
-bool CleanId(const std::string& word, std::string& id) {
+// The ID, upper case, if it is three to six letters and digits. The
+// length is checked first, so a long run of junk is never copied.
+bool CleanId(std::string_view word, std::string& id) {
     if (word.size() < 3 || word.size() > 6) return false;
     id.clear();
     for (const char c : word) {
@@ -41,15 +41,34 @@ bool CleanId(const std::string& word, std::string& id) {
 }
 
 // "rrggbb", with or without a leading "0x".
-bool ParseRgb(std::string word, std::array<std::uint8_t, 3>& rgb) {
-    if (word.size() == 8 && word[0] == '0' && (word[1] == 'x' || word[1] == 'X')) word.erase(0, 2);
+bool ParseRgb(std::string_view word, std::array<std::uint8_t, 3>& rgb) {
+    if (word.size() == 8 && word[0] == '0' && (word[1] == 'x' || word[1] == 'X')) word.remove_prefix(2);
     if (word.size() != 6) return false;
-    for (char& c : word) {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
+    char digits[6];
+    for (int i = 0; i < 6; ++i) {
+        digits[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(word[i])));
+        if (!std::isxdigit(static_cast<unsigned char>(digits[i]))) return false;
     }
-    for (int i = 0; i < 3; ++i) rgb[i] = static_cast<std::uint8_t>(Hex(word[i * 2]) * 16 + Hex(word[i * 2 + 1]));
+    for (int i = 0; i < 3; ++i) rgb[i] = static_cast<std::uint8_t>(Hex(digits[i * 2]) * 16 + Hex(digits[i * 2 + 1]));
     return true;
+}
+
+// Between the ID and the colour: white space, "=" or ",".
+bool IsSeparator(char c) {
+    return std::isspace(static_cast<unsigned char>(c)) || c == '=' || c == ',';
+}
+
+// The next word of `rest`, taken off its front; empty when none is left.
+// A view into the file's text: a line of junk as long as the file itself
+// (256 KiB) costs no copy of it on the menu's small heap.
+std::string_view NextWord(std::string_view& rest) {
+    std::size_t start = 0;
+    while (start < rest.size() && IsSeparator(rest[start])) ++start;
+    std::size_t end = start;
+    while (end < rest.size() && !IsSeparator(rest[end])) ++end;
+    const std::string_view word = rest.substr(start, end - start);
+    rest.remove_prefix(end);
+    return word;
 }
 
 bool StartsWith(const std::string& id, const std::string& prefix) {
@@ -80,19 +99,20 @@ bool game_case_colour(const std::string& game_id, std::uint8_t (&rgb)[3]) {
 int parse_case_colour_overrides(const std::string& text, CaseColourOverrides& out) {
     out.clear();
     int skipped = 0;
-    LineReader lines(text);
-    std::string line;
-    while (lines.next(line)) {
+    std::string_view rest(text);
+    while (!rest.empty()) {
+        const std::size_t end = rest.find('\n');
+        std::string_view line = rest.substr(0, end);
+        rest.remove_prefix(end == std::string_view::npos ? rest.size() : end + 1);
         const std::size_t comment = line.find('#');
-        if (comment != std::string::npos) line.erase(comment);
-        for (char& c : line)
-            if (c == '=' || c == ',') c = ' ';
-        WordReader words(line);
-        std::string id_word, colour_word, extra;
-        if (!words.next(id_word)) continue;  // a blank line or only a comment
+        if (comment != std::string_view::npos) line = line.substr(0, comment);
+        const std::string_view id_word = NextWord(line);
+        if (id_word.empty()) continue;  // a blank line or only a comment
+        const std::string_view colour_word = NextWord(line);
+        const bool extra = !NextWord(line).empty();
         CaseColourOverride entry;
-        if (!words.next(colour_word) || words.next(extra) || !CleanId(id_word, entry.id) ||
-            !ParseRgb(colour_word, entry.rgb) || out.size() >= kMaxCaseColourOverrides) {
+        if (colour_word.empty() || extra || !CleanId(id_word, entry.id) || !ParseRgb(colour_word, entry.rgb) ||
+            out.size() >= kMaxCaseColourOverrides) {
             ++skipped;
             continue;
         }
