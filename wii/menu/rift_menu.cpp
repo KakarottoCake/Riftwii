@@ -2914,9 +2914,13 @@ static int g_leave = 1;
 // not installed: there it only started the Wii Menu. On a Wii U a restart
 // is also the way back from the Wii side (the vWii's own "Wii U Menu"
 // channel does just that). It stays Priiloader where Priiloader is, or
-// where it could not be looked for.
+// where it could not be looked for. Not looked for while the drive scan
+// runs: it reads the Wii's channels through the same NAND path buffer and
+// permission patch, and the look would close the scan's patch (or read a
+// path the scan was writing). The button is Priiloader until then.
 static bool HomeRestartsConsole()
 {
+	if (!riftwii::wii::DriveScanDone()) return false;
 	return riftwii::wii::PriiloaderInstalled() == riftwii::wii::PriiloaderFound::No;
 }
 
