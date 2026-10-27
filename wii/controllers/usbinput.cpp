@@ -68,6 +68,10 @@ float g_pen_x = 0, g_pen_y = 0;      // where the pen last took or moved the poi
 tb_sample g_udraw[kChannels];
 bool g_udraw_seen[kChannels] = {};
 u8 g_udraw_buttons[kChannels] = {};
+// The Remote buttons (WPAD_* bits) the mouse and pens held last frame, per
+// channel. libogc keeps btns_h as it was on a frame without a report from
+// that Remote, or with no Remote at all, so they are taken out again first.
+u32 g_wpad_held[kChannels] = {};
 // The USB tablet's latest sample.
 tb_sample g_tablet;
 bool g_tablet_seen = false;
@@ -215,16 +219,32 @@ void DrainTablets() {
         if (!TB_UDrawConnected(c)) g_udraw_seen[c] = false;
 }
 
-// A button of the mouse or a pen as the menu's A and B, on `chan`.
+// A button of the mouse or a pen as the Wii Remote's A and B, on `chan`:
+// they point, so the menu takes their clicks as a pointing Remote's (a
+// pad's A starts a game wherever the pointer is, and names pad buttons).
 void PenButtons(int chan, bool a_now, bool a_before, bool b_now, bool b_before) {
-    PADData& pad = userInput[chan].pad;
-    const auto apply = [&pad](u16 bit, bool now, bool before) {
-        if (now) pad.btns_h |= bit;
-        if (now && !before) pad.btns_d |= bit;
-        if (!now && before) pad.btns_u |= bit;
+    WPADData* w = userInput[chan].wpad;
+    if (!w) return;
+    const auto apply = [w, chan](u32 bit, bool now, bool before) {
+        if (now) {
+            w->btns_h |= bit;
+            w->btns_u &= ~bit;  // libogc's, from last frame's held
+            g_wpad_held[chan] |= bit;
+        }
+        if (now && !before) w->btns_d |= bit;
+        if (!now && before) w->btns_u |= bit;
     };
-    apply(PAD_BUTTON_A, a_now, a_before);
-    apply(PAD_BUTTON_B, b_now, b_before);
+    apply(WPAD_BUTTON_A, a_now, a_before);
+    apply(WPAD_BUTTON_B, b_now, b_before);
+}
+
+// Takes last frame's mouse and pen buttons out of the Remotes' data.
+void ClearPenButtons() {
+    for (int c = 0; c < kChannels; ++c) {
+        WPADData* w = userInput[c].wpad;
+        if (w) w->btns_h &= ~g_wpad_held[c];
+        g_wpad_held[c] = 0;
+    }
 }
 
 void ShowPointer(WPADData* w, float x, float y) {
@@ -379,6 +399,7 @@ void Stop(bool ios_reload_next) {
     g_mouse_buttons = g_tablet_buttons = 0;
     g_pen_was_near = false;
     g_tablet_seen = false;
+    ClearPenButtons();
     for (int c = 0; c < kChannels; ++c) {
         g_udraw_seen[c] = false;
         g_udraw_buttons[c] = 0;
@@ -411,6 +432,7 @@ void UsbInputBeforePointers() {
     g_pad_pressed = 0;
     g_pages = 0;  // a page asked for while Home was not shown is not turned later
     if (!g_started) return;
+    ClearPenButtons();
     if (g_tablet_waiting) StartTablet();
     if (g_keyboard_waiting) StartKeyboard();
     LogChanges();
