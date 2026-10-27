@@ -600,6 +600,110 @@ void test_gc_disc_change_partner() {
     EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIE08", 1}, {"GBIE08", 1}}, 0), 1);
 }
 
+void test_catalog_folder_rules() {
+    // The same rule is used for SD and USB, loose images and the files
+    // one level down in Title [ID]/. WBFS split pieces are not games.
+    for (UsbImageFormat folder : {UsbImageFormat::Iso, UsbImageFormat::Wbfs, UsbImageFormat::Rvz}) {
+        UsbImageFormat format = UsbImageFormat::Wbfs;
+        EXPECT_TRUE(catalog_image_format("Mario.RVZ", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Rvz);
+        EXPECT_TRUE(catalog_image_format("RMGE01.rvz", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Rvz);
+        EXPECT_TRUE(catalog_image_format("RMGE01.ISO", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Iso);
+        EXPECT_EQ(catalog_image_format("RMGE01.wbfs", folder, format), folder != UsbImageFormat::Iso);
+        EXPECT_FALSE(catalog_image_format("RMGE01.wbf1", folder, format));
+        EXPECT_FALSE(catalog_image_format("._RMGE01.rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format("../RMGE01.rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format(".rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format("", folder, format));
+    }
+    for (const std::string name : {"Luigi.rvz", "Luigi.ISO", "game.iso", "game.rvz", "disc2.RVZ", "game.gcm"}) {
+        EXPECT_TRUE(is_gc_image_name(name));
+        std::string path;
+        for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs"}) {
+            EXPECT_TRUE(join_game_path(root, name, path));
+            EXPECT_EQ(path, root + "/" + name);
+            EXPECT_TRUE(join_game_path(root + "/Luigi [GLME01]", name, path));
+        }
+    }
+    EXPECT_FALSE(is_gc_image_name("._game.rvz"));
+    EXPECT_FALSE(is_gc_image_name("../game.iso"));
+    EXPECT_FALSE(is_gc_image_name("game.wbfs"));
+    EXPECT_FALSE(is_gc_image_name(""));
+    std::string path;
+    EXPECT_FALSE(join_game_path("sd:/games", "..", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "a/b.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "a\\b.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "usb:game.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", std::string("x\0.iso", 6), path));
+    EXPECT_TRUE(join_game_path("sd:/games", std::string(230, 'a'), path));
+    EXPECT_EQ(path.size(), std::size_t(240));
+    EXPECT_FALSE(join_game_path("sd:/games", std::string(231, 'a'), path));
+}
+
+void test_gc_catalog_selection() {
+    for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs"}) {
+        std::vector<GcCatalogImage> images = {
+            {root + "/Luigi.rvz", "GLME01", 0},
+            {root + "/Luigi [GLME01]/game.iso", "GLME01", 0},
+            {root + "/Luigi mod [GLME01]/game.rvz", "GLME01", 0},
+            {root + "/Other.iso", "GMSE01", 0},
+        };
+        auto hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[0], 1);  // Prefer the folder copy; keep distinct mod folders.
+        EXPECT_EQ(hidden[1], -1);
+        EXPECT_EQ(hidden[2], -1);
+        EXPECT_EQ(hidden[3], -1);
+        std::reverse(images.begin(), images.end());
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[3], 1);  // Independent of directory listing order.
+        EXPECT_EQ(hidden[0], -1);
+
+        images = {{root + "/disc2.rvz", "GXXE01", 1}, {root + "/game.iso", "GXXE01", 0}};
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[0], 1);
+        EXPECT_EQ(hidden[1], -1);
+        images[1].id = "GYYE01";
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);
+        images.pop_back();
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);  // Disc 2 alone remains listed.
+        images = {{root + "/Pair [GXXE01]/disc2.iso", "GXXE01", 1},
+                  {root + "/Pair [GXXE01]/game.rvz", "GXXE01", 0}};
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], 1);
+        images[1].path = root + "/Different folder/game.rvz";
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);  // Never pair across folders.
+    }
+    const std::vector<GcCatalogImage> separate_devices = {
+        {"sd:/games/Luigi.iso", "GLME01", 0}, {"usb:/games/Luigi/game.rvz", "GLME01", 0}
+    };
+    EXPECT_EQ(gc_catalog_hidden_by(separate_devices)[0], -1);
+    const std::vector<GcCatalogImage> overlapping_roots = {
+        {"sd:/games/Luigi/game.rvz", "GLME01", 0}, {"sd:/games/Luigi/game.rvz", "GLME01", 0}
+    };
+    EXPECT_EQ(gc_catalog_hidden_by(overlapping_roots)[0], -1);
+    EXPECT_EQ(gc_catalog_hidden_by(overlapping_roots)[1], 0);
+    EXPECT_TRUE(gc_catalog_hidden_by({}).empty());
+}
+
+void test_gc_scan_preserves_wii_lazy_listing() {
+    for (const std::string root : {"sd:/wbfs", "usb:/wbfs", "sd:/games", "usb:/games"}) {
+        EXPECT_FALSE(gc_scan_should_open(root + "/Deca Sports [R2SE18]/R2SE18.rvz", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Galaxy [SB4E01]/SB4E01.iso", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/RMGE01.iso", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Deca.rvz", true));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Wii.iso", true));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Unknown.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Luigi [GLME01]/game.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Luigi [GLME01]/game.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/GLME01.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/D43E01.gcm", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/PXXE01.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/UXXE01.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Rubbish.iso", false));
+    }
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -755,6 +859,9 @@ int main() {
     test_gc_second_disc_of();
     test_gc_disc_change_partner();
     test_gc_folder_skip_reason();
+    test_catalog_folder_rules();
+    test_gc_catalog_selection();
+    test_gc_scan_preserves_wii_lazy_listing();
     test_gc_container_by_magic();
     test_d2x_usb_checks();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";

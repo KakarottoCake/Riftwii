@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gclaunch.hpp"
 
-#include <dirent.h>
 #include <ogc/conf.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/video.h>
 
+#include <algorithm>
 #include <cctype>
-#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -21,6 +21,7 @@
 #include "log.hpp"
 #include "netpacks.hpp"
 #include "riftwii/apply.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/gcoverlay.hpp"
@@ -45,10 +46,6 @@ bool ends_with(const std::string& s, const char* tail) {
     for (std::size_t i = 0; i < n; ++i)
         if (std::tolower(static_cast<unsigned char>(s[s.size() - n + i])) != tail[i]) return false;
     return true;
-}
-
-bool is_gc_image_name(const std::string& name) {
-    return name[0] != '.' && (ends_with(name, ".iso") || ends_with(name, ".gcm") || ends_with(name, ".rvz"));
 }
 
 // A file on the card read with stdio.
@@ -547,51 +544,12 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
         out.id = id;
         return true;
     }
-    DIR* games = opendir("sd:/games");
-    if (!games) return false;
-    bool found = false;
-    while (dirent* folder = readdir(games)) {
-        if (folder->d_name[0] == '.') continue;
-        const std::string dir = std::string("sd:/games/") + folder->d_name;
-        DIR* inner = opendir(dir.c_str());
-        if (!inner) continue;
-        // The folder's matching images, so a two-disc game starts from disc
-        // 1 whichever order the folder lists them in (gc_second_disc_of).
-        std::vector<std::string> paths;
-        std::vector<GcFolderImage> discs;
-        while (dirent* file = readdir(inner)) {
-            const std::string name = file->d_name;
-            if (!is_gc_image_name(name)) continue;
-            const std::string full = dir + "/" + name;
-            GcHead head;
-            if (!read_gc_head(full, head)) continue;  // not a GameCube image
-            const std::string id(reinterpret_cast<const char*>(head.bytes), 6);
-            // As read_gc_id: an ID holding a slash would name files outside
-            // their folders downstream (the choices file), so it is no match.
-            if (id.find_first_of("/\\") != std::string::npos) continue;
-            if (id.compare(0, game.size(), game) != 0) continue;
-            paths.push_back(full);
-            discs.push_back({id, head.bytes[6]});
-        }
-        closedir(inner);
-        const std::vector<int> first_disc = gc_second_disc_of(discs);
-        for (std::size_t i = 0; i < paths.size() && !found; ++i) {
-            if (first_disc[i] >= 0) continue;
-            out.path = paths[i];
-            out.id = discs[i].id;
-            found = true;
-        }
-        if (found) break;
-    }
-    closedir(games);
-    if (found) return true;
-    // A patch that makes it from one of them, then the USB drive's games
-    // and the patches made from those.
+    // Use the menu's folder and duplicate rules for headless launches too.
     std::vector<ImageGame> all;
     ScanGcImages(all);
     ScanUsbGcImages(all);
     for (const ImageGame& g : all) {
-        if (g.device != ImageDevice::Usb || !g.gc_patch_source.empty() || g.id.compare(0, game.size(), game) != 0)
+        if (!g.gc_patch_source.empty() || g.id.compare(0, game.size(), game) != 0)
             continue;
         out.path = g.path;
         out.id = g.id;
@@ -699,103 +657,140 @@ void add_gc_image(const std::string& full, std::vector<ImageGame>& out, SkippedG
         logf("  %s\n", found.describe.c_str());
         for (const std::string& r : g.rvz_reasons) logf("  %s\n", r.c_str());
     }
-    out.push_back(std::move(g));
+    if (!try_push_back(out, std::move(g))) skipped.note(full, "there is not enough memory to list the game");
 }
 
-// One game folder's images into the list. A two-disc game's second disc
-// beside its first is not a game of its own: started alone it ran without
-// what disc 1 sets up (issue #173, Splinter Cell Double Agent crashed), so
-// it is only said in the log. The launch changes to it when the game asks
-// (find_second_disc).
-void list_folder_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
-    std::vector<GcFolderImage> discs;
-    for (const ImageGame& g : found) discs.push_back({g.id, g.disc_number});
-    const std::vector<int> first_disc = gc_second_disc_of(discs);
-    // Said before any image moves to the list: the line names disc 1.
-    for (std::size_t i = 0; i < found.size(); ++i) {
-        if (first_disc[i] < 0) continue;
-        const ImageGame& first = found[static_cast<std::size_t>(first_disc[i])];
-        logf("%s scan: %s is disc 2 of %s (%s), so Home lists the game once; start it from disc 1, "
-             "and RiftWii changes to disc 2 when the game asks for it\n",
-             drive_of(found[i].path), found[i].path.c_str(), first.id.c_str(), first.path.c_str());
+// Raw directory walkers bound corrupt chains and directory sizes, so a
+// damaged SD directory cannot trap libfat's readdir here.
+bool list_gc_directory(const std::string& path, std::vector<VolumeEntry>& out, std::string& error) {
+    if (GcImageOnUsb(path)) return list_usb_folder(path, out, &error);
+    std::vector<Fat32Entry> entries;
+    bool missing = false;
+    if (!list_sd_directory(path, entries, missing, error)) return false;
+    out.clear();
+    if (!try_reserve(out, entries.size())) {
+        error = "there is not enough memory to list the folder";
+        return false;
     }
-    for (std::size_t i = 0; i < found.size(); ++i)
-        if (first_disc[i] < 0) out.push_back(std::move(found[i]));
+    for (const Fat32Entry& entry : entries) {
+        VolumeEntry file;
+        file.name = entry.name;
+        file.is_directory = entry.is_directory;
+        out.push_back(std::move(file));
+    }
+    return true;
+}
+
+constexpr std::size_t kMaxGcImages = 4000;
+
+void scan_gc_directory(const std::string& directory, bool nested, bool report_other_files,
+                       const std::vector<ImageGame>& listed, std::vector<ImageGame>& found,
+                       SkippedGcFiles& skipped, CisoFinds* ciso, unsigned& opened) {
+    std::vector<VolumeEntry> entries;
+    std::string error;
+    if (!list_gc_directory(directory, entries, error)) {
+        if (!error.empty() && error.find("no such ") == std::string::npos)
+            skipped.note(directory, "the folder cannot be read: " + error);
+        return;
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const VolumeEntry& a, const VolumeEntry& b) { return a.name < b.name; });
+    for (const VolumeEntry& entry : entries) {
+        if (found.size() >= kMaxGcImages) return;
+        std::string path;
+        if (!join_game_path(directory, entry.name, path)) continue;
+        if (entry.is_directory) {
+            if (nested) scan_gc_directory(path, false, report_other_files, listed, found, skipped, ciso, opened);
+            continue;
+        }
+        if (is_gc_image_name(entry.name)) {
+            const bool known_wii = std::any_of(listed.begin(), listed.end(), [&](const ImageGame& game) {
+                return game.path == path && game.checked && !game.gamecube;
+            });
+            if (!gc_scan_should_open(path, known_wii)) continue;
+            ++opened;
+            add_gc_image(path, found, skipped, ciso);
+        } else if (report_other_files && !nested) {
+            // The Wii scan already reports CISO in the roots and wbfs
+            // subfolders. Only games subfolders need that work here.
+            if (ciso && is_ciso_image_name(entry.name)) ciso->note(path);
+            const std::string why = gc_folder_skip_reason(entry.name);
+            if (!why.empty()) skipped.note(path, why);
+        }
+    }
+}
+
+void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+    std::vector<GcCatalogImage> images;
+    if (!try_reserve(images, found.size())) {
+        logf("GameCube scan: there is not enough memory to choose which images to list\n");
+        return;
+    }
+    for (const ImageGame& game : found) images.push_back({game.path, game.id, game.disc_number});
+    const std::vector<int> hidden_by = gc_catalog_hidden_by(images);
+    if (hidden_by.size() != found.size()) {
+        logf("GameCube scan: there is not enough memory to choose which images to list\n");
+        return;
+    }
+
+    // A Wii-style ID in an ISO/RVZ filename was listed without opening it.
+    // Replace that placeholder even for disc 2 or a duplicate hidden below.
+    out.erase(std::remove_if(out.begin(), out.end(), [&](const ImageGame& listed) {
+        return std::any_of(found.begin(), found.end(), [&](const ImageGame& game) {
+            return listed.path == game.path;
+        });
+    }), out.end());
+    for (std::size_t i = 0; i < found.size(); ++i) {
+        if (hidden_by[i] < 0) continue;
+        const ImageGame& preferred = found[static_cast<std::size_t>(hidden_by[i])];
+        const bool second_disc = found[i].disc_number == 1 && preferred.disc_number == 0;
+        if (second_disc) {
+            logf("%s scan: %s is disc 2 of %s (%s), so Home lists the game once; start it from disc 1, "
+                 "and RiftWii changes to disc 2 when the game asks for it\n",
+                 drive_of(found[i].path), found[i].path.c_str(), preferred.id.c_str(), preferred.path.c_str());
+        } else {
+            logf("%s scan: %s is another copy of %s; Home uses the copy in %s\n",
+                 drive_of(found[i].path), found[i].path.c_str(), preferred.id.c_str(), preferred.path.c_str());
+        }
+    }
+    for (std::size_t i = 0; i < found.size() && out.size() < kMaxGcImages; ++i) {
+        if (hidden_by[i] >= 0) continue;
+        if (!try_push_back(out, std::move(found[i]))) {
+            logf("GameCube scan: there is not enough memory to list the remaining games\n");
+            return;
+        }
+    }
+}
+
+void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, CisoFinds* ciso) {
+    const u64 started = gettime();
+    unsigned opened = 0;
+    SkippedGcFiles skipped;
+    std::vector<ImageGame> found;
+    scan_gc_directory(device + ":/games", true, true, out, found, skipped, ciso, opened);
+    scan_gc_directory(device + ":/wbfs", true, false, out, found, skipped, ciso, opened);
+    for (const std::string& folder : game_folders_on(Settings(), device)) {
+        const std::string directory = device + ":" + folder;
+        if (directory == device + ":/games" || directory == device + ":/wbfs") continue;
+        scan_gc_directory(directory, true, false, out, found, skipped, ciso, opened);
+    }
+    skipped.finish(device == "usb" ? "USB" : "SD");
+    append_gc_images(found, out);
+    ScanGcPatches(out);
+    const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
+    logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
+         device == "usb" ? "USB" : "SD", opened, elapsed_ms);
 }
 
 }  // namespace
 
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
-    DIR* games = opendir("sd:/games");
-    if (!games) {
-        // No games folder is the usual card; one that cannot be read is not.
-        if (errno != ENOENT) logf("SD scan: sd:/games cannot be read: %s\n", std::strerror(errno));
-        return;
-    }
-    SkippedGcFiles skipped;
-    while (dirent* folder = readdir(games)) {
-        if (folder->d_name[0] == '.') continue;
-        // A file loose in sd:/games is the Wii scan's (it says when one is
-        // a GameCube game); only folders hold GameCube games.
-        if (folder->d_type == DT_REG) continue;
-        const std::string dir = std::string("sd:/games/") + folder->d_name;
-        DIR* inner = opendir(dir.c_str());
-        if (!inner) {
-            if (errno != ENOTDIR) skipped.note(dir, std::string("the folder cannot be read: ") + std::strerror(errno));
-            continue;
-        }
-        std::vector<ImageGame> found;
-        while (dirent* file = readdir(inner)) {
-            const std::string name = file->d_name;
-            if (file->d_type == DT_DIR) continue;
-            if (!is_gc_image_name(name)) {
-                if (ciso && is_ciso_image_name(name)) ciso->note(dir + "/" + name);
-                const std::string why = gc_folder_skip_reason(name);
-                if (!why.empty()) skipped.note(dir + "/" + name, why);
-                continue;
-            }
-            add_gc_image(dir + "/" + name, found, skipped, ciso);
-        }
-        closedir(inner);
-        list_folder_images(found, out);
-    }
-    closedir(games);
-    skipped.finish("SD");
-    ScanGcPatches(out);
+    forget_sd_layout();
+    scan_gc_images("sd", out, ciso);
 }
 
 void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
-    // The Wii games' images lie in usb:/games itself; a GameCube game has
-    // a folder of its own there, as on the card.
-    std::vector<VolumeEntry> folders;
-    if (!list_usb_folder("usb:/games", folders)) return;
-    SkippedGcFiles skipped;
-    for (const VolumeEntry& folder : folders) {
-        if (!folder.is_directory || folder.name.empty() || folder.name[0] == '.') continue;
-        const std::string dir = "usb:/games/" + folder.name;
-        std::vector<VolumeEntry> files;
-        std::string why;
-        if (!list_usb_folder(dir, files, &why)) {
-            skipped.note(dir, "the folder cannot be read: " + why);
-            continue;
-        }
-        std::vector<ImageGame> found;
-        for (const VolumeEntry& file : files) {
-            if (file.is_directory || file.name.empty()) continue;
-            if (!is_gc_image_name(file.name)) {
-                if (ciso && is_ciso_image_name(file.name)) ciso->note(dir + "/" + file.name);
-                const std::string why = gc_folder_skip_reason(file.name);
-                if (!why.empty()) skipped.note(dir + "/" + file.name, why);
-                continue;
-            }
-            add_gc_image(dir + "/" + file.name, found, skipped, ciso);
-        }
-        list_folder_images(found, out);
-    }
-    skipped.finish("USB");
-    // Patch-only mods whose original is on the drive (the game they make
-    // is written to the SD card when it is first started).
-    ScanGcPatches(out);
+    scan_gc_images("usb", out, ciso);
 }
 
 namespace {
@@ -851,28 +846,20 @@ void find_second_disc(GcImage& image) {
     const std::size_t slash = image.path.rfind('/');
     if (slash == std::string::npos) return;
     const std::string dir = image.path.substr(0, slash);
-    std::vector<std::string> names;
-    if (GcImageOnUsb(image.path)) {
-        std::vector<VolumeEntry> files;
-        if (!list_usb_folder(dir, files)) return;
-        for (const VolumeEntry& file : files)
-            if (!file.is_directory) names.push_back(file.name);
-    } else {
-        DIR* folder = opendir(dir.c_str());
-        if (!folder) return;
-        while (dirent* file = readdir(folder))
-            if (file->d_type != DT_DIR) names.push_back(file->d_name);
-        closedir(folder);
-    }
+    std::vector<VolumeEntry> files;
+    std::string error;
+    if (!list_gc_directory(dir, files, error)) return;
     // The image started first, then the folder's other GameCube images.
     std::vector<std::string> paths{image.path};
     std::vector<GcFolderImage> discs;
     GcHead head;
     if (!read_gc_head(image.path, head)) return;
     discs.push_back({std::string(reinterpret_cast<const char*>(head.bytes), 6), head.bytes[6]});
-    for (const std::string& name : names) {
-        const std::string full = dir + "/" + name;
-        if (full == image.path || name.empty() || name[0] == '.' || !is_gc_image_name(name)) continue;
+    for (const VolumeEntry& file : files) {
+        if (paths.size() >= kMaxGcImages) break;
+        if (file.is_directory || !is_gc_image_name(file.name)) continue;
+        std::string full;
+        if (!join_game_path(dir, file.name, full) || full == image.path) continue;
         if (!read_gc_head(full, head)) continue;
         paths.push_back(full);
         discs.push_back({std::string(reinterpret_cast<const char*>(head.bytes), 6), head.bytes[6]});
