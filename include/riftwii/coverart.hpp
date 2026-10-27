@@ -25,7 +25,8 @@ constexpr std::size_t kCoverFileSize = kCoverHeaderSize + kCoverPixelBytes;
 
 // GameTDB's cover regions to try for a game, best first: its own region
 // (for European games, the menu language's when GameTDB has one), then
-// EN, US and JA.
+// EN, US and JA. A homebrew app's four-letter code has no region: US
+// first, then EN and JA.
 std::vector<std::string> cover_regions(const std::string& game_id, const std::string& menu_language);
 // The IDs to ask GameTDB for a game's pictures under, best first. It
 // files WiiWare and Virtual Console games under their four-letter code
