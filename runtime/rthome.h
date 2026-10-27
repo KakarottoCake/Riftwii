@@ -37,6 +37,16 @@
 #define RTHOME_CL_DOWN 0x4000u
 #define RTHOME_CL_RIGHT 0x8000u
 
+/* And the Wii Remote's own buttons (KPADStatus's hold, trig and release
+ * words; the SDK's WPAD_BUTTON_*), held upright. */
+#define RTHOME_WR_LEFT 0x0001u
+#define RTHOME_WR_RIGHT 0x0002u
+#define RTHOME_WR_DOWN 0x0004u
+#define RTHOME_WR_UP 0x0008u
+#define RTHOME_WR_B 0x0400u
+#define RTHOME_WR_A 0x0800u
+#define RTHOME_WR_HOME 0x8000u
+
 #define RTHOME_CHANNELS 4u
 #define RTHOME_NO_SELECTION 0xFFFFFFFFu
 #define RTHOME_NO_CHANNEL 0xFFFFFFFFu
@@ -78,6 +88,14 @@ struct rthome {
     uint32_t hold_now, trig_now, release_now;
     uint32_t aside_home;    /* in RTHOME_ASIDE: when HOME was pressed there (low bit set), 0: not yet */
     uint32_t selected;      /* HBMGetSelectBtnNum's last answer since the press, RTHOME_NO_SELECTION: none */
+    /* The Wii Remote the Classic Controller hangs from, worked out with the
+     * Classic buttons: some games look only at it. Bomberman Blast opens
+     * its HOME Menu on the Remote's own HOME and hands a Classic Controller
+     * to the menu as a plain Remote, its buttons and pointer (27 Oct). */
+    uint32_t remote_last;   /* its buttons of the sample before */
+    uint32_t remote_hold, remote_trig, remote_release;
+    int32_t pointer[2];     /* where it points, x right and y down, over RTHOME_POINTER_FULL (the screen's edge) */
+    uint32_t refusals;      /* stand-ins in a row the game read but opened no menu for (rthome_keep) */
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
@@ -120,6 +138,29 @@ int rthome_menu_open(const struct rthome* h);
 #define RTHOME_AXIS_FULL 256
 void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* trig, uint32_t* release,
                     int32_t axes[6]);
+
+/* The Wii Remote side of the same sample, worked out by rthome_classic (so
+ * called after it): HOME alone while pressing; then A, B and the D-pad as
+ * the Remote's own and Start as its HOME, with the same combo buttons
+ * ignored; and the pointer, from the screen's centre at the press, moved
+ * by the control stick (full tilt crosses the screen in about a second)
+ * and kept on the screen. `pointer` gets numerators over
+ * RTHOME_POINTER_FULL, x right and y down, as KPAD reports a Remote's. */
+#define RTHOME_POINTER_FULL 4096
+void rthome_remote(const struct rthome* h, uint32_t* hold, uint32_t* trig, uint32_t* release, int32_t pointer[2]);
+
+/* After a stand-in has ended (RTHOME_DONE), whether the HOME Menu by the
+ * pad stays on in this game; 0: the combo is the way back from then on.
+ * `read_by_game`: the game's KPAD read took the stand-in's status at least
+ * once. A menu that opened keeps it on and starts the count again; a game
+ * that never read the stand-in can't take one (it reads only the channels
+ * it knows); one that read it but opened no menu RTHOME_REFUSALS times in a
+ * row looks for HOME somewhere a stand-in can't reach (Mario Kart Wii: only
+ * its signed-in players' controllers, 27 Oct). Two, not one: Super Smash
+ * Bros. Brawl and Tatsunoko vs. Capcom refuse once during their intros. A
+ * stand-in that never came (every channel has a controller) proves nothing. */
+#define RTHOME_REFUSALS 2u
+int rthome_keep(struct rthome* h, int read_by_game);
 
 /* An IEEE single's bits for `numerator` / RTHOME_AXIS_FULL (from -FULL to
  * FULL), made with integers only: the blob has no floating-point unit use

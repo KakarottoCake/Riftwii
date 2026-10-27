@@ -3,7 +3,9 @@
 // The HOME Menu from a GameCube controller (runtime/rthome.h, #224 part
 // 1): when the combo starts the stand-in, which channel it takes, the HOME
 // press, waiting for the menu, the menu's frames, the stand-in going away,
-// the buttons and sticks it carries, and the float bits it writes.
+// the buttons and sticks it carries (on the Classic Controller and on its
+// Wii Remote, with the pointer), whether part 1 stays on in a game after a
+// stand-in, and the float bits it writes.
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -289,6 +291,142 @@ void TestButtonsInTheMenu() {
     EXPECT_EQ(axes[1], 0);
 }
 
+// One PADRead sample at `t` on port 1, then the Classic and Remote words
+// worked out from it.
+struct Sample {
+    std::uint32_t hold, trig, release, remote_hold, remote_trig, remote_release;
+    std::int32_t axes[6], pointer[2];
+};
+Sample Read(rthome& h, std::uint32_t t, std::uint32_t buttons, int x = 0, int y = 0) {
+    Sample s;
+    rthome_pads(&h, Pads().port(1, buttons, x, y).s, t);
+    rthome_classic(&h, t, &s.hold, &s.trig, &s.release, s.axes);
+    rthome_remote(&h, &s.remote_hold, &s.remote_trig, &s.remote_release, s.pointer);
+    return s;
+}
+
+// An open menu, the combo let go and nothing held.
+rthome OpenMenu() {
+    rthome h = Fresh();
+    HoldCombo(h, 0, 2016);
+    (void)rthome_stand_in(&h, 2016 + kPress);
+    rthome_menu_frame(&h, 2700);
+    (void)Read(h, 2700, 0);
+    return h;
+}
+
+// The Wii Remote side: Bomberman Blast opens its HOME Menu on the Remote's
+// own HOME and runs it as a plain Remote (27 Oct).
+void TestRemoteSide() {
+    rthome h = Fresh();
+    HoldCombo(h, 0, 2016);
+    std::uint32_t hold, trig, release;
+    std::int32_t axes[6], pointer[2];
+    rthome_classic(&h, 2016, &hold, &trig, &release, axes);
+    rthome_remote(&h, &hold, &trig, &release, pointer);
+    EXPECT_EQ(hold, RTHOME_WR_HOME);  // pressing: the Remote's HOME too
+    EXPECT_EQ(trig, RTHOME_WR_HOME);
+    (void)rthome_stand_in(&h, 2016 + kPress);
+    rthome_menu_frame(&h, 2700);
+    Sample s = Read(h, 2700, kGcStart);  // Start still held from the combo: ignored on both
+    EXPECT_EQ(s.remote_hold, 0u);
+    EXPECT_EQ(s.remote_release, RTHOME_WR_HOME);
+    (void)Read(h, 2716, 0);
+    s = Read(h, 2732, kGcA | kGcUp);
+    EXPECT_EQ(s.remote_hold, RTHOME_WR_A | RTHOME_WR_UP);
+    EXPECT_EQ(s.remote_trig, RTHOME_WR_A | RTHOME_WR_UP);
+    EXPECT_EQ(s.hold, RTHOME_CL_A | RTHOME_CL_UP);  // the Classic's as before
+    s = Read(h, 2748, kGcStart);  // Start: HOME on both
+    EXPECT_EQ(s.remote_trig, RTHOME_WR_HOME);
+    EXPECT_EQ(s.remote_release, RTHOME_WR_A | RTHOME_WR_UP);
+    EXPECT_EQ(s.trig, RTHOME_CL_HOME);
+    // X and Y have no Remote button here; B does.
+    (void)Read(h, 2764, 0);
+    s = Read(h, 2780, 0x0200 | 0x0400 | 0x0800);  // B, X, Y
+    EXPECT_EQ(s.remote_hold, RTHOME_WR_B);
+}
+
+// The pointer: from the screen's centre, full tilt crosses half the screen
+// in 16 samples, and it stays on the screen; stick up points up (y falls).
+void TestPointer() {
+    rthome h = OpenMenu();
+    std::uint32_t hold, trig, release;
+    std::int32_t pointer[2];
+    rthome_remote(&h, &hold, &trig, &release, pointer);
+    EXPECT_EQ(pointer[0], 0);
+    EXPECT_EQ(pointer[1], 0);
+    Sample s{};
+    std::uint32_t t = 2716;
+    for (int i = 0; i < 16; ++i, t += 16) s = Read(h, t, 0, 80, 0);  // full right
+    EXPECT_EQ(s.pointer[0], RTHOME_POINTER_FULL / 2);
+    for (int i = 0; i < 40; ++i, t += 16) s = Read(h, t, 0, 80, 0);
+    EXPECT_EQ(s.pointer[0], RTHOME_POINTER_FULL);  // the right edge
+    for (int i = 0; i < 8; ++i, t += 16) s = Read(h, t, 0, 0, 80);  // full up
+    EXPECT_EQ(s.pointer[1], -RTHOME_POINTER_FULL / 4);
+    // A second read of one sample doesn't move it again.
+    std::int32_t again[2];
+    rthome_classic(&h, t, &hold, &trig, &release, s.axes);
+    rthome_remote(&h, &hold, &trig, &release, again);
+    EXPECT_EQ(again[1], s.pointer[1]);
+    // At rest it stays.
+    s = Read(h, t, 0, 5, -6);
+    EXPECT_EQ(s.pointer[0], RTHOME_POINTER_FULL);
+    EXPECT_EQ(s.pointer[1], -RTHOME_POINTER_FULL / 4);
+    // The next stand-in starts at the centre again.
+    rthome g = Fresh();
+    g.pointer[0] = 1234;
+    HoldCombo(g, 0, 2016);
+    EXPECT_EQ(g.pointer[0], 0);
+}
+
+// After each stand-in, whether part 1 stays on in this game (rthome_keep).
+void TestKeep() {
+    {
+        rthome h = OpenMenu();  // a menu opened: on, the count starts over
+        h.refusals = 1;
+        EXPECT_TRUE(rthome_keep(&h, 1));
+        EXPECT_EQ(h.refusals, 0u);
+    }
+    {
+        rthome h = Fresh();  // never read: off at once
+        HoldCombo(h, 0, 2016);
+        (void)rthome_stand_in(&h, 2016 + kPress);  // the press ends
+        (void)rthome_stand_in(&h, 2016 + kPress + kWait);  // no menu: refused
+        EXPECT_EQ(h.phase, RTHOME_DONE);
+        EXPECT_TRUE(!rthome_keep(&h, 0));
+    }
+    {
+        // Read but refused: on after one (Brawl's intro), off after two in a
+        // row (Mario Kart Wii); an opened menu between them starts over.
+        rthome h = Fresh();
+        auto refuse = [&](std::uint32_t at) {
+            rthome_pads(&h, Pads().port(1, 0).s, at);  // let go
+            HoldCombo(h, at + 16, at + 2100);
+            (void)rthome_stand_in(&h, at + 2100 + kPress);
+            (void)rthome_stand_in(&h, at + 2100 + kPress + kWait);
+            EXPECT_EQ(h.phase, RTHOME_DONE);
+            return rthome_keep(&h, 1);
+        };
+        EXPECT_TRUE(refuse(0));
+        EXPECT_TRUE(!refuse(10000));
+        h.refusals = 0;
+        EXPECT_TRUE(refuse(20000));
+        rthome_pads(&h, Pads().port(1, 0).s, 30000);
+        HoldCombo(h, 30016, 32100);
+        rthome_menu_frame(&h, 32700);  // this time the menu opened
+        (void)rthome_stand_in(&h, 32700 + kLinger);
+        EXPECT_TRUE(rthome_keep(&h, 1));
+        EXPECT_TRUE(refuse(40000));  // one refusal again: still on
+    }
+    {
+        rthome h = Fresh();  // every channel has a controller: no stand-in, proves nothing
+        for (std::uint32_t c = 0; c < 4; ++c) rthome_probed(&h, c, 0);
+        HoldCombo(h, 0, 2100);
+        EXPECT_EQ(h.phase, RTHOME_DONE);
+        EXPECT_TRUE(rthome_keep(&h, 0));
+    }
+}
+
 void TestFloatBits() {
     EXPECT_EQ(rthome_float_bits(0), 0u);
     EXPECT_EQ(rthome_float_bits(RTHOME_AXIS_FULL), 0x3F800000u);       // 1.0
@@ -321,6 +459,9 @@ int main() {
     TestClosedByHome();
     TestClosedByPointer();
     TestButtonsInTheMenu();
+    TestRemoteSide();
+    TestPointer();
+    TestKeep();
     TestFloatBits();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

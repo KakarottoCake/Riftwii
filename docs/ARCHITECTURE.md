@@ -148,14 +148,21 @@ for 0.6 s (a Virtual Console game wants half a second). The game then opens
 its menu, or doesn't (mid-save, it shows its crossed-out HOME icon), and
 `HBMCalc` running tells the blob the menu is up: the stand-in then carries
 the pad (A, B, X, Y, Start as HOME to close it, the sticks with a dead
-zone, the combo's own buttons ignored until let go). Some games stop their
+zone, the combo's own buttons ignored until let go). The stand-in's Wii
+Remote carries the same presses (A, B, the D-pad, HOME) and, while the
+menu is up, a pointer the control stick moves: some games look only at the
+Remote, and Bomberman Blast hands a Classic Controller to its menu as a
+plain Remote. Some games stop their
 own KPAD reads and `PADRead` while the menu is up (Kamen Rider: Super
 Climax Heroes); the blob then reads the pads itself from the menu's
 `WPADProbe` and refreshes the status the KPAD read last filled. Once
 `HBMCalc` stops, the stand-in is gone, so games that read GameCube
 controllers themselves never see an extra player. Missing any of the
 three, the combo stays the way back; a game that never reads the
-stand-in's channel turns it back into the way back the first time.
+stand-in's channel turns it back into the way back the first time, and one
+that reads it but opens no menu twice in a row (Mario Kart Wii, which takes
+HOME only from its signed-in players' controllers) the second time. Twice,
+not once: Brawl and Tatsunoko vs. Capcom refuse once during their intros.
 The decisions are `runtime/rthome.c`, host-tested. The 2006 Virtual
 Console programs (Super Mario World, A Link to the Past, Bomberman '93)
 have neither the banner nor this KPAD layout, and keep the way back.

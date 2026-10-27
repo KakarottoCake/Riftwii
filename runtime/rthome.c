@@ -101,6 +101,8 @@ void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now) {
     h->aside_home = 0;
     h->selected = RTHOME_NO_SELECTION;
     h->menu_seen = 0;
+    h->remote_last = 0;
+    h->pointer[0] = h->pointer[1] = 0;  /* the screen's centre */
     h->phase = RTHOME_PRESSING;
     h->since = now | 1u;
     keep_pad(h, status);
@@ -184,14 +186,41 @@ static uint32_t mapped(uint32_t b) {
     return c;
 }
 
+/* The same buttons on the Wii Remote, upright: the ones a HOME Menu run
+ * as a plain Remote acts on. */
+static uint32_t mapped_remote(uint32_t b) {
+    uint32_t r = 0;
+    if (b & RTHOME_GC_A) r |= RTHOME_WR_A;
+    if (b & RTHOME_GC_B) r |= RTHOME_WR_B;
+    if (b & RTHOME_GC_START) r |= RTHOME_WR_HOME;
+    if (b & RTHOME_GC_UP) r |= RTHOME_WR_UP;
+    if (b & RTHOME_GC_DOWN) r |= RTHOME_WR_DOWN;
+    if (b & RTHOME_GC_LEFT) r |= RTHOME_WR_LEFT;
+    if (b & RTHOME_GC_RIGHT) r |= RTHOME_WR_RIGHT;
+    return r;
+}
+
+/* The pointer's move for one sample of a stick at `tilt` (over
+ * RTHOME_AXIS_FULL): full tilt goes half of RTHOME_POINTER_FULL every
+ * 16 samples (PADRead runs about once a frame), so edge to edge in about
+ * 64 frames. Kept on the screen. */
+static int32_t pointer_step(int32_t at, int32_t tilt) {
+    at += tilt * (RTHOME_POINTER_FULL / 32) / RTHOME_AXIS_FULL;
+    if (at > RTHOME_POINTER_FULL) return RTHOME_POINTER_FULL;
+    if (at < -RTHOME_POINTER_FULL) return -RTHOME_POINTER_FULL;
+    return at;
+}
+
 void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* trig, uint32_t* release,
                     int32_t axes[6]) {
-    uint32_t i, buttons;
+    uint32_t i, buttons, remote;
     if (h->phase == RTHOME_PRESSING) {
         buttons = RTHOME_CL_HOME;
+        remote = RTHOME_WR_HOME;
         for (i = 0; i < 6; ++i) axes[i] = 0;
     } else {
         buttons = mapped(pad_buttons(h->pad) & ~h->stale);
+        remote = mapped_remote(pad_buttons(h->pad) & ~h->stale);
         axes[0] = stick((int8_t)h->pad[2], RTHOME_STICK_FULL);
         axes[1] = stick((int8_t)h->pad[3], RTHOME_STICK_FULL);
         axes[2] = stick((int8_t)h->pad[4], RTHOME_CSTICK_FULL);
@@ -206,10 +235,35 @@ void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* tr
         h->release_now = h->last & ~buttons;
         h->last = buttons;
         if (h->phase == RTHOME_ASIDE && (h->trig_now & RTHOME_CL_HOME)) h->aside_home = now | 1u;
+        h->remote_hold = remote;
+        h->remote_trig = remote & ~h->remote_last;
+        h->remote_release = h->remote_last & ~remote;
+        h->remote_last = remote;
+        h->pointer[0] = pointer_step(h->pointer[0], axes[0]);
+        h->pointer[1] = pointer_step(h->pointer[1], -axes[1]);  /* the stick's up is the screen's up, y grows down */
     }
     *hold = h->hold_now;
     *trig = h->trig_now;
     *release = h->release_now;
+}
+
+void rthome_remote(const struct rthome* h, uint32_t* hold, uint32_t* trig, uint32_t* release, int32_t pointer[2]) {
+    *hold = h->remote_hold;
+    *trig = h->remote_trig;
+    *release = h->remote_release;
+    pointer[0] = h->pointer[0];
+    pointer[1] = h->pointer[1];
+}
+
+int rthome_keep(struct rthome* h, int read_by_game) {
+    if (h->channel == RTHOME_NO_CHANNEL) return 1;
+    if (h->menu_seen != 0) {
+        h->refusals = 0;
+        return 1;
+    }
+    if (!read_by_game) return 0;
+    ++h->refusals;
+    return h->refusals < RTHOME_REFUSALS;
 }
 
 uint32_t rthome_float_bits(int32_t numerator) {

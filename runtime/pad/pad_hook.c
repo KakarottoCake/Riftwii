@@ -307,6 +307,8 @@ static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = 
 #define PAD_KPAD_RELEASE 0x08u
 #define PAD_KPAD_ACC_Y 0x10u       /* acc: x, y, z from 0x0C */
 #define PAD_KPAD_ACC_VALUE 0x18u
+#define PAD_KPAD_POS_X 0x20u       /* the pointer: x, y */
+#define PAD_KPAD_POS_Y 0x24u
 #define PAD_KPAD_HORIZON_X 0x34u
 #define PAD_KPAD_VERTICAL_Y 0x54u
 #define PAD_FLOAT_ONE 0x3F800000u
@@ -326,15 +328,27 @@ static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = 
 #define PAD_FORMAT_CLASSIC 7u
 #define PAD_FORMAT_CLASSIC_POINTER 8u
 
-/* The stand-in's status into the game's buffer: a Classic Controller, no
- * error, no pointer. Interrupts off, at its callers. */
+/* KPAD's "both of the pointer's points seen". */
+#define PAD_DPD_SEEN 2u
+
+/* The stand-in's status into the game's buffer: a Classic Controller on a
+ * Wii Remote, no error. The Remote's own buttons carry the same presses
+ * (rthome_remote), and while the HOME Menu is open its pointer is on the
+ * screen, for games that look only at the Remote (Bomberman Blast).
+ * Interrupts off, at its callers. */
 static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t t) {
-    uint32_t hold, trig, release, i;
-    int32_t axes[6];
+    uint32_t hold, trig, release, remote_hold, remote_trig, remote_release, i;
+    int32_t axes[6], pointer[2];
+    const int menu_open = rthome_menu_open(&c->home);
     rthome_classic(&c->home, t, &hold, &trig, &release, axes);
-    pad_put32(status + PAD_KPAD_HOLD, 0);
-    pad_put32(status + PAD_KPAD_TRIG, 0);
-    pad_put32(status + PAD_KPAD_RELEASE, 0);
+    rthome_remote(&c->home, &remote_hold, &remote_trig, &remote_release, pointer);
+    pad_put32(status + PAD_KPAD_HOLD, remote_hold);
+    pad_put32(status + PAD_KPAD_TRIG, remote_trig);
+    pad_put32(status + PAD_KPAD_RELEASE, remote_release);
+    /* The pointer as KPAD gives it, -1 to 1 across the screen (float bits
+     * take numerators over RTHOME_AXIS_FULL). */
+    pad_put32(status + PAD_KPAD_POS_X, rthome_float_bits(pointer[0] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
+    pad_put32(status + PAD_KPAD_POS_Y, rthome_float_bits(pointer[1] * RTHOME_AXIS_FULL / RTHOME_POINTER_FULL));
     /* The Wii Remote lying still, as KPAD reports a real one with a Classic
      * Controller (Mario Kart Wii, Dolphin): gravity along -Y, acceleration
      * 1.0, the horizon and the vertical level. */
@@ -344,9 +358,8 @@ static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t 
     pad_put32(status + PAD_KPAD_VERTICAL_Y, PAD_FLOAT_ONE);
     status[PAD_KPAD_DEV_TYPE] = PAD_DEV_CLASSIC;
     status[PAD_KPAD_WPAD_ERR] = 0;
-    status[PAD_KPAD_DPD_VALID] = 0;
-    status[PAD_KPAD_DATA_FORMAT] =
-        (uint8_t)(rthome_menu_open(&c->home) ? PAD_FORMAT_CLASSIC_POINTER : PAD_FORMAT_CLASSIC);
+    status[PAD_KPAD_DPD_VALID] = (uint8_t)(menu_open ? PAD_DPD_SEEN : 0u);
+    status[PAD_KPAD_DATA_FORMAT] = (uint8_t)(menu_open ? PAD_FORMAT_CLASSIC_POINTER : PAD_FORMAT_CLASSIC);
     pad_put32(status + PAD_KPAD_CL_HOLD, hold);
     pad_put32(status + PAD_KPAD_CL_HOLD + 4, trig);
     pad_put32(status + PAD_KPAD_CL_HOLD + 8, release);
@@ -355,19 +368,17 @@ static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t 
 }
 
 /* At each PADRead, in place of the way back: the combo starts the stand-in
- * (rthome_pads). A stand-in that ended without the game ever reading it (no
- * KPAD read on its channel: a game that reads only the channels it knows
- * have a controller) means this game can't take it: the combo is the way
- * back from then on, where the way back is in. */
+ * (rthome_pads). Each stand-in's end is judged (rthome_keep): in a game that
+ * can't take one (it never read it, or read it and opened no menu twice in
+ * a row) the combo is the way back from then on, where the way back is in,
+ * so no game loses the way back it has without part 1. */
 static void pad_home_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
     const uint32_t before = c->home.phase;
     (void)rthome_stand_in(&c->home, t);
-    /* Judged once, whichever hook saw the stand-in end. One that never came
-     * (every channel has a controller) proves nothing. */
+    /* Judged once, whichever hook saw the stand-in end. */
     if (c->home.phase == RTHOME_DONE && !c->home_judged) {
         c->home_judged = 1;
-        if (c->home.channel != RTHOME_NO_CHANNEL && c->home.menu_seen == 0 && c->home_writes == 0 &&
-            c->return_to_menu != 0) {
+        if (!rthome_keep(&c->home, c->home_writes != 0) && c->return_to_menu != 0) {
             c->home_on = 0;
             return;
         }
