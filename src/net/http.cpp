@@ -10,6 +10,19 @@
 namespace riftwii {
 namespace {
 
+// BearSSL error numbers from bearssl_x509.h.
+constexpr int kX509InvalidValue = 33;   // BR_ERR_X509_INVALID_VALUE
+constexpr int kX509Unsupported = 49;    // BR_ERR_X509_UNSUPPORTED
+constexpr int kX509WrongKeyType = 51;   // BR_ERR_X509_WRONG_KEY_TYPE
+constexpr int kX509BadSignature = 52;   // BR_ERR_X509_BAD_SIGNATURE
+constexpr int kX509TimeUnknown = 53;    // BR_ERR_X509_TIME_UNKNOWN
+constexpr int kX509Expired = 54;        // BR_ERR_X509_EXPIRED
+constexpr int kX509DnMismatch = 55;     // BR_ERR_X509_DN_MISMATCH
+constexpr int kX509BadServerName = 56;  // BR_ERR_X509_BAD_SERVER_NAME
+constexpr int kX509NotCa = 58;          // BR_ERR_X509_NOT_CA
+constexpr int kX509WeakPublicKey = 60;  // BR_ERR_X509_WEAK_PUBLIC_KEY
+constexpr int kX509NotTrusted = 62;     // BR_ERR_X509_NOT_TRUSTED
+
 std::string lower(std::string s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
@@ -156,6 +169,33 @@ int walk_chunks(const std::vector<std::uint8_t>& raw, std::size_t& at, std::vect
 std::string http_url_for_messages(const std::string& url) {
     const std::size_t cut = url.find_first_of("?#");
     return cut == std::string::npos ? url : url.substr(0, cut) + "?...";
+}
+
+std::string tls_failure_reason(int bearssl_code, std::time_t wii_now) {
+    if (bearssl_code < kX509InvalidValue || bearssl_code > kX509NotTrusted) return "";
+    if (bearssl_code == kX509TimeUnknown || bearssl_code == kX509Expired) {
+        char date[16];
+        // The date shown is the Wii's clock as set in Wii Settings.
+        std::tm clock_time = {};
+        std::tm* clock_ok = ::gmtime_r(&wii_now, &clock_time);
+        if (clock_ok != nullptr && std::strftime(date, sizeof(date), "%Y-%m-%d", &clock_time) != 0)
+            return "the certificate is outside its valid dates; the Wii's clock says " +
+                std::string(date) +
+                "; if that date is wrong, set it in Wii Settings";
+        return "the certificate is outside its valid dates; if the Wii's clock is wrong, "
+            "set it in Wii Settings";
+    }
+    if (bearssl_code == kX509BadSignature || bearssl_code == kX509DnMismatch ||
+            bearssl_code == kX509NotCa || bearssl_code == kX509NotTrusted)
+        return "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+            "list may be out of date, or something on the network is intercepting the connection";
+    if (bearssl_code == kX509BadServerName)
+        return "the certificate is for a different server; something on the network may be "
+            "redirecting the connection";
+    if (bearssl_code == kX509Unsupported || bearssl_code == kX509WrongKeyType ||
+            bearssl_code == kX509WeakPublicKey)
+        return "the server's certificate is of a kind RiftWii cannot check";
+    return "the certificate was not accepted";
 }
 
 namespace {

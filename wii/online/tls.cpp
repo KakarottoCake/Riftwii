@@ -10,6 +10,7 @@
 
 #include "bearssl.h"
 #include "entropy.hpp"
+#include "riftwii/http.hpp"
 
 extern "C" {
 extern const br_x509_trust_anchor kTlsRoots[];
@@ -149,8 +150,9 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
             return false;
         }
         const int code = br_ssl_engine_last_error(&s.client.eng);
+        const std::string reason = ::riftwii::tls_failure_reason(code, now);
         error = "TLS handshake with " + host + " failed (BearSSL error " + std::to_string(code) +
-                (code >= BR_ERR_X509_OK ? ": the certificate was not accepted; check the Wii's clock)" : ")");
+                (reason.empty() ? ")" : ": " + reason + ")");
         return false;
     }
     return true;
