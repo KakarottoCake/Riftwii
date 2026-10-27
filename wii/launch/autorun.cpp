@@ -287,6 +287,11 @@ void RunAutorun() {
                     return read_channel_boot(title, emu_nand, files, error);
                 });
                 if (ok && cmd == "channelboot") {
+                    // As the menu's Start does: settings.txt's extras (the
+                    // GameCube adapter and its way back among them).
+                    FrontendState state;
+                    state.game_id = files.game_id;
+                    PrepareLaunchExtras(state);
                     ok = mem::GuardLaunchMemory(error, [&] {
                         return stage_moved_channel(title, {}, error) && boot_channel(std::move(files), error);
                     });
