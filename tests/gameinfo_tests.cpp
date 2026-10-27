@@ -26,14 +26,38 @@ bool HttpGet(const std::string&, std::vector<std::uint8_t>&, std::string&, std::
     return false;
 }
 
-// The network's background thread, run here and now: the job has ended
-// by the time Take is asked.
-bool NetRunInBackground(void (*job)(), bool, bool) {
+bool g_background_busy = false;
+bool g_defer_job = false;
+bool g_start_allowed = true;
+void (*g_pending_job)() = nullptr;
+
+void FinishBackgroundJob() {
+    CHECK(g_pending_job != nullptr);
+    if (!g_pending_job) return;
+    const auto job = g_pending_job;
+    g_pending_job = nullptr;
     job();
+    g_background_busy = false;
+}
+
+// Runs immediately unless a test needs a read to remain in flight.
+bool NetRunInBackground(void (*job)(), bool cancellable, bool run_here) {
+    CHECK(cancellable);
+    CHECK(!run_here);  // A failed thread start must leave Home answering.
+    if (!g_start_allowed) return false;
+    if (g_defer_job) {
+        CHECK(g_pending_job == nullptr);
+        g_pending_job = job;
+        g_background_busy = true;
+    } else {
+        job();
+    }
     return true;
 }
-bool NetBackgroundBusy() { return false; }
-void NetWaitForBackground() {}
+bool NetBackgroundBusy() { return g_background_busy; }
+void NetWaitForBackground() {
+    if (g_pending_job) FinishBackgroundJob();
+}
 bool g_cancel = false;
 bool NetCancelRequested() { return g_cancel; }
 }  // namespace riftwii::wii
@@ -45,6 +69,7 @@ using namespace riftwii::wii;
 
 constexpr const char* kCachePath = "sd:/riftwii/gameinfo-EN.txt";
 constexpr const char* kZipPath = "sd:/riftwii/wiitdb-EN.zip";
+constexpr const char* kHomebrewPath = "sd:/riftwii/homebrew-titles.txt";
 
 void Write(const char* path, const char* data, std::size_t size) {
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
@@ -129,15 +154,44 @@ void TestStoredTruncationPreservesCache() {
     CHECK(FindGameInfo("RMCE01", {"RMCE01"}, found, error, [](double) { return true; }) ==
           GameInfoResult::Found);
     CHECK(found.developer == "Partial result");
+    // The read also kept GameTDB's homebrew apps for the Homebrew view:
+    // none in this database, and the file is written all the same, so
+    // the database is not read again for them next session.
+    CHECK(fs::exists(kHomebrewPath));
+    std::vector<riftwii::HomebrewTitle> titles;
+    // The empty list loads: read, with no apps, so the match is done.
+    CHECK(LoadHomebrewTitles(titles) && titles.empty());
+    // Kept, it is not read again; a list too big to load is, however new.
+    ForgetHomebrewTitlesRead();
+    CHECK(!HomebrewTitlesNeedReading());
+    const std::string oversized(riftwii::kMaxHomebrewTitlesBytes + 1, 'x');
+    Write(kHomebrewPath, oversized.data(), oversized.size());
+    CHECK(HomebrewTitlesNeedReading());
+    // So is one within the budget and new enough, but damaged.
+    const std::string damaged = "# RiftWii's homebrew list\nnot an app line\n";
+    Write(kHomebrewPath, damaged.data(), damaged.size());
+    CHECK(HomebrewTitlesNeedReading());
+    // A bad line after a good one: made again, and not loaded meanwhile.
+    const std::string partly_damaged = "# RiftWii's homebrew list\n9XGX\tSNES9xGX\nnot an app line\n";
+    Write(kHomebrewPath, partly_damaged.data(), partly_damaged.size());
+    CHECK(HomebrewTitlesNeedReading());
+    CHECK(!LoadHomebrewTitles(titles) && titles.empty());
+    // An intact one is not, checked once and then remembered.
+    const std::string intact_list = "# RiftWii's homebrew list\n9XGX\tSNES9xGX\n";
+    Write(kHomebrewPath, intact_list.data(), intact_list.size());
+    CHECK(!HomebrewTitlesNeedReading());
+    CHECK(!HomebrewTitlesNeedReading());
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
 // Home's read of the database for the drives' games: the custom ones
 // (<type>CUSTOM</type>) are known from then on, and kept in the cache.
 void TestBackgroundReadFindsCustomGames() {
+    ForgetGameInfo();
     fs::create_directories("sd:/riftwii");
     const std::string xml =
         "<datafile>\n"
@@ -173,6 +227,118 @@ void TestBackgroundReadFindsCustomGames() {
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
+void TestBackgroundHandoffAndRescan() {
+    ForgetGameInfo();
+    fs::create_directories("sd:/riftwii");
+    const std::string xml =
+        "<datafile>"
+        "<game name=\"First mod\"><id>SMNE02</id><type>CUSTOM</type></game>"
+        "<game name=\"Rescanned mod\"><id>SMNE03</id><type>CUSTOM</type></game>"
+        "<game name=\"SNES9xGX\"><id>9XGX</id><type>Homebrew</type>"
+        "<locale lang=\"EN\"><title>SNES9xGX</title></locale></game>"
+        "</datafile>";
+    const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
+
+    // A thread that cannot start is Busy, with no pending answer to block a retry.
+    g_start_allowed = false;
+    CHECK(StartGameInfoRead({"SMNE02"}, false) == GameInfoReadStart::Busy);
+    CHECK(!GameInfoReadPending());
+    g_start_allowed = true;
+
+    g_defer_job = true;
+    CHECK(StartGameInfoRead({"SMNE02"}, false) == GameInfoReadStart::Started);
+    bool changed = false;
+    CHECK(!TakeGameInfoRead(changed));
+    CHECK(!fs::exists(kHomebrewPath));
+    // The rescan adds another ID while the previous read is still running.
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Busy);
+    FinishBackgroundJob();
+    // The completed read is still pending until taken, even with a free thread.
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Busy);
+
+    // A cover fetch has taken the worker meanwhile. It must not delay handoff.
+    g_background_busy = true;
+    const unsigned written_before = HomebrewTitlesWritten();
+    CHECK(TakeGameInfoRead(changed) && changed);
+    CHECK(IsCustomGame("SMNE02"));
+    CHECK(!IsCustomGame("SMNE03"));
+    CHECK(HomebrewTitlesWritten() == written_before + 1);
+    std::vector<HomebrewTitle> titles;
+    CHECK(LoadHomebrewTitles(titles) && titles.size() == 1);
+    if (!titles.empty()) CHECK(titles[0].id == "9XGX");
+    CHECK(!HomebrewTitlesNeedReading());
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Busy);
+
+    // Once the cover finishes, retry the rescan's IDs and keep the first result.
+    g_background_busy = false;
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Started);
+    FinishBackgroundJob();
+    CHECK(TakeGameInfoRead(changed) && changed);
+    CHECK(IsCustomGame("SMNE02"));
+    CHECK(IsCustomGame("SMNE03"));
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::NothingToRead);
+    g_defer_job = false;
+
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
+void TestCardReplacementDiscardsGameInfo() {
+    ForgetGameInfo();
+    fs::create_directories("sd:/riftwii");
+    const std::string xml =
+        "<game name=\"Old card's mod\"><id>SMNE02</id><type>CUSTOM</type></game>";
+    const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
+    CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Started);
+    bool changed = false;
+    CHECK(TakeGameInfoRead(changed) && changed);
+    CHECK(IsCustomGame("SMNE02"));
+    // Leave a completed answer untaken when the card is removed.
+    CHECK(StartGameInfoRead({"SMNE04"}, false) == GameInfoReadStart::Started);
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    ForgetGameInfo();
+    CHECK(!GameInfoReadPending());
+    CHECK(!TakeGameInfoRead(changed));
+    CHECK(!IsCustomGame("SMNE02"));
+    CHECK(StartGameInfoRead({"SMNE02"}, false) == GameInfoReadStart::NothingToRead);
+    CHECK(!fs::exists(kCachePath));
+    CHECK(!fs::exists(kHomebrewPath));
+
+    // The replacement's cache is read in the same language. An ID absent
+    // from the old database must be looked for in the new database too.
+    GameInfo replacement;
+    replacement.id = "SMNE02";
+    replacement.developer = "New card";
+    const std::string cache = serialize_game_infos({{replacement.id, replacement}});
+    Write(kCachePath, cache.data(), cache.size());
+    const std::string new_xml =
+        "<game name=\"New card's mod\"><id>SMNE03</id><type>CUSTOM</type></game>";
+    const auto new_zip = ziptest::make_zip({{"wiitdb.xml", new_xml, 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(new_zip.data()), new_zip.size());
+    fs::last_write_time(kZipPath, fs::last_write_time(kCachePath));
+    ForgetGameInfo();
+    GameInfo found;
+    CHECK(PeekGameInfo("SMNE02", found) && found.developer == "New card");
+    CHECK(!IsCustomGame("SMNE02"));
+    CHECK(StartGameInfoRead({"SMNE03"}, false) == GameInfoReadStart::Started);
+    CHECK(TakeGameInfoRead(changed) && changed);
+    CHECK(IsCustomGame("SMNE03"));
+
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
@@ -181,5 +347,7 @@ void TestBackgroundReadFindsCustomGames() {
 int main() {
     TestStoredTruncationPreservesCache();
     TestBackgroundReadFindsCustomGames();
+    TestBackgroundHandoffAndRescan();
+    TestCardReplacementDiscardsGameInfo();
     return failures ? 1 : 0;
 }

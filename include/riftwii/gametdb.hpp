@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/homebrewmatch.hpp"
+
 // What GameTDB knows about a game (its wiitdb.xml: genre, release, players,
 // controllers, online features, age rating, synopsis), for a game's About
 // page. The file is 30 MB of XML for 10,000 games; it is read as it is
@@ -43,7 +45,8 @@ struct GameInfo {
 };
 
 // Feeds wiitdb.xml's text in pieces of any size; keeps the games in
-// `wanted`. `lang` is GameTDB's locale code for the synopsis (EN, JA, FR,
+// `wanted`, and the names of every homebrew app it lists (the Homebrew
+// view's covers, riftwii/homebrewmatch.hpp). `lang` is GameTDB's locale code for the synopsis (EN, JA, FR,
 // DE, ES, IT, NL, PT, KO...), English when it has none.
 class WiitdbScanner {
 public:
@@ -51,6 +54,7 @@ public:
     WiitdbScanner(std::set<std::string> wanted, std::string lang);
     void feed(const char* data, std::size_t size);
     const std::map<std::string, GameInfo>& games() const { return found_; }
+    const std::vector<HomebrewTitle>& homebrew() const { return homebrew_; }
     std::size_t blocks() const { return blocks_; }    // <game> blocks seen
     std::size_t skipped() const { return skipped_; }  // too long or unreadable
 
@@ -61,6 +65,7 @@ private:
     std::string buffer_;
     bool in_game_ = false;
     std::map<std::string, GameInfo> found_;
+    std::vector<HomebrewTitle> homebrew_;
     std::size_t blocks_ = 0;
     std::size_t skipped_ = 0;
 };

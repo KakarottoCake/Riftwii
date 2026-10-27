@@ -6,6 +6,7 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "riftwii/gametdb.hpp"
 
@@ -43,6 +44,11 @@ bool PeekGameInfo(const std::string& id, GameInfo& out);
 // for it (StartGameInfoRead, or the About page).
 bool IsCustomGame(const std::string& id);
 
+// Discards the card's cached details and any untaken background answer.
+// Call only once its background jobs have stopped, before Home rebuilds
+// after removal or replacement; the next lookup reads the new card.
+void ForgetGameInfo();
+
 // Reads the database on the network's background thread for the games in
 // `wanted` the cache has not looked for yet (all of them once the database
 // is newer than the cache), so Home knows which are custom without the
@@ -58,6 +64,24 @@ bool GameInfoReadPending();
 // while another job holds the network's thread by then. `changed`: the
 // games found custom are not the ones before.
 bool TakeGameInfoRead(bool& changed);
+
+// GameTDB's homebrew apps (riftwii/homebrewmatch.hpp), kept in
+// sd:/riftwii/homebrew-titles.txt whenever the database is read, for the
+// Homebrew view's covers. False when there is no such file or it can't be
+// read; true with no apps for the empty list (a database without homebrew).
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out);
+// How many times that file was written this session: the apps are matched
+// again once it changes (a game's About page read the database).
+unsigned HomebrewTitlesWritten();
+// Whether the database on the card is newer than that file (or there is
+// no file yet), and was not read for it this session.
+bool HomebrewTitlesNeedReading();
+// Forgets that the database was read for its homebrew apps this session:
+// the SD card was put back and may be another one, with its own database.
+void ForgetHomebrewTitlesRead();
+// Reads the database for its homebrew apps alone and keeps them;
+// `progress` as FindGameInfo's.
+bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.

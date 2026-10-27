@@ -21,6 +21,7 @@
 #include "homebrew.hpp"
 #include "movedchannels.hpp"
 #include "nandchannels.hpp"
+#include "wfsdrive.hpp"
 #include "menumusic.hpp"
 #include "menusounds.hpp"
 #include "screenshot.hpp"
@@ -42,6 +43,7 @@
 
 #include "crash.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "gcrealcard.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
@@ -114,6 +116,35 @@ void StagingFailed(const std::string& error) {
     std::exit(0);
 }
 
+// Dragon Quest X (a WFS title, wfsdrive.hpp): its boot program on the Wii
+// opens the game on the WFS USB drive through IOS59's WFS drivers, which no
+// other IOS has, and IOS59 starts nothing ES_Identify sets up, so only the
+// system starts it, as the Wii Menu does. A drive the last USB scan read
+// without the game on it goes back to RiftWii, which says why.
+void StartWfsTitle(u64 title) {
+    std::string detail;
+    const riftwii::wii::WfsInstall install = riftwii::wii::WfsInstallOf(title, detail);
+    riftwii::wii::logf("Wii channels: a WFS title (Dragon Quest X): %s\n", detail.c_str());
+    if (install == riftwii::wii::WfsInstall::Missing) {
+        if (riftwii::wii::CanRestart())
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
+                                      "Dragon Quest X cannot start: " + detail +
+                                          ". Install it from its disc with the Wii Menu first.");
+        std::exit(0);
+    }
+    riftwii::wii::logf("Wii channels: the system starts it with IOS59, which reads the WFS drive, as the Wii Menu "
+                       "does, with none of RiftWii's loader\n");
+    // Its boot program, when the Wii Menu moved it to the SD card, goes
+    // back to the Wii first, as for any channel the system starts.
+    if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
+    riftwii::wii::LaunchMusicEnd("the system starts the game");
+    riftwii::wii::LogClose();
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+}
+
 // A WiiWare or Virtual Console game, on the launch screen (boot.log open):
 // RiftWii's own loader starts it with the extras a disc game gets
 // (boot_channel). When the loader cannot, a game installed on the Wii is
@@ -123,6 +154,10 @@ void StagingFailed(const std::string& error) {
 void StartChannel(u64 title) {
     riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
                        static_cast<unsigned>(title));
+    if (riftwii::wii::ChannelToStartWfs()) {
+        StartWfsTitle(title);
+        return;
+    }
     if (riftwii::wii::ChannelToStartDirect()) {
         riftwii::wii::logf("Wii channels: the system starts it as the Wii Menu does, with none of RiftWii's loader\n");
         if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
@@ -227,6 +262,7 @@ void ExitApp() {
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();
+    riftwii::wii::UsbInputMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
     StopGX();
@@ -544,6 +580,9 @@ int main() {
     InitVideo();
     // Logged either side: with four Wii Remotes connected the menu froze on a
     // Wii (#138), and the last line of the log names how far it got.
+    // Before WPAD_Init: off, the uDraw's wrappers in wiiuse stay out of
+    // the way from the first Remote on.
+    riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
     riftwii::wii::logf("Pads: starting libogc's Wii Remote stack (WPAD_Init, then each channel's data format)\n");
     SetupPads();
     riftwii::wii::logf("Pads: started\n");
@@ -642,6 +681,7 @@ int main() {
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
+    riftwii::wii::UsbInputMenuEnd();
     // Stage (a)'s plugins have nothing to do in a launch: shut down before
     // it, their arena given back to the heap (docs/PLUGINS.md, "Loading").
     riftwii::wii::plugin::ShutdownAll("the menu closed");

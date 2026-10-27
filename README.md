@@ -50,7 +50,7 @@
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
 - **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
-- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote.
+- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote; in the menu, a USB keyboard, mouse or pen tablet, and the uDraw GameTablet.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
@@ -116,7 +116,8 @@ contains theirs names them in its file header, and
   controller adapter.
 - **Nintendont** by FIX94 and contributors: the USB HID driver and the
   GameCube sound program patches, used with its developers' permission.
-  **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
+  **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
+  USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
 - **Priiloader** by DacoTaco: how to tell it is installed, from its
   installer (read only; no code copied).
@@ -131,10 +132,17 @@ contains theirs names them in its file header, and
 - **wad2bin** and **Yet Another BlueDump Mod** by DarkMatterCore (GPL-3.0):
   the layout of the content.bin the Wii Menu writes when it moves a
   channel to the SD card, which RiftWii reads to start such a game.
+- **wfslib** and **wfs-tools** by koolkdev (MIT), with **Dolphin**'s IOS59
+  WFS devices: the WFS drive format Dragon Quest X installs to, which
+  RiftWii reads to find the game (its own reader; commits in NOTICE.md).
 - **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
-  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md).
+  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its cover
+  flow's boxes are the model for the Home shelf's cases: the plastic
+  showing round the paper in the case's color, chosen from the player's
+  own colors, then GameTDB's, then a series', then black for GameCube
+  cases and white for Wii ones.
 - **d2x cIOS**: the USB and SD game loading interface, and how its FAT
   module mounts and lets go of the SD card for its emulated NAND.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
