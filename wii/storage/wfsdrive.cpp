@@ -28,6 +28,7 @@ struct Locked {
 };
 
 bool g_found = false;
+bool g_unchecked = false;  // a drive that may be a WFS drive was left unread: no key
 bool g_complete = false;  // every read the list of titles rests on worked
 std::vector<WfsTitle> g_titles;
 
@@ -39,6 +40,8 @@ bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::
         logf("WFS: %s may be a WFS drive (Dragon Quest X's), but this Wii's WFS key is not on the SD card "
              "(sd:/riftwii/wfskey.bin), so it is not read\n",
              which.c_str());
+        Locked lock;
+        g_unchecked = true;
         return false;
     }
     WfsVolume volume;
@@ -79,6 +82,7 @@ bool ProbeWfsDrive(const BlockReader& reader, std::uint32_t sectors, const std::
 void ForgetWfsDrive() {
     Locked lock;
     g_found = false;
+    g_unchecked = false;
     g_complete = false;
     g_titles.clear();
 }
@@ -86,6 +90,11 @@ void ForgetWfsDrive() {
 bool WfsDriveFound() {
     Locked lock;
     return g_found;
+}
+
+bool WfsDriveUnchecked() {
+    Locked lock;
+    return g_unchecked;
 }
 
 WfsInstall WfsInstallOf(std::uint64_t title_id, std::string& detail) {

@@ -27,6 +27,11 @@ void ForgetWfsDrive();
 // Whether the last scan found this Wii's WFS drive.
 bool WfsDriveFound();
 
+// Whether the last scan left a drive unread that may be a WFS drive (it
+// reads as random bytes, as a Wii U's own drive does) because this Wii's
+// WFS key is not on the card: it may hold Dragon Quest X.
+bool WfsDriveUnchecked();
+
 enum class WfsInstall {
     Unchecked,  // not known: no WFS drive was read (no key, none plugged in) or a read on it failed;
                 // the game's own start says

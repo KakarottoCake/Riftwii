@@ -133,6 +133,9 @@ void StartWfsTitle(u64 title) {
     }
     riftwii::wii::logf("Wii channels: the system starts it with IOS59, which reads the WFS drive, as the Wii Menu "
                        "does, with none of RiftWii's loader\n");
+    // Its boot program, when the Wii Menu moved it to the SD card, goes
+    // back to the Wii first, as for any channel the system starts.
+    if (std::string error; !StageMovedChannel(title, error)) StagingFailed(error);
     riftwii::wii::LaunchMusicEnd("the system starts the game");
     riftwii::wii::LogClose();
     fatUnmount("sd:");

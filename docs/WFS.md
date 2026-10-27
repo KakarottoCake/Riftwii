@@ -54,9 +54,12 @@ The drive is encrypted with a key IOS59 keeps for each console. RiftWii
 does not work it out: `ConsoleWfsKey` reads the one a key dump left on
 the card, `sd:/riftwii/wfskey.bin`, as the 16 bytes or as 32 hex digits
 (`parse_wfs_key`, `src/fs/wfstitle.cpp`). Like the other console keys it
-is never logged or kept. Without the file the drive is not read, Home
-still calls it a Wii U drive, and the game still starts from Wii
-channels (the system finds out whether it is installed).
+is never logged or kept. Without the file the drive is not read and the
+game still starts from Wii channels (the system finds out whether it is
+installed). With Dragon Quest X on the Wii, Home then calls the drive "an
+encrypted drive, maybe Dragon Quest X's" instead of a Wii U drive, and
+its one-time note says to keep it as it is: the Wii U drive note's advice
+to use a FAT32 drive would read as advice to format the game's drive.
 
 ## Checking it in Dolphin
 
