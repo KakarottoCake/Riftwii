@@ -61,8 +61,15 @@ struct rthome {
     uint32_t channel;   /* the stand-in's, RTHOME_NO_CHANNEL: none */
     uint32_t port;      /* the GameCube port that held the combo */
     uint32_t stale;     /* PADStatus buttons held at the press, ignored until let go */
-    uint32_t last;      /* the Classic buttons last given (for trig and release) */
+    uint32_t last;      /* the Classic buttons of the sample before (for trig and release) */
     uint8_t pad[12];    /* that port's PADStatus as the last PADRead had it */
+    /* The Classic buttons are worked out once per PADRead sample: a game
+     * may read the channel twice a frame (Naruto: Clash of Ninja Revolution
+     * 3), and a second working-out would find nothing newly pressed, so the
+     * HOME Menu, which acts on newly pressed buttons, never saw them. */
+    uint32_t samples;   /* PADRead samples kept since the press */
+    uint32_t worked;    /* the sample the words below are from */
+    uint32_t hold_now, trig_now, release_now;
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
@@ -90,7 +97,8 @@ uint32_t rthome_stand_in(struct rthome* h, uint32_t now);
  * the pointer, while it is, as KPAD reports it then; 7 otherwise). */
 int rthome_menu_open(const struct rthome* h);
 
-/* The stand-in's Classic Controller at `now`: HOME alone while pressing;
+/* The stand-in's Classic Controller at `now`, worked out once per PADRead
+ * sample and the same for every read until the next: HOME alone while pressing;
  * then the kept port's buttons mapped (A, B, X, Y as themselves, Start as
  * HOME to close the menu, Z as ZR, L and R as themselves, the D-pad as the
  * D-pad), with the combo's buttons ignored until each is let go. Its

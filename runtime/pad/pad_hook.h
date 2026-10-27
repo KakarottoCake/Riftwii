@@ -31,7 +31,7 @@
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
 #define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 352u  /* also pad_entry.S's fill */
+#define RT_PAD_CONTEXT_BYTES 384u  /* also pad_entry.S's fill */
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
