@@ -279,9 +279,11 @@ void ScreenshotPoll() {
             const bool one = g_remote[i].held_back && (w->btns_h & WPAD_BUTTON_1);
             if (g_view_chord_on || g_remote_two[i].held_back) {
                 const bool two = Modifier(g_remote_two[i], down, w->btns_h, WPAD_BUTTON_2);
-                if (one && two && !g_remote_two[i].used) {
+                // Only a pair Home watches for is used up: one pressed after
+                // it stopped watching gives both presses back when let go.
+                if (g_view_chord_on && one && two && !g_remote_two[i].used) {
                     g_remote[i].used = g_remote_two[i].used = true;
-                    if (g_view_chord_on) g_view_chord = true;
+                    g_view_chord = true;
                 }
             }
             w->btns_d = down;

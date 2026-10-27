@@ -5312,9 +5312,13 @@ static int MenuSource(FrontendState& state)
 					return riftwii::wii::LoadBanner(id, bytes);
 				};
 				int shown = clicked;
+				// The banner has 1 and 2 to itself: a pair pressed on it is
+				// not Home's, and Home starts watching afresh after it.
+				riftwii::wii::WatchViewChord(false);
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
+				riftwii::wii::WatchViewChord(true);
 				const bool go = choice != ChannelChoice::Back;
 				if (!go) state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 				g_startOnOpen = choice == ChannelChoice::Start;
@@ -5447,14 +5451,27 @@ static int MenuSource(FrontendState& state)
 			// 1 and 2 together: the next view, as Settings > Home tiles
 			// steps to, with Home built again around the same game.
 			riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-			settings.home_tiles = NextHomeTiles(settings.home_tiles);
-			logf("Home: tiles %s (1 and 2)\n", settings.home_tiles.c_str());
-			if (!g_sdGone) riftwii::wii::SaveSettings();
-			g_focusRestored = true;  // a view change is the player's own doing
-			g_homeFocus = grid.FocusedIndex();
-			SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(settings.home_tiles));
-			rebuildingHome = true;
-			menu = MENU_SOURCE;
+			const std::string before = settings.home_tiles;
+			settings.home_tiles = NextHomeTiles(before);
+			if (g_sdGone) {
+				// The view is a setting, saved on the card: without it the
+				// change would be undone when the card is back.
+				settings.home_tiles = before;
+				toast.Show(tr("Put the SD card back in first."), true);
+			} else if (!riftwii::wii::SaveSettings()) {
+				// Unsaved, the view would come back at the next start: it
+				// stays as it was.
+				logf("Home: tiles not changed to %s (1 and 2), the settings could not be saved\n", settings.home_tiles.c_str());
+				settings.home_tiles = before;
+				toast.Show(tr("Could not save the settings to the SD card."), true);
+			} else {
+				logf("Home: tiles %s (1 and 2)\n", settings.home_tiles.c_str());
+				g_focusRestored = true;  // a view change is the player's own doing
+				g_homeFocus = grid.FocusedIndex();
+				SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(settings.home_tiles));
+				rebuildingHome = true;
+				menu = MENU_SOURCE;
+			}
 		} else if (settingsBtn.Clicked() && g_sdGone) {
 			// Settings are saved on the card, and read again when it is back.
 			settingsBtn.button.ResetState();
