@@ -5140,6 +5140,9 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetProfilePictures();
 						riftwii::wii::ForgetAllCovers();
 						ForgetAllIcons();
+						// The new card's homebrew list is made from its own
+						// database once the scan is done.
+						riftwii::wii::ForgetHomebrewTitlesRead();
 						// The view from the new card's settings, or Home's default.
 						g_filter = Filter::Mods;
 						g_filterLoaded = false;

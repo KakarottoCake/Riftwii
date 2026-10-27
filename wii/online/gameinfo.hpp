@@ -48,6 +48,9 @@ unsigned HomebrewTitlesWritten();
 // Whether the database on the card is newer than that file (or there is
 // no file yet), and was not read for it this session.
 bool HomebrewTitlesNeedReading();
+// Forgets that the database was read for its homebrew apps this session:
+// the SD card was put back and may be another one, with its own database.
+void ForgetHomebrewTitlesRead();
 // Reads the database for its homebrew apps alone and keeps them;
 // `progress` as FindGameInfo's.
 bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);

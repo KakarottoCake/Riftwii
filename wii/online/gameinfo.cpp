@@ -281,6 +281,8 @@ bool HomebrewTitlesNeedReading() {
     return !Stat(kHomebrewTitlesPath, st) || source_time > st.st_mtime;
 }
 
+void ForgetHomebrewTitlesRead() { g_homebrew_read_now = false; }
+
 bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress) {
     std::string source;
     std::time_t source_time = 0;
