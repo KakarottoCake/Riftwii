@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // NAND list buffer sizes and parsing (riftwii/nandlist.hpp), against
 // mocked ISFS counts and errors.
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
