@@ -1342,6 +1342,16 @@ void TestSettings() {
     adapterAgain.parse(adapter.serialize());
     EXPECT_EQ(adapterAgain.gc_adapter, "on");
     EXPECT_EQ(adapterAgain.other.count("gc_adapter"), 0u);
+    LoaderSettings usb;
+    EXPECT_EQ(usb.usb_input, "on");  // the default
+    usb.parse("usb_input = off\n");
+    EXPECT_EQ(usb.usb_input, "off");
+    usb.parse("usb_input = maybe\n");  // unknown values are ignored
+    EXPECT_EQ(usb.usb_input, "off");
+    LoaderSettings usbAgain;
+    usbAgain.parse(usb.serialize());
+    EXPECT_EQ(usbAgain.usb_input, "off");
+    EXPECT_EQ(usbAgain.other.count("usb_input"), 0u);
 
     GameSettings g;
     VideoSettings v = effective_video(g, s);
@@ -1574,6 +1584,12 @@ void TestCoverArt() {
     EXPECT_EQ(cover_regions("RMCP01", "ja")[0], "EN");
     EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
     EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once
+    // A homebrew app's code: US first whatever its last letter or the menu's language.
+    const std::vector<std::string> homebrew = cover_regions("9XGX", "fr");
+    EXPECT_EQ(homebrew.size(), 3u);
+    EXPECT_EQ(homebrew[0], "US");
+    EXPECT_EQ(homebrew[1], "EN");
+    EXPECT_EQ(cover_regions("D01A", "en")[0], "US");
     EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
     // WiiWare and Virtual Console art is under the four-letter code, a
     // disc's under its six characters; a GameCube disc that looks like a

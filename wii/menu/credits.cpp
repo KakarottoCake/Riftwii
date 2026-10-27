@@ -65,6 +65,8 @@ const char* const kCredits[] = {
     "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
+    "libwiiinput by quatric: the USB keyboard, pen tablet and uDraw GameTablet drivers.",
+    "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
     "",
     "Priiloader by DacoTaco: how to tell it is installed, from its installer (read only, no code copied).",
@@ -78,8 +80,12 @@ const char* const kCredits[] = {
     "wad2bin and Yet Another BlueDump Mod by DarkMatterCore (GPL-3.0): the layout of the content.bin the Wii "
     "Menu writes when it moves a channel to the SD card.",
     "",
+    "wfslib and wfs-tools by koolkdev (MIT), and Dolphin's IOS59 WFS devices (GPL-2.0-or-later): the WFS drive "
+    "format Dragon Quest X installs to, read as documentation.",
+    "",
     "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
-    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md).",
+    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md). "
+    "WiiFlow Lite's cover flow: the shelf's plastic cases round the paper, and how their colors are chosen.",
     "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
     "for its emulated NAND.",

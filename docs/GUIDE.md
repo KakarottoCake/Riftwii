@@ -226,7 +226,10 @@ on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
 press 1 (the view button), or search with nothing typed, to go back to
-the view.
+the view. Point at the magnifier and hold **B** on a Wii Remote for about a
+second to start a game at random from the ones shown (not the disc drive or
+a homebrew app); its page presses Start for you, so its checks and warnings
+still come up.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
@@ -576,6 +579,10 @@ the tiles.
   (a game's own page has **Rumble** for that game alone). In a GameCube
   game a Wii Remote rumbles when the game rumbles the port it plays on, and
   stops when the game stops it, leaves or crashes.
+- **USB keyboard, mouse and tablet** (on at first): a USB keyboard, a USB
+  mouse, a USB pen tablet or a uDraw GameTablet works the menu as player 1.
+  *Off* leaves them all alone; turn it off if the menu acts up with one
+  plugged in, or with none, and say so in a problem report.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
