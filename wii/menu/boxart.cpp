@@ -70,40 +70,42 @@ CoverFetch FetchBoxNow(const std::string& game_id, std::string& error) {
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kBoxDir, 0777);
-    for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
-        std::vector<std::uint8_t> png;
-        std::string why;
-        // A full cover is around a megabyte.
-        if (!HttpGet(coverfull_url(region, game_id), png, why, 3u << 20, 15000)) {
-            // A refusal means none in this region (the covers' rule,
-            // riftwii/coverart.hpp); anything else is no answer at all.
-            if (cover_answer_means_missing(http_answered_status(why))) continue;
-            error = why;
-            return CoverFetch::NoAnswer;
+    for (const std::string& art_id : gametdb_art_ids(game_id)) {
+        for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
+            std::vector<std::uint8_t> png;
+            std::string why;
+            // A full cover is around a megabyte.
+            if (!HttpGet(coverfull_url(region, art_id), png, why, 3u << 20, 15000)) {
+                // A refusal means none in this region (the covers' rule,
+                // riftwii/coverart.hpp); anything else is no answer at all.
+                if (cover_answer_means_missing(http_answered_status(why))) continue;
+                error = why;
+                return CoverFetch::NoAnswer;
+            }
+            std::vector<std::uint8_t> rgba;
+            int w = 0, h = 0;
+            if (!DecodePngRgba(png, rgba, w, h, why)) {
+                // No room is not "no cover": RunBackgroundFetch says so, and
+                // no miss is noted.
+                if (took_out_of_memory()) return CoverFetch::NotFound;
+                logf("Shelf: GameTDB's %s full cover of %s: %s\n", region.c_str(), game_id.c_str(), why.c_str());
+                continue;
+            }
+            std::vector<std::uint8_t>().swap(png);
+            const std::vector<std::uint8_t> file = make_box_file(rgba.data(), w, h);
+            if (file.empty()) {
+                logf("Shelf: GameTDB's %s full cover of %s (%dx%d) has no spine where a Wii case has it\n", region.c_str(),
+                     game_id.c_str(), w, h);
+                continue;
+            }
+            if (!WriteAll(BoxPath(game_id), file)) {
+                error = "cannot write " + BoxPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            std::remove(MissPath(game_id).c_str());
+            logf("Shelf: box of %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
+            return CoverFetch::Stored;
         }
-        std::vector<std::uint8_t> rgba;
-        int w = 0, h = 0;
-        if (!DecodePngRgba(png, rgba, w, h, why)) {
-            // No room is not "no cover": RunBackgroundFetch says so, and
-            // no miss is noted.
-            if (took_out_of_memory()) return CoverFetch::NotFound;
-            logf("Shelf: GameTDB's %s full cover of %s: %s\n", region.c_str(), game_id.c_str(), why.c_str());
-            continue;
-        }
-        std::vector<std::uint8_t>().swap(png);
-        const std::vector<std::uint8_t> file = make_box_file(rgba.data(), w, h);
-        if (file.empty()) {
-            logf("Shelf: GameTDB's %s full cover of %s (%dx%d) has no spine where a Wii case has it\n", region.c_str(),
-                 game_id.c_str(), w, h);
-            continue;
-        }
-        if (!WriteAll(BoxPath(game_id), file)) {
-            error = "cannot write " + BoxPath(game_id) + " (card full?)";
-            return CoverFetch::Failed;
-        }
-        std::remove(MissPath(game_id).c_str());
-        logf("Shelf: box of %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
-        return CoverFetch::Stored;
     }
     WriteAll(MissPath(game_id), {});
     logf("Shelf: GameTDB has no full cover of %s\n", game_id.c_str());
