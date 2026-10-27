@@ -35,6 +35,8 @@ int ScreenshotFlash();
 void WatchViewChord(bool on);
 // Whether the pair was pressed since the last call.
 bool TakeViewChord();
+// Drops a pair pressed since the last call: it only woke the dimmed screen.
+void ForgetViewChord();
 
 // The NAND folder the in-game blob writes (runtime/shot/shot_hook.h).
 constexpr const char* kGameShotDir = "/shared2/riftwii";

@@ -440,6 +440,9 @@ UpdateGUI(void *arg)
 				dimLogged = true;
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
+			// The presses that wake the dimmed screen do nothing else, the 1
+			// and 2 pair too (ScreenshotPoll took it before this was known).
+			if (swallowInput) riftwii::wii::ForgetViewChord();
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();

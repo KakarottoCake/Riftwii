@@ -345,4 +345,6 @@ bool TakeViewChord() {
     return true;
 }
 
+void ForgetViewChord() { g_view_chord = false; }
+
 }  // namespace riftwii::wii
