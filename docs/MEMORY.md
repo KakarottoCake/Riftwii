@@ -122,6 +122,13 @@ Japanese with RiftWii's font.
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
+Korean is supplied separately by `apps/riftwii/korean.ttf` (457 KiB,
+Noto Sans KR under OFL 1.1), never in the stash or the DOL. The external
+fonts share the existing 384 KiB MEM2 pool and FreeType library; opening
+the Korean face does not load its entire file or take a second pool.
+It is tried after the core and full fonts, and both streams close before
+unmounts. [KOREAN_FONT.md](KOREAN_FONT.md) records the measurements.
+
 The **start-up stash** keeps these files in `boot.dol`, so the DOL alone
 still works, but not in RiftWii's resident image. `tools/dol_stash.py` adds
 them after the link as one more DOL data section placed right above `.bss`,
@@ -217,6 +224,26 @@ start instead of 850 ms, and a Brawl launch from disc ended 122 ms
 later; with the list at `-O2` both are as fast as with `-O2` for
 everything.
 
+### Linked out
+
+Two things the DOL carried and never used, 45 KiB of MEM1 together (on
+main 21172fe0 the program's end went from `0x80ED37A0` to `0x80EC8280`):
+
+- `.eh_frame_hdr`, 17 KiB: the sorted index of the unwinding tables
+  that the prebuilt libraries (libstdc++, libogc, FreeType and the
+  others) still carry since RiftWii's own code is built without
+  exceptions. libgcc's unwinder here finds frames through the list
+  `crtbegin.o` registers at start (`__register_frame_info`) and reads
+  the index only through `dl_iterate_phdr`, which a DOL has not.
+  `Makefile.wii` links with `--no-eh-frame-hdr`. (Checked in Dolphin
+  before exceptions went, when it was 61 KiB: a `std::bad_alloc` thrown
+  by `operator new` was still caught.)
+- libc's `sscanf` and `fscanf`, 28 KiB: newlib's formatted input, for a
+  handful of one-line files and an IP address. Those are read by hand
+  now and RiftWii calls no scanf; the first call would bring about 13
+  KiB back for `sscanf` and 13 more for `fscanf`. (`siscanf` stays:
+  libfat's `mktime` reads the time zone with it.)
+
 ### The MEM2 copy
 
 The copy goes to `mem::kStashArea`, which is `0x90809000`, right above the
@@ -263,6 +290,31 @@ MEM1 bytes hold heap leftovers, and the magic crt0 erased after its copy
 is gone, so crt0 keeps the MEM2 copy. Each copy carries the build's version
 and a checksum. `stash::Check` tests both once per start, so a copy left
 by another build, or one that was damaged, is never used.
+
+### Start-up breadcrumbs and the saved NAND patch
+
+The restart area's last half page holds two small records below the
+stash, so a start that dies before the log can open still leaves a trace
+for the next one (`mem::kStartupTrace` at `0x90808800`,
+`mem::kNandPermissionNote` at `0x90808900`, inside `kRestartBytes` up to
+`0x90809000`; the snapshot and handoff above them are capped by a
+`static_assert`). IOS reloads write below `0x90800000`, the heap starts
+above the stash, and a soft return to the Homebrew Channel keeps MEM2,
+so both records survive exactly the starts that need them; only a
+power-off clears them.
+
+- The start-up note (`wii/core/startuptrace.cpp`, `include/riftwii/startupnote.hpp`) records each step reached before the log opens. Once
+the log is open it reports `The last start stopped at: <step>` when the
+previous start never got that far, then clears the note.
+- The NAND permission note (`wii/launch/nandpermissions.cpp`) is written
+before the running IOS's permission check is patched open, and the next
+start closes a patch an interrupted run left behind before anything else
+runs. Neither record is trusted on its own: the start-up note carries a
+magic, a layout tag, the build version and a checksum; the NAND
+permission note a magic and a checksum over the IOS number, the patched
+word's address (inside IOS's code) and the instruction word before and
+after, and the next start restores it only when the live word is exactly
+the one RiftWii wrote.
 
 ### `riftwii.elf`
 

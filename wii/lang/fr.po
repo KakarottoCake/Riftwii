@@ -888,17 +888,20 @@ msgstr "Discret"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "Volume des clics du menu. \"Discret\" adoucit le bruit lors du survol des éléments."
 
-msgid "Wii Menu button"
-msgstr "Bouton Menu Wii"
+msgid "Quitting a game"
+msgstr "Quitter le jeu"
 
 msgid "Back to RiftWii"
 msgstr "Retour à RiftWii"
 
-msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
-msgstr "Le bouton \"Menu Wii\" dans le menu HOME d'un jeu vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii."
+msgid "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "Quitter le jeu avec le bouton « Menu Wii » du menu HOME vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii."
 
-msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
-msgstr "Le bouton \"Menu Wii\" du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres)."
+msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "Quitter le jeu avec le bouton « Menu Wii » du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres)."
+
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "Quitter le jeu avec le bouton « Menu Wii » du menu HOME ramène au Menu Wii."
 
 msgid "Menu music"
 msgstr "Musique du menu"
@@ -1259,6 +1262,9 @@ msgstr "Fermer"
 
 msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
 msgstr "Choisissez où aller : Chaîne Homebrew, Menu Wii, Priiloader ou extinction."
+
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
+msgstr "Choisissez où aller : Chaîne Homebrew, Menu Wii, redémarrage de la console ou extinction."
 
 msgid "Sending a report"
 msgstr "Envoi du rapport"
@@ -2607,8 +2613,8 @@ msgstr "{1} modifiés"
 msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
 msgstr "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format."
 
-msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
-msgstr "La langue annoncée aux jeux, le cIOS qui les fait tourner, où mène le bouton Menu Wii et les captures en jeu."
+msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
+msgstr "La langue annoncée aux jeux, le cIOS qu'ils utilisent, où vous allez en quittant le jeu, et les captures en jeu."
 
 msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
 msgstr "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes."
@@ -3018,6 +3024,9 @@ msgstr "Remettez d’abord la carte SD."
 msgid "The SD card is back in. Reading it again."
 msgstr "La carte SD est de retour. Nouvelle lecture en cours."
 
+msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
+msgstr "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne."
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 
@@ -3141,8 +3150,8 @@ msgstr "En quittant, l'appli revient à RiftWii."
 msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
 msgstr "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii."
 
-msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
-msgstr "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé."
+msgid "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."
+msgstr "En quittant, l'appli va au Menu Wii, car Quitter le jeu est réglé sur Menu Wii."
 
 msgid "1: all apps"
 msgstr "1 : toutes les applis"
@@ -3260,3 +3269,42 @@ msgstr "RiftWii ne peut pas laisser de note sur la carte SD ; si l'installateur 
 
 msgid "Open anyway"
 msgstr "Ouvrir quand même"
+
+msgid "My RiiTag"
+msgstr "Ma RiiTag"
+
+msgid "Refresh"
+msgstr "Actualiser"
+
+msgid "Downloading your tag..."
+msgstr "Téléchargement de votre tag..."
+
+msgid "No tag to show"
+msgstr "Aucun tag à afficher"
+
+msgid "There is not enough free memory to show your tag."
+msgstr "Il n'y a pas assez de mémoire libre pour afficher votre tag."
+
+msgid "Your tag could not be downloaded: {1}. Press A to try again."
+msgstr "Impossible de télécharger votre tag : {1}. Appuyez sur A pour réessayer."
+
+msgid "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too."
+msgstr "Votre tag de riitag.t0g3pii.de, pour l'ID Discord riitag_id de sd:/riftwii/settings.txt. Il affiche le dernier jeu joué si riitag_key est aussi défini."
+
+msgid "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID)."
+msgstr "Affiche votre RiiTag. Mettez d'abord riitag_id = <votre ID Discord> dans sd:/riftwii/settings.txt (Discord : Paramètres > Avancés > Mode développeur, puis Copier l'identifiant)."
+
+msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
+msgstr "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de."
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "La boîte du jeu. Appuyez sur A pour la voir de près, puis sur Bas pour son dos."
+
+msgid "There is no box art for this game yet."
+msgstr "Pas encore de jaquette pour ce jeu."
+
+msgid "Back of the box"
+msgstr "Dos de la boîte"
+
+msgid "Front of the box"
+msgstr "Face de la boîte"

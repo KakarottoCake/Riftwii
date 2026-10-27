@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "libwiigui/gui.h"
+#include "riftwii/namekeys.hpp"
 
 // The search box: a card with the text typed so far and an on-screen
 // keyboard under it. Point and press A on a key, or move with the D-pad and
@@ -17,8 +18,10 @@
 // card (what the value is, from the cheat's notes).
 //
 // The name mode types a name (a Home tile's): letters in both cases, with
-// a Shift key that capitalises the next letter, on by itself at the start
-// and after a space, as a phone's keyboard; OK in place of Search.
+// a Shift key for the next character, on by itself at the start, after a
+// space and after '(' or '[' (capitals only, as a phone's keyboard), and pressed by the player
+// for capitals and the symbols on the number row and the bottom row's last
+// three keys (riftwii/namekeys.hpp); OK in place of Search.
 //
 // A USB keyboard types too (usbinput.hpp): its letters, digits and the
 // characters the card has, Enter as Search (OK), Backspace as Del and Esc
@@ -68,7 +71,8 @@ private:
 
     enum class Mode { Search, Hex, Name };
     void Build(const std::string& titleText, const std::string& noteText, Mode mode);
-    // The name mode: the letter keys show the case the next letter takes.
+    // The name mode: the letter keys show the case the next letter takes,
+    // and the symbol keys their symbol while Shift is on.
     void ShowCase();
 
     std::vector<Key> keys;
@@ -78,7 +82,7 @@ private:
     std::size_t maxLength = kMaxLength;
     bool hex = false;
     bool naming = false;  // the name mode
-    bool shift = false;   // the name mode: the next letter is a capital
+    riftwii::NameShift shift = riftwii::NameShift::Off;  // the name mode: what the next key types
     GuiText* shown;
     GuiText* title;
     GuiText* note = nullptr;

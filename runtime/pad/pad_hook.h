@@ -5,8 +5,9 @@
 /* The GameCube adapter's in-game blob: PADRead and PADControlMotor
  * hooked, the WUP-028 driver (runtime/rtgcad.c) behind them. With the
  * way back (#224), L, R, Z and Start held on a GameCube controller leave
- * the game through its own OSReturnToMenu: two more hooks, the SDK's IPC
- * submit routine (save activity) and OSSleepThread (the main thread). Its own
+ * the game through its own OSReturnToMenu: three more hooks, the SDK's IPC
+ * submit routine (save activity), OSSleepThread (where it leaves) and
+ * OSSuspendThread (where a thread that suspends itself to wait leaves). Its own
  * small blob beside the resident runtime, so a game without the adapter
  * option never carries it and the resident's ABI is untouched.
  *
@@ -24,14 +25,20 @@
 #include "rtleave.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 3u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 4u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
 #define RT_PAD_CONTEXT_BYTES 192u
 
-/* rt_pad_context.leave_asked: the combo asked for the way back; the main
- * thread's next OSSleepThread has gone into OSReturnToMenu. */
+/* rt_pad_context.leave_asked: the combo asked for the way back; an
+ * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
+ * main thread's, or the pad-reading thread's after the fallback wait). */
 #define RT_PAD_LEAVE_ASKED 1u
 #define RT_PAD_LEAVE_GONE 2u
+
+/* How long the way back waits for the main thread to sleep before it
+ * leaves from the sleep of the thread that read the pads instead. Normal
+ * games sleep their main thread every frame, so they never get this far. */
+#define RT_PAD_LEAVE_FALLBACK_MS 500u
 
 /* rt_pad_context.flags */
 #define RT_PAD_FLAG_DEMO 1u  /* no adapter needed: the first empty port presses A about once a second (Dolphin tests) */
@@ -52,9 +59,12 @@ struct rt_pad_header {
     uint32_t hook_submit;      /* the SDK's IPC submit routine's (save activity) */
     uint32_t replay_submit;
     uint32_t continue_submit;
-    uint32_t hook_sleep;       /* OSSleepThread's (the way back, on the main thread) */
+    uint32_t hook_sleep;       /* OSSleepThread's (the way back leaves from a sleep) */
     uint32_t replay_sleep;
     uint32_t continue_sleep;
+    uint32_t hook_suspend;     /* OSSuspendThread's (or from a thread suspending itself) */
+    uint32_t replay_suspend;
+    uint32_t continue_suspend;
 };
 
 struct rt_pad_context {
@@ -86,6 +96,10 @@ struct rt_pad_context {
      * hand or queued (rtleave_resident). Loader-filled with the above. */
     uint32_t resident_busy;
     uint32_t resident_queued;
+    /* The ask: the thread running the PADRead that made it (0x800000E4
+     * then) and when (low bit set), both 0 while none is open. */
+    uint32_t leave_thread;
+    uint32_t leave_asked_at;
 };
 
 #ifdef RT_TARGET_PPC

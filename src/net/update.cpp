@@ -458,14 +458,17 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         return false;
     }
     std::vector<UpdateWrite> plugins;
-    UpdateWrite font;
+    std::vector<UpdateWrite> fonts;
     for (const ThemePackFile& file : apps.files) {
-        // The full menu font: beside the new DOL, whose core font lacks
-        // what it holds (wii/menu/fullfont.hpp).
-        if (file.path == kMenuFontFile) {
-            font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + "font.ttf";
+        // Both external fonts and their license follow the renamed DOL,
+        // before that DOL replaces the old version.
+        if (is_menu_font_file(file.path)) {
+            UpdateWrite font;
+            const std::string filename = file.path.substr(file.path.rfind('/') + 1);
+            font.path = dol_path.substr(0, dol_path.rfind('/') + 1) + filename;
             font.offset = file.offset;
             font.size = file.size;
+            fonts.push_back(font);
             continue;
         }
         if (file.path.compare(0, kPluginsFolder.size(), kPluginsFolder) != 0) continue;  // the next start's
@@ -487,7 +490,7 @@ bool plan_update_writes(const ThemePack& apps, const std::string& release, const
         plugins.push_back(write);
     }
     out = plugins;
-    if (!font.path.empty()) out.push_back(font);
+    out.insert(out.end(), fonts.begin(), fonts.end());
     UpdateWrite dol;
     dol.path = dol_path;
     dol.dol = true;

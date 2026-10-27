@@ -17,23 +17,20 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-The Wii Menu's own sounds, a GameCube-pad way out of Wii games, and Wii U channel fixes:
+Fixes and polish:
 
-* Wii Menu sounds and music: Settings > Menu (read from your Wii, off until you turn them on)
-* Hold L+R+Z+Start on a GameCube controller to leave a Wii game (adapter on; waits for saves)
-* Wii U: a channel installer that goes black no longer locks you out (Not now), and a game's Reset reaches the channel
-* WiiWare: SD mount fix for emulated NAND on vWii, and a guess for games that quit straight back
-* Pull the SD card and put it back: RiftWii reads it again
-* Home starts on your last game
+* Starting RiftWii again after the Homebrew Channel no longer gives a black screen after a game failed to start (RiftWii now cleans up what the stopped session left behind)
+* A game's Settings page now really opens at once, even with lots of mods on the SD card
+* Every theme polished for widescreen TVs: button sizes, no seam in the banner stripes, a more readable gold in Indigo
+* The Wii Menu's music sounds closer to the real thing
 
 To test, please:
 
-1. Wii Menu sounds and music on, especially on a Wii U or a non-USA Wii
-2. L+R+Z+Start in a Wii game, and during a save
-3. Wii U owners whose installer went black: try the channel update again
-4. WiiWare games
-5. SD card out and back in on Home
+1. Go back to the Homebrew Channel and start RiftWii again, a few times, also after a WiiWare or VC game. Black screen? Switch the Wii off, start RiftWii and send a report
+2. Press Settings on a few games' banner screens with your usual SD card: it should open right away
+3. Look at your theme on a widescreen TV: anything cut off or out of place?
+4. Turn on the Wii Menu's music (Settings > Menu): does it sound right?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Wii Menu sounds and music](docs/screenshots/2610-720-wii-menu-sounds.png)
+![Settings in the Indigo theme](docs/screenshots/2610-indigo-settings.png)

@@ -15,6 +15,7 @@ void pad_on_motor(struct rt_pad_context* c, int32_t chan, uint32_t command);
 void pad_on_complete(struct rt_pad_context* c, int32_t result, uint32_t tag);
 void pad_on_submit(struct rt_pad_context* c, const uint32_t* block);
 uint32_t pad_on_sleep(struct rt_pad_context* c);
+uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -190,8 +191,10 @@ static void pad_resident_write(const struct rt_pad_context* c, int* wrote, uint3
 
 /* At each PADRead, the pads as the game will see them (the adapter's
  * filled in): the combo held long enough, with no save being written,
- * asks for the way back. Letting go before the main thread's sleep has
- * left takes the ask back, and the hold starts over. */
+ * asks for the way back. Letting go before a sleep has left takes the
+ * ask back, and the hold starts over. The ask notes the thread this
+ * PADRead runs on, the one a game whose main thread never sleeps leaves
+ * from (rtleave_sleep_leaves). */
 static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uint32_t t) {
     int resident_wrote;
     uint32_t resident_last_write;
@@ -199,19 +202,30 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
     if (c->return_to_menu == 0) return;
     if (c->leave_asked == RT_PAD_LEAVE_ASKED && !held) {
         c->leave_asked = 0;
+        c->leave_thread = 0;
+        c->leave_asked_at = 0;
         rtleave_due(&c->leave, 0, t, 0, 0);  /* resets the hold */
         return;
     }
     if (c->leave_asked) return;
     pad_check_pending(c, t);
     pad_resident_write(c, &resident_wrote, &resident_last_write);
-    if (rtleave_due(&c->leave, held, t, resident_wrote, resident_last_write)) c->leave_asked = RT_PAD_LEAVE_ASKED;
+    if (rtleave_due(&c->leave, held, t, resident_wrote, resident_last_write)) {
+        c->leave_asked = RT_PAD_LEAVE_ASKED;
+        c->leave_thread = *(volatile uint32_t*)(uintptr_t)0x800000E4u;
+        c->leave_asked_at = t | 1u;
+    }
 }
 
-/* OSSleepThread: the game's main thread (the OS's default thread, at
- * 0x800000D8, running: 0x800000E4) sleeps every frame. Once the way
+/* OSSleepThread: the game's main thread (the OS's default thread, the
+ * oldest live one: the head of the OS's thread list at 0x800000DC; running:
+ * 0x800000E4) sleeps every frame. Not 0x800000D8: that is the thread whose
+ * floating-point registers were last saved, any thread, or 0. Once the way
  * back is asked, the first such sleep leaves through OSReturnToMenu, as
- * the HOME Menu's Wii Menu button does from the same thread. Once only:
+ * the HOME Menu's Wii Menu button does from the same thread. A game
+ * whose main thread never sleeps (N64 Virtual Console) leaves from the
+ * pad-reading thread's sleep instead, after RT_PAD_LEAVE_FALLBACK_MS
+ * with the ask open (rtleave_sleep_leaves). Once only:
  * OSReturnToMenu writes the System Menu's state files with synchronous
  * calls, whose waits sleep the main thread through here again (in
  * Dolphin, Mario Kart Wii opened state.dat twice and stopped). A save
@@ -222,20 +236,45 @@ static void pad_leave_check(struct rt_pad_context* c, const uint8_t* status, uin
  * (the unsigned difference would wrap and read as long quiet). */
 uint32_t pad_on_sleep(struct rt_pad_context* c) {
     const uint32_t running = *(volatile uint32_t*)(uintptr_t)0x800000E4u;
-    const uint32_t main_thread = *(volatile uint32_t*)(uintptr_t)0x800000D8u;
+    const uint32_t main_thread = *(volatile uint32_t*)(uintptr_t)0x800000DCu;
     int resident_wrote, quiet;
     uint32_t resident_last_write, msr, t;
-    if (c->leave_asked != RT_PAD_LEAVE_ASKED || running != main_thread) return 0;
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED) return 0;  /* every sleep: the quick way out */
     msr = interrupts_off();
+    /* Again with interrupts off: a PADRead in between (another thread's, or
+     * the SI callback's) may have taken the ask back, the combo let go. */
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED) {
+        interrupts_restore(msr);
+        return 0;
+    }
     t = now();
+    if (!rtleave_sleep_leaves(running, main_thread, c->leave_thread, c->leave_asked_at, t,
+                              RT_PAD_LEAVE_FALLBACK_MS * c->ticks_per_ms)) {
+        interrupts_restore(msr);
+        return 0;
+    }
     /* A save this very thread is waiting for sleeps it here: its request
      * is still pending, so this sleep doesn't leave. */
     pad_check_pending(c, t);
     pad_resident_write(c, &resident_wrote, &resident_last_write);
     quiet = rtleave_quiet(&c->leave, t, resident_wrote, resident_last_write);
     c->leave_asked = quiet ? RT_PAD_LEAVE_GONE : 0;
+    if (!quiet) {
+        c->leave_thread = 0;
+        c->leave_asked_at = 0;
+    }
     interrupts_restore(msr);
     return quiet ? c->return_to_menu : 0;
+}
+
+/* OSSuspendThread(thread): the thread that read the pads at the ask,
+ * suspending itself, waits there as in a sleep (Cruis'n USA's pad-reading
+ * thread, every frame), so it may leave by pad_on_sleep's rules; any other
+ * suspend never does. */
+uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread) {
+    if (c->leave_asked != RT_PAD_LEAVE_ASKED) return 0;
+    if (!rtleave_self_suspend(thread, *(volatile uint32_t*)(uintptr_t)0x800000E4u, c->leave_thread)) return 0;
+    return pad_on_sleep(c);
 }
 
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {

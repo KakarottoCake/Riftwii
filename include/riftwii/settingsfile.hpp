@@ -54,6 +54,7 @@ struct LoaderSettings {
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string riitag_key;               // RiiTag (riftwii/riitag.hpp): the player's key, empty for none
+    std::string riitag_id;                // RiiTag: the player's Discord ID, for Settings > Online > My RiiTag; empty for none
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
     std::string usb_input = "on";         // on, off: USB keyboards, mice and pen tablets, and the uDraw, in the menu (wii/controllers/usbinput.hpp)

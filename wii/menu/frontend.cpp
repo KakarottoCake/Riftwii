@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "launchrun.hpp"
@@ -32,8 +33,6 @@
 namespace riftwii::wii {
 
 namespace {
-constexpr std::size_t kMaxPackages = 150;  // the option browser's limit
-
 // A folder that is already there is never created again: on a card with a
 // damaged FAT, mkdir of an existing folder can fail with EIO, not EEXIST.
 bool ensure_directory(const char* path, std::string& error) {
@@ -271,16 +270,33 @@ LaunchSource SelectedSource(const FrontendState& state) {
     return source;
 }
 
-std::string ScanPackages(FrontendState& state) {
+void PrepareGameChoices(FrontendState& state, const std::string& game_id, const std::string& profile_key,
+                        void (*step)(const char*)) {
+    PreparedGameChoices choices;
+    const std::string game_path = std::string(kChoicesDir) + "/" + game_id + ".txt";
+    choices.path = profile_key.empty() ? game_path : std::string(kChoicesDir) + "/" + profile_key + ".txt";
+    if (!ReadTextFile(choices.path, choices.text)) {
+        if (!profile_key.empty()) {
+            ReadTextFile(game_path, choices.text);
+        } else if (!game_id.empty()) {
+            const std::string config_path = std::string(kPackageDir) + "/config/" +
+                                            riivolution_config_name(game_id) + ".xml";
+            choices.riivolution = ReadTextFile(config_path, choices.text);
+        }
+    }
+    if (step) step("reading saved choices");
+    choices.usb_mods = usb_mod_folders(game_id);
+    if (step) step("checking USB mod folders");
+    state.prepared_choices = std::move(choices);
+}
+
+std::string ScanPackages(FrontendState& state, bool reuse_catalog, void (*step)(const char*)) {
     state.model.packages.clear();
-    // A reused frontend state must not carry game A's saved mode, cheats or
-    // settings into game B. restore() below may replace these defaults.
     state.model.forget_game_choices();
-    // sd:/riivolution, then the packs cached from RiiFS servers. Hidden
-    // files are never packs: macOS leaves a binary "._name.xml"
-    // (AppleDouble) beside every file it copies to FAT.
-    bool limited = false;
-    const std::vector<PackFile> found = ListPackFiles(kMaxPackages, limited);
+    if (!reuse_catalog || !state.package_catalog.ready) state.package_catalog = ReadPackageCatalog();
+    if (step) step("reading the pack snapshot");
+    const PackageCatalog& catalog = state.package_catalog;
+    const bool limited = catalog.limited || catalog.files.size() > kMaxGamePackages;
     DiscIdentity identity;
     const DiscIdentity* disc = nullptr;
     if (!state.game_id.empty()) {
@@ -289,58 +305,34 @@ std::string ScanPackages(FrontendState& state) {
         identity.number = state.game_disc_number;
         disc = &identity;
     }
-    std::string pack_texts;  // lower case, to tell a pack's own folders
-    for (const PackFile& pack : found) {
-        const std::string text = ReadPackText(pack.path);
-        state.model.add(pack.file, pack.path, text, disc);
-        // Up to 150 packs of 1 MiB each: grown twofold, but checked.
-        const std::size_t needed = pack_texts.size() + text.size();
-        if (needed > pack_texts.capacity() && !try_reserve(pack_texts, std::max(needed, 2 * pack_texts.capacity())) &&
-            !try_reserve(pack_texts, needed)) {
-            logf("Packages: no memory to read the packs' folders (%u bytes so far)\n",
-                 static_cast<unsigned>(pack_texts.size()));
-            return "Package scan failed; go back and try again";
-        }
-        for (char c : text) pack_texts += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    AddCatalogPackages(catalog, state.model, disc);
+    if (step) step("building the pack model");
+    // Consume only the exact tile the banner prepared. A direct page, an
+    // explicit rescan or a different profile reads its choices afresh.
+    if (state.choices_path.empty()) {
+        state.prepared_choices = PreparedGameChoices{};
+        state.prepared_choices.usb_mods = usb_mod_folders(state.game_id);
+    } else if (!reuse_catalog || state.prepared_choices.path != state.choices_path) {
+        PrepareGameChoices(state, state.game_id, state.profile_key, step);
     }
-    // Code builds (Project+ and the like) show beside the XML packs. A
-    // <game ID>.gct found by its name inside a folder an XML pack reads
-    // from is that pack's own (Wii Party's Combined Mods ships its codes'
-    // source in wp-combined-mods/codes/SUPE01.gct and patches main.dol
-    // itself): not a build of its own. One picked by hand still shows.
-    for (const CodeBuildFile& b : ListCodeBuilds()) {
-        std::string top = b.name;
-        for (char& c : top) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        const bool packs_folder = !b.picked && b.gct.compare(0, 4, "sd:/") == 0 && !top.empty() &&
-                                  (pack_texts.find("\"/" + top + "/") != std::string::npos ||
-                                   pack_texts.find("\"/" + top + "\"") != std::string::npos ||
-                                   pack_texts.find("\"" + top + "/") != std::string::npos);
-        if (packs_folder) {
-            logf("Code builds: %s is in a pack's folder (an XML reads sd:/%s), not listed\n", b.gct.c_str(),
-                 b.name.c_str());
-            continue;
-        }
-        state.model.add_code_build(b.key, b.folder, b.gct, b.game_id, disc);
-    }
-    state.usb_mods = usb_mod_folders(state.game_id);
+    state.usb_mods = std::move(state.prepared_choices.usb_mods);
+    if (step) step("checking USB mod folders");
     if (!state.choices_path.empty()) {
-        std::string text;
-        if (ReadTextFile(state.choices_path, text)) {
-            state.model.restore(text);
-        } else if (!state.profile_key.empty()) {
-            // A profile whose file went missing starts from the game's own
-            // choices, as a new one does.
-            if (ReadTextFile(std::string(kChoicesDir) + "/" + state.game_id + ".txt", text)) state.model.restore(text);
-        } else if (!state.game_id.empty()) {
-            // A game RiftWii has never saved: start from what Riivolution
-            // last used for it.
+        const PreparedGameChoices& choices = state.prepared_choices;
+        if (choices.riivolution) {
             RiivolutionConfig config;
-            if (ReadRiivolutionConfig(state.game_id, config)) {
+            if (parse_riivolution_config(choices.text, config)) {
                 const unsigned applied = apply_riivolution_config(state.model, config);
                 logf("Riivolution config for %s: %u option(s) taken\n", state.game_id.c_str(), applied);
+            } else {
+                logf("Riivolution config for %s: not a version 2 config, ignored\n", state.game_id.c_str());
             }
+        } else {
+            state.model.restore(choices.text);
         }
     }
+    state.prepared_choices = PreparedGameChoices{};
+    if (step) step("applying saved choices");
     std::size_t shown = 0;
     for (const LaunchPackage& p : state.model.packages) {
         if (!p.valid) logf("Package %s invalid: %s\n", p.file.c_str(), p.detail.c_str());

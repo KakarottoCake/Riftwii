@@ -48,8 +48,8 @@ void Init() {
     // Arena 2 starts above the restart area and the start-up stash's copy.
     const u32 mem2_lo = stash::ReservedEnd();
     if (Address(SYS_GetArena2Lo()) < mem2_lo) SYS_SetArena2Lo(reinterpret_cast<void*>(mem2_lo));
-    // Asked now, while IOS is up: PoisonReloadArea runs mid-reload.
-    g_dolphin = running_in_dolphin();
+    // Do not probe IOS before the log can open. A stuck IPC request here
+    // used to leave neither a screen nor a line naming the call.
 }
 
 namespace {
@@ -59,6 +59,26 @@ bool g_wii_mem2_top = false;
 bool g_console_type_as_wii = false;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
+
+const char* SkipSpaces(const char* text) {
+    while (*text == ' ' || *text == '\t') ++text;
+    return text;
+}
+
+// A "<key> = <number>" line: true with the number in `value`. Read by hand,
+// not with sscanf, so a test build's program is laid out like a release
+// one's (docs/MEMORY.md, "Linked out").
+bool ReadSetting(const char* line, const char* key, unsigned& value) {
+    const char* text = SkipSpaces(line);
+    const std::size_t key_length = std::strlen(key);
+    if (std::strncmp(text, key, key_length) != 0) return false;
+    text = SkipSpaces(text + key_length);
+    if (*text != '=') return false;
+    text = SkipSpaces(text + 1);
+    if (*text < '0' || *text > '9') return false;
+    value = static_cast<unsigned>(std::strtoul(text, nullptr, 10));
+    return true;
+}
 #endif
 }  // namespace
 
@@ -70,14 +90,14 @@ void TestBallast() {
     char line[96];
     while (std::fgets(line, sizeof(line), f)) {
         unsigned v = 0;
-        if (std::sscanf(line, " ballast_kib = %u", &v) == 1) ballast = v;
-        else if (std::sscanf(line, " chunk_kib = %u", &v) == 1 && v > 0) chunk = v;
-        else if (std::sscanf(line, " heap_pieces = %u", &v) == 1) pieces = v;
-        else if (std::sscanf(line, " game_mem1_kib = %u", &v) == 1) g_game_mem1_kib = v;
-        else if (std::sscanf(line, " game_mem2_kib = %u", &v) == 1) g_game_mem2_kib = v;
-        else if (std::sscanf(line, " game_mem2_top_kib = %u", &v) == 1) g_game_mem2_top_kib = v;
-        else if (std::sscanf(line, " wii_mem2_top = %u", &v) == 1) g_wii_mem2_top = v != 0;
-        else if (std::sscanf(line, " console_type_as_wii = %u", &v) == 1) g_console_type_as_wii = v != 0;
+        if (ReadSetting(line, "ballast_kib", v)) ballast = v;
+        else if (ReadSetting(line, "chunk_kib", v) && v > 0) chunk = v;
+        else if (ReadSetting(line, "heap_pieces", v)) pieces = v;
+        else if (ReadSetting(line, "game_mem1_kib", v)) g_game_mem1_kib = v;
+        else if (ReadSetting(line, "game_mem2_kib", v)) g_game_mem2_kib = v;
+        else if (ReadSetting(line, "game_mem2_top_kib", v)) g_game_mem2_top_kib = v;
+        else if (ReadSetting(line, "wii_mem2_top", v)) g_wii_mem2_top = v != 0;
+        else if (ReadSetting(line, "console_type_as_wii", v)) g_console_type_as_wii = v != 0;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -111,7 +131,17 @@ void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib) {
 bool TestWiiMem2Top() { return g_wii_mem2_top; }
 bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
 
+void DetectDolphin() {
+    // Asked while IOS is up: PoisonReloadArea runs mid-reload. Once is
+    // enough, so the probe after LogOpen costs nothing a second time.
+    static bool asked = false;
+    if (asked) return;
+    asked = true;
+    g_dolphin = running_in_dolphin();
+}
+
 void LogLimits() {
+    DetectDolphin();
     const u32 mem1_size = *reinterpret_cast<volatile u32*>(0x80000028);
     const u32 mem2_size = *reinterpret_cast<volatile u32*>(0x80003118);
     logf("Memory: MEM1 %u MiB, MEM2 %u MiB%s\n", mem1_size >> 20, mem2_size >> 20,

@@ -803,18 +803,23 @@ T = {
         "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo.",
         "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."),
     # Return to RiftWii (Settings)
-    "Wii Menu button": ("Botón Menú de Wii", "Wiiメニューボタン", "Botão Menu Wii", "Pulsante Menu Wii"),
+    "Quitting a game": ("Al salir del juego", "ゲームをやめるとき", "Ao sair do jogo", "Uscita dal gioco"),
     "Back to RiftWii": ("Volver a RiftWii", "RiftWiiに戻る", "Voltar ao RiftWii", "Torna a RiftWii"),
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.": (
-        "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado.",
-        "ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。",
-        "O botão Menu Wii do menu HOME de um jogo leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado.",
-        "Il pulsante Menu Wii del menu HOME di un gioco ti riporta a RiftWii. Serve il canale RiftWii installato."),
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).": (
-        "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes).",
-        "RiftWiiチャンネルをインストールすると(設定)、ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻れます。",
-        "O botão Menu Wii do menu HOME de um jogo pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
-        "Il pulsante Menu Wii del menu HOME di un gioco può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.": (
+        "Salir del juego con el botón Menú de Wii del menú HOME te devuelve a RiftWii. Necesita el canal de RiftWii instalado.",
+        "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。",
+        "Sair do jogo com o botão Menu Wii do menu HOME leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado.",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME ti riporta a RiftWii. Serve il canale RiftWii installato."),
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).": (
+        "Salir del juego con el botón Menú de Wii del menú HOME puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes).",
+        "RiftWiiチャンネルをインストールすると(設定)、HOMEメニューの「Wiiメニュー」ボタンでゲームをやめたときRiftWiiに戻れます。",
+        "Sair do jogo com o botão Menu Wii do menu HOME pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.": (
+        "Salir del juego con el botón Menú de Wii del menú HOME te lleva al Menú de Wii.",
+        "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとWiiメニューに戻ります。",
+        "Sair do jogo com o botão Menu Wii do menu HOME leva você ao Menu Wii.",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME ti porta al Menu Wii."),
     # Menu music (Settings)
     "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
     "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
@@ -1223,6 +1228,11 @@ T = {
         "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
         "Escolha para onde ir: Homebrew Channel, Menu do Wii, Priiloader ou desligar.",
         "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.": (
+        "Elige adónde ir: Homebrew Channel, menú de Wii, reiniciar la consola o apagar.",
+        "行き先を選びます：Homebrew Channel、Wiiメニュー、本体の再起動、または電源オフ。",
+        "Escolha para onde ir: Homebrew Channel, Menu do Wii, reiniciar o console ou desligar.",
+        "Scegli dove andare: Homebrew Channel, Menu Wii, riavvio della console o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
     "Gathering the logs and sending them. This can take half a minute...": (
@@ -2122,7 +2132,7 @@ T = {
     "This game's own picture, language, online server and the rest. The ones not changed follow Settings.": ("La imagen, el idioma, el servidor en línea y lo demás de este juego. Lo que no cambies sigue lo de Ajustes.", "このゲームだけの画面、言語、オンラインサーバーなど。変えていないものは設定に従います。", "Imagem, idioma, servidor online e o resto só deste jogo. O que não mudar segue as Configurações.", "Immagine, lingua, server online e il resto solo per questo gioco. Ciò che non cambi segue le Impostazioni."),
     "{1} changed": ("{1} cambiados", "{1}個変更", "{1} alterados", "{1} modificati"),
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.": ("Cómo se ven los juegos en tu TV: ancho de imagen, filtro de parpadeo, bordes negros, modo de vídeo y relación de aspecto.", "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。", "Como os jogos aparecem na TV: largura da imagem, filtro de cintilação, bordas pretas, modo de vídeo e proporção.", "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."),
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde lleva el botón Menú de Wii y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、Wiiメニューボタンの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde leva o botão Menu Wii e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove porta il pulsante Menu Wii e gli screenshot nel gioco."),
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde vas al salir del juego y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、ゲームをやめたときの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde você vai ao sair do jogo e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove vai quando esci dal gioco e gli screenshot nel gioco."),
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.": ("El adaptador de mandos de GameCube para Wii U, y la vibración de los mandos de GameCube y de Wii.", "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。", "O adaptador de controles do GameCube para Wii U, e a vibração dos controles do GameCube e dos Wii Remotes.", "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."),
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.": ("Cómo muestra Inicio tus juegos: portadas, estantería o canales, de qué unidad, en qué orden, el historial y el reloj.", "ホームでのゲームの見せ方：パッケージ、棚、チャンネル、どのドライブか、並び順、プレイ履歴、時計。", "Como o Início mostra seus jogos: capas, estante ou canais, de qual unidade, em que ordem, histórico e o relógio.", "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."),
     "The menu's language, theme, letters, size on the TV, sounds and music.": ("El idioma, el tema, la letra, el tamaño en la TV, los sonidos y la música del menú.", "メニューの言語、テーマ、文字、テレビでの大きさ、効果音と音楽。", "O idioma, o tema, a letra, o tamanho na TV, os sons e a música do menu.", "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."),
@@ -2885,14 +2895,16 @@ KO = {
         "조용함",
     "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.":
         "메뉴를 클릭할 때 나는 소리의 크기입니다. '조용함' 설정은 포인터가 항목 위로 이동할 때 발생하는 '틱' 소리를 부드럽게 만들어 줍니다.",
-    "Wii Menu button":
-        "Wii 메뉴 버튼",
+    "Quitting a game":
+        "게임을 종료하면",
     "Back to RiftWii":
         "RiftWii로 돌아가기",
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.":
-        "게임 내 홈 메뉴의 'Wii 메뉴' 버튼을 누르면 RiftWii로 돌아갑니다. 이를 위해서는 RiftWii 채널이 설치되어 있어야 합니다.",
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
-        "게임 내 홈 메뉴에 있는 'Wii 메뉴' 버튼을 사용하면, Rift Wii 채널이 설치된 경우(설정에서 확인 가능) Rift Wii로 돌아갈 수 있습니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 RiftWii로 돌아갑니다. RiftWii 채널이 설치되어 있어야 합니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면, RiftWii 채널이 설치된 경우(설정) RiftWii로 돌아갈 수 있습니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 Wii 메뉴로 갑니다.",
     "Menu music":
         "메뉴 음악",
     "In-game screenshots":
@@ -3125,6 +3137,8 @@ KO = {
         "닫기",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, 본체 재시작 또는 전원 끄기.",
     "Sending a report":
         "보고서 전송",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -4068,8 +4082,8 @@ KO = {
         "{1}개 변경",
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
         "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율.",
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
-        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, Wii 메뉴 버튼의 이동 위치, 게임 중 스크린샷.",
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
+        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, 게임을 종료할 때의 이동 위치, 게임 중 스크린샷.",
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
         "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동.",
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
@@ -4733,14 +4747,16 @@ FR = {
         "Discret",
     "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.":
         "Volume des clics du menu. \"Discret\" adoucit le bruit lors du survol des éléments.",
-    "Wii Menu button":
-        "Bouton Menu Wii",
+    "Quitting a game":
+        "Quitter le jeu",
     "Back to RiftWii":
         "Retour à RiftWii",
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.":
-        "Le bouton \"Menu Wii\" dans le menu HOME d'un jeu vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
-        "Le bouton \"Menu Wii\" du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME ramène au Menu Wii.",
     "Menu music":
         "Musique du menu",
     "In-game screenshots":
@@ -4973,6 +4989,8 @@ FR = {
         "Fermer",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "Choisissez où aller : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "Choisissez où aller : Chaîne Homebrew, Menu Wii, redémarrage de la console ou extinction.",
     "Sending a report":
         "Envoi du rapport",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -5916,8 +5934,8 @@ FR = {
         "{1} modifiés",
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
         "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format.",
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
-        "La langue annoncée aux jeux, le cIOS qui les fait tourner, où mène le bouton Menu Wii et les captures en jeu.",
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
+        "La langue annoncée aux jeux, le cIOS qu'ils utilisent, où vous allez en quittant le jeu, et les captures en jeu.",
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
         "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes.",
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
@@ -6370,6 +6388,22 @@ NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
 
 
+# Korean's separate font may be missing; the fallback catalog is English.
+T.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": (
+        "El menú está en inglés: copia apps/riftwii/korean.ttf del zip de RiftWii a la tarjeta SD y elige la fuente de RiftWii, o usa la fuente del Menú de Wii en una Wii coreana.",
+        "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。",
+        "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano.",
+        "Il menu è in inglese: copia apps/riftwii/korean.ttf dallo zip di RiftWii sulla scheda SD e scegli il carattere di RiftWii, oppure usa il carattere del Menu Wii su una Wii coreana."),
+})
+KO.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "메뉴가 영어로 표시됩니다. RiftWii zip의 apps/riftwii/korean.ttf를 SD 카드에 복사하고 RiftWii 메뉴 글꼴을 선택하거나, 한국 Wii에서 Wii 메뉴 글꼴을 사용하세요.",
+})
+FR.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne.",
+})
+
+
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -6541,11 +6575,11 @@ T.update({
         "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii.",
         "All'uscita, l'app torna all'Homebrew Channel, che ha avviato RiftWii.",
     ),
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": (
-        "Al salir, la app va al Menú de Wii, según el botón Menú de Wii.",
-        "アプリを終了すると、Wiiメニューボタンの設定どおりWiiメニューに戻ります。",
-        "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii.",
-        "All'uscita, l'app va al Menu Wii, come impostato nel pulsante Menu Wii.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": (
+        "Al salir, la app va al Menú de Wii, porque Al salir del juego está en Menú de Wii.",
+        "アプリを終了すると、「ゲームをやめるとき」がWiiメニューのためWiiメニューに戻ります。",
+        "Ao sair, o app vai para o Menu Wii, porque Ao sair do jogo está em Menu Wii.",
+        "All'uscita, l'app va al Menu Wii, perché Uscita dal gioco è su Menu Wii.",
     ),
     "1: all apps": (
         "1: todas las apps",
@@ -6559,7 +6593,7 @@ MORE["ko"].update({
     "Apps keep RiftWii's IOS and hardware access.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다.",
     "When the app exits, it comes back to RiftWii.": "앱을 종료하면 RiftWii로 돌아옵니다.",
     "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다.",
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": "앱을 종료하면 '게임을 종료하면'이 Wii 메뉴로 설정되어 있어 Wii 메뉴로 갑니다.",
     "1: all apps": "1: 모든 앱",
 })
 MORE["fr"].update({
@@ -6567,7 +6601,7 @@ MORE["fr"].update({
     "Apps keep RiftWii's IOS and hardware access.": "Les applis gardent l'IOS et l'accès matériel de RiftWii.",
     "When the app exits, it comes back to RiftWii.": "En quittant, l'appli revient à RiftWii.",
     "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii.",
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": "En quittant, l'appli va au Menu Wii, car Quitter le jeu est réglé sur Menu Wii.",
     "1: all apps": "1 : toutes les applis",
 })
 
@@ -6811,10 +6845,100 @@ FR.update({
 })
 
 
+T.update({
+    # Settings > Online > My RiiTag
+    "My RiiTag": ("Mi RiiTag", "マイRiiTag", "Minha RiiTag", "La mia RiiTag"),
+    "Refresh": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
+    "Downloading your tag...": ("Descargando tu tag...", "タグをダウンロード中...", "Baixando sua tag...", "Download della tua tag..."),
+    "No tag to show": ("No hay tag que mostrar", "表示するタグがありません", "Nenhuma tag para mostrar", "Nessuna tag da mostrare"),
+    "There is not enough free memory to show your tag.": (
+        "No hay suficiente memoria libre para mostrar tu tag.",
+        "タグを表示するための空きメモリが足りません。",
+        "Não há memória livre suficiente para mostrar sua tag.",
+        "Non c'è abbastanza memoria libera per mostrare la tua tag."),
+    "Your tag could not be downloaded: {1}. Press A to try again.": (
+        "No se pudo descargar tu tag: {1}. Pulsa A para intentarlo de nuevo.",
+        "タグをダウンロードできませんでした: {1}。Aでもう一度試します。",
+        "Não foi possível baixar sua tag: {1}. Aperte A para tentar de novo.",
+        "Impossibile scaricare la tua tag: {1}. Premi A per riprovare."),
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.": (
+        "Tu tag de riitag.t0g3pii.de, del ID de Discord riitag_id en sd:/riftwii/settings.txt. Muestra el último juego que jugaste si riitag_key también está puesto.",
+        "riitag.t0g3pii.deのタグです (sd:/riftwii/settings.txtのriitag_idのDiscord ID)。riitag_keyも設定すると、最後に遊んだゲームが表示されます。",
+        "Sua tag de riitag.t0g3pii.de, do ID do Discord riitag_id em sd:/riftwii/settings.txt. Ela mostra o último jogo que você jogou se riitag_key também estiver definido.",
+        "La tua tag da riitag.t0g3pii.de, per l'ID Discord riitag_id in sd:/riftwii/settings.txt. Mostra l'ultimo gioco a cui hai giocato se è impostato anche riitag_key."),
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).": (
+        "Muestra tu RiiTag. Primero pon riitag_id = <tu ID de Discord> en sd:/riftwii/settings.txt (Discord: Ajustes > Avanzado > Modo desarrollador, luego Copiar ID de usuario).",
+        "RiiTagを表示します。先にsd:/riftwii/settings.txtにriitag_id = <DiscordのID> を書いてください (Discord: 設定 > 詳細設定 > 開発者モード、そしてユーザーIDをコピー)。",
+        "Mostra sua RiiTag. Primeiro coloque riitag_id = <seu ID do Discord> em sd:/riftwii/settings.txt (Discord: Configurações > Avançado > Modo de desenvolvedor, depois Copiar ID do usuário).",
+        "Mostra la tua RiiTag. Prima metti riitag_id = <il tuo ID Discord> in sd:/riftwii/settings.txt (Discord: Impostazioni > Avanzate > Modalità sviluppatore, poi Copia ID utente)."),
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": (
+        "Muestra tu RiiTag, descargada de riitag.t0g3pii.de.",
+        "riitag.t0g3pii.deからダウンロードしたRiiTagを表示します。",
+        "Mostra sua RiiTag, baixada de riitag.t0g3pii.de.",
+        "Mostra la tua RiiTag, scaricata da riitag.t0g3pii.de."),
+})
+KO.update({
+    "My RiiTag": "내 RiiTag",
+    "Refresh": "새로 고침",
+    "Downloading your tag...": "태그를 다운로드하는 중...",
+    "No tag to show": "표시할 태그가 없습니다",
+    "There is not enough free memory to show your tag.": "태그를 표시할 여유 메모리가 부족합니다.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "태그를 다운로드하지 못했습니다: {1}. A를 눌러 다시 시도하세요.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "sd:/riftwii/settings.txt의 riitag_id(Discord ID)에 해당하는 riitag.t0g3pii.de의 태그입니다. riitag_key도 설정하면 마지막으로 플레이한 게임이 표시됩니다.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id = <Discord ID>를 넣으세요 (Discord: 설정 > 고급 > 개발자 모드, 그다음 사용자 ID 복사).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다.",
+})
+FR.update({
+    "My RiiTag": "Ma RiiTag",
+    "Refresh": "Actualiser",
+    "Downloading your tag...": "Téléchargement de votre tag...",
+    "No tag to show": "Aucun tag à afficher",
+    "There is not enough free memory to show your tag.": "Il n'y a pas assez de mémoire libre pour afficher votre tag.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "Impossible de télécharger votre tag : {1}. Appuyez sur A pour réessayer.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "Votre tag de riitag.t0g3pii.de, pour l'ID Discord riitag_id de sd:/riftwii/settings.txt. Il affiche le dernier jeu joué si riitag_key est aussi défini.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "Affiche votre RiiTag. Mettez d'abord riitag_id = <votre ID Discord> dans sd:/riftwii/settings.txt (Discord : Paramètres > Avancés > Mode développeur, puis Copier l'identifiant).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de.",
+})
+
+T.update({
+    # The game page: its box up close
+    "The game's box. Press A to see it up close, then Down for its back.": (
+        "La caja del juego. Pulsa A para verla de cerca y luego Abajo para ver su parte trasera.",
+        "ゲームのパッケージです。Aで大きく表示し、下で裏面を見られます。",
+        "A caixa do jogo. Aperte A para vê-la de perto e depois Baixo para ver o verso.",
+        "La confezione del gioco. Premi A per vederla da vicino, poi Giù per il retro."),
+    "There is no box art for this game yet.": (
+        "Aún no hay portada para este juego.",
+        "このゲームのパッケージ画像はまだありません。",
+        "Ainda não há capa para este jogo.",
+        "Non c'è ancora una copertina per questo gioco."),
+    "Back of the box": ("Parte trasera", "裏面", "Verso da caixa", "Retro della confezione"),
+    "Front of the box": ("Parte delantera", "表面", "Frente da caixa", "Fronte della confezione"),
+})
+KO.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "게임 패키지입니다. A로 크게 보고, 아래로 뒷면을 볼 수 있습니다.",
+    "There is no box art for this game yet.": "이 게임의 패키지 이미지가 아직 없습니다.",
+    "Back of the box": "뒷면",
+    "Front of the box": "앞면",
+})
+FR.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "La boîte du jeu. Appuyez sur A pour la voir de près, puis sur Bas pour son dos.",
+    "There is no box art for this game yet.": "Pas encore de jaquette pour ce jeu.",
+    "Back of the box": "Dos de la boîte",
+    "Front of the box": "Face de la boîte",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
@@ -6901,6 +7025,12 @@ def main():
     if japanese:
         print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
+        raise SystemExit(1)
+
+    korean = menu_font_chars.korean_missing_characters()
+    if korean:
+        print("wii/font/korean.ttf lacks required characters: " +
+              ", ".join("U+%04X" % cp for cp in korean[:40]))
         raise SystemExit(1)
 
 

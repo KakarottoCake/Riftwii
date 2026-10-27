@@ -19,6 +19,8 @@ namespace riftwii::wii::stash {
 // Checks the copy in MEM2 once (its checksum and this build's version).
 // mem::Init calls it first thing in main, before anything uses MEM2.
 void Check();
+// Available before BSS initialization, immediately after take_stash.
+bool FreshStart();
 
 // The end of the copy in MEM2 when it is good, else mem::kStashArea: arena
 // 2 starts above it.

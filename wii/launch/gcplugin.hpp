@@ -22,9 +22,10 @@ namespace riftwii::wii {
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error);
 
 // Where holding HOME in a GameCube game, and HOME or A on its crash
-// screen, go, as Settings > Return to says: on "riftwii", what started
-// RiftWii (the Homebrew Channel, or the RiftWii channel when it is
-// installed), else the Wii Menu; None when none of them has a ticket.
+// screen, go, as Settings > Return to says: on "riftwii", the installed
+// RiftWii channel, falling back to the Homebrew Channel if it started
+// RiftWii and the channel cannot be used, then the Wii Menu; None when
+// none of them has a usable ticket.
 enum class GcWayBack { None, Channel, WiiMenu, HomebrewChannel };
 GcWayBack FindGcWayBack();
 
