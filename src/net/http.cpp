@@ -22,6 +22,7 @@ constexpr int kX509BadServerName = 56;  // BR_ERR_X509_BAD_SERVER_NAME
 constexpr int kX509NotCa = 58;          // BR_ERR_X509_NOT_CA
 constexpr int kX509WeakPublicKey = 60;  // BR_ERR_X509_WEAK_PUBLIC_KEY
 constexpr int kX509NotTrusted = 62;     // BR_ERR_X509_NOT_TRUSTED
+constexpr int kX509RangeEnd = 63;       // "X.509 error codes are in the 32..63 range" (bearssl_x509.h)
 
 std::string lower(std::string s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -172,7 +173,7 @@ std::string http_url_for_messages(const std::string& url) {
 }
 
 std::string tls_failure_reason(int bearssl_code, std::time_t wii_now) {
-    if (bearssl_code < kX509InvalidValue || bearssl_code > kX509NotTrusted) return "";
+    if (bearssl_code < kX509InvalidValue || bearssl_code > kX509RangeEnd) return "";
     if (bearssl_code == kX509TimeUnknown || bearssl_code == kX509Expired) {
         char date[16];
         // The date shown is the Wii's clock as set in Wii Settings.

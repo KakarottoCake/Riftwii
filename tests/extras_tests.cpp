@@ -287,7 +287,8 @@ void TestTlsFailureReason() {
     EXPECT_EQ(tls_failure_reason(0, 0), "");
     EXPECT_EQ(tls_failure_reason(32, 0), "");
     EXPECT_EQ(tls_failure_reason(33, 0), "the certificate was not accepted");
-    EXPECT_EQ(tls_failure_reason(63, 0), "");
+    EXPECT_EQ(tls_failure_reason(63, 0), "the certificate was not accepted");
+    EXPECT_EQ(tls_failure_reason(64, 0), "");
     EXPECT_EQ(tls_failure_reason(100, 0), "");
     EXPECT_EQ(tls_failure_reason(256 + 40, 0), "");
     EXPECT_EQ(tls_failure_reason(512 + 40, 0), "");
