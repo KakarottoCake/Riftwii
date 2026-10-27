@@ -3287,3 +3287,15 @@ msgstr "Mostra sua RiiTag. Primeiro coloque riitag_id = <seu ID do Discord> em s
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "Mostra sua RiiTag, baixada de riitag.t0g3pii.de."
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "A caixa do jogo. Aperte A para vê-la de perto e depois Baixo para ver o verso."
+
+msgid "There is no box art for this game yet."
+msgstr "Ainda não há capa para este jogo."
+
+msgid "Back of the box"
+msgstr "Verso da caixa"
+
+msgid "Front of the box"
+msgstr "Frente da caixa"
