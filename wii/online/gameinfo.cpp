@@ -134,11 +134,23 @@ bool SaveHomebrewTitles(const std::vector<HomebrewTitle>& titles) {
         std::remove(temp.c_str());
         return false;
     }
-    std::remove(kHomebrewTitlesPath);
-    if (std::rename(temp.c_str(), kHomebrewTitlesPath) != 0) {
+    // FAT can't rename over a file: the old list is moved aside first and
+    // put back if the new one can't take its place, so a failed save never
+    // leaves the view with no list at all.
+    const std::string backup = std::string(kHomebrewTitlesPath) + ".backup";
+    struct stat st;
+    const bool had_old = stat(kHomebrewTitlesPath, &st) == 0;
+    std::remove(backup.c_str());
+    if (had_old && std::rename(kHomebrewTitlesPath, backup.c_str()) != 0) {
         std::remove(temp.c_str());
         return false;
     }
+    if (std::rename(temp.c_str(), kHomebrewTitlesPath) != 0) {
+        if (had_old) std::rename(backup.c_str(), kHomebrewTitlesPath);
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (had_old) std::remove(backup.c_str());
     g_homebrew_read_now = true;
     ++g_homebrew_written;
     logf("Homebrew: %u of GameTDB's apps kept in %s, for their covers\n", static_cast<unsigned>(titles.size()),
@@ -295,7 +307,11 @@ bool HomebrewTitlesNeedReading() {
     std::time_t source_time = 0;
     if (!GameInfoSource(source, source_time)) return false;
     struct stat st;
-    return !Stat(kHomebrewTitlesPath, st) || source_time > st.st_mtime;
+    if (!Stat(kHomebrewTitlesPath, st)) return true;
+    // A list too big to load (an older RiftWii's, or a damaged one) is
+    // made again, however new it is.
+    if (static_cast<std::uint64_t>(st.st_size) > kMaxHomebrewTitlesBytes) return true;
+    return source_time > st.st_mtime;
 }
 
 void ForgetHomebrewTitlesRead() {

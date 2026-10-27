@@ -124,6 +124,13 @@ void test_wiitdb_blocks() {
     expect(scanner.games().size() == 1 && scanner.games().count("RMCE01"), "the wanted game is found");
     expect(scanner.homebrew().size() == 2 && scanner.homebrew()[0].id == "9XGX" && scanner.homebrew()[1].id == "D01A",
            "both homebrew entries are kept, fed in small pieces");
+    // Spaces inside the type's tags are still a homebrew entry.
+    riftwii::WiitdbScanner spaced({}, "EN");
+    const std::string spaced_xml =
+        "<datafile>\n<game name=\"WiiMC\">\n\t<id>DMCA</id>\n\t<type >Homebrew</type >\n"
+        "\t<locale lang=\"EN\">\n\t\t<title>WiiMC</title>\n\t</locale>\n</game>\n</datafile>\n";
+    spaced.feed(spaced_xml.data(), spaced_xml.size());
+    expect(spaced.homebrew().size() == 1 && spaced.homebrew()[0].id == "DMCA", "a type tag with spaces is kept");
 }
 
 void test_index_file() {

@@ -124,6 +124,12 @@ void TestStoredTruncationPreservesCache() {
     CHECK(fs::exists(kHomebrewPath));
     std::vector<riftwii::HomebrewTitle> titles;
     CHECK(!LoadHomebrewTitles(titles) && titles.empty());
+    // Kept, it is not read again; a list too big to load is, however new.
+    ForgetHomebrewTitlesRead();
+    CHECK(!HomebrewTitlesNeedReading());
+    const std::string oversized(riftwii::kMaxHomebrewTitlesBytes + 1, 'x');
+    Write(kHomebrewPath, oversized.data(), oversized.size());
+    CHECK(HomebrewTitlesNeedReading());
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);

@@ -154,8 +154,11 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
 
 void WiitdbScanner::take_block(const std::string& block) {
     // Homebrew apps are kept whether or not they are wanted: they are
-    // matched to the apps on the card by name later, not by ID.
-    if (block.find("<type>Homebrew</type>") != std::string::npos && homebrew_.size() < kMaxHomebrewTitles) {
+    // matched to the apps on the card by name later, not by ID. Only a
+    // block with "Homebrew" as some element's whole text is parsed, so the
+    // ten thousand games are not; spaces inside the tags ("<type >") are
+    // still let through, as the parser accepts them.
+    if (block.find(">Homebrew<") != std::string::npos && homebrew_.size() < kMaxHomebrewTitles) {
         HomebrewTitle title;
         if (parse_wiitdb_homebrew(block, title)) homebrew_.push_back(std::move(title));
     }
