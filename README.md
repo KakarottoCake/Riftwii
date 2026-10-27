@@ -50,7 +50,7 @@
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
 - **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
-- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote.
+- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote; in the menu, a USB keyboard, mouse or pen tablet, and the uDraw GameTablet.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
@@ -116,7 +116,8 @@ contains theirs names them in its file header, and
   controller adapter.
 - **Nintendont** by FIX94 and contributors: the USB HID driver and the
   GameCube sound program patches, used with its developers' permission.
-  **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
+  **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
+  USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
 - **Priiloader** by DacoTaco: how to tell it is installed, from its
   installer (read only; no code copied).

@@ -85,6 +85,7 @@
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
+#include "usbinput.hpp"
 #include "ratingbadge.hpp"
 #include "skin.hpp"
 #include "ciso_face_png.h"
@@ -4190,8 +4191,10 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	const std::string& error = part.error;
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
-	// with only an adapter pad, OK could not be pressed).
+	// with only an adapter pad, OK could not be pressed). The USB keyboard,
+	// mouse and pen tablet too, for the same reason.
 	riftwii::wii::GcAdapterMenuAllowStart();
+	riftwii::wii::UsbInputMenuAllowStart();
 	// A Wii U's own drive is not a broken drive: no "Drive problem", one
 	// note the first time, and a calm line on Home after that.
 	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
@@ -5141,6 +5144,7 @@ static int MenuSource(FrontendState& state)
 					if (SdWatchRemountForMenu()) {
 						riftwii::wii::logf("SD card: back in; mounted again and reread\n");
 						riftwii::wii::ReloadSettings();
+						riftwii::wii::UsbInputSetEnabled(riftwii::wii::Settings().usb_input != "off");
 						// The card may be another one: what was read from the old
 						// card is read again, so its history, tiles and Home order
 						// are never written onto the new one.
@@ -8893,6 +8897,8 @@ static bool ControlSeen(const std::string& type, const ConnectedPads& pads, bool
 	else if (type == "classiccontroller") connected = pads.classic;
 	else if (type == "gamecube") connected = pads.gamecube;
 	else if (type == "balanceboard") connected = pads.board;
+	else if (type == "keyboard") connected = riftwii::wii::UsbInputKeyboardConnected();
+	else if (type == "udraw") connected = riftwii::wii::UsbInputUDrawConnected();
 	else return false;
 	return true;
 }
@@ -12136,7 +12142,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12207,6 +12213,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		gcTest.value = tr("Test");
 		rows.push_back(gcTest);
 		actions.push_back(kGcTest);
+		option(tr("USB keyboard, mouse and tablet"), settings.usb_input == "off" ? tr("Off") : tr("On"),
+			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
@@ -12409,7 +12417,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Picture;
 				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
 					return SettingsSection::Games;
-				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
+				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
 				case kHomeTiles: case kChannelCorners: case kChannelBackground: case kPagePeek: case kGridSpacing: case kHomeSource: case kHomeSort: case kHomeStart:
 				case kPlayHistory: case kDiscTile: case kClockFormat:
@@ -12545,6 +12553,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kUsbInput: return tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -13041,6 +13050,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kWiiRumble:
 					settings.wiimote_rumble = settings.wiimote_rumble == "off" ? "on" : "off";
 					saveAndNote(tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."));
+					rebuild();
+					break;
+				case kUsbInput:
+					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
+					// After the save: one that fails puts the setting back, and
+					// the drivers follow what the row shows.
+					saveAndNote(tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."));
+					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
 				case kGcAdapter: {

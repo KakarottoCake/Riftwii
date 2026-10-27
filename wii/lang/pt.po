@@ -2214,6 +2214,12 @@ msgstr "Em qual porta USB o adaptador está ligado?"
 msgid "Which port?"
 msgstr "Qual porta?"
 
+msgid "USB keyboard, mouse and tablet"
+msgstr "Teclado, mouse e mesa digitalizadora USB"
+
+msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
+msgstr "Desligado: o RiftWii não usa teclados, mouses nem mesas digitalizadoras USB, nem a uDraw. Desligue se o menu falhar com um conectado, ou sem nenhum."
+
 msgid "Wii Remote rumble"
 msgstr "Vibração do Wii Remote"
 
