@@ -52,7 +52,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rthid.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c runtime/rtvsdra.c runtime/rtpro.c runtime/rtleave.c runtime/rthome.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c runtime/vsd/vsd_hook.c runtime/gc/gc_rvz.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident runtime/vsd PRIVATE vendor-zstd runtime/gc)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)

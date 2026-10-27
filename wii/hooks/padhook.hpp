@@ -39,6 +39,13 @@
 // suspends itself to wait leave as a sleeping one would (N64 Virtual
 // Console's pad-reading thread); without it only sleeps leave.
 //
+// The HOME Menu (#224 part 1): with the KPAD read, WPADProbe and HBMCalc
+// found and hooked (riftwii/hbmsearch.hpp), the same combo opens the game's
+// own HOME Menu instead, on a Classic Controller the blob stands in on a
+// free channel until the menu closes (runtime/rthome.h). Missing any of the
+// three, or in a game that never reads the stand-in's channel, the combo
+// is the way back as before.
+//
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
 // memory patch on the memory it would take, or (after the patches) a
@@ -50,8 +57,9 @@ namespace riftwii::wii {
 void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
-// OSSleepThread and OSSuspendThread (a code build's veneers, one each).
-constexpr std::uint32_t kPadHookSites = 5;
+// OSSleepThread, OSSuspendThread, the KPAD read, WPADProbe and HBMCalc (a
+// code build's veneers, one each).
+constexpr std::uint32_t kPadHookSites = 8;
 
 struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
@@ -91,6 +99,12 @@ struct PadHook {
     // after the driver's state in MEM2; nullptr: none stored, none placed.
     const rtpadcal_table* calibration = nullptr;
     std::uint32_t calibration_base = 0;     // where the table went, 0: none
+    // The HOME Menu; any of the three 0: off.
+    std::uint32_t kpad_read = 0;          // the KPAD read (KPADReadEx in newer SDKs)
+    std::uint32_t kpad_status_bytes = 0;  // its status's size
+    bool kpad_takes_error = false;        // its fourth argument is the error's address
+    std::uint32_t wpad_probe = 0;         // WPADProbe
+    std::uint32_t hbm_calc = 0;           // HBMCalc
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
