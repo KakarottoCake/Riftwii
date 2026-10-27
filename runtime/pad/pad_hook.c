@@ -304,6 +304,12 @@ static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = 
 #define PAD_KPAD_HOLD 0x00u
 #define PAD_KPAD_TRIG 0x04u
 #define PAD_KPAD_RELEASE 0x08u
+#define PAD_KPAD_ACC_Y 0x10u       /* acc: x, y, z from 0x0C */
+#define PAD_KPAD_ACC_VALUE 0x18u
+#define PAD_KPAD_HORIZON_X 0x34u
+#define PAD_KPAD_VERTICAL_Y 0x54u
+#define PAD_FLOAT_ONE 0x3F800000u
+#define PAD_FLOAT_MINUS_ONE 0xBF800000u
 #define PAD_KPAD_DEV_TYPE 0x5Cu
 #define PAD_KPAD_WPAD_ERR 0x5Du
 #define PAD_KPAD_DPD_VALID 0x5Eu
@@ -328,6 +334,13 @@ static void pad_home_status(struct rt_pad_context* c, uint8_t* status, uint32_t 
     pad_put32(status + PAD_KPAD_HOLD, 0);
     pad_put32(status + PAD_KPAD_TRIG, 0);
     pad_put32(status + PAD_KPAD_RELEASE, 0);
+    /* The Wii Remote lying still, as KPAD reports a real one with a Classic
+     * Controller (Mario Kart Wii, Dolphin): gravity along -Y, acceleration
+     * 1.0, the horizon and the vertical level. */
+    pad_put32(status + PAD_KPAD_ACC_Y, PAD_FLOAT_MINUS_ONE);
+    pad_put32(status + PAD_KPAD_ACC_VALUE, PAD_FLOAT_ONE);
+    pad_put32(status + PAD_KPAD_HORIZON_X, PAD_FLOAT_ONE);
+    pad_put32(status + PAD_KPAD_VERTICAL_Y, PAD_FLOAT_ONE);
     status[PAD_KPAD_DEV_TYPE] = PAD_DEV_CLASSIC;
     status[PAD_KPAD_WPAD_ERR] = 0;
     status[PAD_KPAD_DPD_VALID] = 0;

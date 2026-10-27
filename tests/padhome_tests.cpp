@@ -118,8 +118,8 @@ void TestChannelChoice() {
 
 void TestMenuOpensAndCloses() {
     rthome h = Fresh();
-    HoldCombo(h, 0, 2016);              // the hold began at 0 (noted as 1): 2 s at 2016
-    const std::uint32_t pressed = 2017;  // the press began then (noted with its low bit)
+    HoldCombo(h, 0, 2016);              // the hold began at 0
+    const std::uint32_t pressed = 2000;  // 2 s on: the press began at that read
     EXPECT_EQ(rthome_stand_in(&h, pressed + kPress - 1), 0u);
     EXPECT_EQ(Hold(h), RTHOME_CL_HOME);
     EXPECT_EQ(rthome_stand_in(&h, pressed + kPress), 0u);  // the press ends
@@ -146,7 +146,7 @@ void TestMenuOpenedDuringPress() {
     HoldCombo(h, 0, 2016);
     for (std::uint32_t t = 2100; t <= 2600; t += 16) rthome_menu_frame(&h, t);  // the game opened it at once
     EXPECT_EQ(h.phase, RTHOME_PRESSING);
-    EXPECT_EQ(rthome_stand_in(&h, 2017 + kPress), 0u);
+    EXPECT_EQ(rthome_stand_in(&h, 2016 + kPress), 0u);
     EXPECT_EQ(h.phase, RTHOME_OPEN);
 }
 
@@ -155,17 +155,33 @@ void TestGameRefuses() {
     // and the menu never opens.
     rthome h = Fresh();
     HoldCombo(h, 0, 2016);
-    const std::uint32_t waiting = 2017 + kPress;
+    const std::uint32_t waiting = 2016 + kPress;
     EXPECT_EQ(rthome_stand_in(&h, waiting), 0u);
-    EXPECT_EQ(rthome_stand_in(&h, waiting + kWait - 1), 0u);  // the wait counts from the press's end (noted as waiting | 1)
-    EXPECT_EQ(rthome_stand_in(&h, waiting + kWait + 1), RTHOME_NO_CHANNEL);
+    EXPECT_EQ(rthome_stand_in(&h, waiting + kWait - 1), 0u);  // the wait counts from the press's end
+    EXPECT_EQ(rthome_stand_in(&h, waiting + kWait), RTHOME_NO_CHANNEL);
     EXPECT_EQ(h.phase, RTHOME_DONE);
+}
+
+// Times at even ticks: each is noted with its low bit set, which must not
+// make the next look like the past (a wrapped difference ended the stand-in
+// the moment its press did, in Dolphin).
+void TestEvenTicks() {
+    rthome h = Fresh();
+    for (std::uint32_t t = 0; t <= 2000; t += 16) rthome_pads(&h, Pads().port(1, kGcCombo).s, t);
+    EXPECT_EQ(h.phase, RTHOME_PRESSING);
+    EXPECT_EQ(rthome_stand_in(&h, 2000 + kPress), 0u);  // even: the press ends, the wait begins
+    EXPECT_EQ(h.phase, RTHOME_WAITING);
+    EXPECT_EQ(rthome_stand_in(&h, 2000 + kPress), 0u);  // the same tick again: still waiting
+    EXPECT_EQ(h.phase, RTHOME_WAITING);
+    rthome_menu_frame(&h, 2000 + kPress + 100);
+    EXPECT_EQ(rthome_stand_in(&h, 2000 + kPress + 100), 0u);  // a frame at this very tick: open
+    EXPECT_EQ(h.phase, RTHOME_OPEN);
 }
 
 void TestButtonsInTheMenu() {
     rthome h = Fresh();
     HoldCombo(h, 0, 2016);
-    (void)rthome_stand_in(&h, 2017 + kPress);
+    (void)rthome_stand_in(&h, 2016 + kPress);
     rthome_menu_frame(&h, 2700);
     std::uint32_t hold, trig, release;
     std::int32_t axes[6];
@@ -182,8 +198,15 @@ void TestButtonsInTheMenu() {
     EXPECT_EQ(trig, RTHOME_CL_A | RTHOME_CL_UP);
     EXPECT_EQ(axes[0], (50 - 10) * RTHOME_AXIS_FULL / 62);
     EXPECT_EQ(axes[1], -RTHOME_AXIS_FULL);  // past full tilt
+    // A second read before the next PADRead: the same words, A still newly
+    // pressed (Naruto reads the channel twice a frame; the HOME Menu acts on
+    // newly pressed buttons).
+    rthome_classic(&h, 2750, &hold, &trig, &release, axes);
+    EXPECT_EQ(trig, RTHOME_CL_A | RTHOME_CL_UP);
+    // The next sample, the same buttons: held, not pressed again.
+    rthome_pads(&h, Pads().port(1, kGcA | kGcUp, 50, -80).s, 2764);
     rthome_classic(&h, 2764, &hold, &trig, &release, axes);
-    EXPECT_EQ(trig, 0u);  // held, not pressed again
+    EXPECT_EQ(trig, 0u);
     // Start now presses HOME: the menu closes on it.
     rthome_pads(&h, Pads().port(1, kGcStart).s, 2780);
     rthome_classic(&h, 2780, &hold, &trig, &release, axes);
@@ -223,6 +246,7 @@ int main() {
     TestMenuOpensAndCloses();
     TestMenuOpenedDuringPress();
     TestGameRefuses();
+    TestEvenTicks();
     TestButtonsInTheMenu();
     TestFloatBits();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;
