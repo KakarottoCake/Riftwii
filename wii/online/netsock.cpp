@@ -193,6 +193,8 @@ void NetCancelBackground() {
     if (!g_job_done && g_job_cancellable) g_job_cancel = true;
 }
 
+bool NetCancelRequested() { return cancelled(); }
+
 void NetWaitForBackground() {
     // The job's own NetStart and NetStop go straight through.
     if (g_job_thread == LWP_THREAD_NULL || LWP_GetSelf() == g_job_thread) return;

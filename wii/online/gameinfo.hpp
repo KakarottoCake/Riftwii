@@ -47,11 +47,16 @@ bool IsCustomGame(const std::string& id);
 // `wanted` the cache has not looked for yet (all of them once the database
 // is newer than the cache), so Home knows which are custom without the
 // About page being opened. With no database on the card it is downloaded
-// first when `download` (Download names and cheats on). False when there
-// is nothing to read, or the thread is busy.
-bool StartGameInfoRead(const std::set<std::string>& wanted, bool download);
-// True, once, when a started read has ended, the cache then updated.
-// `changed`: the games found custom are not the ones before.
+// first when `download` (Download names and cheats on). Busy: the network's
+// thread is, or an earlier read was not taken yet; ask again later. The
+// read is cancellable (NetCancelBackground): the SD card taken out stops it.
+enum class GameInfoReadStart { Started, NothingToRead, Busy };
+GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download);
+// A started read whose answer was not taken yet.
+bool GameInfoReadPending();
+// True, once, when a started read has ended, the cache then updated; also
+// while another job holds the network's thread by then. `changed`: the
+// games found custom are not the ones before.
 bool TakeGameInfoRead(bool& changed);
 
 // Downloads the database in the menu's language (`received`: bytes so

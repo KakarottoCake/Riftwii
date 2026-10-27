@@ -4841,15 +4841,17 @@ static int MenuSource(FrontendState& state)
 		// thread (taken further down once it ends): the games it lists as custom join the Mods
 		// view, and their banners are asked for below. Before the banners
 		// and covers, which wait for the thread meanwhile.
-		if (g_gameInfoReadDue && !g_scanning && !riftwii::wii::NetBackgroundBusy() && riftwii::wii::CoverFetchGame().empty() &&
-		    riftwii::wii::GameCubeBannerFetchGame().empty()) {
-			g_gameInfoReadDue = false;
+		// A rescan's request waits for an earlier read's answer to be taken
+		// (it may not cover the rescan's games), and for a free thread.
+		if (g_gameInfoReadDue && !g_scanning && !riftwii::wii::GameInfoReadPending() && !riftwii::wii::NetBackgroundBusy() &&
+		    riftwii::wii::CoverFetchGame().empty() && riftwii::wii::GameCubeBannerFetchGame().empty()) {
 			std::set<std::string> wanted;
 			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
 			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
 			// No database on the card: downloaded first, as the game names are.
 			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
-			riftwii::wii::StartGameInfoRead(wanted, download);
+			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
+				g_gameInfoReadDue = false;
 		}
 		if (!g_scanning && grid.Channels() && !g_gcBannersOff && riftwii::wii::Settings().online && !riftwii::wii::NetBackgroundBusy() &&
 		    !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&

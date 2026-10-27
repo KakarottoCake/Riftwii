@@ -34,6 +34,9 @@ void NetWaitForBackground();
 // Stops a cancellable job's network calls: each fails within a tenth of a
 // second, and the job ends on its own. Nothing for any other job.
 void NetCancelBackground();
+// True on the background job's own thread once it was told to stop: for a
+// cancellable job's work between network calls (reading a file).
+bool NetCancelRequested();
 
 struct NetServer {
     std::uint32_t ip = 0;  // host order

@@ -20,7 +20,10 @@ namespace riftwii::wii {
 namespace {
 
 // FALLBACK: English where a text has no translation.
-constexpr const char* kWiitdbUrl = "http://www.gametdb.com/wiitdb.zip?FALLBACK=TRUE&LANG=";
+// Over https: a forged database would mark games custom (Home's Mods view).
+// GameTDB's chain ends at ISRG Root X1, in tlsroots.c; its http address only
+// redirects here.
+constexpr const char* kWiitdbUrl = "https://www.gametdb.com/wiitdb.zip?FALLBACK=TRUE&LANG=";
 // In one language the database is about 2 MB packed and 10 MB of XML, all
 // of them 10 MB and 41 MB (2026); room to grow, and a stop for anything
 // that unpacks without end.
@@ -267,7 +270,10 @@ bool DownloadDatabase(const std::string& lang, std::string& error,
 
 // The read on the network's background thread (StartGameInfoRead): set up
 // on the menu's thread, written by the job only while it runs, and taken
-// on the menu's thread once it has ended.
+// on the menu's thread once it has ended. g_read_done says so on its own,
+// so the answer is taken even when another job holds the thread by then
+// (a cover download started the same turn).
+volatile bool g_read_done = false;
 struct BackgroundRead {
     bool started = false;
     std::string lang;
@@ -279,18 +285,27 @@ struct BackgroundRead {
 };
 BackgroundRead g_read;
 
-void RunBackgroundRead() {
+void ReadInBackground() {
     if (g_read.source.empty()) {
+        // A cancelled job's download fails within a tenth of a second.
         if (!DownloadDatabase(g_read.lang, g_read.error, nullptr)) return;
         g_read.source = ZipPath(g_read.lang);
     }
     WiitdbScanner scanner(g_read.ids, g_read.lang);
+    // The SD card taken out, or RiftWii left: the read stops (as "stopped")
+    // instead of holding the card for the seconds the rest would take.
+    const Progress go_on = [](double) { return !NetCancelRequested(); };
     const bool zip = g_read.source.size() > 4 && g_read.source.compare(g_read.source.size() - 4, 4, ".zip") == 0;
-    const bool read = zip ? ScanZip(g_read.source, scanner, g_read.error, nullptr)
-                          : ScanXml(g_read.source, scanner, g_read.error, nullptr);
+    const bool read = zip ? ScanZip(g_read.source, scanner, g_read.error, go_on)
+                          : ScanXml(g_read.source, scanner, g_read.error, go_on);
     if (!read) return;
     g_read.games = scanner.games();
     g_read.ok = true;
+}
+
+void RunBackgroundRead() {
+    ReadInBackground();
+    g_read_done = true;
 }
 
 }  // namespace
@@ -308,20 +323,20 @@ bool IsCustomGame(const std::string& id) {
     return found != g_cache.games.end() && found->second.custom;
 }
 
-bool StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
-    if (g_read.started || NetBackgroundBusy()) return false;
+GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
+    if (g_read.started || NetBackgroundBusy()) return GameInfoReadStart::Busy;
     const std::string lang = MenuLocale();
     LoadCache(lang);
     std::string source;
     std::time_t source_time = 0;
     const bool have_source = GameInfoSource(source, source_time);
-    if (!have_source && !download) return false;
+    if (!have_source && !download) return GameInfoReadStart::NothingToRead;
     const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
     // Every game on the drives already looked for: nothing to read.
     bool missing = !have_source;
     for (const std::string& id : wanted)
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
-    if (!stale && !missing) return false;
+    if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
     read.source = have_source ? source : "";
@@ -333,15 +348,17 @@ bool StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
          have_source ? source.c_str() : "GameTDB's database (downloading it first)",
          static_cast<unsigned>(read.ids.size()));
     g_read = std::move(read);
-    if (NetRunInBackground(RunBackgroundRead, false, false)) return true;
+    g_read_done = false;
+    if (NetRunInBackground(RunBackgroundRead, true, false)) return GameInfoReadStart::Started;
     g_read = BackgroundRead();
-    return false;
+    return GameInfoReadStart::Busy;
 }
+
+bool GameInfoReadPending() { return g_read.started; }
 
 bool TakeGameInfoRead(bool& changed) {
     changed = false;
-    if (!g_read.started || NetBackgroundBusy()) return false;
-    NetWaitForBackground();
+    if (!g_read.started || !g_read_done) return false;
     BackgroundRead read = std::move(g_read);
     g_read = BackgroundRead();
     if (!read.ok) {

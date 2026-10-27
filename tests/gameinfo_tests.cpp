@@ -34,6 +34,8 @@ bool NetRunInBackground(void (*job)(), bool, bool) {
 }
 bool NetBackgroundBusy() { return false; }
 void NetWaitForBackground() {}
+bool g_cancel = false;
+bool NetCancelRequested() { return g_cancel; }
 }  // namespace riftwii::wii
 
 namespace {
@@ -145,8 +147,21 @@ void TestBackgroundReadFindsCustomGames() {
     const auto zip = ziptest::make_zip({{"wiitdb.xml", xml + std::string(300u << 10, ' '), 0}});
     Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
     CHECK(!IsCustomGame("SMNE02"));
-    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false));
+    // Cancelled (the SD card taken out): stopped, nothing cached, and the
+    // games are asked for again by the next read.
+    g_cancel = true;
+    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false) == GameInfoReadStart::Started);
+    CHECK(GameInfoReadPending());
+    // Not taken yet: a rescan's read waits.
+    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false) == GameInfoReadStart::Busy);
     bool changed = false;
+    CHECK(TakeGameInfoRead(changed));
+    CHECK(!changed);
+    CHECK(!GameInfoReadPending());
+    CHECK(!IsCustomGame("SMNE02"));
+    g_cancel = false;
+
+    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false) == GameInfoReadStart::Started);
     CHECK(TakeGameInfoRead(changed));
     CHECK(changed);
     CHECK(IsCustomGame("SMNE02"));
@@ -154,7 +169,7 @@ void TestBackgroundReadFindsCustomGames() {
     CHECK(ReadCache().find("type=custom") != std::string::npos);
     // Taken once; every game looked for, so nothing to read again.
     CHECK(!TakeGameInfoRead(changed));
-    CHECK(!StartGameInfoRead({"SMNE02", "RSBE01"}, false));
+    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false) == GameInfoReadStart::NothingToRead);
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
