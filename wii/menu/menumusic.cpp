@@ -21,6 +21,7 @@
 #include "log.hpp"
 #include "menutheme.hpp"
 #include "oggplayer.h"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/musiclist.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
@@ -38,10 +39,6 @@ constexpr int kFadeStepUs = 20000;
 // Back after a cIOS reload: a fifth of a second, so the track does not
 // cut back in.
 constexpr int kFadeInSteps = 10;
-// A playlist is a few lines a song; more than this is not one.
-constexpr long kMaxPlaylistBytes = 256 * 1024;
-// Songs tried in a row before a list that will not play is given up.
-constexpr std::size_t kMaxSongTries = 8;
 
 const char* const kMusicFiles[] = {"sd:/riftwii/music.ogg", "sd:/apps/riftwii/music.ogg"};
 
@@ -63,6 +60,7 @@ std::string g_default_path;
 std::string g_pick;
 std::vector<std::string> g_songs;
 std::size_t g_song_at = 0;
+std::size_t g_scan_remaining = 0;  // a failed batch continues on the next menu service call
 bool g_pick_failed = false;     // nothing in the pick plays: RiftWii's own music instead
 bool g_waiting_for_usb = false;  // the pick is on the USB drive, which is not read yet
 
@@ -114,8 +112,13 @@ bool ReadIntoBlock(const std::string& path, std::size_t reserve, bool quiet = fa
             g_music = nullptr;
             g_capacity = 0;
         }
-        const std::size_t wanted = std::max(bytes, reserve);
+        std::size_t wanted = std::max(bytes, reserve);
         u8* block = skin::Mem2Alloc(wanted);
+        // Reserving for later songs is optional; this song may still fit.
+        if (!block && wanted > bytes) {
+            wanted = bytes;
+            block = skin::Mem2Alloc(wanted);
+        }
         if (!block) {
             logf("Menu music: no room in MEM2 for %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(wanted));
             if (f) std::fclose(f);
@@ -192,15 +195,23 @@ bool ListFolder(const std::string& folder, std::vector<MusicFolderEntry>& out) {
 
 bool ReadPlaylist(const std::string& path, std::string& text) {
     text.clear();
-    if (OnUsb(path)) return read_usb_text(path, text) && text.size() <= static_cast<std::size_t>(kMaxPlaylistBytes);
+    if (OnUsb(path)) {
+        std::uint64_t size = 0;
+        if (!read_usb_range(path, 0, nullptr, 0, size) || size > kMaxMusicPlaylistBytes) return false;
+        if (!try_resize(text, static_cast<std::size_t>(size))) return false;
+        if (text.empty()) return true;
+        std::uint64_t whole = 0;
+        if (!read_usb_range(path, 0, reinterpret_cast<u8*>(&text[0]), text.size(), whole) || whole != size) {
+            text.clear();
+            return false;
+        }
+        return true;
+    }
     std::FILE* f = std::fopen(path.c_str(), "rb");
     if (!f) return false;
-    char chunk[4096];
-    std::size_t got = 0;
-    while ((got = std::fread(chunk, 1, sizeof chunk, f)) > 0 && text.size() < static_cast<std::size_t>(kMaxPlaylistBytes))
-        text.append(chunk, got);
+    const bool read = music_read_playlist(f, text);
     std::fclose(f);
-    return true;
+    return read;
 }
 
 std::uint32_t ShuffleSeed() { return static_cast<std::uint32_t>(gettime()); }
@@ -279,17 +290,23 @@ void FadeVolumeToZero() {
     }
 }
 
+void BeginPickScan() {
+    if (g_song_at >= g_songs.size()) {
+        // A playback round is over. Keep this order for the entire scan,
+        // so wrapping after failed files cannot skip an untried song.
+        const std::string last = g_songs.empty() ? "" : g_songs.back();
+        if (g_songs.size() > 1) music_shuffle(g_songs, ShuffleSeed(), last);
+        g_song_at = 0;
+    }
+    g_scan_remaining = g_songs.size();
+}
+
 // Reads the pick's song at g_song_at and starts it; on failure the songs
-// after it, so one damaged file does not silence a whole folder. False
-// when none of them plays (the list is then given up).
+// after it, so one damaged file does not silence a whole folder. Each
+// call tries at most eight; g_scan_remaining keeps the rest for later.
 bool PlayPickSong() {
-    for (std::size_t tries = 0; tries < std::min(g_songs.size(), kMaxSongTries); ++tries) {
-        if (g_song_at >= g_songs.size()) {
-            // A round is over: a new order, not starting on the song just heard.
-            const std::string last = g_songs.empty() ? "" : g_songs.back();
-            if (g_songs.size() > 1) music_shuffle(g_songs, ShuffleSeed(), last);
-            g_song_at = 0;
-        }
+    const bool played = music_try_song_batch(g_scan_remaining, []() {
+        if (g_song_at >= g_songs.size()) g_song_at = 0;
         const std::string& song = g_songs[g_song_at];
         const MusicFormat format = music_format(song);
         if (format != MusicFormat::None && ReadIntoBlock(song, g_songs.size() > 1 ? kMaxMusicBytes : 0)) {
@@ -301,9 +318,13 @@ bool PlayPickSong() {
             logf("Menu music: the player refused %s\n", song.c_str());
         }
         ++g_song_at;
+        return false;
+    });
+    if (!played && g_scan_remaining == 0) {
+        g_pick_failed = true;
+        logf("Menu music: none of %s plays; RiftWii's own music instead\n", g_pick.c_str());
     }
-    logf("Menu music: none of %s plays; RiftWii's own music instead\n", g_pick.c_str());
-    return false;
+    return played;
 }
 
 // Starts the player's pick. False when there is none or it cannot play
@@ -312,12 +333,13 @@ bool PlayPickSong() {
 bool StartPick(bool& waiting) {
     waiting = false;
     const std::string& pick = Settings().music_file;
-    if (pick.empty()) return false;
     if (pick != g_pick) {
         g_pick = pick;
         g_songs.clear();
+        g_scan_remaining = 0;
         g_pick_failed = false;
     }
+    if (pick.empty()) return false;
     if (g_pick_failed) return false;
     if (OnUsb(pick) && (!DriveScanDone() || !usb_volume_ready())) {
         // Before Home's first look at the drives (the menu starts its
@@ -335,13 +357,44 @@ bool StartPick(bool& waiting) {
         g_pick_failed = true;
         return false;
     }
+    // A scan already started gets its next batch only from the menu
+    // service, even if fallback music has to be restarted meanwhile.
+    if (g_scan_remaining > 0) return false;
+    BeginPickScan();
     g_using_pick = true;
     if (!PlayPickSong()) {
         g_using_pick = false;
-        g_pick_failed = true;
         return false;
     }
     return true;
+}
+
+void StartFallback() {
+    g_using_wii = Settings().wii_menu_music && MenuThemeMusic().empty() && WiiMenuMusicStart();
+    if (g_using_wii) {
+        WiiMenuMusicVolume(kVolume);
+        g_playing = true;
+        return;
+    }
+    if (!LoadDefault()) return;
+    if (!PlayerStart(0)) {
+        logf("Menu music: the player refused the file\n");
+        return;
+    }
+    SetVolumeOgg(kVolume);
+    g_playing = true;
+}
+
+// Internal batch changes stop the current player while keeping the scan.
+// A public stop cancels the scan too, so it cannot restart after a fade.
+void StopPlayback() {
+    g_kept_for_launch = false;
+    g_resume_at_ms = -1;
+    g_waiting_for_usb = false;
+    if (!g_playing) return;
+    if (g_using_wii) WiiMenuMusicStop();
+    else PlayerStop();
+    g_playing = false;
 }
 
 }  // namespace
@@ -360,19 +413,7 @@ void MenuMusicStart() {
     }
     g_waiting_for_usb = waiting;
     if (waiting) return;  // MenuMusicService starts it once the drive is read
-    g_using_wii = Settings().wii_menu_music && MenuThemeMusic().empty() && WiiMenuMusicStart();
-    if (g_using_wii) {
-        WiiMenuMusicVolume(kVolume);
-        g_playing = true;
-        return;
-    }
-    if (!LoadDefault()) return;
-    if (!PlayerStart(0)) {
-        logf("Menu music: the player refused the file\n");
-        return;
-    }
-    SetVolumeOgg(kVolume);
-    g_playing = true;
+    StartFallback();
 }
 
 void MenuMusicUpdate() {
@@ -386,7 +427,7 @@ void MenuMusicUpdate() {
 void MenuMusicService() {
     // Not under a launch: the launch reads the drives itself, and the
     // music it kept plays on as it is.
-    if (g_kept_for_launch) return;
+    if (g_kept_for_launch || Settings().menu_music == "off") return;
     if (g_waiting_for_usb) {
         if (DriveScanDone() && (usb_volume_ready() || DriveScanFinished())) {
             g_waiting_for_usb = false;
@@ -394,37 +435,51 @@ void MenuMusicService() {
         }
         return;
     }
-    if (!g_playing || !g_using_pick || !PlayerEnded()) return;
+    if (g_scan_remaining == 0 && (!g_playing || !g_using_pick || !PlayerEnded())) return;
     // Home's look at the drives owns the USB drive while it runs (Settings
     // can start one): the next song waits for it.
     if (OnUsb(g_pick) && (!DriveScanDone() || !usb_volume_ready())) return;
-    if (PickLoops()) {
+    if (g_scan_remaining == 0 && PickLoops()) {
         // A lone MP3 at its end (a lone Ogg goes round by itself).
         if (PlayerStart(0)) MusicVolume(kVolume);
         return;
     }
     // The next song. The GUI is parked meanwhile, so the screen holds
     // still for the moment the song takes to read.
-    PlayerStop();
-    ++g_song_at;
+    if (g_scan_remaining == 0) {
+        ++g_song_at;
+        BeginPickScan();
+    }
+    // A pending batch may be running over fallback music. Stop that
+    // player before any song overwrites its MEM2 buffer.
+    StopPlayback();
+    g_using_wii = false;
+    g_using_pick = true;
     if (PlayPickSong()) {
         MusicVolume(kVolume);
+        g_playing = true;
         return;
     }
-    g_playing = false;
     g_using_pick = false;
-    g_pick_failed = true;
-    MenuMusicStart();
+    StartFallback();
+}
+
+void MenuMusicForgetPick() {
+    g_pick_failed = false;
+    g_songs.clear();
+    g_scan_remaining = 0;
+}
+
+bool MenuMusicRetryFailedPick() {
+    // A pick that plays keeps its songs and its place among them.
+    if (!g_pick_failed) return false;
+    MenuMusicForgetPick();
+    return true;
 }
 
 void MenuMusicStop() {
-    g_kept_for_launch = false;
-    g_resume_at_ms = -1;
-    g_waiting_for_usb = false;
-    if (!g_playing) return;
-    if (g_using_wii) WiiMenuMusicStop();
-    else PlayerStop();
-    g_playing = false;
+    StopPlayback();
+    g_scan_remaining = 0;
 }
 
 void MenuMusicPause(bool pause) {
@@ -436,8 +491,7 @@ void MenuMusicPause(bool pause) {
 }
 
 void MenuMusicFadeOut() {
-    if (!g_playing) return;
-    FadeVolumeToZero();
+    if (g_playing) FadeVolumeToZero();
     MenuMusicStop();
 }
 

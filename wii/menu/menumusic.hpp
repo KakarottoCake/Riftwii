@@ -33,6 +33,13 @@ void MenuMusicUpdate();
 void MenuMusicService();
 // Stops it; before audio is shut down and before any launch.
 void MenuMusicStop();
+// Before the music is started again for another SD card: forgets the pick's
+// songs and whether it failed, so they are read again.
+void MenuMusicForgetPick();
+// After the drives are read: forgets a pick that had failed (RiftWii's own
+// music playing instead), so it can be tried again, and says so; a pick
+// that plays is left alone.
+bool MenuMusicRetryFailedPick();
 // Banner audio pauses either the Ogg player or the System Menu sample renderer.
 void MenuMusicPause(bool pause);
 // Fades the music out over half a second, then stops it. The launch does

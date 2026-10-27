@@ -3354,8 +3354,8 @@ msgstr "이 폴더 셔플"
 msgid "Shuffle"
 msgstr "셔플"
 
-msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
-msgstr "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다."
+msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
+msgstr "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u/.m3u8)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다."
 
 msgid "There is no USB drive, or RiftWii has not finished reading it yet."
 msgstr "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니다."

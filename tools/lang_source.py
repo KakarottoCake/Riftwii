@@ -6988,11 +6988,11 @@ T.update({
     "Up a folder": ("Subir una carpeta", "ひとつ上のフォルダ", "Subir uma pasta", "Cartella superiore"),
     "Shuffle this folder": ("Esta carpeta en aleatorio", "このフォルダをシャッフル", "Esta pasta em aleatório", "Questa cartella in casuale"),
     "Shuffle": ("Aleatorio", "シャッフル", "Aleatório", "Casuale"),
-    "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.": (
-        "Elige una canción (.ogg o .mp3) o una lista (.m3u), o abre una carpeta y elige Esta carpeta en aleatorio para oír todas sus canciones en orden aleatorio.",
-        "曲 (.ogg か .mp3) かプレイリスト (.m3u) を選ぶか、フォルダを開いて「このフォルダをシャッフル」を選ぶと、その中の曲をすべてシャッフルで流します。",
-        "Escolha uma música (.ogg ou .mp3) ou uma playlist (.m3u), ou abra uma pasta e escolha Esta pasta em aleatório para ouvir todas as músicas dela em ordem aleatória.",
-        "Scegli un brano (.ogg o .mp3) o una playlist (.m3u), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."),
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.": (
+        "Elige una canción (.ogg o .mp3) o una lista (.m3u/.m3u8), o abre una carpeta y elige Esta carpeta en aleatorio para oír todas sus canciones en orden aleatorio.",
+        "曲 (.ogg か .mp3) かプレイリスト (.m3u/.m3u8) を選ぶか、フォルダを開いて「このフォルダをシャッフル」を選ぶと、その中の曲をすべてシャッフルで流します。",
+        "Escolha uma música (.ogg ou .mp3) ou uma playlist (.m3u/.m3u8), ou abra uma pasta e escolha Esta pasta em aleatório para ouvir todas as músicas dela em ordem aleatória.",
+        "Scegli un brano (.ogg o .mp3) o una playlist (.m3u/.m3u8), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."),
     "There is no USB drive, or RiftWii has not finished reading it yet.": (
         "No hay unidad USB, o RiftWii aún no ha terminado de leerla.",
         "USBドライブがないか、RiftWiiがまだ読み終えていません。",
@@ -7019,8 +7019,8 @@ KO.update({
     "Up a folder": "상위 폴더",
     "Shuffle this folder": "이 폴더 셔플",
     "Shuffle": "셔플",
-    "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
-        "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다.",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u/.m3u8)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다.",
     "There is no USB drive, or RiftWii has not finished reading it yet.":
         "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니다.",
     "There are no .ogg or .mp3 songs in this folder or the folders in it.":
@@ -7041,8 +7041,8 @@ FR.update({
     "Up a folder": "Dossier parent",
     "Shuffle this folder": "Ce dossier en aléatoire",
     "Shuffle": "Aléatoire",
-    "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
-        "Choisissez un morceau (.ogg ou .mp3) ou une playlist (.m3u), ou ouvrez un dossier et choisissez Ce dossier en aléatoire pour écouter tous ses morceaux dans un ordre aléatoire.",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "Choisissez un morceau (.ogg ou .mp3) ou une playlist (.m3u/.m3u8), ou ouvrez un dossier et choisissez Ce dossier en aléatoire pour écouter tous ses morceaux dans un ordre aléatoire.",
     "There is no USB drive, or RiftWii has not finished reading it yet.":
         "Il n'y a pas de disque USB, ou RiftWii n'a pas encore fini de le lire.",
     "There are no .ogg or .mp3 songs in this folder or the folders in it.":

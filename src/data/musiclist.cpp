@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -85,6 +86,37 @@ void collect_songs(const std::string& folder, const MusicFolderLister& list, uns
 }
 
 }  // namespace
+
+bool music_read_playlist(std::FILE* file, std::string& text) {
+    text.clear();
+    char chunk[4096];
+    std::size_t got = 0;
+    while ((got = std::fread(chunk, 1, sizeof chunk, file)) > 0) {
+        // Read through the limit so a file exactly at it still succeeds,
+        // but one extra byte rejects the entire playlist.
+        if (got > kMaxMusicPlaylistBytes - text.size() || !try_append(text, chunk, got)) {
+            text.clear();
+            return false;
+        }
+    }
+    if (std::ferror(file)) {
+        text.clear();
+        return false;
+    }
+    return true;
+}
+
+bool music_try_song_batch(std::size_t& remaining, const std::function<bool()>& play_next) {
+    constexpr std::size_t kMaxSongTries = 8;
+    for (std::size_t tries = 0; tries < kMaxSongTries && remaining > 0; ++tries) {
+        --remaining;
+        if (play_next()) {
+            remaining = 0;
+            return true;
+        }
+    }
+    return false;
+}
 
 MusicFormat music_format(const std::string& name) {
     const std::string low = lower(name);

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <functional>
 #include <string>
 #include <vector>
@@ -23,6 +24,17 @@ constexpr std::size_t kMaxMusicSongs = 1000;
 // How many folders down a folder's songs are looked for: "Music" finds
 // "Music/Artist/Album/song.mp3", and no deeper.
 constexpr unsigned kMaxMusicDepth = 3;
+// Playlists larger than this are rejected whole on either device.
+constexpr std::size_t kMaxMusicPlaylistBytes = 256 * 1024;
+
+// Reads an open SD playlist through EOF without keeping a partial file.
+// The caller closes the file. False on a read error or an oversized file.
+bool music_read_playlist(std::FILE* file, std::string& text);
+
+// Tries at most eight songs per menu service call. `remaining` counts the
+// candidates left in this scan; the callback advances past a failed song.
+// Success ends the scan. False with remaining > 0 means try another batch.
+bool music_try_song_batch(std::size_t& remaining, const std::function<bool()>& play_next);
 
 // The format by the name's extension, any case; None for anything else.
 MusicFormat music_format(const std::string& name);

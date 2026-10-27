@@ -526,8 +526,11 @@ the tiles.
   - a song, `.ogg` or `.mp3` (up to 6 MB each), which loops;
   - a playlist, `.m3u` or `.m3u8`, as a PC's music player saves it (paths
     with `\` and a drive letter like `E:\Music\song.mp3` are read from the
-    top of the drive the playlist is on; other paths from the playlist's
-    own folder); its songs play in a shuffled order;
+    top of the drive the playlist is on; relative paths from the playlist's
+    own folder). Paths starting with `/` are read from the top of the
+    playlist's SD card or USB drive: `/Music/song.mp3` in
+    `sd:/lists/car.m3u` means `sd:/Music/song.mp3`. Its songs play in a
+    shuffled order;
   - **Shuffle this folder**, which plays every `.ogg` and `.mp3` in that
     folder and up to three folders inside it, in a shuffled order, and
     shuffles again when it has played them all.

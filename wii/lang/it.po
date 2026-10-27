@@ -3354,8 +3354,8 @@ msgstr "Questa cartella in casuale"
 msgid "Shuffle"
 msgstr "Casuale"
 
-msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
-msgstr "Scegli un brano (.ogg o .mp3) o una playlist (.m3u), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."
+msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
+msgstr "Scegli un brano (.ogg o .mp3) o una playlist (.m3u/.m3u8), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."
 
 msgid "There is no USB drive, or RiftWii has not finished reading it yet."
 msgstr "Non c'è un'unità USB, oppure RiftWii non ha ancora finito di leggerla."

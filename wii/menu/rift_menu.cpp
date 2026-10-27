@@ -4204,6 +4204,13 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	// before anything else (a launch) takes the drives.
 	riftwii::wii::WaitDriveScan();
 	g_scanning = false;
+	// Both scan consumers come here, after the drive is safe to read. A
+	// pick that had failed (a song on a USB drive not plugged in, say) is
+	// tried again; music that plays is left alone.
+	if (part.ok && riftwii::wii::MenuMusicRetryFailedPick()) {
+		riftwii::wii::MenuMusicStop();
+		riftwii::wii::MenuMusicStart();
+	}
 	if (g_forgetPicturesAfterScan) {
 		riftwii::wii::ForgetProfilePictures();
 		g_forgetPicturesAfterScan = false;
@@ -5258,6 +5265,7 @@ static int MenuSource(FrontendState& state)
 						// the Wii Menu's effects loaded if now on, and the music
 						// started again from the new theme and settings.
 						riftwii::wii::LoadWiiMenuSounds();
+						riftwii::wii::MenuMusicForgetPick();
 						riftwii::wii::MenuMusicStop();
 						riftwii::wii::MenuMusicStart();
 						g_forgetPicturesAfterScan = true;
@@ -10260,7 +10268,7 @@ static bool MenuPickMusic(std::string& choice)
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
-	const std::string help = tr("Pick a song (.ogg or .mp3) or a playlist (.m3u), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.");
+	const std::string help = tr("Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.");
 	noteTxt.SetText(help.c_str());
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);

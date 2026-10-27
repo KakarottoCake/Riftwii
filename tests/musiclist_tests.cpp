@@ -4,6 +4,7 @@
 // songs, what settings.txt accepts, playlists as PC players write them,
 // a folder's songs and the shuffle.
 #include <algorithm>
+#include <cstdio>
 #include <iostream>
 #include <map>
 #include <set>
@@ -65,6 +66,65 @@ static void TestPlaylists() {
     // At most so many.
     EXPECT_EQ(riftwii::music_playlist_songs("a.ogg\nb.ogg\nc.ogg\n", "sd:/l.m3u", 2), (Songs{"sd:/a.ogg", "sd:/b.ogg"}));
     EXPECT_TRUE(riftwii::music_playlist_songs("", "sd:/l.m3u").empty());
+    EXPECT_EQ(riftwii::music_playlist_songs("/Music/song.mp3\n", "sd:/lists/car.m3u"),
+              (Songs{"sd:/Music/song.mp3"}));
+    EXPECT_EQ(riftwii::music_playlist_songs("/Music/song.mp3\n", "usb:/lists/car.m3u8"),
+              (Songs{"usb:/Music/song.mp3"}));
+}
+
+static void TestPlaylistSizeLimit() {
+    const std::size_t limit = riftwii::kMaxMusicPlaylistBytes;
+    for (std::size_t size : {std::size_t(0), limit - 1, limit, limit + 1, limit + 4096}) {
+        std::FILE* file = std::tmpfile();
+        EXPECT_TRUE(file != nullptr);
+        if (!file) continue;
+        const std::string contents(size, '#');
+        EXPECT_EQ(std::fwrite(contents.data(), 1, contents.size(), file), contents.size());
+        std::rewind(file);
+        std::string text = "old contents";
+        EXPECT_EQ(riftwii::music_read_playlist(file, text), size <= limit);
+        EXPECT_EQ(text, size <= limit ? contents : std::string());
+        std::fclose(file);
+    }
+}
+
+static void TestSongBatches() {
+    // Eight missing songs must not hide the playable ninth entry.
+    std::size_t remaining = 10;
+    std::size_t tried = 0;
+    const auto play_ninth = [&]() {
+        ++tried;
+        return tried == 9;
+    };
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, play_ninth));
+    EXPECT_EQ(tried, 8u);
+    EXPECT_EQ(remaining, 2u);
+    EXPECT_TRUE(riftwii::music_try_song_batch(remaining, play_ninth));
+    EXPECT_EQ(tried, 9u);
+    EXPECT_EQ(remaining, 0u);
+
+    // Every candidate is tried once, including the final short batch.
+    remaining = 19;
+    tried = 0;
+    const auto fail_song = [&]() {
+        ++tried;
+        return false;
+    };
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, fail_song));
+    EXPECT_EQ(remaining, 11u);
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, fail_song));
+    EXPECT_EQ(remaining, 3u);
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, fail_song));
+    EXPECT_EQ(remaining, 0u);
+    EXPECT_EQ(tried, 19u);
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, fail_song));
+    EXPECT_EQ(tried, 19u);
+
+    remaining = 1;
+    tried = 0;
+    EXPECT_TRUE(!riftwii::music_try_song_batch(remaining, fail_song));
+    EXPECT_EQ(tried, 1u);
+    EXPECT_EQ(remaining, 0u);
 }
 
 static void TestFolders() {
@@ -144,6 +204,8 @@ int main() {
     TestFormats();
     TestChoices();
     TestPlaylists();
+    TestPlaylistSizeLimit();
+    TestSongBatches();
     TestFolders();
     TestShuffle();
     TestSettingsFile();
