@@ -4048,6 +4048,9 @@ static bool g_scanning = false;
 static bool g_sdScanOk = false;
 static std::string g_sdScanError;      // for WarnAboutDrives, once the USB drive is read too
 static std::string g_openWhenScanned;  // the tile picked during the scan, by its key
+// That tile was a game at random (B held on the search button): it starts
+// once the drives are read, as it would have straight away.
+static bool g_startWhenScanned = false;
 // Home's rescan: the profiles' pictures are looked for again once it is
 // done. Not before, as the tiles show the pictures read so far while the
 // drives are read (ProfilePictureIfRead).
@@ -4067,6 +4070,7 @@ static void StartScan()
 	g_sdScanOk = false;
 	g_sdScanError.clear();
 	g_openWhenScanned.clear();
+	g_startWhenScanned = false;
 	g_scanning = true;
 	g_scanned = true;
 	riftwii::wii::StartDriveScan();
@@ -4975,6 +4979,7 @@ static int MenuSource(FrontendState& state)
 		// The scan's parts as they come in: the SD card's games, then the
 		// USB drive's. Not while a game is carried: its grid stays as it is.
 		std::string openNow;
+		bool startOpenNow = false;
 		// A press on a tile (A) waiting to be handled when a part joins: the
 		// tile is looked up again by what it is, as the games that come in
 		// move the tiles under it, and A must open the game that was pointed
@@ -5025,7 +5030,9 @@ static int MenuSource(FrontendState& state)
 				putPressBack();
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
+				startOpenNow = g_startWhenScanned;
 				g_openWhenScanned.clear();
+				g_startWhenScanned = false;
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
@@ -5279,7 +5286,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
-		const bool randomStart = randomPick >= 0;
+		bool randomStart = randomPick >= 0;
 		bool reopening = false;
 		if (!g_reopenBanner.empty()) {
 			// Only while Home still shows channels (else it would open the page).
@@ -5291,7 +5298,10 @@ static int MenuSource(FrontendState& state)
 			g_reopenBanner.clear();
 		}
 		// A game picked while the drives were read opens now that they are.
-		if (clicked < 0 && !openNow.empty()) clicked = findTile(openNow);
+		if (clicked < 0 && !openNow.empty()) {
+			clicked = findTile(openNow);
+			randomStart = clicked >= 0 && startOpenNow;
+		}
 		if (menu != MENU_NONE) clicked = -1;
 		// Without the SD card a game's page can't save its choices, so it
 		// can't start: say so instead of opening it.
@@ -5304,6 +5314,7 @@ static int MenuSource(FrontendState& state)
 		if (g_scanning && clicked >= 0 && static_cast<std::size_t>(clicked) < items.size()) {
 			const GridItem& picked = items[static_cast<std::size_t>(clicked)];
 			g_openWhenScanned = tileIdentity(clicked);
+			g_startWhenScanned = randomStart;
 			logf("Home: %s picked while the drives are read; it opens once they are\n", g_openWhenScanned.c_str());
 			toast.Show(tr("{1} opens once RiftWii has finished reading the drives.", {picked.title}), false);
 			clicked = -1;
@@ -5589,7 +5600,10 @@ static int MenuSource(FrontendState& state)
 	// tester's Settings took 12 s to open behind a 326-game WBFS drive).
 	// A game picked during the scan does not open behind the player's back
 	// once they have gone to Settings.
-	if (menu == MENU_OPTIONS) g_openWhenScanned.clear();
+	if (menu == MENU_OPTIONS) {
+		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
+	}
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
@@ -5604,6 +5618,7 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::TakeSdScan(part)) TakeSdScanPart(state, part);
 		if (riftwii::wii::TakeUsbScan(part)) TakeUsbScanPart(state, part, menu != MENU_EXIT);
 		g_openWhenScanned.clear();
+		g_startWhenScanned = false;
 		g_focusRestored = true;
 		// Not when leaving RiftWii: the popups would only hold it up.
 		if (menu != MENU_EXIT && !askAfterLook()) return menu;
