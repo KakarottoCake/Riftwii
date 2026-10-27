@@ -24,6 +24,7 @@
 struct ShelfFlight {
     std::string id;
     GXColor hue = {0, 0, 0, 255};
+    GXColor caseColour = {255, 255, 255, 255};  // GridItem's
     float x = 0, z = 0, turn = 0, lift = 0;
 };
 // The box flying between the shelf and a spot on screen (the game page's
@@ -32,7 +33,7 @@ struct ShelfFlight {
 void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, float toH, float e, int alpha,
                      bool reverse);
 // The focused box's place (where a game coming back from its page lands).
-ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue);
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue, GXColor caseColour);
 // The shelf leaves this game's place empty while its box flies ("" none).
 void SetShelfFlying(const std::string& id);
 // A box's back made up from its cover (as the shelf makes one up without
@@ -52,6 +53,10 @@ struct GridItem {
     // One of the game's profiles: its picture in the tile's top right corner.
     bool profile = false;
     GXColor hue = {90, 90, 100, 255};
+    // The colour of the game's case on the shelf, as on a real one: the
+    // player's, GameTDB's, its series' or its console's
+    // (riftwii/casecolour.hpp's resolve_case_colour).
+    GXColor caseColour = {255, 255, 255, 255};
 };
 
 class GuiGameGrid : public GuiElement {
@@ -112,6 +117,9 @@ public:
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
+    // B held for something else (Home's random game on the search button):
+    // letting go of it is not the jump to the next letter.
+    void ForgetLetterPress();
     // Keeps the focus on `index` (and its page).
     void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }
@@ -204,6 +212,9 @@ private:
     int ShoulderPage(GuiTrigger* t);
     int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
+    // This hold of B (or L) was another control's (LettersDone, such as
+    // closing a cover's zoom): no letter jump or page turn until it is let go.
+    bool letterTaken[4] = {};
     int SlotAt(int x, int y) const;
     // Moving a game (SetMovable). carryFrom is its index in the list,
     // carryTo the place it would land; the tiles between them shift by one.

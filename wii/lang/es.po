@@ -888,17 +888,20 @@ msgstr "Bajo"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo."
 
-msgid "Wii Menu button"
-msgstr "Botón Menú de Wii"
+msgid "Quitting a game"
+msgstr "Al salir del juego"
 
 msgid "Back to RiftWii"
 msgstr "Volver a RiftWii"
 
-msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
-msgstr "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado."
+msgid "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "Salir del juego con el botón Menú de Wii del menú HOME te devuelve a RiftWii. Necesita el canal de RiftWii instalado."
 
-msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
-msgstr "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes)."
+msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "Salir del juego con el botón Menú de Wii del menú HOME puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes)."
+
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "Salir del juego con el botón Menú de Wii del menú HOME te lleva al Menú de Wii."
 
 msgid "Menu music"
 msgstr "Música del menú"
@@ -1061,6 +1064,18 @@ msgstr "Unidad de Wii U"
 
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: una unidad de Wii U (RiftWii no la usa)"
+
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: la unidad de Dragon Quest X"
+
+msgid "Encrypted drive"
+msgstr "Unidad cifrada"
+
+msgid "USB: an encrypted drive, maybe Dragon Quest X's (left alone)"
+msgstr "USB: una unidad cifrada, quizá la de Dragon Quest X (RiftWii no la usa)"
+
+msgid "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."
+msgstr "La unidad USB conectada está cifrada: puede ser la de Dragon Quest X o la propia de una Wii U. RiftWii no puede leerla sin la clave WFS de esta Wii (sd:/riftwii/wfskey.bin), así que no la usa. Si contiene Dragon Quest X, déjala como está: el juego se inicia desde los canales de la Wii."
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log."
@@ -2199,6 +2214,12 @@ msgstr "¿En qué puerto USB está conectado el adaptador?"
 msgid "Which port?"
 msgstr "¿Qué puerto?"
 
+msgid "USB keyboard, mouse and tablet"
+msgstr "Teclado, ratón y tableta USB"
+
+msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
+msgstr "Desactivado: RiftWii no usa teclados, ratones ni tabletas USB, ni la uDraw. Desactívalo si el menú falla con uno conectado, o sin ninguno."
+
 msgid "Wii Remote rumble"
 msgstr "Vibración del Wii Remote"
 
@@ -2604,8 +2625,8 @@ msgstr "{1} cambiados"
 msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
 msgstr "Cómo se ven los juegos en tu TV: ancho de imagen, filtro de parpadeo, bordes negros, modo de vídeo y relación de aspecto."
 
-msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
-msgstr "El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde lleva el botón Menú de Wii y las capturas en el juego."
+msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
+msgstr "El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde vas al salir del juego y las capturas en el juego."
 
 msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
 msgstr "El adaptador de mandos de GameCube para Wii U, y la vibración de los mandos de GameCube y de Wii."
@@ -3141,8 +3162,8 @@ msgstr "Al salir, la app vuelve a RiftWii."
 msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
 msgstr "Al salir, la app vuelve al Homebrew Channel, que inició RiftWii."
 
-msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
-msgstr "Al salir, la app va al Menú de Wii, según el botón Menú de Wii."
+msgid "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."
+msgstr "Al salir, la app va al Menú de Wii, porque Al salir del juego está en Menú de Wii."
 
 msgid "1: all apps"
 msgstr "1: todas las apps"
@@ -3287,3 +3308,15 @@ msgstr "Muestra tu RiiTag. Primero pon riitag_id = <tu ID de Discord> en sd:/rif
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "Muestra tu RiiTag, descargada de riitag.t0g3pii.de."
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "La caja del juego. Pulsa A para verla de cerca y luego Abajo para ver su parte trasera."
+
+msgid "There is no box art for this game yet."
+msgstr "Aún no hay portada para este juego."
+
+msgid "Back of the box"
+msgstr "Parte trasera"
+
+msgid "Front of the box"
+msgstr "Parte delantera"

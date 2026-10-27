@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "riftwii/nandchannel.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -60,11 +62,21 @@ std::vector<std::string> cover_regions(const std::string& game_id, const std::st
     const auto add = [&](const std::string& r) {
         if (std::find(out.begin(), out.end(), r) == out.end()) out.push_back(r);
     };
-    if (game_id.size() >= 4) add(region_for(game_id[3], menu_language));
+    // A homebrew app's four-letter code (riftwii/homebrewmatch.hpp) says
+    // nothing about a region ("9XGX", "D01A"): GameTDB keeps most of their
+    // covers under US, so that is asked first.
+    if (game_id.size() == 4) add("US");
+    else if (game_id.size() >= 4) add(region_for(game_id[3], menu_language));
     add("EN");
     add("US");
     add("JA");
     return out;
+}
+
+std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
+    const std::string code = channel_cheat_code(game_id);
+    if (code.empty()) return {game_id};
+    return {code, game_id};
 }
 
 std::string cover_url(const std::string& region, const std::string& game_id) {

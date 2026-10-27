@@ -102,4 +102,26 @@ int rtleave_quiet(const struct rtleave* l, uint32_t now, int resident_wrote, uin
  * it back the hold keeps counting; letting go starts it over. */
 int rtleave_due(struct rtleave* l, int held, uint32_t now, int resident_wrote, uint32_t resident_last_write);
 
+/* Whether the way back, asked for at `asked` (low bit set) by a PADRead
+ * running on `pad_thread`, leaves from an OSSleepThread on `running`: on
+ * the game's main thread at once, as the HOME Menu's Wii Menu button
+ * does; on the thread that read the pads once `fallback` ticks have
+ * passed without the main thread's sleep doing it. N64 Virtual Console
+ * games need that: their emulator's main thread is interrupted every frame
+ * but never sleeps, while a second thread reads the pads once a frame
+ * (Cruis'n USA, Bomberman Hero, Super Smash Bros., in Dolphin) and then
+ * waits: in Cruis'n USA by suspending itself, not by a sleep
+ * (rtleave_self_suspend). */
+int rtleave_sleep_leaves(uint32_t running, uint32_t main_thread, uint32_t pad_thread, uint32_t asked, uint32_t now,
+                         uint32_t fallback);
+
+/* Whether an OSSuspendThread(`thread`) on `running` is the thread that
+ * read the pads at the ask (`pad_thread`) suspending itself, to be woken
+ * by another (Cruis'n USA's pad-reading thread waits for each frame this
+ * way). Such a suspend is a wait like a sleep, and the way back may leave
+ * from it under rtleave_sleep_leaves' rules. Any other thread's suspend
+ * never leaves: a thread suspending another is busy, and a third thread's
+ * own wait is not where the way back was asked for. */
+int rtleave_self_suspend(uint32_t thread, uint32_t running, uint32_t pad_thread);
+
 #endif

@@ -8,6 +8,7 @@
 #include "i18n.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
+#include "usbinput.hpp"
 #include "wiidrc.h"
 
 namespace skin = riftwii::wii::skin;
@@ -134,21 +135,24 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
     if (naming) {
-        shift = text.empty() || text.back() == ' ';
+        shift = riftwii::name_shift_for_text(text);
         ShowCase();
     }
+    riftwii::wii::UsbInputTyping(true);
 }
 
 void GuiSearchKeys::ShowCase() {
     for (Key& k : keys) {
-        if (k.act != Key::Act::Type || !std::isalpha(static_cast<unsigned char>(k.ch))) continue;
-        const char letter = static_cast<char>(shift ? std::toupper(static_cast<unsigned char>(k.ch))
-                                                    : std::tolower(static_cast<unsigned char>(k.ch)));
-        k.caption->SetText(std::string(1, letter).c_str());
+        if (k.act != Key::Act::Type) continue;
+        const bool letter = std::isalpha(static_cast<unsigned char>(k.ch));
+        if (!letter && !riftwii::name_key_has_symbol(k.ch)) continue;
+        const char typed = riftwii::name_key_char(k.ch, shift);
+        k.caption->SetText(std::string(1, typed).c_str());
     }
 }
 
 GuiSearchKeys::~GuiSearchKeys() {
+    riftwii::wii::UsbInputTyping(false);
     for (Key& k : keys) delete k.caption;
     delete note;
     delete title;
@@ -235,10 +239,7 @@ void GuiSearchKeys::Press(const Key& k) {
     case Key::Act::Type:
     case Key::Act::Space:
         if (Live(k) && text.size() < maxLength) {
-            char typed = k.ch;
-            if (naming && std::isalpha(static_cast<unsigned char>(typed)))
-                typed = static_cast<char>(shift ? std::toupper(static_cast<unsigned char>(typed))
-                                                : std::tolower(static_cast<unsigned char>(typed)));
+            const char typed = naming ? riftwii::name_key_char(k.ch, shift) : k.ch;
             text += typed;
         }
         break;
@@ -249,7 +250,7 @@ void GuiSearchKeys::Press(const Key& k) {
         text.clear();
         break;
     case Key::Act::Shift:
-        shift = !shift;
+        shift = riftwii::name_shift_pressed(shift);
         break;
     case Key::Act::Cancel:
         result = -1;
@@ -259,13 +260,66 @@ void GuiSearchKeys::Press(const Key& k) {
         result = 1;
         break;
     }
-    if (naming && k.act != Key::Act::Shift) shift = text.empty() || text.back() == ' ';
+    if (naming && k.act != Key::Act::Shift) shift = riftwii::name_shift_for_text(text);
     if (naming) ShowCase();
     shown->SetText(text.c_str());
 }
 
+void GuiSearchKeys::TypeFromKeyboard() {
+    namespace key = riftwii::wii::key;
+    riftwii::wii::KeyPress press;
+    while (result == 0 && riftwii::wii::UsbInputTyped(press)) {
+        const auto act = [&](Key::Act a) {
+            for (const Key& k : keys)
+                if (k.act == a) Press(k);
+        };
+        if (press.code == key::kEnter || press.code == key::kPadEnter) {
+            soundClick->Play();
+            act(Key::Act::Search);
+            continue;
+        }
+        if (press.code == key::kEscape) {
+            result = -1;
+            continue;
+        }
+        if (press.code == key::kBackspace) {
+            soundClick->Play();
+            act(Key::Act::Back);
+            continue;
+        }
+        if (press.ch == 0) continue;
+        // The card's key for the character (its letters are capitals),
+        // which must be one that can be typed now. A name also takes the
+        // symbols its keys carry under Shift ("Project+", "(English)").
+        const char wanted = static_cast<char>(std::toupper(static_cast<unsigned char>(press.ch)));
+        for (std::size_t i = 0; i < keys.size(); ++i) {
+            const Key& k = keys[i];
+            if ((k.act != Key::Act::Type && k.act != Key::Act::Space) || !Live(k)) continue;
+            const bool symbol = naming && riftwii::name_key_has_symbol(k.ch) &&
+                                riftwii::name_key_char(k.ch, riftwii::NameShift::On) == press.ch;
+            if (k.ch != wanted && !symbol) continue;
+            focus = static_cast<int>(i);
+            soundClick->Play();
+            if (naming) {
+                // The character typed, whatever the card's Shift says: a
+                // digit stays a digit with Shift on.
+                if (text.size() < maxLength) text += press.ch;
+                shift = riftwii::name_shift_for_text(text);
+                ShowCase();
+                shown->SetText(text.c_str());
+            } else {
+                Press(k);
+            }
+            break;
+        }
+    }
+}
+
 void GuiSearchKeys::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || result != 0) return;
+    // The keyboard is player 1's: read once a frame, with channel 1.
+    if (t->chan == 0) TypeFromKeyboard();
+    if (result != 0) return;
     if (Pressed(t, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
                 WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME) ||
         (t->pad.btns_d & PAD_BUTTON_B)) {
@@ -355,8 +409,10 @@ void GuiSearchKeys::Draw() {
         const int ky = Y(k.row), kh = k.row == kRows - 1 ? kActionH : kKeyH;
         // Keys as the Wii's: shaded and glossy; Search filled with the
         // accent; a lit key ringed in the accent, with its glow.
-        // The name mode's Shift is lit while the next letter is a capital.
-        const bool primary = k.act == Key::Act::Search || (k.act == Key::Act::Shift && shift);
+        // The name mode's Shift is lit while the next letter is a capital
+        // (the number row shows when it also types symbols).
+        const bool shiftLit = k.act == Key::Act::Shift && shift != riftwii::NameShift::Off;
+        const bool primary = k.act == Key::Act::Search || shiftLit;
         skin::DrawNine(skin::keys[(primary ? 2 : 0) + (on ? 1 : 0)], k.x - 4, ky - 4, k.w + 8, kh + 8, riftwii::kKeyCorner);
         const bool live = Live(k);
         k.caption->SetColor(primary ? skin::kTextOnAccent : live ? skin::kInk : skin::kInkSoft);

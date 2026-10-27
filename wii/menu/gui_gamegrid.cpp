@@ -17,6 +17,7 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
+#include "usbinput.hpp"
 #include "wiimenusounds.hpp"
 #include "wiidrc.h"
 
@@ -1176,11 +1177,16 @@ int GuiGameGrid::LetterTarget(int dir) const {
     return focus;
 }
 
+void GuiGameGrid::ForgetLetterPress() {
+    for (bool& used : letterUsed) used = true;
+}
+
 void GuiGameGrid::LettersDone(GuiTrigger* t) {
     const int ch = t->chan;
     if (ch < 0 || ch > 3) return;
     letterHeld[ch] = true;
     letterUsed[ch] = true;
+    letterTaken[ch] = true;
     letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
 }
 
@@ -1209,6 +1215,7 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
         if (letterHeld[ch] && !letterUsed[ch] && !letterPadHeld[ch]) go(LetterTarget(1));
         letterHeld[ch] = false;
         letterPadHeld[ch] = false;
+        letterTaken[ch] = false;
         return false;
     }
     if (!letterHeld[ch]) {
@@ -1222,6 +1229,10 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
         letterUsed[ch] = true;
         return true;
     }
+    // Still the hold that closed a cover's zoom (or did another control's
+    // job): the D-pad waits for B to be let go. Not letterUsed, which is
+    // also set by a first jump, after which more jumps follow.
+    if (letterTaken[ch]) return true;
     if (t->Right() || t->Left()) {
         go(LetterTarget(t->Right() ? 1 : -1));
         letterUsed[ch] = true;
@@ -1436,7 +1447,13 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     if (t) acted.see(PlayerActedThisFrame(t));
     if (state == STATE::DISABLED || !t || Count() == 0) return;
     if (CoverZoomKeys(t)) return;
-    const int shoulderPage = ShoulderPage(t);
+    int shoulderPage = ShoulderPage(t);
+    // Page Up and Page Down on a USB keyboard and a mouse's wheel turn a
+    // page as the shoulder buttons do, one a frame (player 1's controls).
+    if (t->chan == 0 && shoulderPage == 0) {
+        const int usbPages = riftwii::wii::UsbInputTakePages();
+        shoulderPage = usbPages > 0 ? 1 : usbPages < 0 ? -1 : 0;
+    }
     if (t->chan >= 0 && t->chan < 4 &&
         (padPages[t->chan].chord || classicPages[t->chan].chord)) return;
     if (CarryKeys(t, shoulderPage)) return;

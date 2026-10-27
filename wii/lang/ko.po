@@ -888,17 +888,20 @@ msgstr "조용함"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "메뉴를 클릭할 때 나는 소리의 크기입니다. '조용함' 설정은 포인터가 항목 위로 이동할 때 발생하는 '틱' 소리를 부드럽게 만들어 줍니다."
 
-msgid "Wii Menu button"
-msgstr "Wii 메뉴 버튼"
+msgid "Quitting a game"
+msgstr "게임을 종료하면"
 
 msgid "Back to RiftWii"
 msgstr "RiftWii로 돌아가기"
 
-msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
-msgstr "게임 내 홈 메뉴의 'Wii 메뉴' 버튼을 누르면 RiftWii로 돌아갑니다. 이를 위해서는 RiftWii 채널이 설치되어 있어야 합니다."
+msgid "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 RiftWii로 돌아갑니다. RiftWii 채널이 설치되어 있어야 합니다."
 
-msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
-msgstr "게임 내 홈 메뉴에 있는 'Wii 메뉴' 버튼을 사용하면, Rift Wii 채널이 설치된 경우(설정에서 확인 가능) Rift Wii로 돌아갈 수 있습니다."
+msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면, RiftWii 채널이 설치된 경우(설정) RiftWii로 돌아갈 수 있습니다."
+
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 Wii 메뉴로 갑니다."
 
 msgid "Menu music"
 msgstr "메뉴 음악"
@@ -1061,6 +1064,18 @@ msgstr "Wii U 드라이브"
 
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)"
+
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: 드래곤 퀘스트 X 드라이브"
+
+msgid "Encrypted drive"
+msgstr "암호화된 드라이브"
+
+msgid "USB: an encrypted drive, maybe Dragon Quest X's (left alone)"
+msgstr "USB: 암호화된 드라이브, 드래곤 퀘스트 X의 것일 수도 있음 (RiftWii는 사용하지 않음)"
+
+msgid "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."
+msgstr "연결된 USB 드라이브는 암호화되어 있습니다. 드래곤 퀘스트 X의 드라이브이거나 Wii U 본체의 드라이브일 수 있습니다. 이 Wii의 WFS 키(sd:/riftwii/wfskey.bin)가 없으면 RiftWii가 읽을 수 없으므로 사용하지 않습니다. 드래곤 퀘스트 X가 들어 있다면 그대로 두세요. 게임은 Wii 채널에서 시작됩니다."
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다."
@@ -2199,6 +2214,12 @@ msgstr "어댑터가 어느 USB 포트에 꽂혀 있나요?"
 msgid "Which port?"
 msgstr "어느 포트인가요?"
 
+msgid "USB keyboard, mouse and tablet"
+msgstr "USB 키보드, 마우스, 태블릿"
+
+msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
+msgstr "끔: RiftWii가 USB 키보드, 마우스, 펜 태블릿, uDraw를 사용하지 않습니다. 하나를 연결했을 때나 아무것도 연결하지 않았을 때 메뉴가 이상하면 끄세요."
+
 msgid "Wii Remote rumble"
 msgstr "Wii 리모컨 진동"
 
@@ -2604,8 +2625,8 @@ msgstr "{1}개 변경"
 msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
 msgstr "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율."
 
-msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
-msgstr "게임에 알려 주는 언어, 게임이 실행되는 cIOS, Wii 메뉴 버튼의 이동 위치, 게임 중 스크린샷."
+msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
+msgstr "게임에 알려 주는 언어, 게임이 실행되는 cIOS, 게임을 종료할 때의 이동 위치, 게임 중 스크린샷."
 
 msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
 msgstr "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동."
@@ -3141,8 +3162,8 @@ msgstr "앱을 종료하면 RiftWii로 돌아옵니다."
 msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
 msgstr "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다."
 
-msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
-msgstr "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다."
+msgid "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."
+msgstr "앱을 종료하면 '게임을 종료하면'이 Wii 메뉴로 설정되어 있어 Wii 메뉴로 갑니다."
 
 msgid "1: all apps"
 msgstr "1: 모든 앱"
@@ -3287,3 +3308,15 @@ msgstr "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id 
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다."
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "게임 패키지입니다. A로 크게 보고, 아래로 뒷면을 볼 수 있습니다."
+
+msgid "There is no box art for this game yet."
+msgstr "이 게임의 패키지 이미지가 아직 없습니다."
+
+msgid "Back of the box"
+msgstr "뒷면"
+
+msgid "Front of the box"
+msgstr "앞면"

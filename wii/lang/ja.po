@@ -888,17 +888,20 @@ msgstr "小さめ"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。"
 
-msgid "Wii Menu button"
-msgstr "Wiiメニューボタン"
+msgid "Quitting a game"
+msgstr "ゲームをやめるとき"
 
 msgid "Back to RiftWii"
 msgstr "RiftWiiに戻る"
 
-msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
-msgstr "ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。"
+msgid "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。"
 
-msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
-msgstr "RiftWiiチャンネルをインストールすると(設定)、ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻れます。"
+msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "RiftWiiチャンネルをインストールすると(設定)、HOMEメニューの「Wiiメニュー」ボタンでゲームをやめたときRiftWiiに戻れます。"
+
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとWiiメニューに戻ります。"
 
 msgid "Menu music"
 msgstr "メニューの音楽"
@@ -1061,6 +1064,18 @@ msgstr "Wii Uのドライブ"
 
 msgid "USB: a Wii U drive (RiftWii leaves it alone)"
 msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
+
+msgid "USB: Dragon Quest X's drive"
+msgstr "USB: ドラゴンクエストXのドライブ"
+
+msgid "Encrypted drive"
+msgstr "ロックされたドライブ"
+
+msgid "USB: an encrypted drive, maybe Dragon Quest X's (left alone)"
+msgstr "USB: ロックされたドライブ(ドラゴンクエストXのものかも。RiftWiiは使いません)"
+
+msgid "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels."
+msgstr "接続されているUSBドライブはロックされています。ドラゴンクエストXのドライブか、Wii U本体のドライブかもしれません。このWiiのWFSキー(sd:/riftwii/wfskey.bin)がないとRiftWiiは読めないので、使いません。ドラゴンクエストXが入っているなら、そのままにしてください。ゲームはWiiのチャンネルから起動します。"
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
@@ -2199,6 +2214,12 @@ msgstr "アダプターはどのUSBポートにつないでいますか?"
 msgid "Which port?"
 msgstr "どのポート?"
 
+msgid "USB keyboard, mouse and tablet"
+msgstr "USBキーボード・マウス・タブレット"
+
+msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
+msgstr "オフ: RiftWiiはUSBキーボード、マウス、ペンタブレット、uDrawを使いません。どれかをつないだとき、またはつないでいないときにメニューの動きがおかしければ、オフにしてください。"
+
 msgid "Wii Remote rumble"
 msgstr "Wiiリモコンの振動"
 
@@ -2604,8 +2625,8 @@ msgstr "{1}個変更"
 msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
 msgstr "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。"
 
-msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
-msgstr "ゲームに伝える言語、ゲームを動かすcIOS、Wiiメニューボタンの行き先、ゲーム中のスクリーンショット。"
+msgid "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."
+msgstr "ゲームに伝える言語、ゲームを動かすcIOS、ゲームをやめたときの行き先、ゲーム中のスクリーンショット。"
 
 msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
 msgstr "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。"
@@ -3141,8 +3162,8 @@ msgstr "アプリを終了すると、RiftWiiに戻ります。"
 msgid "When the app exits, it goes back to the Homebrew Channel, which started RiftWii."
 msgstr "アプリを終了すると、RiftWiiを起動したHomebrew Channelに戻ります。"
 
-msgid "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."
-msgstr "アプリを終了すると、Wiiメニューボタンの設定どおりWiiメニューに戻ります。"
+msgid "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."
+msgstr "アプリを終了すると、「ゲームをやめるとき」がWiiメニューのためWiiメニューに戻ります。"
 
 msgid "1: all apps"
 msgstr "1: すべてのアプリ"
@@ -3287,3 +3308,15 @@ msgstr "RiiTagを表示します。先にsd:/riftwii/settings.txtにriitag_id = 
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "riitag.t0g3pii.deからダウンロードしたRiiTagを表示します。"
+
+msgid "The game's box. Press A to see it up close, then Down for its back."
+msgstr "ゲームのパッケージです。Aで大きく表示し、下で裏面を見られます。"
+
+msgid "There is no box art for this game yet."
+msgstr "このゲームのパッケージ画像はまだありません。"
+
+msgid "Back of the box"
+msgstr "裏面"
+
+msgid "Front of the box"
+msgstr "表面"

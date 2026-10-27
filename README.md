@@ -44,23 +44,24 @@
 - **Mods, no patching.** Riivolution-format packs (the same XML and folders) load into the game as it starts. Your game files are never changed.
 - **Play from anywhere.** The disc, a USB drive (FAT32, NTFS or formatted as WBFS) or the SD card, as WBFS, ISO or Dolphin's RVZ.
 - **WiiWare and Virtual Console.** The channels on your Wii, and those in an emulated NAND on the SD card, are on Home with the rest, with cheats and video settings. WAD files can be installed into that emulated NAND from Settings.
+- **GameCube games.** GameCube discs as files in their own folders (`sd:/games/<name>/game.iso`, same on a USB drive, or `game.rvz`), with memory cards, controllers and packs.
 - **Big mods work.** Pulsar and CT-CODE packs such as CTGP Revolution 1.02 and other Mario Kart Wii distributions (CTGP Revolution 1.03 does not work yet), plus packs over the network from a PC (RiiFS), and Gecko code builds like Project+ and REX without their launchers.
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves, or in the same emulated NAND as USB Loader GX's.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
 - **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
-- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), and USB pads through fakemote.
+- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote; in the menu, a USB keyboard, mouse or pen tablet, and the uDraw GameTablet.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
 
 ## Getting started
 
-You need a Wii (or a Wii U in Wii mode) with the Homebrew Channel and a FAT32 SD card. Games on USB or SD need a [d2x cIOS](docs/GUIDE.md#what-you-need).
+You need a Wii (or a Wii U in Wii mode) with the Homebrew Channel and a FAT32 SD card. Wii games on USB or SD, and GameCube games on USB, need a [d2x cIOS](docs/GUIDE.md#what-you-need).
 
 1. Download the zip from [Releases](https://github.com/KakarottoCake/Riftwii/releases/latest).
-2. Copy its `sd-card` folder to your SD card (and `usb-drive` to your USB drive, if you use one).
-3. Put mod packs in `sd:/riivolution` and games in `wbfs` or `games`.
+2. Copy everything inside its `sd-card` folder to the top of your SD card (and everything inside `usb-drive` to the top of your USB drive, if you use one).
+3. Put mod packs in `sd:/riivolution` (or `usb:/riivolution`) and games in `wbfs` or `games` on the SD card or USB drive.
 4. Start RiftWii from the Homebrew Channel.
 
 Questions, test builds and help are on the [RiftWii Discord](https://discord.gg/gGsTdjjQaK). The [guide](docs/GUIDE.md) covers everything else: each screen, online play, the GameCube adapter, writing packs, and what to send when something goes wrong.
@@ -115,7 +116,8 @@ contains theirs names them in its file header, and
   controller adapter.
 - **Nintendont** by FIX94 and contributors: the USB HID driver and the
   GameCube sound program patches, used with its developers' permission.
-  **WiiDRC** by FIX94: the Wii U GamePad. **dolxz** by FIX94 (MIT): the
+  **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
+  USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
   idea of the packed DOL (RiftWii's own stub and format).
 - **Priiloader** by DacoTaco: how to tell it is installed, from its
   installer (read only; no code copied).
@@ -130,10 +132,17 @@ contains theirs names them in its file header, and
 - **wad2bin** and **Yet Another BlueDump Mod** by DarkMatterCore (GPL-3.0):
   the layout of the content.bin the Wii Menu writes when it moves a
   channel to the SD card, which RiftWii reads to start such a game.
+- **wfslib** and **wfs-tools** by koolkdev (MIT), with **Dolphin**'s IOS59
+  WFS devices: the WFS drive format Dragon Quest X installs to, which
+  RiftWii reads to find the game (its own reader; commits in NOTICE.md).
 - **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
-  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md).
+  USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its cover
+  flow's boxes are the model for the Home shelf's cases: the plastic
+  showing round the paper in the case's color, chosen from the player's
+  own colors, then GameTDB's, then a series', then black for GameCube
+  cases and white for Wii ones.
 - **d2x cIOS**: the USB and SD game loading interface, and how its FAT
   module mounts and lets go of the SD card for its emulated NAND.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
@@ -152,15 +161,17 @@ contains theirs names them in its file header, and
   game asks SIProbe before it reads a controller port, read as
   documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
-  by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
+  by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
   for the menu font, **Adobe and the Noto authors** for Noto Sans KR
   (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
-  music, **Kenney** (kenney.nl) for the controller and button pictures.
+  music, **Kenney** (kenney.nl) for the controller and button pictures,
+  **Wikimedia Commons** for the age rating boards' marks (public domain).
 - **Animated GameCube banners**: the community's banners, hosted by
   RiiConnect24 (banner.rc24.xyz).
+- The soyjak in one theme you may find: from soyjak.party, used with their permission.
 - **DDinghoya** for the Korean translation, **MidyGamy** for the French
   one.
 
