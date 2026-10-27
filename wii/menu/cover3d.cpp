@@ -37,8 +37,10 @@ constexpr std::size_t kMaxPng = 1u << 20;
 std::string StorePath(const std::string& id) { return std::string(kDir) + "/" + id + ".rw3"; }
 std::string MissPath(const std::string& id) { return std::string(kDir) + "/" + id + ".none"; }
 
+// A game's six characters, or a homebrew app's four (GameTDB keeps full
+// and 3D covers for those too, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
-    if (id.size() != 6) return false;
+    if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id)
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     return true;

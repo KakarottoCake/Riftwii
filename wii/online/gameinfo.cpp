@@ -110,9 +110,10 @@ bool SaveCache() {
     return true;
 }
 
+// Written even with no apps (a database without homebrew): the file's
+// time says the database was read, so it is not read again next session.
 bool SaveHomebrewTitles(const std::vector<HomebrewTitle>& titles) {
     g_homebrew_read_now = true;
-    if (titles.empty()) return true;
     const std::string text = serialize_homebrew_titles(titles);
     const std::string temp = std::string(kHomebrewTitlesPath) + ".part";
     FILE* f = std::fopen(temp.c_str(), "wb");

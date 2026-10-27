@@ -2160,11 +2160,13 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 	if (!g_homeNotice.empty()) return g_homeNotice;
 	// The games shown: the disc drive's tile, when it is there, is not one,
 	// and a game's tiles (its own and its profiles') are one game. A view
-	// showing only a game's profiles is not empty.
+	// showing only a game's profiles is not empty. Each homebrew app is one
+	// of its own, even when two of them found the same GameTDB entry.
 	std::set<std::string> shownGames;
 	for (const GridItem& item : items) {
 		if (item.badge == "DISC") continue;
-		shownGames.insert(item.id.empty() ? item.key : item.id);
+		const bool app = item.key.compare(0, 4, "app:") == 0;
+		shownGames.insert(app || item.id.empty() ? item.key : item.id);
 	}
 	const std::size_t games = shownGames.size();
 	std::string status;
@@ -4797,9 +4799,11 @@ static int MenuSource(FrontendState& state)
 	// game database once (and again when it is newer), then each app found
 	// in them by its name (wii/storage/homebrew.hpp), again once a game's
 	// About page read the database. Without a database on the card,
-	// nothing: it is downloaded from a game's About page. GUI halted.
+	// nothing: it is downloaded from a game's About page. Not while the scan
+	// reads the drives (the SD card among them): its end asks again. GUI
+	// halted.
 	const auto matchHomebrewCovers = [&]() {
-		if (g_filter != Filter::Homebrew || riftwii::wii::Settings().home_tiles == "names") return;
+		if (g_scanning || g_filter != Filter::Homebrew || riftwii::wii::Settings().home_tiles == "names") return;
 		if (riftwii::wii::HomebrewApps().empty()) return;
 		if (riftwii::wii::HomebrewTitlesNeedReading()) {
 			if (!ReadHomebrewTitlesNow()) return;
@@ -5063,6 +5067,9 @@ static int MenuSource(FrontendState& state)
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
 				queueCovers();
+				// The scan is done with the SD card: the Homebrew view's
+				// covers may read the game database now.
+				matchHomebrewCovers();
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
