@@ -884,7 +884,7 @@ static std::string ReturnToNote()
 	if (riftwii::wii::debug_off("returnto"))
 		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.");
 	unsigned version = 0;
-	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
+	return riftwii::wii::ChannelInstalled(version) ? tr("Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
 static const char* HomeSourceName(const std::string& v)
 {
@@ -5343,7 +5343,7 @@ static int MenuSource(FrontendState& state)
 					about += " " + std::string(tr("When the app exits, it goes back to the Homebrew Channel, which started RiftWii."));
 					break;
 				case riftwii::wii::HomebrewExit::WiiMenu:
-					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, as the Wii Menu button is set."));
+					about += " " + std::string(tr("When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu."));
 					break;
 				case riftwii::wii::HomebrewExit::NotSaid:
 					break;
@@ -12065,7 +12065,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Show non-game channels"), settings.nand_non_games ? tr("On") : tr("Off"),
 			settings.nand_non_games, kNonGames, FlowRow::Kind::Toggle);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
-		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
+		option(tr("Quitting a game"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
 			settings.return_to != "menu", kReturnTo);
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
@@ -13207,7 +13207,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		{SettingsSection::Picture, &skin::iconPicture, VideoModeName(settings.video_mode),
 			"How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."},
 		{SettingsSection::Games, &skin::iconPlay, GameLanguageName(settings.game_language),
-			"The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."},
+			"The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots."},
 		{SettingsSection::Controllers, &skin::iconControllers, "",
 			"The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."},
 		{SettingsSection::HomeScreen, &skin::iconHome, tiles,
