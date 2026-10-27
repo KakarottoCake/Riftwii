@@ -16,6 +16,7 @@ _pad_blob_start:
     .long pad_hook_kpad - _pad_blob_start, pad_replay_kpad - _pad_blob_start, pad_continue_kpad - _pad_blob_start
     .long pad_hook_probe - _pad_blob_start, pad_replay_probe - _pad_blob_start, pad_continue_probe - _pad_blob_start
     .long pad_hook_menu - _pad_blob_start, pad_replay_menu - _pad_blob_start, pad_continue_menu - _pad_blob_start
+    .long pad_hook_select - _pad_blob_start, pad_replay_select - _pad_blob_start, pad_continue_select - _pad_blob_start
 
 /* u32 PADRead(PADStatus status[4]): the original first, through the
  * replay slot (which returns here), then pad_on_read(ctx, status, its
@@ -231,6 +232,25 @@ pad_hook_menu:
     addi 1, 1, 0x20
     b pad_replay_menu
 
+/* int HBMGetSelectBtnNum(void): the original first, then
+ * pad_on_select(ctx, its result) notes the button the menu ends on and
+ * returns it. */
+    .globl pad_hook_select
+pad_hook_select:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    bl pad_replay_select
+    mr 4, 3
+    bl 10f
+10: mflr 3
+    addi 3, 3, pad_context_data - 10b
+    bl pad_on_select
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
 /* Loader-filled: the hooked function's first word (and nops), then the
  * jump to its second word through r12. */
     .macro PAD_REPLAY name
@@ -256,9 +276,10 @@ pad_continue_\name:
     PAD_REPLAY kpad
     PAD_REPLAY probe
     PAD_REPLAY menu
+    PAD_REPLAY select
 
     .balign 32
     .globl pad_context_data
 pad_context_data:
     .long 0x52575043
-    .fill 95, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */
+    .fill 103, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */

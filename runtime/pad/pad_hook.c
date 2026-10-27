@@ -20,6 +20,7 @@ uint32_t pad_on_suspend(struct rt_pad_context* c, uint32_t thread);
 int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int32_t result, int32_t* error);
 int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result);
 void pad_on_menu(struct rt_pad_context* c);
+int32_t pad_on_select(struct rt_pad_context* c, int32_t result);
 
 /* External interrupts off around the driver: PADRead runs on game
  * threads (some from the SI sampling callback), the replies in the IPC
@@ -420,7 +421,13 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
     msr = interrupts_off();
     stand_in = rthome_stand_in(&c->home, t);
     interrupts_restore(msr);
-    if (stand_in != RTHOME_NO_CHANNEL && (uint32_t)chan == stand_in && c->pad_read != 0 &&
+    /* Also with no stand-in, in a game that reads its pads but has stopped:
+     * a Virtual Console game's emulator stops while its HOME Menu is open,
+     * and the combo, let go there, would never arm again. Never in a game
+     * that has not called PADRead at all (it never set the pads up). */
+    /* Once a round of probes: on the stand-in's channel, else on channel 0. */
+    const uint32_t read_on = stand_in != RTHOME_NO_CHANNEL ? stand_in : 0u;
+    if ((uint32_t)chan == read_on && c->pad_read != 0 && c->last_pad_read != 0 &&
         t - c->last_pad_read > 50u * c->ticks_per_ms) {
         /* The game's PADRead, through the hook, so the adapter fills it and
          * the stand-in keeps up with the pad. Interrupts on, as a game
@@ -450,6 +457,19 @@ void pad_on_menu(struct rt_pad_context* c) {
     ++c->menu_frames;
     if (c->home_on) rthome_menu_frame(&c->home, now());
     interrupts_restore(msr);
+}
+
+/* HBMGetSelectBtnNum: the game asks which button its menu ended on (-1:
+ * none yet), every frame the menu runs. */
+int32_t pad_on_select(struct rt_pad_context* c, int32_t result) {
+    uint32_t msr;
+    if (result == -1) return result;
+    msr = interrupts_off();
+    ++c->selects;
+    c->last_select = (uint32_t)result;
+    if (c->home_on) rthome_selected(&c->home, result);
+    interrupts_restore(msr);
+    return result;
 }
 
 uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) {

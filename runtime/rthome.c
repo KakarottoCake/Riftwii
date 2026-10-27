@@ -98,6 +98,8 @@ void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now) {
     h->last = 0;
     h->samples = 0;
     h->worked = 0xFFFFFFFFu;  /* none yet */
+    h->aside_home = 0;
+    h->selected = RTHOME_NO_SELECTION;
     h->menu_seen = 0;
     h->phase = RTHOME_PRESSING;
     h->since = now | 1u;
@@ -117,8 +119,12 @@ void rthome_probed(struct rthome* h, uint32_t channel, int32_t result) {
 
 void rthome_menu_frame(struct rthome* h, uint32_t now) {
     h->menu_seen = now | 1u;
-    if (h->phase == RTHOME_WAITING) h->phase = RTHOME_OPEN;
+    if (h->phase == RTHOME_ASIDE) h->selected = RTHOME_NO_SELECTION;  /* back in the menu from that screen */
+    if (h->phase == RTHOME_WAITING || h->phase == RTHOME_ASIDE) h->phase = RTHOME_OPEN;
+    h->aside_home = 0;
 }
+
+void rthome_selected(struct rthome* h, int32_t button) { h->selected = (uint32_t)button; }
 
 uint32_t rthome_stand_in(struct rthome* h, uint32_t now) {
     if (h->phase == RTHOME_PRESSING && elapsed(now, h->since) >= h->press) {
@@ -126,8 +132,20 @@ uint32_t rthome_stand_in(struct rthome* h, uint32_t now) {
         h->since = now | 1u;
     }
     if (h->phase == RTHOME_WAITING && elapsed(now, h->since) >= h->wait) h->phase = RTHOME_DONE;  /* the game refused */
-    if (h->phase == RTHOME_OPEN && elapsed(now, h->menu_seen) >= h->linger) h->phase = RTHOME_DONE;  /* it closed */
-    if (h->phase == RTHOME_PRESSING || h->phase == RTHOME_WAITING || h->phase == RTHOME_OPEN) return h->channel;
+    if (h->phase == RTHOME_OPEN && elapsed(now, h->menu_seen) >= h->linger) {
+        /* Closed (HBMGetSelectBtnNum answered 0, for Close and for HOME),
+         * or gone to a screen of its own (any other answer: the Operations
+         * Guide; Wii Menu and Reset leave the game anyway), which HOME
+         * closes in its turn. No answer seen: closed. */
+        const int closed = h->selected == RTHOME_NO_SELECTION || h->selected == 0;
+        h->phase = closed ? RTHOME_DONE : RTHOME_ASIDE;
+        h->aside_home = 0;
+    }
+    if (h->phase == RTHOME_ASIDE && h->aside_home != 0 && elapsed(now, h->aside_home) >= h->wait)
+        h->phase = RTHOME_DONE;  /* HOME closed that screen, and the menu didn't come back */
+    if (h->phase == RTHOME_PRESSING || h->phase == RTHOME_WAITING || h->phase == RTHOME_OPEN ||
+        h->phase == RTHOME_ASIDE)
+        return h->channel;
     return RTHOME_NO_CHANNEL;
 }
 
@@ -169,7 +187,6 @@ static uint32_t mapped(uint32_t b) {
 void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* trig, uint32_t* release,
                     int32_t axes[6]) {
     uint32_t i, buttons;
-    (void)now;
     if (h->phase == RTHOME_PRESSING) {
         buttons = RTHOME_CL_HOME;
         for (i = 0; i < 6; ++i) axes[i] = 0;
@@ -188,6 +205,7 @@ void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* tr
         h->trig_now = buttons & ~h->last;
         h->release_now = h->last & ~buttons;
         h->last = buttons;
+        if (h->phase == RTHOME_ASIDE && (h->trig_now & RTHOME_CL_HOME)) h->aside_home = now | 1u;
     }
     *hold = h->hold_now;
     *trig = h->trig_now;

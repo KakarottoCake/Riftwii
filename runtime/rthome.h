@@ -38,6 +38,7 @@
 #define RTHOME_CL_RIGHT 0x8000u
 
 #define RTHOME_CHANNELS 4u
+#define RTHOME_NO_SELECTION 0xFFFFFFFFu
 #define RTHOME_NO_CHANNEL 0xFFFFFFFFu
 
 /* rthome.phase */
@@ -46,6 +47,11 @@
 #define RTHOME_WAITING 2u   /* HOME let go; the game has yet to open its menu */
 #define RTHOME_OPEN 3u      /* the HOME Menu runs (HBMCalc seen lately) */
 #define RTHOME_DONE 4u      /* the stand-in is gone; the combo must be let go before the next */
+/* HBMCalc stopped, the menu ended on a button other than Close: it opened
+ * a screen of its own (a Virtual Console game's Operations Guide, the
+ * game's manual, where HBMCalc doesn't run; Cruis'n USA, 27 Oct). The
+ * stand-in stays until HOME closes it. */
+#define RTHOME_ASIDE 5u
 
 /* All times are the time base's low word. */
 struct rthome {
@@ -70,6 +76,8 @@ struct rthome {
     uint32_t samples;   /* PADRead samples kept since the press */
     uint32_t worked;    /* the sample the words below are from */
     uint32_t hold_now, trig_now, release_now;
+    uint32_t aside_home;    /* in RTHOME_ASIDE: when HOME was pressed there (low bit set), 0: not yet */
+    uint32_t selected;      /* HBMGetSelectBtnNum's last answer since the press, RTHOME_NO_SELECTION: none */
 };
 
 /* At each PADRead, the four ports' statuses (12 bytes each) as the game
@@ -87,6 +95,9 @@ void rthome_probed(struct rthome* h, uint32_t channel, int32_t result);
 
 /* HBMCalc ran: the HOME Menu is open. */
 void rthome_menu_frame(struct rthome* h, uint32_t now);
+
+/* HBMGetSelectBtnNum answered `button` (not -1): the menu ends on it. */
+void rthome_selected(struct rthome* h, int32_t button);
 
 /* The stand-in's channel at `now`, or RTHOME_NO_CHANNEL. Moves the phases
  * on with the time: the press ends, a menu that never opened (the game
