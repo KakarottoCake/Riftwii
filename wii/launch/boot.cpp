@@ -3374,6 +3374,17 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 }
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
+    // Defend this entry point too: a caller may supply boot files directly.
+    // This must precede the first IOS reload and d2x's SD-card handoff.
+    if (!files.emu_nand.empty()) {
+        TmdContents contents;
+        if (!parse_tmd_contents(files.tmd.data(), files.tmd.size(), contents, error)) return false;
+        if (contents.title_id != files.title_id) {
+            error = "the TMD belongs to a different channel";
+            return false;
+        }
+        if (!prepare_emu_shared_contents(contents, files.emu_nand, error)) return false;
+    }
     const DolHeader& dol = files.program.dol;
     // Every section goes below this loader, in MEM1: it is copied while
     // RiftWii still runs from 0x80A00000 up, its heap above that. Nothing

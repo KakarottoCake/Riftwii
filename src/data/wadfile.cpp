@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "riftwii/checkedalloc.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -109,6 +111,7 @@ bool WadContentDecrypter::matches() { return left_ == 0 && sha_.finish() == expe
 std::vector<SharedContent> parse_content_map(const std::uint8_t* data, std::size_t size) {
     std::vector<SharedContent> entries;
     if (data == nullptr) return entries;
+    if (!try_reserve(entries, size / kContentMapEntryBytes)) return entries;
     for (std::size_t at = 0; at + kContentMapEntryBytes <= size; at += kContentMapEntryBytes) {
         SharedContent entry;
         entry.name.assign(reinterpret_cast<const char*>(data + at), 8);
@@ -121,6 +124,8 @@ std::vector<SharedContent> parse_content_map(const std::uint8_t* data, std::size
 
 std::vector<std::uint8_t> serialize_content_map(const std::vector<SharedContent>& entries) {
     std::vector<std::uint8_t> out;
+    if (!within_checked_cap(entries.size(), kContentMapEntryBytes) ||
+        !try_reserve(out, entries.size() * kContentMapEntryBytes)) return out;
     for (const SharedContent& entry : entries) {
         char name[9] = {};
         std::snprintf(name, sizeof name, "%.8s", entry.name.c_str());
@@ -136,15 +141,52 @@ const SharedContent* find_shared_content(const std::vector<SharedContent>& entri
     return nullptr;
 }
 
-std::string next_shared_name(const std::vector<SharedContent>& entries) {
-    unsigned long next = 0;
+std::string next_shared_name(const std::vector<SharedContent>& entries,
+                             const std::function<bool(const std::string&)>& name_in_use) {
+    std::uint64_t next = 0;
     for (const SharedContent& entry : entries) {
-        const unsigned long n = std::strtoul(entry.name.c_str(), nullptr, 16);
+        const std::uint64_t n = std::strtoul(entry.name.c_str(), nullptr, 16);
         if (n + 1 > next) next = n + 1;
     }
-    char name[16];
-    std::snprintf(name, sizeof name, "%08lx", next);
-    return name;
+    // Use a wider counter: ffffffff + 1 must not wrap on the Wii or
+    // produce a nine-digit name on the host.
+    constexpr std::uint64_t kNameCount = std::uint64_t(1) << 32;
+    if (next == kNameCount) next = 0;
+    for (std::uint64_t tried = 0; tried < kNameCount; ++tried) {
+        char name[9];
+        std::snprintf(name, sizeof name, "%08x", static_cast<unsigned>(next));
+        bool used = false;
+        for (const SharedContent& entry : entries) {
+            if (std::strtoul(entry.name.c_str(), nullptr, 16) == next) {
+                used = true;
+                break;
+            }
+        }
+        if (!used && (!name_in_use || !name_in_use(name))) return name;
+        next = (next + 1) % kNameCount;
+    }
+    return {};
+}
+
+bool missing_shared_contents(const TmdContents& tmd, const std::vector<SharedContent>& entries,
+                              const std::function<bool(const SharedContent&, const TmdContent&)>& present,
+                              std::vector<TmdContent>& out) {
+    std::vector<TmdContent> missing;
+    for (const TmdContent& content : tmd.contents) {
+        if ((content.type & 0x8000) == 0) continue;
+        const SharedContent* entry = find_shared_content(entries, content.sha1);
+        if (entry != nullptr && present(*entry, content)) continue;
+        bool already_missing = false;
+        for (const TmdContent& previous : missing) {
+            if (previous.sha1 == content.sha1) {
+                already_missing = true;
+                break;
+            }
+        }
+        if (!already_missing && !try_push_back(missing, content)) return false;
+    }
+    out.swap(missing);
+    return true;
 }
 
 }  // namespace riftwii

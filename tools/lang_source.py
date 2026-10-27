@@ -6868,13 +6868,31 @@ FR.update({
     "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de.",
 })
 
+T.update({
+    "This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it.": (
+        "A esta NAND emulada le faltan archivos que el juego necesita (contenidos compartidos). Copia en ella la carpeta shared1 de la NAND de tu Wii.",
+        "このエミュレートNANDにはゲームに必要なファイル (共有コンテンツ) がありません。Wii本体のNANDからshared1フォルダをコピーしてください。",
+        "Faltam arquivos necessários para o jogo nesta NAND emulada (conteúdos compartilhados). Copie para ela a pasta shared1 da NAND do seu Wii.",
+        "In questa NAND emulata mancano file necessari al gioco (contenuti condivisi). Copia al suo interno la cartella shared1 dalla NAND della tua Wii."),
+})
+KO.update({
+    "This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it.":
+        "이 에뮬레이트 NAND에 게임에 필요한 파일(공유 콘텐츠)이 없습니다. Wii 본체의 NAND에서 shared1 폴더를 복사해 넣으세요.",
+})
+FR.update({
+    "This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it.":
+        "Il manque des fichiers nécessaires au jeu dans cette NAND émulée (contenus partagés). Copiez-y le dossier shared1 de la NAND de votre Wii.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/storage/nandchannels.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

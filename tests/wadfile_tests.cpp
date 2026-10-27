@@ -192,6 +192,86 @@ void test_content_map() {
     EXPECT_TRUE(find_shared_content(back, want) == nullptr);
     // A torn last entry is left out.
     EXPECT_EQ(parse_content_map(bytes.data(), bytes.size() - 1).size(), std::size_t(1));
+
+    // An app left by an interrupted copy must not be overwritten.
+    EXPECT_EQ(next_shared_name(entries, [](const std::string& name) {
+        return name == "0000000b" || name == "0000000c";
+    }), std::string("0000000d"));
+    b.name = "ffffffff";
+    entries = {a, b};
+    EXPECT_EQ(next_shared_name(entries), std::string("00000001"));
+    EXPECT_EQ(next_shared_name(entries, [](const std::string& name) {
+        return name == "00000001";
+    }), std::string("00000002"));
+    b.name = "FFFFFFFE";
+    entries = {a, b};
+    EXPECT_EQ(next_shared_name(entries), std::string("ffffffff"));
+    EXPECT_EQ(next_shared_name(entries, [](const std::string& name) {
+        return name == "ffffffff";
+    }), std::string("00000001"));
+}
+
+void test_missing_shared_contents() {
+    TmdContent own;
+    own.id = 1;
+    own.type = 1;
+    own.size = 10;
+    own.sha1.fill(0x11);
+    TmdContent present = own;
+    present.id = 2;
+    present.type = 0x8001;
+    present.sha1.fill(0x22);
+    TmdContent absent = present;
+    absent.id = 3;
+    absent.sha1.fill(0x33);
+    TmdContent unmapped = present;
+    unmapped.id = 4;
+    unmapped.sha1.fill(0x44);
+    TmdContent repeated = absent;
+    repeated.id = 5;
+    TmdContents tmd;
+    tmd.contents = {own, present, absent, unmapped, repeated};
+    std::vector<SharedContent> entries = {{"00000002", present.sha1}, {"00000003", absent.sha1}};
+    std::vector<TmdContent> missing;
+    unsigned probes = 0;
+    EXPECT_TRUE(missing_shared_contents(tmd, entries, [&](const SharedContent& entry, const TmdContent& content) {
+        ++probes;
+        return entry.name == "00000002" && content.size == 10;
+    }, missing));
+    EXPECT_EQ(probes, 3u);
+    EXPECT_EQ(missing.size(), std::size_t(2));
+    if (missing.size() == 2) {
+        EXPECT_EQ(missing[0].id, 3u);
+        EXPECT_EQ(missing[1].id, 4u);
+    }
+
+    // A stale map entry is still missing when its app has the wrong size.
+    tmd.contents = {present};
+    tmd.contents[0].size = 11;
+    EXPECT_TRUE(missing_shared_contents(tmd, entries, [](const SharedContent&, const TmdContent& content) {
+        return content.size == 10;
+    }, missing));
+    EXPECT_EQ(missing.size(), std::size_t(1));
+
+    // A complete NAND needs no copy; no shared contents needs no probes.
+    tmd.contents = {own, present};
+    EXPECT_TRUE(missing_shared_contents(tmd, entries, [](const SharedContent&, const TmdContent&) {
+        return true;
+    }, missing));
+    EXPECT_TRUE(missing.empty());
+    tmd.contents = {own};
+    EXPECT_TRUE(missing_shared_contents(tmd, {}, [](const SharedContent&, const TmdContent&) {
+        EXPECT_TRUE(false);
+        return false;
+    }, missing));
+    EXPECT_TRUE(missing.empty());
+
+    tmd.contents = {present, absent, repeated};
+    EXPECT_TRUE(missing_shared_contents(tmd, {}, [](const SharedContent&, const TmdContent&) {
+        EXPECT_TRUE(false);
+        return false;
+    }, missing));
+    EXPECT_EQ(missing.size(), std::size_t(2));
 }
 
 }  // namespace
@@ -200,6 +280,7 @@ int main() {
     test_layout_and_contents();
     test_bad_files();
     test_content_map();
+    test_missing_shared_contents();
     if (g_failures == 0) std::cout << "wadfile tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -18,12 +19,14 @@
 #include <memory>
 
 #include "boot.hpp"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "movedchannels.hpp"
 #include "usbcatalog.hpp"
 #include "nanduse.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/wadfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -278,7 +281,273 @@ bool program_present(const TmdContents& tmd, const TmdContent* program,
     return false;
 }
 
+constexpr u32 kMaxSharedMapBytes = 1u << 20;
+constexpr std::size_t kSharedMapEntryBytes = 28;
+// Even a full Wii NAND is only 512 MiB. Stream contents so their TMD
+// sizes never become full-file allocations in the loader's small heap.
+constexpr std::uint64_t kMaxSharedContentBytes = 512ull << 20;
+
+bool decode_shared_map(const std::vector<u8>& bytes, std::vector<SharedContent>& entries,
+                        std::string& why) {
+    entries = parse_content_map(bytes.data(), bytes.size());
+    if (bytes.size() % kSharedMapEntryBytes != 0 || entries.size() != bytes.size() / kSharedMapEntryBytes) {
+        why = "the shared content map is damaged or there is not enough memory to read it";
+        return false;
+    }
+    return true;
+}
+
+bool read_copied_shared_map(const std::string& path, std::vector<SharedContent>& entries, std::string& why) {
+    // A FAT replacement uses a backup because rename may refuse an existing
+    // destination. Recover the old map if power went away between renames.
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0) {
+        if (errno != ENOENT) {
+            why = path + " could not be checked";
+            return false;
+        }
+        const std::string backup = path + ".riftwii-old";
+        if (stat(backup.c_str(), &st) == 0) {
+            if (std::rename(backup.c_str(), path.c_str()) != 0) {
+                why = path + " could not be recovered from its backup";
+                return false;
+            }
+            logf("Wii channels: the copied NAND's shared content map was recovered from its backup.\n");
+        } else if (errno == ENOENT) {
+            entries.clear();
+            return true;
+        } else {
+            why = backup + " could not be checked";
+            return false;
+        }
+    }
+    // An empty map is valid in a NAND with no shared contents yet.
+    if (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode) && st.st_size == 0) {
+        entries.clear();
+        return true;
+    }
+    std::vector<u8> bytes;
+    return read_card_file(path, kMaxSharedMapBytes, bytes, why) && decode_shared_map(bytes, entries, why);
+}
+
+bool save_shared_map(const std::string& path, const std::vector<SharedContent>& entries, std::string& why) {
+    const std::vector<u8> bytes = serialize_content_map(entries);
+    if (bytes.size() != entries.size() * kSharedMapEntryBytes) {
+        why = "there is not enough memory to write the shared content map";
+        return false;
+    }
+    const std::string temp = path + ".riftwii-new";
+    const std::string backup = path + ".riftwii-old";
+    FILE* file = std::fopen(temp.c_str(), "wb");
+    if (file == nullptr) {
+        why = temp + " could not be written";
+        return false;
+    }
+    const bool written = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    const bool closed = std::fclose(file) == 0;
+    if (!written || !closed) {
+        std::remove(temp.c_str());
+        why = temp + " could not be saved (is the card full or locked?)";
+        return false;
+    }
+    if (std::rename(temp.c_str(), path.c_str()) == 0) return true;
+
+    // Keep the previous map intact until every new content and the new
+    // map have been closed successfully. Never unlink the live map.
+    if (!card_file_exists(path) ||
+        (std::remove(backup.c_str()) != 0 && errno != ENOENT) ||
+        std::rename(path.c_str(), backup.c_str()) != 0) {
+        std::remove(temp.c_str());
+        why = path + " could not be replaced; the previous map was kept";
+        return false;
+    }
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
+        const bool restored = std::rename(backup.c_str(), path.c_str()) == 0;
+        std::remove(temp.c_str());
+        why = path + (restored ? " could not be replaced; the previous map was restored"
+                               : " could not be restored; its previous map is in " + backup);
+        return false;
+    }
+    std::remove(backup.c_str());
+    return true;
+}
+
+bool copy_shared_content(NandAccess& access, const SharedContent& source, const TmdContent& content,
+                          const std::string& destination, std::string& why) {
+    if (content.size == 0 || content.size > kMaxSharedContentBytes) {
+        why = "the TMD gives a shared content size outside the Wii NAND's limits";
+        return false;
+    }
+    const std::string path = "/shared1/" + source.name + ".app";
+    const s32 fd = access.open(path);
+    if (fd < 0) {
+        why = path + " could not be opened on the Wii (" + std::to_string(fd) + ")";
+        return false;
+    }
+    alignas(32) fstats stats{};
+    if (ISFS_GetFileStats(fd, &stats) < 0 || stats.file_length != content.size) {
+        ISFS_Close(fd);
+        why = path + " on the Wii does not have the size in the TMD";
+        return false;
+    }
+    constexpr u32 kCopyBytes = 64 * 1024;
+    AlignedBuffer buffer(nullptr, &std::free);
+    if (can_allocate(kCopyBytes + 31)) buffer = aligned(kCopyBytes);
+    if (!buffer) {
+        ISFS_Close(fd);
+        why = "there is not enough memory to copy " + path;
+        return false;
+    }
+    const std::string temp = destination + ".riftwii-new";
+    FILE* file = std::fopen(temp.c_str(), "wb");
+    if (file == nullptr) {
+        ISFS_Close(fd);
+        why = temp + " could not be written";
+        return false;
+    }
+    Sha1 hash;
+    bool copied = true;
+    for (std::uint64_t done = 0; done < content.size;) {
+        const u32 piece = static_cast<u32>(std::min<std::uint64_t>(kCopyBytes, content.size - done));
+        const s32 got = ISFS_Read(fd, buffer.get(), piece);
+        if (got != static_cast<s32>(piece)) {
+            why = path + " could not be read on the Wii at byte " + std::to_string(done) +
+                  " (" + std::to_string(got) + ")";
+            copied = false;
+            break;
+        }
+        hash.update(buffer.get(), piece);
+        if (std::fwrite(buffer.get(), 1, piece, file) != piece) {
+            why = temp + " could not be written (is the card full or locked?)";
+            copied = false;
+            break;
+        }
+        done += piece;
+    }
+    ISFS_Close(fd);
+    if (std::fclose(file) != 0) {
+        why = temp + " could not be saved";
+        copied = false;
+    }
+    if (copied && hash.finish() != content.sha1) {
+        why = path + " on the Wii does not match the TMD's SHA-1 hash";
+        copied = false;
+    }
+    if (copied && std::rename(temp.c_str(), destination.c_str()) != 0) {
+        why = destination + " could not be put in place";
+        copied = false;
+    }
+    if (!copied) std::remove(temp.c_str());
+    return copied;
+}
+
+bool repair_shared_contents(const TmdContents& tmd, const std::string& folder, std::string& why) {
+    const bool has_shared = std::any_of(tmd.contents.begin(), tmd.contents.end(), [](const TmdContent& content) {
+        return (content.type & 0x8000) != 0;
+    });
+    if (!has_shared) return true;
+    const std::string shared_dir = folder + "/shared1";
+    const std::string map_path = shared_dir + "/content.map";
+    std::vector<SharedContent> shared;
+    if (!read_copied_shared_map(map_path, shared, why)) return false;
+    std::vector<TmdContent> missing;
+    if (!missing_shared_contents(tmd, shared, [&](const SharedContent& entry, const TmdContent& content) {
+            struct stat st;
+            const std::string path = shared_dir + "/" + entry.name + ".app";
+            return content.size != 0 && content.size <= kMaxSharedContentBytes &&
+                   stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode) && st.st_size >= 0 &&
+                   static_cast<std::uint64_t>(st.st_size) == content.size;
+        }, missing)) {
+        why = "there is not enough memory to check the shared contents";
+        return false;
+    }
+    if (missing.empty()) return true;
+    const std::string code = channel_code(tmd.title_id);
+    for (const TmdContent& content : missing) {
+        char digest[41];
+        for (std::size_t i = 0; i < content.sha1.size(); ++i)
+            std::snprintf(digest + i * 2, 3, "%02x", static_cast<unsigned>(content.sha1[i]));
+        logf("Wii channels: the copied NAND lacks %s's shared content %08x (SHA-1 %s), or its file has the wrong size.\n",
+             code.c_str(), static_cast<unsigned>(content.id), digest);
+    }
+    if (NandOpen() < 0) {
+        why = "the Wii's NAND could not be opened to read the missing shared contents";
+        return false;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    NandAccess access;
+    std::vector<u8> map_bytes;
+    std::vector<SharedContent> real_shared;
+    if (!read_whole(access, "/shared1/content.map", kMaxSharedMapBytes, map_bytes, why) ||
+        !decode_shared_map(map_bytes, real_shared, why)) return false;
+    if (mkdir(shared_dir.c_str(), 0777) != 0 && errno != EEXIST) {
+        why = shared_dir + " could not be created";
+        return false;
+    }
+    for (const TmdContent& content : missing) {
+        const SharedContent* source = find_shared_content(real_shared, content.sha1);
+        if (source == nullptr) {
+            why = "shared content " + std::to_string(content.id) + " is not in the Wii's own shared content map";
+            return false;
+        }
+        SharedContent entry;
+        // Leave unlisted files alone too, including ones left by an earlier
+        // interrupted repair. No live map is changed until all copies pass.
+        bool name_check_failed = false;
+        entry.name = next_shared_name(shared, [&](const std::string& name) {
+            struct stat st;
+            const std::string path = shared_dir + "/" + name + ".app";
+            if (stat(path.c_str(), &st) == 0) return true;
+            // Report a storage error after choosing, instead of searching
+            // the entire name range on a drive that cannot be read.
+            if (errno != ENOENT) name_check_failed = true;
+            return false;
+        });
+        entry.sha1 = content.sha1;
+        if (name_check_failed) {
+            why = shared_dir + " could not be checked for a free content name";
+            return false;
+        }
+        const bool replacing = find_shared_content(shared, content.sha1) != nullptr;
+        const std::size_t entry_count = shared.size() + (replacing ? 0 : 1);
+        if (entry.name.empty() || entry_count > kMaxSharedMapBytes / kSharedMapEntryBytes ||
+            !try_reserve(shared, entry_count)) {
+            why = "there is no room for another shared content map entry";
+            return false;
+        }
+        if (!copy_shared_content(access, *source, content, shared_dir + "/" + entry.name + ".app", why)) {
+            logf("Wii channels: shared content %08x could not be copied: %s.\n",
+                 static_cast<unsigned>(content.id), why.c_str());
+            return false;
+        }
+        // Replace a stale hash entry rather than appending a duplicate:
+        // IOS may otherwise keep choosing the old, missing file.
+        shared.erase(std::remove_if(shared.begin(), shared.end(), [&](const SharedContent& old) {
+            return old.sha1 == content.sha1;
+        }), shared.end());
+        shared.push_back(entry);
+        logf("Wii channels: copied %s's shared content %08x from the Wii's %s.app to the copied NAND's %s.app and checked its SHA-1.\n",
+             code.c_str(), static_cast<unsigned>(content.id), source->name.c_str(), entry.name.c_str());
+    }
+    if (!save_shared_map(map_path, shared, why)) return false;
+    logf("Wii channels: the copied NAND lacked %u of %s's shared contents; copied them from the Wii's own NAND.\n",
+         static_cast<unsigned>(missing.size()), code.c_str());
+    return true;
+}
+
 }  // namespace
+
+bool prepare_emu_shared_contents(const TmdContents& tmd, const std::string& folder, std::string& error) {
+    if (folder.empty()) return true;
+    std::string why;
+    if (repair_shared_contents(tmd, folder, why)) return true;
+    logf("Wii channels: %s cannot start from %s because its shared contents could not be prepared: %s.\n",
+         channel_code(tmd.title_id).c_str(), folder.c_str(), why.c_str());
+    error = tr("This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it.");
+    return false;
+}
 
 bool list_nand_channels(std::vector<NandChannel>& out, std::string& status, bool include_non_games) {
     out.clear();
@@ -643,6 +912,9 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         error = "the TMD belongs to a different channel";
         return false;
     }
+    // Still under the menu's IOS with libfat reading the card. This also
+    // covers autorun's channelread/channelboot and the menu's launch path.
+    if (!prepare_emu_shared_contents(contents, emu_nand, error)) return false;
     files.required_ios = contents.required_ios;
     files.game_id = channel_game_id(channel_code(title_id), contents.maker);
     const auto add_ios = [&files](int ios) {

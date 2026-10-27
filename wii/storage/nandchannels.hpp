@@ -93,6 +93,10 @@ struct ChannelBootFiles {
     std::vector<std::uint8_t> certs;
 };
 
+// Before d2x takes the card, restore missing shared contents from the Wii's
+// own NAND. False with translated player text; the precise reason is logged.
+bool prepare_emu_shared_contents(const TmdContents& tmd, const std::string& folder, std::string& error);
+
 // Reads them for `title_id`, under the running IOS (opening its NAND
 // permission check as the listing does). False with `error` saying why:
 // the system then starts the title as the Wii Menu does.
