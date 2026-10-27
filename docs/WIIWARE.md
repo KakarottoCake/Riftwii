@@ -71,8 +71,11 @@ input, the games installed on the Wii's own NAND.
 | World of Goo | 00010001-WGOE | IOS35 | Title screen | Title screen | Not yet |
 | Tetris Party | 00010001-WTPE | IOS35 | Title screen | Title screen | Not yet |
 
-All 14 reach the same screen through RiftWii as when Dolphin starts them
-itself (2026-10-26, branch at 209b308c). In WarioWare, Dolphin's log
+All 14 start through RiftWii, and 13 show the same screens as when
+Dolphin starts them itself (2026-10-26, branch at 209b308c). Dr. Mario
+Online Rx was already on its title screen at both RiftWii screenshots,
+while the direct start still showed its ESRB notice first; that may only
+be timing, not checked further. In WarioWare, Dolphin's log
 shows the game asking ES for its title and data folder and reading its
 own content through ES, as it does when started directly.
 
