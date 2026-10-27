@@ -186,7 +186,10 @@ std::string tls_failure_reason(int bearssl_code, std::time_t wii_now) {
             "set it in Wii Settings";
     }
     if (bearssl_code == kX509BadSignature || bearssl_code == kX509DnMismatch ||
-            bearssl_code == kX509NotCa || bearssl_code == kX509NotTrusted)
+            bearssl_code == kX509NotCa)
+        return "the server's certificate chain does not check out; something on the network may be "
+            "intercepting the connection";
+    if (bearssl_code == kX509NotTrusted)
         return "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
             "list may be out of date, or something on the network is intercepting the connection";
     if (bearssl_code == kX509BadServerName)
