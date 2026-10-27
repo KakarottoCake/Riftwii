@@ -525,14 +525,14 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
 }
 
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
-                    int alpha) {
+                    int alpha, bool opaque) {
     const u8 a = static_cast<u8>(alpha < 0 ? 0 : alpha > 255 ? 255 : alpha);
     DrawRgb5a3Region(data, w, h, u0, 0.0f, u1, 1.0f, x, y, dw, dh, (GXColor){0xFF, 0xFF, 0xFF, a},
-                     (GXColor){0xFF, 0xFF, 0xFF, a});
+                     (GXColor){0xFF, 0xFF, 0xFF, a}, opaque);
 }
 
 void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
-                      float dh, GXColor top, GXColor bottom) {
+                      float dh, GXColor top, GXColor bottom, bool opaque) {
     if (!data || (top.a == 0 && bottom.a == 0)) return;
     GxTraceTexture(data, w, h, GX_TF_RGB5A3);
     GXTexObj tex;
@@ -541,6 +541,10 @@ void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1
     GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
     GX_LoadTexObj(&tex, GX_TEXMAP0);
     GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    // The alpha from the colour alone; the colour under a cut-out texel is
+    // still stored (RGB5A3 keeps 4-bit colour at alpha 0), so the corner
+    // shows the picture's own edge.
+    if (opaque) GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
     GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     // libgui's 2D view: the identity moved to z = -50 (video.cpp).
     Mtx view;

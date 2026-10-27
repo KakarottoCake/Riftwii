@@ -53,7 +53,12 @@ constexpr float kFovY = 43.6028f;  // 2 * atan(240 / kEye), in degrees
 constexpr float kBoxH = 164.0f;
 // A Wii case's shape: a DVD keep case, 190 x 135 x 14 mm.
 constexpr float kBoxW = kBoxH * 135.0f / 190.0f;  // spine to front edge, along z
-constexpr float kBoxT = kBoxH * 14.0f / 190.0f;   // the spine's width
+// The spine's width: as wide as the spine printed on GameTDB's full cover,
+// 58 of its 680 rows' height (1024 x 680, two 135/190 faces either side),
+// which wraps a little round the case's edges. At the case's own 14 mm the
+// printed spine was squeezed to 86% of its width on every box, the names
+// and logos on it narrower than they are; the height stays the case's.
+constexpr float kBoxT = kBoxH * 58.0f / 680.0f;
 // The plank lands on the lower shelf a theme paints under Home's second
 // row of covers (themes/Bookshelf): its top seen from 247 to 250, its front
 // edge down to 268.
@@ -1124,10 +1129,12 @@ void GuiGameGrid::DrawRing(int alpha) {
             // No 3D cover (yet): the flat cover, as tall as a case in one.
             ph = h * 0.92f;
             w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
+            // Square to its corners, as a case is: the stored cover's
+            // rounded corners are for the covers view's tiles.
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
-                                   w, ph, lit, lit);
+                                   w, ph, lit, lit, true);
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 1, 1, 1 - kRingReflect,
-                                   cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd);
+                                   cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd, true);
         } else if (item.badge == "DISC" && skin::discCase.data) {
             ph = h * 0.92f;
             const float k = ph / skin::discCase.h;
