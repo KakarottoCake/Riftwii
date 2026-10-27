@@ -3284,3 +3284,6 @@ msgstr "Mostra sua RiiTag. Primeiro coloque riitag_id = <seu ID do Discord> em s
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "Mostra sua RiiTag, baixada de riitag.t0g3pii.de."
+
+msgid "This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it."
+msgstr "Faltam arquivos necessários para o jogo nesta NAND emulada (conteúdos compartilhados). Copie para ela a pasta shared1 da NAND do seu Wii."

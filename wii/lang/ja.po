@@ -3284,3 +3284,6 @@ msgstr "RiiTagを表示します。先にsd:/riftwii/settings.txtにriitag_id = 
 
 msgid "Shows your RiiTag, downloaded from riitag.t0g3pii.de."
 msgstr "riitag.t0g3pii.deからダウンロードしたRiiTagを表示します。"
+
+msgid "This emulated NAND is missing files the game needs (shared contents). Copy the shared1 folder from your Wii's NAND into it."
+msgstr "このエミュレートNANDにはゲームに必要なファイル (共有コンテンツ) がありません。Wii本体のNANDからshared1フォルダをコピーしてください。"

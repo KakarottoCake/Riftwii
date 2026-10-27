@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -80,7 +81,16 @@ std::vector<SharedContent> parse_content_map(const std::uint8_t* data, std::size
 std::vector<std::uint8_t> serialize_content_map(const std::vector<SharedContent>& entries);
 // The entry with that hash, or nullptr.
 const SharedContent* find_shared_content(const std::vector<SharedContent>& entries, const Sha1Digest& sha1);
-// The name the next new shared content takes: one past the highest.
-std::string next_shared_name(const std::vector<SharedContent>& entries);
+// One past the highest name, skipping files absent from the map too. If
+// the eight-digit range ends, use a free name below it; empty if full.
+std::string next_shared_name(const std::vector<SharedContent>& entries,
+                             const std::function<bool(const std::string&)>& name_in_use = {});
+
+// Shared contents without a map entry or a usable file. The caller checks
+// its storage in `present`; repeated hashes need only one copy. False on
+// allocation failure, leaving `out` alone.
+bool missing_shared_contents(const TmdContents& tmd, const std::vector<SharedContent>& entries,
+                              const std::function<bool(const SharedContent&, const TmdContent&)>& present,
+                              std::vector<TmdContent>& out);
 
 }  // namespace riftwii
