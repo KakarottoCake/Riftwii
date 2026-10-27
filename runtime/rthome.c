@@ -32,6 +32,12 @@
 
 static uint32_t pad_buttons(const uint8_t* s) { return ((uint32_t)s[0] << 8) | s[1]; }
 
+/* Ticks since a time noted with its low bit set (so 0 can mean "none"):
+ * the bit comes off first, or a time noted at an even tick would be one
+ * tick in the future, and the unsigned difference would wrap to the
+ * largest there is (the stand-in ended at once in Dolphin). */
+static uint32_t elapsed(uint32_t now, uint32_t noted) { return now - (noted & ~1u); }
+
 /* The first port, with no error, holding the combo; RTHOME_CHANNELS: none. */
 static uint32_t combo_port(const uint8_t* status) {
     uint32_t i;
@@ -57,6 +63,7 @@ static void keep_pad(struct rthome* h, const uint8_t* status) {
     uint32_t i;
     for (i = 0; i < RTHOME_PAD_STATUS_BYTES; ++i) h->pad[i] = s[i];
     h->stale &= pad_buttons(s);  /* a combo button once let go counts again */
+    ++h->samples;
 }
 
 void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now) {
@@ -80,7 +87,7 @@ void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now) {
         h->since = now | 1u;
         return;
     }
-    if (now - h->since < h->hold) return;
+    if (elapsed(now, h->since) < h->hold) return;
     h->channel = free_channel(h);
     if (h->channel == RTHOME_NO_CHANNEL) {
         h->phase = RTHOME_DONE;  /* every channel has a controller: its own HOME works */
@@ -89,6 +96,8 @@ void rthome_pads(struct rthome* h, const uint8_t* status, uint32_t now) {
     h->port = port;
     h->stale = pad_buttons(status + port * RTHOME_PAD_STATUS_BYTES);
     h->last = 0;
+    h->samples = 0;
+    h->worked = 0xFFFFFFFFu;  /* none yet */
     h->menu_seen = 0;
     h->phase = RTHOME_PRESSING;
     h->since = now | 1u;
@@ -112,12 +121,12 @@ void rthome_menu_frame(struct rthome* h, uint32_t now) {
 }
 
 uint32_t rthome_stand_in(struct rthome* h, uint32_t now) {
-    if (h->phase == RTHOME_PRESSING && now - h->since >= h->press) {
+    if (h->phase == RTHOME_PRESSING && elapsed(now, h->since) >= h->press) {
         h->phase = h->menu_seen != 0 ? RTHOME_OPEN : RTHOME_WAITING;
         h->since = now | 1u;
     }
-    if (h->phase == RTHOME_WAITING && now - h->since >= h->wait) h->phase = RTHOME_DONE;  /* the game refused */
-    if (h->phase == RTHOME_OPEN && now - h->menu_seen >= h->linger) h->phase = RTHOME_DONE;  /* it closed */
+    if (h->phase == RTHOME_WAITING && elapsed(now, h->since) >= h->wait) h->phase = RTHOME_DONE;  /* the game refused */
+    if (h->phase == RTHOME_OPEN && elapsed(now, h->menu_seen) >= h->linger) h->phase = RTHOME_DONE;  /* it closed */
     if (h->phase == RTHOME_PRESSING || h->phase == RTHOME_WAITING || h->phase == RTHOME_OPEN) return h->channel;
     return RTHOME_NO_CHANNEL;
 }
@@ -173,10 +182,16 @@ void rthome_classic(struct rthome* h, uint32_t now, uint32_t* hold, uint32_t* tr
         axes[4] = trigger(h->pad[6]);
         axes[5] = trigger(h->pad[7]);
     }
-    *hold = buttons;
-    *trig = buttons & ~h->last;
-    *release = h->last & ~buttons;
-    h->last = buttons;
+    if (h->worked != h->samples) {
+        h->worked = h->samples;
+        h->hold_now = buttons;
+        h->trig_now = buttons & ~h->last;
+        h->release_now = h->last & ~buttons;
+        h->last = buttons;
+    }
+    *hold = h->hold_now;
+    *trig = h->trig_now;
+    *release = h->release_now;
 }
 
 uint32_t rthome_float_bits(int32_t numerator) {
