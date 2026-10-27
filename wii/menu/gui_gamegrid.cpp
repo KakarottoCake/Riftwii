@@ -1562,8 +1562,11 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         slot = SlotAt(px, py);
         if (slot < 0 || page * kPerPage + slot >= Count()) return false;
         index = ItemAt(slot);
+        // A tile drawn as a name (no cover yet) keeps 1 and 2 for the bar,
+        // even when the game's box is already on the card.
+        if (!riftwii::wii::CoverTexture((*items)[index].id)) return false;
     }
-    if (!ZoomArtFor((*items)[index].id, back).data) return false;  // a name tile: no cover to show
+    if (!ZoomArtFor((*items)[index].id, back).data) return false;  // nothing to show up close
     zoomItem = index;
     zoomSlot = slot;
     zoomBack = back;
