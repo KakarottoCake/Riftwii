@@ -304,14 +304,14 @@ void TestTlsFailureReason() {
               "the certificate is for a different server; something on the network may be "
               "redirecting the connection");
     EXPECT_EQ(tls_failure_reason(52, 0),
-              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
-              "list may be out of date, or something on the network is intercepting the connection");
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
     EXPECT_EQ(tls_failure_reason(55, 0),
-              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
-              "list may be out of date, or something on the network is intercepting the connection");
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
     EXPECT_EQ(tls_failure_reason(58, 0),
-              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
-              "list may be out of date, or something on the network is intercepting the connection");
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
     EXPECT_EQ(tls_failure_reason(62, 0),
               "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
               "list may be out of date, or something on the network is intercepting the connection");
