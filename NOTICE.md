@@ -72,8 +72,8 @@ when a game's cheats are asked for and no copy under 30 days old is on the
 card; kept in `sd:/riftwii/cheats/gamehacking/`. The site's robots.txt asks
 crawlers for `Crawl-delay: 30`; RiftWii doesn't crawl, and makes these two
 requests back to back at most once in about 30 days), animated banners for GameCube
-games in the Channels view, made by the
-community and hosted by RiiConnect24 (http://banner.rc24.xyz, stored on
+games, and banners for the custom Wii games GameTDB lists, in the Channels view, made by the
+community and hosted by RiiConnect24 (https://banner.rc24.xyz, stored on
 the SD card as they come), and the newest release's tag from
 GitHub's API (the update check). None is shipped with RiftWii, except
 for two lists derived from GameTDB's database (https://www.gametdb.com,

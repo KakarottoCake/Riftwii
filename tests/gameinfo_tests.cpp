@@ -3,6 +3,7 @@
 #include "gameinfo.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "netsock.hpp"
 #include "online.hpp"
 #include "zipbuild.hpp"
 
@@ -24,6 +25,15 @@ bool HttpGet(const std::string&, std::vector<std::uint8_t>&, std::string&, std::
     CHECK(false);  // A local database scan must not need a download.
     return false;
 }
+
+// The network's background thread, run here and now: the job has ended
+// by the time Take is asked.
+bool NetRunInBackground(void (*job)(), bool, bool) {
+    job();
+    return true;
+}
+bool NetBackgroundBusy() { return false; }
+void NetWaitForBackground() {}
 }  // namespace riftwii::wii
 
 namespace {
@@ -123,9 +133,38 @@ void TestStoredTruncationPreservesCache() {
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
+// Home's read of the database for the drives' games: the custom ones
+// (<type>CUSTOM</type>) are known from then on, and kept in the cache.
+void TestBackgroundReadFindsCustomGames() {
+    fs::create_directories("sd:/riftwii");
+    const std::string xml =
+        "<datafile>\n"
+        "<game name=\"New Super Mario Remake\"><id>SMNE02</id><type>CUSTOM</type></game>\n"
+        "<game name=\"Super Smash Bros. Brawl\"><id>RSBE01</id><type/></game>\n"
+        "</datafile>\n";
+    const auto zip = ziptest::make_zip({{"wiitdb.xml", xml + std::string(300u << 10, ' '), 0}});
+    Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
+    CHECK(!IsCustomGame("SMNE02"));
+    CHECK(StartGameInfoRead({"SMNE02", "RSBE01"}, false));
+    bool changed = false;
+    CHECK(TakeGameInfoRead(changed));
+    CHECK(changed);
+    CHECK(IsCustomGame("SMNE02"));
+    CHECK(!IsCustomGame("RSBE01"));
+    CHECK(ReadCache().find("type=custom") != std::string::npos);
+    // Taken once; every game looked for, so nothing to read again.
+    CHECK(!TakeGameInfoRead(changed));
+    CHECK(!StartGameInfoRead({"SMNE02", "RSBE01"}, false));
+
+    fs::remove(kZipPath);
+    fs::remove(kCachePath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
 }  // namespace
 
 int main() {
     TestStoredTruncationPreservesCache();
+    TestBackgroundReadFindsCustomGames();
     return failures ? 1 : 0;
 }

@@ -11,7 +11,8 @@
 
 // A game's details for its About page (riftwii/gametdb.hpp), from GameTDB's
 // database of every Wii game: sd:/riftwii/wiitdb-<lang>.zip, which the
-// About page downloads when the player asks (about 2 MB: the texts in the
+// About page downloads when the player asks, and Home once the drives are
+// read with Download names and cheats on (about 2 MB: the texts in the
 // menu's language, English where there is no translation), else a
 // wiitdb.xml another loader left on the card. Reading the whole database
 // takes seconds on a Wii, so the details of the games on the player's
@@ -36,6 +37,22 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
 // facts. Reads nothing but the cache file (once a session), never the
 // database.
 bool PeekGameInfo(const std::string& id, GameInfo& out);
+
+// Whether GameTDB's database lists the game as custom (GameInfo::custom:
+// <type>CUSTOM</type>), from the cache: false until the database was read
+// for it (StartGameInfoRead, or the About page).
+bool IsCustomGame(const std::string& id);
+
+// Reads the database on the network's background thread for the games in
+// `wanted` the cache has not looked for yet (all of them once the database
+// is newer than the cache), so Home knows which are custom without the
+// About page being opened. With no database on the card it is downloaded
+// first when `download` (Download names and cheats on). False when there
+// is nothing to read, or the thread is busy.
+bool StartGameInfoRead(const std::set<std::string>& wanted, bool download);
+// True, once, when a started read has ended, the cache then updated.
+// `changed`: the games found custom are not the ones before.
+bool TakeGameInfoRead(bool& changed);
 
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.

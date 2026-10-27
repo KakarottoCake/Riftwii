@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
 
 #include "riftwii/textlines.hpp"
@@ -19,6 +20,8 @@ constexpr std::size_t kMaxText = 200;       // a name, a genre, a rating
 constexpr std::size_t kMaxSynopsis = 3000;  // bytes of UTF-8
 constexpr std::size_t kMaxListItems = 24;   // genres, controls, features
 constexpr int kMaxPlayers = 99;
+// The cache's second line once it keeps the games' <type>.
+constexpr const char* kTypesLine = "# with each game's type\n";
 
 bool is_game_id(const std::string& id) {
     if (id.size() != 4 && id.size() != 6) return false;
@@ -168,6 +171,9 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
     GameInfo info;
     info.id = clean(game.child_value("id"), 8);
     if (!is_game_id(info.id)) return false;
+    std::string type = clean(game.child_value("type"), 16);
+    for (char& c : type) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    info.custom = type == "CUSTOM";
     info.developer = clean(game.child_value("developer"), kMaxText);
     info.publisher = clean(game.child_value("publisher"), kMaxText);
     info.genres = split_list(game.child_value("genre"));
@@ -211,8 +217,10 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
 
 std::string serialize_game_infos(const std::map<std::string, GameInfo>& games) {
     std::string out = "# GameTDB game details, made by RiftWii from wiitdb.zip\n";
+    out += kTypesLine;
     for (const auto& [id, g] : games) {
         out += "[" + id + "]\n";
+        if (g.custom) out += "type=custom\n";
         if (!g.developer.empty()) out += "developer=" + escape(g.developer) + "\n";
         if (!g.publisher.empty()) out += "publisher=" + escape(g.publisher) + "\n";
         if (!g.genres.empty()) out += "genres=" + escape(join(g.genres)) + "\n";
@@ -249,7 +257,8 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
         if (!current || eq == std::string::npos) continue;
         const std::string key = line.substr(0, eq);
         const std::string value = unescape(line.substr(eq + 1));
-        if (key == "developer") current->developer = clean(value, kMaxText);
+        if (key == "type") current->custom = value == "custom";
+        else if (key == "developer") current->developer = clean(value, kMaxText);
         else if (key == "publisher") current->publisher = clean(value, kMaxText);
         else if (key == "genres") current->genres = split_list(value);
         else if (key == "date") {
@@ -278,6 +287,8 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
     }
     return true;
 }
+
+bool game_infos_have_types(const std::string& text) { return text.find(kTypesLine) != std::string::npos; }
 
 std::string gametdb_locale(const std::string& menu_language) {
     static const char* const kCodes[][2] = {{"ja", "JA"}, {"es", "ES"}, {"pt", "PT"}, {"it", "IT"},

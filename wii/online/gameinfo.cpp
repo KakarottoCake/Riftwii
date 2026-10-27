@@ -11,6 +11,7 @@
 
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/zipstream.hpp"
@@ -67,6 +68,9 @@ void LoadCache(const std::string& lang) {
     std::fclose(f);
     text.resize(got);
     parse_game_infos(text, g_cache.games);
+    // A cache from before the games' <type> was kept says no game is
+    // custom: read the database again (as if it were newer) once there is one.
+    const bool has_types = game_infos_have_types(text);
     // The games looked for and not found, on one line of their own.
     const std::size_t at = text.find(kNotListedLine);
     if (at != std::string::npos) {
@@ -76,7 +80,7 @@ void LoadCache(const std::string& lang) {
         std::string id;
         while (ids.next(id) && g_cache.not_listed.size() < 4096) g_cache.not_listed.insert(id);
     }
-    g_cache.written = st.st_mtime;
+    g_cache.written = has_types ? st.st_mtime : 0;
 }
 
 bool SaveCache() {
@@ -225,11 +229,15 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     return true;
 }
 
-bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t received)>& received) {
+namespace {
+
+// Downloads the database in `lang` to the card; the cache is left alone,
+// so this may run on the network's background thread.
+bool DownloadDatabase(const std::string& lang, std::string& error,
+                      const std::function<void(std::size_t received)>& received) {
     std::vector<std::uint8_t> body;
     HttpProgress progress = nullptr;
     if (received) progress = [&](std::size_t bytes) { received(bytes); };
-    const std::string lang = MenuLocale();
     if (!HttpGet(kWiitdbUrl + lang, body, error, kMaxZip, 30000, progress)) {
         logf("Game details: download failed: %s\n", error.c_str());
         return false;
@@ -254,8 +262,109 @@ bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t r
         return false;
     }
     logf("Game details: %u bytes of GameTDB's database saved to %s\n", static_cast<unsigned>(body.size()), path.c_str());
+    return true;
+}
+
+// The read on the network's background thread (StartGameInfoRead): set up
+// on the menu's thread, written by the job only while it runs, and taken
+// on the menu's thread once it has ended.
+struct BackgroundRead {
+    bool started = false;
+    std::string lang;
+    std::string source;  // empty: download the database first
+    std::set<std::string> ids;
+    bool ok = false;
+    std::string error;
+    std::map<std::string, GameInfo> games;
+};
+BackgroundRead g_read;
+
+void RunBackgroundRead() {
+    if (g_read.source.empty()) {
+        if (!DownloadDatabase(g_read.lang, g_read.error, nullptr)) return;
+        g_read.source = ZipPath(g_read.lang);
+    }
+    WiitdbScanner scanner(g_read.ids, g_read.lang);
+    const bool zip = g_read.source.size() > 4 && g_read.source.compare(g_read.source.size() - 4, 4, ".zip") == 0;
+    const bool read = zip ? ScanZip(g_read.source, scanner, g_read.error, nullptr)
+                          : ScanXml(g_read.source, scanner, g_read.error, nullptr);
+    if (!read) return;
+    g_read.games = scanner.games();
+    g_read.ok = true;
+}
+
+}  // namespace
+
+bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t received)>& received) {
+    if (!DownloadDatabase(MenuLocale(), error, received)) return false;
     // The next FindGameInfo reads the new database.
     g_cache = Cache();
+    return true;
+}
+
+bool IsCustomGame(const std::string& id) {
+    LoadCache(MenuLocale());
+    const auto found = g_cache.games.find(id);
+    return found != g_cache.games.end() && found->second.custom;
+}
+
+bool StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
+    if (g_read.started || NetBackgroundBusy()) return false;
+    const std::string lang = MenuLocale();
+    LoadCache(lang);
+    std::string source;
+    std::time_t source_time = 0;
+    const bool have_source = GameInfoSource(source, source_time);
+    if (!have_source && !download) return false;
+    const bool stale = have_source && !g_cache.read_now && source_time > g_cache.written;
+    // Every game on the drives already looked for: nothing to read.
+    bool missing = !have_source;
+    for (const std::string& id : wanted)
+        if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
+    if (!stale && !missing) return false;
+    BackgroundRead read;
+    read.lang = lang;
+    read.source = have_source ? source : "";
+    read.ids = wanted;
+    for (const auto& kept : g_cache.games) read.ids.insert(kept.first);
+    read.ids.insert(g_cache.not_listed.begin(), g_cache.not_listed.end());
+    read.started = true;
+    logf("Game details: reading %s for %u game(s) in the background\n",
+         have_source ? source.c_str() : "GameTDB's database (downloading it first)",
+         static_cast<unsigned>(read.ids.size()));
+    g_read = std::move(read);
+    if (NetRunInBackground(RunBackgroundRead, false, false)) return true;
+    g_read = BackgroundRead();
+    return false;
+}
+
+bool TakeGameInfoRead(bool& changed) {
+    changed = false;
+    if (!g_read.started || NetBackgroundBusy()) return false;
+    NetWaitForBackground();
+    BackgroundRead read = std::move(g_read);
+    g_read = BackgroundRead();
+    if (!read.ok) {
+        logf("Game details: the background read failed: %s\n", read.error.c_str());
+        return true;
+    }
+    // The menu's language changed meanwhile: the cache is another's now.
+    if (read.lang != MenuLocale()) return true;
+    LoadCache(read.lang);
+    std::set<std::string> custom_before, custom_after;
+    for (const auto& kept : g_cache.games)
+        if (kept.second.custom) custom_before.insert(kept.first);
+    g_cache.games = std::move(read.games);
+    g_cache.read_now = true;
+    g_cache.not_listed.clear();
+    for (const std::string& id : read.ids)
+        if (!g_cache.games.count(id)) g_cache.not_listed.insert(id);
+    for (const auto& kept : g_cache.games)
+        if (kept.second.custom) custom_after.insert(kept.first);
+    logf("Game details: %u game(s) found, %u not listed, %u custom\n", static_cast<unsigned>(g_cache.games.size()),
+         static_cast<unsigned>(g_cache.not_listed.size()), static_cast<unsigned>(custom_after.size()));
+    if (!SaveCache()) logf("Game details: %s could not be written\n", CachePath(read.lang).c_str());
+    changed = custom_before != custom_after;
     return true;
 }
 
