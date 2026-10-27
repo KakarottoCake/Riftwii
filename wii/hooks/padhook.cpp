@@ -20,6 +20,7 @@
 #include "log.hpp"
 #include "pad_hook.h"
 #include "pentablet.h"
+#include "riftwii/hbmsearch.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/osrestart.hpp"
 #include "riftwii/symsearch.hpp"
@@ -43,6 +44,16 @@ constexpr std::uint32_t kNop = 0x60000000;
 // (28,874 calls over 11 s), 0.244 s in Mario Kart Wii's.
 constexpr std::uint32_t kLeaveHoldMs = 2000;
 constexpr std::uint32_t kSaveQuietMs = 1000;
+// The HOME Menu (#224 part 1), from the same hold. HOME is held on the
+// stand-in long enough for a Virtual Console game, which opens its menu on
+// a HOME held half a second (Cruis'n USA, Bomberman Hero, Dr. Mario Online
+// Rx in Dolphin, 25 Oct). The menu then gets two seconds to open (Brawl
+// builds it for 20 frames first); after that the game has refused, mid-save
+// or loading, showing its crossed-out HOME icon. It counts as closed once
+// HBMCalc has not run for a while (it runs through the closing animation).
+constexpr std::uint32_t kHomePressMs = 600;
+constexpr std::uint32_t kHomeWaitMs = 2000;
+constexpr std::uint32_t kHomeLingerMs = 300;
 // v5 serves 16 handles, picked by the open mode: libogc's USB takes 0 and
 // fakemote (a cIOS module) 15. 0 is tried first (free once libogc's USB
 // is shut down; a Wii U's IOS 58 answered nothing on 1), then 1. v4
@@ -521,6 +532,32 @@ void find_way_back(const DolHeader& dol, const std::vector<CodeRange>& text, Pad
          out.suspend_thread != 0 ? "at " : "not found, ", out.suspend_thread);
 }
 
+// The HOME Menu's three functions (riftwii/hbmsearch.hpp): the KPAD read,
+// WPADProbe and HBMCalc. Any missing: the combo stays the way back.
+void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, PadHook& out) {
+    std::vector<CodeRange> all;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) all.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    const KpadRead kpad = find_kpad_read(text);
+    const std::uint32_t probe = find_wpad_probe(text);
+    const HbmFunctions hbm = find_hbm_functions(text, all, find_small_data_base(all, dol.entry));
+    const char* missing = kpad.address == 0 ? "the KPAD read" : probe == 0 ? "WPADProbe" : hbm.calc == 0 ? "HBMCalc" : nullptr;
+    if (missing != nullptr) {
+        logf("GameCube adapter: no HOME Menu by the controller (the combo is the way back): %s was not found\n", missing);
+        return;
+    }
+    out.kpad_read = kpad.address;
+    out.kpad_status_bytes = kpad.status_bytes;
+    out.kpad_takes_error = kpad.takes_error;
+    out.wpad_probe = probe;
+    out.hbm_calc = hbm.calc;
+    logf("GameCube adapter: the HOME Menu by the controller: the KPAD read at 0x%08x (%u-byte statuses%s), "
+         "WPADProbe at 0x%08x, HBMCalc at 0x%08x\n",
+         kpad.address, kpad.status_bytes, kpad.takes_error ? ", with the error's address" : "", probe, hbm.calc);
+}
+
 }  // namespace
 
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
@@ -556,6 +593,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x, screen-dimming reset at 0x%08x\n",
          out.read, out.read_sites, out.motor, out.idle_reset);
     find_way_back(dol, text, out);
+    find_home_menu(dol, text, out);
 
     if (!take_adapter_handle(out.fd, out.version, out.known_dev, why)) {
         if (!demo) return false;
@@ -739,12 +777,28 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                               {hook.ipc_submit, h.hook_submit, h.replay_submit, h.continue_submit, "the IPC submit routine"},
                               {hook.sleep_thread, h.hook_sleep, h.replay_sleep, h.continue_sleep, "OSSleepThread"},
                               {hook.suspend_thread, h.hook_suspend, h.replay_suspend, h.continue_suspend,
-                               "OSSuspendThread"}};
+                               "OSSuspendThread"},
+                              {hook.kpad_read, h.hook_kpad, h.replay_kpad, h.continue_kpad, "the KPAD read"},
+                              {hook.wpad_probe, h.hook_probe, h.replay_probe, h.continue_probe, "WPADProbe"},
+                              {hook.hbm_calc, h.hook_menu, h.replay_menu, h.continue_menu, "HBMCalc"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
     Site& suspend_site = sites[4];
+    Site* const home_sites[3] = {&sites[5], &sites[6], &sites[7]};
+    const auto is_home_site = [&](const Site& s) {
+        return &s == home_sites[0] || &s == home_sites[1] || &s == home_sites[2];
+    };
+    // The HOME Menu needs all three of its hooks: without one, none goes in
+    // and the combo stays the way back.
+    bool home = hook.kpad_read != 0 && hook.wpad_probe != 0 && hook.hbm_calc != 0;
+    const auto home_off = [&](const char* name, const std::string& reason) {
+        if (!home) return;
+        logf("GameCube adapter: no HOME Menu by the controller (the combo is the way back): %s %s\n", name,
+             reason.c_str());
+        home = false;
+    };
     // The way back needs both of its hooks: without either it stays off
     // (the one that went in is harmless alone).
     const auto way_back_off = [&](const char* name, const std::string& reason) {
@@ -773,6 +827,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
             }
             if (&s == &motor_site) {
                 logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
+            } else if (is_home_site(s)) {
+                home_off(s.name, "cannot be hooked (" + reason + ")");
             } else if (&s == &suspend_site) {
                 logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
                      reason.c_str());
@@ -787,6 +843,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
         const auto resume = encode_absolute_jump(kScratchRegister, s.function + 4);
         store_words(hook.code_base + s.resume, resume.data(), 4);
     }
+    if (!home)
+        for (Site* s : home_sites) s->function = 0;
     sync_code(hook.code_base, hook.code_bytes);
     unsigned veneers = 0;
     for (const Site& s : sites) {
@@ -810,6 +868,9 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 return false;
             }
             if (&s == &submit_site || &s == &sleep_site) way_back_off(s.name, "is out of a branch's reach");
+            // One of the three may already be in: harmless alone, as each
+            // returns at once while home_on is 0.
+            if (is_home_site(s)) home_off(s.name, "is out of a branch's reach");
             if (&s == &suspend_site)
                 logf("GameCube adapter: OSSuspendThread is out of a branch's reach; the way back leaves only from sleeps\n");
             continue;
@@ -826,9 +887,24 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
     ctx->resident_busy = hook.resident_busy;
     ctx->resident_queued = hook.resident_queued;
     ctx->return_to_menu = hook.return_to_menu;
+    // The HOME Menu's words, home_on (which turns it on) last.
+    ctx->kpad_status_bytes = hook.kpad_status_bytes;
+    ctx->kpad_takes_error = hook.kpad_takes_error ? 1u : 0u;
+    ctx->pad_read = hook.read;
+    ctx->home.hold = kLeaveHoldMs * ctx->ticks_per_ms;
+    ctx->home.press = kHomePressMs * ctx->ticks_per_ms;
+    ctx->home.wait = kHomeWaitMs * ctx->ticks_per_ms;
+    ctx->home.linger = kHomeLingerMs * ctx->ticks_per_ms;
+    ctx->home.channel = RTHOME_NO_CHANNEL;
+    ctx->home_on = home ? 1u : 0u;
     DCFlushRange(ctx, RT_PAD_CONTEXT_BYTES);
     logf("GameCube adapter: hooked%s\n", motor_site.function == 0 ? " (PADRead only)" : "");
-    if (hook.return_to_menu != 0) {
+    if (home) {
+        logf("GameCube adapter: the HOME Menu by the controller is on: the combo held %u ms opens the game's own "
+             "HOME Menu (a Classic Controller on a free channel, HOME held %u ms)%s\n",
+             static_cast<unsigned>(kLeaveHoldMs), static_cast<unsigned>(kHomePressMs),
+             hook.return_to_menu != 0 ? "; in a game that never reads it, the combo is the way back" : "");
+    } else if (hook.return_to_menu != 0) {
         logf("GameCube adapter: the way back is on: the combo held %u ms (%u time base ticks), %u ms after a save\n",
              static_cast<unsigned>(kLeaveHoldMs), static_cast<unsigned>(ctx->leave.hold),
              static_cast<unsigned>(kSaveQuietMs));

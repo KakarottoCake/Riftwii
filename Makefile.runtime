@@ -46,7 +46,7 @@ OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(O
 PADSRC  := runtime/pad
 PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
-PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rtleave.o
+PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rtleave.o $(PADOUT)/rthome.o
 
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
 # functions served from the SD card in Wii mode.
@@ -218,16 +218,19 @@ $(BLOB): $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf
 $(PADOUT):
 	@mkdir -p $(PADOUT)
 
-$(PADOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h | $(PADOUT)
+$(PADOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h runtime/rthome.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
-$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtleave.h | $(PADOUT)
+$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtleave.h runtime/rthome.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
 $(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(PADOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(PADOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADOUT)/rthome.o: runtime/rthome.c runtime/rthome.h | $(PADOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(PADOUT)/riftwii_pad.elf: $(PADOBJS) $(PADSRC)/pad.ld
