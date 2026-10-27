@@ -166,6 +166,18 @@ void test_paths() {
               std::string("/title/00010001/57424d45/content/00000000.app"));
     EXPECT_EQ(nand_content_path(title(kDownloadedChannels, "NAKE"), 0x1f),
               std::string("/title/00010001/4e414b45/content/0000001f.app"));
+
+    // Priiloader's copy of the Wii Menu's program: the boot content's ID
+    // with 1 for its first hex digit.
+    const std::uint64_t wii_menu = 0x0000000100000002ull;
+    const std::vector<std::uint8_t> t = make_tmd(wii_menu, 0, 1, {{0x00000001, 0, 1, 0x40000}, {0x0000009d, 1, 1, 0x80000}});
+    TmdContents parsed;
+    std::string error;
+    EXPECT_TRUE(parse_tmd_contents(t.data(), t.size(), parsed, error));
+    EXPECT_EQ(priiloader_copy_path(parsed), std::string("/title/00000001/00000002/content/1000009d.app"));
+    // The boot index names no content: no path.
+    parsed.boot_index = 7;
+    EXPECT_EQ(priiloader_copy_path(parsed), std::string());
 }
 
 // The first 0x100 bytes of a DOL with one text section of `text` bytes

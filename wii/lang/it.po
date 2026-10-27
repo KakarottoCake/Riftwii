@@ -1260,6 +1260,9 @@ msgstr "Chiudi"
 msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
 msgstr "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."
 
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off."
+msgstr "Scegli dove andare: Homebrew Channel, Menu Wii, riavvio della console o spegnimento."
+
 msgid "Sending a report"
 msgstr "Invio della segnalazione"
 

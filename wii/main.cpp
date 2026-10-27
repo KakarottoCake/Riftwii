@@ -71,7 +71,8 @@
 
 // Where the player leaves to (the HOME Menu, wii/menu/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
-// Menu, 3 Priiloader, 4 power off, 5 the power button.
+// Menu, 3 Priiloader, 4 power off, 5 the power button, 6 a restart (in
+// Priiloader's place where it is not installed).
 volatile int ExitRequested = 0;
 
 namespace {
@@ -188,6 +189,16 @@ void LeaveTo(int where) {
         fatUnmount("sd:");
         fatUnmount("usb:");
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    } else if (where == 6) {
+        // A restart, as the console's own: on a Wii U it is the way back
+        // from the Wii side (the vWii's "Wii U Menu" channel restarts too),
+        // to the Wii U Menu or whatever starts at boot (Aroma). The drives
+        // finish their writes first. Should STM refuse, the Wii Menu exit
+        // below still leaves RiftWii.
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        STM_RebootSystem();
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
     } else if (where == 2 || where == 3) {
         if (where == 3) {
             // Priiloader looks for "Daco" at 0x8132FFFB when the Wii Menu

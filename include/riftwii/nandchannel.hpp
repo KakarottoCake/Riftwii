@@ -145,6 +145,13 @@ const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t ind
 // only /shared1/content.map knows, so this is only for the title's own ones.
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id);
 
+// Where Priiloader keeps the Wii Menu's own program: its installer copies
+// the boot content to a file whose content ID has 1 for its first hex digit
+// (0000009d.app -> 1000009d.app) and takes the original's place, so the
+// copy is there exactly when Priiloader is. Empty when the Wii Menu's TMD
+// names no boot content.
+std::string priiloader_copy_path(const TmdContents& wii_menu);
+
 // The first bytes of one of a title's own contents (at least the DOL
 // header's 0x100 when the file is that long), for choose_channel_program.
 struct ContentStart {

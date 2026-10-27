@@ -840,4 +840,36 @@ std::string nand_channel_name(const NandChannel& channel, int language) {
     return channel.code;
 }
 
+PriiloaderFound PriiloaderInstalled() {
+    static PriiloaderFound found = PriiloaderFound::Unknown;
+    static bool looked = false;
+    if (looked) return found;
+    looked = true;
+    constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
+    TmdContents wii_menu;
+    std::string why;
+    if (!read_stored_tmd(kWiiMenuTitle, wii_menu, why)) {
+        logf("Priiloader: not known, the Wii Menu's TMD could not be read\n");
+        return found;
+    }
+    const std::string copy = priiloader_copy_path(wii_menu);
+    if (copy.empty()) {
+        logf("Priiloader: not known, the Wii Menu's TMD names no program\n");
+        return found;
+    }
+    NandAccess access;
+    const s32 fd = access.open(copy);
+    if (fd >= 0) {
+        ISFS_Close(fd);
+        found = PriiloaderFound::Yes;
+        logf("Priiloader: installed (%s is there)\n", copy.c_str());
+    } else if (fd == -106) {  // no such file
+        found = PriiloaderFound::No;
+        logf("Priiloader: not installed (no %s)\n", copy.c_str());
+    } else {
+        logf("Priiloader: not known, %s could not be looked for (%d)\n", copy.c_str(), static_cast<int>(fd));
+    }
+    return found;
+}
+
 }  // namespace riftwii::wii

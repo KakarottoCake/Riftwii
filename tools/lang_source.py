@@ -1223,6 +1223,11 @@ T = {
         "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
         "Escolha para onde ir: Homebrew Channel, Menu do Wii, Priiloader ou desligar.",
         "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.": (
+        "Elige adónde ir: Homebrew Channel, menú de Wii, reiniciar la consola o apagar.",
+        "行き先を選びます：Homebrew Channel、Wiiメニュー、本体の再起動、または電源オフ。",
+        "Escolha para onde ir: Homebrew Channel, Menu do Wii, reiniciar o console ou desligar.",
+        "Scegli dove andare: Homebrew Channel, Menu Wii, riavvio della console o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
     "Gathering the logs and sending them. This can take half a minute...": (
@@ -3115,6 +3120,8 @@ KO = {
         "닫기",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, 본체 재시작 또는 전원 끄기.",
     "Sending a report":
         "보고서 전송",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -4959,6 +4966,8 @@ FR = {
         "Fermer",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "Choisissez où aller : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "Choisissez où aller : Chaîne Homebrew, Menu Wii, redémarrage de la console ou extinction.",
     "Sending a report":
         "Envoi du rapport",
     "Gathering the logs and sending them. This can take half a minute...":
