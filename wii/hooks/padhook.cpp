@@ -553,9 +553,11 @@ void find_home_menu(const DolHeader& dol, const std::vector<CodeRange>& text, Pa
     out.kpad_takes_error = kpad.takes_error;
     out.wpad_probe = probe;
     out.hbm_calc = hbm.calc;
+    out.hbm_select = hbm.select;
     logf("GameCube adapter: the HOME Menu by the controller: the KPAD read at 0x%08x (%u-byte statuses%s), "
-         "WPADProbe at 0x%08x, HBMCalc at 0x%08x\n",
-         kpad.address, kpad.status_bytes, kpad.takes_error ? ", with the error's address" : "", probe, hbm.calc);
+         "WPADProbe at 0x%08x, HBMCalc at 0x%08x, HBMGetSelectBtnNum %s0x%08x\n",
+         kpad.address, kpad.status_bytes, kpad.takes_error ? ", with the error's address" : "", probe, hbm.calc,
+         hbm.select != 0 ? "at " : "not found, ", hbm.select);
 }
 
 }  // namespace
@@ -780,13 +782,16 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                                "OSSuspendThread"},
                               {hook.kpad_read, h.hook_kpad, h.replay_kpad, h.continue_kpad, "the KPAD read"},
                               {hook.wpad_probe, h.hook_probe, h.replay_probe, h.continue_probe, "WPADProbe"},
-                              {hook.hbm_calc, h.hook_menu, h.replay_menu, h.continue_menu, "HBMCalc"}};
+                              {hook.hbm_calc, h.hook_menu, h.replay_menu, h.continue_menu, "HBMCalc"},
+                              {hook.hbm_select, h.hook_select, h.replay_select, h.continue_select,
+                               "HBMGetSelectBtnNum"}};
     Site& read_site = sites[0];
     Site& motor_site = sites[1];
     Site& submit_site = sites[2];
     Site& sleep_site = sites[3];
     Site& suspend_site = sites[4];
     Site* const home_sites[3] = {&sites[5], &sites[6], &sites[7]};
+    Site& select_site = sites[8];  // optional: without it a menu ended on a button counts as closed
     const auto is_home_site = [&](const Site& s) {
         return &s == home_sites[0] || &s == home_sites[1] || &s == home_sites[2];
     };
@@ -829,6 +834,8 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
                 logf("GameCube adapter: PADControlMotor cannot be hooked (%s); no rumble\n", reason.c_str());
             } else if (is_home_site(s)) {
                 home_off(s.name, "cannot be hooked (" + reason + ")");
+            } else if (&s == &select_site) {
+                logf("GameCube adapter: HBMGetSelectBtnNum cannot be hooked (%s)\n", reason.c_str());
             } else if (&s == &suspend_site) {
                 logf("GameCube adapter: OSSuspendThread cannot be hooked (%s); the way back leaves only from sleeps\n",
                      reason.c_str());
@@ -843,8 +850,10 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
         const auto resume = encode_absolute_jump(kScratchRegister, s.function + 4);
         store_words(hook.code_base + s.resume, resume.data(), 4);
     }
-    if (!home)
+    if (!home) {
         for (Site* s : home_sites) s->function = 0;
+        select_site.function = 0;
+    }
     sync_code(hook.code_base, hook.code_bytes);
     unsigned veneers = 0;
     for (const Site& s : sites) {

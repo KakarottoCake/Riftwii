@@ -22,6 +22,7 @@ constexpr std::uint32_t kStwuR1Mask = 0xFFFF0000u;
 constexpr std::uint32_t kStwuR1 = 0x94210000u;  // stwu r1,d(r1)
 constexpr std::uint32_t kBlr = 0x4E800020u;
 constexpr std::uint32_t kNop = 0x60000000u;
+constexpr std::uint32_t kMtlrR0 = 0x7C0803A6u;
 
 bool is_stwu_r1(std::uint32_t insn) { return (insn & kStwuR1Mask) == kStwuR1; }
 bool is_call(std::uint32_t insn) { return opcode(insn) == 18 && (insn & 3u) == 1u; }  // bl
@@ -73,6 +74,85 @@ constexpr std::int32_t kMinStatusBytes = 0x80;
 constexpr std::int32_t kMaxStatusBytes = 0x200;
 constexpr unsigned kMinBackSteps = 3;
 constexpr unsigned kErrorCopyWithin = 24;  // words from the read's start
+
+// The function right after the one at `start` (up to `limit` words long,
+// to its first `blr`), past any padding; 0 when there is none.
+std::uint32_t next_function(const std::vector<CodeRange>& text, std::uint32_t start, unsigned limit) {
+    std::uint32_t end = 0;
+    each_word(text, start, limit, [&](std::uint32_t at, std::uint32_t w) {
+        if (w == kBlr) end = at;
+        return true;
+    });
+    if (end == 0) return 0;
+    std::uint32_t next = end + 4, insn = 0;
+    while (word_at(text, next, insn) && (insn == 0 || insn == kNop) && next < end + 64) next += 4;
+    return word_at(text, next, insn) ? next : 0;
+}
+
+// Whether the wrapper at `at` keeps r3 (`mr rN,r3`) before its first call:
+// it takes an argument, which HBMGetSelectBtnNum doesn't (Dr. Mario Online
+// Rx has HBMSetAdjustFlag(BOOL) right after HBMDraw).
+bool keeps_argument(const std::vector<CodeRange>& text, std::uint32_t at) {
+    bool keeps = false;
+    each_word(text, at, 16, [&](std::uint32_t, std::uint32_t w) {
+        if (is_call(w)) return false;
+        const bool mr_from_r3 = opcode(w) == 31 && ((w >> 1) & 0x3FFu) == 444u && reg_d(w) == 3 && ((w >> 11) & 31u) == 3u;
+        keeps = keeps || mr_from_r3;
+        return true;
+    });
+    return keeps;
+}
+
+// HBMGetSelectBtnNum, given where it should start: a short wrapper (a
+// `stwu`, a call within 16 words, ended within 40, taking no argument;
+// 2009 on), or a short leaf that answers -1 while the menu runs (`li
+// r3,-1` within 12 words; the 2007 builds: Brawl, Mario Kart Wii, Cruis'n
+// USA, and the C++ menu's inner one).
+bool looks_like_select(const std::vector<CodeRange>& text, std::uint32_t at) {
+    constexpr std::uint32_t kLiR3MinusOne = 0x3860FFFFu;
+    std::uint32_t first = 0;
+    if (at == 0 || !word_at(text, at, first)) return false;
+    bool calls = false, ended = false, minus_one = false;
+    unsigned words = 0;
+    each_word(text, at, 40, [&](std::uint32_t where, std::uint32_t w) {
+        ++words;
+        calls = calls || (is_call(w) && where < at + 64);
+        minus_one = minus_one || (w == kLiR3MinusOne && where < at + 48);
+        if (w == kBlr) ended = true;
+        return true;
+    });
+    if (!ended) return false;
+    if (is_stwu_r1(first)) return calls && !keeps_argument(text, at);
+    return minus_one && words <= 12;
+}
+
+// HBMCalc's answer, where it returns the button the menu ended on (the C++
+// HOME Menu, 2008 on: Dr. Mario Online Rx): the leaf it calls last, right
+// before its epilogue (`lwz` from the frame, `mtlr r0`, `addi r1`), whose
+// r3 it passes back untouched. 0 when the last call isn't such a leaf.
+std::uint32_t calc_answer(const std::vector<CodeRange>& text, std::uint32_t calc) {
+    std::uint32_t last_call = 0, last_call_insn = 0;
+    bool epilogue_only = false;
+    each_word(text, calc, 64, [&](std::uint32_t at, std::uint32_t w) {
+        if (is_call(w)) {
+            last_call = at;
+            last_call_insn = w;
+            epilogue_only = true;
+            return true;
+        }
+        const bool restores = opcode(w) == 32 && reg_a(w) == 1 && reg_d(w) != 3;  // lwz rN,d(r1)
+        const bool frame_end = w == kMtlrR0 || (opcode(w) == 14 && reg_d(w) == 1 && reg_a(w) == 1);
+        if (!(restores || frame_end || w == kBlr)) epilogue_only = false;
+        return true;
+    });
+    if (last_call == 0 || !epilogue_only) return 0;
+    std::int32_t offset = static_cast<std::int32_t>(last_call_insn & 0x03FFFFFCu);
+    if (offset & 0x02000000) offset -= 0x04000000;
+    const std::uint32_t leaf = last_call + static_cast<std::uint32_t>(offset);
+    std::uint32_t first = 0;
+    if (!word_at(text, leaf, first) || is_stwu_r1(first)) return 0;
+    return looks_like_select(text, leaf) ? leaf : 0;
+}
 
 }  // namespace
 
@@ -273,7 +353,16 @@ HbmFunctions find_hbm_functions(const std::vector<CodeRange>& text, const std::v
         return true;
     });
     if (!calls) return HbmFunctions{};
-    return HbmFunctions{init, calc};
+    // The button the menu ends on: what HBMCalc returns (2008 on), else
+    // HBMGetSelectBtnNum, the function after HBMDraw (the one after HBMCalc).
+    std::uint32_t select = calc_answer(text, calc);
+    const std::uint32_t draw = next_function(text, calc, 64);
+    std::uint32_t draw_first = 0;
+    if (select == 0 && draw != 0 && word_at(text, draw, draw_first) && is_stwu_r1(draw_first)) {
+        const std::uint32_t candidate = next_function(text, draw, 256);
+        if (looks_like_select(text, candidate)) select = candidate;
+    }
+    return HbmFunctions{init, calc, select};
 }
 
 }  // namespace riftwii

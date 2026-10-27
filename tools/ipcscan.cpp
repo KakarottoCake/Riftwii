@@ -107,9 +107,9 @@ int main(int argc, char** argv) {
         const std::uint32_t small_data = riftwii::find_small_data_base(all, dol.entry);
         const riftwii::HbmFunctions hbm = riftwii::find_hbm_functions(text, all, small_data);
         std::printf("  KPAD read 0x%08x (status %u bytes%s), WPADProbe 0x%08x, r13 0x%08x, HBMInit 0x%08x, "
-                    "HBMCalc 0x%08x%s\n",
+                    "HBMCalc 0x%08x, HBMGetSelectBtnNum 0x%08x%s\n",
                     kpad.address, kpad.status_bytes, kpad.takes_error ? ", takes the error's address" : "", probe,
-                    small_data, hbm.init, hbm.calc,
+                    small_data, hbm.init, hbm.calc, hbm.select,
                     kpad.address && probe && hbm.calc ? "" : "  (HOME Menu by a GameCube controller: off)");
     }
     return failures == 0 ? 0 : 1;

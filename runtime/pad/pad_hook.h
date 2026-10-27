@@ -31,7 +31,7 @@
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
 #define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 384u  /* also pad_entry.S's fill */
+#define RT_PAD_CONTEXT_BYTES 416u  /* also pad_entry.S's fill */
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -78,6 +78,9 @@ struct rt_pad_header {
     uint32_t hook_menu;        /* HBMCalc's (the HOME Menu is open) */
     uint32_t replay_menu;
     uint32_t continue_menu;
+    uint32_t hook_select;      /* HBMGetSelectBtnNum's (which button the menu ends on) */
+    uint32_t replay_select;
+    uint32_t continue_select;
 };
 
 struct rt_pad_context {
@@ -134,6 +137,8 @@ struct rt_pad_context {
     uint32_t kpad_channels;
     uint32_t probes;
     uint32_t menu_frames;
+    uint32_t selects;          /* HBMGetSelectBtnNum answers other than -1 */
+    uint32_t last_select;      /* the last such answer */
     uint8_t pad_scratch[48];   /* PADStatus[4] for that read of our own */
 };
 

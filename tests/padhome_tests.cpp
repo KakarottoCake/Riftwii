@@ -178,6 +178,76 @@ void TestEvenTicks() {
     EXPECT_EQ(h.phase, RTHOME_OPEN);
 }
 
+// A Virtual Console game's Operations Guide: A on it, HBMCalc stops, and
+// the stand-in must stay so the guide can be used and closed (Cruis'n USA,
+// d2x Dolphin, 27 Oct). HOME closes it; the menu not coming back ends the
+// stand-in. A menu closed by HOME ends it at once.
+void TestOperationsGuide() {
+    rthome h = Fresh();
+    HoldCombo(h, 0, 2016);
+    (void)rthome_stand_in(&h, 2000 + kPress);
+    std::uint32_t hold, trig, release;
+    std::int32_t axes[6];
+    std::uint32_t t = 2700;
+    for (; t < 3000; t += 16) rthome_menu_frame(&h, t);
+    rthome_pads(&h, Pads().port(1, 0).s, t);
+    rthome_classic(&h, t, &hold, &trig, &release, axes);
+    rthome_pads(&h, Pads().port(1, kGcA).s, t + 16);  // A on Operations Guide
+    rthome_classic(&h, t + 16, &hold, &trig, &release, axes);
+    EXPECT_EQ(trig, RTHOME_CL_A);
+    rthome_selected(&h, 3);                         // the menu ends on the Operations Guide
+    rthome_menu_frame(&h, t + 16);                  // the menu's last frame
+    EXPECT_EQ(rthome_stand_in(&h, t + 16 + kLinger), 0u);  // HBMCalc stopped: aside, still there
+    EXPECT_EQ(h.phase, RTHOME_ASIDE);
+    EXPECT_EQ(rthome_stand_in(&h, t + 60000), 0u);  // a minute in the guide: still there
+    rthome_pads(&h, Pads().port(1, kGcStart).s, t + 60016);  // Start: HOME closes the guide
+    rthome_classic(&h, t + 60016, &hold, &trig, &release, axes);
+    EXPECT_EQ(trig, RTHOME_CL_HOME);
+    EXPECT_EQ(rthome_stand_in(&h, t + 60016 + kWait - 1), 0u);
+    EXPECT_EQ(rthome_stand_in(&h, t + 60016 + kWait), RTHOME_NO_CHANNEL);  // back in the game
+    // The guide closing back into the menu: open again, as before.
+    rthome g = Fresh();
+    HoldCombo(g, 0, 2016);
+    (void)rthome_stand_in(&g, 2000 + kPress);
+    rthome_menu_frame(&g, 2700);
+    rthome_pads(&g, Pads().port(1, kGcA).s, 2716);
+    rthome_classic(&g, 2716, &hold, &trig, &release, axes);
+    rthome_selected(&g, 3);
+    EXPECT_EQ(rthome_stand_in(&g, 2700 + kLinger), 0u);
+    EXPECT_EQ(g.phase, RTHOME_ASIDE);
+    rthome_menu_frame(&g, 9000);
+    EXPECT_EQ(g.phase, RTHOME_OPEN);
+}
+
+// Close by the pointer and A: HBMGetSelectBtnNum answers 0, the menu has
+// closed, the stand-in goes (Cruis'n USA answered 0 for Close, 27 Oct).
+void TestClosedByPointer() {
+    rthome h = Fresh();
+    HoldCombo(h, 0, 2016);
+    (void)rthome_stand_in(&h, 2000 + kPress);
+    rthome_menu_frame(&h, 2700);
+    rthome_pads(&h, Pads().port(1, kGcA).s, 2716);
+    rthome_selected(&h, 0);
+    EXPECT_EQ(rthome_stand_in(&h, 2700 + kLinger), RTHOME_NO_CHANNEL);
+    EXPECT_EQ(h.phase, RTHOME_DONE);
+}
+
+void TestClosedByHome() {
+    rthome h = Fresh();
+    HoldCombo(h, 0, 2016);
+    (void)rthome_stand_in(&h, 2000 + kPress);
+    std::uint32_t hold, trig, release;
+    std::int32_t axes[6];
+    rthome_menu_frame(&h, 2700);
+    rthome_pads(&h, Pads().port(1, 0).s, 2716);
+    rthome_classic(&h, 2716, &hold, &trig, &release, axes);
+    rthome_pads(&h, Pads().port(1, kGcStart).s, 2732);
+    rthome_classic(&h, 2732, &hold, &trig, &release, axes);
+    rthome_menu_frame(&h, 2748);
+    EXPECT_EQ(rthome_stand_in(&h, 2748 + kLinger), RTHOME_NO_CHANNEL);
+    EXPECT_EQ(h.phase, RTHOME_DONE);
+}
+
 void TestButtonsInTheMenu() {
     rthome h = Fresh();
     HoldCombo(h, 0, 2016);
@@ -247,6 +317,9 @@ int main() {
     TestMenuOpenedDuringPress();
     TestGameRefuses();
     TestEvenTicks();
+    TestOperationsGuide();
+    TestClosedByHome();
+    TestClosedByPointer();
     TestButtonsInTheMenu();
     TestFloatBits();
     if (g_failures == 0) std::cout << "padhome: all passed" << std::endl;

@@ -175,10 +175,18 @@ void TestHbmFunctions(bool through_r13, bool calc_follows) {
     text.put(kBlr);
     text.put(0);  // padding
     const std::uint32_t calc = text.here();
+    std::uint32_t select = 0;
     if (calc_follows) {
         text.put(stwu_r1(0x10));
         text.put(bl(text.here(), 0x80100000));
         text.put(kBlr);
+        for (int wrapper = 0; wrapper < 2; ++wrapper) {  // HBMDraw, then HBMGetSelectBtnNum
+            if (wrapper == 1) select = text.here();
+            text.put(stwu_r1(0x10));
+            text.put(kMflrR0);
+            text.put(bl(text.here(), 0x80100000));
+            text.put(kBlr);
+        }
     } else {
         text.put(li(3, 0));
         text.put(kBlr);
@@ -189,9 +197,66 @@ void TestHbmFunctions(bool through_r13, bool calc_follows) {
     if (calc_follows) {
         EXPECT_EQ(found.init, init);
         EXPECT_EQ(found.calc, calc);
+        EXPECT_EQ(found.select, select);
     } else {
         EXPECT_EQ(found.calc, 0u);
     }
+}
+
+// The C++ HOME Menu (Dr. Mario Online Rx): HBMCalc returns the button the
+// menu ended on, from the leaf it calls last; after HBMDraw comes a wrapper
+// that takes an argument (HBMSetAdjustFlag), which isn't the select.
+void TestCalcAnswers(bool calc_returns) {
+    Section data{0x80300000, {}};
+    const std::uint32_t banner = data.here();
+    data.put_text("<< RVL_SDK - HBM \trelease build: Aug 23 2008 >>");
+    while (data.bytes.size() % 4) data.bytes.push_back(0);
+    const std::uint32_t pointer = data.here();
+    data.put(banner);
+    const std::uint32_t small_data = pointer + 0x100;
+
+    Section text{0x80100000, {}};
+    text.put(stwu_r1(0x10));  // what the other calls reach
+    text.put(kBlr);
+    const std::uint32_t leaf = text.here();  // the inner GetSelectBtnNum
+    text.put(lwz(0, 3, 20));
+    text.put(cmplwi(0, 18));
+    text.put(li(3, -1));
+    text.put(kBlr);
+    text.put(lwz(3, 3, 192));
+    text.put(kBlr);
+    const std::uint32_t init = text.here();
+    text.put(stwu_r1(0x10));
+    text.put(kMflrR0);
+    text.put(lwz(3, 13, static_cast<std::int32_t>(pointer - small_data)));
+    text.put(bl(text.here(), 0x80100000));
+    text.put(kBlr);
+    const std::uint32_t calc = text.here();
+    text.put(stwu_r1(0x10));
+    text.put(kMflrR0);
+    text.put(mr(31, 3));
+    text.put(bl(text.here(), 0x80100000));
+    text.put(mr(4, 31));
+    text.put(bl(text.here(), 0x80100000));
+    if (calc_returns) text.put(bl(text.here(), leaf));
+    text.put(lwz(0, 1, 20));
+    text.put(lwz(31, 1, 12));
+    text.put(0x7C0803A6u);  // mtlr r0
+    text.put(addi(1, 1, 16));
+    text.put(kBlr);
+    text.put(stwu_r1(0x10));  // HBMDraw
+    text.put(kMflrR0);
+    text.put(bl(text.here(), 0x80100000));
+    text.put(kBlr);
+    text.put(stwu_r1(0x10));  // HBMSetAdjustFlag(BOOL)
+    text.put(kMflrR0);
+    text.put(mr(31, 3));
+    text.put(bl(text.here(), 0x80100000));
+    text.put(kBlr);
+    const riftwii::HbmFunctions found = riftwii::find_hbm_functions({text.range()}, {text.range(), data.range()}, small_data);
+    EXPECT_EQ(found.init, init);
+    EXPECT_EQ(found.calc, calc);
+    EXPECT_EQ(found.select, calc_returns ? leaf : 0u);
 }
 
 void TestNoBanner() {
@@ -215,6 +280,8 @@ int main() {
     TestHbmFunctions(true, true);
     TestHbmFunctions(false, true);
     TestHbmFunctions(true, false);
+    TestCalcAnswers(true);
+    TestCalcAnswers(false);
     TestNoBanner();
     if (g_failures == 0) std::cout << "hbmsearch: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

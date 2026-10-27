@@ -59,9 +59,19 @@ std::uint32_t find_small_data_base(const std::vector<CodeRange>& sections, std::
 // exactly while the HOME Menu is open, is the function right after
 // HBMInit's `blr` (past any padding), starting with `stwu` and calling out
 // within its first 32 words. Both 0 when anything doesn't fit.
+// `select` answers which button the menu ended on (-1 while it runs). In
+// the C++ HOME Menu (2008 on: Dr. Mario Online Rx, Contra ReBirth, the
+// later Virtual Console builds) HBMCalc returns it from a short leaf it
+// calls last, right before its epilogue, and that leaf is `select`.
+// Otherwise it is HBMGetSelectBtnNum, the function after HBMDraw (which
+// follows HBMCalc): a short wrapper that takes no argument and calls out,
+// or a short leaf answering -1 (2007: Brawl, Mario Kart Wii, Cruis'n USA).
+// 0 when neither fits (the HOME Menu works without it; the stand-in then
+// can't tell the Operations Guide from Close).
 struct HbmFunctions {
     std::uint32_t init = 0;
     std::uint32_t calc = 0;
+    std::uint32_t select = 0;
 };
 HbmFunctions find_hbm_functions(const std::vector<CodeRange>& text, const std::vector<CodeRange>& sections,
                                 std::uint32_t small_data_base);
