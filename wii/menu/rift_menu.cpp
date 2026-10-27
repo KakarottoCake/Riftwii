@@ -11693,13 +11693,13 @@ public:
 	void Draw() override
 	{
 		const int w = riftwii::kRiiTagShownWidth, h = riftwii::kRiiTagShownHeight;
-		skin::DrawNine(skin::card9, kX - 4, kY - 4, w + 8, h + 8, 12);
-		const u8* tex = riftwii::wii::riitag::Texture();
-		if (tex) {
+		// Sliced where the card's own corners end (kCardCorner): sliced
+		// nearer, the curve was stretched along the edges, and showed
+		// through while there is no tag yet. The card alone is the
+		// empty place.
+		skin::DrawNine(skin::card9, kX - 8, kY - 8, w + 16, h + 16, riftwii::kCardCorner);
+		if (const u8* tex = riftwii::wii::riitag::Texture())
 			Menu_DrawImg(kX, kY, static_cast<u16>(w), static_cast<u16>(h), const_cast<u8*>(tex), 0, 1, 1, 255);
-			return;
-		}
-		Menu_DrawRectangle(kX, kY, w, h, skin::WithAlpha(skin::kInkDim, 40), 1);
 	}
 };
 

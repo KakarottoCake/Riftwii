@@ -157,6 +157,10 @@ struct Face {
     float u0 = 0, u1 = 1;
     float v0 = 0, v1 = 1;
     bool rgba8 = false;
+    // Drawn solid whatever the texture's alpha: a stored cover's corners
+    // are rounded off for the grid's tiles (riftwii/coverart.hpp), but on
+    // a box's front they showed as pixelated notches.
+    bool opaque = false;
     // Repeats across (the plank's wood). Only for power-of-two sizes: GX
     // wraps with a power-of-two mask, so the 40x40 disc icon drawn with
     // GX_REPEAT came out as broken arcs on a Wii (Dolphin drew it whole).
@@ -177,9 +181,10 @@ V3 Add(V3 a, V3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 V3 Scale(V3 a, float k) { return {a.x * k, a.y * k, a.z * k}; }
 float Light(V3 n) { return 0.62f + 0.38f * std::max(0.0f, (n.z * 0.85f - n.y * 0.35f - n.x * 0.25f)); }
 
-// One quad, flat colour or textured (RGB5A3 `tex` of w x h, its part u0..u1, v0..v1).
+// One quad, flat colour or textured (RGB5A3 `tex` of w x h, its part u0..u1, v0..v1);
+// with `opaque`, its alpha the colour's alone, not the texture's.
 void Quad(const V3 (&c)[4], GXColor col, const u8* fade, const u8* tex, int w, int h, float u0, float u1, float v0,
-          float v1, bool rgba8, bool repeat) {
+          float v1, bool rgba8, bool repeat, bool opaque = false) {
     if (tex) {
         GXTexObj obj;
         GX_InitTexObj(&obj, const_cast<u8*>(tex), static_cast<u16>(w), static_cast<u16>(h), rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3,
@@ -187,6 +192,7 @@ void Quad(const V3 (&c)[4], GXColor col, const u8* fade, const u8* tex, int w, i
         GX_InitTexObjLOD(&obj, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
         GX_LoadTexObj(&obj, GX_TEXMAP0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+        if (opaque) GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
         GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     } else {
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
@@ -270,7 +276,7 @@ void DrawFace(const Face& f, int alpha) {
         return;
     }
     Quad(f.c, GXColor{shade(f.color.r), shade(f.color.g), shade(f.color.b), a}, f.fade, f.tex, f.texW, f.texH, f.u0, f.u1,
-         f.v0, f.v1, f.rgba8, f.repeat);
+         f.v0, f.v1, f.rgba8, f.repeat, f.opaque);
     if (f.madeUpBack) DrawMadeUpBack(f, light, a);
 }
 
@@ -380,6 +386,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
+        faces[1].opaque = true;
     } else if (id.empty() && skin::discCase.data) {
         // The disc drive: its own box on the front and the back, the spine
         // in its pale blue.
