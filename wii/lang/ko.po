@@ -900,6 +900,9 @@ msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 RiftWii�
 msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
 msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면, RiftWii 채널이 설치된 경우(설정) RiftWii로 돌아갈 수 있습니다."
 
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 Wii 메뉴로 갑니다."
+
 msgid "Menu music"
 msgstr "메뉴 음악"
 

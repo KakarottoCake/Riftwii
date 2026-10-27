@@ -900,6 +900,9 @@ msgstr "Salir del juego con el botón Menú de Wii del menú HOME te devuelve a 
 msgid "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
 msgstr "Salir del juego con el botón Menú de Wii del menú HOME puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes)."
 
+msgid "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu."
+msgstr "Salir del juego con el botón Menú de Wii del menú HOME te lleva al Menú de Wii."
+
 msgid "Menu music"
 msgstr "Música del menú"
 
