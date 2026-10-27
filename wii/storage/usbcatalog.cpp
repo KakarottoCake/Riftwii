@@ -82,7 +82,7 @@ bool g_rvz_on_usb = false;
 // for an RVZ game on it (libogc's USB driver is shut down by then).
 std::unique_ptr<ImageVolume> g_rvz_usb_volume;
 constexpr const char* kRvzStubDir = "sd:/riftwii/rvz";
-constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
+constexpr std::size_t kMaxGames = 4000;
 constexpr u8 kUsbClassMassStorage = 0x08;
 
 // With more than one drive plugged in (a Wii U's own drive beside the one
@@ -195,23 +195,13 @@ bool sd_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return false;
 }
 const char* device_name(ImageDevice device) { return device == ImageDevice::Usb ? "USB" : "SD"; }
-// GameCube images found among the Wii games, said in the log (capped) as
-// each scan meets them; reset when a drive's scan starts.
-MisplacedGameCubeLog g_misplaced_gc;
-// Logs the line for a GameCube image at game.path, while there are lines to give.
-void log_misplaced_gamecube(const ImageGame& game, const DiscHeader& header) {
-    const std::string line = g_misplaced_gc.note(std::string(device_name(game.device)) + " scan", game.path, header);
-    if (!line.empty()) logf("%s\n", line.c_str());
-}
 bool extension(const std::string& name, const char* ext) {
     const std::size_t n = std::strlen(ext); if (name.size() < n) return false;
     for (std::size_t i=0;i<n;++i) if (std::tolower(static_cast<unsigned char>(name[name.size()-n+i])) != ext[i]) return false;
     return true;
 }
 bool join(const std::string& a, const std::string& b, std::string& out) {
-    if (a.size() + 1 + b.size() > kMaxPath) return false;
-    out = a + "/" + b;
-    return true;
+    return join_game_path(a, b, out);
 }
 // On IOS 58 libogc lists every USB device that is not HID under the
 // mass-storage class, a USB LAN adapter too (once IOS has seen it, so not
@@ -620,14 +610,7 @@ bool open_rvz_game(const ImageVolume& volume, const std::string& prefix, ImageGa
     DiscHeader header;
     if (!parse_disc_header(head.disc_header.data(), head.disc_header.size(), header, error)) return false;
     RvzVerdict verdict = check_rvz(head, image.pieces[0].file.entry.size);
-    // A GameCube game is played from a folder of its own in sd:/games
-    // (wii/launch/gclaunch.hpp), not from the Wii games' folders.
-    if (head.disc_type == 1) {
-        log_misplaced_gamecube(game, header);
-        verdict.support = RvzSupport::Unsupported;
-        verdict.reasons.assign(1, "It is a GameCube game: RiftWii plays those from a folder of their own in "
-                                  "sd:/games (sd:/games/<name>/game.rvz).");
-    }
+    game.gamecube = head.disc_type == 1;
     game.id = header.game_id;
     game.title = header.title;
     game.revision = header.version;
@@ -761,15 +744,19 @@ bool open_disc(const UsbImage& image, ImageGame& game, std::string& error) {
     if (!UsbDiscSource::open(image, disc, error)) return false;
     DiscHeader header;
     if (!read_disc_header(*disc, header, error)) return false;
+    game.id = header.game_id;
+    game.title = header.title;
+    game.revision = header.version;
+    game.disc_number = header.disc_number;
     if (!header.wii_magic) {
-        // Only the header was read: a GameCube image is told apart by its
-        // magic and left out, as the Wii games' folders are not its place.
+        // The GameCube scan owns these entries, including loose files.
+        // It also pairs second discs before putting games in the list.
         if (header.gamecube_magic) {
-            log_misplaced_gamecube(game, header);
-            error = "it is a GameCube game, which RiftWii plays from a folder of its own in sd:/games";
-        } else {
-            error = "not a Wii image";
+            game.gamecube = true;
+            game.checked = true;
+            return true;
         }
+        error = "not a Wii image";
         return false;
     }
     if (!build_usb_fragments(image, game.fragments, error)) return false;
@@ -789,10 +776,6 @@ bool open_disc(const UsbImage& image, ImageGame& game, std::string& error) {
             if (!disc->read(partition_header.tmd_offset, game.tmd.data(), game.tmd.size())) game.tmd.clear();
         }
     }
-    game.id = header.game_id;
-    game.title = header.title;
-    game.revision = header.version;
-    game.disc_number = header.disc_number;
     game.checked = true;
     return true;
 }
@@ -824,20 +807,9 @@ bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice 
         failure = error;
         return false;
     }
+    if (game.gamecube) return true;
     logf("  %s \"%s\", %u piece(s)\n", game.id.c_str(), game.title.c_str(), pieces);
     catalog.games.push_back(std::move(game)); return true;
-}
-// What a file in a catalog folder is read as, if it is a game. USB Loader
-// GX and other loaders keep .iso images in wbfs too ("Title [ID]/ID.iso"),
-// so wbfs takes both.
-// `folder` is what the folder holds: Wbfs (wbfs and iso), Iso (iso and
-// rvz), or Rvz for a folder of the user's own, which may hold all three.
-bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
-    if (is_mac_metadata(name)) return false;  // "._ID.wbfs" from a Mac is not a game
-    if (folder != UsbImageFormat::Iso && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
-    if (extension(name, ".iso")) { out = UsbImageFormat::Iso; return true; }
-    if (folder != UsbImageFormat::Wbfs && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
-    return false;
 }
 // A game folder ("Title [ID]") holding no .wbfs, .iso or .rvz the scan
 // can use: logged with the first few names it does hold (a split image's
@@ -910,7 +882,7 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
                 if (c.games.size() >= kMaxGames) return;
                 std::string p;
                 UsbImageFormat f;
-                if (!image_format(x, inner, f)) {
+                if (!catalog_image_format(x, inner, f)) {
                     if (is_ciso_image_name(x) && join(path, x, p)) c.ciso.note(p);
                     continue;
                 }
@@ -921,7 +893,7 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
             if (!found_image && fmt != UsbImageFormat::Rvz) log_folder_without_image(device, path, subentries);
         } else if (!e.is_directory) {
             UsbImageFormat f;
-            if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
+            if (catalog_image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
             else if (is_ciso_image_name(e.name)) c.ciso.note(path);
         }
     }
@@ -1842,12 +1814,9 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     if (g_usb_wbfs) {
         scan_wbfs(out, failure);
     } else {
-        g_misplaced_gc.reset();
         scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
         scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
         ScanUsbGcImages(out.games, &out.ciso);
-        const std::string more_gamecube = g_misplaced_gc.rest("USB scan");
-        if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
     }
     apply_titles(out);
     const std::string empty_drive = g_usb_wbfs ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive";
@@ -1907,11 +1876,8 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     logf("SD: scanning for images\n");
     if (!libogc_sd_inserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
-    g_misplaced_gc.reset();
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
     scan_own_folders(*g_sd_volume, "sd", ImageDevice::Sd, out, failure);
-    const std::string more_gamecube = g_misplaced_gc.rest("SD scan");
-    if (!more_gamecube.empty()) logf("%s\n", more_gamecube.c_str());
     ScanGcImages(out.games, &out.ciso);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";

@@ -46,8 +46,23 @@ struct UsbImagePiece {
     std::string path;
 };
 
-// Rvz: Dolphin's compressed format (riftwii/rvz.hpp), in the ISO folders.
+// Rvz: Dolphin's compressed format (riftwii/rvz.hpp).
 enum class UsbImageFormat { Iso, Wbfs, Rvz };
+
+// The Wii scan's folder rules: games (Iso) takes ISO and RVZ; wbfs
+// (Wbfs) and custom folders (Rvz) also take WBFS. Case does not matter.
+bool catalog_image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out);
+
+// GameCube images use the same names loose or in a game's own folder.
+bool is_gc_image_name(const std::string& name);
+
+// Preserve Wii lazy listing when the GameCube scan shares its folders:
+// skip a known Wii image, or a Wii-style path carrying an R/S ID6.
+bool gc_scan_should_open(const std::string& path, bool known_wii);
+
+// Join one untrusted directory entry without allowing another path or
+// exceeding the catalog's 240-byte path limit. Hidden entries are skipped.
+bool join_game_path(const std::string& directory, const std::string& name, std::string& out);
 
 struct UsbImage {
     UsbImageFormat format = UsbImageFormat::Iso;
@@ -176,6 +191,19 @@ struct GcFolderImage {
     std::string id;                // the header's game ID
     std::uint8_t disc_number = 0;  // 0 the first disc, 1 the second
 };
+
+struct GcCatalogImage {
+    std::string path;
+    std::string id;
+    std::uint8_t disc_number = 0;
+};
+
+// For each image, the index that replaces it in the list, or -1 to list
+// it. Disc 2 belongs to disc 1 in the same directory. A loose copy in
+// games/ or wbfs/ yields to a copy in a game's folder on the same device.
+// A loose pair stays listed instead if the folder copy lacks disc 2.
+// Copies in separate game folders remain separate (they may be mods).
+std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images);
 
 // Which images of one game folder are a two-disc game's second disc kept
 // with its first: for each image, the index of the first disc (same ID,
