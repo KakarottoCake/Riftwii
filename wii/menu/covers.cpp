@@ -42,8 +42,10 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 
+// A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
+// Snes9x GX, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
-    if (id.size() != 6) return false;
+    if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     }
