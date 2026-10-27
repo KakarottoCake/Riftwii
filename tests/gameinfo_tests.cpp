@@ -33,6 +33,7 @@ using namespace riftwii::wii;
 
 constexpr const char* kCachePath = "sd:/riftwii/gameinfo-EN.txt";
 constexpr const char* kZipPath = "sd:/riftwii/wiitdb-EN.zip";
+constexpr const char* kHomebrewPath = "sd:/riftwii/homebrew-titles.txt";
 
 void Write(const char* path, const char* data, std::size_t size) {
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
@@ -117,9 +118,16 @@ void TestStoredTruncationPreservesCache() {
     CHECK(FindGameInfo("RMCE01", {"RMCE01"}, found, error, [](double) { return true; }) ==
           GameInfoResult::Found);
     CHECK(found.developer == "Partial result");
+    // The read also kept GameTDB's homebrew apps for the Homebrew view:
+    // none in this database, and the file is written all the same, so
+    // the database is not read again for them next session.
+    CHECK(fs::exists(kHomebrewPath));
+    std::vector<riftwii::HomebrewTitle> titles;
+    CHECK(!LoadHomebrewTitles(titles) && titles.empty());
 
     fs::remove(kZipPath);
     fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
