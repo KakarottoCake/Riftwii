@@ -161,7 +161,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `panel_settings` | 580x284 | The white panel behind Settings |
 | `popup` | 580x284 | A popup's box: the title in a band across its top 44 pixels, a narrower band across the bottom 18 |
 | `bar` | 640x124 | Home's bottom bar (its top edge is a curve; see `bar` under [shape]) |
-| `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred |
+| `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred. A 16:9 menu lays copies side by side, so its left and right edges must join (diagonal stripes: a spacing that divides 640) |
 | `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |
 | `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |
 | `icon_drives` | 28x28 | Drive icon |
@@ -196,9 +196,13 @@ it:
   the whole background, the bar's first and last 176 columns at its
   sides and its lowest 40 rows below it. Keep those parts plain (no
   words or shapes) so the mirror images look like more of the same.
-- Rows stay where they are: Home's covers are at the same height on any
-  screen, so a background drawn to go with them (shelves under the
-  covers, as in Bookshelf) still lines up.
+- Home's covers are larger on 16:9. At normal spacing their two rows end
+  at y 134 and 248 on 4:3, and y 164 and 308 on 16:9. A background with
+  shelves under those covers needs both sizes, as Bookshelf provides.
+  Leave the area below the last shelf light enough for the game's name.
+- A view's own background takes precedence over the general background.
+  If its `_wide` picture is absent, its 640-pixel picture is mirrored at
+  the sides, even when the theme supplies a general `background_wide`.
 
 ## Music
 

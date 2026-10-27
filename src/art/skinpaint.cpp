@@ -733,7 +733,11 @@ struct Painter {
 
     Canvas Stripes() const {
         Canvas c(640, 192);
-        c.diagonal_stripes(28, 12, banner_stripe);
+        // A widescreen band lays copies of this side by side, 640 apart, so
+        // the stripes must repeat a whole number of times across it: 23
+        // periods of 640/23 (about 28). At 28 the copies met 24 pixels out
+        // of step, a visible seam where one copy ends.
+        c.diagonal_stripes(640.0f / 23.0f, 12, banner_stripe);
         return c;
     }
 
@@ -910,7 +914,10 @@ struct Painter {
 }  // namespace
 
 void paint_hint_box(const Theme& theme, int w, int h, Canvas& out) {
-    out = Painter(theme).Card(w, h, kHintBoxMargin, h / 2.0f, false);
+    // A tall capsule cuts into the first and last lines of a wrapped note.
+    // Short hints keep their round ends; multiline notes get small corners.
+    const float radius = h <= 48 ? h / 2.0f : 18.0f;
+    out = Painter(theme).Card(w, h, kHintBoxMargin, radius, false);
 }
 
 void paint_clock_digits(const Theme& theme, Canvas& out) { out = Painter(theme).ClockDigits(); }

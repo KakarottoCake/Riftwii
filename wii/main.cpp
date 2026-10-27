@@ -16,6 +16,8 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "startuptrace.hpp"
+#include "nandpermissions.hpp"
 #include "homebrew.hpp"
 #include "movedchannels.hpp"
 #include "nandchannels.hpp"
@@ -70,7 +72,8 @@
 
 // Where the player leaves to (the HOME Menu, wii/menu/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
-// Menu, 3 Priiloader, 4 power off, 5 the power button.
+// Menu, 3 Priiloader, 4 power off, 5 the power button, 6 a restart (in
+// Priiloader's place where it is not installed).
 volatile int ExitRequested = 0;
 
 namespace {
@@ -93,9 +96,13 @@ void StartHomebrewChannelTitle() {
 bool StageMovedChannel(u64 title, std::string& error) {
     if (!riftwii::wii::ChannelToStartNand().empty()) return true;
     riftwii::wii::ProgressStage("Copying the game from the SD card to the Wii", 32);
-    return riftwii::wii::stage_moved_channel(title, [](double done) {
-        riftwii::wii::ProgressWithin(static_cast<unsigned long long>(done * 1000), 1000, 32, 45);
-    }, error);
+    riftwii::wii::logf("Wii channels: checking whether SD card contents need staging before the game starts.\n");
+    riftwii::wii::LogSync();
+    return riftwii::wii::mem::GuardLaunchMemory(error, [&] {
+        return riftwii::wii::stage_moved_channel(title, [](double done) {
+            riftwii::wii::ProgressWithin(static_cast<unsigned long long>(done * 1000), 1000, 32, 45);
+        }, error);
+    });
 }
 
 // The game could not be copied from the SD card: neither RiftWii's loader
@@ -162,7 +169,9 @@ void StartChannel(u64 title) {
     std::string error;
     riftwii::wii::ChannelBootFiles files;
     const std::string emu_nand = riftwii::wii::ChannelToStartNand();
-    const bool read = riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos());
+    const bool read = riftwii::wii::mem::GuardLaunchMemory(error, [&] {
+        return riftwii::wii::read_channel_boot(title, emu_nand, files, error, riftwii::wii::ChannelToStartIos());
+    });
     // Before either way of starting it: the system's needs the contents too.
     if (std::string staging_error; !StageMovedChannel(title, staging_error)) StagingFailed(staging_error);
     if (read) {
@@ -211,6 +220,16 @@ void LeaveTo(int where) {
         fatUnmount("sd:");
         fatUnmount("usb:");
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    } else if (where == 6) {
+        // A restart, as the console's own: on a Wii U it is the way back
+        // from the Wii side (the vWii's "Wii U Menu" channel restarts too),
+        // to the Wii U Menu or whatever starts at boot (Aroma). The drives
+        // finish their writes first. Should STM refuse, the Wii Menu exit
+        // below still leaves RiftWii.
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        STM_RebootSystem();
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
     } else if (where == 2 || where == 3) {
         if (where == 3) {
             // Priiloader looks for "Daco" at 0x8132FFFB when the Wii Menu
@@ -299,10 +318,14 @@ void OfferRestart(const std::string& error) {
 bool MountStartupSd() {
     for (int attempt = 0; attempt < 3; ++attempt) {
         if (attempt > 0) {
+            riftwii::wii::startup::Mark(riftwii::wii::startup::Step::SdStop);
             riftwii::wii::libogc_sd_stop();
             usleep(250000);
         }
-        if (riftwii::wii::libogc_sd_start() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
+        riftwii::wii::startup::Mark(riftwii::wii::startup::Step::SdStart);
+        if (!riftwii::wii::libogc_sd_start()) continue;
+        riftwii::wii::startup::Mark(riftwii::wii::startup::Step::SdMount);
+        if (fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
     }
     return false;
 }
@@ -323,8 +346,11 @@ void OpenSessionLog(bool sd_mounted) {
         riftwii::wii::EntropyStart();  // the console and the clock, at least
         return;
     }
+    riftwii::wii::startup::Mark(riftwii::wii::startup::Step::LogDirectory);
     mkdir("sd:/riftwii", 0777);
+    riftwii::wii::startup::Mark(riftwii::wii::startup::Step::LogRotate);
     const bool rotated = riftwii::wii::RotateSessionLog();
+    riftwii::wii::startup::Mark(riftwii::wii::startup::Step::LogOpen);
     riftwii::wii::LogOpen("sd:/riftwii/session.log", !rotated);
     if (!rotated)
         riftwii::wii::logf("The previous session could not be archived; this session is appended to preserve it.\n");
@@ -393,18 +419,30 @@ bool UnpackMenuFont(u8*& font, std::size_t& size) {
 }  // namespace
 
 int main() {
+    using riftwii::wii::startup::Step;
+    riftwii::wii::startup::Mark(Step::NandRecovery);
+    riftwii::wii::RecoverNandPermissions();
+    riftwii::wii::startup::Mark(Step::Memory);
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
+    riftwii::wii::startup::Mark(Step::Cards);
     riftwii::wii::InitGcRealCards();
+    riftwii::wii::startup::Mark(Step::Restart);
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
+    riftwii::wii::startup::Mark(Step::Crash);
     riftwii::wii::CrashInstall();
     bool sd_mounted = MountStartupSd();
+    riftwii::wii::startup::Mark(Step::TestLimits);
     riftwii::wii::mem::TestBallast();  // test builds only
 
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).
+    riftwii::wii::startup::Mark(Step::ArgumentsRead);
     if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
+        // A headless start has no log before its first IOS reload, so it
+        // asks here; the menu and autorun ask once their logs are open.
+        riftwii::wii::mem::DetectDolphin();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunHeadless(args);
@@ -415,7 +453,11 @@ int main() {
 
 #ifdef RIFTWII_TEST_BUILD
     // The Dolphin harness's test driver (make -f Makefile.wii TEST=1).
+    riftwii::wii::startup::Mark(Step::Autorun);
     if (riftwii::wii::AutorunPresent()) {
+        // As the menu does at start: copies a `channelboot` staged last
+        // time go before the driver runs again.
+        if (sd_mounted) riftwii::wii::UnstageMovedChannels();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunAutorun();
@@ -428,6 +470,9 @@ int main() {
     // Home is on screen before the drives are read (a big USB drive takes a
     // while); the disc is only probed when its tile is picked.
     OpenSessionLog(sd_mounted);
+    // Before StartMenuIos can reload IOS. With a card the log line above
+    // has already asked; without one this is the first question.
+    riftwii::wii::mem::DetectDolphin();
     // A chosen cIOS (fakemote's USB pads) must be running before the pads
     // and the drives are brought up.
     if (restart.kind != riftwii::wii::RestartKind::None) {

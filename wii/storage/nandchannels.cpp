@@ -46,15 +46,21 @@ AlignedBuffer aligned(std::size_t bytes) {
 // IOS refuses (-102: the Homebrew Channel's IOS refuses other titles'
 // contents to an app), and closed by the listing's end.
 struct NandAccess {
+    bool trace = false;
     bool opened = false;
     bool refused = false;
     s32 open(const std::string& path) {
         static char name[64] ATTRIBUTE_ALIGN(32);
         std::snprintf(name, sizeof name, "%s", path.c_str());
+        if (trace) {
+            logf("Wii channels: opening %s on the Wii.\n", name);
+            LogSync();
+        }
         s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
         if (fd == -102 && !opened && !refused) {
             if (open_nand_permissions("Wii channels")) {
                 opened = true;
+                if (trace) logf("Wii channels: trying %s again with the permission check open.\n", name);
                 fd = ISFS_Open(name, ISFS_OPEN_READ);
             } else {
                 refused = true;
@@ -86,11 +92,12 @@ bool read_head(NandAccess& access, const std::string& path, u32 bytes, std::vect
     const s32 fd = access.open(path);
     if (fd < 0) return false;
     AlignedBuffer buffer = aligned(bytes);
+    if (access.trace) logf("Wii channels: reading %u header bytes from %s.\n", static_cast<unsigned>(bytes), path.c_str());
+    if (access.trace) LogSync();
     const s32 got = buffer ? ISFS_Read(fd, buffer.get(), bytes) : -1;
     ISFS_Close(fd);
     if (got <= 0) return false;
-    out.assign(buffer.get(), buffer.get() + got);
-    return true;
+    return try_assign_range(out, buffer.get(), buffer.get() + got);
 }
 
 // A whole NAND file of at most `max_bytes`, or false with `error`.
@@ -101,21 +108,42 @@ bool read_whole(NandAccess& access, const std::string& path, u32 max_bytes, std:
         error = path + " could not be opened (" + std::to_string(fd) + ")";
         return false;
     }
+    if (access.trace) logf("Wii channels: reading the file size of %s.\n", path.c_str());
     static fstats stats ATTRIBUTE_ALIGN(32);
+    if (access.trace) LogSync();
     const u32 size = ISFS_GetFileStats(fd, &stats) < 0 ? 0 : stats.file_length;
     if (size == 0 || size > max_bytes) {
         ISFS_Close(fd);
         error = path + " is " + std::to_string(size) + " bytes, not a size RiftWii reads";
         return false;
     }
-    AlignedBuffer buffer = aligned(size);
-    const s32 got = buffer ? ISFS_Read(fd, buffer.get(), size) : -1;
-    ISFS_Close(fd);
-    if (got != static_cast<s32>(size)) {
-        error = path + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
+    // Keep only one full program in memory. A full aligned read followed by
+    // vector::assign needed twice its size, with no checked allocation.
+    constexpr u32 kReadChunkBytes = 64 * 1024;
+    AlignedBuffer buffer = aligned(std::min(size, kReadChunkBytes));
+    std::vector<u8> bytes;
+    if (!buffer || !try_resize(bytes, size)) {
+        ISFS_Close(fd);
+        error = "out of memory for " + path;
         return false;
     }
-    out.assign(buffer.get(), buffer.get() + size);
+    if (access.trace) logf("Wii channels: reading %u bytes from %s.\n", static_cast<unsigned>(size), path.c_str());
+    if (access.trace) LogSync();
+    u32 done = 0;
+    while (done < size) {
+        const u32 piece = std::min(kReadChunkBytes, size - done);
+        const s32 got = ISFS_Read(fd, buffer.get(), piece);
+        if (got != static_cast<s32>(piece)) {
+            ISFS_Close(fd);
+            error = path + " read " + std::to_string(got) + " of " + std::to_string(piece) +
+                    " bytes at offset " + std::to_string(done);
+            return false;
+        }
+        std::memcpy(bytes.data() + done, buffer.get(), piece);
+        done += piece;
+    }
+    ISFS_Close(fd);
+    out.swap(bytes);
     return true;
 }
 
@@ -592,10 +620,16 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     files.title_id = title_id;
     files.emu_nand = emu_nand;
     const bool emulated = !emu_nand.empty();
+    logf("Wii channels: opening the Wii filesystem for the launch.\n");
     if (NandOpen() < 0) {
         error = "the Wii's memory could not be read";
         return false;
     }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    logf("Wii channels: reading the title metadata for %08x-%08x.\n",
+         static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
     char title_dir[64];
     std::snprintf(title_dir, sizeof title_dir, "/title/%08x/%08x", static_cast<unsigned>(title_id >> 32),
                   static_cast<unsigned>(title_id & 0xFFFFFFFFu));
@@ -607,6 +641,7 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
             error = "its TMD could not be read";
             return false;
         }
+        logf("Wii channels: reading %u bytes of title metadata through ES.\n", static_cast<unsigned>(tmd_size));
         AlignedBuffer tmd = aligned(tmd_size);
         if (!tmd || ES_GetStoredTMD(title_id, reinterpret_cast<signed_blob*>(tmd.get()), tmd_size) < 0) {
             error = "its TMD could not be read";
@@ -633,12 +668,24 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         as_image.required_ios = files.required_ios;
         for (int slot : image_cios_order(as_image, 0)) {
             std::string why;
+            logf("Wii channels: checking the ticket and version for IOS%d.\n", slot);
             if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) add_ios(slot);
         }
     }
-    if (files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
+    // A stock IOS cannot serve the copied NAND. After the d2x attempts,
+    // reloading it would only repeat the launch with the content missing.
+    // Real NAND channels still get this fallback. Dolphin has no d2x, so
+    // there it stays for a copied NAND too: `debug_off = identify` starts
+    // the game without the emulation, for testing.
+    const bool stock_fallback = !emulated || running_in_dolphin();
+    if (stock_fallback && files.required_ios != 0) add_ios(static_cast<int>(files.required_ios));
+    if (emulated && files.ios_order.empty()) {
+        error = "no installed d2x IOS is available to serve the copied NAND";
+        return false;
+    }
 
     NandAccess access;
+    access.trace = true;
     // A channel the Wii Menu moved to the SD card: the Wii has no program
     // for it, and the program is read straight from the card's content.bin
     // (stage_moved_channel then copies the contents to the Wii for the
@@ -647,11 +694,14 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     bool from_card = false;
     if (!emulated) {
         const TmdContent* boot = tmd_content_by_index(contents, contents.boot_index);
+        logf("Wii channels: checking whether the boot content is on the Wii.\n");
         const bool on_wii = program_present(contents, boot, [&](const TmdContent& c) {
             return open_result(access, nand_content_path(title_id, c.id)) >= 0;
         });
+        logf("Wii channels: the boot content %s.\n", on_wii ? "is on the Wii" : "is missing; checking the SD card");
         const std::string moved_path = on_wii ? "" : moved_channel_file(channel_code(title_id));
         if (!moved_path.empty()) {
+            logf("Wii channels: opening the moved channel at %s.\n", moved_path.c_str());
             if (!moved.open(moved_path, title_id, error)) {
                 error = moved_path + ": " + error;
                 return false;
@@ -664,6 +714,11 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     const auto read_content = [&](const TmdContent& c, std::size_t bytes, std::vector<u8>& out_bytes,
                                   std::string& why) {
         const std::string path = nand_content_path(title_id, c.id);
+        logf("Wii channels: reading %s of content %u (%08x, %llu bytes) from %s.\n",
+             bytes >= c.size ? "the whole file" : "the header", static_cast<unsigned>(c.index),
+             static_cast<unsigned>(c.id), static_cast<unsigned long long>(c.size),
+             emulated ? "the copied NAND" : from_card ? "the SD card" : "the Wii");
+        LogSync();
         if (emulated) {
             if (bytes >= c.size) return read_card_file(emu_nand + path, static_cast<u32>(bytes), out_bytes, why);
             return read_card_head(emu_nand + path, bytes, out_bytes);
@@ -689,6 +744,8 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     bool loaded = false;
     std::string why;
     for (int attempt = 0; attempt < 3 && !loaded; ++attempt) {
+        logf("Wii channels: choosing the program from %u content header(s), attempt %d.\n",
+             static_cast<unsigned>(candidates.size()), attempt + 1);
         if (!choose_channel_program(contents, candidates, files.program, why)) {
             error = why;
             return false;
@@ -706,6 +763,8 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         const bool compressed = channel_program_compressed(files.dol.data(), files.dol.size());
         if (compressed) {
             const std::size_t packed_size = files.dol.size();
+            logf("Wii channels: unpacking the program in content %u (%u bytes).\n",
+                 static_cast<unsigned>(files.program.index), static_cast<unsigned>(packed_size));
             if (!unpack_channel_program(files.dol, why)) {
                 logf("Wii channels: content %d is compressed and %s; not a program\n",
                      static_cast<int>(files.program.index), why.c_str());
@@ -752,21 +811,30 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
     std::snprintf(ticket_path, sizeof(ticket_path), "/ticket/%08x/%08x.tik",
                   static_cast<unsigned>(title_id >> 32), static_cast<unsigned>(title_id));
     std::string ticket_error;
+    logf("Wii channels: reading the installed ticket at %s.\n", ticket_path);
     const bool ticket_read = emulated
         ? read_card_file(emu_nand + ticket_path, kMaxTicketBytes, files.ticket, ticket_error)
         : read_whole(access, ticket_path, kMaxTicketBytes, files.ticket, ticket_error);
     if (!ticket_read) {
         logf("Wii channels: the installed ticket could not be read (%s); trying a synthetic identity.\n",
              ticket_error.c_str());
-        files.ticket = riftwii::make_fake_ticket();
+        files.ticket = riftwii::make_identify_ticket({}, title_id);
         files.ticket_synthetic = true;
+    } else if (files.ticket.size() > kSignedTicketBytes) {
+        // A .tik can hold several tickets; ES_Identify takes exactly one
+        // (libogc refuses any other size before asking IOS).
+        logf("Wii channels: the ticket file holds %u bytes; the first ticket (%u bytes) is used.\n",
+             static_cast<unsigned>(files.ticket.size()), static_cast<unsigned>(kSignedTicketBytes));
+        files.ticket.resize(kSignedTicketBytes);
     }
     // The certificates are the same on every Wii: an emulated NAND's own
     // copy when it has one, else the Wii's.
+    logf("Wii channels: reading the certificates.\n");
     std::string ignored;
     if (!emulated || !read_card_file(emu_nand + "/sys/cert.sys", kMaxCertBytes, files.certs, ignored)) {
         if (!read_whole(access, "/sys/cert.sys", kMaxCertBytes, files.certs, error)) return false;
     }
+    logf("Wii channels: the program, ticket and certificates are ready.\n");
     out = std::move(files);
     return true;
 }
@@ -801,6 +869,38 @@ std::string nand_channel_name(const NandChannel& channel, int language) {
     for (const std::string& name : channel.names)
         if (!name.empty()) return name;
     return channel.code;
+}
+
+PriiloaderFound PriiloaderInstalled() {
+    static PriiloaderFound found = PriiloaderFound::Unknown;
+    static bool looked = false;
+    if (looked) return found;
+    looked = true;
+    constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
+    TmdContents wii_menu;
+    std::string why;
+    if (!read_stored_tmd(kWiiMenuTitle, wii_menu, why)) {
+        logf("Priiloader: not known, the Wii Menu's TMD could not be read\n");
+        return found;
+    }
+    const std::string copy = priiloader_copy_path(wii_menu);
+    if (copy.empty()) {
+        logf("Priiloader: not known, the Wii Menu's TMD names no program\n");
+        return found;
+    }
+    NandAccess access;
+    const s32 fd = access.open(copy);
+    if (fd >= 0) {
+        ISFS_Close(fd);
+        found = PriiloaderFound::Yes;
+        logf("Priiloader: installed (%s is there)\n", copy.c_str());
+    } else if (fd == -106) {  // no such file
+        found = PriiloaderFound::No;
+        logf("Priiloader: not installed (no %s)\n", copy.c_str());
+    } else {
+        logf("Priiloader: not known, %s could not be looked for (%d)\n", copy.c_str(), static_cast<int>(fd));
+    }
+    return found;
 }
 
 }  // namespace riftwii::wii

@@ -116,7 +116,7 @@ struct ChannelVerdict {
 struct TmdContent {
     std::uint32_t id = 0;     // the file's name on the NAND, %08x.app
     std::uint16_t index = 0;  // 0 is the banner, the boot index the program
-    std::uint16_t type = 0;   // 1 normal, 0x4001 and 0x8001 shared
+    std::uint16_t type = 0;   // 1 normal, 0x4001 optional (downloadable extras), 0x8001 shared
     std::uint64_t size = 0;
     Sha1Digest sha1{};        // of its plain bytes
 };
@@ -137,6 +137,11 @@ struct TmdContents {
 // for its own content count.
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error);
 
+// The contents a channel opens through ES while it runs and can't do
+// without: all but the optional ones (downloadable extras, which may never
+// have been bought). Their indexes, in TMD order.
+std::vector<std::uint16_t> required_content_indexes(const TmdContents& contents);
+
 // The six-character ID RiftWii keys a channel by, as a disc game's is its
 // four-letter code and its maker ("WBME01"): favourites, play history,
 // the stored banner and covers. The code alone gets "01" without a maker.
@@ -155,6 +160,13 @@ const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t ind
 // A shared content (type bit 0x8000) lives in /shared1 under a name that
 // only /shared1/content.map knows, so this is only for the title's own ones.
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id);
+
+// Where Priiloader keeps the Wii Menu's own program: its installer copies
+// the boot content to a file whose content ID has 1 for its first hex digit
+// (0000009d.app -> 1000009d.app) and takes the original's place, so the
+// copy is there exactly when Priiloader is. Empty when the Wii Menu's TMD
+// names no boot content.
+std::string priiloader_copy_path(const TmdContents& wii_menu);
 
 // The first bytes of one of a title's own contents (at least the DOL
 // header's 0x100 when the file is that long), for choose_channel_program.
@@ -261,5 +273,14 @@ std::uint32_t channel_bi2_address(const DolHeader& program, std::uint32_t loader
 constexpr std::uint32_t kChannelTitleTypes[] = {kDownloadedChannels, kSystemChannels, kHiddenChannels};
 
 std::vector<std::uint8_t> make_fake_ticket();
+
+// One signed ticket, as ES_Identify takes it.
+constexpr std::size_t kSignedTicketBytes = 0x2A4;
+
+// The ticket RiftWii offers ES_Identify when the installed one is refused or
+// missing: the installed ticket's first one (the generic ticket without),
+// with `title_id` as its title, no console of its own, and fakesigned for
+// IOSes with the signing bug (d2x). Exactly one ticket, as ES takes it.
+std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& installed, std::uint64_t title_id);
 
 }  // namespace riftwii

@@ -61,9 +61,13 @@ const char* const kCredits[] = {
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
     "",
+    "OGWS community decompilation: Wii sequence envelopes, volume controls and pan, read as documentation only.",
+    "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
+    "",
+    "Priiloader by DacoTaco: how to tell it is installed, from its installer (read only, no code copied).",
     "",
     "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer and libasnd by "
     "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player, and the streaming mixer API reference.",
@@ -107,6 +111,8 @@ const char* const kCredits[] = {
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
     "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
+    "Age rating marks: the ESRB's, PEGI's, CERO's, the GRAC's and the GSRR's, as drawn on Wikimedia "
+    "Commons (public domain).",
     "",
     "Korean translation: DDinghoya. French translation: MidyGamy.",
     "",

@@ -7,7 +7,7 @@
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: StopGXKeepPicture, the frame buffer accessors,
- * the display scale and the camera, the GX trace's texture hook and
+ * the display scale and the camera, the menu font's pixels, the GX trace's texture hook and
  * Menu_Render's step for the GUI watch.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
@@ -36,6 +36,11 @@ void Menu_SetCamera(f32 k, f32 tx, f32 ty);
 void Menu_PushCamera(f32 k, f32 cx, f32 cy, f32 dx = 0, f32 dy = 0);
 void Menu_PushNoCamera();
 void Menu_PopCamera();
+// RiftWii: frame-buffer pixels to a menu unit, across and down (the
+// display scale; not the camera), and a menu point moved to the corner of
+// its nearest pixel: the menu font's glyphs are drawn texel for pixel.
+void Menu_GlyphPixels(f32* x, f32* y);
+void Menu_SnapToPixel(f32* x, f32* y);
 f32 Menu_ScreenToMenuX(f32 x);
 f32 Menu_ScreenToMenuY(f32 y);
 void Menu_MenuToXfb(f32 x, f32 y, int* px, int* py);  // a menu point as a frame-buffer pixel

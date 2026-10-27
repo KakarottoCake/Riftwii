@@ -81,7 +81,9 @@ struct ChannelBootFiles {
     // The IOSes to try, in order: ES runs a game as its own title
     // (ES_Identify) only for the Wii Menu on Nintendo's IOSes, and for
     // anyone on a d2x cIOS, so the d2x slots image games would take come
-    // first, then the IOS the title asks for. In Dolphin only that one.
+    // first, then the IOS the title asks for on the real NAND. A copied
+    // NAND needs d2x, so it gets no stock fallback. In Dolphin (no d2x)
+    // only the requested IOS is used, for either.
     std::vector<int> ios_order;
     ChannelProgram program;
     std::vector<std::uint8_t> dol;  // the program content, whole
@@ -97,6 +99,14 @@ struct ChannelBootFiles {
 // `emu_nand`: the emulated NAND folder the channel is in, empty for the
 bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out,
                        std::string& error, int ios_choice = 0);
+
+// Whether Priiloader is installed on this Wii: its copy of the Wii Menu's
+// program (priiloader_copy_path) is there, is not, or could not be looked
+// for (the Wii Menu's TMD unread, or the NAND refused). Looked for once,
+// under the running IOS (opening its NAND permission check if need be),
+// then kept.
+enum class PriiloaderFound { Yes, No, Unknown };
+PriiloaderFound PriiloaderInstalled();
 
 // The channel game the menu is launching (MENU_PLAY_CHANNEL, wii/main.cpp's
 // StartChannel): set by the menu when Start is pressed on one.

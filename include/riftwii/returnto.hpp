@@ -11,6 +11,25 @@
 
 namespace riftwii {
 
+// Code builds and games that clear MEM1 above their arena need the stub
+// below the OS globals instead. Every runtime veneer ends before here.
+constexpr std::uint32_t kLowReturnStub = 0x80002FE0;
+constexpr std::uint32_t kReturnStubBytes = 32;
+
+struct ReturnStubPlan {
+    std::uint32_t address = 0;
+    std::uint32_t arena1_hi = 0;
+    std::uint32_t code_list_end = 0;  // the ordinary cheat list must stop before a low stub
+};
+
+ReturnStubPlan plan_return_stub(std::uint32_t arena1_hi, bool enabled, bool needs_low_memory);
+
+// Try the installed RiftWii channel first, then the Homebrew Channel if it
+// started RiftWii, then the Wii Menu. The caller skips unavailable tickets.
+// A zero title means that channel is not installed.
+std::vector<std::uint64_t> gamecube_return_titles(bool back_to_riftwii, bool started_by_homebrew_channel,
+                                                std::uint64_t channel, std::uint64_t homebrew_channel);
+
 // A game's HOME Menu "Wii Menu" button ends in the SDK's __OSLaunchMenu,
 // which asks ES for the System Menu's ticket views and launches it: three
 // places load its title, 00000001-00000002, as "li r4,2; li r3,1; li r5,0"

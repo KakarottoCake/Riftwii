@@ -294,7 +294,7 @@ std::string channel_cheat_code(const std::string& game_id) {
 std::vector<std::uint8_t> make_fake_ticket() {
     constexpr std::size_t kIssuer = 0x140;
     constexpr std::size_t kContentIndexMask = 0x222;
-    constexpr std::size_t kMaskBytes = 32;
+    constexpr std::size_t kMaskBytes = 0x40;
     std::vector<std::uint8_t> ticket(0x2A4, 0);
     ticket[0] = 0x00;
     ticket[1] = 0x01;
@@ -304,6 +304,65 @@ std::vector<std::uint8_t> make_fake_ticket() {
     std::memcpy(ticket.data() + kIssuer, issuer, std::strlen(issuer));
     std::memset(ticket.data() + kContentIndexMask, 0xFF, kMaskBytes);
     return ticket;
+}
+
+namespace {
+
+// Ticket fields (WiiBrew, "Ticket"). The signature covers everything from
+// the issuer on.
+constexpr std::size_t kTicketSignature = 0x004;
+constexpr std::size_t kTicketSignatureBytes = 0x100;
+constexpr std::size_t kTicketSignedFrom = 0x140;
+constexpr std::size_t kTicketEcdh = 0x180;
+constexpr std::size_t kTicketEcdhBytes = 0x3C;
+constexpr std::size_t kTicketConsoleId = 0x1D8;
+constexpr std::size_t kTicketTitleId = 0x1DC;
+// WiiBrew marks 0x1F5-0x221 as unknown; 0x1F4 can be nonzero for VC.
+// Keep the existing two-byte fakesigning field, away from the key index
+// and content permissions. Its use still needs confirmation on hardware.
+constexpr std::size_t kTicketFiller = 0x220;
+
+}  // namespace
+
+std::vector<std::uint8_t> make_identify_ticket(const std::vector<std::uint8_t>& installed,
+                                               std::uint64_t title_id) {
+    // A .tik file can hold several tickets; ES_Identify takes exactly one.
+    std::vector<std::uint8_t> ticket = installed.size() >= kSignedTicketBytes
+        ? std::vector<std::uint8_t>(installed.begin(), installed.begin() + kSignedTicketBytes)
+        : make_fake_ticket();
+    // ES compares the ticket's title with the TMD's: the generic ticket
+    // carries none of its own.
+    for (int i = 0; i < 8; ++i) ticket[kTicketTitleId + i] = static_cast<std::uint8_t>(title_id >> (56 - 8 * i));
+    // A ticket the Shop issued to another console names that console and
+    // carries its key exchange data: an emulated NAND copied from another
+    // Wii, or from a Wii to a Wii U. NAND contents are already decrypted,
+    // but ES can still set up a title key during Identify. Keep the key,
+    // its common-key index and the ticket ID together; clearing the
+    // console binding is not a conversion between encryption keys.
+    std::memset(ticket.data() + kTicketConsoleId, 0, 4);
+    std::memset(ticket.data() + kTicketEcdh, 0, kTicketEcdhBytes);
+    // Fakesigned: IOSes with the signing bug (d2x restores it) compare the
+    // hash in a zeroed signature as a string, which ends at its first zero
+    // byte. A signed part whose SHA-1 starts with zero then passes; the
+    // filler is changed until it does, 1 try in 256 on average.
+    std::memset(ticket.data() + kTicketSignature, 0, kTicketSignatureBytes);
+    for (std::uint32_t filler = 0; filler <= 0xFFFF; ++filler) {
+        ticket[kTicketFiller] = static_cast<std::uint8_t>(filler >> 8);
+        ticket[kTicketFiller + 1] = static_cast<std::uint8_t>(filler);
+        if (sha1(ticket.data() + kTicketSignedFrom, ticket.size() - kTicketSignedFrom)[0] == 0) break;
+    }
+    return ticket;
+}
+
+std::vector<std::uint16_t> required_content_indexes(const TmdContents& contents) {
+    // Bit 0x4000 of a content's type marks it optional (WiiBrew, "Title
+    // metadata"): a game's downloadable extras, absent until bought.
+    constexpr std::uint16_t kOptionalContent = 0x4000;
+    std::vector<std::uint16_t> indexes;
+    for (const TmdContent& content : contents.contents) {
+        if ((content.type & kOptionalContent) == 0) indexes.push_back(content.index);
+    }
+    return indexes;
 }
 
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error) {
@@ -486,6 +545,13 @@ std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) 
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),
                   static_cast<unsigned>(title_id & 0xFFFFFFFFu), static_cast<unsigned>(content_id));
     return path;
+}
+
+std::string priiloader_copy_path(const TmdContents& wii_menu) {
+    const TmdContent* boot = tmd_content_by_index(wii_menu, wii_menu.boot_index);
+    if (boot == nullptr) return std::string();
+    const std::uint32_t copy_id = 0x10000000u | (boot->id & 0x0FFFFFFFu);
+    return nand_content_path(wii_menu.title_id, copy_id);
 }
 
 ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
