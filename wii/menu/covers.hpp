@@ -85,7 +85,8 @@ bool ChooseCoverSet(const std::string& game_id, bool second);
 // that entry's ID ("RMCE01@retro-rewind" -> "RMCETO",
 // riftwii/modcover.hpp): their own covers are downloaded under the tile's
 // key, and shown before the game's. Other tiles show the game's cover.
-void SetModCoverIds(std::map<std::string, std::string> ids);
+// False before CoverReserve: nothing kept, so it is to be set again.
+bool SetModCoverIds(std::map<std::string, std::string> ids);
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);

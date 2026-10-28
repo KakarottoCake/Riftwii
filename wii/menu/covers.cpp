@@ -582,14 +582,30 @@ void CoverPrefetch(const std::string& game_id, int rank) {
     }
 }
 
-void SetModCoverIds(std::map<std::string, std::string> ids) {
-    if (g_lock == LWP_MUTEX_NULL) return;
+bool SetModCoverIds(std::map<std::string, std::string> ids) {
+    if (g_lock == LWP_MUTEX_NULL) return false;
     Lock lock;
-    if (ids == g_modCoverIds) return;
-    // A tile matched anew may have a cover to read now, or none any more.
-    for (const auto& changed : ids)
-        if (g_modCoverIds.count(changed.first) == 0 || g_modCoverIds[changed.first] != changed.second) g_absent.erase(changed.first);
+    if (ids == g_modCoverIds) return true;
+    // A tile matched anew, or no longer, may show another cover now: what
+    // is in memory for it (or being read) is read again.
+    std::set<std::string> changed;
+    for (const auto& now : ids) {
+        const auto was = g_modCoverIds.find(now.first);
+        if (was == g_modCoverIds.end() || was->second != now.second) changed.insert(now.first);
+    }
+    for (const auto& was : g_modCoverIds)
+        if (!ids.count(was.first)) changed.insert(was.first);
+    bool forgot = false;
+    for (const std::string& key : changed) {
+        g_absent.erase(key);
+        if (Slot* slot = Find(key)) {
+            SetId(*slot, "");
+            forgot = true;
+        }
+    }
+    if (forgot) ++g_forgets;
     g_modCoverIds = std::move(ids);
+    return true;
 }
 
 void ForgetCover(const std::string& game_id) {

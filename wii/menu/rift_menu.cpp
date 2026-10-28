@@ -1655,8 +1655,6 @@ static void UpdateModCoverIds()
 	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) tiles += p.key() + "\t" + p.name + "\n";
 	const unsigned written = riftwii::wii::ModTitlesWritten();
 	if (written == seenWritten && tiles == seenTiles) return;
-	seenWritten = written;
-	seenTiles = tiles;
 	std::vector<riftwii::CustomGame> customs;
 	std::map<std::string, std::string> ids;
 	if (riftwii::wii::LoadModTitles(customs)) {
@@ -1665,9 +1663,15 @@ static void UpdateModCoverIds()
 			if (!id.empty()) ids[p.key()] = id;
 		}
 	}
-	logf("Mod covers: %u of %u mod tile(s) are listed on GameTDB as games of their own\n",
-	     static_cast<unsigned>(ids.size()), static_cast<unsigned>(riftwii::wii::Profiles().all().size()));
-	riftwii::wii::SetModCoverIds(std::move(ids));
+	const unsigned matched = static_cast<unsigned>(ids.size());
+	// Not kept yet (the covers' memory isn't set up): tried again next time.
+	if (!riftwii::wii::SetModCoverIds(std::move(ids))) return;
+	seenWritten = written;
+	seenTiles = tiles;
+	logf("Mod covers: %u of %u mod tile(s) are listed on GameTDB as games of their own\n", matched,
+	     static_cast<unsigned>(riftwii::wii::Profiles().all().size()));
+	// The tiles checked before, without a match then, are checked again.
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) g_coversChecked.erase(p.key());
 }
 
 static bool& CoverDownloadsOff(const std::string& game)
@@ -5618,11 +5622,17 @@ static int MenuSource(FrontendState& state)
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
-				const std::string focused = focusedTile();
-				takePress();
-				refreshKeepingTile(focused, false);
-				putPressBack();
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged)) {
+				if (customChanged) {
+					const std::string focused = focusedTile();
+					takePress();
+					refreshKeepingTile(focused, false);
+					putPressBack();
+				} else {
+					// The read also made GameTDB's list of mods again: their
+					// tiles' own covers (#385).
+					queueCovers();
+				}
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
