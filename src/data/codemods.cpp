@@ -91,11 +91,14 @@ CodeModStart shared_code_mod_answer(const CodeModAnswers& answers, const std::st
     return first;
 }
 
-void remember_code_mod_answer(CodeModAnswers& answers, const std::string& game_id,
+bool remember_code_mod_answer(CodeModAnswers& answers, const std::string& game_id,
                               const std::vector<std::string>& keys, CodeModStart picked) {
-    if (picked != CodeModStart::With && picked != CodeModStart::Without) return;
+    if (picked != CodeModStart::With && picked != CodeModStart::Without) return true;
+    bool kept = true;
     for (const std::string& key : keys)
-        if (code_mod_answer(answers, game_id, key) == CodeModStart::Unset) set_code_mod_answer(answers, game_id, key, picked);
+        if (code_mod_answer(answers, game_id, key) == CodeModStart::Unset)
+            kept = set_code_mod_answer(answers, game_id, key, picked) && kept;
+    return kept;
 }
 
 }  // namespace riftwii

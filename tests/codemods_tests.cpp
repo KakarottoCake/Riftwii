@@ -72,6 +72,9 @@ static void TestBounds() {
     EXPECT_TRUE(!riftwii::set_code_mod_answer(longest, "RSBE01", std::string(riftwii::kCodeModsMaxKey + 1, 'k'),
                                               CodeModStart::Without));
     EXPECT_TRUE(riftwii::serialize_code_mods(longest).size() <= riftwii::kCodeModsMaxBytes);
+    // A full file takes no new mod's answer, and says so.
+    EXPECT_TRUE(!riftwii::remember_code_mod_answer(longest, "RSBE01", Keys{"one more"}, CodeModStart::With));
+    EXPECT_TRUE(riftwii::code_mod_answer(longest, "RSBE01", "one more") == CodeModStart::Unset);
     // A file read up to the limit is cut back to its last whole line.
     EXPECT_EQ(riftwii::code_mods_whole_lines("RSBE01\tA\twith\nRSBE01\tB\twi", true), std::string("RSBE01\tA\twith\n"));
     EXPECT_EQ(riftwii::code_mods_whole_lines("RSBE01\tA\twith", false), std::string("RSBE01\tA\twith"));

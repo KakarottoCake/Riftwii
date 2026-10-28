@@ -62,8 +62,8 @@ CodeModStart shared_code_mod_answer(const CodeModAnswers& answers, const std::st
                                     const std::vector<std::string>& keys);
 // After asking: the answer, kept for each of `keys` that had none. One that
 // had another answer, or is set to ask each time, keeps it, so an answer
-// always belongs to one mod.
-void remember_code_mod_answer(CodeModAnswers& answers, const std::string& game_id,
+// always belongs to one mod. False: one the file couldn't take (it is full).
+bool remember_code_mod_answer(CodeModAnswers& answers, const std::string& game_id,
                               const std::vector<std::string>& keys, CodeModStart picked);
 
 }  // namespace riftwii

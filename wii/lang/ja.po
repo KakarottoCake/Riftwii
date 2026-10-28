@@ -1431,6 +1431,9 @@ msgstr "このコードModは起動できません"
 msgid "How should this code mod start?"
 msgstr "このコードModをどう起動しますか？"
 
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。"
+
 msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
 msgstr "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。"
 

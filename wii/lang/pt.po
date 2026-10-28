@@ -1431,6 +1431,9 @@ msgstr "Este mod de códigos não pode iniciar"
 msgid "How should this code mod start?"
 msgstr "Como este mod de códigos deve iniciar?"
 
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria."
+
 msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
 msgstr "A maioria dos mods de códigos, como o Project+, funciona com os extras do RiftWii. Se um ficar com a tela preta, inicie-o sem eles. O RiftWii vai lembrar disso para {1}; dá para mudar na página de Mods."
 

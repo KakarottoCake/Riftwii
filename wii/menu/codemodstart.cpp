@@ -111,8 +111,9 @@ void ForgetCodeModAnswers() {
 
 bool RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys, CodeModStart picked) {
     Answers();
-    remember_code_mod_answer(g_answers, game_id, keys, picked);
-    return Save();
+    // One the file couldn't take (it is full) isn't kept either.
+    const bool taken = remember_code_mod_answer(g_answers, game_id, keys, picked);
+    return Save() && taken;
 }
 
 }  // namespace riftwii::wii

@@ -1431,6 +1431,9 @@ msgstr "이 코드 모드는 시작되지 않음"
 msgid "How should this code mod start?"
 msgstr "이 코드 모드를 어떻게 시작할까요?"
 
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요."
+
 msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
 msgstr "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다."
 

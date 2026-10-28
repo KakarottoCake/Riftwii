@@ -1415,6 +1415,11 @@ T = {
         "このコードModをどう起動しますか？",
         "Como este mod de códigos deve iniciar?",
         "Come deve partire questo mod di codici?"),
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.": (
+        "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador.",
+        "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。",
+        "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
+        "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
     "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.": (
         "La mayoría de los mods de códigos, como Project+, funcionan con los extras de RiftWii. Si uno se queda con la pantalla en negro, inícialo sin ellos. RiftWii lo recordará para {1}; se cambia en la página de Mods.",
         "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。",
@@ -3282,6 +3287,8 @@ KO = {
         "이 코드 모드는 시작되지 않음",
     "How should this code mod start?":
         "이 코드 모드를 어떻게 시작할까요?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요.",
     "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
         "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다.",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
@@ -5154,6 +5161,8 @@ FR = {
         "Ce mod de code ne peut pas démarrer",
     "How should this code mod start?":
         "Comment démarrer ce mod de code ?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
     "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
         "La plupart des mods de code, comme Project+, fonctionnent avec les extras de RiftWii. Si l'un reste sur un écran noir, démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods permet de le changer.",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
