@@ -301,12 +301,12 @@ private:
     bool ringPlaced = false;
     int shelfHover = -1;                // the box a pointer is on
     // The focused box turned round to its back (Up or Down), for that box
-    // only; how many frames the focus has stood still (its sway and the
-    // backdrop wait for it); the frame count the sway runs on.
+    // only; elapsed time in nominal 60 Hz frames (the sway and backdrop
+    // keep the same pace at 50 Hz).
     bool shelfFlip = false;
     int shelfFlipFor = -1;
-    int shelfStill = 0;
-    unsigned shelfClock = 0;
+    float shelfStill = 0;
+    float shelfClock = 0;
     // A held direction speeds up: the steps that came close together.
     u64 shelfLastStep = 0;
     int shelfStreak = 0;

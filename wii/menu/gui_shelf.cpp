@@ -26,6 +26,7 @@
 #include <string>
 
 #include "boxart.hpp"
+#include "transition.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "gameextras.hpp"
@@ -71,7 +72,7 @@ constexpr float kOpen = kBoxW / 2.0f + 19.0f;   // the focused box's room each s
 constexpr float kPullZ = 70.0f;                 // how far the focused box comes out
 constexpr float kLift = 10.0f;                  // a spine under the pointer rises
 constexpr int kReach = 13;                      // boxes drawn each side of the focus
-constexpr float kEase = 0.25f;
+constexpr float kBoxResponseMs = 58.0f;
 constexpr int kSpineTextSize = 13;
 constexpr int kSpineTextRoom = 140;  // the length of a spine's name
 // The reflection: below the plank's front edge (16 tall), as if the floor
@@ -109,6 +110,10 @@ constexpr float kReflectPart = 0.30f;
 constexpr int kReflectAlpha = 54;
 constexpr float kDragStep = 30.0f;  // pointer pixels a box (dragging, gliding)
 constexpr float kTau = 6.2831853f;
+// The sway's two waves (0.03 and 0.045 radians a frame) meet again every
+// 2*pi/0.015 frames: the clock wraps there, so a menu left open for days
+// keeps a float clock precise enough for a smooth sway.
+constexpr float kSwayCycle = kTau / 0.015f;
 
 // The texture's spine, front and back, across its kBoxWidth.
 constexpr float kSpineU = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
@@ -612,7 +617,7 @@ void UpdateBackdrop(const std::string& id, bool still) {
     }
     for (int k = 0; k < 2; ++k) {
         const float target = k == g_backCur && g_backId[k] == id ? 1.0f : 0.0f;
-        g_backShown[k] += (target - g_backShown[k]) * 0.08f;
+        g_backShown[k] = riftwii::wii::transition::Follow(g_backShown[k], target, 200.0f);
     }
 }
 
@@ -750,18 +755,18 @@ void GuiGameGrid::DrawShelf(int alpha) {
         return;
     }
     if (static_cast<int>(poses.size()) != Count()) poses.assign(Count(), BoxPose{});
-    ++shelfClock;
+    const float elapsedFrames = riftwii::wii::transition::FrameMilliseconds() * (60.0f / 1000.0f);
+    shelfClock = std::fmod(shelfClock + elapsedFrames, kSwayCycle);
     if (shelfFlipFor != focus) {
         shelfFlipFor = focus;
         shelfFlip = false;
         shelfStill = 0;
     } else if (shelfStill < 100000) {
-        ++shelfStill;
+        shelfStill += elapsedFrames;
     }
     // A flick's glide: steps while it slows down.
     if (!dragging && glide != 0.0f) {
-        glideAccum += glide;
-        glide *= 0.88f;
+        glideAccum += riftwii::wii::transition::Coast(glide, 130.0f);
         while (glideAccum >= kDragStep) {
             ShelfStep(-1);
             glideAccum -= kDragStep;
@@ -838,10 +843,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
             p.placed = true;
             continue;
         }
-        p.x += (want.x - p.x) * kEase;
-        p.z += (want.z - p.z) * kEase;
-        p.turn += (want.turn - p.turn) * kEase;
-        p.lift += (want.lift - p.lift) * kEase;
+        p.x = riftwii::wii::transition::Follow(p.x, want.x, kBoxResponseMs);
+        p.z = riftwii::wii::transition::Follow(p.z, want.z, kBoxResponseMs);
+        p.turn = riftwii::wii::transition::Follow(p.turn, want.turn, kBoxResponseMs);
+        p.lift = riftwii::wii::transition::Follow(p.lift, want.lift, kBoxResponseMs);
         if (want.turn == kTau && p.turn > kTau - 0.01f) p.turn = 0.0f;
     }
     // Boxes that fell out of reach start again from their place next time.
@@ -1098,17 +1103,17 @@ void GuiGameGrid::DrawShelfCaption(int alpha) {
 void GuiGameGrid::DrawRing(int alpha) {
     const int n = Count();
     if (n <= 0) return;
-    ++shelfClock;
+    const float elapsedFrames = riftwii::wii::transition::FrameMilliseconds() * (60.0f / 1000.0f);
+    shelfClock = std::fmod(shelfClock + elapsedFrames, kSwayCycle);
     if (shelfFlipFor != focus) {
         shelfFlipFor = focus;
         shelfStill = 0;
     } else if (shelfStill < 100000) {
-        ++shelfStill;
+        shelfStill += elapsedFrames;
     }
     // A flick's glide, as on the shelf.
     if (!dragging && glide != 0.0f) {
-        glideAccum += glide;
-        glide *= 0.88f;
+        glideAccum += riftwii::wii::transition::Coast(glide, 130.0f);
         while (glideAccum >= kDragStep) {
             ShelfStep(-1);
             glideAccum -= kDragStep;
@@ -1127,7 +1132,7 @@ void GuiGameGrid::DrawRing(int alpha) {
     float ahead = focus - ringPos;
     while (ahead > n / 2.0f) ahead -= n;
     while (ahead < -n / 2.0f) ahead += n;
-    ringPos += std::fabs(ahead) < 0.002f ? ahead : ahead * 0.2f;
+    ringPos = riftwii::wii::transition::Follow(ringPos, ringPos + ahead, 75.0f, 0.002f);
     while (ringPos >= n) ringPos -= n;
     while (ringPos < 0) ringPos += n;
 
@@ -1368,7 +1373,11 @@ void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
                 dragAccum += dx;
             }
             if (dragging) {
-                dragSpeed = dragSpeed * 0.5f + dx * 0.5f;
+                const float frameMs = riftwii::wii::transition::FrameMilliseconds();
+                if (frameMs > 0.0f) {
+                    const float velocity = dx * (1000.0f / 60.0f) / frameMs;
+                    dragSpeed = riftwii::wii::transition::Follow(dragSpeed, velocity, 24.0f);
+                }
                 // Dragged right: the shelf moves right, the focus left.
                 while (dragAccum >= kDragStep) {
                     ShelfStep(-1);

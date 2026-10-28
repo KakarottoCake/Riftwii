@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_searchkeys.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 
 #include "i18n.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
+#include "transition.hpp"
 #include "usbinput.hpp"
 #include "wiidrc.h"
 
@@ -104,6 +107,15 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         k.caption = new GuiText(k.label.c_str(), 18, skin::kInk);
         k.caption->SetParent(this);
         k.caption->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+        // Translated action names share the same keys as their short
+        // English labels. Fit them before centring, as the page tiles do.
+        const int textRoom = k.w - 8;
+        for (int size = 18; size >= 12; --size) {
+            k.captionSize = size;
+            k.caption->SetFontSize(size);
+            if (k.caption->GetTextWidth() <= textRoom) break;
+        }
+        k.caption->SetMaxWidth(textRoom);
     }
     // Search (or OK) when there is text (A straight away), else Q, the
     // first letter (0 in hex).
@@ -397,9 +409,20 @@ void GuiSearchKeys::Draw() {
     const int fx = kKeyLeft, fy = 148, fw = 10 * kKeyPitch - 4, fh = 34;
     Menu_DrawRectangle(fx, fy, fw, fh, skin::kBadge, 1);
     Menu_DrawRectangle(fx, fy + fh - 2, fw, 2, skin::kAccent, 1);
+    // Keep the insertion point visible for long names and cheat values.
+    // The stored text is unchanged; only its displayed beginning scrolls.
+    const int textRoom = fw - 24;
+    std::size_t firstShown = 0;
+    while (shown->GetTextWidth() > textRoom && firstShown < text.size()) {
+        ++firstShown;
+        // An existing name can contain UTF-8 even though the keys type ASCII.
+        while (firstShown < text.size() && (static_cast<unsigned char>(text[firstShown]) & 0xC0) == 0x80)
+            ++firstShown;
+        shown->SetText(text.substr(firstShown).c_str());
+    }
     shown->Draw();
-    blink = (blink + 1) % 60;
-    if (blink < 35) {
+    blink = std::fmod(blink + riftwii::wii::transition::FrameMilliseconds(), 1000.0f);
+    if (blink < 580.0f) {
         const int cx = kKeyLeft + 10 + (text.empty() ? 0 : shown->GetTextWidth()) + 2;
         Menu_DrawRectangle(cx, fy + 6, 2, 22, skin::kInk, 1);
     }
@@ -416,7 +439,8 @@ void GuiSearchKeys::Draw() {
         skin::DrawNine(skin::keys[(primary ? 2 : 0) + (on ? 1 : 0)], k.x - 4, ky - 4, k.w + 8, kh + 8, riftwii::kKeyCorner);
         const bool live = Live(k);
         k.caption->SetColor(primary ? skin::kTextOnAccent : live ? skin::kInk : skin::kInkSoft);
-        k.caption->SetPosition(k.x + (k.w - k.caption->GetTextWidth()) / 2, ky + (kh - 18) / 2 - 1);
+        const int captionWidth = std::min(k.w - 8, k.caption->GetTextWidth());
+        k.caption->SetPosition(k.x + (k.w - captionWidth) / 2, ky + (kh - k.captionSize) / 2 - 1);
         k.caption->Draw();
         if (!live) {
             // Faded into the card: still there (the layout stays put), clearly out.
