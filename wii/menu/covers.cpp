@@ -315,7 +315,7 @@ void* LoaderMain(void*) {
         if (ok) DCFlushRange(slot->data, kCoverPixelBytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.
-        const bool second_set = ok && !own && !emulator && CoverSecondSet(stored);
+        const bool second_set = ok && !own && !mod_cover && !emulator && CoverSecondSet(game);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -586,13 +586,6 @@ bool CoverIsOwn(const std::string& name) {
     return s && s->ready && s->own;
 }
 
-bool CoverBeforeBox(const std::string& name) {
-    if (!ValidId(name) || !Started()) return false;
-    Lock lock;
-    const Slot* s = Find(name);
-    return s && s->ready && (s->own || s->secondSet);
-}
-
 unsigned CoverFill(const std::string& name) {
     if (!ValidId(name) || !Started()) return 0;
     Lock lock;
@@ -604,7 +597,7 @@ bool CoverBeforeBox(const std::string& name) {
     if (!ValidId(name) || !Started()) return false;
     Lock lock;
     const Slot* s = Find(name);
-    return s && s->ready && (s->own || s->modCover);
+    return s && s->ready && (s->own || s->secondSet || s->modCover);
 }
 
 void CoverPrefetch(const std::string& game_id, int rank) {
