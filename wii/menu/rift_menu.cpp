@@ -11903,6 +11903,12 @@ static int MenuHome(FrontendState& state)
 						else if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
 						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));
 						else say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
+						// The second set asked for and not downloaded (no answer, a
+						// failed write): back on the first, whose cover is still
+						// the one shown, so its full box isn't hidden for it.
+						if (g_coverSecondAsked && riftwii::wii::CoverSecondSet(id) &&
+						    (got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed))
+							riftwii::wii::ChooseCoverSet(id, false);
 						coverAsked = false;
 						g_coverSecondAsked = false;
 					}
