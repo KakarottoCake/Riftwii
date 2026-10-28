@@ -2388,20 +2388,23 @@ msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
-msgid "Wii Menu sounds and music in Settings > Menu"
-msgstr "Sonidos y música del Menú de Wii en Ajustes > Menú"
+msgid "Your own song or playlist as menu music"
+msgstr "Tu canción o lista como música del menú"
 
-msgid "GameCube memory cards in more games"
-msgstr "Tarjetas de memoria de GameCube en más juegos"
+msgid "Press 1 and 2 together to change the view"
+msgstr "Pulsa 1 y 2 a la vez para cambiar la vista"
 
-msgid "Bring Nintendont's GameCube saves over"
-msgstr "Trae las partidas de GameCube de Nintendont"
+msgid "Press 1 on a cover to see it up close"
+msgstr "Pulsa 1 en una portada para verla de cerca"
 
-msgid "Hold L+R+Z+Start to leave a Wii game"
-msgstr "Mantén L+R+Z+Start para salir de un juego de Wii"
+msgid "USB keyboard, mouse and uDraw in the menu"
+msgstr "Teclado USB, ratón y uDraw en el menú"
 
-msgid "Home starts on your last game"
-msgstr "Inicio empieza en tu último juego"
+msgid "Hold B on Search to start a random game"
+msgstr "Mantén B en Buscar para un juego al azar"
+
+msgid "Covers for homebrew, WiiWare and VC games"
+msgstr "Portadas para homebrew, WiiWare y VC"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

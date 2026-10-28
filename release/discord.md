@@ -17,20 +17,29 @@ Rewrite it for every release and delete the line below.
 -->
 {{TESTER_ROLE}} RiftWii {{VERSION}} is out. {{RELEASE_URL}}
 
-Fixes and polish:
+New:
 
-* Starting RiftWii again after the Homebrew Channel no longer gives a black screen after a game failed to start (RiftWii now cleans up what the stopped session left behind)
-* A game's Settings page now really opens at once, even with lots of mods on the SD card
-* Every theme polished for widescreen TVs: button sizes, no seam in the banner stripes, a more readable gold in Indigo
-* The Wii Menu's music sounds closer to the real thing
+* Your own menu music: a song, a playlist or a shuffled folder (Settings > Music file)
+* Press 1 and 2 together on Home to change the view
+* Press 1 on a cover or shelf box to see it up close
+* Shelf boxes look like real Wii cases, with full-width spines and full covers for every game
+* Hold B on the search button to start a random game
+* Covers for homebrew, WiiWare and VC games; custom games like Newer show under Mods
+* USB keyboard, mouse, pen tablets and uDraw in the menu
+* Quitting a game lands in RiftWii more often (GameCube, N64 VC, RE4)
+* Dragon Quest X from its USB drive (needs sd:/riftwii/wfskey.bin)
 
 To test, please:
 
-1. Go back to the Homebrew Channel and start RiftWii again, a few times, also after a WiiWare or VC game. Black screen? Switch the Wii off, start RiftWii and send a report
-2. Press Settings on a few games' banner screens with your usual SD card: it should open right away
-3. Look at your theme on a widescreen TV: anything cut off or out of place?
-4. Turn on the Wii Menu's music (Settings > Menu): does it sound right?
+1. Press 1 and 2 together on Home a few times: does it go through the views?
+2. Press 1 on a cover and on a shelf box: does it zoom up and go back with B?
+3. Leave the shelf open while the boxes download: anything freeze or restart?
+4. Pick your own music in Settings > Music file
+5. If you have a USB keyboard or mouse, try it in the menu
+6. Quit a GameCube or N64 VC game: do you land back in RiftWii?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Settings in the Indigo theme](docs/screenshots/2610-indigo-settings.png)
+![The shelf with Wii cases](docs/screenshots/2610-shelf-cases.png)
+![A cover up close](docs/screenshots/2610-cover-zoom.png)
+![What's new](docs/screenshots/2610-whatsnew-music.png)

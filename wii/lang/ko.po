@@ -2388,20 +2388,23 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "Wii Menu sounds and music in Settings > Menu"
-msgstr "설정 > 메뉴에서 Wii 메뉴 소리와 음악"
+msgid "Your own song or playlist as menu music"
+msgstr "내 노래나 재생 목록을 메뉴 음악으로"
 
-msgid "GameCube memory cards in more games"
-msgstr "더 많은 게임에서 게임큐브 메모리 카드"
+msgid "Press 1 and 2 together to change the view"
+msgstr "1과 2를 함께 눌러 보기 전환"
 
-msgid "Bring Nintendont's GameCube saves over"
-msgstr "Nintendont의 게임큐브 세이브 가져오기"
+msgid "Press 1 on a cover to see it up close"
+msgstr "커버에서 1을 눌러 크게 보기"
 
-msgid "Hold L+R+Z+Start to leave a Wii game"
-msgstr "L+R+Z+Start를 길게 눌러 Wii 게임 종료"
+msgid "USB keyboard, mouse and uDraw in the menu"
+msgstr "메뉴에서 USB 키보드, 마우스, uDraw"
 
-msgid "Home starts on your last game"
-msgstr "홈이 마지막 게임에서 시작"
+msgid "Hold B on Search to start a random game"
+msgstr "검색에서 B를 길게 눌러 무작위 게임 시작"
+
+msgid "Covers for homebrew, WiiWare and VC games"
+msgstr "홈브루, WiiWare, VC 게임 커버"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"

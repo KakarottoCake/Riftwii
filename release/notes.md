@@ -16,23 +16,47 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** A fix for a black screen when starting RiftWii again after the Homebrew Channel, a game's Settings page that now really opens at once, themes polished for widescreen TVs, and Wii Menu music that sounds more like the Wii's own. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Your own menu music, a closer look at every cover, shelf boxes that look like real Wii cases, covers for homebrew, WiiWare and Virtual Console games, a USB keyboard and mouse in the menu, and more ways back to RiftWii after a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Settings in the Indigo theme on a widescreen TV]({{SCREENSHOTS}}2610-indigo-settings.png)
+![The shelf with Wii cases and full-width spines on a widescreen TV]({{SCREENSHOTS}}2610-shelf-cases.png)
 
 ## What changed
 
-- **No more black screen when starting RiftWii again after the Homebrew Channel.** After a WiiWare game failed to start, a Wii could show a black screen at every RiftWii start until it was switched off. To read a game's files, RiftWii makes a small change inside the Wii's system software; if a session stops before putting it back, the next start now puts it back. RiftWii also no longer trusts notes left in memory by a session that isn't its own. Reading a WiiWare or Virtual Console game's files now writes a log line for each step, and a start that stops early is named in the next `session.log` ("The last start stopped at: ..."). Not yet tested on a real Wii.
-- **A game's Settings page opens at once, this time for real.** On a real Wii with lots of mods, 2610-703 still paused for about a second and a half: the page read every mod's options again, even mods for other games. Home now keeps a short summary of each mod, and the banner screen gets the game's saved choices ready while you look at it. In Dolphin with 19 big mods: from 2 seconds to under a tenth of a second.
-- **Themes look right on widescreen TVs.** Every built-in theme got a pass at 16:9 and 4:3: button sizes, the banner stripes (no more seam where they meet), and Indigo's gold highlight, now easier to read with white text. Indigo in Get more themes has the same fix.
-- **Wii Menu music sounds closer to the Wii's.** With the Wii Menu's sounds on (Settings > Menu), notes now fade in, fade out and mix as on the console, checked against recordings from Dolphin. It isn't identical yet in the upper-middle tones; tell us if something sounds off.
+### Home
+
+- **Press 1 and 2 together to change the view** (covers, 3D covers, carousel, shelf, channels, names) without opening Settings. Pressed alone, 1 and 2 still do their own jobs.
+- **See a cover up close.** Point at a cover in the Covers view, or a box on the shelf or carousel, and press 1 or 2: it zooms up in the middle of the screen. 1, 2, A or B puts it back. On a game's page, A on the box shows it up close too, and Down turns it over to its back.
+- **The shelf's boxes look like real Wii cases**, with the colored plastic showing round the cover, in the color each game's case really has. You can pick your own colors in `sd:/riftwii/case_colors.txt`.
+- **Spines are no longer squeezed**, and full covers (front, spine and back) are now downloaded for every game, not just the ones near you on the shelf. Small 2D covers stay square where they stand in for a box, and covers fill the box's front right to the corners.
+- **Hold B on the search button for about a second** to start a random game from the ones shown.
+- **Covers for more games:** homebrew apps get their GameTDB covers (found by their name), and WiiWare and Virtual Console games now get their covers, shelf boxes and 3D covers too.
+- **Custom games** that GameTDB lists (Newer Super Mario Bros. Wii, Wiimm's Mario Kart Fun and others) now show under Mods, with their own banners.
+- **A game's age rating** on its About page uses the rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR).
+- **The Wii Menu font is crisp** on a widescreen TV (Settings > Menu font).
+
+### Menu music and controls
+
+- **Your own menu music:** in Settings > Music file, pick a song (`.ogg` or `.mp3`), an `.m3u` playlist, or a whole folder to play shuffled, from the SD card or the USB drive.
+- **A USB keyboard, a USB mouse, USB pen tablets and the uDraw GameTablet** work in the menu as player 1's controls. The keyboard types into search and tile names, and the mouse points like a Wii Remote. Not yet tested on a real Wii (Dolphin can't plug these in).
+- **Naming a Home tile:** Shift also types symbols, so names like "Project+" or "Kamen Rider: Super Climax Heroes" can be typed.
+
+### Games
+
+- **Quitting a game lands in RiftWii more often.** A GameCube game's held HOME tries the RiftWii channel first. Resident Evil 4, older LEGO games and Ghostbusters keep their way back. N64 Virtual Console games now leave with the GameCube controller's L+R+Z+Start held for 2 seconds, like other games. The setting is now called **Quitting a game** (Settings > Games), so it's easier to find.
+- **WiiWare and Virtual Console:** when the Wii refuses a channel's own ticket, RiftWii tries again with a copy that works on any console, which helps games copied from another Wii.
+- **RVZ and GameCube games are found wherever you put them:** a Wii `.rvz` in `wbfs/`, or a GameCube `.iso`, `.gcm` or `.rvz` loose in `games/` or `wbfs/`, no folder of its own needed.
+- **Dragon Quest X from its USB drive:** with this Wii's WFS key at `sd:/riftwii/wfskey.bin`, RiftWii reads the game's WFS drive and starts Dragon Quest X like the Wii Menu does. Tried in Dolphin, not yet on a real Wii.
+- **HOME Menu:** without Priiloader, its third button is now Restart. On a Wii U it goes back to the Wii U.
+- **The updater** says the real reason when a secure connection is refused, instead of always blaming the Wii's clock.
 
 ## What to test
 
-1. **Going back to the Homebrew Channel and starting RiftWii again**, a few times, also after a WiiWare or Virtual Console game. If you get a black screen: switch the Wii off, start RiftWii, and send a problem report.
-2. **A game's Settings page** with your usual SD card full of mods: it should open right away.
-3. **Your theme on a widescreen TV** (and on 4:3 if you can): anything cut off, too big or out of place?
-4. **The Wii Menu's music** (Settings > Menu): does it sound like your Wii Menu?
+1. **Press 1 and 2 together on Home** a few times: does it go through the views and remember the last one?
+2. **Press 1 on a cover** in the Covers view and on a shelf box: does it zoom up and go back with B?
+3. **Look at the shelf** with downloads on: do the cases' colors and spines look right? Does anything freeze or restart while the boxes download?
+4. **Pick your own menu music** (Settings > Music file): a song, a playlist and a folder.
+5. **Plug in a USB keyboard or mouse** if you have one: can you search, type a name and point?
+6. **Quit a game** with HOME or L+R+Z+Start, especially a GameCube or N64 Virtual Console game: do you land back in RiftWii?
 
 ## Known issues
 
@@ -47,6 +71,8 @@ have it, or that haven't changed since the last release's tag.
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 
 Everything new since 2.7.0: [docs/CHANGES_2610.md](https://github.com/KakarottoCake/Riftwii/blob/main/docs/CHANGES_2610.md).
+
+![A cover zoomed up close in the Covers view]({{SCREENSHOTS}}2610-cover-zoom.png)
 
 ## Download
 
