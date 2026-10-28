@@ -71,8 +71,9 @@ public:
 
     // `log_name` starts its log lines ("Covers"), `picture` names one of
     // them in the summary ("cover").
-    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover")
-        : log_name_(std::move(log_name)), picture_(std::move(picture)) {}
+    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover",
+                            std::string source = "GameTDB")
+        : log_name_(std::move(log_name)), picture_(std::move(picture)), source_(std::move(source)) {}
 
     // Counts one download; true when the downloads should stop now.
     bool count(CoverOutcome outcome);
@@ -82,7 +83,7 @@ public:
     std::string take_summary();
 
     // A fresh start (Settings > Look for games again).
-    void reset() { *this = CoverDownloads(log_name_, picture_); }
+    void reset() { *this = CoverDownloads(log_name_, picture_, source_); }
 
     const std::string& log_name() const { return log_name_; }
 
@@ -93,6 +94,7 @@ public:
 private:
     std::string log_name_;
     std::string picture_;
+    std::string source_;
     unsigned stored_ = 0;
     unsigned not_found_ = 0;
     unsigned no_answer_ = 0;

@@ -1501,7 +1501,28 @@ separately. **Settings > Games > Emulators** changes each emulator's
 defaults; a game's own changed values take priority. Reset on a game
 returns it to those defaults.
 
-No covers are downloaded for these games. After adding files, use
+Put your own covers in
+`sd:/riftwii/covers/emulators/<system>/<game name>.png`, or the same
+folder on `usb:`. The system is the add-on's `system` name; the game name
+is its filename without the extension. For example:
+`sd:/riftwii/covers/emulators/Dreamcast/Power Stone (USA).png`.
+PNGs up to 2 MiB and 1024 pixels per side work offline and come first.
+
+**Settings > Online > Covers for emulator games** starts on. It gets
+missing covers from libretro when the add-on names its `covers` folder.
+Off shows only your own PNGs. The general downloads switch turns off
+network requests while keeping downloaded covers available.
+
+**SteamGridDB covers** is an optional fallback and starts off. To use it,
+sign in at [SteamGridDB](https://www.steamgriddb.com/), open
+[Preferences > API](https://www.steamgriddb.com/profile/preferences/api),
+and put your own key alone on one line in `sd:/riftwii/steamgriddb.txt`.
+The setting shows whether a key was found. Enable it to look there only
+after the other sources have no cover. Your key is never put in logs.
+Missing covers are tried again after a week, or when you use
+**Settings > Online > Download missing covers**.
+
+After adding files, use
 **Settings > Drives > Look for games again**. If an emulator or
 game is missing, check its manifest, folders and file extensions; the
 reason for a refused file is in `sd:/riftwii/session.log`. Arguments that

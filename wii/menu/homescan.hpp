@@ -38,20 +38,27 @@ struct DriveScanPart {
     std::string network_note;
 };
 
-// Starts a look at both drives. A scan still running is waited for first.
+// Requests a look at both drives and clears the previous scan's parts at
+// once. A scan still running is waited for first. Menu thread only.
+void RequestDriveScan();
+// Starts the requested scan once the network's background job is done;
+// otherwise returns at once. Called from Home's loop and scan waits, on
+// the menu thread only, so the GUI keeps answering while a job finishes.
 void StartDriveScan();
 // What the scan is doing now, for Home's status line.
 std::string DriveScanStatus();
 // The SD card's part, then the USB drive's, each once, when it is done.
 bool TakeSdScan(DriveScanPart& out);
 bool TakeUsbScan(DriveScanPart& out);
-// Both parts done (taken or not): the drives are the menu's again.
+// Both parts done (taken or not): the drives are the menu's again. False
+// from the request, including while it waits for a background job.
 bool DriveScanDone();
 // A scan has run to its end since RiftWii started (DriveScanDone is
 // also true before the first one starts).
 bool DriveScanFinished();
-// Blocks until the thread has finished. A scan is never cut short: one
-// stopped half way would leave a drive mounted half way.
+// Starts a pending request, waiting for the background job if needed,
+// then blocks until the scan thread has finished. Menu thread only. A scan
+// is never cut short: one stopped half way would leave a drive mounted half way.
 void WaitDriveScan();
 
 }  // namespace riftwii::wii
