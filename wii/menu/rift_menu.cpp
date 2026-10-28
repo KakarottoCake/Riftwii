@@ -1357,7 +1357,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	for (const Row& r : rows) {
 		const bool emulator = r.entry.kind == HomeEntry::Kind::Emulator;
-		if (g_filter == Filter::Emulators && !emulator) continue;
+		// A search picks from every game, as in the other views.
+		if (!searching && g_filter == Filter::Emulators && !emulator) continue;
 		const bool profile = !r.entry.profile.empty();
 		// A game GameTDB lists as custom (a hack or mod distribution with an
 		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
@@ -4620,6 +4621,9 @@ static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwi
 		ShowPopup(tr("Emulators"), tr("The emulator arguments are invalid or too long. See session.log."), tr("OK"));
 		return false;
 	}
+	// Under the tile's own key (HomeKey), so the game is in Recently played
+	// and history-based ordering like any other.
+	riftwii::wii::RecordPlay(game.key);
 	riftwii::wii::SetHomebrewToStart(app);
 	return true;
 }
