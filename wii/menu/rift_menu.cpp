@@ -440,6 +440,9 @@ UpdateGUI(void *arg)
 				dimLogged = true;
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
+			// The presses that wake the dimmed screen do nothing else, the 1
+			// and 2 pair too (ScreenshotPoll took it before this was known).
+			if (swallowInput) riftwii::wii::ForgetViewChord();
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();
@@ -1380,6 +1383,28 @@ static bool MoveHomeGame(const FrontendState& state, std::vector<GridItem>& item
 		riftwii::wii::SaveSettings();
 	}
 	return switched;
+}
+
+// Home's views in the order Settings > Home tiles and 1 and 2 together
+// on Home step through them.
+static std::string NextHomeTiles(const std::string& tiles)
+{
+	if (tiles == "covers") return "covers3d";
+	if (tiles == "covers3d") return "carousel";
+	if (tiles == "carousel") return "shelf";
+	if (tiles == "shelf") return "channels";
+	if (tiles == "channels") return "names";
+	return "covers";
+}
+
+static std::string HomeTilesName(const std::string& tiles)
+{
+	if (tiles == "names") return tr("Names");
+	if (tiles == "shelf") return tr("Shelf");
+	if (tiles == "carousel") return tr("Carousel");
+	if (tiles == "covers3d") return tr("3D covers");
+	if (tiles == "channels") return tr("Channels");
+	return tr("Covers");
 }
 
 // Games can be moved where the tiles are the drives' in Home's order:
@@ -4914,6 +4939,12 @@ static int MenuSource(FrontendState& state)
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
+	// 1 and 2 together change the view while Home is open (screenshot.hpp),
+	// whichever way out of here it closes.
+	struct ViewChordWatch {
+		ViewChordWatch() { riftwii::wii::WatchViewChord(true); }
+		~ViewChordWatch() { riftwii::wii::WatchViewChord(false); }
+	} viewChordWatch;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -5467,9 +5498,13 @@ static int MenuSource(FrontendState& state)
 					return riftwii::wii::LoadBanner(id, bytes);
 				};
 				int shown = clicked;
+				// The banner has 1 and 2 to itself: a pair pressed on it is
+				// not Home's, and Home starts watching afresh after it.
+				riftwii::wii::WatchViewChord(false);
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
+				riftwii::wii::WatchViewChord(true);
 				const bool go = choice != ChannelChoice::Back;
 				if (!go) state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 				g_startOnOpen = choice == ChannelChoice::Start;
@@ -5600,7 +5635,36 @@ static int MenuSource(FrontendState& state)
 			// picked
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
+			// A pair pressed in the HOME Menu is not Home's: Home starts
+			// watching afresh once it closes.
+			riftwii::wii::WatchViewChord(false);
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
+			riftwii::wii::WatchViewChord(true);
+		} else if (riftwii::wii::TakeViewChord()) {
+			// 1 and 2 together: the next view, as Settings > Home tiles
+			// steps to, with Home built again around the same game.
+			riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+			const std::string before = settings.home_tiles;
+			settings.home_tiles = NextHomeTiles(before);
+			if (g_sdGone) {
+				// The view is a setting, saved on the card: without it the
+				// change would be undone when the card is back.
+				settings.home_tiles = before;
+				toast.Show(tr("Put the SD card back in first."), true);
+			} else if (!riftwii::wii::SaveSettings()) {
+				// Unsaved, the view would come back at the next start: it
+				// stays as it was.
+				logf("Home: tiles not changed to %s (1 and 2), the settings could not be saved\n", settings.home_tiles.c_str());
+				settings.home_tiles = before;
+				toast.Show(tr("Could not save the settings to the SD card."), true);
+			} else {
+				logf("Home: tiles %s (1 and 2)\n", settings.home_tiles.c_str());
+				g_focusRestored = true;  // a view change is the player's own doing
+				g_homeFocus = grid.FocusedIndex();
+				SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(settings.home_tiles));
+				rebuildingHome = true;
+				menu = MENU_SOURCE;
+			}
 		} else if (settingsBtn.Clicked() && g_sdGone) {
 			// Settings are saved on the card, and read again when it is back.
 			settingsBtn.button.ResetState();
@@ -12287,10 +12351,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
-		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
-			: settings.home_tiles == "carousel" ? tr("Carousel") : settings.home_tiles == "covers3d" ? tr("3D covers")
-			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
-			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Home tiles"), HomeTilesName(settings.home_tiles), settings.home_tiles != "names", kHomeTiles);
 		option(tr("Grid spacing"), settings.grid_spacing == "roomy" ? tr("Roomy") : tr("Normal"),
 			settings.grid_spacing == "roomy", kGridSpacing);
 		// Only the Channels view has channel corners and neighbouring pages to show.
@@ -12907,9 +12968,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = settings.home_tiles == "covers" ? "covers3d" : settings.home_tiles == "covers3d" ? "carousel"
-						: settings.home_tiles == "carousel" ? "shelf"
-						: settings.home_tiles == "shelf" ? "channels" : settings.home_tiles == "channels" ? "names" : "covers";
+					settings.home_tiles = NextHomeTiles(settings.home_tiles);
 					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."));
 					rebuild();
 					break;
@@ -13398,9 +13457,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	for (const riftwii::wii::ThemeEntry& t : riftwii::wii::ListMenuThemes())
 		if (t.folder == settings.theme) theme = t.name;
 	const std::size_t games = state.usb_catalog.games.size() + state.sd_catalog.games.size();
-	const std::string tiles = settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
-			: settings.home_tiles == "carousel" ? tr("Carousel") : settings.home_tiles == "covers3d" ? tr("3D covers")
-		: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers");
+	const std::string tiles = HomeTilesName(settings.home_tiles);
 
 	struct Section {
 		SettingsSection id;
