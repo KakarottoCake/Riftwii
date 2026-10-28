@@ -7,11 +7,14 @@
 // every character of the translations is in the core, the core and the
 // full font together draw every character of the full font, and both are
 // rounded to 8 font units (tools/make_menu_font.py).
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
@@ -51,7 +54,7 @@ static std::size_t TableOffset(const Bytes& font, const char* tag) {
 }
 
 // The code points the font's Unicode cmap (format 4 or 12) maps to a glyph.
-static std::set<std::uint32_t> ReadCmap(const Bytes& font) {
+static std::set<std::uint32_t> ReadCmap(const Bytes& font, std::map<std::uint32_t, std::uint32_t>* glyphMap = nullptr) {
     std::set<std::uint32_t> out;
     const std::size_t cmap = TableOffset(font, "cmap");
     if (cmap == 0) return out;
@@ -82,7 +85,10 @@ static std::set<std::uint32_t> ReadCmap(const Bytes& font) {
                         glyph = Get16(font, rangeOffsets + 2 * s + rangeOffset + 2 * (cp - start));
                         if (glyph != 0) glyph = (glyph + delta) & 0xFFFF;
                     }
-                    if (glyph != 0) out.insert(cp);
+                    if (glyph != 0) {
+                        out.insert(cp);
+                        if (glyphMap) (*glyphMap)[cp] = glyph;
+                    }
                 }
             }
         } else if (format == 12) {
@@ -93,7 +99,11 @@ static std::set<std::uint32_t> ReadCmap(const Bytes& font) {
                 const std::uint32_t end = Get32(font, group + 4);
                 const std::uint32_t first = Get32(font, group + 8);
                 for (std::uint32_t cp = start; cp <= end && cp < 0x110000; ++cp) {
-                    if (first + (cp - start) != 0) out.insert(cp);
+                    const std::uint32_t glyph = first + (cp - start);
+                    if (glyph != 0) {
+                        out.insert(cp);
+                        if (glyphMap) (*glyphMap)[cp] = glyph;
+                    }
                 }
             }
         }
@@ -280,12 +290,75 @@ static void TestRounded(const std::string& repo) {
     }
 }
 
+// The keyboard's narrowest action keys (gui_searchkeys.cpp) leave four
+// pixels each side. Read the committed font's own advances, rounding each
+// glyph up so the check leaves room for FreeType's pixel rounding.
+static int TextAdvance(const Bytes& font, const std::map<std::uint32_t, std::uint32_t>& glyphs,
+                       const std::string& text, int pixels) {
+    const std::uint32_t units = Get16(font, TableOffset(font, "head") + 18);
+    const std::uint32_t metrics = Get16(font, TableOffset(font, "hhea") + 34);
+    const std::size_t hmtx = TableOffset(font, "hmtx");
+    if (units == 0 || metrics == 0 || hmtx == 0) return -1;
+    int width = 0;
+    for (std::size_t i = 0; i < text.size();) {
+        const auto lead = static_cast<unsigned char>(text[i++]);
+        const int length = lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+        std::uint32_t cp = length == 1 ? lead : lead & ((1u << (7 - length)) - 1);
+        for (int part = 1; part < length && i < text.size(); ++part)
+            cp = (cp << 6) | (static_cast<unsigned char>(text[i++]) & 0x3F);
+        const auto found = glyphs.find(cp);
+        if (found == glyphs.end()) return -1;
+        const std::uint32_t metric = std::min(found->second, metrics - 1);
+        const std::uint32_t advance = Get16(font, hmtx + 4 * metric);
+        width += static_cast<int>((advance * pixels + units - 1) / units);
+    }
+    return width;
+}
+
+static void TestKeyboardLabels(const std::string& repo) {
+    for (const char* language : {"en", "es", "ja", "pt", "it", "ko", "fr"}) {
+        const bool korean = std::string(language) == "ko";
+        const Bytes font = ReadFile(repo + (korean ? "/wii/font/korean.ttf" : "/wii/font/core.ttf"));
+        std::map<std::uint32_t, std::uint32_t> glyphs;
+        ReadCmap(font, &glyphs);
+        std::map<std::string, std::string> translated;
+        if (std::string(language) != "en") {
+            const Bytes po = ReadFile(repo + "/wii/lang/" + language + ".po");
+            std::istringstream input(std::string(po.begin(), po.end()));
+            std::string line, key;
+            while (std::getline(input, line)) {
+                if (line.rfind("msgid ", 0) == 0) {
+                    std::istringstream value(line.substr(6));
+                    value >> std::quoted(key);
+                } else if (line.rfind("msgstr ", 0) == 0) {
+                    std::istringstream value(line.substr(7));
+                    value >> std::quoted(translated[key]);
+                }
+            }
+        }
+        for (const char* key : {"Del", "Space", "Shift", "Clear", "Cancel", "Search", "OK"}) {
+            const int room = std::string(key) == "Del" ? 40 : 92;
+            const auto found = translated.find(key);
+            const std::string caption = found == translated.end() || found->second.empty() ? key : found->second;
+            int width = -1;
+            for (int size = 18; size >= 12; --size) {
+                width = TextAdvance(font, glyphs, caption, size);
+                if (width >= 0 && width <= room) break;
+            }
+            if (width < 0 || width > room)
+                std::cerr << language << ": keyboard label " << key << " needs " << width << " pixels, room " << room << '\n';
+            EXPECT_TRUE(width >= 0 && width <= room);
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "usage: menufont_tests <repository folder>" << std::endl;
         return 1;
     }
     const std::string repo = argv[1];
+    TestKeyboardLabels(repo);
     TestSplit(repo);
     TestRounded(repo);
     TestKorean(repo);
