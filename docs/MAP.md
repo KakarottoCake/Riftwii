@@ -380,6 +380,7 @@ reader helpers stay beside their source.
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `namekeys` | The Shift of the keyboard a tile's name is typed on: what each key types with Shift off, on by itself (capitals) or pressed (capitals and symbols), and how Shift follows the name |
 | `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
+| `homechord` | Home's held-back buttons: a tap against a hold, one button against a pair (the view pairs, the search button's hold), and what each screen change leaves behind |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile` | Screenshot file headers and conversion |

@@ -21,6 +21,7 @@
 #include "libwiigui/gui.h"
 #include "video.h"
 #include "log.hpp"
+#include "riftwii/homechord.hpp"
 #include "riftwii/shotfile.hpp"
 #include "skin.hpp"
 #include "nanduse.hpp"
@@ -213,10 +214,8 @@ void* Worker(void*) {
 
 // The combo per controller. The held button's own press is kept back
 // until it is let go without the combo.
-struct Chord {
-    bool held_back = false;  // the modifier went down; its press is owed
-    bool used = false;       // the combo fired while it was held
-};
+// The combo per controller, kept back as riftwii/homechord.hpp does.
+using Chord = HeldBack;
 Chord g_remote[4];
 Chord g_pad_l[4], g_pad_r[4];
 // 1 and 2 together on Home: 2 is kept back as 1 is, so the pair works
@@ -229,15 +228,9 @@ volatile bool g_view_chord = false;  // the pair was pressed; Home takes it
 // Home watches again. Cleared when Home stops watching.
 bool g_one_watched[4] = {};
 bool g_two_watched[4] = {};
-bool Modifier(Chord& c, u32& down, u32 held, u32 bit);
-
 // The same pair on the other controllers, on the buttons that are 1 and 2
 // for them on Home: a Classic Controller's (or Wii U Pro Controller's) Y
 // and X, a GameCube controller's Y and Z, the Wii U GamePad's X and Y.
-struct ViewPair {
-    Chord first, second;
-    bool first_watched = false, second_watched = false;
-};
 ViewPair g_classic_pair[4], g_pad_pair[4], g_drc_pair;
 
 // Home's random game by pad: the search button's own button held, B on a
@@ -245,10 +238,6 @@ ViewPair g_classic_pair[4], g_pad_pair[4], g_drc_pair;
 // Controller). Its press is kept back while Home watches: let go sooner,
 // it is the search.
 constexpr u32 kSearchHoldFrames = 50;  // as B held on the search button with a Wii Remote
-struct SearchHold {
-    Chord chord;
-    u32 from = 0;  // FrameTimer when it went down
-};
 SearchHold g_pad_search[4], g_classic_search[4];
 // Home says so on every pass of its loop: a popup opened from Home stops
 // those passes, and its B (or ZL) is not kept back.
@@ -259,39 +248,13 @@ volatile bool g_search_hold = false;  // held its second; Home takes it
 
 bool SearchHoldWatched() { return g_search_hold_on && FrameTimer - g_search_hold_beat <= kSearchHoldBeatFrames; }
 
-// Keeps both buttons back while Home watches, as 1 and 2 are; a button
-// already kept back is still let go after Home stops watching.
+// One frame of a controller's pair or hold (riftwii/homechord.hpp).
 void WatchPair(ViewPair& v, u32& down, u32 held, u32 first, u32 second) {
-    if (g_view_chord_on && (down & first)) v.first_watched = true;
-    if (g_view_chord_on && (down & second)) v.second_watched = true;
-    // Home not watching: a half already kept back is settled (let go, its
-    // press comes late, unless spent), and a new press goes straight through.
-    if (!g_view_chord_on) {
-        if (v.first.held_back) Modifier(v.first, down, held, first);
-        if (v.second.held_back) Modifier(v.second, down, held, second);
-        return;
-    }
-    const bool a = Modifier(v.first, down, held, first);
-    const bool b = Modifier(v.second, down, held, second);
-    if (g_view_chord_on && a && b && v.first_watched && v.second_watched && !v.second.used) {
-        v.first.used = v.second.used = true;
-        g_view_chord = true;
-    }
+    if (watch_pair(v, g_view_chord_on, down, held, first, second)) g_view_chord = true;
 }
 
 void WatchHold(SearchHold& h, u32& down, u32 held, u32 bit) {
-    const bool watched = SearchHoldWatched();
-    if (!watched && !h.chord.held_back) return;
-    // Held through a pause (Home busy reading, a popup up): the second
-    // starts again once Home watches again, so the pause never counts
-    // towards it, and let go meanwhile, it is still a search.
-    if (!watched) h.from = FrameTimer;
-    if (down & bit) h.from = FrameTimer;
-    if (!Modifier(h.chord, down, held, bit)) return;
-    if (watched && !h.chord.used && FrameTimer - h.from >= kSearchHoldFrames) {
-        h.chord.used = true;  // let go later, it searches no more
-        g_search_hold = true;
-    }
+    if (watch_hold(h, SearchHoldWatched(), FrameTimer, kSearchHoldFrames, down, held, bit)) g_search_hold = true;
 }
 
 void Fire() {
@@ -300,18 +263,7 @@ void Fire() {
 }
 
 // Keeps a modifier's press back; returns whether it is held.
-bool Modifier(Chord& c, u32& down, u32 held, u32 bit) {
-    if (down & bit) {
-        down &= ~bit;
-        c.held_back = true;
-        c.used = false;
-    }
-    if (c.held_back && !(held & bit)) {
-        if (!c.used) down |= bit;  // let go alone: the press, late
-        c.held_back = false;
-    }
-    return c.held_back && (held & bit);
-}
+bool Modifier(Chord& c, u32& down, u32 held, u32 bit) { return hold_back(c, down, held, bit); }
 
 }  // namespace
 
@@ -432,7 +384,7 @@ void SpendHeldPresses() {
     for (int i = 0; i < 4; ++i) {
         for (Chord* c : {&g_remote[i], &g_remote_two[i], &g_pad_l[i], &g_pad_r[i], &g_classic_pair[i].first,
                          &g_classic_pair[i].second, &g_pad_pair[i].first, &g_pad_pair[i].second,
-                         &g_pad_search[i].chord, &g_classic_search[i].chord})
+                         &g_pad_search[i].button, &g_classic_search[i].button})
             spend(*c);
     }
     spend(g_drc_pair.first);
@@ -445,7 +397,7 @@ void SpendPadHomePresses() {
     };
     for (int i = 0; i < 4; ++i) {
         for (Chord* c : {&g_classic_pair[i].first, &g_classic_pair[i].second, &g_pad_pair[i].first,
-                         &g_pad_pair[i].second, &g_pad_search[i].chord, &g_classic_search[i].chord})
+                         &g_pad_pair[i].second, &g_pad_search[i].button, &g_classic_search[i].button})
             spend(*c);
     }
     spend(g_drc_pair.first);
