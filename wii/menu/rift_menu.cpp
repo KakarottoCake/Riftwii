@@ -749,7 +749,8 @@ struct SkinButton {
 			trigHot[k].SetButtonOnlyTrigger(-1, (remote ? remote : kNoRemote) | (classic ? classic : kNoClassic), pad, drc);
 			button.SetTrigger(&trigHot[k]);
 		}
-		button.SetEffectGrow();
+		// GuiButton draws its own eased growth; the legacy scale effect
+		// would grow the same button a second time.
 	}
 	// A prompt already played the sound for this press.
 	void PressSilently() {
