@@ -33,6 +33,11 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
              std::size_t max_bytes = 8u << 20, int timeout_ms = 15000, const HttpProgress& progress = nullptr,
              HttpRedirects redirects = HttpRedirects::Follow);
 
+// Authenticated requests are pinned to SteamGridDB's HTTPS API. No redirect
+// is followed, and the key is never part of a URL or an error message.
+bool HttpSteamGridGet(const std::string& path, const std::string& key,
+                      std::vector<std::uint8_t>& body, std::string& error);
+
 // One POST of `body`, no redirects. True when the server answered at
 // all: `status` and `answer` (its body, at most 64 KiB) are what it said.
 bool HttpPost(const std::string& url, const std::string& content_type, const std::string& body, int& status,

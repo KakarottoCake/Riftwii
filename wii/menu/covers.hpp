@@ -8,7 +8,8 @@
 #include <string>
 #include <vector>
 
-// Box art (riftwii/coverart.hpp) on the Wii: fetched from GameTDB into
+// Box art (riftwii/coverart.hpp) on the Wii: fetched from GameTDB (or the
+// emulator sources in emulatorcovers.hpp) into
 // sd:/riftwii/covers/<ID>.rwc, and read back into a fixed pool of
 // textures in MEM2 (room for every game's cover, up to 400) for drawing.
 namespace riftwii::wii {

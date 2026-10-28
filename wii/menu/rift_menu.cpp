@@ -69,6 +69,7 @@
 #include "boxart.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
+#include "emulatorcovers.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
@@ -1243,7 +1244,7 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 		const auto& game = state.emulators.games[i];
 		const bool onUsb = game.path.rfind("usb:/", 0) == 0;
 		if (g_filter != Filter::Emulators && source != "all" && source != (onUsb ? "usb" : "sd")) continue;
-		add(game.name, HomeEntry::Kind::Emulator, i, "", nullptr);
+		add(game.name, HomeEntry::Kind::Emulator, i, game.key, nullptr);
 		rows.back().key = game.key;
 		rows.back().entry.searchName += " " + state.emulators.addons[game.emulator].file.system;
 	}
@@ -1592,6 +1593,7 @@ static bool g_coversOff = false;
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
 static riftwii::CoverDownloads g_coverRun("Covers", "cover");
+static riftwii::CoverDownloads g_emulatorCoverRun("Emulator covers", "cover", "the emulator cover search");
 // The shelf's boxes (wii/menu/boxart.cpp): GameTDB's full covers, queued
 // for every game as the covers are and fetched once the covers are in.
 static std::set<std::string> g_boxesChecked;
@@ -1613,6 +1615,7 @@ static void ResetCoverDownloads()
 	g_coversOff = false;
 	g_coversChecked.clear();
 	g_coverRun.reset();
+	g_emulatorCoverRun.reset();
 
 	g_boxesOff = false;
 	g_boxesChecked.clear();
@@ -1643,7 +1646,8 @@ static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverF
 }
 static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
 {
-	return CountPictureFetch(g_coverRun, got, game, error);
+	const bool emulator = game.rfind("emu-", 0) == 0;
+	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error);
 }
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
@@ -4725,6 +4729,7 @@ static int MenuSource(FrontendState& state)
 	g_gameInfoReadDue = true;
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
+	riftwii::wii::ConfigureEmulatorCovers(state.emulators);
 	BuildHome(state, items, entries);
 
 	GuiGameGrid grid;
@@ -5045,6 +5050,7 @@ static int MenuSource(FrontendState& state)
 		if (crossfade) transition::BeginAuto();
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
+		riftwii::wii::ConfigureEmulatorCovers(state.emulators);
 		BuildHome(state, items, entries);
 		queueCovers();
 		bannerPageDone = -1;
@@ -5330,13 +5336,15 @@ static int MenuSource(FrontendState& state)
 			}
 			if (riftwii::wii::StartCoverFetch(coverQueue[pick])) {
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
-				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
+				coverNote = tr("Getting covers: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
 		}
 		// The queue done (or stopped): what came of it, once.
 		if (coverQueue.empty() && riftwii::wii::CoverFetchGame().empty()) {
 			const std::string summary = g_coverRun.take_summary();
 			if (!summary.empty()) logf("%s\n", summary.c_str());
+			const std::string emulatorSummary = g_emulatorCoverRun.take_summary();
+			if (!emulatorSummary.empty()) logf("%s\n", emulatorSummary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
@@ -12795,7 +12803,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12972,6 +12980,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		heading(tr("Online"));
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
+		option(tr("Covers for emulator games"), settings.emulator_covers ? tr("On") : tr("Off"),
+			settings.emulator_covers, kEmulatorCovers, FlowRow::Kind::Toggle);
+		const bool steamGridKey = riftwii::wii::SteamGridKeyFound();
+		option(tr("SteamGridDB covers"), steamGridKey
+			? (settings.steamgrid_covers ? tr("On (key found)") : tr("Off (key found)")) : tr("No API key"),
+			settings.steamgrid_covers, kSteamGridCovers, FlowRow::Kind::Toggle);
+		rows.back().dim = !steamGridKey || !settings.emulator_covers || !settings.online;
 		FlowRow names;
 		names.kind = FlowRow::Kind::Action;
 		names.label = tr("Get the latest game names");
@@ -13085,7 +13100,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -13205,6 +13220,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
+			case kEmulatorCovers: return tr("Downloads emulator covers from libretro. Off uses your own PNG covers only.");
+			case kSteamGridCovers: return tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
 			case kRiiTag: return RiiTagNote(settings);
@@ -13700,6 +13717,23 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.online = !settings.online;
 					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 						: tr("Nothing is downloaded. Names and cheats already on the card are still used."));
+					rebuild();
+					break;
+				case kEmulatorCovers:
+					settings.emulator_covers = !settings.emulator_covers;
+					ResetCoverDownloads();
+					riftwii::wii::ForgetAllCovers();
+					saveAndNote(tr("Downloads emulator covers from libretro. Off uses your own PNG covers only."));
+					rebuild();
+					break;
+				case kSteamGridCovers:
+					if (!riftwii::wii::SteamGridKeyFound()) {
+						note(tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."));
+						break;
+					}
+					settings.steamgrid_covers = !settings.steamgrid_covers;
+					ResetCoverDownloads();
+					saveAndNote(tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."));
 					rebuild();
 					break;
 				case kNames: {

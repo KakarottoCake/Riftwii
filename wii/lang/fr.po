@@ -849,8 +849,8 @@ msgstr "Personnalisé (wfc_domain non défini)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt."
 
-msgid "Getting covers from GameTDB: {1} left"
-msgstr "Récupération des jacquettes GameTDB : {1} restante(s)"
+msgid "Getting covers: {1} left"
+msgstr "Téléchargement des jaquettes : {1} restantes"
 
 msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
 msgstr "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes."
@@ -3383,3 +3383,27 @@ msgstr "Aucun émulateur trouvé."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log."
+
+msgid "Covers for emulator games"
+msgstr "Jaquettes des jeux émulés"
+
+msgid "SteamGridDB covers"
+msgstr "Jaquettes SteamGridDB"
+
+msgid "On (key found)"
+msgstr "Oui (clé trouvée)"
+
+msgid "Off (key found)"
+msgstr "Non (clé trouvée)"
+
+msgid "No API key"
+msgstr "Aucune clé API"
+
+msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
+msgstr "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG."
+
+msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
+msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt."
+
+msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
+msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."

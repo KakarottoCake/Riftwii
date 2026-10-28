@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "stash.hpp"
+#include "i18n.hpp"
 #include "zstd.h"
 
 namespace riftwii::wii {
@@ -130,6 +131,8 @@ const char* const kCredits[] = {
     "",
     "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.",
+    "",
     "RiftWii contains no Riivolution code and no Nintendo keys or assets.",
     "",
     "THE GNU GENERAL PUBLIC LICENSE, VERSION 3",
@@ -206,7 +209,7 @@ void AddLicence(std::size_t width, std::vector<std::string>& out) {
 
 std::vector<std::string> CreditsLines(std::size_t width) {
     std::vector<std::string> out;
-    for (const char* paragraph : kCredits) Wrap(paragraph, width, out);
+    for (const char* paragraph : kCredits) Wrap(tr(paragraph), width, out);
     AddLicence(width, out);
     // No run of blank rows.
     std::vector<std::string> lines;

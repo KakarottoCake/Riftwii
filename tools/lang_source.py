@@ -764,7 +764,7 @@ T = {
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
     # Covers (Home's status line and the game page's Cover row)
-    "Getting covers from GameTDB: {1} left": (
+    "Getting covers: {1} left": (
         "Descargando portadas de GameTDB: faltan {1}",
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
@@ -2879,7 +2879,7 @@ KO = {
         "커스텀 (wfc_domain 설정되지 않음)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
         "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다.",
-    "Getting covers from GameTDB: {1} left":
+    "Getting covers: {1} left":
         "GameTDB에서 커버 가져오는 중: {1} 개 남음",
     "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
         "커버를 다운로드할 수 없습니다 ({1}). 다시 시도하려면 설정 > 온라인 > 없는 커버 다운로드를 이용하세요.",
@@ -4741,7 +4741,7 @@ FR = {
         "Personnalisé (wfc_domain non défini)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
         "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
-    "Getting covers from GameTDB: {1} left":
+    "Getting covers: {1} left":
         "Récupération des jacquettes GameTDB : {1} restante(s)",
     "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
         "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes.",
@@ -7089,12 +7089,88 @@ FR.update({
 })
 
 
+# Emulator game covers.
+T.update({
+    "Covers for emulator games": (
+        "Carátulas de juegos de emulador",
+        "エミュレータのゲームのカバー",
+        "Capas de jogos de emulador",
+        "Copertine dei giochi emulati"),
+    "SteamGridDB covers": (
+        "Carátulas de SteamGridDB",
+        "SteamGridDBのカバー",
+        "Capas do SteamGridDB",
+        "Copertine SteamGridDB"),
+    "On (key found)": (
+        "Sí (clave encontrada)",
+        "オン（キーあり）",
+        "Ligado (chave encontrada)",
+        "Sì (chiave trovata)"),
+    "Off (key found)": (
+        "No (clave encontrada)",
+        "オフ（キーあり）",
+        "Desligado (chave encontrada)",
+        "No (chiave trovata)"),
+    "No API key": (
+        "Sin clave API",
+        "APIキーなし",
+        "Sem chave de API",
+        "Nessuna chiave API"),
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": (
+        "Descarga carátulas de libretro. Desactivado usa solo tus carátulas PNG.",
+        "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。",
+        "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG.",
+        "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."),
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": (
+        "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt.",
+        "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。",
+        "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt.",
+        "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."),
+    "Getting covers: {1} left": (
+        "Descargando carátulas: quedan {1}",
+        "カバーを取得中：残り{1}",
+        "Baixando capas: faltam {1}",
+        "Scaricamento copertine: {1} rimaste"),
+})
+KO.update({
+    "Covers for emulator games": "에뮬레이터 게임 표지",
+    "SteamGridDB covers": "SteamGridDB 표지",
+    "On (key found)": "켜기 (키 있음)",
+    "Off (key found)": "끄기 (키 있음)",
+    "No API key": "API 키 없음",
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "libretro에서 표지를 받습니다. 끄면 직접 넣은 PNG 표지만 사용합니다.",
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/steamgriddb.txt에 넣으세요.",
+    "Getting covers: {1} left": "표지 받는 중: {1}개 남음",
+})
+FR.update({
+    "Covers for emulator games": "Jaquettes des jeux émulés",
+    "SteamGridDB covers": "Jaquettes SteamGridDB",
+    "On (key found)": "Oui (clé trouvée)",
+    "Off (key found)": "Non (clé trouvée)",
+    "No API key": "Aucune clé API",
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG.",
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt.",
+    "Getting covers: {1} left": "Téléchargement des jaquettes : {1} restantes",
+})
+
+
+T.update({
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": (
+        "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos.",
+        "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。",
+        "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos.",
+        "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."),
+})
+KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."})
+FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
-               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
+               "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]

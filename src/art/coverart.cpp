@@ -132,7 +132,7 @@ bool CoverDownloads::count(CoverOutcome outcome) {
 std::string CoverDownloads::take_summary() {
     if (!counted_since_summary_) return std::string();
     counted_since_summary_ = false;
-    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; GameTDB has no " +
+    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; " + source_ + " has no " +
                        picture_ + " for " + std::to_string(not_found_) + " game(s) (asked again in a week)";
     if (no_answer_ != 0) {
         text += "; " + std::to_string(no_answer_) +

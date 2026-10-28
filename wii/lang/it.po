@@ -849,8 +849,8 @@ msgstr "Personalizzato (wfc_domain non impostato)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."
 
-msgid "Getting covers from GameTDB: {1} left"
-msgstr "Scaricamento copertine da GameTDB: ne mancano {1}"
+msgid "Getting covers: {1} left"
+msgstr "Scaricamento copertine: {1} rimaste"
 
 msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
 msgstr "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."
@@ -3383,3 +3383,27 @@ msgstr "Nessun emulatore trovato."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Gli argomenti dell'emulatore non sono validi o sono troppo lunghi. Vedi session.log."
+
+msgid "Covers for emulator games"
+msgstr "Copertine dei giochi emulati"
+
+msgid "SteamGridDB covers"
+msgstr "Copertine SteamGridDB"
+
+msgid "On (key found)"
+msgstr "Sì (chiave trovata)"
+
+msgid "Off (key found)"
+msgstr "No (chiave trovata)"
+
+msgid "No API key"
+msgstr "Nessuna chiave API"
+
+msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
+msgstr "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."
+
+msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
+msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."
+
+msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
+msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."

@@ -30,6 +30,7 @@ struct EmulatorSetting {
 
 struct EmulatorFile {
     std::string name, system, dol;
+    std::string covers;  // optional libretro system folder
     std::vector<std::string> folders, extensions, arguments;
     std::vector<EmulatorSetting> settings;
 };

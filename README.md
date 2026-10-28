@@ -162,6 +162,9 @@ contains theirs names them in its file header, and
   documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**, **libmad**.
+- **libretro-thumbnails** and its contributors (including MobyGames and Fandom)
+  for emulator covers, and **SteamGridDB** and its contributors for optional
+  fallback covers. Original game artwork belongs to its developers and publishers.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
