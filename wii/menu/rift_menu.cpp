@@ -635,7 +635,14 @@ static void* MenuWatchdog(void*)
 		// as everywhere else in the menu: no Wii Remote is needed to get out.
 		constexpr u32 kRemoteHome = WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME;
 		bool home = false;
-		if (GuiParked()) {
+		// The GUI thread stuck waiting for the GPU (suspended in a frame,
+		// no frame since the last pass) reads no controllers any more
+		// either: read them here, as when it is halted.
+		static u32 frameSeen = 0;
+		const u32 frameNow = FrameTimer;
+		const bool guiStalled = guithread != LWP_THREAD_NULL && LWP_ThreadIsSuspended(guithread) && frameNow == frameSeen;
+		frameSeen = frameNow;
+		if (GuiParked() || guiStalled) {
 			// Nobody else reads the controllers now. The Wii U's GameCube
 			// adapter is read by the GUI thread only: here, the Wii's own
 			// GameCube ports.
