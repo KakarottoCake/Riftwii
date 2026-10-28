@@ -9614,7 +9614,7 @@ static std::string PageCoverName(const FrontendState& state) {
 // the shelf.
 static const u8* OwnCover(const std::string& id) {
 	const u8* cover = riftwii::wii::CoverTexture(id);
-	return cover && riftwii::wii::CoverIsOwn(id) ? cover : nullptr;
+	return cover && riftwii::wii::CoverBeforeBox(id) ? cover : nullptr;
 }
 
 class HeroCover : public GuiElement {
@@ -11897,7 +11897,8 @@ static int MenuHome(FrontendState& state)
 						// Asked for the second set, and back on the first (downloaded
 						// again, or kept): GameTDB has only the one.
 						if (g_coverSecondAsked && !riftwii::wii::CoverSecondSet(id) &&
-						    got != riftwii::wii::CoverFetch::NoAnswer && got != riftwii::wii::CoverFetch::Failed)
+						    got != riftwii::wii::CoverFetch::NoAnswer && got != riftwii::wii::CoverFetch::Failed &&
+						    got != riftwii::wii::CoverFetch::NotFound)
 							say(tr("GameTDB has only one cover for this game."));
 						else if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
 						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));

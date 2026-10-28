@@ -597,7 +597,7 @@ constexpr const char* kDiscBackdrop = "*disc";
 void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool still) {
     const bool disc = id == kDiscBackdrop;
     const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
-    const bool own = front && riftwii::wii::CoverIsOwn(cover_name);
+    const bool own = front && riftwii::wii::CoverBeforeBox(cover_name);
     // Made again once the player's own cover is in memory, and when the
     // cover is read again (another GameTDB set, for a game without a box).
     const unsigned fill = front ? riftwii::wii::CoverFill(cover_name) : 0;
@@ -893,7 +893,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const BoxPose& p = poses[i];
         // The player's own cover (#384) comes before GameTDB's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
-        const u8* art = front && riftwii::wii::CoverIsOwn(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
                  item.hue, item.caseColour, faces);
@@ -956,7 +956,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
         // The player's own cover (#384) comes before GameTDB's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
-        const u8* art = front && riftwii::wii::CoverIsOwn(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
@@ -1207,7 +1207,7 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
         // The player's own cover (#384) comes before GameTDB's 3D one.
         const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
-        const bool own = flat && riftwii::wii::CoverIsOwn(CoverName(item));
+        const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
         const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
         const u8* cover = tex ? nullptr : flat;
         float w, ph;

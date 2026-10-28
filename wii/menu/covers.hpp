@@ -55,6 +55,11 @@ const u8* CoverTexture(const std::string& game_id, int rank = 0);
 // then it is shown instead of GameTDB's full box art too (the shelf, the
 // close-up). Never reads the card; false while it isn't in memory.
 bool CoverIsOwn(const std::string& name);
+// Whether the cover in memory for `name` is shown instead of the game's
+// full box art (the shelf, the ring, the close-up, the game page): the
+// player's own, or GameTDB's second set when chosen, which the full box
+// (always the first set's) is not.
+bool CoverBeforeBox(const std::string& name);
 // Which reading of `name`'s slot the cover in memory is: another once it
 // is read again (another set, a USB drive's), at the same address. 0
 // while it isn't in memory.
