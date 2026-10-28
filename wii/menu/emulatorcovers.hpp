@@ -19,4 +19,13 @@ bool EmulatorDownloadedCoversAllowed();
 bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& file);
 CoverFetch FetchEmulatorCover(const std::string& id, std::string& error);
 
+// The player's own cover of a Wii or GameCube game (#384), read as the
+// emulator games' own covers are: `name` is a game ID, or a mod tile's
+// "<game ID>@<slug>", and the file riftwii/covers/<name>.png on the SD
+// card, else on the USB drive once the drives are read. The result is the
+// normal 80x112 RWC file.
+bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file);
+// Whether such a file is there (without reading it all).
+bool OwnCoverThere(const std::string& name);
+
 }  // namespace riftwii::wii

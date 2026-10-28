@@ -314,6 +314,27 @@ bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& fi
     return FindGame(id, game) && LocalCover(game, file);
 }
 
+bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
+    if (!emulator_art_component(name + ".png")) return false;
+    const std::string relative = "/riftwii/covers/" + name + ".png";
+    for (const char* device : {"sd:", "usb:"}) {
+        // The scan owns the USB drive's volume state until its last part.
+        if (device[0] == 'u' && !DriveScanDone()) continue;
+        std::vector<std::uint8_t> png;
+        if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+    }
+    return false;
+}
+
+bool OwnCoverThere(const std::string& name) {
+    if (!emulator_art_component(name + ".png")) return false;
+    const std::string relative = "/riftwii/covers/" + name + ".png";
+    struct stat info {};
+    if (stat(("sd:" + relative).c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0) return true;
+    std::uint64_t bytes = 0;
+    return DriveScanDone() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
+}
+
 CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
     CoverGame game;
     if (!FindGame(id, game)) return CoverFetch::NotFound;

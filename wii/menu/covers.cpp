@@ -15,6 +15,7 @@
 #include <cstring>
 #include <ctime>
 #include <map>
+#include <iterator>
 #include <set>
 #include <vector>
 
@@ -28,6 +29,7 @@
 #include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/pngdecode.hpp"
+#include "riftwii/profiles.hpp"
 #include "skin.hpp"
 
 namespace riftwii::wii {
@@ -49,6 +51,9 @@ std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/
 // Snes9x GX, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
     if (emulator_cover_id(id)) return true;
+    // A mod's tile, "<game ID>@<slug>": the player's own cover for it, else
+    // the game's (#384).
+    if (id.find('@') != std::string::npos) return valid_tile_key(id);
     if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
@@ -237,15 +242,22 @@ void* LoaderMain(void*) {
         LWP_MutexUnlock(g_lock);
 
         bool ok = false;
-        if (emulator_cover_id(id)) {
-            std::vector<std::uint8_t> local;
-            if (ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize) {
-                std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
-                ok = true;
-            }
+        const bool emulator = emulator_cover_id(id);
+        std::vector<std::uint8_t> local;
+        if (emulator) {
+            ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
+        } else {
+            // The player's own PNG first, never written over, and offline
+            // too: a mod tile's own, then the game's (#384).
+            const std::string game = tile_game_id(id);
+            ok = (game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize) ||
+                 (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
         }
-        const bool cache_allowed = !emulator_cover_id(id) || EmulatorDownloadedCoversAllowed();
-        FILE* f = ok || !cache_allowed ? nullptr : std::fopen(CoverPath(id).c_str(), "rb");
+        if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
+        const bool cache_allowed = !emulator || EmulatorDownloadedCoversAllowed();
+        // A mod's tile shows the game's downloaded cover.
+        const std::string stored = emulator ? id : tile_game_id(id);
+        FILE* f = ok || !cache_allowed ? nullptr : std::fopen(CoverPath(stored).c_str(), "rb");
         if (f) {
             std::uint8_t header[kCoverHeaderSize];
             ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
@@ -334,6 +346,8 @@ void ForgetCoverMiss(const std::string& game_id) {
 bool CoverWanted(const std::string& game_id) {
     if (emulator_cover_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
+    // The player's own cover is there: nothing to download.
+    if (OwnCoverThere(game_id)) return false;
     struct stat st;
     if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
     if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
@@ -464,9 +478,13 @@ void CoverPrefetch(const std::string& game_id, int rank) {
 void ForgetCover(const std::string& game_id) {
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
-    g_absent.erase(game_id);
+    // The game's mod tiles show its cover too, unless they have their own.
+    const std::string tiles = game_id + "@";
+    for (auto it = g_absent.begin(); it != g_absent.end();)
+        it = *it == game_id || it->compare(0, tiles.size(), tiles) == 0 ? g_absent.erase(it) : std::next(it);
     ++g_forgets;
-    if (Slot* s = Find(game_id)) SetId(*s, "");
+    for (int i = 0; i < g_slots; ++i)
+        if (g_pool[i].id == game_id || g_pool[i].id.compare(0, tiles.size(), tiles) == 0) SetId(g_pool[i], "");
 }
 
 void ForgetAllCovers() {

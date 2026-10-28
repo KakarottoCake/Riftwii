@@ -885,7 +885,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const BoxPose& p = poses[i];
         const u8* art = riftwii::wii::BoxTexture(item.id);
         Face faces[5];
-        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(item.id),
+        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(CoverName(item)),
                  item.hue, item.caseColour, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
@@ -945,7 +945,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const BoxPose& p = poses[i];
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
         const u8* art = riftwii::wii::BoxTexture(item.id);
-        const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(item.id);
+        const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(CoverName(item));
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
@@ -1194,7 +1194,7 @@ void GuiGameGrid::DrawRing(int alpha) {
         const u8 glint = static_cast<u8>(70 * near * alpha / 255);
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
         const u8* tex = riftwii::wii::Cover3dTexture(item.id);
-        const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(item.id);
+        const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(CoverName(item));
         float w, ph;
         if (tex) {
             ph = h;
