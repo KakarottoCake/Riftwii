@@ -9627,6 +9627,12 @@ public:
 		: id(std::move(id)), coverName(std::move(cover)), disc(disc), channel(channel), hue(hue) {}
 	HeroCover(const HeroCover&) = delete;
 	HeroCover& operator=(const HeroCover&) = delete;
+	// The page's tile changed (its mod tile removed): the game's cover now.
+	// With the GUI halted, as Draw reads it.
+	void SetCoverName(std::string name) {
+		coverName = std::move(name);
+		roundedFrom = nullptr;
+	}
 	~HeroCover() override { free(rounded); }
 	// The page's tile the box is (GameTile::Cover): lit, it grows a little
 	// and gets a ring in the accent's colour, as a tile does.
@@ -12006,7 +12012,10 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Append(&w);
 				// The Mods page renames a profile's tile, or removes it (the
 				// page is the game's own then).
-				if (tile == GameTile::Mods) titleTxt.SetText(GameTitle(state).c_str());
+				if (tile == GameTile::Mods) {
+					titleTxt.SetText(GameTitle(state).c_str());
+					hero.SetCoverName(PageCoverName(state));
+				}
 				rebuildTiles();
 				shownTile = -1;
 				if (askedCover && !state.game_id.empty()) {
