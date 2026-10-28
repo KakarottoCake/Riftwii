@@ -6047,6 +6047,7 @@ static int MenuSource(FrontendState& state)
 			// letting it go isn't a search. No view pair counts while it opens
 			// either; Home watches afresh if it doesn't.
 			riftwii::wii::WatchViewChord(false);
+			riftwii::wii::WatchSearchHold(false);
 			riftwii::wii::SpendPadHomePresses();
 			ResumeGui();
 			bool ok = false;
