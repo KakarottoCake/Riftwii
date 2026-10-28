@@ -20,7 +20,7 @@ enum class ImageDevice { Usb, Sd };
 
 struct ImageGame {
     ImageDevice device = ImageDevice::Usb;
-    std::string path;               // primary usb:/ or sd:/ path
+    std::string path;               // primary sd:/, usb:/ or numbered USB partition path
     std::string id;
     std::string title;              // the disc header's internal name
     std::string display;            // what the list shows (see riftwii/titles.hpp)
@@ -36,6 +36,7 @@ struct ImageGame {
     // A disc of a USB drive formatted as WBFS (riftwii/wbfspart.hpp): its
     // slot there. -1 for image files.
     int wbfs_slot = -1;
+    std::uint64_t wbfs_partition_lba = 0;
     D2xFragmentList fragments;
     // Header read and fragment list built. An image whose name carries its
     // ID is listed without being opened (a drive can hold hundreds);
@@ -88,9 +89,9 @@ bool scan_usb_games(UsbCatalog& out, std::string& error);
 // by another loader (a WiiFlow plugin) looks before the drive it just let
 // go of is listed again under the new IOS; the menu reads drives later.
 bool wait_for_usb_drive(int seconds);
-// The top folders that pick a USB drive's partition when it has several:
-// the user's game_folders, then wbfs, games and riivolution. Every mount
-// of the drive uses it, so the menu and the launch read the same one.
+// The top folders that pick the legacy usb:/ partition: the user's
+// game_folders, then wbfs, games and riivolution. Other partitions are
+// scanned too, under numbered USB paths.
 std::vector<std::string> usb_wanted_folders();
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
@@ -140,6 +141,10 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
                     std::uint64_t& size);
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
+// Mounted USB partition roots, with the legacy usb:/ first.
+std::vector<std::string> usb_volume_roots();
+// The legacy usb:/ volume's start, retained across the launch's IOS reload.
+bool usb_preferred_volume_lba(std::uint64_t& lba);
 // The entries of a folder on the USB drive ("usb:/games"), sorted, without
 // "." and "..": false when no drive is up or there is no such folder
 // (`error`, when given, says why: the file system's own words).

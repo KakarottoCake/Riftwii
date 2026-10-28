@@ -22,6 +22,7 @@
 #include "i18n.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/riiconfig.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -362,7 +363,7 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
         if (b->gct_path.compare(0, 5, "vsd:/") != 0) on_card = true;
         else if (image.empty()) image = VsdImageOfKey(b->file);
     }
-    if (!image.empty() && !state.use_usb && VsdImageLocation(image).compare(0, 5, "usb:/") == 0) {
+    if (!image.empty() && !state.use_usb && riftwii::is_usb_path(VsdImageLocation(image))) {
         if (brief) return tr("{1} is on the USB drive: the game has to be there too.", {image});
         return tr("This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card.",
                   {image});

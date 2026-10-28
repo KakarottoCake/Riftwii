@@ -437,10 +437,9 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
         const std::size_t slash = image.path.rfind('/');
         if (slash == std::string::npos) continue;
         const std::string directory = image.path.substr(0, slash);
-        const bool loose = directory == "sd:/games" || directory == "sd:/wbfs" ||
-                           directory == "usb:/games" || directory == "usb:/wbfs";
         const std::size_t device_end = image.path.find('/');
         const std::string device = image.path.substr(0, device_end + 1);
+        const bool loose = directory == device + "games" || directory == device + "wbfs";
         const bool nested = directory.compare(0, device.size() + 6, device + "games/") == 0 ||
                             directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
         for (std::size_t j = 0; j < images.size(); ++j) {

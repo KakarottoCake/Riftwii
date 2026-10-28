@@ -16,6 +16,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/sha256.hpp"
 #include "riftwii/wiiflowplugin.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "textfile.hpp"
 #include "usbcatalog.hpp"
 
@@ -46,7 +47,7 @@ std::string values_path(const EmulatorAddon& addon, const std::string& game) {
 }
 
 bool read_manifest(const std::string& path, std::string& text) {
-    if (path.rfind("usb:/", 0) != 0) return ReadTextFile(path, text, kEmulatorFileMax);
+    if (!riftwii::is_usb_path(path)) return ReadTextFile(path, text, kEmulatorFileMax);
     std::uint64_t bytes = 0;
     if (!read_usb_range(path, 0, nullptr, 0, bytes)) return false;
     if (bytes == 0 || bytes > kEmulatorFileMax) {
@@ -61,7 +62,7 @@ bool read_manifest(const std::string& path, std::string& text) {
 // followed on host test cards; a folder cannot escape its declared root.
 bool list_folder(const std::string& path, std::vector<VolumeEntry>& entries) {
     entries.clear();
-    if (path.rfind("usb:/", 0) == 0) return list_usb_folder(path, entries);
+    if (riftwii::is_usb_path(path)) return list_usb_folder(path, entries);
     DIR* dir = opendir(path.c_str());
     if (!dir) return false;
     std::size_t examined = 0;
@@ -113,7 +114,7 @@ void discover(EmulatorCatalog& out, const std::string& root) {
 }
 
 bool file_present(const std::string& path) {
-    if (path.rfind("usb:/", 0) == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t bytes = 0;
         return read_usb_range(path, 0, nullptr, 0, bytes) && bytes > 0;
     }
@@ -276,15 +277,24 @@ void scan_games(EmulatorCatalog& out, std::size_t index, const std::string& fold
 void ScanEmulators(EmulatorCatalog& out) {
     out = {};
     discover(out, "sd:/apps");
-    discover(out, "usb:/apps");
+    for (const auto& root : usb_volume_roots()) discover(out, root + "apps");
     // After the apps: an emulator's own riftwii-emulator.ini wins over a
     // WiiFlow plugin file for the same DOL.
     discover_wiiflow(out, "sd:/wiiflow/plugins");
-    discover_wiiflow(out, "usb:/wiiflow/plugins");
+    for (const auto& root : usb_volume_roots()) discover_wiiflow(out, root + "wiiflow/plugins");
     WalkBudget budget;
     for (std::size_t index = 0; index < out.addons.size(); ++index) {
         budget.games.clear();
-        for (const auto& folder : out.addons[index].file.folders) scan_games(out, index, folder, 0, budget);
+        for (const auto& folder : out.addons[index].file.folders) {
+            if (folder.rfind("usb:/", 0) != 0) {
+                scan_games(out, index, folder, 0, budget);
+                continue;
+            }
+            for (const auto& root : usb_volume_roots()) {
+                const std::string partition_folder = usb_path_device(root) + image_volume_path(folder);
+                scan_games(out, index, partition_folder, 0, budget);
+            }
+        }
     }
     if (budget.limited) logf("Emulators: the scan stopped at its entry, folder, depth or game limit.\n");
     logf("Emulators: found %u emulator(s) and %u game(s).\n",

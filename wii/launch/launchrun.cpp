@@ -9,6 +9,7 @@
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
 #include "riftwii/wfstitle.hpp"
+#include "riftwii/imagevolume.hpp"
 
 #include <fat.h>
 #include <gccore.h>
@@ -84,7 +85,7 @@ bool packages_need_sd(const std::vector<PackageChoices>& packages) {
 
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
     for (const PackageChoices& p : packages) {
-        if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+        if (riftwii::is_usb_path(p.xml_sd_path)) return true;
     }
     return false;
 }

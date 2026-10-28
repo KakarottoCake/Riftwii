@@ -29,6 +29,7 @@
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "sdfile.hpp"
 #include "textfile.hpp"
 #include "umsdev.hpp"
@@ -253,7 +254,7 @@ public:
     }
 
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out, std::string& error) override {
-        if (sd_path.compare(0, 4, "usb:") == 0) return open_usb(sd_path, out, error);
+        if (is_usb_path(sd_path)) return open_usb(sd_path, out, error);
         std::string abs = sd_path.compare(0, 3, "sd:") == 0 ? sd_path.substr(3) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         const std::string key = "sd:" + abs;
@@ -277,12 +278,10 @@ public:
     }
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
-        if (sd_dir.compare(0, 4, "usb:") == 0) {
-            std::string abs = sd_dir.substr(4);
-            if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        if (is_usb_path(sd_dir)) {
             std::vector<VolumeEntry> listed;
-            if (!list_usb_folder("usb:" + abs, listed)) {
-                error = "cannot list usb:" + abs;
+            if (!list_usb_folder(sd_dir, listed)) {
+                error = "cannot list " + sd_dir;
                 return OpenStatus::NotFound;
             }
             out.clear();
@@ -314,9 +313,9 @@ public:
 
 private:
     OpenStatus open_usb(const std::string& usb_path, std::unique_ptr<ByteSource>& out, std::string& error) {
-        std::string abs = usb_path.substr(4);
+        std::string abs = image_volume_path(usb_path);
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        const std::string key = "usb:" + abs;
+        const std::string key = usb_path_device(usb_path) + abs;
         auto found = usb_files_.find(key);
         if (found == usb_files_.end()) {
             VolumeFile file;
@@ -421,7 +420,7 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
     std::vector<FilePatch> files;
     for (const PackageChoices& pack : packages) {
         const std::string& xml = pack.xml_sd_path;
-        const bool pack_on_usb = xml.compare(0, 5, "usb:/") == 0;
+        const bool pack_on_usb = riftwii::is_usb_path(xml);
         std::string text;
         if (pack_on_usb ? !read_usb_text(xml, text) : !read_text(xml, text)) {
             error = "cannot open " + xml;
@@ -448,8 +447,8 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
         }
         if (pack_on_usb) {
             // Its files are on the drive too (as for a Wii game's pack).
-            const auto to_usb = [](std::string& path) {
-                if (!path.empty()) path = std::string("usb:") + (path[0] == '/' ? "" : "/") + path;
+            const auto to_usb = [&](std::string& path) {
+                if (!path.empty()) path = usb_path_device(xml) + (path[0] == '/' ? "" : "/") + path;
             };
             for (FilePatch& f : plan.files) to_usb(f.external);
             for (FolderPatch& f : plan.folders) to_usb(f.external);
@@ -515,7 +514,7 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
 
 bool GcImageIsRvz(const std::string& path) { return ends_with(path, ".rvz"); }
 
-bool GcImageOnUsb(const std::string& path) { return path.compare(0, 5, "usb:/") == 0; }
+bool GcImageOnUsb(const std::string& path) { return riftwii::is_usb_path(path); }
 
 bool OpenGcDisc(const std::string& path, std::unique_ptr<ByteSource>& out, std::string& error) {
     const std::shared_ptr<ByteSource> file = open_image_file(path);
@@ -774,12 +773,12 @@ void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, Ciso
         if (directory == device + ":/games" || directory == device + ":/wbfs") continue;
         scan_gc_directory(directory, true, false, out, found, skipped, ciso, opened);
     }
-    skipped.finish(device == "usb" ? "USB" : "SD");
+    skipped.finish(device == "sd" ? "SD" : "USB");
     append_gc_images(found, out);
     ScanGcPatches(out);
     const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
     logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
-         device == "usb" ? "USB" : "SD", opened, elapsed_ms);
+         device == "sd" ? "SD" : "USB", opened, elapsed_ms);
 }
 
 }  // namespace
@@ -790,7 +789,9 @@ void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
 }
 
 void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
-    scan_gc_images("usb", out, ciso);
+    for (const std::string& root : usb_volume_roots()) {
+        scan_gc_images(root.substr(0, root.size() - 2), out, ciso);
+    }
 }
 
 namespace {

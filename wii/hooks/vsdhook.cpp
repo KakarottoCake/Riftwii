@@ -74,7 +74,7 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
     std::vector<Fragment> pieces;
     std::vector<VsdPart> parts;
     struct stat st;
-    const std::string sd_path = "sd:/riftwii/" + name, usb_path = "usb:/riftwii/" + name;
+    const std::string sd_path = "sd:/riftwii/" + name;
     if (name.empty() || name.find('/') != std::string::npos) {
         why = "no image is named";
         return false;
@@ -105,13 +105,9 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
             why = "the USB drive does not have 512-byte sectors";
             return false;
         }
-        if (!ums::Volume(volume, why)) {
-            why = name + " is on neither the SD card nor the USB drive (" + why + ")";
-            return false;
-        }
         const auto usb_part = [&](const std::string& path, std::string& error) {
             VolumeFile file;
-            if (!volume->lookup(path.substr(4), file, error)) return false;
+            if (!volume->lookup(image_volume_path(path), file, error)) return false;
             if (file.entry.is_directory || !file.inline_bytes.empty()) {
                 error = path + " is not an image file";
                 return false;
@@ -120,17 +116,24 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
             return true;
         };
         std::string error;
-        if (!usb_part(usb_path, error)) {
-            for (unsigned n = 1; n <= kMaxVsdParts; ++n) {
-                std::string missing;
-                if (!usb_part(vsd_part_name(usb_path, n), missing)) break;
+        for (const std::string& root : ums::VolumeRoots(error)) {
+            const std::string usb_path = root + "riftwii/" + name;
+            if (!ums::Volume(volume, error, usb_path)) continue;
+            if (!usb_part(usb_path, error)) {
+                for (unsigned n = 1; n <= kMaxVsdParts; ++n) {
+                    std::string missing;
+                    if (!usb_part(vsd_part_name(usb_path, n), missing)) break;
+                }
+            }
+            if (!parts.empty()) {
+                out.path = usb_path;
+                break;
             }
         }
         if (parts.empty()) {
             why = name + " is on neither the SD card nor the USB drive (" + error + ")";
             return false;
         }
-        out.path = usb_path;
         out.on_usb = true;
     }
     if (!join_vsd_parts(parts, pieces, size, why)) return false;

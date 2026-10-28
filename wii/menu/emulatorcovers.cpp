@@ -20,6 +20,7 @@
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/homebrewmatch.hpp"
 #include "riftwii/sha256.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "textfile.hpp"
 #include "usbcatalog.hpp"
 
@@ -105,7 +106,7 @@ bool ReadKey(std::string& key) {
 
 bool ReadPng(const std::string& path, std::vector<std::uint8_t>& png) {
     std::uint64_t bytes = 0;
-    if (path.rfind("usb:/", 0) == 0) {
+    if (riftwii::is_usb_path(path)) {
         if (!read_usb_range(path, 0, nullptr, 0, bytes) || !bytes || bytes > kEmulatorCoverMax ||
             !try_resize(png, static_cast<std::size_t>(bytes))) return false;
         return read_usb_range(path, 0, png.data(), png.size(), bytes);

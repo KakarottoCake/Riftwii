@@ -15,6 +15,7 @@
 #include "log.hpp"
 #include "riftwii/canvas.hpp"
 #include "riftwii/modart.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
@@ -37,7 +38,7 @@ unsigned g_clock = 0;
 std::set<std::string> g_failed;
 
 bool read_png(const std::string& path, std::vector<std::uint8_t>& out) {
-    if (path.compare(0, 5, "usb:/") == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t size = 0;
         std::uint8_t probe;
         if (!usb_volume_ready() || !read_usb_range(path, 0, &probe, 0, size) || size == 0 ||

@@ -83,6 +83,8 @@ void test_parsing() {
     EXPECT(riftwii::parse_emulator_file("unknown = value\n" + base + "extra = ok\n[future]\na = b\n",
                                        "usb:/apps/test", file, error, warnings));
     EXPECT(warnings.size() == 3);
+    EXPECT(riftwii::parse_emulator_file(base, "usb2:/apps/test", file, error, warnings));
+    EXPECT(file.dol == "usb2:/apps/test/boot.dol");
     EXPECT(!riftwii::parse_emulator_file(base, "sd:/other", file, error, warnings));
     EXPECT(parse(replaced(base, "boot.dol", "usb:/apps/other/start.dol"), file));
     EXPECT(parse(replaced(base, "-game {game}", "-game\t{game}"), file));
@@ -134,6 +136,10 @@ void test_values_and_arguments() {
     EXPECT(line.substr(0, file.dol.size() + 1) == file.dol + '\0');
     EXPECT(line[line.size() - 1] == 0 && line[line.size() - 2] == 0);
     EXPECT(riftwii::emulator_game_matches(file, "usb:/roms/dreamcast/sub/a.gdi"));
+    EXPECT(riftwii::emulator_game_matches(file, "usb2:/roms/dreamcast/sub/a.gdi"));
+    EXPECT(!riftwii::emulator_game_matches(file, "usb02:/roms/dreamcast/sub/a.gdi"));
+    EXPECT(riftwii::build_emulator_arguments(file, "usb2:/roms/dreamcast/a.cdi", values, argv, line, error));
+    EXPECT(argv[2] == "usb2:/roms/dreamcast/a.cdi");
     EXPECT(!riftwii::emulator_game_matches(file, "sd:/roms/dreamcast-other/a.cdi"));
     EXPECT(!riftwii::emulator_game_matches(file, "sd:/roms/dreamcast/a.exe"));
     EXPECT(!riftwii::build_emulator_arguments(file, "sd:/outside.cdi", values, argv, line, error));

@@ -32,6 +32,7 @@
 #include "menuios.hpp"
 #include "netsock.hpp"
 #include "riftwii/apply.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/launch.hpp"
@@ -59,10 +60,13 @@ namespace {
 // RiftWii's own walkers, the same way d2x will read the image: raw 512-byte
 // blocks); SD images stay FAT32 or NTFS. libfat is only asked to mount usb:
 // to bring the storage interface up; its answer does not matter.
-std::unique_ptr<ImageVolume> g_usb_volume;
+std::vector<MountedImageVolume> g_usb_volumes;
+std::uint64_t g_usb_mount_generation = 0;
+bool g_usb_preferred_known = false;
+std::uint64_t g_usb_preferred_lba = 0;
 // A USB drive formatted as WBFS, with no file system: read only through
 // wbfspart, its games in slots rather than files.
-std::unique_ptr<WbfsPartition> g_usb_wbfs;
+std::vector<WbfsPartition> g_usb_wbfs;
 std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
@@ -82,7 +86,7 @@ VolumeFile g_rvz_volume_file;
 bool g_rvz_on_usb = false;
 // After the reload into the cIOS: the USB drive through d2x's /dev/usb2,
 // for an RVZ game on it (libogc's USB driver is shut down by then).
-std::unique_ptr<ImageVolume> g_rvz_usb_volume;
+std::vector<MountedImageVolume> g_rvz_usb_volumes;
 constexpr const char* kRvzStubDir = "sd:/riftwii/rvz";
 constexpr std::size_t kMaxGames = 4000;
 constexpr u8 kUsbClassMassStorage = 0x08;
@@ -479,7 +483,8 @@ bool open_usb_raw_disc(std::string& error) {
 }
 
 bool ensure_usb(std::string& error) {
-    if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc || g_usb_wbfs)) return true;
+    if (g_raw_mounted && (!g_usb_volumes.empty() || g_usb_raw_disc || !g_usb_wbfs.empty())) return true;
+    g_usb_preferred_known = false;
     g_usb_wiiu_drive = false;
     ForgetWfsDrive();
     // libogc's storage driver and d2x each pick one drive, not always the
@@ -554,18 +559,21 @@ bool ensure_usb(std::string& error) {
         return true;
     }
     std::vector<std::string> partition_notes;
-    const bool mounted = mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders(), &partition_notes);
+    const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(), &partition_notes);
     for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());
+    // Older USB loaders also used WBFS-format partitions. They remain
+    // readable beside FAT32/NTFS rather than being a fallback for the drive.
+    std::string why;
+    find_wbfs_partitions(&usb_read, g_usb_wbfs, why);
+    for (const WbfsPartition& wbfs : g_usb_wbfs) {
+        const bool legacy = g_usb_volumes.empty() && &wbfs == &g_usb_wbfs.front();
+        const std::string prefix = legacy ? "usb:/" : "usb" + std::to_string(wbfs.partition) + ":/";
+        logf("USB: partition %u at block %llu is read as %s (WBFS, %u used slots).\n",
+             wbfs.partition, static_cast<unsigned long long>(wbfs.lba), prefix.c_str(),
+             static_cast<unsigned>(wbfs.layout.used.size()));
+    }
     if (!mounted) {
-        // A drive formatted as WBFS by a USB loader's tools (libfat cannot
-        // mount it either, so nothing can write to it).
-        WbfsPartition wbfs;
-        std::string why;
-        if (find_wbfs_partition(&usb_read, wbfs, why)) {
-            logf("USB volume: WBFS at block %llu, %u of %u slots used, %u-MiB blocks\n",
-                 static_cast<unsigned long long>(wbfs.lba), static_cast<unsigned>(wbfs.layout.used.size()),
-                 static_cast<unsigned>(wbfs.layout.slots), static_cast<unsigned>(wbfs.layout.block_sectors / 2048));
-            g_usb_wbfs = std::make_unique<WbfsPartition>(std::move(wbfs));
+        if (!g_usb_wbfs.empty()) {
             g_raw_mounted = true;
             error.clear();
             return true;
@@ -601,7 +609,12 @@ bool ensure_usb(std::string& error) {
         unmount_usb_games();
         return false;
     }
-    logf("USB volume: %s\n", g_usb_volume->kind());
+    for (const MountedImageVolume& mounted_volume : g_usb_volumes) {
+        if (mounted_volume.preferred) {
+            g_usb_preferred_lba = mounted_volume.lba;
+            g_usb_preferred_known = true;
+        }
+    }
     g_raw_mounted = true;
     return true;
 }
@@ -696,9 +709,9 @@ void close_rvz_reads() {
 // loader's partition reads.
 bool open_rvz_reads(const ImageVolume* volume, const std::string& path, std::string& error) {
     close_rvz_reads();
-    const bool usb = path.compare(0, 5, "usb:/") == 0;
+    const bool usb = is_usb_path(path);
     VolumeFile file;
-    if (volume == nullptr || !volume->lookup(path.substr(usb ? 4 : 3), file, error)) {
+    if (volume == nullptr || !volume->lookup(image_volume_path(path), file, error)) {
         error = "cannot find " + path + (error.empty() ? "" : ": " + error);
         return false;
     }
@@ -736,7 +749,7 @@ bool prepare_rvz_launch(const ImageGame& game, D2xFragmentList& fragments, std::
         return false;
     }
     const bool usb = game.device == ImageDevice::Usb;
-    if (!open_rvz_reads(usb ? g_usb_volume.get() : g_sd_volume.get(), game.path, error)) return false;
+    if (!open_rvz_reads(usb ? find_image_volume(g_usb_volumes, game.path) : g_sd_volume.get(), game.path, error)) return false;
     RvzStub stub;
     const bool built = build_rvz_stub(*g_rvz, stub, error);
     close_rvz_reads();
@@ -934,11 +947,12 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
 // slot's copy of the disc header and opened when picked, like a named
 // image file. Slots that are not Wii discs (a loader's own settings entry)
 // are logged and left out.
-void scan_wbfs(ImageCatalog& c, std::string& failure) {
+void scan_wbfs(const WbfsPartition& partition, const std::string& prefix,
+               ImageCatalog& c, std::string& failure) {
     std::vector<WbfsDisc> discs;
     std::vector<std::string> skipped;
     std::string error;
-    if (!list_wbfs_discs(&usb_read, *g_usb_wbfs, discs, skipped, error)) {
+    if (!list_wbfs_discs(&usb_read, partition, discs, skipped, error)) {
         logf("USB scan: %s\n", error.c_str());
         failure = error;
         return;
@@ -948,11 +962,12 @@ void scan_wbfs(ImageCatalog& c, std::string& failure) {
         if (c.games.size() >= kMaxGames) return;
         ImageGame game;
         game.device = ImageDevice::Usb;
-        game.path = "usb:/wbfs slot " + std::to_string(disc.slot);
+        game.path = prefix + "wbfs slot " + std::to_string(disc.slot);
         game.id = disc.id;
         game.title = disc.title;
         game.format = UsbImageFormat::Wbfs;
         game.wbfs_slot = static_cast<int>(disc.slot);
+        game.wbfs_partition_lba = partition.lba;
         c.games.push_back(std::move(game));
     }
 }
@@ -1126,11 +1141,17 @@ bool slot_title_is_launchable(int slot, std::string& why) {
 bool check_image_game(ImageGame& game, std::string& error) {
     if (game.checked) return !rvz_refused(game, error);
     if (game.wbfs_slot >= 0) {
-        if (game.device != ImageDevice::Usb || !g_usb_wbfs) { error = "USB drive is not mounted any more"; return false; }
+        const auto partition = std::find_if(g_usb_wbfs.begin(), g_usb_wbfs.end(), [&](const WbfsPartition& wbfs) {
+            return wbfs.lba == game.wbfs_partition_lba;
+        });
+        if (game.device != ImageDevice::Usb || partition == g_usb_wbfs.end()) {
+            error = "the game's WBFS partition is not mounted any more";
+            return false;
+        }
         logf("USB: opening WBFS slot %d\n", game.wbfs_slot);
         const std::string named = game.id;
         ImageGame opened = game;
-        if (!open_disc(wbfs_slot_image(&usb_read, *g_usb_wbfs, static_cast<std::uint32_t>(game.wbfs_slot)), opened, error)) {
+        if (!open_disc(wbfs_slot_image(&usb_read, *partition, static_cast<std::uint32_t>(game.wbfs_slot)), opened, error)) {
             logf("  cannot use it: %s\n", error.c_str());
             return false;
         }
@@ -1144,8 +1165,8 @@ bool check_image_game(ImageGame& game, std::string& error) {
         error.clear();
         return true;
     }
-    const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
-    const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
+    const ImageVolume* volume = game.device == ImageDevice::Usb ? find_image_volume(g_usb_volumes, game.path) : g_sd_volume.get();
+    const std::string prefix = game.device == ImageDevice::Usb ? usb_path_device(game.path) + "/" : "sd:/";
     const std::size_t slash = game.path.find_last_of('/');
     if (!volume || game.path.compare(0, prefix.size(), prefix) != 0 || slash == std::string::npos ||
         slash < prefix.size() - 1) {
@@ -1183,11 +1204,17 @@ bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, s
                           std::string& error) {
     UsbImage image;
     if (game.wbfs_slot >= 0) {
-        if (game.device != ImageDevice::Usb || !g_usb_wbfs) { error = "USB drive is not mounted any more"; return false; }
-        image = wbfs_slot_image(&usb_read, *g_usb_wbfs, static_cast<std::uint32_t>(game.wbfs_slot));
+        const auto partition = std::find_if(g_usb_wbfs.begin(), g_usb_wbfs.end(), [&](const WbfsPartition& wbfs) {
+            return wbfs.lba == game.wbfs_partition_lba;
+        });
+        if (game.device != ImageDevice::Usb || partition == g_usb_wbfs.end()) {
+            error = "the game's WBFS partition is not mounted any more";
+            return false;
+        }
+        image = wbfs_slot_image(&usb_read, *partition, static_cast<std::uint32_t>(game.wbfs_slot));
     } else {
-        const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
-        const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
+        const ImageVolume* volume = game.device == ImageDevice::Usb ? find_image_volume(g_usb_volumes, game.path) : g_sd_volume.get();
+        const std::string prefix = game.device == ImageDevice::Usb ? usb_path_device(game.path) + "/" : "sd:/";
         const std::size_t slash = game.path.find_last_of('/');
         if (!volume || game.path.compare(0, prefix.size(), prefix) != 0 || slash == std::string::npos ||
             slash < prefix.size() - 1) {
@@ -1236,35 +1263,38 @@ bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, s
 
 std::vector<std::string> usb_mod_folders(const std::string& game_id) {
     std::vector<std::string> out;
-    if (!g_usb_volume || game_id.empty()) return out;
-    const ImageVolume& volume = *g_usb_volume;
-    const auto lower = [](std::string s) {
-        for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        return s;
-    };
-    const auto found = [&](const std::string& folder, const std::string& file) {
-        logf("USB: mod for %s on the USB drive: usb:%s\n", game_id.c_str(), file.c_str());
-        const std::string where = "usb:" + folder;
-        if (std::find(out.begin(), out.end(), where) == out.end()) out.push_back(where);
-    };
-    std::string error;
-    // Found the way the SD card's are (codebuilds.cpp).
-    const std::string want = lower(game_id) + ".gct";
-    std::vector<VolumeEntry> top;
-    if (!volume.list("/", top, error)) return out;
-    for (const VolumeEntry& t : top) {
-        if (!t.is_directory || t.name.empty() || t.name[0] == '.') continue;
-        // usb:/codes is USB Loader GX's cheat folder (its downloaded
-        // RSBE01.gct and the like), not a code build: counted as one, it
-        // refused those games' launches, telling the player to move it.
-        if (lower(t.name) == "codes") continue;
-        std::vector<std::string> dirs{"/" + t.name, "/" + t.name + "/codes"};
-        for (const std::string& dir : dirs) {
-            std::vector<VolumeEntry> entries;
-            if (!volume.list(dir, entries, error)) continue;
-            for (const VolumeEntry& e : entries) {
-                if (e.is_directory || lower(e.name) != want) continue;
-                found("/" + t.name, dir + "/" + e.name);
+    if (game_id.empty()) return out;
+    for (const std::string& prefix : usb_volume_roots()) {
+        const ImageVolume& volume = *find_image_volume(g_usb_volumes, prefix);
+        const std::string device = usb_path_device(prefix);
+        const auto lower = [](std::string s) {
+            for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            return s;
+        };
+        const auto found = [&](const std::string& folder, const std::string& file) {
+            logf("USB: mod for %s on the USB drive: %s%s\n", game_id.c_str(), device.c_str(), file.c_str());
+            const std::string where = device + folder;
+            if (std::find(out.begin(), out.end(), where) == out.end()) out.push_back(where);
+        };
+        std::string error;
+        // Found the way the SD card's are (codebuilds.cpp).
+        const std::string want = lower(game_id) + ".gct";
+        std::vector<VolumeEntry> top;
+        if (!volume.list("/", top, error)) continue;
+        for (const VolumeEntry& t : top) {
+            if (!t.is_directory || t.name.empty() || t.name[0] == '.') continue;
+            // usb:/codes is USB Loader GX's cheat folder (its downloaded
+            // RSBE01.gct and the like), not a code build: counted as one, it
+            // refused those games' launches, telling the player to move it.
+            if (lower(t.name) == "codes") continue;
+            std::vector<std::string> dirs{"/" + t.name, "/" + t.name + "/codes"};
+            for (const std::string& dir : dirs) {
+                std::vector<VolumeEntry> entries;
+                if (!volume.list(dir, entries, error)) continue;
+                for (const VolumeEntry& e : entries) {
+                    if (e.is_directory || lower(e.name) != want) continue;
+                    found("/" + t.name, dir + "/" + e.name);
+                }
             }
         }
     }
@@ -1275,7 +1305,9 @@ std::vector<std::string> usb_file_names(const std::string& folder, const char* e
     std::vector<std::string> out;
     std::vector<VolumeEntry> entries;
     std::string error;
-    if (!g_usb_volume || !g_usb_volume->list(folder, entries, error)) return out;
+    const std::string path = is_usb_path(folder) ? folder : "usb:" + folder;
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, path);
+    if (!volume || !volume->list(image_volume_path(path), entries, error)) return out;
     for (const VolumeEntry& e : entries) {
         if (!e.is_directory && !e.name.empty() && e.name[0] != '.' && extension(e.name, ext)) out.push_back(e.name);
     }
@@ -1289,13 +1321,14 @@ bool read_usb_text(const std::string& usb_path, std::string& out) {
     out.clear();
     VolumeFile file;
     std::string error;
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
-    if (!g_usb_volume->lookup(usb_path.substr(4), file, error) || file.entry.is_directory ||
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
+    if (!volume) return false;
+    if (!volume->lookup(image_volume_path(usb_path), file, error) || file.entry.is_directory ||
         file.entry.size > (1u << 20)) {
         return false;
     }
-    out.assign(static_cast<std::size_t>(file.entry.size), '\0');
-    if (!out.empty() && !g_usb_volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
+    if (!try_resize(out, static_cast<std::size_t>(file.entry.size))) return false;
+    if (!out.empty() && !volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
         out.clear();
         return false;
     }
@@ -1308,30 +1341,52 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
     static std::string cached_path;
     static VolumeFile cached;
     static const ImageVolume* cached_volume = nullptr;
+    static std::uint64_t cached_generation = 0;
     std::string error;
     size = 0;
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
-    if (cached_path != usb_path || cached_volume != g_usb_volume.get()) {
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
+    if (!volume) return false;
+    if (cached_path != usb_path || cached_volume != volume || cached_generation != g_usb_mount_generation) {
         cached_path.clear();
-        if (!g_usb_volume->lookup(usb_path.substr(4), cached, error) || cached.entry.is_directory) return false;
+        if (!volume->lookup(image_volume_path(usb_path), cached, error) || cached.entry.is_directory) return false;
         cached_path = usb_path;
-        cached_volume = g_usb_volume.get();
+        cached_volume = volume;
+        cached_generation = g_usb_mount_generation;
     }
     size = cached.entry.size;
     if (offset > size || length > size - offset) return false;
-    return length == 0 || g_usb_volume->read(cached, offset, out, length);
+    return length == 0 || volume->read(cached, offset, out, length);
 }
 
-bool usb_volume_ready() { return g_usb_volume != nullptr; }
+bool usb_volume_ready() { return !g_usb_volumes.empty(); }
+
+bool usb_preferred_volume_lba(std::uint64_t& lba) {
+    lba = g_usb_preferred_lba;
+    return g_usb_preferred_known;
+}
+
+std::vector<std::string> usb_volume_roots() {
+    std::vector<std::string> roots;
+    if (!try_reserve(roots, g_usb_volumes.size())) return roots;
+    // Keep the legacy volume first wherever scan order creates saved keys.
+    for (const MountedImageVolume& mounted : g_usb_volumes) {
+        if (mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    for (const MountedImageVolume& mounted : g_usb_volumes) {
+        if (!mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    return roots;
+}
 
 bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out, std::string* error) {
     out.clear();
     std::string why;
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
+    if (!volume) {
         if (error) *error = "the USB drive is not mounted";
         return false;
     }
-    if (!g_usb_volume->list(usb_path.substr(4), out, why)) {
+    if (!volume->list(image_volume_path(usb_path), out, why)) {
         if (error) *error = why;
         return false;
     }
@@ -1341,23 +1396,25 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out,
 
 bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
     out = VolumeFile{};
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
+    if (!volume) {
         error = "not on the USB drive";
         return false;
     }
-    return g_usb_volume->lookup(usb_path.substr(4), out, error);
+    return volume->lookup(image_volume_path(usb_path), out, error);
 }
 
 bool usb_file_pieces(const std::string& usb_path, std::uint64_t& size, std::vector<Fragment>& out,
                      std::string& error) {
     out.clear();
     size = 0;
-    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) {
+    const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
+    if (!volume) {
         error = "not on the USB drive";
         return false;
     }
     VolumeFile file;
-    if (!g_usb_volume->lookup(usb_path.substr(4), file, error)) return false;
+    if (!volume->lookup(image_volume_path(usb_path), file, error)) return false;
     if (file.entry.is_directory) {
         error = "it is a folder";
         return false;
@@ -1842,16 +1899,26 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         return true;
     }
     std::string failure;
-    if (g_usb_wbfs) {
-        scan_wbfs(out, failure);
-    } else {
-        scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
-        scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
+    for (const WbfsPartition& partition : g_usb_wbfs) {
+        const bool legacy = g_usb_volumes.empty() && &partition == &g_usb_wbfs.front();
+        const std::string prefix = legacy ? "usb:/" : "usb" + std::to_string(partition.partition) + ":/";
+        scan_wbfs(partition, prefix, out, failure);
+    }
+    if (!g_usb_volumes.empty()) {
+        for (const std::string& prefix : usb_volume_roots()) {
+            const ImageVolume* volume = find_image_volume(g_usb_volumes, prefix);
+            const std::size_t before = out.games.size();
+            scan_dir(*volume, prefix, ImageDevice::Usb, prefix + "wbfs", true, UsbImageFormat::Wbfs, out, failure);
+            scan_dir(*volume, prefix, ImageDevice::Usb, prefix + "games", false, UsbImageFormat::Iso, out, failure);
+            scan_own_folders(*volume, prefix.substr(0, prefix.size() - 2), ImageDevice::Usb, out, failure);
+            logf("USB: read %s and found %u Wii image(s).\n", prefix.c_str(),
+                 static_cast<unsigned>(out.games.size() - before));
+        }
         ScanUsbGcImages(out.games, &out.ciso);
     }
     apply_titles(out);
-    const std::string empty_drive = g_usb_wbfs ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive";
-    const std::string unreadable = (g_usb_wbfs ? "Cannot read the WBFS drive: " : "No valid USB images: ") + failure;
+    const std::string empty_drive = g_usb_volumes.empty() ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images in wbfs or games on the USB partitions");
+    const std::string unreadable = (g_usb_volumes.empty() ? "Cannot read the WBFS drive: " : "No valid USB images: ") + failure;
     out.status = out.games.empty() ? (failure.empty() ? empty_drive : unreadable) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
     // Dolphin has no cIOS slots by design; warning there would be noise.
@@ -1921,7 +1988,15 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     }
     error.clear(); return true;
 }
-void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); g_usb_wbfs.reset(); g_usb_raw_disc=false; }
+void unmount_usb_games() {
+    if (g_libfat_mounted) fatUnmount("usb:");
+    g_libfat_mounted = false;
+    g_raw_mounted = false;
+    ++g_usb_mount_generation;
+    g_usb_volumes.clear();
+    g_usb_wbfs.clear();
+    g_usb_raw_disc = false;
+}
 void release_usb_driver() {
     unmount_usb_games();
     if (g_picked.open) picked_shutdown();
@@ -2401,7 +2476,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
             error = d2x_sector_size_problem(ums::SectorBytes(), "RVZ games");
             ok = false;
         }
-        if (!ok || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
+        const std::uint64_t* preferred = g_usb_preferred_known ? &g_usb_preferred_lba : nullptr;
+        if (!ok || !mount_image_volumes(&d2x_usb_block_read, g_rvz_usb_volumes, error, usb_wanted_folders(),
+                                        nullptr, preferred)) {
             error = "USB drive after the cIOS reload: " + error;
             if (ums::Stuck()) {
                 error = d2x_usb_unreadable_error(kD2xStuckReason);
@@ -2410,7 +2487,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
             return post_reload_failure(log_path, error);
         }
     }
-    if (rvz && !open_rvz_reads(game.device == ImageDevice::Usb ? g_rvz_usb_volume.get() : g_sd_volume.get(),
+    if (rvz && !open_rvz_reads(game.device == ImageDevice::Usb ? find_image_volume(g_rvz_usb_volumes, game.path) : g_sd_volume.get(),
                                game.path, error)) {
         if (ums::Stuck()) {
             error = d2x_usb_unreadable_error(kD2xStuckReason);
