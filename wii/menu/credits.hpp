@@ -12,7 +12,8 @@ namespace riftwii::wii {
 // the notice, the lack of warranty, where the source and the licence
 // are), who its parts come from (NOTICE.md has the detail), then the GNU
 // GPL version 3 in full, unpacked from the copy built into the program.
-// Each line is at most `width` characters.
+// Each line is at most `width` bytes, without splitting UTF-8 characters.
+// A character wider than `width` is kept whole on its own line.
 std::vector<std::string> CreditsLines(std::size_t width);
 
 }  // namespace riftwii::wii
