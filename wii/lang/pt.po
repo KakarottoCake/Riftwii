@@ -873,8 +873,8 @@ msgstr "Primeira"
 msgid "Second"
 msgstr "Segunda"
 
-msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either."
-msgstr "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão vem antes de ambas."
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão SD ou na unidade USB vem antes de ambas."
 
 msgid "GameTDB has only one cover for this game."
 msgstr "O GameTDB tem só uma capa para este jogo."

@@ -119,6 +119,8 @@ struct Slot {
     u8* data = nullptr;
     bool ready = false;    // read and flushed: the GUI may draw it
     bool own = false;      // the player's own PNG (#384), not GameTDB's
+    bool gameOwn = false;  // own, but the game's on a mod tile without its own
+    unsigned fill = 0;     // CoverFill: g_fills when it was read
     u64 touched = 0;       // last drawn or read (gettime ticks)
 };
 struct Request {
@@ -141,6 +143,8 @@ bool g_hold = false;      // CoverLoaderHold: no reads until CoverLoaderRelease
 bool g_reading = false;   // the loader is reading the card
 bool g_texDirty = false;  // a slot was refilled since the GUI invalidated
 unsigned g_forgets = 0;   // ForgetCover calls, so a read in flight is dropped
+unsigned g_fills = 0;     // slots read, for CoverFill
+bool g_fellBack = false;  // FetchCoverNow went back to the first set (the background's thread)
 alignas(32) u8 g_stack[16384];
 
 // A request not renewed for this long is dropped: the grid asks every frame.
@@ -246,14 +250,15 @@ void* LoaderMain(void*) {
         bool ok = false;
         const bool emulator = emulator_cover_id(id);
         std::vector<std::uint8_t> local;
+        bool tileOwn = false;
         if (emulator) {
             ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
         } else {
             // The player's own PNG first, never written over, and offline
             // too: a mod tile's own, then the game's (#384).
             const std::string game = tile_game_id(id);
-            ok = (game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize) ||
-                 (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
+            tileOwn = game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize;
+            ok = tileOwn || (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
         }
         const bool own = ok && !emulator;
         if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -275,6 +280,10 @@ void* LoaderMain(void*) {
         if (ok && forgets == g_forgets) {
             slot->ready = true;
             slot->own = own;
+            // The game's own PNG on a mod tile: a tile's own on a USB drive
+            // may come before it after the scan.
+            slot->gameOwn = own && !tileOwn && tile_game_id(id) != id;
+            slot->fill = ++g_fills;
             slot->touched = gettime();
             g_texDirty = true;  // GX is the GUI thread's: it invalidates
         } else {
@@ -437,6 +446,7 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
             return CoverFetch::Failed;
         }
         logf("Covers: GameTDB has no second cover for %s; back to the first\n", game_id.c_str());
+        g_fellBack = true;
         return FetchCoverNow(game_id, error);
     }
     WriteAll(MissPath(game_id), {});
@@ -450,14 +460,18 @@ namespace {
 // thread's end, read by Take only after it ended.
 struct Background {
     std::string id;
-    bool second = false;  // the set chosen when it started
+    bool second = false;  // the set fetched: chosen when it started, the first after a fallback
     CoverFetch got = CoverFetch::Failed;
     std::string error;
 };
 Background g_background;
 bool g_lastFetchSecond = false;
 
-void RunBackgroundFetch() { g_background.got = FetchCover(g_background.id, g_background.error); }
+void RunBackgroundFetch() {
+    g_fellBack = false;
+    g_background.got = FetchCover(g_background.id, g_background.error);
+    if (g_fellBack) g_background.second = false;
+}
 }  // namespace
 
 bool StartCoverFetch(const std::string& game_id) {
@@ -512,6 +526,13 @@ bool CoverIsOwn(const std::string& name) {
     return s && s->ready && s->own;
 }
 
+unsigned CoverFill(const std::string& name) {
+    if (!ValidId(name) || !Started()) return 0;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready ? s->fill : 0;
+}
+
 void CoverPrefetch(const std::string& game_id, int rank) {
     if (!ValidId(game_id) || !Started()) return;
     Lock lock;
@@ -541,7 +562,8 @@ void ForgetGameCoversBeforeUsb() {
         it = emulator_cover_id(*it) ? std::next(it) : g_absent.erase(it);
     ++g_forgets;
     for (int i = 0; i < g_slots; ++i)
-        if (!g_pool[i].id.empty() && !emulator_cover_id(g_pool[i].id) && !g_pool[i].own) SetId(g_pool[i], "");
+        if (!g_pool[i].id.empty() && !emulator_cover_id(g_pool[i].id) && (!g_pool[i].own || g_pool[i].gameOwn))
+            SetId(g_pool[i], "");
 }
 
 void ForgetAllCovers() {

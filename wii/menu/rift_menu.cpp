@@ -5403,7 +5403,9 @@ static int MenuSource(FrontendState& state)
 					if (onPage) pick = q;
 				}
 			}
-			if (pick < coverQueue.size() && riftwii::wii::StartCoverFetch(coverQueue[pick])) {
+			if (pick < coverQueue.size() && !riftwii::wii::CoverWanted(coverQueue[pick])) {
+				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
+			} else if (pick < coverQueue.size() && riftwii::wii::StartCoverFetch(coverQueue[pick])) {
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
 				coverNote = tr("Getting covers: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
@@ -9602,6 +9604,13 @@ static constexpr int kTilesW = kTilesRight - kTilesX;
 // The art fills the box with slightly rounded corners of its own (a real
 // case's), over a soft drop shadow; a frame with larger corners around it
 // cut the art's corners off.
+// The player's own cover for the game (#384), once in memory: it comes
+// before GameTDB's full box on the game page and up close, as on the shelf.
+static const u8* OwnCover(const std::string& id) {
+	const u8* cover = riftwii::wii::CoverTexture(id);
+	return cover && riftwii::wii::CoverIsOwn(id) ? cover : nullptr;
+}
+
 class HeroCover : public GuiElement {
 public:
 	// `channel`: a WiiWare or Virtual Console game, drawn as its channel
@@ -9647,7 +9656,8 @@ public:
 		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
 		ring();
 		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
-		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
+		const u8* own = id.empty() ? nullptr : OwnCover(id);
+		if (const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id)) {
 			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
 			const float u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
 			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
@@ -9675,11 +9685,14 @@ private:
 	// (riftwii::round_corners), made again whenever the art changes.
 	const u8* RoundedArt() {
 		if (id.empty()) return nullptr;
-		const u8* box = riftwii::wii::BoxTexture(id);
-		const u8* cover = box ? nullptr : riftwii::wii::CoverTexture(id);
+		const u8* own = OwnCover(id);
+		const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box ? nullptr : own ? own : riftwii::wii::CoverTexture(id);
 		const u8* from = box ? box : cover;
 		if (!from) return nullptr;
-		if (from == roundedFrom) return rounded;
+		// The same slot read again (another set) is another cover.
+		const unsigned fill = cover ? riftwii::wii::CoverFill(id) : 0;
+		if (from == roundedFrom && fill == roundedFill) return rounded;
 		constexpr std::size_t kBytes = static_cast<std::size_t>(riftwii::kBoxFrontWidth) * riftwii::kBoxHeight * 2;
 		if (!rounded) rounded = static_cast<u8*>(memalign(32, kBytes));
 		if (!rounded) return nullptr;
@@ -9694,6 +9707,7 @@ private:
 		DCFlushRange(rounded, kBytes);
 		GX_InvalidateTexAll();
 		roundedFrom = from;
+		roundedFill = fill;
 		return rounded;
 	}
 	std::string id;
@@ -9705,6 +9719,7 @@ private:
 	volatile bool hasArt = false;
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
 	const u8* roundedFrom = nullptr;
+	unsigned roundedFill = 0;
 	int roundedW = 0, roundedH = 0;
 };
 
@@ -9750,8 +9765,9 @@ public:
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
 		Menu_DrawRectangle(vx, vy, vw, vh, (GXColor){0, 0, 0, static_cast<u8>(200 * open)}, 1);
 
-		const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
+		const u8* own = id.empty() ? nullptr : OwnCover(id);
+		const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box || id.empty() ? nullptr : own ? own : riftwii::wii::CoverTexture(id);
 		hasBack = box != nullptr;
 		if (!box && !cover) return;
 		// Large: as tall as fits between the band's top and the prompts,
@@ -11455,7 +11471,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::Cover)
 				say(tr("Downloads this game's box art from GameTDB now."));
 			else if (ref.what == RowRef::What::CoverSet)
-				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either.",
+				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.",
 				       {state.game_id}));
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));

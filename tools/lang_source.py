@@ -796,11 +796,11 @@ T = {
         "2つ目",
         "Segunda",
         "Seconda"),
-    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either.": (
-        "Algunos juegos tienen una segunda portada en GameTDB. Tu propio riftwii/covers/{1}.png en la tarjeta va antes que ambas.",
-        "GameTDBに2つ目のカバーがあるゲームもあります。カードにある自分のriftwii/covers/{1}.pngが、どちらよりも先に使われます。",
-        "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão vem antes de ambas.",
-        "Alcuni giochi hanno una seconda copertina su GameTDB. Il tuo riftwii/covers/{1}.png sulla scheda viene prima di entrambe."),
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.": (
+        "Algunos juegos tienen una segunda portada en GameTDB. Tu propio riftwii/covers/{1}.png en la tarjeta SD o la unidad USB va antes que ambas.",
+        "GameTDBに2つ目のカバーがあるゲームもあります。SDカードかUSBドライブにある自分のriftwii/covers/{1}.pngが、どちらよりも先に使われます。",
+        "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão SD ou na unidade USB vem antes de ambas.",
+        "Alcuni giochi hanno una seconda copertina su GameTDB. Il tuo riftwii/covers/{1}.png sulla scheda SD o sull'unità USB viene prima di entrambe."),
     "GameTDB has only one cover for this game.": (
         "GameTDB solo tiene una portada para este juego.",
         "GameTDBにあるこのゲームのカバーは1つだけです。",
@@ -2925,8 +2925,8 @@ KO = {
         "첫 번째",
     "Second":
         "두 번째",
-    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either.":
-        "GameTDB에 두 번째 표지가 있는 게임도 있습니다. 카드에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다.",
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.":
+        "GameTDB에 두 번째 표지가 있는 게임도 있습니다. SD 카드나 USB 드라이브에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다.",
     "GameTDB has only one cover for this game.":
         "GameTDB에는 이 게임의 표지가 하나뿐입니다.",
     "Downloads this game's box art from GameTDB now.":
@@ -4799,8 +4799,8 @@ FR = {
         "Première",
     "Second":
         "Deuxième",
-    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either.":
-        "Certains jeux ont une deuxième jaquette sur GameTDB. Votre propre riftwii/covers/{1}.png sur la carte passe avant les deux.",
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.":
+        "Certains jeux ont une deuxième jaquette sur GameTDB. Votre propre riftwii/covers/{1}.png sur la carte SD ou le disque USB passe avant les deux.",
     "GameTDB has only one cover for this game.":
         "GameTDB n'a qu'une jaquette pour ce jeu.",
     "Downloads this game's box art from GameTDB now.":
