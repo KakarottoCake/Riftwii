@@ -95,6 +95,11 @@ T = {
         "RiftWiiはまだドライブを読み込んでいます。",
         "O RiftWii ainda está lendo as unidades.",
         "RiftWii sta ancora leggendo le unità."),
+    "Go back to Home and open this again once your games are shown.": (
+        "Vuelve a Inicio y abre esto de nuevo cuando se muestren tus juegos.",
+        "ホームに戻り、ゲームが表示されてからもう一度開いてください。",
+        "Volte ao Início e abra isto de novo quando seus jogos aparecerem.",
+        "Torna alla Home e riapri questa pagina quando vengono mostrati i tuoi giochi."),
     "Waiting for RiftWii to finish reading the drives...": (
         "Esperando a que RiftWii termine de leer las unidades...",
         "RiftWiiがドライブを読み終わるのを待っています...",
@@ -2397,6 +2402,8 @@ KO = {
         "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다.",
     "RiftWii is still reading the drives.":
         "RiftWii가 아직 드라이브를 읽는 중입니다.",
+    "Go back to Home and open this again once your games are shown.":
+        "홈으로 돌아가 게임이 표시되면 다시 여세요.",
     "Waiting for RiftWii to finish reading the drives...":
         "RiftWii가 드라이브를 다 읽기를 기다리는 중...",
     "Reading the disc...":
@@ -4259,6 +4266,8 @@ FR = {
         "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
     "RiftWii is still reading the drives.":
         "RiftWii est encore en train de lire les stockages.",
+    "Go back to Home and open this again once your games are shown.":
+        "Revenez à l'Accueil et rouvrez cette page une fois vos jeux affichés.",
     "Waiting for RiftWii to finish reading the drives...":
         "En attente que RiftWii finisse de lire les stockages...",
     "Reading the disc...":
@@ -7052,6 +7061,40 @@ FR.update({
         "Il n'y a pas de disque USB, ou RiftWii n'a pas encore fini de le lire.",
     "There are no .ogg or .mp3 songs in this folder or the folders in it.":
         "Il n'y a aucun morceau .ogg ou .mp3 dans ce dossier ni dans ses sous-dossiers.",
+})
+
+
+# Data-only emulators. Their authors supply the individual setting labels.
+T.update({
+    "Emulators": ("Emuladores", "エミュレータ", "Emuladores", "Emulatori"),
+    "Emulator defaults": ("Valores del emulador", "エミュレータの標準設定", "Padrões do emulador", "Valori dell'emulatore"),
+    "Started with {1} ({2}).": ("Se inicia con {1} ({2}).", "{1} ({2})で起動します。", "Inicia com {1} ({2}).", "Si avvia con {1} ({2})."),
+    "Could not save emulator settings.": (
+        "No se pudieron guardar los ajustes del emulador.",
+        "エミュレータの設定を保存できません。", "Não foi possível salvar as configurações do emulador.",
+        "Impossibile salvare le impostazioni dell'emulatore."),
+    "No emulators found.": ("No se encontraron emuladores.", "エミュレータが見つかりません。", "Nenhum emulador encontrado.", "Nessun emulatore trovato."),
+    "The emulator arguments are invalid or too long. See session.log.": (
+        "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log.",
+        "起動するための設定が正しくないか、長すぎます。session.logを確認してください。",
+        "Os argumentos do emulador são inválidos ou longos demais. Veja session.log.",
+        "Gli argomenti dell'emulatore non sono validi o sono troppo lunghi. Vedi session.log."),
+})
+KO.update({
+    "Emulators": "에뮬레이터",
+    "Emulator defaults": "에뮬레이터 기본값",
+    "Started with {1} ({2}).": "{1} ({2})(으)로 시작합니다.",
+    "Could not save emulator settings.": "에뮬레이터 설정을 저장하지 못했습니다.",
+    "No emulators found.": "에뮬레이터를 찾지 못했습니다.",
+    "The emulator arguments are invalid or too long. See session.log.": "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요.",
+})
+FR.update({
+    "Emulators": "Émulateurs",
+    "Emulator defaults": "Réglages de l'émulateur",
+    "Started with {1} ({2}).": "Démarre avec {1} ({2}).",
+    "Could not save emulator settings.": "Impossible d'enregistrer les réglages de l'émulateur.",
+    "No emulators found.": "Aucun émulateur trouvé.",
+    "The emulator arguments are invalid or too long. See session.log.": "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log.",
 })
 
 

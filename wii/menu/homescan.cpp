@@ -63,6 +63,9 @@ void ReadSdCard(DriveScanPart& part) {
 void ReadUsbDrive(DriveScanPart& part) {
     SetStatus("Reading the USB drive... (a big drive takes a moment)");
     part.ok = scan_usb_games(part.catalog, part.error);
+    // Both drives are now available, including ROM folders on the other
+    // drive from the emulator. Publish this only with the final scan part.
+    ScanEmulators(part.emulators);
     mem::CheckHeap("after the USB scan");
     // After the USB scan: packs on the drive count too.
     part.packs = ReadPackIndex(part.package_catalog);

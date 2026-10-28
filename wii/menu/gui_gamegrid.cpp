@@ -546,7 +546,14 @@ void GuiGameGrid::Layout() {
             Wrap(item.title, disc ? Geo().tileW - 46 - kTextLeft - 4 : textWidth - pictureRoom, lineCount);
         for (int l = 0; l < 3; ++l) s.lines[l]->SetText(l < static_cast<int>(lines.size()) ? lines[l].c_str() : "");
         s.id->SetText(item.id.c_str());
-        s.badge->SetText(item.badge.c_str());
+        std::string badge = item.badge;
+        s.badge->SetText(badge.c_str());
+        // An emulator author names the system; a long name must stay
+        // inside its tile just as the short built-in source badges do.
+        while (!badge.empty() && s.badge->GetTextWidth() > textWidth - 10) {
+            badge.resize(CharBoundary(badge, badge.size() - 1));
+            s.badge->SetText(badge.c_str());
+        }
         s.badge->SetColor(item.badge == "GC" ? skin::kWhite : skin::kInkSoft);
         // The tag beside the badge: BUILD before MODS, as the game must be
         // made before a mod can run on it.
