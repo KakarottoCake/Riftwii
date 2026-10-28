@@ -70,6 +70,29 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
 // first, then the mod packs.
 const std::vector<std::string>& default_wanted_folders();
 
+// USB partition names use table order, including entries we cannot mount.
+// usb:/ remains the preferred volume chosen by mount_image_volume, so old
+// settings keep their meaning. Other volumes use usb1:/, usb2:/, ... .
+constexpr unsigned kMaxDrivePartitions = 128;
+struct MountedImageVolume {
+    unsigned partition = 0;  // 1-based table order; 0 for an unpartitioned drive
+    std::uint64_t lba = 0;
+    bool preferred = false;
+    std::unique_ptr<ImageVolume> volume;
+};
+bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& out, std::string& error,
+                         const std::vector<std::string>& wanted,
+                         std::vector<std::string>* notes = nullptr,
+                         const std::uint64_t* preferred_lba = nullptr);
+std::string usb_volume_prefix(const MountedImageVolume& volume);  // includes :/
+// 0 names the legacy preferred volume; numbered paths name table entries.
+// Rejects malformed names, leading zeros and numbers above the drive limit.
+bool usb_path_partition(const std::string& path, unsigned& partition);
+bool is_usb_path(const std::string& path);
+std::string usb_path_device(const std::string& path);  // usb: or usb2:, empty if invalid
+std::string image_volume_path(const std::string& path);  // /games/... without the device
+const ImageVolume* find_image_volume(const std::vector<MountedImageVolume>& volumes, const std::string& path);
+
 // What a drive's first 512-byte block says about it, before anything is
 // mounted. A Wii U formats its own storage drive with no partition table
 // and encrypts every block with the console's key, so its block 0 reads

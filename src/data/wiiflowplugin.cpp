@@ -202,14 +202,20 @@ WiiflowPluginResult parse_wiiflow_plugin(const std::string& text, const std::str
         file.arguments.push_back(converted);
     }
 
-    // The DOL: a full path, else beside the plugin files, else from each
-    // drive's root (WiiFlow's own order).
+    // The DOL: a full path, else beside the plugin files. A numbered USB
+    // partition's root is checked before the legacy SD and USB fallbacks.
     if (dol.find(':') != std::string::npos) {
         plugin.dol_candidates.push_back(dol);
     } else {
         std::string relative;
         if (!clean_relative(dol, relative)) return refuse("its dolFile is not a path RiftWii can follow");
-        plugin.dol_candidates = {plugins_dir + "/" + relative, "sd:/" + relative, "usb:/" + relative};
+        plugin.dol_candidates.push_back(plugins_dir + "/" + relative);
+        const std::string device_root = plugins_dir.substr(0, plugins_dir.find('/') + 1);
+        if (device_root != "sd:/" && device_root != "usb:/") {
+            plugin.dol_candidates.push_back(device_root + relative);
+        }
+        plugin.dol_candidates.push_back("sd:/" + relative);
+        plugin.dol_candidates.push_back("usb:/" + relative);
     }
     auto& candidates = plugin.dol_candidates;
     candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [](const std::string& candidate) {

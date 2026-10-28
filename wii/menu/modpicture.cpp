@@ -14,6 +14,7 @@
 #include "log.hpp"
 #include "riftwii/canvas.hpp"
 #include "riftwii/modart.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
 #include "vsdimage.hpp"
@@ -45,7 +46,7 @@ std::vector<std::string> candidates(const LaunchPackage& p) {
 
 // The whole file, from the SD card or the menu's view of the USB drive.
 bool read_picture(const std::string& path, std::vector<std::uint8_t>& out) {
-    if (path.compare(0, 5, "usb:/") == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t size = 0;
         std::uint8_t probe;
         if (!usb_volume_ready() || !read_usb_range(path, 0, &probe, 0, size) || size == 0 ||
@@ -65,7 +66,7 @@ bool read_picture(const std::string& path, std::vector<std::uint8_t>& out) {
 }
 
 bool exists(const std::string& path) {
-    if (path.compare(0, 5, "usb:/") == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t size = 0;
         std::uint8_t probe;
         return usb_volume_ready() && read_usb_range(path, 0, &probe, 0, size);

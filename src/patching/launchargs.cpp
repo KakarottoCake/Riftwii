@@ -10,6 +10,7 @@
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/videopatch.hpp"
 #include "riftwii/wfcpatch.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -195,7 +196,7 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             ok = value == "usb" || value == "sd" || value == "disc";
             out.from = value;
         } else if (key == "path") {
-            const bool usb = value.compare(0, 5, "usb:/") == 0;
+            const bool usb = riftwii::is_usb_path(value);
             ok = usb || value.compare(0, 4, "sd:/") == 0;
             out.path = value;
             if (ok && out.from.empty()) out.from = usb ? "usb" : "sd";
@@ -206,7 +207,7 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             } else if (value != "none") {
                 // A path, or a file name in a riivolution folder.
                 ok = out.xmls.size() < kMaxLaunchPacks &&
-                     (value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0 ||
+                     (value.compare(0, 4, "sd:/") == 0 || riftwii::is_usb_path(value) ||
                       (!value.empty() && value.find_first_of(":/\\") == std::string::npos));
                 out.xmls.push_back(value);
             }
@@ -367,10 +368,13 @@ bool friiv_launch_args(const std::uint8_t* data, std::size_t size, std::vector<s
         // kept, not given a second one ("sd:/usb:/...").
         std::string device = (flags & kGameUsb) ? "usb:" : "sd:";
         std::string lower;
-        for (char c : path.substr(0, 4)) lower += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-        if (lower.compare(0, 4, "usb:") == 0) {
-            device = "usb:";
-            path.erase(0, 4);
+        const std::size_t colon = path.find(':');
+        for (char c : path.substr(0, colon == std::string::npos ? 0 : colon + 1)) {
+            lower += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+        }
+        if (is_usb_path(lower + "/")) {
+            device = usb_path_device(lower + "/");
+            path.erase(0, device.size());
         } else if (lower.compare(0, 3, "sd:") == 0) {
             device = "sd:";
             path.erase(0, 3);

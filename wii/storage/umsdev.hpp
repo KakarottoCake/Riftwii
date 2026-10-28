@@ -46,7 +46,9 @@ std::uint32_t SectorBytes();
 // bounce buffer: d2x's USB driver reads into MEM2 only).
 bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out);
 // The drive's FAT32 or NTFS volume, read through Read (Open first).
-bool Volume(const ImageVolume*& out, std::string& error);
+bool Volume(const ImageVolume*& out, std::string& error, const std::string& path = "usb:/");
+// Every readable partition, with the legacy usb:/ first (Open first).
+std::vector<std::string> VolumeRoots(std::string& error);
 // A whole file of the volume, by "usb:/..." path.
 bool ReadText(const std::string& usb_path, std::string& out, std::string& error);
 

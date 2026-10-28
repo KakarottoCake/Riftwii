@@ -41,6 +41,7 @@ bool parse_wbfs_header(const std::uint8_t* block, WbfsLayout& out, std::string& 
 struct WbfsPartition {
     std::uint64_t lba = 0;  // device block of the WBFS header
     WbfsLayout layout;
+    unsigned partition = 0;  // 1-based drive table order, 0 without a table
 };
 
 // Finds a WBFS partition by its content, never by the partition type (WBFS
@@ -48,6 +49,9 @@ struct WbfsPartition {
 // table, or at the start of a partition the MBR or GPT lists. A WBFS that
 // is damaged or larger than its partition is refused with the reason.
 bool find_wbfs_partition(const BlockReader& reader, WbfsPartition& out, std::string& error);
+// All readable WBFS partitions, in the same bounded table order as
+// mount_image_volumes. A damaged one does not hide later readable ones.
+bool find_wbfs_partitions(const BlockReader& reader, std::vector<WbfsPartition>& out, std::string& error);
 
 struct WbfsDisc {
     std::uint32_t slot = 0;

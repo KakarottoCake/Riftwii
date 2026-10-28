@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "riftwii/textlines.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -99,7 +100,7 @@ std::string profile_slug(const std::string& name) {
 
 bool valid_profile_art(const std::string& path) {
     if (path.empty() || path.size() > kMaxProfileArtPath) return false;
-    if (path.compare(0, 4, "sd:/") != 0 && path.compare(0, 5, "usb:/") != 0) return false;
+    if (path.compare(0, 4, "sd:/") != 0 && !riftwii::is_usb_path(path)) return false;
     if (path.find("..") != std::string::npos || !ends_with_png(path)) return false;
     for (char c : path)
         if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F) return false;

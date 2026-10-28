@@ -7,6 +7,7 @@
 
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/textlines.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 
@@ -134,7 +135,7 @@ bool music_choice_is_folder(const std::string& choice) { return ends_with(choice
 
 bool music_choice_valid(const std::string& choice) {
     if (choice.empty()) return true;
-    if (choice.compare(0, 4, "sd:/") != 0 && choice.compare(0, 5, "usb:/") != 0) return false;
+    if (choice.compare(0, 4, "sd:/") != 0 && !riftwii::is_usb_path(choice)) return false;
     if (climbs(choice)) return false;
     return music_choice_is_folder(choice) || music_format(choice) != MusicFormat::None || music_is_playlist(choice);
 }
