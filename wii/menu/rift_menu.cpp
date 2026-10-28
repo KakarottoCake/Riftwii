@@ -622,6 +622,14 @@ static void* MenuWatchdog(void*)
 		usleep(200000);
 		LogGuiWatch();
 		LogGxOverflows();
+		// Frames counted on every pass, the menu answering or not, so a GUI
+		// stuck since just after the menu's last tick is known as soon as
+		// the menu counts as stuck.
+		static u32 frameSeen = 0;
+		static int framelessPasses = 0;
+		const u32 frameNow = FrameTimer;
+		framelessPasses = frameNow == frameSeen ? framelessPasses + 1 : 0;
+		frameSeen = frameNow;
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -631,13 +639,35 @@ static void* MenuWatchdog(void*)
 		// An update being put in place is busy, not stuck: nothing cuts it
 		// short (the power button waits for it, as the GUI's exit does).
 		if (riftwii::wii::CardWritesBusy()) continue;
+		// HOME on a Wii Remote, a Classic Controller (or Wii U Pro
+		// Controller) or the GamePad, or Start on a GameCube controller,
+		// as everywhere else in the menu: no Wii Remote is needed to get out.
+		constexpr u32 kRemoteHome = WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME;
 		bool home = false;
-		if (GuiParked()) {
-			// Nobody else reads the Remotes now.
+		// The GUI thread stuck with the GPU (suspended by GX in a full
+		// FIFO, or asleep in GX_DrawDone for a frame that never ends) reads
+		// no controllers any more either: read them here, as when it is
+		// halted. Stuck means no frame for a second (5 passes, counted on
+		// every pass above), so a GUI that is only slow is never read
+		// alongside.
+		const bool guiStalled = guithread != LWP_THREAD_NULL && framelessPasses >= 5;
+		if (GuiParked() || guiStalled) {
+			// Nobody else reads the controllers now. The Wii U's GameCube
+			// adapter is read by the GUI thread only: here, the Wii's own
+			// GameCube ports.
 			WPAD_ScanPads();
-			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
+			PAD_ScanPads();
+			for (int c = 0; c < 4; ++c)
+				home = home || (WPAD_ButtonsDown(c) & kRemoteHome) || (PAD_ButtonsDown(c) & PAD_BUTTON_START);
+			if (WiiDRC_Inited() && WiiDRC_Connected()) {
+				WiiDRC_ScanPads();
+				home = home || (WiiDRC_ButtonsDown() & WIIDRC_BUTTON_HOME);
+			}
 		} else {
-			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
+			for (int c = 0; c < 4; ++c)
+				home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & kRemoteHome)) ||
+				       (userInput[c].pad.btns_h & PAD_BUTTON_START);
+			home = home || (userInput[0].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME);
 		}
 		// No log line here: the menu is stuck, usually on the SD card, and a
 		// write to the log could wait on that card and keep the Wii on.
