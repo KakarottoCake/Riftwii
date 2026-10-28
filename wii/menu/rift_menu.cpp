@@ -1568,8 +1568,12 @@ static bool g_coversOff = false;
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
 static riftwii::CoverDownloads g_coverRun("Covers", "cover");
-// The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
+// The shelf's boxes (wii/menu/boxart.cpp): GameTDB's full covers, queued
+// for every game as the covers are and fetched once the covers are in.
 static std::set<std::string> g_boxesChecked;
+// The ones still to fetch: kept while Home is left for a game's page and
+// back, as each game is only queued once.
+static std::vector<std::string> g_boxQueue;
 static bool g_boxesOff = false;
 static riftwii::CoverDownloads g_boxRun("Shelf", "full cover");
 // The same for the 3D covers view's pictures (wii/menu/cover3d.hpp).
@@ -1588,6 +1592,7 @@ static void ResetCoverDownloads()
 
 	g_boxesOff = false;
 	g_boxesChecked.clear();
+	g_boxQueue.clear();
 	g_boxRun.reset();
 
 	g_covers3dOff = false;
@@ -4797,6 +4802,43 @@ static int MenuSource(FrontendState& state)
 		emptyNote.SetVisible(g_scanned && !g_scanning && items.empty() && state.sd_catalog.games.empty() &&
 			state.usb_catalog.games.empty() && state.channels.empty());
 	};
+	// Covers still to fetch, one per turn of the loop while the GUI
+	// thread keeps drawing: the page on screen first. The full covers (the
+	// shelf's boxes, and the back of a game's box up close) follow the same
+	// way for every game once the covers are in. They used to be asked for
+	// only for the boxes either side of the shelf's focus, so a game's full
+	// cover came only once the shelf had been scrolled to it.
+	std::vector<std::string> coverQueue;
+	// Left for a game's page (or anywhere) before they were fetched, the
+	// queued covers are no longer looked at: back on Home they are queued
+	// again, before the full covers waiting in g_boxQueue.
+	struct ForgetUnfetchedCovers {
+		std::vector<std::string>& queue;
+		~ForgetUnfetchedCovers() {
+			for (const std::string& id : queue) g_coversChecked.erase(id);
+		}
+	} forgetUnfetchedCovers{coverQueue};
+	// Appends the games listed now and not looked at yet: called again as
+	// the list changes (another view, a search, a part of the scan), as a
+	// game the Mods view leaves out is first listed under All games.
+	const auto queueCovers = [&]() {
+		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		for (const GridItem& item : items) {
+			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
+			    riftwii::wii::CoverWanted(item.id))
+				coverQueue.push_back(item.id);
+		}
+		if (g_boxesOff) return;
+		for (const GridItem& item : items) {
+			if (g_boxesChecked.insert(item.id).second && item.id != riftwii::wii::BoxFetchGame() &&
+			    riftwii::wii::BoxWanted(item.id))
+				g_boxQueue.push_back(item.id);
+		}
+	};
+	// The tiles shown now that were not looked at yet join the queue (a
+	// view with other tiles, the Homebrew view's apps): queueCovers already
+	// adds only those.
+	const auto addCovers = [&]() { queueCovers(); };
 	const auto refresh = [&](bool keepFocus, bool crossfade = true) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
@@ -4804,6 +4846,7 @@ static int MenuSource(FrontendState& state)
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
+		queueCovers();
 		bannerPageDone = -1;
 		grid.SetItems(&items);
 		SetHomeMovable(grid, entries);
@@ -4924,23 +4967,6 @@ static int MenuSource(FrontendState& state)
 	}
 	ResumeGui();
 
-	// Covers still to fetch, one per turn of the loop while the GUI
-	// thread keeps drawing: the page on screen first.
-	std::vector<std::string> coverQueue;
-	// The tiles shown now that were not looked at yet join the queue (a
-	// view with other tiles, the Homebrew view's apps).
-	const auto addCovers = [&]() {
-		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
-		for (const GridItem& item : items) {
-			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
-			    riftwii::wii::CoverWanted(item.id))
-				coverQueue.push_back(item.id);
-		}
-	};
-	const auto queueCovers = [&]() {
-		coverQueue.clear();
-		addCovers();
-	};
 	// The Homebrew view's covers: GameTDB's homebrew apps read out of the
 	// game database once (and again when it is newer), then each app found
 	// in them by its name (wii/storage/homebrew.hpp), again once a game's
@@ -4969,6 +4995,7 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::ForgetCover3dMiss(item.id);
 		}
 		ResetCoverDownloads();
+		coverQueue.clear();  // queued by the first refresh, before the misses were forgotten
 		g_retryMissingCovers = false;
 		logf("Covers: downloading the missing covers, boxes and 3D covers again for %u game(s), "
 		     "including those GameTDB had none for (Settings > Online > Download missing covers)\n",
@@ -5012,7 +5039,10 @@ static int MenuSource(FrontendState& state)
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeBoxFetch(boxArrived, boxGot, boxError)) {
-			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError)) g_boxesOff = true;
+			if (CountPictureFetch(g_boxRun, boxGot, boxArrived, boxError)) {
+				g_boxesOff = true;
+				g_boxQueue.clear();
+			}
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
 		std::string cover3dArrived, cover3dError;
@@ -5165,22 +5195,42 @@ static int MenuSource(FrontendState& state)
 				break;
 			}
 		}
-		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		// The full covers once the covers are in, in every view with
+		// pictures (not Names: a queue kept from another view waits): on the
+		// shelf the boxes near the focus first, elsewhere the page on screen
+		// first, then the rest in Home's order.
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && coverQueue.empty() && !g_boxQueue.empty() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().home_tiles != "names" && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
-			for (const int i : grid.ShelfWanted()) {
-				const std::string& id = items[static_cast<std::size_t>(i)].id;
-				if (!g_boxesChecked.insert(id).second || !riftwii::wii::BoxWanted(id)) continue;
-				riftwii::wii::StartBoxFetch(id);
-				break;
+			std::vector<std::size_t> nearFirst;
+			if (grid.Shelf() && !grid.Ring()) {
+				for (const int i : grid.ShelfWanted()) nearFirst.push_back(static_cast<std::size_t>(i));
+			} else {
+				const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
+				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) nearFirst.push_back(k);
 			}
+			std::size_t pick = 0;
+			bool nearby = false;
+			for (std::size_t k = 0; k < nearFirst.size() && !nearby; ++k) {
+				const auto queued = std::find(g_boxQueue.begin(), g_boxQueue.end(), items[nearFirst[k]].id);
+				if (queued == g_boxQueue.end()) continue;
+				pick = static_cast<std::size_t>(queued - g_boxQueue.begin());
+				nearby = true;
+			}
+			const std::string id = g_boxQueue[pick];
+			// Asked for again since it was queued (the game's own page fetches
+			// its own). Kept for the next turn when the download can't start
+			// now, as a 2D cover is.
+			if (!riftwii::wii::BoxWanted(id) || riftwii::wii::StartBoxFetch(id))
+				g_boxQueue.erase(g_boxQueue.begin() + static_cast<std::ptrdiff_t>(pick));
 		}
 		// None of either started this turn: what the downloads came to so
 		// far, once for each new batch.
 		if (!riftwii::wii::NetBackgroundBusy() && riftwii::wii::BoxFetchGame().empty() &&
 		    riftwii::wii::Cover3dFetchGame().empty()) {
 			for (riftwii::CoverDownloads* run : {&g_boxRun, &g_cover3dRun}) {
+				// The full covers' queue: once it is through.
+				if (run == &g_boxRun && !g_boxQueue.empty() && !g_boxesOff) continue;
 				const std::string summary = run->take_summary();
 				if (!summary.empty()) logf("%s\n", summary.c_str());
 			}
@@ -5247,6 +5297,7 @@ static int MenuSource(FrontendState& state)
 				// Covers, boxes and 3D covers that failed (or were never
 				// tried) are asked for again, for every game now listed.
 				ResetCoverDownloads();
+				coverQueue.clear();
 				queueCovers();
 				// The scan is done with the SD card: the Homebrew view's
 				// covers may read the game database now.
@@ -9414,7 +9465,9 @@ public:
 			if (showBack) skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, front, 1.0f, fx, y, fw, h);
 			else skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, spine, front, fx, y, fw, h);
 		} else {
-			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, fx, y, fw, h);
+			// Square, as the box's front is: the cover's rounded corners
+			// are the covers view's.
+			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, fx, y, fw, h, 255, true);
 		}
 	}
 	void Update(GuiTrigger* t) override {
