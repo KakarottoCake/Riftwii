@@ -979,7 +979,8 @@ void GuiGameGrid::ReadAllCovers() {
     riftwii::wii::CoverReserve(Count() + 1);  // and the game page's
     std::vector<std::string> ids;
     ids.reserve(Count());
-    for (int k = 0; k < Count(); ++k) ids.push_back((*items)[(page * kPerPage + k) % Count()].id);
+    // By the cover each tile draws (a mod tile's key), as CoverPrefetch.
+    for (int k = 0; k < Count(); ++k) ids.push_back(CoverName((*items)[(page * kPerPage + k) % Count()]));
     riftwii::wii::CoverReadAll(ids);
 }
 

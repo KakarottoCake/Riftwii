@@ -175,6 +175,7 @@ bool ReadStoredCover(const std::string& id, u8* pixels) {
 // Mod tiles' GameTDB entries (#385), by tile key: set on the GUI thread,
 // read by the download's; under g_lock.
 std::map<std::string, std::string> g_modCoverIds;
+unsigned g_modCoverIdsCleared = 0;  // ForgetAllCovers calls: matched again
 
 std::string ModCoverId(const std::string& tile_key) {
     if (g_lock == LWP_MUTEX_NULL) return {};
@@ -399,12 +400,12 @@ bool CoverWanted(const std::string& game_id) {
     // a cover or miss stored for another match (the tile renamed) is none.
     const bool tile = tile_game_id(game_id) != game_id;
     if (tile && ModCoverId(game_id).empty()) return false;
-    if (tile && !TileStoredForMatch(game_id)) return !OwnCoverThere(game_id);
-    // The player's own cover is there: nothing to download.
+    // The player's own cover is there (and reads): nothing to download.
     if (OwnCoverThere(game_id)) {
         std::vector<std::uint8_t> own;
         if (ReadOwnCover(game_id, own)) return false;
     }
+    if (tile && !TileStoredForMatch(game_id)) return true;
     struct stat st;
     if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
     if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
@@ -604,6 +605,12 @@ void CoverPrefetch(const std::string& game_id, int rank) {
     }
 }
 
+unsigned ModCoverIdsCleared() {
+    if (g_lock == LWP_MUTEX_NULL) return 0;
+    Lock lock;
+    return g_modCoverIdsCleared;
+}
+
 bool SetModCoverIds(std::map<std::string, std::string> ids) {
     if (g_lock == LWP_MUTEX_NULL) return false;
     Lock lock;
@@ -655,6 +662,9 @@ void ForgetGameCoversBeforeUsb() {
 void ForgetAllCovers() {
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    // Another SD card, maybe: its tiles are matched again from its list.
+    g_modCoverIds.clear();
+    ++g_modCoverIdsCleared;
     g_absent.clear();
     ++g_forgets;
     for (int i = 0; i < g_slots; ++i) SetId(g_pool[i], "");

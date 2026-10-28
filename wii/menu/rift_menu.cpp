@@ -1655,12 +1655,13 @@ static bool g_retryMissingCovers = false;
 // when the tiles or GameTDB's list of mods change: their own covers.
 static void UpdateModCoverIds()
 {
-	static unsigned seenWritten = ~0u;
+	static unsigned seenWritten = ~0u, seenCleared = ~0u;
 	static std::string seenTiles;
 	std::string tiles;
 	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) tiles += p.key() + "\t" + p.name + "\n";
 	const unsigned written = riftwii::wii::ModTitlesWritten();
-	if (written == seenWritten && tiles == seenTiles) return;
+	const unsigned cleared = riftwii::wii::ModCoverIdsCleared();
+	if (written == seenWritten && cleared == seenCleared && tiles == seenTiles) return;
 	std::vector<riftwii::CustomGame> customs;
 	std::map<std::string, std::string> ids;
 	if (riftwii::wii::LoadModTitles(customs)) {
@@ -1673,6 +1674,7 @@ static void UpdateModCoverIds()
 	// Not kept yet (the covers' memory isn't set up): tried again next time.
 	if (!riftwii::wii::SetModCoverIds(std::move(ids))) return;
 	seenWritten = written;
+	seenCleared = cleared;
 	seenTiles = tiles;
 	logf("Mod covers: %u of %u mod tile(s) are listed on GameTDB as games of their own\n", matched,
 	     static_cast<unsigned>(riftwii::wii::Profiles().all().size()));
