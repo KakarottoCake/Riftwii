@@ -51,6 +51,11 @@ void SpendHeldPresses();
 // there. The Wii Remote's 1 and 2 keep their own rule (WatchViewChord).
 void SpendPadHomePresses();
 
+// A popup closes: a view pair pressed in it, or half of one, is
+// forgotten (none of it counts towards a pair on Home), and every press
+// still kept back comes to nothing when let go.
+void ForgetPopupPresses();
+
 // Home's random game by pad, as B held on the search button with a Wii
 // Remote: the search button's own button held about a second (B on a
 // GameCube controller, ZL on a Classic Controller or Wii U Pro

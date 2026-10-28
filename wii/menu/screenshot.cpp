@@ -446,6 +446,16 @@ void SpendPadHomePresses() {
     spend(g_drc_pair.second);
 }
 
+void ForgetPopupPresses() {
+    g_view_chord = false;
+    for (int i = 0; i < 4; ++i) {
+        g_one_watched[i] = g_two_watched[i] = false;
+        for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
+    }
+    g_drc_pair.first_watched = g_drc_pair.second_watched = false;
+    SpendHeldPresses();
+}
+
 void WatchSearchHold(bool on) {
     g_search_hold_beat = FrameTimer;
     g_search_hold_on = on;

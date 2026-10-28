@@ -2754,9 +2754,6 @@ public:
 	~PopupBox()
 	{
 		Close();
-		// A view pair pressed in the box was the box's: Home doesn't take it
-		// as a view change once the box is gone.
-		riftwii::wii::ForgetViewChord();
 	}
 	// Takes the box off the screen; the destructor does it otherwise.
 	// Always with the GUI thread halted, so it is never in the middle of
@@ -2775,6 +2772,10 @@ public:
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
 		g_popupClosedAt = gettime();
+		// A view pair, or half of one, pressed in the box was the box's:
+		// with the GUI halted, before Home reads the pads again, it is
+		// forgotten and a half still held comes to nothing when let go.
+		riftwii::wii::ForgetPopupPresses();
 		// ResumeGui also calls CoverLoaderRelease, a side effect for a close.
 		// Harmless here: nothing holds the cover loader while a popup is up
 		// with the GUI running, so the release finds nothing to let go.
