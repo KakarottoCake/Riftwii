@@ -262,7 +262,9 @@ under them. Covers come from GameTDB while Home is open (about a second
 each, the page on screen first) and are kept in `sd:/riftwii/covers`;
 a game GameTDB has no cover for shows its name. **Home tiles** in
 Settings switches to 3D covers, the carousel, the shelf, channels or
-name tiles.
+name tiles. On Home, press **1 and 2** together on a Wii Remote to step
+to the next of these without opening Settings; 1 and 2 then do nothing
+else. Pressed alone, each does its usual job when you let go of it.
 
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
