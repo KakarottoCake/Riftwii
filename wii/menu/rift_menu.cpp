@@ -6044,7 +6044,9 @@ static int MenuSource(FrontendState& state)
 			g_gamePageTiming.Step("leaving the banner");
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
 			// A pad press still kept back was Home's: should the game not open,
-			// letting it go isn't a search.
+			// letting it go isn't a search. No view pair counts while it opens
+			// either; Home watches afresh if it doesn't.
+			riftwii::wii::WatchViewChord(false);
 			riftwii::wii::SpendPadHomePresses();
 			ResumeGui();
 			bool ok = false;
@@ -6091,6 +6093,7 @@ static int MenuSource(FrontendState& state)
 				DropLingerBanner();  // Start on a banner: Home comes back from under it
 				g_startOnOpen = false;
 				g_reopenBanner.clear();
+				riftwii::wii::WatchViewChord(true);
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
