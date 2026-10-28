@@ -60,6 +60,11 @@ void Settle(unsigned maxMs = 1500);
 void SetSlowMotion(float factor);  // the GUI script's "slowmo": every transition that much longer
 float SlowMotion();
 
+// Shared time for widgets drawn in this GUI frame, capped after a stall.
+float FrameMilliseconds();
+float Follow(float current, float target, float responseMs, float snap = 0.001f);
+float Coast(float& velocity, float responseMs);
+
 // Easing curves, t from 0 to 1.
 float Ease(float t);       // in and out
 float EaseOut(float t);    // fast, then settling

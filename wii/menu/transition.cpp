@@ -11,6 +11,7 @@
 #include <cmath>
 
 #include "log.hpp"
+#include "riftwii/menumotion.hpp"
 #include "drawtrace.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -39,6 +40,9 @@ u64 g_holdSince = 0;
 Kind g_holdKind = Kind::Fade;
 Rect g_holdFrom;
 
+float g_frameMs = 0;
+u64 g_lastFrame = 0;
+
 float g_slow = 1;  // the GUI script's slow motion, for frame-by-frame shots
 
 // For the next transition, and the running one's.
@@ -55,6 +59,16 @@ struct Running {
     float ms = 1;
     float t = 1;  // 0 to 1
 } g_run;
+
+void RetireActor() {
+    // A replacement flight with the same completion callback owns the
+    // cleanup now. Clearing it here would unhide its box before it lands.
+    void (*done)() = g_run.done;
+    g_run.actor = nullptr;
+    g_run.done = nullptr;
+    g_run.on = false;
+    if (done && done != g_pendingDone) done();
+}
 
 float Duration(Kind k) {
     switch (k) {
@@ -243,23 +257,19 @@ void Keep(int index) {
 
 }  // namespace
 
-float Ease(float t) {
-    t = Clamp01(t);
-    if (t < 0.5f) return 4 * t * t * t;
-    const float u = -2 * t + 2;
-    return 1 - u * u * u / 2;
+float FrameMilliseconds() { return g_frameMs; }
+
+float Follow(float current, float target, float responseMs, float snap) {
+    return menumotion::follow(current, target, g_frameMs, responseMs, snap);
 }
-float EaseOut(float t) {
-    t = Clamp01(t);
-    const float u = 1 - t;
-    return 1 - u * u * u;
+
+float Coast(float& velocity, float responseMs) {
+    return menumotion::coast(velocity, g_frameMs, responseMs);
 }
-float EaseBack(float t) {
-    t = Clamp01(t);
-    constexpr float c1 = 1.70158f, c3 = c1 + 1;
-    const float u = t - 1;
-    return 1 + c3 * u * u * u + c1 * u * u;
-}
+
+float Ease(float t) { return menumotion::ease(t); }
+float EaseOut(float t) { return menumotion::ease_out(t); }
+float EaseBack(float t) { return menumotion::ease_back(t); }
 
 void Init() {
     g_w = Menu_XfbWidth();
@@ -298,6 +308,9 @@ void Hold(Kind next, Rect from) {
 
 void FrameStart() {
     const u64 now = gettime();
+    const float elapsedMs = g_lastFrame ? ticks_to_microsecs(now - g_lastFrame) / 1000.0f : 0.0f;
+    g_lastFrame = now;
+    g_frameMs = menumotion::frame_ms(elapsedMs, g_slow);
     GX_SetScissor(0, 0, static_cast<u32>(g_w), static_cast<u32>(g_h));
     if (g_hold && !g_holding && !g_pending) {
         // The frame last kept stays up.
@@ -305,7 +318,7 @@ void FrameStart() {
             g_snap = 1 - g_snap;
             g_holding = true;
             g_holdSince = now;
-            g_run.on = false;
+            RetireActor();
         } else {
             g_hold = false;
         }
@@ -320,6 +333,7 @@ void FrameStart() {
                             (g_pendingFrom.w <= 0 || g_pendingFrom.h <= 0);
         const bool fromHeld = g_holding;
         g_hold = g_holding = false;
+        RetireActor();
         if (g_have || k == Kind::FromBlack) {
             if (!fromHeld) g_snap = 1 - g_snap;  // the frame last kept (else the held one)
             g_run.on = true;
