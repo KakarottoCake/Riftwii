@@ -598,8 +598,10 @@ void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool s
     const bool disc = id == kDiscBackdrop;
     const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
     const bool own = front && riftwii::wii::CoverIsOwn(cover_name);
-    // Made again once the player's own cover is in memory.
-    const std::string key = own ? cover_name + "#own" : id;
+    // Made again once the player's own cover is in memory, and when the
+    // cover is read again (another GameTDB set, for a game without a box).
+    const unsigned fill = front ? riftwii::wii::CoverFill(cover_name) : 0;
+    const std::string key = (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
     if (g_backId[g_backCur] != key && still && !id.empty()) {
         const u8* art = disc || own ? nullptr : riftwii::wii::BoxTexture(id);
         const u8* cover = art || disc ? nullptr : front;
