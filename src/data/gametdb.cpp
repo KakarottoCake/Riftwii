@@ -119,15 +119,25 @@ WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
     : wanted_(std::move(wanted)), lang_(std::move(lang)) {}
 
 void WiitdbScanner::feed(const char* data, std::size_t size) {
+    if (complete_) return;
     buffer_.append(data, size);
     constexpr const char* kOpen = "<game ";
     constexpr const char* kClose = "</game>";
+    constexpr const char* kDatabaseClose = "</datafile>";
+    constexpr std::size_t kTail = sizeof("</datafile>") - 2;
     for (;;) {
         if (!in_game_) {
             const std::size_t at = buffer_.find(kOpen);
+            const std::size_t database_end = buffer_.find(kDatabaseClose);
+            if (database_end != std::string::npos && (at == std::string::npos || database_end < at)) {
+                complete_ = true;
+                buffer_.clear();
+                return;
+            }
             if (at == std::string::npos) {
-                // Keep a tail that may be the start of the next "<game ".
-                if (buffer_.size() > 8) buffer_.erase(0, buffer_.size() - 8);
+                // Either tag may cross a piece boundary; the database's
+                // closing tag is longer than the next game's opening.
+                if (buffer_.size() > kTail) buffer_.erase(0, buffer_.size() - kTail);
                 return;
             }
             buffer_.erase(0, at);
@@ -139,7 +149,7 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
                 // Too long to be a game: dropped, then its end looked for.
                 ++skipped_;
                 ++blocks_;
-                buffer_.erase(0, buffer_.size() - 8);
+                buffer_.erase(0, buffer_.size() - kTail);
                 in_game_ = false;
                 // The rest of that block holds no "<game ", so the scan
                 // simply resumes at the next one.
