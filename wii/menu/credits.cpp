@@ -108,7 +108,8 @@ const char* const kCredits[] = {
     "nothing copied.",
     "",
     "pugixml by Arseny Kapoulkine (MIT), Zstandard by Meta (BSD-3-Clause), BearSSL by Thomas Pornin "
-    "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
+    "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause), libmad by Underbit "
+    "Technologies (GPL-2.0-or-later).",
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "

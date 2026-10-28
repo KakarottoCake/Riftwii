@@ -161,7 +161,7 @@ contains theirs names them in its file header, and
   game asks SIProbe before it reads a controller port, read as
   documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
-  by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**.
+  by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**, **libmad**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
