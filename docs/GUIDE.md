@@ -1502,7 +1502,7 @@ defaults; a game's own changed values take priority. Reset on a game
 returns it to those defaults.
 
 No covers are downloaded for these games. After adding files, use
-**Settings > Finding games > Look for games again**. If an emulator or
+**Settings > Drives > Look for games again**. If an emulator or
 game is missing, check its manifest, folders and file extensions; the
 reason for a refused file is in `sd:/riftwii/session.log`. Arguments that
 are too long are refused before Play leaves the menu.

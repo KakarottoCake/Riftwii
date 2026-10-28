@@ -139,6 +139,134 @@ std::string lower(std::string text) {
     return text;
 }
 
+struct EmulatorFileFields {
+    std::string format;
+    std::string dol;
+    std::string args;
+    std::set<std::string> keys;
+    std::map<std::string, std::set<std::string>> setting_keys;
+};
+
+// A null error means the key was accepted, including a future key that the
+// caller reports as a warning. Repeated keys are rejected even if unknown.
+const char* parse_top_level_key(EmulatorFile& file, EmulatorFileFields& fields,
+                                 const std::string& key, const std::string& value, bool& known) {
+    if (!fields.keys.insert(key).second) return "An emulator key is repeated.";
+    if (key == "format") {
+        fields.format = value;
+    } else if (key == "name" || key == "system") {
+        if (value.empty() || value.size() > 64 || !printable(value)) {
+            return "The emulator name or system is too long or empty.";
+        }
+        if (key == "name") {
+            file.name = value;
+        } else {
+            file.system = value;
+        }
+    } else if (key == "dol") {
+        fields.dol = value;
+    } else if (key == "args") {
+        fields.args = value;
+    } else if (key == "games") {
+        if (!split_list(value, file.folders, kEmulatorFoldersMax, kEmulatorPathMax)) {
+            return "The emulator game folders are invalid or exceed 8 entries.";
+        }
+    } else if (key == "extensions") {
+        if (!split_list(value, file.extensions, kEmulatorExtensionsMax, 16)) {
+            return "The emulator extensions are invalid or exceed 16 entries.";
+        }
+    } else {
+        known = false;
+    }
+    return nullptr;
+}
+
+const char* parse_setting_key(EmulatorSetting& setting, std::set<std::string>& keys,
+                             const std::string& key, const std::string& value, bool& known) {
+    if (!keys.insert(key).second) return "An emulator setting key is repeated.";
+    if (key == "label" || key == "help" || key == "default") {
+        std::size_t limit = 96;
+        if (key == "help") {
+            limit = 256;
+        } else if (key == "label") {
+            limit = 64;
+        }
+        if (value.size() > limit || !printable(value)) {
+            return "An emulator setting string is too long or contains a control character.";
+        }
+        if (key == "label") {
+            setting.label = value;
+        } else if (key == "help") {
+            setting.help = value;
+        } else {
+            setting.default_value = value;
+        }
+    } else if (key == "type") {
+        if (value == "choice") {
+            setting.type = EmulatorSettingType::Choice;
+        } else if (value == "switch") {
+            setting.type = EmulatorSettingType::Switch;
+        } else if (value == "number") {
+            setting.type = EmulatorSettingType::Number;
+        } else {
+            return "An emulator setting type is unknown.";
+        }
+    } else if (key == "values") {
+        if (!split_list(value, setting.values, kEmulatorValuesMax, 96))
+            return "An emulator choice list is invalid or exceeds 32 entries.";
+    } else if (key == "min" || key == "max") {
+        int parsed = 0;
+        if (!number(value, parsed)) return "An emulator number must be a whole number from -1000000 to 1000000.";
+        if (key == "min") {
+            setting.minimum = parsed;
+        } else {
+            setting.maximum = parsed;
+        }
+    } else if (key == "on") {
+        if (value.size() > 1024 || !split_words(value, setting.on) || setting.on.empty())
+            return "The words for an enabled emulator switch are invalid.";
+    } else {
+        known = false;
+    }
+    return nullptr;
+}
+
+const char* validate_emulator_file(EmulatorFile& file, EmulatorFileFields& fields,
+                                  const std::string& app_folder) {
+    int version = 0;
+    if (!number(fields.format, version) || version != 1)
+        return "The emulator file format is not supported; this RiftWii reads format 1.";
+    if (file.name.empty() || file.system.empty() || fields.dol.empty() || file.folders.empty() || file.extensions.empty() || !fields.keys.count("args"))
+        return "The emulator file is missing a required field.";
+    file.dol = fields.dol.find(':') == std::string::npos ? app_folder + "/" + fields.dol : fields.dol;
+    if (!emulator_path_valid(file.dol) || lower(file.dol.substr(file.dol.size() > 4 ? file.dol.size() - 4 : 0)) != ".dol")
+        return "The emulator program must be a safe sd:/ or usb:/ DOL path.";
+    for (const auto& folder : file.folders) {
+        if (!emulator_path_valid(folder)) return "An emulator game folder is not a safe sd:/ or usb:/ path.";
+    }
+    for (auto& extension : file.extensions) {
+        extension = lower(extension);
+        if (!identifier(extension) || extension.find('_') != std::string::npos)
+            return "An emulator extension must contain only letters and digits.";
+    }
+    for (const auto& setting : file.settings) {
+        const auto& keys = fields.setting_keys[setting.key];
+        if (setting.label.empty() || !keys.count("type") || !keys.count("default") ||
+            !emulator_value_valid(setting, setting.default_value)) return "An emulator setting has an invalid label, type or default.";
+        if (setting.type == EmulatorSettingType::Number && (!keys.count("min") || !keys.count("max") || setting.minimum > setting.maximum))
+            return "An emulator number needs a valid minimum and maximum.";
+        if (setting.type == EmulatorSettingType::Switch && setting.on.empty()) return "An emulator switch has no on words.";
+        for (const auto& word : setting.on) {
+            if (!check_placeholders(file, word, false)) return "An emulator switch contains an unknown placeholder.";
+        }
+    }
+    if (fields.args.size() > 1024 || !split_words(fields.args, file.arguments)) return "The emulator argument template is invalid or too long.";
+    for (const auto& word : file.arguments) {
+        if (!check_placeholders(file, word, true)) return "The emulator arguments contain an unknown or misplaced placeholder.";
+    }
+    return nullptr;
+}
+
 }  // namespace
 
 bool emulator_path_valid(const std::string& path) {
@@ -172,9 +300,7 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
     if (!can_allocate(text.size() * 8)) return fail("There is not enough memory to read the emulator file.");
     EmulatorFile file;
     EmulatorSetting* current = nullptr;
-    std::set<std::string> seen;
-    std::map<std::string, std::set<std::string>> setting_keys;
-    std::string dol, args, format;
+    EmulatorFileFields fields;
     bool unknown_section = false;
     std::size_t from = 0;
     while (from < text.size()) {
@@ -211,78 +337,19 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
         if (!identifier(key)) return fail("An emulator key is invalid.");
         if (unknown_section) continue;
         bool known = true;
+        const char* key_error = nullptr;
         if (current == nullptr) {
-            if (!seen.insert(key).second) return fail("An emulator key is repeated.");
-            if (key == "format") format = value;
-            else if (key == "name" || key == "system") {
-                if (value.empty() || value.size() > 64 || !printable(value)) return fail("The emulator name or system is too long or empty.");
-                (key == "name" ? file.name : file.system) = value;
-            } else if (key == "dol") dol = value;
-            else if (key == "args") args = value;
-            else if (key == "games") {
-                if (!split_list(value, file.folders, kEmulatorFoldersMax, kEmulatorPathMax))
-                    return fail("The emulator game folders are invalid or exceed 8 entries.");
-            } else if (key == "extensions") {
-                if (!split_list(value, file.extensions, kEmulatorExtensionsMax, 16))
-                    return fail("The emulator extensions are invalid or exceed 16 entries.");
-            } else known = false;
+            key_error = parse_top_level_key(file, fields, key, value, known);
         } else {
-            if (!setting_keys[current->key].insert(key).second) return fail("An emulator setting key is repeated.");
-            if (key == "label" || key == "help" || key == "default") {
-                const std::size_t limit = key == "help" ? 256 : key == "label" ? 64 : 96;
-                if (value.size() > limit || !printable(value)) return fail("An emulator setting string is too long or contains a control character.");
-                if (key == "label") current->label = value;
-                else if (key == "help") current->help = value;
-                else current->default_value = value;
-            } else if (key == "type") {
-                if (value == "choice") current->type = EmulatorSettingType::Choice;
-                else if (value == "switch") current->type = EmulatorSettingType::Switch;
-                else if (value == "number") current->type = EmulatorSettingType::Number;
-                else return fail("An emulator setting type is unknown.");
-            } else if (key == "values") {
-                if (!split_list(value, current->values, kEmulatorValuesMax, 96))
-                    return fail("An emulator choice list is invalid or exceeds 32 entries.");
-            } else if (key == "min" || key == "max") {
-                int parsed = 0;
-                if (!number(value, parsed)) return fail("An emulator number must be a whole number from -1000000 to 1000000.");
-                (key == "min" ? current->minimum : current->maximum) = parsed;
-            } else if (key == "on") {
-                if (value.size() > 1024 || !split_words(value, current->on) || current->on.empty())
-                    return fail("The words for an enabled emulator switch are invalid.");
-            } else known = false;
+            key_error = parse_setting_key(*current, fields.setting_keys[current->key], key, value, known);
+        }
+        if (key_error != nullptr) {
+            return fail(key_error);
         }
         if (!known && warnings.size() < 32) warnings.push_back("An unknown emulator key was ignored: " + key);
     }
-    int version = 0;
-    if (!number(format, version) || version != 1)
-        return fail("The emulator file format is not supported; this RiftWii reads format 1.");
-    if (file.name.empty() || file.system.empty() || dol.empty() || file.folders.empty() || file.extensions.empty() || !seen.count("args"))
-        return fail("The emulator file is missing a required field.");
-    file.dol = dol.find(':') == std::string::npos ? app_folder + "/" + dol : dol;
-    if (!emulator_path_valid(file.dol) || lower(file.dol.substr(file.dol.size() > 4 ? file.dol.size() - 4 : 0)) != ".dol")
-        return fail("The emulator program must be a safe sd:/ or usb:/ DOL path.");
-    for (const auto& folder : file.folders) {
-        if (!emulator_path_valid(folder)) return fail("An emulator game folder is not a safe sd:/ or usb:/ path.");
-    }
-    for (auto& extension : file.extensions) {
-        extension = lower(extension);
-        if (!identifier(extension) || extension.find('_') != std::string::npos)
-            return fail("An emulator extension must contain only letters and digits.");
-    }
-    for (const auto& setting : file.settings) {
-        const auto& keys = setting_keys[setting.key];
-        if (setting.label.empty() || !keys.count("type") || !keys.count("default") ||
-            !emulator_value_valid(setting, setting.default_value)) return fail("An emulator setting has an invalid label, type or default.");
-        if (setting.type == EmulatorSettingType::Number && (!keys.count("min") || !keys.count("max") || setting.minimum > setting.maximum))
-            return fail("An emulator number needs a valid minimum and maximum.");
-        if (setting.type == EmulatorSettingType::Switch && setting.on.empty()) return fail("An emulator switch has no on words.");
-        for (const auto& word : setting.on) {
-            if (!check_placeholders(file, word, false)) return fail("An emulator switch contains an unknown placeholder.");
-        }
-    }
-    if (args.size() > 1024 || !split_words(args, file.arguments)) return fail("The emulator argument template is invalid or too long.");
-    for (const auto& word : file.arguments) {
-        if (!check_placeholders(file, word, true)) return fail("The emulator arguments contain an unknown or misplaced placeholder.");
+    if (const char* why = validate_emulator_file(file, fields, app_folder)) {
+        return fail(why);
     }
     out = std::move(file);
     return true;
