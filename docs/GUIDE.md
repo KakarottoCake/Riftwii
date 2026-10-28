@@ -230,6 +230,9 @@ the view. Point at the magnifier and hold **B** on a Wii Remote for about a
 second to start a game at random from the ones shown (not the disc drive or
 a homebrew app); its page presses Start for you, so its checks and warnings
 still come up.
+In the Covers view, point at a game's cover and press **1** or **2** to
+see the cover up close; press 1, 2, A or B to put it back. Pointing at
+anything else, 1 and 2 stay the view and settings buttons.
 To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
@@ -269,7 +272,9 @@ else. Pressed alone, each does its usual job when you let go of it.
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
 shelf (hold one to speed up), Minus and Plus jump 12 games, and A opens
-the game. Up or Down turns the box round to show its back. With the
+the game. Up or Down turns the box round to show its back. Point at a
+box and press **1** or **2** to see it up close, as in the Covers view
+(its back, if you turned it round). With the
 pointer, point at a spine (it lifts), press A to pull that box out, and
 A again to open it; hold A and move the pointer sideways to drag the
 shelf, and let go while moving to send it gliding. Behind the shelf

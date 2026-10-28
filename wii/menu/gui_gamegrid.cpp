@@ -4,10 +4,13 @@
 #include "loadersettings.hpp"
 #include "transition.hpp"
 
+#include <ogc/lwp_watchdog.h>
+
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
+#include "boxart.hpp"
 #include "covers.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
@@ -146,6 +149,47 @@ bool HeldLetterB(GuiTrigger* t) {
 bool PressedB(GuiTrigger* t) {
     return (t->wpad && (t->wpad->btns_d & (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B))) || (t->pad.btns_d & PAD_BUTTON_B) ||
            (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B);
+}
+
+// The cover zoom (GuiGameGrid::CoverZoomed): the cover comes up this tall,
+// in the middle of the screen and inside a TV's overscan (y 64 to 416),
+// in this long each way, over Home dimmed this much.
+constexpr float kZoomHeight = 352.0f;
+constexpr float kZoomMs = 260.0f;
+constexpr int kZoomDim = 175;
+
+// What the zoom shows: the front of the game's shelf box when one is kept
+// (128 x 176, sharper made large), else its cover (80 x 112). A box the
+// shelf has turned round (Up or Down) shows its back instead: the box's
+// own, or one made up from the cover as the shelf makes it up.
+struct ZoomArt {
+    const u8* data = nullptr;
+    int texW = 0, texH = 0;
+    float u0 = 0.0f, u1 = 1.0f;
+    float aspect = 1.0f;  // width over height of the part drawn
+    bool madeUpBack = false;  // `data` is the cover to make the back up from
+};
+
+ZoomArt ZoomArtFor(const std::string& id, bool back) {
+    ZoomArt art;
+    if (id.empty()) return art;
+    if (const u8* box = riftwii::wii::BoxTexture(id)) {
+        const int from = riftwii::kBoxSpineWidth + (back ? riftwii::kBoxFrontWidth : 0);
+        const int width = back ? riftwii::kBoxBackWidth : riftwii::kBoxFrontWidth;
+        art.data = box;
+        art.texW = riftwii::kBoxWidth;
+        art.texH = riftwii::kBoxHeight;
+        art.u0 = static_cast<float>(from) / riftwii::kBoxWidth;
+        art.u1 = static_cast<float>(from + width) / riftwii::kBoxWidth;
+        art.aspect = static_cast<float>(width) / riftwii::kBoxHeight;
+    } else if (const u8* cover = riftwii::wii::CoverTexture(id)) {
+        art.data = cover;
+        art.texW = riftwii::kCoverWidth;
+        art.texH = riftwii::kCoverHeight;
+        art.aspect = static_cast<float>(riftwii::kCoverWidth) / riftwii::kCoverHeight;
+        art.madeUpBack = back;
+    }
+    return art;
 }
 
 // A game picked up is drawn this much larger, over the others.
@@ -318,6 +362,7 @@ void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
     carryFrom = carryTo = -1;
     carryDropped = false;
     shiftPage = -1;
+    EndCoverZoom();  // its index was into the old list too
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
     page = focus / kPerPage;
     laidOut = false;
@@ -328,6 +373,7 @@ void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
 void GuiGameGrid::SetCovers(bool on) {
     if (covers == on) return;
     covers = on;
+    EndCoverZoom();
     for (Slot* set : {slots, leaving}) {
         for (int i = 0; i < kPerPage; ++i)
             for (GuiText* line : set[i].lines) line->SetFontSize(covers ? kCoverTitleSize : kTitleSize);
@@ -358,12 +404,14 @@ void GuiGameGrid::SetChannels(bool on, IconDrawer icon) {
 void GuiGameGrid::SetCarousel(bool on) {
     if (carousel == on) return;
     carousel = on;
+    EndCoverZoom();  // its box's place on screen was the old layout's
     poses.clear();
 }
 
 void GuiGameGrid::SetRing(bool on) {
     if (ring == on) return;
     ring = on;
+    EndCoverZoom();
     ringPlaced = false;
     poses.clear();
 }
@@ -371,6 +419,7 @@ void GuiGameGrid::SetRing(bool on) {
 void GuiGameGrid::SetShelf(bool on) {
     if (shelf == on) return;
     shelf = on;
+    EndCoverZoom();
     poses.clear();
     spineFit.clear();
     captionFor = -1;
@@ -1132,6 +1181,14 @@ void GuiGameGrid::ForgetLetterPress() {
     for (bool& used : letterUsed) used = true;
 }
 
+void GuiGameGrid::LettersDone(GuiTrigger* t) {
+    const int ch = t->chan;
+    if (ch < 0 || ch > 3) return;
+    letterHeld[ch] = true;
+    letterUsed[ch] = true;
+    letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
+}
+
 bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     if (t->chan < 0 || t->chan > 3) return false;
     const int ch = t->chan;
@@ -1256,13 +1313,6 @@ void GuiGameGrid::PutDown() {
 bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
     if (carryDropped) return true;
     const int ch = t->chan;
-    const auto letters_done = [&]() {
-        // B let go after this is no letter (LetterKeys).
-        if (ch < 0 || ch > 3) return;
-        letterHeld[ch] = true;
-        letterUsed[ch] = true;
-        letterPadHeld[ch] = (t->pad.btns_h & PAD_TRIGGER_L) != 0;
-    };
     if (carryFrom < 0) {
         if (!movable || shelf || !PressedA(t) || !HeldLetterB(t)) return false;
         const bool pointing = t->wpad && t->wpad->ir.valid;
@@ -1284,7 +1334,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         focus = index;
         hover = -1;
         arrowHover = 0;
-        letters_done();
+        LettersDone(t);
         soundClick->Play();
         return true;
     }
@@ -1329,7 +1379,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         // Back where it was, nothing moved.
         CarryTo(carryFrom);
         PutDown();
-        letters_done();
+        LettersDone(t);
         // Home uses B for search otherwise; this press only cancels the move.
         t->pad.btns_d &= ~PAD_BUTTON_B;
         return true;
@@ -1390,6 +1440,7 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     // the start-up focus in the menu). So the input is counted for every call.
     if (t) acted.see(PlayerActedThisFrame(t));
     if (state == STATE::DISABLED || !t || Count() == 0) return;
+    if (CoverZoomKeys(t)) return;
     int shoulderPage = ShoulderPage(t);
     // Page Up and Page Down on a USB keyboard and a mouse's wheel turn a
     // page as the shoulder buttons do, one a frame (player 1's controls).
@@ -1471,4 +1522,126 @@ void GuiGameGrid::Update(GuiTrigger* t) {
         clicked = focus;
         riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Tile);
     }
+}
+
+bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
+    constexpr u32 kZoomKeys = WPAD_BUTTON_1 | WPAD_BUTTON_2;
+    if (zoomItem >= 0) {
+        // Up (or on its way down): the zoom takes 1, 2, A and B from every
+        // controller, so neither a tile under it nor the bar's buttons
+        // (View on 1, Settings on 2) answer them, and the grid stays still.
+        const bool wpadKey = t->wpad && (t->wpad->btns_d & kZoomKeys);
+        if (zoomClosing && wpadKey) {
+            // 1 or 2 again on its way down brings it back up from where it
+            // is; A and B only ever put it back.
+            zoomClosing = false;
+            riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+        } else if (!zoomClosing && (wpadKey || PressedA(t) || PressedB(t))) {
+            zoomClosing = true;
+            riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Back);
+        }
+        // LetterKeys does not run meanwhile: B that closed the zoom, let go
+        // after it has gone, must not jump to the next letter as well.
+        LettersDone(t);
+        if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
+        t->pad.btns_d &= ~(PAD_BUTTON_A | PAD_BUTTON_B);
+        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);
+        return true;
+    }
+    // Only a Wii Remote pointing at a cover in the Covers view, or at a box
+    // on the shelf or the carousel (not the ring's pictures): 1 and 2 stay
+    // the bar's everywhere else.
+    if (channels || carryFrom >= 0 || (shelf ? ring : !covers)) return false;
+    if (!t->wpad || !t->wpad->ir.valid || !(t->wpad->btns_d & kZoomKeys)) return false;
+    const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
+    int index = -1, slot = -1;
+    bool back = false;
+    if (shelf) {
+        index = ShelfHit(px, py);
+        if (index < 0) return false;
+        // From the box as last drawn; the focused box turned round shows
+        // its back up close too.
+        const SpineRect* rect = nullptr;
+        for (const SpineRect& r : spineRects)
+            if (r.index == index) rect = &r;
+        if (!rect) return false;
+        zoomFromX = (rect->x0 + rect->x1) / 2.0f;
+        zoomFromY = (rect->y0 + rect->y1) / 2.0f;
+        zoomFromH = rect->y1 - rect->y0;
+        back = index == focus && shelfFlip;
+    } else {
+        slot = SlotAt(px, py);
+        if (slot < 0 || page * kPerPage + slot >= Count()) return false;
+        index = ItemAt(slot);
+        // A tile drawn as a name (no cover yet) keeps 1 and 2 for the bar,
+        // even when the game's box is already on the card.
+        if (!riftwii::wii::CoverTexture((*items)[index].id)) return false;
+    }
+    if (!ZoomArtFor((*items)[index].id, back).data) return false;  // nothing to show up close
+    zoomItem = index;
+    zoomSlot = slot;
+    zoomBack = back;
+    zoomClosing = false;
+    zoomShown = 0.0f;
+    zoomLastFrame = 0;
+    t->wpad->btns_d &= ~kZoomKeys;
+    riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+    return true;
+}
+
+void GuiGameGrid::DrawCoverZoom() {
+    if (zoomItem < 0) return;
+    if (!IsVisible() || zoomItem >= Count() || (!shelf && zoomSlot < 0)) {
+        EndCoverZoom();
+        return;
+    }
+    // Paced by the clock rather than by frames, so it takes as long at
+    // 50 Hz as at 60. A frame held up (a card read) is counted as a short
+    // one, so the zoom is still seen moving instead of jumping to its end.
+    const u64 now = gettime();
+    float frameMs = zoomLastFrame ? ticks_to_microsecs(now - zoomLastFrame) / 1000.0f : 0.0f;
+    zoomLastFrame = now;
+    frameMs = std::min(frameMs, 50.0f);
+    const float step = frameMs / (kZoomMs * riftwii::wii::transition::SlowMotion());
+    zoomShown = zoomClosing ? std::max(0.0f, zoomShown - step) : std::min(1.0f, zoomShown + step);
+    if (zoomClosing && zoomShown <= 0.0f) {
+        EndCoverZoom();
+        return;
+    }
+    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id, zoomBack);
+    if (!art.data) {
+        EndCoverZoom();
+        return;
+    }
+    // One curve both ways, so a zoom sent back halfway up turns round
+    // where it is.
+    const float e = riftwii::wii::transition::Ease(zoomShown);
+    const int alpha = GetAlpha();
+    // From the cover as its tile draws it (lit, a little larger), or the
+    // box as the shelf drew it, to the middle of the screen.
+    float fromW, fromH, fromCx, fromCy;
+    if (zoomSlot >= 0) {
+        const float tileScale = slots[zoomSlot].scale * CoverScale();
+        fromH = riftwii::kCoverHeight * tileScale;
+        fromW = riftwii::kCoverWidth * tileScale;
+        fromCx = TileX(zoomSlot) + Geo().tileW / 2.0f;
+        fromCy = TileY(zoomSlot) + Geo().tileH / 2.0f;
+    } else {
+        fromH = zoomFromH;
+        fromW = zoomFromH * art.aspect;
+        fromCx = zoomFromX;
+        fromCy = zoomFromY;
+    }
+    const float toH = kZoomHeight, toW = kZoomHeight * art.aspect;
+    const float w = fromW + (toW - fromW) * e, h = fromH + (toH - fromH) * e;
+    const float cx = fromCx + (320.0f - fromCx) * e, cy = fromCy + (240.0f - fromCy) * e;
+    const float x = cx - w / 2.0f, y = cy - h / 2.0f;
+    Menu_FillWholeScreen((GXColor){0, 0, 0, static_cast<u8>(kZoomDim * e * alpha / 255)});
+    // A soft shadow under it, as if lifted off the screen, growing with it.
+    const float m = riftwii::kShadowMargin;
+    const float drop = 8.0f * e;
+    skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + drop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner,
+                   static_cast<int>(alpha * e));
+    if (art.madeUpBack) DrawMadeUpBoxBack(art.data, (*items)[zoomItem].hue, x, y, w, h, alpha);
+    else skin::DrawRgb5a3Part(art.data, art.texW, art.texH, art.u0, art.u1, x, y, w, h, alpha);
 }
