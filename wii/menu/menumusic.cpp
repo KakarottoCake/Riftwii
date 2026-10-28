@@ -23,6 +23,7 @@
 #include "oggplayer.h"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/musiclist.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
 #include "wiimenusounds.hpp"
@@ -72,7 +73,7 @@ bool g_mp3_ready = false;
 u64 g_song_started = 0;  // when the player was last started, for PlayerEnded
 s32 g_resume_at_ms = -1;  // where the track was when a cIOS reload paused it
 
-bool OnUsb(const std::string& path) { return path.compare(0, 5, "usb:/") == 0; }
+bool OnUsb(const std::string& path) { return riftwii::is_usb_path(path); }
 
 // Reads `path` whole into the MEM2 block, which grows when the song is
 // bigger than the block (to `reserve` at least, so a list's next songs fit

@@ -7,6 +7,7 @@
 #include <set>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -283,7 +284,7 @@ const char* validate_emulator_file(EmulatorFile& file, EmulatorFileFields& field
 
 bool emulator_path_valid(const std::string& path) {
     if (path.size() > kEmulatorPathMax) return false;
-    if (path.rfind("sd:/", 0) != 0 && path.rfind("usb:/", 0) != 0) return false;
+    if (path.rfind("sd:/", 0) != 0 && !riftwii::is_usb_path(path)) return false;
     return relative_path(path.substr(path.find('/') + 1));
 }
 
@@ -307,7 +308,7 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
     };
     if (text.empty() || text.size() > kEmulatorFileMax) return fail("The emulator file must be 1 to 16384 bytes.");
     if (!emulator_path_valid(app_folder) ||
-        (app_folder.rfind("sd:/apps/", 0) != 0 && app_folder.rfind("usb:/apps/", 0) != 0))
+        (app_folder.rfind("sd:/apps/", 0) != 0 && (!is_usb_path(app_folder) || image_volume_path(app_folder).rfind("/apps/", 0) != 0)))
         return fail("The emulator folder must be inside sd:/apps or usb:/apps.");
     if (!can_allocate(text.size() * 8)) return fail("There is not enough memory to read the emulator file.");
     EmulatorFile file;
@@ -379,6 +380,10 @@ bool emulator_game_matches(const EmulatorFile& emulator, const std::string& path
     bool inside = false;
     for (const auto& folder : emulator.folders) {
         if (path.rfind(folder + "/", 0) == 0) inside = true;
+        // An existing usb:/ ROM folder is searched on every partition.
+        // A numbered folder restricts the manifest to that partition.
+        if (folder.rfind("usb:/", 0) == 0 && is_usb_path(path) &&
+            image_volume_path(path).rfind(image_volume_path(folder) + "/", 0) == 0) inside = true;
     }
     const auto dot = path.find_last_of('.');
     if (!inside || dot == std::string::npos) return false;

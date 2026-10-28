@@ -40,6 +40,9 @@ static void TestProfileKeys() {
 }
 
 static void TestKeys() {
+    const Keys partitions{"usb:RMCE01", "usb2:RMCE01", "usb1:RMCE01@mods/2"};
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order(partitions)), partitions);
+    EXPECT_TRUE(riftwii::parse_home_order("usb02:RMCE01\nusb129:RMCE01\n").empty());
     EXPECT_EQ(riftwii::home_order_key("usb", "RMCE01", 0), "usb:RMCE01");
     EXPECT_EQ(riftwii::home_order_key("sd", "SMNE01", 0), "sd:SMNE01");
     // The second disc of a two-disc game is a game of its own.

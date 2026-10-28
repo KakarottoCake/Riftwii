@@ -564,6 +564,7 @@ void test_what_needs_the_card() {
     using riftwii::wii::entries_need_sd;
     CHECK(!packs_need_sd({}));
     CHECK(!packs_need_sd({"usb:/riivolution/a.xml", "usb:/riivolution/b.xml"}));
+    CHECK(!packs_need_sd({"usb2:/riivolution/a.xml", "usb1:/riivolution/b.xml"}));
     CHECK(packs_need_sd({"usb:/riivolution/a.xml", "sd:/riivolution/b.xml"}));
     CHECK(packs_need_sd({"riifs:/server/pack.xml"}));  // anything not on the USB drive counts
     std::vector<rt_entry> entries(2);
