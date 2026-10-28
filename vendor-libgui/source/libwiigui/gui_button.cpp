@@ -9,11 +9,12 @@
  ***************************************************************************/
 /* Changed for RiftWii (October 2026), under GPL-3.0-or-later: a button
  * lit by the pointer or the D-pad grows a little and its lit picture
- * fades in, both eased, instead of switching at once.
+ * fades in, both eased by elapsed time, instead of switching at once.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
 #include "video.h"
+#include "transition.hpp"
 /**
  * Constructor for the GuiButton class.
  */
@@ -142,9 +143,9 @@ void GuiButton::Draw()
 	if(!this->IsVisible())
 		return;
 
-	// Lit: eased in and out over a few frames.
+	// Share the tiles' response time, including on a 50 Hz display.
 	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
-	litAmount += ((lit ? 1.0f : 0.0f) - litAmount) * 0.3f;
+	litAmount = riftwii::wii::transition::Follow(litAmount, lit ? 1.0f : 0.0f, 47.0f);
 	if (litAmount < 0.01f) litAmount = 0.0f;
 	if (litAmount > 0.99f) litAmount = 1.0f;
 	if (litAmount > 0.0f && litAmount < 1.0f)
