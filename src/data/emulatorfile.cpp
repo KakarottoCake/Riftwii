@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/emulatorfile.hpp"
+#include "riftwii/emulatorart.hpp"
 
 #include <algorithm>
 #include <set>
@@ -217,6 +218,10 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
             else if (key == "name" || key == "system") {
                 if (value.empty() || value.size() > 64 || !printable(value)) return fail("The emulator name or system is too long or empty.");
                 (key == "name" ? file.name : file.system) = value;
+            } else if (key == "covers") {
+                if (value.size() > 64 || !emulator_art_component(value))
+                    return fail("The emulator covers folder must be one safe name of at most 64 bytes.");
+                file.covers = value;
             } else if (key == "dol") dol = value;
             else if (key == "args") args = value;
             else if (key == "games") {

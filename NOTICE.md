@@ -263,3 +263,18 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   state machine, the second disc's checks and its MEM2 tables are
   RiftWii's own. Nintendont is already credited in the README's Credits
   and `wii/menu/credits.cpp`.
+
+## Emulator cover services
+
+RiftWii downloads emulator covers from [libretro-thumbnails](https://github.com/libretro-thumbnails/libretro-thumbnails)
+via https://thumbnails.libretro.com/, and optionally from [SteamGridDB](https://www.steamgriddb.com/api/v2)
+with the player's own key. No service code or artwork is bundled. The source
+protocols and the implementation in `src/art/emulatorart.cpp` and
+`wii/menu/emulatorcovers.cpp` are independent; no third-party source was used.
+
+The libretro-thumbnails [Credits](https://github.com/libretro-thumbnails/libretro-thumbnails#credits)
+thank volunteer contributors, photographers, scanners, collectors and sites,
+including MobyGames and Fandom. Original game and promotional art belongs to
+its developers and publishers. SteamGridDB's contributors supply its artwork.
+These are credits for downloaded content, not a license grant for redistribution.
+The public service documentation and credits were checked on 2026-10-28.

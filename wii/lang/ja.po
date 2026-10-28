@@ -849,8 +849,8 @@ msgstr "カスタム（wfc_domain未設定）"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。"
 
-msgid "Getting covers from GameTDB: {1} left"
-msgstr "GameTDBからカバーを取得中: 残り{1}"
+msgid "Getting covers: {1} left"
+msgstr "カバーを取得中：残り{1}"
 
 msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
 msgstr "カバーをダウンロードできませんでした ({1})。設定 > オンライン > 足りないカバーをダウンロード でもう一度試せます。"
@@ -3383,3 +3383,27 @@ msgstr "エミュレータが見つかりません。"
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "起動するための設定が正しくないか、長すぎます。session.logを確認してください。"
+
+msgid "Covers for emulator games"
+msgstr "エミュレータのゲームのカバー"
+
+msgid "SteamGridDB covers"
+msgstr "SteamGridDBのカバー"
+
+msgid "On (key found)"
+msgstr "オン（キーあり）"
+
+msgid "Off (key found)"
+msgstr "オフ（キーあり）"
+
+msgid "No API key"
+msgstr "APIキーなし"
+
+msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
+msgstr "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。"
+
+msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
+msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。"
+
+msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
+msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"

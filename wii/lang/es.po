@@ -849,8 +849,8 @@ msgstr "Personalizado (sin wfc_domain)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cerró. Personalizado usa wfc_domain de settings.txt."
 
-msgid "Getting covers from GameTDB: {1} left"
-msgstr "Descargando portadas de GameTDB: faltan {1}"
+msgid "Getting covers: {1} left"
+msgstr "Descargando carátulas: quedan {1}"
 
 msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
 msgstr "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > En línea > Descargar portadas que faltan."
@@ -3383,3 +3383,27 @@ msgstr "No se encontraron emuladores."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log."
+
+msgid "Covers for emulator games"
+msgstr "Carátulas de juegos de emulador"
+
+msgid "SteamGridDB covers"
+msgstr "Carátulas de SteamGridDB"
+
+msgid "On (key found)"
+msgstr "Sí (clave encontrada)"
+
+msgid "Off (key found)"
+msgstr "No (clave encontrada)"
+
+msgid "No API key"
+msgstr "Sin clave API"
+
+msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
+msgstr "Descarga carátulas de libretro. Desactivado usa solo tus carátulas PNG."
+
+msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
+msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt."
+
+msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
+msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
