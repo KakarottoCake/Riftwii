@@ -11,9 +11,16 @@
 namespace riftwii {
 namespace {
 
-// A game ID, or a profile's tile key (riftwii/profiles.hpp): its tile is
-// played and listed on its own.
-bool plausible_id(const std::string& id) { return valid_tile_key(id); }
+// An emulator game's tile key (wii/storage/emulators.cpp): "emu-" and the
+// SHA-256 of its emulator and path in lower-case hex.
+bool emulator_key(const std::string& id) {
+    if (id.size() != 68 || id.compare(0, 4, "emu-") != 0) return false;
+    return std::all_of(id.begin() + 4, id.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+// A game ID, a profile's tile key (riftwii/profiles.hpp) or an emulator
+// game's: each tile is played and listed on its own.
+bool plausible_id(const std::string& id) { return valid_tile_key(id) || emulator_key(id); }
 
 }  // namespace
 
