@@ -28,4 +28,8 @@ enum class WiiflowPluginResult { Emulator, NotAnEmulator, Refused };
 WiiflowPluginResult parse_wiiflow_plugin(const std::string& text, const std::string& plugins_dir,
                                          const std::string& loader, WiiflowPlugin& out, std::string& why);
 
+// The resolved DOL, game folders, extensions and argument words identify a
+// plugin configuration, independent of its INI name or display label.
+std::string wiiflow_plugin_identity(const EmulatorFile& file);
+
 }  // namespace riftwii

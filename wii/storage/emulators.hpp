@@ -10,6 +10,8 @@ namespace riftwii::wii {
 struct EmulatorAddon {
     EmulatorFile file;
     std::string folder;
+    // Empty for app manifests, which keep their existing folder-based keys.
+    std::string plugin_identity;
 };
 
 struct EmulatorGame {
