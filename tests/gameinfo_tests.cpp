@@ -147,7 +147,7 @@ void TestStoredTruncationPreservesCache() {
 
     // Control: the same database intact finds the early game, so the
     // failed scans above did see it and still published nothing.
-    const auto intact = ziptest::make_zip({{"wiitdb.xml", partial_xml, 0}});
+    const auto intact = ziptest::make_zip({{"wiitdb.xml", "<datafile>" + partial_xml + "</datafile>", 0}});
     Write(kZipPath, reinterpret_cast<const char*>(intact.data()), intact.size());
     GameInfo found;
     std::string error;
@@ -188,6 +188,66 @@ void TestStoredTruncationPreservesCache() {
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
+
+void TestIncompleteXmlPreservesLists(bool zipped) {
+    ForgetGameInfo();
+    fs::create_directories("sd:/riftwii");
+    GameInfo cached;
+    cached.id = "RSBE01";
+    cached.developer = "Keep these details";
+    const std::string original_cache = serialize_game_infos({{cached.id, cached}});
+    Write(kCachePath, original_cache.data(), original_cache.size());
+    const std::string original_homebrew = "# RiftWii's homebrew list\n9XGX\tSNES9xGX\n";
+    Write(kHomebrewPath, original_homebrew.data(), original_homebrew.size());
+    fs::last_write_time(kHomebrewPath, fs::file_time_type::clock::now() - std::chrono::hours(24));
+    const unsigned written_before = HomebrewTitlesWritten();
+
+    const char* path = zipped ? kZipPath : "sd:/wiitdb.xml";
+    const std::string partial_xml =
+        "<datafile><game name=\"Partial mod\"><id>SMNE02</id><type>CUSTOM</type></game>";
+    const auto write_database = [&](const std::string& xml) {
+        if (zipped) {
+            const auto bytes = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
+            Write(path, reinterpret_cast<const char*>(bytes.data()), bytes.size());
+        } else {
+            Write(path, xml.data(), xml.size());
+        }
+    };
+    write_database(partial_xml);
+
+    GameInfo found;
+    std::string error;
+    CHECK(FindGameInfo("SMNE02", {"SMNE02", "RSBE01"}, found, error, {}) == GameInfoResult::Failed);
+    CHECK(error.find("ends early") != std::string::npos);
+    CHECK(ReadCache() == original_cache);
+    CHECK(!IsCustomGame("SMNE02"));
+    CHECK(PeekGameInfo("RSBE01", found) && found.developer == cached.developer);
+
+    CHECK(StartGameInfoRead({"SMNE02"}, false) == GameInfoReadStart::Started);
+    bool changed = false;
+    CHECK(TakeGameInfoRead(changed) && !changed);
+    CHECK(!IsCustomGame("SMNE02"));
+    CHECK(ReadCache() == original_cache);
+    CHECK(!ReadHomebrewTitles(error, {}));
+    CHECK(error.find("ends early") != std::string::npos);
+    CHECK(HomebrewTitlesNeedReading());
+    CHECK(HomebrewTitlesWritten() == written_before);
+    std::vector<HomebrewTitle> titles;
+    CHECK(LoadHomebrewTitles(titles) && titles.size() == 1);
+    if (!titles.empty()) CHECK(titles[0].id == "9XGX");
+
+    // Repairing the file allows a retry; the failed scan marked no game absent.
+    write_database(partial_xml + "</datafile>\r\n\t ");
+    CHECK(FindGameInfo("SMNE02", {"SMNE02"}, found, error, {}) == GameInfoResult::Found);
+    CHECK(found.custom);
+
+    fs::remove(path);
+    fs::remove(kCachePath);
+    fs::remove(kHomebrewPath);
+    fs::remove("sd:/riftwii");
+    fs::remove("sd:");
+}
+
 // Home's read of the database for the drives' games: the custom ones
 // (<type>CUSTOM</type>) are known from then on, and kept in the cache.
 void TestBackgroundReadFindsCustomGames() {
@@ -296,7 +356,7 @@ void TestCardReplacementDiscardsGameInfo() {
     ForgetGameInfo();
     fs::create_directories("sd:/riftwii");
     const std::string xml =
-        "<game name=\"Old card's mod\"><id>SMNE02</id><type>CUSTOM</type></game>";
+        "<datafile><game name=\"Old card's mod\"><id>SMNE02</id><type>CUSTOM</type></game></datafile>";
     const auto zip = ziptest::make_zip({{"wiitdb.xml", xml, 0}});
     Write(kZipPath, reinterpret_cast<const char*>(zip.data()), zip.size());
     CHECK(StartGameInfoRead({"SMNE02", "SMNE03"}, false) == GameInfoReadStart::Started);
@@ -324,7 +384,7 @@ void TestCardReplacementDiscardsGameInfo() {
     const std::string cache = serialize_game_infos({{replacement.id, replacement}});
     Write(kCachePath, cache.data(), cache.size());
     const std::string new_xml =
-        "<game name=\"New card's mod\"><id>SMNE03</id><type>CUSTOM</type></game>";
+        "<datafile><game name=\"New card's mod\"><id>SMNE03</id><type>CUSTOM</type></game></datafile>";
     const auto new_zip = ziptest::make_zip({{"wiitdb.xml", new_xml, 0}});
     Write(kZipPath, reinterpret_cast<const char*>(new_zip.data()), new_zip.size());
     fs::last_write_time(kZipPath, fs::last_write_time(kCachePath));
@@ -346,6 +406,8 @@ void TestCardReplacementDiscardsGameInfo() {
 
 int main() {
     TestStoredTruncationPreservesCache();
+    TestIncompleteXmlPreservesLists(false);
+    TestIncompleteXmlPreservesLists(true);
     TestBackgroundReadFindsCustomGames();
     TestBackgroundHandoffAndRescan();
     TestCardReplacementDiscardsGameInfo();
