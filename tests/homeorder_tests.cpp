@@ -46,6 +46,11 @@ static void TestKeys() {
     EXPECT_EQ(riftwii::home_order_key("usb", "R8PE01", 1), "usb:R8PE01/2");
     // A WiiWare or Virtual Console channel on the Wii.
     EXPECT_EQ(riftwii::home_order_key("wii", "WBME01", 0), "wii:WBME01");
+    const std::string emulator = "emu-" + std::string(64, 'a');
+    EXPECT_EQ(riftwii::parse_home_order(emulator + "\n"), Keys{emulator});
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order({emulator})), Keys{emulator});
+    EXPECT_TRUE(riftwii::parse_home_order("emu-" + std::string(63, 'a')).empty());
+    EXPECT_TRUE(riftwii::parse_home_order("emu-" + std::string(64, 'g')).empty());
 }
 
 static void TestParse() {

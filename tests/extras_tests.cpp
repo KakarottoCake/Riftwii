@@ -2580,6 +2580,15 @@ void TestHistory() {
     back.parse(h.serialize());
     EXPECT_EQ(back.size(), 3u);
     EXPECT_EQ(back.find("R2SE18")->last, 1790000800);
+    // An emulator game's key is kept; a malformed one is not.
+    const std::string emu = "emu-" + std::string(64, 'a');
+    back.record(emu, 1790003000);
+    back.record("emu-" + std::string(64, 'G'), 1790003000);
+    back.record("emu-abc", 1790003000);
+    PlayHistory again;
+    again.parse(back.serialize());
+    EXPECT_EQ(again.size(), 4u);
+    EXPECT_TRUE(again.find(emu) != nullptr && again.recent(1)[0] == emu);
 }
 
 }  // namespace

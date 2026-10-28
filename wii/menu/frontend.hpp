@@ -5,6 +5,7 @@
 #include <string>
 
 #include "modplan.hpp"
+#include "emulators.hpp"
 #include "nandchannels.hpp"
 #include "packcatalog.hpp"
 #include "riftwii/launch.hpp"
@@ -51,6 +52,7 @@ struct FrontendState {
     bool has_compiled = false;
     UsbCatalog usb_catalog;
     ImageCatalog sd_catalog;
+    EmulatorCatalog emulators;
     // The WiiWare and Virtual Console games installed on the Wii
     // (nandchannels.hpp), listed with the drives' games on Home.
     std::vector<NandChannel> channels;

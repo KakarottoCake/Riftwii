@@ -69,6 +69,9 @@ msgstr "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages."
 msgid "RiftWii is still reading the drives."
 msgstr "RiftWii est encore en train de lire les stockages."
 
+msgid "Go back to Home and open this again once your games are shown."
+msgstr "Revenez à l'Accueil et rouvrez cette page une fois vos jeux affichés."
+
 msgid "Waiting for RiftWii to finish reading the drives..."
 msgstr "En attente que RiftWii finisse de lire les stockages..."
 
@@ -3365,3 +3368,21 @@ msgstr "Il n'y a pas de disque USB, ou RiftWii n'a pas encore fini de le lire."
 
 msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
 msgstr "Il n'y a aucun morceau .ogg ou .mp3 dans ce dossier ni dans ses sous-dossiers."
+
+msgid "Emulators"
+msgstr "Émulateurs"
+
+msgid "Emulator defaults"
+msgstr "Réglages de l'émulateur"
+
+msgid "Started with {1} ({2})."
+msgstr "Démarre avec {1} ({2})."
+
+msgid "Could not save emulator settings."
+msgstr "Impossible d'enregistrer les réglages de l'émulateur."
+
+msgid "No emulators found."
+msgstr "Aucun émulateur trouvé."
+
+msgid "The emulator arguments are invalid or too long. See session.log."
+msgstr "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log."

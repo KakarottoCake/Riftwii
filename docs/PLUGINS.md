@@ -1,5 +1,11 @@
 # Plugins: a design
 
+Third-party emulators use a separate, data-only
+[`riftwii-emulator.ini` add-on](EMULATORS.md), with game folders, settings
+and launch arguments. The `.rwp` plugins described here are RiftWii's own
+code, built with and tied to its exact version. They are not the interface
+for external emulator authors.
+
 Status: stage (a) is built (the loader, API 1, the `selftest` plugin, the
 packaging and the checks; "Stage (a) as built" below). Stage (b), the
 GameCube loader as the `gamecube` plugin, is built too ("Stage (b): the
