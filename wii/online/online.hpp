@@ -144,7 +144,8 @@ enum class CheatSource { Archive, GameHacking };
 bool DownloadCheats(const std::string& game_id, std::string& error, const std::set<std::string>& enabled = {},
                     CheatSource* source = nullptr);
 // A GameCube game's animated banner, made by the community and hosted by
-// RiiConnect24, asked for by its full ID and then, for a regional copy of
+// RiiConnect24 (also a custom Wii game's own banner, asked for by its full
+// ID only), asked for by its full ID and then, for a regional copy of
 // a game (`regional_fallback`, riftwii/gcbanner.hpp's
 // gc_banner_regional_copy), by its first three letters. No redirect is
 // followed: one counts as the server having none. Found: `bytes` holds a
