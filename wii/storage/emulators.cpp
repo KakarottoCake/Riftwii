@@ -41,7 +41,8 @@ std::string digest_key(const std::string& text) {
 }
 
 std::string values_path(const EmulatorAddon& addon, const std::string& game) {
-    return "sd:/riftwii/emulators/" + digest_key(addon.folder + "\n" + game) + ".txt";
+    const std::string& identity = addon.plugin_identity.empty() ? addon.folder : addon.plugin_identity;
+    return "sd:/riftwii/emulators/" + digest_key(identity + "\n" + game) + ".txt";
 }
 
 bool read_manifest(const std::string& path, std::string& text) {
@@ -90,7 +91,7 @@ void discover(EmulatorCatalog& out, const std::string& root) {
     std::size_t count = 0;
     for (const auto& entry : entries) {
         if (++count > 1024 || out.addons.size() >= kMaxEmulators) {
-            logf("Emulators: the scan reached its limit of 1024 app folders or 16 emulators.\n");
+            logf("Emulators: the scan reached its limit of 1024 app folders or 48 emulators.\n");
             break;
         }
         if (!entry.is_directory || entry.name.empty() || entry.name[0] == '.' || entry.name.size() > 255) continue;
@@ -158,17 +159,26 @@ void add_wiiflow_plugin(EmulatorCatalog& out, const std::string& ini, const std:
     }
     // Plugin packs list emulators the player may not have: those stay quiet.
     if (plugin.file.dol.empty()) return;
+    const std::string identity = wiiflow_plugin_identity(plugin.file);
     for (const auto& addon : out.addons) {
         if (!same_dol(addon.file.dol, plugin.file.dol)) continue;
-        logf("Emulators: the WiiFlow plugin %s was left out: %s has its own riftwii-emulator.ini or another plugin.\n",
-             ini.c_str(), plugin.file.dol.c_str());
-        return;
+        if (addon.plugin_identity.empty()) {
+            logf("Emulators: the WiiFlow plugin %s was left out: %s has its own riftwii-emulator.ini.\n",
+                 ini.c_str(), plugin.file.dol.c_str());
+            return;
+        }
+        if (addon.plugin_identity == identity) {
+            logf("Emulators: the WiiFlow plugin %s was left out because another plugin has the same program, game folders, extensions and arguments.\n",
+                 ini.c_str());
+            return;
+        }
     }
     if (out.addons.size() >= kMaxEmulators) return;
     EmulatorAddon addon;
     addon.file = std::move(plugin.file);
-    // The emulator's own folder, as for an app's riftwii-emulator.ini: its
-    // icon and the key its games' settings are kept under.
+    addon.plugin_identity = identity;
+    // Keep the program's folder for its icon. Settings and game keys use
+    // the configuration, since several plugins may share this program.
     addon.folder = addon.file.dol.substr(0, addon.file.dol.find_last_of('/'));
     logf("Emulators: %s from the WiiFlow plugin %s (%s).\n", addon.file.name.c_str(), ini.c_str(),
          addon.file.dol.c_str());
@@ -241,7 +251,9 @@ void scan_games(EmulatorCatalog& out, std::size_t index, const std::string& fold
         game.emulator = index;
         game.path = path;
         game.name = emulator_game_name(path);
-        game.key = "emu-" + digest_key(out.addons[index].folder + "\n" + path);
+        const auto& addon = out.addons[index];
+        const std::string& identity = addon.plugin_identity.empty() ? addon.folder : addon.plugin_identity;
+        game.key = "emu-" + digest_key(identity + "\n" + path);
         if (!try_push_back(out.games, std::move(game))) {
             budget.limited = true;
             break;

@@ -78,9 +78,11 @@ contain letters and digits only; matching ignores their case.
 ## Settings and arguments
 
 Every setting has `label`, `type` and `default`. `help` is optional. Names
-are 1–32 lowercase letters, digits or underscores. `game`, `game_name`
-and `game_folder` are reserved. Author-supplied labels, help and choice
-values pass through RiftWii's translation lookup. English is the fallback;
+are 1–32 lowercase letters, digits or underscores. The six game
+placeholders (`game`, `game_name`, `game_folder`, `game_file`,
+`game_device`, `game_path`) are reserved and can't be setting names.
+Author-supplied labels, help and choice values pass through RiftWii's
+translation lookup. English is the fallback;
 players may translate them in `sd:/riftwii/lang/<language>.po`.
 
 | Type | Fields | Accepted player values |
@@ -114,7 +116,7 @@ value remain inside that one argument and are never split a second time.
 
 Placeholders may be part of a word (`--game={game}`), except a switch
 placeholder must occupy a whole word. Unknown or incomplete placeholders
-reject the file. Switch `on` words may use the three game placeholders,
+reject the file. Switch `on` words may use all six game placeholders,
 but cannot reference settings. An enabled switch absent from `args` adds
 its `on` words at the end, in declaration order. An explicit `{frameskip}`
 chooses its position instead; a repeated switch still adds its words once.
@@ -161,7 +163,7 @@ Lengths are UTF-8 **bytes**, not visible characters.
 | Default or saved value | 96 bytes |
 | `args` or a switch's `on` template | 1024 bytes each; 64 words, 512 bytes per word |
 | HBC command block | 1024 bytes including DOL path, separators and final extra NUL |
-| Discovery | 16 add-ons; first 1024 app entries on each drive |
+| Discovery | 48 add-ons; first 1024 app entries on each drive |
 | Game scan | 2048 games total; 16384 entries and 512 folders across all add-ons; root plus 4 nested folder levels |
 
 Scans skip hidden entries, invalid paths, names over 255 bytes and SD
@@ -262,6 +264,11 @@ section it reads:
 Plugin files get the same limits as RiftWii's own (16 KiB, 32 arguments,
 no path that climbs out of its folder) and declare no settings. Each one
 used is named in `session.log`, with its DOL.
+
+Plugins sharing a DOL remain separate when their game folders, extensions
+or arguments differ. Equivalent configurations are listed once. Saved
+settings and game entries use the configuration's own identity, so two
+plugins starting the same game with different arguments stay separate.
 
 ## Testing an emulator
 

@@ -133,11 +133,12 @@ bool MakeCover(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& 
 }
 
 bool LocalCover(const CoverGame& game, std::vector<std::uint8_t>& file) {
-    if (!emulator_art_component(game.system) || !emulator_art_component(game.name + ".png")) return false;
-    const std::string relative = "/riftwii/covers/emulators/" + game.system + "/" + game.name + ".png";
-    for (const char* device : {"sd:", "usb:"}) {
-        std::vector<std::uint8_t> png;
-        if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+    if (emulator_art_component(game.system) && emulator_art_component(game.name + ".png")) {
+        const std::string relative = "/riftwii/covers/emulators/" + game.system + "/" + game.name + ".png";
+        for (const char* device : {"sd:", "usb:"}) {
+            std::vector<std::uint8_t> png;
+            if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+        }
     }
     // A player who set the emulator up for WiiFlow Lite may have its covers
     // already: WiiFlow keeps a plugin game's front at

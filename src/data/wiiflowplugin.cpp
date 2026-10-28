@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wiiflowplugin.hpp"
+#include "riftwii/sha256.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -204,13 +205,18 @@ WiiflowPluginResult parse_wiiflow_plugin(const std::string& text, const std::str
     // The DOL: a full path, else beside the plugin files, else from each
     // drive's root (WiiFlow's own order).
     if (dol.find(':') != std::string::npos) {
-        if (emulator_path_valid(dol)) plugin.dol_candidates.push_back(dol);
+        plugin.dol_candidates.push_back(dol);
     } else {
         std::string relative;
         if (!clean_relative(dol, relative)) return refuse("its dolFile is not a path RiftWii can follow");
         plugin.dol_candidates = {plugins_dir + "/" + relative, "sd:/" + relative, "usb:/" + relative};
     }
-    if (plugin.dol_candidates.empty()) return refuse("its dolFile is not on sd:/ or usb:/");
+    auto& candidates = plugin.dol_candidates;
+    candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [](const std::string& candidate) {
+        return !emulator_path_valid(candidate) || candidate.size() < 4 ||
+               lower(candidate.substr(candidate.size() - 4)) != ".dol";
+    }), candidates.end());
+    if (candidates.empty()) return refuse("its dolFile is not a safe sd:/ or usb:/ path ending in .dol");
 
     std::string covers = key_value(keys, "coverFolder");
     if (covers.empty()) covers = magic;
@@ -219,6 +225,37 @@ WiiflowPluginResult parse_wiiflow_plugin(const std::string& text, const std::str
 
     out = std::move(plugin);
     return WiiflowPluginResult::Emulator;
+}
+
+std::string wiiflow_plugin_identity(const EmulatorFile& file) {
+    Sha256 hash;
+    // Field separators and group counts keep argument boundaries and the
+    // different lists distinct. Parsed plugin values cannot contain NUL.
+    const auto add_field = [&](const std::string& value) {
+        hash.update(reinterpret_cast<const std::uint8_t*>(value.data()), value.size());
+        const std::uint8_t separator = 0;
+        hash.update(&separator, 1);
+    };
+    const auto add_list = [&](std::vector<std::string> values, bool unordered) {
+        add_field(std::to_string(values.size()));
+        if (unordered) {
+            for (auto& value : values) value = lower(value);
+            std::sort(values.begin(), values.end());
+        }
+        for (const auto& value : values) add_field(value);
+    };
+    add_field(lower(file.dol));
+    add_list(file.folders, true);
+    add_list(file.extensions, true);
+    add_list(file.arguments, false);
+    const auto digest = hash.finish();
+    static constexpr char hex[] = "0123456789abcdef";
+    std::string key = "wiiflow-";
+    for (const auto byte : digest) {
+        key += hex[byte >> 4];
+        key += hex[byte & 15];
+    }
+    return key;
 }
 
 }  // namespace riftwii
