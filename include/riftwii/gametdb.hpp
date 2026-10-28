@@ -54,6 +54,8 @@ public:
     static constexpr std::size_t kMaxBlock = 64u << 10;  // a <game> block; longer ones are skipped
     WiitdbScanner(std::set<std::string> wanted, std::string lang);
     void feed(const char* data, std::size_t size);
+    // Only a closing </datafile> between game blocks completes the scan.
+    bool complete() const { return complete_; }
     const std::map<std::string, GameInfo>& games() const { return found_; }
     const std::vector<HomebrewTitle>& homebrew() const { return homebrew_; }
     // The custom games (mods) listed under the wanted games' first four
@@ -69,6 +71,7 @@ private:
     std::string lang_;
     std::string buffer_;
     bool in_game_ = false;
+    bool complete_ = false;
     std::map<std::string, GameInfo> found_;
     std::vector<HomebrewTitle> homebrew_;
     std::vector<CustomGame> customs_;

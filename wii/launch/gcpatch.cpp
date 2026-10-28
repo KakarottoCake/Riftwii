@@ -20,6 +20,7 @@
 #include "usbcatalog.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/vcdiff.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 
@@ -46,7 +47,7 @@ struct File {
     std::uint64_t size = 0;
     std::string usb_path;  // set: read from the USB drive
     explicit File(const std::string& path, const char* mode = "rb") {
-        if (path.compare(0, 5, "usb:/") == 0 && mode[0] == 'r') {
+        if (riftwii::is_usb_path(path) && mode[0] == 'r') {
             if (read_usb_range(path, 0, nullptr, 0, size)) usb_path = path;
             return;
         }

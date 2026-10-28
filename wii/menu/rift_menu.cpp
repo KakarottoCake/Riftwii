@@ -146,6 +146,7 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 #include "riftwii/sdhotplug.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace transition = riftwii::wii::transition;
 
@@ -1224,7 +1225,12 @@ static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 	const riftwii::wii::ImageGame& game = usb ? state.usb_catalog.games[entry.index] : state.sd_catalog.games[entry.index];
 	// A profile's tile has a place of its own: "usb:RMCE01@retro-rewind".
 	const std::string& name = entry.profile.empty() ? game.id : entry.profile;
-	return riftwii::home_order_key(usb ? "usb" : "sd", name, game.disc_number);
+	std::string place = "sd";
+	if (usb) {
+		const std::string device = riftwii::usb_path_device(game.path);
+		place = device.empty() ? "usb" : device.substr(0, device.size() - 1);
+	}
+	return riftwii::home_order_key(place, name, game.disc_number);
 }
 
 // `name` is the tile's, `gameName` the game's: a profile's tile sorts A to
@@ -1273,7 +1279,7 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 		}
 	for (std::size_t i = 0; i < state.emulators.games.size(); ++i) {
 		const auto& game = state.emulators.games[i];
-		const bool onUsb = game.path.rfind("usb:/", 0) == 0;
+		const bool onUsb = riftwii::is_usb_path(game.path);
 		if (g_filter != Filter::Emulators && source != "all" && source != (onUsb ? "usb" : "sd")) continue;
 		add(game.name, HomeEntry::Kind::Emulator, i, game.key, nullptr);
 		rows.back().key = game.key;
@@ -2197,7 +2203,7 @@ void SetHomeNotice(const std::string& text)
 static bool PacksOnUsb(const FrontendState& state)
 {
 	for (const auto& p : state.model.selections())
-		if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+		if (riftwii::is_usb_path(p.xml_sd_path)) return true;
 	return false;
 }
 
@@ -8525,7 +8531,7 @@ struct NintendontFinds {
 // so the menu's own view of the drive lists it (read only).
 static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcFolderEntry>& out)
 {
-	if (folder.compare(0, 5, "usb:/") != 0) return riftwii::gc_posix_lister(folder, out);
+	if (!riftwii::is_usb_path(folder)) return riftwii::gc_posix_lister(folder, out);
 	out.clear();
 	std::vector<riftwii::VolumeEntry> entries;
 	if (!riftwii::wii::list_usb_folder(folder, entries)) return false;
@@ -8542,9 +8548,10 @@ static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcF
 
 static void ScanNintendontCards(NintendontFinds& finds)
 {
-	const std::vector<std::string> folders(std::begin(riftwii::kGcNintendontFolders), std::end(riftwii::kGcNintendontFolders));
+	std::vector<std::string> folders{"sd:/saves"};
+	for (const std::string& root : riftwii::wii::usb_volume_roots()) folders.push_back(root + "saves");
 	finds.files = riftwii::gc_nintendont_scan(folders, NintendontLister);
-	logf("Nintendont saves: %u memory card file(s) found in sd:/saves and usb:/saves, %u of a size no card has%s\n",
+	logf("Nintendont saves: %u memory card file(s) found in the saves folders on the SD card and every readable USB partition, %u of a size no card has%s\n",
 		static_cast<unsigned>(finds.files.cards.size()), finds.files.wrong_size,
 		finds.files.truncated ? ", more than RiftWii reads at once, so some were left out" : "");
 }
@@ -8554,7 +8561,7 @@ static void ScanNintendontCards(NintendontFinds& finds)
 static bool ReadNintendontCard(const riftwii::GcNintendontCard& card)
 {
 	if (card.bytes > g_nintendontBufferBytes) return false;
-	if (card.path.compare(0, 5, "usb:/") == 0) {
+	if (riftwii::is_usb_path(card.path)) {
 		constexpr std::uint64_t kPiece = 256 << 10;
 		for (std::uint64_t at = 0; at < card.bytes;) {
 			const std::size_t piece = static_cast<std::size_t>(std::min<std::uint64_t>(kPiece, card.bytes - at));
@@ -8618,11 +8625,14 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	return choices.game.gc_card == "shared";
 }
 
-// A card file's place for the player, short enough for a row's second line: "GMSE.raw (SD)".
+// Name the USB partition so equal card names can be told apart.
 static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 {
-	const bool usb = card.path.compare(0, 5, "usb:/") == 0;
-	return card.name + (usb ? " (USB)" : " (SD)");
+	if (!riftwii::is_usb_path(card.path)) return card.name + " (SD)";
+	// "usb:" stays "USB" as before; "usb2:" reads "USB 2".
+	std::string number = riftwii::usb_path_device(card.path).substr(3);
+	number.pop_back();
+	return card.name + (number.empty() ? " (USB)" : " (USB " + number + ")");
 }
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
@@ -8878,7 +8888,7 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 	if (finds.files.cards.empty()) return;
 	bool onSd = false, onUsb = false;
 	for (const riftwii::GcNintendontCard& card : finds.files.cards) {
-		if (card.path.compare(0, 5, "usb:/") == 0) onUsb = true;
+		if (riftwii::is_usb_path(card.path)) onUsb = true;
 		else onSd = true;
 	}
 	const std::string where = onSd && onUsb ? "sd:/saves, usb:/saves" : onUsb ? "usb:/saves" : "sd:/saves";
@@ -10757,12 +10767,15 @@ static bool MenuPickMusic(std::string& choice)
 	std::string folder;
 	const std::string current = riftwii::wii::Settings().music_file;
 	const bool usbReadable = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
-	if (!current.empty() && (current.compare(0, 4, "usb:") != 0 || usbReadable)) {
+	if (!current.empty() && (!riftwii::is_usb_path(current) || usbReadable)) {
 		std::string start = current;
 		if (riftwii::music_choice_is_folder(start)) start.pop_back();
 		folder = start.substr(0, start.rfind('/'));
 	}
-	const auto isDriveTop = [&]() { return folder == "sd:" || folder == "usb:"; };
+	const auto isDriveTop = [&]() {
+		if (folder == "sd:") return true;
+		return folder.find('/') == std::string::npos && riftwii::is_usb_path(folder + "/");
+	};
 	const auto listed = [&]() { return isDriveTop() ? folder + "/" : folder; };
 	const auto folderChoice = [&]() { return listed() + (isDriveTop() ? "" : "/"); };
 	enum class RowWhat { Up, Default, Drive, Shuffle, Folder, File };
@@ -10789,7 +10802,15 @@ static bool MenuPickMusic(std::string& choice)
 			add(RowWhat::Default, "", tr("RiftWii's own music"), tr("Pick"), current.empty());
 			add(RowWhat::Drive, "sd:", tr("SD card"), "", current.compare(0, 4, "sd:/") == 0);
 			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
-			add(RowWhat::Drive, "usb:", tr("USB drive"), "", current.compare(0, 5, "usb:/") == 0, !usbReady);
+			if (usbReady) {
+				for (const std::string& root : riftwii::wii::usb_volume_roots()) {
+					const std::string device = riftwii::usb_path_device(root);
+					const std::string value = device == "usb:" ? "" : device;
+					add(RowWhat::Drive, device, tr("USB drive"), value, riftwii::usb_path_device(current) == device);
+				}
+			} else {
+				add(RowWhat::Drive, "usb:", tr("USB drive"), "", false, true);
+			}
 			return;
 		}
 		add(RowWhat::Up, "", tr("Up a folder"), "", false);

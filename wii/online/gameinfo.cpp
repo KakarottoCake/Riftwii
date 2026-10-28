@@ -203,6 +203,12 @@ std::uint32_t Le(const std::uint8_t* p, int bytes) {
 
 using Progress = std::function<bool(double)>;
 
+bool ScanComplete(const std::string& path, const WiitdbScanner& scanner, std::string& error) {
+    if (scanner.complete()) return true;
+    error = path + " ends early, before the database's closing tag";
+    return false;
+}
+
 // Feeds a plain wiitdb.xml to the scanner a piece at a time.
 bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error, const Progress& progress) {
     FILE* f = std::fopen(path.c_str(), "rb");
@@ -239,7 +245,7 @@ bool ScanXml(const std::string& path, WiitdbScanner& scanner, std::string& error
         ok = false;
     }
     std::fclose(f);
-    return ok;
+    return ok && ScanComplete(path, scanner, error);
 }
 
 // Keep scanner results private until the complete entry passes its length
@@ -249,7 +255,8 @@ bool ScanZip(const std::string& path, WiitdbScanner& scanner, std::string& error
         scanner.feed(reinterpret_cast<const char*>(bytes), count);
         return true;
     };
-    return zip_stream_first(path, kMaxZip, kMaxXml, feed, error, progress);
+    return zip_stream_first(path, kMaxZip, kMaxXml, feed, error, progress) &&
+           ScanComplete(path, scanner, error);
 }
 
 }  // namespace

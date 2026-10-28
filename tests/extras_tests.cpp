@@ -1937,6 +1937,10 @@ void TestHeadlessArguments() {
                                       h, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "gct=sd:/codes/RMCE01.gct", "return_to=0001000147584c44"}, h,
                                       error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb2:/wbfs/RMCE01.wbfs", "xml=usb1:/riivolution/a.xml"}, h, error));
+    EXPECT_EQ(h.from, std::string("usb"));
+    EXPECT_EQ(h.path, std::string("usb2:/wbfs/RMCE01.wbfs"));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=usb02:/wbfs/RMCE01.wbfs"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));

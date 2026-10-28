@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "skin.hpp"
 #include "usbcatalog.hpp"
 
@@ -44,7 +45,7 @@ bool g_not_ready = false;
 std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
-std::unique_ptr<ImageVolume> g_volume;
+std::vector<MountedImageVolume> g_volumes;
 // The port the drive was last found on, tried first (it outlives Forget:
 // the drive stays where it is plugged in).
 std::uint32_t g_port = 0;
@@ -368,7 +369,7 @@ void Forget() {
     g_fd = -1;
     g_failed = false;
     g_failure.clear();
-    g_volume.reset();
+    g_volumes.clear();
 }
 
 int Fd() { return g_fd; }
@@ -401,35 +402,63 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return true;
 }
 
-bool Volume(const ImageVolume*& out, std::string& error) {
+bool Volume(const ImageVolume*& out, std::string& error, const std::string& path) {
+    out = nullptr;
     if (!Open(error)) return false;
     if (g_sector_bytes != kFatSectorBytes) {
         error = d2x_sector_size_problem(g_sector_bytes, "packs on it");
         return false;
     }
-    if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error, usb_wanted_folders())) {
+    std::uint64_t preferred_lba = 0;
+    const bool keep_preferred = usb_preferred_volume_lba(preferred_lba);
+    if (g_volumes.empty() && !mount_image_volumes(&ReadBlocks, g_volumes, error, usb_wanted_folders(), nullptr,
+                                                 keep_preferred ? &preferred_lba : nullptr)) {
         error = "the USB drive has no FAT32 or NTFS volume: " + error;
-        g_volume.reset();
+        g_volumes.clear();
         return false;
     }
-    out = g_volume.get();
+    out = find_image_volume(g_volumes, path);
+    if (!out) {
+        error = "the USB partition for " + path + " is not mounted";
+        return false;
+    }
     return true;
 }
 
+std::vector<std::string> VolumeRoots(std::string& error) {
+    const ImageVolume* volume = nullptr;
+    if (!Volume(volume, error)) return {};
+    std::vector<std::string> roots;
+    if (!try_reserve(roots, g_volumes.size())) {
+        error = "there is not enough memory to list the USB partitions";
+        return roots;
+    }
+    for (const MountedImageVolume& mounted : g_volumes) {
+        if (mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    for (const MountedImageVolume& mounted : g_volumes) {
+        if (!mounted.preferred) roots.push_back(usb_volume_prefix(mounted));
+    }
+    return roots;
+}
+
 bool ReadText(const std::string& usb_path, std::string& out, std::string& error) {
-    if (usb_path.compare(0, 5, "usb:/") != 0) {
-        error = "'" + usb_path + "' is not a usb:/ path";
+    if (!is_usb_path(usb_path)) {
+        error = "'" + usb_path + "' does not name a USB partition";
         return false;
     }
     const ImageVolume* volume = nullptr;
-    if (!Volume(volume, error)) return false;
+    if (!Volume(volume, error, usb_path)) return false;
     VolumeFile file;
-    if (!volume->lookup(usb_path.substr(4), file, error)) return false;
+    if (!volume->lookup(image_volume_path(usb_path), file, error)) return false;
     if (file.entry.is_directory || file.entry.size > (1u << 20)) {
         error = "'" + usb_path + "' is not an XML file of 1 MiB or less";
         return false;
     }
-    out.assign(file.entry.size, '\0');
+    if (!try_resize(out, static_cast<std::size_t>(file.entry.size))) {
+        error = "there is not enough memory to read " + usb_path;
+        return false;
+    }
     if (!volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
         error = "cannot read '" + usb_path + "' from the USB drive";
         return false;

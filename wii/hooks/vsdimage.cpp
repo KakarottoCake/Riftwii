@@ -20,7 +20,6 @@ namespace riftwii::wii {
 namespace {
 
 constexpr const char* kSdFolder = "sd:/riftwii/";
-constexpr const char* kUsbFolder = "usb:/riftwii/";
 constexpr std::uint32_t kSectorBytes = 512;
 constexpr std::size_t kMaxImages = 32;
 
@@ -111,7 +110,7 @@ bool usb_file(const std::string& path, std::uint64_t& size) {
 // else its parts .001, .002... up to the first one missing. Empty when
 // there is neither.
 std::vector<Part> parts_in(const std::string& folder, const std::string& name) {
-    const bool usb = folder.compare(0, 4, "usb:") == 0;
+    const bool usb = is_usb_path(folder);
     const auto found = [&](const std::string& path, std::uint64_t& size) {
         return usb ? usb_file(path, size) : sd_file(path, size);
     };
@@ -139,7 +138,7 @@ std::vector<VsdImageFile> ListVsdImages() {
         return false;
     };
     // "rex.raw", or "rex.raw" for its first part "rex.raw.001".
-    const auto add = [&](const std::string& file, const char* folder) {
+    const auto add = [&](const std::string& file, const std::string& folder) {
         const std::string split = vsd_split_image(file);
         const std::string name = split.empty() ? file : split;
         if (out.size() < kMaxImages && image_name(name) && !has(name)) out.push_back({name, folder + name});
@@ -152,8 +151,11 @@ std::vector<VsdImageFile> ListVsdImages() {
         closedir(d);
     }
     if (usb_volume_ready()) {
-        for (const char* ext : {".raw", ".001"})
-            for (const std::string& file : usb_file_names("/riftwii", ext)) add(file, kUsbFolder);
+        for (const std::string& root : usb_volume_roots()) {
+            for (const char* ext : {".raw", ".001"}) {
+                for (const std::string& file : usb_file_names(root + "riftwii", ext)) add(file, root + "riftwii/");
+            }
+        }
     }
     std::sort(out.begin(), out.end(), [](const VsdImageFile& a, const VsdImageFile& b) {
         return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
@@ -164,7 +166,10 @@ std::vector<VsdImageFile> ListVsdImages() {
 std::string VsdImageLocation(const std::string& name) {
     if (!image_name(name)) return "";
     if (!parts_in(kSdFolder, name).empty()) return kSdFolder + name;
-    if (usb_volume_ready() && !parts_in(kUsbFolder, name).empty()) return kUsbFolder + name;
+    for (const std::string& root : usb_volume_roots()) {
+        const std::string folder = root + "riftwii/";
+        if (!parts_in(folder, name).empty()) return folder + name;
+    }
     return "";
 }
 
@@ -185,7 +190,7 @@ VsdMount::VsdMount(const std::string& name) {
     const std::string where = VsdImageLocation(name);
     if (where.empty()) return;
     g_name = name;
-    g_parts = parts_in(where.compare(0, 4, "sd:/") == 0 ? kSdFolder : kUsbFolder, name);
+    g_parts = parts_in(where.substr(0, where.rfind('/') + 1), name);
     for (Part& part : g_parts) {
         if (part.path.compare(0, 4, "sd:/") == 0 && !(part.file = std::fopen(part.path.c_str(), "rb"))) {
             close_image();
