@@ -5929,7 +5929,13 @@ static int MenuSource(FrontendState& state)
 					const auto values = riftwii::wii::LoadEmulatorValues(addon, game.path);
 					play = StartEmulator(addon, game, values);
 				} else {
+					// Home hands over to the emulator's page: a pad press still
+					// kept back, or a pair begun, was Home's.
+					riftwii::wii::WatchViewChord(false);
+					riftwii::wii::WatchSearchHold(false);
+					riftwii::wii::SpendPadHomePresses();
 					play = EditEmulator(addon, &game);
+					if (!play) riftwii::wii::WatchViewChord(true);
 				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
