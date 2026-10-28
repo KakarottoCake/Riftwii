@@ -864,6 +864,21 @@ msgstr "Capa"
 msgid "Download again"
 msgstr "Baixar de novo"
 
+msgid "GameTDB cover"
+msgstr "Capa do GameTDB"
+
+msgid "First"
+msgstr "Primeira"
+
+msgid "Second"
+msgstr "Segunda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either."
+msgstr "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão vem antes de ambas."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "O GameTDB tem só uma capa para este jogo."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Baixa agora a capa deste jogo do GameTDB."
 

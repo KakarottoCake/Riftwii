@@ -35,7 +35,8 @@ std::vector<std::string> cover_regions(const std::string& game_id, const std::st
 // like a channel's ("PZLE01" is a disc, not a TurboGrafx-16 game). Any
 // other game: its six-character ID alone.
 std::vector<std::string> gametdb_art_ids(const std::string& game_id);
-std::string cover_url(const std::string& region, const std::string& game_id);
+// `second`: GameTDB's second cover set (coverB), which some games have (#384).
+std::string cover_url(const std::string& region, const std::string& game_id, bool second = false);
 
 // The status a server answered with, read from a failed download's error
 // as wii/online/online.cpp's HttpGet words it ("<host> answered 404", or

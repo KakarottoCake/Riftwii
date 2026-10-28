@@ -57,6 +57,13 @@ void CoverReserve(int covers);
 // Covers for the loader to read when nothing is asked for, in this order,
 // while there is room: then no page has to wait for its covers.
 void CoverReadAll(const std::vector<std::string>& game_ids);
+// Which of GameTDB's cover sets the game shows (#384): the first, or the
+// second (coverB) that some games have. Kept per game beside its cover
+// (sd:/riftwii/covers/<ID>.second), so every download follows it.
+bool CoverSecondSet(const std::string& game_id);
+// False: the card could not be written.
+bool ChooseCoverSet(const std::string& game_id, bool second);
+
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
 // Drops every cover the pool holds and every "not on the card" it

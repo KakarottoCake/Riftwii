@@ -1575,6 +1575,8 @@ void TestCoverDownloads() {
 }
 
 void TestCoverArt() {
+    EXPECT_EQ(cover_url("US", "RSBE01"), std::string("http://art.gametdb.com/wii/cover/US/RSBE01.png"));
+    EXPECT_EQ(cover_url("US", "RSBE01", true), std::string("http://art.gametdb.com/wii/coverB/US/RSBE01.png"));
     const std::vector<std::string> us = cover_regions("RMCE01", "en");
     EXPECT_EQ(us.size(), 3u);
     EXPECT_EQ(us[0], "US");

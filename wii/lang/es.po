@@ -864,6 +864,21 @@ msgstr "Portada"
 msgid "Download again"
 msgstr "Volver a descargar"
 
+msgid "GameTDB cover"
+msgstr "Portada de GameTDB"
+
+msgid "First"
+msgstr "Primera"
+
+msgid "Second"
+msgstr "Segunda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either."
+msgstr "Algunos juegos tienen una segunda portada en GameTDB. Tu propio riftwii/covers/{1}.png en la tarjeta va antes que ambas."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB solo tiene una portada para este juego."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Descarga ahora la portada de este juego desde GameTDB."
 

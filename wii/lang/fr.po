@@ -864,6 +864,21 @@ msgstr "Jacquette"
 msgid "Download again"
 msgstr "Re-télécharger"
 
+msgid "GameTDB cover"
+msgstr "Jaquette GameTDB"
+
+msgid "First"
+msgstr "Première"
+
+msgid "Second"
+msgstr "Deuxième"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either."
+msgstr "Certains jeux ont une deuxième jaquette sur GameTDB. Votre propre riftwii/covers/{1}.png sur la carte passe avant les deux."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB n'a qu'une jaquette pour ce jeu."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Télécharge la jacquette de ce jeu depuis GameTDB."
 

@@ -6489,7 +6489,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CoverSet } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -6865,6 +6865,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			cover.dim = true;
 		}
 		add(cover, {RowRef::What::Cover});
+		// Which of GameTDB's covers: some games have a second set (#384).
+		FlowRow set;
+		set.kind = FlowRow::Kind::Option;
+		set.label = tr("GameTDB cover");
+		set.value = riftwii::wii::CoverSecondSet(state.game_id) ? tr("Second") : tr("First");
+		set.on = true;
+		add(set, {RowRef::What::CoverSet});
 	}
 
 	// The game's own rows first, then the picture's and the rest under
@@ -11331,6 +11338,10 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 // the language, the online server and the rest, as a list: they are many,
 // and each is changed with Left and Right. `coverAsked`: the Cover row was
 // pressed, and the game page downloads it.
+// The GameTDB cover row asked for the second set: a download that finds
+// none says so (and the first stays).
+static bool g_coverSecondAsked = false;
+
 static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 {
 	std::vector<FlowRow> rows;
@@ -11435,6 +11446,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Cover)
 				say(tr("Downloads this game's box art from GameTDB now."));
+			else if (ref.what == RowRef::What::CoverSet)
+				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either.",
+				       {state.game_id}));
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
 			else if (ref.what == RowRef::What::GcCard)
@@ -11563,6 +11577,17 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				// Back on the game page, which shows the cover as it comes.
 				coverAsked = true;
 				done = true;
+				changed = false;
+			} else if (ref.what == RowRef::What::CoverSet && !state.game_id.empty()) {
+				// The other set, downloaded on the game page as Cover's is.
+				const bool second = !riftwii::wii::CoverSecondSet(state.game_id);
+				if (riftwii::wii::ChooseCoverSet(state.game_id, second)) {
+					g_coverSecondAsked = second;
+					coverAsked = true;
+					done = true;
+				} else {
+					say(tr("Could not save the settings to the SD card."));
+				}
 				changed = false;
 			} else {
 				changed = false;
@@ -11823,9 +11848,12 @@ static int MenuHome(FrontendState& state)
 					}
 					if (coverAsked) {
 						if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
+						else if (got == riftwii::wii::CoverFetch::NotFound && g_coverSecondAsked)
+							say(tr("GameTDB has only one cover for this game."));
 						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));
 						else say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
 						coverAsked = false;
+						g_coverSecondAsked = false;
 					}
 				}
 			}

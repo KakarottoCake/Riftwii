@@ -46,6 +46,7 @@ constexpr int kPoolMin = 49;
 std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".rwc"; }
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
+std::string SecondSetPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".second"; }
 
 // A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
 // Snes9x GX, riftwii/homebrewmatch.hpp).
@@ -354,6 +355,22 @@ bool CoverWanted(const std::string& game_id) {
     return true;
 }
 
+bool CoverSecondSet(const std::string& game_id) {
+    struct stat st;
+    return ValidId(game_id) && !emulator_cover_id(game_id) && stat(SecondSetPath(game_id).c_str(), &st) == 0;
+}
+
+bool ChooseCoverSet(const std::string& game_id, bool second) {
+    if (!ValidId(game_id) || emulator_cover_id(game_id)) return false;
+    if (!second) {
+        std::remove(SecondSetPath(game_id).c_str());
+        return !CoverSecondSet(game_id);
+    }
+    mkdir("sd:/riftwii", 0777);
+    mkdir(kCoverDir, 0777);
+    return WriteAll(SecondSetPath(game_id), {});
+}
+
 bool CoverStored(const std::string& game_id) {
     struct stat st;
     return ValidId(game_id) && stat(CoverPath(game_id).c_str(), &st) == 0;
@@ -377,11 +394,12 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
+    const bool second = CoverSecondSet(game_id);
     for (const std::string& art_id : gametdb_art_ids(game_id)) {
         for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
             std::vector<std::uint8_t> png;
             std::string why;
-            if (!HttpGet(cover_url(region, art_id), png, why, 512u << 10, 8000)) {
+            if (!HttpGet(cover_url(region, art_id, second), png, why, 512u << 10, 8000)) {
                 // GameTDB's refusal (a 404 most often) means no cover in this
                 // region; anything else is no answer about this game at all.
                 if (cover_answer_means_missing(http_answered_status(why))) continue;
@@ -404,6 +422,13 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
             logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
         }
+    }
+    if (second) {
+        // No second set after all: back to the first, and no miss to wait
+        // out, since the first may well be there.
+        ChooseCoverSet(game_id, false);
+        logf("Covers: GameTDB has no second cover for %s; back to the first\n", game_id.c_str());
+        return CoverFetch::NotFound;
     }
     WriteAll(MissPath(game_id), {});
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());

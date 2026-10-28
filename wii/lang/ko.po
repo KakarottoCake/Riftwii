@@ -864,6 +864,21 @@ msgstr "커버"
 msgid "Download again"
 msgstr "다시 다운로드"
 
+msgid "GameTDB cover"
+msgstr "GameTDB 표지"
+
+msgid "First"
+msgstr "첫 번째"
+
+msgid "Second"
+msgstr "두 번째"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the card comes before either."
+msgstr "GameTDB에 두 번째 표지가 있는 게임도 있습니다. 카드에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB에는 이 게임의 표지가 하나뿐입니다."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "지금 GameTDB에서 이 게임의 박스 아트를 다운로드하세요."
 
