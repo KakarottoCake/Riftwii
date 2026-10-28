@@ -2729,6 +2729,9 @@ public:
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
+		// A pad press Home still keeps back (B held as A opened this) was
+		// made there: let go here, it doesn't answer this box.
+		riftwii::wii::SpendPadHomePresses();
 		if (safeFirst) okBtn.backAction = false;
 		if (riftwii::wii::Settings().wii_menu_sounds)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
@@ -2751,6 +2754,9 @@ public:
 	~PopupBox()
 	{
 		Close();
+		// A view pair pressed in the box was the box's: Home doesn't take it
+		// as a view change once the box is gone.
+		riftwii::wii::ForgetViewChord();
 	}
 	// Takes the box off the screen; the destructor does it otherwise.
 	// Always with the GUI thread halted, so it is never in the middle of
