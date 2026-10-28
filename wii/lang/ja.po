@@ -3365,3 +3365,21 @@ msgstr "USBドライブがないか、RiftWiiがまだ読み終えていませ�
 
 msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
 msgstr "このフォルダとその中のフォルダに .ogg や .mp3 の曲がありません。"
+
+msgid "Emulators"
+msgstr "エミュレータ"
+
+msgid "Emulator defaults"
+msgstr "エミュレータの標準設定"
+
+msgid "Started with {1} ({2})."
+msgstr "{1} ({2})で起動します。"
+
+msgid "Could not save emulator settings."
+msgstr "エミュレータの設定を保存できません。"
+
+msgid "No emulators found."
+msgstr "エミュレータが見つかりません。"
+
+msgid "The emulator arguments are invalid or too long. See session.log."
+msgstr "起動するための設定が正しくないか、長すぎます。session.logを確認してください。"

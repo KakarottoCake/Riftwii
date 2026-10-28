@@ -6,6 +6,8 @@ you want to know more.
 
 ## Start here
 
+For third-party emulators, see [Emulators](#emulators) below.
+
 ### Step 1: Check you have these
 
 - [ ] A **Wii**, or a **Wii U**, with the **Homebrew Channel** on it.
@@ -1483,6 +1485,34 @@ the report, and nothing is sent unless you choose Send.
 
 The report is also saved as `sd:/riftwii/report.txt`. If it could not be
 sent (no internet, or neither site answered), send that file instead.
+
+## Emulators
+
+An emulator can supply a small `riftwii-emulator.ini` file beside its DOL
+in `sd:/apps/<folder>/` or `usb:/apps/<folder>/`. Install the emulator and
+its file as its author says, and put your games in the folders that file
+names. RiftWii supplies no BIOS or games.
+
+Press **1** on Home to reach **Emulators**, beside Homebrew. These games
+also appear in **All games**, with their system's name on each tile.
+Open a game for **Play**, the emulator's settings, **Reset**, and **About**
+(which names the emulator that starts it). Each game's settings are kept
+separately. **Settings > Games > Emulators** changes each emulator's
+defaults; a game's own changed values take priority. Reset on a game
+returns it to those defaults.
+
+No covers are downloaded for these games. After adding files, use
+**Settings > Finding games > Look for games again**. If an emulator or
+game is missing, check its manifest, folders and file extensions; the
+reason for a refused file is in `sd:/riftwii/session.log`. Arguments that
+are too long are refused before Play leaves the menu.
+
+An emulator keeps RiftWii's current IOS and hardware access. Its normal
+exit follows the homebrew return stub: the Homebrew Channel if it started
+RiftWii, otherwise back to RiftWii when its channel is installed, or the
+Wii Menu if Quitting a game is set to Wii Menu. The emulator can override
+that behavior itself. Authors can find the full format and test steps in
+[EMULATORS.md](EMULATORS.md).
 
 ## For developers
 

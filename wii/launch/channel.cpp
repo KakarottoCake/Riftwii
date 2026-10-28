@@ -24,6 +24,7 @@
 #include "netsock.hpp"
 #include "restart.hpp"
 #include "riftwii/channelupdate.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/returnstub.hpp"
 #include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
@@ -302,9 +303,28 @@ bool StartHomebrewApp(const std::string& path, std::string& error) {
 }
 
 bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
+    if (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0') {
+        error = "The app arguments are empty or exceed the 1024-byte limit.";
+        logf("Homebrew app: %s\n", error.c_str());
+        return false;
+    }
     u32 size = 0;
-    u8* dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* { return memalign(32, n); },
-                            [](void* p) { std::free(p); });
+    u8* dol = nullptr;
+    if (path.rfind("usb:/", 0) == 0) {
+        std::uint64_t bytes = 0;
+        if (read_usb_range(path, 0, nullptr, 0, bytes) && bytes > 0x100 && bytes <= (16u << 20) && can_allocate(bytes)) {
+            size = static_cast<u32>(bytes);
+            dol = static_cast<u8*>(memalign(32, size));
+            if (dol && !read_usb_range(path, 0, dol, size, bytes)) {
+                std::free(dol);
+                dol = nullptr;
+            }
+        }
+    } else {
+        dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* {
+            return can_allocate(n) ? memalign(32, n) : nullptr;
+        }, [](void* p) { std::free(p); });
+    }
     if (!dol || !dolboot_valid(dol, size)) {
         error = path + " is missing, damaged or does not fit next to RiftWii";
         logf("Homebrew app: %s\n", error.c_str());

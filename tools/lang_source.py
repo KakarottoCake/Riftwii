@@ -7055,6 +7055,40 @@ FR.update({
 })
 
 
+# Data-only emulators. Their authors supply the individual setting labels.
+T.update({
+    "Emulators": ("Emuladores", "エミュレータ", "Emuladores", "Emulatori"),
+    "Emulator defaults": ("Valores del emulador", "エミュレータの標準設定", "Padrões do emulador", "Valori dell'emulatore"),
+    "Started with {1} ({2}).": ("Se inicia con {1} ({2}).", "{1} ({2})で起動します。", "Inicia com {1} ({2}).", "Si avvia con {1} ({2})."),
+    "Could not save emulator settings.": (
+        "No se pudieron guardar los ajustes del emulador.",
+        "エミュレータの設定を保存できません。", "Não foi possível salvar as configurações do emulador.",
+        "Impossibile salvare le impostazioni dell'emulatore."),
+    "No emulators found.": ("No se encontraron emuladores.", "エミュレータが見つかりません。", "Nenhum emulador encontrado.", "Nessun emulatore trovato."),
+    "The emulator arguments are invalid or too long. See session.log.": (
+        "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log.",
+        "起動するための設定が正しくないか、長すぎます。session.logを確認してください。",
+        "Os argumentos do emulador são inválidos ou longos demais. Veja session.log.",
+        "Gli argomenti dell'emulatore non sono validi o sono troppo lunghi. Vedi session.log."),
+})
+KO.update({
+    "Emulators": "에뮬레이터",
+    "Emulator defaults": "에뮬레이터 기본값",
+    "Started with {1} ({2}).": "{1} ({2})(으)로 시작합니다.",
+    "Could not save emulator settings.": "에뮬레이터 설정을 저장하지 못했습니다.",
+    "No emulators found.": "에뮬레이터를 찾지 못했습니다.",
+    "The emulator arguments are invalid or too long. See session.log.": "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요.",
+})
+FR.update({
+    "Emulators": "Émulateurs",
+    "Emulator defaults": "Réglages de l'émulateur",
+    "Started with {1} ({2}).": "Démarre avec {1} ({2}).",
+    "Could not save emulator settings.": "Impossible d'enregistrer les réglages de l'émulateur.",
+    "No emulators found.": "Aucun émulateur trouvé.",
+    "The emulator arguments are invalid or too long. See session.log.": "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
