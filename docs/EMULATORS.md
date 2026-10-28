@@ -164,6 +164,7 @@ Lengths are UTF-8 **bytes**, not visible characters.
 | `args` or a switch's `on` template | 1024 bytes each; 64 words, 512 bytes per word |
 | HBC command block | 1024 bytes including DOL path, separators and final extra NUL |
 | Discovery | 48 add-ons; first 1024 app entries on each drive |
+| WiiFlow plugin files | first 512 entries in each drive's `wiiflow/plugins`, counting one folder level below |
 | Game scan | 2048 games total; 16384 entries and 512 folders across all add-ons; root plus 4 nested folder levels |
 
 Scans skip hidden entries, invalid paths, names over 255 bytes and SD

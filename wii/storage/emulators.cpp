@@ -192,16 +192,22 @@ void discover_wiiflow(EmulatorCatalog& out, const std::string& root) {
     std::vector<VolumeEntry> entries;
     if (!list_folder(root, entries)) return;
     std::size_t files = 0;
+    bool limited = false;
+    // Past 512 entries or 48 emulators the rest is left out, and said so.
+    const auto full = [&]() {
+        limited = ++files > 512 || out.addons.size() >= kMaxEmulators;
+        return limited;
+    };
     const auto visit = [&](const std::string& folder, const std::vector<VolumeEntry>& list, bool descend) {
         for (const auto& entry : list) {
-            if (++files > 512 || out.addons.size() >= kMaxEmulators) return;
+            if (full()) return;
             const std::string path = folder + "/" + entry.name;
             if (!emulator_path_valid(path)) continue;
             if (entry.is_directory) {
                 std::vector<VolumeEntry> inner;
                 if (descend && list_folder(path, inner)) {
                     for (const auto& file : inner) {
-                        if (++files > 512 || out.addons.size() >= kMaxEmulators) return;
+                        if (full()) return;
                         const std::string inner_path = path + "/" + file.name;
                         if (!file.is_directory && file.name.size() > 4 &&
                             same_dol(file.name.substr(file.name.size() - 4), ".ini") && emulator_path_valid(inner_path))
@@ -215,6 +221,10 @@ void discover_wiiflow(EmulatorCatalog& out, const std::string& root) {
         }
     };
     visit(root, entries, true);
+    if (limited) {
+        logf("Emulators: the WiiFlow plugin scan of %s stopped at its limit of 512 entries or 48 emulators; the rest were left out.\n",
+             root.c_str());
+    }
 }
 
 struct WalkBudget {
