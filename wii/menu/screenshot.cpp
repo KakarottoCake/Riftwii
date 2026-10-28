@@ -448,6 +448,7 @@ void SpendPadHomePresses() {
 
 void ForgetPopupPresses() {
     g_view_chord = false;
+    g_search_hold = false;  // a hold finished as the box opened starts no game after it
     for (int i = 0; i < 4; ++i) {
         g_one_watched[i] = g_two_watched[i] = false;
         for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
