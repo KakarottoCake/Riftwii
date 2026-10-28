@@ -35,6 +35,7 @@ bool NandReadAccess::Open() {
     }
     const auto store = riftwii::nand_check_store(kFrom + static_cast<u32>(offset));
     word_ = store.word;
+    shift_ = store.shift;
     before_ = read32(word_);
     after_ = riftwii::nand_check_opened(before_, store.shift);
     // An aligned word store is necessary on the uncached MEM2 mirror;
@@ -57,9 +58,14 @@ bool NandReadAccess::Restore() {
     if (word_ != 0) {
         write16(0x0D8B420A, 2);
         const u32 current = read32(word_);
-        if (current == after_) write32(word_, before_);
+        // Only the patched halfword is ours; IOS may have changed the other
+        // halfword of the same word, which must neither block nor be undone.
+        if (riftwii::nand_check_half(current, shift_) == riftwii::nand_check_half(after_, shift_)) {
+            const u32 mask = static_cast<u32>(0xFFFF) << shift_;
+            write32(word_, (current & ~mask) | (before_ & mask));
+        }
         const u32 now = read32(word_);
-        word_restored_ = now == before_;
+        word_restored_ = riftwii::nand_check_half(now, shift_) == riftwii::nand_check_half(before_, shift_);
         if (word_restored_) {
             Log("IOS%d's NAND permission check was restored after reading the cIOS information.\n",
                 IOS_GetVersion());

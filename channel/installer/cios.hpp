@@ -24,6 +24,7 @@ private:
     u32 word_ = 0;
     u32 before_ = 0;
     u32 after_ = 0;
+    unsigned shift_ = 0;
     u16 protection_ = 0;
     bool protection_saved_ = false;
     bool word_restored_ = true;
