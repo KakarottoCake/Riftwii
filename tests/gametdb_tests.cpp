@@ -81,6 +81,32 @@ static void test_parse_one() {
     EXPECT_EQ(japanese.synopsis, "Race with friends.\nUse the Wii Wheel.");
 }
 
+static void test_custom_type() {
+    // A retail game's <type/> is empty; a hack or mod distribution GameTDB
+    // lists under an ID of its own says CUSTOM, in any case.
+    GameInfo retail;
+    EXPECT_TRUE(parse_wiitdb_game(kKart, "EN", retail));
+    EXPECT_FALSE(retail.custom);
+    GameInfo custom;
+    EXPECT_TRUE(parse_wiitdb_game("<game name=\"Newer\"><id>SMNE02</id><type>CUSTOM</type></game>", "EN", custom));
+    EXPECT_TRUE(custom.custom);
+    GameInfo lower;
+    EXPECT_TRUE(parse_wiitdb_game("<game><id>SMNE03</id><type> custom </type></game>", "EN", lower));
+    EXPECT_TRUE(lower.custom);
+    GameInfo gamecube;
+    EXPECT_TRUE(parse_wiitdb_game("<game><id>GALE01</id><type>GameCube</type></game>", "EN", gamecube));
+    EXPECT_FALSE(gamecube.custom);
+    // Kept in the cache; a cache from before types were kept says so.
+    std::map<std::string, GameInfo> games = {{custom.id, custom}, {retail.id, retail}};
+    const std::string text = serialize_game_infos(games);
+    EXPECT_TRUE(game_infos_have_types(text));
+    std::map<std::string, GameInfo> back;
+    EXPECT_TRUE(parse_game_infos(text, back));
+    EXPECT_TRUE(back["SMNE02"].custom);
+    EXPECT_FALSE(back["RMCE01"].custom);
+    EXPECT_FALSE(game_infos_have_types("# GameTDB game details, made by RiftWii from wiitdb.zip\n[RMCE01]\nplayers=4\n"));
+}
+
 static void test_bad_blocks() {
     GameInfo g;
     EXPECT_FALSE(parse_wiitdb_game("<game><id>../../x</id></game>", "EN", g));
@@ -210,6 +236,7 @@ static void test_text() {
 int main() {
     test_text();
     test_parse_one();
+    test_custom_type();
     test_bad_blocks();
     test_scanner_pieces();
     test_scanner_oversized();

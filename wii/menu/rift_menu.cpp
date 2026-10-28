@@ -1338,7 +1338,11 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	for (const Row& r : rows) {
 		const bool profile = !r.entry.profile.empty();
-		const bool mods = g_packs.has_packs(r.id);
+		// A game GameTDB lists as custom (a hack or mod distribution with an
+		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
+		// pack) is a mod itself, with or without packs.
+		const bool custom = riftwii::wii::IsCustomGame(r.id);
+		const bool mods = g_packs.has_packs(r.id) || custom;
 		if (searching && !MatchesSearch(r.entry.searchName, r.id, r.game && r.game->gamecube)) continue;
 		// A profile is a setup of mods: it stays in the mods view.
 		if (!searching && g_filter == Filter::Mods && !mods && !profile) continue;
@@ -1628,8 +1632,11 @@ static std::unordered_map<std::string, IconSlot*> g_iconIndex;  // the filled sl
 static u32 g_iconClock = 0;
 static std::set<std::string> g_bannersTried;   // read from the image this session (or tried)
 static std::set<std::string> g_bannerAbsent;   // not on the card when last looked for
-// GameCube games whose animated banner was asked for this session; none
-// asked after a download failed for want of a network.
+// The drives' games are all in: GameTDB's database is read for them in the
+// background (wii/online/gameinfo.hpp), for the custom games it lists.
+static bool g_gameInfoReadDue = false;
+// GameCube and custom Wii games whose banner was asked for this session;
+// none asked after a download failed for want of a network.
 static std::set<std::string> g_gcBannersAsked;
 static bool g_gcBannersOff = false;
 
@@ -4508,6 +4515,11 @@ static int MenuSource(FrontendState& state)
 	// on, and the new Home takes its parts as they come.
 	bool rebuildingHome = false;
 	LoadFilter();
+	// The menu's language or the online setting may have changed in
+	// Settings (the cache is per language): look again for the games the
+	// cache hasn't looked for. Cheap when it has them all; no download
+	// after the network has failed.
+	g_gameInfoReadDue = true;
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
 	BuildHome(state, items, entries);
@@ -5009,22 +5021,40 @@ static int MenuSource(FrontendState& state)
 			if (CountPictureFetch(g_cover3dRun, cover3dGot, cover3dArrived, cover3dError)) g_covers3dOff = true;
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
-		// Channels: a GameCube game's animated banner, downloaded on the
-		// network's thread (with Download names and cheats on), one game at
-		// a time, the page shown's first; its disc's picture shows
-		// meanwhile. Before the covers, which this view does not show.
+		// Channels: a GameCube game's animated banner, or a custom Wii game's
+		// own (GameTDB's CUSTOM entries: their disc's banner is the game they
+		// were made from), downloaded on the network's thread (with Download
+		// names and cheats on), one game at a time, the page shown's first;
+		// its disc's banner shows meanwhile. Before the covers, which this
+		// view does not show.
 		std::string gcBannerArrived;
 		{
 			std::string fetched, fetchError;
 			riftwii::wii::BannerFetch fetchGot = riftwii::wii::BannerFetch::NotFound;
 			if (riftwii::wii::TakeGameCubeBannerFetch(fetched, fetchGot, fetchError)) {
 				if (fetchGot == riftwii::wii::BannerFetch::Failed) {
-					logf("Banners: no more GameCube banner downloads this session: %s\n", fetchError.c_str());
+					logf("Banners: no more banner downloads this session: %s\n", fetchError.c_str());
 					g_gcBannersOff = true;
 				} else if (fetchGot == riftwii::wii::BannerFetch::Stored) {
 					gcBannerArrived = fetched;
 				}
 			}
+		}
+		// GameTDB's database read for the drives' games, on the network's
+		// thread (taken further down once it ends): the games it lists as custom join the Mods
+		// view, and their banners are asked for below. Before the banners
+		// and covers, which wait for the thread meanwhile.
+		// A rescan's request waits for an earlier read's answer to be taken
+		// (it may not cover the rescan's games), and for a free thread.
+		if (!g_sdGone && !g_sdRemovalPending && g_gameInfoReadDue && !g_scanning && !riftwii::wii::GameInfoReadPending() && !riftwii::wii::NetBackgroundBusy() &&
+		    riftwii::wii::CoverFetchGame().empty() && riftwii::wii::GameCubeBannerFetchGame().empty()) {
+			std::set<std::string> wanted;
+			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
+			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+			// No database on the card: downloaded first, as the game names are.
+			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
+			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
+				g_gameInfoReadDue = false;
 		}
 		if (!g_scanning && grid.Channels() && !g_gcBannersOff && riftwii::wii::Settings().online && !riftwii::wii::NetBackgroundBusy() &&
 		    !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
@@ -5036,7 +5066,14 @@ static int MenuSource(FrontendState& state)
 				if (e.kind != HomeEntry::Kind::Sd && e.kind != HomeEntry::Kind::Usb) continue;
 				const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Sd ? state.sd_catalog.games[e.index]
 					: state.usb_catalog.games[e.index];
-				if (!game.gamecube || !g_gcBannersAsked.insert(game.id).second) continue;
+				const bool custom = !game.gamecube && riftwii::wii::IsCustomGame(game.id);
+				if ((!game.gamecube && !custom) || !g_gcBannersAsked.insert(game.id).second) continue;
+				if (custom) {
+					if (!riftwii::wii::CustomBannerWanted(game.id)) continue;
+					if (riftwii::wii::StartCustomBannerFetch(game.id))
+						logf("Banners: asking for %s's own banner (a custom game GameTDB lists)\n", game.id.c_str());
+					break;
+				}
 				if (!riftwii::wii::GameCubeBannerWanted(game.id)) continue;
 				// A mod is asked for by its own ID only: the three-letter
 				// banner would be the game it was made from.
@@ -5201,6 +5238,7 @@ static int MenuSource(FrontendState& state)
 				TakeUsbScanPart(state, part);
 				refreshKeepingTile(focused, true);
 				putPressBack();
+				g_gameInfoReadDue = true;
 				if (!askAfterLook()) return menu;
 				openNow = g_openWhenScanned;
 				startOpenNow = g_startWhenScanned;
@@ -5213,6 +5251,18 @@ static int MenuSource(FrontendState& state)
 				// The scan is done with the SD card: the Homebrew view's
 				// covers may read the game database now.
 				matchHomebrewCovers();
+			}
+		}
+		// GameTDB's database read in the background (started below): the
+		// games it lists as custom join the Mods view.
+		{
+			bool customChanged = false;
+			// Not while a tile is carried: the refresh would drop it.
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
+				const std::string focused = focusedTile();
+				takePress();
+				refreshKeepingTile(focused, false);
+				putPressBack();
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
@@ -5243,6 +5293,7 @@ static int MenuSource(FrontendState& state)
 					!grid.Carrying() && !riftwii::wii::NetBackgroundBusy()) {
 					riftwii::wii::logf("SD card: taken out; unmounted until it is back in\n");
 					SdWatchUnmountForRemoval();
+					riftwii::wii::ForgetGameInfo();
 					g_sdGone = true;
 					g_sdRemovalPending = false;
 					// The focused tile's key first: it is read through the catalog
@@ -5284,9 +5335,11 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetProfilePictures();
 						riftwii::wii::ForgetAllCovers();
 						ForgetAllIcons();
-						// The new card's homebrew list is made from its own
-						// database once the scan is done.
-						riftwii::wii::ForgetHomebrewTitlesRead();
+						// Classifications and homebrew titles come from this
+						// card's database, even with the same menu language.
+						riftwii::wii::ForgetGameInfo();
+						// This card may lack the banners the old one had.
+						g_gcBannersAsked.clear();
 						// The view from the new card's settings, or Home's default.
 						g_filter = Filter::Mods;
 						g_filterLoaded = false;
@@ -5348,7 +5401,7 @@ static int MenuSource(FrontendState& state)
 		}
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!gcBannerArrived.empty()) {
-			// The disc's picture gives way to the animated banner at the next turn.
+			// The disc's banner gives way to the downloaded one at the next turn.
 			ForgetIcon(gcBannerArrived);
 			g_bannerAbsent.erase(gcBannerArrived);
 		}

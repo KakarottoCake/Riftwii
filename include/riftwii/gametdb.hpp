@@ -38,6 +38,10 @@ struct GameInfo {
     int online_players = 0;            // 0: no online play
     std::vector<std::string> online_features;  // online, download, score, messageboard, wiimmfi...
     std::string synopsis;              // in the wanted language, else English; may be empty
+    // <type>CUSTOM</type>: a hack or mod distribution with an ID of its own
+    // (Newer Super Mario Bros. Wii, a Mario Kart Wii track pack). Home's
+    // Mods view shows it, and the banner server is asked for its own banner.
+    bool custom = false;
 };
 
 // Feeds wiitdb.xml's text in pieces of any size; keeps the games in
@@ -74,6 +78,9 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
 // key=value lines. Reading it back is as careful as reading the network's.
 std::string serialize_game_infos(const std::map<std::string, GameInfo>& games);
 bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& out);
+// Whether the cache was made by a RiftWii that keeps each game's <type>:
+// an older one's says no game is custom, so the database is read again.
+bool game_infos_have_types(const std::string& text);
 
 // GameTDB's locale code for a menu language ("en", "ja"...).
 std::string gametdb_locale(const std::string& menu_language);

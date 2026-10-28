@@ -485,13 +485,13 @@ static void test_urls() {
     const std::vector<std::string> urls = gc_banner_urls("GMSE01", true);
     EXPECT_EQ(urls.size(), std::size_t(2));
     if (urls.size() == 2) {
-        EXPECT_EQ(urls[0], std::string("http://banner.rc24.xyz/GMSE01.bnr"));
-        EXPECT_EQ(urls[1], std::string("http://banner.rc24.xyz/GMS.bnr"));
+        EXPECT_EQ(urls[0], std::string("https://banner.rc24.xyz/GMSE01.bnr"));
+        EXPECT_EQ(urls[1], std::string("https://banner.rc24.xyz/GMS.bnr"));
     }
     // A mod: its own ID only.
     const std::vector<std::string> mod = gc_banner_urls("GMSE04", false);
     EXPECT_EQ(mod.size(), std::size_t(1));
-    if (!mod.empty()) EXPECT_EQ(mod[0], std::string("http://banner.rc24.xyz/GMSE04.bnr"));
+    if (!mod.empty()) EXPECT_EQ(mod[0], std::string("https://banner.rc24.xyz/GMSE04.bnr"));
     EXPECT_EQ(gc_banner_urls("GLMP01", true).size(), std::size_t(2));
     EXPECT_TRUE(gc_banner_id_ok("G8ME01"));
     // Only six capital letters or digits: nothing else reaches a URL.
