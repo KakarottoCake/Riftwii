@@ -31,6 +31,7 @@ struct EmulatorSetting {
 struct EmulatorFile {
     std::string name, system, dol;
     std::string covers;  // optional libretro system folder
+    std::string wiiflow_covers;  // a WiiFlow plugin's own covers folder, if read from one
     std::vector<std::string> folders, extensions, arguments;
     std::vector<EmulatorSetting> settings;
 };

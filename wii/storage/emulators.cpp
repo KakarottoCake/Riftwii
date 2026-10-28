@@ -3,22 +3,26 @@
 #include "emulators.hpp"
 
 #include <dirent.h>
+#include <gccore.h>
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <set>
 
 #include "log.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/sha256.hpp"
+#include "riftwii/wiiflowplugin.hpp"
 #include "textfile.hpp"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
 
-constexpr std::size_t kMaxEmulators = 16;
+// WiiFlow plugin packs hold dozens of files; only installed emulators count.
+constexpr std::size_t kMaxEmulators = 48;
 constexpr std::size_t kMaxGames = 2048;
 constexpr std::size_t kMaxEntries = 16384;
 constexpr std::size_t kMaxFolders = 512;
@@ -106,6 +110,102 @@ void discover(EmulatorCatalog& out, const std::string& root) {
     }
 }
 
+bool file_present(const std::string& path) {
+    if (path.rfind("usb:/", 0) == 0) {
+        std::uint64_t bytes = 0;
+        return read_usb_range(path, 0, nullptr, 0, bytes) && bytes > 0;
+    }
+    struct stat info {};
+    return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0;
+}
+
+// The DOL an emulator started from a WiiFlow plugin may be told to go back
+// to ({loader}): this RiftWii's own boot.dol.
+std::string riftwii_dol() {
+    if (__system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
+        __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr) {
+        const std::string self = __system_argv->argv[0];
+        if (emulator_path_valid(self)) return self;
+    }
+    return "sd:/apps/riftwii/boot.dol";
+}
+
+bool same_dol(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return true;
+}
+
+void add_wiiflow_plugin(EmulatorCatalog& out, const std::string& ini, const std::string& folder,
+                        const std::string& loader) {
+    std::string text;
+    if (!read_manifest(ini, text)) return;
+    WiiflowPlugin plugin;
+    std::string why;
+    const auto result = parse_wiiflow_plugin(text, folder, loader, plugin, why);
+    if (result == WiiflowPluginResult::NotAnEmulator) return;
+    if (result == WiiflowPluginResult::Refused) {
+        logf("Emulators: the WiiFlow plugin %s was left out: %s.\n", ini.c_str(), why.c_str());
+        return;
+    }
+    for (const auto& candidate : plugin.dol_candidates) {
+        if (!file_present(candidate)) continue;
+        plugin.file.dol = candidate;
+        break;
+    }
+    // Plugin packs list emulators the player may not have: those stay quiet.
+    if (plugin.file.dol.empty()) return;
+    for (const auto& addon : out.addons) {
+        if (!same_dol(addon.file.dol, plugin.file.dol)) continue;
+        logf("Emulators: the WiiFlow plugin %s was left out: %s has its own riftwii-emulator.ini or another plugin.\n",
+             ini.c_str(), plugin.file.dol.c_str());
+        return;
+    }
+    if (out.addons.size() >= kMaxEmulators) return;
+    EmulatorAddon addon;
+    addon.file = std::move(plugin.file);
+    // The emulator's own folder, as for an app's riftwii-emulator.ini: its
+    // icon and the key its games' settings are kept under.
+    addon.folder = addon.file.dol.substr(0, addon.file.dol.find_last_of('/'));
+    logf("Emulators: %s from the WiiFlow plugin %s (%s).\n", addon.file.name.c_str(), ini.c_str(),
+         addon.file.dol.c_str());
+    out.addons.push_back(std::move(addon));
+}
+
+// WiiFlow Lite's plugin files (dev:/wiiflow/plugins/*.ini, and one folder
+// below, as plugin packs lay them out): read, never written or copied.
+void discover_wiiflow(EmulatorCatalog& out, const std::string& root) {
+    const std::string loader = riftwii_dol();
+    std::vector<VolumeEntry> entries;
+    if (!list_folder(root, entries)) return;
+    std::size_t files = 0;
+    const auto visit = [&](const std::string& folder, const std::vector<VolumeEntry>& list, bool descend) {
+        for (const auto& entry : list) {
+            if (++files > 512 || out.addons.size() >= kMaxEmulators) return;
+            const std::string path = folder + "/" + entry.name;
+            if (!emulator_path_valid(path)) continue;
+            if (entry.is_directory) {
+                std::vector<VolumeEntry> inner;
+                if (descend && list_folder(path, inner)) {
+                    for (const auto& file : inner) {
+                        if (++files > 512 || out.addons.size() >= kMaxEmulators) return;
+                        const std::string inner_path = path + "/" + file.name;
+                        if (!file.is_directory && file.name.size() > 4 &&
+                            same_dol(file.name.substr(file.name.size() - 4), ".ini") && emulator_path_valid(inner_path))
+                            add_wiiflow_plugin(out, inner_path, path, loader);
+                    }
+                }
+                continue;
+            }
+            if (entry.name.size() > 4 && same_dol(entry.name.substr(entry.name.size() - 4), ".ini"))
+                add_wiiflow_plugin(out, path, folder, loader);
+        }
+    };
+    visit(root, entries, true);
+}
+
 struct WalkBudget {
     std::size_t entries = 0;
     std::size_t folders = 0;
@@ -154,6 +254,10 @@ void ScanEmulators(EmulatorCatalog& out) {
     out = {};
     discover(out, "sd:/apps");
     discover(out, "usb:/apps");
+    // After the apps: an emulator's own riftwii-emulator.ini wins over a
+    // WiiFlow plugin file for the same DOL.
+    discover_wiiflow(out, "sd:/wiiflow/plugins");
+    discover_wiiflow(out, "usb:/wiiflow/plugins");
     WalkBudget budget;
     for (std::size_t index = 0; index < out.addons.size(); ++index) {
         budget.games.clear();
