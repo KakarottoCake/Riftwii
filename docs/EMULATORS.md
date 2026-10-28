@@ -78,9 +78,11 @@ contain letters and digits only; matching ignores their case.
 ## Settings and arguments
 
 Every setting has `label`, `type` and `default`. `help` is optional. Names
-are 1–32 lowercase letters, digits or underscores. `game`, `game_name`
-and `game_folder` are reserved. Author-supplied labels, help and choice
-values pass through RiftWii's translation lookup. English is the fallback;
+are 1–32 lowercase letters, digits or underscores. The six game
+placeholders (`game`, `game_name`, `game_folder`, `game_file`,
+`game_device`, `game_path`) are reserved and can't be setting names.
+Author-supplied labels, help and choice values pass through RiftWii's
+translation lookup. English is the fallback;
 players may translate them in `sd:/riftwii/lang/<language>.po`.
 
 | Type | Fields | Accepted player values |
@@ -106,12 +108,15 @@ value remain inside that one argument and are never split a second time.
 | `{game}` | Full game path, such as `sd:/roms/dreamcast/Power Stone.cdi` |
 | `{game_name}` | Filename without its last extension, such as `Power Stone` |
 | `{game_folder}` | Folder containing the game |
+| `{game_file}` | Filename with its extension, such as `Power Stone.cdi` |
+| `{game_device}` | The game's drive without its colon: `sd` or `usb` |
+| `{game_path}` | The game's folder without its drive, such as `roms/dreamcast` |
 | `{preset}` or another declared setting name | Selected choice or number |
 | `{frameskip}` or another declared switch name | The switch's `on` words when enabled; no words when disabled |
 
 Placeholders may be part of a word (`--game={game}`), except a switch
 placeholder must occupy a whole word. Unknown or incomplete placeholders
-reject the file. Switch `on` words may use the three game placeholders,
+reject the file. Switch `on` words may use all six game placeholders,
 but cannot reference settings. An enabled switch absent from `args` adds
 its `on` words at the end, in declaration order. An explicit `{frameskip}`
 chooses its position instead; a repeated switch still adds its words once.
@@ -158,7 +163,8 @@ Lengths are UTF-8 **bytes**, not visible characters.
 | Default or saved value | 96 bytes |
 | `args` or a switch's `on` template | 1024 bytes each; 64 words, 512 bytes per word |
 | HBC command block | 1024 bytes including DOL path, separators and final extra NUL |
-| Discovery | 16 add-ons; first 1024 app entries on each drive |
+| Discovery | 48 add-ons; first 1024 app entries on each drive |
+| WiiFlow plugin files | first 512 entries in each drive's `wiiflow/plugins`, counting one folder level below |
 | Game scan | 2048 games total; 16384 entries and 512 folders across all add-ons; root plus 4 nested folder levels |
 
 Scans skip hidden entries, invalid paths, names over 255 bytes and SD
@@ -233,6 +239,37 @@ Libretro's thumbnails come from its volunteer contributors, scanners,
 collectors, MobyGames and Fandom; the original artwork belongs to the
 games' developers and publishers. SteamGridDB's contributors supply the
 optional fallback artwork. No covers are shipped with RiftWii.
+
+## WiiFlow plugin files
+
+Many Wii emulators were made to be started by WiiFlow Lite, through its plugin
+files. RiftWii reads the player's own plugin files, so an emulator set up for
+WiiFlow appears under Emulators with nothing more to write. RiftWii only reads
+them: it never writes, moves or ships them, and an emulator's own
+`riftwii-emulator.ini` always wins over a plugin file for the same DOL.
+
+RiftWii looks in `sd:/wiiflow/plugins/` and `usb:/wiiflow/plugins/`, and one
+folder below them, as plugin packs lay them out. From each file's `[PLUGIN]`
+section it reads:
+
+| WiiFlow key | What RiftWii does with it |
+| --- | --- |
+| `displayname` | The emulator's name and the badge on its games (else the DOL's name) |
+| `dolFile` | A full `sd:/` or `usb:/` path; else a path beside the plugin files; else from each drive's root, in that order. A plugin whose DOL isn't there is skipped quietly: packs list many emulators. |
+| `romDir` | The games' folder, on both `sd:` and `usb:` |
+| `fileTypes` | `\|`-separated endings (`.smc\|.sfc`). Types with two dots, such as `.bin.zip`, are left out: RiftWii matches the last extension. |
+| `arguments` | `\|`-separated, one argument each: `{device}`, `{path}`, `{name}`, `{name_no_ext}` and `{loader}` become `{game_device}`, `{game_path}`, `{game_file}`, `{game_name}` and RiftWii's own `boot.dol` (so an emulator that returns to its loader comes back to RiftWii). Any other placeholder refuses the file. |
+| `coverFolder` | The game's cover is also looked for at `wiiflow/covers/<coverFolder>/<file name with extension>.png`, where WiiFlow keeps it |
+| `magic` | Required, as in WiiFlow. The magics of WiiFlow's own lists (Wii, GameCube, channels, homebrew) are passed over, as are its music player and ScummVM: RiftWii shows those its own way. |
+
+Plugin files get the same limits as RiftWii's own (16 KiB, 32 arguments,
+no path that climbs out of its folder) and declare no settings. Each one
+used is named in `session.log`, with its DOL.
+
+Plugins sharing a DOL remain separate when their game folders, extensions
+or arguments differ. Equivalent configurations are listed once. Saved
+settings and game entries use the configuration's own identity, so two
+plugins starting the same game with different arguments stay separate.
 
 ## Testing an emulator
 

@@ -28,6 +28,7 @@ namespace {
 
 struct CoverGame {
     std::string id, name, system, covers;
+    std::string file, wiiflow_covers;  // the game's file name; a WiiFlow plugin's covers folder
     bool downloads = false;
     bool steamgrid = false;
 };
@@ -133,11 +134,22 @@ bool MakeCover(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& 
 }
 
 bool LocalCover(const CoverGame& game, std::vector<std::uint8_t>& file) {
-    if (!emulator_art_component(game.system) || !emulator_art_component(game.name + ".png")) return false;
-    const std::string relative = "/riftwii/covers/emulators/" + game.system + "/" + game.name + ".png";
+    if (emulator_art_component(game.system) && emulator_art_component(game.name + ".png")) {
+        const std::string relative = "/riftwii/covers/emulators/" + game.system + "/" + game.name + ".png";
+        for (const char* device : {"sd:", "usb:"}) {
+            std::vector<std::uint8_t> png;
+            if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+        }
+    }
+    // A player who set the emulator up for WiiFlow Lite may have its covers
+    // already: WiiFlow keeps a plugin game's front at
+    // wiiflow/covers/<the plugin's coverFolder>/<file name with extension>.png.
+    if (game.wiiflow_covers.empty() || !emulator_art_component(game.wiiflow_covers) ||
+        !emulator_art_component(game.file + ".png")) return false;
+    const std::string wiiflow = "/wiiflow/covers/" + game.wiiflow_covers + "/" + game.file + ".png";
     for (const char* device : {"sd:", "usb:"}) {
         std::vector<std::uint8_t> png;
-        if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+        if (ReadPng(device + wiiflow, png) && MakeCover(png, file)) return true;
     }
     return false;
 }
@@ -263,6 +275,7 @@ void ConfigureEmulatorCovers(const EmulatorCatalog& catalog) {
         if (game.emulator >= catalog.addons.size() || !emulator_cover_id(game.key)) continue;
         const auto& file = catalog.addons[game.emulator].file;
         ready.push_back({game.key, game.name, file.system, file.covers,
+                         game.path.substr(game.path.find_last_of('/') + 1), file.wiiflow_covers,
                          Settings().online && Settings().emulator_covers, Settings().steamgrid_covers});
     }
     LWP_MutexLock(g_gamesLock);

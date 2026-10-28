@@ -47,6 +47,12 @@ bool number(const std::string& text, int& value) {
     return std::to_string(value) == text;
 }
 
+// The placeholders a game fills in: no setting may take these names.
+bool game_placeholder(const std::string& key) {
+    return key == "game" || key == "game_name" || key == "game_folder" || key == "game_file" ||
+           key == "game_device" || key == "game_path";
+}
+
 bool relative_path(const std::string& path) {
     if (path.empty() || path.size() > kEmulatorPathMax || !printable(path) ||
         path.find_first_of("\\:") != std::string::npos) return false;
@@ -123,7 +129,7 @@ bool check_placeholders(const EmulatorFile& file, const std::string& word, bool 
         const auto end = word.find('}', pos + 1);
         if (end == std::string::npos) return false;
         const std::string key = word.substr(pos + 1, end - pos - 1);
-        if (key != "game" && key != "game_name" && key != "game_folder") {
+        if (!game_placeholder(key)) {
             const auto* setting = allow_settings ? find_setting(file, key) : nullptr;
             if (setting == nullptr) return false;
             if (setting->type == EmulatorSettingType::Switch && word != "{" + key + "}") return false;
@@ -327,7 +333,7 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
                 continue;
             }
             const std::string key = trim(section.substr(8));
-            if (!identifier(key) || key == "game" || key == "game_name" || key == "game_folder" ||
+            if (!identifier(key) || game_placeholder(key) ||
                 find_setting(file, key) != nullptr) return fail("An emulator setting name is invalid or repeated.");
             if (file.settings.size() == kEmulatorSettingsMax) return fail("The emulator declares more than 16 settings.");
             file.settings.emplace_back();
@@ -450,6 +456,15 @@ bool build_emulator_arguments(const EmulatorFile& emulator, const std::string& g
     replacements["game"] = game;
     replacements["game_name"] = emulator_game_name(game);
     replacements["game_folder"] = game.substr(0, game.find_last_of('/'));
+    // As WiiFlow's plugins give them: the file name with its extension, the
+    // drive without its colon (sd, usb) and the folder without the drive.
+    replacements["game_file"] = game.substr(game.find_last_of('/') + 1);
+    replacements["game_device"] = game.substr(0, game.find(':'));
+    {
+        const std::string& folder = replacements["game_folder"];
+        const auto root = folder.find(":/");
+        replacements["game_path"] = root == std::string::npos ? folder : folder.substr(root + 2);
+    }
     std::vector<std::string> ready{emulator.dol};
     std::size_t bytes = emulator.dol.size() + 2;
     std::set<std::string> switches;
