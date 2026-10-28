@@ -4335,6 +4335,8 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	for (const auto& game : state.emulators.games) {
 		riftwii::wii::ForgetCover(game.key);
 	}
+	// A game's own PNG on the USB drive could not be read before now either.
+	riftwii::wii::ForgetGameCoversBeforeUsb();
 	state.package_catalog = std::move(part.package_catalog);
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
@@ -11575,6 +11577,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				game.server = StepValue(kServers, game.server, direction);
 			} else if (ref.what == RowRef::What::Cover && !state.game_id.empty()) {
 				// Back on the game page, which shows the cover as it comes.
+				g_coverSecondAsked = false;
 				coverAsked = true;
 				done = true;
 				changed = false;
@@ -11611,6 +11614,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
+	// A second-set request left on another game's page says nothing here.
+	g_coverSecondAsked = false;
 
 	// Start on a banner, which plays on meanwhile: the packs are read from
 	// the card and the rows worked out with the GUI going (none of it is

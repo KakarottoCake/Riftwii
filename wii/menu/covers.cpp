@@ -534,6 +534,16 @@ void ForgetCover(const std::string& game_id) {
         if (g_pool[i].id == game_id || g_pool[i].id.compare(0, tiles.size(), tiles) == 0) SetId(g_pool[i], "");
 }
 
+void ForgetGameCoversBeforeUsb() {
+    if (g_lock == LWP_MUTEX_NULL) return;
+    Lock lock;
+    for (auto it = g_absent.begin(); it != g_absent.end();)
+        it = emulator_cover_id(*it) ? std::next(it) : g_absent.erase(it);
+    ++g_forgets;
+    for (int i = 0; i < g_slots; ++i)
+        if (!g_pool[i].id.empty() && !emulator_cover_id(g_pool[i].id) && !g_pool[i].own) SetId(g_pool[i], "");
+}
+
 void ForgetAllCovers() {
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
