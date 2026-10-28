@@ -13360,7 +13360,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					WaitForDriveScan(noteTxt);
 					// Home still has to collect the finished scan's new catalog.
 					if (g_scanning) {
-						note(tr("RiftWii is still reading the drives."));
+						note(tr("Go back to Home and open this again once your games are shown."));
 						break;
 					}
 					mainWindow->Remove(&w);
