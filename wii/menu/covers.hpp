@@ -47,6 +47,10 @@ bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 // without it and ask again next frame; asks not renewed for a moment are
 // dropped. `rank` orders the asks, lowest first. GUI thread only.
 const u8* CoverTexture(const std::string& game_id, int rank = 0);
+// Whether the cover in memory for `name` is the player's own PNG (#384):
+// then it is shown instead of GameTDB's full box art too (the shelf, the
+// close-up). Never reads the card; false while it isn't in memory.
+bool CoverIsOwn(const std::string& name);
 // Asks for a cover to be read ahead (a page next to the one shown), and
 // keeps it in memory while asked for every frame.
 void CoverPrefetch(const std::string& game_id, int rank);

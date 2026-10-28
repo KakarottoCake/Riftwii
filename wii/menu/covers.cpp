@@ -118,6 +118,7 @@ struct Slot {
     std::string id;        // the cover in it, or being read into it
     u8* data = nullptr;
     bool ready = false;    // read and flushed: the GUI may draw it
+    bool own = false;      // the player's own PNG (#384), not GameTDB's
     u64 touched = 0;       // last drawn or read (gettime ticks)
 };
 struct Request {
@@ -254,6 +255,7 @@ void* LoaderMain(void*) {
             ok = (game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize) ||
                  (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
         }
+        const bool own = ok && !emulator;
         if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
         const bool cache_allowed = !emulator || EmulatorDownloadedCoversAllowed();
         // A mod's tile shows the game's downloaded cover.
@@ -272,6 +274,7 @@ void* LoaderMain(void*) {
         LWP_CondBroadcast(g_idle);
         if (ok && forgets == g_forgets) {
             slot->ready = true;
+            slot->own = own;
             slot->touched = gettime();
             g_texDirty = true;  // GX is the GUI thread's: it invalidates
         } else {
@@ -428,7 +431,7 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
         // out, since the first may well be there.
         ChooseCoverSet(game_id, false);
         logf("Covers: GameTDB has no second cover for %s; back to the first\n", game_id.c_str());
-        return CoverFetch::NotFound;
+        return FetchCoverNow(game_id, error);
     }
     WriteAll(MissPath(game_id), {});
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
@@ -488,6 +491,13 @@ const u8* CoverTexture(const std::string& game_id, int rank) {
     }
     if (!g_absent.count(game_id)) Ask(game_id, rank);
     return nullptr;
+}
+
+bool CoverIsOwn(const std::string& name) {
+    if (!ValidId(name) || !Started()) return false;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready && s->own;
 }
 
 void CoverPrefetch(const std::string& game_id, int rank) {

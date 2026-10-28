@@ -6982,14 +6982,14 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		controls.label = tr("Controls");
 		rows.push_back(controls);
 		refs.push_back({W::GcControls});
-		if (settingsOnly) show({W::Cover});
+		if (settingsOnly) show({W::Cover, W::CoverSet});
 		return;
 	}
 	heading(tr("Picture"));
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
 	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
-	if (settingsOnly) show({W::Cover});
+	if (settingsOnly) show({W::Cover, W::CoverSet});
 	// What RiftWii's extras take of the game's memory this time.
 	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
 	if (!budget.pieces.empty() && !state.use_channel) {
@@ -11847,9 +11847,12 @@ static int MenuHome(FrontendState& state)
 						CoverDownloadsOff(id) = true;
 					}
 					if (coverAsked) {
-						if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
-						else if (got == riftwii::wii::CoverFetch::NotFound && g_coverSecondAsked)
+						// Asked for the second set, and back on the first (downloaded
+						// again, or kept): GameTDB has only the one.
+						if (g_coverSecondAsked && !riftwii::wii::CoverSecondSet(id) &&
+						    got != riftwii::wii::CoverFetch::NoAnswer && got != riftwii::wii::CoverFetch::Failed)
 							say(tr("GameTDB has only one cover for this game."));
+						else if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
 						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));
 						else say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
 						coverAsked = false;

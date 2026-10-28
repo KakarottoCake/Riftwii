@@ -883,9 +883,11 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         if (!g_flying.empty() && item.id == g_flying) continue;
         const BoxPose& p = poses[i];
-        const u8* art = riftwii::wii::BoxTexture(item.id);
+        // The player's own cover (#384) comes before GameTDB's full box.
+        const u8* front = riftwii::wii::CoverTexture(CoverName(item));
+        const u8* art = front && riftwii::wii::CoverIsOwn(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         Face faces[5];
-        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(CoverName(item)),
+        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
                  item.hue, item.caseColour, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
@@ -944,8 +946,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         const BoxPose& p = poses[i];
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
-        const u8* art = riftwii::wii::BoxTexture(item.id);
-        const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(CoverName(item));
+        // The player's own cover (#384) comes before GameTDB's full box.
+        const u8* front = riftwii::wii::CoverTexture(CoverName(item));
+        const u8* art = front && riftwii::wii::CoverIsOwn(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
