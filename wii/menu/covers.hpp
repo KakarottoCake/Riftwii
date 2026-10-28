@@ -38,6 +38,10 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error);
 bool StartCoverFetch(const std::string& game_id);
 // The game a started fetch is for, until its answer is taken ("" if none).
 const std::string& CoverFetchGame();
+// Whether the fetch TakeCoverFetch last gave was of GameTDB's second set
+// (CoverSecondSet when it started): a set changed meanwhile means another
+// fetch.
+bool TakenFetchWasSecondSet();
 // The answer of a started fetch once it has finished, once.
 bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 

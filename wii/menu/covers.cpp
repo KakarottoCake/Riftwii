@@ -351,7 +351,10 @@ bool CoverWanted(const std::string& game_id) {
     if (emulator_cover_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
     // The player's own cover is there: nothing to download.
-    if (OwnCoverThere(game_id)) return false;
+    if (OwnCoverThere(game_id)) {
+        std::vector<std::uint8_t> own;
+        if (ReadOwnCover(game_id, own)) return false;
+    }
     struct stat st;
     if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
     if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
@@ -429,7 +432,10 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (second) {
         // No second set after all: back to the first, and no miss to wait
         // out, since the first may well be there.
-        ChooseCoverSet(game_id, false);
+        if (!ChooseCoverSet(game_id, false)) {
+            error = "cannot write " + SecondSetPath(game_id) + " (card full?)";
+            return CoverFetch::Failed;
+        }
         logf("Covers: GameTDB has no second cover for %s; back to the first\n", game_id.c_str());
         return FetchCoverNow(game_id, error);
     }
@@ -444,10 +450,12 @@ namespace {
 // thread's end, read by Take only after it ended.
 struct Background {
     std::string id;
+    bool second = false;  // the set chosen when it started
     CoverFetch got = CoverFetch::Failed;
     std::string error;
 };
 Background g_background;
+bool g_lastFetchSecond = false;
 
 void RunBackgroundFetch() { g_background.got = FetchCover(g_background.id, g_background.error); }
 }  // namespace
@@ -456,6 +464,7 @@ bool StartCoverFetch(const std::string& game_id) {
     if (!g_background.id.empty() || NetBackgroundBusy()) return false;
     g_background = Background{};
     g_background.id = game_id;
+    g_background.second = CoverSecondSet(game_id);
     if (NetRunInBackground(RunBackgroundFetch, false, false)) return true;
     g_background.id.clear();
     return false;
@@ -470,9 +479,12 @@ bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error) {
     game_id = g_background.id;
     got = g_background.got;
     error = g_background.error;
+    g_lastFetchSecond = g_background.second;
     g_background.id.clear();
     return true;
 }
+
+bool TakenFetchWasSecondSet() { return g_lastFetchSecond; }
 
 const u8* CoverTexture(const std::string& game_id, int rank) {
     if (!ValidId(game_id) || !Started()) return nullptr;

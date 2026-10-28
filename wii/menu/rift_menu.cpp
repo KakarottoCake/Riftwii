@@ -11833,7 +11833,11 @@ static int MenuHome(FrontendState& state)
 			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 			if (riftwii::wii::TakeCoverFetch(id, got, error)) {
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(id);
-				if (id != state.game_id) {
+				if (id == state.game_id && coverAsked && riftwii::wii::TakenFetchWasSecondSet() != riftwii::wii::CoverSecondSet(id)) {
+					// Started before the GameTDB cover row changed the set: the
+					// one now chosen is fetched again, and its answer is said.
+					coverStart = true;
+				} else if (id != state.game_id) {
 					// One Home started before this page opened.
 					if (CountCoverFetch(got, id, error)) CoverDownloadsOff(id) = true;
 				} else {
