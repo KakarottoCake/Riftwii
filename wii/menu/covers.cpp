@@ -499,7 +499,11 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
         return FetchCoverNow(game_id, error);
     }
     WriteAll(MissPath(game_id), {});
-    if (tile) WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
+    if (tile) {
+        // A cover stored for the tile's earlier match is not this one's.
+        std::remove(CoverPath(game_id).c_str());
+        WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
+    }
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
     return CoverFetch::NotFound;
 }
