@@ -592,11 +592,17 @@ int g_backCur = 0;
 // `id` "*disc": the disc drive's box (skin::discCase).
 constexpr const char* kDiscBackdrop = "*disc";
 
-void UpdateBackdrop(const std::string& id, bool still) {
-    if (g_backId[g_backCur] != id && still && !id.empty()) {
-        const bool disc = id == kDiscBackdrop;
-        const u8* art = disc ? nullptr : riftwii::wii::BoxTexture(id);
-        const u8* cover = art || disc ? nullptr : riftwii::wii::CoverTexture(id);
+// `cover_name`: the tile's (CoverName): the player's own cover (#384)
+// comes before GameTDB's box here too, as on the box itself.
+void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool still) {
+    const bool disc = id == kDiscBackdrop;
+    const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
+    const bool own = front && riftwii::wii::CoverIsOwn(cover_name);
+    // Made again once the player's own cover is in memory.
+    const std::string key = own ? cover_name + "#own" : id;
+    if (g_backId[g_backCur] != key && still && !id.empty()) {
+        const u8* art = disc || own ? nullptr : riftwii::wii::BoxTexture(id);
+        const u8* cover = art || disc ? nullptr : front;
         if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
             if (disc)
@@ -610,13 +616,13 @@ void UpdateBackdrop(const std::string& id, bool still) {
                                        g_backPx[next]);
             DCFlushRange(g_backPx[next], sizeof(g_backPx[next]));
             GX_InvalidateTexAll();
-            g_backId[next] = id;
+            g_backId[next] = key;
             g_backShown[next] = 0;
             g_backCur = next;
         }
     }
     for (int k = 0; k < 2; ++k) {
-        const float target = k == g_backCur && g_backId[k] == id ? 1.0f : 0.0f;
+        const float target = k == g_backCur && g_backId[k] == key ? 1.0f : 0.0f;
         g_backShown[k] = riftwii::wii::transition::Follow(g_backShown[k], target, 200.0f);
     }
 }
@@ -872,7 +878,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
     const std::string backdrop = focus < 0 || focus >= Count()      ? std::string()
                                  : (*items)[focus].badge == "DISC" ? std::string(kDiscBackdrop)
                                                                    : (*items)[focus].id;
-    UpdateBackdrop(backdrop, shelfStill >= 8);
+    UpdateBackdrop(backdrop, focus < 0 || focus >= Count() ? std::string() : CoverName((*items)[focus]), shelfStill >= 8);
     DrawBackdrop(alpha);
     if (!carousel && focus >= first && focus <= last && poses[focus].placed &&
         (g_flying.empty() || (*items)[focus].id != g_flying)) {
@@ -1143,7 +1149,7 @@ void GuiGameGrid::DrawRing(int alpha) {
 
     LoadPerspective();
     const std::string backdrop = (*items)[focus].badge == "DISC" ? std::string(kDiscBackdrop) : (*items)[focus].id;
-    UpdateBackdrop(backdrop, shelfStill >= 8);
+    UpdateBackdrop(backdrop, CoverName((*items)[focus]), shelfStill >= 8);
     DrawBackdrop(alpha);
     LoadFlat();
 

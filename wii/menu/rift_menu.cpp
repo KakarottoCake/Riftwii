@@ -6871,8 +6871,14 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		FlowRow set;
 		set.kind = FlowRow::Kind::Option;
 		set.label = tr("GameTDB cover");
-		set.value = riftwii::wii::CoverSecondSet(state.game_id) ? tr("Second") : tr("First");
-		set.on = true;
+		if (readFiles) {
+			set.value = riftwii::wii::CoverSecondSet(state.game_id) ? tr("Second") : tr("First");
+			set.on = true;
+		} else {
+			// Not pressable until the card is read, as Cover's.
+			set.kind = FlowRow::Kind::Info;
+			set.dim = true;
+		}
 		add(set, {RowRef::What::CoverSet});
 	}
 
