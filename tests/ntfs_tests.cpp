@@ -727,6 +727,13 @@ void test_partitions() {
         std::unique_ptr<ImageVolume> vol;
         EXPECT_FALSE(riftwii::mount_image_volume(r, vol, error));
         EXPECT_CONTAINS(error, "no FAT32 or NTFS");
+
+        // With no partition table, the multi-volume scan must still say
+        // why mounting block 0 failed, just as the single-volume scan does.
+        std::vector<riftwii::MountedImageVolume> volumes;
+        EXPECT_FALSE(riftwii::mount_image_volumes(r, volumes, error, riftwii::default_wanted_folders()));
+        EXPECT_TRUE(volumes.empty());
+        EXPECT_CONTAINS(error, "block 0: boot sector signature missing");
     }
 }
 

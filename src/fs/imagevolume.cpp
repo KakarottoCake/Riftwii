@@ -350,7 +350,7 @@ bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& ou
     std::size_t best_index = 0;
     std::size_t best_score = 0;
     unsigned number = 0;
-    std::string tried;
+    std::string tried = error;
     for (const DrivePartition& partition : drive_partitions(reader, block0)) {
         ++number;
         // A hybrid table or damaged extended chain may name a volume twice.
