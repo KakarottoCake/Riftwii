@@ -155,6 +155,11 @@ contains theirs names them in its file header, and
   encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument
   other loaders pass (both read as documentation, nothing copied).
+- **RiiTag-RPC** by RiiConnect24 and t0g3pii (GPL-3.0), **Dolphin**'s
+  Discord presence and **RiiTag-Emulator-Bot**: for RiftWii-RPC, how long a
+  game stays on Discord and how its GameTDB cover is found, what a Wii
+  game's presence shows, and which Discord application names are already
+  read by the RiiTag bot (all read as documentation, nothing copied).
 - **projectPiki's Pikmin 2 decompilation**: GameCube SDK controller
   lifecycle behaviour, read as documentation; no code copied.
 - **The Mario Kart: Double Dash!! decompilation** (doldecomp): how the

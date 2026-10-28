@@ -1,0 +1,8 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file alias="riftwii-rpc.png">../icons/riftwii-rpc.png</file>
+    </qresource>
+</RCC>

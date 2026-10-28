@@ -948,6 +948,23 @@ downloads `https://riitag.t0g3pii.de/<id>/tag.max.png` and shows it; A
 downloads it again. It needs the Wii online and Settings > Online's
 downloads on. Like the key, the ID is hidden in problem reports.
 
+### Discord
+
+RiftWii-RPC, a small app for your computer, shows the game you are playing
+on your Discord profile: its name, its cover, your mods and how long you
+have played. Start it on the computer where Discord is open, on the same
+network as the Wii; there is nothing to set up on the Wii. Download and
+setup: [rpc/README.md](../rpc/README.md).
+
+RiftWii tells the network when its menu is open, when you choose Play and
+when it closes, only while the Wii is online and Settings > Online is on.
+During a game the Wii cannot say anything, so the game stays on Discord
+until RiftWii is back or the app's timeout runs out. In
+`sd:/riftwii/settings.txt`, `presence = off` stops it, and
+`presence_host = <your computer's address>` also sends straight to your
+computer, for networks that drop broadcasts. Problem reports hide
+`presence_host`.
+
 ### Mario Kart Wii distributions
 
 Pulsar packs (Retro Rewind and others) save their settings, ghosts and

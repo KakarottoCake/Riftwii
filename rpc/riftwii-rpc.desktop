@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Desktop Entry]
+Type=Application
+Name=RiftWii-RPC
+Comment=Discord rich presence for the game your Wii plays in RiftWii
+Exec=RiftWii-RPC
+Icon=riftwii-rpc
+Categories=Game;Utility;

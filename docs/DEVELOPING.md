@@ -386,6 +386,15 @@ has every step, check and error in full). Before running it:
    pictures to the testers' channel, pinging the tester role and nobody
    else. A commit with no new number (already released) is refused.
 
+   Ticking **rpc** also builds RiftWii-RPC, the Discord presence app for
+   computers (`rpc/`, `.github/workflows/rpc.yml`), for Windows, macOS
+   (one Universal 2 app) and Linux, and attaches those three downloads
+   after RiftWii's own files. It is off unless ticked, so a release is
+   the three files as before. The repository variable
+   `RIFTWII_RPC_CLIENT_ID` is the Discord application ID built into them
+   (rpc/README.md says how to make one); without it the app asks the
+   player for one.
+
 The workflow refuses, before anything is built or published: a publish
 from a branch other than main, a commit whose CI hasn't passed, notes
 that are unchanged since the last release's tag or still say `NOTES NOT

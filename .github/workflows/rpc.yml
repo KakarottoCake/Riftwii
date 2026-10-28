@@ -1,0 +1,153 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# RiftWii-RPC (rpc/, docs/PRESENCE.md): the Discord rich presence app, built
+# and tested on Linux, Windows and macOS (one Universal 2 app for Apple
+# silicon and Intel Macs).
+#
+# CI runs this on every push and pull request (ci.yml's "RiftWii-RPC" job,
+# which the repository variable RIFTWII_RPC_CI = off turns off) and keeps
+# nothing. The release runs it when its "rpc" box is ticked, with `package`,
+# and attaches the three apps. It can also be run by hand.
+#
+# The repository variable RIFTWII_RPC_CLIENT_ID is the Discord application
+# ID built in (rpc/README.md). Without it the apps still build, and the
+# player pastes an ID into the window.
+name: RiftWii-RPC
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: "Keep the built apps as artifacts of the run (riftwii-rpc-<system>)"
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Keep the built apps as artifacts of the run"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: RiftWii-RPC (${{ matrix.name }})
+    strategy:
+      # One system failing still shows how the others went.
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-24.04
+          - name: windows
+            os: windows-2022
+          - name: macos
+            os: macos-15
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    env:
+      CLIENT_ID: ${{ vars.RIFTWII_RPC_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # Linux: Ubuntu's own Qt 6 (6.4). The app needs 6.2 or later.
+      - name: Qt (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build qt6-base-dev qt6-base-dev-tools libgl-dev
+      # Windows and macOS: Qt's own builds. Qt's macOS libraries hold both
+      # arm64 and x86_64, which a Universal 2 app needs (Homebrew's do not).
+      - name: Qt (Windows, macOS)
+        if: runner.os != 'Linux'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.11.3"
+          aqtversion: "==3.3.*"
+          cache: true
+
+      - name: Version
+        id: version
+        shell: bash
+        run: echo "version=$(head -n1 rpc/VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S rpc -B build-rpc -G Ninja -DCMAKE_BUILD_TYPE=Release -DRIFTWII_RPC_CLIENT_ID="$CLIENT_ID"
+      - name: Configure (macOS, Universal 2)
+        if: runner.os == 'macOS'
+        run: |
+          cmake -S rpc -B build-rpc -G Ninja -DCMAKE_BUILD_TYPE=Release -DRIFTWII_RPC_CLIENT_ID="$CLIENT_ID" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cmake -S rpc -B build-rpc -G "Visual Studio 17 2022" -A x64 -DRIFTWII_RPC_CLIENT_ID="$CLIENT_ID"
+
+      - name: Build
+        run: cmake --build build-rpc --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build-rpc -C Release --output-on-failure
+
+      # Both halves really are in the app, not only the build machine's.
+      - name: Universal 2
+        if: runner.os == 'macOS'
+        run: |
+          archs="$(lipo -archs build-rpc/RiftWii-RPC.app/Contents/MacOS/RiftWii-RPC)"
+          echo "RiftWii-RPC holds: $archs"
+          case "$archs" in *arm64*x86_64*|*x86_64*arm64*) ;; *)
+            echo "::error::RiftWii-RPC is not Universal 2 (it holds: $archs)."
+            exit 1
+          esac
+
+      - name: Package (macOS)
+        if: inputs.package && runner.os == 'macOS'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          macdeployqt build-rpc/RiftWii-RPC.app -always-overwrite
+          # Ad hoc: Apple silicon runs nothing unsigned, and macdeployqt's
+          # changes undo the linker's signature. Not notarised: the first
+          # start is right-click > Open (rpc/README.md).
+          codesign --force --deep --sign - build-rpc/RiftWii-RPC.app
+          lipo -archs build-rpc/RiftWii-RPC.app/Contents/Frameworks/QtCore.framework/QtCore
+          mkdir -p out
+          ditto -c -k --keepParent build-rpc/RiftWii-RPC.app "out/riftwii-rpc-$VERSION-macos-universal.zip"
+      - name: Package (Windows)
+        if: inputs.package && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force -Path RiftWii-RPC, out | Out-Null
+          Copy-Item build-rpc/Release/RiftWii-RPC.exe RiftWii-RPC/
+          windeployqt --release --no-translations --no-opengl-sw RiftWii-RPC/RiftWii-RPC.exe
+          Copy-Item rpc/README.md RiftWii-RPC/README.md
+          Compress-Archive -Path RiftWii-RPC -DestinationPath "out/riftwii-rpc-$env:VERSION-windows-x64.zip"
+      # Linux: the program, its menu entry and icon; it uses the system's Qt 6
+      # (qt6-base on most distributions).
+      - name: Package (Linux)
+        if: inputs.package && runner.os == 'Linux'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          DESTDIR="$PWD/stage" cmake --install build-rpc --prefix /usr
+          install -Dm644 rpc/README.md stage/usr/share/doc/riftwii-rpc/README.md
+          mkdir -p out
+          tar -C stage -czf "out/riftwii-rpc-$VERSION-linux-x64.tar.gz" usr
+      - uses: actions/upload-artifact@v7
+        if: inputs.package
+        with:
+          name: riftwii-rpc-${{ matrix.name }}
+          path: out/
+          if-no-files-found: error
+
+      - name: Summary
+        shell: bash
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "RiftWii-RPC ($RUNNER_OS) built without a Discord application ID (the repository variable RIFTWII_RPC_CLIENT_ID is not set): players paste their own." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "RiftWii-RPC ($RUNNER_OS) built with Discord application ID $CLIENT_ID." >> "$GITHUB_STEP_SUMMARY"
+          fi

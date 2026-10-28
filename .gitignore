@@ -11,3 +11,4 @@ build-bearssl/
 build-channel/
 build-plugins/
 tests/local/
+build-rpc/

@@ -12,6 +12,10 @@
 # filled-in texts come out as an artifact, and the run's summary shows both
 # texts, so a release can be checked before it goes out.
 #
+# "rpc" (off unless ticked) also builds RiftWii-RPC, the Discord presence
+# app for computers (rpc.yml), and attaches its three downloads after
+# RiftWii's own three files. A dry run keeps them as artifacts.
+#
 # "discord-repost" builds and publishes nothing: it posts an earlier
 # release's Discord message again, filled in from that release's tag with
 # today's tester role (for a post that went out wrong; delete that one first).
@@ -33,6 +37,10 @@ on:
         description: "discord-repost only: the release to post again, e.g. 2610-541"
         type: string
         default: ""
+      rpc:
+        description: "Also build RiftWii-RPC (Windows, macOS Universal 2, Linux) and attach it to the release"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -212,10 +220,22 @@ jobs:
             build-plugins/*/*.elf
           if-no-files-found: warn
 
+  rpc:
+    name: RiftWii-RPC
+    needs: check
+    if: inputs.mode != 'discord-repost' && inputs.rpc
+    uses: ./.github/workflows/rpc.yml
+    with:
+      package: true
+
   publish:
     name: Publish
-    needs: build
-    if: inputs.mode == 'publish'
+    needs: [build, rpc]
+    # rpc is skipped unless asked for, and a skipped need would skip this
+    # job too; a failed one stops it.
+    if: >-
+      !cancelled() && inputs.mode == 'publish' && needs.build.result == 'success' &&
+      (needs.rpc.result == 'success' || needs.rpc.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The "release" environment holds the Discord secret and can ask for an
@@ -233,6 +253,12 @@ jobs:
         with:
           name: riftwii-v${{ needs.build.outputs.version }}
           path: release-files
+      - uses: actions/download-artifact@v8
+        if: inputs.rpc
+        with:
+          pattern: riftwii-rpc-*
+          path: release-files/rpc
+          merge-multiple: true
       # Latest and not a pre-release: every RiftWii's update check reads
       # /releases/latest (docs/DEVELOPING.md). The tag is made on the commit
       # that was built.
@@ -249,9 +275,16 @@ jobs:
             echo "::error::A release v$VERSION already exists, from another commit."
             exit 1
           fi
+          # RiftWii's three files first: RiftWii's update check looks for
+          # them, and the RiftWii-RPC downloads (when built) only follow.
+          rpc_files=()
+          if [ -d release-files/rpc ]; then
+            for f in release-files/rpc/*; do rpc_files+=("$f"); done
+          fi
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "RiftWii $VERSION" \
             --notes-file release-files/texts/notes.md --latest \
-            "release-files/out/riftwii-v$VERSION.zip" release-files/out/riftwii.dol release-files/out/riftwii-update.pack
+            "release-files/out/riftwii-v$VERSION.zip" release-files/out/riftwii.dol release-files/out/riftwii-update.pack \
+            "${rpc_files[@]}"
           echo "Published $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION" >> "$GITHUB_STEP_SUMMARY"
       - name: Discord
         if: inputs.discord

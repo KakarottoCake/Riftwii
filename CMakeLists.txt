@@ -19,6 +19,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # address space that the low-memory suites' MAP_32BIT buffers need.
 option(RIFTWII_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(RIFTWII_SANITIZE_ADDRESS "With RIFTWII_SANITIZE: include AddressSanitizer" ON)
+# RiftWii-RPC (rpc/, the Discord presence app for computers) with the host
+# build: needs Qt 6. Off, it builds on its own (rpc/README.md).
+option(RIFTWII_BUILD_RPC "Also build RiftWii-RPC (needs Qt 6)" OFF)
 if(RIFTWII_SANITIZE)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         message(FATAL_ERROR "RIFTWII_SANITIZE needs GCC or Clang")
@@ -322,4 +325,8 @@ if(BUILD_TESTING)
         target_compile_options(channel_loader_entry_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME channel_loader_entry COMMAND channel_loader_entry_tests)
+endif()
+
+if(RIFTWII_BUILD_RPC)
+    add_subdirectory(rpc)
 endif()

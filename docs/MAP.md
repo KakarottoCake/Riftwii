@@ -65,6 +65,7 @@ headers, generated data and assets with the code that uses them.
 | The Wii Remote log, the Bluetooth trace and the Wii U Pro Controller translator | `runtime/wlog/`, `runtime/rtwlog.h`, `runtime/rtpro.c`, `wii/hooks/wpadhook.cpp`, `src/patching/wpadlog.cpp`, `docs/BLUETOOTH.md` |
 | RiftWii's own crash screen | `wii/core/crash.cpp` |
 | Online play (Wiimmfi, WiiLink WFC) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
+| Discord rich presence: what the Wii tells the network, and RiftWii-RPC on the computer | `src/net/presence.cpp` (the messages), `wii/online/presencesend.cpp` (sending them; called from the GUI thread (`UpdateGUI`) and beside `TagGame` in `rift_menu.cpp`, `wii/launch/headless.cpp` and `ExitApp` in `wii/main.cpp`), `tests/presence_tests.cpp`, `rpc/`, [PRESENCE.md](PRESENCE.md) |
 | Video mode, borders, deflicker | `src/patching/videopatch.cpp` |
 | Game language | `src/patching/gamelang.cpp` |
 | Fixes for particular games, automatic cIOS choice (from USB Loader GX) | `src/patching/gxpatches.cpp`, `src/patching/gxkirby.inc` (`tools/gx_kirby_table.py`), the GX lines in `wii/launch/boot.cpp`, `image_cios_order` in `wii/storage/usbcatalog.cpp` |
@@ -257,6 +258,7 @@ The build compiles every folder into one, so no two files share a name.
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
 | `gameinfo.cpp` | Game details for the About page: GameTDB's database on the card, its download, the cache |
 | `riitagsend.cpp` | Sending the game being launched to the player's RiiTag servers |
+| `presencesend.cpp` | Telling the local network RiftWii's menu is open, the game being launched and RiftWii closing, for RiftWii-RPC (`docs/PRESENCE.md`) |
 
 ## `src/` and `include/riftwii/`: portable code
 
@@ -350,6 +352,7 @@ reader helpers stay beside their source.
 | `update` | The update check |
 | `riifs`, `riifs_sync` | The RiiFS client and its mirror |
 | `riitag` | RiiTag: Wiinnertag.xml, the launch URL, the tag picture's URL for a Discord ID and its fit to the menu |
+| `presence` | The messages RiftWii sends for RiftWii-RPC, and their parser (`docs/PRESENCE.md`); RiftWii-RPC builds this file in too |
 
 ### `src/art/`: pictures: the canvas, PNG, QR codes, themes, covers
 
@@ -497,6 +500,25 @@ The Wii Menu channel (`docs/CHANNEL.md`): `forwarder/` (the channel that
 starts RiftWii), `loader/` (its boot program), `installer/` (the app
 that installs it), `common/` (starting a DOL), `art/` (its artwork,
 drawn by `tools/make_channel_art.py`).
+
+## `rpc/`: RiftWii-RPC
+
+The Discord rich presence app for Windows, macOS and Linux (Qt 6, its own
+CMake project; [rpc/README.md](../rpc/README.md), [PRESENCE.md](PRESENCE.md)).
+It is not part of the host build or the Wii's.
+
+| File | What |
+| --- | --- |
+| `src/listener.cpp` | The Wii's messages from the network (UDP port 51130) |
+| `src/controller.cpp` | What Discord shows and when it ends: the game, the menu, the timeout |
+| `src/discordipc.cpp` | The Discord app's local socket |
+| `src/coverart.cpp` | Finding the game's cover on GameTDB |
+| `src/app.cpp` | The pieces wired together |
+| `src/mainwindow.cpp` | The window and the tray icon |
+| `src/main.cpp` | Start-up: the window, `--background`, `--headless`, one copy per user |
+| `src/settings.cpp`, `src/autostart.cpp` | The player's settings; starting at login |
+| `tests/rpc_tests.cpp` | Its tests (Qt Test) |
+| `icons/` | The icon and `make_icon.py`, which draws it |
 
 ## `docs/`
 

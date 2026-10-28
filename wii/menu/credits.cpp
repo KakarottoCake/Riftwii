@@ -98,6 +98,10 @@ const char* const kCredits[] = {
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
     "",
+    "RiiTag-RPC by RiiConnect24 and t0g3pii (GPL-3.0), Dolphin's Discord presence and "
+    "RiiTag-Emulator-Bot: how RiftWii-RPC times out a game and finds its cover, what it shows, "
+    "and which names its Discord application must not take. Read as documentation; no code copied.",
+    "",
     "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
     "read as documentation; no code copied.",
     "",

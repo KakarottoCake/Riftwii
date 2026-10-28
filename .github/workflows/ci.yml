@@ -5,6 +5,10 @@
 # request and every push: the host tests (also under the sanitizers), the
 # Wii build (DOL and channel), the translations and the project rules. Nothing is published: no release, no downloadable
 # build.
+#
+# RiftWii-RPC, the Discord presence app for computers (rpc/), is built and
+# tested too, by rpc.yml. The repository variable RIFTWII_RPC_CI = off
+# leaves it out of every run; "Run workflow" has a box for it.
 name: CI
 
 on:
@@ -17,6 +21,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rpc:
+        description: "Also build and test RiftWii-RPC (Linux, Windows, macOS)"
+        type: boolean
+        default: true
 
 # Read-only: a PR from a fork can't write anything with this token.
 permissions:
@@ -293,3 +302,13 @@ jobs:
             echo "::error::wii/lang/*.po differ from tools/lang_source.py. Run python3 tools/lang_source.py and commit the result."
             exit 1
           }
+
+  # Its own workflow, so the release builds it the same way. A push or a
+  # pull request has no inputs (and an empty one compares equal to false),
+  # so only "Run workflow" asks the box; the variable applies to all.
+  rpc:
+    name: RiftWii-RPC
+    if: (github.event_name != 'workflow_dispatch' || inputs.rpc) && vars.RIFTWII_RPC_CI != 'off'
+    uses: ./.github/workflows/rpc.yml
+    with:
+      package: false

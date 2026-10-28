@@ -1,0 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// The Windows executable's icon (Explorer, the taskbar).
+IDI_ICON1 ICON "../icons/riftwii-rpc.ico"

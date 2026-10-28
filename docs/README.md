@@ -18,6 +18,7 @@ The other pages are for people working on it.
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
 | [CTGPR.md](CTGPR.md) | CTGP-R 1.03: how it is started, d2x's IOS reload block, what a console test must show |
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
+| [PRESENCE.md](PRESENCE.md) | Discord rich presence: what RiftWii tells the network, and RiftWii-RPC on the computer |
 | [RVZ.md](RVZ.md) | Reading Dolphin's RVZ disc images without unpacking them |
 | [CHANNEL.md](CHANNEL.md) | The Wii Menu channel: forwarder, installer and banner |
 | [KOREAN_FONT.md](KOREAN_FONT.md) | The Korean menu font: source, rebuild and checks |

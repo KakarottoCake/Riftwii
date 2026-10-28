@@ -131,6 +131,24 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   and which byte to change so a reloaded IOS keeps hardware access
   (`keep_hardware_access` in `wii/launch/boot.cpp`). Those bytes are IOS's, not
   the library's; RiftWii's code is its own.
+- RiftWii-RPC (`rpc/`, the Discord rich presence app for a computer) and
+  the Wii's side of it (`src/net/presence.cpp`, `wii/online/presencesend.cpp`)
+  are RiftWii's own code. Read for behaviour only, nothing copied:
+  RiiTag-RPC (GPL-3.0; RiiConnect24 at commit
+  `3b7f07664dc747b37cdf6108e23d05800c89ec52`, t0g3pii's fork at
+  `d71ed2de899be846bce218fabe0b58362ce88bd5`) for its presence timeout
+  choices (ten minutes to twelve hours, in steps of ten) and for finding a
+  game's GameTDB cover by asking for each likely link in turn
+  (`riitag/watcher.py`, `riitag/user.py`); Dolphin's
+  `Source/Core/UICommon/DiscordPresence.cpp` (GPL-2.0-or-later, at
+  `6b2a8eff15bffc1dc6831d236032c751f426eb13`) for what a Wii game's presence
+  shows (the title, its cover, the time since it started); and
+  RiiTag-Emulator-Bot (RiiConnect24, at
+  `4c4bbbcdf7620d25551868c07f0b18cce98911df`, `index.js`) for the Discord
+  application names it reads presences from, which RiftWii-RPC's own
+  application must not use ("Dolphin Emulator", "Cemu", "Nintendo 3DS" and
+  the others listed in `rpc/README.md`). The Discord socket's framing
+  follows Discord's public documentation of its RPC.
 - The Home shelf's case colors (`src/art/casecolour.cpp`,
   `wii/menu/gui_shelf.cpp`) follow how WiiFlow Lite (GPL-3.0) colors its
   cover flow's boxes, read for behaviour only at commit
