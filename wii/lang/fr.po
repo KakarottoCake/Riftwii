@@ -3045,6 +3045,108 @@ msgstr "La carte SD est de retour. Nouvelle lecture en cours."
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne."
 
+msgid "Parental controls"
+msgstr "Contrôle parental"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "Un code PIN qui verrouille ou masque les jeux classés pour des joueurs plus âgés que l'âge choisi."
+
+msgid "Parental controls PIN"
+msgstr "Code PIN du contrôle parental"
+
+msgid "Wrong PIN"
+msgstr "Code PIN incorrect"
+
+msgid "That is not the parental controls PIN."
+msgstr "Ce n'est pas le code PIN du contrôle parental."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer."
+
+msgid "Type the PIN to change parental controls."
+msgstr "Entrez le code PIN pour modifier le contrôle parental."
+
+msgid "New PIN"
+msgstr "Nouveau code PIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "Choisissez quatre chiffres qu'un enfant ne devinera pas. Seule une forme brouillée est gardée sur la carte SD."
+
+msgid "Type the new PIN again"
+msgstr "Entrez de nouveau le nouveau code PIN"
+
+msgid "The same four digits, to be sure."
+msgstr "Les quatre mêmes chiffres, pour confirmer."
+
+msgid "PIN not changed"
+msgstr "Code PIN inchangé"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "Les deux codes PIN n'étaient pas identiques. Rien n'a été modifié."
+
+msgid "Lock them"
+msgstr "Les verrouiller"
+
+msgid "Hide them"
+msgstr "Les masquer"
+
+msgid "Treat as too old"
+msgstr "Traiter comme trop âgés"
+
+msgid "Allow"
+msgstr "Autoriser"
+
+msgid "PIN"
+msgstr "Code PIN"
+
+msgid "Set"
+msgstr "Définir"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "Le contrôle parental est activé. Changez le code PIN à quatre chiffres qu'il demande."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "Le contrôle parental est désactivé. Définissez un code PIN à quatre chiffres pour l'activer."
+
+msgid "Games rated too old"
+msgstr "Jeux pour plus âgés"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "Les verrouiller : ils restent sur l'accueil et demandent le code PIN pour démarrer. Les masquer : ils n'apparaissent plus sur l'accueil, et demandent quand même le code PIN s'ils sont lancés autrement (un disque)."
+
+msgid "Highest age allowed"
+msgstr "Âge maximum autorisé"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "Les jeux classés pour des joueurs plus âgés que cela demandent le code PIN. La classification est celle de GameTDB, comme sur la page À propos du jeu."
+
+msgid "Games with no rating"
+msgstr "Jeux sans classification"
+
+msgid "A game's rating is known once GameTDB's database has been read for it (Download names and cheats). Treat as too old locks or hides the others too."
+msgstr "La classification d'un jeu est connue une fois la base de données de GameTDB lue pour lui (Télécharger noms et codes). Traiter comme trop âgés verrouille ou masque aussi les autres."
+
+msgid "Turn off parental controls"
+msgstr "Désactiver le contrôle parental"
+
+msgid "Turn off"
+msgstr "Désactiver"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "Supprime le code PIN, et avec lui tous les verrous. Effacer la ligne parental_pin de sd:/riftwii/settings.txt fait de même."
+
+msgid "Parental controls are on"
+msgstr "Le contrôle parental est activé"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "Les jeux classés au-dessus de l'âge choisi demandent ce code PIN. Pour désactiver le contrôle sans lui, effacez la ligne parental_pin de sd:/riftwii/settings.txt."
+
+msgid "Turn off parental controls?"
+msgstr "Désactiver le contrôle parental ?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "Tous les jeux pourront de nouveau être lancés sans le code PIN."
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 

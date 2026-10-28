@@ -1239,6 +1239,20 @@ struct HomeRow {
 	const riftwii::wii::ImageGame* game;
 };
 
+// What parental controls (riftwii/parental.hpp) do with the game `id`:
+// its age from GameTDB's rating, as the About page's cache has it. A game
+// the cache does not know yet counts as unrated.
+static riftwii::ParentalVerdict ParentalVerdictFor(const std::string& id)
+{
+	const riftwii::ParentalRules rules = riftwii::parental_rules(riftwii::wii::Settings());
+	if (!rules.active) return riftwii::ParentalVerdict::Allowed;
+	int age = -1;
+	riftwii::GameInfo info;
+	if (!id.empty() && riftwii::wii::PeekGameInfo(id, info))
+		age = riftwii::rating_minimum_age(info.rating_system, info.rating);
+	return riftwii::parental_verdict(rules, age);
+}
+
 // The games in Settings > Home order (`ordered`; else A to Z), before a
 // view or a search picks from them.
 static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
@@ -1247,6 +1261,9 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 	std::vector<Row> rows;
 	const auto add = [&](const std::string& name, HomeEntry::Kind kind, std::size_t i, const std::string& id,
 				const riftwii::wii::ImageGame* game) {
+		// Parental controls set to hide: a game rated too old is not
+		// listed, nor are its profiles (made from its row below).
+		if (ParentalVerdictFor(id) == riftwii::ParentalVerdict::Hidden) return;
 		rows.push_back({name, name, {kind, i, "", name}, id, id, game});
 	};
 	// Settings > Games from: everything, or one place's games only (a
@@ -1275,7 +1292,9 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 		const auto& game = state.emulators.games[i];
 		const bool onUsb = game.path.rfind("usb:/", 0) == 0;
 		if (g_filter != Filter::Emulators && source != "all" && source != (onUsb ? "usb" : "sd")) continue;
-		add(game.name, HomeEntry::Kind::Emulator, i, game.key, nullptr);
+		// Not through add(): an emulator's game has no GameTDB rating to go by
+		// (its key stands in for the ID, for its cover).
+		rows.push_back({game.name, game.name, {HomeEntry::Kind::Emulator, i, "", game.name}, game.key, game.key, nullptr});
 		rows.back().key = game.key;
 		rows.back().entry.searchName += " " + state.emulators.addons[game.emulator].file.system;
 	}
@@ -2888,6 +2907,38 @@ static int ShowPopupSafeFirst(const std::string& title, const std::string& body,
 {
 	PopupBox box(title, body, safe, risky, true);
 	return box.Wait();
+}
+
+// The PIN pad (GuiSearchKeys' PIN mode) until it is closed: the four
+// digits typed, or "" for Cancel or B. Called and returns with the GUI halted.
+static std::string TypePin(const std::string& title, const std::string& note)
+{
+	GuiSearchKeys keys(GuiSearchKeys::Pin{}, title, note);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&keys);
+	keys.SetState(STATE::DEFAULT);
+	ResumeGui();
+	while (keys.Result() == 0) usleep(20000);
+	HaltGui();
+	mainWindow->Remove(&keys);
+	mainWindow->SetState(STATE::DEFAULT);
+	return keys.Result() > 0 ? keys.Text() : std::string();
+}
+
+// Asks for the parental controls' PIN, `why` above the pad. True when it
+// is the one settings.txt keeps the hash of, or there is none. A wrong PIN
+// is said in a popup; Cancel is false with nothing said. Called and
+// returns with the GUI halted.
+static bool AskParentalPin(const std::string& why)
+{
+	const std::string record = riftwii::wii::Settings().parental_pin;
+	if (record.empty()) return true;
+	const std::string pin = TypePin(tr("Parental controls PIN"), why);
+	if (pin.empty()) return false;
+	if (riftwii::parental_pin_matches(record, pin)) return true;
+	logf("Parental controls: the PIN typed was not the right one\n");
+	ShowPopup(tr("Wrong PIN"), tr("That is not the parental controls PIN."), tr("OK"));
+	return false;
 }
 
 // A code mod is switched on for the next start.
@@ -5584,7 +5635,10 @@ static int MenuSource(FrontendState& state)
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
+			// The read brings ratings too: with parental controls hiding
+			// games, the ones it rated may come or go.
+			const bool hidingByRating = riftwii::parental_rules(riftwii::wii::Settings()).hide;
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || hidingByRating)) {
 				const std::string focused = focusedTile();
 				takePress();
 				refreshKeepingTile(focused, false);
@@ -11781,6 +11835,17 @@ static int MenuHome(FrontendState& state)
 		if (bannerHeld) HaltGui();
 		return check;
 	};
+	// Parental controls: a game rated above what they allow asks for the
+	// PIN before it starts, once a visit to its page (Start can be pressed
+	// again after a warning). Every way to start a game passes here.
+	bool parentalUnlocked = false;
+	const auto parentalAllows = [&]() {
+		if (parentalUnlocked || ParentalVerdictFor(state.game_id) == riftwii::ParentalVerdict::Allowed) return true;
+		parentalUnlocked = AskParentalPin(
+			tr("This game's age rating is above what parental controls allow. Type the PIN to play it."));
+		if (parentalUnlocked) logf("Parental controls: %s started with the PIN\n", state.game_id.c_str());
+		return parentalUnlocked;
+	};
 	const auto rebuildTiles = [&]() {
 		BuildGameTiles(state, tiles, tileWhat);
 		tileGrid.Refresh();
@@ -11959,6 +12024,8 @@ static int MenuHome(FrontendState& state)
 			startHandled = true;
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
+			} else if (!parentalAllows()) {
+				// stays on the page
 			} else if (state.use_channel) {
 				if (saveForStart() && state.channel_index < state.channels.size()) {
 					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
@@ -12854,6 +12921,131 @@ static void MenuRiiTag(const std::string& discordId)
 	riitag::Close();
 }
 
+// Settings > Games > Parental controls (riftwii/parental.hpp): the PIN,
+// and which games it keeps from being played. Asks for the PIN first when
+// one is set. Called and returns with the GUI halted.
+static void MenuParentalControls()
+{
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	if (!AskParentalPin(tr("Type the PIN to change parental controls.")))
+		return;
+
+	// Writes settings.txt; when that fails, `undo` puts the change back and
+	// a popup says why. Parental settings are read by nothing but the menu's
+	// thread, so they can be put back without waiting for the drive scan.
+	const auto save = [&](const std::function<void()>& undo) {
+		if (riftwii::wii::SaveSettings()) return true;
+		undo();
+		ShowPopup(tr("Parental controls"), tr("Cannot write sd:/riftwii/settings.txt"), tr("OK"));
+		return false;
+	};
+	// A new PIN, typed twice; "" when cancelled or the two differ (said).
+	const auto askNewPin = [&]() -> std::string {
+		const std::string first = TypePin(tr("New PIN"),
+			tr("Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."));
+		if (first.empty()) return std::string();
+		const std::string again = TypePin(tr("Type the new PIN again"), tr("The same four digits, to be sure."));
+		if (again.empty()) return std::string();
+		if (again != first) {
+			ShowPopup(tr("PIN not changed"), tr("The two PINs were not the same. Nothing was changed."), tr("OK"));
+			return std::string();
+		}
+		return first;
+	};
+	const auto modeName = [&]() { return settings.parental_mode == "hide" ? tr("Hide them") : tr("Lock them"); };
+	const auto unratedName = [&]() { return settings.parental_unrated == "restrict" ? tr("Treat as too old") : tr("Allow"); };
+
+	enum Row { kPin, kMode, kAge, kUnrated, kTurnOff };
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	const auto build = [&]() {
+		const bool active = !settings.parental_pin.empty();
+		rows.clear();
+		help.clear();
+		const auto add = [&](FlowRow::Kind kind, const std::string& label, const std::string& value, bool on,
+					const std::string& note) {
+			FlowRow row;
+			row.kind = kind;
+			row.label = label;
+			row.value = value;
+			row.on = on;
+			rows.push_back(row);
+			help.push_back(note);
+		};
+		add(FlowRow::Kind::Action, tr("PIN"), active ? tr("Change") : tr("Set"), active,
+			active ? tr("Parental controls are on. Change the four-digit PIN they ask for.")
+				: tr("Parental controls are off. Set a four-digit PIN to turn them on."));
+		add(FlowRow::Kind::Option, tr("Games rated too old"), modeName(), settings.parental_mode == "hide",
+			tr("Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."));
+		add(FlowRow::Kind::Option, tr("Highest age allowed"), std::to_string(settings.parental_age), true,
+			tr("Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."));
+		add(FlowRow::Kind::Option, tr("Games with no rating"), unratedName(), settings.parental_unrated == "restrict",
+			tr("A game's rating is known once GameTDB's database has been read for it (Download names and cheats). Treat as too old locks or hides the others too."));
+		add(FlowRow::Kind::Action, tr("Turn off parental controls"), tr("Turn off"), false,
+			tr("Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."));
+		rows.back().dim = !active;
+	};
+	build();
+
+	EmulatorRowsPage(tr("Parental controls"), rows, help, [&](int clicked, int direction) {
+		switch (clicked) {
+			case kPin: {
+				const std::string pin = askNewPin();
+				if (pin.empty()) break;
+				// A fresh salt each time: the same PIN never makes the same line twice.
+				std::uint8_t salt[riftwii::kParentalSaltSize];
+				riftwii::wii::EntropyTake(salt, sizeof salt);
+				const std::string before = settings.parental_pin;
+				settings.parental_pin = riftwii::parental_pin_record(pin, salt);
+				if (save([&]() { settings.parental_pin = before; })) {
+					logf("Parental controls: a PIN was %s\n", before.empty() ? "set" : "changed");
+					ShowPopup(tr("Parental controls are on"),
+						tr("Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."),
+						tr("OK"));
+				}
+				break;
+			}
+			case kMode: {
+				const std::string before = settings.parental_mode;
+				settings.parental_mode = before == "hide" ? "lock" : "hide";
+				save([&]() { settings.parental_mode = before; });
+				break;
+			}
+			case kAge: {
+				const int before = settings.parental_age;
+				std::size_t at = 0;
+				while (at < riftwii::kParentalAgeCount && riftwii::kParentalAges[at] != before) ++at;
+				const std::size_t count = riftwii::kParentalAgeCount;
+				at = direction > 0 ? (at + 1) % count : (at + count - 1) % count;
+				settings.parental_age = riftwii::kParentalAges[at];
+				save([&]() { settings.parental_age = before; });
+				break;
+			}
+			case kUnrated: {
+				const std::string before = settings.parental_unrated;
+				settings.parental_unrated = before == "restrict" ? "allow" : "restrict";
+				save([&]() { settings.parental_unrated = before; });
+				break;
+			}
+			case kTurnOff: {
+				if (settings.parental_pin.empty()) break;
+				if (ShowPopup(tr("Turn off parental controls?"), tr("Every game can be started without the PIN again."),
+					tr("Turn off"), tr("Cancel")) != 0)
+					break;
+				const std::string before = settings.parental_pin;
+				settings.parental_pin.clear();
+				if (save([&]() { settings.parental_pin = before; }))
+					logf("Parental controls: turned off from Settings\n");
+				break;
+			}
+			default:
+				break;
+		}
+		build();
+		return false;
+	});
+}
+
 // One section of Settings (the hub's tile): its rows only. `backToHub`:
 // left with Back, for the hub (any other way out goes where it says).
 static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
@@ -12880,7 +13072,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kParental, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12939,6 +13131,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		nintendontSaves.value = tr("Open");
 		rows.push_back(nintendontSaves);
 		actions.push_back(kNintendontSaves);
+		FlowRow parental;
+		parental.kind = FlowRow::Kind::Action;
+		parental.label = tr("Parental controls");
+		parental.value = settings.parental_pin.empty() ? tr("Off") : tr("On");
+		parental.on = !settings.parental_pin.empty();
+		rows.push_back(parental);
+		actions.push_back(kParental);
 		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
@@ -13167,6 +13366,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
 				case kEmulators: case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
+				case kParental:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
@@ -13308,6 +13508,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kUsbInput: return tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.");
+			case kParental: return tr("A PIN that locks or hides the games rated for players older than an age you pick.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -13408,6 +13609,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					mainWindow->Remove(&w);
 					EmulatorDefaultsPage(state.emulators);
 					mainWindow->Append(&w);
+					break;
+				case kParental:
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					MenuParentalControls();
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					rebuild();
 					break;
 				case kLanguage: {
 					// The scan names the games in the menu's language.

@@ -176,6 +176,22 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") gc_backups = value;
         } else if (key == "nintendont_saves") {
             if (value == "ask" || value == "asked") nintendont_saves = value;
+        } else if (key == "parental_pin") {
+            // A line that is not a record RiftWii wrote is no PIN, so no
+            // controls: the same as deleting it, never a lock nobody can open.
+            if (parental_record_valid(value)) parental_pin = value;
+        } else if (key == "parental_mode") {
+            if (value == "lock" || value == "hide") parental_mode = value;
+        } else if (key == "parental_age") {
+            int age = 0;
+            bool digits = !value.empty() && value.size() <= 2;
+            for (char c : value) {
+                if (c < '0' || c > '9') digits = false;
+                else age = age * 10 + (c - '0');
+            }
+            if (digits && parental_age_valid(age)) parental_age = age;
+        } else if (key == "parental_unrated") {
+            if (value == "allow" || value == "restrict") parental_unrated = value;
         } else {
             other[key] = value;
         }
@@ -230,6 +246,10 @@ std::string LoaderSettings::serialize() const {
     s += "sd_games = " + sd_games + "\n";
     s += "gc_backups = " + gc_backups + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
+    if (!parental_pin.empty()) s += "parental_pin = " + parental_pin + "\n";
+    s += "parental_mode = " + parental_mode + "\n";
+    s += "parental_age = " + std::to_string(parental_age) + "\n";
+    s += "parental_unrated = " + parental_unrated + "\n";
     if (!favorites.empty()) {
         std::string list;
         for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;
@@ -372,7 +392,20 @@ LoaderSettings settings_after_reset(const LoaderSettings& before) {
     LoaderSettings after;
     after.favorites = before.favorites;
     after.game_folders = before.game_folders;
+    after.parental_pin = before.parental_pin;
+    after.parental_mode = before.parental_mode;
+    after.parental_age = before.parental_age;
+    after.parental_unrated = before.parental_unrated;
     return after;
+}
+
+ParentalRules parental_rules(const LoaderSettings& settings) {
+    ParentalRules rules;
+    rules.active = !settings.parental_pin.empty();
+    rules.hide = settings.parental_mode == "hide";
+    rules.highest_age = settings.parental_age;
+    rules.restrict_unrated = settings.parental_unrated == "restrict";
+    return rules;
 }
 
 }  // namespace riftwii
