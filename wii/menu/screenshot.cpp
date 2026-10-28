@@ -305,9 +305,12 @@ void ScreenshotPoll() {
                 const bool two = Modifier(g_remote_two[i], down, w->btns_h, WPAD_BUTTON_2);
                 // Only a pair Home watches for is used up: one pressed after
                 // it stopped watching gives both presses back when let go.
-                if (g_view_chord_on && one && two && g_one_watched[i] && g_two_watched[i] && !g_remote_two[i].used) {
+                // As riftwii::watch_pair: a half already used (a wake press)
+                // makes the pair, and the other half, come to nothing.
+                if (g_view_chord_on && one && two && g_one_watched[i] && g_two_watched[i]) {
+                    const bool fresh = !g_remote[i].used && !g_remote_two[i].used;
                     g_remote[i].used = g_remote_two[i].used = true;
-                    g_view_chord = true;
+                    if (fresh) g_view_chord = true;
                 }
             }
             WatchPair(g_classic_pair[i], down, w->btns_h, WPAD_CLASSIC_BUTTON_Y, WPAD_CLASSIC_BUTTON_X);

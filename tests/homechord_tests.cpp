@@ -111,6 +111,33 @@ static void TestPair() {
         PairFrame(v, true, p, kZ);
         EXPECT_TRUE(!(p.down & kY));
     }
+    // Y woke the screen (spent) and is still held: Z makes no pair, and
+    // neither press comes when let go.
+    {
+        ViewPair v;
+        Pad p;
+        PairFrame(v, true, p, kY);
+        riftwii::spend(v);
+        EXPECT_TRUE(!PairFrame(v, true, p, kY | kZ));
+        PairFrame(v, true, p, kY);
+        EXPECT_TRUE(!(p.down & kZ));
+        PairFrame(v, true, p, 0);
+        EXPECT_TRUE(!(p.down & kY));
+    }
+    // After a pair, Y still held and Z pressed again: no second pair, and
+    // that Z's press doesn't come late either.
+    {
+        ViewPair v;
+        Pad p;
+        PairFrame(v, true, p, kY);
+        EXPECT_TRUE(PairFrame(v, true, p, kY | kZ));
+        PairFrame(v, true, p, kY);
+        EXPECT_TRUE(!PairFrame(v, true, p, kY | kZ));
+        PairFrame(v, true, p, kY);
+        EXPECT_TRUE(!(p.down & kZ));
+        PairFrame(v, true, p, 0);
+        EXPECT_TRUE(!(p.down & kY));
+    }
     // Other buttons pass untouched.
     {
         ViewPair v;
