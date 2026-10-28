@@ -264,7 +264,13 @@ bool SearchHoldWatched() { return g_search_hold_on && FrameTimer - g_search_hold
 void WatchPair(ViewPair& v, u32& down, u32 held, u32 first, u32 second) {
     if (g_view_chord_on && (down & first)) v.first_watched = true;
     if (g_view_chord_on && (down & second)) v.second_watched = true;
-    if (!g_view_chord_on && !v.first.held_back && !v.second.held_back) return;
+    // Home not watching: a half already kept back is settled (let go, its
+    // press comes late, unless spent), and a new press goes straight through.
+    if (!g_view_chord_on) {
+        if (v.first.held_back) Modifier(v.first, down, held, first);
+        if (v.second.held_back) Modifier(v.second, down, held, second);
+        return;
+    }
     const bool a = Modifier(v.first, down, held, first);
     const bool b = Modifier(v.second, down, held, second);
     if (g_view_chord_on && a && b && v.first_watched && v.second_watched && !v.second.used) {
