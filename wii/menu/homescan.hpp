@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "nandchannels.hpp"
+#include "emulators.hpp"
 #include "packcatalog.hpp"
 #include "riftwii/launch.hpp"
 #include "usbcatalog.hpp"
@@ -25,6 +26,7 @@ struct DriveScanPart {
     bool ok = false;       // the drive was read
     std::string error;     // why not, when it was not
     ImageCatalog catalog;
+    EmulatorCatalog emulators;
     // Every pack and code build found so far: the SD card's after its part,
     // the USB drive's with them after the drive's.
     PackIndex packs;

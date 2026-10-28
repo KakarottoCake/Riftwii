@@ -3365,3 +3365,21 @@ msgstr "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니�
 
 msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
 msgstr "이 폴더와 그 안의 폴더에 .ogg나 .mp3 곡이 없습니다."
+
+msgid "Emulators"
+msgstr "에뮬레이터"
+
+msgid "Emulator defaults"
+msgstr "에뮬레이터 기본값"
+
+msgid "Started with {1} ({2})."
+msgstr "{1} ({2})(으)로 시작합니다."
+
+msgid "Could not save emulator settings."
+msgstr "에뮬레이터 설정을 저장하지 못했습니다."
+
+msgid "No emulators found."
+msgstr "에뮬레이터를 찾지 못했습니다."
+
+msgid "The emulator arguments are invalid or too long. See session.log."
+msgstr "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요."

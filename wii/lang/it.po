@@ -3365,3 +3365,21 @@ msgstr "Non c'è un'unità USB, oppure RiftWii non ha ancora finito di leggerla.
 
 msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
 msgstr "Non ci sono brani .ogg o .mp3 in questa cartella né nelle sue cartelle."
+
+msgid "Emulators"
+msgstr "Emulatori"
+
+msgid "Emulator defaults"
+msgstr "Valori dell'emulatore"
+
+msgid "Started with {1} ({2})."
+msgstr "Si avvia con {1} ({2})."
+
+msgid "Could not save emulator settings."
+msgstr "Impossibile salvare le impostazioni dell'emulatore."
+
+msgid "No emulators found."
+msgstr "Nessun emulatore trovato."
+
+msgid "The emulator arguments are invalid or too long. See session.log."
+msgstr "Gli argomenti dell'emulatore non sono validi o sono troppo lunghi. Vedi session.log."

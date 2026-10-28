@@ -670,6 +670,7 @@ std::string ShelfInfo(const GridItem& item) {
     if (item.badge == "USB") add(tr("USB drive"));
     else if (item.badge == "SD") add(tr("SD card"));
     else if (item.badge == "GC") add(tr("GameCube"));
+    else if (item.key.rfind("emu-", 0) == 0) add(tr(item.badge.c_str()));
     if (item.id.size() >= 4) {
         switch (item.id[3]) {
             case 'E': add(tr("USA")); break;
