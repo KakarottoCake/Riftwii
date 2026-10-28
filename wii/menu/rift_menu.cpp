@@ -8565,11 +8565,14 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	return choices.game.gc_card == "shared";
 }
 
-// A card file's place for the player, short enough for a row's second line: "GMSE.raw (SD)".
+// Name the USB partition so equal card names can be told apart.
 static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 {
-	const bool usb = riftwii::is_usb_path(card.path);
-	return card.name + (usb ? " (USB)" : " (SD)");
+	if (!riftwii::is_usb_path(card.path)) return card.name + " (SD)";
+	// "usb:" stays "USB" as before; "usb2:" reads "USB 2".
+	std::string number = riftwii::usb_path_device(card.path).substr(3);
+	number.pop_back();
+	return card.name + (number.empty() ? " (USB)" : " (USB " + number + ")");
 }
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
@@ -10715,11 +10718,14 @@ static bool MenuPickMusic(std::string& choice)
 			add(RowWhat::Default, "", tr("RiftWii's own music"), tr("Pick"), current.empty());
 			add(RowWhat::Drive, "sd:", tr("SD card"), "", current.compare(0, 4, "sd:/") == 0);
 			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
-			if (!usbReady) add(RowWhat::Drive, "usb:", tr("USB drive"), "", false, true);
-			for (const std::string& root : riftwii::wii::usb_volume_roots()) {
-				const std::string device = riftwii::usb_path_device(root);
-				const std::string value = device == "usb:" ? "" : device;
-				add(RowWhat::Drive, device, tr("USB drive"), value, riftwii::usb_path_device(current) == device);
+			if (usbReady) {
+				for (const std::string& root : riftwii::wii::usb_volume_roots()) {
+					const std::string device = riftwii::usb_path_device(root);
+					const std::string value = device == "usb:" ? "" : device;
+					add(RowWhat::Drive, device, tr("USB drive"), value, riftwii::usb_path_device(current) == device);
+				}
+			} else {
+				add(RowWhat::Drive, "usb:", tr("USB drive"), "", false, true);
 			}
 			return;
 		}

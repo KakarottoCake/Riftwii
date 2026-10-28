@@ -775,7 +775,6 @@ void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, Ciso
     }
     skipped.finish(device == "sd" ? "SD" : "USB");
     append_gc_images(found, out);
-    ScanGcPatches(out);
     const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
     logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
          device == "sd" ? "SD" : "USB", opened, elapsed_ms);
@@ -786,12 +785,14 @@ void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, Ciso
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     forget_sd_layout();
     scan_gc_images("sd", out, ciso);
+    ScanGcPatches(out);
 }
 
 void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     for (const std::string& root : usb_volume_roots()) {
         scan_gc_images(root.substr(0, root.size() - 2), out, ciso);
     }
+    ScanGcPatches(out);
 }
 
 namespace {
