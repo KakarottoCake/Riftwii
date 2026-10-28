@@ -1535,6 +1535,11 @@ Wii Menu if Quitting a game is set to Wii Menu. The emulator can override
 that behavior itself. Authors can find the full format and test steps in
 [EMULATORS.md](EMULATORS.md).
 
+**Already set up for WiiFlow Lite?** RiftWii also reads WiiFlow's plugin files
+(`sd:/wiiflow/plugins/`): every emulator they name that is installed shows up
+under Emulators with its games from the plugin's game folder, and the covers
+you already have in `wiiflow/covers/`. Nothing is changed in WiiFlow's files.
+
 ## For developers
 
 - [`docs/MAP.md`](MAP.md): every file, and where to start for each
