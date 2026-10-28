@@ -123,6 +123,7 @@ struct Slot {
     u8* data = nullptr;
     bool ready = false;    // read and flushed: the GUI may draw it
     bool own = false;      // the player's own PNG (#384), not GameTDB's
+    bool secondSet = false; // GameTDB's second set, chosen (#384): its full box is the first's
     unsigned fill = 0;     // CoverFill: g_fills when it was read
     bool modCover = false; // a mod tile's own cover from GameTDB (#385)
     u64 touched = 0;       // last drawn or read (gettime ticks)
@@ -312,6 +313,9 @@ void* LoaderMain(void*) {
         // A mod's tile without a cover of its own shows the game's.
         if (!ok && cache_allowed) ok = ReadStoredCover(game, slot->data);
         if (ok) DCFlushRange(slot->data, kCoverPixelBytes);
+        // GameTDB's full box art is of the first set only: a second-set
+        // cover comes before it, as the player's own does.
+        const bool second_set = ok && !own && !emulator && CoverSecondSet(stored);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -319,6 +323,7 @@ void* LoaderMain(void*) {
         if (ok && forgets == g_forgets) {
             slot->ready = true;
             slot->own = own;
+            slot->secondSet = second_set;
             slot->fill = ++g_fills;
             slot->modCover = mod_cover;
             slot->touched = gettime();
@@ -579,6 +584,13 @@ bool CoverIsOwn(const std::string& name) {
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready && s->own;
+}
+
+bool CoverBeforeBox(const std::string& name) {
+    if (!ValidId(name) || !Started()) return false;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready && (s->own || s->secondSet);
 }
 
 unsigned CoverFill(const std::string& name) {

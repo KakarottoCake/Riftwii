@@ -9682,6 +9682,12 @@ public:
 		: id(std::move(id)), coverName(std::move(cover)), disc(disc), channel(channel), hue(hue) {}
 	HeroCover(const HeroCover&) = delete;
 	HeroCover& operator=(const HeroCover&) = delete;
+	// The page's tile changed (its mod tile removed): the game's cover now.
+	// With the GUI halted, as Draw reads it.
+	void SetCoverName(std::string name) {
+		coverName = std::move(name);
+		roundedFrom = nullptr;
+	}
 	~HeroCover() override { free(rounded); }
 	// The page's tile the box is (GameTile::Cover): lit, it grows a little
 	// and gets a ring in the accent's colour, as a tile does.
@@ -11548,7 +11554,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Downloads this game's box art from GameTDB now."));
 			else if (ref.what == RowRef::What::CoverSet)
 				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.",
-				       {state.game_id}));
+				       {PageCoverName(state)}));  // a mod tile reads its own, by its key
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
 			else if (ref.what == RowRef::What::GcCard)
@@ -11957,11 +11963,18 @@ static int MenuHome(FrontendState& state)
 						// Asked for the second set, and back on the first (downloaded
 						// again, or kept): GameTDB has only the one.
 						if (g_coverSecondAsked && !riftwii::wii::CoverSecondSet(id) &&
-						    got != riftwii::wii::CoverFetch::NoAnswer && got != riftwii::wii::CoverFetch::Failed)
+						    got != riftwii::wii::CoverFetch::NoAnswer && got != riftwii::wii::CoverFetch::Failed &&
+						    got != riftwii::wii::CoverFetch::NotFound)
 							say(tr("GameTDB has only one cover for this game."));
 						else if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
 						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));
 						else say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
+						// The second set asked for and not downloaded (no answer, a
+						// failed write): back on the first, whose cover is still
+						// the one shown, so its full box isn't hidden for it.
+						if (g_coverSecondAsked && riftwii::wii::CoverSecondSet(id) &&
+						    (got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed))
+							riftwii::wii::ChooseCoverSet(id, false);
 						coverAsked = false;
 						g_coverSecondAsked = false;
 					}
@@ -12072,7 +12085,10 @@ static int MenuHome(FrontendState& state)
 				mainWindow->Append(&w);
 				// The Mods page renames a profile's tile, or removes it (the
 				// page is the game's own then).
-				if (tile == GameTile::Mods) titleTxt.SetText(GameTitle(state).c_str());
+				if (tile == GameTile::Mods) {
+					titleTxt.SetText(GameTitle(state).c_str());
+					hero.SetCoverName(PageCoverName(state));
+				}
 				rebuildTiles();
 				shownTile = -1;
 				if (askedCover && !state.game_id.empty()) {
