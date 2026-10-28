@@ -84,6 +84,16 @@ add_executable(menusound_render tools/menusound_render.cpp)
 target_link_libraries(menusound_render PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
+    # The real drive-scan lifecycle, with workers and network jobs stepped by the test.
+    add_executable(homescan_tests tests/homescan_tests.cpp wii/menu/homescan.cpp)
+    target_include_directories(homescan_tests PRIVATE
+        tests/homescan_mock tests/movedchannels_mock tests/wii_mock
+        wii/menu wii/core wii/storage wii/online wii/launch runtime)
+    target_link_libraries(homescan_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(homescan_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME homescan COMMAND homescan_tests)
     # Translated credits use the Wii's real wrapping code, with no stash.
     add_executable(credits_tests tests/credits_tests.cpp wii/menu/credits.cpp)
     target_include_directories(credits_tests PRIVATE tests/movedchannels_mock wii/menu wii/core)

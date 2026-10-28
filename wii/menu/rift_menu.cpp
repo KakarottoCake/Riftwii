@@ -4213,14 +4213,9 @@ static void StartScan()
 	g_startWhenScanned = false;
 	g_scanning = true;
 	g_scanned = true;
-	// A cover download on the network's thread may be reading the drives
-	// (an emulator game's local cover); the scan resets their volumes, so
-	// it waits for that job. Its result is still taken by Home as usual.
-	if (riftwii::wii::NetBackgroundBusy()) {
-		logf("Home: waiting for a background download to finish before reading the drives again\n");
-		riftwii::wii::NetWaitForBackground();
-	}
-	riftwii::wii::StartDriveScan();
+	// Mark the scan pending now, so old results and drive reads stay out.
+	// Home starts its worker once any background download has finished.
+	riftwii::wii::RequestDriveScan();
 }
 
 // The SD card taken out and put back while Home runs (issue: the menu kept
@@ -4303,6 +4298,13 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	}
 	state.usb_catalog = std::move(part.catalog);
 	state.emulators = std::move(part.emulators);
+	// Local covers asked for during the scan could only report a miss.
+	// Publish the new catalog before allowing those covers to be read again,
+	// including when downloads are off or Home closes before taking this part.
+	riftwii::wii::ConfigureEmulatorCovers(state.emulators);
+	for (const auto& game : state.emulators.games) {
+		riftwii::wii::ForgetCover(game.key);
+	}
 	state.package_catalog = std::move(part.package_catalog);
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
@@ -4373,6 +4375,7 @@ static void WaitForDriveScan(GuiText& line)
 	logf("Settings: waiting for the scan to finish reading the drives\n");
 	line.SetText(tr("Waiting for RiftWii to finish reading the drives..."));
 	while (!riftwii::wii::DriveScanDone()) {
+		riftwii::wii::StartDriveScan();
 		ResumeGui();
 		usleep(50000);
 		HaltGui();
@@ -5257,6 +5260,7 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		riftwii::wii::StartDriveScan();
 		PollMenuDiscCover();
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
@@ -6189,6 +6193,7 @@ static int MenuSource(FrontendState& state)
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
+			riftwii::wii::StartDriveScan();
 			usleep(50000);
 			HaltGui();
 			if (riftwii::wii::DriveScanStatus() != shownScanStatus) showStatus();
