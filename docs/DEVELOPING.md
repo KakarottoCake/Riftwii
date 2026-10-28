@@ -294,8 +294,9 @@ then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
 A code build (REX, Project+, a `gameconfig.txt` build) can also start
-without these extras at all, picked at Start (or `code_build_extras =
-off` for autorun): only its codes, `gameconfig.txt`'s words, the code
+without these extras at all, picked at Start and remembered per mod in
+`sd:/riftwii/codemods.txt` (`include/riftwii/codemods.hpp`; the Mods
+page's Start row changes it), or `code_build_extras = off` for autorun: only its codes, `gameconfig.txt`'s words, the code
 handler's run before the game and the GameCube adapter when one is
 plugged in. REX went black on a tester's Wii U (2610-412).
 

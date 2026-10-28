@@ -1431,8 +1431,20 @@ msgstr "이 코드 모드는 시작되지 않음"
 msgid "How should this code mod start?"
 msgstr "이 코드 모드를 어떻게 시작할까요?"
 
-msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
-msgstr "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요."
+msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
+msgstr "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다."
+
+msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
+msgstr "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다."
+
+msgid "Asked at the first Start"
+msgstr "처음 시작할 때 묻습니다"
+
+msgid "Ask each time"
+msgstr "매번 묻기"
+
+msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
+msgstr "{1}이(가) 켜진 모든 페이지와 타일에 적용됩니다. '매번 묻기'로 하면 시작할 때마다 다시 묻습니다."
 
 msgid "With extras"
 msgstr "추가 기능 사용"
