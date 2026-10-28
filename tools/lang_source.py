@@ -6443,6 +6443,128 @@ FR.update({
 })
 
 
+# Settings > Copy a game disc (wii/storage/disccopy.hpp).
+T.update({
+    "Copy a game disc": ("Copiar un disco de juego", "ゲームディスクをコピー", "Copiar um disco de jogo", "Copia un disco di gioco"),
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": (
+        "Copia el disco de Wii de la unidad a la carpeta wbfs de una unidad USB FAT32 o de la tarjeta SD, con todas las particiones del disco, para jugar sin el disco. Necesita un cIOS d2x.",
+        "ドライブのWiiディスクを、ディスクのすべてのパーティションごと、FAT32のUSBドライブかSDカードのwbfsフォルダにコピーし、ディスクなしで遊べるようにします。d2x cIOSが必要です。",
+        "Copia o disco de Wii da unidade para a pasta wbfs de uma unidade USB FAT32 ou do cartão SD, com todas as partições do disco, para jogar sem o disco. Precisa de um cIOS d2x.",
+        "Copia il disco Wii dell'unità nella cartella wbfs di un'unità USB FAT32 o della scheda SD, con tutte le partizioni del disco, per giocare senza il disco. Serve un cIOS d2x."),
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": (
+        "Leer un disco entero necesita un cIOS d2x, y esta Wii no tiene ninguno. Instala d2x (wii.hacks.guide/cios) e inténtalo de nuevo.",
+        "ディスク全体を読むにはd2x cIOSが必要ですが、このWiiにはありません。d2x (wii.hacks.guide/cios) をインストールしてから、もう一度お試しください。",
+        "Ler um disco inteiro precisa de um cIOS d2x, e este Wii não tem nenhum. Instale o d2x (wii.hacks.guide/cios) e tente de novo.",
+        "Leggere un disco intero richiede un cIOS d2x, e questa Wii non ne ha. Installa d2x (wii.hacks.guide/cios) e riprova."),
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": (
+        "El IOS de la propia Wii solo lee el principio de un disco. RiftWii se reinicia con IOS{1} (d2x) para esta sesión; luego elige otra vez Copiar un disco de juego.",
+        "Wii本体のIOSはディスクの最初しか読めません。RiftWiiはこのセッションの間IOS{1} (d2x) で再起動します。そのあと、もう一度「ゲームディスクをコピー」を選んでください。",
+        "O IOS do próprio Wii lê só o começo de um disco. O RiftWii reinicia com o IOS{1} (d2x) nesta sessão; depois escolha Copiar um disco de jogo de novo.",
+        "L'IOS della Wii legge solo l'inizio di un disco. RiftWii si riavvia con IOS{1} (d2x) per questa sessione; poi scegli di nuovo Copia un disco di gioco."),
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": (
+        "El menú usa IOS{1} en esta sesión, para copiar un disco de juego. Ajustes > Unidades > Copiar un disco de juego.",
+        "このセッションの間、ゲームディスクをコピーするためにメニューはIOS{1}で動きます。設定 > ドライブ > ゲームディスクをコピー。",
+        "O menu usa o IOS{1} nesta sessão, para copiar um disco de jogo. Configurações > Unidades > Copiar um disco de jogo.",
+        "In questa sessione il menu usa IOS{1}, per copiare un disco di gioco. Impostazioni > Unità > Copia un disco di gioco."),
+    "There is no SD card or FAT32 USB drive to copy the disc to.": (
+        "No hay una tarjeta SD ni una unidad USB FAT32 a la que copiar el disco.",
+        "ディスクをコピーできるSDカードもFAT32のUSBドライブもありません。",
+        "Não há cartão SD nem unidade USB FAT32 para onde copiar o disco.",
+        "Non c'è una scheda SD né un'unità USB FAT32 su cui copiare il disco."),
+    "The disc can't be copied: {1}": (
+        "No se puede copiar el disco: {1}",
+        "ディスクをコピーできません: {1}",
+        "O disco não pode ser copiado: {1}",
+        "Il disco non si può copiare: {1}"),
+    "Where should {1} go? It needs {2}.": (
+        "¿Dónde copiar {1}? Necesita {2}.",
+        "{1}をどこにコピーしますか？{2}必要です。",
+        "Para onde copiar {1}? Precisa de {2}.",
+        "Dove copiare {1}? Servono {2}."),
+    "{1} free": ("{1} libres", "空き {1}", "{1} livres", "{1} liberi"),
+    "{1} needs {2}, and the {3} has {4} free.": (
+        "{1} necesita {2}, y en {3} quedan {4} libres.",
+        "{1}には{2}必要ですが、{3}の空きは{4}です。",
+        "{1} precisa de {2}, e em {3} há {4} livres.",
+        "{1} richiede {2}, e su {3} ci sono {4} liberi."),
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": (
+        "¿Copiar {1} ({2}) a {3}? Se copian todas las particiones del disco: el juego, la actualización del sistema y cualquier canal. Tarda unos {4} minutos.",
+        "{1} ({2}) を{3}にコピーしますか？ゲーム、本体更新、チャンネルなど、ディスクのすべてのパーティションを入れます。約{4}分かかります。",
+        "Copiar {1} ({2}) para {3}? Todas as partições do disco vão junto: o jogo, a atualização do sistema e qualquer canal. Leva cerca de {4} minutos.",
+        "Copiare {1} ({2}) in {3}? Vanno copiate tutte le partizioni del disco: il gioco, l'aggiornamento di sistema e ogni canale. Ci vogliono circa {4} minuti."),
+    "{1} partition(s) could not be looked into, so they are copied whole.": (
+        "No se pudo mirar dentro de {1} partición(es), así que se copian enteras.",
+        "{1}個のパーティションは中身を読めないため、まるごとコピーします。",
+        "Não foi possível olhar dentro de {1} partição(ões), então elas são copiadas inteiras.",
+        "Non è stato possibile guardare dentro {1} partizione/i, quindi vengono copiate per intero."),
+    "Copying {1}": ("Copiando {1}", "{1}をコピー中", "Copiando {1}", "Copia di {1}"),
+    "From the disc to the {1}": ("Del disco a: {1}", "ディスクから{1}へ", "Do disco para: {1}", "Dal disco a: {1}"),
+    "Stop copying {1}?": ("¿Dejar de copiar {1}?", "{1}のコピーを中止しますか？", "Parar de copiar {1}?", "Interrompere la copia di {1}?"),
+    "What is copied so far is deleted. It can be copied again later, from the start.": (
+        "Lo copiado hasta ahora se borra. Se puede volver a copiar más tarde, desde el principio.",
+        "ここまでコピーした分は削除されます。あとで最初からコピーし直せます。",
+        "O que foi copiado até agora é apagado. Dá para copiar de novo depois, do começo.",
+        "Quanto copiato finora viene cancellato. Si può copiare di nuovo più tardi, dall'inizio."),
+    "{1} is already on the {2}: {3}": (
+        "{1} ya está en {2}: {3}",
+        "{1}はすでに{2}にあります: {3}",
+        "{1} já está em {2}: {3}",
+        "{1} è già su {2}: {3}"),
+    "{1} could not be copied: {2}. Nothing was kept.": (
+        "No se pudo copiar {1}: {2}. No se ha guardado nada.",
+        "{1}をコピーできませんでした: {2}。何も残していません。",
+        "Não foi possível copiar {1}: {2}. Nada foi mantido.",
+        "Impossibile copiare {1}: {2}. Non è stato tenuto nulla."),
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": (
+        "{1} se ha copiado en {2}. Ya está en Inicio y se juega sin el disco.",
+        "{1}を{2}にコピーしました。ホームに表示され、ディスクなしで遊べます。",
+        "{1} foi copiado para {2}. Já está no Início e funciona sem o disco.",
+        "{1} è stato copiato su {2}. Ora è nella Home e si gioca senza il disco."),
+})
+MORE["ko"].update({
+    "Copy a game disc": "게임 디스크 복사",
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": "드라이브의 Wii 디스크를 디스크의 모든 파티션과 함께 FAT32 USB 드라이브나 SD 카드의 wbfs 폴더에 복사해, 디스크 없이 플레이할 수 있게 합니다. d2x cIOS가 필요합니다.",
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": "디스크 전체를 읽으려면 d2x cIOS가 필요한데, 이 Wii에는 없습니다. d2x(wii.hacks.guide/cios)를 설치한 뒤 다시 시도하세요.",
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": "Wii 본체의 IOS는 디스크의 처음 부분만 읽습니다. RiftWii가 이번 세션 동안 IOS{1}(d2x)로 다시 시작합니다. 그다음 게임 디스크 복사를 다시 선택하세요.",
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": "게임 디스크를 복사하기 위해 이번 세션 동안 메뉴가 IOS{1}에서 실행됩니다. 설정 > 드라이브 > 게임 디스크 복사.",
+    "There is no SD card or FAT32 USB drive to copy the disc to.": "디스크를 복사할 SD 카드나 FAT32 USB 드라이브가 없습니다.",
+    "The disc can't be copied: {1}": "디스크를 복사할 수 없습니다: {1}",
+    "Where should {1} go? It needs {2}.": "{1}을(를) 어디에 복사할까요? {2}이(가) 필요합니다.",
+    "{1} free": "{1} 남음",
+    "{1} needs {2}, and the {3} has {4} free.": "{1}에는 {2}이(가) 필요한데, {3}에 남은 공간은 {4}입니다.",
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": "{1}({2})을(를) {3}에 복사할까요? 게임, 시스템 업데이트, 채널 등 디스크의 모든 파티션이 들어갑니다. 약 {4}분 걸립니다.",
+    "{1} partition(s) could not be looked into, so they are copied whole.": "파티션 {1}개는 안을 읽을 수 없어 통째로 복사합니다.",
+    "Copying {1}": "{1} 복사 중",
+    "From the disc to the {1}": "디스크에서 {1}(으)로",
+    "Stop copying {1}?": "{1} 복사를 중지할까요?",
+    "What is copied so far is deleted. It can be copied again later, from the start.": "지금까지 복사한 내용은 삭제됩니다. 나중에 처음부터 다시 복사할 수 있습니다.",
+    "{1} is already on the {2}: {3}": "{1}은(는) 이미 {2}에 있습니다: {3}",
+    "{1} could not be copied: {2}. Nothing was kept.": "{1}을(를) 복사할 수 없었습니다: {2}. 아무것도 남기지 않았습니다.",
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": "{1}을(를) {2}에 복사했습니다. 이제 홈에 있고, 디스크 없이 플레이할 수 있습니다.",
+})
+MORE["fr"].update({
+    "Copy a game disc": "Copier un disque de jeu",
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": "Copie le disque Wii du lecteur dans le dossier wbfs d'un disque USB FAT32 ou de la carte SD, avec toutes les partitions du disque, pour jouer sans le disque. Il faut un cIOS d2x.",
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": "Lire un disque entier demande un cIOS d2x, et cette Wii n'en a pas. Installez d2x (wii.hacks.guide/cios), puis réessayez.",
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": "L'IOS de la Wii ne lit que le début d'un disque. RiftWii redémarre sous l'IOS{1} (d2x) pour cette session ; choisissez ensuite de nouveau Copier un disque de jeu.",
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": "Le menu tourne sous l'IOS{1} pour cette session, pour copier un disque de jeu. Paramètres > Supports > Copier un disque de jeu.",
+    "There is no SD card or FAT32 USB drive to copy the disc to.": "Il n'y a ni carte SD ni disque USB FAT32 où copier le disque.",
+    "The disc can't be copied: {1}": "Le disque ne peut pas être copié : {1}",
+    "Where should {1} go? It needs {2}.": "Où copier {1} ? Il faut {2}.",
+    "{1} free": "{1} libres",
+    "{1} needs {2}, and the {3} has {4} free.": "{1} demande {2}, et il reste {4} sur : {3}.",
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": "Copier {1} ({2}) dans {3} ? Toutes les partitions du disque sont copiées : le jeu, la mise à jour du système et toute chaîne. Cela prend environ {4} minutes.",
+    "{1} partition(s) could not be looked into, so they are copied whole.": "{1} partition(s) n'ont pas pu être lues de l'intérieur : elles sont copiées en entier.",
+    "Copying {1}": "Copie de {1}",
+    "From the disc to the {1}": "Du disque vers : {1}",
+    "Stop copying {1}?": "Arrêter la copie de {1} ?",
+    "What is copied so far is deleted. It can be copied again later, from the start.": "Ce qui a été copié est supprimé. Vous pourrez le recopier plus tard, depuis le début.",
+    "{1} is already on the {2}: {3}": "{1} est déjà sur : {2} ({3})",
+    "{1} could not be copied: {2}. Nothing was kept.": "{1} n'a pas pu être copié : {2}. Rien n'a été gardé.",
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": "{1} est copié sur : {2}. Il est dans l'Accueil et se joue sans le disque.",
+})
+
+
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 

@@ -140,6 +140,7 @@
 #include "sharednandfind.hpp"
 #include "otpkey.hpp"
 #include "wadinstall.hpp"
+#include "disccopy.hpp"
 #include "homebrew.hpp"
 #include "video.h"
 #include <fat.h>
@@ -12425,6 +12426,122 @@ static std::string ThemeStageBody(const std::string& name, const riftwii::wii::t
 	}
 }
 
+// Settings > Copy a game disc: the Wii disc in the drive to a .wbfs file in
+// wbfs/ on a FAT32 USB drive or the SD card (wii/storage/disccopy.hpp),
+// with every partition of the disc in it. The Wii's own IOS reads only
+// the start of a disc, so under it the menu first restarts under d2x for
+// the session. True when a copy was made (Home reads the drives again).
+static bool CopyGameDisc()
+{
+	const std::string title = tr("Copy a game disc");
+	if (!riftwii::wii::DiscCopyCanRead()) {
+		const int slot = riftwii::wii::DiscCopySlot();
+		if (slot == 0) {
+			ShowPopup(title, tr("Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."), tr("OK"));
+			return false;
+		}
+		const std::string ios = std::to_string(slot);
+		if (ShowPopup(title,
+			    tr("The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.", {ios}),
+			    tr("Restart"), tr("Cancel")) != 0)
+			return false;
+		logf("Disc copy: restarting under IOS%d to read the whole disc\n", slot);
+		riftwii::wii::WarmRestart(riftwii::wii::RestartKind::DiscCopy,
+			tr("The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.", {ios}));
+		ShowPopup(title, tr("RiftWii could not restart. Start it again from the Homebrew Channel."), tr("OK"));
+		return false;
+	}
+	const std::vector<riftwii::wii::DiscCopyPlace> places = riftwii::wii::DiscCopyPlaces();
+	if (places.empty()) {
+		ShowPopup(title, tr("There is no SD card or FAT32 USB drive to copy the disc to."), tr("OK"));
+		return false;
+	}
+
+	riftwii::wii::DiscCopyJob job;
+	std::string error;
+	bool ok;
+	{
+		// A few seconds: every partition's file table is read.
+		PopupBox box(title, tr("Reading the disc..."));
+		ResumeGui();
+		ok = riftwii::wii::PrepareDiscCopy(job, error);
+		HaltGui();
+		box.Close();
+	}
+	if (!ok) {
+		ShowPopup(title, tr("The disc can't be copied: {1}", {FlatCapped(error, 140)}), tr("OK"));
+		return false;
+	}
+	const std::string name = FlatCapped(riftwii::wii::GameDisplayName(job.id, job.title), 40);
+	const std::string size = SizeText(job.plan.file_bytes);
+
+	// The USB drive comes first when both are there: it is where games usually live.
+	std::size_t pick = 0;
+	if (places.size() > 1) {
+		const int choice = ChooseTwo(title, tr("Where should {1} go? It needs {2}.", {name, size}),
+			tr("USB drive"), tr("{1} free", {SizeText(places[0].free_bytes)}),
+			tr("SD card"), tr("{1} free", {SizeText(places[1].free_bytes)}));
+		if (choice < 0) return false;
+		pick = static_cast<std::size_t>(choice);
+	}
+	const riftwii::wii::DiscCopyPlace& place = places[pick];
+	const std::string drive = place.usb ? tr("USB drive") : tr("SD card");
+	if (place.free_bytes < job.plan.file_bytes) {
+		ShowPopup(title, tr("{1} needs {2}, and the {3} has {4} free.", {name, size, drive, SizeText(place.free_bytes)}), tr("OK"));
+		return false;
+	}
+	const std::string path = riftwii::wii::DiscCopyPath(job, place);
+	// About 3 MB a second from the drive.
+	const unsigned minutes = static_cast<unsigned>(job.plan.file_bytes / (3ull << 20) / 60) + 1;
+	std::string body = tr("Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.",
+		{name, size, FlatCapped(path, 60), std::to_string(minutes)});
+	if (job.whole_partitions != 0)
+		body += std::string(" ") + tr("{1} partition(s) could not be looked into, so they are copied whole.", {std::to_string(job.whole_partitions)});
+	if (ShowPopup(title, body, tr("Copy"), tr("Cancel")) != 0) return false;
+
+	bool exists = false;
+	{
+		PopupBox box(tr("Copying {1}", {name}), "", "", tr("Stop"));
+		box.CenterCancel();  // its only button, in the middle
+		ProgressPanel progress(box, job.id);
+		progress.SetStage(tr("From the disc to the {1}", {drive}));
+		u64 last_redraw = 0;
+		// Minutes of writing: the power button waits for it (BUG-03).
+		const riftwii::wii::CardWriteHold hold;
+		ResumeGui();
+		ok = riftwii::wii::RunDiscCopy(job, place, [&](std::uint64_t done, std::uint64_t total) {
+			// A few redraws a second: each one halts the GUI, which costs copy time.
+			const u64 now = gettime();
+			if (last_redraw != 0 && done != total && diff_msec(last_redraw, now) < 400) return true;
+			last_redraw = now;
+			HaltGui();
+			// Minutes of work with no button pressed: not idle, so the
+			// screen does not dim over the bar.
+			lastActive = now;
+			progress.Set(done, total);
+			const bool stop = box.Pressed() &&
+				ConfirmStop(box, tr("Stop copying {1}?", {name}),
+					tr("What is copied so far is deleted. It can be copied again later, from the start."));
+			ResumeGui();
+			return !stop;
+		}, exists, error);
+		HaltGui();
+	}
+	if (!ok) {
+		if (exists) {
+			ShowPopup(title, tr("{1} is already on the {2}: {3}", {name, drive, FlatCapped(path, 80)}), tr("OK"));
+		} else {
+			ShowPopup(title,
+				error == "the copy was stopped" ? std::string(tr("Stopped. Nothing was kept."))
+					: tr("{1} could not be copied: {2}. Nothing was kept.", {name, FlatCapped(error, 140)}),
+				tr("OK"));
+		}
+		return false;
+	}
+	ShowPopup(title, tr("{1} is copied to the {2}. It is on Home now, and plays without the disc.", {name, drive}), tr("OK"));
+	return true;
+}
+
 // Downloads and installs theme `index` in a popup with a progress bar and
 // Cancel. True when it is installed; `cancelled` when the player stopped it.
 // The network's job does the work; this thread only shows how far it is.
@@ -12901,7 +13018,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads, kDiscCopy,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -13075,6 +13192,13 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		wads.dim = wadCount == 0;
 		rows.push_back(wads);
 		actions.push_back(kWads);
+		// A Wii disc to a .wbfs file on the USB drive or the SD card.
+		FlowRow discCopy;
+		discCopy.kind = FlowRow::Kind::Action;
+		discCopy.label = tr("Copy a game disc");
+		discCopy.value = tr("Copy");
+		rows.push_back(discCopy);
+		actions.push_back(kDiscCopy);
 		heading(tr("Online"));
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
@@ -13200,7 +13324,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
+				case kSdGames: case kRescan: case kNet: case kResync: case kWads: case kDiscCopy:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -13345,6 +13469,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
+			case kDiscCopy: return tr("Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.");
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
 			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
@@ -14039,6 +14164,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					riftwii::wii::RescanHomebrewApps();
 					g_scanned = false;
 					menu = MENU_SOURCE;
+					break;
+				case kDiscCopy:
+					// The scan lists the copy, and must not read the drive while it is written.
+					WaitForDriveScan(noteTxt);
+					if (CopyGameDisc()) {
+						g_scanned = false;
+						menu = MENU_SOURCE;
+					}
 					break;
 				case kWads:
 					// The scan lists the emulated NAND's channels the install writes.

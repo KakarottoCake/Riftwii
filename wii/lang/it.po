@@ -3045,6 +3045,63 @@ msgstr "La scheda SD è di nuovo inserita. Lettura in corso."
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Il menu è in inglese: copia apps/riftwii/korean.ttf dallo zip di RiftWii sulla scheda SD e scegli il carattere di RiftWii, oppure usa il carattere del Menu Wii su una Wii coreana."
 
+msgid "Copy a game disc"
+msgstr "Copia un disco di gioco"
+
+msgid "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS."
+msgstr "Copia il disco Wii dell'unità nella cartella wbfs di un'unità USB FAT32 o della scheda SD, con tutte le partizioni del disco, per giocare senza il disco. Serve un cIOS d2x."
+
+msgid "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."
+msgstr "Leggere un disco intero richiede un cIOS d2x, e questa Wii non ne ha. Installa d2x (wii.hacks.guide/cios) e riprova."
+
+msgid "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again."
+msgstr "L'IOS della Wii legge solo l'inizio di un disco. RiftWii si riavvia con IOS{1} (d2x) per questa sessione; poi scegli di nuovo Copia un disco di gioco."
+
+msgid "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc."
+msgstr "In questa sessione il menu usa IOS{1}, per copiare un disco di gioco. Impostazioni > Unità > Copia un disco di gioco."
+
+msgid "There is no SD card or FAT32 USB drive to copy the disc to."
+msgstr "Non c'è una scheda SD né un'unità USB FAT32 su cui copiare il disco."
+
+msgid "The disc can't be copied: {1}"
+msgstr "Il disco non si può copiare: {1}"
+
+msgid "Where should {1} go? It needs {2}."
+msgstr "Dove copiare {1}? Servono {2}."
+
+msgid "{1} free"
+msgstr "{1} liberi"
+
+msgid "{1} needs {2}, and the {3} has {4} free."
+msgstr "{1} richiede {2}, e su {3} ci sono {4} liberi."
+
+msgid "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes."
+msgstr "Copiare {1} ({2}) in {3}? Vanno copiate tutte le partizioni del disco: il gioco, l'aggiornamento di sistema e ogni canale. Ci vogliono circa {4} minuti."
+
+msgid "{1} partition(s) could not be looked into, so they are copied whole."
+msgstr "Non è stato possibile guardare dentro {1} partizione/i, quindi vengono copiate per intero."
+
+msgid "Copying {1}"
+msgstr "Copia di {1}"
+
+msgid "From the disc to the {1}"
+msgstr "Dal disco a: {1}"
+
+msgid "Stop copying {1}?"
+msgstr "Interrompere la copia di {1}?"
+
+msgid "What is copied so far is deleted. It can be copied again later, from the start."
+msgstr "Quanto copiato finora viene cancellato. Si può copiare di nuovo più tardi, dall'inizio."
+
+msgid "{1} is already on the {2}: {3}"
+msgstr "{1} è già su {2}: {3}"
+
+msgid "{1} could not be copied: {2}. Nothing was kept."
+msgstr "Impossibile copiare {1}: {2}. Non è stato tenuto nulla."
+
+msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
+msgstr "{1} è stato copiato su {2}. Ora è nella Home e si gioca senza il disco."
+
 msgid "Channel background"
 msgstr "Sfondo dei canali"
 
