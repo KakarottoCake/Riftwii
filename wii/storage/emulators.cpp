@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <set>
 
@@ -170,10 +171,14 @@ void ForgetSdEmulators(EmulatorCatalog& catalog) {
     catalog = {};
 }
 
-// A save stopped between removing the old file and renaming the new one
-// leaves only the new one, under its temporary name: read that instead.
+// A save interrupted before the new file takes its place leaves the old
+// settings in the backup. The temporary file is never a committed save.
 static bool read_values_file(const std::string& path, std::string& text) {
-    return ReadTextFile(path, text, kEmulatorFileMax) || ReadTextFile(path + ".tmp", text, kEmulatorFileMax);
+    struct stat info {};
+    if (stat(path.c_str(), &info) == 0 || errno != ENOENT) {
+        return ReadTextFile(path, text, kEmulatorFileMax);
+    }
+    return ReadTextFile(path + ".bak", text, kEmulatorFileMax);
 }
 
 EmulatorValues LoadEmulatorValues(const EmulatorAddon& addon, const std::string& game) {
@@ -196,21 +201,32 @@ bool SaveEmulatorValues(const EmulatorAddon& addon, const std::string& game, con
         if (found != defaults.end() && value.second != found->second) overrides.insert(value);
     }
     const std::string text = write_emulator_values(addon.file, overrides);
-    // Written whole beside the old file, then put in its place: a failed
-    // write leaves the previous settings intact. libfat's rename refuses an
-    // existing target, so the old file goes first (as SaveSettings does).
+    // libfat's rename refuses an existing target. Keep the old settings as
+    // a backup until the new file is in place, including after a power loss.
     const std::string temporary = path + ".tmp";
+    const std::string backup = path + ".bak";
     if (!WriteWholeFile(temporary, text.data(), text.size())) {
         std::remove(temporary.c_str());
         logf("Emulators: the settings could not be saved to %s.\n", path.c_str());
         return false;
     }
-    std::remove(path.c_str());
+    // A backup beside a present file is left from an older interrupted save
+    // and would block the rename below; with the file missing it is the only
+    // copy of the settings, and stays until the new file is in place.
+    struct stat present {};
+    if (stat(path.c_str(), &present) == 0) std::remove(backup.c_str());
+    if (std::rename(path.c_str(), backup.c_str()) != 0 && errno != ENOENT) {
+        std::remove(temporary.c_str());
+        logf("Emulators: the previous settings could not be backed up at %s.\n", path.c_str());
+        return false;
+    }
     if (std::rename(temporary.c_str(), path.c_str()) != 0) {
+        std::rename(backup.c_str(), path.c_str());
         std::remove(temporary.c_str());
         logf("Emulators: the settings could not be saved to %s.\n", path.c_str());
         return false;
     }
+    std::remove(backup.c_str());
     return true;
 }
 

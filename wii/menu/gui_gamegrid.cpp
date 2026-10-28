@@ -1045,8 +1045,8 @@ void GuiGameGrid::EaseShifts() {
             shownItem[i] = item;
             laidOut = false;
         }
-        shiftX[i] *= 0.7f;
-        shiftY[i] *= 0.7f;
+        shiftX[i] = riftwii::wii::transition::Follow(shiftX[i], 0.0f, 47.0f);
+        shiftY[i] = riftwii::wii::transition::Follow(shiftY[i], 0.0f, 47.0f);
         if (std::fabs(shiftX[i]) < 0.5f) shiftX[i] = 0.0f;
         if (std::fabs(shiftY[i]) < 0.5f) shiftY[i] = 0.0f;
     }
@@ -1074,7 +1074,7 @@ void GuiGameGrid::Draw() {
     // bright it is).
     const bool peek = PagePeek();
     if (slide != 0.0f) {
-        slide *= 0.75f;
+        slide = riftwii::wii::transition::Follow(slide, 0.0f, 58.0f);
         if (slide > -0.5f && slide < 0.5f) slide = 0.0f;
     }
     const float away = peek ? 0.0f : (slide < 0.0f ? -slide : slide) / kSlideFrom;
@@ -1110,7 +1110,7 @@ void GuiGameGrid::Draw() {
         Slot& s = slots[i];
         const bool on = i == lit;
         const float grown = i == carrySlot ? kCarryScale : on ? 1.06f : 1.0f;
-        s.scale += (grown - s.scale) * 0.35f;
+        s.scale = riftwii::wii::transition::Follow(s.scale, grown, 40.0f);
         if (!on && s.scale < 1.002f) s.scale = 1.0f;  // settled: a channel's icon back on whole pixels
         const int index = ItemAt(i);  // with a game picked up, the tiles shifted round it
         const int a = peek ? PeekAlpha(TileX(i), alpha) : tileAlpha;

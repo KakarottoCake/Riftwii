@@ -131,16 +131,36 @@ bool content_bin_matches_tmd(const TmdContents& moved, const TmdContents& instal
 }
 
 bool parse_staged_content_path(const std::string& path, std::uint64_t& title_id, std::uint32_t& content_id) {
-    unsigned upper = 0, lower = 0, id = 0;
-    if (std::sscanf(path.c_str(), "/title/%8x/%8x/content/%8x.app", &upper, &lower, &id) != 3) return false;
+    // Only the exact lowercase path RiftWii writes. Reading its three
+    // fixed-width fields here avoids linking libc's full scanf engine.
+    constexpr char pattern[] = "/title/00000000/00000000/content/00000000.app";
+    if (path.size() != sizeof pattern - 1) return false;
+    constexpr std::size_t field_offsets[] = {7, 16, 33};
+    std::uint32_t fields[3] = {};
+    std::size_t at = 0;
+    for (std::size_t field = 0; field < 3; ++field) {
+        while (at < field_offsets[field]) {
+            if (path[at] != pattern[at]) return false;
+            ++at;
+        }
+        for (std::size_t digit = 0; digit < 8; ++digit) {
+            const char ch = path[at++];
+            unsigned value = 0;
+            if (ch >= '0' && ch <= '9') value = ch - '0';
+            else if (ch >= 'a' && ch <= 'f') value = ch - 'a' + 10;
+            else return false;
+            fields[field] = (fields[field] << 4) | value;
+        }
+    }
+    while (at < path.size()) {
+        if (path[at] != pattern[at]) return false;
+        ++at;
+    }
     bool channel_type = false;
-    for (const std::uint32_t type : kChannelTitleTypes) channel_type = channel_type || type == upper;
-    const std::uint64_t title = (std::uint64_t(upper) << 32) | lower;
-    // Only the exact path RiftWii writes: nothing after ".app", no "+",
-    // spaces or short fields that sscanf lets through.
-    if (!channel_type || nand_content_path(title, id) != path) return false;
-    title_id = title;
-    content_id = id;
+    for (const std::uint32_t type : kChannelTitleTypes) channel_type = channel_type || type == fields[0];
+    if (!channel_type) return false;
+    title_id = (std::uint64_t(fields[0]) << 32) | fields[1];
+    content_id = fields[2];
     return true;
 }
 

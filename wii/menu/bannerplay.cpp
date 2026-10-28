@@ -3,6 +3,7 @@
 #include "bannerplay.hpp"
 
 #include <malloc.h>
+#include <ogc/lwp_watchdog.h>
 
 #include <algorithm>
 #include <cmath>
@@ -14,6 +15,7 @@
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/gcbanner.hpp"
 #include "riftwii/gccard.hpp"
+#include "riftwii/menumotion.hpp"
 #include "riftwii/tpl.hpp"
 #include "video.h"
 
@@ -334,21 +336,24 @@ bool BannerPlayer::LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool 
 }
 
 void BannerPlayer::Restart() {
-    frame_ = -1;
+    frame_ = 0;
+    last_step_ = 0;
     Step();
 }
 
 void BannerPlayer::Step() {
     if (!loaded_) return;
-    ++frame_;
+    const u64 now = gettime();
+    const float elapsedMs = last_step_ ? ticks_to_microsecs(now - last_step_) / 1000.0f : 0.0f;
+    last_step_ = now;
+    const int startFrames = has_start_ ? start_.frames : 0;
+    const int loopFrames = has_loop_ ? std::max(1, static_cast<int>(loop_.frames)) : 0;
+    frame_ = menumotion::animation_frame(frame_, menumotion::frame_ms(elapsedMs), startFrames, loopFrames);
     reset_animated(base_, work_);
-    const int start_frames = has_start_ ? start_.frames : 0;
     if (has_start_)
-        apply_animation(start_, static_cast<float>(frame_ < start_frames ? frame_ : start_frames), work_, start_binding_);
-    if (has_loop_ && frame_ >= start_frames) {
-        const int length = loop_.frames > 0 ? loop_.frames : 1;
-        apply_animation(loop_, static_cast<float>((frame_ - start_frames) % length), work_, loop_binding_);
-    }
+        apply_animation(start_, std::min(frame_, static_cast<float>(startFrames)), work_, start_binding_);
+    if (has_loop_ && frame_ >= startFrames)
+        apply_animation(loop_, frame_ - startFrames, work_, loop_binding_);
     // Language groups again: an animation may have shown a hidden one.
     apply_language(work_, language_);
 }
