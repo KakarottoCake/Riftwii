@@ -59,6 +59,7 @@ private:
         enum class Act { Type, Space, Back, Clear, Cancel, Search, Shift } act;
         int row, x, w;
         GuiText* caption;
+        int captionSize = 18;
     };
     void Press(const Key& k);
     // What a USB keyboard typed since the last frame.
@@ -94,5 +95,5 @@ private:
     int focus = 0;
     int hover = -1;
     int result = 0;
-    int blink = 0;
+    float blink = 0;  // elapsed milliseconds in the cursor blink cycle
 };

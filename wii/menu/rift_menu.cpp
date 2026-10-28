@@ -750,7 +750,8 @@ struct SkinButton {
 			trigHot[k].SetButtonOnlyTrigger(-1, (remote ? remote : kNoRemote) | (classic ? classic : kNoClassic), pad, drc);
 			button.SetTrigger(&trigHot[k]);
 		}
-		button.SetEffectGrow();
+		// GuiButton draws its own eased growth; the legacy scale effect
+		// would grow the same button a second time.
 	}
 	// A prompt already played the sound for this press.
 	void PressSilently() {
@@ -1357,7 +1358,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	for (const Row& r : rows) {
 		const bool emulator = r.entry.kind == HomeEntry::Kind::Emulator;
-		if (g_filter == Filter::Emulators && !emulator) continue;
+		// A search picks from every game, as in the other views.
+		if (!searching && g_filter == Filter::Emulators && !emulator) continue;
 		const bool profile = !r.entry.profile.empty();
 		// A game GameTDB lists as custom (a hack or mod distribution with an
 		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
@@ -4613,6 +4615,23 @@ static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& row
 	return started;  // the caller, like this page's actions, has the GUI halted
 }
 
+static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame& game,
+	const riftwii::EmulatorValues& values)
+{
+	riftwii::wii::HomebrewApp app;
+	std::string error;
+	if (!riftwii::wii::PrepareEmulatorApp(addon, game, values, app, error)) {
+		logf("Emulators: %s could not start. %s\n", addon.file.name.c_str(), error.c_str());
+		ShowPopup(tr("Emulators"), tr("The emulator arguments are invalid or too long. See session.log."), tr("OK"));
+		return false;
+	}
+	// Under the tile's own key (HomeKey), so the game is in Recently played
+	// and history-based ordering like any other.
+	riftwii::wii::RecordPlay(game.key);
+	riftwii::wii::SetHomebrewToStart(app);
+	return true;
+}
+
 static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
 {
 	auto values = riftwii::wii::LoadEmulatorValues(addon, game ? game->path : "");
@@ -4660,15 +4679,7 @@ static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii
 	return EmulatorRowsPage(game ? FlatCapped(game->name, 40) : addon.file.name, rows, help, [&](int clicked, int direction) {
 		const auto index = static_cast<std::size_t>(clicked);
 		if (game && index == 0) {
-			riftwii::wii::HomebrewApp app;
-			std::string error;
-			if (!riftwii::wii::PrepareEmulatorApp(addon, *game, values, app, error)) {
-				logf("Emulators: %s could not start. %s\n", addon.file.name.c_str(), error.c_str());
-				ShowPopup(tr("Emulators"), tr("The emulator arguments are invalid or too long. See session.log."), tr("OK"));
-				return false;
-			}
-			riftwii::wii::SetHomebrewToStart(app);
-			return true;
+			return StartEmulator(addon, *game, values);
 		}
 		if (index == aboutAt) {
 			ShowPopup(tr("About"), about + "\n" + addon.file.dol, tr("OK"));
@@ -5825,8 +5836,15 @@ static int MenuSource(FrontendState& state)
 			bool fromChannel = false;
 			if (entry.kind == HomeEntry::Kind::Emulator) {
 				const auto& game = state.emulators.games[entry.index];
+				const auto& addon = state.emulators.addons[game.emulator];
 				mainWindow->Remove(&w);
-				const bool play = EditEmulator(state.emulators.addons[game.emulator], &game);
+				bool play = false;
+				if (randomStart) {
+					const auto values = riftwii::wii::LoadEmulatorValues(addon, game.path);
+					play = StartEmulator(addon, game, values);
+				} else {
+					play = EditEmulator(addon, &game);
+				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
 				ResumeGui();
@@ -13323,6 +13341,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (actions[static_cast<std::size_t>(acted)]) {
 				case kEmulators:
 					WaitForDriveScan(noteTxt);
+					// Home still has to collect the finished scan's new catalog.
+					if (g_scanning) {
+						note(tr("RiftWii is still reading the drives."));
+						break;
+					}
 					mainWindow->Remove(&w);
 					EmulatorDefaultsPage(state.emulators);
 					mainWindow->Append(&w);

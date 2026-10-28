@@ -244,6 +244,54 @@ main 21172fe0 the program's end went from `0x80ED37A0` to `0x80EC8280`):
   KiB back for `sscanf` and 13 more for `fscanf`. (`siscanf` stays:
   libfat's `mktime` reads the time zone with it.)
 
+Build 2610-734 (`213eb368`), measured with devkitPPC 16.1.0, had brought
+`sscanf` back through the moved channel's cleanup-list reader. A further
+size pass reads those exact lowercase paths by hand, shares `snprintf`'s
+formatter with FILE and console output, and drops the prebuilt libraries'
+unused exception tables:
+
+| Change, measured separately | MEM1 heap gained | Packed DOL saved |
+| --- | ---: | ---: |
+| Read cleanup paths without `sscanf` | 14,080 bytes | 4,320 bytes |
+| FILE output through `vsnprintf` and `fwrite` | 17,952 bytes | 1,952 bytes |
+| Keep only libgcc's own unwind records | 124,096 bytes | 47,232 bytes |
+| Total | 156,128 bytes (152.5 KiB) | 53,504 bytes |
+
+The release program's end moves from `0x80F34C60` to `0x80F0EA80`, and
+the stash's end from `0x80F88440` to `0x80F62260`. The unpacked DOL is
+4,162,496 bytes (156,160 fewer; its file padding also shrinks by 32),
+and the packed one 2,257,024. This leaves 3,085,696 bytes (3,013.4 KiB)
+of MEM1 heap below the apploader before start-up allocations. In Dolphin,
+the test DOLs on the same card start with `Memory (start): MEM1 248 KiB
+taken, 2656 KiB free` against 2504 KiB free for 2610-734: the 152 KiB
+above. The stash's bytes and MEM2 reservation are unchanged.
+
+FILE output (`wii/core/streamprint.cpp`, `src/data/streamformat.cpp`) keeps
+short messages on the stack, including the crash screen's lines. Longer
+messages get a checked allocation and are written whole, including any
+NUL bytes. `fwrite` takes stdio's stream lock, and the caller still decides
+when to flush, so `logf`'s timestamps, truncation, batches and card sync
+are unchanged. Host tests compare bytes and return counts with `vfprintf`,
+including long lines, floats, NULs, buffering and a failed write.
+
+None of the remaining unwind records was RiftWii's own: all came from
+prebuilt libraries. `wii/core/noexcept.ld` discards their `.eh_frame` and
+`.gcc_except_table` sections before the ordinary `rvl.ld` layout, keeping
+3,012 bytes of libgcc's `unwind*.o` records and crtend's four-byte zero
+terminator. Keep these when updating the toolchain: disassembly of this
+16.1.0 build shows `uw_init_context_1` needs libgcc's own caller record or
+it aborts before a throw can reach `terminate`. With those records kept,
+`_Unwind_RaiseException` initializes normally, the missing record for
+`__cxa_throw` returns `_URC_END_OF_STACK` (5), and `__cxa_throw` calls the
+existing `terminate` handler. Frame registration and deregistration both
+handle an empty table too (they return on a null pointer or a zero first
+word), and the normal marker and terminator remain. The default handler
+is still `abort`, which calls `_exit` and libogc's loader/reset path.
+The menu crash report (`wii/core/crash.cpp`) and the in-game crash recorder
+(`runtime/rtfault.c`) walk registers and the PowerPC stack's back chain;
+neither reads exception tables. The Wii ELF still keeps its debug frames
+for tools; those are not loaded into MEM1.
+
 ### The MEM2 copy
 
 The copy goes to `mem::kStashArea`, which is `0x90809000`, right above the
