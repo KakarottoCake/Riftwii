@@ -40,6 +40,17 @@ bool TakeViewChord();
 // Drops a pair pressed since the last call: it only woke the dimmed screen.
 void ForgetViewChord();
 
+// The presses kept back now (1, 2, a pad's pair or search button, the
+// screenshot's L or R) come to nothing when let go: they woke the dimmed
+// screen, and do nothing else.
+void SpendHeldPresses();
+
+// Home hands over to another screen (a game's page or banner, the HOME
+// Menu, the search keyboard): the pads' presses it still keeps back (their
+// view pairs, B or ZL) were made on Home and come to nothing when let go
+// there. The Wii Remote's 1 and 2 keep their own rule (WatchViewChord).
+void SpendPadHomePresses();
+
 // Home's random game by pad, as B held on the search button with a Wii
 // Remote: the search button's own button held about a second (B on a
 // GameCube controller, ZL on a Classic Controller or Wii U Pro

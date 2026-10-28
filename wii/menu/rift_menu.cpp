@@ -445,10 +445,12 @@ UpdateGUI(void *arg)
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			// The presses that wake the dimmed screen do nothing else, the 1
-			// and 2 pair too (ScreenshotPoll took it before this was known).
+			// and 2 pair too (ScreenshotPoll took it before this was known),
+			// nor a press it keeps back until let go.
 			if (swallowInput) {
 				riftwii::wii::ForgetViewChord();
 				(void)riftwii::wii::TakeSearchHold();
+				riftwii::wii::SpendHeldPresses();
 			}
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			riftwii::wii::GuiPhase("transition start");
@@ -5291,6 +5293,7 @@ static int MenuSource(FrontendState& state)
 		~ViewChordWatch() {
 			riftwii::wii::WatchViewChord(false);
 			riftwii::wii::WatchSearchHold(false);
+			riftwii::wii::SpendPadHomePresses();
 		}
 	} viewChordWatch;
 	while(menu == MENU_NONE)
@@ -5955,6 +5958,7 @@ static int MenuSource(FrontendState& state)
 				// not Home's, and Home starts watching afresh after it.
 				riftwii::wii::WatchViewChord(false);
 				riftwii::wii::WatchSearchHold(false);
+				riftwii::wii::SpendPadHomePresses();
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
@@ -6093,6 +6097,7 @@ static int MenuSource(FrontendState& state)
 			// watching afresh once it closes.
 			riftwii::wii::WatchViewChord(false);
 			riftwii::wii::WatchSearchHold(false);
+			riftwii::wii::SpendPadHomePresses();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
 		} else if (riftwii::wii::TakeViewChord()) {
@@ -6133,6 +6138,7 @@ static int MenuSource(FrontendState& state)
 			searchBtn.button.ResetState();
 			// The keyboard's B and ZL are its own from its first frame.
 			riftwii::wii::WatchSearchHold(false);
+			riftwii::wii::SpendPadHomePresses();
 			const std::string before = g_search;
 			std::string typed = g_search;
 			// The games behind the keyboard follow what is typed.

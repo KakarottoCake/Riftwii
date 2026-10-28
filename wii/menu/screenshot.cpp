@@ -276,10 +276,10 @@ void WatchPair(ViewPair& v, u32& down, u32 held, u32 first, u32 second) {
 void WatchHold(SearchHold& h, u32& down, u32 held, u32 bit) {
     const bool watched = SearchHoldWatched();
     if (!watched && !h.chord.held_back) return;
-    // Held through a pause (a cover up close, a popup): that hold is
-    // spent, neither a game at random nor a search when let go; the next
-    // press starts afresh.
-    if (!watched) h.chord.used = true;
+    // Held through a pause (Home busy reading, a popup up): the second
+    // starts again once Home watches again, so the pause never counts
+    // towards it, and let go meanwhile, it is still a search.
+    if (!watched) h.from = FrameTimer;
     if (down & bit) h.from = FrameTimer;
     if (!Modifier(h.chord, down, held, bit)) return;
     if (watched && !h.chord.used && FrameTimer - h.from >= kSearchHoldFrames) {
@@ -417,6 +417,34 @@ bool TakeViewChord() {
 }
 
 void ForgetViewChord() { g_view_chord = false; }
+
+void SpendHeldPresses() {
+    // Let go later, a press kept back here comes to nothing.
+    const auto spend = [](Chord& c) {
+        if (c.held_back) c.used = true;
+    };
+    for (int i = 0; i < 4; ++i) {
+        for (Chord* c : {&g_remote[i], &g_remote_two[i], &g_pad_l[i], &g_pad_r[i], &g_classic_pair[i].first,
+                         &g_classic_pair[i].second, &g_pad_pair[i].first, &g_pad_pair[i].second,
+                         &g_pad_search[i].chord, &g_classic_search[i].chord})
+            spend(*c);
+    }
+    spend(g_drc_pair.first);
+    spend(g_drc_pair.second);
+}
+
+void SpendPadHomePresses() {
+    const auto spend = [](Chord& c) {
+        if (c.held_back) c.used = true;
+    };
+    for (int i = 0; i < 4; ++i) {
+        for (Chord* c : {&g_classic_pair[i].first, &g_classic_pair[i].second, &g_pad_pair[i].first,
+                         &g_pad_pair[i].second, &g_pad_search[i].chord, &g_classic_search[i].chord})
+            spend(*c);
+    }
+    spend(g_drc_pair.first);
+    spend(g_drc_pair.second);
+}
 
 void WatchSearchHold(bool on) {
     g_search_hold_beat = FrameTimer;
