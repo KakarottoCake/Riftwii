@@ -1289,6 +1289,25 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
 
 void SetShelfFlying(const std::string& id) { g_flying = id; }
 
+void DrawMadeUpBoxBack(const u8* cover, GXColor hue, float x, float y, float w, float h, int alpha) {
+    // At z = 0 the shelf's view puts a point where the 2D view does.
+    Face f;
+    f.c[0] = {x, y, 0.0f};
+    f.c[1] = {x + w, y, 0.0f};
+    f.c[2] = {x + w, y + h, 0.0f};
+    f.c[3] = {x, y + h, 0.0f};
+    f.normal = {0.0f, 0.0f, 1.0f};
+    f.madeUpBack = true;
+    f.art = cover;
+    f.accent = {hue.r, hue.g, hue.b, 255};
+    const u8 a = static_cast<u8>(alpha);
+    LoadPerspective();
+    // Its paper, unshaded: it faces you, flat.
+    Quad(f.c, GXColor{244, 244, 242, a}, f.fade, nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    DrawMadeUpBack(f, 1.0f, a);
+    LoadFlat();
+}
+
 void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
     // Digital L/R clicks take the same one-box step in Update, shared
     // with the grid's letter-jump and screenshot-chord handling.
