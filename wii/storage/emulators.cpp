@@ -158,6 +158,19 @@ void add_wiiflow_plugin(EmulatorCatalog& out, const std::string& ini, const std:
         plugin.file.dol = candidate;
         break;
     }
+    // A relative dolFile may also be on another USB partition: those roots
+    // come last, after every place WiiFlow itself looks. The legacy USB
+    // candidate, the last one, gives the path below the root.
+    const std::string& last = plugin.dol_candidates.back();
+    if (plugin.file.dol.empty() && plugin.dol_candidates.size() > 1 && last.rfind("usb:/", 0) == 0) {
+        const std::string relative = last.substr(5);
+        for (const auto& root : usb_volume_roots()) {
+            const std::string candidate = root + relative;
+            if (!emulator_path_valid(candidate) || !file_present(candidate)) continue;
+            plugin.file.dol = candidate;
+            break;
+        }
+    }
     // Plugin packs list emulators the player may not have: those stay quiet.
     if (plugin.file.dol.empty()) return;
     const std::string identity = wiiflow_plugin_identity(plugin.file);
