@@ -249,6 +249,7 @@ void TestIncompleteXmlPreservesLists(bool zipped) {
     fs::remove(path);
     fs::remove(kCachePath);
     fs::remove(kHomebrewPath);
+    fs::remove(kModTitlesPath);
     fs::remove("sd:/riftwii");
     fs::remove("sd:");
 }
