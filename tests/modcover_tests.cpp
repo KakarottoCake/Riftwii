@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A mod's own cover from GameTDB (riftwii/modcover.hpp, #385): the strict
 // match, on the cases tried against GameTDB's database of 25 Oct 2026.
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "riftwii/gametdb.hpp"
 #include "riftwii/modcover.hpp"
 
 static int g_failures = 0;
@@ -56,9 +58,67 @@ static void TestMatch() {
     EXPECT_EQ(riftwii::mod_cover_id(brawl, "RSB", "REX"), std::string());
 }
 
+static void TestBlocks() {
+    CustomGame g;
+    EXPECT_TRUE(riftwii::parse_wiitdb_custom(
+        "<game name=\"Retro Rewind (EN)\"><id>RMCETO</id><type> CUSTOM </type>"
+        "<locale lang=\"EN\"><title>Retro Rewind</title></locale></game>", g));
+    EXPECT_EQ(g.id, std::string("RMCETO"));
+    EXPECT_EQ(g.title, std::string("Retro Rewind"));
+    // No English title: its name.
+    EXPECT_TRUE(riftwii::parse_wiitdb_custom(
+        "<game name=\"Super Smash Bros. Project+\"><id>RSBEPL</id><type>CUSTOM</type></game>", g));
+    EXPECT_EQ(g.title, std::string("Super Smash Bros. Project+"));
+    // Not a custom game, a short ID, no title, not XML.
+    EXPECT_TRUE(!riftwii::parse_wiitdb_custom("<game name=\"Mario Kart Wii\"><id>RMCE01</id></game>", g));
+    EXPECT_TRUE(!riftwii::parse_wiitdb_custom("<game name=\"X\"><id>RMCE</id><type>CUSTOM</type></game>", g));
+    EXPECT_TRUE(!riftwii::parse_wiitdb_custom("<game name=\"\"><id>RMCETO</id><type>CUSTOM</type></game>", g));
+    EXPECT_TRUE(!riftwii::parse_wiitdb_custom("<game", g));
+
+    EXPECT_EQ(riftwii::custom_prefix("RMCE01"), std::string("RMCE"));
+    EXPECT_EQ(riftwii::custom_prefix("HAAA"), std::string());  // a channel: no mods listed by it
+    EXPECT_EQ(riftwii::custom_prefixes({"RMCE01", "RSBE01", "RMCP01", "HAAA"}).size(), 3u);
+}
+
+static void TestFile() {
+    const std::vector<CustomGame> games = {{"RMCETO", "Retro Rewind"}, {"RSBEPL", "Super\tSmash\nBros. Project+"},
+                                           {"BAD", "Short ID"}, {"RSBERX", ""}};
+    const std::string text = riftwii::serialize_custom_games(games);
+    const std::vector<CustomGame> back = riftwii::parse_custom_games(text);
+    EXPECT_EQ(back.size(), 2u);
+    EXPECT_TRUE(back.size() == 2 && back[0].id == "RMCETO" && back[0].title == "Retro Rewind");
+    EXPECT_TRUE(back.size() == 2 && back[1].title == "Super Smash Bros. Project+");
+    // Damage is skipped, CRLF read.
+    const std::vector<CustomGame> odd = riftwii::parse_custom_games("# x\r\nRMCETO\tRetro Rewind\r\nno tab\nrmceto\tlower\n");
+    EXPECT_TRUE(odd.size() == 1 && odd[0].title == "Retro Rewind");
+    // A title past the bound is cut on a whole character.
+    const std::string longer(200, 'a');
+    const std::vector<CustomGame> cut = riftwii::parse_custom_games("RMCETO\t" + longer + "\n");
+    EXPECT_TRUE(cut.size() == 1 && cut[0].title.size() == riftwii::kMaxCustomTitleBytes);
+}
+
+static void TestScanner() {
+    riftwii::WiitdbScanner scanner({"RMCE01"}, "EN");
+    const std::string xml =
+        "<datafile>"
+        "<game name=\"Mario Kart Wii\"><id>RMCE01</id><type></type></game>"
+        "<game name=\"Retro Rewind\"><id>RMCETO</id><type>CUSTOM</type></game>"
+        "<game name=\"Project+\"><id>RSBEPL</id><type>CUSTOM</type></game>"  // not a wanted game's
+        "<game name=\"Mario Kart Wii (KOR)\"><id>RMCK01</id><type></type></game>"
+        "</datafile>";
+    // In pieces, as it is unpacked.
+    for (std::size_t at = 0; at < xml.size(); at += 7) scanner.feed(xml.data() + at, std::min<std::size_t>(7, xml.size() - at));
+    EXPECT_EQ(scanner.customs().size(), 1u);
+    EXPECT_TRUE(!scanner.customs().empty() && scanner.customs()[0].id == "RMCETO");
+    EXPECT_EQ(scanner.games().size(), 1u);
+}
+
 int main() {
     TestWords();
     TestMatch();
+    TestBlocks();
+    TestFile();
+    TestScanner();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

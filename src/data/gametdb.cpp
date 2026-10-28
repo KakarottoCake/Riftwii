@@ -116,7 +116,7 @@ std::string raw_id(const std::string& block) {
 }  // namespace
 
 WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
-    : wanted_(std::move(wanted)), lang_(std::move(lang)) {}
+    : wanted_(std::move(wanted)), prefixes_(custom_prefixes(wanted_)), lang_(std::move(lang)) {}
 
 void WiitdbScanner::feed(const char* data, std::size_t size) {
     buffer_.append(data, size);
@@ -166,6 +166,12 @@ void WiitdbScanner::take_block(const std::string& block) {
         if (parse_wiitdb_homebrew(block, title)) homebrew_.push_back(std::move(title));
     }
     const std::string id = raw_id(block);
+    // A mod of one of the wanted games: only a block saying CUSTOM is parsed.
+    if (customs_.size() < kMaxCustomGames && prefixes_.count(id.substr(0, 4)) && !wanted_.count(id) &&
+        block.find("CUSTOM") != std::string::npos) {
+        CustomGame g;
+        if (parse_wiitdb_custom(block, g)) customs_.push_back(std::move(g));
+    }
     if (!wanted_.count(id) || found_.count(id)) return;
     GameInfo info;
     if (parse_wiitdb_game(block, lang_, info)) found_[info.id] = std::move(info);

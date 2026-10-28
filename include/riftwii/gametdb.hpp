@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "riftwii/homebrewmatch.hpp"
+#include "riftwii/modcover.hpp"
 
 // What GameTDB knows about a game (its wiitdb.xml: genre, release, players,
 // controllers, online features, age rating, synopsis), for a game's About
@@ -55,17 +56,22 @@ public:
     void feed(const char* data, std::size_t size);
     const std::map<std::string, GameInfo>& games() const { return found_; }
     const std::vector<HomebrewTitle>& homebrew() const { return homebrew_; }
+    // The custom games (mods) listed under the wanted games' first four
+    // characters (riftwii/modcover.hpp), for the mods' own covers.
+    const std::vector<CustomGame>& customs() const { return customs_; }
     std::size_t blocks() const { return blocks_; }    // <game> blocks seen
     std::size_t skipped() const { return skipped_; }  // too long or unreadable
 
 private:
     void take_block(const std::string& block);
     std::set<std::string> wanted_;
+    std::set<std::string> prefixes_;  // custom_prefixes(wanted_)
     std::string lang_;
     std::string buffer_;
     bool in_game_ = false;
     std::map<std::string, GameInfo> found_;
     std::vector<HomebrewTitle> homebrew_;
+    std::vector<CustomGame> customs_;
     std::size_t blocks_ = 0;
     std::size_t skipped_ = 0;
 };

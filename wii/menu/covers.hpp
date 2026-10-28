@@ -5,6 +5,7 @@
 #include <gctypes.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -75,6 +76,12 @@ void CoverReadAll(const std::vector<std::string>& game_ids);
 bool CoverSecondSet(const std::string& game_id);
 // False: the card could not be written.
 bool ChooseCoverSet(const std::string& game_id, bool second);
+
+// The mod tiles GameTDB lists as games of their own (#385), tile key to
+// that entry's ID ("RMCE01@retro-rewind" -> "RMCETO",
+// riftwii/modcover.hpp): their own covers are downloaded under the tile's
+// key, and shown before the game's. Other tiles show the game's cover.
+void SetModCoverIds(std::map<std::string, std::string> ids);
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);

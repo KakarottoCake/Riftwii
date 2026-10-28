@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -20,6 +22,28 @@ struct CustomGame {
     std::string id;
     std::string title;
 };
+
+// Network data, bounded: Mario Kart Wii alone had about 400 custom entries
+// in 2026, of about 60 bytes a line in the file below.
+constexpr std::size_t kMaxCustomGames = 4096;
+constexpr std::size_t kMaxCustomTitleBytes = 96;
+constexpr std::size_t kMaxCustomGamesBytes = 512u << 10;
+
+// A stock game's first four characters, by which its mods are listed
+// ("RMCE" for RMCE01); empty for anything but a 6-character game ID.
+std::string custom_prefix(const std::string& stock_id);
+// The prefixes of the player's games (`ids`), for the scan to keep.
+std::set<std::string> custom_prefixes(const std::set<std::string>& ids);
+
+// Reads one wiitdb.xml <game> block: true for a custom game with a
+// 6-character ID and a title (the English one, else its name).
+bool parse_wiitdb_custom(const std::string& block, CustomGame& out);
+
+// sd:/riftwii/mod-titles.txt, made whenever the database is read: a
+// comment line, then "<ID>", a tab and "<title>" a line. The writer leaves out what
+// goes past the bounds; the reader takes at most those.
+std::string serialize_custom_games(const std::vector<CustomGame>& games);
+std::vector<CustomGame> parse_custom_games(const std::string& text);
 
 // The words of a title or a mod's name, lowercased, each run of anything
 // but letters, digits and '+' made one space ("Super Smash Bros. Project+"

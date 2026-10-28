@@ -39,6 +39,10 @@ const char* const kOtherDatabases[] = {
 
 // Not per language: the file keeps every language's title of each app.
 constexpr const char* kHomebrewTitlesPath = "sd:/riftwii/homebrew-titles.txt";
+// GameTDB's mods of the player's games (riftwii/modcover.hpp), for the mod
+// tiles' own covers; English titles, so not per language either.
+constexpr const char* kModTitlesPath = "sd:/riftwii/mod-titles.txt";
+unsigned g_mod_titles_written = 0;
 // Read from the database this session already (and the file written), for
 // the same reason as Cache::read_now; or stopped by the player.
 bool g_homebrew_read_now = false;
@@ -125,6 +129,52 @@ bool SaveCache() {
     return true;
 }
 
+// `path` made `text`, through a ".part" file: the old file stays until the
+// new one is whole.
+bool ReplaceListFile(const char* path, const std::string& text) {
+    const std::string temp = std::string(path) + ".part";
+    FILE* f = std::fopen(temp.c_str(), "wb");
+    if (!f) return false;
+    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    ok = std::fclose(f) == 0 && ok;
+    if (!ok) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    // FAT can't rename over a file: the old list is moved aside first and
+    // put back if the new one can't take its place, so a failed save never
+    // leaves the view with no list at all.
+    const std::string backup = std::string(path) + ".backup";
+    struct stat st;
+    const bool had_old = stat(path, &st) == 0;
+    std::remove(backup.c_str());
+    if (had_old && std::rename(path, backup.c_str()) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (std::rename(temp.c_str(), path) != 0) {
+        if (had_old) std::rename(backup.c_str(), path);
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (had_old) std::remove(backup.c_str());
+    return true;
+}
+
+// Written even with no mods found, as the homebrew list is: the file says
+// the database was read for them.
+bool SaveModTitles(const std::vector<CustomGame>& games) {
+    const std::string text = serialize_custom_games(games);
+    if (!ReplaceListFile(kModTitlesPath, text)) {
+        logf("Mod covers: %s could not be written\n", kModTitlesPath);
+        return false;
+    }
+    ++g_mod_titles_written;
+    logf("Mod covers: %u of GameTDB's mods of your games kept in %s\n", static_cast<unsigned>(games.size()),
+         kModTitlesPath);
+    return true;
+}
+
 // Written even with no apps (a database without homebrew): the file's
 // time says the database was read, so it is not read again next session.
 // The old file stays until the new one is whole.
@@ -137,32 +187,7 @@ bool SaveHomebrewTitles(const std::vector<HomebrewTitle>& titles) {
     // serialize_homebrew_titles keeps within the budget; checked again so
     // the file is never one LoadHomebrewTitles refuses.
     if (text.size() > kMaxHomebrewTitlesBytes) return false;
-    const std::string temp = std::string(kHomebrewTitlesPath) + ".part";
-    FILE* f = std::fopen(temp.c_str(), "wb");
-    if (!f) return false;
-    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
-    ok = std::fclose(f) == 0 && ok;
-    if (!ok) {
-        std::remove(temp.c_str());
-        return false;
-    }
-    // FAT can't rename over a file: the old list is moved aside first and
-    // put back if the new one can't take its place, so a failed save never
-    // leaves the view with no list at all.
-    const std::string backup = std::string(kHomebrewTitlesPath) + ".backup";
-    struct stat st;
-    const bool had_old = stat(kHomebrewTitlesPath, &st) == 0;
-    std::remove(backup.c_str());
-    if (had_old && std::rename(kHomebrewTitlesPath, backup.c_str()) != 0) {
-        std::remove(temp.c_str());
-        return false;
-    }
-    if (std::rename(temp.c_str(), kHomebrewTitlesPath) != 0) {
-        if (had_old) std::rename(backup.c_str(), kHomebrewTitlesPath);
-        std::remove(temp.c_str());
-        return false;
-    }
-    if (had_old) std::remove(backup.c_str());
+    if (!ReplaceListFile(kHomebrewTitlesPath, text)) return false;
     g_homebrew_read_now = true;
     ++g_homebrew_written;
     logf("Homebrew: %u of GameTDB's apps kept in %s, for their covers\n", static_cast<unsigned>(titles.size()),
@@ -281,6 +306,7 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     g_cache.read_now = true;
     // The same pass found the homebrew apps: kept for the Homebrew view.
     if (!SaveHomebrewTitles(scanner.homebrew())) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
+    SaveModTitles(scanner.customs());
     g_cache.not_listed.clear();
     for (const std::string& wanted_id : ids)
         if (!g_cache.games.count(wanted_id)) g_cache.not_listed.insert(wanted_id);
@@ -333,6 +359,24 @@ bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out) {
 }
 
 unsigned HomebrewTitlesWritten() { return g_homebrew_written; }
+
+bool LoadModTitles(std::vector<CustomGame>& out) {
+    out.clear();
+    struct stat st;
+    if (stat(kModTitlesPath, &st) != 0 || static_cast<std::uint64_t>(st.st_size) > kMaxCustomGamesBytes) return false;
+    std::string text;
+    // Its size comes from the card: a checked allocation.
+    if (!try_resize(text, static_cast<std::size_t>(st.st_size))) return false;
+    FILE* f = std::fopen(kModTitlesPath, "rb");
+    if (!f) return false;
+    const std::size_t got = text.empty() ? 0 : std::fread(&text[0], 1, text.size(), f);
+    std::fclose(f);
+    if (got != text.size()) return false;
+    out = parse_custom_games(text);
+    return true;
+}
+
+unsigned ModTitlesWritten() { return g_mod_titles_written; }
 
 bool HomebrewTitlesNeedReading() {
     if (g_homebrew_read_now || g_homebrew_failed >= kMaxHomebrewTries) return false;
@@ -454,6 +498,7 @@ struct BackgroundRead {
     std::string error;
     std::map<std::string, GameInfo> games;
     std::vector<HomebrewTitle> homebrew;
+    std::vector<CustomGame> customs;
 };
 BackgroundRead g_read;
 
@@ -474,6 +519,10 @@ void ReadInBackground() {
     g_read.games = scanner.games();
     if (!try_assign_range(g_read.homebrew, scanner.homebrew().begin(), scanner.homebrew().end())) {
         g_read.error = "no room in memory for the list of GameTDB's apps";
+        return;
+    }
+    if (!try_assign_range(g_read.customs, scanner.customs().begin(), scanner.customs().end())) {
+        g_read.error = "no room in memory for the list of GameTDB's mods";
         return;
     }
     g_read.ok = true;
@@ -525,6 +574,9 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     bool missing = !have_source;
     for (const std::string& id : wanted)
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
+    // Read by a RiftWii from before the mods' list (#385): once more for it.
+    struct stat mods;
+    if (have_source && stat(kModTitlesPath, &mods) != 0) missing = true;
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
@@ -565,6 +617,7 @@ bool TakeGameInfoRead(bool& changed) {
     // As with the About page's read, the same pass found the Homebrew
     // view's apps. Write on the menu's thread, after the complete scan.
     if (!SaveHomebrewTitles(read.homebrew)) logf("Homebrew: %s could not be written\n", kHomebrewTitlesPath);
+    SaveModTitles(read.customs);
     g_cache.not_listed.clear();
     for (const std::string& id : read.ids)
         if (!g_cache.games.count(id)) g_cache.not_listed.insert(id);
