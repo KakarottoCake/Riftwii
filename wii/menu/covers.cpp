@@ -123,7 +123,6 @@ struct Slot {
     u8* data = nullptr;
     bool ready = false;    // read and flushed: the GUI may draw it
     bool own = false;      // the player's own PNG (#384), not GameTDB's
-    bool gameOwn = false;  // own, but the game's on a mod tile without its own
     unsigned fill = 0;     // CoverFill: g_fills when it was read
     bool modCover = false; // a mod tile's own cover from GameTDB (#385)
     u64 touched = 0;       // last drawn or read (gettime ticks)
@@ -294,7 +293,7 @@ void* LoaderMain(void*) {
         const auto own_png = [&](const std::string& name) {
             return ReadOwnCover(name, local) && local.size() == kCoverFileSize;
         };
-        bool ok = false, own = false, tileOwn = false, mod_cover = false;
+        bool ok = false, own = false, mod_cover = false;
         if (emulator) {
             ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
             if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -302,7 +301,7 @@ void* LoaderMain(void*) {
             // The player's own PNG first, never written over, and offline
             // too (#384); a mod tile's own before the game's, and the mod's
             // own cover from GameTDB (#385) before the game's too.
-            own = tileOwn = tile && own_png(id);
+            own = tile && own_png(id);
             if (!own && tile && TileStoredForMatch(id)) ok = mod_cover = ReadStoredCover(id, slot->data);
             if (!ok && !own) own = own_png(game);
             if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -319,9 +318,6 @@ void* LoaderMain(void*) {
         if (ok && forgets == g_forgets) {
             slot->ready = true;
             slot->own = own;
-            // The game's own PNG on a mod tile: a tile's own on a USB drive
-            // may come before it after the scan.
-            slot->gameOwn = own && !tileOwn && tile_game_id(id) != id;
             slot->fill = ++g_fills;
             slot->modCover = mod_cover;
             slot->touched = gettime();
@@ -649,8 +645,7 @@ void ForgetGameCoversBeforeUsb() {
         it = emulator_cover_id(*it) ? std::next(it) : g_absent.erase(it);
     ++g_forgets;
     for (int i = 0; i < g_slots; ++i)
-        if (!g_pool[i].id.empty() && !emulator_cover_id(g_pool[i].id) && (!g_pool[i].own || g_pool[i].gameOwn))
-            SetId(g_pool[i], "");
+        if (!g_pool[i].id.empty() && !emulator_cover_id(g_pool[i].id)) SetId(g_pool[i], "");
 }
 
 void ForgetAllCovers() {

@@ -5117,8 +5117,11 @@ static int MenuSource(FrontendState& state)
 	// the list changes (another view, a search, a part of the scan), as a
 	// game the Mods view leaves out is first listed under All games.
 	const auto queueCovers = [&]() {
-		if (riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		if (riftwii::wii::Settings().home_tiles == "names") return;
+		// Offline too: the tiles' covers already downloaded show, as the
+		// games' do; only the downloads wait.
 		UpdateModCoverIds();
+		if (!riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
 			// A mod's tile asks for the game's cover, which it shows without
 			// one of its own, and for its own (#385), when GameTDB has one.
@@ -9644,19 +9647,27 @@ static constexpr int kTilesW = kTilesRight - kTilesX;
 // The art fills the box with slightly rounded corners of its own (a real
 // case's), over a soft drop shadow; a frame with larger corners around it
 // cut the art's corners off.
-// The player's own cover for the game (#384), once in memory: it comes
-// before GameTDB's full box on the game page and up close, as on the shelf.
+// The page's tile's cover name, as Home's CoverName: a mod tile's key.
+static std::string PageCoverName(const FrontendState& state) {
+	return state.profile_key.empty() ? state.game_id : state.profile_key;
+}
+
+// The player's own cover for the page's tile (#384), once in memory: it
+// comes before GameTDB's full box on the game page and up close, as on
+// the shelf.
 static const u8* OwnCover(const std::string& id) {
 	const u8* cover = riftwii::wii::CoverTexture(id);
-	return cover && riftwii::wii::CoverIsOwn(id) ? cover : nullptr;
+	return cover && riftwii::wii::CoverBeforeBox(id) ? cover : nullptr;
 }
 
 class HeroCover : public GuiElement {
 public:
 	// `channel`: a WiiWare or Virtual Console game, drawn as its channel
 	// (its own icon, playing) when GameTDB has no box or cover for it.
-	HeroCover(std::string id, bool disc, GXColor hue, bool channel = false)
-		: id(std::move(id)), disc(disc), channel(channel), hue(hue) {}
+	// `cover`: the page's tile's cover (CoverName): a mod tile's own PNG
+	// (#384) shows on its page too; GameTDB's box is the game's.
+	HeroCover(std::string id, std::string cover, bool disc, GXColor hue, bool channel = false)
+		: id(std::move(id)), coverName(std::move(cover)), disc(disc), channel(channel), hue(hue) {}
 	HeroCover(const HeroCover&) = delete;
 	HeroCover& operator=(const HeroCover&) = delete;
 	~HeroCover() override { free(rounded); }
@@ -9682,7 +9693,7 @@ public:
 		};
 		const u8* art = RoundedArt();
 		hasArt = art != nullptr || (!id.empty() && riftwii::wii::BoxTexture(id)) ||
-			 (!id.empty() && riftwii::wii::CoverTexture(id));
+			 (!id.empty() && riftwii::wii::CoverTexture(coverName));
 		if (art) {
 			// A drop shadow, as if the box stood a little off the page, lit
 			// from above.
@@ -9696,12 +9707,12 @@ public:
 		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
 		ring();
 		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
-		const u8* own = id.empty() ? nullptr : OwnCover(id);
+		const u8* own = id.empty() ? nullptr : OwnCover(coverName);
 		if (const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id)) {
 			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
 			const float u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
 			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
-		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
+		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(coverName)) {
 			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, ax, ay, aw, ah);
 		} else if (riftwii::wii::BannerPlayer* icon = channel ? IconFor(id) : nullptr) {
 			// The channel's icon as the Channels view shows it (4:3, on
@@ -9725,13 +9736,13 @@ private:
 	// (riftwii::round_corners), made again whenever the art changes.
 	const u8* RoundedArt() {
 		if (id.empty()) return nullptr;
-		const u8* own = OwnCover(id);
+		const u8* own = OwnCover(coverName);
 		const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box ? nullptr : own ? own : riftwii::wii::CoverTexture(id);
+		const u8* cover = box ? nullptr : own ? own : riftwii::wii::CoverTexture(coverName);
 		const u8* from = box ? box : cover;
 		if (!from) return nullptr;
 		// The same slot read again (another set) is another cover.
-		const unsigned fill = cover ? riftwii::wii::CoverFill(id) : 0;
+		const unsigned fill = cover ? riftwii::wii::CoverFill(coverName) : 0;
 		if (from == roundedFrom && fill == roundedFill) return rounded;
 		constexpr std::size_t kBytes = static_cast<std::size_t>(riftwii::kBoxFrontWidth) * riftwii::kBoxHeight * 2;
 		if (!rounded) rounded = static_cast<u8*>(memalign(32, kBytes));
@@ -9751,6 +9762,7 @@ private:
 		return rounded;
 	}
 	std::string id;
+	std::string coverName;  // the tile's cover (CoverName): a mod tile's own, else the game's
 	bool disc;
 	bool channel;
 	GXColor hue;
@@ -9770,7 +9782,7 @@ private:
 // small cover there is a front alone.
 class CoverCloseup : public GuiElement {
 public:
-	explicit CoverCloseup(std::string id) : id(std::move(id)) {
+	CoverCloseup(std::string id, std::string cover) : id(std::move(id)), coverName(std::move(cover)) {
 		width = screenwidth;
 		height = screenheight;
 		selectable = true;
@@ -9805,9 +9817,9 @@ public:
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
 		Menu_DrawRectangle(vx, vy, vw, vh, (GXColor){0, 0, 0, static_cast<u8>(200 * open)}, 1);
 
-		const u8* own = id.empty() ? nullptr : OwnCover(id);
+		const u8* own = id.empty() ? nullptr : OwnCover(coverName);
 		const u8* box = id.empty() || own ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box || id.empty() ? nullptr : own ? own : riftwii::wii::CoverTexture(id);
+		const u8* cover = box || id.empty() ? nullptr : own ? own : riftwii::wii::CoverTexture(coverName);
 		hasBack = box != nullptr;
 		if (!box && !cover) return;
 		// Large: as tall as fits between the band's top and the prompts,
@@ -9855,6 +9867,7 @@ private:
 		return was;
 	}
 	std::string id;
+	std::string coverName;  // the tile's cover (CoverName): a mod tile's own, else the game's
 	float open = 0.0f, turn = 0.0f;
 	bool wantBack = false, closing = false;
 	volatile bool hasBack = false;
@@ -9863,9 +9876,9 @@ private:
 
 // Shows the game's box up close until B (or the Close prompt), over the
 // game page, which stays where it is underneath.
-static void MenuCoverCloseup(const std::string& game_id)
+static void MenuCoverCloseup(const std::string& game_id, const std::string& cover)
 {
-	CoverCloseup closeup(game_id);
+	CoverCloseup closeup(game_id, cover);
 	GuiPrompts prompts;
 	const int promptClose = prompts.Add("B", tr("Close"));
 	const int promptTurn = prompts.Add("D-pad", tr("Back of the box"));
@@ -10149,7 +10162,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
-	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
 	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
 		riftwii::plain_punctuation(info.synopsis));
@@ -11719,7 +11732,7 @@ static int MenuHome(FrontendState& state)
 	// Play first and largest. All inside a TV's overscan.
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
-	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
 	// smaller lines for a long one), the facts under it; each outlined in
@@ -11979,7 +11992,7 @@ static int MenuHome(FrontendState& state)
 			if (tile == GameTile::Play) {
 				startBtn.button.SetState(STATE::CLICKED);
 			} else if (tile == GameTile::Cover) {
-				if (hero.HasArt()) MenuCoverCloseup(state.game_id);
+				if (hero.HasArt()) MenuCoverCloseup(state.game_id, PageCoverName(state));
 				else say(tr("There is no box art for this game yet."));
 			} else if (tile == GameTile::Saves && SelectedGcGame(state)) {
 				transition::Hold(transition::Kind::SlideForward);

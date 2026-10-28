@@ -1205,8 +1205,12 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor lit = {shade, shade, shade, static_cast<u8>(alpha)};
         const u8 glint = static_cast<u8>(70 * near * alpha / 255);
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
-        const u8* tex = riftwii::wii::Cover3dTexture(item.id);
-        const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(CoverName(item));
+        // The player's own cover (#384), or a mod tile's own (#385), comes
+        // before GameTDB's 3D one of the game.
+        const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
+        const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
+        const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
+        const u8* cover = tex ? nullptr : flat;
         float w, ph;
         if (tex) {
             ph = h;

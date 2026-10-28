@@ -90,9 +90,9 @@ bool SetModCoverIds(std::map<std::string, std::string> ids);
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
-// The USB drive is read now: game covers read before it (GameTDB's, or
-// none) are read again, in case the drive has the player's own PNG (#384).
-// The player's own covers already in memory stay.
+// The USB drive is read now (or again): every game cover in memory is
+// read again, in case the drive has the player's own PNG (#384), another
+// one than before, or none any more.
 void ForgetGameCoversBeforeUsb();
 // Drops every cover the pool holds and every "not on the card" it
 // remembers: the SD card was put back and may be another one.
