@@ -621,6 +621,14 @@ static void* MenuWatchdog(void*)
 		usleep(200000);
 		LogGuiWatch();
 		LogGxOverflows();
+		// Frames counted on every pass, the menu answering or not, so a GUI
+		// stuck since just after the menu's last tick is known as soon as
+		// the menu counts as stuck.
+		static u32 frameSeen = 0;
+		static int framelessPasses = 0;
+		const u32 frameNow = FrameTimer;
+		framelessPasses = frameNow == frameSeen ? framelessPasses + 1 : 0;
+		frameSeen = frameNow;
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -638,13 +646,9 @@ static void* MenuWatchdog(void*)
 		// The GUI thread stuck with the GPU (suspended by GX in a full
 		// FIFO, or asleep in GX_DrawDone for a frame that never ends) reads
 		// no controllers any more either: read them here, as when it is
-		// halted. Stuck means no frame for a second (5 passes), so a GUI
-		// that is only slow is never read alongside.
-		static u32 frameSeen = 0;
-		static int framelessPasses = 0;
-		const u32 frameNow = FrameTimer;
-		framelessPasses = frameNow == frameSeen ? framelessPasses + 1 : 0;
-		frameSeen = frameNow;
+		// halted. Stuck means no frame for a second (5 passes, counted on
+		// every pass above), so a GUI that is only slow is never read
+		// alongside.
 		const bool guiStalled = guithread != LWP_THREAD_NULL && framelessPasses >= 5;
 		if (GuiParked() || guiStalled) {
 			// Nobody else reads the controllers now. The Wii U's GameCube
