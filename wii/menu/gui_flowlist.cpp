@@ -8,10 +8,12 @@
 
 #include "i18n.hpp"
 #include "skin.hpp"
+#include "transition.hpp"
 #include "video.h"
 #include "wiidrc.h"
 
 namespace skin = riftwii::wii::skin;
+namespace motion = riftwii::wii::transition;
 
 namespace {
 
@@ -201,12 +203,12 @@ void GuiFlowList::Draw() {
     if (grabChan < 0) {
         if (std::fabs(fling) > 0.3f) {
             const float before = aim;
-            ScrollTo(aim + fling);
-            fling = aim == before ? 0.0f : fling * 0.92f;
+            ScrollTo(aim + motion::Coast(fling, 200.0f));
+            if (aim == before) fling = 0.0f;
         } else {
             fling = 0;
         }
-        scroll += (aim - scroll) * 0.35f;
+        scroll = motion::Follow(scroll, aim, 40.0f);
         if (std::fabs(aim - scroll) < 0.5f) scroll = aim;
     }
 
@@ -264,11 +266,12 @@ void GuiFlowList::Draw() {
     for (int i = 0; i <= visible; ++i)
         label[i]->SetScroll(textFirst + i == lit && litShown ? SCROLL::HORIZONTAL : SCROLL::NONE);
     if (litShown) {
+        litRow = lit;
         if (litFade <= 0.0f) litPos = static_cast<float>(lit);
-        litPos += (lit - litPos) * 0.35f;
+        litPos = motion::Follow(litPos, static_cast<float>(lit), 40.0f);
         if (std::fabs(lit - litPos) < 0.01f) litPos = static_cast<float>(lit);
     }
-    litFade += ((litShown ? 1.0f : 0.0f) - litFade) * 0.3f;
+    litFade = motion::Follow(litFade, litShown ? 1.0f : 0.0f, 47.0f);
     if (litFade < 0.02f) litFade = 0.0f;
     if (cards) {
         // What can be pressed looks it: each such row on a card, the lit
@@ -284,9 +287,9 @@ void GuiFlowList::Draw() {
             skin::DrawNine(skin::tile9, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
                            rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
         }
-        if (litFade > 0.0f && lit >= 0 && lit < Count()) {
+        if (litFade > 0.0f && litRow >= 0 && litRow < Count()) {
             const float y = y0 + litPos * rowH - scroll + kCardGap;
-            const float left = static_cast<float>(CardLeft((*rows)[lit]));
+            const float left = static_cast<float>(CardLeft((*rows)[litRow]));
             skin::DrawNine(skin::tile9Over, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
                            rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade));
         }
@@ -347,7 +350,7 @@ void GuiFlowList::Draw() {
             if (!shownValue[index].empty() || valueIn[index] < 1.0f) valueIn[index] = 0.0f;
             shownValue[index] = r.value;
         }
-        valueIn[index] += (1.0f - valueIn[index]) * 0.25f;
+        valueIn[index] = motion::Follow(valueIn[index], 1.0f, 58.0f);
         if (valueIn[index] > 0.98f) valueIn[index] = 1.0f;
         const auto chipText = [&](int cx) {
             const int tw = value[i]->GetTextWidth();
@@ -403,7 +406,7 @@ void GuiFlowList::Draw() {
                 // Switched: one picture fades into the other.
                 float& sw = switchPos[index];
                 if (sw < 0.0f) sw = r.on ? 1.0f : 0.0f;
-                sw += ((r.on ? 1.0f : 0.0f) - sw) * 0.3f;
+                sw = motion::Follow(sw, r.on ? 1.0f : 0.0f, 47.0f);
                 if (std::fabs((r.on ? 1.0f : 0.0f) - sw) < 0.02f) sw = r.on ? 1.0f : 0.0f;
                 const int swAlpha = r.dim ? alpha / 2 : alpha;
                 if (sw < 1.0f) skin::Draw(skin::switchOff, swX - 3, cy - 4, swAlpha);
@@ -482,7 +485,11 @@ void GuiFlowList::Update(GuiTrigger* t) {
                     const float before = scroll;
                     ScrollTo(grabScroll - (py - grabY));
                     scroll = aim;
-                    fling = fling * 0.5f + (scroll - before) * 0.5f;
+                    const float frameMs = motion::FrameMilliseconds();
+                    if (frameMs > 0.0f) {
+                        const float velocity = (scroll - before) * (1000.0f / 60.0f) / frameMs;
+                        fling = motion::Follow(fling, velocity, 24.0f);
+                    }
                 }
             }
             return;
