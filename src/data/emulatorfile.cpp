@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/emulatorfile.hpp"
+#include "riftwii/emulatorart.hpp"
 
 #include <algorithm>
 #include <set>
@@ -163,6 +164,11 @@ const char* parse_top_level_key(EmulatorFile& file, EmulatorFileFields& fields,
         } else {
             file.system = value;
         }
+    } else if (key == "covers") {
+        if (value.size() > 64 || !emulator_art_component(value)) {
+            return "The emulator covers folder must be one safe name of at most 64 bytes.";
+        }
+        file.covers = value;
     } else if (key == "dol") {
         fields.dol = value;
     } else if (key == "args") {

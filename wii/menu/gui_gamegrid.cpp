@@ -14,6 +14,7 @@
 #include "covers.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/emulatorart.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
@@ -545,7 +546,9 @@ void GuiGameGrid::Layout() {
         const std::vector<std::string> lines =
             Wrap(item.title, disc ? Geo().tileW - 46 - kTextLeft - 4 : textWidth - pictureRoom, lineCount);
         for (int l = 0; l < 3; ++l) s.lines[l]->SetText(l < static_cast<int>(lines.size()) ? lines[l].c_str() : "");
-        s.id->SetText(item.id.c_str());
+        // An emulator game's id is only its cover key (emu- and a hash): its
+        // system badge names it instead.
+        s.id->SetText(riftwii::emulator_cover_id(item.id) ? "" : item.id.c_str());
         std::string badge = item.badge;
         s.badge->SetText(badge.c_str());
         // An emulator author names the system; a long name must stay

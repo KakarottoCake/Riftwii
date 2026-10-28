@@ -852,8 +852,8 @@ msgstr "Personalizado (sem wfc_domain)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt."
 
-msgid "Getting covers from GameTDB: {1} left"
-msgstr "Baixando capas do GameTDB: faltam {1}"
+msgid "Getting covers: {1} left"
+msgstr "Baixando capas: faltam {1}"
 
 msgid "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers."
 msgstr "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Online > Baixar capas que faltam."
@@ -3386,3 +3386,27 @@ msgstr "Nenhum emulador encontrado."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Os argumentos do emulador são inválidos ou longos demais. Veja session.log."
+
+msgid "Covers for emulator games"
+msgstr "Capas de jogos de emulador"
+
+msgid "SteamGridDB covers"
+msgstr "Capas do SteamGridDB"
+
+msgid "On (key found)"
+msgstr "Ligado (chave encontrada)"
+
+msgid "Off (key found)"
+msgstr "Desligado (chave encontrada)"
+
+msgid "No API key"
+msgstr "Sem chave de API"
+
+msgid "Downloads emulator covers from libretro. Off uses your own PNG covers only."
+msgstr "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG."
+
+msgid "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."
+msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt."
+
+msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
+msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."

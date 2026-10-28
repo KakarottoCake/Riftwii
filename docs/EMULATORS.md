@@ -21,6 +21,7 @@ must choose the actual supported options and values for their build.
 format = 1
 name = nullDC4Wii
 system = Dreamcast
+covers = Sega - Dreamcast
 dol = boot.dol
 games = sd:/roms/dreamcast, usb:/roms/dreamcast
 extensions = cdi, gdi, chd
@@ -56,6 +57,15 @@ may be declared once. The top-level fields above are required, including
 `args` (which may be empty). Top-level fields go before setting sections.
 Unknown keys and sections are ignored and logged. Invalid known fields
 reject the whole add-on, with the reason in `session.log`.
+
+`covers` is optional: it names the system folder on
+[libretro's thumbnail server](https://thumbnails.libretro.com/), exactly as
+listed there. For example: `Sega - Dreamcast`, `Sega - Mega Drive - Genesis`,
+`Nintendo - Nintendo Entertainment System`, `Nintendo - Super Nintendo
+Entertainment System`, `Nintendo - Game Boy Advance`, or `Sony - PlayStation`.
+It is a single folder name of at most 64 bytes; paths, control characters,
+`.` and `..` are refused. Without it, local covers and the optional
+SteamGridDB fallback still work.
 
 `format` is exactly `1`. Any other version, including a future one, is
 refused with a line naming the supported version. `dol` may be relative to
@@ -161,8 +171,8 @@ filesystem reader lists each USB directory before the scan applies its
 entry budget.
 
 On Home, the Emulators view is next to Homebrew; All games includes these
-games too. Their system names are badges, and their tiles use their names
-without downloading covers. A game's page has Play, its declared settings,
+games too. Their system names are badges, and their tiles show the covers
+described below. A game's page has Play, its declared settings,
 Reset, and About naming the emulator. Settings > Games > Emulators lists
 the found add-ons and lets players change defaults. Only differences from
 defaults are saved per game; untouched values follow later default changes.
@@ -174,6 +184,55 @@ emulator app folder and game path form a SHA-256 key, so games with the
 same filename in different folders keep separate settings. Moving an app
 or game gives it a new identity. Settings are never written beside the
 third-party emulator or its games, and USB is read only.
+
+## Covers
+
+RiftWii checks these sources in order:
+
+1. Your own PNG: `sd:/riftwii/covers/emulators/<system>/<game name>.png`,
+   then the same path on `usb:`. Use the manifest's `system` value for the
+   folder, and the game's filename without its final extension for the PNG.
+   For `system = Dreamcast` and `Power Stone (USA).chd`, use
+   `sd:/riftwii/covers/emulators/Dreamcast/Power Stone (USA).png`.
+   These work offline and take priority over downloaded covers.
+2. Libretro's `Named_Boxarts`, when `covers` is set. The filename is tried
+   first, replacing `&*/:` and the backtick, `< > ? \ | "` with underscores
+   as libretro requires. If that fails, RiftWii uses a cached list of the
+   system's covers to match the title. Close sequels and ambiguous names
+   are left without a cover; region variants prefer the filename's region,
+   then USA, Europe, Japan. Use standard No-Intro or Redump names for the
+   best results.
+3. SteamGridDB, only when enabled and you supply your own API key. Sign in
+   at [steamgriddb.com](https://www.steamgriddb.com/) and open
+   [Preferences > API](https://www.steamgriddb.com/profile/preferences/api).
+   Put the key alone on one line in `sd:/riftwii/steamgriddb.txt`. In
+   **Settings > Online**, **SteamGridDB covers** says whether a key was
+   found and turns this fallback on or off. It starts off. Only exact
+   normalized search titles with one game ID are used, with PNG grids of
+   600 by 900 pixels. The key is sent in a header to SteamGridDB's HTTPS
+   API only, never in a URL, image request or log.
+
+**Settings > Online > Covers for emulator games** starts on. Turning it
+off shows only your own PNGs; it also disables SteamGridDB. The general
+downloads switch disables both network sources while keeping pictures
+already downloaded on the card. Missing covers and system name lists
+last a week; **Download missing covers** clears the missing-cover notes
+so Home can try again. Each source keeps its own notes, so enabling
+SteamGridDB does not inherit libretro's misses.
+
+PNGs are limited to 2 MiB and 1024 pixels per side, checked before pixel
+decoding. Downloaded covers are shrunk to the same 80 by 112 pixel format
+as Wii covers, in `sd:/riftwii/covers/emu-<game hash>.rwc`. Home, shelf,
+carousel and cover zoom share them. The system name list is limited to
+2 MiB and 16384 names of at most 255 bytes each; SteamGridDB answers are
+limited to 512 KiB, 256 entries and 16 nested levels. Local system/game
+names must be safe single filename components. Covers are read and
+downloaded on worker threads so the menu keeps responding.
+
+Libretro's thumbnails come from its volunteer contributors, scanners,
+collectors, MobyGames and Fandom; the original artwork belongs to the
+games' developers and publishers. SteamGridDB's contributors supply the
+optional fallback artwork. No covers are shipped with RiftWii.
 
 ## Testing an emulator
 

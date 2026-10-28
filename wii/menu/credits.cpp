@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "stash.hpp"
+#include "i18n.hpp"
 #include "zstd.h"
 
 namespace riftwii::wii {
@@ -130,14 +131,17 @@ const char* const kCredits[] = {
     "",
     "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.",
+    "",
     "RiftWii contains no Riivolution code and no Nintendo keys or assets.",
     "",
     "THE GNU GENERAL PUBLIC LICENSE, VERSION 3",
     "",
 };
 
-// Word-wrapped to `width`; a word longer than that is cut.
+// Word-wrapped to `width` bytes; long words are cut between UTF-8 characters.
 void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& out) {
+    if (width == 0) width = 1;
     if (text.empty()) {
         out.emplace_back();
         return;
@@ -152,7 +156,15 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
             break;
         }
         std::size_t cut = text.rfind(' ', end);
-        if (cut == std::string::npos || cut <= at) cut = end;
+        if (cut == std::string::npos || cut <= at) {
+            cut = end;
+            while (cut > at && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) --cut;
+            // A character wider than the line still has to make progress.
+            if (cut == at) {
+                cut = end;
+                while (cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) ++cut;
+            }
+        }
         out.push_back(text.substr(at, cut - at));
         at = cut;
     }
@@ -206,7 +218,7 @@ void AddLicence(std::size_t width, std::vector<std::string>& out) {
 
 std::vector<std::string> CreditsLines(std::size_t width) {
     std::vector<std::string> out;
-    for (const char* paragraph : kCredits) Wrap(paragraph, width, out);
+    for (const char* paragraph : kCredits) Wrap(tr(paragraph), width, out);
     AddLicence(width, out);
     // No run of blank rows.
     std::vector<std::string> lines;
