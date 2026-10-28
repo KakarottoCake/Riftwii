@@ -630,13 +630,28 @@ static void* MenuWatchdog(void*)
 		// An update being put in place is busy, not stuck: nothing cuts it
 		// short (the power button waits for it, as the GUI's exit does).
 		if (riftwii::wii::CardWritesBusy()) continue;
+		// HOME on a Wii Remote, a Classic Controller (or Wii U Pro
+		// Controller) or the GamePad, or Start on a GameCube controller,
+		// as everywhere else in the menu: no Wii Remote is needed to get out.
+		constexpr u32 kRemoteHome = WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME;
 		bool home = false;
 		if (GuiParked()) {
-			// Nobody else reads the Remotes now.
+			// Nobody else reads the controllers now. The Wii U's GameCube
+			// adapter is read by the GUI thread only: here, the Wii's own
+			// GameCube ports.
 			WPAD_ScanPads();
-			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
+			PAD_ScanPads();
+			for (int c = 0; c < 4; ++c)
+				home = home || (WPAD_ButtonsDown(c) & kRemoteHome) || (PAD_ButtonsDown(c) & PAD_BUTTON_START);
+			if (WiiDRC_Inited() && WiiDRC_Connected()) {
+				WiiDRC_ScanPads();
+				home = home || (WiiDRC_ButtonsDown() & WIIDRC_BUTTON_HOME);
+			}
 		} else {
-			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
+			for (int c = 0; c < 4; ++c)
+				home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & kRemoteHome)) ||
+				       (userInput[c].pad.btns_h & PAD_BUTTON_START);
+			home = home || (userInput[0].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME);
 		}
 		// No log line here: the menu is stuck, usually on the SD card, and a
 		// write to the log could wait on that card and keep the Wii on.
