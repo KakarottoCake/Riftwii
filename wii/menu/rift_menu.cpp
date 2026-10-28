@@ -6100,7 +6100,9 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::SpendPadHomePresses();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
-		} else if (riftwii::wii::TakeViewChord()) {
+		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed()) {
+			// (Over a cover up close the pair is taken and dropped: it never
+			// changes the view behind the zoom.)
 			// 1 and 2 together: the next view, as Settings > Home tiles
 			// steps to, with Home built again around the same game.
 			riftwii::LoaderSettings& settings = riftwii::wii::Settings();
