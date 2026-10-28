@@ -231,9 +231,9 @@ press 1 (the view button), or search with nothing typed, to go back to
 the view. Point at the magnifier and hold **B** on a Wii Remote for about a
 second (or just hold the magnifier's own button: **B** on a GameCube
 controller, **ZL** on a Classic Controller or Wii U Pro Controller) to
-start a game at random from the ones shown (not the disc drive or a
-homebrew app); its page presses Start for you, so its checks and warnings
-still come up. On a GameCube controller or Classic Controller, a short
+start a game at random from the ones shown (not the disc drive, a
+homebrew app or a mod's own Home tile); its page presses Start for you,
+so its checks and warnings still come up. On a GameCube controller or Classic Controller, a short
 press of B or ZL opens the search when you let go, not when you press it.
 In the Covers view, point at a game's cover and press **1** or **2** to
 see the cover up close (**Y** or **Z** on a GameCube controller, **Y** or

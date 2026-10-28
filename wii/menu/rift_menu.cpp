@@ -6043,6 +6043,9 @@ static int MenuSource(FrontendState& state)
 			std::string error;
 			g_gamePageTiming.Step("leaving the banner");
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
+			// A pad press still kept back was Home's: should the game not open,
+			// letting it go isn't a search.
+			riftwii::wii::SpendPadHomePresses();
 			ResumeGui();
 			bool ok = false;
 			if (entry.kind == HomeEntry::Kind::Disc) {
