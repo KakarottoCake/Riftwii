@@ -1559,7 +1559,7 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         LettersDone(t);
         if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
         t->pad.btns_d &= ~(kPadZoomKeys | PAD_BUTTON_A | PAD_BUTTON_B);
-        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);
+        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B | WIIDRC_BUTTON_X | WIIDRC_BUTTON_Y);
         return true;
     }
     // Only a pointer on a cover in the Covers view, or on a box on the shelf
