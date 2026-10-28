@@ -81,6 +81,7 @@
 namespace riftwii::wii {
 
 u64 return_title();
+u64 disc_d2x_return_title();
 
 namespace {
 
@@ -667,7 +668,7 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     }
     // Opening the partition identifies the game in ES. With this IOS
     // kept for the launch, even the probe is too late after that point.
-    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
+    prepare_d2x_return_to(disc_d2x_return_title());
     if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
     out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
     out.running_ios = IOS_GetVersion();
@@ -1548,7 +1549,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // A reloaded IOS lost the probe's setting. An unchanged IOS keeps it
     // without another request while ES still has the probed title.
-    prepare_d2x_return_to(debug_off("returnto") ? 0 : return_title());
+    prepare_d2x_return_to(disc_d2x_return_title());
     Tmd tmd;
     std::int32_t es_result = 0;
     if (!open_game_partition(probe.partition, tmd, es_result, error)) return false;
@@ -2954,6 +2955,14 @@ u64 return_title() {
         return 0;
     }
     return title;
+}
+
+// What a disc game asks d2x to return to: none for a code build started
+// without RiftWii's extras, as the game's own patch (boot_after_unmount).
+u64 disc_d2x_return_title() {
+    const bool plain_code_build =
+        g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty() && g_extras.code_build_plain;
+    return debug_off("returnto") || plain_code_build ? 0 : return_title();
 }
 
 // `stub`: 32 reserved bytes, above the game's arena or in low memory.
