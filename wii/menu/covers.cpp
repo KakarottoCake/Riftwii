@@ -47,6 +47,10 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 std::string SecondSetPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".second"; }
+// A mod tile's downloaded cover (or miss) was for this GameTDB entry
+// (#385): a tile keeps its key when renamed, so a cover for the old name's
+// match is told from the new one's.
+std::string ModFromPath(const std::string& key) { return std::string(kCoverDir) + "/" + key + ".mod"; }
 
 // A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
 // Snes9x GX, riftwii/homebrewmatch.hpp).
@@ -180,6 +184,19 @@ std::string ModCoverId(const std::string& tile_key) {
     return it == g_modCoverIds.end() ? std::string() : it->second;
 }
 
+// Whether what is stored for the mod tile (its cover, or its miss) is for
+// the GameTDB entry it matches now. Never while it matches none.
+bool TileStoredForMatch(const std::string& tile_key) {
+    const std::string id = ModCoverId(tile_key);
+    if (id.empty()) return false;
+    FILE* f = std::fopen(ModFromPath(tile_key).c_str(), "rb");
+    if (!f) return false;
+    char from[16] = {};
+    const std::size_t got = std::fread(from, 1, sizeof(from) - 1, f);
+    std::fclose(f);
+    return std::string(from, got) == id;
+}
+
 Slot* Find(const std::string& game_id) {
     const auto it = g_index.find(game_id);
     return it == g_index.end() ? nullptr : it->second;
@@ -286,7 +303,7 @@ void* LoaderMain(void*) {
             // too (#384); a mod tile's own before the game's, and the mod's
             // own cover from GameTDB (#385) before the game's too.
             own = tileOwn = tile && own_png(id);
-            if (!own && tile) ok = mod_cover = ReadStoredCover(id, slot->data);
+            if (!own && tile && TileStoredForMatch(id)) ok = mod_cover = ReadStoredCover(id, slot->data);
             if (!ok && !own) own = own_png(game);
             if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
             ok = ok || own;
@@ -382,8 +399,11 @@ void ForgetCoverMiss(const std::string& game_id) {
 bool CoverWanted(const std::string& game_id) {
     if (emulator_cover_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
-    // A mod's tile: only when GameTDB lists the mod as a game of its own.
-    if (tile_game_id(game_id) != game_id && ModCoverId(game_id).empty()) return false;
+    // A mod's tile: only when GameTDB lists the mod as a game of its own;
+    // a cover or miss stored for another match (the tile renamed) is none.
+    const bool tile = tile_game_id(game_id) != game_id;
+    if (tile && ModCoverId(game_id).empty()) return false;
+    if (tile && !TileStoredForMatch(game_id)) return !OwnCoverThere(game_id);
     // The player's own cover is there: nothing to download.
     if (OwnCoverThere(game_id)) {
         std::vector<std::uint8_t> own;
@@ -465,6 +485,7 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
                 return CoverFetch::Failed;
             }
             std::remove(MissPath(game_id).c_str());
+            if (tile) WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
             if (tile) logf("Covers: %s, GameTDB's %s (%s, %dx%d)\n", game_id.c_str(), art_id.c_str(), region.c_str(), w, h);
             else logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
@@ -482,6 +503,7 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
         return FetchCoverNow(game_id, error);
     }
     WriteAll(MissPath(game_id), {});
+    if (tile) WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
     return CoverFetch::NotFound;
 }
