@@ -60,6 +60,10 @@ bool CoverIsOwn(const std::string& name);
 // is read again (another set, a USB drive's), at the same address. 0
 // while it isn't in memory.
 unsigned CoverFill(const std::string& name);
+// Whether the cover in memory for `name` is shown instead of the game's
+// full box art (the shelf, the close-up): the player's own, or a mod
+// tile's own cover from GameTDB (#385), which the game's box is not.
+bool CoverBeforeBox(const std::string& name);
 // Asks for a cover to be read ahead (a page next to the one shown), and
 // keeps it in memory while asked for every frame.
 void CoverPrefetch(const std::string& game_id, int rank);

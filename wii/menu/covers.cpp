@@ -121,6 +121,7 @@ struct Slot {
     bool own = false;      // the player's own PNG (#384), not GameTDB's
     bool gameOwn = false;  // own, but the game's on a mod tile without its own
     unsigned fill = 0;     // CoverFill: g_fills when it was read
+    bool modCover = false; // a mod tile's own cover from GameTDB (#385)
     u64 touched = 0;       // last drawn or read (gettime ticks)
 };
 struct Request {
@@ -276,7 +277,7 @@ void* LoaderMain(void*) {
         const auto own_png = [&](const std::string& name) {
             return ReadOwnCover(name, local) && local.size() == kCoverFileSize;
         };
-        bool ok = false, own = false, tileOwn = false;
+        bool ok = false, own = false, tileOwn = false, mod_cover = false;
         if (emulator) {
             ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
             if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -285,7 +286,7 @@ void* LoaderMain(void*) {
             // too (#384); a mod tile's own before the game's, and the mod's
             // own cover from GameTDB (#385) before the game's too.
             own = tileOwn = tile && own_png(id);
-            if (!own && tile) ok = ReadStoredCover(id, slot->data);
+            if (!own && tile) ok = mod_cover = ReadStoredCover(id, slot->data);
             if (!ok && !own) own = own_png(game);
             if (own) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
             ok = ok || own;
@@ -305,6 +306,7 @@ void* LoaderMain(void*) {
             // may come before it after the scan.
             slot->gameOwn = own && !tileOwn && tile_game_id(id) != id;
             slot->fill = ++g_fills;
+            slot->modCover = mod_cover;
             slot->touched = gettime();
             g_texDirty = true;  // GX is the GUI thread's: it invalidates
         } else {
@@ -561,6 +563,13 @@ unsigned CoverFill(const std::string& name) {
     Lock lock;
     const Slot* s = Find(name);
     return s && s->ready ? s->fill : 0;
+}
+
+bool CoverBeforeBox(const std::string& name) {
+    if (!ValidId(name) || !Started()) return false;
+    Lock lock;
+    const Slot* s = Find(name);
+    return s && s->ready && (s->own || s->modCover);
 }
 
 void CoverPrefetch(const std::string& game_id, int rank) {
