@@ -2952,9 +2952,17 @@ static bool PickCodeModStart(FrontendState& state)
 		     state.code_build_plain ? "without" : "with");
 		return true;
 	}
+	// Named only the mods the answer will be kept for: those without one
+	// yet (one set to Ask each time, or with an answer of its own, keeps it).
+	std::string remembering;
+	for (const std::string& key : keys)
+		if (riftwii::wii::CodeModAnswer(state.game_id, key) == riftwii::CodeModStart::Unset)
+			remembering += (remembering.empty() ? "" : ", ") + PackName(key);
 	PopupBox box(tr("How should this code mod start?"),
-		tr("Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.",
-		   {names}),
+		remembering.empty()
+			? tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.")
+			: tr("Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.",
+			     {remembering}),
 		"", tr("Back"));
 	box.CenterCancel();
 	// The text's three lines at most (from y 158, 22 apart) end at 224,
@@ -2991,8 +2999,12 @@ static bool PickCodeModStart(FrontendState& state)
 	logf("Start: %s starts %s RiftWii's extras\n", names.c_str(), state.code_build_plain ? "without" : "with");
 	// Kept for each mod that had no answer; one that had its own, or asks
 	// each time, keeps it.
-	riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
-		state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With);
+	// The game starts either way; the player hears the answer wasn't kept.
+	if (!remembering.empty() &&
+	    !riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
+		    state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With))
+		ShowPopup(tr("How should this code mod start?"),
+			tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."), tr("OK"));
 	return true;
 }
 

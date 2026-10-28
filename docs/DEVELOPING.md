@@ -296,7 +296,7 @@ this way: it was the crash recorder.
 A code build (REX, Project+, a `gameconfig.txt` build) can also start
 without these extras at all, picked at Start and remembered per mod in
 `sd:/riftwii/codemods.txt` (`include/riftwii/codemods.hpp`; the Mods
-page's Start row changes it), or `code_build_extras = off` for autorun: only its codes, `gameconfig.txt`'s words, the code
+page's Start row changes it), or `code_build_extras = off` for a launch without the menu (autorun, another loader): only its codes, `gameconfig.txt`'s words, the code
 handler's run before the game and the GameCube adapter when one is
 plugged in. REX went black on a tester's Wii U (2610-412).
 
