@@ -2388,20 +2388,23 @@ msgstr "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii st
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."
 
-msgid "Wii Menu sounds and music in Settings > Menu"
-msgstr "Suoni e musica del menu Wii in Impostazioni > Menu"
+msgid "Your own song or playlist as menu music"
+msgstr "La tua canzone o playlist come musica del menu"
 
-msgid "GameCube memory cards in more games"
-msgstr "Memory card GameCube in più giochi"
+msgid "Press 1 and 2 together to change the view"
+msgstr "Premi 1 e 2 insieme per cambiare vista"
 
-msgid "Bring Nintendont's GameCube saves over"
-msgstr "Porta qui i salvataggi GameCube di Nintendont"
+msgid "Press 1 on a cover to see it up close"
+msgstr "Premi 1 su una copertina per vederla da vicino"
 
-msgid "Hold L+R+Z+Start to leave a Wii game"
-msgstr "Tieni L+R+Z+Start per uscire da un gioco Wii"
+msgid "USB keyboard, mouse and uDraw in the menu"
+msgstr "Tastiera USB, mouse e uDraw nel menu"
 
-msgid "Home starts on your last game"
-msgstr "La Home si apre sull'ultimo gioco"
+msgid "Hold B on Search to start a random game"
+msgstr "Tieni B su Cerca per un gioco a caso"
+
+msgid "Covers for homebrew, WiiWare and VC games"
+msgstr "Copertine per homebrew, WiiWare e VC"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"
