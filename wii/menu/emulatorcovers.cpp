@@ -11,6 +11,7 @@
 #include <ctime>
 #include <utility>
 
+#include "homescan.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "online.hpp"
@@ -307,6 +308,8 @@ void ForgetEmulatorCoverMiss(const std::string& id) {
 }
 
 bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& file) {
+    // The scan owns both drives' volume state until its last part is ready.
+    if (!DriveScanDone()) return false;
     CoverGame game;
     return FindGame(id, game) && LocalCover(game, file);
 }
