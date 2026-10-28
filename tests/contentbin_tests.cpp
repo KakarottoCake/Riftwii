@@ -244,6 +244,40 @@ void test_staged_paths() {
     EXPECT_TRUE(!parse_staged_content_path("/title/00000001/0000003a/content/00000002.app", title, content));
     EXPECT_TRUE(!parse_staged_content_path("/title/00010000/52534245/content/00000002.app", title, content));
     EXPECT_TRUE(!parse_staged_content_path("", title, content));
+
+    // All channel types and the full 32-bit range round-trip through the
+    // writer. This includes leading zeros and letters in both fields.
+    constexpr std::uint32_t values[] = {0, 1, 0x1234ABCDu, 0x7FFFFFFFu, 0xFFFFFFFFu};
+    for (const std::uint32_t type : kChannelTitleTypes) {
+        for (const std::uint32_t lower : values) {
+            const std::uint64_t expected_title = (std::uint64_t(type) << 32) | lower;
+            for (const std::uint32_t expected_content : values) {
+                const std::string path = nand_content_path(expected_title, expected_content);
+                EXPECT_TRUE(parse_staged_content_path(path, title, content));
+                EXPECT_EQ(title, expected_title);
+                EXPECT_EQ(content, expected_content);
+            }
+        }
+    }
+
+    // A damaged cleanup-list entry must never become another file to
+    // delete. Reject truncation and invalid bytes anywhere, including NUL.
+    const std::string canonical = nand_content_path(kTitle, 0x1Au);
+    title = kTitle;
+    content = 0x1Au;
+    for (std::size_t length = 0; length < canonical.size(); ++length) {
+        EXPECT_TRUE(!parse_staged_content_path(canonical.substr(0, length), title, content));
+    }
+    constexpr char invalid_bytes[] = {'\0', ' ', '+', 'g', 'A'};
+    for (std::size_t at = 0; at < canonical.size(); ++at) {
+        for (const char invalid : invalid_bytes) {
+            std::string damaged = canonical;
+            damaged[at] = invalid;
+            EXPECT_TRUE(!parse_staged_content_path(damaged, title, content));
+            EXPECT_EQ(title, kTitle);
+            EXPECT_EQ(content, 0x1Au);
+        }
+    }
 }
 
 void test_path() {
