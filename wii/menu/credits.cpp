@@ -139,8 +139,9 @@ const char* const kCredits[] = {
     "",
 };
 
-// Word-wrapped to `width`; a word longer than that is cut.
+// Word-wrapped to `width` bytes; long words are cut between UTF-8 characters.
 void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& out) {
+    if (width == 0) width = 1;
     if (text.empty()) {
         out.emplace_back();
         return;
@@ -155,7 +156,15 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
             break;
         }
         std::size_t cut = text.rfind(' ', end);
-        if (cut == std::string::npos || cut <= at) cut = end;
+        if (cut == std::string::npos || cut <= at) {
+            cut = end;
+            while (cut > at && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) --cut;
+            // A character wider than the line still has to make progress.
+            if (cut == at) {
+                cut = end;
+                while (cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) ++cut;
+            }
+        }
         out.push_back(text.substr(at, cut - at));
         at = cut;
     }
