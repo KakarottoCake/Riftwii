@@ -22,6 +22,9 @@ option(RIFTWII_RPC_TESTS "Build RiftWii-RPC's tests" ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+# The .qrc (the window's and the tray's icon) compiled in; without it the
+# icon is empty at run time and the tray entry can't be seen.
+set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Network Widgets)
 

@@ -18,6 +18,9 @@ constexpr qint64 kMenuMissed = 3;
 constexpr qint64 kMenuMinimumSeconds = 90;
 // The list of Wiis forgets one not heard from in a day.
 constexpr qint64 kForgetWiiSeconds = 24 * 3600;
+// More Wiis than anyone has on one network: anyone there can send made-up
+// console tags, and the list must not grow with them.
+constexpr int kMaxWiis = 32;
 
 const char* const kRiftWiiUrl = "https://github.com/KakarottoCake/Riftwii";
 
@@ -67,6 +70,7 @@ void Controller::remember(const PresenceMessage& message, const QHostAddress& fr
     bool changed = false;
     auto it = std::find_if(wiis_.begin(), wiis_.end(), [&](const WiiSeen& w) { return w.console == console; });
     if (it == wiis_.end()) {
+        if (wiis_.size() >= kMaxWiis) return;
         wiis_.push_back(WiiSeen{console, from, {}, now});
         it = wiis_.end() - 1;
         changed = true;

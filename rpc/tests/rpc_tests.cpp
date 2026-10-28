@@ -138,6 +138,14 @@ private slots:
         QCOMPARE(c.state(), Controller::State::Game);
         QCOMPARE(c.wiis().size(), qsizetype(2));
 
+        // Made-up console tags from anyone on the network stop at 32.
+        for (int i = 0; i < 100; ++i) {
+            const std::string tag = "f" + std::to_string(1000000 + i);
+            c.handle(menu(tag.c_str()), QHostAddress("192.168.1.99"), kT0 + 20);
+        }
+        QCOMPARE(c.wiis().size(), qsizetype(32));
+        QCOMPARE(c.state(), Controller::State::Game);
+
         Controller only;
         Settings s = defaults();
         s.console = QStringLiteral("bbbb0002");

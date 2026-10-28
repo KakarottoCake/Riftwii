@@ -154,6 +154,13 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         qApp->quit();
         return;
     }
+    // Not the player's own click on the window's close button: Qt 6 closes
+    // every window when the app quits (Quit, Cmd+Q, logging out), and a
+    // close refused here would stop the quit.
+    if (!event->spontaneous()) {
+        event->accept();
+        return;
+    }
     hide();
     event->ignore();
     if (!trayHintShown_) {

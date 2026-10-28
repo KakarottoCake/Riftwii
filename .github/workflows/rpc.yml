@@ -42,10 +42,14 @@ jobs:
         include:
           - name: linux
             os: ubuntu-24.04
+          # aqtinstall 3.3 lists Qt 6.11 for Windows but cannot read its
+          # packages ("Failed to locate XML data"); 6.10 installs.
           - name: windows
             os: windows-2022
+            qt: "6.10.3"
           - name: macos
             os: macos-15
+            qt: "6.11.3"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     env:
@@ -63,7 +67,7 @@ jobs:
         if: runner.os != 'Linux'
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.11.3"
+          version: ${{ matrix.qt }}
           aqtversion: "==3.3.*"
           cache: true
 
@@ -101,6 +105,27 @@ jobs:
             exit 1
           esac
 
+      # What the GPL asks to go with every copy (docs/DEVELOPING.md), as in
+      # RiftWii's zip: the license, the notices (Qt's among them, which the
+      # Windows and macOS downloads carry), and where the source is.
+      - name: License and source
+        if: inputs.package
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          mkdir -p notices
+          cp LICENSE notices/LICENSE.txt
+          cp NOTICE.md notices/NOTICE.md
+          {
+            echo "RiftWii-RPC $VERSION is free software under the GNU GPL, version 3 or later (LICENSE.txt)."
+            echo "It was built from this source:"
+            echo "  $REPO_URL/tree/$GITHUB_SHA"
+            echo "  commit $GITHUB_SHA ($GITHUB_REF_NAME), folder rpc/"
+            echo "The Qt it carries (Windows, macOS) is under the GNU LGPL, version 3: https://www.qt.io/download-open-source"
+          } > notices/SOURCE.txt
+
       - name: Package (macOS)
         if: inputs.package && runner.os == 'macOS'
         env:
@@ -112,8 +137,12 @@ jobs:
           # start is right-click > Open (rpc/README.md).
           codesign --force --deep --sign - build-rpc/RiftWii-RPC.app
           lipo -archs build-rpc/RiftWii-RPC.app/Contents/Frameworks/QtCore.framework/QtCore
-          mkdir -p out
-          ditto -c -k --keepParent build-rpc/RiftWii-RPC.app "out/riftwii-rpc-$VERSION-macos-universal.zip"
+          # The notices next to the app, outside it: inside, they would
+          # change what was signed.
+          mkdir -p out package/RiftWii-RPC
+          cp -R build-rpc/RiftWii-RPC.app package/RiftWii-RPC/
+          cp notices/* rpc/README.md package/RiftWii-RPC/
+          ditto -c -k --keepParent package/RiftWii-RPC "out/riftwii-rpc-$VERSION-macos-universal.zip"
       - name: Package (Windows)
         if: inputs.package && runner.os == 'Windows'
         shell: pwsh
@@ -124,6 +153,7 @@ jobs:
           Copy-Item build-rpc/Release/RiftWii-RPC.exe RiftWii-RPC/
           windeployqt --release --no-translations --no-opengl-sw RiftWii-RPC/RiftWii-RPC.exe
           Copy-Item rpc/README.md RiftWii-RPC/README.md
+          Copy-Item notices/* RiftWii-RPC/
           Compress-Archive -Path RiftWii-RPC -DestinationPath "out/riftwii-rpc-$env:VERSION-windows-x64.zip"
       # Linux: the program, its menu entry and icon; it uses the system's Qt 6
       # (qt6-base on most distributions).
@@ -134,6 +164,7 @@ jobs:
         run: |
           DESTDIR="$PWD/stage" cmake --install build-rpc --prefix /usr
           install -Dm644 rpc/README.md stage/usr/share/doc/riftwii-rpc/README.md
+          install -Dm644 -t stage/usr/share/doc/riftwii-rpc notices/LICENSE.txt notices/NOTICE.md notices/SOURCE.txt
           mkdir -p out
           tar -C stage -czf "out/riftwii-rpc-$VERSION-linux-x64.tar.gz" usr
       - uses: actions/upload-artifact@v7
