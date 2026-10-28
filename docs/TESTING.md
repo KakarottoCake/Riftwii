@@ -100,6 +100,7 @@ For things that worked, a short "works" with the game, where it ran from
   Home tiles, on the same game, and neither the view list nor Settings
   opens. When let go, 1 alone still changes which games Home shows, and
   2 alone still opens Settings.
+- [ ] **Home on a pad.** With a GameCube controller (a Wii port and the Wii U adapter), a Classic Controller or Wii U Pro Controller, and the Wii U GamePad: Y and Z (GameCube), Y and X (Classic, Pro) or X and Y (GamePad) together step to the next view as 1 and 2 do; alone, each still opens the view list or Settings when let go. In the Covers view, pointing at a cover with the stick, Y or Z (GameCube) or Y or X (Classic, Pro) shows it up close. B (GameCube) or ZL (Classic, Pro) held about a second starts a game at random; a short press still opens the search when let go, and B still puts back a game being moved.
 - [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader (or
   Restart where Priiloader is not installed: the console restarts) and
   Power off.

@@ -30,13 +30,26 @@ void ScreenshotAfterFrame(const void* xfb, int width, int height);
 int ScreenshotFlash();
 
 // Home's view change: 1 and 2 pressed together on a Wii Remote, in either
-// order. While Home watches, 2 is kept back like 1 (its press comes when
+// order (Y and X on a Classic Controller or Wii U Pro Controller, Y and Z
+// on a GameCube controller, X and Y on the Wii U GamePad: their 1 and 2 on
+// Home). While Home watches, both are kept back like 1 (a press comes when
 // it is let go alone), and neither reaches the menu after the pair.
 void WatchViewChord(bool on);
 // Whether the pair was pressed since the last call.
 bool TakeViewChord();
 // Drops a pair pressed since the last call: it only woke the dimmed screen.
 void ForgetViewChord();
+
+// Home's random game by pad, as B held on the search button with a Wii
+// Remote: the search button's own button held about a second (B on a
+// GameCube controller, ZL on a Classic Controller or Wii U Pro
+// Controller). While Home watches, that press is kept back and comes when
+// it is let go sooner, so a short press still searches. Home calls it on
+// every pass of its loop: without a call for a few frames (a popup is up),
+// nothing is kept back.
+void WatchSearchHold(bool on);
+// Whether such a hold reached its second since the last call.
+bool TakeSearchHold();
 
 // The NAND folder the in-game blob writes (runtime/shot/shot_hook.h).
 constexpr const char* kGameShotDir = "/shared2/riftwii";

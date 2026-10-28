@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "libwiigui/gui.h"
+#include "video.h"
 #include "log.hpp"
 #include "riftwii/shotfile.hpp"
 #include "skin.hpp"
@@ -228,6 +229,64 @@ volatile bool g_view_chord = false;  // the pair was pressed; Home takes it
 // Home watches again. Cleared when Home stops watching.
 bool g_one_watched[4] = {};
 bool g_two_watched[4] = {};
+bool Modifier(Chord& c, u32& down, u32 held, u32 bit);
+
+// The same pair on the other controllers, on the buttons that are 1 and 2
+// for them on Home: a Classic Controller's (or Wii U Pro Controller's) Y
+// and X, a GameCube controller's Y and Z, the Wii U GamePad's X and Y.
+struct ViewPair {
+    Chord first, second;
+    bool first_watched = false, second_watched = false;
+};
+ViewPair g_classic_pair[4], g_pad_pair[4], g_drc_pair;
+
+// Home's random game by pad: the search button's own button held, B on a
+// GameCube controller, ZL on a Classic Controller (or Wii U Pro
+// Controller). Its press is kept back while Home watches: let go sooner,
+// it is the search.
+constexpr u32 kSearchHoldFrames = 50;  // as B held on the search button with a Wii Remote
+struct SearchHold {
+    Chord chord;
+    u32 from = 0;  // FrameTimer when it went down
+};
+SearchHold g_pad_search[4], g_classic_search[4];
+// Home says so on every pass of its loop: a popup opened from Home stops
+// those passes, and its B (or ZL) is not kept back.
+volatile bool g_search_hold_on = false;
+volatile u32 g_search_hold_beat = 0;  // FrameTimer at Home's last pass
+constexpr u32 kSearchHoldBeatFrames = 6;
+volatile bool g_search_hold = false;  // held its second; Home takes it
+
+bool SearchHoldWatched() { return g_search_hold_on && FrameTimer - g_search_hold_beat <= kSearchHoldBeatFrames; }
+
+// Keeps both buttons back while Home watches, as 1 and 2 are; a button
+// already kept back is still let go after Home stops watching.
+void WatchPair(ViewPair& v, u32& down, u32 held, u32 first, u32 second) {
+    if (g_view_chord_on && (down & first)) v.first_watched = true;
+    if (g_view_chord_on && (down & second)) v.second_watched = true;
+    if (!g_view_chord_on && !v.first.held_back && !v.second.held_back) return;
+    const bool a = Modifier(v.first, down, held, first);
+    const bool b = Modifier(v.second, down, held, second);
+    if (g_view_chord_on && a && b && v.first_watched && v.second_watched && !v.second.used) {
+        v.first.used = v.second.used = true;
+        g_view_chord = true;
+    }
+}
+
+void WatchHold(SearchHold& h, u32& down, u32 held, u32 bit) {
+    const bool watched = SearchHoldWatched();
+    if (!watched && !h.chord.held_back) return;
+    // Held through a pause (a cover up close, a popup): that hold is
+    // spent, neither a game at random nor a search when let go; the next
+    // press starts afresh.
+    if (!watched) h.chord.used = true;
+    if (down & bit) h.from = FrameTimer;
+    if (!Modifier(h.chord, down, held, bit)) return;
+    if (watched && !h.chord.used && FrameTimer - h.from >= kSearchHoldFrames) {
+        h.chord.used = true;  // let go later, it searches no more
+        g_search_hold = true;
+    }
+}
 
 void Fire() {
     if (g_busy || g_want) return;
@@ -293,6 +352,8 @@ void ScreenshotPoll() {
                     g_view_chord = true;
                 }
             }
+            WatchPair(g_classic_pair[i], down, w->btns_h, WPAD_CLASSIC_BUTTON_Y, WPAD_CLASSIC_BUTTON_X);
+            WatchHold(g_classic_search[i], down, w->btns_h, WPAD_CLASSIC_BUTTON_ZL);
             w->btns_d = down;
         }
         PADData& p = userInput[i].pad;
@@ -304,8 +365,14 @@ void ScreenshotPoll() {
             g_pad_l[i].used = g_pad_r[i].used = true;
             Fire();
         }
+        WatchPair(g_pad_pair[i], down, p.btns_h, PAD_BUTTON_Y, PAD_TRIGGER_Z);
+        WatchHold(g_pad_search[i], down, p.btns_h, PAD_BUTTON_B);
         p.btns_d = static_cast<u16>(down);
     }
+    GamePadData& drc = userInput[0].wiidrcdata;
+    u32 down = drc.btns_d;
+    WatchPair(g_drc_pair, down, drc.btns_h, WIIDRC_BUTTON_X, WIIDRC_BUTTON_Y);
+    drc.btns_d = static_cast<u16>(down);
 }
 
 void ScreenshotAfterFrame(const void* xfb, int width, int height) {
@@ -333,7 +400,11 @@ void WatchViewChord(bool on) {
     // Not the presses kept back (held_back): a 1 or 2 let go alone still
     // reaches its own control.
     if (!on) {
-        for (int i = 0; i < 4; ++i) g_one_watched[i] = g_two_watched[i] = false;
+        for (int i = 0; i < 4; ++i) {
+            g_one_watched[i] = g_two_watched[i] = false;
+            for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
+        }
+        g_drc_pair.first_watched = g_drc_pair.second_watched = false;
     }
     g_view_chord_on = on;
     g_view_chord = false;
@@ -346,5 +417,17 @@ bool TakeViewChord() {
 }
 
 void ForgetViewChord() { g_view_chord = false; }
+
+void WatchSearchHold(bool on) {
+    g_search_hold_beat = FrameTimer;
+    g_search_hold_on = on;
+    if (!on) g_search_hold = false;
+}
+
+bool TakeSearchHold() {
+    if (!g_search_hold) return false;
+    g_search_hold = false;
+    return true;
+}
 
 }  // namespace riftwii::wii

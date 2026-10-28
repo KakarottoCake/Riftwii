@@ -446,7 +446,10 @@ UpdateGUI(void *arg)
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			// The presses that wake the dimmed screen do nothing else, the 1
 			// and 2 pair too (ScreenshotPoll took it before this was known).
-			if (swallowInput) riftwii::wii::ForgetViewChord();
+			if (swallowInput) {
+				riftwii::wii::ForgetViewChord();
+				(void)riftwii::wii::TakeSearchHold();
+			}
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();
@@ -5285,7 +5288,10 @@ static int MenuSource(FrontendState& state)
 	// whichever way out of here it closes.
 	struct ViewChordWatch {
 		ViewChordWatch() { riftwii::wii::WatchViewChord(true); }
-		~ViewChordWatch() { riftwii::wii::WatchViewChord(false); }
+		~ViewChordWatch() {
+			riftwii::wii::WatchViewChord(false);
+			riftwii::wii::WatchSearchHold(false);
+		}
 	} viewChordWatch;
 	while(menu == MENU_NONE)
 	{
@@ -5817,6 +5823,10 @@ static int MenuSource(FrontendState& state)
 		}
 		// B held with a Wii Remote pointing at the search button: a game at
 		// random, once per hold. Not while a game is carried, where B puts it back.
+		// A pad's search button held does the same (screenshot.hpp), but not
+		// while a game is carried or a cover is up close, where B is theirs.
+		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
+		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying();
 		bool bOnSearch = false;
 		for (int channel = 0; channel < 4 && !grid.Carrying(); ++channel) {
 			const WPADData* remote = userInput[channel].wpad;
@@ -5844,6 +5854,16 @@ static int MenuSource(FrontendState& state)
 				} else {
 					logf("Home: B held on the search button, but no game is shown to pick from\n");
 				}
+			}
+		}
+		if (padHold && randomPick < 0) {
+			randomPick = RandomHomeGame(entries);
+			if (randomPick >= 0) {
+				logf("Home: the search button's button held on a pad, %s picked at random\n",
+					items[static_cast<std::size_t>(randomPick)].title.c_str());
+				grid.Focus(randomPick, false);  // Home comes back to it
+			} else {
+				logf("Home: the search button's button held on a pad, but no game is shown to pick from\n");
 			}
 		}
 		int clicked = randomPick >= 0 ? randomPick : heldClick >= 0 ? heldClick : grid.GetClicked();
@@ -5934,6 +5954,7 @@ static int MenuSource(FrontendState& state)
 				// The banner has 1 and 2 to itself: a pair pressed on it is
 				// not Home's, and Home starts watching afresh after it.
 				riftwii::wii::WatchViewChord(false);
+				riftwii::wii::WatchSearchHold(false);
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
@@ -6071,6 +6092,7 @@ static int MenuSource(FrontendState& state)
 			// A pair pressed in the HOME Menu is not Home's: Home starts
 			// watching afresh once it closes.
 			riftwii::wii::WatchViewChord(false);
+			riftwii::wii::WatchSearchHold(false);
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
 		} else if (riftwii::wii::TakeViewChord()) {
@@ -6109,6 +6131,8 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (searchBtn.Clicked()) {
 			searchBtn.button.ResetState();
+			// The keyboard's B and ZL are its own from its first frame.
+			riftwii::wii::WatchSearchHold(false);
 			const std::string before = g_search;
 			std::string typed = g_search;
 			// The games behind the keyboard follow what is typed.
@@ -6150,7 +6174,12 @@ static int MenuSource(FrontendState& state)
 				if (games > kNamed) matches += " " + tr("and {1} more", {std::to_string(games - kNamed)});
 				return ShownCount(g_filter, games);
 			};
-			if (AskSearch(typed, live)) {
+			// A pair pressed on the keyboard is not Home's: Home watches
+			// afresh once it closes.
+			riftwii::wii::WatchViewChord(false);
+			const bool searched = AskSearch(typed, live);
+			riftwii::wii::WatchViewChord(true);
+			if (searched) {
 				g_search = TrimSearch(typed);
 				logf("Home: search \"%s\"\n", g_search.c_str());
 			} else {
