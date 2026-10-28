@@ -69,6 +69,9 @@ msgstr "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다."
 msgid "RiftWii is still reading the drives."
 msgstr "RiftWii가 아직 드라이브를 읽는 중입니다."
 
+msgid "Go back to Home and open this again once your games are shown."
+msgstr "홈으로 돌아가 게임이 표시되면 다시 여세요."
+
 msgid "Waiting for RiftWii to finish reading the drives..."
 msgstr "RiftWii가 드라이브를 다 읽기를 기다리는 중..."
 

@@ -95,6 +95,11 @@ T = {
         "RiftWiiはまだドライブを読み込んでいます。",
         "O RiftWii ainda está lendo as unidades.",
         "RiftWii sta ancora leggendo le unità."),
+    "Go back to Home and open this again once your games are shown.": (
+        "Vuelve a Inicio y abre esto de nuevo cuando se muestren tus juegos.",
+        "ホームに戻り、ゲームが表示されてからもう一度開いてください。",
+        "Volte ao Início e abra isto de novo quando seus jogos aparecerem.",
+        "Torna alla Home e riapri questa pagina quando vengono mostrati i tuoi giochi."),
     "Waiting for RiftWii to finish reading the drives...": (
         "Esperando a que RiftWii termine de leer las unidades...",
         "RiftWiiがドライブを読み終わるのを待っています...",
@@ -2397,6 +2402,8 @@ KO = {
         "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다.",
     "RiftWii is still reading the drives.":
         "RiftWii가 아직 드라이브를 읽는 중입니다.",
+    "Go back to Home and open this again once your games are shown.":
+        "홈으로 돌아가 게임이 표시되면 다시 여세요.",
     "Waiting for RiftWii to finish reading the drives...":
         "RiftWii가 드라이브를 다 읽기를 기다리는 중...",
     "Reading the disc...":
@@ -4259,6 +4266,8 @@ FR = {
         "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
     "RiftWii is still reading the drives.":
         "RiftWii est encore en train de lire les stockages.",
+    "Go back to Home and open this again once your games are shown.":
+        "Revenez à l'Accueil et rouvrez cette page une fois vos jeux affichés.",
     "Waiting for RiftWii to finish reading the drives...":
         "En attente que RiftWii finisse de lire les stockages...",
     "Reading the disc...":
