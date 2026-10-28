@@ -11488,7 +11488,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Downloads this game's box art from GameTDB now."));
 			else if (ref.what == RowRef::What::CoverSet)
 				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.",
-				       {state.game_id}));
+				       {PageCoverName(state)}));  // a mod tile reads its own, by its key
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
 			else if (ref.what == RowRef::What::GcCard)
