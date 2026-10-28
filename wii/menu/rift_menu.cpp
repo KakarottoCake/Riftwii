@@ -4217,8 +4217,7 @@ static void StartScan()
 	// (an emulator game's local cover); the scan resets their volumes, so
 	// it waits for that job. Its result is still taken by Home as usual.
 	if (riftwii::wii::NetBackgroundBusy()) {
-		logf("Home: waiting for a background download to finish before reading the drives again
-");
+		logf("Home: waiting for a background download to finish before reading the drives again\n");
 		riftwii::wii::NetWaitForBackground();
 	}
 	riftwii::wii::StartDriveScan();
