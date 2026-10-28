@@ -140,8 +140,9 @@ off and boot.log says why; the adapter works as before.
 **Packs that add GameCube controllers** (#352). A game that reads only
 Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
 pack can give it one, and this is the supported way to do it: the pack
-adds a section to the game's main.dol with its own `PADRead`, and turns
-the GameCube controller into what the game reads (Super Sentai Battle:
+adds a text (code) section to the game's main.dol with its own `PADRead`
+(only text sections are searched), and turns the GameCube controller
+into what the game reads (Super Sentai Battle:
 Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
 Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
 starts, so the pack's own copy is searched like a game's. For the search
