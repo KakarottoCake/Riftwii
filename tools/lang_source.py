@@ -2045,8 +2045,8 @@ T = {
     "Reset all settings": ("Restablecer todos los ajustes", "すべての設定をリセット", "Redefinir todas as configurações", "Ripristina tutte le impostazioni"),
     "Reset": ("Restablecer", "リセット", "Redefinir", "Ripristina"),
     "Reset all settings?": ("¿Restablecer todos los ajustes?", "すべての設定をリセットしますか?", "Redefinir todas as configurações?", "Ripristinare tutte le impostazioni?"),
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
@@ -3911,10 +3911,10 @@ KO = {
         "초기화",
     "Reset all settings?":
         "모든 설정을 초기화할까요?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
     "This game's data was removed from the Wii, so it can't start.":
@@ -5775,10 +5775,10 @@ FR = {
         "Réinitialiser",
     "Reset all settings?":
         "Réinitialiser tous les paramètres ?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
     "This game's data was removed from the Wii, so it can't start.":
@@ -6450,6 +6450,7 @@ T.update({
     "Parental controls PIN": ("PIN del control parental", "ペアレンタルコントロールのPIN", "PIN do controle dos pais", "PIN del controllo genitori"),
     "Wrong PIN": ("PIN incorrecto", "PINがちがいます", "PIN incorreto", "PIN errato"),
     "That is not the parental controls PIN.": ("Ese no es el PIN del control parental.", "ペアレンタルコントロールのPINではありません。", "Esse não é o PIN do controle dos pais.", "Questo non è il PIN del controllo genitori."),
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": ("Este juego no tiene una clasificación por edad conocida, y el control parental bloquea los juegos sin ella. Escribe el PIN para jugar.", "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。", "Este jogo não tem uma classificação etária conhecida, e o controle dos pais bloqueia os jogos sem ela. Digite o PIN para jogar.", "Questo gioco non ha una classificazione per età nota, e il controllo genitori blocca i giochi senza. Inserisci il PIN per giocare."),
     "This game's age rating is above what parental controls allow. Type the PIN to play it.": ("La clasificación por edad de este juego supera lo que permite el control parental. Escribe el PIN para jugar.", "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。", "A classificação etária deste jogo passa do que o controle dos pais permite. Digite o PIN para jogar.", "La classificazione per età di questo gioco supera quanto permesso dal controllo genitori. Inserisci il PIN per giocare."),
     "Type the PIN to change parental controls.": ("Escribe el PIN para cambiar el control parental.", "ペアレンタルコントロールを変更するにはPINを入力してください。", "Digite o PIN para mudar o controle dos pais.", "Inserisci il PIN per modificare il controllo genitori."),
     "New PIN": ("PIN nuevo", "新しいPIN", "Novo PIN", "Nuovo PIN"),
@@ -6486,6 +6487,7 @@ KO.update({
     "Parental controls PIN": "자녀 보호 기능 PIN",
     "Wrong PIN": "PIN이 틀렸습니다",
     "That is not the parental controls PIN.": "자녀 보호 기능의 PIN이 아닙니다.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요.",
     "This game's age rating is above what parental controls allow. Type the PIN to play it.": "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요.",
     "Type the PIN to change parental controls.": "자녀 보호 기능을 바꾸려면 PIN을 입력하세요.",
     "New PIN": "새 PIN",
@@ -6522,6 +6524,7 @@ FR.update({
     "Parental controls PIN": "Code PIN du contrôle parental",
     "Wrong PIN": "Code PIN incorrect",
     "That is not the parental controls PIN.": "Ce n'est pas le code PIN du contrôle parental.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "Ce jeu n'a pas de classification d'âge connue, et le contrôle parental verrouille les jeux sans classification. Entrez le code PIN pour y jouer.",
     "This game's age rating is above what parental controls allow. Type the PIN to play it.": "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer.",
     "Type the PIN to change parental controls.": "Entrez le code PIN pour modifier le contrôle parental.",
     "New PIN": "Nouveau code PIN",

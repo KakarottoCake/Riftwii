@@ -1242,15 +1242,20 @@ struct HomeRow {
 // What parental controls (riftwii/parental.hpp) do with the game `id`:
 // its age from GameTDB's rating, as the About page's cache has it. A game
 // the cache does not know yet counts as unrated.
+// The youngest age the game `id`'s rating is for, -1 when it has none the
+// cache knows (riftwii/parental.hpp).
+static int RatedAgeFor(const std::string& id)
+{
+	riftwii::GameInfo info;
+	if (id.empty() || !riftwii::wii::PeekGameInfo(id, info)) return -1;
+	return riftwii::rating_minimum_age(info.rating_system, info.rating);
+}
+
 static riftwii::ParentalVerdict ParentalVerdictFor(const std::string& id)
 {
 	const riftwii::ParentalRules rules = riftwii::parental_rules(riftwii::wii::Settings());
 	if (!rules.active) return riftwii::ParentalVerdict::Allowed;
-	int age = -1;
-	riftwii::GameInfo info;
-	if (!id.empty() && riftwii::wii::PeekGameInfo(id, info))
-		age = riftwii::rating_minimum_age(info.rating_system, info.rating);
-	return riftwii::parental_verdict(rules, age);
+	return riftwii::parental_verdict(rules, RatedAgeFor(id));
 }
 
 // The games in Settings > Home order (`ordered`; else A to Z), before a
@@ -11841,8 +11846,12 @@ static int MenuHome(FrontendState& state)
 	bool parentalUnlocked = false;
 	const auto parentalAllows = [&]() {
 		if (parentalUnlocked || ParentalVerdictFor(state.game_id) == riftwii::ParentalVerdict::Allowed) return true;
-		parentalUnlocked = AskParentalPin(
-			tr("This game's age rating is above what parental controls allow. Type the PIN to play it."));
+		// Locked for its age, or (with Games with no rating set to Treat as
+		// too old) for having no rating at all: the pad says which.
+		const bool unrated = RatedAgeFor(state.game_id) < 0;
+		parentalUnlocked = AskParentalPin(unrated
+			? tr("This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.")
+			: tr("This game's age rating is above what parental controls allow. Type the PIN to play it."));
 		if (parentalUnlocked) logf("Parental controls: %s started with the PIN\n", state.game_id.c_str());
 		return parentalUnlocked;
 	};
@@ -13519,7 +13528,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					{tests != settings.other.end() ? tests->second : std::string()});
 			}
 			case kCredits: return tr("Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.");
-			case kResetAll: return tr("Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.");
+			case kResetAll: return tr("Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
@@ -14133,7 +14142,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// Cancel is the first button: A, B and HOME all answer it, so
 					// a stray press never resets (Jack, on a real Wii).
 					if (ShowPopupSafeFirst(tr("Reset all settings?"),
-						    tr("Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."),
+						    tr("Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."),
 						    tr("Cancel"), tr("Reset")) != 1)
 						break;
 					logf("Settings: all reset to the defaults (favorites and game folders kept)\n");

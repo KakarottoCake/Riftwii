@@ -2334,11 +2334,11 @@ msgstr "Réinitialiser"
 msgid "Reset all settings?"
 msgstr "Réinitialiser tous les paramètres ?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés."
 
 msgid "Settings reset to the defaults"
 msgstr "Paramètres réinitialisés"
@@ -3059,6 +3059,9 @@ msgstr "Code PIN incorrect"
 
 msgid "That is not the parental controls PIN."
 msgstr "Ce n'est pas le code PIN du contrôle parental."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "Ce jeu n'a pas de classification d'âge connue, et le contrôle parental verrouille les jeux sans classification. Entrez le code PIN pour y jouer."
 
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer."

@@ -2334,11 +2334,11 @@ msgstr "リセット"
 msgid "Reset all settings?"
 msgstr "すべての設定をリセットしますか?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。"
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。"
 
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
@@ -3059,6 +3059,9 @@ msgstr "PINがちがいます"
 
 msgid "That is not the parental controls PIN."
 msgstr "ペアレンタルコントロールのPINではありません。"
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。"
 
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。"

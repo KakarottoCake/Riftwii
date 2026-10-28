@@ -2334,11 +2334,11 @@ msgstr "Restablecer"
 msgid "Reset all settings?"
 msgstr "¿Restablecer todos los ajustes?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental."
 
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
@@ -3059,6 +3059,9 @@ msgstr "PIN incorrecto"
 
 msgid "That is not the parental controls PIN."
 msgstr "Ese no es el PIN del control parental."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "Este juego no tiene una clasificación por edad conocida, y el control parental bloquea los juegos sin ella. Escribe el PIN para jugar."
 
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "La clasificación por edad de este juego supera lo que permite el control parental. Escribe el PIN para jugar."

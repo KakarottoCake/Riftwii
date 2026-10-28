@@ -2334,11 +2334,11 @@ msgstr "초기화"
 msgid "Reset all settings?"
 msgstr "모든 설정을 초기화할까요?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다."
 
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
@@ -3059,6 +3059,9 @@ msgstr "PIN이 틀렸습니다"
 
 msgid "That is not the parental controls PIN."
 msgstr "자녀 보호 기능의 PIN이 아닙니다."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요."
 
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요."
