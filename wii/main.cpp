@@ -60,6 +60,7 @@
 #include "usbprobe.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
+#include "presencesend.hpp"
 #include "progress.hpp"
 #include <ogc/wiilaunch.h>
 
@@ -257,6 +258,7 @@ void ExitApp() {
     // theme download is stopped (the next start fetches it again).
     riftwii::wii::NetCancelBackground();
     riftwii::wii::NetWaitForBackground();
+    riftwii::wii::PresenceBye();
     // The cover loader finishes the file it is on before the card goes.
     riftwii::wii::CoverLoaderHold();
     riftwii::wii::MenuMusicStop();
@@ -648,7 +650,9 @@ int main() {
         riftwii::wii::mem::LogUsage("plugin test");
     }
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
+    riftwii::wii::PresenceMenuOpen(true);
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
+    riftwii::wii::PresenceMenuOpen(false);
     MenuWatchdogStop();
     // The card goes to the launch from here: the full font's file is let go
     // and stays closed (the glyphs drawn so far stay cached).

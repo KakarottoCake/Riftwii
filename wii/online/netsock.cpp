@@ -163,6 +163,8 @@ bool NetStart(std::string& error, bool retry) {
 
 bool NetFailed() { return g_failed; }
 
+bool NetIsUp() { return g_up; }
+
 void NetStop() {
     NetWaitForBackground();
     if (!g_up) return;

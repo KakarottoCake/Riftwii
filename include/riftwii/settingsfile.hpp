@@ -62,6 +62,11 @@ struct LoaderSettings {
     bool steamgrid_covers = false;        // requires the player's own key on the SD card
     std::string riitag_key;               // RiiTag (riftwii/riitag.hpp): the player's key, empty for none
     std::string riitag_id;                // RiiTag: the player's Discord ID, for Settings > Online > My RiiTag; empty for none
+    // RiftWii-RPC (riftwii/presence.hpp): tell the local network the game
+    // being played, for Discord on the player's computer. With Online off,
+    // nothing is sent either.
+    bool presence = true;
+    std::string presence_host;            // a computer to tell directly too (an address or host name), for networks that drop broadcasts
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
     std::string usb_input = "on";         // on, off: USB keyboards, mice and pen tablets, and the uDraw, in the menu (wii/controllers/usbinput.hpp)
@@ -80,6 +85,10 @@ struct LoaderSettings {
     void parse(const std::string& text);
     std::string serialize() const;
 };
+
+// A presence_host as settings.txt may hold it: a dotted address or a host
+// name (letters, digits, '-' and '.'), at most 253 characters.
+bool valid_presence_host(const std::string& host);
 
 // What "Reset all settings" leaves: every setting back to how RiftWii
 // comes, except what the question promises to keep and what finding the

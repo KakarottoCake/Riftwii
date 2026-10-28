@@ -130,6 +130,7 @@
 #include "reportsend.hpp"
 #include "modplan.hpp"
 #include "restart.hpp"
+#include "presencesend.hpp"
 #include "riitagsend.hpp"
 #include "riitagview.hpp"
 #include "channel.hpp"
@@ -428,6 +429,7 @@ UpdateGUI(void *arg)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
+			riftwii::wii::PresenceMenuTick();
 			const u64 now = gettime();
 			const unsigned used = ActivitySources();
 			for (int s = 0; s < kActSources; ++s)
@@ -12082,6 +12084,7 @@ static int MenuHome(FrontendState& state)
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
 		riftwii::wii::RememberLaunchedTile(riftwii::wii::TileKey(state));
+		riftwii::wii::PresenceGame(state, false, true);
 		riftwii::wii::TagGame(state.game_id, true);
 		if (playing) HaltGui();
 	}

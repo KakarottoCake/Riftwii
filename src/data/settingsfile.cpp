@@ -62,6 +62,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_wfc_server(value, server)) wfc_server = value;
         } else if (key == "riitag_key") {
             if (value.empty() || valid_riitag_key(value)) riitag_key = value;
+        } else if (key == "presence") {
+            presence = value != "off";
+        } else if (key == "presence_host") {
+            if (value.empty() || valid_presence_host(value)) presence_host = value;
         } else if (key == "riitag_id") {
             if (value.empty() || valid_riitag_id(value)) riitag_id = value;
         } else if (key == "wfc_domain") {
@@ -223,6 +227,8 @@ std::string LoaderSettings::serialize() const {
     s += std::string("steamgrid_covers = ") + (steamgrid_covers ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
     if (!riitag_id.empty()) s += "riitag_id = " + riitag_id + "\n";
+    s += std::string("presence = ") + (presence ? "on" : "off") + "\n";
+    if (!presence_host.empty()) s += "presence_host = " + presence_host + "\n";
     s += "gc_rumble = " + gc_rumble + "\n";
     s += "wiimote_rumble = " + wiimote_rumble + "\n";
     s += "usb_input = " + usb_input + "\n";
@@ -246,6 +252,13 @@ std::string LoaderSettings::serialize() const {
     }
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;
+}
+
+bool valid_presence_host(const std::string& host) {
+    if (host.empty() || host.size() > 253 || host.front() == '.' || host.front() == '-') return false;
+    for (unsigned char c : host)
+        if (!std::isalnum(c) && c != '-' && c != '.') return false;
+    return true;
 }
 
 std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device) {

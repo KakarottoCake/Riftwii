@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "headless.hpp"
+#include "presencesend.hpp"
 #include "riitagsend.hpp"
 
 #include <gccore.h>
@@ -261,6 +262,9 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
         RecordPlay(state.game_id);
         TagGame(state.game_id, false);  // before the cIOS reload takes the network
     }
+    // A Reset too: the computer then knows the same play goes on. Only
+    // when TagGame or the menu left the network up (presencesend.hpp).
+    PresenceGame(state, h.reset, false);
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::GuardLaunchMemory(error, [&] {

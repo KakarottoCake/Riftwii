@@ -43,7 +43,8 @@ std::string printable_utf8(const std::string& text);
 std::string launched_game_id(const std::string& boot_log);
 
 // settings.txt as a report shows it: a secret's value (riitag_key, the
-// player's RiiTag key, and riitag_id, their Discord ID) replaced by
+// player's RiiTag key, riitag_id, their Discord ID, and presence_host,
+// the computer RiftWii-RPC runs on, which may have a public name) replaced by
 // "(hidden)", as a report is posted where anyone can read it.
 std::string hide_settings_secrets(const std::string& settings);
 

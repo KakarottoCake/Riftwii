@@ -30,6 +30,8 @@ int main() {
     EXPECT_EQ(hide_settings_secrets("riitag_id = 1202176528943681576\n"), std::string("riitag_id = (hidden)\n"));
     // Only the key itself: a longer name that starts the same is not a secret.
     EXPECT_EQ(hide_settings_secrets("riitag_keys = on"), std::string("riitag_keys = on"));
+    EXPECT_EQ(hide_settings_secrets("presence_host = my-pc.example.net\npresence = on\n"),
+              std::string("presence_host = (hidden)\npresence = on\n"));
     EXPECT_EQ(hide_settings_secrets("theme = default"), std::string("theme = default"));
     // A key in a logged address is hidden too, wherever it appears.
     EXPECT_EQ(hide_url_keys("RiiTag: https://riitag.example/wii?game=RMCP01&key=abc123 failed"),

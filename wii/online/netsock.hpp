@@ -20,6 +20,8 @@ bool NetStart(std::string& error, bool retry = false);
 void NetStop();
 // The last NetStart failed (and the next would wait as long again).
 bool NetFailed();
+// The network is up now (a NetStart succeeded and no NetStop since).
+bool NetIsUp();
 
 // One network job on a thread of its own, so the menu keeps answering
 // while the network comes up (seconds). Until it ends, NetStart and

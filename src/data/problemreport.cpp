@@ -183,7 +183,8 @@ std::string hide_settings_secrets(const std::string& settings) {
         if (end == std::string::npos) end = settings.size();
         std::string line = settings.substr(at, end - at);
         std::size_t key = line.find_first_not_of(" \t");
-        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id"))) {
+        if (key != std::string::npos && (secret_key(line, key, "riitag_key") || secret_key(line, key, "riitag_id") ||
+                                         secret_key(line, key, "presence_host"))) {
             const std::size_t eq = line.find('=', key);
             if (eq != std::string::npos) {
                 const bool cr = !line.empty() && line.back() == '\r';
