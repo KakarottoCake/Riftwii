@@ -208,16 +208,29 @@ int main() {
         }
     }
 
-    // A word that no longer holds our opening is not overwritten.
+    // A change outside the patched halfword is kept.
     reset(memory);
     {
         installer::NandReadAccess access;
         bool read = false;
         installer::ReadCios(249, access, read);
-        permission_word = 0x12345678;
-        if (access.Restore() || permission_word != 0x12345678 ||
-            logs.find("read 0x12345678") == std::string::npos) {
-            std::cerr << "FAILED: a changed word is left alone and reported\n" << logs;
+        permission_word = (permission_word & 0x0000FFFF) | 0xABCD0000;
+        if (!access.Restore() || permission_word != 0xABCDD001) {
+            std::cerr << "FAILED: a change outside the patched halfword is kept\n" << logs;
+            ++failures;
+        }
+    }
+
+    // A patched halfword someone else changed is left alone and reported.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        bool read = false;
+        installer::ReadCios(249, access, read);
+        permission_word = 0x428B1234;
+        if (access.Restore() || permission_word != 0x428B1234 ||
+            logs.find("read 0x428b1234") == std::string::npos) {
+            std::cerr << "FAILED: a patched halfword someone else changed is left alone and reported\n" << logs;
             ++failures;
         }
     }

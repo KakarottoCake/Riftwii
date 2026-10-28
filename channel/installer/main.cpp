@@ -133,6 +133,8 @@ void enter_cios() {
     if (isfs < 0) {
         installer::Log("The cIOS search could not open the NAND file system (%d).\n", isfs);
     } else {
+        // The check stays open for the whole search; nothing between here and
+        // access.Restore() may reload IOS.
         installer::NandReadAccess access;
         for (unsigned i = 0; i < 3; ++i) {
             bool read = false;
