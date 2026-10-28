@@ -219,7 +219,8 @@ there are no playlists, but each theme can bring its own.
 - Mono or stereo, 44.1 or 48 kHz. It starts over from the beginning when it
   ends.
 
-Settings > **Menu music** still turns music off. A theme's `music.ogg`
+Settings > **Menu music** still turns music off, and a player's own pick in
+Settings > **Music file** plays instead of the theme's. A theme's `music.ogg`
 keeps priority when **Wii Menu music** is on. Without a theme music path,
 that choice tries the console's own System Menu music before the card's
 `music.ogg` and the release's tune. Missing or unsupported NAND resources

@@ -41,6 +41,11 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    // The player's own menu music, picked in Settings or written here:
+    // "" for RiftWii's (a theme's, the Wii Menu's or music.ogg), else an
+    // .ogg or .mp3 song, an .m3u playlist, or a folder ending in '/' whose
+    // songs play shuffled ("usb:/Music/"); riftwii/musiclist.hpp.
+    std::string music_file;
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)

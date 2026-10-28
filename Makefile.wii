@@ -87,12 +87,15 @@ LDFLAGS		+=	-Wl,--no-eh-frame-hdr
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
 # libbearssl.a comes from Makefile.bearssl (the TLS client, wii/online/tls.cpp).
+# libogc's own libmad.a, by its path: it carries libogc's MP3 player (the
+# menu's .mp3 music, wii/menu/menumusic.cpp), which the portlibs' libmad,
+# found first through -L, does not.
 # libwiikeyboard: the menu's USB keyboard (wii/controllers/usbkeyboard.cpp).
 # The pen tablet driver (wii/controllers/pentablet.c, udraw.c) wraps three of
 # libogc's functions above: two keep wiiuse from taking a uDraw for a Classic
 # Controller, one hides tablets and the GameCube adapter from libogc's own
 # USB mouse and keyboard scans.
-LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
+LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib

@@ -3320,3 +3320,45 @@ msgstr "뒷면"
 
 msgid "Front of the box"
 msgstr "앞면"
+
+msgid "Music file"
+msgstr "음악 파일"
+
+msgid "RiftWii's own"
+msgstr "RiftWii 기본"
+
+msgid "{1} (shuffled)"
+msgstr "{1} (셔플)"
+
+msgid "Your music is on the USB drive. It starts once RiftWii has read the drive."
+msgstr "음악이 USB 드라이브에 있습니다. RiftWii가 드라이브를 다 읽으면 재생됩니다."
+
+msgid "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else."
+msgstr "{1}에서 재생할 수 있는 것이 없어 RiftWii 기본 음악을 재생합니다. A를 누르면 다른 것을 고릅니다."
+
+msgid "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it."
+msgstr "나만의 메뉴 음악: SD 카드나 USB 드라이브의 곡, 재생 목록 또는 폴더 전체를 셔플로 재생합니다. A를 누르면 고릅니다."
+
+msgid "Menu music is off. Turn it on first."
+msgstr "메뉴 음악이 꺼져 있습니다. 먼저 켜 주세요."
+
+msgid "RiftWii's own music"
+msgstr "RiftWii 기본 음악"
+
+msgid "Up a folder"
+msgstr "상위 폴더"
+
+msgid "Shuffle this folder"
+msgstr "이 폴더 셔플"
+
+msgid "Shuffle"
+msgstr "셔플"
+
+msgid "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order."
+msgstr "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u/.m3u8)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다."
+
+msgid "There is no USB drive, or RiftWii has not finished reading it yet."
+msgstr "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니다."
+
+msgid "There are no .ogg or .mp3 songs in this folder or the folders in it."
+msgstr "이 폴더와 그 안의 폴더에 .ogg나 .mp3 곡이 없습니다."

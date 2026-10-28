@@ -45,6 +45,9 @@ bool TakeSdScan(DriveScanPart& out);
 bool TakeUsbScan(DriveScanPart& out);
 // Both parts done (taken or not): the drives are the menu's again.
 bool DriveScanDone();
+// A scan has run to its end since RiftWii started (DriveScanDone is
+// also true before the first one starts).
+bool DriveScanFinished();
 // Blocks until the thread has finished. A scan is never cut short: one
 // stopped half way would leave a drive mounted half way.
 void WaitDriveScan();

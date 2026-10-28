@@ -358,6 +358,9 @@ static void HaltGui()
 	guiHalt = true;
 	while(!GuiParked())
 		usleep(THREAD_SLEEP);
+	// The next song of the player's music, read here on the menu's own
+	// thread: never at the same time as the menu reads a drive.
+	riftwii::wii::MenuMusicService();
 }
 
 // The crash screen (wii/core/crash.cpp) draws over the menu's last frame: the
@@ -885,6 +888,28 @@ static void ApplyMenuSounds()
 	GuiSound::hoverPercent = v == "off" ? 0 : v == "quiet" ? 60 : 100;
 	GuiSound::otherPercent = v == "off" ? 0 : v == "quiet" ? 80 : 100;
 }
+// Settings > Music file: the player's own pick by its name, a folder's or
+// a playlist's marked as shuffled.
+static std::string MusicFileName(const std::string& choice)
+{
+	if (choice.empty()) return tr("RiftWii's own");
+	const std::string name = FlatCapped(riftwii::music_choice_name(choice), 22);
+	if (riftwii::music_choice_is_folder(choice) || riftwii::music_is_playlist(choice))
+		return tr("{1} (shuffled)", {name});
+	return name;
+}
+
+static std::string MusicFileNote(const std::string& choice)
+{
+	const std::string problem = riftwii::wii::MenuMusicPickProblem();
+	if (problem == "waiting")
+		return tr("Your music is on the USB drive. It starts once RiftWii has read the drive.");
+	if (problem == "failed")
+		return tr("Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.",
+			{FlatCapped(choice, 60)});
+	return tr("Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.");
+}
+
 static std::string ReturnToNote()
 {
 	// A test switch in settings.txt turns it off whatever this says.
@@ -4204,6 +4229,13 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 	// before anything else (a launch) takes the drives.
 	riftwii::wii::WaitDriveScan();
 	g_scanning = false;
+	// Both scan consumers come here, after the drive is safe to read. A
+	// pick that had failed (a song on a USB drive not plugged in, say) is
+	// tried again; music that plays is left alone.
+	if (part.ok && riftwii::wii::MenuMusicRetryFailedPick()) {
+		riftwii::wii::MenuMusicStop();
+		riftwii::wii::MenuMusicStart();
+	}
 	if (g_forgetPicturesAfterScan) {
 		riftwii::wii::ForgetProfilePictures();
 		g_forgetPicturesAfterScan = false;
@@ -5264,6 +5296,7 @@ static int MenuSource(FrontendState& state)
 						// the Wii Menu's effects loaded if now on, and the music
 						// started again from the new theme and settings.
 						riftwii::wii::LoadWiiMenuSounds();
+						riftwii::wii::MenuMusicForgetPick();
 						riftwii::wii::MenuMusicStop();
 						riftwii::wii::MenuMusicStart();
 						g_forgetPicturesAfterScan = true;
@@ -10222,6 +10255,171 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 }
 
 // ---------------------------------------------------------------------------
+// Settings > Music file: the SD card's and the USB drive's folders, to pick
+// a song, a playlist or a whole folder to shuffle (settings.txt music_file).
+// True with the pick in `choice` ("" for RiftWii's own music) when one was
+// made. With the GUI halted, as MenuPickCodes.
+
+static bool MenuPickMusic(std::string& choice)
+{
+	// "" is the top (the drives); "sd:" and "usb:" a drive's top; else a
+	// folder with no '/' at its end ("usb:/Music").
+	std::string folder;
+	const std::string current = riftwii::wii::Settings().music_file;
+	const bool usbReadable = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
+	if (!current.empty() && (current.compare(0, 4, "usb:") != 0 || usbReadable)) {
+		std::string start = current;
+		if (riftwii::music_choice_is_folder(start)) start.pop_back();
+		folder = start.substr(0, start.rfind('/'));
+	}
+	const auto isDriveTop = [&]() { return folder == "sd:" || folder == "usb:"; };
+	const auto listed = [&]() { return isDriveTop() ? folder + "/" : folder; };
+	const auto folderChoice = [&]() { return listed() + (isDriveTop() ? "" : "/"); };
+	enum class RowWhat { Up, Default, Drive, Shuffle, Folder, File };
+	std::vector<RowWhat> whats;
+	std::vector<std::string> names;
+	std::vector<FlowRow> rows;
+	const auto fill = [&]() {
+		whats.clear();
+		names.clear();
+		rows.clear();
+		const auto add = [&](RowWhat what, const std::string& name, const std::string& label, const std::string& value,
+				     bool on, bool dim = false) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = label;
+			row.value = value;
+			row.on = on;
+			row.dim = dim;
+			rows.push_back(row);
+			whats.push_back(what);
+			names.push_back(name);
+		};
+		if (folder.empty()) {
+			add(RowWhat::Default, "", tr("RiftWii's own music"), tr("Pick"), current.empty());
+			add(RowWhat::Drive, "sd:", tr("SD card"), "", current.compare(0, 4, "sd:/") == 0);
+			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
+			add(RowWhat::Drive, "usb:", tr("USB drive"), "", current.compare(0, 5, "usb:/") == 0, !usbReady);
+			return;
+		}
+		add(RowWhat::Up, "", tr("Up a folder"), "", false);
+		add(RowWhat::Shuffle, "", tr("Shuffle this folder"), tr("Shuffle"), current == folderChoice());
+		for (const riftwii::MusicFolderEntry& e : riftwii::wii::MenuMusicBrowse(listed())) {
+			const std::string path = listed() + (isDriveTop() ? "" : "/") + e.name;
+			if (e.is_directory)
+				add(RowWhat::Folder, e.name, e.name + "/", "", current.compare(0, path.size() + 1, path + "/") == 0);
+			else
+				add(RowWhat::File, e.name, e.name, tr("Play"), current == path);
+		}
+	};
+	fill();
+
+	GuiText titleTxt(tr("Music file"), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconSound);
+	std::string whereText = folder.empty() ? std::string() : listed();
+	GuiText whereTxt(whereText.c_str(), 16, skin::kInkDim);
+	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	whereTxt.SetPosition(-40, 40);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	// In a folder, its first song or folder, not the way up.
+	const auto firstRow = [&]() { return folder.empty() ? 0 : std::min<int>(2, static_cast<int>(rows.size()) - 1); };
+	list.Select(firstRow());
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	const std::string help = tr("Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.");
+	noteTxt.SetText(help.c_str());
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&whereTxt);
+	w.Append(&noteCard);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	bool picked = false;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int acted = list.GetClicked();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < rows.size()) {
+			const std::size_t at = static_cast<std::size_t>(acted);
+			bool moved = false;
+			switch (whats[at]) {
+				case RowWhat::Default:
+					choice.clear();
+					picked = done = true;
+					break;
+				case RowWhat::Drive:
+					if (rows[at].dim) {
+						noteTxt.SetText(tr("There is no USB drive, or RiftWii has not finished reading it yet."));
+						break;
+					}
+					folder = names[at];
+					moved = true;
+					break;
+				case RowWhat::Up:
+					folder = isDriveTop() ? std::string() : folder.substr(0, folder.rfind('/'));
+					moved = true;
+					break;
+				case RowWhat::Folder:
+					folder = listed() + (isDriveTop() ? "" : "/") + names[at];
+					moved = true;
+					break;
+				case RowWhat::Shuffle:
+					if (riftwii::wii::MenuMusicFolderSongs(folderChoice()) == 0) {
+						noteTxt.SetText(tr("There are no .ogg or .mp3 songs in this folder or the folders in it."));
+						break;
+					}
+					choice = folderChoice();
+					picked = done = true;
+					break;
+				case RowWhat::File:
+					choice = listed() + (isDriveTop() ? "" : "/") + names[at];
+					picked = done = true;
+					break;
+			}
+			if (moved) {
+				fill();
+				whereText = folder.empty() ? std::string() : listed();
+				whereTxt.SetText(whereText.c_str());
+				list.Refresh();
+				list.Select(firstRow());
+				noteTxt.SetText(help.c_str());
+			}
+		}
+		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return picked;
+}
+
+// ---------------------------------------------------------------------------
 // Mods: the packs made for the game, opened from the game page.
 
 // A mod's picture beside its row while it is pointed at (or focused): the
@@ -12276,7 +12474,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12395,6 +12593,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			kWiiMusic, FlowRow::Kind::Toggle);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
+		FlowRow musicFile;
+		musicFile.kind = FlowRow::Kind::Action;
+		musicFile.label = tr("Music file");
+		musicFile.value = MusicFileName(settings.music_file);
+		musicFile.on = !settings.music_file.empty();
+		musicFile.dim = settings.menu_music == "off";
+		rows.push_back(musicFile);
+		actions.push_back(kMusicFile);
 		option(tr("Launch music"), settings.launch_music == "off" ? tr("Fade out") : tr("Keep playing"),
 			settings.launch_music != "off", kLaunchMusic);
 		// Without menu music there is nothing to keep or fade.
@@ -12554,7 +12760,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kPlayHistory: case kDiscTile: case kClockFormat:
 				case kNoClock:
 					return SettingsSection::HomeScreen;
-				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kLaunchMusic:
+				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
 				case kOnline: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
@@ -12671,6 +12877,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
+			case kMusicFile: return MusicFileNote(settings.music_file);
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -12962,6 +13169,31 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					}
 					rebuild();
 					break;
+				case kMusicFile: {
+					if (settings.menu_music == "off") {
+						note(tr("Menu music is off. Turn it on first."));
+						break;
+					}
+					std::string choice;
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					const bool picked = MenuPickMusic(choice);
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+					if (!picked || choice == settings.music_file) {
+						note(MusicFileNote(settings.music_file));
+						break;
+					}
+					settings.music_file = choice;
+					if (!saveOrUndo()) break;
+					logf("Settings: menu music is now %s\n", choice.empty() ? "RiftWii's own" : choice.c_str());
+					riftwii::wii::MenuMusicStop();
+					riftwii::wii::MenuMusicStart();
+					// The note follows the start: it says when the pick did not play.
+					note(MusicFileNote(settings.music_file));
+					rebuild();
+					break;
+				}
 				case kLaunchMusic:
 					settings.launch_music = settings.launch_music == "off" ? "on" : "off";
 					saveAndNote(tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."));

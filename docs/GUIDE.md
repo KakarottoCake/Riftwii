@@ -522,6 +522,31 @@ the tiles.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
+- **Music file** (right after Menu music): your own menu music from the SD
+  card or the USB drive. Press A to open a picker that walks the drives'
+  folders, then pick one of:
+  - a song, `.ogg` or `.mp3` (up to 6 MB each), which loops;
+  - a playlist, `.m3u` or `.m3u8`, as a PC's music player saves it (paths
+    with `\` and a drive letter like `E:\Music\song.mp3` are read from the
+    top of the drive the playlist is on; relative paths from the playlist's
+    own folder). Paths starting with `/` are read from the top of the
+    playlist's SD card or USB drive: `/Music/song.mp3` in
+    `sd:/lists/car.m3u` means `sd:/Music/song.mp3`. Its songs play in a
+    shuffled order;
+  - **Shuffle this folder**, which plays every `.ogg` and `.mp3` in that
+    folder and up to three folders inside it, in a shuffled order, and
+    shuffles again when it has played them all.
+
+  These are the formats WiiFlow Lite's music player takes. Your pick plays
+  ahead of a theme's music and the Wii Menu music; if nothing in it can be
+  played (the file is gone, the USB drive is not plugged in), RiftWii's own
+  music plays and the note says why. A pick on the USB drive starts once
+  RiftWii has read the drive. When a song ends the screen holds still for
+  the moment the next one takes to read. *RiftWii's own music* at the top of
+  the picker goes back to `music.ogg`. Without the picker, write it in
+  `settings.txt`: `music_file = usb:/Music/` (a folder, ending in `/`),
+  `music_file = sd:/music/song.mp3` or `music_file = sd:/lists/car.m3u`;
+  `music_file =` with nothing after it is RiftWii's own.
 - **Wii Menu sounds** and **Wii Menu music** (both Off at first): use your
   console's own System Menu sounds and background music. RiftWii reads
   `IplSound.brsar` from the System Menu title on your Wii's NAND, once per

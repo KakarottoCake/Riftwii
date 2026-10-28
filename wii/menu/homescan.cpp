@@ -147,6 +147,12 @@ bool DriveScanDone() {
     return g_done;
 }
 
+bool DriveScanFinished() {
+    if (g_lock == LWP_MUTEX_NULL) return false;
+    Lock lock;
+    return g_done;
+}
+
 void WaitDriveScan() {
     if (g_thread == LWP_THREAD_NULL) return;
     LWP_JoinThread(g_thread, nullptr);

@@ -6959,6 +6959,96 @@ FR.update({
     "Front of the box": "Face de la boîte",
 })
 
+T.update({
+    # Settings > Music file (the player's own menu music) and its picker
+    "Music file": ("Archivo de música", "音楽ファイル", "Arquivo de música", "File musicale"),
+    "RiftWii's own": ("La de RiftWii", "RiftWiiのもの", "A do RiftWii", "Quella di RiftWii"),
+    "{1} (shuffled)": ("{1} (aleatorio)", "{1} (シャッフル)", "{1} (aleatório)", "{1} (casuale)"),
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.": (
+        "Tu música está en la unidad USB. Empezará cuando RiftWii haya leído la unidad.",
+        "音楽はUSBドライブにあります。RiftWiiがドライブを読み終えると始まります。",
+        "Sua música está na unidade USB. Ela começa quando o RiftWii terminar de ler a unidade.",
+        "La tua musica è sull'unità USB. Parte quando RiftWii ha finito di leggere l'unità."),
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.": (
+        "No se pudo reproducir nada de {1}, así que suena la música de RiftWii. Pulsa A para elegir otra cosa.",
+        "{1} の中に流せる曲がないため、RiftWiiの音楽を流します。Aでほかのものを選びます。",
+        "Nada em {1} pôde ser tocado, então toca a música do RiftWii. Aperte A para escolher outra coisa.",
+        "Niente in {1} si può riprodurre, quindi suona la musica di RiftWii. Premi A per scegliere altro."),
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.": (
+        "Tu propia música del menú: una canción, una lista o una carpeta entera en orden aleatorio, de la tarjeta SD o la unidad USB. Pulsa A para elegirla.",
+        "自分のメニュー音楽: SDカードかUSBドライブの曲、プレイリスト、またはフォルダ全体をシャッフルで。Aで選びます。",
+        "Sua própria música do menu: uma música, uma playlist ou uma pasta inteira em ordem aleatória, do cartão SD ou da unidade USB. Aperte A para escolher.",
+        "La tua musica del menu: un brano, una playlist o un'intera cartella in ordine casuale, dalla scheda SD o dall'unità USB. Premi A per sceglierla."),
+    "Menu music is off. Turn it on first.": (
+        "La música del menú está desactivada. Actívala primero.",
+        "メニューの音楽がオフです。先にオンにしてください。",
+        "A música do menu está desligada. Ligue-a primeiro.",
+        "La musica del menu è disattivata. Prima attivala."),
+    "RiftWii's own music": ("La música de RiftWii", "RiftWiiの音楽", "A música do RiftWii", "La musica di RiftWii"),
+    "Up a folder": ("Subir una carpeta", "ひとつ上のフォルダ", "Subir uma pasta", "Cartella superiore"),
+    "Shuffle this folder": ("Esta carpeta en aleatorio", "このフォルダをシャッフル", "Esta pasta em aleatório", "Questa cartella in casuale"),
+    "Shuffle": ("Aleatorio", "シャッフル", "Aleatório", "Casuale"),
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.": (
+        "Elige una canción (.ogg o .mp3) o una lista (.m3u/.m3u8), o abre una carpeta y elige Esta carpeta en aleatorio para oír todas sus canciones en orden aleatorio.",
+        "曲 (.ogg か .mp3) かプレイリスト (.m3u/.m3u8) を選ぶか、フォルダを開いて「このフォルダをシャッフル」を選ぶと、その中の曲をすべてシャッフルで流します。",
+        "Escolha uma música (.ogg ou .mp3) ou uma playlist (.m3u/.m3u8), ou abra uma pasta e escolha Esta pasta em aleatório para ouvir todas as músicas dela em ordem aleatória.",
+        "Scegli un brano (.ogg o .mp3) o una playlist (.m3u/.m3u8), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."),
+    "There is no USB drive, or RiftWii has not finished reading it yet.": (
+        "No hay unidad USB, o RiftWii aún no ha terminado de leerla.",
+        "USBドライブがないか、RiftWiiがまだ読み終えていません。",
+        "Não há unidade USB, ou o RiftWii ainda não terminou de lê-la.",
+        "Non c'è un'unità USB, oppure RiftWii non ha ancora finito di leggerla."),
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.": (
+        "No hay canciones .ogg ni .mp3 en esta carpeta ni en sus carpetas.",
+        "このフォルダとその中のフォルダに .ogg や .mp3 の曲がありません。",
+        "Não há músicas .ogg nem .mp3 nesta pasta nem nas pastas dentro dela.",
+        "Non ci sono brani .ogg o .mp3 in questa cartella né nelle sue cartelle."),
+})
+KO.update({
+    "Music file": "음악 파일",
+    "RiftWii's own": "RiftWii 기본",
+    "{1} (shuffled)": "{1} (셔플)",
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.":
+        "음악이 USB 드라이브에 있습니다. RiftWii가 드라이브를 다 읽으면 재생됩니다.",
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.":
+        "{1}에서 재생할 수 있는 것이 없어 RiftWii 기본 음악을 재생합니다. A를 누르면 다른 것을 고릅니다.",
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.":
+        "나만의 메뉴 음악: SD 카드나 USB 드라이브의 곡, 재생 목록 또는 폴더 전체를 셔플로 재생합니다. A를 누르면 고릅니다.",
+    "Menu music is off. Turn it on first.": "메뉴 음악이 꺼져 있습니다. 먼저 켜 주세요.",
+    "RiftWii's own music": "RiftWii 기본 음악",
+    "Up a folder": "상위 폴더",
+    "Shuffle this folder": "이 폴더 셔플",
+    "Shuffle": "셔플",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u/.m3u8)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다.",
+    "There is no USB drive, or RiftWii has not finished reading it yet.":
+        "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니다.",
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.":
+        "이 폴더와 그 안의 폴더에 .ogg나 .mp3 곡이 없습니다.",
+})
+FR.update({
+    "Music file": "Fichier musical",
+    "RiftWii's own": "Celle de RiftWii",
+    "{1} (shuffled)": "{1} (aléatoire)",
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.":
+        "Votre musique est sur le disque USB. Elle démarre une fois que RiftWii a lu le disque.",
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.":
+        "Rien dans {1} n'a pu être lu, la musique de RiftWii joue donc. Appuyez sur A pour choisir autre chose.",
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.":
+        "Votre propre musique de menu : un morceau, une playlist ou tout un dossier en aléatoire, depuis la carte SD ou le disque USB. Appuyez sur A pour la choisir.",
+    "Menu music is off. Turn it on first.": "La musique du menu est désactivée. Activez-la d'abord.",
+    "RiftWii's own music": "La musique de RiftWii",
+    "Up a folder": "Dossier parent",
+    "Shuffle this folder": "Ce dossier en aléatoire",
+    "Shuffle": "Aléatoire",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "Choisissez un morceau (.ogg ou .mp3) ou une playlist (.m3u/.m3u8), ou ouvrez un dossier et choisissez Ce dossier en aléatoire pour écouter tous ses morceaux dans un ordre aléatoire.",
+    "There is no USB drive, or RiftWii has not finished reading it yet.":
+        "Il n'y a pas de disque USB, ou RiftWii n'a pas encore fini de le lire.",
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.":
+        "Il n'y a aucun morceau .ogg ou .mp3 dans ce dossier ni dans ses sous-dossiers.",
+})
+
 
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
