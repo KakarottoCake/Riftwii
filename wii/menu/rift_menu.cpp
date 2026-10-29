@@ -2565,7 +2565,9 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		: moving ? tr("1: view   2: settings   -/+: pages   B+A: move")
 		: tr("1: view   2: settings   -/+: pages");
 	if (g_homePadHints) keys = tr("Y: view  Z: settings  L/R: pages");
-	const std::string genre = g_genre.empty() ? std::string() : " · " + GenreName(g_genre);
+	// The Homebrew view keeps a genre chosen elsewhere without using it: apps have none.
+	const bool genreShown = !g_genre.empty() && g_filter != Filter::Homebrew;
+	const std::string genre = genreShown ? " · " + GenreName(g_genre) : std::string();
 	return std::string(tr(FilterLabel(g_filter))) + genre + ": " + count + "\n" + keys;
 }
 
@@ -6355,11 +6357,12 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// GameTDB's database read in the background (started below): the
-		// games it lists as custom join the Mods view.
+		// games it lists as custom join the Mods view, and with a genre
+		// chosen, the games it gave that genre join Home's tiles.
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty())) {
 				const std::string focused = focusedTile();
 				takePress();
 				refreshKeepingTile(focused, false);
