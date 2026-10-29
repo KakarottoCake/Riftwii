@@ -29,6 +29,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "netsock.hpp"
 #include "plugins.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
@@ -199,6 +200,7 @@ void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
 }
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
+    NetStopForLaunch();
     // The backup first, as before the loader moved into the plugin: before
     // the game can write to the card.
     std::array<std::uint8_t, 12> physical_id{};

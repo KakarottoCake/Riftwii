@@ -27,7 +27,7 @@ installed can be deleted from it: it keeps their names in
 `sd:/riftwii/themes/.browser.txt`, and a theme you copied there yourself is
 left alone (the page asks before it replaces one of the same name).
 
-It needs Settings > Download names and cheats on. The list
+It needs Settings > Online > Downloads on. The list
 (`https://riftwii.github.io/themes/themes.json`) and every file come over
 https from riftwii.github.io only, and are treated as untrusted: the list
 is cut at 256 KB and 500 themes, a download must be exactly the size the
