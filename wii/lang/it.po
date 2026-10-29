@@ -597,9 +597,6 @@ msgstr "Riconoscimenti e licenza"
 msgid "View"
 msgstr "Vedi"
 
-msgid "Clear search"
-msgstr "Annulla ricerca"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "Un gioco GameCube va in una cartella tutta sua, come usb:/games/<il suo ID>/game.iso."
 
@@ -3348,6 +3345,36 @@ msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/rif
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
 
+msgid "No games here"
+msgstr "Nessun gioco qui"
+
+msgid "Show all games"
+msgstr "Mostra tutti i giochi"
+
+msgid "Show every drive"
+msgstr "Mostra tutte le unità"
+
+msgid "Games from: {1}"
+msgstr "Giochi da: {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "Nessun gioco corrisponde a \"{1}\"."
+
+msgid "No games with mods were found."
+msgstr "Nessun gioco con mod trovato."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "Nessuna app homebrew trovata in sd:/apps."
+
+msgid "No emulator games were found."
+msgstr "Nessun gioco per emulatori trovato."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "Nessun gioco qui è stato ancora giocato da RiftWii."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "Segna un gioco come preferito nella sua pagina."
+
 msgid "Downloads"
 msgstr "Download"
 
@@ -3369,11 +3396,11 @@ msgstr "Consente di scaricare nomi, copertine, trucchi, dettagli dei giochi, tem
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."
 
-msgid "Emulator games: Home > View > Emulators"
-msgstr "Giochi emulati: Home > Vedi > Emulatori"
+msgid "Emulator games: Home > Show > Emulators"
+msgstr "Giochi emulati: Home > Mostra > Emulatori"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
-msgstr "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Vedi > Emulatori."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
+msgstr "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Mostra > Emulatori."
 
 msgid "Left to the mod"
 msgstr "Lo decide la mod"
