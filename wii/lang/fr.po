@@ -3381,6 +3381,39 @@ msgstr "Déplacez {1} vers {2}."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}, à côté du dossier riivolution."
 
+msgid "Save location"
+msgstr "Emplacement des sauvegardes"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites."
+
+msgid "In use"
+msgstr "Utilisé"
+
+msgid "Use default options for this game"
+msgstr "Utiliser les réglages par défaut pour ce jeu"
+
+msgid "Use default options for this game?"
+msgstr "Utiliser les réglages par défaut pour ce jeu ?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent."
+
+msgid "Needed: {1}"
+msgstr "Nécessaire : {1}"
+
+msgid "Also works with: {1}"
+msgstr "Fonctionne aussi avec : {1}"
+
+msgid "Up and Down scroll"
+msgstr "Haut et Bas font défiler le texte"
+
+msgid "Up and Down scroll the story"
+msgstr "Haut et Bas font défiler l’histoire"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons."
 

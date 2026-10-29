@@ -3381,6 +3381,39 @@ msgstr "Mueve {1} a {2}."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}, junto a la carpeta riivolution."
 
+msgid "Save location"
+msgstr "Dónde van las partidas"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Cambiar esto nunca mueve ni borra las partidas que ya tienes."
+
+msgid "In use"
+msgstr "En uso"
+
+msgid "Use default options for this game"
+msgstr "Usar lo de Ajustes en este juego"
+
+msgid "Use default options for this game?"
+msgstr "¿Usar lo de Ajustes en este juego?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan como están."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan."
+
+msgid "Needed: {1}"
+msgstr "Necesarios: {1}"
+
+msgid "Also works with: {1}"
+msgstr "También funciona con: {1}"
+
+msgid "Up and Down scroll"
+msgstr "Arriba y Abajo desplazan el texto"
+
+msgid "Up and Down scroll the story"
+msgstr "Arriba y Abajo mueven la historia"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log."
 
