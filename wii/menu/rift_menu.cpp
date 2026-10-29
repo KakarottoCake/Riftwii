@@ -6520,7 +6520,9 @@ public:
 	// With the GUI halted, as Draw reads it.
 	void SetCoverName(std::string name) {
 		coverName = std::move(name);
+		// The old tile's picture goes, even if the game has none to show.
 		artRank = 0;
+		artShown = 0.0f;
 	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's band");

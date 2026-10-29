@@ -27,6 +27,9 @@ CoverFetch FetchEmulatorCover(const std::string& id, std::string& error);
 bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file);
 // Whether such a file is there (without reading it all).
 bool OwnCoverThere(const std::string& name);
+// Whether it starts as a PNG the cover reader would take (its first bytes
+// only: cheap enough for the menu thread; the reader still decodes it).
+bool OwnCoverLooksReadable(const std::string& name);
 // Forgets whether usb:/riftwii/covers was there: the USB scan is done (a
 // drive found, swapped or gone since).
 void ForgetUsbCoversFolder();

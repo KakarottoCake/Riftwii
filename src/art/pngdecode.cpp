@@ -163,6 +163,18 @@ struct Workspace {
 
 }  // namespace
 
+bool png_header_plausible(const std::uint8_t* head, std::size_t size, std::uint32_t max_side) {
+    static const std::uint8_t kSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+    if (!head || size < kPngHeaderBytes || std::memcmp(head, kSignature, 8) != 0) return false;
+    const auto be32 = [&](std::size_t at) {
+        return static_cast<std::uint32_t>(head[at]) << 24 | static_cast<std::uint32_t>(head[at + 1]) << 16 |
+               static_cast<std::uint32_t>(head[at + 2]) << 8 | head[at + 3];
+    };
+    if (be32(8) != 13 || std::memcmp(head + 12, "IHDR", 4) != 0) return false;
+    const std::uint32_t width = be32(16), height = be32(20);
+    return width >= 1 && height >= 1 && width <= max_side && height <= max_side;
+}
+
 std::uint32_t png_crc32(const std::uint8_t* data, std::size_t size) {
     static std::uint32_t table[256];
     static bool ready = false;
