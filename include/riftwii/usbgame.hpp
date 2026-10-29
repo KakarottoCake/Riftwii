@@ -56,6 +56,18 @@ bool catalog_image_format(const std::string& name, UsbImageFormat folder, UsbIma
 // GameCube images use the same names loose or in a game's own folder.
 bool is_gc_image_name(const std::string& name);
 
+// The name Nintendont gives a GameCube game's image in a folder of its own
+// ("game.iso", "disc2.iso", or .gcm/.rvz), in any case. A folder holding one
+// is a GameCube game's folder, wherever the folders around it are.
+bool is_gc_game_folder_image_name(const std::string& name);
+
+// Whether the GameCube scan looks into a folder at the top of a drive for
+// game folders laid out as Nintendont's (<folder>/<game>/game.iso), when
+// players keep them somewhere other than games (a "game1" left by a copy):
+// not a hidden name, not games, wbfs or a folder that holds homebrew,
+// loader settings or the Wii's own data.
+bool gc_scan_probes_top_folder(const std::string& name);
+
 // Preserve Wii lazy listing when the GameCube scan shares its folders:
 // skip a known Wii image, or a Wii-style path carrying an R/S ID6.
 bool gc_scan_should_open(const std::string& path, bool known_wii);

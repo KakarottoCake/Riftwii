@@ -726,6 +726,36 @@ void test_gc_scan_preserves_wii_lazy_listing() {
     }
 }
 
+void test_gc_top_folder_probe() {
+    // Nintendont's names for a game folder's images, in any case.
+    EXPECT_TRUE(is_gc_game_folder_image_name("game.iso"));
+    EXPECT_TRUE(is_gc_game_folder_image_name("GAME.GCM"));
+    EXPECT_TRUE(is_gc_game_folder_image_name("game.rvz"));
+    EXPECT_TRUE(is_gc_game_folder_image_name("disc2.iso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name("._game.iso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name("game.ciso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name("game.nkit.iso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name("ubuntu.iso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name("GALE01.iso"));
+    EXPECT_FALSE(is_gc_game_folder_image_name(""));
+
+    // A folder of games copied somewhere else is looked into; the folders
+    // the scans already walk and those of homebrew and loaders are not.
+    EXPECT_TRUE(gc_scan_probes_top_folder("game1"));
+    EXPECT_TRUE(gc_scan_probes_top_folder("GameCube"));
+    EXPECT_TRUE(gc_scan_probes_top_folder("games (old)"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("games"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("GAMES"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("wbfs"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("apps"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("wiiflow"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("riivolution"));
+    EXPECT_FALSE(gc_scan_probes_top_folder(".Trashes"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("System Volume Information"));
+    EXPECT_FALSE(gc_scan_probes_top_folder("a/b"));
+    EXPECT_FALSE(gc_scan_probes_top_folder(""));
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -880,6 +910,7 @@ int main() {
     test_ciso_detection();
     test_gc_second_disc_of();
     test_gc_disc_change_partner();
+    test_gc_top_folder_probe();
     test_gc_folder_skip_reason();
     test_catalog_folder_rules();
     test_gc_catalog_selection();

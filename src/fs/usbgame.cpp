@@ -393,6 +393,29 @@ bool is_gc_image_name(const std::string& name) {
     return has_extension(name, ".iso") || has_extension(name, ".gcm") || has_extension(name, ".rvz");
 }
 
+bool is_gc_game_folder_image_name(const std::string& name) {
+    if (!is_gc_image_name(name)) return false;
+    const std::size_t dot = name.rfind('.');
+    std::string stem = name.substr(0, dot);
+    for (char& c : stem) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return stem == "game" || stem == "disc2";
+}
+
+bool gc_scan_probes_top_folder(const std::string& name) {
+    if (name.empty() || name[0] == '.' || name.find_first_of("/\\:") != std::string::npos) return false;
+    std::string lower = name;
+    for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    static const char* const kNotProbed[] = {
+        "games", "wbfs", "apps", "private", "riftwii", "riivolution", "wiiflow", "usb-loader", "usbloader_gx",
+        "config", "codes", "txtcodes", "saves", "nands", "sneek", "title", "shared1", "shared2", "sys",
+        "ticket", "import", "meta", "tmp", "wad", "wads", "themes", "music", "controllers", "nintendont",
+        "system volume information",
+    };
+    for (const char* skip : kNotProbed)
+        if (lower == skip) return false;
+    return true;
+}
+
 bool gc_scan_should_open(const std::string& path, bool known_wii) {
     if (known_wii) return false;
     const std::string id = id_from_image_path(path);

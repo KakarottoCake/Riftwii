@@ -55,6 +55,10 @@ USB drive (FAT32 or NTFS). On a USB drive, make the same `wbfs` and
 | Wii game, `.rvz` | `games` | `games/Mario Kart Wii.rvz` |
 | GameCube game (`.iso`, `.gcm` or `.rvz`) | a **folder of its own** inside `games` | `games/Luigi's Mansion/game.iso` |
 
+GameCube game folders kept in another folder at the top of the drive
+(`game1/Luigi's Mansion/game.iso`, say) are found too, as long as the
+image is named `game.iso`, `game.gcm` or `game.rvz` as Nintendont names it.
+
 A big `.wbfs` that was split into pieces (`.wbfs`, `.wbf1`, `.wbf2`, …)
 is fine: keep all the pieces together in the same folder.
 
