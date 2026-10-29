@@ -189,9 +189,9 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
     state.game_disc_number = g.disc_number;
     state.disc_status = "USB: " + (g.display.empty() ? g.title : g.display) + "  (" + g.id + ")";
     state.launch_warning = rvz_warning(g);
-    // The full warning names the slots and the d2x version; the status
-    // line only carries the short form (the note is also in boot.log).
-    if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
+    // A short note for logs; the menu shows translated setup advice.
+    if (state.usb_catalog.cios == CiosReadiness::Missing)
+        state.disc_status += "  [no cIOS: install d2x for USB boot]";
     state.choices_path = std::string(kChoicesDir) + "/" + g.id + ".txt";
     error.clear();
     return true;
@@ -227,7 +227,8 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     if (g.gamecube && !g.gc_patch_source.empty())
         state.disc_status += "  [GameCube, made from " + g.gc_patch_source + " on first start]";
     else if (g.gamecube) state.disc_status += "  [GameCube]";
-    else if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
+    else if (state.sd_catalog.cios == CiosReadiness::Missing)
+        state.disc_status += "  [no cIOS: install d2x for SD boot]";
     state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
     error.clear(); return true;
 }

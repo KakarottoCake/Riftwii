@@ -41,6 +41,9 @@ struct NandChannel {
     // game to the SD card (movedchannels.hpp): its banner and program are
     // read from there, and the Wii only keeps its TMD, ticket and save.
     std::string content_bin;
+    std::string wad_path;          // drop-and-play source, empty for an installed channel
+    std::string wad_banner_cache;  // its decrypted banner on SD, never a key
+    Sha1Digest wad_stamp{};
     bool non_game = false;
 };
 
@@ -60,6 +63,10 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
 
 // Uses the listing's TMD and program-content check; a leftover TMD alone is not playable.
 bool emu_channel_program_present(const std::string& folder, std::uint64_t title_id);
+
+// Seed only missing system settings/certificates/ownership from this Wii
+// before a WAD starts from a previously empty full emulated NAND.
+bool prepare_wad_nand_system(const std::string& folder, std::string& error);
 
 // The whole banner file (content index 0), for the Channels view's banner
 // store (wii/menu/banners.hpp). False with `error` saying why.

@@ -13,6 +13,7 @@
 #include "banners.hpp"
 #include "log.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "riftwii/gcbanner.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/menumotion.hpp"
@@ -192,6 +193,47 @@ void PlainTev() {
 }
 
 }  // namespace
+
+void DrawChannelPicture(const u8* pixels, const RoundClip& clip, int alpha) {
+    if (!pixels || alpha <= 0 || clip.w <= 0 || clip.h <= 0) return;
+    GXTexObj texture;
+    GX_InitTexObj(&texture, const_cast<u8*>(pixels), kEmulatorBannerWidth, kEmulatorBannerHeight,
+                  GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP, GX_FALSE);
+    GX_InitTexObjLOD(&texture, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&texture, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+
+    // Draw only the rounded inside. The texture covers the whole tile;
+    // its outermost pixel is under the rim, just as an animated icon is.
+    constexpr int steps = 8;
+    const float radius = std::clamp(clip.radius, 0.0f, std::min(clip.w, clip.h) / 2);
+    const float centers_x[] = {clip.x + clip.w - radius, clip.x + radius,
+                               clip.x + radius, clip.x + clip.w - radius};
+    const float centers_y[] = {clip.y + radius, clip.y + radius,
+                               clip.y + clip.h - radius, clip.y + clip.h - radius};
+    const auto vertex = [&](float x, float y) {
+        GX_Position3f32(x, y, 0);
+        GX_Color4u8(255, 255, 255, static_cast<u8>(alpha));
+        GX_TexCoord2f32((x - clip.x + 1) / (clip.w + 2), (y - clip.y + 1) / (clip.h + 2));
+    };
+    GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 2 + 4 * (steps + 1));
+    vertex(clip.x + clip.w / 2, clip.y + clip.h / 2);
+    for (int corner = 0; corner < 4; ++corner) {
+        for (int step = 0; step <= steps; ++step) {
+            const float angle = (corner * 90.0f + step * 90.0f / steps) * 3.14159265f / 180.0f;
+            vertex(centers_x[corner] + radius * std::cos(angle), centers_y[corner] - radius * std::sin(angle));
+        }
+    }
+    vertex(centers_x[0] + radius, centers_y[0]);
+    GX_End();
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
 
 BannerPlayer::~BannerPlayer() { Free(); }
 

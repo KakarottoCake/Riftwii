@@ -115,6 +115,13 @@ Aes128::Aes128(const std::uint8_t key[16]) {
     }
 }
 
+Aes128::~Aes128() {
+    // Expanded keys are just as sensitive as the original key. Volatile
+    // writes keep the wipe when the AES object is no longer used.
+    volatile std::uint8_t* bytes = reinterpret_cast<std::uint8_t*>(round_keys_);
+    for (std::size_t i = 0; i < sizeof round_keys_; ++i) bytes[i] = 0;
+}
+
 void Aes128::encrypt_block(const std::uint8_t in[16], std::uint8_t out[16]) const {
     const Boxes& b = boxes();
     std::uint8_t st[16];
