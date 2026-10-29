@@ -10,6 +10,8 @@
 
 #include "gui.h"
 
+#include <cmath>
+
 /**
  * Constructor for the Object class.
  */
@@ -73,7 +75,11 @@ GuiElement * GuiElement::GetParent()
 
 int GuiElement::GetLeft()
 {
-	int x = 0;
+	// Kept fractional until the end and floored once (RiftWii): an int
+	// here dropped half a pixel twice for a scaled, centred element, and
+	// towards zero, so a button's icon sat a pixel off its centre, right
+	// of it at a negative x (a 16:9 menu's left edge), left at a positive.
+	double x = 0;
 	int pWidth = 0;
 	int pLeft = 0;
 
@@ -99,12 +105,13 @@ int GuiElement::GetLeft()
 			break;
 	}
 	x += (width*(xscale - 1))/2.0; // correct offset for scaled images
-	return x + xoffset;
+	return static_cast<int>(std::floor(x)) + xoffset;
 }
 
 int GuiElement::GetTop()
 {
-	int y = 0;
+	// Floored once, as GetLeft.
+	double y = 0;
 	int pHeight = 0;
 	int pTop = 0;
 
@@ -130,7 +137,7 @@ int GuiElement::GetTop()
 			break;
 	}
 	y += (height*(yscale - 1))/2.0; // correct offset for scaled images
-	return y + yoffset;
+	return static_cast<int>(std::floor(y)) + yoffset;
 }
 
 void GuiElement::SetMinX(int x)

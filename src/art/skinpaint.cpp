@@ -527,22 +527,24 @@ struct Painter {
                 }
             }
         } else if (kind == 2) {
+            // Covers and the curve under them centred down the square, as
+            // the other layouts' pictures are (a button centres the square).
             for (int column = 0; column < 5; ++column) {
                 const float distance = std::abs(column - 2);
                 const float x = 1.0f + column * 5.5f;
-                const float y = 8.0f + (2 - distance) * 2.0f;
+                const float y = 6.0f + (2 - distance) * 2.0f;
                 c.rounded_border(x, y, 4, 10, 0.8f, 1.3f, glyph);
             }
-            c.line(3, 21, 8, 23, 1.5f, accent);
-            c.line(8, 23, 14, 24, 1.5f, accent);
-            c.line(14, 24, 20, 23, 1.5f, accent);
-            c.line(20, 23, 25, 21, 1.5f, accent);
+            c.line(3, 19, 8, 21, 1.5f, accent);
+            c.line(8, 21, 14, 22, 1.5f, accent);
+            c.line(14, 22, 20, 21, 1.5f, accent);
+            c.line(20, 21, 25, 19, 1.5f, accent);
         } else if (kind == 3) {
             for (int column = 0; column < 5; ++column) {
                 const float x = 3.0f + column * 4.5f;
-                c.rounded_rect(x, 5 + column % 2 * 2, 3, 17 - column % 2 * 2, 0.7f, glyph);
+                c.rounded_rect(x, 4 + column % 2 * 2, 3, 17 - column % 2 * 2, 0.7f, glyph);
             }
-            c.line(2, 24, 26, 24, 2, accent);
+            c.line(2, 23, 26, 23, 2, accent);
         } else if (kind == 4) {
             for (int row = 0; row < 2; ++row) {
                 for (int column = 0; column < 2; ++column) {
@@ -550,10 +552,12 @@ struct Painter {
                 }
             }
         } else {
+            // A pixel left of the square's middle: the light dots weigh
+            // less than the dark lines, which look centred this way.
             for (int row = 0; row < 4; ++row) {
                 const float y = 5.0f + row * 6;
-                c.circle(3.5f, y, 1.2f, accent);
-                c.line(8, y, row % 2 == 0 ? 25 : 21, y, 2, glyph);
+                c.circle(2.5f, y, 1.2f, accent);
+                c.line(7, y, row % 2 == 0 ? 24 : 20, y, 2, glyph);
             }
         }
         return c;
