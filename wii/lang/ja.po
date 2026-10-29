@@ -3393,6 +3393,9 @@ msgstr "画像を保存できませんでした。"
 msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
 msgstr "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？"
 
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "この画像は手動で追加または変更されています。選んだ画像に置き換えますか？"
+
 msgid "Downloads"
 msgstr "ダウンロード"
 

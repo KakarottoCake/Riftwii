@@ -2911,7 +2911,7 @@ msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put t
 msgstr "{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다."
 
 msgid "Replace"
-msgstr "교체"
+msgstr "바꾸기"
 
 msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
 msgstr "{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다."
@@ -3392,6 +3392,9 @@ msgstr "그림을 저장하지 못했습니다."
 
 msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
 msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?"
 
 msgid "Downloads"
 msgstr "다운로드"
