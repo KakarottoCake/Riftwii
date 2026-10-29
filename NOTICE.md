@@ -265,9 +265,9 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   RiftWii's own. Nintendont is already credited in the README's Credits
   and `wii/menu/credits.cpp`.
 
-## Emulator cover services
+## Emulator artwork services
 
-RiftWii downloads emulator covers from [libretro-thumbnails](https://github.com/libretro-thumbnails/libretro-thumbnails)
+RiftWii downloads emulator covers and Channels pictures (title screens and wide grids) from [libretro-thumbnails](https://github.com/libretro-thumbnails/libretro-thumbnails)
 via https://thumbnails.libretro.com/, and optionally from [SteamGridDB](https://www.steamgriddb.com/api/v2)
 with the player's own key. No service code or artwork is bundled. The source
 protocols and the implementation in `src/art/emulatorart.cpp` and

@@ -323,6 +323,13 @@ For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
 from the console while it runs; nothing like it ships with RiftWii or is
 written to the card. A game without a banner shows its name tile.
 
+Emulator games show a title screen from libretro, then an optional wide
+SteamGridDB picture, with their cover's middle band as the fallback. You can
+supply a picture at `sd:/riftwii/banners/emulators/<system>/<game name>.png`;
+it works offline and takes priority. Pictures fill the tile without stretching.
+The emulator-cover download settings also apply to these pictures; see
+[Emulator Channels pictures](EMULATORS.md#channels-pictures).
+
 ### A game's page
 
 Games you start show on the Wii Message Board with how long you
