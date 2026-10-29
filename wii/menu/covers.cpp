@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <zlib.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -397,7 +398,9 @@ bool ChooseCoverSet(const std::string& game_id, bool second) {
     // A miss was the other set's: this one is asked for afresh.
     std::remove(MissPath(game_id).c_str());
     if (!second) {
-        std::remove(SecondSetPath(game_id).c_str());
+        // Not there already is the first set; any other error leaves it.
+        errno = 0;
+        if (std::remove(SecondSetPath(game_id).c_str()) != 0 && errno != ENOENT) return false;
         return !CoverSecondSet(game_id);
     }
     mkdir("sd:/riftwii", 0777);
