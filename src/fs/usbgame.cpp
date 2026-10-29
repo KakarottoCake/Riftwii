@@ -431,6 +431,16 @@ bool join_game_path(const std::string& directory, const std::string& name, std::
     return true;
 }
 
+// In a game's folder: below games/, wbfs/ or one of folder_roots.
+bool in_game_folder_of(const std::string& device, const std::string& d, const std::vector<std::string>& folder_roots) {
+    if (d.compare(0, device.size() + 6, device + "games/") == 0 || d.compare(0, device.size() + 5, device + "wbfs/") == 0)
+        return true;
+    return std::any_of(folder_roots.begin(), folder_roots.end(), [&](const std::string& root) {
+        return root.compare(0, device.size(), device) == 0 && d.size() > root.size() + 1 &&
+               d.compare(0, root.size(), root) == 0 && d[root.size()] == '/';
+    });
+}
+
 std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
                                       const std::vector<std::string>& folder_roots) {
     std::vector<int> hidden_by;
@@ -458,18 +468,8 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
         const std::string directory = image.path.substr(0, slash);
         const std::size_t device_end = image.path.find('/');
         const std::string device = image.path.substr(0, device_end + 1);
-        // In a game's folder: below games/, wbfs/ or one of folder_roots.
-        const auto in_game_folder = [&](const std::string& d) {
-            if (d.compare(0, device.size() + 6, device + "games/") == 0 ||
-                d.compare(0, device.size() + 5, device + "wbfs/") == 0)
-                return true;
-            return std::any_of(folder_roots.begin(), folder_roots.end(), [&](const std::string& root) {
-                return root.compare(0, device.size(), device) == 0 && d.size() > root.size() + 1 &&
-                       d.compare(0, root.size(), root) == 0 && d[root.size()] == '/';
-            });
-        };
+        const auto in_game_folder = [&](const std::string& d) { return in_game_folder_of(device, d, folder_roots); };
         const bool loose = directory == device + "games" || directory == device + "wbfs";
-        const bool nested = in_game_folder(directory);
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
             // Overlapping custom roots can encounter the same file twice.
@@ -492,12 +492,28 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }
-            const bool other_loose = other_directory == device + "games" || other_directory == device + "wbfs";
-            if (nested && other_loose && image.disc_number == 0 && images[j].disc_number == 0 &&
-                !has_second_disc[i] && has_second_disc[j]) {
-                hidden_by[i] = static_cast<int>(j);
-                break;
-            }
+        }
+    }
+    // An incomplete folder copy yields to a loose pair only while that pair
+    // stays visible; if the pair is itself hidden by another folder copy,
+    // the two folder copies remain separate.
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        const GcCatalogImage& image = images[i];
+        if (hidden_by[i] >= 0 || image.disc_number != 0 || has_second_disc[i]) continue;
+        const std::size_t slash = image.path.rfind('/');
+        if (slash == std::string::npos) continue;
+        const std::string device = image.path.substr(0, image.path.find('/') + 1);
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (i == j || hidden_by[j] >= 0 || image.id != images[j].id || images[j].disc_number != 0 ||
+                !has_second_disc[j])
+                continue;
+            const std::size_t other_slash = images[j].path.rfind('/');
+            if (other_slash == std::string::npos) continue;
+            const std::string other_directory = images[j].path.substr(0, other_slash);
+            if (other_directory != device + "games" && other_directory != device + "wbfs") continue;
+            if (!in_game_folder_of(device, image.path.substr(0, slash), folder_roots)) continue;
+            hidden_by[i] = static_cast<int>(j);
+            break;
         }
     }
     return hidden_by;

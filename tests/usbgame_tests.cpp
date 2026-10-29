@@ -695,6 +695,15 @@ void test_gc_catalog_selection() {
         EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{1, -1}));
         std::reverse(images.begin(), images.end());
         EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, 0}));
+
+        // A loose pair hidden by a complete folder copy must not also hide
+        // another folder's incomplete copy: the two folder copies stay apart.
+        images = {{root + "/game.iso", "GXXE01", 0},
+                  {root + "/disc2.iso", "GXXE01", 1},
+                  {root + "/A/game.iso", "GXXE01", 0},
+                  {root + "/A/disc2.iso", "GXXE01", 1},
+                  {root + "/B/game.iso", "GXXE01", 0}};
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{2, 0, -1, 2, -1}));
     }
     const std::vector<GcCatalogImage> separate_devices = {
         {"sd:/games/Luigi.iso", "GLME01", 0}, {"usb:/games/Luigi/game.rvz", "GLME01", 0}
