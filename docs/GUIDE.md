@@ -229,9 +229,16 @@ when released; L held with a D-pad letter jump does not page again on
 release. L and R together never page, keeping L+R+Down for screenshots.
 Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
-game of the next or the previous letter (Down and Up turn a
-page); B pressed alone on a Wii Remote, Classic Controller or GamePad jumps
-to the next letter. Letter jumps work in A to Z order. The magnifier button
+game of the next or the previous letter; B pressed alone on a Wii Remote,
+Classic Controller or GamePad jumps to the next letter. Letter jumps work in
+A to Z order. Hold **B** (L on a GameCube controller) and press **Down** or
+**Up** to pick a genre: a list of the genres your games have shows in the
+middle of the screen (the most common first), and holding Down or Up scrolls
+through it. Let go of B (or L) and Home shows only that genre's games; pick
+**Every genre** to see them all again. The genres come from GameTDB's game
+details, so they need Settings > Online > Downloads on (without a local
+GameTDB copy, a game's About page offers the download only when Downloads
+is on). The magnifier button
 above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus

@@ -6310,6 +6310,26 @@ T['The SD card is back in. Reading it again.'] = ('La tarjeta SD está de vuelta
 KO['The SD card is back in. Reading it again.'] = 'SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다.'
 FR['The SD card is back in. Reading it again.'] = 'La carte SD est de retour. Nouvelle lecture en cours.'
 
+T['A search looks through every genre. Press 1 to end it first.'] = ('Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero.', '検索はすべてのジャンルから探します。先に1を押して検索を終えてください。', 'Uma busca procura em todos os gêneros. Aperte 1 para encerrá-la primeiro.', 'Una ricerca guarda in tutti i generi. Premi 1 per terminarla prima.')
+KO['A search looks through every genre. Press 1 to end it first.'] = '검색은 모든 장르에서 찾습니다. 먼저 1을 눌러 검색을 끝내 주세요.'
+FR['A search looks through every genre. Press 1 to end it first.'] = 'Une recherche parcourt tous les genres. Appuyez d’abord sur 1 pour la terminer.'
+
+T['Homebrew apps have no genres.'] = ('Las apps homebrew no tienen géneros.', 'ホームブリューのアプリにはジャンルがありません。', 'Os apps homebrew não têm gêneros.', 'Le app homebrew non hanno generi.')
+KO['Homebrew apps have no genres.'] = '홈브루 앱에는 장르가 없습니다.'
+FR['Homebrew apps have no genres.'] = 'Les applications homebrew n’ont pas de genre.'
+
+T['No genres yet.'] = ('Aún no hay géneros.', 'まだジャンルがありません。', 'Ainda não há gêneros.', 'Ancora nessun genere.')
+KO['No genres yet.'] = '아직 장르가 없습니다.'
+FR['No genres yet.'] = 'Pas encore de genres.'
+
+T['Every genre'] = ('Todos los géneros', 'すべてのジャンル', 'Todos os gêneros', 'Tutti i generi')
+KO['Every genre'] = '모든 장르'
+FR['Every genre'] = 'Tous les genres'
+
+T['Up/Down: genre   Let go: show'] = ('Arriba/Abajo: género   Suelta: mostrar', '上下: ジャンル   はなす: 表示', 'Cima/Baixo: gênero   Solte: mostrar', 'Su/Giù: genere   Rilascia: mostra')
+KO['Up/Down: genre   Let go: show'] = '위/아래: 장르   떼기: 보기'
+FR['Up/Down: genre   Let go: show'] = 'Haut/Bas : genre   Relâcher : afficher'
+
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"

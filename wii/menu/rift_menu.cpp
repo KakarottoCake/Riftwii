@@ -1141,6 +1141,11 @@ static void LoadFilter()
 	else if (it->second == "favorites") g_filter = Filter::Favorites;
 }
 
+// The GameTDB genre Home shows (B with Down or Up), as GameTDB spells it;
+// empty for every genre. Kept for the session across views, and let go
+// once the view shown has no game of it.
+static std::string g_genre;
+
 // What the player typed into the search; empty when none. While it is set
 // it picks from every game on the drives, whatever the filter.
 static std::string g_search;
@@ -1403,6 +1408,41 @@ static std::vector<std::size_t> HomeFilterCounts(const FrontendState& state)
 	return counts;
 }
 
+// A row's genres from the game details' cache (wii/online/gameinfo.hpp):
+// none for an emulator's game, or before GameTDB's database was read.
+static std::vector<std::string> HomeRowGenres(const HomeRow& row)
+{
+	std::vector<std::string> genres;
+	if (row.entry.kind == HomeEntry::Kind::Channel && row.id.size() >= 4)
+		// GameTDB lists channels under their four letters ("WBME"), not the six of the game ID.
+		riftwii::wii::PeekGameGenres(row.id.substr(0, 4), genres);
+	else if (row.entry.kind != HomeEntry::Kind::Emulator && !row.id.empty())
+		riftwii::wii::PeekGameGenres(row.id, genres);
+	return genres;
+}
+
+// The genres of the games the view shows, the most common first: what B
+// with Down or Up steps through. A game's profiles and its copies on two
+// drives count once.
+static std::vector<std::string> HomeGenreChoices(const FrontendState& state)
+{
+	std::vector<std::vector<std::string>> gameGenres;
+	std::set<std::string> counted;
+	for (const HomeRow& row : HomeRows(state, false)) {
+		if (!HomeRowMatchesFilter(row, g_filter) || !counted.insert(row.id.empty() ? row.key : row.id).second) continue;
+		gameGenres.push_back(HomeRowGenres(row));
+	}
+	return riftwii::genre_choices(gameGenres);
+}
+
+// "Kart racing": GameTDB's word with a capital.
+static std::string GenreName(const std::string& genre)
+{
+	std::string name = genre;
+	if (!name.empty() && name[0] >= 'a' && name[0] <= 'z') name[0] = static_cast<char>(name[0] - 'a' + 'A');
+	return name;
+}
+
 static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries,
 	bool searchOpen = false)
 {
@@ -1431,7 +1471,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	// and Favorites list particular games, so a tile that is none of them
 	// was only noise there.
 	const bool searching = searchOpen || !g_search.empty();
-	const bool discViews = !searching && (g_filter == Filter::Mods || g_filter == Filter::All);
+	// A genre lists particular games too: the disc drive has none.
+	const bool genreChosen = !searching && !g_genre.empty();
+	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All);
 	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
@@ -1455,6 +1497,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		const bool emulator = r.entry.kind == HomeEntry::Kind::Emulator;
 		// Search includes every scanned source, whatever Home's category.
 		if (!searching && !HomeRowMatchesFilter(r, g_filter)) continue;
+		if (genreChosen && !riftwii::has_genre(HomeRowGenres(r), g_genre)) continue;
 		const bool profile = !r.entry.profile.empty();
 		// A game GameTDB lists as custom (a hack or mod distribution with an
 		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
@@ -1483,6 +1526,14 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		item.caseColour = {caseRgb[0], caseRgb[1], caseRgb[2], 255};
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
+	}
+	// The view has no game of the genre (another view, or the drives read
+	// again): every genre again, rather than an empty Home.
+	if (genreChosen && items.empty()) {
+		logf("Home: no game here is %s, so every genre is shown again\n", g_genre.c_str());
+		g_genre.clear();
+		BuildHome(state, items, entries, searchOpen);
+		return;
 	}
 	// Settings > Home > Disc Channel off: the tile goes (an empty view keeps its
 	// note under the clock: Press 1 for all games).
@@ -1690,6 +1741,76 @@ private:
 	bool isError = false, on = false;
 	u64 start = 0;
 };
+// Home's genres while B is held with Up or Down: a card in the middle
+// with every genre ("Every genre" first) and the one picked lit. Seven
+// rows at most; the list scrolls to keep the pick in view, with arrows
+// where it goes on.
+class GenrePanel : public GuiElement {
+public:
+	GenrePanel() : title("", 17, skin::kInkSoft), hint("", 14, skin::kInkSoft) {
+		title.SetParent(this);
+		hint.SetParent(this);
+		for (std::unique_ptr<GuiText>& row : rows) {
+			row.reset(new GuiText("", 17, skin::kInk));
+			row->SetParent(this);
+			row->SetMaxWidth(kRowW - 24);
+		}
+	}
+	// `choices` as the genres' own names; `picked` -1 for every genre.
+	void Show(const std::vector<std::string>& choices, int picked) {
+		std::vector<std::string> names;
+		names.push_back(tr("Every genre"));
+		for (const std::string& genre : choices) names.push_back(GenreName(genre));
+		const int lit = picked + 1;
+		count = static_cast<int>(names.size());
+		shown = std::min(count, kRows);
+		// The window of rows around the pick.
+		first = std::max(0, std::min(lit - kRows / 2, count - shown));
+		litRow = lit - first;
+		for (int i = 0; i < shown; ++i) {
+			rows[i]->SetText(names[static_cast<std::size_t>(first + i)].c_str());
+			rows[i]->SetColor(i == litRow ? skin::kAccentInk : skin::kInk);
+		}
+		title.SetText(tr("Genre"));
+		hint.SetText(tr("Up/Down: genre   Let go: show"));
+		on = true;
+	}
+	void Hide() { on = false; }
+	void Draw() override {
+		if (!on) return;
+		const int boxH = kTitleH + shown * kRowH + kHintH;
+		// Centred over the tiles, above Home's bar.
+		const float x = 320 - kBoxW / 2.0f, y = std::max(36.0f, 180 - boxH / 2.0f);
+		skin::DrawNine(skin::card9, x - 8, y - 8, kBoxW + 16, boxH + 16, riftwii::kCardCorner);
+		title.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		title.SetPosition(static_cast<int>(x + kBoxW / 2.0f), static_cast<int>(y) + 8);
+		title.Draw();
+		const float rowsTop = y + kTitleH;
+		const float rowX = x + (kBoxW - kRowW) / 2.0f;
+		for (int i = 0; i < shown; ++i) {
+			const float rowY = rowsTop + i * kRowH;
+			if (i == litRow) skin::DrawNine(skin::chipOn, rowX - 2, rowY - 3, kRowW + 4, kRowH + 2, 14);
+			rows[i]->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+			rows[i]->SetPosition(static_cast<int>(rowX + kRowW / 2.0f), static_cast<int>(rowY + kRowH / 2.0f - 2));
+			rows[i]->Draw();
+		}
+		// More genres above or below the window.
+		const float arrowX = x + kBoxW - 30;
+		if (first > 0) skin::Draw(skin::scrollUp, arrowX, rowsTop - 2, 255, 0.6f);
+		if (first + shown < count) skin::Draw(skin::scrollDown, arrowX, rowsTop + shown * kRowH - 22, 255, 0.6f);
+		hint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		hint.SetPosition(static_cast<int>(x + kBoxW / 2.0f), static_cast<int>(rowsTop + shown * kRowH) + 6);
+		hint.Draw();
+	}
+private:
+	static constexpr int kRows = 7;
+	static constexpr int kBoxW = 280, kRowW = 220, kRowH = 30, kTitleH = 34, kHintH = 28;
+	GuiText title, hint;
+	std::unique_ptr<GuiText> rows[kRows];
+	int count = 0, shown = 0, first = 0, litRow = 0;
+	bool on = false;
+};
+
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
@@ -2463,7 +2584,10 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		: moving ? tr("1: view   2: settings   -/+: pages   B+A: move")
 		: tr("1: view   2: settings   -/+: pages");
 	if (g_homePadHints) keys = tr("Y: view  Z: settings  L/R: pages");
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + keys;
+	// The Homebrew view keeps a genre chosen elsewhere without using it: apps have none.
+	const bool genreShown = !g_genre.empty() && g_filter != Filter::Homebrew;
+	const std::string genre = genreShown ? " · " + GenreName(g_genre) : std::string();
+	return std::string(tr(FilterLabel(g_filter))) + genre + ": " + count + "\n" + keys;
 }
 
 class Panel : public GuiElement {
@@ -5462,6 +5586,7 @@ static int MenuSource(FrontendState& state)
 	BuildHome(state, items, entries);
 
 	HomeGameGrid grid;
+	grid.SetGenreKeys(true);
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	const std::string& homeTiles = riftwii::wii::Settings().home_tiles;
 	grid.SetShelf(homeTiles == "shelf" || homeTiles == "carousel" || homeTiles == "covers3d");
@@ -5693,6 +5818,8 @@ static int MenuSource(FrontendState& state)
 	w.Append(&coverZoom);
 	Toast toast;
 	w.Append(&toast);
+	GenrePanel genrePanel;
+	w.Append(&genrePanel);
 	mainWindow->Append(&w);
 	// News left for Home (a report sent, a new version): a notice as well,
 	// once. Home is built again each time Settings or a game's page is
@@ -5851,6 +5978,52 @@ static int MenuSource(FrontendState& state)
 		SetHomeMovable(grid, entries);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		showStatus();
+	};
+	// B with Down or Up (GuiGameGrid::GenreKeys): the next or the previous
+	// of the genres the view's games have, then every genre again, shown
+	// in the genre panel while B stays held. Letting go of B shows the
+	// games of the one picked (applyGenre): Home is rebuilt once, not at
+	// every step a held Down scrolls through.
+	std::vector<std::string> genreChoices;
+	std::string genrePicked;
+	bool genrePicking = false;
+	const auto stepGenre = [&](int step) {
+		if (!genrePicking) {
+			if (!g_search.empty()) {
+				toast.Show(tr("A search looks through every genre. Press 1 to end it first."), false);
+				return;
+			}
+			if (g_filter == Filter::Homebrew) {
+				toast.Show(tr("Homebrew apps have no genres."), false);
+				return;
+			}
+			genreChoices = HomeGenreChoices(state);
+			if (genreChoices.empty()) {
+				// Genres are in the details GameTDB's database gives each game.
+				toast.Show(std::string(tr("No genres yet.")) + " " +
+					tr("They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it."), false);
+				return;
+			}
+			genrePicked = g_genre;
+			genrePicking = true;
+		}
+		genrePicked = riftwii::step_genre(genreChoices, genrePicked, step);
+		int picked = -1;
+		for (std::size_t i = 0; i < genreChoices.size(); ++i)
+			if (genreChoices[i] == genrePicked) picked = static_cast<int>(i);
+		genrePanel.Show(genreChoices, picked);
+	};
+	const auto applyGenre = [&]() {
+		genrePicking = false;
+		genrePanel.Hide();
+		if (genrePicked == g_genre) return;
+		g_genre = genrePicked;
+		logf("Home: genre %s (%u genre(s) here)\n", g_genre.empty() ? "every one" : g_genre.c_str(),
+			static_cast<unsigned>(genreChoices.size()));
+		g_focusRestored = true;  // the player's own doing
+		// The tiles change: a press read before it would open another game.
+		grid.GetClicked();
+		refresh(false);
 	};
 	// A tile across a refresh: its drive as well as its game (one game on
 	// both the card and the drive has two tiles with the same key), and
@@ -6085,6 +6258,8 @@ static int MenuSource(FrontendState& state)
 			std::set<std::string> wanted;
 			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
 			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+			// Channels sit in the genre choices too.
+			for (const riftwii::wii::NandChannel& c : state.channels) if (!c.code.empty()) wanted.insert(c.code);
 			// No database on the card: downloaded first, as the game names are.
 			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
 			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
@@ -6315,15 +6490,27 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// GameTDB's database read in the background (started below): the
-		// games it lists as custom join the Mods view.
+		// games it lists as custom join the Mods view, and with a genre
+		// chosen, the games it gave that genre join Home's tiles.
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty() || genrePicking)) {
 				const std::string focused = focusedTile();
 				takePress();
 				refreshKeepingTile(focused, false);
 				putPressBack();
+				if (genrePicking) {
+					// The genres the read gave: the panel shows them while B is held.
+					genreChoices = HomeGenreChoices(state);
+					int picked = -1;
+					for (std::size_t i = 0; i < genreChoices.size(); ++i)
+						if (riftwii::has_genre({genreChoices[i]}, genrePicked)) {
+							picked = static_cast<int>(i);
+							genrePicked = genreChoices[i];
+						}
+					genrePanel.Show(genreChoices, picked);
+				}
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
@@ -6613,6 +6800,7 @@ static int MenuSource(FrontendState& state)
 				logf("Home: every drive is now shown\n");
 			} else {
 				g_search.clear();
+				g_genre.clear();
 				g_filter = Filter::All;
 				riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
 				// The games are shown either way; only remembering the view
@@ -6624,6 +6812,12 @@ static int MenuSource(FrontendState& state)
 			refresh(false);
 			matchHomebrewCovers();
 			addCovers();
+			ResumeGui();
+			continue;
+		}
+		if (const int genreStep = grid.TakeGenreStep(); genreStep != 0 && menu == MENU_NONE) stepGenre(genreStep);
+		if (genrePicking && !grid.GenreHeld()) {
+			applyGenre();
 			ResumeGui();
 			continue;
 		}
