@@ -1908,8 +1908,15 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     // A rescan must retry partitions that failed earlier, including after
     // the player repairs the drive on a computer and plugs it back in.
     unmount_usb_games();
-    if (!ensure_usb(error)) return false;
+    // Close the drive picked last time and forget it, so the scan picks
+    // from the drives plugged in now rather than retrying only that one.
+    if (g_picked.open) picked_shutdown();
+    g_picked.known = false;
+    const bool mounted = ensure_usb(error);
+    // Kept even when nothing mounted: then every partition failed, and
+    // Home and USB scan details still name them.
     out.partition_failures = g_usb_partition_failures;
+    if (!mounted) return false;
     if (g_usb_raw_disc) {
         out.games.push_back(g_usb_disc_game);
         apply_titles(out);

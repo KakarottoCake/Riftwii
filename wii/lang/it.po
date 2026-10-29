@@ -3360,6 +3360,9 @@ msgstr "USB: impossibile aprire {1} partizioni. Vedi Unità."
 msgid "USB scan details"
 msgstr "Dettagli ricerca USB"
 
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "Alcune partizioni dell'unità USB non si sono potute aprire. I giochi delle altre partizioni sono ancora mostrati. Apre l'elenco con il problema di ogni partizione e cosa fare."
+
 msgid "{1} MiB"
 msgstr "{1} MiB"
 

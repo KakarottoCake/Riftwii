@@ -3360,6 +3360,9 @@ msgstr "USB: {1}個のパーティションを開けませんでした。ドラ�
 msgid "USB scan details"
 msgstr "USBの読み込み結果"
 
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "USBドライブの一部のパーティションを開けませんでした。ほかのパーティションのゲームは表示されています。各パーティションの問題と、どうすればよいかの一覧を開きます。"
+
 msgid "{1} MiB"
 msgstr "{1} MiB"
 
