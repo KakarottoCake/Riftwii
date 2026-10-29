@@ -25,6 +25,9 @@ struct RoundClip {
     float x = 0, y = 0, w = 0, h = 0, radius = 0;
 };
 
+// A static emulator picture, cut to the same corners as animated icons.
+void DrawChannelPicture(const u8* pixels, const RoundClip& clip, int alpha);
+
 class BannerPlayer {
 public:
     BannerPlayer() = default;

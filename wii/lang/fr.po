@@ -3342,6 +3342,54 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
 
+msgid "Needs the internet"
+msgstr "Internet nécessaire"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Choisissez l'image affichée dans les Chaînes."
+
+msgid "Back to automatic"
+msgstr "Revenir au choix automatique"
+
+msgid "Title screen"
+msgstr "Écran titre"
+
+msgid "Screenshot"
+msgstr "Capture d’écran"
+
+msgid "Box art"
+msgstr "Jaquette"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Connectez la Wii à Internet, puis activez {1} dans {2} > {3}."
+
+msgid "No pictures found."
+msgstr "Aucune image trouvée."
+
+msgid "Could not load pictures."
+msgstr "Impossible de charger les images."
+
+msgid "Could not load this picture."
+msgstr "Impossible de charger cette image."
+
+msgid "A picture could not be loaded."
+msgstr "Une image n'a pas pu être chargée."
+
+msgid "Not enough memory."
+msgstr "Mémoire insuffisante."
+
+msgid "Could not save the picture."
+msgstr "Impossible d'enregistrer l'image."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Cette image a été ajoutée ou modifiée à la main. La remplacer par celle que vous avez choisie ?"
+
 msgid "Save location"
 msgstr "Emplacement des sauvegardes"
 

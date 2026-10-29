@@ -2905,7 +2905,7 @@ msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put t
 msgstr "{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다."
 
 msgid "Replace"
-msgstr "교체"
+msgstr "바꾸기"
 
 msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
 msgstr "{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다."
@@ -3341,6 +3341,54 @@ msgstr "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."
+
+msgid "Needs the internet"
+msgstr "인터넷이 필요합니다"
+
+msgid "Choose the picture shown in Channels."
+msgstr "채널에 표시할 그림을 선택합니다."
+
+msgid "Back to automatic"
+msgstr "자동으로 되돌리기"
+
+msgid "Title screen"
+msgstr "타이틀 화면"
+
+msgid "Screenshot"
+msgstr "게임 화면"
+
+msgid "Box art"
+msgstr "표지"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Wii를 인터넷에 연결한 다음 {2} > {3}에서 {1}를 켜세요."
+
+msgid "No pictures found."
+msgstr "그림을 찾지 못했습니다."
+
+msgid "Could not load pictures."
+msgstr "그림을 불러오지 못했습니다."
+
+msgid "Could not load this picture."
+msgstr "이 그림을 불러오지 못했습니다."
+
+msgid "A picture could not be loaded."
+msgstr "그림 하나를 불러오지 못했습니다."
+
+msgid "Not enough memory."
+msgstr "메모리가 부족합니다."
+
+msgid "Could not save the picture."
+msgstr "그림을 저장하지 못했습니다."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?"
 
 msgid "Save location"
 msgstr "저장 위치"
