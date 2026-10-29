@@ -395,7 +395,9 @@ bool cover3d_header_valid(const std::uint8_t* h) {
 }
 
 std::string disc_art_url(const std::string& region, const std::string& game_id) {
-    return "http://art.gametdb.com/wii/disc/" + region + "/" + game_id + ".png";
+    // Over https: the picture is stored and shown as GameTDB sent it, so
+    // nobody on the way may swap it (HttpGet keeps redirects on https).
+    return "https://art.gametdb.com/wii/disc/" + region + "/" + game_id + ".png";
 }
 
 std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int h, int& tw, int& th) {

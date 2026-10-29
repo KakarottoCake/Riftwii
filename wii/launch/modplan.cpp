@@ -561,6 +561,11 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             std::string open_error;
             const OpenStatus opened = provider.open_external(m.valuefile, source, open_error);
             if (opened == OpenStatus::NotFound) {
+                if (!record_missing_mod_input(mod.missing_inputs, xml_sd_path, m.valuefile,
+                                              MissingModInputKind::Memory)) {
+                    error = "There is not enough memory to list the mod's missing files.";
+                    return false;
+                }
                 std::string warning = "memory patch skipped: its file '" + m.valuefile + "' is not on the card";
                 const std::string hint = nearest_on_card(m.valuefile);
                 if (!hint.empty()) warning += " (" + hint + ")";
@@ -619,7 +624,15 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         std::unique_ptr<ByteSource> external;
         std::string open_error;
         if (provider.open_external(patch.external, external, open_error) != OpenStatus::NotFound) ++files_present;
-        else if (first_missing_file.empty()) first_missing_file = patch.external;
+        else {
+            if (first_missing_file.empty()) first_missing_file = patch.external;
+            if (file_patch_targets_disc(patch, fst) &&
+                !record_missing_mod_input(mod.missing_inputs, xml_sd_path, patch.external,
+                                          MissingModInputKind::File)) {
+                error = "There is not enough memory to list the mod's missing files.";
+                return false;
+            }
+        }
     }
     const std::size_t files_missing = expanded.size() - files_present;
     // A memory patch whose valuefile is missing is a code blob the pack's

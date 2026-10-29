@@ -906,6 +906,9 @@ msgstr "ゲームページでバナーの音楽"
 msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
 msgstr "ホームからゲームのページを開くと、チャンネル表示のバナー画面と同じようにバナーの音楽を流します。チャンネル表示ではすでに流れるので使いません。"
 
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "チャンネル表示では、バナー画面でゲームのバナーの音楽がすでに流れます。"
+
 msgid "Disc art"
 msgstr "ディスクの画像"
 
@@ -1111,7 +1114,7 @@ msgid "Cancel"
 msgstr "キャンセル"
 
 msgid "and {1} more"
-msgstr "ほか{1}本"
+msgstr "ほか{1}件"
 
 msgid "No online play"
 msgstr "オンラインプレイなし"
@@ -3353,6 +3356,48 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Mod files are missing"
+msgstr "MODのファイルがありません"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "MODの一部のファイルがありません。そのファイルやメモリの変更は行いません。ファイルをコピーしてやり直すか、一覧を確認してそのまま遊んでください。"
+
+msgid "Review files"
+msgstr "ファイルを確認"
+
+msgid "Play anyway"
+msgstr "そのまま遊ぶ"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。"
+
+msgid "USB scan details"
+msgstr "USBの読み込み結果"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "USBドライブの一部のパーティションを開けませんでした。ほかのパーティションのゲームは表示されています。各パーティションの問題と、どうすればよいかの一覧を開きます。"
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "パソコンでこのパーティションを確認してから、もう一度ゲームを探してください。ほかのパーティションのゲームは表示したままです。"
+
+msgid "USB partition {1} could not be opened"
+msgstr "USBのパーティション{1}を開けません"
+
+msgid "The partition could not be read from the drive."
+msgstr "ドライブからパーティションを読み込めませんでした。"
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWiiはexFATを読み込めません。このゲームをFAT32かNTFSのパーティションに移してください。"
+
+msgid "The {1} data could not be read."
+msgstr "{1}のデータを読み込めませんでした。"
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWiiはこのパーティションをFAT32、NTFS、WBFSとして読み込めませんでした。"
 
 msgid "Memory card could not be read"
 msgstr "メモリーカードを読み込めません"

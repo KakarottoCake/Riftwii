@@ -34,7 +34,8 @@ struct DiscArt {
     ~DiscArt();
 };
 // Reads and decodes the stored picture (a few milliseconds: the menu
-// thread, not the GUI's). False when there is none, or it is unusable.
+// thread, not the GUI's). False when there is none, or it is unusable: a
+// damaged one is removed, so DiscArtWanted asks for it again.
 bool LoadDiscArt(const std::string& game_id, DiscArt& out);
 
 }  // namespace riftwii::wii

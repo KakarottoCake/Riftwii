@@ -119,6 +119,14 @@ void RunBackgroundFetch() {
     mem::WatchHeap(("after the disc art download of " + g_background.id).c_str());
 }
 
+// A stored picture that cannot be shown (a write cut short, a damaged
+// card) goes, so the page downloads it again.
+bool Unusable(const std::string& game_id, const std::string& why) {
+    logf("Disc art: %s on the card cannot be used (%s); it is downloaded again\n", game_id.c_str(), why.c_str());
+    std::remove(StorePath(game_id).c_str());
+    return false;
+}
+
 }  // namespace
 
 DiscArt::~DiscArt() { free(data); }
@@ -161,22 +169,23 @@ bool LoadDiscArt(const std::string& game_id, DiscArt& out) {
     std::fseek(f, 0, SEEK_SET);
     if (size <= 0 || static_cast<std::size_t>(size) > kMaxPng) {
         std::fclose(f);
-        return false;
+        return Unusable(game_id, "its size is wrong");
     }
     std::vector<std::uint8_t> png(static_cast<std::size_t>(size));
     const bool read = std::fread(png.data(), 1, png.size(), f) == png.size();
     std::fclose(f);
-    if (!read) return false;
+    if (!read) return Unusable(game_id, "it could not be read");
     std::vector<std::uint8_t> rgba;
     int w = 0, h = 0;
     std::string why;
     if (!DecodePngRgba(png, rgba, w, h, why)) {
-        logf("Disc art: %s on the card cannot be read: %s\n", game_id.c_str(), why.c_str());
-        return false;
+        // No room is not a damaged file: it stays for the next page.
+        if (took_out_of_memory()) return false;
+        return Unusable(game_id, why);
     }
     int tw = 0, th = 0;
     const std::vector<std::uint8_t> texture = disc_art_texture(rgba.data(), w, h, tw, th);
-    if (texture.empty()) return false;
+    if (texture.empty()) return Unusable(game_id, "it is " + std::to_string(w) + "x" + std::to_string(h));
     u8* data = static_cast<u8*>(memalign(32, texture.size()));
     if (!data) return false;
     std::memcpy(data, texture.data(), texture.size());

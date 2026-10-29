@@ -1748,7 +1748,7 @@ void TestCoverArt() {
     // Disc art: GameTDB's picture made a texture at its own size, its
     // see-through corners kept; a size that isn't whole tiles is padded.
     {
-        EXPECT_EQ(disc_art_url("EN", "RMCP01"), "http://art.gametdb.com/wii/disc/EN/RMCP01.png");
+        EXPECT_EQ(disc_art_url("EN", "RMCP01"), "https://art.gametdb.com/wii/disc/EN/RMCP01.png");
         std::vector<std::uint8_t> pic(160 * 160 * 4, 0);  // see-through
         for (int y = 40; y < 120; ++y)
             for (int x = 40; x < 120; ++x) {

@@ -906,6 +906,9 @@ msgstr "Música do banner na página do jogo"
 msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
 msgstr "Toca a música do banner de um jogo ao abrir a página dele no Início, como a tela do banner da vista Canais. Não na vista Canais, que já a toca."
 
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "A vista Canais já toca a música do banner de um jogo na tela do banner."
+
 msgid "Disc art"
 msgstr "Imagem do disco"
 
@@ -3353,6 +3356,48 @@ msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftw
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."
+
+msgid "Mod files are missing"
+msgstr "Faltam arquivos do mod"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Faltam arquivos do mod. Suas alterações de arquivos ou memória não serão aplicadas. Copie os arquivos e tente de novo, ou confira a lista para jogar mesmo assim."
+
+msgid "Review files"
+msgstr "Ver arquivos"
+
+msgid "Play anyway"
+msgstr "Jogar mesmo assim"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: não foi possível abrir {1} partições. Veja Unidades."
+
+msgid "USB scan details"
+msgstr "Detalhes da busca USB"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "Algumas partições da unidade USB não puderam ser abertas. Os jogos das outras partições continuam aparecendo. Abre a lista com o problema de cada partição e o que fazer."
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Verifique esta partição em um computador e escolha Buscar jogos novamente. Os jogos das outras partições são mantidos."
+
+msgid "USB partition {1} could not be opened"
+msgstr "Não foi possível abrir a partição USB {1}"
+
+msgid "The partition could not be read from the drive."
+msgstr "Não foi possível ler a partição da unidade."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "O RiftWii não pode ler exFAT. Mova estes jogos para uma partição FAT32 ou NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "Não foi possível ler os dados {1}."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "O RiftWii não conseguiu ler esta partição como FAT32, NTFS ou WBFS."
 
 msgid "Memory card could not be read"
 msgstr "Não foi possível ler o cartão de memória"

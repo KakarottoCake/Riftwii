@@ -604,15 +604,18 @@ the tiles.
 - **Banner music on game pages** (off at first): opening a game's page
   from Home's covers, shelf, carousel, 3D covers or names plays the game's
   banner music, as the Channels view's banner screen does, with the menu's
-  music paused until you leave the page. The Channels view already plays
+  music paused until you leave the page (a looping one keeps looping on
+  the pages opened from it, such as Mods). The Channels view already plays
   it on its banner screen, so the row is dimmed there. A game whose banner
   is not on the SD card yet has it read from its image first (a moment on
   USB). `page_banner_sound = on|off` in `settings.txt`.
 - **Disc art** (off at first): GameTDB's picture of the game's disc,
-  under the box on the game's page. It is downloaded the first time the
+  under the box on the game's page, with the Favourite tile narrowed to
+  its star beside it. It is downloaded the first time the
   page opens with Downloads on, kept in `sd:/riftwii/discs` exactly as
-  GameTDB serves it (a PNG), and asked for again after a week when GameTDB
-  had none. `disc_art = on|off` in `settings.txt`.
+  GameTDB serves it (a PNG, over HTTPS), and asked for again after a week
+  when GameTDB had none. A stored picture that can't be read is downloaded
+  again. `disc_art = on|off` in `settings.txt`.
 - **In-game screenshots** (experimental, off at first): see Screenshots
   below. The picture is written straight from the screen, using almost
   none of the game's memory (games need it: keeping a copy of the
