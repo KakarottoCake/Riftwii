@@ -6524,11 +6524,12 @@ static int MenuSource(FrontendState& state)
 					const auto values = riftwii::wii::LoadEmulatorValues(addon, game.path);
 					play = StartEmulator(addon, game, values);
 				} else {
-					// Home hands over to the emulator's page: a pad press still
-					// kept back, or a pair begun, was Home's.
+					// Home hands over to the emulator's page: a press still kept
+					// back (a pad's, or a Wii Remote's 1 or 2), or a pair begun,
+					// was Home's.
 					riftwii::wii::WatchViewChord(false);
 					riftwii::wii::WatchSearchHold(false);
-					riftwii::wii::SpendPadHomePresses();
+					riftwii::wii::SpendHeldPresses();
 					play = EditEmulator(addon, &game);
 					if (!play) riftwii::wii::WatchViewChord(true);
 				}
@@ -6566,10 +6567,12 @@ static int MenuSource(FrontendState& state)
 				};
 				int shown = clicked;
 				// The banner has 1 and 2 to itself: a pair pressed on it is
-				// not Home's, and Home starts watching afresh after it.
+				// not Home's, and Home starts watching afresh after it. A 1 or
+				// 2 Home kept back is spent too: let go here, 2 would turn the
+				// page and 1 set the star.
 				riftwii::wii::WatchViewChord(false);
 				riftwii::wii::WatchSearchHold(false);
-				riftwii::wii::SpendPadHomePresses();
+				riftwii::wii::SpendHeldPresses();
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
