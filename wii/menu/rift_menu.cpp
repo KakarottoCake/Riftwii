@@ -2684,7 +2684,12 @@ public:
 
 static std::string HomeEmptyReason()
 {
-	if (!g_search.empty()) return tr("No game matches \"{1}\".", {g_search});
+	if (!g_search.empty()) {
+		// The Homebrew view searches apps, not games.
+		if (g_filter == Filter::Homebrew)
+			return tr("No homebrew matches \"{1}\". Press 1 to change the view.", {g_search});
+		return tr("No game matches \"{1}\".", {g_search});
+	}
 	if (g_filter != Filter::Homebrew && riftwii::wii::Settings().home_source != "all")
 		return tr("Games from: {1}", {HomeSourceName(riftwii::wii::Settings().home_source)});
 	switch (g_filter) {
