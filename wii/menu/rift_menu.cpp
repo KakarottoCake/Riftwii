@@ -2405,9 +2405,16 @@ class Panel : public GuiElement {
 public:
 	// `extra` widens it that much on each side: its ends drawn as they
 	// are, the middle stretched (a widescreen popup).
-	Panel(const skin::Tex& tex, int x, int y, int extra = 0) : tex(tex), x(x), y(y), extra(extra) {}
+	Panel(const skin::Tex& tex, int x, int y, int extra = 0, int faceHeight = 0)
+		: tex(tex), x(x), y(y), extra(extra), faceHeight(faceHeight) {}
 	void Draw() override
 	{
+		if (faceHeight > 0) {
+			// Keep the corners, title band and bottom band at their original
+			// height when a popup has less content than the standard box.
+			skin::DrawNine(tex, x - 4.0f - extra, y - 4.0f, tex.w + 2.0f * extra, faceHeight + 8.0f, 48);
+			return;
+		}
 		if (extra <= 0 || !tex.data) {
 			skin::Draw(tex, x - 4.0f, y - 4.0f);
 			return;
@@ -2422,7 +2429,7 @@ public:
 	}
 private:
 	const skin::Tex& tex;
-	int x, y, extra;
+	int x, y, extra, faceHeight;
 };
 
 // The help under a page's list, in the same place on every page (inside a
@@ -2938,9 +2945,12 @@ static int PickHomeLayout()
 	const int current = HomeLayoutIndex(riftwii::wii::Settings().home_tiles);
 	const int extra = PopupExtra();
 	Dim dim;
-	Panel panel(skin::popup, 34, 102, extra);
+	// The row sits between the title band (ending at 146) and the bottom
+	// band (starting at 328), with equal room for its raised shadows.
+	Panel panel(skin::popup, 34, 102, extra, 244);
 	GuiText title(tr("Layout"), 24, skin::kInk);
 	Place(title, 0, PopupBox::kTitleY, true);
+	title.SetMaxWidth(528 + 2 * extra);
 	// Six 84px cards and five 8px gaps occupy 544px, leaving the
 	// shadows and their slight lift inside x 32..608 on a 4:3 TV.
 	const int cardWidth = (544 + 2 * extra - 5 * 8) / 6;
@@ -2949,7 +2959,7 @@ static int PickHomeLayout()
 	for (int index = 0; index < 6; ++index) {
 		TileSpec& tile = tiles[index];
 		tile.x = 320 - rowWidth / 2 + index * (cardWidth + 8);
-		tile.y = 172;
+		tile.y = 164;
 		tile.w = cardWidth;
 		tile.h = 148;
 		tile.label = HomeTilesName(kHomeLayouts[index]);
@@ -3037,7 +3047,10 @@ static bool ChangeHomeLayout(const std::string& layout, const char* control, int
 	logf("Home: tiles %s (%s)\n", layout.c_str(), control);
 	g_focusRestored = true;
 	g_homeFocus = focus;
-	SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(layout));
+	SetHomeNotice(std::string(tr("Layout")) + ": " + HomeTilesName(layout));
+	// The bar confirms either control's change. A second copy at the top
+	// would cover the newly selected layout's games.
+	g_homeNoticeShown = true;
 	transition::Hold(transition::Kind::Fade);
 	return true;
 }
@@ -5058,19 +5071,20 @@ static int MenuSource(FrontendState& state)
 		Place(viewTxt, 40 - wide, 324);
 		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	}
-	// A name over a round button while the pointer rests on it.
+	// A name while the pointer rests on a round button. Layout and Search
+	// share the bar's status area so neither name covers a game's tile.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
-		searchHint(tr("Search"), 17, skin::kInk), layoutHint(tr("Layout"), 17, skin::kInk);
+		actionHint("", 17, skin::kInk);
+	std::string searchLabel;
+	std::string shownActionLabel;
 	const auto setButtonHints = [&] {
 		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
-		const std::string searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
+		searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
 		settingsHint.SetText(settingsLabel.c_str());
-		searchHint.SetText(searchLabel.c_str());
 	};
 	setButtonHints();
 	// The filter's and the gear's names go above them (80 square, y 384-464),
-	// centred on each; the small search button's to its left, level with it
-	// (the pointer's hand covers what is below or right of the button).
+	// centred on each.
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	filterHint.SetPosition(72 - 320 - wide, 344);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -5082,21 +5096,15 @@ static int MenuSource(FrontendState& state)
 	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
 	const int layoutX = channelsView ? 120 - wide : 36 - wide;
 	const int layoutY = searchY;
-	const int searchHintEnd = searchX - 18, searchHintTop = searchY + 9;  // its box clear of the button
-	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(searchHintEnd - 640, searchHintTop);
-	// The top chip starts beyond the hand's reach to the right of this
-	// button. Channels leaves its chip above the small bar button.
-	const int layoutHintX = channelsView ? layoutX + 18 : layoutX + 160;
-	const int layoutHintY = channelsView ? 364 : 26;
-	layoutHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	layoutHint.SetPosition(layoutHintX - 320, layoutHintY);
-	// Each on a box of its own: the search's sits over the covers.
-	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true),
-		searchChip(searchHint, searchHintEnd, searchHintTop, false),
-		layoutChip(layoutHint, layoutHintX, layoutHintY, true);
-	int hintAlpha[4] = {0, 0, 0, 0};  // the hover names' fades
-	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint, &layoutHint}) {
+	const int statusY = dip ? 434 : 392;
+	actionHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	actionHint.SetPosition(0, statusY);
+	actionHint.SetMaxWidth((channelsView ? 312 : 400) + 2 * wide);
+	// The shared hint stays clear of All games, the clock and the date,
+	// and of the hand at either button, even in Channels.
+	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true);
+	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
+	for (GuiText* hint : {&filterHint, &settingsHint, &actionHint}) {
 		hint->SetAlpha(0);
 		hint->SetVisible(false);
 	}
@@ -5116,7 +5124,7 @@ static int MenuSource(FrontendState& state)
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
 	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
-	Place(statusTxt, 0, dip ? 434 : 392, true);
+	Place(statusTxt, 0, statusY, true);
 	// Channels' small buttons end at x 156 and start at x 484. Keep
 	// the centred text inside x 164..476, with 8px of breathing room.
 	statusTxt.SetWrap(true, (channelsView ? 312 : 400) + 2 * wide, dip ? 1 : 3);
@@ -5172,12 +5180,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&viewTxt);
 	w.Append(&filterChip);
 	w.Append(&settingsChip);
-	w.Append(&searchChip);
-	w.Append(&layoutChip);
 	w.Append(&filterHint);
 	w.Append(&settingsHint);
-	w.Append(&searchHint);
-	w.Append(&layoutHint);
+	w.Append(&actionHint);
 	w.Append(&clockTxt);
 	w.Append(&lcd);
 	w.Append(&dateTxt);
@@ -5965,8 +5970,17 @@ static int MenuSource(FrontendState& state)
 		};
 		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
-		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
-		fade(layoutHint, hintAlpha[3], layoutBtn.button.GetState() == STATE::SELECTED);
+		const bool layoutHovered = layoutBtn.button.GetState() == STATE::SELECTED;
+		const bool searchHovered = searchBtn.button.GetState() == STATE::SELECTED;
+		const char* nextActionLabel = nullptr;
+		if (layoutHovered) nextActionLabel = tr("Layout");
+		else if (searchHovered) nextActionLabel = searchLabel.c_str();
+		if (nextActionLabel && shownActionLabel != nextActionLabel) {
+			shownActionLabel = nextActionLabel;
+			actionHint.SetText(nextActionLabel);
+		}
+		fade(actionHint, hintAlpha[2], layoutHovered || searchHovered);
+		statusTxt.SetVisible(hintAlpha[2] == 0);
 		// Not while the scan has the drives and the network: an update
 		// writes to the card and downloads.
 		if (!g_scanning) {
