@@ -91,7 +91,9 @@ unsigned wbfs_piece_count(std::uint64_t file_bytes, std::uint64_t split_bytes = 
 
 // The folder a copied game gets in wbfs/, as the other loaders name it:
 // "<title> [<ID6>]". The title loses the characters a FAT32 name cannot
-// hold, and its trailing dots and spaces; an empty one becomes the ID.
+// hold, and its trailing dots and spaces; an empty one becomes the ID. A
+// title that is not UTF-8 is read as Shift-JIS (a Japanese disc's), and a
+// long one is cut at 200 bytes on a character's boundary.
 std::string wbfs_game_folder_name(const std::string& title, const std::string& id6);
 
 // Where the image's bytes go, in order. The Wii's writes the pieces of the

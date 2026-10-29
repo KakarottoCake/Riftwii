@@ -3039,6 +3039,21 @@ msgstr "{1} n'a pas pu être copié : {2}. Rien n'a été gardé."
 msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
 msgstr "{1} est copié sur : {2}. Il est dans l'Accueil et se joue sans le disque."
 
+msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
+msgstr "Copier un disque demande une vraie Wii : Dolphin ne peut pas lire un disque entier."
+
+msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
+msgstr "Le menu tourne sous l'IOS{1}, qui n'est pas un d2x : il ne peut pas lire un disque entier. Choisissez l'IOS 58 ou un cIOS d2x dans Paramètres > Menu > Menu IOS, relancez RiftWii, puis choisissez Copier un disque de jeu."
+
+msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
+msgstr "Le disque USB n'est pas en FAT32 (il est en NTFS, par exemple), et une copie ne peut aller que sur un disque USB FAT32 ou la carte SD."
+
+msgid "The USB drive is not FAT32, so the copy goes to the SD card."
+msgstr "Le disque USB n'est pas en FAT32 : la copie va sur la carte SD."
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
+msgstr "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Supports > Jeux sur la carte SD est sur Les chercher."
+
 msgid "Channel background"
 msgstr "Fond des chaînes"
 

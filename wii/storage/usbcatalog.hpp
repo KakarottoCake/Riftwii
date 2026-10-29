@@ -141,6 +141,9 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
                     std::uint64_t& size);
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
+// Whether libfat has a FAT32 partition of the USB drive mounted as usb:/,
+// the only kind the menu writes to. An NTFS drive is read but not mounted.
+bool usb_fat32_mounted();
 // Mounted USB partition roots, with the legacy usb:/ first.
 std::vector<std::string> usb_volume_roots();
 // The legacy usb:/ volume's start, retained across the launch's IOS reload.

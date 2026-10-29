@@ -13536,7 +13536,19 @@ static std::string ThemeStageBody(const std::string& name, const riftwii::wii::t
 static bool CopyGameDisc()
 {
 	const std::string title = tr("Copy a game disc");
+	if (riftwii::wii::running_in_dolphin()) {
+		ShowPopup(title, tr("Copying a disc needs a real Wii: Dolphin can't read a whole disc."), tr("OK"));
+		return false;
+	}
 	if (!riftwii::wii::DiscCopyCanRead()) {
+		// A Menu IOS the player chose wins over the restart's session cIOS
+		// (StartMenuIos), so restarting would come back to the same IOS.
+		const int chosen = riftwii::wii::LoadMenuIos();
+		if (chosen != 0) {
+			ShowPopup(title, tr("The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc.",
+				{std::to_string(chosen)}), tr("OK"));
+			return false;
+		}
 		const int slot = riftwii::wii::DiscCopySlot();
 		if (slot == 0) {
 			ShowPopup(title, tr("Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."), tr("OK"));
@@ -13554,8 +13566,11 @@ static bool CopyGameDisc()
 		return false;
 	}
 	const std::vector<riftwii::wii::DiscCopyPlace> places = riftwii::wii::DiscCopyPlaces();
+	const bool usbNotFat32 = riftwii::wii::DiscCopyUsbNotFat32();
 	if (places.empty()) {
-		ShowPopup(title, tr("There is no SD card or FAT32 USB drive to copy the disc to."), tr("OK"));
+		ShowPopup(title, usbNotFat32
+			? tr("The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.")
+			: tr("There is no SD card or FAT32 USB drive to copy the disc to."), tr("OK"));
 		return false;
 	}
 
@@ -13597,6 +13612,8 @@ static bool CopyGameDisc()
 	const unsigned minutes = static_cast<unsigned>(job.plan.file_bytes / (3ull << 20) / 60) + 1;
 	std::string body = tr("Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.",
 		{name, size, FlatCapped(path, 60), std::to_string(minutes)});
+	if (usbNotFat32)
+		body += std::string(" ") + tr("The USB drive is not FAT32, so the copy goes to the SD card.");
 	if (job.whole_partitions != 0)
 		body += std::string(" ") + tr("{1} partition(s) could not be looked into, so they are copied whole.", {std::to_string(job.whole_partitions)});
 	if (ShowPopup(title, body, tr("Copy"), tr("Cancel")) != 0) return false;
@@ -13640,7 +13657,12 @@ static bool CopyGameDisc()
 		}
 		return false;
 	}
-	ShowPopup(title, tr("{1} is copied to the {2}. It is on Home now, and plays without the disc.", {name, drive}), tr("OK"));
+	// Home leaves the SD card out when Games on the SD card is Don't look.
+	const bool listed = place.usb || riftwii::wii::Settings().sd_games != "off";
+	ShowPopup(title, listed
+		? tr("{1} is copied to the {2}. It is on Home now, and plays without the disc.", {name, drive})
+		: tr("{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.", {name, drive}),
+		tr("OK"));
 	return true;
 }
 

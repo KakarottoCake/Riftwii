@@ -17,20 +17,23 @@
 // the Wii's own IOS the menu restarts under one for the session first.
 namespace riftwii::wii {
 
-// A drive a copy can go to: mounted for writing (libfat).
+// A drive a copy can go to: mounted for writing (libfat), so FAT32 only.
 struct DiscCopyPlace {
     std::string root;  // "usb:/" or "sd:/"
     bool usb = false;
     std::uint64_t free_bytes = 0;
 };
 std::vector<DiscCopyPlace> DiscCopyPlaces();
+// A USB drive is read, but none of its partitions is FAT32 (NTFS, say), so
+// it is not among DiscCopyPlaces.
+bool DiscCopyUsbNotFat32();
 
-// Whether the menu can read a whole disc now: it runs under a d2x cIOS
-// (or in Dolphin, which answers as its own IOS does).
+// Whether the menu can read a whole disc now: it runs under a d2x cIOS.
+// Never in Dolphin, which refuses these reads as the Wii's own IOS does.
 bool DiscCopyCanRead();
 // The cIOS the menu restarts under to copy a disc: a d2x on base 58 first,
-// since only that one also reads USB drives in the menu, else the one a
-// burned disc gets. 0 when there is none.
+// since only that one also reads USB drives in the menu, else any other
+// d2x. 0 when there is none.
 int DiscCopySlot();
 
 // The disc in the drive, looked into.

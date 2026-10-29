@@ -99,6 +99,7 @@ bool make_folder(const std::string& path) {
 std::vector<DiscCopyPlace> DiscCopyPlaces() {
     std::vector<DiscCopyPlace> places;
     for (const char* root : {"usb:/", "sd:/"}) {
+        if (root[0] == 'u' && !usb_fat32_mounted()) continue;
         struct statvfs st;
         if (statvfs(root, &st) != 0) continue;
         DiscCopyPlace place;
@@ -110,13 +111,25 @@ std::vector<DiscCopyPlace> DiscCopyPlaces() {
     return places;
 }
 
-bool DiscCopyCanRead() { return MenuCiosSlot() != 0 || running_in_dolphin(); }
+bool DiscCopyUsbNotFat32() { return usb_volume_ready() && !usb_fat32_mounted(); }
+
+bool DiscCopyCanRead() {
+    if (running_in_dolphin()) return false;
+    const int slot = MenuCiosSlot();
+    // d2x_base reads the cIOS's own information block: 0 for a cIOS that
+    // is not d2x, whose disc reads stop at the start as the Wii's IOS's do.
+    return slot != 0 && d2x_base(slot) != 0;
+}
 
 int DiscCopySlot() {
-    for (int slot : {251, 249, 250, 248, 252}) {
+    const int slots[] = {251, 249, 250, 248, 252};
+    for (int slot : slots) {
         if (slot_has_ticket(slot) && d2x_base(slot) == 58) return slot;
     }
-    return BurnedDiscSlot();
+    for (int slot : slots) {
+        if (slot_has_ticket(slot) && d2x_base(slot) != 0) return slot;
+    }
+    return 0;
 }
 
 bool PrepareDiscCopy(DiscCopyJob& job, std::string& error) {

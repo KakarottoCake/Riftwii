@@ -460,6 +460,11 @@ void test_names() {
     EXPECT_EQ(riftwii::wbfs_game_folder_name("What?: A/B \"Game\". ", "RXXE01"),
               std::string("What__ A_B _Game_ [RXXE01]"));
     EXPECT_EQ(riftwii::wbfs_game_folder_name("  ", "RXXE01"), std::string("RXXE01"));
+    // Shift-JIS katakana SO is 0x83 0x5C: its second byte is not a backslash.
+    EXPECT_EQ(riftwii::wbfs_game_folder_name("\x83\x5C", "RXXJ01"), std::string("\xE3\x82\xBD [RXXJ01]"));
+    // Cut at 200 bytes, never inside a character.
+    const std::string long_title = std::string(199, 'a') + "\xC3\xA9" + "b";
+    EXPECT_EQ(riftwii::wbfs_game_folder_name(long_title, "RXXE01"), std::string(199, 'a') + " [RXXE01]");
 }
 
 }  // namespace

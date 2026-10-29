@@ -10,6 +10,7 @@
 #include "riftwii/disc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/gccard.hpp"
 #include "riftwii/wiicrypt.hpp"
 
 namespace riftwii {
@@ -282,9 +283,29 @@ unsigned wbfs_piece_count(std::uint64_t file_bytes, std::uint64_t split_bytes) {
     return static_cast<unsigned>((file_bytes + split_bytes - 1) / split_bytes);
 }
 
+namespace {
+
+bool valid_utf8(const std::string& text) {
+    for (std::size_t i = 0; i < text.size();) {
+        const unsigned char b = static_cast<unsigned char>(text[i]);
+        const std::size_t length = b < 0x80 ? 1 : (b >> 5) == 0x6 ? 2 : (b >> 4) == 0xE ? 3 : (b >> 3) == 0x1E ? 4 : 0;
+        if (length == 0 || i + length > text.size()) return false;
+        for (std::size_t k = 1; k < length; ++k) {
+            if ((static_cast<unsigned char>(text[i + k]) & 0xC0) != 0x80) return false;
+        }
+        i += length;
+    }
+    return true;
+}
+
+}  // namespace
+
 std::string wbfs_game_folder_name(const std::string& title, const std::string& id6) {
+    // A Japanese disc's header title is Shift-JIS, whose second bytes can be
+    // a backslash or '|': made UTF-8 first, so no character is cut in two below.
+    const std::string text = valid_utf8(title) ? title : gc_card_text_utf8(title, true);
     std::string clean;
-    for (const char c : title) {
+    for (const char c : text) {
         const unsigned char u = static_cast<unsigned char>(c);
         if (u < 0x20 || std::strchr("\"*/:<>?\\|", c) != nullptr) {
             clean += '_';
@@ -296,7 +317,12 @@ std::string wbfs_game_folder_name(const std::string& title, const std::string& i
     const std::size_t start = clean.find_first_not_of(' ');
     clean = start == std::string::npos ? std::string() : clean.substr(start);
     // A FAT32 name holds 255 characters; the ID and brackets take nine.
-    if (clean.size() > 200) clean.resize(200);
+    if (clean.size() > 200) {
+        std::size_t cut = 200;
+        while (cut > 0 && (static_cast<unsigned char>(clean[cut]) & 0xC0) == 0x80) --cut;
+        clean.resize(cut);
+        while (!clean.empty() && (clean.back() == ' ' || clean.back() == '.')) clean.pop_back();
+    }
     if (clean.empty()) return id6;
     return clean + " [" + id6 + "]";
 }

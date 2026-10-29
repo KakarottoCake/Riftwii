@@ -1378,6 +1378,8 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 
 bool usb_volume_ready() { return !g_usb_volumes.empty(); }
 
+bool usb_fat32_mounted() { return g_libfat_mounted; }
+
 bool usb_preferred_volume_lba(std::uint64_t& lba) {
     lba = g_usb_preferred_lba;
     return g_usb_preferred_known;

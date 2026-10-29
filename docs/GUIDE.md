@@ -941,7 +941,8 @@ at all.
 to a `.wbfs` file, so the game then plays from Home without the disc. It
 goes to `wbfs/<name> [<ID>]/<ID>.wbfs` on a FAT32 USB drive or the SD
 card (you pick when both are there), and appears on Home once the copy
-is done. A copy bigger than 4 GB is saved in pieces (`.wbfs`, `.wbf1`,
+is done (a copy on the SD card only while Settings > Drives > Games on
+the SD card is set to Look for them). A copy bigger than 4 GB is saved in pieces (`.wbfs`, `.wbf1`,
 ...), as FAT32 needs; keep them together.
 
 The copy keeps every partition of the disc: the game, the system update
@@ -957,7 +958,12 @@ game disc again afterwards. A d2x on base 58 is used first when you have
 one, since the menu can then also write to the USB drive; with other
 bases only the SD card may be offered. A copy takes a few minutes per
 gigabyte and can be stopped at any time; nothing is kept from a stopped
-copy. NTFS drives cannot be written to.
+copy. NTFS drives cannot be written to: with one plugged in, only the
+SD card is offered, and RiftWii says why.
+
+A d2x cIOS that is set as Settings > Menu > Menu IOS is used as it is;
+when that setting names a cIOS that is not d2x, choose IOS 58 or a d2x
+there first. Copying needs a real Wii: Dolphin cannot read a whole disc.
 
 ### USB DVD drives (experimental)
 
