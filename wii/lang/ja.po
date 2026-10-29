@@ -3413,3 +3413,42 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Memory card could not be read"
+msgstr "メモリーカードを読み込めません"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "Games cannot start"
+msgstr "ゲームを起動できません"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "Mods could not be prepared"
+msgstr "MODを準備できませんでした"
+
+msgid "{1} needs its mod folder at {2}."
+msgstr "{1}には{2}にMODフォルダーが必要です。"
+
+msgid "Required file: {1}"
+msgstr "必要なファイル: {1}"
+
+msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
+msgstr "ファイルは{1}の中の1つ深いフォルダーにあります。そのフォルダーの中身を{2}に移動してください。"
+
+msgid "Rename {1} to exactly {2}."
+msgstr "{1}の名前を正確に{2}に変更してください。"
+
+msgid "Move {1} to {2}."
+msgstr "{1}を{2}に移動してください。"
+
+msgid "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder."
+msgstr "ダウンロードしたMODの{1}フォルダーを{2}にコピーしてください。riivolutionフォルダーと同じ場所に置きます。"

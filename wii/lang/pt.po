@@ -3413,3 +3413,42 @@ msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftw
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."
+
+msgid "Memory card could not be read"
+msgstr "Não foi possível ler o cartão de memória"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "O RiftWii não conseguiu ler {1}. O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo."
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo."
+
+msgid "Games cannot start"
+msgstr "Os jogos não podem iniciar"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Jogos USB precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo."
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo."
+
+msgid "Mods could not be prepared"
+msgstr "Não foi possível preparar os mods"
+
+msgid "{1} needs its mod folder at {2}."
+msgstr "{1} precisa da pasta do mod em {2}."
+
+msgid "Required file: {1}"
+msgstr "Arquivo necessário: {1}"
+
+msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
+msgstr "Os arquivos estão uma pasta abaixo do esperado, em {1}. Mova o conteúdo dessa pasta para {2}."
+
+msgid "Rename {1} to exactly {2}."
+msgstr "Renomeie {1} para exatamente {2}."
+
+msgid "Move {1} to {2}."
+msgstr "Mova {1} para {2}."
+
+msgid "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder."
+msgstr "Copie a pasta {1} do download do mod para {2}, ao lado da pasta riivolution."
