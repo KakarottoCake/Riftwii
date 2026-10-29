@@ -29,6 +29,7 @@
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "sdfile.hpp"
 #include "textfile.hpp"
 #include "umsdev.hpp"
@@ -253,7 +254,7 @@ public:
     }
 
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out, std::string& error) override {
-        if (sd_path.compare(0, 4, "usb:") == 0) return open_usb(sd_path, out, error);
+        if (is_usb_path(sd_path)) return open_usb(sd_path, out, error);
         std::string abs = sd_path.compare(0, 3, "sd:") == 0 ? sd_path.substr(3) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         const std::string key = "sd:" + abs;
@@ -277,12 +278,10 @@ public:
     }
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
-        if (sd_dir.compare(0, 4, "usb:") == 0) {
-            std::string abs = sd_dir.substr(4);
-            if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        if (is_usb_path(sd_dir)) {
             std::vector<VolumeEntry> listed;
-            if (!list_usb_folder("usb:" + abs, listed)) {
-                error = "cannot list usb:" + abs;
+            if (!list_usb_folder(sd_dir, listed)) {
+                error = "cannot list " + sd_dir;
                 return OpenStatus::NotFound;
             }
             out.clear();
@@ -314,9 +313,9 @@ public:
 
 private:
     OpenStatus open_usb(const std::string& usb_path, std::unique_ptr<ByteSource>& out, std::string& error) {
-        std::string abs = usb_path.substr(4);
+        std::string abs = image_volume_path(usb_path);
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        const std::string key = "usb:" + abs;
+        const std::string key = usb_path_device(usb_path) + abs;
         auto found = usb_files_.find(key);
         if (found == usb_files_.end()) {
             VolumeFile file;
@@ -421,7 +420,7 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
     std::vector<FilePatch> files;
     for (const PackageChoices& pack : packages) {
         const std::string& xml = pack.xml_sd_path;
-        const bool pack_on_usb = xml.compare(0, 5, "usb:/") == 0;
+        const bool pack_on_usb = riftwii::is_usb_path(xml);
         std::string text;
         if (pack_on_usb ? !read_usb_text(xml, text) : !read_text(xml, text)) {
             error = "cannot open " + xml;
@@ -448,8 +447,8 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
         }
         if (pack_on_usb) {
             // Its files are on the drive too (as for a Wii game's pack).
-            const auto to_usb = [](std::string& path) {
-                if (!path.empty()) path = std::string("usb:") + (path[0] == '/' ? "" : "/") + path;
+            const auto to_usb = [&](std::string& path) {
+                if (!path.empty()) path = usb_path_device(xml) + (path[0] == '/' ? "" : "/") + path;
             };
             for (FilePatch& f : plan.files) to_usb(f.external);
             for (FolderPatch& f : plan.folders) to_usb(f.external);
@@ -515,7 +514,7 @@ bool plan_packs(const std::vector<PackageChoices>& packages, const std::uint8_t*
 
 bool GcImageIsRvz(const std::string& path) { return ends_with(path, ".rvz"); }
 
-bool GcImageOnUsb(const std::string& path) { return path.compare(0, 5, "usb:/") == 0; }
+bool GcImageOnUsb(const std::string& path) { return riftwii::is_usb_path(path); }
 
 bool OpenGcDisc(const std::string& path, std::unique_ptr<ByteSource>& out, std::string& error) {
     const std::shared_ptr<ByteSource> file = open_image_file(path);
@@ -720,14 +719,17 @@ void scan_gc_directory(const std::string& directory, bool nested, bool report_ot
     }
 }
 
-void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+// `folder_roots`: the folders besides games and wbfs whose subfolders are
+// game folders (gc_catalog_hidden_by).
+void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out,
+                      const std::vector<std::string>& folder_roots) {
     std::vector<GcCatalogImage> images;
     if (!try_reserve(images, found.size())) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
     }
     for (const ImageGame& game : found) images.push_back({game.path, game.id, game.disc_number});
-    const std::vector<int> hidden_by = gc_catalog_hidden_by(images);
+    const std::vector<int> hidden_by = gc_catalog_hidden_by(images, folder_roots);
     if (hidden_by.size() != found.size()) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
@@ -762,24 +764,77 @@ void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out
     }
 }
 
+// Whether `directory` is one of `walked`, in any case (FAT names are).
+bool gc_folder_walked(const std::vector<std::string>& walked, const std::string& directory) {
+    return std::any_of(walked.begin(), walked.end(), [&](const std::string& w) {
+        return w.size() == directory.size() &&
+               std::equal(w.begin(), w.end(), directory.begin(), [](char a, char b) {
+                   return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+               });
+    });
+}
+
+// Folders at the top of the drive, other than games, wbfs and the
+// game_folders already walked, whose first few subfolders hold a GameCube
+// image named as Nintendont names them (game.iso): a player's games
+// copied to "game1" were missing from Home with no line in the log.
+std::vector<std::string> gc_top_folders_with_games(const std::string& device,
+                                                   const std::vector<std::string>& walked) {
+    constexpr std::size_t kSubfoldersProbed = 4;
+    std::vector<std::string> out;
+    std::vector<VolumeEntry> top;
+    std::string error;
+    if (!list_gc_directory(device + ":/", top, error)) return out;
+    for (const VolumeEntry& folder : top) {
+        if (!folder.is_directory || !gc_scan_probes_top_folder(folder.name)) continue;
+        std::string directory;
+        if (!join_game_path(device + ":", folder.name, directory)) continue;
+        if (gc_folder_walked(walked, directory)) continue;
+        std::vector<VolumeEntry> games;
+        if (!list_gc_directory(directory, games, error)) continue;
+        std::size_t probed = 0;
+        bool holds_games = false;
+        for (const VolumeEntry& game : games) {
+            if (holds_games || probed == kSubfoldersProbed) break;
+            std::string path;
+            if (!game.is_directory || !join_game_path(directory, game.name, path)) continue;
+            ++probed;
+            std::vector<VolumeEntry> files;
+            if (!list_gc_directory(path, files, error)) continue;
+            holds_games = std::any_of(files.begin(), files.end(), [](const VolumeEntry& file) {
+                return !file.is_directory && is_gc_game_folder_image_name(file.name);
+            });
+        }
+        if (holds_games) out.push_back(directory);
+    }
+    return out;
+}
+
 void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, CisoFinds* ciso) {
     const u64 started = gettime();
     unsigned opened = 0;
     SkippedGcFiles skipped;
     std::vector<ImageGame> found;
+    std::vector<std::string> walked = {device + ":/games", device + ":/wbfs"};
     scan_gc_directory(device + ":/games", true, true, out, found, skipped, ciso, opened);
     scan_gc_directory(device + ":/wbfs", true, false, out, found, skipped, ciso, opened);
     for (const std::string& folder : game_folders_on(Settings(), device)) {
         const std::string directory = device + ":" + folder;
-        if (directory == device + ":/games" || directory == device + ":/wbfs") continue;
+        if (gc_folder_walked(walked, directory)) continue;
+        walked.push_back(directory);
         scan_gc_directory(directory, true, false, out, found, skipped, ciso, opened);
     }
-    skipped.finish(device == "usb" ? "USB" : "SD");
-    append_gc_images(found, out);
-    ScanGcPatches(out);
+    for (const std::string& directory : gc_top_folders_with_games(device, walked)) {
+        logf("%s scan: %s holds GameCube game folders (<game>/game.iso), so it is looked in as games is\n",
+             device == "sd" ? "SD" : "USB", directory.c_str());
+        walked.push_back(directory);
+        scan_gc_directory(directory, true, true, out, found, skipped, ciso, opened);
+    }
+    skipped.finish(device == "sd" ? "SD" : "USB");
+    append_gc_images(found, out, walked);
     const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
     logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
-         device == "usb" ? "USB" : "SD", opened, elapsed_ms);
+         device == "sd" ? "SD" : "USB", opened, elapsed_ms);
 }
 
 }  // namespace
@@ -787,10 +842,14 @@ void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, Ciso
 void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
     forget_sd_layout();
     scan_gc_images("sd", out, ciso);
+    ScanGcPatches(out);
 }
 
 void ScanUsbGcImages(std::vector<ImageGame>& out, CisoFinds* ciso) {
-    scan_gc_images("usb", out, ciso);
+    for (const std::string& root : usb_volume_roots()) {
+        scan_gc_images(root.substr(0, root.size() - 2), out, ciso);
+    }
+    ScanGcPatches(out);
 }
 
 namespace {

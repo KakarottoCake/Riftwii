@@ -6,6 +6,12 @@ msgstr "Content-Type: text/plain; charset=UTF-8\n"
 msgid "Y: view  Z: settings  L/R: pages"
 msgstr "Y: vue  Z: options  L/R: pages"
 
+msgid "Layout"
+msgstr "Disposition"
+
+msgid "Choose"
+msgstr "Choisir"
+
 msgid "Games with mods"
 msgstr "Jeux avec mods"
 
@@ -324,9 +330,6 @@ msgstr "Activé, {1} sélectionné(s)"
 msgid "Cheat codes for this game. Press A to choose them."
 msgstr "Codes de triche pour ce jeu. Appuyez sur A pour les choisir."
 
-msgid "How wide the picture is drawn. 720 fills the screen from side to side."
-msgstr "Largeur d'affichage de l'image. 720 remplit l'écran d'un côté à l'autre."
-
 msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
 msgstr "Un filtre qui adoucit l'image pour masquer le scintillement. Désactivé donne l'image la plus nette."
 
@@ -387,9 +390,6 @@ msgstr "Aucun code de triche trouvé en ligne pour ce jeu."
 msgid "Cheats are only applied when this is On."
 msgstr "Les codes de triche ne s'appliquent que si cette option est activée."
 
-msgid "Downloads are off in Settings."
-msgstr "Les téléchargements sont désactivés dans les paramètres."
-
 msgid "No game is selected."
 msgstr "Aucun jeu sélectionné."
 
@@ -447,9 +447,6 @@ msgstr "Langue"
 msgid "Wii: {1}"
 msgstr "Wii : {1}"
 
-msgid "Download names and cheats"
-msgstr "Télécharger noms et codes de triche"
-
 msgid "Get the latest game names"
 msgstr "Obtenir les derniers noms de jeux"
 
@@ -492,15 +489,6 @@ msgstr "Quitter"
 msgid "Game names follow the language when they are downloaded."
 msgstr "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement."
 
-msgid "Game names and cheats are downloaded when the Wii is online."
-msgstr "Les noms de jeux et les codes sont téléchargés lorsque la Wii est en ligne."
-
-msgid "Nothing is downloaded. Names and cheats already on the card are still used."
-msgstr "Rien n'est téléchargé. Les noms et codes déjà présents sur la carte restent utilisés."
-
-msgid "Downloads are off. Turn on Download names and cheats first."
-msgstr "Téléchargements désactivés. Activez d'abord le téléchargement des noms et codes."
-
 msgid "Downloading game names..."
 msgstr "Téléchargement des noms de jeux..."
 
@@ -524,9 +512,6 @@ msgstr "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote p
 
 msgid "Takes effect the next time RiftWii starts."
 msgstr "Prendra effet au prochain démarrage de RiftWii."
-
-msgid "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
-msgstr "Cherche un PC exécutant un serveur RiiFS lors de la lecture des jeux. Réanalysez pour chercher maintenant."
 
 msgid "Only servers named by <network> in an XML on the card are used."
 msgstr "Seuls les serveurs désignés par <network> dans un fichier XML sur la carte sont utilisés."
@@ -579,9 +564,6 @@ msgstr "Vos jeux"
 msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
 msgstr "Placez vos jeux dans le dossier wbfs ou games à la racine de la carte SD ou du stockage USB (format WBFS, ISO ou RVZ). Les disques insérés apparaissent aussi. L'accueil liste en premier les jeux moddés : appuyez sur 1 pour tout voir."
 
-msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
-msgstr "Placez les packs de mods (fichier XML et dossiers associés) dans sd:/riivolution ou usb:/riivolution. Choisissez un jeu, ouvrez Mods, activez un pack et ajustez ses options. Démarrer (ou +) lance le jeu."
-
 msgid "Buttons"
 msgstr "Boutons"
 
@@ -590,9 +572,6 @@ msgstr "Pointez avec la Télécommande Wii et appuyez sur A, ou utilisez la croi
 
 msgid "You're all set"
 msgstr "Vous êtes prêt"
-
-msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
-msgstr "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Tutoriel réaffiche ce guide."
 
 msgid "Next"
 msgstr "Suivant"
@@ -617,15 +596,6 @@ msgstr "Crédits et licence"
 
 msgid "View"
 msgstr "Voir"
-
-msgid "Clear search"
-msgstr "Effacer la recherche"
-
-msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
-msgstr "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres."
-
-msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
-msgstr "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres."
 
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso."
@@ -930,6 +900,21 @@ msgstr "Fondu sortant"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu."
 
+msgid "Banner music on game pages"
+msgstr "Musique de la bannière sur la page du jeu"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Joue la musique de la bannière d'un jeu quand vous ouvrez sa page depuis l'Accueil, comme l'écran de bannière de la vue Chaînes. Pas dans la vue Chaînes, qui la joue déjà."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "La vue Chaînes joue déjà la musique de la bannière d'un jeu sur son écran de bannière."
+
+msgid "Disc art"
+msgstr "Image du disque"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique."
 
@@ -1046,9 +1031,6 @@ msgstr "Êtes-vous sûr ?"
 
 msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
 msgstr "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !"
-
-msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
-msgstr "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour."
 
 msgid "No release is out yet. This is RiftWii {1}."
 msgstr "Aucune version disponible pour le moment. Version actuelle : RiftWii {1}."
@@ -1689,9 +1671,6 @@ msgstr "Ajouter une sauvegarde"
 msgid "Add a save from the SD card"
 msgstr "Ajouter une sauvegarde depuis la carte SD"
 
-msgid "Back up saves"
-msgstr "Sauvegarder les parties"
-
 msgid "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."
 msgstr "Avant le lancement d'un jeu GameCube, sa carte mémoire est copiée sur la carte SD. Les cinq dernières copies sont gardées, pour Restaurer une ancienne sauvegarde dans la page Sauvegardes du jeu."
 
@@ -1911,8 +1890,8 @@ msgstr "Cette sauvegarde est endommagée : ses blocs ne correspondent pas. Elle 
 msgid "It is {1}."
 msgstr "C'est {1}."
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWii ne peut pas lire {1} : {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWii ne peut pas lire {1} : elle est endommagée ou ce n'est pas une carte mémoire GameCube."
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWii n'a pas pu lire {1}."
@@ -2040,9 +2019,6 @@ msgstr "Oui"
 msgid "No"
 msgstr "Non"
 
-msgid "You can bring it back any time in Settings > Disc Channel."
-msgstr "Vous pouvez la réafficher à tout moment dans Paramètres > Chaîne disques."
-
 msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
 msgstr "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici."
 
@@ -2162,9 +2138,6 @@ msgstr "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'a
 
 msgid "Your order"
 msgstr "Votre ordre"
-
-msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
-msgstr "L'accueil est maintenant dans votre ordre. Paramètres > Ordre de l'accueil le remet de A à Z."
 
 msgid "Let go of A: put it down   At a side: turn the page"
 msgstr "Relâchez A : poser   Sur un côté : tourner la page"
@@ -2367,9 +2340,6 @@ msgstr "Installation des fichiers WAD"
 msgid "{1} of {2}: {3}"
 msgstr "{1} sur {2} : {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "{1} sur {2} installés. Ils sont maintenant dans l'Accueil."
 
@@ -2391,23 +2361,23 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
 
-msgid "Your own song or playlist as menu music"
-msgstr "Votre chanson ou playlist comme musique du menu"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "Accueil : bouton Disposition et choix Afficher"
 
-msgid "Press 1 and 2 together to change the view"
-msgstr "Appuyez sur 1 et 2 pour changer de vue"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiWare et VC directement depuis les WAD"
 
-msgid "Press 1 on a cover to see it up close"
-msgstr "Appuyez sur 1 sur une jaquette pour l'agrandir"
+msgid "Pictures for emulator games, and a picker"
+msgstr "Images pour les jeux émulés, et un choix"
 
-msgid "USB keyboard, mouse and uDraw in the menu"
-msgstr "Clavier USB, souris et uDraw dans le menu"
+msgid "Banner music and disc art on game pages"
+msgstr "Musique de bannière et image du disque"
 
-msgid "Hold B on Search to start a random game"
-msgstr "Maintenez B sur Rechercher pour un jeu au hasard"
+msgid "Asks first when mod files are missing"
+msgstr "Demande d'abord s'il manque des fichiers du mod"
 
-msgid "Covers for homebrew, WiiWare and VC games"
-msgstr "Jaquettes pour homebrew, WiiWare et VC"
+msgid "Clearer messages when something goes wrong"
+msgstr "Messages plus clairs quand quelque chose ne va pas"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"
@@ -2562,9 +2532,6 @@ msgstr "Lecture impossible : {1}"
 msgid "No game details yet"
 msgstr "Pas encore d'infos sur les jeux"
 
-msgid "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."
-msgstr "Elles viennent de la base des jeux Wii de GameTDB. Activez Télécharger noms et codes de triche dans les Paramètres pour l'obtenir."
-
 msgid "Download game details?"
 msgstr "Télécharger les infos des jeux ?"
 
@@ -2681,9 +2648,6 @@ msgstr "Éditeur"
 
 msgid "Up to {1} players"
 msgstr "Jusqu'à {1} joueurs"
-
-msgid "The mod's own"
-msgstr "Celui du mod"
 
 msgid "Pages at the sides"
 msgstr "Pages sur les côtés"
@@ -2910,17 +2874,11 @@ msgstr "Impossible d'obtenir la liste"
 msgid "There are no themes in the list yet."
 msgstr "Il n'y a pas encore de thème dans la liste."
 
-msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
-msgstr "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser. Appuyez sur A pour le supprimer."
-
 msgid "A newer copy of {1} is out. Press A to update it, or delete it."
 msgstr "Une copie plus récente de {1} est disponible. Appuyez sur A pour la mettre à jour ou le supprimer."
 
 msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
 msgstr "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Appuyez sur A pour le remplacer."
-
-msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
-msgstr "Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Réglages > Thème."
 
 msgid "{1} themes"
 msgstr "{1} thèmes"
@@ -2978,9 +2936,6 @@ msgstr "Thème non supprimé"
 
 msgid "{1} could not be deleted: {2}"
 msgstr "Impossible de supprimer {1} : {2}"
-
-msgid "{1} is installed. Pick it in Settings > Theme to use it."
-msgstr "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser."
 
 msgid "Stopped. Nothing was changed."
 msgstr "Arrêté. Rien n'a été modifié."
@@ -3041,6 +2996,21 @@ msgstr "Remettez d’abord la carte SD."
 
 msgid "The SD card is back in. Reading it again."
 msgstr "La carte SD est de retour. Nouvelle lecture en cours."
+
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "Une recherche parcourt tous les genres. Appuyez d’abord sur 1 pour la terminer."
+
+msgid "Homebrew apps have no genres."
+msgstr "Les applications homebrew n’ont pas de genre."
+
+msgid "No genres yet."
+msgstr "Pas encore de genres."
+
+msgid "Every genre"
+msgstr "Tous les genres"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "Haut/Bas : genre   Relâcher : afficher"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne."
@@ -3486,9 +3456,6 @@ msgstr "Démarre avec {1} ({2})."
 msgid "Could not save emulator settings."
 msgstr "Impossible d'enregistrer les réglages de l'émulateur."
 
-msgid "No emulators found."
-msgstr "Aucun émulateur trouvé."
-
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log."
 
@@ -3515,3 +3482,291 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
+
+msgid "Mod files are missing"
+msgstr "Des fichiers du mod manquent"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Des fichiers du mod manquent. Leurs changements de fichiers ou de mémoire seront ignorés. Copiez les fichiers et réessayez, ou consultez la liste pour jouer quand même."
+
+msgid "Review files"
+msgstr "Voir les fichiers"
+
+msgid "Play anyway"
+msgstr "Jouer quand même"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB : {1} partition(s) non ouverte(s). Voir Supports."
+
+msgid "USB scan details"
+msgstr "Détails de recherche USB"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre."
+
+msgid "{1} MiB"
+msgstr "{1} Mio"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Vérifiez cette partition sur un ordinateur, puis choisissez Rechercher les jeux à nouveau. Les jeux des autres partitions restent disponibles."
+
+msgid "USB partition {1} could not be opened"
+msgstr "La partition USB {1} n'a pas pu être ouverte"
+
+msgid "The partition could not be read from the drive."
+msgstr "La partition n'a pas pu être lue sur le lecteur."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWii ne peut pas lire exFAT. Déplacez ces jeux vers une partition FAT32 ou NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "Les données {1} n'ont pas pu être lues."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWii n'a pas pu lire cette partition en FAT32, NTFS ou WBFS."
+
+msgid "Memory card could not be read"
+msgstr "Impossible de lire la carte mémoire"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWii n'a pas pu lire {1}. Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer."
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer."
+
+msgid "Games cannot start"
+msgstr "Impossible de lancer les jeux"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Les jeux USB ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez."
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Les jeux SD ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez."
+
+msgid "Mods could not be prepared"
+msgstr "Impossible de préparer les mods"
+
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1} a besoin que son dossier de mod soit {2}."
+
+msgid "Required file: {1}"
+msgstr "Fichier nécessaire : {1}"
+
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1} est un dossier de trop. Déplacez son contenu dans {2}."
+
+msgid "Rename {1} to exactly {2}."
+msgstr "Renommez {1} exactement en {2}."
+
+msgid "Move {1} to {2}."
+msgstr "Déplacez {1} vers {2}."
+
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}."
+
+msgid "Needs the internet"
+msgstr "Internet nécessaire"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Choisissez l'image affichée dans les Chaînes."
+
+msgid "Back to automatic"
+msgstr "Revenir au choix automatique"
+
+msgid "Title screen"
+msgstr "Écran titre"
+
+msgid "Screenshot"
+msgstr "Capture d’écran"
+
+msgid "Box art"
+msgstr "Jaquette"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Connectez la Wii à Internet, puis activez {1} dans {2} > {3}."
+
+msgid "No pictures found."
+msgstr "Aucune image trouvée."
+
+msgid "Could not load pictures."
+msgstr "Impossible de charger les images."
+
+msgid "Could not load this picture."
+msgstr "Impossible de charger cette image."
+
+msgid "A picture could not be loaded."
+msgstr "Une image n'a pas pu être chargée."
+
+msgid "Not enough memory."
+msgstr "Mémoire insuffisante."
+
+msgid "Could not save the picture."
+msgstr "Impossible d'enregistrer l'image."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Cette image a été ajoutée ou modifiée à la main. La remplacer par celle que vous avez choisie ?"
+
+msgid "Save location"
+msgstr "Emplacement des sauvegardes"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites."
+
+msgid "In use"
+msgstr "Utilisé"
+
+msgid "Use default options for this game"
+msgstr "Utiliser les réglages par défaut pour ce jeu"
+
+msgid "Use default options for this game?"
+msgstr "Utiliser les réglages par défaut pour ce jeu ?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent."
+
+msgid "Needed: {1}"
+msgstr "Nécessaire : {1}"
+
+msgid "Also works with: {1}"
+msgstr "Fonctionne aussi avec : {1}"
+
+msgid "Up and Down scroll"
+msgstr "Haut et Bas font défiler le texte"
+
+msgid "Up and Down scroll the story"
+msgstr "Haut et Bas font défiler l’histoire"
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD."
+
+msgid "Getting the game ready"
+msgstr "Préparation du jeu"
+
+msgid "Getting {1} ready, first time only"
+msgstr "Préparation de {1}, au premier lancement seulement"
+
+msgid "The game could not be prepared"
+msgstr "Le jeu n’a pas pu être préparé"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés."
+
+msgid "No games here"
+msgstr "Aucun jeu ici"
+
+msgid "Show all games"
+msgstr "Afficher tous les jeux"
+
+msgid "Show every drive"
+msgstr "Afficher tous les supports"
+
+msgid "Games from: {1}"
+msgstr "Jeux de : {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "Aucun jeu ne correspond à « {1} »."
+
+msgid "No games with mods were found."
+msgstr "Aucun jeu avec des mods trouvé."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "Aucune appli homebrew trouvée dans sd:/apps."
+
+msgid "No emulator games were found."
+msgstr "Aucun jeu pour émulateur trouvé."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "Aucun jeu ici n'a encore été lancé depuis RiftWii."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "Marquez un jeu comme favori sur sa page."
+
+msgid "Downloads"
+msgstr "Téléchargements"
+
+msgid "Back up GameCube saves"
+msgstr "Sauvegarder les parties GameCube"
+
+msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."
+msgstr "Copiez le pack de mods à la racine de la carte SD ou du disque USB tel qu'il est fourni. Son XML va dans riivolution ; gardez les autres dossiers à leur place. Choisissez un jeu, ouvrez Mods, activez un pack et choisissez ses options. Appuyez sur B pour revenir à la page du jeu, où Jouer (ou +) le lance avec celles-ci."
+
+msgid "Downloads are off. Turn on Settings > Online > Downloads first."
+msgstr "Les téléchargements sont désactivés. Activez d'abord Paramètres > En ligne > Téléchargements."
+
+msgid "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it."
+msgstr "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir."
+
+msgid "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off."
+msgstr "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée."
+
+msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
+msgstr "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub."
+
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
+msgstr "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs."
+
+msgid "Left to the mod"
+msgstr "Laissé au mod"
+
+msgid "Off: no server chosen"
+msgstr "Désactivé : aucun serveur choisi"
+
+msgid "Through {1}"
+msgstr "Via {1}"
+
+msgid "Match the width the game draws."
+msgstr "Utilise la largeur dessinée par le jeu."
+
+msgid "Use the broadcast-safe width of 704 pixels."
+msgstr "Utilise la largeur TV de 704 pixels."
+
+msgid "Fill the screen from side to side."
+msgstr "Remplit l'écran d'un bord à l'autre."
+
+msgid "Keep the game's own picture width."
+msgstr "Garde la largeur d'image d'origine du jeu."
+
+msgid "No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again."
+msgstr "Aucun jeu trouvé. La carte SD n'est pas parcourue (Paramètres > Supports > Jeux sur la carte SD). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le disque USB, puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux."
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again."
+msgstr "Aucun jeu trouvé. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier wbfs ou games à la racine de la carte SD ou du disque USB, puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux."
+
+msgid "Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now."
+msgstr "Cherche un PC avec un serveur RiiFS lors de la lecture des jeux. Pour chercher maintenant, utilisez Paramètres > Supports > Rechercher à nouveau les jeux."
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again."
+msgstr "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Aide > Tutoriel réaffiche ce guide."
+
+msgid "RiftWii {1} is out. Settings > Online > Check for a new version installs it."
+msgstr "RiftWii {1} est disponible. Rendez-vous dans Paramètres > En ligne > Vérifier les mises à jour."
+
+msgid "You can bring it back any time in Settings > Home > Disc Channel."
+msgstr "Vous pouvez la réafficher à tout moment dans Paramètres > Accueil > Chaîne disques."
+
+msgid "Home is in your own order now. Settings > Home > Home order puts it back A to Z."
+msgstr "L'accueil est maintenant dans votre ordre. Paramètres > Accueil > Ordre de l'accueil le remet de A à Z."
+
+msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it."
+msgstr "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser. Appuyez sur A pour le supprimer."
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme."
+msgstr "Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Paramètres > Menu > Thème."
+
+msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
+msgstr "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser."

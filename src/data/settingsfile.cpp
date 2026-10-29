@@ -98,6 +98,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "page_banner_sound") {
+            if (value == "on" || value == "off") page_banner_sound = value;
+        } else if (key == "disc_art") {
+            if (value == "on" || value == "off") disc_art = value;
         } else if (key == "music_file") {
             if (music_choice_valid(value)) music_file = value;
         } else if (key == "play_history") {
@@ -222,6 +226,8 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "page_banner_sound = " + page_banner_sound + "\n";
+    s += "disc_art = " + disc_art + "\n";
     s += "music_file = " + music_file + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";

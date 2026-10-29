@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <cstring>
+#include <strings.h>
 
 #include "riftwii/textlines.hpp"
 
@@ -119,15 +120,25 @@ WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
     : wanted_(std::move(wanted)), lang_(std::move(lang)) {}
 
 void WiitdbScanner::feed(const char* data, std::size_t size) {
+    if (complete_) return;
     buffer_.append(data, size);
     constexpr const char* kOpen = "<game ";
     constexpr const char* kClose = "</game>";
+    constexpr const char* kDatabaseClose = "</datafile>";
+    constexpr std::size_t kTail = sizeof("</datafile>") - 2;
     for (;;) {
         if (!in_game_) {
             const std::size_t at = buffer_.find(kOpen);
+            const std::size_t database_end = buffer_.find(kDatabaseClose);
+            if (database_end != std::string::npos && (at == std::string::npos || database_end < at)) {
+                complete_ = true;
+                buffer_.clear();
+                return;
+            }
             if (at == std::string::npos) {
-                // Keep a tail that may be the start of the next "<game ".
-                if (buffer_.size() > 8) buffer_.erase(0, buffer_.size() - 8);
+                // Either tag may cross a piece boundary; the database's
+                // closing tag is longer than the next game's opening.
+                if (buffer_.size() > kTail) buffer_.erase(0, buffer_.size() - kTail);
                 return;
             }
             buffer_.erase(0, at);
@@ -139,7 +150,7 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
                 // Too long to be a game: dropped, then its end looked for.
                 ++skipped_;
                 ++blocks_;
-                buffer_.erase(0, buffer_.size() - 8);
+                buffer_.erase(0, buffer_.size() - kTail);
                 in_game_ = false;
                 // The rest of that block holds no "<game ", so the scan
                 // simply resumes at the next one.
@@ -298,6 +309,57 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
 }
 
 bool game_infos_have_types(const std::string& text) { return text.find(kTypesLine) != std::string::npos; }
+
+static bool same_genre(const std::string& a, const std::string& b) {
+    return a.size() == b.size() && strcasecmp(a.c_str(), b.c_str()) == 0;
+}
+
+bool has_genre(const std::vector<std::string>& genres, const std::string& genre) {
+    for (const std::string& g : genres)
+        if (same_genre(g, genre)) return true;
+    return false;
+}
+
+std::vector<std::string> genre_choices(const std::vector<std::vector<std::string>>& game_genres) {
+    // Each genre as GameTDB first spelled it, and how many games have it.
+    std::vector<std::string> names;
+    std::vector<std::size_t> counts;
+    for (const std::vector<std::string>& genres : game_genres) {
+        std::vector<std::string> counted;  // a game listing a word twice counts once
+        for (const std::string& genre : genres) {
+            if (genre.empty() || has_genre(counted, genre)) continue;
+            counted.push_back(genre);
+            std::size_t at = 0;
+            while (at < names.size() && !same_genre(names[at], genre)) ++at;
+            if (at == names.size()) {
+                names.push_back(genre);
+                counts.push_back(0);
+            }
+            ++counts[at];
+        }
+    }
+    std::vector<std::size_t> order(names.size());
+    for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        if (counts[a] != counts[b]) return counts[a] > counts[b];
+        return strcasecmp(names[a].c_str(), names[b].c_str()) < 0;
+    });
+    std::vector<std::string> out;
+    out.reserve(order.size());
+    for (const std::size_t i : order) out.push_back(names[i]);
+    return out;
+}
+
+std::string step_genre(const std::vector<std::string>& choices, const std::string& current, int step) {
+    if (choices.empty()) return "";
+    // Every genre sits at -1, before the first.
+    int at = -1;
+    for (std::size_t i = 0; i < choices.size(); ++i)
+        if (!current.empty() && same_genre(choices[i], current)) at = static_cast<int>(i);
+    const int places = static_cast<int>(choices.size()) + 1;
+    const int next = ((at + 1 + (step < 0 ? -1 : 1)) % places + places) % places - 1;
+    return next < 0 ? std::string() : choices[static_cast<std::size_t>(next)];
+}
 
 std::string gametdb_locale(const std::string& menu_language) {
     static const char* const kCodes[][2] = {{"ja", "JA"}, {"es", "ES"}, {"pt", "PT"}, {"it", "IT"},

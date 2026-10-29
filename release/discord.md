@@ -19,27 +19,23 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Your own menu music: a song, a playlist or a shuffled folder (Settings > Music file)
-* Press 1 and 2 together on Home to change the view
-* Press 1 on a cover or shelf box to see it up close
-* Shelf boxes look like real Wii cases, with full-width spines and full covers for every game
-* Hold B on the search button to start a random game
-* Covers for homebrew, WiiWare and VC games; custom games like Newer show under Mods
-* USB keyboard, mouse, pen tablets and uDraw in the menu
-* Quitting a game lands in RiftWii more often (GameCube, N64 VC, RE4)
-* Dragon Quest X from its USB drive (needs sd:/riftwii/wfskey.bin)
+* Home: a Layout button (top left) and a Show chooser (bottom left), and help when a list is empty
+* WiiWare and VC straight from .wad files in a wiiware folder, no install step
+* A likely fix for Retro Rewind's error 50330 online
+* Asks before playing when mod files are missing
+* Banner music and disc art on game pages (Settings, off at first)
+* A Save location page, and "Use default options for this game"
+* Pictures for emulator games in Channels, and a picker to choose one
+* Clearer error messages
 
 To test, please:
 
-1. Press 1 and 2 together on Home a few times: does it go through the views?
-2. Press 1 on a cover and on a shelf box: does it zoom up and go back with B?
-3. Leave the shelf open while the boxes download: anything freeze or restart?
-4. Pick your own music in Settings > Music file
-5. If you have a USB keyboard or mouse, try it in the menu
-6. Quit a GameCube or N64 VC game: do you land back in RiftWii?
+1. Put a WiiWare or VC .wad in sd:/wiiware: does it show, start, save, and start again without unpacking?
+2. Retro Rewind online from the disc, after the menu was online: does it connect now?
+3. The Layout and Show buttons on Home: anything confusing?
+4. A mod with a file missing: do you get the question, and does Play anyway work?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The shelf with Wii cases](docs/screenshots/2610-shelf-cases.png)
-![A cover up close](docs/screenshots/2610-cover-zoom.png)
-![What's new](docs/screenshots/2610-whatsnew-music.png)
+![The Layout picker](docs/screenshots/2610-layout-picker.png)
+![Disc art on a game's page](docs/screenshots/2610-disc-art.png)

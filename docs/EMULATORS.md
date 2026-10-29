@@ -78,9 +78,11 @@ contain letters and digits only; matching ignores their case.
 ## Settings and arguments
 
 Every setting has `label`, `type` and `default`. `help` is optional. Names
-are 1–32 lowercase letters, digits or underscores. `game`, `game_name`
-and `game_folder` are reserved. Author-supplied labels, help and choice
-values pass through RiftWii's translation lookup. English is the fallback;
+are 1–32 lowercase letters, digits or underscores. The six game
+placeholders (`game`, `game_name`, `game_folder`, `game_file`,
+`game_device`, `game_path`) are reserved and can't be setting names.
+Author-supplied labels, help and choice values pass through RiftWii's
+translation lookup. English is the fallback;
 players may translate them in `sd:/riftwii/lang/<language>.po`.
 
 | Type | Fields | Accepted player values |
@@ -106,12 +108,15 @@ value remain inside that one argument and are never split a second time.
 | `{game}` | Full game path, such as `sd:/roms/dreamcast/Power Stone.cdi` |
 | `{game_name}` | Filename without its last extension, such as `Power Stone` |
 | `{game_folder}` | Folder containing the game |
+| `{game_file}` | Filename with its extension, such as `Power Stone.cdi` |
+| `{game_device}` | The game's drive without its colon: `sd` or `usb` |
+| `{game_path}` | The game's folder without its drive, such as `roms/dreamcast` |
 | `{preset}` or another declared setting name | Selected choice or number |
 | `{frameskip}` or another declared switch name | The switch's `on` words when enabled; no words when disabled |
 
 Placeholders may be part of a word (`--game={game}`), except a switch
 placeholder must occupy a whole word. Unknown or incomplete placeholders
-reject the file. Switch `on` words may use the three game placeholders,
+reject the file. Switch `on` words may use all six game placeholders,
 but cannot reference settings. An enabled switch absent from `args` adds
 its `on` words at the end, in declaration order. An explicit `{frameskip}`
 chooses its position instead; a repeated switch still adds its words once.
@@ -158,7 +163,8 @@ Lengths are UTF-8 **bytes**, not visible characters.
 | Default or saved value | 96 bytes |
 | `args` or a switch's `on` template | 1024 bytes each; 64 words, 512 bytes per word |
 | HBC command block | 1024 bytes including DOL path, separators and final extra NUL |
-| Discovery | 16 add-ons; first 1024 app entries on each drive |
+| Discovery | 48 add-ons; first 1024 app entries on each drive |
+| WiiFlow plugin files | first 512 entries in each drive's `wiiflow/plugins`, counting one folder level below |
 | Game scan | 2048 games total; 16384 entries and 512 folders across all add-ons; root plus 4 nested folder levels |
 
 Scans skip hidden entries, invalid paths, names over 255 bytes and SD
@@ -233,6 +239,108 @@ Libretro's thumbnails come from its volunteer contributors, scanners,
 collectors, MobyGames and Fandom; the original artwork belongs to the
 games' developers and publishers. SteamGridDB's contributors supply the
 optional fallback artwork. No covers are shipped with RiftWii.
+
+## Channels pictures
+
+In **Settings > Home tiles > Channels**, emulator games use a landscape
+picture instead of the name card. RiftWii looks for these in order:
+
+1. Your PNG at `sd:/riftwii/banners/emulators/<system>/<game name>.png`.
+   Names follow the same rules as local covers, for example
+   `sd:/riftwii/banners/emulators/Dreamcast/Power Stone (USA).png`.
+   Local pictures work with downloads off and take priority over the cache.
+2. Libretro's `Named_Titles` (title screens), using the add-on's `covers`
+   system folder and the same name matching as covers.
+3. SteamGridDB's wide grids (460 by 215 or 920 by 430), when its setting
+   is on and your key is present.
+4. The middle band of the game's cover, including a local or WiiFlow
+   plugin cover. A game with neither picture nor cover keeps its name card.
+
+Pictures are centre-cropped without stretching: 16:11 for a 4:3 TV and
+171:88 for a widescreen menu. Both are stored at 128 by 88 frame pixels;
+the wider crop compensates for the TV's wider pixels and keeps logos in shape.
+A 4:3 title screen loses equal strips at the top and bottom; centring keeps
+both upper-middle logos and lower title text. Roomy spacing shrinks the same
+picture with the rest of the tile.
+
+The Online and emulator-cover settings also control picture downloads and
+whether downloaded pictures are shown. Turning Online off keeps the cache
+available; turning emulator covers off leaves your local pictures and covers.
+Cached pictures are `sd:/riftwii/banners/emu-<game hash>.rwe`
+(or `.wide.rwe` for the widescreen crop). Each source
+has its own `.libretro.none` or `.steamgrid.none` note beside the picture,
+with the same one-week retry and **Download missing covers** rules as covers.
+Title-screen name lists live in `sd:/riftwii/banners/emulators/index-<hash>.txt`.
+A timeout, invalid image or low memory does not create a missing-picture note.
+
+PNG limits match covers: 2 MiB and 1024 pixels per side, checked before
+decoding. Pictures are read by the cover loader only when tiles are drawn,
+with a separate pool of 24 textures (528 KiB) for a page, peeking columns and
+page turns. This and up to 369 covers stay within the original 400-cover
+MEM2 budget (7,168,000 bytes); no picture is read ahead for the whole game
+library. Cover crops
+are temporary and give way when a downloaded picture arrives.
+
+### Choosing a Channels picture
+
+Open an emulator game's page and choose **Picture**. This changes its Channels
+picture. The row says **Needs the internet** when Online is off or the Wii's
+connection has failed.
+
+The picker asks libretro for title screens, screenshots and box art, and
+SteamGridDB for wide pictures when that service is enabled and its key is
+present. It first downloads only the lists. There are at most 24 choices,
+six from each source, with the same title and region matching as automatic
+lookup. Each tile previews the Channels crop and names its source underneath.
+
+Six pictures fit on a page. Minus/Plus, the arrows, or Left/Right past the
+edge turn pages; the page number appears above the tiles. Thumbnails load
+one at a time. Turning pages cancels the old page's download and releases
+its pictures before fetching the next page. B leaves and stops the work.
+No neighbouring page is fetched ahead. Six 128 by 88 textures use 132 KiB;
+only one bounded download and decoder are active alongside them.
+
+Press A on a loaded picture to save its original PNG to
+`sd:/riftwii/banners/emulators/<system>/<game name>.png`. The selected picture
+is downloaded again for saving, so the picker does not retain six original
+PNGs. Home uses it at once, offline as well, and automatic downloads never
+replace it. The 2 MiB and 1024-pixel limits apply to every image.
+
+**Back to automatic** removes the own picture. A small `.png.pick` note
+records the saved file's hash. If the picture was added by hand, changed
+after saving, or has no valid note, RiftWii asks before deleting it. The
+picker writes only to SD; it does not change cover choices or USB files.
+
+## WiiFlow plugin files
+
+Many Wii emulators were made to be started by WiiFlow Lite, through its plugin
+files. RiftWii reads the player's own plugin files, so an emulator set up for
+WiiFlow appears under Emulators with nothing more to write. RiftWii only reads
+them: it never writes, moves or ships them, and an emulator's own
+`riftwii-emulator.ini` always wins over a plugin file for the same DOL.
+
+RiftWii looks in `sd:/wiiflow/plugins/` and `usb:/wiiflow/plugins/`, and one
+folder below them, as plugin packs lay them out. From each file's `[PLUGIN]`
+section it reads:
+
+| WiiFlow key | What RiftWii does with it |
+| --- | --- |
+| `displayname` | The emulator's name and the badge on its games (else the DOL's name) |
+| `dolFile` | A full `sd:/` or `usb:/` path; else a path beside the plugin files; else from each drive's root, in that order. A plugin whose DOL isn't there is skipped quietly: packs list many emulators. |
+| `romDir` | The games' folder, on both `sd:` and `usb:` |
+| `fileTypes` | `\|`-separated endings (`.smc\|.sfc`). Types with two dots, such as `.bin.zip`, are left out: RiftWii matches the last extension. |
+| `arguments` | `\|`-separated, one argument each: `{device}`, `{path}`, `{name}`, `{name_no_ext}` and `{loader}` become `{game_device}`, `{game_path}`, `{game_file}`, `{game_name}` and RiftWii's own `boot.dol` (so an emulator that returns to its loader comes back to RiftWii). Any other placeholder refuses the file. |
+| `coverFolder` | The game's cover is also looked for at `wiiflow/covers/<coverFolder>/<file name with extension>.png`, where WiiFlow keeps it |
+| `magic` | Required, as in WiiFlow. The magics of WiiFlow's own lists (Wii, GameCube, channels, homebrew) are passed over, as are its music player and ScummVM: RiftWii shows those its own way. |
+
+Plugin files get the same limits as RiftWii's own (16 KiB, 32 arguments,
+no path that climbs out of its folder) and declare no settings. Each one
+used is named in `session.log`, with its DOL.
+
+Plugins sharing a DOL remain separate when their game folders, extensions
+or arguments differ. Equivalent configurations are listed once. Saved
+settings and game entries use the configuration's own identity, so two
+plugins starting the same game with different arguments stay separate.
 
 ## Testing an emulator
 

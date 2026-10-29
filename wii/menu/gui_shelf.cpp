@@ -36,6 +36,7 @@
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
+#include "spinetext.hpp"
 #include "video.h"
 #include "wiidrc.h"
 #include "wiimenusounds.hpp"
@@ -73,8 +74,7 @@ constexpr float kPullZ = 70.0f;                 // how far the focused box comes
 constexpr float kLift = 10.0f;                  // a spine under the pointer rises
 constexpr int kReach = 13;                      // boxes drawn each side of the focus
 constexpr float kBoxResponseMs = 58.0f;
-constexpr int kSpineTextSize = 13;
-constexpr int kSpineTextRoom = 140;  // the length of a spine's name
+constexpr float kSpineLabelPart = 0.78f;  // stop above the spine's colour band
 // The reflection: below the plank's front edge (16 tall), as if the floor
 // in front of the shelf were glossy; the part of each box nearest the
 // floor, fading out.
@@ -131,6 +131,19 @@ void Project(V3 p, float& sx, float& sy) {
     const float k = kEye / (kEye - p.z);
     sx = 320.0f + (p.x - 320.0f) * k;
     sy = 240.0f + (p.y - 240.0f) * k;
+}
+
+// Layout and Search occupy the top corners. Start lowering a picture
+// 32px before it reaches either button, so the ring keeps moving smoothly
+// while leaving an 8px gap below the buttons (which end at y 60).
+constexpr float kHomeCornerTop = 68.0f;
+float HomeCornerWeight(float left, float right) {
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    const float wide = safeX < 0 ? -safeX : 0;
+    const float byLeft = std::clamp((112.0f - wide - left) / 32.0f, 0.0f, 1.0f);
+    const float byRight = std::clamp((right - (528.0f + wide)) / 32.0f, 0.0f, 1.0f);
+    return std::max(byLeft, byRight);
 }
 
 bool PressedPage(GuiTrigger* t, int delta) {
@@ -358,6 +371,26 @@ Box MakeBox(float x, float z, float turn, float lift) {
     }
     b.centre = {x, kShelfY - lift - kBoxH / 2, z};
     return b;
+}
+
+// A hovered spine or a box turning near a corner can rise into a button.
+// Use its projected bounds, including its depth, and lower the whole box
+// enough that even the vertex with the smallest perspective scale clears.
+float HomeCornerLowering(const Box& box) {
+    float left, top;
+    Project(box.p[0], left, top);
+    float right = left;
+    float minScale = kEye / (kEye - box.p[0].z);
+    for (const V3& point : box.p) {
+        float x, y;
+        Project(point, x, y);
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        minScale = std::min(minScale, kEye / (kEye - point.z));
+    }
+    const float lowering = std::max(0.0f, kHomeCornerTop - top) * HomeCornerWeight(left, right);
+    return lowering / minScale;
 }
 
 bool FacesEye(const Face& f) {
@@ -850,6 +883,12 @@ void GuiGameGrid::DrawShelf(int alpha) {
         p.lift = riftwii::wii::transition::Follow(p.lift, want.lift, kBoxResponseMs);
         if (want.turn == kTau && p.turn > kTau - 0.01f) p.turn = 0.0f;
     }
+    // Include newly placed boxes too, before drawing them or recording
+    // their hit areas; their first frame must leave the same corner gap.
+    for (int index = first; index <= last; ++index) {
+        BoxPose& pose = poses[index];
+        pose.lift -= HomeCornerLowering(MakeBox(pose.x, pose.z, pose.turn, pose.lift));
+    }
     // Boxes that fell out of reach start again from their place next time.
     for (int i = 0; i < Count(); ++i)
         if (i < first || i > last) poses[i].placed = false;
@@ -983,13 +1022,23 @@ void GuiGameGrid::DrawShelf(int alpha) {
             band.color.a = 255;
             band.tex = nullptr;
             DrawFace(band, alpha);
-            float sx, sy0, sy1, sxr, dummy;
-            Project(tl, sx, sy0);
-            Project(tr, sxr, dummy);
-            Project(along(tl, bl, 0.78f), dummy, sy1);
+            float leftTopX, leftTopY, rightTopX, rightTopY;
+            float leftBottomX, leftBottomY, rightBottomX, rightBottomY;
+            Project(tl, leftTopX, leftTopY);
+            Project(tr, rightTopX, rightTopY);
+            Project(along(tl, bl, kSpineLabelPart), leftBottomX, leftBottomY);
+            Project(along(tr, br, kSpineLabelPart), rightBottomX, rightBottomY);
+            // Use the space inside both edges: perspective can put their
+            // tops and bottoms at slightly different screen positions.
+            const float labelLeft = std::max(leftTopX, leftBottomX);
+            const float labelRight = std::min(rightTopX, rightBottomX);
+            const float labelTop = std::max(leftTopY, rightTopY);
+            const float labelBottom = std::min(leftBottomY, rightBottomY);
             // Not while the box still turns (to or from the focus): its name
             // lay across the next spine's.
-            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
+            if (p.turn < 0.12f) {
+                labels.push_back({i, (labelLeft + labelRight) / 2, labelTop, labelBottom, labelRight - labelLeft});
+            }
         }
         if (item.badge == "DISC" && !art && !cover && !skin::discCase.data && FacesEye(faces[1]) && skin::iconDisc.data) {
             // The disc drive has no box art: the Disc drive tile's disc
@@ -1040,29 +1089,41 @@ void GuiGameGrid::DrawShelf(int alpha) {
     // (Nintendo's spines in America and Europe).
     if (static_cast<int>(spineFit.size()) != Count()) spineFit.assign(Count(), {});
     for (const SpineLabel& l : labels) {
+        namespace spine = riftwii::wii;
         auto& fit = spineFit[l.index];
         const GridItem& item = (*items)[l.index];
         const std::string& title = item.title;
-        if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};
+        const float length = l.y1 - l.y0;
+        const spine::SpineTextLayout layout =
+            spine::FitSpineTextLayout(length, l.width, kBoxH * kSpineLabelPart, fit.room);
+        if (layout.fontSize == 0) continue;
+        if (fit.title != title || fit.room != layout.room || fit.fontSize != layout.fontSize) {
+            measure->SetFontSize(layout.fontSize);
+            fit = {title, Fit(title, layout.room), layout.room, layout.fontSize};
+            measure->SetFontSize(spine::kSpineTextSize);
+        }
         // Dark letters on a light case, light ones on a dark case (black,
         // red: Rec. 601 brightness under half).
         const GXColor plastic = CasePlastic(item.id, item.caseColour);
         const int brightness = (plastic.r * 299 + plastic.g * 587 + plastic.b * 114) / 1000;
         spineText->SetColor(brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255});
-        spineText->SetText(fit.second.c_str());
-        spineText->SetFontSize(kSpineTextSize);
+        spineText->SetText(fit.text.c_str());
+        spineText->SetFontSize(layout.fontSize);
         spineText->SetAlpha(alpha);
         const float w = static_cast<float>(spineText->GetTextWidth());
+        // Fit keeps an ellipsis even when a single character and the dots
+        // are too wide. Leave such a tiny label blank rather than overrun.
+        if (fit.text.empty() || w > layout.room) continue;
         // Turned a quarter right about the label's own start, at the top:
         // the line runs down and the letters' tops face right, so the
         // text's height lies left of px.
-        const float px = l.x + kSpineTextSize / 2.0f + 1, py = l.y0 + 4;
+        const float px = l.x + layout.fontSize / 2.0f, py = l.y0 + spine::kSpineTextMargin;
         // The text sits at whole pixels (GuiText) and is turned about a
         // whole pixel, then moved by what is left after the turn: rounded
         // before it, a sliding spine's fraction of a pixel went into the
         // text's place along the spine, and the names bobbed up and down
         // as the row moved.
-        const float along = std::max(0.0f, (l.y1 - l.y0 - 8 - w) / 2);
+        const float along = std::max(0.0f, (length - 2 * spine::kSpineTextMargin - w) / 2);
         const int ix = static_cast<int>(std::floor(px)), iy = static_cast<int>(std::floor(py));
         Mtx view, rot, m, mv;
         guMtxIdentity(view);
@@ -1075,7 +1136,11 @@ void GuiGameGrid::DrawShelf(int alpha) {
         guMtxConcat(view, m, mv);
         GX_LoadPosMtxImm(mv, GX_PNMTX0);
         spineText->SetPosition(ix, iy);
+        // Font bearings and pixel snapping can extend a glyph past its
+        // measured advance. Keep those last pixels inside the plain spine.
+        Menu_Scissor(l.x - l.width / 2 + 1, py, l.width - 2, length - 2 * spine::kSpineTextMargin);
         spineText->Draw();
+        GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
         GX_LoadPosMtxImm(view, GX_PNMTX0);
     }
 
@@ -1195,10 +1260,16 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
         const u8* tex = riftwii::wii::Cover3dTexture(item.id);
         const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(item.id);
-        float w, ph;
+        const float ph = tex ? h : h * 0.92f;
+        float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
+        if (tex) w = ph * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
+        else if (!cover && item.badge == "DISC" && skin::discCase.data)
+            w = ph * skin::discCase.w / skin::discCase.h;
+        const float pictureTop = foot - ph;
+        const float cornerWeight = HomeCornerWeight(cx - w / 2, cx + w / 2);
+        const float lowering = std::max(0.0f, kHomeCornerTop - pictureTop);
+        foot += lowering * cornerWeight;
         if (tex) {
-            ph = h;
-            w = h * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
             skin::DrawRgb5a3Region(tex, riftwii::kCover3dWidth, riftwii::kCover3dHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
                                    w, ph, lit, lit);
             // The reflection: the picture's foot mirrored under it, fading out.
@@ -1206,8 +1277,6 @@ void GuiGameGrid::DrawRing(int alpha) {
                                    cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd);
         } else if (cover) {
             // No 3D cover (yet): the flat cover, as tall as a case in one.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
             // Square to its corners, as a case is: the stored cover's
             // rounded corners are for the covers view's tiles.
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
@@ -1215,14 +1284,10 @@ void GuiGameGrid::DrawRing(int alpha) {
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 1, 1, 1 - kRingReflect,
                                    cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd, true);
         } else if (item.badge == "DISC" && skin::discCase.data) {
-            ph = h * 0.92f;
             const float k = ph / skin::discCase.h;
-            w = skin::discCase.w * k;
             skin::Draw(skin::discCase, cx - w / 2, foot - ph, alpha * shade / 255, k);
         } else {
             // Nothing to show yet: the game's colour where its case goes.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
             GXColor hue = item.hue;
             hue.r = static_cast<u8>(hue.r * shade / 255);
             hue.g = static_cast<u8>(hue.g * shade / 255);

@@ -42,6 +42,8 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
+    std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:
     // "" for RiftWii's (a theme's, the Wii Menu's or music.ogg), else an
     // .ogg or .mp3 song, an .m3u playlist, or a folder ending in '/' whose

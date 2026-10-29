@@ -49,7 +49,7 @@
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves, or in the same emulated NAND as USB Loader GX's.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
+- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B, or L on a GameCube controller, and press Left or Right), genres from GameTDB (hold B or L and press Up or Down), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
 - **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote; in the menu, a USB keyboard, mouse or pen tablet, and the uDraw GameTablet.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
@@ -148,9 +148,11 @@ contains theirs names them in its file header, and
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;
   libogc also documents the physical GameCube card read protocol, SRAM behavior
-  and MEM1-only EXI DMA, and SD card initialization when IOS cannot do it.
+  and MEM1-only EXI DMA, SD card initialization when IOS cannot do it,
+  and network cleanup before a launch.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
-  **libruntimeiospatch**: how the Wii, IOS and the patch format behave
+  **libruntimeiospatch**: how the Wii, IOS and the patch format behave,
+  including read-only WAD title-key decryption through IOS
   (read as documentation); Dolphin also for how the Wii Remote extension's
   encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument

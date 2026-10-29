@@ -7,6 +7,7 @@
 #include <set>
 
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii {
 namespace {
@@ -45,6 +46,12 @@ bool number(const std::string& text, int& value) {
     }
     value = text[0] == '-' ? -result : result;
     return std::to_string(value) == text;
+}
+
+// The placeholders a game fills in: no setting may take these names.
+bool game_placeholder(const std::string& key) {
+    return key == "game" || key == "game_name" || key == "game_folder" || key == "game_file" ||
+           key == "game_device" || key == "game_path";
 }
 
 bool relative_path(const std::string& path) {
@@ -123,7 +130,7 @@ bool check_placeholders(const EmulatorFile& file, const std::string& word, bool 
         const auto end = word.find('}', pos + 1);
         if (end == std::string::npos) return false;
         const std::string key = word.substr(pos + 1, end - pos - 1);
-        if (key != "game" && key != "game_name" && key != "game_folder") {
+        if (!game_placeholder(key)) {
             const auto* setting = allow_settings ? find_setting(file, key) : nullptr;
             if (setting == nullptr) return false;
             if (setting->type == EmulatorSettingType::Switch && word != "{" + key + "}") return false;
@@ -277,7 +284,7 @@ const char* validate_emulator_file(EmulatorFile& file, EmulatorFileFields& field
 
 bool emulator_path_valid(const std::string& path) {
     if (path.size() > kEmulatorPathMax) return false;
-    if (path.rfind("sd:/", 0) != 0 && path.rfind("usb:/", 0) != 0) return false;
+    if (path.rfind("sd:/", 0) != 0 && !riftwii::is_usb_path(path)) return false;
     return relative_path(path.substr(path.find('/') + 1));
 }
 
@@ -301,7 +308,7 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
     };
     if (text.empty() || text.size() > kEmulatorFileMax) return fail("The emulator file must be 1 to 16384 bytes.");
     if (!emulator_path_valid(app_folder) ||
-        (app_folder.rfind("sd:/apps/", 0) != 0 && app_folder.rfind("usb:/apps/", 0) != 0))
+        (app_folder.rfind("sd:/apps/", 0) != 0 && (!is_usb_path(app_folder) || image_volume_path(app_folder).rfind("/apps/", 0) != 0)))
         return fail("The emulator folder must be inside sd:/apps or usb:/apps.");
     if (!can_allocate(text.size() * 8)) return fail("There is not enough memory to read the emulator file.");
     EmulatorFile file;
@@ -327,7 +334,7 @@ bool parse_emulator_file(const std::string& text, const std::string& app_folder,
                 continue;
             }
             const std::string key = trim(section.substr(8));
-            if (!identifier(key) || key == "game" || key == "game_name" || key == "game_folder" ||
+            if (!identifier(key) || game_placeholder(key) ||
                 find_setting(file, key) != nullptr) return fail("An emulator setting name is invalid or repeated.");
             if (file.settings.size() == kEmulatorSettingsMax) return fail("The emulator declares more than 16 settings.");
             file.settings.emplace_back();
@@ -373,6 +380,10 @@ bool emulator_game_matches(const EmulatorFile& emulator, const std::string& path
     bool inside = false;
     for (const auto& folder : emulator.folders) {
         if (path.rfind(folder + "/", 0) == 0) inside = true;
+        // An existing usb:/ ROM folder is searched on every partition.
+        // A numbered folder restricts the manifest to that partition.
+        if (folder.rfind("usb:/", 0) == 0 && is_usb_path(path) &&
+            image_volume_path(path).rfind(image_volume_path(folder) + "/", 0) == 0) inside = true;
     }
     const auto dot = path.find_last_of('.');
     if (!inside || dot == std::string::npos) return false;
@@ -450,6 +461,15 @@ bool build_emulator_arguments(const EmulatorFile& emulator, const std::string& g
     replacements["game"] = game;
     replacements["game_name"] = emulator_game_name(game);
     replacements["game_folder"] = game.substr(0, game.find_last_of('/'));
+    // As WiiFlow's plugins give them: the file name with its extension, the
+    // drive without its colon (sd, usb) and the folder without the drive.
+    replacements["game_file"] = game.substr(game.find_last_of('/') + 1);
+    replacements["game_device"] = game.substr(0, game.find(':'));
+    {
+        const std::string& folder = replacements["game_folder"];
+        const auto root = folder.find(":/");
+        replacements["game_path"] = root == std::string::npos ? folder : folder.substr(root + 2);
+    }
     std::vector<std::string> ready{emulator.dol};
     std::size_t bytes = emulator.dol.size() + 2;
     std::set<std::string> switches;

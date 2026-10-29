@@ -16,63 +16,68 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Your own menu music, a closer look at every cover, shelf boxes that look like real Wii cases, covers for homebrew, WiiWare and Virtual Console games, a USB keyboard and mouse in the menu, and more ways back to RiftWii after a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** An easier Home (a Layout button, a Show chooser, help when a list is empty), WiiWare and Virtual Console straight from WAD files, pictures for emulator games, banner music and disc art on game pages, and clearer messages when something goes wrong. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The shelf with Wii cases and full-width spines on a widescreen TV]({{SCREENSHOTS}}2610-shelf-cases.png)
+![The Layout button's picker on Home]({{SCREENSHOTS}}2610-layout-picker.png)
 
 ## What changed
 
 ### Home
 
-- **Press 1 and 2 together to change the view** (covers, 3D covers, carousel, shelf, channels, names) without opening Settings. Pressed alone, 1 and 2 still do their own jobs.
-- **See a cover up close.** Point at a cover in the Covers view, or a box on the shelf or carousel, and press 1 or 2: it zooms up in the middle of the screen. 1, 2, A or B puts it back. On a game's page, A on the box shows it up close too, and Down turns it over to its back.
-- **The shelf's boxes look like real Wii cases**, with the colored plastic showing round the cover, in the color each game's case really has. You can pick your own colors in `sd:/riftwii/case_colors.txt`.
-- **Spines are no longer squeezed**, and full covers (front, spine and back) are now downloaded for every game, not just the ones near you on the shelf. Small 2D covers stay square where they stand in for a box, and covers fill the box's front right to the corners.
-- **Hold B on the search button for about a second** to start a random game from the ones shown.
-- **Covers for more games:** homebrew apps get their GameTDB covers (found by their name), and WiiWare and Virtual Console games now get their covers, shelf boxes and 3D covers too.
-- **Custom games** that GameTDB lists (Newer Super Mario Bros. Wii, Wiimm's Mario Kart Fun and others) now show under Mods, with their own banners.
-- **A game's age rating** on its About page uses the rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR).
-- **The Wii Menu font is crisp** on a widescreen TV (Settings > Menu font).
-
-### Menu music and controls
-
-- **Your own menu music:** in Settings > Music file, pick a song (`.ogg` or `.mp3`), an `.m3u` playlist, or a whole folder to play shuffled, from the SD card or the USB drive.
-- **A USB keyboard, a USB mouse, USB pen tablets and the uDraw GameTablet** work in the menu as player 1's controls. The keyboard types into search and tile names, and the mouse points like a Wii Remote. Not yet tested on a real Wii (Dolphin can't plug these in).
-- **Naming a Home tile:** Shift also types symbols, so names like "Project+" or "Kamen Rider: Super Climax Heroes" can be typed.
+- **A Layout button.** The round button in the top-left corner (on the bar in Channels) opens a picker with the six layouts: Covers, 3D covers, Carousel, Shelf, Channels and Names. Before, the layout changed only in Settings or with 1 and 2 together, which still works.
+- **A Show chooser.** The bottom-left button now opens a chooser with Games with mods, All games, Homebrew, Emulators, Recently played and Favourites, each with how many games it has. The 1 button still steps through them.
+- **No more empty Home.** When the list you chose has nothing in it, Home says why and offers "Show all games".
+- **Settings > Home > Games from is no longer hidden.** When it is set to one drive, Home says so beside the list's name, and Search now finds games on every drive.
 
 ### Games
 
-- **Quitting a game lands in RiftWii more often.** A GameCube game's held HOME tries the RiftWii channel first. Resident Evil 4, older LEGO games and Ghostbusters keep their way back. N64 Virtual Console games now leave with the GameCube controller's L+R+Z+Start held for 2 seconds, like other games. The setting is now called **Quitting a game** (Settings > Games), so it's easier to find.
-- **WiiWare and Virtual Console:** when the Wii refuses a channel's own ticket, RiftWii tries again with a copy that works on any console, which helps games copied from another Wii.
-- **RVZ and GameCube games are found wherever you put them:** a Wii `.rvz` in `wbfs/`, or a GameCube `.iso`, `.gcm` or `.rvz` loose in `games/` or `wbfs/`, no folder of its own needed.
-- **Dragon Quest X from its USB drive:** with this Wii's WFS key at `sd:/riftwii/wfskey.bin`, RiftWii reads the game's WFS drive and starts Dragon Quest X like the Wii Menu does. Tried in Dolphin, not yet on a real Wii.
-- **HOME Menu:** without Priiloader, its third button is now Restart. On a Wii U it goes back to the Wii U.
-- **The updater** says the real reason when a secure connection is refused, instead of always blaming the Wii's clock.
+- **WiiWare and Virtual Console from WAD files, with no install step.** Put the `.wad` files in a `wiiware` folder on the SD card or a USB drive. They show on Home with their name and banner. The first Play unpacks the game into the SD card's emulated NAND (`sd:/nands/01`); later Plays start at once. Saves stay there, and are kept if you remove the WAD. This uses d2x's NAND emulation and hasn't been tried on a real Wii yet.
+- **Retro Rewind online (error 50330):** RiftWii now fully shuts down the menu's internet connection before every game starts. A tester got error 50330 when the menu had been online first; this is the most likely cause, but it couldn't be checked in Dolphin.
+- **Asks before playing with missing mod files.** If some files of the mods you switched on are missing, RiftWii says which changes will be left out, with Back, Review files and Play anyway.
+- **Clearer messages:** a GameCube memory card that can't be read no longer says "No memory card yet"; a mod error shows in full instead of cut off; the missing-cIOS message names the right drive (SD or USB); a USB partition that can't be read is named in Settings > Drives > USB scan details.
+
+### Game pages
+
+- **Banner music and disc art.** Two new switches in Settings, both off at first: the game's banner music plays when its page opens from any layout (Channels already did), and GameTDB's picture of the disc shows under the box.
+- **A Save location page.** The Saves tile opens a page that shows where the game's new saves go and lets you choose. Before, each press switched it. Saves already made never move.
+- **Use default options for this game**, the last row of a game's Options, puts its picture, language, controller and launch choices back to following Settings.
+- **About lists the controllers in words** ("Needed" and "Also works with"), for players using the D-pad.
+- **WiiWare and VC games without box art** show their channel icon in a card of its own shape.
+
+### Emulators
+
+- **Pictures for emulator games in the Channels view**, instead of a plain tile: your own PNG first, then libretro's title screens, SteamGridDB (when on), or part of the cover.
+- **Pick a picture yourself when online:** on an emulator game's page, Picture shows the pictures found online, six at a time, and saves the one you pick to the SD card.
+
+### Small things
+
+- The menu's words are plainer: Settings paths in full, "Downloads" for the online switches, and hints that say what A does.
+- The icon on the Layout button sits in the middle of the button.
 
 ## What to test
 
-1. **Press 1 and 2 together on Home** a few times: does it go through the views and remember the last one?
-2. **Press 1 on a cover** in the Covers view and on a shelf box: does it zoom up and go back with B?
-3. **Look at the shelf** with downloads on: do the cases' colors and spines look right? Does anything freeze or restart while the boxes download?
-4. **Pick your own menu music** (Settings > Music file): a song, a playlist and a folder.
-5. **Plug in a USB keyboard or mouse** if you have one: can you search, type a name and point?
-6. **Quit a game** with HOME or L+R+Z+Start, especially a GameCube or N64 Virtual Console game: do you land back in RiftWii?
+1. **WiiWare or VC from a WAD:** put one in `sd:/wiiware` (or a USB drive's `wiiware` folder). Does it show on Home, unpack on the first Play, start, save, and start again without unpacking?
+2. **Retro Rewind online from the disc**, after the menu has been online (covers or names downloading): does it connect now? If it shows an error, send a problem report right after.
+3. **The Layout and Show buttons** on Home: do they do what you expect? Is anything hard to find?
+4. **Mods with a file missing:** do you get the question, and does Play anyway work?
+5. **Banner music and disc art** (Settings): do they show and play on your games?
 
 ## Known issues
 
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. This release has a likely fix that couldn't be checked in Dolphin; a problem report from anyone who still sees it helps.
+- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
+- **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
-- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
 - **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
 - **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
+- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
 - **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 
-Everything new since 2.7.0: [docs/CHANGES_2610.md](https://github.com/KakarottoCake/Riftwii/blob/main/docs/CHANGES_2610.md).
-
-![A cover zoomed up close in the Covers view]({{SCREENSHOTS}}2610-cover-zoom.png)
+![Mario Kart Wii's page with its disc art]({{SCREENSHOTS}}2610-disc-art.png)
 
 ## Download
 
