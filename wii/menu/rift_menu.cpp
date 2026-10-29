@@ -2899,8 +2899,11 @@ public:
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
-		// A pad press Home still keeps back (B held as A opened this) was
-		// made there: let go here, it doesn't answer this box.
+		// Home's search hold stops watching here (its watch lasts a few
+		// frames after Home's last look): the box's B is its own from the
+		// first frame. A pad press Home still keeps back (B held as A opened
+		// this) was made there: let go here, it doesn't answer this box.
+		riftwii::wii::WatchSearchHold(false);
 		riftwii::wii::SpendPadHomePresses();
 		if (safeFirst) okBtn.backAction = false;
 		if (riftwii::wii::Settings().wii_menu_sounds)
