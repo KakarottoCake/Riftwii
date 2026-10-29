@@ -6604,12 +6604,15 @@ static const riftwii::wii::SharedNandLookup& SharedNandFor(const std::string& ga
 // The Saves tile's note. "SD, emulated NAND" names the folder, since
 // which one (the game's own, the global one or the default) decides which
 // save the game finds; a folder the launch would refuse shows here first.
-static std::string SaveNote(const riftwii::LaunchModel& model, const std::string& game_id, bool read_again = false)
+// `mode_shown`, when given, describes that save mode instead of the
+// model's (the Save location page, as the player moves between choices).
+static std::string SaveNote(const riftwii::LaunchModel& model, const std::string& game_id, bool read_again = false,
+	const std::string* mode_shown = nullptr)
 {
 	const std::string owner = model.pack_save_owner();
 	if (!owner.empty())
 		return tr("This pack keeps its own saves. Turn it off to choose here.");
-	const std::string& mode = model.save_mode;
+	const std::string& mode = mode_shown ? *mode_shown : model.save_mode;
 	if (mode == "separate") return tr("Saves go to the SD card, starting from the Wii's save.");
 	if (mode == "fresh") return tr("Saves go to the SD card, starting fresh.");
 	if (mode == "emunand") {
@@ -8160,10 +8163,9 @@ static void MenuWiiSaves(FrontendState& state)
 	if (!kept) rows[static_cast<std::size_t>(current)].on = true;
 	const auto note = [&](int row) -> std::string {
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
-		riftwii::LaunchModel shown = state.model;
-		shown.save_mode = kModes[row];
+		const std::string shown = kModes[row];
 		const bool fresh = row == current;
-		return SaveNote(shown, state.game_id, !fresh) + " " + tr("Saves already made stay where they are; only new saves go here.");
+		return SaveNote(state.model, state.game_id, !fresh, &shown) + " " + tr("Saves already made stay where they are; only new saves go here.");
 	};
 	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const auto&) {
 		if (kept) return false;
@@ -10106,6 +10108,13 @@ static void MenuCoverCloseup(const std::string& game_id)
 	mainWindow->SetState(STATE::DEFAULT);
 }
 
+// skin::Draw scales a picture about its centre. This keeps a scaled
+// picture's top-left corner at (x, y), where the layout and hit boxes put it.
+static void DrawScaledFromCorner(const skin::Tex& t, float x, float y, int alpha, float scale)
+{
+	skin::Draw(t, x - t.w * (1 - scale) / 2, y - t.h * (1 - scale) / 2, alpha, scale);
+}
+
 // The About page's body, right of the box and under it: the facts in two
 // columns, the age rating as a badge in the band (the rating board's own
 // mark when RiftWii has it, else the rating written out), the controllers as
@@ -10233,7 +10242,7 @@ public:
 				const float x = static_cast<float>(IconX(static_cast<int>(i)));
 				const int a = c.required ? alpha : alpha * 120 / 255;
 				const float lift = static_cast<int>(i) == hoverControl ? -2.0f : 0.0f;
-				skin::Draw(skin::ControlIcon(c.type), x, iconY + lift, a, iconScale);
+				DrawScaledFromCorner(skin::ControlIcon(c.type), x, iconY + lift, a, iconScale);
 				if (c.connected)
 					Menu_DrawRectangle(x + 40 * iconScale / 2 - 2, iconY + 40 * iconScale + 2, 4, 4,
 						skin::WithAlpha(skin::kAccent, alpha), 1);
@@ -10288,10 +10297,10 @@ public:
 				shown[i]->Draw();
 			}
 			if (Scrolls()) {
-				if (first > 0) skin::Draw(overUp ? skin::scrollUpOver : skin::scrollUp,
+				if (first > 0) DrawScaledFromCorner(overUp ? skin::scrollUpOver : skin::scrollUp,
 					ArrowX(true), ArrowY(true), alpha, ArrowScale());
 				if (first + storyLines < static_cast<int>(lines.size()))
-					skin::Draw(overDown ? skin::scrollDownOver : skin::scrollDown,
+					DrawScaledFromCorner(overDown ? skin::scrollDownOver : skin::scrollDown,
 						ArrowX(false), ArrowY(false), alpha, ArrowScale());
 			}
 		}
@@ -11995,7 +12004,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 						// the row help cannot replace.
 						game = beforePress;
 						logf("Game settings: %s reset not saved, options put back: %s\n", state.game_id.c_str(), error.c_str());
-						ShowPopup(tr("Could not save the settings to the SD card."), error, tr("OK"));
+						ShowPopup(tr("Options"), tr("Could not save the settings to the SD card."), tr("OK"));
 					} else {
 						say(error);
 					}
