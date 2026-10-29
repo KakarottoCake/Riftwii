@@ -10620,6 +10620,16 @@ private:
 		const float k = static_cast<float>(kHeroDiscSize) / std::max(discArt->w, discArt->h);
 		const float dw = discArt->w * k, dh = discArt->h * k;
 		const float dx = kHeroX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
+		// A round drop shadow, lit from above as the box's is.
+		if (skin::discShadow.data) {
+			constexpr float kDrop = 4.0f;
+			// skin::Draw scales about the picture's centre: place that
+			// centre under the disc's.
+			const float scale = static_cast<float>(kHeroDiscSize) / riftwii::kDiscShadowDisc;
+			const float half = riftwii::kDiscShadowSize / 2.0f;
+			const float cx = kHeroX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
+			skin::Draw(skin::discShadow, cx - half, cy - half + kDrop, 255, scale);
+		}
 		skin::DrawRgb5a3Part(discArt->data, discArt->w, discArt->h, 0.0f, 1.0f, dx, dy, dw, dh);
 	}
 	// The corners' radius as drawn: about a real case's, in proportion.
