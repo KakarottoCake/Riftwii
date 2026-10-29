@@ -3407,3 +3407,21 @@ msgstr "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다."
+
+msgid "Getting the game ready"
+msgstr "게임 준비 중"
+
+msgid "Getting {1} ready, first time only"
+msgstr "{1} 준비 중, 처음 한 번만"
+
+msgid "The game could not be prepared"
+msgstr "게임을 준비하지 못했습니다"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다."

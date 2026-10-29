@@ -654,11 +654,31 @@ needs a d2x cIOS, as SD and USB games do; when it cannot start a game
 from the Wii itself, the Wii starts it as the Wii Menu would, without
 those extras. A game in an emulated NAND keeps its saves in that folder.
 
-To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
-top of the SD card and pick **Settings > Drives > Install WAD files**.
-They go into that emulated NAND (the Wii itself is not changed) and show
-up on Home. RiftWii decrypts them with your own Wii's key, read when you
-install; it carries no key itself.
+To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
+or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
+(`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
+level of subfolders. The games appear on Home with their own names,
+banners and icons. An SD card is needed even when the WAD is on USB.
+
+Press **Play**. The first start shows **Getting <game> ready, first time
+only** while RiftWii checks and unpacks the game into the channel emulated
+NAND on the SD card (`sd:/nands/01` unless configured otherwise). Later
+starts reuse those files. Replacing the WAD with a changed version prepares
+it again. This uses free space on the SD card as well as the space holding
+the WAD; updating an existing copy temporarily needs room for both copies.
+The console's own NAND is never written.
+
+Removing a WAD removes its Home tile after the drives are read again.
+Its save stays at `<emulated NAND>/title/00010001/<title ID>/data/`, and is
+used again if the WAD is put back. An independently installed copy keeps
+its own tile and save location; the same title is shown only once.
+RiftWii reads your Wii's common key only in memory to decrypt its own
+backup. Korean-key and vWii-key WADs are not supported by this key reader.
+The regular d2x channel-launch requirements still apply.
+
+The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
+and pick **Settings > Drives > Install WAD files**. These copies stay on
+Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
 `sd:/private/wii/title/<code>/content.bin`. If it can read that copy,

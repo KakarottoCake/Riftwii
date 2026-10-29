@@ -23,6 +23,10 @@
 #include "movedchannels.hpp"
 #include "usbcatalog.hpp"
 #include "nanduse.hpp"
+#include "wadfolder.hpp"
+#include "wadinstall.hpp"
+#include "otpkey.hpp"
+#include "riftwii/wadfile.hpp"
 #include "riftwii/checkedalloc.hpp"
 
 namespace riftwii::wii {
@@ -432,6 +436,7 @@ void scan_emu_title_type(const std::string& folder, std::uint32_t upper, std::ve
         NandChannel channel;
         channel.emu_nand = folder;
         channel.title_id = (std::uint64_t(upper) << 32) | std::strtoul(name.c_str(), nullptr, 16);
+        if (wad_managed_title(folder, channel.title_id)) continue;
         channel.kind = classify_channel(channel.title_id);
         channel.non_game = channel.kind.kind == ChannelKind::None && include_non_games &&
                            is_nintendo_channel(channel.title_id);
@@ -565,9 +570,69 @@ bool emu_channel_program_present(const std::string& folder, std::uint64_t title_
     });
 }
 
+bool prepare_wad_nand_system(const std::string& folder, std::string& error) {
+    // Full emulation redirects system settings too. A newly created NAND
+    // needs the console's region, Remote pairings and title owners before
+    // the game's SDK asks for them. Existing settings stay as they are.
+    if (folder.compare(0, 4, "sd:/") != 0 || folder.size() <= 4 || folder.find("..") != std::string::npos ||
+        folder.find_first_of("\\", 4) != std::string::npos || folder.find(':', 3) != std::string::npos) {
+        error = "the emulated NAND is not a plain SD folder";
+        return false;
+    }
+    const char* paths[] = {"/shared2/sys/SYSCONF", "/title/00000001/00000002/data/setting.txt",
+                           "/sys/uid.sys", "/sys/cert.sys"};
+    if (NandOpen() < 0) {
+        error = "the Wii's system settings could not be read";
+        return false;
+    }
+    struct NandUser {
+        ~NandUser() { NandClose(); }
+    } nand_user;
+    NandAccess access;
+    for (const char* path : paths) {
+        const std::string destination = folder + path;
+        if (card_file_exists(destination)) continue;
+        std::vector<u8> bytes;
+        if (!read_whole(access, path, 128 * 1024, bytes, error)) return false;
+        for (std::size_t slash = destination.find('/', 4); slash != std::string::npos;
+             slash = destination.find('/', slash + 1)) {
+            mkdir(destination.substr(0, slash).c_str(), 0777);
+        }
+        const std::string part = destination + ".riftwii-part";
+        FILE* file = std::fopen(part.c_str(), "wb");
+        const bool written = file && std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+        const bool closed = file && std::fclose(file) == 0;
+        if (!written || !closed || std::rename(part.c_str(), destination.c_str()) != 0) {
+            std::remove(part.c_str());
+            error = "the SD card could not save the Wii's system settings (is it full or locked?)";
+            return false;
+        }
+        logf("WiiWare folder: missing system file %s was copied from this Wii to the emulated NAND.\n", path);
+    }
+    mkdir((folder + "/tmp").c_str(), 0777);
+    return true;
+}
+
 bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error) {
     // A banner with its sound is a few hundred KB; past this it is not one.
     constexpr u32 kMaxBannerBytes = 4u << 20;
+    if (!channel.wad_path.empty()) {
+        const TmdContent* banner = tmd_content_by_index(channel.tmd, 0);
+        if (banner && !channel.wad_banner_cache.empty() &&
+            read_card_file(channel.wad_banner_cache, kMaxBannerBytes, out, error) &&
+            out.size() == banner->size && sha1(out.data(), out.size()) == banner->sha1) return true;
+        const auto source = open_wad_source(channel.wad_path, error);
+        WadMetadata metadata;
+        if (!source || !read_wad_metadata(*source, metadata, error)) return false;
+        std::uint8_t key[16];
+        if (!ConsoleCommonKey(key)) {
+            error = "this Wii's key could not be read";
+            return false;
+        }
+        const bool read = read_wad_banner(*source, metadata, key, out, error);
+        std::memset(key, 0, sizeof key);
+        return read;
+    }
     if (channel.banner_path.empty()) {
         error = "it has no banner content";
         return false;
