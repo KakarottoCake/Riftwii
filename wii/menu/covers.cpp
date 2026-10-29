@@ -394,6 +394,8 @@ bool CoverSecondSet(const std::string& game_id) {
 
 bool ChooseCoverSet(const std::string& game_id, bool second) {
     if (!ValidId(game_id) || emulator_cover_id(game_id)) return false;
+    // A miss was the other set's: this one is asked for afresh.
+    std::remove(MissPath(game_id).c_str());
     if (!second) {
         std::remove(SecondSetPath(game_id).c_str());
         return !CoverSecondSet(game_id);
@@ -451,10 +453,14 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
                 return CoverFetch::Failed;
             }
             std::remove(MissPath(game_id).c_str());
-            // Which set this cover is of (a failed write: taken for the
-            // first, so a second-set choice downloads it again).
-            if (second) WriteAll(StoredSecondPath(game_id), {});
-            else std::remove(StoredSecondPath(game_id).c_str());
+            // Which set this cover is of. Unwritten, the second set's would
+            // pass for the first's: no cover, and a failed download.
+            if (second && !WriteAll(StoredSecondPath(game_id), {})) {
+                std::remove(CoverPath(game_id).c_str());
+                error = "cannot write " + StoredSecondPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            if (!second) std::remove(StoredSecondPath(game_id).c_str());
             logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
         }

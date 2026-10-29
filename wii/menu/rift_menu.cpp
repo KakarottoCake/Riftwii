@@ -11886,8 +11886,13 @@ static int MenuHome(FrontendState& state)
 					// one now chosen is fetched again, and its answer is said.
 					coverStart = true;
 				} else if (id != state.game_id) {
-					// One Home started before this page opened.
+					// One Home started before this page opened, or another game's
+					// page: a failed second-set download goes back to the first,
+					// as Home does.
 					if (CountCoverFetch(got, id, error)) CoverDownloadsOff(id) = true;
+					if ((got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed) &&
+					    riftwii::wii::TakenFetchWasSecondSet() && riftwii::wii::CoverSecondSet(id))
+						riftwii::wii::ChooseCoverSet(id, false);
 				} else {
 					// Counted like Home's, unless the player asked for it: that
 					// one never turns the downloads off, its failure is only said
