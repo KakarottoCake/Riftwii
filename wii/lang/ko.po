@@ -900,6 +900,21 @@ msgstr "페이드 아웃"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다."
 
+msgid "Banner music on game pages"
+msgstr "게임 페이지에서 배너 음악"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "홈에서 게임 페이지를 열면 채널 보기의 배너 화면처럼 배너 음악을 재생합니다. 채널 보기에서는 이미 재생되므로 해당되지 않습니다."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "채널 보기에서는 배너 화면에서 게임의 배너 음악이 이미 재생됩니다."
+
+msgid "Disc art"
+msgstr "디스크 이미지"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "게임 페이지에서 케이스 아래에 게임 디스크를 표시합니다. 이미지는 다운로드가 켜져 있을 때 GameTDB에서 받아 sd:/riftwii/discs에 저장됩니다."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 
@@ -2346,20 +2361,23 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "Covers for emulator games"
-msgstr "에뮬레이터 게임 표지"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "홈에 배치 버튼과 표시 선택"
 
-msgid "WiiFlow's emulator plugins work here too"
-msgstr "WiiFlow 에뮬레이터 플러그인도 사용 가능"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiWare와 VC를 WAD에서 바로 플레이"
 
-msgid "Games from every partition of a USB drive"
-msgstr "USB 드라이브의 모든 파티션에서 게임을"
+msgid "Pictures for emulator games, and a picker"
+msgstr "에뮬레이터 게임 이미지와 선택 화면"
 
-msgid "Leave a frozen menu without a Wii Remote"
-msgstr "Wii 리모컨 없이 멈춘 메뉴 나가기"
+msgid "Banner music and disc art on game pages"
+msgstr "게임 페이지에 배너 음악과 디스크 이미지"
 
-msgid "Smoother menu motion on PAL and NTSC"
-msgstr "PAL과 NTSC에서 더 부드러운 메뉴"
+msgid "Asks first when mod files are missing"
+msgstr "모드 파일이 없으면 먼저 확인"
+
+msgid "Clearer messages when something goes wrong"
+msgstr "문제가 생겼을 때 더 알기 쉬운 메시지"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
@@ -2979,6 +2997,21 @@ msgstr "먼저 SD 카드를 다시 넣어 주세요."
 msgid "The SD card is back in. Reading it again."
 msgstr "SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다."
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "검색은 모든 장르에서 찾습니다. 먼저 1을 눌러 검색을 끝내 주세요."
+
+msgid "Homebrew apps have no genres."
+msgstr "홈브루 앱에는 장르가 없습니다."
+
+msgid "No genres yet."
+msgstr "아직 장르가 없습니다."
+
+msgid "Every genre"
+msgstr "모든 장르"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "위/아래: 장르   떼기: 보기"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "메뉴가 영어로 표시됩니다. RiftWii zip의 apps/riftwii/korean.ttf를 SD 카드에 복사하고 RiftWii 메뉴 글꼴을 선택하거나, 한국 Wii에서 Wii 메뉴 글꼴을 사용하세요."
 
@@ -3393,6 +3426,9 @@ msgstr "에뮬레이터 설정을 저장하지 못했습니다."
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요."
 
+msgid "Covers for emulator games"
+msgstr "에뮬레이터 게임 표지"
+
 msgid "SteamGridDB covers"
 msgstr "SteamGridDB 표지"
 
@@ -3647,9 +3683,6 @@ msgstr "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를
 
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요."
-
-msgid "Emulator games: Home > Show > Emulators"
-msgstr "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터"
 
 msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다."
