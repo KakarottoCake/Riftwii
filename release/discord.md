@@ -19,23 +19,20 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Home: a Layout button (top left) and a Show chooser (bottom left), and help when a list is empty
-* WiiWare and VC straight from .wad files in a wiiware folder, no install step
-* A likely fix for Retro Rewind's error 50330 online
-* Asks before playing when mod files are missing
-* Banner music and disc art on game pages (Settings, off at first)
-* A Save location page, and "Use default options for this game"
-* Pictures for emulator games in Channels, and a picker to choose one
-* Clearer error messages
+* Pick a genre on Home: hold B, press Down or Up, let go
+* USB drives over 2 TiB start games again
+* Japanese GameCube games on a Western console: memory cards no longer read as damaged in more games
+* Wii Menu music and sounds keep working after you quit a game
+* GameCube games in another top folder of the drive are found
+* Box names in the Carousel and Shelf stay on their spines
 
 To test, please:
 
-1. Put a WiiWare or VC .wad in sd:/wiiware: does it show, start, save, and start again without unpacking?
-2. Retro Rewind online from the disc, after the menu was online: does it connect now?
-3. The Layout and Show buttons on Home: anything confusing?
-4. A mod with a file missing: do you get the question, and does Play anyway work?
+1. A USB drive bigger than 2 TiB: do games start?
+2. A Japanese GameCube game with its memory card: does the save load?
+3. Quit a game with HOME > Wii Menu (Wii Menu music on): does the music play back in RiftWii?
+4. The genre picker: does it find your games' genres?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The Layout picker](docs/screenshots/2610-layout-picker.png)
-![Disc art on a game's page](docs/screenshots/2610-disc-art.png)
+![Picking a genre on Home](docs/screenshots/2610-genre-picker.png)
