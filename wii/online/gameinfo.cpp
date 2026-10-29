@@ -585,10 +585,13 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
     // The mods' list (#385) missing (read by a RiftWii from before it), too
     // big to load, or older than the database (its last write failed):
-    // read once more for it.
+    // read once more for it. The age only while none was written this
+    // session: a console clock behind the database's date would make every
+    // list look older, and each Home refresh read the database again.
     struct stat mods;
     if (have_source && (stat(kModTitlesPath, &mods) != 0 ||
-                        static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes || mods.st_mtime < source_time))
+                        static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes ||
+                        (g_mod_titles_written == 0 && mods.st_mtime < source_time)))
         missing = true;
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
