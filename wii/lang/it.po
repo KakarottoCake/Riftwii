@@ -3378,8 +3378,8 @@ msgstr "Rinomina {1} esattamente in {2}."
 msgid "Move {1} to {2}."
 msgstr "Sposta {1} in {2}."
 
-msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
-msgstr "Copia la cartella {1} dal download della mod in modo che sia proprio {2}, accanto alla cartella riivolution."
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "Copia la cartella {1} dal download della mod in modo che sia proprio {2}."
 
 msgid "Needs the internet"
 msgstr "Serve internet"

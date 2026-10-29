@@ -7079,11 +7079,11 @@ T.update({
         "{1}を{2}に移動してください。",
         "Mova {1} para {2}.",
         "Sposta {1} in {2}."),
-    "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.": (
-        "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}, junto a la carpeta riivolution.",
-        "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください（riivolutionフォルダーと同じ場所）。",
-        "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}, ao lado da pasta riivolution.",
-        "Copia la cartella {1} dal download della mod in modo che sia proprio {2}, accanto alla cartella riivolution."),
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": (
+        "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}.",
+        "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。",
+        "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}.",
+        "Copia la cartella {1} dal download della mod in modo che sia proprio {2}."),
 })
 KO.update({
     "Memory card could not be read": "메모리 카드를 읽을 수 없습니다",
@@ -7098,7 +7098,7 @@ KO.update({
     "{1} is one folder too deep. Move its contents into {2}.": "{1} 폴더가 한 단계 더 깊습니다. {1}의 내용을 {2}로 옮기세요.",
     "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
     "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
-    "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.": "다운로드한 모드의 {1} 폴더가 riivolution 폴더 옆의 {2} 자체가 되도록 복사하세요.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "다운로드한 모드의 {1} 폴더가 {2} 자체가 되도록 복사하세요.",
 })
 FR.update({
     "Memory card could not be read": "Impossible de lire la carte mémoire",
@@ -7113,7 +7113,7 @@ FR.update({
     "{1} is one folder too deep. Move its contents into {2}.": "{1} est un dossier de trop. Déplacez son contenu dans {2}.",
     "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
     "Move {1} to {2}.": "Déplacez {1} vers {2}.",
-    "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}, à côté du dossier riivolution.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}.",
 })
 
 

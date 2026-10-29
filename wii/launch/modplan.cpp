@@ -654,7 +654,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         } else if (!found.empty()) {
             error += "\n" + tr("Move {1} to {2}.", {found, top});
         } else {
-            error += "\n" + tr("Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.", {folder, top});
+            error += "\n" + tr("Copy the {1} folder from the mod's download so that it is {2} itself.", {folder, top});
             const std::string hint = nearest_on_card(what);
             if (!hint.empty()) error += " (" + hint + ")";
         }
