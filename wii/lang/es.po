@@ -3423,14 +3423,20 @@ msgstr "Elige la imagen que se muestra en Canales."
 msgid "Back to automatic"
 msgstr "Volver a automático"
 
-msgid "libretro title screen"
-msgstr "Pantalla de título de libretro"
+msgid "Title screen"
+msgstr "Pantalla de título"
 
-msgid "libretro screenshot"
-msgstr "Captura de libretro"
+msgid "Screenshot"
+msgstr "Captura de pantalla"
 
-msgid "libretro box art"
-msgstr "Carátula de libretro"
+msgid "Box art"
+msgstr "Carátula"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Conecta la Wii a internet y activa {1} en {2} > {3}."
 
 msgid "No pictures found."
 msgstr "No se encontraron imágenes."

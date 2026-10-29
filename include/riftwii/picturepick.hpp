@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/sha256.hpp"
+
 namespace riftwii {
 
 enum class PictureSource { Title, Screenshot, Boxart, SteamGrid };
@@ -14,6 +16,8 @@ enum class PictureSource { Title, Screenshot, Boxart, SteamGrid };
 struct PictureCandidate {
     std::string url;
     PictureSource source = PictureSource::Title;
+    Sha256Digest thumbnail_hash{};
+    bool thumbnail_hashed = false;
 };
 
 // Four sources get equal room. Six native channel textures cost 132 KiB;
@@ -29,6 +33,11 @@ bool picture_add_libretro(std::vector<PictureCandidate>& candidates, PictureSour
                           const std::string& system, const std::string& game,
                           const std::vector<std::string>& names);
 bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std::vector<std::string>& urls);
+// Remember only hashes between pages. Remove the later matching candidate
+// from the same source, preserving the game's preferred name and region.
+// Returns the removed index, or kPictureCandidatesMax if none was removed.
+std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, std::size_t index,
+                                     const Sha256Digest& digest);
 std::size_t picture_page_count(std::size_t candidates);
 // SD only, below RiftWii, with validated components. Callers supply the
 // final PNG path, so another picker can use a game's tile key later.
