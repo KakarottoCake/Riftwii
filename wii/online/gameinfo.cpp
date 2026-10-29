@@ -48,6 +48,8 @@ unsigned g_mod_titles_written = 0;
 // reason to read the database again. A card that can't be written (full,
 // locked) would otherwise have every Home visit read it again.
 bool g_mod_titles_read_here = false;
+// This card's list found readable this session (once, not on every visit).
+bool g_mod_titles_checked_here = false;
 // Read from the database this session already (and the file written), for
 // the same reason as Cache::read_now; or stopped by the player.
 bool g_homebrew_read_now = false;
@@ -170,7 +172,16 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 // the database was read for them.
 bool SaveModTitles(const std::vector<CustomGame>& games) {
     g_mod_titles_read_here = true;
-    const std::string text = serialize_custom_games(games);
+    std::string text = serialize_custom_games(games);
+    // A list cut short (the scan's bound, or the file's) could make a tile's
+    // name look like it matches one entry when a dropped one matches too:
+    // then no list at all, so no tile gets a mod's cover by a guess.
+    const bool cut = games.size() >= kMaxCustomGames || parse_custom_games(text).size() != games.size();
+    if (cut) {
+        logf("Mod covers: GameTDB lists more mods of your games than RiftWii keeps (%u); mod tiles keep their games' covers\n",
+             static_cast<unsigned>(games.size()));
+        text = serialize_custom_games({});
+    }
     if (!ReplaceListFile(kModTitlesPath, text)) {
         // The older list stays, still usable; older than the database, it
         // is made again by the next StartGameInfoRead.
@@ -178,8 +189,10 @@ bool SaveModTitles(const std::vector<CustomGame>& games) {
         return false;
     }
     ++g_mod_titles_written;
-    logf("Mod covers: %u of GameTDB's mods of your games kept in %s\n", static_cast<unsigned>(games.size()),
-         kModTitlesPath);
+    g_mod_titles_checked_here = true;
+    if (!cut)
+        logf("Mod covers: %u of GameTDB's mods of your games kept in %s\n", static_cast<unsigned>(games.size()),
+             kModTitlesPath);
     return true;
 }
 
@@ -575,6 +588,7 @@ void ForgetGameInfo() {
     g_cache = Cache();
     ForgetHomebrewTitlesRead();
     g_mod_titles_read_here = false;
+    g_mod_titles_checked_here = false;
 }
 
 GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
@@ -596,10 +610,17 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     // behind the database's date would make every list look older; a card
     // that can't be written would never have one).
     struct stat mods;
-    if (have_source && !g_mod_titles_read_here &&
-        (stat(kModTitlesPath, &mods) != 0 || static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes ||
-         mods.st_mtime < source_time))
-        missing = true;
+    if (have_source && !g_mod_titles_read_here) {
+        bool again = stat(kModTitlesPath, &mods) != 0 ||
+                     static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes || mods.st_mtime < source_time;
+        // One that can't be read (a card error) too; looked at once a card.
+        if (!again && !g_mod_titles_checked_here) {
+            std::vector<CustomGame> list;
+            again = !LoadModTitles(list);
+            g_mod_titles_checked_here = !again;
+        }
+        if (again) missing = true;
+    }
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
