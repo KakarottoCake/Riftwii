@@ -3381,6 +3381,39 @@ msgstr "Mova {1} para {2}."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}, ao lado da pasta riivolution."
 
+msgid "Save location"
+msgstr "Local dos saves"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Mudar isto nunca move nem apaga saves já feitos."
+
+msgid "In use"
+msgstr "Em uso"
+
+msgid "Use default options for this game"
+msgstr "Usar opções padrão para este jogo"
+
+msgid "Use default options for this game?"
+msgstr "Usar opções padrão para este jogo?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "A imagem, o idioma, o controle e o início deste jogo voltam para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e a estrela de favorito ficam como estão."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Volta imagem, idioma, controle e início deste jogo para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e estrela de favorito ficam."
+
+msgid "Needed: {1}"
+msgstr "Precisa de: {1}"
+
+msgid "Also works with: {1}"
+msgstr "Também funciona com: {1}"
+
+msgid "Up and Down scroll"
+msgstr "Cima e Baixo rolam o texto"
+
+msgid "Up and Down scroll the story"
+msgstr "Cima e Baixo rolam a história"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log."
 

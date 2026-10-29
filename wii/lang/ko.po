@@ -3381,6 +3381,39 @@ msgstr "{1}을(를) {2}(으)로 옮기세요."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "다운로드한 모드의 {1} 폴더가 riivolution 폴더 옆의 {2} 자체가 되도록 복사하세요."
 
+msgid "Save location"
+msgstr "저장 위치"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다."
+
+msgid "In use"
+msgstr "사용 중"
+
+msgid "Use default options for this game"
+msgstr "이 게임 기본 설정 사용"
+
+msgid "Use default options for this game?"
+msgstr "이 게임 기본 설정을 사용할까요?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다."
+
+msgid "Needed: {1}"
+msgstr "필요: {1}"
+
+msgid "Also works with: {1}"
+msgstr "같이 사용 가능: {1}"
+
+msgid "Up and Down scroll"
+msgstr "위 아래로 넘기기"
+
+msgid "Up and Down scroll the story"
+msgstr "위 아래로 이야기 넘기기"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요."
 
