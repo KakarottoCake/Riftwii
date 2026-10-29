@@ -597,9 +597,6 @@ msgstr "クレジットとライセンス"
 msgid "View"
 msgstr "表示"
 
-msgid "Clear search"
-msgstr "検索をやめる"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。"
 
@@ -3381,6 +3378,36 @@ msgstr "上下でスクロール"
 msgid "Up and Down scroll the story"
 msgstr "上下でストーリーをスクロール"
 
+msgid "No games here"
+msgstr "ここにゲームはありません"
+
+msgid "Show all games"
+msgstr "すべてのゲームを表示"
+
+msgid "Show every drive"
+msgstr "すべてのドライブを表示"
+
+msgid "Games from: {1}"
+msgstr "ゲームの場所：{1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "「{1}」に合うゲームはありません。"
+
+msgid "No games with mods were found."
+msgstr "MODがあるゲームは見つかりませんでした。"
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "sd:/appsに自作ソフトが見つかりませんでした。"
+
+msgid "No emulator games were found."
+msgstr "エミュレータのゲームは見つかりませんでした。"
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "ここのゲームはまだRiftWiiで遊んでいません。"
+
+msgid "Mark a game as a favourite on its page."
+msgstr "ゲームのページでお気に入りにしてください。"
+
 msgid "Downloads"
 msgstr "ダウンロード"
 
@@ -3402,10 +3429,10 @@ msgstr "ゲーム名、カバー、チート、ゲームの詳細、テーマ、
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。"
 
-msgid "Emulator games: Home > View > Emulators"
+msgid "Emulator games: Home > Show > Emulators"
 msgstr "エミュレータのゲーム：ホーム > 表示 > エミュレータ"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。"
 
 msgid "Left to the mod"
