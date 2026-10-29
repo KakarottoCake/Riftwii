@@ -664,7 +664,9 @@ bool SetModCoverIds(std::map<std::string, std::string> ids) {
 }
 
 void ForgetCover(const std::string& game_id) {
-    g_ownReads.erase(game_id);
+    // The game's, and its mod tiles' (<ID>@<key>).
+    for (auto it = g_ownReads.begin(); it != g_ownReads.end();)
+        it = it->first == game_id || it->first.rfind(game_id + "@", 0) == 0 ? g_ownReads.erase(it) : std::next(it);
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     // The game's mod tiles show its cover too, unless they have their own.
