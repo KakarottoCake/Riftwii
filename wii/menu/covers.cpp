@@ -514,7 +514,13 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
                 return CoverFetch::Failed;
             }
             if (!second) std::remove(StoredSecondPath(game_id).c_str());
-            if (tile) WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
+            // Without its entry's name beside it, the tile's cover would be
+            // wanted again on every pass: no cover, and a failed download.
+            if (tile && !WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()))) {
+                std::remove(CoverPath(game_id).c_str());
+                error = "cannot write " + ModFromPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
             if (tile) logf("Covers: %s, GameTDB's %s (%s, %dx%d)\n", game_id.c_str(), art_id.c_str(), region.c_str(), w, h);
             else logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
@@ -535,7 +541,12 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (tile) {
         // A cover stored for the tile's earlier match is not this one's.
         std::remove(CoverPath(game_id).c_str());
-        WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()));
+        // The miss is this entry's only with its name beside it.
+        if (!WriteAll(ModFromPath(game_id), std::vector<std::uint8_t>(art_of.begin(), art_of.end()))) {
+            std::remove(MissPath(game_id).c_str());
+            error = "cannot write " + ModFromPath(game_id) + " (card full?)";
+            return CoverFetch::Failed;
+        }
     }
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
     return CoverFetch::NotFound;
