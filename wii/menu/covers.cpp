@@ -47,6 +47,14 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 std::string SecondSetPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".second"; }
+// Beside a downloaded cover of GameTDB's second set: the set the stored
+// cover is of, apart from the set chosen (a download for the chosen set
+// may not have come yet).
+std::string StoredSecondPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".rwc-second"; }
+bool StoredIsSecond(const std::string& id) {
+    struct stat st;
+    return stat(StoredSecondPath(id).c_str(), &st) == 0;
+}
 
 // A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
 // Snes9x GX, riftwii/homebrewmatch.hpp).
@@ -274,7 +282,7 @@ void* LoaderMain(void*) {
         if (ok) DCFlushRange(slot->data, kCoverPixelBytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.
-        const bool second_set = ok && !own && !emulator && CoverSecondSet(stored);
+        const bool second_set = ok && !own && !emulator && StoredIsSecond(stored);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -365,7 +373,9 @@ bool CoverWanted(const std::string& game_id) {
         if (ReadOwnCover(game_id, own)) return false;
     }
     struct stat st;
-    if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
+    // A stored cover of the other set than the one chosen (its download
+    // never came) is downloaded again.
+    if (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) return false;
     if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
     return true;
 }
@@ -434,6 +444,10 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
                 return CoverFetch::Failed;
             }
             std::remove(MissPath(game_id).c_str());
+            // Which set this cover is of (a failed write: taken for the
+            // first, so a second-set choice downloads it again).
+            if (second) WriteAll(StoredSecondPath(game_id), {});
+            else std::remove(StoredSecondPath(game_id).c_str());
             logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
             return CoverFetch::Stored;
         }
