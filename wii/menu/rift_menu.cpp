@@ -5306,6 +5306,8 @@ static int MenuSource(FrontendState& state)
 		// in the last week are asked again (it may have one by now).
 		for (const GridItem& item : items) {
 			riftwii::wii::ForgetCoverMiss(item.id);
+			// A mod tile's own cover too (#385).
+			if (CoverName(item) != item.id) riftwii::wii::ForgetCoverMiss(CoverName(item));
 			riftwii::wii::ForgetBoxMiss(item.id);
 			riftwii::wii::ForgetCover3dMiss(item.id);
 		}
