@@ -139,6 +139,9 @@ bool read_usb_text(const std::string& usb_path, std::string& out);
 // such file.
 bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
                     std::uint64_t& size);
+// The one lock every use of the USB drive takes (usbcatalog.cpp), made
+// once at start, before any thread but the main one runs.
+void InitUsbLock();
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
 // Mounted USB partition roots, with the legacy usb:/ first.

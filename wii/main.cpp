@@ -57,6 +57,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
+#include "usbcatalog.hpp"
 #include "usbprobe.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
@@ -431,6 +432,8 @@ int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
+    // Before any thread reads the USB drive (the drive scan, the covers).
+    riftwii::wii::InitUsbLock();
     riftwii::wii::startup::Mark(Step::Cards);
     riftwii::wii::InitGcRealCards();
     riftwii::wii::startup::Mark(Step::Restart);
