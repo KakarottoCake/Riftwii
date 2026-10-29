@@ -70,6 +70,7 @@
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "emulatorcovers.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
@@ -1640,12 +1641,14 @@ static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
 // Emulator sources can fail while GameTDB still answers, and vice versa.
 static bool g_emulatorCoversOff = false;
+static bool g_emulatorBannersOff = false;
 
 // What the downloads came to: a cover GameTDB has none of, or one that got
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
 static riftwii::CoverDownloads g_coverRun("Covers", "cover");
 static riftwii::CoverDownloads g_emulatorCoverRun("Emulator covers", "cover", "the emulator cover search");
+static riftwii::CoverDownloads g_emulatorBannerRun("Emulator banners", "picture", "the emulator picture search");
 // The shelf's boxes (wii/menu/boxart.cpp): GameTDB's full covers, queued
 // for every game as the covers are and fetched once the covers are in.
 static std::set<std::string> g_boxesChecked;
@@ -1663,6 +1666,7 @@ static bool g_retryMissingCovers = false;
 
 static bool& CoverDownloadsOff(const std::string& game)
 {
+	if (riftwii::emulator_banner_id(game)) return g_emulatorBannersOff;
 	return game.rfind("emu-", 0) == 0 ? g_emulatorCoversOff : g_coversOff;
 }
 
@@ -1671,9 +1675,11 @@ static void ResetCoverDownloads()
 {
 	g_coversOff = false;
 	g_emulatorCoversOff = false;
+	g_emulatorBannersOff = false;
 	g_coversChecked.clear();
 	g_coverRun.reset();
 	g_emulatorCoverRun.reset();
+	g_emulatorBannerRun.reset();
 
 	g_boxesOff = false;
 	g_boxesChecked.clear();
@@ -1704,6 +1710,7 @@ static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverF
 }
 static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
 {
+	if (riftwii::emulator_banner_id(game)) return CountPictureFetch(g_emulatorBannerRun, got, game, error);
 	const bool emulator = game.rfind("emu-", 0) == 0;
 	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error);
 }
@@ -5006,6 +5013,11 @@ static int MenuSource(FrontendState& state)
 					fit.scale, static_cast<u8>(b.alpha));
 				return true;
 			}
+			if (const u8* picture = riftwii::wii::EmulatorBannerTexture(items[at].id)) {
+				const riftwii::wii::RoundClip clip = {b.clipX, b.clipY, b.clipW, b.clipH, b.radius};
+				riftwii::wii::DrawChannelPicture(picture, clip, b.alpha);
+				return true;
+			}
 			riftwii::wii::BannerPlayer* icon = IconFor(items[at].id);
 			if (!icon) return false;
 			icon->Step();
@@ -5283,10 +5295,15 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
 			if (item.id.empty()) continue;
-			if (CoverDownloadsOff(item.id)) continue;
-			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
+			if (!CoverDownloadsOff(item.id) && g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
 			    riftwii::wii::CoverWanted(item.id))
 				coverQueue.push_back(item.id);
+			if (grid.Channels()) {
+				const std::string banner = riftwii::emulator_banner_key(item.id, skin::WideMenu());
+				if (!banner.empty() && !g_emulatorBannersOff && g_coversChecked.insert(banner).second &&
+				    banner != riftwii::wii::CoverFetchGame() && riftwii::wii::CoverWanted(banner))
+					coverQueue.push_back(banner);
+			}
 		}
 		if (g_boxesOff || g_coversOff) return;
 		for (const GridItem& item : items) {
@@ -5494,9 +5511,8 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
 			if (CountCoverFetch(got, arrived, coverError)) {
 				CoverDownloadsOff(arrived) = true;
-				const bool emulator = arrived.rfind("emu-", 0) == 0;
 				coverQueue.erase(std::remove_if(coverQueue.begin(), coverQueue.end(),
-					[&](const std::string& id) { return (id.rfind("emu-", 0) == 0) == emulator; }), coverQueue.end());
+					[](const std::string& id) { return CoverDownloadsOff(id); }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
@@ -5591,7 +5607,7 @@ static int MenuSource(FrontendState& state)
 				if (CoverDownloadsOff(coverQueue[q])) continue;
 				if (pick == coverQueue.size()) pick = q;
 				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
-					onPage = items[k].id == coverQueue[q];
+					onPage = items[k].id == coverQueue[q] || riftwii::emulator_banner_key(items[k].id, skin::WideMenu()) == coverQueue[q];
 					if (onPage) pick = q;
 				}
 			}
@@ -5606,6 +5622,8 @@ static int MenuSource(FrontendState& state)
 			if (!summary.empty()) logf("%s\n", summary.c_str());
 			const std::string emulatorSummary = g_emulatorCoverRun.take_summary();
 			if (!emulatorSummary.empty()) logf("%s\n", emulatorSummary.c_str());
+			const std::string bannerSummary = g_emulatorBannerRun.take_summary();
+			if (!bannerSummary.empty()) logf("%s\n", bannerSummary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
