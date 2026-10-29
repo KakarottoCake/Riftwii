@@ -3342,6 +3342,54 @@ msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/rif
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
 
+msgid "Needs the internet"
+msgstr "Serve internet"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Scegli l'immagine mostrata nei Canali."
+
+msgid "Back to automatic"
+msgstr "Torna ad automatico"
+
+msgid "Title screen"
+msgstr "Schermata del titolo"
+
+msgid "Screenshot"
+msgstr "Schermata di gioco"
+
+msgid "Box art"
+msgstr "Copertina"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Collega il Wii a internet, poi attiva {1} in {2} > {3}."
+
+msgid "No pictures found."
+msgstr "Nessuna immagine trovata."
+
+msgid "Could not load pictures."
+msgstr "Impossibile caricare le immagini."
+
+msgid "Could not load this picture."
+msgstr "Impossibile caricare questa immagine."
+
+msgid "A picture could not be loaded."
+msgstr "Impossibile caricare un'immagine."
+
+msgid "Not enough memory."
+msgstr "Memoria insufficiente."
+
+msgid "Could not save the picture."
+msgstr "Impossibile salvare l'immagine."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Questa immagine è stata aggiunta o modificata a mano. Eliminarla e usare immagini automatiche?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Questa immagine è stata aggiunta o modificata a mano. Sostituirla con quella scelta?"
+
 msgid "Save location"
 msgstr "Posizione salvataggi"
 
