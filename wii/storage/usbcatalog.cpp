@@ -64,6 +64,17 @@ std::vector<MountedImageVolume> g_usb_volumes;
 std::uint64_t g_usb_mount_generation = 0;
 bool g_usb_preferred_known = false;
 std::uint64_t g_usb_preferred_lba = 0;
+// read_usb_range keeps the last file it looked up: the menu thread (Home's
+// own covers, music, icons) and the covers' loader thread (emulator covers,
+// the player's own covers) both read through it, one at a time.
+mutex_t g_usb_range_lock = LWP_MUTEX_NULL;
+struct UsbRangeLocked {
+    UsbRangeLocked() {
+        if (g_usb_range_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_usb_range_lock, false);
+        LWP_MutexLock(g_usb_range_lock);
+    }
+    ~UsbRangeLocked() { LWP_MutexUnlock(g_usb_range_lock); }
+};
 // A USB drive formatted as WBFS, with no file system: read only through
 // wbfspart, its games in slots rather than files.
 std::vector<WbfsPartition> g_usb_wbfs;
@@ -1337,6 +1348,7 @@ bool read_usb_text(const std::string& usb_path, std::string& out) {
 
 bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
                     std::uint64_t& size) {
+    UsbRangeLocked locked;
     // The last file looked up is kept: a mounted image reads it sector by sector.
     static std::string cached_path;
     static VolumeFile cached;
