@@ -3351,8 +3351,11 @@ msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e F
 msgid "Save location"
 msgstr "Local dos saves"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "Saves já feitos ficam onde estão; só os novos vêm para cá."
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Mudar isto nunca move nem apaga saves já feitos."
+
+msgid "In use"
+msgstr "Em uso"
 
 msgid "Use default options for this game"
 msgstr "Usar opções padrão para este jogo"

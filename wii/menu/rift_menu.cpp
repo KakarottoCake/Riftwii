@@ -8160,12 +8160,25 @@ static void MenuWiiSaves(FrontendState& state)
 	int current = 0;
 	while (current < 4 && state.model.save_mode != kModes[current]) ++current;
 	if (current == 4) current = 0;
-	if (!kept) rows[static_cast<std::size_t>(current)].on = true;
+	// An Action row lights its chip only when it has a value: the location
+	// in use keeps a marker whichever row has the focus.
+	const auto mark = [&](int inUse) {
+		for (FlowRow& r : rows) {
+			r.on = false;
+			r.value.clear();
+		}
+		rows[static_cast<std::size_t>(inUse)].on = true;
+		rows[static_cast<std::size_t>(inUse)].value = tr("In use");
+	};
+	if (!kept) mark(current);
+	// Read the shared-saves folder from this SD card now: the card may have
+	// been swapped since it was last looked up.
+	if (!kept) SharedNandFor(state.game_id, true);
 	const auto note = [&](int row) -> std::string {
 		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
 		const std::string shown = kModes[row];
 		const bool fresh = row == current;
-		return SaveNote(state.model, state.game_id, !fresh, &shown) + " " + tr("Saves already made stay where they are; only new saves go here.");
+		return SaveNote(state.model, state.game_id, !fresh, &shown) + " " + tr("Changing this never moves or deletes saves already made.");
 	};
 	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const auto&) {
 		if (kept) return false;
@@ -8179,8 +8192,7 @@ static void MenuWiiSaves(FrontendState& state)
 			ShowPopup(tr("Save location"), tr("Could not save the settings to the SD card."), tr("OK"));
 			return false;
 		}
-		for (FlowRow& r : rows) r.on = false;
-		rows[static_cast<std::size_t>(pickedRow)].on = true;
+		mark(pickedRow);
 		current = pickedRow;
 		logf("Save location: %s picked for %s, earlier saves stay where they are\n", picked.c_str(), state.game_id.c_str());
 		return false;
@@ -10241,8 +10253,9 @@ public:
 				const Control& c = controls[i];
 				const float x = static_cast<float>(IconX(static_cast<int>(i)));
 				const int a = c.required ? alpha : alpha * 120 / 255;
-				const float lift = static_cast<int>(i) == hoverControl ? -2.0f : 0.0f;
-				DrawScaledFromCorner(skin::ControlIcon(c.type), x, iconY + lift, a, iconScale);
+				// No lift on hover: the icons are read, not pressed, and the
+				// pointer's box must stay where the icon is drawn.
+				DrawScaledFromCorner(skin::ControlIcon(c.type), x, iconY, a, iconScale);
 				if (c.connected)
 					Menu_DrawRectangle(x + 40 * iconScale / 2 - 2, iconY + 40 * iconScale + 2, 4, 4,
 						skin::WithAlpha(skin::kAccent, alpha), 1);

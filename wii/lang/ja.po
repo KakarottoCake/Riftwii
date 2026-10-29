@@ -3351,8 +3351,11 @@ msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyG
 msgid "Save location"
 msgstr "セーブの場所"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "作ったセーブはそのまま。新しいセーブだけここに作る。"
+msgid "Changing this never moves or deletes saves already made."
+msgstr "ここを変えても、作ったセーブが移動したり消えたりすることはありません。"
+
+msgid "In use"
+msgstr "使用中"
 
 msgid "Use default options for this game"
 msgstr "このゲームは設定に合わせる"

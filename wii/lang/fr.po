@@ -3351,8 +3351,11 @@ msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGa
 msgid "Save location"
 msgstr "Emplacement des sauvegardes"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "Les sauvegardes déjà faites restent où elles sont ; seules les nouvelles vont ici."
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites."
+
+msgid "In use"
+msgstr "Utilisé"
 
 msgid "Use default options for this game"
 msgstr "Utiliser les réglages par défaut pour ce jeu"

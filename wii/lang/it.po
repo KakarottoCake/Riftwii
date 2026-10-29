@@ -3351,8 +3351,11 @@ msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGam
 msgid "Save location"
 msgstr "Posizione salvataggi"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "I salvataggi esistenti restano dove sono; solo i nuovi vanno qui."
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Cambiare questa scelta non sposta né elimina mai i salvataggi esistenti."
+
+msgid "In use"
+msgstr "In uso"
 
 msgid "Use default options for this game"
 msgstr "Usa le opzioni predefinite per questo gioco"
