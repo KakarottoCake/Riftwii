@@ -67,6 +67,7 @@ struct ImageCatalog {
     // .ciso files the scan passed over (RiftWii does not play them): Home
     // says so once per start (riftwii/usbgame.hpp).
     CisoFinds ciso;
+    std::vector<ImagePartitionFailure> partition_failures;
 };
 
 struct LaunchSource {
