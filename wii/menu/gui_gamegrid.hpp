@@ -285,15 +285,21 @@ private:
     // A box without its art: where its name goes up its spine.
     struct SpineLabel {
         int index;
-        float x, y0, y1;
+        float x, y0, y1, width;
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;
     std::vector<int> shelfOutward;  // the boxes in reach, from the focus outwards (DrawShelf)
     std::vector<SpineLabel> spineLabels;
     GuiText* spineText = nullptr;       // a box without its art: the name up its spine
-    // Each spine's name as fitted, with the title it was fitted from.
-    std::vector<std::pair<std::string, std::string>> spineFit;
+    // Each name is measured again only when its title, room or size changes.
+    struct SpineFit {
+        std::string title;
+        std::string text;
+        int room = 0;
+        int fontSize = 0;
+    };
+    std::vector<SpineFit> spineFit;
     bool shelf = false;
     bool carousel = false;
     bool ring = false;
