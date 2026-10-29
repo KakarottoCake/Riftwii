@@ -1400,7 +1400,10 @@ static std::vector<std::size_t> HomeFilterCounts(const FrontendState& state)
 static std::vector<std::string> HomeRowGenres(const HomeRow& row)
 {
 	std::vector<std::string> genres;
-	if (row.entry.kind != HomeEntry::Kind::Emulator && !row.id.empty())
+	if (row.entry.kind == HomeEntry::Kind::Channel && row.id.size() >= 4)
+		// GameTDB lists channels under their four letters ("WBME"), not the six of the game ID.
+		riftwii::wii::PeekGameGenres(row.id.substr(0, 4), genres);
+	else if (row.entry.kind != HomeEntry::Kind::Emulator && !row.id.empty())
 		riftwii::wii::PeekGameGenres(row.id, genres);
 	return genres;
 }
@@ -6128,7 +6131,7 @@ static int MenuSource(FrontendState& state)
 			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
 			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
 			// Channels sit in the genre choices too.
-			for (const riftwii::wii::NandChannel& c : state.channels) if (!c.game_id.empty()) wanted.insert(c.game_id);
+			for (const riftwii::wii::NandChannel& c : state.channels) if (!c.code.empty()) wanted.insert(c.code);
 			// No database on the card: downloaded first, as the game names are.
 			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
 			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
@@ -6374,7 +6377,10 @@ static int MenuSource(FrontendState& state)
 					genreChoices = HomeGenreChoices(state);
 					int picked = -1;
 					for (std::size_t i = 0; i < genreChoices.size(); ++i)
-						if (genreChoices[i] == genrePicked) picked = static_cast<int>(i);
+						if (riftwii::has_genre({genreChoices[i]}, genrePicked)) {
+							picked = static_cast<int>(i);
+							genrePicked = genreChoices[i];
+						}
 					genrePanel.Show(genreChoices, picked);
 				}
 			}
