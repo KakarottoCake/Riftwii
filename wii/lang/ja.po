@@ -3378,8 +3378,8 @@ msgstr "{1}の名前を正確に{2}に変更してください。"
 msgid "Move {1} to {2}."
 msgstr "{1}を{2}に移動してください。"
 
-msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
-msgstr "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください（riivolutionフォルダーと同じ場所）。"
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。"
 
 msgid "Needs the internet"
 msgstr "インターネットが必要です"

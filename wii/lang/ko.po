@@ -3378,8 +3378,8 @@ msgstr "{1}의 이름을 정확히 {2}(으)로 바꾸세요."
 msgid "Move {1} to {2}."
 msgstr "{1}을(를) {2}(으)로 옮기세요."
 
-msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
-msgstr "다운로드한 모드의 {1} 폴더가 riivolution 폴더 옆의 {2} 자체가 되도록 복사하세요."
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "다운로드한 모드의 {1} 폴더가 {2} 자체가 되도록 복사하세요."
 
 msgid "Needs the internet"
 msgstr "인터넷이 필요합니다"
