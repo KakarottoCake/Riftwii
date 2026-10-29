@@ -77,9 +77,9 @@ bool read_wad_banner_with_title_key(const ByteSource& source, const WadMetadata&
 bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
                            const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
                            WadKeySource& selected, std::vector<std::uint8_t>& banner, std::string& error);
-// For installing: a key is proven by the WAD's smallest content (at most
-// 4 MiB) instead of its banner, so a channel WAD with no banner, or a large
-// one, still installs. The same sources, in the same order.
+// For installing: a key is proven by the WAD's smallest content, of any
+// size (read in pieces), instead of its banner, so a channel WAD with no
+// banner, or a large one, still installs. The same sources, same order.
 bool verify_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
                           const std::uint8_t title_key[16], std::string& error);
 bool select_wad_install_key(const ByteSource& source, const WadMetadata& metadata,
