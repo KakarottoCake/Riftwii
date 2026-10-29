@@ -1878,8 +1878,8 @@ msgstr "Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar
 msgid "It is {1}."
 msgstr "Es {1}."
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWii no puede leer {1}: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube."
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWii no pudo leer {1}."
@@ -3384,8 +3384,8 @@ msgstr "Renombra {1} exactamente como {2}."
 msgid "Move {1} to {2}."
 msgstr "Mueve {1} a {2}."
 
-msgid "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder."
-msgstr "Copia la carpeta {1} de la descarga del mod a {2}, junto a la carpeta riivolution."
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
+msgstr "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}, junto a la carpeta riivolution."
 
 msgid "Downloads"
 msgstr "Descargas"

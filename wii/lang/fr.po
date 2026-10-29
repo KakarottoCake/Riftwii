@@ -1878,8 +1878,8 @@ msgstr "Cette sauvegarde est endommagée : ses blocs ne correspondent pas. Elle 
 msgid "It is {1}."
 msgstr "C'est {1}."
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWii ne peut pas lire {1} : {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWii ne peut pas lire {1} : elle est endommagée ou ce n'est pas une carte mémoire GameCube."
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWii n'a pas pu lire {1}."
@@ -3384,8 +3384,8 @@ msgstr "Renommez {1} exactement en {2}."
 msgid "Move {1} to {2}."
 msgstr "Déplacez {1} vers {2}."
 
-msgid "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder."
-msgstr "Copiez le dossier {1} du téléchargement du mod vers {2}, à côté du dossier riivolution."
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
+msgstr "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}, à côté du dossier riivolution."
 
 msgid "Downloads"
 msgstr "Téléchargements"

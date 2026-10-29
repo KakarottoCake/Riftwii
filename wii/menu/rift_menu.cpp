@@ -3892,6 +3892,16 @@ static void OfferReport()
 	if (!riftwii::wii::UnreportedCrash(what)) return;
 	const bool game = what == "game";
 	const bool crash = what == "crash";
+	// An SD or USB game's mods are prepared after the menu closes, where a
+	// long error only flashes past on the launch screen: show it in full
+	// now, before asking about a report.
+	const riftwii::wii::RestartNote& note = riftwii::wii::CurrentRestartNote();
+	if (what == "launch" && !note.message.empty()) {
+		std::string reason = note.message;
+		const std::string prefix = "The launch failed: ";
+		if (reason.compare(0, prefix.size(), prefix) == 0) reason.erase(0, prefix.size());
+		ShowFullPopup(tr("The last launch failed"), reason);
+	}
 	const int choice = ShowPopup(game ? tr("The game crashed last time") : crash ? tr("RiftWii crashed last time")
 			: tr("The last launch failed"),
 		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
@@ -8496,7 +8506,7 @@ static void MenuGcSdCard(FrontendState& state)
 	std::string error;
 	if (!riftwii::gc_card_read(card, info, error)) {
 		logf("GameCube card %s: %s\n", path.c_str(), error.c_str());
-		ShowFullPopup(tr("Memory card damaged"), tr("RiftWii cannot read {1}: {2}", {path, error}) + "\n" +
+		ShowFullPopup(tr("Memory card damaged"), tr("RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.", {path}) + "\n" +
 			tr("The file was not changed. Check the SD card and keep a copy of this file before trying again."));
 		return;
 	}
