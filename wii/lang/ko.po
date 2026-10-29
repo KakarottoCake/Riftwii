@@ -597,9 +597,6 @@ msgstr "크레딧 및 라이선스"
 msgid "View"
 msgstr "보기"
 
-msgid "Clear search"
-msgstr "검색 지우기"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다."
 
@@ -3396,6 +3393,36 @@ msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하�
 msgid "This picture was added or changed by hand. Replace it with the one you picked?"
 msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?"
 
+msgid "No games here"
+msgstr "여기에 게임이 없습니다"
+
+msgid "Show all games"
+msgstr "모든 게임 표시"
+
+msgid "Show every drive"
+msgstr "모든 드라이브 표시"
+
+msgid "Games from: {1}"
+msgstr "게임 위치: {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "\"{1}\"에 맞는 게임이 없습니다."
+
+msgid "No games with mods were found."
+msgstr "모드가 있는 게임을 찾지 못했습니다."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "sd:/apps에서 홈브류 앱을 찾지 못했습니다."
+
+msgid "No emulator games were found."
+msgstr "에뮬레이터 게임을 찾지 못했습니다."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "게임 페이지에서 즐겨찾기로 표시하세요."
+
 msgid "Downloads"
 msgstr "다운로드"
 
@@ -3417,11 +3444,11 @@ msgstr "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요."
 
-msgid "Emulator games: Home > View > Emulators"
-msgstr "에뮬레이터 게임: 홈 > 보기 > 에뮬레이터"
+msgid "Emulator games: Home > Show > Emulators"
+msgstr "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
-msgstr "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 보기 > 에뮬레이터에서 찾을 수 있습니다."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
+msgstr "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다."
 
 msgid "Left to the mod"
 msgstr "모드에 맡김"

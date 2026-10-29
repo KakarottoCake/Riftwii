@@ -514,7 +514,6 @@ T = {
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and license": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
-    "Clear search": ("Borrar búsqueda", "検索をやめる", "Limpar busca", "Annulla ricerca"),
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.": (
         "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso.",
         "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。",
@@ -3231,8 +3230,6 @@ KO = {
         "화면",
     "Other":
         "기타",
-    "Clear search":
-        "검색 지우기",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -5239,8 +5236,6 @@ FR = {
         "Image",
     "Other":
         "Autres",
-    "Clear search":
-        "Effacer la recherche",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -7102,6 +7097,57 @@ FR.update({
 })
 
 
+# Home's category chooser and recovery actions.
+T.update({
+    "No games here": ("No hay juegos aquí", "ここにゲームはありません", "Nenhum jogo aqui", "Nessun gioco qui"),
+    "Show all games": ("Mostrar todos los juegos", "すべてのゲームを表示", "Mostrar todos os jogos", "Mostra tutti i giochi"),
+    "Show every drive": ("Mostrar todas las unidades", "すべてのドライブを表示", "Mostrar todas as unidades", "Mostra tutte le unità"),
+    "Games from: {1}": ("Juegos de: {1}", "ゲームの場所：{1}", "Jogos de: {1}", "Giochi da: {1}"),
+    'No game matches "{1}".': (
+        'Ningún juego coincide con "{1}".', '「{1}」に合うゲームはありません。',
+        'Nenhum jogo corresponde a "{1}".', 'Nessun gioco corrisponde a "{1}".'),
+    "No games with mods were found.": (
+        "No se encontraron juegos con mods.", "MODがあるゲームは見つかりませんでした。",
+        "Nenhum jogo com mods foi encontrado.", "Nessun gioco con mod trovato."),
+    "No homebrew apps were found in sd:/apps.": (
+        "No se encontraron aplicaciones homebrew en sd:/apps.", "sd:/appsに自作ソフトが見つかりませんでした。",
+        "Nenhum aplicativo homebrew foi encontrado em sd:/apps.", "Nessuna app homebrew trovata in sd:/apps."),
+    "No emulator games were found.": (
+        "No se encontraron juegos de emuladores.", "エミュレータのゲームは見つかりませんでした。",
+        "Nenhum jogo de emulador foi encontrado.", "Nessun gioco per emulatori trovato."),
+    "No games here have been played from RiftWii yet.": (
+        "Aún no has jugado a estos juegos desde RiftWii.", "ここのゲームはまだRiftWiiで遊んでいません。",
+        "Nenhum jogo daqui foi jogado pelo RiftWii ainda.", "Nessun gioco qui è stato ancora giocato da RiftWii."),
+    "Mark a game as a favourite on its page.": (
+        "Marca un juego como favorito en su página.", "ゲームのページでお気に入りにしてください。",
+        "Marque um jogo como favorito na página dele.", "Segna un gioco come preferito nella sua pagina."),
+})
+KO.update({
+    "No games here": "여기에 게임이 없습니다",
+    "Show all games": "모든 게임 표시",
+    "Show every drive": "모든 드라이브 표시",
+    "Games from: {1}": "게임 위치: {1}",
+    'No game matches "{1}".': '"{1}"에 맞는 게임이 없습니다.',
+    "No games with mods were found.": "모드가 있는 게임을 찾지 못했습니다.",
+    "No homebrew apps were found in sd:/apps.": "sd:/apps에서 홈브류 앱을 찾지 못했습니다.",
+    "No emulator games were found.": "에뮬레이터 게임을 찾지 못했습니다.",
+    "No games here have been played from RiftWii yet.": "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다.",
+    "Mark a game as a favourite on its page.": "게임 페이지에서 즐겨찾기로 표시하세요.",
+})
+FR.update({
+    "No games here": "Aucun jeu ici",
+    "Show all games": "Afficher tous les jeux",
+    "Show every drive": "Afficher tous les supports",
+    "Games from: {1}": "Jeux de : {1}",
+    'No game matches "{1}".': 'Aucun jeu ne correspond à « {1} ».',
+    "No games with mods were found.": "Aucun jeu avec des mods trouvé.",
+    "No homebrew apps were found in sd:/apps.": "Aucune appli homebrew trouvée dans sd:/apps.",
+    "No emulator games were found.": "Aucun jeu pour émulateur trouvé.",
+    "No games here have been played from RiftWii yet.": "Aucun jeu ici n'a encore été lancé depuis RiftWii.",
+    "Mark a game as a favourite on its page.": "Marquez un jeu comme favori sur sa page.",
+})
+
+
 # Clearer help, complete menu paths and setting names.
 T.update({
     "Downloads": (
@@ -7139,16 +7185,16 @@ T.update({
         "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。",
         "Nenhum emulador encontrado. Coloque um emulador com seu arquivo de complemento do RiftWii na pasta do aplicativo, ou adicione arquivos de plugins do WiiFlow. Depois use Configurações > Unidades > Procurar jogos de novo. Veja Emuladores no guia do GitHub.",
         "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."),
-    "Emulator games: Home > View > Emulators": (
+    "Emulator games: Home > Show > Emulators": (
         "Juegos emulados: Inicio > Ver > Emuladores",
         "エミュレータのゲーム：ホーム > 表示 > エミュレータ",
         "Jogos emulados: Início > Ver > Emuladores",
-        "Giochi emulati: Home > Vedi > Emulatori"),
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": (
+        "Giochi emulati: Home > Mostra > Emulatori"),
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": (
         "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores.",
         "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。",
         "Muda os padrões dos emuladores instalados. Seus jogos ficam em Início > Ver > Emuladores.",
-        "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Vedi > Emulatori."),
+        "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Mostra > Emulatori."),
     "Left to the mod": (
         "Lo decide el mod",
         "MODに任せる",
@@ -7244,8 +7290,8 @@ KO.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정 > 온라인 > 다운로드를 켜세요.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를 받을 수 있습니다. 꺼도 카드에 있는 파일은 계속 사용할 수 있습니다.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요.",
-    "Emulator games: Home > View > Emulators": "에뮬레이터 게임: 홈 > 보기 > 에뮬레이터",
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 보기 > 에뮬레이터에서 찾을 수 있습니다.",
+    "Emulator games: Home > Show > Emulators": "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다.",
     "Left to the mod": "모드에 맡김",
     "Off: no server chosen": "꺼짐: 서버 선택 안 됨",
     "Through {1}": "{1} 이용",
@@ -7273,8 +7319,8 @@ FR.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub.",
-    "Emulator games: Home > View > Emulators": "Jeux émulés : Accueil > Voir > Émulateurs",
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Voir > Émulateurs.",
+    "Emulator games: Home > Show > Emulators": "Jeux émulés : Accueil > Afficher > Émulateurs",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs.",
     "Left to the mod": "Laissé au mod",
     "Off: no server chosen": "Désactivé : aucun serveur choisi",
     "Through {1}": "Via {1}",
