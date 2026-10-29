@@ -6127,6 +6127,8 @@ static int MenuSource(FrontendState& state)
 			std::set<std::string> wanted;
 			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
 			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+			// Channels sit in the genre choices too.
+			for (const riftwii::wii::NandChannel& c : state.channels) if (!c.game_id.empty()) wanted.insert(c.game_id);
 			// No database on the card: downloaded first, as the game names are.
 			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
 			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
@@ -6362,11 +6364,19 @@ static int MenuSource(FrontendState& state)
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty())) {
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty() || genrePicking)) {
 				const std::string focused = focusedTile();
 				takePress();
 				refreshKeepingTile(focused, false);
 				putPressBack();
+				if (genrePicking) {
+					// The genres the read gave: the panel shows them while B is held.
+					genreChoices = HomeGenreChoices(state);
+					int picked = -1;
+					for (std::size_t i = 0; i < genreChoices.size(); ++i)
+						if (genreChoices[i] == genrePicked) picked = static_cast<int>(i);
+					genrePanel.Show(genreChoices, picked);
+				}
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)

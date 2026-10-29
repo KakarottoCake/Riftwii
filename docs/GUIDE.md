@@ -228,8 +228,9 @@ A to Z order. Hold **B** (L on a GameCube controller) and press **Down** or
 middle of the screen (the most common first), and holding Down or Up scrolls
 through it. Let go of B (or L) and Home shows only that genre's games; pick
 **Every genre** to see them all again. The genres come from GameTDB's game
-details, so they need Settings > Online > Downloads on (or a game's About
-page opened once). The magnifier button
+details, so they need Settings > Online > Downloads on (without a local
+GameTDB copy, a game's About page offers the download only when Downloads
+is on). The magnifier button
 above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
