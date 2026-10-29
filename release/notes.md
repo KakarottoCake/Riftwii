@@ -16,63 +16,52 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Your own menu music, a closer look at every cover, shelf boxes that look like real Wii cases, covers for homebrew, WiiWare and Virtual Console games, a USB keyboard and mouse in the menu, and more ways back to RiftWii after a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Emulators as add-ons with their own settings, covers for emulator games, WiiFlow Lite's emulator plugins, games from every partition of a USB drive, and a few fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The shelf with Wii cases and full-width spines on a widescreen TV]({{SCREENSHOTS}}2610-shelf-cases.png)
+![Emulator games on Home with their covers]({{SCREENSHOTS}}2610-emulator-covers.png)
 
 ## What changed
 
-### Home
+### Emulators
 
-- **Press 1 and 2 together to change the view** (covers, 3D covers, carousel, shelf, channels, names) without opening Settings. Pressed alone, 1 and 2 still do their own jobs.
-- **See a cover up close.** Point at a cover in the Covers view, or a box on the shelf or carousel, and press 1 or 2: it zooms up in the middle of the screen. 1, 2, A or B puts it back. On a game's page, A on the box shows it up close too, and Down turns it over to its back.
-- **The shelf's boxes look like real Wii cases**, with the colored plastic showing round the cover, in the color each game's case really has. You can pick your own colors in `sd:/riftwii/case_colors.txt`.
-- **Spines are no longer squeezed**, and full covers (front, spine and back) are now downloaded for every game, not just the ones near you on the shelf. Small 2D covers stay square where they stand in for a box, and covers fill the box's front right to the corners.
-- **Hold B on the search button for about a second** to start a random game from the ones shown.
-- **Covers for more games:** homebrew apps get their GameTDB covers (found by their name), and WiiWare and Virtual Console games now get their covers, shelf boxes and 3D covers too.
-- **Custom games** that GameTDB lists (Newer Super Mario Bros. Wii, Wiimm's Mario Kart Fun and others) now show under Mods, with their own banners.
-- **A game's age rating** on its About page uses the rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR).
-- **The Wii Menu font is crisp** on a widescreen TV (Settings > Menu font).
+- **Emulators as add-ons.** An emulator can come with a `riftwii-emulator.ini` that lists its settings and how to start it. On an emulator game's page you can change those settings for that one game, or for all its games. `docs/EMULATORS.md` says how to write one.
+- **Covers for emulator games.** RiftWii looks on the SD card first (`sd:/riftwii/covers/emulators/<system>/<game>.png`), then in libretro's thumbnails, then on SteamGridDB if you switch that on in Settings > Online.
+- **WiiFlow Lite's emulator plugins work in RiftWii.** If you set up emulators for WiiFlow Lite (`wiiflow/plugins/*.ini`), RiftWii reads those files as emulators, with their games and covers.
 
-### Menu music and controls
+### Games and drives
 
-- **Your own menu music:** in Settings > Music file, pick a song (`.ogg` or `.mp3`), an `.m3u` playlist, or a whole folder to play shuffled, from the SD card or the USB drive.
-- **A USB keyboard, a USB mouse, USB pen tablets and the uDraw GameTablet** work in the menu as player 1's controls. The keyboard types into search and tile names, and the mouse points like a Wii Remote. Not yet tested on a real Wii (Dolphin can't plug these in).
-- **Naming a Home tile:** Shift also types symbols, so names like "Project+" or "Kamen Rider: Super Climax Heroes" can be typed.
+- **Games from every partition of a USB drive.** Before, RiftWii read only one partition. The partition it used before is still `usb:/`; the others are `usb1:/`, `usb2:/` and so on, in their order on the drive. Each game starts from its own partition.
+- **Quitting a game on a d2x cIOS lands back in RiftWii again.** d2x was refusing RiftWii's "come back here" request because it was sent too late.
 
-### Games
+### Menu
 
-- **Quitting a game lands in RiftWii more often.** A GameCube game's held HOME tries the RiftWii channel first. Resident Evil 4, older LEGO games and Ghostbusters keep their way back. N64 Virtual Console games now leave with the GameCube controller's L+R+Z+Start held for 2 seconds, like other games. The setting is now called **Quitting a game** (Settings > Games), so it's easier to find.
-- **WiiWare and Virtual Console:** when the Wii refuses a channel's own ticket, RiftWii tries again with a copy that works on any console, which helps games copied from another Wii.
-- **RVZ and GameCube games are found wherever you put them:** a Wii `.rvz` in `wbfs/`, or a GameCube `.iso`, `.gcm` or `.rvz` loose in `games/` or `wbfs/`, no folder of its own needed.
-- **Dragon Quest X from its USB drive:** with this Wii's WFS key at `sd:/riftwii/wfskey.bin`, RiftWii reads the game's WFS drive and starts Dragon Quest X like the Wii Menu does. Tried in Dolphin, not yet on a real Wii.
-- **HOME Menu:** without Priiloader, its third button is now Restart. On a Wii U it goes back to the Wii U.
-- **The updater** says the real reason when a secure connection is refused, instead of always blaming the Wii's clock.
+- **Leave a frozen menu without a Wii Remote:** HOME on a Classic Controller, Pro Controller or GamePad, or Start on a GameCube controller.
+- **Menu motion matches on PAL and NTSC TVs**, and the menu has 152 KiB more free memory.
+- **A game-names file that was cut off while downloading** no longer counts as complete; it is read only once it is whole.
 
 ## What to test
 
-1. **Press 1 and 2 together on Home** a few times: does it go through the views and remember the last one?
-2. **Press 1 on a cover** in the Covers view and on a shelf box: does it zoom up and go back with B?
-3. **Look at the shelf** with downloads on: do the cases' colors and spines look right? Does anything freeze or restart while the boxes download?
-4. **Pick your own menu music** (Settings > Music file): a song, a playlist and a folder.
-5. **Plug in a USB keyboard or mouse** if you have one: can you search, type a name and point?
-6. **Quit a game** with HOME or L+R+Z+Start, especially a GameCube or N64 Virtual Console game: do you land back in RiftWii?
+1. **Games on a second USB partition**, if your drive has more than one: do they show on Home and start? Wii games (WBFS, ISO, RVZ, split files) and GameCube games.
+2. **4 players:** play a game with four Wii Remotes, or four GameCube controllers, or a mix. Do all four work all the way through?
+3. **Emulators:** if you use WiiFlow Lite plugins or add an emulator, do the games show with covers and start?
+4. **Quit a game** with HOME > Wii Menu on a d2x cIOS: do you land back in RiftWii?
+5. **Retro Rewind online from the disc:** does it connect? If it shows an error, please send a problem report right after.
 
 ## Known issues
 
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. We're looking into it; a problem report from anyone who sees it helps.
+- **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
-- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
 - **The Wii U Pro Controller's stick can stop, then drift, in the menu** after opening a game's page (#239).
 - **Mario Party 7 on a real Wii** loses its sound at Press START, then stops taking input (#199).
+- **The GameCube memory card in other regions' copies of Resident Evil 2 (PAL, Japan) isn't covered yet.**
 - **Zelda Collector's Edition may show "No Signal"** at 480p on a real Wii (seen once; Dolphin doesn't show it).
 - **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 
-Everything new since 2.7.0: [docs/CHANGES_2610.md](https://github.com/KakarottoCake/Riftwii/blob/main/docs/CHANGES_2610.md).
-
-![A cover zoomed up close in the Covers view]({{SCREENSHOTS}}2610-cover-zoom.png)
+![An emulator game's own settings]({{SCREENSHOTS}}2610-emulator-settings.png)
 
 ## Download
 

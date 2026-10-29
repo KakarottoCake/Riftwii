@@ -19,27 +19,23 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Your own menu music: a song, a playlist or a shuffled folder (Settings > Music file)
-* Press 1 and 2 together on Home to change the view
-* Press 1 on a cover or shelf box to see it up close
-* Shelf boxes look like real Wii cases, with full-width spines and full covers for every game
-* Hold B on the search button to start a random game
-* Covers for homebrew, WiiWare and VC games; custom games like Newer show under Mods
-* USB keyboard, mouse, pen tablets and uDraw in the menu
-* Quitting a game lands in RiftWii more often (GameCube, N64 VC, RE4)
-* Dragon Quest X from its USB drive (needs sd:/riftwii/wfskey.bin)
+* Emulators as add-ons, with settings you can change per game
+* Covers for emulator games (SD card, then libretro, then SteamGridDB if on)
+* WiiFlow Lite's emulator plugins work in RiftWii
+* Games from every partition of a USB drive (the others show as usb1:/, usb2:/...)
+* Quitting a game on a d2x cIOS lands back in RiftWii again
+* Leave a frozen menu with HOME on a Classic, Pro or GamePad, or Start on a GameCube pad
+* Smoother menu motion on PAL and NTSC, and more free memory
 
 To test, please:
 
-1. Press 1 and 2 together on Home a few times: does it go through the views?
-2. Press 1 on a cover and on a shelf box: does it zoom up and go back with B?
-3. Leave the shelf open while the boxes download: anything freeze or restart?
-4. Pick your own music in Settings > Music file
-5. If you have a USB keyboard or mouse, try it in the menu
-6. Quit a GameCube or N64 VC game: do you land back in RiftWii?
+1. If your USB drive has more than one partition: do the games on the others show and start?
+2. 4 players: play a game with four Wii Remotes or four GameCube controllers (or a mix). Do all four work?
+3. If you use WiiFlow plugins or emulators: do the games show with covers and start?
+4. Quit a game with HOME > Wii Menu on a d2x cIOS: back in RiftWii?
+5. Retro Rewind online from the disc: does it connect? One tester got error 50330, so a report from anyone who sees it helps a lot.
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The shelf with Wii cases](docs/screenshots/2610-shelf-cases.png)
-![A cover up close](docs/screenshots/2610-cover-zoom.png)
-![What's new](docs/screenshots/2610-whatsnew-music.png)
+![Emulator games with covers](docs/screenshots/2610-emulator-covers.png)
+![An emulator game's settings](docs/screenshots/2610-emulator-settings.png)

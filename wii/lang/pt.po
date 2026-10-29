@@ -2391,23 +2391,23 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
 
-msgid "Your own song or playlist as menu music"
-msgstr "Sua música ou playlist como música do menu"
+msgid "Emulators as add-ons, with settings per game"
+msgstr "Emuladores como complementos, com ajustes por jogo"
 
-msgid "Press 1 and 2 together to change the view"
-msgstr "Aperte 1 e 2 juntos para mudar a vista"
+msgid "Covers for emulator games"
+msgstr "Capas de jogos de emulador"
 
-msgid "Press 1 on a cover to see it up close"
-msgstr "Aperte 1 numa capa para vê-la de perto"
+msgid "WiiFlow's emulator plugins work here too"
+msgstr "Os plugins de emulador do WiiFlow também funcionam"
 
-msgid "USB keyboard, mouse and uDraw in the menu"
-msgstr "Teclado USB, mouse e uDraw no menu"
+msgid "Games from every partition of a USB drive"
+msgstr "Jogos de todas as partições de um disco USB"
 
-msgid "Hold B on Search to start a random game"
-msgstr "Segure B em Buscar para um jogo aleatório"
+msgid "Leave a frozen menu without a Wii Remote"
+msgstr "Saia de um menu travado sem o Wii Remote"
 
-msgid "Covers for homebrew, WiiWare and VC games"
-msgstr "Capas para homebrew, WiiWare e VC"
+msgid "Smoother menu motion on PAL and NTSC"
+msgstr "Movimento do menu mais suave em PAL e NTSC"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"
@@ -3386,9 +3386,6 @@ msgstr "Nenhum emulador encontrado."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Os argumentos do emulador são inválidos ou longos demais. Veja session.log."
-
-msgid "Covers for emulator games"
-msgstr "Capas de jogos de emulador"
 
 msgid "SteamGridDB covers"
 msgstr "Capas do SteamGridDB"
