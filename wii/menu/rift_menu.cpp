@@ -6643,10 +6643,11 @@ static int MenuSource(FrontendState& state)
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
 			// A pad press still kept back was Home's: should the game not open,
 			// letting it go isn't a search. No view pair counts while it opens
-			// either; Home watches afresh if it doesn't.
+			// either; Home watches afresh if it doesn't. A Wii Remote's 1 or 2
+			// kept back too: let go on the game page, 2 would be its Dump.
 			riftwii::wii::WatchViewChord(false);
 			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendPadHomePresses();
+			riftwii::wii::SpendHeldPresses();
 			ResumeGui();
 			bool ok = false;
 			if (entry.kind == HomeEntry::Kind::Disc) {
