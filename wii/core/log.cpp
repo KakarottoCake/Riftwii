@@ -110,10 +110,9 @@ void logf(const char* format, ...) {
         va_end(args);
     }
     // With Settings > USB Gecko log, each line also goes to the USB Gecko
-    // as it is logged, card or no card. While lines echo to the text
-    // console they reach it already: the console mirrors itself to the
-    // USB Gecko (ConsoleStart).
-    const bool to_gecko = GeckoActive() && !g_echo;
+    // as it is logged, with its time, card or no card; the text console
+    // then leaves its own copy out (ConsoleStart).
+    const bool to_gecko = GeckoActive();
     if (g_file || !g_path.empty() || to_gecko) {
         char text[1024];
         va_start(args, format);

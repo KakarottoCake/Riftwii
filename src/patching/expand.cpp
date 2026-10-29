@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#include "riftwii/checkedalloc.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -282,6 +284,24 @@ std::string describe_empty_plan(const std::string& xml_sd_path, const std::strin
     for (const std::string& line : folder_notes) error += "; " + line;
     error += "; check the external folders exist and filenames match the disc (new files need create=\"true\")";
     return error;
+}
+
+bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst) {
+    if (patch.is_filename) {
+        if (same_folded(patch.disc, "main.dol")) return true;
+        return !fst.find_files_named(patch.disc, true).empty();
+    }
+    const std::uint32_t index = fst.find(patch.disc, true);
+    if (index != Fst::npos) return !fst.entries()[index].is_directory;
+    return patch.create;
+}
+
+bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::string& pack,
+                              const std::string& external, MissingModInputKind kind) {
+    for (const MissingModInput& input : out) {
+        if (input.pack == pack && input.external == external && input.kind == kind) return true;
+    }
+    return try_push_back(out, MissingModInput{pack, external, kind});
 }
 
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,

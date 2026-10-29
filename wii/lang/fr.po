@@ -2979,6 +2979,39 @@ msgstr "Remettez d’abord la carte SD."
 msgid "The SD card is back in. Reading it again."
 msgstr "La carte SD est de retour. Nouvelle lecture en cours."
 
+msgid "USB Gecko log"
+msgstr "Journal sur USB Gecko"
+
+msgid "WiiRD debugger"
+msgstr "Débogueur WiiRD"
+
+msgid "Pause at start"
+msgstr "Pause au démarrage"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "Pour les développeurs. Le journal de RiftWii part aussi vers un USB Gecko dans le port B des cartes mémoire au fur et à mesure, pour être lu sur un PC."
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "Pour les développeurs. Les jeux Wii démarrent avec le débogueur WiiRD, pour un PC relié à un USB Gecko dans le port B ou A (WiiRD, Gecko dotNET). Pause au démarrage retient le jeu à sa première image jusqu'à ce que le PC le libère."
+
+msgid "Off from the next start of RiftWii."
+msgstr "Désactivé au prochain démarrage de RiftWii."
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "Activé. Le journal de RiftWii part maintenant aussi vers l'USB Gecko du port B."
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "Activé au prochain démarrage de RiftWii. Aucun USB Gecko ne répond dans le port B pour l'instant."
+
+msgid "Games start with the plain code handler."
+msgstr "Les jeux démarrent avec le gestionnaire de codes normal."
+
+msgid "Wii games start with the WiiRD debugger. Connect from the PC once the game is running."
+msgstr "Les jeux Wii démarrent avec le débogueur WiiRD. Connectez-vous depuis le PC une fois le jeu lancé."
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "Aucun USB Gecko ne répond dans le port B ni dans le port A pour l'instant. Sans lui, les jeux démarrent sans le débogueur."
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne."
 
@@ -3341,6 +3374,48 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
+
+msgid "Mod files are missing"
+msgstr "Des fichiers du mod manquent"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Des fichiers du mod manquent. Leurs changements de fichiers ou de mémoire seront ignorés. Copiez les fichiers et réessayez, ou consultez la liste pour jouer quand même."
+
+msgid "Review files"
+msgstr "Voir les fichiers"
+
+msgid "Play anyway"
+msgstr "Jouer quand même"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB : {1} partition(s) non ouverte(s). Voir Supports."
+
+msgid "USB scan details"
+msgstr "Détails de recherche USB"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre."
+
+msgid "{1} MiB"
+msgstr "{1} Mio"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Vérifiez cette partition sur un ordinateur, puis choisissez Rechercher les jeux à nouveau. Les jeux des autres partitions restent disponibles."
+
+msgid "USB partition {1} could not be opened"
+msgstr "La partition USB {1} n'a pas pu être ouverte"
+
+msgid "The partition could not be read from the drive."
+msgstr "La partition n'a pas pu être lue sur le lecteur."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWii ne peut pas lire exFAT. Déplacez ces jeux vers une partition FAT32 ou NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "Les données {1} n'ont pas pu être lues."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWii n'a pas pu lire cette partition en FAT32, NTFS ou WBFS."
 
 msgid "Memory card could not be read"
 msgstr "Impossible de lire la carte mémoire"

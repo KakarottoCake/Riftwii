@@ -199,10 +199,19 @@ struct CodeHandler {
 // debugger for the slot a USB Gecko answers in: slot B first, as USB
 // Loader GX prefers it. With none in either slot the plain handler: a
 // debugger handler polls its slot every frame, which a memory card there
-// would not expect.
-CodeHandler choose_code_handler() {
+// would not expect. `low_veneers`: this launch's veneers are at
+// kCodeVeneers, inside the debugger handler's longer body (it runs to
+// 0x800028C0), so only the plain one fits.
+CodeHandler choose_code_handler(bool low_veneers) {
     const CodeHandler plain{codehandleronly_bin, codehandleronly_bin_size, kCodeListAddress, false, "the code handler"};
     if (!g_extras.wiird_debugger) return plain;
+    static_assert(kCodeHandlerAddress + codehandleronly_bin_size <= kCodeVeneers, "the plain handler must end before the veneers");
+    static_assert(kCodeHandlerAddress + codehandler_bin_size > kCodeVeneers, "the debugger handler runs past them");
+    if (low_veneers) {
+        logf("WiiRD debugger: off for this game: RiftWii's hooks use the memory right after the code handler "
+             "(0x%08x), where the debugger's handler would run on\n", kCodeVeneers);
+        return plain;
+    }
     if (GeckoInSlot(EXI_CHANNEL_1)) {
         return CodeHandler{codehandler_bin, codehandler_bin_size, kDebuggerCodeListAddress, true,
                            "the WiiRD debugger's code handler for slot B"};
@@ -221,12 +230,12 @@ CodeHandler choose_code_handler() {
 // cheats it is installed with an empty list, for the PC's own codes.
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
                     const std::vector<MemoryRegion>& keep_out, std::string& why,
-                    std::uint32_t default_list_end = kCodeListEnd) {
+                    std::uint32_t default_list_end = kCodeListEnd, bool low_veneers = false) {
     // The header and the end code: a list with no codes.
     static const std::vector<std::uint8_t> kEmptyGct = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE,
                                                         0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct.empty() ? kEmptyGct : g_extras.cheat_gct;
-    const CodeHandler chosen = choose_code_handler();
+    const CodeHandler chosen = choose_code_handler(low_veneers);
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
     const bool moved = g_extras.code_list_start != 0;
@@ -2206,6 +2215,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
+    bool resident_low_veneers = false;  // the runtime's veneers at kCodeVeneers
     std::uint32_t hooked_os_restart = 0;  // for the debug_reset switch
     // The runtime's code goes above this loader (which ends at arena 1's
     // top) and the apploader image, both still in use until the game starts.
@@ -2256,6 +2266,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             ro.mem1_veneers = kCodeVeneers;
             ro.mem2_top = true;
         }
+        resident_low_veneers = ro.mem1_veneers == kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
         if (!resident.restart_hooked && restart_plan.os_restart != 0) {
             // Past the end of boot.log: only on screen (and the Gecko).
@@ -2666,7 +2677,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end))
+        // A code build's list moved: the runtime's, the SD card's and the
+        // crash blob's veneers may be past the handler.
+        const bool low_veneers = resident_low_veneers || g_extras.code_list_start != 0;
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why, return_plan.code_list_end, low_veneers))
             logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
@@ -3844,7 +3858,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         std::string why;
         std::vector<MemoryRegion> keep_out;
         extras.add_ranges(keep_out, false);
-        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end)) {
+        if (!install_cheats(loaded, {}, keep_out, why, return_plan.code_list_end, g_extras.code_list_start != 0)) {
             logf("Codes are off: %s\n", why.c_str());
         }
     }

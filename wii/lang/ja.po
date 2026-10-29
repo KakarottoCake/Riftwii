@@ -1099,7 +1099,7 @@ msgid "Cancel"
 msgstr "キャンセル"
 
 msgid "and {1} more"
-msgstr "ほか{1}本"
+msgstr "ほか{1}件"
 
 msgid "No online play"
 msgstr "オンラインプレイなし"
@@ -2979,6 +2979,39 @@ msgstr "さきにSDカードを入れてください。"
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
+msgid "USB Gecko log"
+msgstr "USB Geckoへのログ"
+
+msgid "WiiRD debugger"
+msgstr "WiiRDデバッガー"
+
+msgid "Pause at start"
+msgstr "開始時に止める"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "開発者向けです。RiftWiiのログを、書き込むと同時にメモリーカードスロットBのUSB Geckoにも送り、PCで読めるようにします。"
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "開発者向けです。WiiのゲームをWiiRDデバッガー付きで起動し、スロットBかAのUSB GeckoにつないだPC (WiiRD、Gecko dotNET) から使えるようにします。開始時に止めるでは、PCが再開するまでゲームを最初のフレームで止めます。"
+
+msgid "Off from the next start of RiftWii."
+msgstr "次にRiftWiiを起動したときからオフになります。"
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。"
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "次にRiftWiiを起動したときからオンになります。今はスロットBのUSB Geckoが応答しません。"
+
+msgid "Games start with the plain code handler."
+msgstr "ゲームは通常のコードハンドラーで起動します。"
+
+msgid "Wii games start with the WiiRD debugger. Connect from the PC once the game is running."
+msgstr "WiiのゲームはWiiRDデバッガー付きで起動します。ゲームが始まったらPCから接続してください。"
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "今はスロットBにもAにもUSB Geckoが応答しません。USB Geckoがないと、ゲームはデバッガーなしで起動します。"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
 
@@ -3341,6 +3374,48 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Mod files are missing"
+msgstr "MODのファイルがありません"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "MODの一部のファイルがありません。そのファイルやメモリの変更は行いません。ファイルをコピーしてやり直すか、一覧を確認してそのまま遊んでください。"
+
+msgid "Review files"
+msgstr "ファイルを確認"
+
+msgid "Play anyway"
+msgstr "そのまま遊ぶ"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。"
+
+msgid "USB scan details"
+msgstr "USBの読み込み結果"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "USBドライブの一部のパーティションを開けませんでした。ほかのパーティションのゲームは表示されています。各パーティションの問題と、どうすればよいかの一覧を開きます。"
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "パソコンでこのパーティションを確認してから、もう一度ゲームを探してください。ほかのパーティションのゲームは表示したままです。"
+
+msgid "USB partition {1} could not be opened"
+msgstr "USBのパーティション{1}を開けません"
+
+msgid "The partition could not be read from the drive."
+msgstr "ドライブからパーティションを読み込めませんでした。"
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWiiはexFATを読み込めません。このゲームをFAT32かNTFSのパーティションに移してください。"
+
+msgid "The {1} data could not be read."
+msgstr "{1}のデータを読み込めませんでした。"
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWiiはこのパーティションをFAT32、NTFS、WBFSとして読み込めませんでした。"
 
 msgid "Memory card could not be read"
 msgstr "メモリーカードを読み込めません"

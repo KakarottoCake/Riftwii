@@ -61,6 +61,7 @@ namespace {
 // blocks); SD images stay FAT32 or NTFS. libfat is only asked to mount usb:
 // to bring the storage interface up; its answer does not matter.
 std::vector<MountedImageVolume> g_usb_volumes;
+std::vector<ImagePartitionFailure> g_usb_partition_failures;
 std::uint64_t g_usb_mount_generation = 0;
 bool g_usb_preferred_known = false;
 std::uint64_t g_usb_preferred_lba = 0;
@@ -484,6 +485,7 @@ bool open_usb_raw_disc(std::string& error) {
 
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (!g_usb_volumes.empty() || g_usb_raw_disc || !g_usb_wbfs.empty())) return true;
+    g_usb_partition_failures.clear();
     g_usb_preferred_known = false;
     g_usb_wiiu_drive = false;
     ForgetWfsDrive();
@@ -559,12 +561,28 @@ bool ensure_usb(std::string& error) {
         return true;
     }
     std::vector<std::string> partition_notes;
-    const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(), &partition_notes);
+    const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(),
+                                             &partition_notes, nullptr, &g_usb_partition_failures);
     for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());
     // Older USB loaders also used WBFS-format partitions. They remain
     // readable beside FAT32/NTFS rather than being a fallback for the drive.
     std::string why;
     find_wbfs_partitions(&usb_read, g_usb_wbfs, why);
+    // WBFS uses its own reader; a successful WBFS mount is not a failure
+    // merely because the FAT32/NTFS reader left it out.
+    g_usb_partition_failures.erase(
+        std::remove_if(g_usb_partition_failures.begin(), g_usb_partition_failures.end(),
+                       [&](const ImagePartitionFailure& failure) {
+                           for (const WbfsPartition& wbfs : g_usb_wbfs) {
+                               if (failure.lba == wbfs.lba) return true;
+                           }
+                           return false;
+                       }),
+        g_usb_partition_failures.end());
+    for (const ImagePartitionFailure& failure : g_usb_partition_failures) {
+        logf("USB: partition %u could not be opened (%s); games on other partitions are kept.\n",
+             failure.partition, failure.reason.c_str());
+    }
     for (const WbfsPartition& wbfs : g_usb_wbfs) {
         const bool legacy = g_usb_volumes.empty() && &wbfs == &g_usb_wbfs.front();
         const std::string prefix = legacy ? "usb:/" : "usb" + std::to_string(wbfs.partition) + ":/";
@@ -1885,7 +1903,20 @@ static std::vector<CiosSlotState> readiness_slots(bool sd_card) {
 }
 
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
-    out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
+    out = ImageCatalog{};
+    out.device = ImageDevice::Usb;
+    // A rescan must retry partitions that failed earlier, including after
+    // the player repairs the drive on a computer and plugs it back in.
+    unmount_usb_games();
+    // Close the drive picked last time and forget it, so the scan picks
+    // from the drives plugged in now rather than retrying only that one.
+    if (g_picked.open) picked_shutdown();
+    g_picked.known = false;
+    const bool mounted = ensure_usb(error);
+    // Kept even when nothing mounted: then every partition failed, and
+    // Home and USB scan details still name them.
+    out.partition_failures = g_usb_partition_failures;
+    if (!mounted) return false;
     if (g_usb_raw_disc) {
         out.games.push_back(g_usb_disc_game);
         apply_titles(out);
