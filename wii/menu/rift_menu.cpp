@@ -103,6 +103,7 @@
 #include "riftwii/apply.hpp"
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
+#include "gecko.hpp"
 #include "gclaunch.hpp"
 #include "gcplugin.hpp"
 #include "gc_crash.h"
@@ -11567,7 +11568,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
-		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kMissingCovers, kRescan, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -11774,6 +11775,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			rows.push_back(testRow);
 			actions.push_back(kTests);
 		}
+		// For developers with a USB Gecko (wii/core/gecko.hpp, vendor-gecko):
+		// English only, as the tools on the PC end are.
+		option("USB Gecko log", settings.usb_gecko_log == "on" ? tr("On") : tr("Off"), settings.usb_gecko_log == "on",
+			kGeckoLog, FlowRow::Kind::Toggle);
+		option("WiiRD debugger", settings.wiird_debugger == "pause" ? std::string("Pause at start")
+			: settings.wiird_debugger == "on" ? tr("On") : tr("Off"), settings.wiird_debugger != "off", kWiirdDebugger);
 		FlowRow report;
 		report.kind = FlowRow::Kind::Action;
 		report.label = tr("Send a problem report");
@@ -11988,6 +11995,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
+			case kGeckoLog:
+				return "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read.";
+			case kWiirdDebugger:
+				return "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.";
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
@@ -12630,6 +12641,32 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					} else {
 						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
 					}
+					break;
+				}
+				case kGeckoLog:
+					settings.usb_gecko_log = settings.usb_gecko_log == "on" ? "off" : "on";
+					// On at once when the USB Gecko is there; off takes a restart,
+					// as stdout stays pointed at it until then.
+					if (settings.usb_gecko_log == "off") {
+						saveAndNote("Off from the next start of RiftWii.");
+					} else if (riftwii::wii::GeckoActive() || riftwii::wii::GeckoStart()) {
+						logf("USB Gecko log: turned on in Settings\n");
+						saveAndNote("On. RiftWii's log now also goes to the USB Gecko in slot B.");
+					} else {
+						saveAndNote("On from the next start of RiftWii. No USB Gecko answers in slot B now.");
+					}
+					rebuild();
+					break;
+				case kWiirdDebugger: {
+					static const char* const kDebuggerChoices[] = {"off", "on", "pause"};
+					int at = 0;
+					while (at < 3 && settings.wiird_debugger != kDebuggerChoices[at]) ++at;
+					settings.wiird_debugger = kDebuggerChoices[((at % 3) + 3 + direction) % 3];
+					saveAndNote(settings.wiird_debugger == "off" ? std::string("Games start with the plain code handler.")
+						: riftwii::wii::GeckoInSlot(EXI_CHANNEL_1) || riftwii::wii::GeckoInSlot(EXI_CHANNEL_0)
+							? std::string("Wii games start with the WiiRD debugger. Connect from the PC once the game is running.")
+							: std::string("No USB Gecko answers in slot B or A now. Without one, games start without the debugger."));
+					rebuild();
 					break;
 				}
 				case kReport:

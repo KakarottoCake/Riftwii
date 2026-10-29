@@ -4,7 +4,9 @@
 
 // printf-style logging for the console/boot path: goes to the on-screen
 // console (and the USB Gecko when one is attached, see ConsoleStart) and,
-// while a log file is open, to the SD card as well.
+// while a log file is open, to the SD card as well. With Settings > USB
+// Gecko log (wii/core/gecko.hpp) every line also reaches the USB Gecko
+// while the menu owns the screen.
 namespace riftwii::wii {
 
 void LogOpen(const char* sd_path, bool append = false);

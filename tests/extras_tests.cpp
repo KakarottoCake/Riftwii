@@ -1560,6 +1560,22 @@ void TestCoverArt() {
     EXPECT_TRUE(s.serialize().find("nintendont_saves = asked\n") != std::string::npos);
     s.parse("nintendont_saves = sometimes\n");
     EXPECT_EQ(s.nintendont_saves, "asked");
+    // The USB Gecko log and the WiiRD debugger: off by default, the known
+    // values kept, anything else ignored, and a reset turns them off.
+    EXPECT_EQ(s.usb_gecko_log, "off");
+    EXPECT_EQ(s.wiird_debugger, "off");
+    s.parse("usb_gecko_log = on\nwiird_debugger = pause\n");
+    EXPECT_EQ(s.usb_gecko_log, "on");
+    EXPECT_EQ(s.wiird_debugger, "pause");
+    EXPECT_TRUE(s.serialize().find("usb_gecko_log = on\n") != std::string::npos);
+    EXPECT_TRUE(s.serialize().find("wiird_debugger = pause\n") != std::string::npos);
+    s.parse("usb_gecko_log = wifi\nwiird_debugger = slot_a\n");
+    EXPECT_EQ(s.usb_gecko_log, "on");
+    EXPECT_EQ(s.wiird_debugger, "pause");
+    EXPECT_EQ(settings_after_reset(s).usb_gecko_log, "off");
+    EXPECT_EQ(settings_after_reset(s).wiird_debugger, "off");
+    s.usb_gecko_log = "off";
+    s.wiird_debugger = "off";
     s.gc_rumble = "on";
     EXPECT_EQ(s.wiimote_rumble, "on");
     s.parse("wiimote_rumble = off\n");

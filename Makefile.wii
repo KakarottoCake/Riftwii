@@ -158,7 +158,7 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # licence.zst are made in the build (below) from wii/font/core.ttf and
 # LICENSE. The GameCube runtime blobs (riftwii_gc*) are the gamecube
 # plugin's (plugins/gamecube/gcblobs.S), not the DOL's.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin riftwii_stub.bin
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin codehandler.bin codehandlerslota.bin riftwii_stub.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
 # the heap's after the start. The menu's core font (the full one is a file

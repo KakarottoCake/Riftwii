@@ -60,6 +60,9 @@ struct LoaderSettings {
     std::string sd_games = "on";          // on, off: look for game images on the SD card (sd:/wbfs, sd:/games); off for setups that keep games only on USB
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts
     std::string nintendont_saves = "ask"; // ask, asked: whether Home has asked about bringing Nintendont's saves (any answer, Not now too, makes it "asked")
+    // For developers with a USB Gecko (wii/core/gecko.hpp):
+    std::string usb_gecko_log = "off";    // on, off: RiftWii's log also goes to a USB Gecko in slot B, with what libraries print
+    std::string wiird_debugger = "off";   // off, on, pause: games start with the WiiRD debugger's code handler (pause: held at the first frame for the PC)
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked

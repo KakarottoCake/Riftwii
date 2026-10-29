@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "log.hpp"
+#include "gecko.hpp"
 
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
@@ -102,7 +103,12 @@ void logf(const char* format, ...) {
         std::vprintf(format, args);
         va_end(args);
     }
-    if (g_file || !g_path.empty()) {
+    // With Settings > USB Gecko log, each line also goes to the USB Gecko
+    // as it is logged, card or no card. While lines echo to the text
+    // console they reach it already: the console mirrors itself to the
+    // USB Gecko (ConsoleStart).
+    const bool to_gecko = GeckoActive() && !g_echo;
+    if (g_file || !g_path.empty() || to_gecko) {
         char text[1024];
         va_start(args, format);
         std::vsnprintf(text, sizeof(text), format, args);
@@ -118,6 +124,11 @@ void logf(const char* format, ...) {
         std::memcpy(line + used, text, take);
         used += take;
         line[used] = '\0';
+        if (to_gecko) GeckoWrite(line, used);
+        if (!g_file && g_path.empty()) {
+            g_line_start = take > 0 && text[take - 1] == '\n';
+            return;
+        }
         if (!g_file) {
             if (g_backlog.size() + used > kMaxBacklog) {
                 const std::size_t drop = std::min(g_backlog.size(), g_backlog.size() + used - kMaxBacklog);

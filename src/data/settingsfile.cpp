@@ -165,6 +165,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") gc_backups = value;
         } else if (key == "nintendont_saves") {
             if (value == "ask" || value == "asked") nintendont_saves = value;
+        } else if (key == "usb_gecko_log") {
+            if (value == "on" || value == "off") usb_gecko_log = value;
+        } else if (key == "wiird_debugger") {
+            if (value == "off" || value == "on" || value == "pause") wiird_debugger = value;
         } else {
             other[key] = value;
         }
@@ -214,6 +218,8 @@ std::string LoaderSettings::serialize() const {
     s += "sd_games = " + sd_games + "\n";
     s += "gc_backups = " + gc_backups + "\n";
     s += "nintendont_saves = " + nintendont_saves + "\n";
+    s += "usb_gecko_log = " + usb_gecko_log + "\n";
+    s += "wiird_debugger = " + wiird_debugger + "\n";
     if (!favorites.empty()) {
         std::string list;
         for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;

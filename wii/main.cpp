@@ -38,6 +38,7 @@
 #include <ogc/machine/processor.h>
 
 #include "crash.hpp"
+#include "gecko.hpp"
 #include "gcadapter.hpp"
 #include "gcrealcard.hpp"
 #include "guiscript.hpp"
@@ -278,6 +279,13 @@ void OpenSessionLog(bool sd_mounted) {
     const bool has_path = __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC &&
                           __system_argv->argc > 0 && __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
     riftwii::wii::logf("Started from %s\n", has_path ? __system_argv->argv[0] : "(no path given)");
+    // Settings > USB Gecko log: the lines from here on go to the PC too.
+    if (riftwii::wii::Settings().usb_gecko_log == "on") {
+        if (riftwii::wii::GeckoStart())
+            riftwii::wii::logf("USB Gecko log: on, this log also goes to the USB Gecko in slot B\n");
+        else
+            riftwii::wii::logf("USB Gecko log: on in Settings, but no USB Gecko answers in slot B\n");
+    }
     // AHBPROT off (the Homebrew Channel, the channel since version 9): what
     // needs the hardware (IOS patches, the GameCube adapter) can work.
     riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
