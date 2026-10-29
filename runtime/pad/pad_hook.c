@@ -439,8 +439,12 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
      * PADRead at all (it never set the pads up). */
     /* Once a round of probes: on the stand-in's channel, else on channel 0. */
     const uint32_t read_on = stand_in != RTHOME_NO_CHANNEL ? stand_in : 0u;
+    /* The time since the game's last PADRead, signed and with the noted
+     * time's marker bit cleared (as rthome.c's elapsed): that PADRead may
+     * have run in the SI callback after `t` was read, as interrupts came
+     * back on, and a plain difference would wrap to "long stopped". */
     if ((uint32_t)chan == read_on && c->pad_read != 0 && c->last_pad_read != 0 &&
-        t - c->last_pad_read > 50u * c->ticks_per_ms &&
+        (int32_t)(t - (c->last_pad_read & ~1u)) > (int32_t)(50u * c->ticks_per_ms) &&
         rthome_reads_pads(&c->home, t, 100u * c->ticks_per_ms)) {
         /* The game's PADRead, through the hook, so the adapter fills it and
          * the stand-in keeps up with the pad. Interrupts on, as a game
