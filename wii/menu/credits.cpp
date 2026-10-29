@@ -99,6 +99,8 @@ const char* const kCredits[] = {
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
     "",
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.",
+    "",
     "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
     "read as documentation; no code copied.",
     "",
