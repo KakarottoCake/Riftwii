@@ -7232,7 +7232,7 @@ KO.update({
     "Saves already made stay where they are; only new saves go here.": "이미 만든 저장은 그대로 있고, 새 저장만 여기에 합니다.",
     "Use default options for this game": "이 게임 기본 설정 사용",
     "Use default options for this game?": "이 게임 기본 설정을 사용할까요?",
-    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "이 게임 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
     "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
     "Needed: {1}": "필요: {1}",
     "Also works with: {1}": "같이 사용 가능: {1}",

@@ -11663,6 +11663,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
 			const RowRef ref = refs[static_cast<std::size_t>(acted)];
 			riftwii::GameSettings& game = state.model.game;
+			// What a reset that cannot be saved puts back.
+			const riftwii::GameSettings beforePress = game;
 			bool changed = true;
 			if (ref.what == RowRef::What::Width) game.video_width = StepValue(kWidths, game.video_width, direction);
 			else if (ref.what == RowRef::What::Deflicker) game.deflicker = StepValue(kDeflickers, game.deflicker, direction);
@@ -11776,7 +11778,18 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			if (changed) {
 				std::string error;
-				if (!SaveChoices(state, error)) say(error);
+				if (!SaveChoices(state, error)) {
+					if (ref.what == RowRef::What::ResetOptions) {
+						// A reset the card does not keep would still be used by the
+						// next launch: put every option back and say so in a popup
+						// the row help cannot replace.
+						game = beforePress;
+						logf("Game settings: %s reset not saved, options put back: %s\n", state.game_id.c_str(), error.c_str());
+						ShowPopup(tr("Could not save the settings to the SD card."), error, tr("OK"));
+					} else {
+						say(error);
+					}
+				}
 				refreshRows();
 				list.Select(acted);
 				shownRow = ref.what == RowRef::What::GcCard && riftwii::wii::is_wii_u() ? acted : -1;
