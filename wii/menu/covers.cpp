@@ -501,18 +501,21 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
             }
             const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
             if (file.empty()) continue;
+            // Which set the cover is of, written before the cover: a marker
+            // that can't be written leaves the stored cover as it was (a
+            // second set's would pass for the first's), and one written for
+            // a cover that then can't be is taken back.
+            const bool marked_before = StoredIsSecond(game_id);
+            if (second && !marked_before && !WriteAll(StoredSecondPath(game_id), {})) {
+                error = "cannot write " + StoredSecondPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
             if (!WriteAll(CoverPath(game_id), file)) {
+                if (second && !marked_before) std::remove(StoredSecondPath(game_id).c_str());
                 error = "cannot write " + CoverPath(game_id) + " (card full?)";
                 return CoverFetch::Failed;
             }
             std::remove(MissPath(game_id).c_str());
-            // Which set this cover is of. Unwritten, the second set's would
-            // pass for the first's: no cover, and a failed download.
-            if (second && !WriteAll(StoredSecondPath(game_id), {})) {
-                std::remove(CoverPath(game_id).c_str());
-                error = "cannot write " + StoredSecondPath(game_id) + " (card full?)";
-                return CoverFetch::Failed;
-            }
             if (!second) std::remove(StoredSecondPath(game_id).c_str());
             // Without its entry's name beside it, the tile's cover would be
             // wanted again on every pass: no cover, and a failed download.
