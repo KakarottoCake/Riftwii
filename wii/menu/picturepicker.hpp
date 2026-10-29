@@ -82,6 +82,7 @@ private:
     int job_slot_ = 0;
     bool job_ok_ = false;
     bool discard_job_ = false;
+    Sha256Digest job_hash_{};
     std::atomic<bool> done_{false};
     std::vector<PictureCandidate> found_;
     std::vector<std::uint8_t> answer_;

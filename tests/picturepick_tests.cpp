@@ -84,10 +84,53 @@ void paths_and_markers() {
     EXPECT(!picture_pick_marker_matches({}, ""));
     EXPECT(!picture_pick_marker_matches(png, "RIFTWII-PICTURE-1\n"));
 }
+
+void identical_thumbnails() {
+    using namespace riftwii;
+    const std::string system = "Sega - Dreamcast";
+    const std::vector<std::string> names = {"Crazy Taxi (Europe).png", "Crazy Taxi (Japan).png",
+                                           "Crazy Taxi (USA).png", "Crazy Taxi (USA) (Rev 1).png"};
+    std::vector<PictureCandidate> list;
+    EXPECT(picture_add_libretro(list, PictureSource::Title, system, "Crazy Taxi (USA)", names));
+    EXPECT(list.front().url == picture_libretro_url(PictureSource::Title, system, names[2]));
+    EXPECT(picture_add_libretro(list, PictureSource::Screenshot, system, "Crazy Taxi (USA)", names));
+    const std::uint8_t first_bytes[] = {1, 2, 3};
+    const std::uint8_t other_bytes[] = {3, 2, 1};
+    const auto first_hash = sha256(first_bytes, sizeof(first_bytes));
+    const auto other_hash = sha256(other_bytes, sizeof(other_bytes));
+    EXPECT(list.size() == 8);
+    EXPECT(picture_page_count(list.size()) == 2);
+    EXPECT(picture_record_thumbnail(list, 0, first_hash) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(list, 1, first_hash) == 1);
+    EXPECT(list.size() == 7);
+    EXPECT(list.front().url == picture_libretro_url(PictureSource::Title, system, names[2]));
+    EXPECT(picture_record_thumbnail(list, 1, other_hash) == kPictureCandidatesMax);
+    // A source stays available even if it serves the same bytes as another.
+    EXPECT(list[3].source == PictureSource::Screenshot);
+    EXPECT(picture_record_thumbnail(list, 3, first_hash) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(list, 2, first_hash) == 2);
+    EXPECT(list.size() == 6);
+    EXPECT(picture_page_count(list.size()) == 1);
+    EXPECT(picture_record_thumbnail(list, 0, first_hash) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(list, list.size(), first_hash) == kPictureCandidatesMax);
+
+    // Visiting the second page first must not displace the preferred region.
+    std::vector<PictureCandidate> reverse;
+    for (const auto source : {PictureSource::Title, PictureSource::Screenshot, PictureSource::Boxart}) {
+        EXPECT(picture_add_libretro(reverse, source, system, "Crazy Taxi (USA)", names));
+    }
+    const std::string preferred = reverse[4].url;
+    EXPECT(picture_record_thumbnail(reverse, 6, first_hash) == kPictureCandidatesMax);
+    EXPECT(picture_record_thumbnail(reverse, 4, first_hash) == 6);
+    EXPECT(reverse[4].url == preferred);
+    EXPECT(reverse[4].thumbnail_hashed);
+    EXPECT(picture_record_thumbnail(reverse, 4, first_hash) == kPictureCandidatesMax);
+}
 }  // namespace
 
 int main() {
     candidates();
     paths_and_markers();
+    identical_thumbnails();
     return failures ? 1 : 0;
 }

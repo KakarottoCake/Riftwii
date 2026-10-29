@@ -4883,7 +4883,9 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 {
 	using namespace riftwii::wii;
 	if (!EmulatorPictureOnline()) {
-		ShowPopup(tr("Picture"), tr("Needs the internet"), tr("OK"));
+		ShowPopup(tr("Picture"),
+			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
+				{tr("Download names and cheats"), tr("Settings"), tr("Online")}), tr("OK"));
 		return;
 	}
 	const std::string path = riftwii::emulator_banner_local_path(addon.file.system, game.name);

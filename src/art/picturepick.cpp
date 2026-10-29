@@ -103,10 +103,12 @@ bool picture_add_libretro(std::vector<PictureCandidate>& candidates, PictureSour
         if (name.size() > kEmulatorArtNameMax) return false;
         remaining.push_back(name);
     }
-    // Keep the automatic lookup's sequel and region rules. Remove each
-    // best match so equivalent regional pictures can also be offered.
+    // Prefer the game's exact filename, then keep the automatic lookup's
+    // sequel and region rules. Identical downloads are removed later.
     for (std::size_t i = 0; i < kPictureCandidatesPerSource; ++i) {
-        const std::string name = match_emulator_cover(game, remaining);
+        const std::string exact = game + ".png";
+        const bool exact_present = std::find(remaining.begin(), remaining.end(), exact) != remaining.end();
+        const std::string name = exact_present ? exact : match_emulator_cover(game, remaining);
         if (name.empty()) break;
         if (!add_candidate(candidates, {picture_libretro_url(source, system, name), source})) return false;
         remaining.erase(std::remove(remaining.begin(), remaining.end(), name), remaining.end());
@@ -124,6 +126,23 @@ bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std:
         if (candidates.size() != before && ++added == kPictureCandidatesPerSource) break;
     }
     return true;
+}
+
+std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, std::size_t index,
+                                     const Sha256Digest& digest) {
+    if (candidates.size() > kPictureCandidatesMax || index >= candidates.size()) return kPictureCandidatesMax;
+    auto& candidate = candidates[index];
+    candidate.thumbnail_hash = digest;
+    candidate.thumbnail_hashed = true;
+    for (std::size_t other = 0; other < candidates.size(); ++other) {
+        const auto& previous = candidates[other];
+        if (other == index || previous.source != candidate.source || !previous.thumbnail_hashed ||
+            previous.thumbnail_hash != digest) continue;
+        const std::size_t duplicate = std::max(index, other);
+        candidates.erase(candidates.begin() + duplicate);
+        return duplicate;
+    }
+    return kPictureCandidatesMax;
 }
 
 std::size_t picture_page_count(std::size_t candidates) {

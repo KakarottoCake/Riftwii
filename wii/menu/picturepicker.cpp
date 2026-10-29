@@ -27,6 +27,10 @@ namespace riftwii::wii {
 namespace {
 GuiPicturePicker* active_picker = nullptr;
 constexpr std::size_t kPreviewPixelsMax = 32u << 10;
+constexpr int kAutomaticX = 148;
+constexpr int kAutomaticY = 364;
+constexpr int kAutomaticWidth = 344;
+constexpr int kAutomaticHeight = 44;
 
 bool pressed(GuiTrigger* trigger, u32 remote, u16 pad, u16 gamepad) {
     return (trigger->wpad && (trigger->wpad->btns_d & remote)) ||
@@ -41,10 +45,10 @@ void place(GuiText& text, GuiElement* parent, int x, int y) {
 
 const char* source_name(PictureSource source) {
     switch (source) {
-        case PictureSource::Title: return tr("libretro title screen");
-        case PictureSource::Screenshot: return tr("libretro screenshot");
-        case PictureSource::Boxart: return tr("libretro box art");
-        case PictureSource::SteamGrid: return "SteamGridDB";
+        case PictureSource::Title: return tr("Title screen");
+        case PictureSource::Screenshot: return tr("Screenshot");
+        case PictureSource::Boxart: return tr("Box art");
+        case PictureSource::SteamGrid: return tr("SteamGridDB");
     }
     return "";
 }
@@ -83,7 +87,10 @@ GuiPicturePicker::GuiPicturePicker(Discover discover, bool wide, PicturePreview 
     place(page_text_, this, 320, 70);
     place(status_text_, this, 320, 346);
     status_text_.SetWrap(true, 520, 1);
-    place(automatic_text_, this, 320, 382);
+    automatic_text_.SetParent(this);
+    automatic_text_.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+    automatic_text_.SetPosition(320 - screenwidth / 2, kAutomaticY + kAutomaticHeight / 2 - screenheight / 2);
+    automatic_text_.SetMaxWidth(kAutomaticWidth - 24);
     for (auto& tile : tiles_) {
         tile.caption = new GuiText("", 14, skin::kInkSoft);
         tile.caption->SetWrap(true, 160, 1);
@@ -181,6 +188,7 @@ void GuiPicturePicker::Work() {
                 answer_ = std::move(png);
                 job_ok_ = true;
             } else {
+                job_hash_ = sha256(png.data(), png.size());
                 answer_ = preview_.make(rgba.data(), image_width, image_height);
                 job_ok_ = answer_.size() == preview_.pixel_bytes;
             }
@@ -217,12 +225,34 @@ void GuiPicturePicker::Pump() {
                 if (job_ok_) choice_ = Result::Picked;
                 else status_text_.SetText(tr("Could not load this picture."));
             } else if (job_ok_ && pixels_) {
-                u8* texture = pixels_ + job_slot_ * preview_.pixel_bytes;
-                std::memcpy(texture, answer_.data(), preview_.pixel_bytes);
-                DCFlushRange(texture, preview_.pixel_bytes);
-                tiles_[job_slot_].ready = true;
-                texture_dirty_ = true;
-                logf("Picture picker: loaded picture %d on page %d.\n", job_slot_ + 1, job_page_ + 1);
+                const std::size_t index = job_page_ * kPicturePageSize + job_slot_;
+                const int old_count = Count();
+                const bool automatic_focused = focus_ == old_count;
+                const std::size_t removed = picture_record_thumbnail(candidates_, index, job_hash_);
+                if (removed == kPictureCandidatesMax) {
+                    u8* texture = pixels_ + job_slot_ * preview_.pixel_bytes;
+                    std::memcpy(texture, answer_.data(), preview_.pixel_bytes);
+                    DCFlushRange(texture, preview_.pixel_bytes);
+                    tiles_[job_slot_].ready = true;
+                    texture_dirty_ = true;
+                    logf("Picture picker: loaded picture %d on page %d.\n", job_slot_ + 1, job_page_ + 1);
+                } else {
+                    const int last_page = static_cast<int>(picture_page_count(candidates_.size())) - 1;
+                    if (removed == index && page_ <= last_page) {
+                        // Earlier slots stay put. Reuse this empty slot for
+                        // the next candidate, including one from the next page.
+                        tiles_[job_slot_].attempted = false;
+                    } else {
+                        // A later page may have been visited first. Keep the
+                        // earlier preferred variant and rebuild the shifted page.
+                        ClearPage();
+                        page_ = std::min(page_, last_page);
+                        requested_page_ = page_;
+                    }
+                    focus_ = automatic_focused ? Count() : std::min(focus_, std::max(0, Count() - 1));
+                    Labels();
+                    logf("Picture picker: removed an identical picture from the same source.\n");
+                }
             } else {
                 logf("Picture picker: picture %d on page %d could not be loaded.\n", job_slot_ + 1, job_page_ + 1);
                 status_text_.SetText(tr("A picture could not be loaded."));
@@ -298,12 +328,16 @@ void GuiPicturePicker::Draw() {
         tiles_[slot].caption->Draw();
     }
     if (!discovered_) spinner(320, 220, frame_);
-    if (job_ == Job::Pick) spinner(320, 360, frame_);
+    if (job_ == Job::Pick) spinner(540, kAutomaticY + kAutomaticHeight / 2, frame_);
     if (picture_page_count(candidates_.size()) > 1) {
         skin::Draw(skin::arrowLeft, 8, 202);
         skin::Draw(skin::arrowRight, 588, 202);
     }
-    skin::DrawNine(focus_ == Count() ? skin::tile9Over : skin::tile9, 148, 374, 344, 36, 12);
+    // Pill textures include a four-pixel shadow; keep their full height
+    // and rounded ends when stretching the middle for translated labels.
+    skin::DrawNine(focus_ == Count() ? skin::pillOver : skin::pill,
+                   kAutomaticX - 4, kAutomaticY - 4, kAutomaticWidth + 8, kAutomaticHeight + 8, 26);
+    automatic_text_.SetColor(focus_ == Count() ? skin::kAccentInk : skin::kInk);
     automatic_text_.Draw();
 }
 
@@ -311,7 +345,8 @@ int GuiPicturePicker::TileAt(int x, int y) const {
     for (int slot = 0; slot < Count(); ++slot) {
         if (x >= TileX(slot) && x < TileX(slot) + TileWidth() && y >= TileY(slot) && y < TileY(slot) + 114) return slot;
     }
-    return x >= 148 && x < 492 && y >= 374 && y < 410 ? Count() : -1;
+    return x >= kAutomaticX && x < kAutomaticX + kAutomaticWidth &&
+           y >= kAutomaticY && y < kAutomaticY + kAutomaticHeight ? Count() : -1;
 }
 
 void GuiPicturePicker::Update(GuiTrigger* trigger) {

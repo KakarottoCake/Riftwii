@@ -3423,14 +3423,20 @@ msgstr "채널에 표시할 그림을 선택합니다."
 msgid "Back to automatic"
 msgstr "자동으로 되돌리기"
 
-msgid "libretro title screen"
-msgstr "libretro 타이틀 화면"
+msgid "Title screen"
+msgstr "타이틀 화면"
 
-msgid "libretro screenshot"
-msgstr "libretro 게임 화면"
+msgid "Screenshot"
+msgstr "게임 화면"
 
-msgid "libretro box art"
-msgstr "libretro 표지"
+msgid "Box art"
+msgstr "표지"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Wii를 인터넷에 연결한 다음 {2} > {3}에서 {1}를 켜세요."
 
 msgid "No pictures found."
 msgstr "그림을 찾지 못했습니다."
