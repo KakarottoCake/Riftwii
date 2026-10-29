@@ -900,6 +900,21 @@ msgstr "Diminuir aos poucos"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo."
 
+msgid "Banner music on game pages"
+msgstr "Música do banner na página do jogo"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Toca a música do banner de um jogo ao abrir a página dele no Início, como a tela do banner da vista Canais. Não na vista Canais, que já a toca."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "A vista Canais já toca a música do banner de um jogo na tela do banner."
+
+msgid "Disc art"
+msgstr "Imagem do disco"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Mostra o disco do jogo abaixo da caixa na página do jogo. A imagem vem do GameTDB quando os downloads estão ligados e fica em sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música."
 

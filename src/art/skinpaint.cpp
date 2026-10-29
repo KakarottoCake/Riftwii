@@ -1030,6 +1030,15 @@ void paint_drop_shadow9(const Theme& theme, Canvas& out) {
     out.shadow(kShadowMargin, kShadowMargin, 64 - 2 * kShadowMargin, 64 - 2 * kShadowMargin, 6, kShadowMargin, deep);
 }
 
+void paint_disc_shadow(const Theme& theme, Canvas& out) {
+    // As deep as the box's shadow above it, so the two read as one light.
+    Rgba deep = ToRgba(theme.colors.shadow);
+    deep.a = static_cast<std::uint8_t>(std::min(150, std::max(110, deep.a * 3)));
+    out = Canvas(kDiscShadowSize, kDiscShadowSize);
+    const float radius = kDiscShadowDisc / 2.0f;
+    out.shadow(kDiscShadowBlur, kDiscShadowBlur, kDiscShadowDisc, kDiscShadowDisc, radius, kDiscShadowBlur, deep);
+}
+
 void paint_home_danger(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosButton(over, true); }
 
 void paint_ios_bar_button(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosBarButton(over); }
