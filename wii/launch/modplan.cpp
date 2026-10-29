@@ -643,12 +643,12 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         // In words a player follows: which folder, where it goes, and where
         // a copy that looks like it is (a tester's pack had no folder at all
         // and the message read as a riddle).
-        error = tr("{1} needs its mod folder at {2}.", {xml_name, top});
+        error = tr("{1} needs its mod folder to be {2}.", {xml_name, top});
         if (!missing_value.empty()) error += "\n" + tr("Required file: {1}", {device + path});
         const std::string pack_dir = PackFolderOf(xml_sd_path);
         const std::string found = usb ? std::string() : similar_folder(folder, pack_dir);
         if (!found.empty() && found.compare(0, top.size() + 1, top + "/") == 0) {
-            error += "\n" + tr("The files are one folder too deep in {1}. Move that folder's contents into {2}.", {found, top});
+            error += "\n" + tr("{1} is one folder too deep. Move its contents into {2}.", {found, top});
         } else if (!found.empty() && found.find('/', 4) == std::string::npos) {
             error += "\n" + tr("Rename {1} to exactly {2}.", {found, top});
         } else if (!found.empty()) {

@@ -3366,14 +3366,14 @@ msgstr "SDのゲームにはd2x cIOSが必要ですが、インストールさ�
 msgid "Mods could not be prepared"
 msgstr "MODを準備できませんでした"
 
-msgid "{1} needs its mod folder at {2}."
-msgstr "{1}には{2}にMODフォルダーが必要です。"
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1}のMODフォルダーは{2}そのものである必要があります。"
 
 msgid "Required file: {1}"
 msgstr "必要なファイル: {1}"
 
-msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
-msgstr "ファイルが1つ深い{1}フォルダーに入っています。{1}の中身を{2}に移動してください。"
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。"
 
 msgid "Rename {1} to exactly {2}."
 msgstr "{1}の名前を正確に{2}に変更してください。"

@@ -3366,14 +3366,14 @@ msgstr "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x c
 msgid "Mods could not be prepared"
 msgstr "Não foi possível preparar os mods"
 
-msgid "{1} needs its mod folder at {2}."
-msgstr "{1} precisa da pasta do mod em {2}."
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1} precisa que a pasta do mod seja {2}."
 
 msgid "Required file: {1}"
 msgstr "Arquivo necessário: {1}"
 
-msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
-msgstr "Os arquivos estão uma pasta abaixo do esperado, em {1}. Mova o conteúdo dessa pasta para {2}."
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1} está uma pasta abaixo do esperado. Mova o conteúdo dela para {2}."
 
 msgid "Rename {1} to exactly {2}."
 msgstr "Renomeie {1} para exatamente {2}."

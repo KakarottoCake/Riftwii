@@ -3366,14 +3366,14 @@ msgstr "SD 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습�
 msgid "Mods could not be prepared"
 msgstr "모드를 준비하지 못했습니다"
 
-msgid "{1} needs its mod folder at {2}."
-msgstr "{1}의 모드 폴더가 {2}에 있어야 합니다."
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1}의 모드 폴더는 {2} 그 자체여야 합니다."
 
 msgid "Required file: {1}"
 msgstr "필요한 파일: {1}"
 
-msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
-msgstr "파일이 한 단계 더 깊은 {1} 폴더에 들어 있습니다. {1}의 내용을 {2}로 옮기세요."
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1} 폴더가 한 단계 더 깊습니다. {1}의 내용을 {2}로 옮기세요."
 
 msgid "Rename {1} to exactly {2}."
 msgstr "{1}의 이름을 정확히 {2}(으)로 바꾸세요."
