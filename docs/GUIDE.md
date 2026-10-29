@@ -85,7 +85,8 @@ drive works too: `usb:/riivolution`.)
 3. The first time, a short tour shows the basics. Read it, then press A.
 
 You're on **Home**: your games as tiles. At first it shows only games
-that have a mod pack. Press **1** to see **all** your games.
+that have a mod pack. Press **1** to see **all** your games, or point at
+the **Show** button in the bottom left and pick what Home shows.
 
 ### Step 6: Play a game with a mod
 
@@ -199,7 +200,7 @@ for their folders and controllers.
    A drive formatted as WBFS has no folders: RiftWii lists every
    game on it, and only reads it.
 5. Start RiftWii from the Homebrew Channel. The first time, a short
-   tour shows the basics (Settings > Tutorial shows it again).
+   tour shows the basics (Settings > Help > Tutorial shows it again).
 
 ## Using RiftWii
 
@@ -227,7 +228,7 @@ above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
-press 1 (the view button), or search with nothing typed, to go back to
+press 1, or search with nothing typed, to go back to
 the view. Point at the magnifier and hold **B** on a Wii Remote for about a
 second to start a game at random from the ones shown (not the disc drive or
 a homebrew app); its page presses Start for you, so its checks and warnings
@@ -235,8 +236,9 @@ still come up.
 In the Covers view, point at a game's cover and press **1** or **2** to
 see the cover up close; press 1, 2, A or B to put it back. Pointing at
 anything else, 1 and 2 stay the view and settings buttons.
-To look for new games on the drives, use Settings > Look for games
-again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
+To look for new games on the drives, use Settings > Drives > Look for
+games again (or X on a GameCube controller). RiftWii remembers the view
+and opens on the last game
 you played, as soon as the drive that game is on has been read, unless you have already
 pressed a button or moved the stick (Settings > Home > Home starts on > First page opens on page 1
 instead). When the Wii is online,
@@ -292,7 +294,7 @@ else. Pressed alone, each does its usual job when you let go of it.
 
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
-shelf (hold one to speed up), Minus and Plus jump 12 games, and A opens
+shelf (hold one to speed up), Minus and Plus step one game, and A opens
 the game. Up or Down turns the box round to show its back. Point at a
 box and press **1** or **2** to see it up close, as in the Covers view
 (its back, if you turned it round). With the
@@ -332,6 +334,21 @@ of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.
 For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
 from the console while it runs; nothing like it ships with RiftWii or is
 written to the card. A game without a banner shows its name tile.
+
+Emulator games show a title screen from libretro, then an optional wide
+SteamGridDB picture, with their cover's middle band as the fallback. You can
+supply a picture at `sd:/riftwii/banners/emulators/<system>/<game name>.png`;
+it works offline and takes priority. Pictures fill the tile without stretching.
+With Online on, open the game's page and choose **Picture** to browse title
+screens, screenshots, box art and optional SteamGridDB pictures. Six tiles
+load one at a time per page; Minus/Plus or the arrows turn pages, A saves a
+picture to SD, and B leaves. Only the current page's pictures are downloaded.
+Your saved choice appears on Home at once and works offline. **Back to
+automatic** removes it; a picture added or changed by hand needs confirmation.
+The picker needs **Settings > Online > Downloads** on; its SteamGridDB
+pictures also need **SteamGridDB covers**. **Covers for emulator games**
+only turns the automatic pictures on or off, not the picker. See
+[Emulator Channels pictures](EMULATORS.md#channels-pictures).
 
 ### A game's page
 
@@ -424,7 +441,7 @@ pressed too.
   the game is told the video hardware matches its region.
 - **Aspect ratio** makes the game use *4:3* or widescreen *16:9*
   whatever the Wii's TV setting says (*Game's own* leaves it; *Default*
-  follows Settings > Aspect ratio). Not every game reads the setting in a
+  follows Settings > Picture > Aspect ratio). Not every game reads the setting in a
   way that can be changed.
 - **Rumble** and **Wii Remote speaker**: turn either off for this game.
 - **Region strings fix** (off unless you turn it on) is for a game from
@@ -499,7 +516,8 @@ the tiles.
   *Most played* or *Your order* (move games on Home as described above).
   Last played and Most played put the games you played from RiftWii
   first, the rest after them A to Z.
-- **Home starts on** (Settings > Home): *Last game* opens Home on the page
+- **Home starts on** (Settings > Home > Home starts on): *Last game*
+  opens Home on the page
   of the game you played last, with that game selected, as soon as its
   drive has been read (the SD card's games come first, then the USB
   drive's), unless you have already pressed a button or moved the stick;
@@ -528,7 +546,8 @@ the tiles.
   stand on its shelves, with paper panels) and *Indigo* (indigo and violet
   glass on a fine dark grid, gold for what is lit). More in
   [THEMES.md](THEMES.md).
-- **Get more themes** (Settings > Menu): previews and downloads community
+- **Get more themes** (Settings > Menu > Get more themes): previews and
+  downloads community
   themes to `sd:/riftwii/themes/`. The browser can also update or delete
   downloaded themes. Downloads must be on.
 - **Clock**: how Home's clock writes the time: *12-hour* (with AM and
@@ -599,8 +618,12 @@ the tiles.
   games stopped on a black screen), so a picture taken during fast
   motion may shear slightly. Some games and mods may still not work with
   it: turn it off for those.
-- **Download names and cheats**, and **Get the latest game names**.
-- **Download missing covers** (Settings > Online): retries the covers, boxes
+- **Downloads** (Settings > Online > Downloads) allows downloads of game
+  names, covers, cheats, game details, themes and updates. Files already
+  on the card still work when it is off. **Settings > Online > Get the
+  latest game names** downloads the names again.
+- **Download missing covers** (Settings > Online > Download missing
+  covers): retries the covers, boxes
   and 3D covers Home is missing when you return to Home, with downloads on.
   Games GameTDB has no picture for stay without one.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
@@ -615,28 +638,36 @@ the tiles.
   *Off* leaves them all alone; turn it off if the menu acts up with one
   plugged in, or with none, and say so in a problem report.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
-  fakemote to use USB DS3/DS4 pads as Wii Remotes.
+  fakemote to use USB DS3/DS4 pads as Wii Remotes (Settings > Menu > Menu IOS).
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
-- **Games on the SD card** (Settings > Drives): *Don't look* skips the
+- **Games on the SD card** (Settings > Drives > Games on the SD card):
+  *Don't look* skips the
   card's Wii and GameCube images. Packs, themes and saves still work.
-- **Network Test** (Settings > Online) checks the network connection.
+- **Network Test** (Settings > Online > Network Test) checks the network
+  connection.
 - **My RiiTag** shows your RiiTag (see RiiTag below).
-- **Look for games again**, **Check for a new version** (on GitHub; with downloads on, RiftWii also
+- **Settings > Drives > Look for games again**, **Settings > Online >
+  Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
-- **Send a problem report**: see Reporting a problem below.
-- **What's new** shows this version's main changes again (RiftWii shows
+- **Settings > Help > Send a problem report**: see Reporting a problem below.
+- **Settings > Help > What's new** shows this version's main changes
+  again (RiftWii shows
   them once after an update).
-- **USB drive help**: what a USB drive needs, step by step, with a code
+- **Settings > Help > USB drive help**: what a USB drive needs, step by
+  step, with a code
   for the guide. RiftWii also offers it when a USB drive can't be read.
-- **Tutorial** shows the short tour of the basics again: a new SD card
+- **Settings > Help > Tutorial** shows the short tour of the basics
+  again: a new SD card
   starts with it, once.
 - **Test switches are on** shows up only when `sd:/riftwii/settings.txt`
   has a `debug_off =` line, which turns parts of RiftWii off for
   testing. Clear it unless the RiftWii developers asked you to keep it.
-- **Credits and license**: RiftWii's license (the GNU GPL, version 3 or
+- **Settings > Help > Credits and license**: RiftWii's license (the GNU
+  GPL, version 3 or
   later, in full), where its source is, and who its parts come from.
-- **Reset all settings** (Settings > Help) restores the defaults and
+- **Reset all settings** (Settings > Help > Reset all settings) restores
+  the defaults and
   restarts RiftWii. It keeps games' own choices, favorites, play history,
   mods and any extra game folders you set.
 
@@ -657,7 +688,7 @@ The WiiWare and Virtual Console games installed on your Wii are on Home
 with your other games, badged **WII**, each with its own icon and banner
 in the Channels view. Those USB Loader GX keeps in an emulated NAND on
 the SD card (its channel folder, `sd:/nands/01` unless you changed it)
-are there too, badged **SD**. **Settings > Games from > Wii channels**
+are there too, badged **SD**. **Settings > Home > Games from > Wii channels**
 shows only these.
 
 A channel game has a page like any game: **Play**, **Cheats**,
@@ -673,11 +704,34 @@ needs a d2x cIOS, as SD and USB games do; when it cannot start a game
 from the Wii itself, the Wii starts it as the Wii Menu would, without
 those extras. A game in an emulated NAND keeps its saves in that folder.
 
-To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
-top of the SD card and pick **Settings > Drives > Install WAD files**.
-They go into that emulated NAND (the Wii itself is not changed) and show
-up on Home. RiftWii decrypts them with your own Wii's key, read when you
-install; it carries no key itself.
+To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
+or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
+(`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
+level of subfolders. The games appear on Home with their own names,
+banners and icons. An SD card is needed even when the WAD is on USB.
+
+Press **Play**. The first start shows **Getting <game> ready, first time
+only** while RiftWii checks and unpacks the game into the channel emulated
+NAND on the SD card (`sd:/nands/01` unless configured otherwise). Later
+starts reuse those files. Replacing the WAD with a changed version prepares
+it again. This uses free space on the SD card as well as the space holding
+the WAD; updating an existing copy temporarily needs room for both copies.
+The console's own NAND is never written.
+
+Removing a WAD removes its Home tile after the drives are read again.
+Its save stays at `<emulated NAND>/title/00010001/<title ID>/data/`, and is
+used again if the WAD is put back. An independently installed copy keeps
+its own tile and save location; the same title is shown only once.
+RiftWii first tries your Wii's hardware key, then asks IOS to read the
+game's title key. It checks the banner before trusting either result.
+If neither works, put your own Wii's BootMii `keys.bin` backup at
+`sd:/keys.bin`. Keys stay in memory only, and the session log says which
+source worked. Korean-key and vWii-key WADs are not supported by this key reader.
+The regular d2x channel-launch requirements still apply.
+
+The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
+and pick **Settings > Drives > Install WAD files**. These copies stay on
+Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
 `sd:/private/wii/title/<code>/content.bin`. If it can read that copy,
@@ -685,7 +739,7 @@ it puts the game's data back on the Wii for the launch and removes its
 temporary copy the next time RiftWii starts. This needs free space on
 the Wii. If neither place has usable data, RiftWii says so.
 
-**Show non-game channels** in Settings > Games also lists channels that
+**Settings > Games > Show non-game channels** also lists channels that
 are not detected as games. It is off at first.
 
 ### GameCube games
@@ -718,8 +772,8 @@ on the USB drive are new and have not been tested on a Wii yet. `.ciso` images a
 back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
-**Settings > Games from > GameCube** shows only these; the other
-choices, and Home's view button (all games, games with mods, Recently
+**Settings > Home > Games from > GameCube** shows only these; the other
+choices, and Home's Show button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -732,8 +786,8 @@ games, **Game speed** (60 Hz instead of 50).
 one for each game (`GMSE01.raw`), or with **Memory card** set to
 *Shared* one for every game that shares it (`shared.raw`, and
 `shared-jp.raw` for Japanese games). Switching copies no saves: move
-them on the game's **Saves** page. With **Back up saves** on in
-Settings (it is at first), the card is copied to
+them on the game's **Saves** page. With **Settings > Games > Back up
+GameCube saves** on (it is at first), the card is copied to
 `sd:/riftwii/gc/backups/` before the game starts, when it has changed;
 the newest five copies are kept, and **Restore an older save** on the
 Saves page puts one back.
@@ -881,7 +935,7 @@ The Wii's own IOS refuses a burned disc, so when the Disc tile cannot
 read one, RiftWii offers to restart its menu under your d2x cIOS for
 that session. d2x reads the burn as a plain DVD, and the game then
 starts as from any disc, mods included. With the menu IOS set to a d2x
-slot in Settings, burned discs work straight away.
+slot in **Settings > Menu > Menu IOS**, burned discs work straight away.
 
 **Burned discs are at your own risk.** A burned disc reflects less light
 than a pressed one, so the drive works harder and retries more, and a
@@ -911,7 +965,8 @@ while it is idle, so it does not go to sleep mid-game.
 Packs can come from a PC running a RiiFS server, as with Riivolution.
 Put an XML in `sd:/riivolution` with
 `<network protocol="riifs" address="192.168.1.20" port="1137"/>`, or
-turn on *Find network packs* in Settings to look for servers on your
+turn on **Settings > Drives > Find network packs (RiiFS)** to look for
+servers on your
 network. A server's packs show with `@ address` after their name.
 RiftWii copies what a launch needs into `sd:/riftwii/riifs/` first (only
 files whose size changed), then boots from the card. Saves stay on the
@@ -951,7 +1006,7 @@ copy your key, then either:
   URL).
 
 When you choose Play, RiftWii tells each server the game's ID, while the
-Wii is still online (not with Settings > Online off). `session.log` says
+Wii is still online (with Settings > Online > Downloads on). `session.log` says
 `RiiTag: ... updated`, or what the server answered. The key never goes in
 the logs or problem reports.
 
@@ -964,8 +1019,8 @@ riitag_id = 123456789012345678
 (in Discord: Settings > Advanced > Developer Mode, then right-click
 yourself and Copy User ID). **Settings > Online > My RiiTag** then
 downloads `https://riitag.t0g3pii.de/<id>/tag.max.png` and shows it; A
-downloads it again. It needs the Wii online and Settings > Online's
-downloads on. Like the key, the ID is hidden in problem reports.
+downloads it again. It needs the Wii online and **Settings > Online >
+Downloads** on. Like the key, the ID is hidden in problem reports.
 
 ### Mario Kart Wii distributions
 
@@ -1151,7 +1206,8 @@ shows the answer and `sd:/riftwii/usbcheck.txt` has the details, which
 a problem report carries. Games from the SD card or a USB drive run on
 a d2x cIOS, so this shows whether the adapter can work in them.
 
-**GameCube adapter** in Settings is **Automatic** at first: the adapter
+**Settings > Controllers > GameCube adapter** is **Automatic** at first:
+the adapter
 is used when it is plugged in as the game starts, and the game is left
 alone when it is not. **On** always sets it up, so it can be plugged in
 during the game; **Off** never does. `boot.log` says what was found.
@@ -1179,7 +1235,7 @@ GameCube games follow the same setting. Games and packs on the SD card
 keep the menu's IOS (usually IOS 58), so their reads do not go through d2x.
 A GameCube game or pack on USB switches to d2x; see the USB requirements
 above.
-RVZ GameCube games get the adapter too. **GameCube rumble** in Settings
+RVZ GameCube games get the adapter too. **Settings > Controllers > GameCube rumble**
 also reaches the adapter's controllers.
 
 > **Warning for Wii U owners: On can freeze the console.** With **On**,
@@ -1356,7 +1412,7 @@ a GameCube controller and press **Down**.
 - In the menu the screen flashes and the picture goes to
   `sd:/riftwii/screenshots/riftwii-0001.png` (then 0002, and so on). In
   the menu, 1, L and R do their usual job when you let go of them.
-- In a Wii game (with Settings > In-game screenshots on) the picture is kept
+- In a Wii game (with Settings > Games > In-game screenshots on) the picture is kept
   on the Wii's internal memory while you play, without pausing the game,
   and goes to `sd:/riftwii/screenshots/<game ID>-0001.png` the next time
   RiftWii starts. The HOME press that finishes the combo never reaches
@@ -1441,7 +1497,7 @@ Home says what went wrong with a drive.
 **"No d2x cIOS in 249-251: games cannot boot yet".** SD and USB images
 need a d2x cIOS. The disc drive works without one.
 
-**The USB drive isn't found.** Settings > USB drive help has the
+**The USB drive isn't found.** Settings > Help > USB drive help has the
 checklist. Try a drive with its own power supply.
 If the menu IOS is set to a cIOS, it must be based on IOS 58 for USB
 drives to work in the menu; otherwise set **Menu IOS** back to IOS 58.
@@ -1472,7 +1528,7 @@ Back on Home it offers to send a report (below).
 Wii was doing is saved on the way down. Start RiftWii again: it saves
 that as `sd:/riftwii/gamecrash.txt` and offers to send a report. A game
 that only freezes (no crash) leaves nothing: send a report from
-Settings and say what happened.
+**Settings > Help > Send a problem report** and say what happened.
 
 **The game shows its own error ("An error has occurred") while it
 loads.** Send the logs below with your report.
@@ -1487,7 +1543,7 @@ must support the GameCube controller. The `GameCube adapter` lines in
 
 After RiftWii or a game crashes, or a launch fails, RiftWii asks at the next start whether
 to send a report. For anything else (a black screen, a game that
-freezes, a mod that does not load), use **Settings > Send a problem
+freezes, a mod that does not load), use **Settings > Help > Send a problem
 report** after starting RiftWii again.
 
 A report holds what it takes to see what went wrong: the logs of this
@@ -1512,8 +1568,10 @@ in `sd:/apps/<folder>/` or `usb:/apps/<folder>/`. Install the emulator and
 its file as its author says, and put your games in the folders that file
 names. RiftWii supplies no BIOS or games.
 
-Press **1** on Home to reach **Emulators**, beside Homebrew. These games
-also appear in **All games**, with their system's name on each tile.
+On Home, point at the **Show** button and pick **Emulators**
+(**Home > Show > Emulators**), or press **1** to step through the
+categories to it, after Homebrew. These games also appear in
+**All games**, with their system's name on each tile.
 Open a game for **Play**, the emulator's settings, **Reset**, and **About**
 (which names the emulator that starts it). Each game's settings are kept
 separately. **Settings > Games > Emulators** changes each emulator's
@@ -1529,7 +1587,7 @@ PNGs up to 2 MiB and 1024 pixels per side work offline and come first.
 
 **Settings > Online > Covers for emulator games** starts on. It gets
 missing covers from libretro when the add-on names its `covers` folder.
-Off shows only your own PNGs. The general downloads switch turns off
+Off shows only your own PNGs. **Settings > Online > Downloads** turns off
 network requests while keeping downloaded covers available.
 
 **SteamGridDB covers** is an optional fallback and starts off. To use it,

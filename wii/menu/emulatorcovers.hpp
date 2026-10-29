@@ -17,6 +17,9 @@ bool EmulatorDownloadedCoversAllowed();
 // Local PNGs are checked on the loader thread before the downloaded cache,
 // even with all downloads disabled. The result is the normal 80x112 RWC file.
 bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& file);
+// channel-<cover ID> requests share catalog, settings and the network worker,
+// with independent banner caches and missing-source notes.
+bool ReadEmulatorBanner(const std::string& key, std::vector<std::uint8_t>& file);
 CoverFetch FetchEmulatorCover(const std::string& id, std::string& error);
 
 // The player's own cover of a Wii or GameCube game (#384), read as the

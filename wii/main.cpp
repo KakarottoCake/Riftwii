@@ -153,6 +153,9 @@ void StartWfsTitle(u64 title) {
 // WII_LaunchTitle returns only when it could not, and the Wii Menu is then
 // the way out. A game of an emulated NAND goes back to RiftWii instead.
 void StartChannel(u64 title) {
+    // This also covers channels handed straight to the system, including
+    // WFS titles, which never enter RiftWii's channel loader.
+    riftwii::wii::NetStopForLaunch();
     riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
                        static_cast<unsigned>(title));
     if (riftwii::wii::ChannelToStartWfs()) {
