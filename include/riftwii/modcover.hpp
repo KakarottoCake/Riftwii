@@ -42,7 +42,9 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out);
 // sd:/riftwii/mod-titles.txt, made whenever the database is read: a
 // comment line, then "<ID>", a tab and "<title>" a line. The writer leaves out what
 // goes past the bounds; the reader takes at most those.
-std::string serialize_custom_games(const std::vector<CustomGame>& games);
+// `written`, when given: how many entries went in (fewer than given when
+// some were not valid or the bounds cut the list).
+std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written = nullptr);
 std::vector<CustomGame> parse_custom_games(const std::string& text);
 
 // The words of a title or a mod's name, lowercased, each run of anything

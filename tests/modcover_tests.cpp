@@ -83,7 +83,9 @@ static void TestBlocks() {
 static void TestFile() {
     const std::vector<CustomGame> games = {{"RMCETO", "Retro Rewind"}, {"RSBEPL", "Super\tSmash\nBros. Project+"},
                                            {"BAD", "Short ID"}, {"RSBERX", ""}};
-    const std::string text = riftwii::serialize_custom_games(games);
+    std::size_t written = 0;
+    const std::string text = riftwii::serialize_custom_games(games, &written);
+    EXPECT_EQ(written, 2u);  // the short ID and the empty title left out
     const std::vector<CustomGame> back = riftwii::parse_custom_games(text);
     EXPECT_EQ(back.size(), 2u);
     EXPECT_TRUE(back.size() == 2 && back[0].id == "RMCETO" && back[0].title == "Retro Rewind");

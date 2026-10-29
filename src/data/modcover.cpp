@@ -68,7 +68,7 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out) {
     return true;
 }
 
-std::string serialize_custom_games(const std::vector<CustomGame>& games) {
+std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written_out) {
     std::string out = "# GameTDB's custom games (mods) for the player's games, made by RiftWii from wiitdb.xml\n";
     std::size_t written = 0;
     for (const CustomGame& g : games) {
@@ -80,6 +80,7 @@ std::string serialize_custom_games(const std::vector<CustomGame>& games) {
         out += line;
         ++written;
     }
+    if (written_out) *written_out = written;
     return out;
 }
 

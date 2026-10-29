@@ -172,11 +172,12 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 // the database was read for them.
 bool SaveModTitles(const std::vector<CustomGame>& games) {
     g_mod_titles_read_here = true;
-    std::string text = serialize_custom_games(games);
+    std::size_t written = 0;
+    std::string text = serialize_custom_games(games, &written);
     // A list cut short (the scan's bound, or the file's) could make a tile's
     // name look like it matches one entry when a dropped one matches too:
     // then no list at all, so no tile gets a mod's cover by a guess.
-    const bool cut = games.size() >= kMaxCustomGames || parse_custom_games(text).size() != games.size();
+    const bool cut = games.size() >= kMaxCustomGames || written != games.size();
     if (cut) {
         logf("Mod covers: GameTDB lists more mods of your games than RiftWii keeps (%u); mod tiles keep their games' covers\n",
              static_cast<unsigned>(games.size()));
