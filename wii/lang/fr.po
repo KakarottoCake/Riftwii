@@ -3342,6 +3342,39 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
 
+msgid "Save location"
+msgstr "Emplacement des sauvegardes"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites."
+
+msgid "In use"
+msgstr "Utilisé"
+
+msgid "Use default options for this game"
+msgstr "Utiliser les réglages par défaut pour ce jeu"
+
+msgid "Use default options for this game?"
+msgstr "Utiliser les réglages par défaut pour ce jeu ?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent."
+
+msgid "Needed: {1}"
+msgstr "Nécessaire : {1}"
+
+msgid "Also works with: {1}"
+msgstr "Fonctionne aussi avec : {1}"
+
+msgid "Up and Down scroll"
+msgstr "Haut et Bas font défiler le texte"
+
+msgid "Up and Down scroll the story"
+msgstr "Haut et Bas font défiler l’histoire"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons."
 

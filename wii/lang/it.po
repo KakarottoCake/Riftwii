@@ -3342,6 +3342,39 @@ msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/rif
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
 
+msgid "Save location"
+msgstr "Posizione salvataggi"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Cambiare questa scelta non sposta né elimina mai i salvataggi esistenti."
+
+msgid "In use"
+msgstr "In uso"
+
+msgid "Use default options for this game"
+msgstr "Usa le opzioni predefinite per questo gioco"
+
+msgid "Use default options for this game?"
+msgstr "Usa le opzioni predefinite per questo gioco?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano invariati."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano."
+
+msgid "Needed: {1}"
+msgstr "Necessario: {1}"
+
+msgid "Also works with: {1}"
+msgstr "Funziona anche con: {1}"
+
+msgid "Up and Down scroll"
+msgstr "Su e Giù scorrono il testo"
+
+msgid "Up and Down scroll the story"
+msgstr "Su e Giù scorrono la storia"
+
 msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
 msgstr "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."
 
