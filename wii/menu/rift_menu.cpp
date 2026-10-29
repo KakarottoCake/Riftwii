@@ -1664,11 +1664,11 @@ static void UpdateModCoverIds()
 	if (written == seenWritten && cleared == seenCleared && tiles == seenTiles) return;
 	std::vector<riftwii::CustomGame> customs;
 	std::map<std::string, std::string> ids;
-	if (riftwii::wii::LoadModTitles(customs)) {
-		for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) {
-			const std::string id = riftwii::mod_cover_id(customs, p.game_id, p.name);
-			if (!id.empty()) ids[p.key()] = id;
-		}
+	// No list to read (none yet, or a card error): tried again next time.
+	if (!riftwii::wii::LoadModTitles(customs)) return;
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) {
+		const std::string id = riftwii::mod_cover_id(customs, p.game_id, p.name);
+		if (!id.empty()) ids[p.key()] = id;
 	}
 	const unsigned matched = static_cast<unsigned>(ids.size());
 	// Not kept yet (the covers' memory isn't set up): tried again next time.

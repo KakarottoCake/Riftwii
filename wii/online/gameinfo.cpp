@@ -166,6 +166,9 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 bool SaveModTitles(const std::vector<CustomGame>& games) {
     const std::string text = serialize_custom_games(games);
     if (!ReplaceListFile(kModTitlesPath, text)) {
+        // An older list left would never be made again (the database counts
+        // as read): without one, the next read makes it.
+        std::remove(kModTitlesPath);
         logf("Mod covers: %s could not be written\n", kModTitlesPath);
         return false;
     }
