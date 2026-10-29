@@ -7034,11 +7034,12 @@ T.update({
         "セーブの場所",
         "Local dos saves",
         "Posizione salvataggi"),
-    "Saves already made stay where they are; only new saves go here.": (
-        "Las partidas que ya tienes se quedan donde están; solo las nuevas van aquí.",
-        "作ったセーブはそのまま。新しいセーブだけここに作る。",
-        "Saves já feitos ficam onde estão; só os novos vêm para cá.",
-        "I salvataggi esistenti restano dove sono; solo i nuovi vanno qui."),
+    "Changing this never moves or deletes saves already made.": (
+        "Cambiar esto nunca mueve ni borra las partidas que ya tienes.",
+        "ここを変えても、作ったセーブが移動したり消えたりすることはありません。",
+        "Mudar isto nunca move nem apaga saves já feitos.",
+        "Cambiare questa scelta non sposta né elimina mai i salvataggi esistenti."),
+    "In use": ("En uso", "使用中", "Em uso", "In uso"),
     "Use default options for this game": (
         "Usar lo de Ajustes en este juego",
         "このゲームは設定に合わせる",
@@ -7082,7 +7083,8 @@ T.update({
 })
 KO.update({
     "Save location": "저장 위치",
-    "Saves already made stay where they are; only new saves go here.": "이미 만든 저장은 그대로 있고, 새 저장만 여기에 합니다.",
+    "Changing this never moves or deletes saves already made.": "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다.",
+    "In use": "사용 중",
     "Use default options for this game": "이 게임 기본 설정 사용",
     "Use default options for this game?": "이 게임 기본 설정을 사용할까요?",
     "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
@@ -7094,7 +7096,8 @@ KO.update({
 })
 FR.update({
     "Save location": "Emplacement des sauvegardes",
-    "Saves already made stay where they are; only new saves go here.": "Les sauvegardes déjà faites restent où elles sont ; seules les nouvelles vont ici.",
+    "Changing this never moves or deletes saves already made.": "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites.",
+    "In use": "Utilisé",
     "Use default options for this game": "Utiliser les réglages par défaut pour ce jeu",
     "Use default options for this game?": "Utiliser les réglages par défaut pour ce jeu ?",
     "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont.",

@@ -3351,8 +3351,11 @@ msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGame
 msgid "Save location"
 msgstr "Dónde van las partidas"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "Las partidas que ya tienes se quedan donde están; solo las nuevas van aquí."
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Cambiar esto nunca mueve ni borra las partidas que ya tienes."
+
+msgid "In use"
+msgstr "En uso"
 
 msgid "Use default options for this game"
 msgstr "Usar lo de Ajustes en este juego"

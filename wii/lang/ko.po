@@ -3351,8 +3351,11 @@ msgstr "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom
 msgid "Save location"
 msgstr "저장 위치"
 
-msgid "Saves already made stay where they are; only new saves go here."
-msgstr "이미 만든 저장은 그대로 있고, 새 저장만 여기에 합니다."
+msgid "Changing this never moves or deletes saves already made."
+msgstr "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다."
+
+msgid "In use"
+msgstr "사용 중"
 
 msgid "Use default options for this game"
 msgstr "이 게임 기본 설정 사용"
