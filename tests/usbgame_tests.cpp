@@ -708,6 +708,42 @@ void test_gc_catalog_selection() {
     EXPECT_TRUE(gc_catalog_hidden_by({}).empty());
 }
 
+void test_gc_catalog_selection_other_roots() {
+    // A game folder in a top folder the scan found (game1) or in a
+    // game_folders folder is a folder copy too: the loose copy yields.
+    const std::vector<std::string> roots = {"usb:/game1", "usb:/iso/gc"};
+    std::vector<GcCatalogImage> images = {
+        {"usb:/games/Luigi.iso", "GLME01", 0},
+        {"usb:/game1/Luigi [GLME01]/game.iso", "GLME01", 0},
+    };
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{1, -1}));
+    std::reverse(images.begin(), images.end());
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, 0}));
+    EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, -1}));  // Without the root, both stay.
+
+    images = {{"usb:/wbfs/Luigi.rvz", "GLME01", 0}, {"usb:/iso/gc/Luigi/game.rvz", "GLME01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{1, -1}));
+
+    // An image loose in the root itself is not a folder copy, a root only
+    // matches whole folder names, and a root never reaches another device.
+    images = {{"usb:/games/Luigi.iso", "GLME01", 0}, {"usb:/game1/Luigi.iso", "GLME01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, -1}));
+    images = {{"usb:/games/Luigi.iso", "GLME01", 0}, {"usb:/game10/Luigi/game.iso", "GLME01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, -1}));
+    images = {{"sd:/games/Luigi.iso", "GLME01", 0}, {"usb:/game1/Luigi/game.iso", "GLME01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, -1}));
+
+    // Two folder copies in different roots stay separate (they may be mods).
+    images = {{"usb:/games/Luigi/game.iso", "GLME01", 0}, {"usb:/game1/Luigi/game.iso", "GLME01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, -1}));
+
+    // A loose pair keeps its place over a folder copy holding only disc 1.
+    images = {{"usb:/games/game.iso", "GXXE01", 0},
+              {"usb:/games/disc2.iso", "GXXE01", 1},
+              {"usb:/game1/Copy/game.iso", "GXXE01", 0}};
+    EXPECT_TRUE(gc_catalog_hidden_by(images, roots) == (std::vector<int>{-1, 0, 0}));
+}
+
 void test_gc_scan_preserves_wii_lazy_listing() {
     for (const std::string root : {"sd:/wbfs", "usb:/wbfs", "sd:/games", "usb:/games"}) {
         EXPECT_FALSE(gc_scan_should_open(root + "/Deca Sports [R2SE18]/R2SE18.rvz", false));
@@ -914,6 +950,7 @@ int main() {
     test_gc_folder_skip_reason();
     test_catalog_folder_rules();
     test_gc_catalog_selection();
+    test_gc_catalog_selection_other_roots();
     test_gc_scan_preserves_wii_lazy_listing();
     test_gc_container_by_magic();
     test_d2x_usb_checks();

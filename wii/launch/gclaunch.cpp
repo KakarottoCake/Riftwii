@@ -719,14 +719,17 @@ void scan_gc_directory(const std::string& directory, bool nested, bool report_ot
     }
 }
 
-void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+// `folder_roots`: the folders besides games and wbfs whose subfolders are
+// game folders (gc_catalog_hidden_by).
+void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out,
+                      const std::vector<std::string>& folder_roots) {
     std::vector<GcCatalogImage> images;
     if (!try_reserve(images, found.size())) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
     }
     for (const ImageGame& game : found) images.push_back({game.path, game.id, game.disc_number});
-    const std::vector<int> hidden_by = gc_catalog_hidden_by(images);
+    const std::vector<int> hidden_by = gc_catalog_hidden_by(images, folder_roots);
     if (hidden_by.size() != found.size()) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
@@ -824,10 +827,11 @@ void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, Ciso
     for (const std::string& directory : gc_top_folders_with_games(device, walked)) {
         logf("%s scan: %s holds GameCube game folders (<game>/game.iso), so it is looked in as games is\n",
              device == "sd" ? "SD" : "USB", directory.c_str());
+        walked.push_back(directory);
         scan_gc_directory(directory, true, true, out, found, skipped, ciso, opened);
     }
     skipped.finish(device == "sd" ? "SD" : "USB");
-    append_gc_images(found, out);
+    append_gc_images(found, out, walked);
     const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
     logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
          device == "sd" ? "SD" : "USB", opened, elapsed_ms);

@@ -431,7 +431,8 @@ bool join_game_path(const std::string& directory, const std::string& name, std::
     return true;
 }
 
-std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images) {
+std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
+                                      const std::vector<std::string>& folder_roots) {
     std::vector<int> hidden_by;
     if (!try_assign(hidden_by, images.size(), -1)) return hidden_by;
     std::vector<std::uint8_t> has_second_disc;
@@ -457,9 +458,18 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
         const std::string directory = image.path.substr(0, slash);
         const std::size_t device_end = image.path.find('/');
         const std::string device = image.path.substr(0, device_end + 1);
+        // In a game's folder: below games/, wbfs/ or one of folder_roots.
+        const auto in_game_folder = [&](const std::string& d) {
+            if (d.compare(0, device.size() + 6, device + "games/") == 0 ||
+                d.compare(0, device.size() + 5, device + "wbfs/") == 0)
+                return true;
+            return std::any_of(folder_roots.begin(), folder_roots.end(), [&](const std::string& root) {
+                return root.compare(0, device.size(), device) == 0 && d.size() > root.size() + 1 &&
+                       d.compare(0, root.size(), root) == 0 && d[root.size()] == '/';
+            });
+        };
         const bool loose = directory == device + "games" || directory == device + "wbfs";
-        const bool nested = directory.compare(0, device.size() + 6, device + "games/") == 0 ||
-                            directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
+        const bool nested = in_game_folder(directory);
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
             // Overlapping custom roots can encounter the same file twice.
@@ -476,8 +486,7 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
             }
             // Prefer a game folder unless that would strand the loose
             // copy's disc 2. Never merge devices or distinct mod folders.
-            const bool other_nested = other_directory.compare(0, device.size() + 6, device + "games/") == 0 ||
-                                      other_directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
+            const bool other_nested = in_game_folder(other_directory);
             if (loose && other_nested && image.disc_number == images[j].disc_number) {
                 if (has_second_disc[i] && !has_second_disc[j]) continue;
                 hidden_by[i] = static_cast<int>(j);
