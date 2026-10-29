@@ -266,7 +266,10 @@ bool Open(std::string& error) {
                  "its size is not checked\n");
         }
         std::uint64_t hash = 0;
-        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash);
+        // A DVD drive counts without a readable sector 0, but -1 can also be
+        // an IOS error: that drive must show its sector 0 (hash is 0 when the
+        // read failed).
+        const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash) && (s.sectors != -1 || hash != 0);
         if (g_stuck) return fail_stuck(error);
         if (has_volume) {
             if (readable < 0) readable = static_cast<int>(port);
@@ -325,7 +328,7 @@ bool Open(std::string& error) {
             logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
             if (s.ok() && s.sectors == -1) {
                 std::uint64_t hash = 0;
-                s.counted = HasVolume(s.sector_bytes, hash);
+                s.counted = HasVolume(s.sector_bytes, hash) && hash != 0;
                 if (g_stuck) return fail_stuck(error);
             }
         }
