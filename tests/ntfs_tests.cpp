@@ -806,16 +806,56 @@ void test_all_partitions() {
     EXPECT_FALSE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, nullptr, &keep_first));
     EXPECT_TRUE(volumes.empty());
     EXPECT_CONTAINS(error, "no longer readable");
-    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, &notes));
+    std::vector<riftwii::ImagePartitionFailure> failures;
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, &notes,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_EQ(failures[0].partition, 1u);
+        EXPECT_EQ(failures[0].lba, 64u);
+        EXPECT_EQ(failures[0].blocks, fat.bytes.size() / 512 - 64);
+        EXPECT_EQ(failures[0].format, "FAT32");
+        EXPECT_TRUE(failures[0].boot_readable);
+        EXPECT_TRUE(!failures[0].reason.empty());
+    }
     EXPECT_EQ(volumes.size(), 1u);
     EXPECT_EQ(volumes[0].partition, 2u);
     EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
+
+    // A failed sector read and an unsupported format are different useful
+    // reasons for the menu, and neither hides the healthy NTFS partition.
+    const auto readable_disk = disk.reader();
+    const riftwii::BlockReader failed_sector = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* bytes) {
+        if (lba == 64) return false;
+        return readable_disk(lba, count, bytes);
+    };
+    EXPECT_TRUE(riftwii::mount_image_volumes(failed_sector, volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_FALSE(failures[0].boot_readable);
+        EXPECT_TRUE(failures[0].format.empty());
+        EXPECT_CONTAINS(failures[0].reason, "cannot read block");
+    }
+    EXPECT_EQ(volumes.size(), 1u);
+    std::memcpy(disk.disk.data() + 64 * 512 + 3, "EXFAT   ", 8);
+    std::memset(disk.disk.data() + 64 * 512 + 82, 0, 5);
+    EXPECT_TRUE(riftwii::mount_image_volumes(disk.reader(), volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_EQ(failures.size(), 1u);
+    if (!failures.empty()) {
+        EXPECT_EQ(failures[0].format, "exFAT");
+        EXPECT_TRUE(failures[0].boot_readable);
+    }
+    EXPECT_EQ(volumes.size(), 1u);
     EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb1:/games") == nullptr);
     EXPECT_TRUE(riftwii::find_image_volume(volumes, "usb2:/games") == volumes[0].volume.get());
 
     // A single unpartitioned volume keeps exactly the existing root.
     fatimg::Image single(512, 1, 0);
-    EXPECT_TRUE(riftwii::mount_image_volumes(single.reader(), volumes, error, {"games"}));
+    EXPECT_TRUE(riftwii::mount_image_volumes(single.reader(), volumes, error, {"games"}, nullptr,
+                                            nullptr, &failures));
+    EXPECT_TRUE(failures.empty());
     EXPECT_EQ(volumes.size(), 1u);
     EXPECT_EQ(riftwii::usb_volume_prefix(volumes[0]), "usb:/");
     EXPECT_EQ(volumes[0].partition, 0u);

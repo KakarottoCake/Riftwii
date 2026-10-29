@@ -3342,6 +3342,48 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
 
+msgid "Mod files are missing"
+msgstr "Des fichiers du mod manquent"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Des fichiers du mod manquent. Leurs changements de fichiers ou de mémoire seront ignorés. Copiez les fichiers et réessayez, ou consultez la liste pour jouer quand même."
+
+msgid "Review files"
+msgstr "Voir les fichiers"
+
+msgid "Play anyway"
+msgstr "Jouer quand même"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB : {1} partition(s) non ouverte(s). Voir Supports."
+
+msgid "USB scan details"
+msgstr "Détails de recherche USB"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre."
+
+msgid "{1} MiB"
+msgstr "{1} Mio"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Vérifiez cette partition sur un ordinateur, puis choisissez Rechercher les jeux à nouveau. Les jeux des autres partitions restent disponibles."
+
+msgid "USB partition {1} could not be opened"
+msgstr "La partition USB {1} n'a pas pu être ouverte"
+
+msgid "The partition could not be read from the drive."
+msgstr "La partition n'a pas pu être lue sur le lecteur."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWii ne peut pas lire exFAT. Déplacez ces jeux vers une partition FAT32 ou NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "Les données {1} n'ont pas pu être lues."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWii n'a pas pu lire cette partition en FAT32, NTFS ou WBFS."
+
 msgid "Memory card could not be read"
 msgstr "Impossible de lire la carte mémoire"
 

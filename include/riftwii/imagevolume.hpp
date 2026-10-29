@@ -80,10 +80,19 @@ struct MountedImageVolume {
     bool preferred = false;
     std::unique_ptr<ImageVolume> volume;
 };
+struct ImagePartitionFailure {
+    unsigned partition = 0;
+    std::uint64_t lba = 0;
+    std::uint64_t blocks = 0;  // 512-byte blocks, zero if the table did not give a size
+    std::string format;        // empty when the boot sector does not identify it
+    std::string reason;
+    bool boot_readable = false;
+};
 bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& out, std::string& error,
                          const std::vector<std::string>& wanted,
                          std::vector<std::string>* notes = nullptr,
-                         const std::uint64_t* preferred_lba = nullptr);
+                         const std::uint64_t* preferred_lba = nullptr,
+                         std::vector<ImagePartitionFailure>* failures = nullptr);
 std::string usb_volume_prefix(const MountedImageVolume& volume);  // includes :/
 // 0 names the legacy preferred volume; numbered paths name table entries.
 // Rejects malformed names, leading zeros and numbers above the drive limit.
