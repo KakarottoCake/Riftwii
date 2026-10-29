@@ -201,27 +201,33 @@ bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
 bool verify_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
                           const std::uint8_t title_key[16], std::string& error) {
     // Any content proves the key through its TMD hash; the smallest one is
-    // the least to read. A channel WAD may have no banner, or a large one.
+    // the least to read. A channel WAD may have no banner, or a large one,
+    // so there is no size limit: it is read a piece at a time.
     const WadContentPlace* smallest = nullptr;
     for (const WadContentPlace& place : metadata.places) {
-        if (place.content.size > (4u << 20)) continue;
         if (!smallest || place.content.size < smallest->content.size) smallest = &place;
     }
     if (!smallest) {
-        error = "the WAD has no content small enough to check its key";
+        error = "the WAD has no content to check its key with";
         return false;
     }
-    std::vector<std::uint8_t> bytes;
-    if (!try_resize(bytes, static_cast<std::size_t>(smallest->stored))) {
+    constexpr std::size_t kPiece = 64 * 1024;  // a multiple of the AES block
+    std::vector<std::uint8_t> piece;
+    if (!try_resize(piece, kPiece)) {
         error = "not enough memory to check the WAD's key";
         return false;
     }
-    if (!source.read(smallest->offset, bytes.data(), bytes.size())) {
-        error = "the WAD could not be read";
-        return false;
-    }
     WadContentDecrypter decrypter(title_key, smallest->content);
-    decrypter.decrypt(bytes.data(), bytes.size());
+    for (std::uint64_t done = 0; done < smallest->stored;) {
+        const std::uint64_t left = smallest->stored - done;
+        const std::size_t size = left < kPiece ? static_cast<std::size_t>(left) : kPiece;
+        if (!source.read(smallest->offset + done, piece.data(), size)) {
+            error = "the WAD could not be read";
+            return false;
+        }
+        decrypter.decrypt(piece.data(), size);
+        done += size;
+    }
     if (!decrypter.matches()) {
         error = "the WAD is damaged or uses another key";
         return false;
