@@ -34,7 +34,8 @@ inline std::uint16_t htons(std::uint16_t value) { return value; }
 inline u32 htonl(u32 value) { return value; }
 inline u32 ntohl(u32 value) { return value; }
 s32 net_init();
-inline void net_deinit() {}
+void net_deinit();
+void net_wc24cleanup();
 inline u32 net_gethostip() { return 0; }
 inline hostent* net_gethostbyname(const char*) { return nullptr; }
 inline s32 net_socket(int, int, int) { return 1; }
