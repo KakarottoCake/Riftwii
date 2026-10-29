@@ -72,7 +72,11 @@ bool replace_file(const std::string& path, const void* data, std::size_t size) {
         return false;
     }
     if (std::rename(temporary.c_str(), path.c_str()) != 0) {
-        if (existed) std::rename(backup.c_str(), path.c_str());
+        // Putting the old picture back can fail too: then its .old copy is
+        // the only one left, so it stays, and the log says where it is.
+        if (existed && std::rename(backup.c_str(), path.c_str()) != 0)
+            logf("Picture picker: the new picture could not be saved and the old one could not be put back; it is kept as %s.\n",
+                 backup.c_str());
         std::remove(temporary.c_str());
         return false;
     }

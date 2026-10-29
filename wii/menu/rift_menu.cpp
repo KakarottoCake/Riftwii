@@ -5626,7 +5626,10 @@ static int MenuSource(FrontendState& state)
 					[](const std::string& id) { return CoverDownloadsOff(id); }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
-			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
+			// A stored picture (a cover or a Channels banner) clears its
+			// "absent" mark at once, even if this pass of the loop ends early.
+			if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(arrived);
+			else arrived.clear();
 		}
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
