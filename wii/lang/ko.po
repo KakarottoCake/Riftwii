@@ -3456,8 +3456,5 @@ msgstr "메모리가 부족합니다."
 msgid "Could not save the picture."
 msgstr "그림을 저장하지 못했습니다."
 
-msgid "Choose"
-msgstr "선택"
-
 msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
 msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?"

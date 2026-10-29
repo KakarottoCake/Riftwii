@@ -3456,8 +3456,5 @@ msgstr "Memória insuficiente."
 msgid "Could not save the picture."
 msgstr "Não foi possível salvar a imagem."
 
-msgid "Choose"
-msgstr "Escolher"
-
 msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
 msgstr "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?"
