@@ -335,7 +335,9 @@ load one at a time per page; Minus/Plus or the arrows turn pages, A saves a
 picture to SD, and B leaves. Only the current page's pictures are downloaded.
 Your saved choice appears on Home at once and works offline. **Back to
 automatic** removes it; a picture added or changed by hand needs confirmation.
-The emulator-cover download settings also apply to these pictures; see
+The picker needs **Settings > Online > Downloads** on; its SteamGridDB
+pictures also need **SteamGridDB covers**. **Covers for emulator games**
+only turns the automatic pictures on or off, not the picker. See
 [Emulator Channels pictures](EMULATORS.md#channels-pictures).
 
 ### A game's page

@@ -6291,7 +6291,7 @@ static int MenuSource(FrontendState& state)
 		if (!cover3dArrived.empty()) grid.Cover3dArrived(cover3dArrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
-			coverNoteShown = !g_coversOff && !g_emulatorCoversOff;  // a failure stays up
+			coverNoteShown = !g_coversOff && !g_emulatorCoversOff && !g_emulatorBannersOff;  // a failure stays up
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
 			showStatus();
 			coverNoteShown = false;
