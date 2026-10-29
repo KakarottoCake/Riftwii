@@ -3376,7 +3376,7 @@ msgid "Required file: {1}"
 msgstr "필요한 파일: {1}"
 
 msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
-msgstr "파일이 {1}에서 한 단계 더 깊은 폴더에 있습니다. 해당 폴더의 내용을 {2}로 옮기세요."
+msgstr "파일이 한 단계 더 깊은 {1} 폴더에 들어 있습니다. {1}의 내용을 {2}로 옮기세요."
 
 msgid "Rename {1} to exactly {2}."
 msgstr "{1}의 이름을 정확히 {2}(으)로 바꾸세요."
