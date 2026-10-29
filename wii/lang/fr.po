@@ -2406,23 +2406,23 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
 
-msgid "Your own song or playlist as menu music"
-msgstr "Votre chanson ou playlist comme musique du menu"
+msgid "Emulators as add-ons, with settings per game"
+msgstr "Émulateurs en modules, avec réglages par jeu"
 
-msgid "Press 1 and 2 together to change the view"
-msgstr "Appuyez sur 1 et 2 pour changer de vue"
+msgid "Covers for emulator games"
+msgstr "Jaquettes des jeux émulés"
 
-msgid "Press 1 on a cover to see it up close"
-msgstr "Appuyez sur 1 sur une jaquette pour l'agrandir"
+msgid "WiiFlow's emulator plugins work here too"
+msgstr "Les plugins d'émulateur de WiiFlow marchent aussi"
 
-msgid "USB keyboard, mouse and uDraw in the menu"
-msgstr "Clavier USB, souris et uDraw dans le menu"
+msgid "Games from every partition of a USB drive"
+msgstr "Jeux de toutes les partitions d'un disque USB"
 
-msgid "Hold B on Search to start a random game"
-msgstr "Maintenez B sur Rechercher pour un jeu au hasard"
+msgid "Leave a frozen menu without a Wii Remote"
+msgstr "Quittez un menu figé sans Wiimote"
 
-msgid "Covers for homebrew, WiiWare and VC games"
-msgstr "Jaquettes pour homebrew, WiiWare et VC"
+msgid "Smoother menu motion on PAL and NTSC"
+msgstr "Menu plus fluide en PAL et NTSC"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"
@@ -3401,9 +3401,6 @@ msgstr "Aucun émulateur trouvé."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log."
-
-msgid "Covers for emulator games"
-msgstr "Jaquettes des jeux émulés"
 
 msgid "SteamGridDB covers"
 msgstr "Jaquettes SteamGridDB"

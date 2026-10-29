@@ -66,14 +66,17 @@ bool g_usb_preferred_known = false;
 std::uint64_t g_usb_preferred_lba = 0;
 // read_usb_range keeps the last file it looked up: the menu thread (Home's
 // own covers, music, icons) and the covers' loader thread (emulator covers,
-// the player's own covers) both read through it, one at a time.
+// the player's own covers) both read through it, one at a time. Made once
+// by the mount, before any volume (so any reader) is there: without one,
+// read_usb_range has nothing to read and touches nothing.
 mutex_t g_usb_range_lock = LWP_MUTEX_NULL;
 struct UsbRangeLocked {
     UsbRangeLocked() {
-        if (g_usb_range_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_usb_range_lock, false);
-        LWP_MutexLock(g_usb_range_lock);
+        if (g_usb_range_lock != LWP_MUTEX_NULL) LWP_MutexLock(g_usb_range_lock);
     }
-    ~UsbRangeLocked() { LWP_MutexUnlock(g_usb_range_lock); }
+    ~UsbRangeLocked() {
+        if (g_usb_range_lock != LWP_MUTEX_NULL) LWP_MutexUnlock(g_usb_range_lock);
+    }
 };
 // A USB drive formatted as WBFS, with no file system: read only through
 // wbfspart, its games in slots rather than files.
@@ -569,6 +572,7 @@ bool ensure_usb(std::string& error) {
         g_raw_mounted = true;
         return true;
     }
+    if (g_usb_range_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_usb_range_lock, false);
     std::vector<std::string> partition_notes;
     const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(), &partition_notes);
     for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());

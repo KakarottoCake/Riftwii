@@ -2090,13 +2090,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-708
-    "Your own song or playlist as menu music": ("Tu canción o lista como música del menú", "自分の曲やプレイリストをメニューの音楽に", "Sua música ou playlist como música do menu", "La tua canzone o playlist come musica del menu"),
-    "Press 1 and 2 together to change the view": ("Pulsa 1 y 2 a la vez para cambiar la vista", "1と2を同時に押して表示を切り替え", "Aperte 1 e 2 juntos para mudar a vista", "Premi 1 e 2 insieme per cambiare vista"),
-    "Press 1 on a cover to see it up close": ("Pulsa 1 en una portada para verla de cerca", "パッケージで1を押すと大きく表示", "Aperte 1 numa capa para vê-la de perto", "Premi 1 su una copertina per vederla da vicino"),
-    "USB keyboard, mouse and uDraw in the menu": ("Teclado USB, ratón y uDraw en el menú", "メニューでUSBキーボード、マウス、uDraw", "Teclado USB, mouse e uDraw no menu", "Tastiera USB, mouse e uDraw nel menu"),
-    "Hold B on Search to start a random game": ("Mantén B en Buscar para un juego al azar", "検索でBを長押しするとランダムなゲームを開始", "Segure B em Buscar para um jogo aleatório", "Tieni B su Cerca per un gioco a caso"),
-    "Covers for homebrew, WiiWare and VC games": ("Portadas para homebrew, WiiWare y VC", "Homebrew、WiiWare、VCにもパッケージ", "Capas para homebrew, WiiWare e VC", "Copertine per homebrew, WiiWare e VC"),
+    # What's new in the release after 2610-734
+    "Emulators as add-ons, with settings per game": ("Emuladores como complementos, con ajustes por juego", "エミュレーターを追加でき、ゲームごとに設定できます", "Emuladores como complementos, com ajustes por jogo", "Emulatori come componenti aggiuntivi, con impostazioni per gioco"),
+    "Covers for emulator games": ("Portadas para juegos de emulador", "エミュレーターのゲームにもパッケージ", "Capas para jogos de emulador", "Copertine per i giochi degli emulatori"),
+    "WiiFlow's emulator plugins work here too": ("Los plugins de emulador de WiiFlow también funcionan", "WiiFlowのエミュレーター設定もそのまま使えます", "Os plugins de emulador do WiiFlow também funcionam", "Anche i plugin emulatore di WiiFlow funzionano"),
+    "Games from every partition of a USB drive": ("Juegos de todas las particiones de un disco USB", "USBドライブのすべてのパーティションからゲームを", "Jogos de todas as partições de um disco USB", "Giochi da ogni partizione di un disco USB"),
+    "Leave a frozen menu without a Wii Remote": ("Sal de un menú congelado sin Wiimote", "Wiiリモコンなしで止まったメニューを終了", "Saia de um menu travado sem o Wii Remote", "Esci da un menu bloccato senza Wii Remote"),
+    "Smoother menu motion on PAL and NTSC": ("Movimiento del menú más fluido en PAL y NTSC", "PALでもNTSCでもなめらかなメニュー", "Movimento do menu mais suave em PAL e NTSC", "Movimenti del menu più fluidi su PAL e NTSC"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3984,18 +3984,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Your own song or playlist as menu music":
-        "내 노래나 재생 목록을 메뉴 음악으로",
-    "Press 1 and 2 together to change the view":
-        "1과 2를 함께 눌러 보기 전환",
-    "Press 1 on a cover to see it up close":
-        "커버에서 1을 눌러 크게 보기",
-    "USB keyboard, mouse and uDraw in the menu":
-        "메뉴에서 USB 키보드, 마우스, uDraw",
-    "Hold B on Search to start a random game":
-        "검색에서 B를 길게 눌러 무작위 게임 시작",
-    "Covers for homebrew, WiiWare and VC games":
-        "홈브루, WiiWare, VC 게임 커버",
+    "Emulators as add-ons, with settings per game":
+        "에뮬레이터를 추가 기능으로, 게임별 설정과 함께",
+    "Covers for emulator games":
+        "에뮬레이터 게임 커버",
+    "WiiFlow's emulator plugins work here too":
+        "WiiFlow 에뮬레이터 플러그인도 사용 가능",
+    "Games from every partition of a USB drive":
+        "USB 드라이브의 모든 파티션에서 게임을",
+    "Leave a frozen menu without a Wii Remote":
+        "Wii 리모컨 없이 멈춘 메뉴 나가기",
+    "Smoother menu motion on PAL and NTSC":
+        "PAL과 NTSC에서 더 부드러운 메뉴",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5858,18 +5858,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Your own song or playlist as menu music":
-        "Votre chanson ou playlist comme musique du menu",
-    "Press 1 and 2 together to change the view":
-        "Appuyez sur 1 et 2 pour changer de vue",
-    "Press 1 on a cover to see it up close":
-        "Appuyez sur 1 sur une jaquette pour l'agrandir",
-    "USB keyboard, mouse and uDraw in the menu":
-        "Clavier USB, souris et uDraw dans le menu",
-    "Hold B on Search to start a random game":
-        "Maintenez B sur Rechercher pour un jeu au hasard",
-    "Covers for homebrew, WiiWare and VC games":
-        "Jaquettes pour homebrew, WiiWare et VC",
+    "Emulators as add-ons, with settings per game":
+        "Émulateurs en modules, avec réglages par jeu",
+    "Covers for emulator games":
+        "Jaquettes pour les jeux d'émulateur",
+    "WiiFlow's emulator plugins work here too":
+        "Les plugins d'émulateur de WiiFlow marchent aussi",
+    "Games from every partition of a USB drive":
+        "Jeux de toutes les partitions d'un disque USB",
+    "Leave a frozen menu without a Wii Remote":
+        "Quittez un menu figé sans Wiimote",
+    "Smoother menu motion on PAL and NTSC":
+        "Menu plus fluide en PAL et NTSC",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
