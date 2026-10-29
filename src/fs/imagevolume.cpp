@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "riftwii/ntfs.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 namespace riftwii {
 namespace {
@@ -170,6 +171,7 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
         out.push_back({lba, le32(pe + 12)});
     }
     if (protective) gpt_partitions(reader, out);
+    if (out.size() > kMaxDrivePartitions) out.resize(kMaxDrivePartitions);
     return out;
 }
 
@@ -273,6 +275,140 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
     }
     error = "no FAT32 or NTFS partition found (" + tried + ")";
     return false;
+}
+
+bool usb_path_partition(const std::string& path, unsigned& partition) {
+    partition = 0;
+    if (path.compare(0, 5, "usb:/") == 0) return true;
+    if (path.compare(0, 3, "usb") != 0 || path.size() < 6 || path[3] < '1' || path[3] > '9') return false;
+    unsigned number = 0;
+    std::size_t at = 3;
+    while (at < path.size() && path[at] >= '0' && path[at] <= '9') {
+        number = number * 10 + static_cast<unsigned>(path[at] - '0');
+        if (number > kMaxDrivePartitions) return false;
+        ++at;
+    }
+    if (path.compare(at, 2, ":/") != 0) return false;
+    partition = number;
+    return true;
+}
+
+bool is_usb_path(const std::string& path) {
+    unsigned partition = 0;
+    return usb_path_partition(path, partition);
+}
+
+std::string usb_path_device(const std::string& path) {
+    if (!is_usb_path(path)) return {};
+    return path.substr(0, path.find(':') + 1);
+}
+
+std::string image_volume_path(const std::string& path) {
+    const std::size_t colon = path.find(':');
+    return colon == std::string::npos ? path : path.substr(colon + 1);
+}
+
+std::string usb_volume_prefix(const MountedImageVolume& volume) {
+    if (volume.preferred) return "usb:/";
+    return "usb" + std::to_string(volume.partition) + ":/";
+}
+
+const ImageVolume* find_image_volume(const std::vector<MountedImageVolume>& volumes, const std::string& path) {
+    unsigned partition = 0;
+    if (!usb_path_partition(path, partition)) return nullptr;
+    for (const MountedImageVolume& mounted : volumes) {
+        if ((partition == 0 && mounted.preferred) || (partition != 0 && mounted.partition == partition)) {
+            return mounted.volume.get();
+        }
+    }
+    return nullptr;
+}
+
+bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& out, std::string& error,
+                         const std::vector<std::string>& wanted, std::vector<std::string>* notes,
+                         const std::uint64_t* preferred_lba) {
+    out.clear();
+    if (notes) notes->clear();
+    std::uint8_t block0[512];
+    if (!reader || !reader(0, 1, block0)) {
+        error = "cannot read block 0";
+        return false;
+    }
+    std::unique_ptr<ImageVolume> whole;
+    if (mount_candidate(reader, 0, whole, error)) {
+        if (preferred_lba && *preferred_lba != 0) {
+            error = "the USB partition used by the menu is no longer readable";
+            return false;
+        }
+        if (!try_push_back(out, MountedImageVolume{0, 0, true, std::move(whole)})) {
+            error = "there is not enough memory to keep the USB volume";
+            return false;
+        }
+        error.clear();
+        return true;
+    }
+    std::size_t best_index = 0;
+    std::size_t best_score = 0;
+    unsigned number = 0;
+    std::string tried = error;
+    for (const DrivePartition& partition : drive_partitions(reader, block0)) {
+        ++number;
+        // A hybrid table or damaged extended chain may name a volume twice.
+        const auto duplicate = std::find_if(out.begin(), out.end(), [&](const MountedImageVolume& mounted) {
+            return mounted.lba == partition.lba;
+        });
+        if (duplicate != out.end()) continue;
+        std::unique_ptr<ImageVolume> volume;
+        std::string why;
+        const std::string where = "Partition " + std::to_string(number) + " at block " + std::to_string(partition.lba);
+        if (!mount_candidate(reader, partition.lba, volume, why)) {
+            if (notes) {
+                const std::string kind = other_partition_kind(reader, partition.lba);
+                notes->push_back(kind == "WBFS" ? where + " contains WBFS."
+                                                : where + " was left out: " + kind + ".");
+            }
+            if (!tried.empty()) tried += "; ";
+            tried += why;
+            continue;
+        }
+        const std::size_t score = score_volume(*volume, wanted);
+        if (out.empty() || score > best_score) {
+            best_score = score;
+            best_index = out.size();
+        }
+        if (!try_push_back(out, MountedImageVolume{number, partition.lba, false, std::move(volume)})) {
+            out.clear();
+            error = "there is not enough memory to keep the USB partitions";
+            return false;
+        }
+    }
+    if (out.empty()) {
+        error = "no FAT32 or NTFS partition found (" + tried + ")";
+        return false;
+    }
+    // A launch must preserve the menu's usb:/ meaning even if another
+    // partition is unreadable after the IOS reload and changes the scores.
+    if (preferred_lba) {
+        const auto preferred = std::find_if(out.begin(), out.end(), [&](const MountedImageVolume& mounted) {
+            return mounted.lba == *preferred_lba;
+        });
+        if (preferred == out.end()) {
+            out.clear();
+            error = "the USB partition used by the menu is no longer readable";
+            return false;
+        }
+        best_index = static_cast<std::size_t>(preferred - out.begin());
+    }
+    out[best_index].preferred = true;
+    if (notes) {
+        for (const MountedImageVolume& mounted : out) {
+            notes->push_back("Partition " + std::to_string(mounted.partition) + " at block " +
+                             std::to_string(mounted.lba) + " is read as " + usb_volume_prefix(mounted) +
+                             " (" + mounted.volume->kind() + ").");
+        }
+    }
+    error.clear();
+    return true;
 }
 
 }  // namespace riftwii

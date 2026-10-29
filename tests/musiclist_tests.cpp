@@ -37,6 +37,8 @@ static void TestChoices() {
     EXPECT_TRUE(riftwii::music_choice_valid(""));
     EXPECT_TRUE(riftwii::music_choice_valid("sd:/music/song.ogg"));
     EXPECT_TRUE(riftwii::music_choice_valid("usb:/song.mp3"));
+    EXPECT_TRUE(riftwii::music_choice_valid("usb2:/song.mp3"));
+    EXPECT_TRUE(!riftwii::music_choice_valid("usb02:/song.mp3"));
     EXPECT_TRUE(riftwii::music_choice_valid("usb:/lists/car.m3u"));
     EXPECT_TRUE(riftwii::music_choice_valid("sd:/music/"));
     EXPECT_TRUE(riftwii::music_choice_valid("usb:/"));

@@ -136,11 +136,39 @@ static void test_scanner_pieces() {
         WiitdbScanner scanner({"RMCE01"}, "EN");
         for (std::size_t at = 0; at < xml.size(); at += piece)
             scanner.feed(xml.data() + at, std::min(piece, xml.size() - at));
+        EXPECT_TRUE(scanner.complete());
         EXPECT_EQ(scanner.blocks(), 2u);
         EXPECT_EQ(scanner.games().size(), 1u);
         EXPECT_TRUE(scanner.games().count("RMCE01") == 1);
         if (scanner.games().count("RMCE01")) EXPECT_EQ(scanner.games().at("RMCE01").players, 4);
     }
+}
+
+static void test_scanner_completion() {
+    const std::string xml = sample();
+    const std::size_t second_game = xml.find(kKart);
+    const std::size_t closing_tag = xml.find("</datafile>");
+    // EOF between entries, inside an entry, or inside the final tag must
+    // not publish the earlier games as a complete database.
+    for (std::size_t cut : {std::size_t(0), second_game, second_game + 40, closing_tag, xml.size() - 2}) {
+        for (std::size_t piece : {std::size_t(1), std::size_t(7), xml.size()}) {
+            WiitdbScanner scanner({"RSBE01", "RMCE01"}, "EN");
+            for (std::size_t at = 0; at < cut; at += piece) {
+                scanner.feed(xml.data() + at, std::min(piece, cut - at));
+            }
+            EXPECT_FALSE(scanner.complete());
+            if (cut >= second_game) EXPECT_TRUE(scanner.games().count("RSBE01") == 1);
+        }
+    }
+
+    const std::string padded = xml + std::string(100, ' ') + "\r\n\t";
+    WiitdbScanner scanner({"RMCE01"}, "EN");
+    for (char byte : padded) {
+        scanner.feed(&byte, 1);
+    }
+    EXPECT_TRUE(scanner.complete());
+    EXPECT_EQ(scanner.blocks(), 2u);
+    EXPECT_EQ(scanner.games().size(), 1u);
 }
 
 static void test_scanner_oversized() {
@@ -239,6 +267,7 @@ int main() {
     test_custom_type();
     test_bad_blocks();
     test_scanner_pieces();
+    test_scanner_completion();
     test_scanner_oversized();
     test_cache_round_trip();
     test_locale();

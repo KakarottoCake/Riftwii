@@ -23,6 +23,7 @@
 #include "textfile.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/riifs_sync.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -138,7 +139,7 @@ private:
 };
 
 std::string read_text(const std::string& path) {
-    if (path.compare(0, 5, "usb:/") == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::string text;
         read_usb_text(path, text);
         return text;
@@ -249,13 +250,17 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_
     }
     // The USB drive's (FAT32 or NTFS), through the menu's mount of it; at
     // launch their files are read from the drive through d2x.
-    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
-        for (const std::string& name : usb_xml_names(folder)) {
-            if (out.size() >= limit) {
-                limited = true;
-                break;
+    for (const std::string& root : usb_volume_roots()) {
+        const std::string device = usb_path_device(root);
+        const std::string suffix = device == "usb:" ? " @ USB" : " @ " + device;
+        for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
+            for (const std::string& name : usb_xml_names(device + folder)) {
+                if (out.size() >= limit) {
+                    limited = true;
+                    break;
+                }
+                add(name, device + folder + "/" + name, suffix);
             }
-            add(name, std::string("usb:") + folder + "/" + name, " @ USB");
         }
     }
     for (const NetServer& server : cached_servers()) {
@@ -271,7 +276,7 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_
 
 std::string PackFolderOf(const std::string& xml_sd_path) {
     std::string path = xml_sd_path.compare(0, 3, "sd:") == 0    ? xml_sd_path.substr(3)
-                       : xml_sd_path.compare(0, 4, "usb:") == 0 ? xml_sd_path.substr(4)
+                       : is_usb_path(xml_sd_path) ? image_volume_path(xml_sd_path)
                                                                  : xml_sd_path;
     const std::string net_root = NetworkRootOf(xml_sd_path);
     if (!net_root.empty() && path.compare(0, net_root.size(), net_root) == 0) path = path.substr(net_root.size());

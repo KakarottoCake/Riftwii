@@ -7,6 +7,7 @@
 #include <set>
 
 #include "riftwii/profiles.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -36,7 +37,11 @@ bool plausible_key(const std::string& key) {
     std::size_t at = 0;
     if (key.compare(0, 4, "usb:") == 0 || key.compare(0, 4, "wii:") == 0) at = 4;
     else if (key.compare(0, 3, "sd:") == 0) at = 3;
-    else return false;
+    else {
+        const std::size_t colon = key.find(':');
+        if (colon == std::string::npos || !is_usb_path(key.substr(0, colon + 1) + "/")) return false;
+        at = colon + 1;
+    }
     const std::size_t slash = key.find('/', at);
     const std::string tile = key.substr(at, slash == std::string::npos ? std::string::npos : slash - at);
     // The Wii's channels take no packs, so they have no profiles.

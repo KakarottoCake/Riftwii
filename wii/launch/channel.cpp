@@ -26,6 +26,7 @@
 #include "riftwii/channelupdate.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/returnstub.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
 
@@ -310,7 +311,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     }
     u32 size = 0;
     u8* dol = nullptr;
-    if (path.rfind("usb:/", 0) == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t bytes = 0;
         if (read_usb_range(path, 0, nullptr, 0, bytes) && bytes > 0x100 && bytes <= (16u << 20) && can_allocate(bytes)) {
             size = static_cast<u32>(bytes);
