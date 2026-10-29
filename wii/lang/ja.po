@@ -3413,3 +3413,45 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Needs the internet"
+msgstr "インターネットが必要です"
+
+msgid "Choose the picture shown in Channels."
+msgstr "チャンネルに表示する画像を選びます。"
+
+msgid "Back to automatic"
+msgstr "自動に戻す"
+
+msgid "libretro title screen"
+msgstr "libretro タイトル画面"
+
+msgid "libretro screenshot"
+msgstr "libretro ゲーム画面"
+
+msgid "libretro box art"
+msgstr "libretro パッケージ画像"
+
+msgid "No pictures found."
+msgstr "画像が見つかりません。"
+
+msgid "Could not load pictures."
+msgstr "画像を読み込めませんでした。"
+
+msgid "Could not load this picture."
+msgstr "この画像を読み込めませんでした。"
+
+msgid "A picture could not be loaded."
+msgstr "画像を読み込めませんでした。"
+
+msgid "Not enough memory."
+msgstr "メモリが足りません。"
+
+msgid "Could not save the picture."
+msgstr "画像を保存できませんでした。"
+
+msgid "Choose"
+msgstr "選ぶ"
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？"

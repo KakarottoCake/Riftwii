@@ -281,6 +281,36 @@ MEM2 budget (7,168,000 bytes); no picture is read ahead for the whole game
 library. Cover crops
 are temporary and give way when a downloaded picture arrives.
 
+### Choosing a Channels picture
+
+Open an emulator game's page and choose **Picture**. This changes its Channels
+picture. The row says **Needs the internet** when Online is off or the Wii's
+connection has failed.
+
+The picker asks libretro for title screens, screenshots and box art, and
+SteamGridDB for wide pictures when that service is enabled and its key is
+present. It first downloads only the lists. There are at most 24 choices,
+six from each source, with the same title and region matching as automatic
+lookup. Each tile previews the Channels crop and names its source underneath.
+
+Six pictures fit on a page. Minus/Plus, the arrows, or Left/Right past the
+edge turn pages; the page number appears above the tiles. Thumbnails load
+one at a time. Turning pages cancels the old page's download and releases
+its pictures before fetching the next page. B leaves and stops the work.
+No neighbouring page is fetched ahead. Six 128 by 88 textures use 132 KiB;
+only one bounded download and decoder are active alongside them.
+
+Press A on a loaded picture to save its original PNG to
+`sd:/riftwii/banners/emulators/<system>/<game name>.png`. The selected picture
+is downloaded again for saving, so the picker does not retain six original
+PNGs. Home uses it at once, offline as well, and automatic downloads never
+replace it. The 2 MiB and 1024-pixel limits apply to every image.
+
+**Back to automatic** removes the own picture. A small `.png.pick` note
+records the saved file's hash. If the picture was added by hand, changed
+after saving, or has no valid note, RiftWii asks before deleting it. The
+picker writes only to SD; it does not change cover choices or USB files.
+
 ## WiiFlow plugin files
 
 Many Wii emulators were made to be started by WiiFlow Lite, through its plugin

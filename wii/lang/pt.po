@@ -3413,3 +3413,45 @@ msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftw
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."
+
+msgid "Needs the internet"
+msgstr "Precisa de internet"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Escolha a imagem mostrada em Canais."
+
+msgid "Back to automatic"
+msgstr "Voltar ao automático"
+
+msgid "libretro title screen"
+msgstr "Tela de título do libretro"
+
+msgid "libretro screenshot"
+msgstr "Captura do libretro"
+
+msgid "libretro box art"
+msgstr "Capa do libretro"
+
+msgid "No pictures found."
+msgstr "Nenhuma imagem encontrada."
+
+msgid "Could not load pictures."
+msgstr "Não foi possível carregar as imagens."
+
+msgid "Could not load this picture."
+msgstr "Não foi possível carregar esta imagem."
+
+msgid "A picture could not be loaded."
+msgstr "Uma imagem não pôde ser carregada."
+
+msgid "Not enough memory."
+msgstr "Memória insuficiente."
+
+msgid "Could not save the picture."
+msgstr "Não foi possível salvar a imagem."
+
+msgid "Choose"
+msgstr "Escolher"
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?"

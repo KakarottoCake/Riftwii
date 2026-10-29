@@ -70,6 +70,8 @@
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "emulatorcovers.hpp"
+#include "emupicture.hpp"
+#include "picturepicker.hpp"
 #include "riftwii/emulatorbanner.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
@@ -4871,18 +4873,99 @@ static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwi
 	return true;
 }
 
+static bool EmulatorPictureOnline()
+{
+	return riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
+}
+
+static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
+	const riftwii::wii::EmulatorGame& game)
+{
+	using namespace riftwii::wii;
+	if (!EmulatorPictureOnline()) {
+		ShowPopup(tr("Picture"), tr("Needs the internet"), tr("OK"));
+		return;
+	}
+	const std::string path = riftwii::emulator_banner_local_path(addon.file.system, game.name);
+	if (!riftwii::picture_save_path_valid(path)) {
+		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+		return;
+	}
+	GuiPicturePicker::Result choice;
+	std::vector<std::uint8_t> png;
+	{
+		const bool steamgrid = riftwii::wii::Settings().steamgrid_covers;
+		GuiPicturePicker picker([&](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
+			return FindEmulatorPictures(addon.file.covers, game.name, steamgrid, candidates, error);
+		}, skin::WideMenu());
+		TitleBand band;
+		GuiText title(tr("Picture"), 30, skin::kInk);
+		Place(title, 78, 28);
+		GuiPrompts prompts;
+		const int back = prompts.Add("B", tr("Back"));
+		const int choose = prompts.Add("A", tr("Choose"));
+		GuiWindow window(screenwidth, screenheight);
+		window.Append(&band);
+		window.Append(&title);
+		window.Append(&picker);
+		window.Append(&prompts);
+		mainWindow->Append(&window);
+		ResumeGui();
+		while (true) {
+			usleep(10000);
+			HaltGui();
+			const int prompt = prompts.GetClicked();
+			if (prompt == back || ExitRequested) picker.Back();
+			else if (prompt == choose) picker.Accept();
+			picker.Pump();
+			if (picker.Choice() != GuiPicturePicker::Result::Waiting) break;
+			ResumeGui();
+		}
+		choice = picker.Choice();
+		if (choice == GuiPicturePicker::Result::Picked) png = picker.TakePicture();
+		mainWindow->Remove(&window);
+	}
+	bool changed = false;
+	if (choice == GuiPicturePicker::Result::Automatic) {
+		ResumeGui();
+		const OwnPicture own = OwnPictureState(path);
+		HaltGui();
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+			tr("This picture was added or changed by hand. Delete it and use automatic pictures?"),
+			tr("Back"), tr("Delete")) != 1) return;
+		ResumeGui();
+		changed = RemovePickedPicture(path, own == OwnPicture::Hand);
+		HaltGui();
+	} else if (choice == GuiPicturePicker::Result::Picked) {
+		ResumeGui();
+		changed = SavePickedPicture(path, png);
+		HaltGui();
+	} else {
+		return;
+	}
+	if (changed) ForgetCover(game.key);
+	else ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+}
+
 static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
 {
 	auto values = riftwii::wii::LoadEmulatorValues(addon, game ? game->path : "");
 	const std::string about = tr("Started with {1} ({2}).", {addon.file.name, addon.file.system});
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
+	std::size_t pictureAt = static_cast<std::size_t>(-1);
 	if (game) {
 		FlowRow play;
 		play.kind = FlowRow::Kind::Action;
 		play.label = tr("Play");
 		rows.push_back(play);
 		help.push_back(about);
+		FlowRow picture;
+		picture.kind = FlowRow::Kind::Action;
+		picture.label = tr("Picture");
+		pictureAt = rows.size();
+		rows.push_back(picture);
+		help.push_back(tr("Choose the picture shown in Channels."));
 	}
 	const std::size_t firstSetting = rows.size();
 	for (const auto& setting : addon.file.settings) {
@@ -4905,6 +4988,7 @@ static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii
 	rows.push_back(info);
 	help.push_back(about);
 	const auto refresh = [&]() {
+		if (game) rows[pictureAt].value = EmulatorPictureOnline() ? tr("Open") : tr("Needs the internet");
 		for (std::size_t i = 0; i < addon.file.settings.size(); ++i) {
 			const auto& setting = addon.file.settings[i];
 			auto& row = rows[firstSetting + i];
@@ -4919,6 +5003,11 @@ static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii
 		const auto index = static_cast<std::size_t>(clicked);
 		if (game && index == 0) {
 			return StartEmulator(addon, *game, values);
+		}
+		if (game && index == pictureAt) {
+			PickEmulatorPicture(addon, *game);
+			refresh();
+			return false;
 		}
 		if (index == aboutAt) {
 			ShowPopup(tr("About"), about + "\n" + addon.file.dol, tr("OK"));
