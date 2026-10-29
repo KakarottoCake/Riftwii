@@ -69,6 +69,7 @@
 #include "boxart.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
+#include "emulatorcovers.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
@@ -145,6 +146,7 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 #include "riftwii/sdhotplug.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace transition = riftwii::wii::transition;
 
@@ -621,6 +623,14 @@ static void* MenuWatchdog(void*)
 		usleep(200000);
 		LogGuiWatch();
 		LogGxOverflows();
+		// Frames counted on every pass, the menu answering or not, so a GUI
+		// stuck since just after the menu's last tick is known as soon as
+		// the menu counts as stuck.
+		static u32 frameSeen = 0;
+		static int framelessPasses = 0;
+		const u32 frameNow = FrameTimer;
+		framelessPasses = frameNow == frameSeen ? framelessPasses + 1 : 0;
+		frameSeen = frameNow;
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -630,13 +640,35 @@ static void* MenuWatchdog(void*)
 		// An update being put in place is busy, not stuck: nothing cuts it
 		// short (the power button waits for it, as the GUI's exit does).
 		if (riftwii::wii::CardWritesBusy()) continue;
+		// HOME on a Wii Remote, a Classic Controller (or Wii U Pro
+		// Controller) or the GamePad, or Start on a GameCube controller,
+		// as everywhere else in the menu: no Wii Remote is needed to get out.
+		constexpr u32 kRemoteHome = WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME;
 		bool home = false;
-		if (GuiParked()) {
-			// Nobody else reads the Remotes now.
+		// The GUI thread stuck with the GPU (suspended by GX in a full
+		// FIFO, or asleep in GX_DrawDone for a frame that never ends) reads
+		// no controllers any more either: read them here, as when it is
+		// halted. Stuck means no frame for a second (5 passes, counted on
+		// every pass above), so a GUI that is only slow is never read
+		// alongside.
+		const bool guiStalled = guithread != LWP_THREAD_NULL && framelessPasses >= 5;
+		if (GuiParked() || guiStalled) {
+			// Nobody else reads the controllers now. The Wii U's GameCube
+			// adapter is read by the GUI thread only: here, the Wii's own
+			// GameCube ports.
 			WPAD_ScanPads();
-			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
+			PAD_ScanPads();
+			for (int c = 0; c < 4; ++c)
+				home = home || (WPAD_ButtonsDown(c) & kRemoteHome) || (PAD_ButtonsDown(c) & PAD_BUTTON_START);
+			if (WiiDRC_Inited() && WiiDRC_Connected()) {
+				WiiDRC_ScanPads();
+				home = home || (WiiDRC_ButtonsDown() & WIIDRC_BUTTON_HOME);
+			}
 		} else {
-			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
+			for (int c = 0; c < 4; ++c)
+				home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & kRemoteHome)) ||
+				       (userInput[c].pad.btns_h & PAD_BUTTON_START);
+			home = home || (userInput[0].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME);
 		}
 		// No log line here: the menu is stuck, usually on the SD card, and a
 		// write to the log could wait on that card and keep the Wii on.
@@ -1027,7 +1059,7 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 
 // The Home views, stepped with 1; the one last used is remembered in
 // settings.txt ("view").
-enum class Filter { Mods, All, Homebrew, Recent, Favorites };
+enum class Filter { Mods, All, Homebrew, Emulators, Recent, Favorites };
 static Filter g_filter = Filter::Mods;
 static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
@@ -1043,6 +1075,7 @@ static const char* FilterLabel(Filter f)
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
 		case Filter::Homebrew: return "Homebrew";
+		case Filter::Emulators: return "Emulators";
 		case Filter::Recent: return "Recently played";
 		case Filter::Favorites: return "Favourites";
 		default: return "All games";
@@ -1055,6 +1088,7 @@ static const char* FilterShortLabel(Filter f)
 	switch (f) {
 		case Filter::Mods: return "Mods";
 		case Filter::Homebrew: return "Homebrew";
+		case Filter::Emulators: return "Emulators";
 		case Filter::Recent: return "Recent";
 		case Filter::Favorites: return "Favourites";
 		default: return "All games";
@@ -1062,8 +1096,14 @@ static const char* FilterShortLabel(Filter f)
 }
 static const char* FilterKey(Filter f)
 {
-	return f == Filter::Mods ? "mods" : f == Filter::Homebrew ? "homebrew" : f == Filter::Recent ? "recent"
-		: f == Filter::Favorites ? "favorites" : "all";
+	switch (f) {
+		case Filter::Mods: return "mods";
+		case Filter::Homebrew: return "homebrew";
+		case Filter::Emulators: return "emulators";
+		case Filter::Recent: return "recent";
+		case Filter::Favorites: return "favorites";
+		default: return "all";
+	}
 }
 static void LoadFilter()
 {
@@ -1074,6 +1114,7 @@ static void LoadFilter()
 	if (it == other.end()) return;
 	if (it->second == "all") g_filter = Filter::All;
 	else if (it->second == "homebrew") g_filter = Filter::Homebrew;
+	else if (it->second == "emulators") g_filter = Filter::Emulators;
 	else if (it->second == "recent" && riftwii::wii::History().size() != 0) g_filter = Filter::Recent;
 	else if (it->second == "favorites" && !riftwii::wii::Settings().favorites.empty()) g_filter = Filter::Favorites;
 }
@@ -1118,7 +1159,7 @@ static bool MatchesSearch(const std::string& name, const std::string& id, bool g
 
 struct HomeEntry {
 	// Channel: a WiiWare or Virtual Console game installed on the Wii
-	enum class Kind { Disc, Usb, Sd, Channel, App } kind;
+	enum class Kind { Disc, Usb, Sd, Channel, App, Emulator } kind;
 	std::size_t index;
 	// One of the game's profiles (riftwii/profiles.hpp): its key. Empty for
 	// the game's own tile.
@@ -1155,7 +1196,7 @@ static std::string ChannelName(const riftwii::wii::NandChannel& c)
 // its disc, a channel's from the Wii's memory.
 static bool StoreEntryBanner(const FrontendState& state, const HomeEntry& e, std::string& why)
 {
-	if (e.kind == HomeEntry::Kind::App) return false;
+	if (e.kind == HomeEntry::Kind::App || e.kind == HomeEntry::Kind::Emulator) return false;
 	if (e.kind == HomeEntry::Kind::Channel) return riftwii::wii::StoreChannelBanner(state.channels[e.index], why);
 	const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
 		: state.sd_catalog.games[e.index];
@@ -1173,6 +1214,7 @@ static std::string GameName(const riftwii::wii::ImageGame& g)
 // (a drive, or the Wii's own channels) and its ID.
 static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 {
+	if (entry.kind == HomeEntry::Kind::Emulator) return state.emulators.games[entry.index].key;
 	if (entry.kind == HomeEntry::Kind::App) {
 		const auto& apps = riftwii::wii::HomebrewApps();
 		return entry.index < apps.size() ? "app:" + apps[entry.index].folder : std::string();
@@ -1183,7 +1225,12 @@ static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 	const riftwii::wii::ImageGame& game = usb ? state.usb_catalog.games[entry.index] : state.sd_catalog.games[entry.index];
 	// A profile's tile has a place of its own: "usb:RMCE01@retro-rewind".
 	const std::string& name = entry.profile.empty() ? game.id : entry.profile;
-	return riftwii::home_order_key(usb ? "usb" : "sd", name, game.disc_number);
+	std::string place = "sd";
+	if (usb) {
+		const std::string device = riftwii::usb_path_device(game.path);
+		place = device.empty() ? "usb" : device.substr(0, device.size() - 1);
+	}
+	return riftwii::home_order_key(place, name, game.disc_number);
 }
 
 // `name` is the tile's, `gameName` the game's: a profile's tile sorts A to
@@ -1198,7 +1245,7 @@ struct HomeRow {
 	const riftwii::wii::ImageGame* game;
 };
 
-// The games in Settings > Home order (`ordered`; else A to Z), before a
+// The games in Settings > Home > Home order (`ordered`; else A to Z), before a
 // view or a search picks from them.
 static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 {
@@ -1230,6 +1277,14 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 			if (state.channels[i].non_game && !riftwii::wii::Settings().nand_non_games) continue;
 			add(ChannelName(state.channels[i]), HomeEntry::Kind::Channel, i, state.channels[i].game_id, nullptr);
 		}
+	for (std::size_t i = 0; i < state.emulators.games.size(); ++i) {
+		const auto& game = state.emulators.games[i];
+		const bool onUsb = riftwii::is_usb_path(game.path);
+		if (g_filter != Filter::Emulators && source != "all" && source != (onUsb ? "usb" : "sd")) continue;
+		add(game.name, HomeEntry::Kind::Emulator, i, game.key, nullptr);
+		rows.back().key = game.key;
+		rows.back().entry.searchName += " " + state.emulators.addons[game.emulator].file.system;
+	}
 	// The games' profiles, each a tile of its own, with the first copy of
 	// its game found on a drive (a game on both drives gets them once; the
 	// Wii's channels take no packs). Only a game Home lists has them: a
@@ -1275,7 +1330,7 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 		for (const std::size_t i : riftwii::arrange_home_order(riftwii::wii::HomeOrder(), keys)) arranged.push_back(rows[i]);
 		rows.swap(arranged);
 	} else if (ordered && order != "az") {
-		// Settings > Home order: the played games first (latest or most
+		// Settings > Home > Home order: the played games first (latest or most
 		// played), the rest after them A to Z.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
 		const bool most = order == "most";
@@ -1338,13 +1393,17 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		});
 	}
 	for (const Row& r : rows) {
+		const bool emulator = r.entry.kind == HomeEntry::Kind::Emulator;
+		// A search picks from every game, as in the other views.
+		if (!searching && g_filter == Filter::Emulators && !emulator) continue;
 		const bool profile = !r.entry.profile.empty();
 		// A game GameTDB lists as custom (a hack or mod distribution with an
 		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
 		// pack) is a mod itself, with or without packs.
 		const bool custom = riftwii::wii::IsCustomGame(r.id);
 		const bool mods = g_packs.has_packs(r.id) || custom;
-		if (searching && !MatchesSearch(r.entry.searchName, r.id, r.game && r.game->gamecube)) continue;
+		if (searching && !MatchesSearch(r.entry.searchName,
+			emulator ? std::string() : r.id, r.game && r.game->gamecube)) continue;
 		// A profile is a setup of mods: it stays in the mods view.
 		if (!searching && g_filter == Filter::Mods && !mods && !profile) continue;
 		if (!searching && g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.key) == 0) continue;
@@ -1357,6 +1416,10 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		const bool wiiChannel = r.entry.kind == HomeEntry::Kind::Channel && state.channels[r.entry.index].emu_nand.empty();
 		const bool gamecube = r.game && r.game->gamecube;
 		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : wiiChannel ? "WII" : gamecube ? "GC" : "SD";
+		if (emulator) {
+			const auto& game = state.emulators.games[r.entry.index];
+			item.badge = state.emulators.addons[game.emulator].file.system;
+		}
 		item.mods = mods || profile;
 		item.to_build = r.game && !r.game->gc_patch_source.empty();
 		item.hue = skin::HueFor(r.id);
@@ -1366,7 +1429,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
 	}
-	// Settings > Disc Channel off: the tile goes (an empty view keeps its
+	// Settings > Home > Disc Channel off: the tile goes (an empty view keeps its
 	// note under the clock: Press 1 for all games).
 	if (discViews && riftwii::wii::Settings().home_disc == "off") {
 		items.erase(items.begin());
@@ -1435,6 +1498,16 @@ static std::string HomeTilesName(const std::string& tiles)
 	if (tiles == "covers3d") return tr("3D covers");
 	if (tiles == "channels") return tr("Channels");
 	return tr("Covers");
+}
+
+static const char* const kHomeLayouts[] = {"covers", "covers3d", "carousel", "shelf", "channels", "names"};
+
+static int HomeLayoutIndex(const std::string& tiles)
+{
+	for (int index = 0; index < 6; ++index) {
+		if (tiles == kHomeLayouts[index]) return index;
+	}
+	return 0;
 }
 
 // Games can be moved where the tiles are the drives' in Home's order:
@@ -1565,10 +1638,14 @@ private:
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
+// Emulator sources can fail while GameTDB still answers, and vice versa.
+static bool g_emulatorCoversOff = false;
+
 // What the downloads came to: a cover GameTDB has none of, or one that got
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
 static riftwii::CoverDownloads g_coverRun("Covers", "cover");
+static riftwii::CoverDownloads g_emulatorCoverRun("Emulator covers", "cover", "the emulator cover search");
 // The shelf's boxes (wii/menu/boxart.cpp): GameTDB's full covers, queued
 // for every game as the covers are and fetched once the covers are in.
 static std::set<std::string> g_boxesChecked;
@@ -1584,12 +1661,19 @@ static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
 // Settings leaves the retry for Home, where the picture queues are built.
 static bool g_retryMissingCovers = false;
 
+static bool& CoverDownloadsOff(const std::string& game)
+{
+	return game.rfind("emu-", 0) == 0 ? g_emulatorCoversOff : g_coversOff;
+}
+
 // A rescan or an explicit retry gives every missing picture another chance.
 static void ResetCoverDownloads()
 {
 	g_coversOff = false;
+	g_emulatorCoversOff = false;
 	g_coversChecked.clear();
 	g_coverRun.reset();
+	g_emulatorCoverRun.reset();
 
 	g_boxesOff = false;
 	g_boxesChecked.clear();
@@ -1620,7 +1704,8 @@ static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverF
 }
 static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
 {
-	return CountPictureFetch(g_coverRun, got, game, error);
+	const bool emulator = game.rfind("emu-", 0) == 0;
+	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error);
 }
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
@@ -2099,7 +2184,7 @@ void SetHomeNotice(const std::string& text)
 static bool PacksOnUsb(const FrontendState& state)
 {
 	for (const auto& p : state.model.selections())
-		if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+		if (riftwii::is_usb_path(p.xml_sd_path)) return true;
 	return false;
 }
 
@@ -2262,6 +2347,8 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		shownGames.insert(app || item.id.empty() ? item.key : item.id);
 	}
 	const std::size_t games = shownGames.size();
+	if (g_filter == Filter::Emulators)
+		return games == 0 ? std::string(tr("No games found")) : ShownCount(g_filter, games);
 	std::string status;
 	// A drive Settings > Games from leaves out is not a problem to report:
 	// "SD: no games" has no meaning when Home lists the USB drive only.
@@ -2318,9 +2405,16 @@ class Panel : public GuiElement {
 public:
 	// `extra` widens it that much on each side: its ends drawn as they
 	// are, the middle stretched (a widescreen popup).
-	Panel(const skin::Tex& tex, int x, int y, int extra = 0) : tex(tex), x(x), y(y), extra(extra) {}
+	Panel(const skin::Tex& tex, int x, int y, int extra = 0, int faceHeight = 0)
+		: tex(tex), x(x), y(y), extra(extra), faceHeight(faceHeight) {}
 	void Draw() override
 	{
+		if (faceHeight > 0) {
+			// Keep the corners, title band and bottom band at their original
+			// height when a popup has less content than the standard box.
+			skin::DrawNine(tex, x - 4.0f - extra, y - 4.0f, tex.w + 2.0f * extra, faceHeight + 8.0f, 48);
+			return;
+		}
 		if (extra <= 0 || !tex.data) {
 			skin::Draw(tex, x - 4.0f, y - 4.0f);
 			return;
@@ -2335,7 +2429,7 @@ public:
 	}
 private:
 	const skin::Tex& tex;
-	int x, y, extra;
+	int x, y, extra, faceHeight;
 };
 
 // The help under a page's list, in the same place on every page (inside a
@@ -2447,8 +2541,8 @@ public:
 	static constexpr int kW = 520, kH = 184, kTop = 112;
 	EmptyHomeNote()
 		: words(riftwii::wii::Settings().sd_games == "off"
-			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
-			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
+			? std::string(tr("No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again.")) + " " + tr("A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.")
+			: std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again.")) +
 				" " + tr("A GameCube game goes in a folder of its own in games, as games/<its ID>/game.iso, on the SD card or USB drive.")),
 		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
@@ -2801,6 +2895,165 @@ private:
 	bool closed = false;
 	ShiftWindow w;
 };
+
+// GuiTiles owns the familiar pointer and pad focus; these hidden tiles
+// get a compact drawing with a centred picture and a two-line name.
+class HomeLayoutCards : public GuiElement {
+public:
+	HomeLayoutCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current)
+		: tiles_(tiles), choices_(choices), current_(current)
+	{
+		width = screenwidth;
+		height = screenheight;
+		for (const TileSpec& tile : tiles_) {
+			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
+			label->SetParent(this);
+			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + 88);
+			label->SetWrap(true, tile.w - 12, 2);
+			labels_.push_back(std::move(label));
+		}
+	}
+	void Draw() override
+	{
+		for (int index = 0; index < 6; ++index) {
+			const TileSpec& tile = tiles_[index];
+			const float lift = choices_.Lift(index);
+			const float grow = 1.0f + 0.035f * lift;
+			const float w = tile.w * grow, h = tile.h * grow;
+			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
+			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
+			const skin::Tex& over = index == current_ ? skin::tile9PrimaryOver : skin::tile9Over;
+			skin::DrawNine(base, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner);
+			if (lift > 0) {
+				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
+					static_cast<int>(255 * lift));
+			}
+			skin::Draw(skin::layoutIcons[index], tile.x + (tile.w - 28) / 2.0f, tile.y + 30, 255, 1.5f);
+			labels_[index]->Draw();
+		}
+	}
+private:
+	const std::vector<TileSpec>& tiles_;
+	GuiTiles& choices_;
+	int current_;
+	std::vector<std::unique_ptr<GuiText>> labels_;
+};
+
+static int PickHomeLayout()
+{
+	const int current = HomeLayoutIndex(riftwii::wii::Settings().home_tiles);
+	const int extra = PopupExtra();
+	Dim dim;
+	// The row sits between the title band (ending at 146) and the bottom
+	// band (starting at 328), with equal room for its raised shadows.
+	Panel panel(skin::popup, 34, 102, extra, 244);
+	GuiText title(tr("Layout"), 24, skin::kInk);
+	Place(title, 0, PopupBox::kTitleY, true);
+	title.SetMaxWidth(528 + 2 * extra);
+	// Six 84px cards and five 8px gaps occupy 544px, leaving the
+	// shadows and their slight lift inside x 32..608 on a 4:3 TV.
+	const int cardWidth = (544 + 2 * extra - 5 * 8) / 6;
+	const int rowWidth = 6 * cardWidth + 5 * 8;
+	std::vector<TileSpec> tiles(6);
+	for (int index = 0; index < 6; ++index) {
+		TileSpec& tile = tiles[index];
+		tile.x = 320 - rowWidth / 2 + index * (cardWidth + 8);
+		tile.y = 164;
+		tile.w = cardWidth;
+		tile.h = 148;
+		tile.label = HomeTilesName(kHomeLayouts[index]);
+		tile.hidden = true;
+	}
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(current);
+	HomeLayoutCards cards(tiles, choices, current);
+	SkinButton back(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
+		PAD_BUTTON_B | PAD_BUTTON_START, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+	HideButton(back);
+	GuiPrompts prompts;
+	const int choosePrompt = prompts.Add("A", tr("Choose"));
+	const int backPrompt = prompts.Add("B", tr("Back"));
+	ShiftWindow window(0.86f, 0, true);
+	window.Append(&dim);
+	window.Append(&panel);
+	window.Append(&title);
+	window.Append(&choices);
+	window.Append(&cards);
+	window.Append(&back.button);
+	window.Append(&prompts);
+	mainWindow->SetState(STATE::DISABLED);
+	transition::Begin(transition::Kind::PopOpen);
+	mainWindow->Append(&window);
+	window.SetState(STATE::DEFAULT);
+	if (riftwii::wii::Settings().wii_menu_sounds)
+		riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+	logf("Home: Layout picker opened at %s\n", kHomeLayouts[current]);
+	ResumeGui();
+	int picked = -1;
+	for (;;) {
+		usleep(20000);
+		HaltGui();
+		const int prompt = prompts.GetClicked();
+		if (back.Clicked() || prompt == backPrompt) break;
+		picked = choices.GetClicked();
+		if (prompt == choosePrompt) picked = choices.Selected();
+		if (picked >= 0) break;
+		ResumeGui();
+	}
+	transition::Begin(transition::Kind::PopClose);
+	mainWindow->Remove(&window);
+	mainWindow->SetState(STATE::DEFAULT);
+	g_popupClosedAt = gettime();
+	logf("Home: Layout picker closed, %s\n", picked < 0 ? "no change" : kHomeLayouts[picked]);
+	return picked;
+}
+
+// Read F2 on the GUI thread, where keyboard presses last one frame, then
+// leave the click latched for Home's slower menu loop to take.
+class HomeLayoutKey : public GuiElement {
+public:
+	explicit HomeLayoutKey(SkinButton& button) : button_(button) {}
+	void Draw() override {}
+	void Update(GuiTrigger* input) override
+	{
+		constexpr u8 kF2 = riftwii::wii::key::kF1 + 1;
+		if (input && input->chan == 0 && riftwii::wii::UsbKeyPressed(kF2)) button_.PressSilently();
+	}
+private:
+	SkinButton& button_;
+};
+
+// The picker and 1+2 both save before rebuilding Home. A failed save
+// restores the old layout, so reinserting the card cannot undo a change.
+static bool ChangeHomeLayout(const std::string& layout, const char* control, int focus, bool sdGone, Toast& toast)
+{
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	const std::string before = settings.home_tiles;
+	if (layout == before) return false;
+	if (sdGone) {
+		toast.Show(tr("Put the SD card back in first."), true);
+		return false;
+	}
+	settings.home_tiles = layout;
+	if (!riftwii::wii::SaveSettings()) {
+		logf("Home: tiles not changed to %s (%s), the settings could not be saved\n", layout.c_str(), control);
+		settings.home_tiles = before;
+		toast.Show(tr("Could not save the settings to the SD card."), true);
+		return false;
+	}
+	logf("Home: tiles %s (%s)\n", layout.c_str(), control);
+	g_focusRestored = true;
+	g_homeFocus = focus;
+	SetHomeNotice(std::string(tr("Layout")) + ": " + HomeTilesName(layout));
+	// The bar confirms either control's change. A second copy at the top
+	// would cover the newly selected layout's games.
+	g_homeNoticeShown = true;
+	transition::Hold(transition::Kind::Fade);
+	return true;
+}
 
 static int ShowPopup(const std::string& title, const std::string& body, const std::string& ok,
 	const std::string& cancel = "")
@@ -3606,7 +3859,7 @@ static bool AgreeToUpdate(const std::string& latest)
 		    tr("Update"), tr("Not now")) == 0)
 		return true;
 	riftwii::wii::NoteUpdateDeclined(latest);
-	SetHomeNotice(tr("RiftWii {1} is out. Settings > Check for a new version installs it.", {latest}));
+	SetHomeNotice(tr("RiftWii {1} is out. Settings > Online > Check for a new version installs it.", {latest}));
 	return false;
 }
 
@@ -3745,7 +3998,7 @@ static void ReportCardLog()
 }
 
 // A short tour for a new SD card: five pages in the popup box, Next and
-// Back (B) between them. Settings > Tutorial shows it again.
+// Back (B) between them. Settings > Help > Tutorial shows it again.
 static void ShowTutorial()
 {
 	struct Page { const char* title; const char* body; };
@@ -3755,11 +4008,11 @@ static void ShowTutorial()
 		{"Your games",
 		 "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."},
 		{"Mods",
-		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
+		 "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."},
 		{"Buttons",
 		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."},
 		{"You're all set",
-		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
+		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again."},
 	};
 	constexpr int kCount = sizeof(kPages) / sizeof(kPages[0]);
 	int page = 0;
@@ -3786,14 +4039,14 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // channel offer answered) counts as seen: an update does not show it.
 // What's new: this release's main changes, one short line each (the box
 // holds six lines), for the release script to keep up to date. Shown
-// once when they change; Settings > What's new shows them again.
+// once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Your own song or playlist as menu music",
-	"Press 1 and 2 together to change the view",
-	"Press 1 on a cover to see it up close",
-	"USB keyboard, mouse and uDraw in the menu",
-	"Hold B on Search to start a random game",
-	"Covers for homebrew, WiiWare and VC games",
+	"Emulator games: Home > View > Emulators",
+	"Covers for emulator games",
+	"WiiFlow's emulator plugins work here too",
+	"Games from every partition of a USB drive",
+	"Leave a frozen menu without a Wii Remote",
+	"Smoother menu motion on PAL and NTSC",
 };
 
 static std::string WhatsNewText()
@@ -3858,7 +4111,7 @@ static bool ShowTutorialOnce()
 		riftwii::wii::SaveSettings();
 		logf("Disc Channel on Home: %s\n", disc ? "yes" : "no");
 		if (!disc)
-			ShowPopup(tr("Disc Channel"), tr("You can bring it back any time in Settings > Disc Channel."), tr("OK"));
+			ShowPopup(tr("Disc Channel"), tr("You can bring it back any time in Settings > Home > Disc Channel."), tr("OK"));
 	}
 	mkdir("sd:/riftwii", 0777);
 	if (FILE* f = std::fopen(kMarker, "w")) {
@@ -4172,7 +4425,9 @@ static void StartScan()
 	g_startWhenScanned = false;
 	g_scanning = true;
 	g_scanned = true;
-	riftwii::wii::StartDriveScan();
+	// Mark the scan pending now, so old results and drive reads stay out.
+	// Home starts its worker once any background download has finished.
+	riftwii::wii::RequestDriveScan();
 }
 
 // The SD card taken out and put back while Home runs (issue: the menu kept
@@ -4254,6 +4509,14 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 		g_forgetPicturesAfterScan = false;
 	}
 	state.usb_catalog = std::move(part.catalog);
+	state.emulators = std::move(part.emulators);
+	// Local covers asked for during the scan could only report a miss.
+	// Publish the new catalog before allowing those covers to be read again,
+	// including when downloads are off or Home closes before taking this part.
+	riftwii::wii::ConfigureEmulatorCovers(state.emulators);
+	for (const auto& game : state.emulators.games) {
+		riftwii::wii::ForgetCover(game.key);
+	}
 	state.package_catalog = std::move(part.package_catalog);
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
@@ -4324,6 +4587,7 @@ static void WaitForDriveScan(GuiText& line)
 	logf("Settings: waiting for the scan to finish reading the drives\n");
 	line.SetText(tr("Waiting for RiftWii to finish reading the drives..."));
 	while (!riftwii::wii::DriveScanDone()) {
+		riftwii::wii::StartDriveScan();
 		ResumeGui();
 		usleep(50000);
 		HaltGui();
@@ -4514,6 +4778,186 @@ static bool ReadHomebrewTitlesNow()
 	return read;
 }
 
+// These small pages use the same row controls as game settings. Add-on
+// labels are translated when the player's catalog knows them; otherwise
+// the author's text is shown as written.
+static bool EmulatorRowsPage(const std::string& title, std::vector<FlowRow>& rows,
+	const std::vector<std::string>& help, const std::function<bool(int, int)>& act)
+{
+	GuiText titleTxt(title.c_str(), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconGear);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int back = prompts.Add("B", tr("Back"));
+	const int choose = prompts.Add("A", tr("Open"));
+	GuiWindow window(screenwidth, screenheight);
+	window.Append(&titleBand);
+	window.Append(&pageIcon);
+	window.Append(&titleTxt);
+	window.Append(&noteCard);
+	window.Append(&list);
+	window.Append(&noteTxt);
+	window.Append(&backBtn.button);
+	window.Append(&prompts);
+	mainWindow->Append(&window);
+	ResumeGui();
+	bool started = false;
+	while (!started) {
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int focused = list.Selected();
+		if (focused >= 0 && static_cast<std::size_t>(focused) < help.size())
+			noteTxt.SetText(help[static_cast<std::size_t>(focused)].c_str());
+		if (focused >= 0 && static_cast<std::size_t>(focused) < rows.size()) {
+			const auto kind = rows[static_cast<std::size_t>(focused)].kind;
+			prompts.SetAction(choose, kind == FlowRow::Kind::Option || kind == FlowRow::Kind::Toggle ? tr("Change") : tr("Open"));
+		}
+		if (prompts.GetClicked() == back) backBtn.PressSilently();
+		if (backBtn.Clicked() || ExitRequested) break;
+		int clicked = list.GetClicked();
+		int direction = 1;
+		if (clicked < 0) {
+			clicked = list.GetClickedBack();
+			direction = -1;
+		}
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < rows.size()) {
+			// Nested pages replace this one while they are open.
+			mainWindow->Remove(&window);
+			started = act(clicked, direction);
+			if (started) break;
+			mainWindow->Append(&window);
+			list.Refresh();
+			list.Select(clicked);
+		}
+		ResumeGui();
+	}
+	mainWindow->Remove(&window);
+	return started;  // the caller, like this page's actions, has the GUI halted
+}
+
+static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame& game,
+	const riftwii::EmulatorValues& values)
+{
+	riftwii::wii::HomebrewApp app;
+	std::string error;
+	if (!riftwii::wii::PrepareEmulatorApp(addon, game, values, app, error)) {
+		logf("Emulators: %s could not start. %s\n", addon.file.name.c_str(), error.c_str());
+		ShowPopup(tr("Emulators"), tr("The emulator arguments are invalid or too long. See session.log."), tr("OK"));
+		return false;
+	}
+	// Under the tile's own key (HomeKey), so the game is in Recently played
+	// and history-based ordering like any other.
+	riftwii::wii::RecordPlay(game.key);
+	riftwii::wii::SetHomebrewToStart(app);
+	return true;
+}
+
+static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
+{
+	auto values = riftwii::wii::LoadEmulatorValues(addon, game ? game->path : "");
+	const std::string about = tr("Started with {1} ({2}).", {addon.file.name, addon.file.system});
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	if (game) {
+		FlowRow play;
+		play.kind = FlowRow::Kind::Action;
+		play.label = tr("Play");
+		rows.push_back(play);
+		help.push_back(about);
+	}
+	const std::size_t firstSetting = rows.size();
+	for (const auto& setting : addon.file.settings) {
+		FlowRow row;
+		row.kind = setting.type == riftwii::EmulatorSettingType::Switch ? FlowRow::Kind::Toggle : FlowRow::Kind::Option;
+		row.label = tr(setting.label.c_str());
+		rows.push_back(std::move(row));
+		help.push_back(setting.help.empty() ? about : std::string(tr(setting.help.c_str())));
+	}
+	FlowRow reset;
+	reset.kind = FlowRow::Kind::Action;
+	reset.label = tr("Reset");
+	const std::size_t resetAt = rows.size();
+	rows.push_back(reset);
+	help.push_back(tr("Emulator defaults"));
+	FlowRow info;
+	info.kind = FlowRow::Kind::Action;
+	info.label = tr("About");
+	const std::size_t aboutAt = rows.size();
+	rows.push_back(info);
+	help.push_back(about);
+	const auto refresh = [&]() {
+		for (std::size_t i = 0; i < addon.file.settings.size(); ++i) {
+			const auto& setting = addon.file.settings[i];
+			auto& row = rows[firstSetting + i];
+			const auto& value = values[setting.key];
+			row.value = setting.type == riftwii::EmulatorSettingType::Switch
+				? (value == "on" ? tr("On") : tr("Off")) : tr(value.c_str());
+			row.on = setting.type == riftwii::EmulatorSettingType::Switch ? value == "on" : value != setting.default_value;
+		}
+	};
+	refresh();
+	return EmulatorRowsPage(game ? FlatCapped(game->name, 40) : addon.file.name, rows, help, [&](int clicked, int direction) {
+		const auto index = static_cast<std::size_t>(clicked);
+		if (game && index == 0) {
+			return StartEmulator(addon, *game, values);
+		}
+		if (index == aboutAt) {
+			ShowPopup(tr("About"), about + "\n" + addon.file.dol, tr("OK"));
+			return false;
+		}
+		const auto before = values;
+		if (index == resetAt) {
+			values = game ? riftwii::wii::LoadEmulatorValues(addon) : riftwii::emulator_defaults(addon.file);
+		} else if (index >= firstSetting && index < resetAt) {
+			const auto& setting = addon.file.settings[index - firstSetting];
+			values[setting.key] = riftwii::step_emulator_value(setting, values[setting.key], direction);
+		}
+		ResumeGui();
+		const bool saved = riftwii::wii::SaveEmulatorValues(addon, game ? game->path : "", values);
+		HaltGui();
+		if (!saved) {
+			values = before;
+			ShowPopup(tr("Emulators"), tr("Could not save emulator settings."), tr("OK"));
+		}
+		refresh();
+		return false;
+	});
+}
+
+static void EmulatorDefaultsPage(const riftwii::wii::EmulatorCatalog& catalog)
+{
+	if (catalog.addons.empty()) {
+		ShowPopup(tr("Emulators"), tr("No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."), tr("OK"));
+		return;
+	}
+	std::vector<FlowRow> rows;
+	std::vector<std::string> help;
+	for (const auto& addon : catalog.addons) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = addon.file.name;
+		row.value = tr("Open");
+		rows.push_back(std::move(row));
+		help.push_back(addon.file.system + " · " + addon.folder);
+	}
+	EmulatorRowsPage(tr("Emulator defaults"), rows, help, [&](int clicked, int) {
+		EditEmulator(catalog.addons[static_cast<std::size_t>(clicked)], nullptr);
+		return false;
+	});
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -4528,6 +4972,7 @@ static int MenuSource(FrontendState& state)
 	g_gameInfoReadDue = true;
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
+	riftwii::wii::ConfigureEmulatorCovers(state.emulators);
 	BuildHome(state, items, entries);
 
 	GuiGameGrid grid;
@@ -4626,19 +5071,20 @@ static int MenuSource(FrontendState& state)
 		Place(viewTxt, 40 - wide, 324);
 		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	}
-	// A name over a round button while the pointer rests on it.
+	// A name while the pointer rests on a round button. Layout and Search
+	// share the bar's status area so neither name covers a game's tile.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
-		searchHint(tr("Search"), 17, skin::kInk);
+		actionHint("", 17, skin::kInk);
+	std::string searchLabel;
+	std::string shownActionLabel;
 	const auto setButtonHints = [&] {
 		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
-		const std::string searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
+		searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
 		settingsHint.SetText(settingsLabel.c_str());
-		searchHint.SetText(searchLabel.c_str());
 	};
 	setButtonHints();
 	// The filter's and the gear's names go above them (80 square, y 384-464),
-	// centred on each; the small search button's to its left, level with it
-	// (the pointer's hand covers what is below or right of the button).
+	// centred on each.
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	filterHint.SetPosition(72 - 320 - wide, 344);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -4648,14 +5094,17 @@ static int MenuSource(FrontendState& state)
 	// bar left of the gear.
 	const bool channelsView = riftwii::wii::Settings().home_tiles == "channels";
 	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
-	const int searchHintEnd = searchX - 18, searchHintTop = searchY + 9;  // its box clear of the button
-	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(searchHintEnd - 640, searchHintTop);
-	// Each on a box of its own: the search's sits over the covers.
-	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true),
-		searchChip(searchHint, searchHintEnd, searchHintTop, false);
+	const int layoutX = channelsView ? 120 - wide : 36 - wide;
+	const int layoutY = searchY;
+	const int statusY = dip ? 434 : 392;
+	actionHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	actionHint.SetPosition(0, statusY);
+	actionHint.SetMaxWidth((channelsView ? 312 : 400) + 2 * wide);
+	// The shared hint stays clear of All games, the clock and the date,
+	// and of the hand at either button, even in Channels.
+	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true);
 	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
-	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
+	for (GuiText* hint : {&filterHint, &settingsHint, &actionHint}) {
 		hint->SetAlpha(0);
 		hint->SetVisible(false);
 	}
@@ -4675,10 +5124,10 @@ static int MenuSource(FrontendState& state)
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
 	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
-	Place(statusTxt, 0, dip ? 434 : 392, true);
-	// Between the round buttons (x 110 and 530 on 4:3), and clear of the
-	// search button when it is on the bar (from x 484).
-	statusTxt.SetWrap(true, (channelsView ? 330 : 400) + 2 * wide, dip ? 1 : 3);
+	Place(statusTxt, 0, statusY, true);
+	// Channels' small buttons end at x 156 and start at x 484. Keep
+	// the centred text inside x 164..476, with 8px of breathing room.
+	statusTxt.SetWrap(true, (channelsView ? 312 : 400) + 2 * wide, dip ? 1 : 3);
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 
@@ -4694,6 +5143,13 @@ static int MenuSource(FrontendState& state)
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
+	// GameCube L/R already turn pages and L modifies letter jumps. Keep
+	// them; its control-stick pointer can reach this button. ZR and GamePad R
+	// are free on Home, and F2 is the keyboard's shortcut.
+	SkinButton layoutBtn(skin::roundBtn, skin::roundBtnOver, 2, layoutX, layoutY, nullptr,
+		WPAD_CLASSIC_BUTTON_ZR, 0, WIIDRC_BUTTON_R,
+		&skin::layoutIcons[HomeLayoutIndex(riftwii::wii::Settings().home_tiles)], 0.5f);
+	HomeLayoutKey layoutKey(layoutBtn);
 	// Point at the search button and hold B on a Wii Remote: a game at
 	// random starts, as Start on its page would. Long enough (about a
 	// second) that a B pressed in passing is not taken for it.
@@ -4724,10 +5180,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&viewTxt);
 	w.Append(&filterChip);
 	w.Append(&settingsChip);
-	w.Append(&searchChip);
 	w.Append(&filterHint);
 	w.Append(&settingsHint);
-	w.Append(&searchHint);
+	w.Append(&actionHint);
 	w.Append(&clockTxt);
 	w.Append(&lcd);
 	w.Append(&dateTxt);
@@ -4735,6 +5190,8 @@ static int MenuSource(FrontendState& state)
 	w.Append(&filterBtn.button);
 	w.Append(&settingsBtn.button);
 	w.Append(&searchBtn.button);
+	w.Append(&layoutBtn.button);
+	w.Append(&layoutKey);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
 	// A cover zoomed with 1 or 2 comes up over the bar as well.
@@ -4823,14 +5280,17 @@ static int MenuSource(FrontendState& state)
 	// the list changes (another view, a search, a part of the scan), as a
 	// game the Mods view leaves out is first listed under All games.
 	const auto queueCovers = [&]() {
-		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		if (riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
+			if (item.id.empty()) continue;
+			if (CoverDownloadsOff(item.id)) continue;
 			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
 			    riftwii::wii::CoverWanted(item.id))
 				coverQueue.push_back(item.id);
 		}
-		if (g_boxesOff) return;
+		if (g_boxesOff || g_coversOff) return;
 		for (const GridItem& item : items) {
+			if (item.id.empty()) continue;
 			if (g_boxesChecked.insert(item.id).second && item.id != riftwii::wii::BoxFetchGame() &&
 			    riftwii::wii::BoxWanted(item.id))
 				g_boxQueue.push_back(item.id);
@@ -4846,6 +5306,7 @@ static int MenuSource(FrontendState& state)
 		if (crossfade) transition::BeginAuto();
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
+		riftwii::wii::ConfigureEmulatorCovers(state.emulators);
 		BuildHome(state, items, entries);
 		queueCovers();
 		bannerPageDone = -1;
@@ -5023,6 +5484,7 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		riftwii::wii::StartDriveScan();
 		PollMenuDiscCover();
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
@@ -5031,8 +5493,10 @@ static int MenuSource(FrontendState& state)
 		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
 			if (CountCoverFetch(got, arrived, coverError)) {
-				g_coversOff = true;
-				coverQueue.clear();
+				CoverDownloadsOff(arrived) = true;
+				const bool emulator = arrived.rfind("emu-", 0) == 0;
+				coverQueue.erase(std::remove_if(coverQueue.begin(), coverQueue.end(),
+					[&](const std::string& id) { return (id.rfind("emu-", 0) == 0) == emulator; }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
@@ -5118,26 +5582,30 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// Not while the update check (or the scan) has the network.
-		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && !coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		if (!g_sdGone && !g_sdRemovalPending && !g_scanning && !coverQueue.empty() && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
-			std::size_t pick = 0;
+			std::size_t pick = coverQueue.size();
 			bool onPage = false;
 			const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
 			for (std::size_t q = 0; q < coverQueue.size() && !onPage; ++q) {
+				if (CoverDownloadsOff(coverQueue[q])) continue;
+				if (pick == coverQueue.size()) pick = q;
 				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
 					onPage = items[k].id == coverQueue[q];
 					if (onPage) pick = q;
 				}
 			}
-			if (riftwii::wii::StartCoverFetch(coverQueue[pick])) {
+			if (pick < coverQueue.size() && riftwii::wii::StartCoverFetch(coverQueue[pick])) {
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
-				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
+				coverNote = tr("Getting covers: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
 		}
 		// The queue done (or stopped): what came of it, once.
 		if (coverQueue.empty() && riftwii::wii::CoverFetchGame().empty()) {
 			const std::string summary = g_coverRun.take_summary();
 			if (!summary.empty()) logf("%s\n", summary.c_str());
+			const std::string emulatorSummary = g_emulatorCoverRun.take_summary();
+			if (!emulatorSummary.empty()) logf("%s\n", emulatorSummary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
@@ -5355,6 +5823,7 @@ static int MenuSource(FrontendState& state)
 					// the channels in its emulated NANDs, the packs index (USB's
 					// come back with the rescan at reinsertion) and its apps.
 					state.sd_catalog.games.clear();
+					riftwii::wii::ForgetSdEmulators(state.emulators);
 					state.package_catalog = riftwii::wii::PackageCatalog{};
 					state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 					state.sd_catalog.status = std::string(tr("SD: no card"));
@@ -5473,7 +5942,7 @@ static int MenuSource(FrontendState& state)
 		if (!cover3dArrived.empty()) grid.Cover3dArrived(cover3dArrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
-			coverNoteShown = !g_coversOff;  // a failure stays up
+			coverNoteShown = !g_coversOff && !g_emulatorCoversOff;  // a failure stays up
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
 			showStatus();
 			coverNoteShown = false;
@@ -5492,7 +5961,7 @@ static int MenuSource(FrontendState& state)
 			setButtonHints();
 			showStatus();
 		}
-		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
+		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button, &layoutBtn.button});
 		// A hover name fades in while the pointer rests on its button, and out after.
 		const auto fade = [](GuiText& hint, int& a, bool on) {
 			a = std::max(0, std::min(255, a + (on ? 40 : -40)));
@@ -5501,7 +5970,17 @@ static int MenuSource(FrontendState& state)
 		};
 		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
-		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
+		const bool layoutHovered = layoutBtn.button.GetState() == STATE::SELECTED;
+		const bool searchHovered = searchBtn.button.GetState() == STATE::SELECTED;
+		const char* nextActionLabel = nullptr;
+		if (layoutHovered) nextActionLabel = tr("Layout");
+		else if (searchHovered) nextActionLabel = searchLabel.c_str();
+		if (nextActionLabel && shownActionLabel != nextActionLabel) {
+			shownActionLabel = nextActionLabel;
+			actionHint.SetText(nextActionLabel);
+		}
+		fade(actionHint, hintAlpha[2], layoutHovered || searchHovered);
+		statusTxt.SetVisible(hintAlpha[2] == 0);
 		// Not while the scan has the drives and the network: an update
 		// writes to the card and downloads.
 		if (!g_scanning) {
@@ -5531,7 +6010,7 @@ static int MenuSource(FrontendState& state)
 		int movedFrom = -1, movedTo = -1;
 		if (grid.TakeMove(movedFrom, movedTo)) {
 			if (MoveHomeGame(state, items, entries, movedFrom, movedTo))
-				toast.Show(tr("Home is in your own order now. Settings > Home order puts it back A to Z."), false);
+				toast.Show(tr("Home is in your own order now. Settings > Home > Home order puts it back A to Z."), false);
 		}
 		if (grid.Carrying() != carryNoteShown) {
 			carryNoteShown = grid.Carrying();
@@ -5615,7 +6094,24 @@ static int MenuSource(FrontendState& state)
 			// channel: out of its tile, and back into it. Not for a game at
 			// random, which starts straight away.
 			bool fromChannel = false;
+			if (entry.kind == HomeEntry::Kind::Emulator) {
+				const auto& game = state.emulators.games[entry.index];
+				const auto& addon = state.emulators.addons[game.emulator];
+				mainWindow->Remove(&w);
+				bool play = false;
+				if (randomStart) {
+					const auto values = riftwii::wii::LoadEmulatorValues(addon, game.path);
+					play = StartEmulator(addon, game, values);
+				} else {
+					play = EditEmulator(addon, &game);
+				}
+				mainWindow->Append(&w);
+				if (play) menu = MENU_HOMEBREW;
+				ResumeGui();
+				continue;
+			}
 			if (grid.Channels() && !randomStart && entry.kind != HomeEntry::Kind::Disc && entry.kind != HomeEntry::Kind::App &&
+				entry.kind != HomeEntry::Kind::Emulator &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
 				transition::Begin(reopening ? transition::Kind::Fade : transition::Kind::ZoomIn, tile);
 				// Another game's banner, from the arrows: read from its image
@@ -5782,27 +6278,22 @@ static int MenuSource(FrontendState& state)
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
 		} else if (riftwii::wii::TakeViewChord()) {
-			// 1 and 2 together: the next view, as Settings > Home tiles
-			// steps to, with Home built again around the same game.
-			riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-			const std::string before = settings.home_tiles;
-			settings.home_tiles = NextHomeTiles(before);
-			if (g_sdGone) {
-				// The view is a setting, saved on the card: without it the
-				// change would be undone when the card is back.
-				settings.home_tiles = before;
-				toast.Show(tr("Put the SD card back in first."), true);
-			} else if (!riftwii::wii::SaveSettings()) {
-				// Unsaved, the view would come back at the next start: it
-				// stays as it was.
-				logf("Home: tiles not changed to %s (1 and 2), the settings could not be saved\n", settings.home_tiles.c_str());
-				settings.home_tiles = before;
-				toast.Show(tr("Could not save the settings to the SD card."), true);
-			} else {
-				logf("Home: tiles %s (1 and 2)\n", settings.home_tiles.c_str());
-				g_focusRestored = true;  // a view change is the player's own doing
-				g_homeFocus = grid.FocusedIndex();
-				SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(settings.home_tiles));
+			if (ChangeHomeLayout(NextHomeTiles(riftwii::wii::Settings().home_tiles),
+				"1 and 2", grid.FocusedIndex(), g_sdGone, toast)) {
+				rebuildingHome = true;
+				menu = MENU_SOURCE;
+			}
+		} else if (layoutBtn.Clicked()) {
+			layoutBtn.button.ResetState();
+			if (grid.Carrying() || grid.CoverZoomed()) {
+				ResumeGui();
+				continue;
+			}
+			riftwii::wii::WatchViewChord(false);
+			const int picked = PickHomeLayout();
+			riftwii::wii::WatchViewChord(true);
+			if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button",
+				grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
 				menu = MENU_SOURCE;
 			}
@@ -5838,7 +6329,9 @@ static int MenuSource(FrontendState& state)
 					for (std::size_t k = 0; k < entries.size(); ++k) {
 						const HomeEntry& e = entries[k];
 						if (e.searchName.empty()) continue;  // the disc drive's tile
-						if (WordsMatch(trial, e.searchName, items[k].id, items[k].badge == "GC")) {
+						if (WordsMatch(trial, e.searchName,
+							e.kind == HomeEntry::Kind::Emulator ? std::string() : items[k].id,
+							items[k].badge == "GC")) {
 							next += *c;
 							break;
 						}
@@ -5881,7 +6374,8 @@ static int MenuSource(FrontendState& state)
 			switch (g_filter) {
 				case Filter::Mods: g_filter = Filter::All; break;
 				case Filter::All: g_filter = Filter::Homebrew; break;
-				case Filter::Homebrew: g_filter = anyPlayed ? Filter::Recent : anyFavorite ? Filter::Favorites : Filter::Mods; break;
+				case Filter::Homebrew: g_filter = Filter::Emulators; break;
+				case Filter::Emulators: g_filter = anyPlayed ? Filter::Recent : anyFavorite ? Filter::Favorites : Filter::Mods; break;
 				case Filter::Recent: g_filter = anyFavorite ? Filter::Favorites : Filter::Mods; break;
 				case Filter::Favorites: g_filter = Filter::Mods; break;
 			}
@@ -5928,6 +6422,7 @@ static int MenuSource(FrontendState& state)
 	if (g_scanning && menu != MENU_OPTIONS && !rebuildingHome) {
 		logf("Home: closed while the drives are read; waiting for the scan\n");
 		while (!riftwii::wii::DriveScanDone()) {
+			riftwii::wii::StartDriveScan();
 			usleep(50000);
 			HaltGui();
 			if (riftwii::wii::DriveScanStatus() != shownScanStatus) showStatus();
@@ -6292,6 +6787,15 @@ static std::string WidthName(const std::string& v)
 	if (v == "720") return tr("720 pixels (full)");
 	return tr("Game's own");
 }
+
+static std::string WidthNote(const std::string& width)
+{
+	if (width == "framebuffer") return tr("Match the width the game draws.");
+	if (width == "704") return tr("Use the broadcast-safe width of 704 pixels.");
+	if (width == "720") return tr("Fill the screen from side to side.");
+	return tr("Keep the game's own picture width.");
+}
+
 static std::string DeflickerName(const std::string& v)
 {
 	if (v == "off") return tr("Off (sharp)");
@@ -6691,9 +7195,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
 	if (!budget.pieces.empty() && !state.use_channel) {
 		FlowRow memory;
-		// An action row only to show its value (A does nothing); its
-		// chip lights up when it is a lot.
-		memory.kind = FlowRow::Kind::Action;
+		// A memory estimate is a fact; focus still shows its advice below.
+		memory.kind = FlowRow::Kind::Info;
 		memory.label = tr("Memory for RiftWii's extras");
 		memory.value = tr("about {1} KB", {std::to_string(riftwii::whole_kb(budget.total()))});
 		if (budget.heavy()) memory.value += std::string(" ") + tr("(a lot)");
@@ -7702,7 +8205,7 @@ static std::string GcBackupWhen(const riftwii::GcBackupStamp& stamp)
 }
 
 // Puts the backup `from` over the card at `cardPath`, after a backup of the
-// card as it is now (made even with Back up saves off), so the restore can
+// card as it is now (made even with Back up GameCube saves off), so the restore can
 // be undone from the same list. Says how it went. True: the card changed.
 static bool RestoreGcBackup(const std::string& cardPath, const std::string& folder, const std::string& from,
 	const std::string& when)
@@ -8169,7 +8672,7 @@ struct NintendontFinds {
 // so the menu's own view of the drive lists it (read only).
 static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcFolderEntry>& out)
 {
-	if (folder.compare(0, 5, "usb:/") != 0) return riftwii::gc_posix_lister(folder, out);
+	if (!riftwii::is_usb_path(folder)) return riftwii::gc_posix_lister(folder, out);
 	out.clear();
 	std::vector<riftwii::VolumeEntry> entries;
 	if (!riftwii::wii::list_usb_folder(folder, entries)) return false;
@@ -8186,9 +8689,10 @@ static bool NintendontLister(const std::string& folder, std::vector<riftwii::GcF
 
 static void ScanNintendontCards(NintendontFinds& finds)
 {
-	const std::vector<std::string> folders(std::begin(riftwii::kGcNintendontFolders), std::end(riftwii::kGcNintendontFolders));
+	std::vector<std::string> folders{"sd:/saves"};
+	for (const std::string& root : riftwii::wii::usb_volume_roots()) folders.push_back(root + "saves");
 	finds.files = riftwii::gc_nintendont_scan(folders, NintendontLister);
-	logf("Nintendont saves: %u memory card file(s) found in sd:/saves and usb:/saves, %u of a size no card has%s\n",
+	logf("Nintendont saves: %u memory card file(s) found in the saves folders on the SD card and every readable USB partition, %u of a size no card has%s\n",
 		static_cast<unsigned>(finds.files.cards.size()), finds.files.wrong_size,
 		finds.files.truncated ? ", more than RiftWii reads at once, so some were left out" : "");
 }
@@ -8198,7 +8702,7 @@ static void ScanNintendontCards(NintendontFinds& finds)
 static bool ReadNintendontCard(const riftwii::GcNintendontCard& card)
 {
 	if (card.bytes > g_nintendontBufferBytes) return false;
-	if (card.path.compare(0, 5, "usb:/") == 0) {
+	if (riftwii::is_usb_path(card.path)) {
 		constexpr std::uint64_t kPiece = 256 << 10;
 		for (std::uint64_t at = 0; at < card.bytes;) {
 			const std::size_t piece = static_cast<std::size_t>(std::min<std::uint64_t>(kPiece, card.bytes - at));
@@ -8262,11 +8766,14 @@ static bool GcGameUsesSharedCard(const std::string& id)
 	return choices.game.gc_card == "shared";
 }
 
-// A card file's place for the player, short enough for a row's second line: "GMSE.raw (SD)".
+// Name the USB partition so equal card names can be told apart.
 static std::string NintendontCardLabel(const riftwii::GcNintendontCard& card)
 {
-	const bool usb = card.path.compare(0, 5, "usb:/") == 0;
-	return card.name + (usb ? " (USB)" : " (SD)");
+	if (!riftwii::is_usb_path(card.path)) return card.name + " (SD)";
+	// "usb:" stays "USB" as before; "usb2:" reads "USB 2".
+	std::string number = riftwii::usb_path_device(card.path).substr(3);
+	number.pop_back();
+	return card.name + (number.empty() ? " (USB)" : " (USB " + number + ")");
 }
 
 // Copies the saves at `picks` (indices into finds.saves, ascending) to
@@ -8522,7 +9029,7 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 	if (finds.files.cards.empty()) return;
 	bool onSd = false, onUsb = false;
 	for (const riftwii::GcNintendontCard& card : finds.files.cards) {
-		if (card.path.compare(0, 5, "usb:/") == 0) onUsb = true;
+		if (riftwii::is_usb_path(card.path)) onUsb = true;
 		else onSd = true;
 	}
 	const std::string where = onSd && onUsb ? "sd:/saves, usb:/saves" : onUsb ? "usb:/saves" : "sd:/saves";
@@ -9265,7 +9772,7 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 		if (attempt > 0) return false;
 		if (!riftwii::wii::Settings().online) {
 			ShowPopup(tr("No game details yet"),
-				tr("They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."),
+				tr("They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it."),
 				tr("OK"));
 			return false;
 		}
@@ -9749,9 +10256,15 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		// Nintendo's servers closed in 2014: the server the launch would use.
 		const riftwii::GameSettings& game = state.model.game;
 		const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
-		std::string online = tr("Up to {1} players", {std::to_string(info.online_players)});
-		if (state.model.packs_patch_game()) online += " \xC2\xB7 " + std::string(tr("The mod's own"));
-		else if (server != "off" && !server.empty()) online += " \xC2\xB7 " + ServerName(server);
+		std::string online;
+		if (state.model.packs_patch_game())
+			online = tr("Left to the mod");
+		else if (server == "off" || server.empty())
+			online = tr("Off: no server chosen");
+		else
+			online = tr("Through {1}", {ServerName(server)});
+		if (state.model.packs_patch_game() || (server != "off" && !server.empty()))
+			online += " \xC2\xB7 " + tr("Up to {1} players", {std::to_string(info.online_players)});
 		facts.push_back({tr("Online"), online});
 	} else if (riftwii::game_has_no_online(state.game_id) || info.players > 0) {
 		facts.push_back({tr("Online"), tr("No online play")});
@@ -10144,7 +10657,7 @@ static void MenuCheats(FrontendState& state)
 				say(tr("Cheats are only applied when this is On."));
 			} else if (ref.act == Act::Download) {
 				say(riftwii::wii::Settings().online ? tr("Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.")
-						      : tr("Downloads are off in Settings."));
+						      : tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 			} else {
 				say(fileNote);
 			}
@@ -10159,7 +10672,7 @@ static void MenuCheats(FrontendState& state)
 				game.cheats = !game.cheats;
 				changed = true;
 			} else if (ref.act == Act::Download) {
-				if (!riftwii::wii::Settings().online) say(tr("Downloads are off in Settings."));
+				if (!riftwii::wii::Settings().online) say(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 				else fetch();
 			} else if (ref.act == Act::Values || (ref.act == Act::Cheat && file.cheats[ref.cheat].needs_values)) {
 				const riftwii::Cheat c = file.cheats[ref.cheat];
@@ -10377,12 +10890,15 @@ static bool MenuPickMusic(std::string& choice)
 	std::string folder;
 	const std::string current = riftwii::wii::Settings().music_file;
 	const bool usbReadable = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
-	if (!current.empty() && (current.compare(0, 4, "usb:") != 0 || usbReadable)) {
+	if (!current.empty() && (!riftwii::is_usb_path(current) || usbReadable)) {
 		std::string start = current;
 		if (riftwii::music_choice_is_folder(start)) start.pop_back();
 		folder = start.substr(0, start.rfind('/'));
 	}
-	const auto isDriveTop = [&]() { return folder == "sd:" || folder == "usb:"; };
+	const auto isDriveTop = [&]() {
+		if (folder == "sd:") return true;
+		return folder.find('/') == std::string::npos && riftwii::is_usb_path(folder + "/");
+	};
 	const auto listed = [&]() { return isDriveTop() ? folder + "/" : folder; };
 	const auto folderChoice = [&]() { return listed() + (isDriveTop() ? "" : "/"); };
 	enum class RowWhat { Up, Default, Drive, Shuffle, Folder, File };
@@ -10409,7 +10925,15 @@ static bool MenuPickMusic(std::string& choice)
 			add(RowWhat::Default, "", tr("RiftWii's own music"), tr("Pick"), current.empty());
 			add(RowWhat::Drive, "sd:", tr("SD card"), "", current.compare(0, 4, "sd:/") == 0);
 			const bool usbReady = riftwii::wii::DriveScanDone() && riftwii::wii::usb_volume_ready();
-			add(RowWhat::Drive, "usb:", tr("USB drive"), "", current.compare(0, 5, "usb:/") == 0, !usbReady);
+			if (usbReady) {
+				for (const std::string& root : riftwii::wii::usb_volume_roots()) {
+					const std::string device = riftwii::usb_path_device(root);
+					const std::string value = device == "usb:" ? "" : device;
+					add(RowWhat::Drive, device, tr("USB drive"), value, riftwii::usb_path_device(current) == device);
+				}
+			} else {
+				add(RowWhat::Drive, "usb:", tr("USB drive"), "", false, true);
+			}
 			return;
 		}
 		add(RowWhat::Up, "", tr("Up a folder"), "", false);
@@ -11111,11 +11635,14 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;
 			const RowRef& ref = refs[static_cast<std::size_t>(row)];
+			const riftwii::GameSettings& gameSettings = state.model.game;
 			// A dimmed row only says why it cannot change.
-			const bool fixedRow = static_cast<std::size_t>(row) < rows.size() && rows[static_cast<std::size_t>(row)].dim;
+			const bool fixedRow = static_cast<std::size_t>(row) < rows.size() &&
+				(rows[static_cast<std::size_t>(row)].dim || rows[static_cast<std::size_t>(row)].kind == FlowRow::Kind::Info);
+			prompts.SetShown(promptChange, ref.what != RowRef::What::Memory);
 			prompts.SetAction(promptChange, fixedRow ? tr("About this") : tr("Change"));
 			if (ref.what == RowRef::What::Width)
-				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+				say(WidthNote(gameSettings.video_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.video_width));
 			else if (ref.what == RowRef::What::Deflicker)
 				say(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
 			else if (ref.what == RowRef::What::Borders) {
@@ -11155,7 +11682,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcSharp)
 				say(tr("Turns off the soft blur some games add."));
 			else if (ref.what == RowRef::What::GcWidth)
-				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+				say(WidthNote(gameSettings.gc_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.gc_width));
 			else if (ref.what == RowRef::What::GcSpeed)
 				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
 			else if (ref.what == RowRef::What::GcLanguage)
@@ -11450,7 +11977,7 @@ static int MenuHome(FrontendState& state)
 	// Downloads need no part of the first frame. Check their files with
 	// drawing running, once the page (or the continuing Start banner) is up.
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
-	                  !g_coversOff && !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
+	                  !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
 	                  riftwii::wii::CoverWanted(state.game_id);
 	// A press on the Cover row asks again even after automatic downloads stopped.
 	bool coverAsked = false;
@@ -11501,7 +12028,7 @@ static int MenuHome(FrontendState& state)
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
 		bool startHandled = false;
 
-		if (coverStart && (coverAsked || (!g_coversOff && !riftwii::wii::NetFailed()))) {
+		if (coverStart && (coverAsked || (!CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()))) {
 			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
 				coverStart = false;
 		} else if (coverStart) {
@@ -11514,16 +12041,16 @@ static int MenuHome(FrontendState& state)
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(id);
 				if (id != state.game_id) {
 					// One Home started before this page opened.
-					if (CountCoverFetch(got, id, error)) g_coversOff = true;
+					if (CountCoverFetch(got, id, error)) CoverDownloadsOff(id) = true;
 				} else {
 					// Counted like Home's, unless the player asked for it: that
 					// one never turns the downloads off, its failure is only said
 					// to them (below).
 					const bool stop = !coverAsked && CountCoverFetch(got, id, error);
 					if (got == riftwii::wii::CoverFetch::Stored) {
-						g_coversOff = false;
+						CoverDownloadsOff(id) = false;
 					} else if (stop) {
-						g_coversOff = true;
+						CoverDownloadsOff(id) = true;
 					}
 					if (coverAsked) {
 						if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
@@ -12049,7 +12576,7 @@ static const skin::Tex* SectionIcon(SettingsSection s)
 }
 
 // ---------------------------------------------------------------------------
-// Settings > Theme > Get more themes: the themes of riftwii.github.io, each
+// Settings > Menu > Get more themes: the themes of riftwii.github.io, each
 // with a preview, to download into sd:/riftwii/themes (wii/menu/themestore.hpp
 // does the work on the network's background thread; this is the page).
 
@@ -12290,13 +12817,13 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 		const std::string name = FlatCapped(t.name, 30);
 		switch (themes::InstalledState(index)) {
 			case themes::Installed::Current:
-				return tr("{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.", {name});
+				return tr("{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it.", {name});
 			case themes::Installed::Update:
 				return tr("A newer copy of {1} is out. Press A to update it, or delete it.", {name});
 			case themes::Installed::Other:
 				return tr("A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.", {name});
 			default:
-				return tr("Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.", {name});
+				return tr("Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme.", {name});
 		}
 	};
 
@@ -12395,7 +12922,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 				shownRow = acted;  // the note above stays
 			} else if (action == 0) {
 				if (!riftwii::wii::Settings().online) {
-					say(tr("Downloads are off. Turn on Download names and cheats first."));
+					say(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 				} else {
 					bool cancelled = false;
 					std::string error;
@@ -12408,7 +12935,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 					rebuild(acted);
 					shownRow = acted;  // the note below stays
 					if (installed) {
-						say(tr("{1} is installed. Pick it in Settings > Theme to use it.", {name}));
+						say(tr("{1} is installed. Pick it in Settings > Menu > Theme to use it.", {name}));
 					} else if (cancelled) {
 						say(tr("Stopped. Nothing was changed."));
 					} else {
@@ -12442,7 +12969,7 @@ static bool MenuThemeBrowser(const std::string& activeTheme)
 // What the My RiiTag row says, and why it does nothing when it can't.
 static std::string RiiTagNote(const riftwii::LoaderSettings& settings)
 {
-	if (!settings.online) return tr("Downloads are off. Turn on Download names and cheats first.");
+	if (!settings.online) return tr("Downloads are off. Turn on Settings > Online > Downloads first.");
 	if (settings.riitag_id.empty())
 		return tr("Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).");
 	return tr("Shows your RiiTag, downloaded from riitag.t0g3pii.de.");
@@ -12584,7 +13111,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -12618,6 +13145,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			actions.push_back(kHeading);
 		};
 		heading(tr("Games"));
+		option(tr("Emulators"), tr("Open"), false, kEmulators, FlowRow::Kind::Action);
 		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
 		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
 		option(tr("Black borders"), BordersName(settings.borders), settings.borders != "keep", kBorders);
@@ -12634,7 +13162,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
 			FlowRow::Kind::Toggle);
-		option(tr("Back up saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
+		option(tr("Back up GameCube saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
 			kGcBackups, FlowRow::Kind::Toggle);
 		FlowRow nintendontSaves;
 		nintendontSaves.kind = FlowRow::Kind::Action;
@@ -12660,8 +13188,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), HomeTilesName(settings.home_tiles), settings.home_tiles != "names", kHomeTiles);
-		option(tr("Grid spacing"), settings.grid_spacing == "roomy" ? tr("Roomy") : tr("Normal"),
-			settings.grid_spacing == "roomy", kGridSpacing);
+		if (settings.home_tiles == "names" || settings.home_tiles == "channels") {
+			option(tr("Grid spacing"), settings.grid_spacing == "roomy" ? tr("Roomy") : tr("Normal"),
+				settings.grid_spacing == "roomy", kGridSpacing);
+		}
 		// Only the Channels view has channel corners and neighbouring pages to show.
 		if (settings.home_tiles == "channels") {
 			option(tr("Channel corners"), ChannelCornersName(settings.channel_corners), settings.channel_corners != "theme",
@@ -12758,8 +13288,15 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		rows.push_back(wads);
 		actions.push_back(kWads);
 		heading(tr("Online"));
-		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
+		option(tr("Downloads"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
+		option(tr("Covers for emulator games"), settings.emulator_covers ? tr("On") : tr("Off"),
+			settings.emulator_covers, kEmulatorCovers, FlowRow::Kind::Toggle);
+		const bool steamGridKey = riftwii::wii::SteamGridKeyFound();
+		option(tr("SteamGridDB covers"), steamGridKey
+			? (settings.steamgrid_covers ? tr("On (key found)") : tr("Off (key found)")) : tr("No API key"),
+			settings.steamgrid_covers, kSteamGridCovers, FlowRow::Kind::Toggle);
+		rows.back().dim = !steamGridKey || !settings.emulator_covers || !settings.online;
 		FlowRow names;
 		names.kind = FlowRow::Kind::Action;
 		names.label = tr("Get the latest game names");
@@ -12862,7 +13399,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
+				case kEmulators: case kGameLanguage: case kGameCios: case kNonGames: case kReturnTo: case kShots: case kGcBackups: case kNintendontSaves:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest: case kUsbInput:
 					return SettingsSection::Controllers;
@@ -12873,7 +13410,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
+				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
@@ -12932,7 +13469,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Change"));
+	const int promptChange = prompts.Add("A", tr("Change"));
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -12952,8 +13489,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	// keeps the page's own note until the focus moves).
 	const auto help = [&](RowAction action) -> std::string {
 		switch (action) {
+			case kEmulators: return tr("Changes the defaults for installed emulators. Find their games on Home > View > Emulators.");
 			case kLanguage: return tr("The menu's language. Wii follows the console's own setting.");
-			case kWidth: return tr("How wide the picture is drawn. 720 fills the screen from side to side.");
+			case kWidth: return WidthNote(settings.video_width);
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
 			case kBorders: return tr(kBordersNote);
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
@@ -12971,7 +13509,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colors and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kThemeBrowse: return settings.online ? tr("Themes made by the community, from riftwii.github.io, each with a preview. They are put in sd:/riftwii/themes.")
-				: tr("Downloads are off. Turn on Download names and cheats first.");
+				: tr("Downloads are off. Turn on Settings > Online > Downloads first.");
 			case kNoClock: return tr("Turns off the clock on Home.");
 			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
@@ -12991,8 +13529,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
-				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
-					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
+				return tr("Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.");
+			case kEmulatorCovers: return tr("Downloads emulator covers from libretro. Off uses your own PNG covers only.");
+			case kSteamGridCovers: return tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kNetTest: return tr("Checks if network is online.");
 			case kRiiTag: return RiiTagNote(settings);
@@ -13015,7 +13554,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kResetAll: return tr("Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
-				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+				return netOn ? tr("Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now.")
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
@@ -13037,6 +13576,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		}
 	};
 	int shownRow = -1;
+	std::string shownVerb;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -13050,9 +13590,28 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		ClearStaleButtons({&backBtn.button});
 		if (prompts.GetClicked() == promptBack) backBtn.PressSilently();
 		const int focused = list.Selected();
-		if (focused != shownRow && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
-			shownRow = focused;
-			noteTxt.SetText(help(actions[static_cast<std::size_t>(focused)]).c_str());
+		if (focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
+			const FlowRow& row = rows[static_cast<std::size_t>(focused)];
+			std::string verb = tr("Change");
+			if (row.dim || row.kind == FlowRow::Kind::Info)
+				verb = tr("About this");
+			else if (row.kind == FlowRow::Kind::Action) {
+				const RowAction action = actions[static_cast<std::size_t>(focused)];
+				if (action == kMusicFile || action == kWads || action == kWiiChannel)
+					verb = tr("Open");
+				else
+					verb = tr(row.value.c_str());
+			}
+			// Refresh the verb after rebuilding rows without replacing a save error.
+			if (verb != shownVerb) {
+				prompts.SetAction(promptChange, verb);
+				shownVerb = verb;
+			}
+			prompts.SetShown(promptChange, row.kind != FlowRow::Kind::Info);
+			if (focused != shownRow) {
+				shownRow = focused;
+				noteTxt.SetText(help(actions[static_cast<std::size_t>(focused)]).c_str());
+			}
 		}
 		int acted = list.GetClicked();
 		int direction = +1;
@@ -13092,6 +13651,17 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return saved;
 			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
+				case kEmulators:
+					WaitForDriveScan(noteTxt);
+					// Home still has to collect the finished scan's new catalog.
+					if (g_scanning) {
+						note(tr("Go back to Home and open this again once your games are shown."));
+						break;
+					}
+					mainWindow->Remove(&w);
+					EmulatorDefaultsPage(state.emulators);
+					mainWindow->Append(&w);
+					break;
 				case kLanguage: {
 					// The scan names the games in the menu's language.
 					WaitForDriveScan(noteTxt);
@@ -13113,7 +13683,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kWidth:
 					settings.video_width = StepValue(kWidths, settings.video_width, direction, false);
-					saveAndNote(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+					saveAndNote(WidthNote(settings.video_width));
 					rebuild();
 					break;
 				case kDeflicker:
@@ -13380,7 +13950,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kThemeBrowse: {
 					if (!settings.online) {
-						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 						break;
 					}
 					// The scan reads the card and the network the page uses.
@@ -13480,13 +14050,30 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					// The scan reads it (the game names' download).
 					WaitForDriveScan(noteTxt);
 					settings.online = !settings.online;
-					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
-						: tr("Nothing is downloaded. Names and cheats already on the card are still used."));
+					saveAndNote(help(kOnline));
+					rebuild();
+					break;
+				case kEmulatorCovers:
+					settings.emulator_covers = !settings.emulator_covers;
+					ResetCoverDownloads();
+					riftwii::wii::ForgetAllCovers();
+					saveAndNote(tr("Downloads emulator covers from libretro. Off uses your own PNG covers only."));
+					rebuild();
+					break;
+				case kSteamGridCovers:
+					if (!settings.online || !settings.emulator_covers) break;
+					if (!riftwii::wii::SteamGridKeyFound()) {
+						note(tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."));
+						break;
+					}
+					settings.steamgrid_covers = !settings.steamgrid_covers;
+					ResetCoverDownloads();
+					saveAndNote(tr("Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt."));
 					rebuild();
 					break;
 				case kNames: {
 					if (!settings.online) {
-						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 						break;
 					}
 					WaitForDriveScan(noteTxt);
@@ -13507,7 +14094,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				}
 				case kMissingCovers:
 					if (!settings.online) {
-						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 						break;
 					}
 					g_retryMissingCovers = true;
@@ -13643,7 +14230,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					netOn = !netOn;
 					riftwii::wii::SetNetworkPacksEnabled(netOn);
 					noteTxt.SetText(netOn
-						? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+						? tr("Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now.")
 						: "Only servers named by <network> in an XML on the card are used.");
 					build();
 					list.Refresh();
@@ -13694,7 +14281,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				case kUpdate: {
 					if (!settings.online) {
-						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						note(tr("Downloads are off. Turn on Settings > Online > Downloads first."));
 						break;
 					}
 					WaitForDriveScan(noteTxt);

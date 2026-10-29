@@ -12,18 +12,21 @@
 #include <zlib.h>
 
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <map>
 #include <set>
 #include <vector>
 
 #include "fullfont.hpp"
+#include "emulatorcovers.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/emulatorart.hpp"
 #include "riftwii/pngdecode.hpp"
 #include "skin.hpp"
 
@@ -45,6 +48,7 @@ std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/
 // A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
 // Snes9x GX, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
+    if (emulator_cover_id(id)) return true;
     if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
@@ -233,7 +237,16 @@ void* LoaderMain(void*) {
         LWP_MutexUnlock(g_lock);
 
         bool ok = false;
-        if (FILE* f = std::fopen(CoverPath(id).c_str(), "rb")) {
+        if (emulator_cover_id(id)) {
+            std::vector<std::uint8_t> local;
+            if (ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize) {
+                std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
+                ok = true;
+            }
+        }
+        const bool cache_allowed = !emulator_cover_id(id) || EmulatorDownloadedCoversAllowed();
+        FILE* f = ok || !cache_allowed ? nullptr : std::fopen(CoverPath(id).c_str(), "rb");
+        if (f) {
             std::uint8_t header[kCoverHeaderSize];
             ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
                  std::fread(slot->data, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
@@ -314,10 +327,12 @@ void Ask(const std::string& game_id, int rank) {
 }  // namespace
 
 void ForgetCoverMiss(const std::string& game_id) {
+    if (emulator_cover_id(game_id)) ForgetEmulatorCoverMiss(game_id);
     if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());
 }
 
 bool CoverWanted(const std::string& game_id) {
+    if (emulator_cover_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
     struct stat st;
     if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
@@ -344,6 +359,7 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error) {
 
 namespace {
 CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
+    if (emulator_cover_id(game_id)) return FetchEmulatorCover(game_id, error);
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
@@ -398,7 +414,7 @@ bool StartCoverFetch(const std::string& game_id) {
     if (!g_background.id.empty() || NetBackgroundBusy()) return false;
     g_background = Background{};
     g_background.id = game_id;
-    if (NetRunInBackground(RunBackgroundFetch)) return true;
+    if (NetRunInBackground(RunBackgroundFetch, false, false)) return true;
     g_background.id.clear();
     return false;
 }

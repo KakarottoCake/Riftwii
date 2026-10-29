@@ -24,6 +24,8 @@ struct HomebrewApp {
     // name, for its cover; empty when GameTDB's list has no such app or
     // is not on the card.
     std::string gametdb_id;
+    // Only the emulator argument builder fills this checked HBC line.
+    std::string emulator_name, emulator_game, emulator_command_line;
 };
 
 const std::vector<HomebrewApp>& HomebrewApps();

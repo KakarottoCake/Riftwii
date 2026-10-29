@@ -21,6 +21,8 @@ unsigned closed = 0;
 int failures = 0;
 s32 init_result = 0;
 unsigned init_calls = 0;
+std::string cleanup_calls;
+unsigned launch_log_calls = 0;
 bool cancel_during_init = false;
 lwp_t current_thread = 1;
 void* (*pending_job)(void*) = nullptr;
@@ -63,6 +65,33 @@ void test_cancelled_retry() {
     }
     NetStop();
 }
+
+void test_launch_cleanup() {
+    using namespace riftwii::wii;
+    // IOS's socket service can survive even a start that failed to get
+    // an address. Both outcomes must be cleaned before keeping this IOS.
+    for (s32 result : {0, -EIO}) {
+        NetStop();
+        init_result = result;
+        std::string error;
+        expect(NetStart(error, true) == (result == 0), "Unexpected network start result");
+        cleanup_calls.clear();
+        launch_log_calls = 0;
+
+        NetStopForLaunch();
+        expect(cleanup_calls == "handle;service;", "Launch did not close the handle and then clean IOS sockets");
+        expect(launch_log_calls == 1, "Launch did not log that the network was closed");
+        NetStop();
+        expect(cleanup_calls == "handle;service;", "Repeated stop cleaned IOS sockets twice");
+
+        // A failed launch may return to the menu and start networking again.
+        init_result = 0;
+        init_calls = 0;
+        expect(NetStart(error, true), "Network could not start again after launch cleanup");
+        expect(init_calls == 1, "Launch cleanup left the network marked as running");
+        NetStop();
+    }
+}
 }  // namespace
 
 s32 net_init() {
@@ -73,6 +102,10 @@ s32 net_init() {
     }
     return init_result;
 }
+
+void net_deinit() { cleanup_calls += "handle;"; }
+
+void net_wc24cleanup() { cleanup_calls += "service;"; }
 
 lwp_t LWP_GetSelf() { return current_thread; }
 
@@ -121,11 +154,14 @@ s32 net_recvfrom(s32, void* data, s32, int, sockaddr* address, socklen_t*) {
 }
 
 namespace riftwii::wii {
-void logf(const char*, ...) {}
+void logf(const char* format, ...) {
+    if (std::strcmp(format, "Network: closed before the launch\n") == 0) ++launch_log_calls;
+}
 }  // namespace riftwii::wii
 
 int main() {
     test_cancelled_retry();
+    test_launch_cleanup();
     for (Reply scenario : {Reply::Quiet, Reply::Valid, Reply::InvalidPort, Reply::Short}) {
         reply = scenario;
         netsock_test_time = 0;

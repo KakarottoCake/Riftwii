@@ -4,6 +4,7 @@
 
 #include <ogc/lwp.h>
 #include <ogc/mutex.h>
+#include <unistd.h>
 
 #include <utility>
 
@@ -11,6 +12,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "netpacks.hpp"
+#include "netsock.hpp"
 #include "sharednandfind.hpp"
 
 namespace riftwii::wii {
@@ -27,6 +29,9 @@ std::string g_status;
 DriveScanPart g_sd, g_usb;
 bool g_sdReady = false, g_usbReady = false;  // done and not taken yet
 bool g_done = true;
+// Only the menu thread requests and starts scans. Readers on other threads
+// use g_done under the lock, which is false while a request waits too.
+bool g_pending = false;
 
 struct Lock {
     Lock() { LWP_MutexLock(g_lock); }
@@ -63,6 +68,9 @@ void ReadSdCard(DriveScanPart& part) {
 void ReadUsbDrive(DriveScanPart& part) {
     SetStatus("Reading the USB drive... (a big drive takes a moment)");
     part.ok = scan_usb_games(part.catalog, part.error);
+    // Both drives are now available, including ROM folders on the other
+    // drive from the emulator. Publish this only with the final scan part.
+    ScanEmulators(part.emulators);
     mem::CheckHeap("after the USB scan");
     // After the USB scan: packs on the drive count too.
     part.packs = ReadPackIndex(part.package_catalog);
@@ -95,7 +103,7 @@ void* ScanMain(void*) {
 
 }  // namespace
 
-void StartDriveScan() {
+void RequestDriveScan() {
     WaitDriveScan();
     if (g_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_lock, false);
     {
@@ -105,6 +113,17 @@ void StartDriveScan() {
         g_done = false;
         g_status = "Reading the SD card...";
     }
+    g_pending = true;
+    if (NetBackgroundBusy())
+        logf("Home: waiting for a background download to finish before reading the drives again\n");
+}
+
+void StartDriveScan() {
+    if (!g_pending || NetBackgroundBusy()) return;
+    // An emulator cover job may read either drive. Join only once it has
+    // finished, before the scan can reset the volumes; Home keeps running.
+    NetWaitForBackground();
+    g_pending = false;
     logf("Home: looking for games on the SD card, then the USB drive, while the menu runs\n");
     // Below the GUI thread (70) and the menu's, as the cover loader is: the
     // scan mostly waits on the drives, and the menu answers meanwhile.
@@ -154,6 +173,12 @@ bool DriveScanFinished() {
 }
 
 void WaitDriveScan() {
+    // Settings or a menu exit may take over before Home starts the worker.
+    // A pending request must finish too, before the caller uses the drives.
+    while (g_pending) {
+        StartDriveScan();
+        if (g_pending) usleep(50000);
+    }
     if (g_thread == LWP_THREAD_NULL) return;
     LWP_JoinThread(g_thread, nullptr);
     g_thread = LWP_THREAD_NULL;

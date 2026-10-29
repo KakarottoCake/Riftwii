@@ -148,7 +148,8 @@ contains theirs names them in its file header, and
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library;
   libogc also documents the physical GameCube card read protocol, SRAM behavior
-  and MEM1-only EXI DMA, and SD card initialization when IOS cannot do it.
+  and MEM1-only EXI DMA, SD card initialization when IOS cannot do it,
+  and network cleanup before a launch.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
   **libruntimeiospatch**: how the Wii, IOS and the patch format behave
   (read as documentation); Dolphin also for how the Wii Remote extension's
@@ -162,6 +163,9 @@ contains theirs names them in its file header, and
   documentation; no code copied.
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **libogg**, **Tremor**, **libmad**.
+- **libretro-thumbnails** and its contributors (including MobyGames and Fandom)
+  for emulator covers, and **SteamGridDB** and its contributors for optional
+  fallback covers. Original game artwork belongs to its developers and publishers.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**

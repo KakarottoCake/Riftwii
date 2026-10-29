@@ -63,6 +63,8 @@ static void test_names_and_slugs() {
 
     EXPECT_TRUE(valid_profile_art("sd:/riivolution/RetroRewind.png"));
     EXPECT_TRUE(valid_profile_art("usb:/riivolution/Deluxe.PNG"));
+    EXPECT_TRUE(valid_profile_art("usb2:/riivolution/Deluxe.PNG"));
+    EXPECT_TRUE(!valid_profile_art("usb02:/riivolution/Deluxe.PNG"));
     EXPECT_TRUE(!valid_profile_art("sd:/riivolution/../x.png"));
     EXPECT_TRUE(!valid_profile_art("http://example.com/x.png"));
     EXPECT_TRUE(!valid_profile_art("sd:/riivolution/x.jpg"));

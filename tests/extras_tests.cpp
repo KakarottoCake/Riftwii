@@ -1935,6 +1935,10 @@ void TestHeadlessArguments() {
                                       h, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "gct=sd:/codes/RMCE01.gct", "return_to=0001000147584c44"}, h,
                                       error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb2:/wbfs/RMCE01.wbfs", "xml=usb1:/riivolution/a.xml"}, h, error));
+    EXPECT_EQ(h.from, std::string("usb"));
+    EXPECT_EQ(h.path, std::string("usb2:/wbfs/RMCE01.wbfs"));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=usb02:/wbfs/RMCE01.wbfs"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
@@ -2580,6 +2584,15 @@ void TestHistory() {
     back.parse(h.serialize());
     EXPECT_EQ(back.size(), 3u);
     EXPECT_EQ(back.find("R2SE18")->last, 1790000800);
+    // An emulator game's key is kept; a malformed one is not.
+    const std::string emu = "emu-" + std::string(64, 'a');
+    back.record(emu, 1790003000);
+    back.record("emu-" + std::string(64, 'G'), 1790003000);
+    back.record("emu-abc", 1790003000);
+    PlayHistory again;
+    again.parse(back.serialize());
+    EXPECT_EQ(again.size(), 4u);
+    EXPECT_TRUE(again.find(emu) != nullptr && again.recent(1)[0] == emu);
 }
 
 }  // namespace

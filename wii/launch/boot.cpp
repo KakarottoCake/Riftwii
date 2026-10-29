@@ -3126,11 +3126,9 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe, options.banner_names);
-    // A background network job (the start's update check) ends first; the
-    // theme download is stopped rather than waited for (the next start
-    // fetches it again).
-    NetCancelBackground();
-    NetWaitForBackground();
+    // RiiFS files have been copied to the card by the compile. Even when
+    // this launch keeps IOS, the game must start its own network connection.
+    NetStopForLaunch();
     BootOptions& effective = options;  // the caller's, moved in: no second copy
     const int running_ios = IOS_GetVersion();
     // A pack whose main.dol is another program, not the game: the CTGP-R
@@ -3380,6 +3378,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 }
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
+    NetStopForLaunch();
     const DolHeader& dol = files.program.dol;
     // Every section goes below this loader, in MEM1: it is copied while
     // RiftWii still runs from 0x80A00000 up, its heap above that. Nothing

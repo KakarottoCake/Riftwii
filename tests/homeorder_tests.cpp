@@ -40,12 +40,20 @@ static void TestProfileKeys() {
 }
 
 static void TestKeys() {
+    const Keys partitions{"usb:RMCE01", "usb2:RMCE01", "usb1:RMCE01@mods/2"};
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order(partitions)), partitions);
+    EXPECT_TRUE(riftwii::parse_home_order("usb02:RMCE01\nusb129:RMCE01\n").empty());
     EXPECT_EQ(riftwii::home_order_key("usb", "RMCE01", 0), "usb:RMCE01");
     EXPECT_EQ(riftwii::home_order_key("sd", "SMNE01", 0), "sd:SMNE01");
     // The second disc of a two-disc game is a game of its own.
     EXPECT_EQ(riftwii::home_order_key("usb", "R8PE01", 1), "usb:R8PE01/2");
     // A WiiWare or Virtual Console channel on the Wii.
     EXPECT_EQ(riftwii::home_order_key("wii", "WBME01", 0), "wii:WBME01");
+    const std::string emulator = "emu-" + std::string(64, 'a');
+    EXPECT_EQ(riftwii::parse_home_order(emulator + "\n"), Keys{emulator});
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order({emulator})), Keys{emulator});
+    EXPECT_TRUE(riftwii::parse_home_order("emu-" + std::string(63, 'a')).empty());
+    EXPECT_TRUE(riftwii::parse_home_order("emu-" + std::string(64, 'g')).empty());
 }
 
 static void TestParse() {
