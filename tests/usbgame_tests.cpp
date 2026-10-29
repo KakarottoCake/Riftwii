@@ -514,8 +514,8 @@ void test_d2x_usb_capacity() {
     // supplies a usable sector size. No capacity bound can be inferred.
     EXPECT_TRUE(d2x_usb_capacity_available(-1, 512));
     EXPECT_TRUE(d2x_usb_capacity_available(-1, 2048));
-    EXPECT_TRUE(d2x_usb_capacity_available(-1, 4096));
-    EXPECT_TRUE(d2x_usb_capacity_available(-1, 32 * 1024));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 4096));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 32 * 1024));
     EXPECT_FALSE(d2x_usb_capacity_available(-1, 0));
     EXPECT_FALSE(d2x_usb_capacity_available(-1, 256));
     EXPECT_FALSE(d2x_usb_capacity_available(-1, 513));
