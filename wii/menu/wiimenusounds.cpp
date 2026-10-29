@@ -18,19 +18,18 @@
 #include <string>
 #include <vector>
 
-#include "boot.hpp"
 #include "filelist.h"
 #include "libwiigui/gui.h"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
-#include "nanduse.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/nandchannel.hpp"
 #include "riftwii/sysfont.hpp"
 #include "riftwii/wiisound.hpp"
 #include "skin.hpp"
 #include "themesounds.hpp"
+#include "wiimenucontent.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -70,60 +69,10 @@ std::atomic<bool> g_failed{false};
 std::atomic<int> g_volume{110};
 alignas(32) u8 g_music_stack[32768];
 
-using NandBuffer = std::unique_ptr<u8, decltype(&std::free)>;
-
-// Only the NAND reader temporarily opens IOS's permission check, and closes
-// it on every exit. No title contents or decoded sounds are cached on disk.
-NandBuffer ReadNand(const std::string& path, std::size_t limit, std::size_t& size, std::string& why) {
-    s32 fd = ISFS_Open(path.c_str(), ISFS_OPEN_READ);
-    struct Permission {
-        bool opened = false;
-        ~Permission() {
-            if (opened) close_nand_permissions("Wii Menu sounds");
-        }
-    } permission;
-    if (fd == -102 && open_nand_permissions("Wii Menu sounds")) {
-        permission.opened = true;
-        fd = ISFS_Open(path.c_str(), ISFS_OPEN_READ);
-    }
-    NandBuffer result(nullptr, &std::free);
-    if (fd < 0) {
-        why = path + " could not be opened (" + std::to_string(fd) + ")";
-        return result;
-    }
-    fstats stats ATTRIBUTE_ALIGN(32) = {};
-    if (ISFS_GetFileStats(fd, &stats) < 0 || stats.file_length == 0 || stats.file_length > limit) {
-        ISFS_Close(fd);
-        why = path + " is empty, unreadable or exceeds the sound budget";
-        return result;
-    }
-    size = stats.file_length;
-    result.reset(static_cast<u8*>(memalign(32, (size + 31) & ~std::size_t(31))));
-    const s32 got = result ? ISFS_Read(fd, result.get(), size) : -1;
-    ISFS_Close(fd);
-    if (got != static_cast<s32>(size)) {
-        result.reset();
-        why = path + " could not be read into memory";
-    }
-    return result;
-}
-
 bool ReadArchive(std::string& why) {
-    if (NandOpen() < 0) {
-        why = "the NAND could not be opened";
-        return false;
-    }
-    struct CloseNand { ~CloseNand() { NandClose(); } } close_nand;
-    std::size_t size = 0;
-    NandBuffer tmd_bytes = ReadNand("/title/00000001/00000002/content/title.tmd", 64 * 1024, size, why);
-    TmdContents tmd;
-    if (!tmd_bytes || !parse_tmd_contents(tmd_bytes.get(), size, tmd, why)) return false;
-    if (tmd.title_id != 0x0000000100000002ull || tmd.contents.size() > 64) {
-        why = "the System Menu title metadata is invalid";
-        return false;
-    }
-    std::size_t map_size = 0;
-    NandBuffer map(nullptr, &std::free);
+    WiiMenuContentReader reader("Wii Menu sounds");
+    if (!reader.Open(why)) return false;
+    const TmdContents& tmd = reader.Metadata();
     std::size_t examined = 0;
     for (const TmdContent& content : tmd.contents) {
         if (content.index == tmd.boot_index || content.size < 32 || content.size > kMaxContent) continue;
@@ -131,16 +80,9 @@ bool ReadArchive(std::string& why) {
             why = "the System Menu has too many resource contents";
             return false;
         }
-        std::string path = nand_content_path(tmd.title_id, content.id);
-        if (content.type & 0x8000) {
-            if (!map) map = ReadNand("/shared1/content.map", 1024 * 1024, map_size, why);
-            if (!map) continue;
-            const std::string name = shared_content_name(map.get(), map_size, content.sha1.data());
-            if (name.empty()) continue;
-            path = "/shared1/" + name + ".app";
-        }
-        NandBuffer bytes = ReadNand(path, kMaxContent, size, why);
-        if (!bytes) continue;
+        const std::size_t size = static_cast<std::size_t>(content.size);
+        MenuContentBuffer bytes = AllocateMenuContentBuffer(size, why);
+        if (!bytes || !reader.Read(content, bytes.get(), kMaxContent, why)) continue;
         std::vector<SoundResource> files;
         if (!list_sound_u8({bytes.get(), size}, files, why)) continue;
         for (const SoundResource& file : files) {
@@ -164,7 +106,8 @@ bool ReadArchive(std::string& why) {
                 return false;
             }
             g_resident_bytes += (file.bytes.size + 31) & ~std::size_t(31);
-            logf("Wii Menu sounds: read %s/%s (%u bytes) into memory only\n", path.c_str(), file.name.c_str(),
+            logf("Wii Menu sounds: read content index %u/%s (%u bytes) through ES into memory only\n",
+                 static_cast<unsigned>(content.index), file.name.c_str(),
                  static_cast<unsigned>(file.bytes.size));
             return true;
         }
