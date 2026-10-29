@@ -4945,8 +4945,20 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 	} else {
 		return;
 	}
-	if (changed) ForgetCover(game.key);
-	else ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+	if (changed) {
+		ForgetCover(game.key);
+		// The Channels picture has keys of its own (4:3 and 16:9). Forget
+		// them and let Home check them again, so after Back to automatic the
+		// automatic picture is fetched rather than the cover standing in.
+		for (bool wide : {false, true}) {
+			const std::string banner = riftwii::emulator_banner_key(game.key, wide);
+			if (banner.empty()) continue;
+			g_coversChecked.erase(banner);
+			ForgetCover(banner);
+		}
+	} else {
+		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+	}
 }
 
 static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
