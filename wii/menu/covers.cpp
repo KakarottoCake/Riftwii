@@ -375,8 +375,8 @@ bool CoverWanted(const std::string& game_id) {
     if (OwnCoverThere(game_id)) {
         const auto known = g_ownReads.find(game_id);
         if (known == g_ownReads.end()) {
-            std::vector<std::uint8_t> own;
-            g_ownReads[game_id] = ReadOwnCover(game_id, own);
+            // Its first bytes only: a whole decode here would hold Home up.
+            g_ownReads[game_id] = OwnCoverLooksReadable(game_id);
         }
         if (g_ownReads[game_id]) return false;
     }
