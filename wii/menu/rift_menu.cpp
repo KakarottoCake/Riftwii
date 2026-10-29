@@ -6324,9 +6324,11 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::SpendPadHomePresses();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
-		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed()) {
-			// (Over a cover up close the pair is taken and dropped: it never
-			// changes the view behind the zoom.)
+		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed() && !grid.Carrying()) {
+			// (Over a cover up close, or while a tile is carried, the pair is
+			// taken and dropped: it never changes the view behind the zoom,
+			// and Home built again would lose the move, as the Layout button
+			// waits too.)
 			if (ChangeHomeLayout(NextHomeTiles(riftwii::wii::Settings().home_tiles),
 				"1 and 2", grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
