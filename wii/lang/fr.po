@@ -3420,17 +3420,20 @@ msgstr "Utiliser les réglages par défaut pour ce jeu"
 msgid "Use default options for this game?"
 msgstr "Utiliser les réglages par défaut pour ce jeu ?"
 
-msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are."
-msgstr "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, astuces, mods et l’étoile favori restent comme ils sont."
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont."
 
-msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay."
-msgstr "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, astuces, mods et l’étoile favori restent."
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent."
 
 msgid "Needed: {1}"
 msgstr "Nécessaire : {1}"
 
 msgid "Also works with: {1}"
 msgstr "Fonctionne aussi avec : {1}"
+
+msgid "Up and Down scroll"
+msgstr "Haut et Bas font défiler le texte"
 
 msgid "Up and Down scroll the story"
 msgstr "Haut et Bas font défiler l’histoire"

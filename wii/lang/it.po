@@ -3420,17 +3420,20 @@ msgstr "Usa le opzioni predefinite per questo gioco"
 msgid "Use default options for this game?"
 msgstr "Usa le opzioni predefinite per questo gioco?"
 
-msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are."
-msgstr "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano invariati."
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano invariati."
 
-msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay."
-msgstr "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano."
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano."
 
 msgid "Needed: {1}"
 msgstr "Necessario: {1}"
 
 msgid "Also works with: {1}"
 msgstr "Funziona anche con: {1}"
+
+msgid "Up and Down scroll"
+msgstr "Su e Giù scorrono il testo"
 
 msgid "Up and Down scroll the story"
 msgstr "Su e Giù scorrono la storia"
