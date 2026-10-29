@@ -1893,7 +1893,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         logf("%s\n", out.status.c_str());
         if (!running_in_dolphin()) {
             const std::vector<CiosSlotState> slots = readiness_slots(false);
-            out.cios_note = cios_readiness_note(slots.data(), slots.size());
+            out.cios = cios_readiness(slots.data(), slots.size());
         }
         error.clear();
         return true;
@@ -1933,8 +1933,9 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
             if (!game.gamecube && game.format != UsbImageFormat::Rvz) every_game_reads_sd = false;
         }
         const std::vector<CiosSlotState> slots = readiness_slots(every_game_reads_sd);
-        out.cios_note = cios_readiness_note(slots.data(), slots.size());
-        if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
+        out.cios = cios_readiness(slots.data(), slots.size());
+        if (out.cios == CiosReadiness::Missing)
+            logf("USB games cannot start because no candidate cIOS slot is installed. Install d2x cIOS using the setup guide.\n");
     }
     error.clear(); return true;
 }
@@ -1983,8 +1984,9 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     if (!running_in_dolphin()) {
         logf("SD: checking cIOS slots\n");
         const std::vector<CiosSlotState> slots = readiness_slots(true);
-        out.cios_note = cios_readiness_note(slots.data(), slots.size());
-        if (!out.cios_note.empty()) logf("SD: %s\n", out.cios_note.c_str());
+        out.cios = cios_readiness(slots.data(), slots.size());
+        if (out.cios == CiosReadiness::Missing)
+            logf("SD games cannot start because no candidate cIOS slot is installed. Install d2x cIOS using the setup guide.\n");
     }
     error.clear(); return true;
 }

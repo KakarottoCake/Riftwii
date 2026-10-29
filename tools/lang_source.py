@@ -1574,7 +1574,7 @@ T = {
     "This game's memory card is made the first time the game starts: {1}.": ("La tarjeta de memoria de este juego se crea la primera vez que se inicia: {1}.", "このゲームのメモリーカードは、ゲームを初めて始めたときに作られます: {1}。", "O cartão de memória deste jogo é criado na primeira vez que o jogo inicia: {1}.", "La Memory Card di questo gioco viene creata al primo avvio del gioco: {1}."),
     "This save is damaged: its blocks do not add up. It can only be deleted.": ("Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar.", "このセーブは壊れています: ブロックが合いません。削除しかできません。", "Este save está danificado: os blocos não batem. Só pode ser apagado.", "Questo salvataggio è danneggiato: i blocchi non tornano. Si può solo eliminare."),
     "It is {1}.": ("Es {1}.", "{1}です。", "É {1}.", "È {1}."),
-    "RiftWii cannot read {1}: {2}": ("RiftWii no puede leer {1}: {2}", "RiftWiiは{1}を読めません: {2}", "O RiftWii não consegue ler {1}: {2}", "RiftWii non riesce a leggere {1}: {2}"),
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.": ("RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube.", "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。", "O RiftWii não consegue ler {1}: está danificado ou não é um cartão de memória de GameCube.", "RiftWii non riesce a leggere {1}: è danneggiata o non è una memory card GameCube."),
     "RiftWii could not read {1}.": ("RiftWii no pudo leer {1}.", "RiftWiiは{1}を読めませんでした。", "O RiftWii não conseguiu ler {1}.", "RiftWii non è riuscito a leggere {1}."),
     "RiftWii could not write {1}.": ("RiftWii no pudo escribir {1}.", "RiftWiiは{1}を書き込めませんでした。", "O RiftWii não conseguiu escrever {1}.", "RiftWii non è riuscito a scrivere {1}."),
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
@@ -3526,8 +3526,8 @@ KO = {
         "이 저장 데이터는 손상되었습니다: 블록이 맞지 않습니다. 삭제만 할 수 있습니다.",
     "It is {1}.":
         "{1}입니다.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii가 {1}을(를) 읽을 수 없습니다: {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii가 {1}을(를) 읽을 수 없습니다. 손상되었거나 게임큐브 메모리 카드가 아닙니다.",
     "RiftWii could not read {1}.":
         "RiftWii가 {1}을(를) 읽지 못했습니다.",
     "RiftWii could not write {1}.":
@@ -5530,8 +5530,8 @@ FR = {
         "Cette sauvegarde est endommagée : ses blocs ne correspondent pas. Elle ne peut qu'être supprimée.",
     "It is {1}.":
         "C'est {1}.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii ne peut pas lire {1} : {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii ne peut pas lire {1} : elle est endommagée ou ce n'est pas une carte mémoire GameCube.",
     "RiftWii could not read {1}.":
         "RiftWii n'a pas pu lire {1}.",
     "RiftWii could not write {1}.":
@@ -7017,6 +7017,106 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Clear errors for memory cards, mod preparation and missing d2x.
+T.update({
+    "Memory card could not be read": (
+        "No se pudo leer la tarjeta de memoria",
+        "メモリーカードを読み込めません",
+        "Não foi possível ler o cartão de memória",
+        "Impossibile leggere la scheda di memoria"),
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O RiftWii não conseguiu ler {1}. O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "RiftWii non ha potuto leggere {1}. Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "Games cannot start": (
+        "Los juegos no pueden arrancar",
+        "ゲームを起動できません",
+        "Os jogos não podem iniciar",
+        "Impossibile avviare i giochi"),
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos USB precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi USB richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi SD richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "Mods could not be prepared": (
+        "No se pudieron preparar los mods",
+        "MODを準備できませんでした",
+        "Não foi possível preparar os mods",
+        "Impossibile preparare le mod"),
+    "{1} needs its mod folder to be {2}.": (
+        "{1} necesita que su carpeta de mod sea {2}.",
+        "{1}のMODフォルダーは{2}そのものである必要があります。",
+        "{1} precisa que a pasta do mod seja {2}.",
+        "{1} richiede che la cartella della mod sia {2}."),
+    "Required file: {1}": (
+        "Archivo necesario: {1}",
+        "必要なファイル: {1}",
+        "Arquivo necessário: {1}",
+        "File richiesto: {1}"),
+    "{1} is one folder too deep. Move its contents into {2}.": (
+        "{1} está una carpeta demasiado adentro. Mueve su contenido a {2}.",
+        "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。",
+        "{1} está uma pasta abaixo do esperado. Mova o conteúdo dela para {2}.",
+        "{1} è una cartella di troppo. Sposta il suo contenuto in {2}."),
+    "Rename {1} to exactly {2}.": (
+        "Renombra {1} exactamente como {2}.",
+        "{1}の名前を正確に{2}に変更してください。",
+        "Renomeie {1} para exatamente {2}.",
+        "Rinomina {1} esattamente in {2}."),
+    "Move {1} to {2}.": (
+        "Mueve {1} a {2}.",
+        "{1}を{2}に移動してください。",
+        "Mova {1} para {2}.",
+        "Sposta {1} in {2}."),
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": (
+        "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}.",
+        "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。",
+        "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}.",
+        "Copia la cartella {1} dal download della mod in modo che sia proprio {2}."),
+})
+KO.update({
+    "Memory card could not be read": "메모리 카드를 읽을 수 없습니다",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii가 {1}을 읽지 못했습니다. 파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "Games cannot start": "게임을 시작할 수 없습니다",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "USB 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "SD 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "Mods could not be prepared": "모드를 준비하지 못했습니다",
+    "{1} needs its mod folder to be {2}.": "{1}의 모드 폴더는 {2} 그 자체여야 합니다.",
+    "Required file: {1}": "필요한 파일: {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} 폴더가 한 단계 더 깊습니다. {1}의 내용을 {2}로 옮기세요.",
+    "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
+    "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "다운로드한 모드의 {1} 폴더가 {2} 자체가 되도록 복사하세요.",
+})
+FR.update({
+    "Memory card could not be read": "Impossible de lire la carte mémoire",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii n'a pas pu lire {1}. Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "Games cannot start": "Impossible de lancer les jeux",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux USB ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux SD ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "Mods could not be prepared": "Impossible de préparer les mods",
+    "{1} needs its mod folder to be {2}.": "{1} a besoin que son dossier de mod soit {2}.",
+    "Required file: {1}": "Fichier nécessaire : {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} est un dossier de trop. Déplacez son contenu dans {2}.",
+    "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
+    "Move {1} to {2}.": "Déplacez {1} vers {2}.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}.",
+})
+
+
 # Emulator channel-picture picker.
 T.update({
     "Needs the internet": ("Necesita internet", "インターネットが必要です", "Precisa de internet", "Serve internet"),
@@ -7482,7 +7582,7 @@ FR.update({
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",

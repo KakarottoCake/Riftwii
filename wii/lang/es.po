@@ -1875,8 +1875,8 @@ msgstr "Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar
 msgid "It is {1}."
 msgstr "Es {1}."
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWii no puede leer {1}: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube."
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWii no pudo leer {1}."
@@ -3341,6 +3341,45 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "Memory card could not be read"
+msgstr "No se pudo leer la tarjeta de memoria"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo."
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo."
+
+msgid "Games cannot start"
+msgstr "Los juegos no pueden arrancar"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo."
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo."
+
+msgid "Mods could not be prepared"
+msgstr "No se pudieron preparar los mods"
+
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1} necesita que su carpeta de mod sea {2}."
+
+msgid "Required file: {1}"
+msgstr "Archivo necesario: {1}"
+
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1} está una carpeta demasiado adentro. Mueve su contenido a {2}."
+
+msgid "Rename {1} to exactly {2}."
+msgstr "Renombra {1} exactamente como {2}."
+
+msgid "Move {1} to {2}."
+msgstr "Mueve {1} a {2}."
+
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}."
 
 msgid "Needs the internet"
 msgstr "Necesita internet"

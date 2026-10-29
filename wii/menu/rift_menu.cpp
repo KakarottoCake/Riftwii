@@ -33,6 +33,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <atomic>
+#include <cerrno>
 #include <ctime>
 #include <functional>
 #include <initializer_list>
@@ -82,6 +83,7 @@
 #include "sdfile.hpp"
 #include <ogc/card.h>
 #include "riftwii/gccard.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
@@ -2406,8 +2408,9 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		if (p.empty()) continue;
 		status += (status.empty() ? "" : "   ") + p;
 	}
-	if (!state.usb_catalog.cios_note.empty() || !state.sd_catalog.cios_note.empty())
-		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
+	if (state.usb_catalog.cios == riftwii::CiosReadiness::Missing ||
+	    state.sd_catalog.cios == riftwii::CiosReadiness::Missing)
+		status += std::string(status.empty() ? "" : "   ") + tr("No d2x cIOS in 249-251: games cannot boot yet");
 	if (!status.empty()) return status;
 	if (g_filter == Filter::Emulators && g_search.empty())
 		return games == 0 ? std::string(tr("No games found")) : ShownCount(g_filter, games);
@@ -3248,6 +3251,58 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	return box.Wait();
 }
 
+// Keep every line of a long error, including paths without spaces. Pages
+// use the same font and room as PopupBox, with one row for the page count.
+static void ShowFullPopup(const std::string& title, const std::string& body)
+{
+	const int room = 528 + 2 * PopupExtra();
+	GuiText measure(nullptr, 16, skin::kInkSoft);
+	std::vector<std::string> lines;
+	std::size_t start = 0;
+	while (start < body.size()) {
+		std::size_t end = start;
+		std::size_t space = std::string::npos;
+		while (end < body.size() && body[end] != '\n') {
+			std::size_t next = end + 1;
+			while (next < body.size() && (static_cast<unsigned char>(body[next]) & 0xC0) == 0x80) ++next;
+			measure.SetText(body.substr(start, next - start).c_str());
+			if (end > start && measure.GetTextWidth() > room) break;
+			if (body[end] == ' ') space = end;
+			end = next;
+		}
+		if (end < body.size() && body[end] != '\n' && space != std::string::npos && space > start)
+			end = space;
+		lines.push_back(body.substr(start, end - start));
+		start = end;
+		while (start < body.size() && body[start] == ' ') ++start;
+		if (start < body.size() && body[start] == '\n') ++start;
+	}
+	constexpr std::size_t kLinesPerPage = PopupBox::kBodyLines - 1;
+	const std::size_t pages = std::max<std::size_t>(1, (lines.size() + kLinesPerPage - 1) / kLinesPerPage);
+	std::size_t page = 0;
+	for (;;) {
+		std::string text;
+		if (pages > 1) text = tr("Page {1} of {2}", {std::to_string(page + 1), std::to_string(pages)}) + "\n";
+		const std::size_t first = page * kLinesPerPage;
+		const std::size_t last = std::min(lines.size(), first + kLinesPerPage);
+		for (std::size_t line = first; line < last; ++line) {
+			if (line > first) text += '\n';
+			text += lines[line];
+		}
+		const bool finalPage = page + 1 == pages;
+		// One page needs only OK; Back steps to the page before.
+		PopupBox box(title, text, finalPage ? tr("OK") : tr("Next"), pages > 1 ? tr("Back") : "");
+		box.SetTitleFitted(title);
+		if (box.Wait() == 0) {
+			if (finalPage) return;
+			++page;
+		} else {
+			if (page == 0) return;
+			--page;
+		}
+	}
+}
+
 // A question whose second answer cannot be undone: 0 the first (safe)
 // button, which A, B and HOME press, 1 the second, which needs the pointer
 // on it (or +). See PopupBox's `safeFirst`.
@@ -4016,6 +4071,16 @@ static void OfferReport()
 	if (!riftwii::wii::UnreportedCrash(what)) return;
 	const bool game = what == "game";
 	const bool crash = what == "crash";
+	// An SD or USB game's mods are prepared after the menu closes, where a
+	// long error only flashes past on the launch screen: show it in full
+	// now, before asking about a report.
+	const riftwii::wii::RestartNote& note = riftwii::wii::CurrentRestartNote();
+	if (what == "launch" && !note.message.empty()) {
+		std::string reason = note.message;
+		const std::string prefix = "The launch failed: ";
+		if (reason.compare(0, prefix.size(), prefix) == 0) reason.erase(0, prefix.size());
+		ShowFullPopup(tr("The last launch failed"), reason);
+	}
 	const int choice = ShowPopup(game ? tr("The game crashed last time") : crash ? tr("RiftWii crashed last time")
 			: tr("The last launch failed"),
 		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
@@ -8321,19 +8386,26 @@ private:
 };
 
 // A whole file of at most `limit` bytes.
-static bool ReadSmallFile(const std::string& path, std::size_t limit, std::vector<std::uint8_t>& out)
+static bool ReadSmallFile(const std::string& path, std::size_t limit, std::vector<std::uint8_t>& out,
+	bool* missing = nullptr)
 {
+	if (missing) *missing = false;
 	FILE* f = std::fopen(path.c_str(), "rb");
-	if (!f) return false;
-	std::fseek(f, 0, SEEK_END);
-	const long size = std::ftell(f);
-	std::fseek(f, 0, SEEK_SET);
-	bool ok = size >= 0 && static_cast<std::size_t>(size) <= limit;
+	if (!f) {
+		// Only a missing file means a new card. Permission and device
+		// errors must never be described as an empty set of saves.
+		if (missing) *missing = errno == ENOENT;
+		return false;
+	}
+	const bool haveEnd = std::fseek(f, 0, SEEK_END) == 0;
+	const long size = haveEnd ? std::ftell(f) : -1;
+	bool ok = size >= 0 && static_cast<std::size_t>(size) <= limit && std::fseek(f, 0, SEEK_SET) == 0;
 	if (ok) {
-		out.resize(static_cast<std::size_t>(size));
-		ok = out.empty() || std::fread(out.data(), 1, out.size(), f) == out.size();
+		ok = riftwii::try_resize(out, static_cast<std::size_t>(size));
+		if (ok) ok = out.empty() || std::fread(out.data(), 1, out.size(), f) == out.size();
 	}
 	std::fclose(f);
+	if (!ok) out.clear();
 	return ok;
 }
 
@@ -8939,18 +9011,26 @@ static void MenuGcSdCard(FrontendState& state)
 	const std::string path = GcCardPath(state);
 	const bool shared = GcCardShared(state);
 	std::vector<std::uint8_t> card;
+	bool missing = false;
 	// A card is 2 MB; the library takes 4 to 128 Mbit ones.
-	if (!ReadSmallFile(path, 16u << 20, card)) {
-		ShowPopup(tr("No memory card yet"),
-			shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
-				: tr("This game's memory card is made the first time the game starts: {1}.", {path}), tr("OK"));
+	if (!ReadSmallFile(path, 16u << 20, card, &missing)) {
+		if (missing) {
+			ShowPopup(tr("No memory card yet"),
+				shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
+					: tr("This game's memory card is made the first time the game starts: {1}.", {path}), tr("OK"));
+		} else {
+			logf("The GameCube memory card at %s could not be read. The file was not changed.\n", path.c_str());
+			ShowFullPopup(tr("Memory card could not be read"),
+				tr("RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.", {path}));
+		}
 		return;
 	}
 	riftwii::GcCardInfo info;
 	std::string error;
 	if (!riftwii::gc_card_read(card, info, error)) {
 		logf("GameCube card %s: %s\n", path.c_str(), error.c_str());
-		ShowPopup(tr("Memory card damaged"), tr("RiftWii cannot read {1}: {2}", {path, FlatCapped(error, 120)}), tr("OK"));
+		ShowFullPopup(tr("Memory card damaged"), tr("RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.", {path}) + "\n" +
+			tr("The file was not changed. Check the SD card and keep a copy of this file before trying again."));
 		return;
 	}
 	std::vector<FlowRow> rows;
@@ -12885,12 +12965,16 @@ static int MenuHome(FrontendState& state)
 				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
-			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
+			} else if (state.use_usb && state.usb_catalog.cios == riftwii::CiosReadiness::Missing) {
 				// No cIOS in any candidate slot: refuse while the remedy is
-				// still readable on screen.
-				say(FlatCapped(state.usb_catalog.cios_note, 150));
-			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
-				say(FlatCapped(state.sd_catalog.cios_note, 150));
+				// still readable on screen. Every USB game needs it, a
+				// GameCube one too (gclaunch's ready_usb reloads it).
+				ShowFullPopup(tr("Games cannot start"), tr("USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."));
+			} else if (state.use_sd && state.sd_catalog.cios == riftwii::CiosReadiness::Missing &&
+				   !(SelectedGcGame(state) && state.model.selections().empty())) {
+				// An SD GameCube game with no packs starts without the cIOS;
+				// packs may read the USB drive, which needs it.
+				ShowFullPopup(tr("Games cannot start"), tr("SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."));
 			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
 				   (cios = ciosCheck()).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
 				   (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused || !g_oldCiosReminded)) {
@@ -12951,7 +13035,8 @@ static int MenuHome(FrontendState& state)
 				if (ok) menu = MENU_LAUNCH;
 				else {
 					logf("Compile failed: %s\n", error.c_str());
-					say(FlatCapped(error, 130) + " " + tr("(Log: sd:/riftwii/session.log)"));
+					say(tr("Mods could not be prepared"));
+					ShowFullPopup(tr("Mods could not be prepared"), error + "\n" + tr("(Log: sd:/riftwii/session.log)"));
 				}
 			}
 		} else if (dumpBtn.GetState() == STATE::CLICKED) {
@@ -13696,6 +13781,9 @@ static void MenuRiiTag(const std::string& discordId)
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
 	const int promptRefresh = prompts.Add("A", tr("Refresh"));
+	SkinButton refreshBtn(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+	HideButton(refreshBtn);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -13707,6 +13795,7 @@ static void MenuRiiTag(const std::string& discordId)
 	w.Append(&noteCard);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
+	w.Append(&refreshBtn.button);
 	w.Append(&prompts);
 	mainWindow->Append(&w);
 	ResumeGui();
@@ -13738,12 +13827,8 @@ static void MenuRiiTag(const std::string& discordId)
 			}
 		}
 
-		bool refresh = false;
-		for (int i = 0; i < 4; ++i) {
-			const bool a = (userInput[i].wpad && (userInput[i].wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) ||
-				(userInput[i].pad.btns_d & PAD_BUTTON_A);
-			if (a) refresh = true;
-		}
+		bool refresh = refreshBtn.Clicked();
+		refreshBtn.button.ResetState();
 		const int pressed = prompts.GetClicked();
 		if (pressed == promptBack) backBtn.PressSilently();
 		if (pressed >= 0 && pressed == promptRefresh) refresh = true;

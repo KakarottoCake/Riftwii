@@ -1875,8 +1875,8 @@ msgstr "このセーブは壊れています: ブロックが合いません。�
 msgid "It is {1}."
 msgstr "{1}です。"
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWiiは{1}を読めません: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。"
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWiiは{1}を読めませんでした。"
@@ -3341,6 +3341,45 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Memory card could not be read"
+msgstr "メモリーカードを読み込めません"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "Games cannot start"
+msgstr "ゲームを起動できません"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "Mods could not be prepared"
+msgstr "MODを準備できませんでした"
+
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1}のMODフォルダーは{2}そのものである必要があります。"
+
+msgid "Required file: {1}"
+msgstr "必要なファイル: {1}"
+
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。"
+
+msgid "Rename {1} to exactly {2}."
+msgstr "{1}の名前を正確に{2}に変更してください。"
+
+msgid "Move {1} to {2}."
+msgstr "{1}を{2}に移動してください。"
+
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。"
 
 msgid "Needs the internet"
 msgstr "インターネットが必要です"

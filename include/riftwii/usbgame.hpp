@@ -152,12 +152,12 @@ struct CiosSlotState {
     bool installed = false;
 };
 
-// User-visible warning when no candidate slot holds anything: image games
-// cannot boot without a d2x cIOS. Empty when at least one slot is
-// installed. Deliberately presence-only: the guided d2x installer stamps
+// Presence only; the menu supplies translated advice for the chosen drive.
+// The guided d2x installer stamps
 // revision 65535 whatever the version, so a revision cannot tell v8 from
 // v11, and the launch-time F9/FA probe remains the real capability gate.
-std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count);
+enum class CiosReadiness { Unknown, Missing, Present };
+CiosReadiness cios_readiness(const CiosSlotState* slots, std::size_t count);
 
 // CompactISO (.ciso) GameCube images, which RiftWii does not play and
 // will not: the GameCube loader reads .iso, .gcm and .rvz. The SD scan
