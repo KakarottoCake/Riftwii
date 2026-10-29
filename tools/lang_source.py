@@ -7180,13 +7180,69 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Emulator channel-picture picker.
+T.update({
+    "Needs the internet": ("Necesita internet", "インターネットが必要です", "Precisa de internet", "Serve internet"),
+    "Choose the picture shown in Channels.": ("Elige la imagen que se muestra en Canales.", "チャンネルに表示する画像を選びます。", "Escolha a imagem mostrada em Canais.", "Scegli l'immagine mostrata nei Canali."),
+    "Back to automatic": ("Volver a automático", "自動に戻す", "Voltar ao automático", "Torna ad automatico"),
+    "libretro title screen": ("Pantalla de título de libretro", "libretro タイトル画面", "Tela de título do libretro", "Titolo di libretro"),
+    "libretro screenshot": ("Captura de libretro", "libretro ゲーム画面", "Captura do libretro", "Schermata di libretro"),
+    "libretro box art": ("Carátula de libretro", "libretro パッケージ画像", "Capa do libretro", "Copertina di libretro"),
+    "No pictures found.": ("No se encontraron imágenes.", "画像が見つかりません。", "Nenhuma imagem encontrada.", "Nessuna immagine trovata."),
+    "Could not load pictures.": ("No se pudieron cargar las imágenes.", "画像を読み込めませんでした。", "Não foi possível carregar as imagens.", "Impossibile caricare le immagini."),
+    "Could not load this picture.": ("No se pudo cargar esta imagen.", "この画像を読み込めませんでした。", "Não foi possível carregar esta imagem.", "Impossibile caricare questa immagine."),
+    "A picture could not be loaded.": ("No se pudo cargar una imagen.", "画像を読み込めませんでした。", "Uma imagem não pôde ser carregada.", "Impossibile caricare un'immagine."),
+    "Not enough memory.": ("No hay memoria suficiente.", "メモリが足りません。", "Memória insuficiente.", "Memoria insufficiente."),
+    "Could not save the picture.": ("No se pudo guardar la imagen.", "画像を保存できませんでした。", "Não foi possível salvar a imagem.", "Impossibile salvare l'immagine."),
+    "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": (
+        "Esta imagen se añadió o cambió a mano. ¿Borrarla y usar imágenes automáticas?",
+        "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?",
+        "Questa immagine è stata aggiunta o modificata a mano. Eliminarla e usare immagini automatiche?"),
+})
+KO.update({
+    "Needs the internet": "인터넷이 필요합니다",
+    "Choose the picture shown in Channels.": "채널에 표시할 그림을 선택합니다.",
+    "Back to automatic": "자동으로 되돌리기",
+    "libretro title screen": "libretro 타이틀 화면",
+    "libretro screenshot": "libretro 게임 화면",
+    "libretro box art": "libretro 표지",
+    "No pictures found.": "그림을 찾지 못했습니다.",
+    "Could not load pictures.": "그림을 불러오지 못했습니다.",
+    "Could not load this picture.": "이 그림을 불러오지 못했습니다.",
+    "A picture could not be loaded.": "그림 하나를 불러오지 못했습니다.",
+    "Not enough memory.": "메모리가 부족합니다.",
+    "Could not save the picture.": "그림을 저장하지 못했습니다.",
+    "Choose": "선택",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?",
+})
+FR.update({
+    "Needs the internet": "Internet nécessaire",
+    "Choose the picture shown in Channels.": "Choisissez l'image affichée dans les Chaînes.",
+    "Back to automatic": "Revenir au choix automatique",
+    "libretro title screen": "Écran titre libretro",
+    "libretro screenshot": "Capture libretro",
+    "libretro box art": "Jaquette libretro",
+    "No pictures found.": "Aucune image trouvée.",
+    "Could not load pictures.": "Impossible de charger les images.",
+    "Could not load this picture.": "Impossible de charger cette image.",
+    "A picture could not be loaded.": "Une image n'a pas pu être chargée.",
+    "Not enough memory.": "Mémoire insuffisante.",
+    "Could not save the picture.": "Impossible d'enregistrer l'image.",
+    "Choose": "Choisir",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/menu/picturepicker.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

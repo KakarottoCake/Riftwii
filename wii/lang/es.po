@@ -3413,3 +3413,45 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "Needs the internet"
+msgstr "Necesita internet"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Elige la imagen que se muestra en Canales."
+
+msgid "Back to automatic"
+msgstr "Volver a automático"
+
+msgid "libretro title screen"
+msgstr "Pantalla de título de libretro"
+
+msgid "libretro screenshot"
+msgstr "Captura de libretro"
+
+msgid "libretro box art"
+msgstr "Carátula de libretro"
+
+msgid "No pictures found."
+msgstr "No se encontraron imágenes."
+
+msgid "Could not load pictures."
+msgstr "No se pudieron cargar las imágenes."
+
+msgid "Could not load this picture."
+msgstr "No se pudo cargar esta imagen."
+
+msgid "A picture could not be loaded."
+msgstr "No se pudo cargar una imagen."
+
+msgid "Not enough memory."
+msgstr "No hay memoria suficiente."
+
+msgid "Could not save the picture."
+msgstr "No se pudo guardar la imagen."
+
+msgid "Choose"
+msgstr "Elegir"
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Esta imagen se añadió o cambió a mano. ¿Borrarla y usar imágenes automáticas?"

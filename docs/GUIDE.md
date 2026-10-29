@@ -327,6 +327,12 @@ Emulator games show a title screen from libretro, then an optional wide
 SteamGridDB picture, with their cover's middle band as the fallback. You can
 supply a picture at `sd:/riftwii/banners/emulators/<system>/<game name>.png`;
 it works offline and takes priority. Pictures fill the tile without stretching.
+With Online on, open the game's page and choose **Picture** to browse title
+screens, screenshots, box art and optional SteamGridDB pictures. Six tiles
+load one at a time per page; Minus/Plus or the arrows turn pages, A saves a
+picture to SD, and B leaves. Only the current page's pictures are downloaded.
+Your saved choice appears on Home at once and works offline. **Back to
+automatic** removes it; a picture added or changed by hand needs confirmation.
 The emulator-cover download settings also apply to these pictures; see
 [Emulator Channels pictures](EMULATORS.md#channels-pictures).
 
