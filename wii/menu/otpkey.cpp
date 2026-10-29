@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
-// SPDX-FileCopyrightText: 2017 Dolphin Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "otpkey.hpp"
 
