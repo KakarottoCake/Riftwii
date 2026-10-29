@@ -5828,7 +5828,6 @@ static int MenuSource(FrontendState& state)
 	int shownPage = -1, shownPages = -1;
 	// While a game is being moved, the status line says how to put it down.
 	bool carryNoteShown = false;
-	bool searchWatched = true;  // a pad's search hold, watched last frame
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
@@ -6389,12 +6388,9 @@ static int MenuSource(FrontendState& state)
 		// random, once per hold. Not while a game is carried, where B puts it back.
 		// A pad's search button held does the same (screenshot.hpp), but not
 		// while a game is carried or a cover is up close, where B is theirs.
-		const bool watchSearch = !grid.Carrying() && !grid.CoverZoomed();
-		riftwii::wii::WatchSearchHold(watchSearch);
-		// A press kept back as a game is picked up or a cover comes close
-		// comes to nothing: let go then, it would be Search's.
-		if (searchWatched && !watchSearch) riftwii::wii::SpendPadHomePresses();
-		searchWatched = watchSearch;
+		// A press kept back when a game is picked up or a cover comes close
+		// is spent there, on the GUI thread (gui_gamegrid.cpp).
+		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
 		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying();
 		bool bOnSearch = false;
 		for (int channel = 0; channel < 4 && !grid.Carrying(); ++channel) {
