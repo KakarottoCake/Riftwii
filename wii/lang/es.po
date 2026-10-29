@@ -2979,6 +2979,21 @@ msgstr "Primero vuelve a insertar la tarjeta SD."
 msgid "The SD card is back in. Reading it again."
 msgstr "La tarjeta SD está de vuelta. Leyéndola de nuevo."
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero."
+
+msgid "Homebrew apps have no genres."
+msgstr "Las apps homebrew no tienen géneros."
+
+msgid "No genres yet."
+msgstr "Aún no hay géneros."
+
+msgid "Every genre"
+msgstr "Todos los géneros"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "Arriba/Abajo: género   Suelta: mostrar"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "El menú está en inglés: copia apps/riftwii/korean.ttf del zip de RiftWii a la tarjeta SD y elige la fuente de RiftWii, o usa la fuente del Menú de Wii en una Wii coreana."
 

@@ -309,6 +309,14 @@ bool PeekGameInfo(const std::string& id, GameInfo& out) {
     return true;
 }
 
+bool PeekGameGenres(const std::string& id, std::vector<std::string>& out) {
+    LoadCache(MenuLocale());
+    const auto found = g_cache.games.find(id);
+    if (found == g_cache.games.end()) return false;
+    out = found->second.genres;
+    return true;
+}
+
 // Reading the list file: no room for it is the menu's, not the file's
 // fault, so it is not a reason to make the list again; a file that can't
 // be opened or comes back short (a card error, or the file changed under

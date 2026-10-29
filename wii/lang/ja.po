@@ -2979,6 +2979,21 @@ msgstr "さきにSDカードを入れてください。"
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "検索はすべてのジャンルから探します。先に1を押して検索を終えてください。"
+
+msgid "Homebrew apps have no genres."
+msgstr "ホームブリューのアプリにはジャンルがありません。"
+
+msgid "No genres yet."
+msgstr "まだジャンルがありません。"
+
+msgid "Every genre"
+msgstr "すべてのジャンル"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "上下: ジャンル   はなす: 表示"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
 
