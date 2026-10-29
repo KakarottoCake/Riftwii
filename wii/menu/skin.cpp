@@ -206,6 +206,7 @@ Tex backgroundWide, barWide;
 Tex backgroundShelf, backgroundShelfWide;
 Tex clockDigits;
 Tex keys[4];
+Tex layoutIcons[6];
 Tex card9;
 Tex dropShadow9;
 Tex channelFrame9, channelFrameOver9, channelCard9, channelCardOver9;
@@ -316,6 +317,9 @@ void Init() {
         {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
         {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
         {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
+        {"layout_covers", &layoutIcons[0]}, {"layout_covers3d", &layoutIcons[1]},
+        {"layout_carousel", &layoutIcons[2]}, {"layout_shelf", &layoutIcons[3]},
+        {"layout_channels", &layoutIcons[4]}, {"layout_names", &layoutIcons[5]},
     };
     for (const ThemeImage& im : theme_images()) {
         // The walls: only the set the menu shows (EnsureBackgrounds).
