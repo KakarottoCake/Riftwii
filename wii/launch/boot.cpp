@@ -235,10 +235,21 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     static const std::vector<std::uint8_t> kEmptyGct = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE,
                                                         0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct.empty() ? kEmptyGct : g_extras.cheat_gct;
-    const CodeHandler chosen = choose_code_handler(low_veneers);
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
     const bool moved = g_extras.code_list_start != 0;
+    // The ordinary list's room runs over kCodeVeneers, and its clearing
+    // memset below would wipe veneers already resident there.
+    if (low_veneers && !moved) {
+        char room[160];
+        std::snprintf(room, sizeof(room),
+                      "RiftWii's hooks use the memory the code list would be written to (0x%08x); a code build's "
+                      "gameconfig.txt can move the list elsewhere",
+                      static_cast<unsigned>(kCodeVeneers));
+        why = room;
+        return false;
+    }
+    const CodeHandler chosen = choose_code_handler(low_veneers);
     const std::uint32_t list = moved ? g_extras.code_list_start : chosen.list;
     // A low-memory return stub owns the last 32 bytes of the ordinary
     // list's room (the debugger handler's list ends there too). Keep both
