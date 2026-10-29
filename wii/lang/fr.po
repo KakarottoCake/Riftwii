@@ -900,6 +900,18 @@ msgstr "Fondu sortant"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu."
 
+msgid "Banner music on game pages"
+msgstr "Musique de la bannière sur la page du jeu"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Joue la musique de la bannière d'un jeu quand vous ouvrez sa page depuis l'Accueil, comme l'écran de bannière de la vue Chaînes. Pas dans la vue Chaînes, qui la joue déjà."
+
+msgid "Disc art"
+msgstr "Image du disque"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique."
 

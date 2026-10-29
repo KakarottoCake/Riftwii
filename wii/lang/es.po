@@ -900,6 +900,18 @@ msgstr "Desvanecer"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego."
 
+msgid "Banner music on game pages"
+msgstr "Música del banner en la página del juego"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Reproduce la música del banner de un juego al abrir su página desde Inicio, como la pantalla del banner de la vista Canales. No en la vista Canales, que ya la reproduce."
+
+msgid "Disc art"
+msgstr "Imagen del disco"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Muestra el disco del juego bajo su caja en la página del juego. La imagen viene de GameTDB cuando las descargas están activadas y se guarda en sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música."
 

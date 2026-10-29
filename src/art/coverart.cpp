@@ -394,6 +394,24 @@ bool cover3d_header_valid(const std::uint8_t* h) {
            ((h[6] << 8) | h[7]) == kCover3dHeight;
 }
 
+std::string disc_art_url(const std::string& region, const std::string& game_id) {
+    return "http://art.gametdb.com/wii/disc/" + region + "/" + game_id + ".png";
+}
+
+std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int h, int& tw, int& th) {
+    if (!rgba || w < 8 || h < 8 || w > kDiscArtMaxSide || h > kDiscArtMaxSide) return {};
+    tw = (w + 3) & ~3;
+    th = (h + 3) & ~3;
+    std::vector<std::uint8_t> px(static_cast<std::size_t>(tw) * th * 4, 0);
+    for (int y = 0; y < h; ++y)
+        std::copy(rgba + static_cast<std::ptrdiff_t>(y) * w * 4, rgba + static_cast<std::ptrdiff_t>(y + 1) * w * 4,
+                  px.begin() + static_cast<std::ptrdiff_t>(y) * tw * 4);
+    std::vector<std::uint8_t> file = rgb5a3_file("RWD1", px, tw, th);
+    // The texture alone, without the stored files' header.
+    file.erase(file.begin(), file.begin() + 8);
+    return file;
+}
+
 bool box_header_valid(const std::uint8_t* h) {
     return h && h[0] == 'R' && h[1] == 'W' && h[2] == 'B' && h[3] == '2' && ((h[4] << 8) | h[5]) == kBoxWidth &&
            ((h[6] << 8) | h[7]) == kBoxHeight;

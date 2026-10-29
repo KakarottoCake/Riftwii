@@ -797,6 +797,18 @@ T = {
         "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。",
         "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo.",
         "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."),
+    "Banner music on game pages": ("Música del banner en la página del juego", "ゲームページでバナーの音楽", "Música do banner na página do jogo", "Musica del banner nella pagina del gioco"),
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.": (
+        "Reproduce la música del banner de un juego al abrir su página desde Inicio, como la pantalla del banner de la vista Canales. No en la vista Canales, que ya la reproduce.",
+        "ホームからゲームのページを開くと、チャンネル表示のバナー画面と同じようにバナーの音楽を流します。チャンネル表示ではすでに流れるので使いません。",
+        "Toca a música do banner de um jogo ao abrir a página dele no Início, como a tela do banner da vista Canais. Não na vista Canais, que já a toca.",
+        "Riproduce la musica del banner di un gioco quando ne apri la pagina dalla Home, come la schermata del banner della vista Canali. Non nella vista Canali, che la riproduce già."),
+    "Disc art": ("Imagen del disco", "ディスクの画像", "Imagem do disco", "Immagine del disco"),
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.": (
+        "Muestra el disco del juego bajo su caja en la página del juego. La imagen viene de GameTDB cuando las descargas están activadas y se guarda en sd:/riftwii/discs.",
+        "ゲームのページで、ケースの下にディスクを表示します。画像はダウンロードがオンのときにGameTDBから取得し、sd:/riftwii/discsに保存します。",
+        "Mostra o disco do jogo abaixo da caixa na página do jogo. A imagem vem do GameTDB quando os downloads estão ligados e fica em sd:/riftwii/discs.",
+        "Mostra il disco del gioco sotto la custodia nella pagina del gioco. L'immagine arriva da GameTDB quando i download sono attivi ed è salvata in sd:/riftwii/discs."),
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.": (
         "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música.",
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
@@ -2853,6 +2865,14 @@ KO = {
         "페이드 아웃",
     "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
         "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다.",
+    "Banner music on game pages":
+        "게임 페이지에서 배너 음악",
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.":
+        "홈에서 게임 페이지를 열면 채널 보기의 배너 화면처럼 배너 음악을 재생합니다. 채널 보기에서는 이미 재생되므로 해당되지 않습니다.",
+    "Disc art":
+        "디스크 이미지",
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.":
+        "게임 페이지에서 케이스 아래에 게임 디스크를 표시합니다. 이미지는 다운로드가 켜져 있을 때 GameTDB에서 받아 sd:/riftwii/discs에 저장됩니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -4679,6 +4699,14 @@ FR = {
         "Fondu sortant",
     "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
         "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu.",
+    "Banner music on game pages":
+        "Musique de la bannière sur la page du jeu",
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.":
+        "Joue la musique de la bannière d'un jeu quand vous ouvrez sa page depuis l'Accueil, comme l'écran de bannière de la vue Chaînes. Pas dans la vue Chaînes, qui la joue déjà.",
+    "Disc art":
+        "Image du disque",
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.":
+        "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
