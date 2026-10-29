@@ -605,12 +605,22 @@ bool ensure_usb(std::string& error) {
     UsbLocked locked;  // to the end: the volumes' list changes
     std::vector<std::string> partition_notes;
     const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(), &partition_notes);
+    // Every volume behind the lock, or none used: with no memory for a
+    // wrapper, the drive counts as not mounted (an unlocked volume's caches
+    // would be open to every thread).
+    bool wrapped_all = mounted;
     for (MountedImageVolume& mounted_volume : g_usb_volumes) {
-        // Left unwrapped when there is no memory for the wrapper (its
-        // sector reads still take the lock); the volume moves only into
-        // a wrapper that was made.
-        if (LockedVolume* wrapped = new (std::nothrow) LockedVolume(std::move(mounted_volume.volume)))
-            mounted_volume.volume.reset(wrapped);
+        LockedVolume* wrapped = new (std::nothrow) LockedVolume(std::move(mounted_volume.volume));
+        if (!wrapped) {
+            wrapped_all = false;
+            break;
+        }
+        mounted_volume.volume.reset(wrapped);
+    }
+    if (mounted && !wrapped_all) {
+        error = "no memory to share the USB drive between threads";
+        unmount_usb_games();
+        return false;
     }
     for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());
     // Older USB loaders also used WBFS-format partitions. They remain
