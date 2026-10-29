@@ -43,6 +43,9 @@ constexpr const char* kHomebrewTitlesPath = "sd:/riftwii/homebrew-titles.txt";
 // tiles' own covers; English titles, so not per language either.
 constexpr const char* kModTitlesPath = "sd:/riftwii/mod-titles.txt";
 unsigned g_mod_titles_written = 0;
+// A list written to this card this session (cleared by ForgetGameInfo, a
+// card swap): its age against the database is then no reason to read again.
+bool g_mod_titles_written_here = false;
 // Read from the database this session already (and the file written), for
 // the same reason as Cache::read_now; or stopped by the player.
 bool g_homebrew_read_now = false;
@@ -172,6 +175,7 @@ bool SaveModTitles(const std::vector<CustomGame>& games) {
         return false;
     }
     ++g_mod_titles_written;
+    g_mod_titles_written_here = true;
     logf("Mod covers: %u of GameTDB's mods of your games kept in %s\n", static_cast<unsigned>(games.size()),
          kModTitlesPath);
     return true;
@@ -568,6 +572,7 @@ void ForgetGameInfo() {
     g_read_done.store(false, std::memory_order_relaxed);
     g_cache = Cache();
     ForgetHomebrewTitlesRead();
+    g_mod_titles_written_here = false;
 }
 
 GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
@@ -585,13 +590,13 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
     // The mods' list (#385) missing (read by a RiftWii from before it), too
     // big to load, or older than the database (its last write failed):
-    // read once more for it. The age only while none was written this
-    // session: a console clock behind the database's date would make every
+    // read once more for it. The age only while none was written to
+    // this card this session: a console clock behind the database's date would make every
     // list look older, and each Home refresh read the database again.
     struct stat mods;
     if (have_source && (stat(kModTitlesPath, &mods) != 0 ||
                         static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes ||
-                        (g_mod_titles_written == 0 && mods.st_mtime < source_time)))
+                        (!g_mod_titles_written_here && mods.st_mtime < source_time)))
         missing = true;
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
