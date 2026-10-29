@@ -14,8 +14,22 @@ namespace riftwii::wii {
 namespace {
 
 constexpr const char* kPath = "sd:/riftwii/settings.txt";
+// The last line SaveSettings writes: a .part without it was cut off.
+constexpr const char* kEndLine = "# end\n";
 bool g_loaded = false;
 LoaderSettings g_settings;
+
+bool EndsWith(const std::string& text, const std::string& ending) {
+    return text.size() >= ending.size() && text.compare(text.size() - ending.size(), ending.size(), ending) == 0;
+}
+
+// settings.txt, else a whole .part (a save cut off after it was written),
+// else .bak (a save cut off before the new copy was in place).
+bool ReadSavedSettings(std::string& text) {
+    if (ReadTextFile(kPath, text)) return true;
+    if (ReadTextFile(std::string(kPath) + ".part", text) && EndsWith(text, kEndLine)) return true;
+    return ReadTextFile(std::string(kPath) + ".bak", text);
+}
 
 }  // namespace
 
@@ -23,10 +37,7 @@ LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
         std::string text;
-        // A save cut off between its steps leaves the new copy (.part) or
-        // the old one (.bak).
-        if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text) ||
-            ReadTextFile(std::string(kPath) + ".bak", text)) g_settings.parse(text);
+        if (ReadSavedSettings(text)) g_settings.parse(text);
     }
     return g_settings;
 }
@@ -35,8 +46,7 @@ void ReloadSettings() {
     g_settings = LoaderSettings{};
     g_loaded = true;
     std::string text;
-    if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text) ||
-        ReadTextFile(std::string(kPath) + ".bak", text)) g_settings.parse(text);
+    if (ReadSavedSettings(text)) g_settings.parse(text);
 }
 
 // Written whole beside it, then put in its place: truncating it first left
@@ -46,26 +56,30 @@ bool SaveSettings() {
     const std::string temp = std::string(kPath) + ".part";
     FILE* f = std::fopen(temp.c_str(), "wb");
     if (!f) return false;
-    const std::string text = Settings().serialize();
+    const std::string text = Settings().serialize() + kEndLine;
     bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
     ok = std::fclose(f) == 0 && ok;
     if (!ok) {
         std::remove(temp.c_str());
         return false;
     }
-    // The old copy steps aside as .bak until the new one is in place, so a
-    // rename that fails leaves the player's settings on the card.
+    // The old copy steps aside as .bak until the new one is in place. With
+    // no settings.txt, a .bak left by an earlier cut-off save is the only
+    // old copy, so it stays until this save has succeeded.
     const std::string backup = std::string(kPath) + ".bak";
-    std::remove(backup.c_str());
     struct stat present;
     const bool hadOld = stat(kPath, &present) == 0;
-    if (hadOld && std::rename(kPath, backup.c_str()) != 0) {
-        std::remove(temp.c_str());
-        return false;
+    if (hadOld) {
+        std::remove(backup.c_str());
+        if (std::rename(kPath, backup.c_str()) != 0) {
+            std::remove(temp.c_str());
+            return false;
+        }
     }
     if (std::rename(temp.c_str(), kPath) != 0) {
+        // The whole new copy stays as .part (read at the next start) and
+        // the old one goes back in place.
         if (hadOld) std::rename(backup.c_str(), kPath);
-        std::remove(temp.c_str());
         return false;
     }
     std::remove(backup.c_str());
