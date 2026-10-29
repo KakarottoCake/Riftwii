@@ -42,7 +42,9 @@ struct Built {
 };
 
 // A WAD of two contents (a 0x30-byte banner and a 0x123-byte program).
-Built build_wad() {
+// `first_index` other than 0 gives the small content another index, as in
+// a channel WAD with no banner.
+Built build_wad(std::uint16_t first_index = 0) {
     Built b;
     b.plain.push_back(std::vector<std::uint8_t>(0x30, 0x11));
     std::vector<std::uint8_t> program(0x123);
@@ -51,19 +53,21 @@ Built build_wad() {
 
     std::vector<std::uint8_t> certs(0x100, 0xCE);
     std::vector<std::uint8_t> ticket(kTicketBytes, 0);
+    put32(ticket.data(), 0x10001);
     put64(ticket.data() + 0x1DC, kTitle);
     std::uint8_t iv[16] = {};
     std::memcpy(iv, ticket.data() + 0x1DC, 8);
     Aes128(kCommonKey).cbc_encrypt(iv, kTitleKey, ticket.data() + 0x1BF, 16);
 
     std::vector<std::uint8_t> tmd(0x1E4 + 2 * 36, 0);
+    put32(tmd.data(), 0x10001);
     put64(tmd.data() + 0x18C, kTitle);
     put16(tmd.data() + 0x1DE, 2);
     put16(tmd.data() + 0x1E0, 1);
     for (std::size_t i = 0; i < 2; ++i) {
         std::uint8_t* r = tmd.data() + 0x1E4 + i * 36;
         put32(r, static_cast<std::uint32_t>(i));
-        put16(r + 4, static_cast<std::uint16_t>(i));
+        put16(r + 4, i == 0 ? first_index : static_cast<std::uint16_t>(i));
         put16(r + 6, 1);
         put64(r + 8, b.plain[i].size());
         const Sha1Digest h = sha1(b.plain[i].data(), b.plain[i].size());
@@ -75,7 +79,7 @@ Built build_wad() {
         std::vector<std::uint8_t> c = b.plain[i];
         c.resize((c.size() + 15) & ~std::size_t(15), 0);
         std::uint8_t civ[16] = {};
-        put16(civ, static_cast<std::uint16_t>(i));
+        put16(civ, i == 0 ? first_index : static_cast<std::uint16_t>(i));
         Aes128(kTitleKey).cbc_encrypt(civ, c.data(), c.data(), c.size());
         data.insert(data.end(), c.begin(), c.end());
         pad_to_64(data);
@@ -194,12 +198,220 @@ void test_content_map() {
     EXPECT_EQ(parse_content_map(bytes.data(), bytes.size() - 1).size(), std::size_t(1));
 }
 
+class MemoryWad final : public ByteSource {
+public:
+    explicit MemoryWad(std::vector<std::uint8_t> bytes) : bytes(std::move(bytes)) {}
+    std::uint64_t size() const override { return bytes.size(); }
+    bool read(std::uint64_t offset, std::uint8_t* out, std::size_t length) const override {
+        if (offset > bytes.size() || length > bytes.size() - offset) return false;
+        std::memcpy(out, bytes.data() + offset, length);
+        return true;
+    }
+    std::vector<std::uint8_t> bytes;
+};
+
+void test_metadata_and_banner() {
+    MemoryWad source(build_wad().file);
+    WadMetadata metadata;
+    std::string error;
+    EXPECT_TRUE(read_wad_metadata(source, metadata, error));
+    EXPECT_EQ(metadata.tmd.title_id, kTitle);
+    std::vector<std::uint8_t> banner;
+    EXPECT_TRUE(read_wad_banner(source, metadata, kCommonKey, banner, error));
+    EXPECT_TRUE(banner == build_wad().plain[0]);
+    const Sha1Digest original_stamp = metadata.fingerprint;
+    const std::size_t ticket = static_cast<std::size_t>(metadata.layout.ticket_offset);
+    const std::size_t tmd = static_cast<std::size_t>(metadata.layout.tmd_offset);
+    source.bytes[ticket + 0x1DC] ^= 1;
+    EXPECT_TRUE(!read_wad_metadata(source, metadata, error));
+    source.bytes = build_wad().file;
+    source.bytes[tmd] = 0xFF;
+    EXPECT_TRUE(!read_wad_metadata(source, metadata, error));
+    source.bytes = build_wad().file;
+    put16(source.bytes.data() + tmd + 0x1E0, 7);
+    EXPECT_TRUE(!read_wad_metadata(source, metadata, error));
+    source.bytes = build_wad().file;
+    put16(source.bytes.data() + tmd + 0x1E4 + 36 + 4, 0);
+    EXPECT_TRUE(!read_wad_metadata(source, metadata, error));
+    source.bytes = build_wad().file;
+    put32(source.bytes.data() + tmd + 0x1E4 + 36, 0);
+    EXPECT_TRUE(!read_wad_metadata(source, metadata, error));
+    source.bytes = build_wad().file;
+    source.bytes[tmd + 0x1DC] = 1;  // a title-version change invalidates the cache
+    EXPECT_TRUE(read_wad_metadata(source, metadata, error));
+    EXPECT_TRUE(metadata.fingerprint != original_stamp);
+    source.bytes[static_cast<std::size_t>(metadata.places[0].offset)] ^= 1;
+    EXPECT_TRUE(!read_wad_banner(source, metadata, kCommonKey, banner, error));
+}
+
+void test_title_key_sources() {
+    MemoryWad source(build_wad().file);
+    WadMetadata metadata;
+    std::string error;
+    EXPECT_TRUE(read_wad_metadata(source, metadata, error));
+
+    // -1 is unavailable (and may still dirty its output), 0 is a wrong
+    // nonzero key, 1 is the invented title key used to encrypt this WAD.
+    struct Case {
+        int keys[3];
+        int calls;
+        int selected;
+    };
+    const Case cases[] = {
+        {{1, 1, 1}, 1, 0},
+        {{0, 1, 1}, 2, 1},  // Dolphin: OTP returns nonzero but incorrect bytes
+        {{-1, 1, 1}, 2, 1},
+        {{-1, -1, 1}, 3, 2},  // no hardware access and IOS denies the call
+        {{0, 0, 1}, 3, 2},
+        {{0, -1, 0}, 3, -1},
+        {{-1, -1, -1}, 3, -1},
+    };
+    for (const Case& test : cases) {
+        std::vector<WadKeySource> calls;
+        std::uint8_t key[16];
+        std::memset(key, 0xCC, sizeof key);
+        std::vector<std::uint8_t> banner = {0xCC};
+        WadKeySource selected = WadKeySource::Otp;
+        error = "an old error";
+        const bool found = select_wad_title_key(source, metadata,
+            [&](WadKeySource candidate, std::uint8_t* out) {
+                for (unsigned i = 0; i < 16; ++i) EXPECT_EQ(out[i], 0);
+                calls.push_back(candidate);
+                const int choice = test.keys[static_cast<unsigned>(candidate)];
+                std::memset(out, 0x55, 16);
+                if (choice == 1) std::memcpy(out, kTitleKey, 16);
+                return choice >= 0;
+            }, key, selected, banner, error);
+        EXPECT_TRUE(found == (test.selected >= 0));
+        EXPECT_EQ(calls.size(), static_cast<std::size_t>(test.calls));
+        for (std::size_t i = 0; i < calls.size(); ++i) EXPECT_EQ(static_cast<unsigned>(calls[i]), i);
+        if (found) {
+            EXPECT_EQ(static_cast<int>(selected), test.selected);
+            EXPECT_TRUE(std::memcmp(key, kTitleKey, 16) == 0);
+            EXPECT_TRUE(banner == build_wad().plain[0]);
+            EXPECT_TRUE(error.empty());
+        } else {
+            for (std::uint8_t byte : key) EXPECT_EQ(byte, 0);
+            EXPECT_TRUE(banner.empty());
+            EXPECT_TRUE(!error.empty());
+        }
+        clear_wad_key(key, sizeof key);
+    }
+
+    // Correct keys cannot turn damaged content into an accepted banner.
+    source.bytes[static_cast<std::size_t>(metadata.places[0].offset)] ^= 1;
+    unsigned calls = 0;
+    std::uint8_t key[16] = {};
+    std::vector<std::uint8_t> banner;
+    WadKeySource selected = WadKeySource::Otp;
+    EXPECT_TRUE(!select_wad_title_key(source, metadata,
+        [&](WadKeySource, std::uint8_t* out) {
+            ++calls;
+            std::memcpy(out, kTitleKey, 16);
+            return true;
+        }, key, selected, banner, error));
+    EXPECT_EQ(calls, 3u);
+    for (std::uint8_t byte : key) EXPECT_EQ(byte, 0);
+    EXPECT_TRUE(banner.empty());
+}
+
+// Installing proves the key on a content, so a channel WAD without a
+// banner (no content at index 0) still finds its key, in the same order.
+void test_install_key_without_banner() {
+    MemoryWad source(build_wad(2).file);
+    WadMetadata metadata;
+    std::string error;
+    EXPECT_TRUE(read_wad_metadata(source, metadata, error));
+    const auto keys = [](int wrong_until) {
+        return [wrong_until](WadKeySource candidate, std::uint8_t* out) {
+            std::memset(out, 0x55, 16);
+            if (static_cast<int>(candidate) >= wrong_until) std::memcpy(out, kTitleKey, 16);
+            return true;
+        };
+    };
+    std::uint8_t key[16] = {};
+    std::vector<std::uint8_t> banner;
+    WadKeySource selected = WadKeySource::Otp;
+    // The banner route has nothing to check against.
+    EXPECT_TRUE(!select_wad_title_key(source, metadata, keys(0), key, selected, banner, error));
+    // The install route: OTP gives a wrong key, IOS the right one.
+    EXPECT_TRUE(select_wad_install_key(source, metadata, keys(1), key, selected, error));
+    EXPECT_EQ(static_cast<int>(selected), 1);
+    EXPECT_TRUE(std::memcmp(key, kTitleKey, 16) == 0);
+    clear_wad_key(key, sizeof key);
+    // Every source wrong: refused, the key cleared.
+    EXPECT_TRUE(!select_wad_install_key(source, metadata, keys(3), key, selected, error));
+    for (std::uint8_t byte : key) EXPECT_EQ(byte, 0);
+    EXPECT_TRUE(!error.empty());
+    // A damaged content is refused even with the right key.
+    source.bytes[static_cast<std::size_t>(metadata.places[0].offset)] ^= 1;
+    EXPECT_TRUE(!verify_wad_title_key(source, metadata, kTitleKey, error));
+}
+
+void test_cache_and_preparation() {
+    WadCacheRecord record;
+    record.title_id = kTitle;
+    record.fingerprint.fill(0x31);
+    record.modified = 0x123456789ABCDEFull;
+    record.banner_size = 0x12345;
+    record.banner_head.assign(0x700, 0x42);
+    std::vector<std::uint8_t> bytes;
+    EXPECT_TRUE(encode_wad_cache(record, bytes));
+    WadCacheRecord decoded;
+    EXPECT_TRUE(decode_wad_cache(bytes.data(), bytes.size(), decoded));
+    EXPECT_EQ(decoded.title_id, record.title_id);
+    EXPECT_EQ(decoded.modified, record.modified);
+    EXPECT_TRUE(decoded.fingerprint == record.fingerprint);
+    EXPECT_TRUE(decoded.banner_head == record.banner_head);
+    for (std::size_t cut = 0; cut < bytes.size(); ++cut)
+        EXPECT_TRUE(!decode_wad_cache(bytes.data(), cut, decoded));
+    bytes[50] ^= 1;
+    EXPECT_TRUE(!decode_wad_cache(bytes.data(), bytes.size(), decoded));
+    EXPECT_TRUE(!decode_wad_cache(nullptr, 100, decoded));
+    record.banner_head.resize(0x701);
+    EXPECT_TRUE(!encode_wad_cache(record, bytes));
+
+    Sha1Digest source{};
+    Sha1Digest changed{};
+    changed[0] = 1;
+    EXPECT_TRUE(!wad_needs_preparation(source, &source, true, true));
+    EXPECT_TRUE(wad_needs_preparation(changed, &source, true, true));
+    EXPECT_TRUE(wad_needs_preparation(source, &source, false, true));
+    EXPECT_TRUE(!wad_needs_preparation(source, nullptr, true, true));
+    EXPECT_TRUE(wad_needs_preparation(source, nullptr, true, false));
+    EXPECT_TRUE(wad_needs_preparation(source, nullptr, false, false));
+
+    std::vector<std::uint8_t> owners;
+    std::string error;
+    EXPECT_TRUE(add_wad_title_uid(owners, kTitle, error));
+    EXPECT_EQ(owners.size(), std::size_t(24));
+    EXPECT_EQ(owners[3], 1);
+    EXPECT_EQ(owners[7], 2);
+    EXPECT_EQ(owners[10], 0x10);
+    EXPECT_EQ(owners[23], 1);
+    const auto original = owners;
+    EXPECT_TRUE(add_wad_title_uid(owners, kTitle, error));
+    EXPECT_TRUE(owners == original);
+    EXPECT_TRUE(add_wad_title_uid(owners, kTitle + 1, error));
+    EXPECT_EQ(owners.size(), std::size_t(36));
+    EXPECT_EQ(owners[35], 2);
+    owners.push_back(0);
+    EXPECT_TRUE(!add_wad_title_uid(owners, kTitle, error));
+    owners = original;
+    put32(owners.data() + 8, UINT32_MAX);
+    EXPECT_TRUE(!add_wad_title_uid(owners, kTitle + 1, error));
+}
+
 }  // namespace
 
 int main() {
     test_layout_and_contents();
     test_bad_files();
     test_content_map();
+    test_metadata_and_banner();
+    test_title_key_sources();
+    test_install_key_without_banner();
+    test_cache_and_preparation();
     if (g_failures == 0) std::cout << "wadfile tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
