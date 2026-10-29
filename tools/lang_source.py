@@ -7174,6 +7174,50 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Drop-and-play WiiWare WAD folders.
+T.update({
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": (
+        "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log.",
+        "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。",
+        "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log.",
+        "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."),
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": (
+        "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD.",
+        "初めて遊ぶ時にWADを準備します。セーブはSDカードの{1}に保存します。",
+        "O WAD é preparado na primeira vez que jogar. Os saves ficam em {1} no cartão SD.",
+        "Il WAD viene preparato al primo avvio. I salvataggi restano in {1} sulla scheda SD."),
+    "Getting the game ready": (
+        "Preparando el juego", "ゲームを準備中", "Preparando o jogo", "Preparazione del gioco"),
+    "Getting {1} ready, first time only": (
+        "Preparando {1}, solo la primera vez", "{1}を準備中 (初回のみ)",
+        "Preparando {1}, só na primeira vez", "Preparazione di {1}, solo al primo avvio"),
+    "The game could not be prepared": (
+        "No se pudo preparar el juego", "ゲームを準備できませんでした",
+        "Não foi possível preparar o jogo", "Impossibile preparare il gioco"),
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": (
+        "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log.",
+        "WADの破損、SDカードの空き容量やロックを確認して、もう一度お試しください。詳細はsd:/riftwii/session.logにあります。",
+        "O WAD pode estar danificado, ou o cartão SD cheio ou travado. Confira o arquivo e o espaço livre e tente de novo. Detalhes em sd:/riftwii/session.log.",
+        "Il WAD potrebbe essere danneggiato o la scheda SD piena o bloccata. Controlla il file e lo spazio libero e riprova. Dettagli in sd:/riftwii/session.log."),
+})
+KO.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요.",
+    "Getting the game ready": "게임 준비 중",
+    "Getting {1} ready, first time only": "{1} 준비 중, 처음 한 번만",
+    "The game could not be prepared": "게임을 준비하지 못했습니다",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다.",
+})
+FR.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons.",
+    "Getting the game ready": "Préparation du jeu",
+    "Getting {1} ready, first time only": "Préparation de {1}, au premier lancement seulement",
+    "The game could not be prepared": "Le jeu n’a pas pu être préparé",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2011 Miigotu, Dimok (USB Loader GX channel identity design)
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/nandchannel.hpp"
+#include "riftwii/checkedalloc.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -376,6 +377,10 @@ bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& 
         return false;
     }
     TmdContents result;
+    if (!try_reserve(result.contents, count)) {
+        error = "not enough memory for the TMD's contents";
+        return false;
+    }
     result.title_id = be64(tmd + kTmdTitleIdOffset);
     // sys_version is 0x00000001'000000NN for IOS NN.
     const std::uint64_t ios = be64(tmd + kTmdIosOffset);

@@ -31,10 +31,10 @@ struct DriveScanPart {
     // the USB drive's with them after the drive's.
     PackIndex packs;
     PackageCatalog package_catalog;
-    // The SD card's part only: the Wii's channels (and those in another
-    // loader's emulated NAND on the card), and what looking for network
-    // packs came to (empty when there was nothing to say).
+    // The SD part carries installed channels and SD WADs; USB carries USB
+    // WADs to merge by title. The network note is empty without a problem.
     std::vector<NandChannel> channels;
+    unsigned unreadable_wads = 0;
     std::string network_note;
 };
 

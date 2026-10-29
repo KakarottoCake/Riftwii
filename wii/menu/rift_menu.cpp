@@ -140,6 +140,7 @@
 #include "sharednandfind.hpp"
 #include "otpkey.hpp"
 #include "wadinstall.hpp"
+#include "wadfolder.hpp"
 #include "homebrew.hpp"
 #include "video.h"
 #include <fat.h>
@@ -4299,6 +4300,8 @@ static void TakeSdScanPart(FrontendState& state, riftwii::wii::DriveScanPart& pa
 {
 	state.sd_catalog = std::move(part.catalog);
 	state.channels = std::move(part.channels);
+	if (part.unreadable_wads)
+		SetHomeNotice(tr("Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."));
 	state.package_catalog = std::move(part.package_catalog);
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	g_packs = std::move(part.packs);
@@ -4333,6 +4336,9 @@ static void TakeUsbScanPart(FrontendState& state, riftwii::wii::DriveScanPart& p
 		g_forgetPicturesAfterScan = false;
 	}
 	state.usb_catalog = std::move(part.catalog);
+	riftwii::wii::merge_wad_channels(state.channels, part.channels);
+	if (part.unreadable_wads && prompts)
+		SetHomeNotice(tr("Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."));
 	state.emulators = std::move(part.emulators);
 	// Local covers asked for during the scan could only report a miss.
 	// Publish the new catalog before allowing those covers to be read again,
@@ -6438,6 +6444,11 @@ static ChannelCopies CopiesOf(const FrontendState& state) {
 	ChannelCopies copies;
 	if (state.channel_index >= state.channels.size()) return copies;
 	const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
+	if (!channel.wad_path.empty()) {
+		copies.emu = true;
+		copies.folder = channel.emu_nand;
+		return copies;
+	}
 	for (const riftwii::wii::NandChannel& other : state.channels) {
 		if (other.title_id != channel.title_id) continue;
 		if (other.emu_nand.empty()) {
@@ -6476,6 +6487,8 @@ static void CycleChannelNand(FrontendState& state) {
 }
 
 static std::string ChannelBootNote(const FrontendState& state) {
+	if (state.channel_index < state.channels.size() && !state.channels[state.channel_index].wad_path.empty())
+		return tr("The WAD is prepared on first play. Saves stay in {1} on the SD card.", {state.channels[state.channel_index].emu_nand});
 	const ChannelCopies copies = CopiesOf(state);
 	if (!copies.wii && !copies.emu)
 		return tr("No copy of this channel has its program data. Install it on the Wii or in the emulated NAND.");
@@ -6489,6 +6502,45 @@ static std::string ChannelBootNote(const FrontendState& state) {
 	return copies.emu && !copies.wii
 		? tr("The emulated NAND's copy starts; its save is on the SD card in {1}.", {copies.folder})
 		: tr("The copy RiftWii lists starts, with its own save.");
+}
+
+static bool PrepareWadInMenu(riftwii::wii::NandChannel& channel)
+{
+	if (channel.wad_path.empty()) return true;
+	riftwii::wii::WaitDriveScan();
+	riftwii::wii::NetWaitForBackground();
+	std::string error;
+	bool ok;
+	{
+		// Open the progress box only when files actually need preparing.
+		// Later starts check their stamps without flashing a first-play box.
+		std::unique_ptr<ProgressBar> bar;
+		std::unique_ptr<PopupBox> box;
+		const riftwii::wii::CardWriteHold hold;
+		int shown = -1;
+		ok = riftwii::wii::prepare_wad_channel(channel, [&](double done) {
+			if (!box) {
+				bar.reset(new ProgressBar(56, 280, 528));
+				box.reset(new PopupBox(tr("Getting the game ready"),
+					tr("Getting {1} ready, first time only", {ChannelName(channel)})));
+				box->Add(bar.get(), 528);
+				ResumeGui();
+			}
+			const int percent = static_cast<int>(done * 100);
+			if (percent == shown) return;
+			shown = percent;
+			HaltGui();
+			bar->Set(done);
+			ResumeGui();
+		}, error);
+		if (box) HaltGui();
+	}
+	if (!ok) {
+		logf("WiiWare folder: %s could not be prepared because %s.\n", channel.wad_path.c_str(), error.c_str());
+		ShowPopup(tr("The game could not be prepared"),
+			tr("The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."), tr("OK"));
+	}
+	return ok;
 }
 
 struct RowRef {
@@ -11982,13 +12034,15 @@ static int MenuHome(FrontendState& state)
 				say("No game is selected; go back and pick one.");
 			} else if (state.use_channel) {
 				if (saveForStart() && state.channel_index < state.channels.size()) {
-					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
+					riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
 					const ChannelCopies copies = CopiesOf(state);
 					const std::string& nand_source = state.model.game.nand_source;
 					const bool emulated = nand_source == "emu" || (nand_source == "auto" && !copies.wii && copies.emu);
 					if ((!copies.wii && !copies.emu) || (nand_source == "real" && !copies.wii) ||
 					    (emulated && !copies.emu)) {
 						say(ChannelBootNote(state));
+					} else if (emulated && !PrepareWadInMenu(channel)) {
+						// The preparation popup explains the failure; stay on the page.
 					} else {
 						logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
 						riftwii::wii::SetChannelToStart(channel);

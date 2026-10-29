@@ -3407,3 +3407,21 @@ msgstr "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftw
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos."
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "O WAD é preparado na primeira vez que jogar. Os saves ficam em {1} no cartão SD."
+
+msgid "Getting the game ready"
+msgstr "Preparando o jogo"
+
+msgid "Getting {1} ready, first time only"
+msgstr "Preparando {1}, só na primeira vez"
+
+msgid "The game could not be prepared"
+msgstr "Não foi possível preparar o jogo"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "O WAD pode estar danificado, ou o cartão SD cheio ou travado. Confira o arquivo e o espaço livre e tente de novo. Detalhes em sd:/riftwii/session.log."

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "riftwii/nandchannel.hpp"
+#include "riftwii/overlay.hpp"
 #include "riftwii/sha1.hpp"
 #include "riftwii/wiicrypt.hpp"
 
@@ -50,6 +51,42 @@ struct WadContentPlace {
 // when they run past the WAD's data.
 bool wad_content_places(const WadLayout& layout, const TmdContents& tmd, std::vector<WadContentPlace>& out,
                         std::string& error);
+
+// Only the small metadata sections are read. The ticket and TMD must name
+// the same channel, with unique content IDs/indexes and a boot content.
+struct WadMetadata {
+    WadLayout layout;
+    TmdContents tmd;
+    std::vector<std::uint8_t> ticket;
+    std::vector<std::uint8_t> tmd_bytes;
+    std::vector<WadContentPlace> places;
+    Sha1Digest fingerprint{};  // header, ticket, TMD and total file size
+};
+bool read_wad_metadata(const ByteSource& source, WadMetadata& out, std::string& error);
+bool read_wad_banner(const ByteSource& source, const WadMetadata& metadata,
+                     const std::uint8_t common_key[16], std::vector<std::uint8_t>& out, std::string& error);
+
+// The small SD cache record holds the banner's name header; the complete
+// banner (including its icon) lives beside it and is read only when wanted.
+struct WadCacheRecord {
+    Sha1Digest fingerprint{};
+    std::uint64_t modified = 0;  // SD timestamp; USB uses the metadata fingerprint
+    std::uint64_t title_id = 0;
+    std::uint32_t banner_size = 0;
+    std::vector<std::uint8_t> banner_head;
+};
+bool encode_wad_cache(const WadCacheRecord& record, std::vector<std::uint8_t>& out);
+bool decode_wad_cache(const std::uint8_t* data, std::size_t size, WadCacheRecord& out);
+
+// A prepared title is reused only while its source stamp and installed
+// contents agree. Without a preparation stamp, an identical installed TMD
+// and all of its contents suffice (the old manual installer remains valid).
+bool wad_needs_preparation(const Sha1Digest& source, const Sha1Digest* prepared,
+                            bool contents_present, bool same_installed_tmd);
+
+// /sys/uid.sys holds big-endian title-ID/user-ID pairs (12 bytes each).
+// Keep existing owners, adding this title only when missing.
+bool add_wad_title_uid(std::vector<std::uint8_t>& bytes, std::uint64_t title_id, std::string& error);
 
 // One content, decrypted as it is read: whole 16-byte blocks in order,
 // in pieces of any size. Checks its SHA-1 against the TMD's at the end.
