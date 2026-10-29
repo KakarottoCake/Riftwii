@@ -719,14 +719,17 @@ void scan_gc_directory(const std::string& directory, bool nested, bool report_ot
     }
 }
 
-void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out) {
+// `folder_roots`: the folders besides games and wbfs whose subfolders are
+// game folders (gc_catalog_hidden_by).
+void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out,
+                      const std::vector<std::string>& folder_roots) {
     std::vector<GcCatalogImage> images;
     if (!try_reserve(images, found.size())) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
     }
     for (const ImageGame& game : found) images.push_back({game.path, game.id, game.disc_number});
-    const std::vector<int> hidden_by = gc_catalog_hidden_by(images);
+    const std::vector<int> hidden_by = gc_catalog_hidden_by(images, folder_roots);
     if (hidden_by.size() != found.size()) {
         logf("GameCube scan: there is not enough memory to choose which images to list\n");
         return;
@@ -761,20 +764,74 @@ void append_gc_images(std::vector<ImageGame>& found, std::vector<ImageGame>& out
     }
 }
 
+// Whether `directory` is one of `walked`, in any case (FAT names are).
+bool gc_folder_walked(const std::vector<std::string>& walked, const std::string& directory) {
+    return std::any_of(walked.begin(), walked.end(), [&](const std::string& w) {
+        return w.size() == directory.size() &&
+               std::equal(w.begin(), w.end(), directory.begin(), [](char a, char b) {
+                   return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+               });
+    });
+}
+
+// Folders at the top of the drive, other than games, wbfs and the
+// game_folders already walked, whose first few subfolders hold a GameCube
+// image named as Nintendont names them (game.iso): a player's games
+// copied to "game1" were missing from Home with no line in the log.
+std::vector<std::string> gc_top_folders_with_games(const std::string& device,
+                                                   const std::vector<std::string>& walked) {
+    constexpr std::size_t kSubfoldersProbed = 4;
+    std::vector<std::string> out;
+    std::vector<VolumeEntry> top;
+    std::string error;
+    if (!list_gc_directory(device + ":/", top, error)) return out;
+    for (const VolumeEntry& folder : top) {
+        if (!folder.is_directory || !gc_scan_probes_top_folder(folder.name)) continue;
+        std::string directory;
+        if (!join_game_path(device + ":", folder.name, directory)) continue;
+        if (gc_folder_walked(walked, directory)) continue;
+        std::vector<VolumeEntry> games;
+        if (!list_gc_directory(directory, games, error)) continue;
+        std::size_t probed = 0;
+        bool holds_games = false;
+        for (const VolumeEntry& game : games) {
+            if (holds_games || probed == kSubfoldersProbed) break;
+            std::string path;
+            if (!game.is_directory || !join_game_path(directory, game.name, path)) continue;
+            ++probed;
+            std::vector<VolumeEntry> files;
+            if (!list_gc_directory(path, files, error)) continue;
+            holds_games = std::any_of(files.begin(), files.end(), [](const VolumeEntry& file) {
+                return !file.is_directory && is_gc_game_folder_image_name(file.name);
+            });
+        }
+        if (holds_games) out.push_back(directory);
+    }
+    return out;
+}
+
 void scan_gc_images(const std::string& device, std::vector<ImageGame>& out, CisoFinds* ciso) {
     const u64 started = gettime();
     unsigned opened = 0;
     SkippedGcFiles skipped;
     std::vector<ImageGame> found;
+    std::vector<std::string> walked = {device + ":/games", device + ":/wbfs"};
     scan_gc_directory(device + ":/games", true, true, out, found, skipped, ciso, opened);
     scan_gc_directory(device + ":/wbfs", true, false, out, found, skipped, ciso, opened);
     for (const std::string& folder : game_folders_on(Settings(), device)) {
         const std::string directory = device + ":" + folder;
-        if (directory == device + ":/games" || directory == device + ":/wbfs") continue;
+        if (gc_folder_walked(walked, directory)) continue;
+        walked.push_back(directory);
         scan_gc_directory(directory, true, false, out, found, skipped, ciso, opened);
     }
+    for (const std::string& directory : gc_top_folders_with_games(device, walked)) {
+        logf("%s scan: %s holds GameCube game folders (<game>/game.iso), so it is looked in as games is\n",
+             device == "sd" ? "SD" : "USB", directory.c_str());
+        walked.push_back(directory);
+        scan_gc_directory(directory, true, true, out, found, skipped, ciso, opened);
+    }
     skipped.finish(device == "sd" ? "SD" : "USB");
-    append_gc_images(found, out);
+    append_gc_images(found, out, walked);
     const unsigned elapsed_ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
     logf("%s scan: the GameCube scan opened %u image(s) in %u ms\n",
          device == "sd" ? "SD" : "USB", opened, elapsed_ms);
