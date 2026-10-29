@@ -2032,7 +2032,7 @@ void TestPinLaunchCios() {
     EXPECT_EQ(with_back.settings.cios, std::string("251"));
     EXPECT_TRUE(std::find(with_args.begin(), with_args.end(), std::string("cios=251")) + 4 == with_args.end());
     // Only "with" is a value for it.
-    EXPECT_FALSE(parse_headless_launch({"game=SKHJAF", "extras=without"}, with_back, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=SKHJAF", "extras=without"}, with_back, error));
     // "auto" becomes the slot.
     h.settings.cios = "auto";
     args = headless_launch_arguments(h);

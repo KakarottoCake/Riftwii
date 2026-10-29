@@ -6210,6 +6210,7 @@ static int MenuSource(FrontendState& state)
 				const riftwii::SdHotplugEvent sdEvent = g_sdWatch.update(SdWatchInsertedNow());
 				if (sdEvent == riftwii::SdHotplugEvent::Removed && !g_sdGone && !g_sdRemovalPending) {
 					riftwii::wii::NetCancelBackground();
+					riftwii::wii::HoldCodeModAnswers(true);
 					g_sdRemovalPending = true;
 					toast.Show(tr("The SD card was taken out."), true);
 				}
@@ -6265,7 +6266,7 @@ static int MenuSource(FrontendState& state)
 						riftwii::wii::ForgetCardHistoryAndOrder();
 						riftwii::wii::ForgetProfiles();
 						riftwii::wii::ForgetProfilePictures();
-						riftwii::wii::ForgetCodeModAnswers();
+						riftwii::wii::HoldCodeModAnswers(false);
 						riftwii::wii::ForgetAllCovers();
 						ForgetAllIcons();
 						// Classifications and homebrew titles come from this

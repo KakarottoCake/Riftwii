@@ -3,6 +3,7 @@
 #include "codemodstart.hpp"
 
 #include <cstdio>
+#include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 
 #include "log.hpp"
@@ -16,6 +17,9 @@ CodeModAnswers g_answers;
 bool g_loaded = false;
 // There but unreadable: never written over, so its answers aren't lost.
 bool g_unreadable = false;
+// The card was taken out and isn't mounted again yet: nothing is read or
+// written, so no answer of the old card reaches the next one.
+bool g_held = false;
 
 // At most kCodeModsMaxBytes, cut back to its last whole line.
 bool ReadCodeModsFile(CodeModAnswers& answers) {
@@ -43,6 +47,8 @@ bool ReadCodeModsFile(CodeModAnswers& answers) {
 }
 
 const CodeModAnswers& Answers() {
+    static const CodeModAnswers none;
+    if (g_held) return none;
     if (!g_loaded) {
         g_loaded = true;
         g_unreadable = !ReadCodeModsFile(g_answers);
@@ -58,7 +64,9 @@ const CodeModAnswers& Answers() {
 // so the old one is moved aside first and only deleted once the new one
 // is in; a failed step puts it back, so the card never loses its answers.
 bool Save() {
-    if (g_unreadable) return false;
+    // Also a card pulled while a screen of its own is open, before Home
+    // notices: the slot is empty now.
+    if (g_unreadable || g_held || !__io_wiisd.isInserted()) return false;
     mkdir("sd:/riftwii", 0777);
     const std::string temp = std::string(kCodeModsPath) + ".part";
     const std::string old = std::string(kCodeModsPath) + ".old";
@@ -98,6 +106,7 @@ CodeModStart SharedCodeModAnswer(const std::string& game_id, const std::vector<s
 }
 
 bool SetCodeModAnswer(const std::string& game_id, const std::string& key, CodeModStart start) {
+    if (g_held) return false;
     Answers();
     if (!set_code_mod_answer(g_answers, game_id, key, start)) return false;
     return Save();
@@ -109,7 +118,13 @@ void ForgetCodeModAnswers() {
     g_unreadable = false;
 }
 
+void HoldCodeModAnswers(bool held) {
+    if (held) ForgetCodeModAnswers();
+    g_held = held;
+}
+
 bool RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys, CodeModStart picked) {
+    if (g_held) return false;
     Answers();
     // One the file couldn't take (it is full) isn't kept either.
     const bool taken = remember_code_mod_answer(g_answers, game_id, keys, picked);

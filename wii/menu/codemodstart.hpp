@@ -21,5 +21,8 @@ bool RememberCodeModAnswer(const std::string& game_id, const std::vector<std::st
 // The SD card was taken out and put back (perhaps another one): its file
 // is read again before the next answer, never the old card's written onto it.
 void ForgetCodeModAnswers();
+// From the moment the card is seen taken out (true) until it is mounted
+// again (false): no answer is read or saved meanwhile.
+void HoldCodeModAnswers(bool held);
 
 }  // namespace riftwii::wii
