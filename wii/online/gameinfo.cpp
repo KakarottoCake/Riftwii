@@ -401,8 +401,12 @@ bool LoadModTitles(std::vector<CustomGame>& out) {
     const std::size_t got = text.empty() ? 0 : std::fread(&text[0], 1, text.size(), f);
     std::fclose(f);
     if (got != text.size()) return false;
-    out = parse_custom_games(text);
-    return true;
+    // A damaged line: the list is made again from the database rather than
+    // matched with a mod missing (#394).
+    bool damaged = false;
+    out = parse_custom_games(text, &damaged);
+    if (damaged) out.clear();
+    return !damaged;
 }
 
 unsigned ModTitlesWritten() { return g_mod_titles_written; }

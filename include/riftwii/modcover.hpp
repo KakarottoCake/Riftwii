@@ -45,7 +45,10 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out);
 // `written`, when given: how many entries went in (fewer than given when
 // some were not valid or the bounds cut the list).
 std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written = nullptr);
-std::vector<CustomGame> parse_custom_games(const std::string& text);
+// `damaged`, when given: set when a line (not blank, not a comment) isn't
+// one the writer makes. The rest is still read, but a list with a line
+// missing could make one mod look like the only match.
+std::vector<CustomGame> parse_custom_games(const std::string& text, bool* damaged = nullptr);
 
 // The words of a title or a mod's name, lowercased, each run of anything
 // but letters, digits and '+' made one space ("Super Smash Bros. Project+"

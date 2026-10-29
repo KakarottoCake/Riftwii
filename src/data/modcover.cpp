@@ -84,8 +84,9 @@ std::string serialize_custom_games(const std::vector<CustomGame>& games, std::si
     return out;
 }
 
-std::vector<CustomGame> parse_custom_games(const std::string& text) {
+std::vector<CustomGame> parse_custom_games(const std::string& text, bool* damaged) {
     std::vector<CustomGame> out;
+    if (damaged) *damaged = false;
     std::size_t at = 0;
     while (at < text.size() && out.size() < kMaxCustomGames) {
         std::size_t end = text.find('\n', at);
@@ -95,11 +96,15 @@ std::vector<CustomGame> parse_custom_games(const std::string& text) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty() || line[0] == '#') continue;
         const std::size_t tab = line.find('\t');
-        if (tab == std::string::npos) continue;
         CustomGame g;
-        g.id = line.substr(0, tab);
-        g.title = clean_title(line.substr(tab + 1));
-        if (is_custom_id(g.id) && !g.title.empty()) out.push_back(std::move(g));
+        if (tab != std::string::npos) {
+            g.id = line.substr(0, tab);
+            g.title = clean_title(line.substr(tab + 1));
+        }
+        if (tab != std::string::npos && is_custom_id(g.id) && !g.title.empty())
+            out.push_back(std::move(g));
+        else if (damaged)
+            *damaged = true;
     }
     return out;
 }

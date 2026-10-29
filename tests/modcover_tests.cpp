@@ -86,13 +86,25 @@ static void TestFile() {
     std::size_t written = 0;
     const std::string text = riftwii::serialize_custom_games(games, &written);
     EXPECT_EQ(written, 2u);  // the short ID and the empty title left out
-    const std::vector<CustomGame> back = riftwii::parse_custom_games(text);
+    bool damaged = true;
+    const std::vector<CustomGame> back = riftwii::parse_custom_games(text, &damaged);
+    EXPECT_TRUE(!damaged);  // what the writer makes is never damaged
     EXPECT_EQ(back.size(), 2u);
     EXPECT_TRUE(back.size() == 2 && back[0].id == "RMCETO" && back[0].title == "Retro Rewind");
     EXPECT_TRUE(back.size() == 2 && back[1].title == "Super Smash Bros. Project+");
-    // Damage is skipped, CRLF read.
-    const std::vector<CustomGame> odd = riftwii::parse_custom_games("# x\r\nRMCETO\tRetro Rewind\r\nno tab\nrmceto\tlower\n");
+    // Damage is skipped but reported, CRLF read.
+    const std::vector<CustomGame> odd =
+        riftwii::parse_custom_games("# x\r\nRMCETO\tRetro Rewind\r\nno tab\nrmceto\tlower\n", &damaged);
     EXPECT_TRUE(odd.size() == 1 && odd[0].title == "Retro Rewind");
+    EXPECT_TRUE(damaged);
+    for (const char* bad : {"no tab\n", "rmceto\tlower ID\n", "RMCETO\t\n"}) {
+        damaged = false;
+        riftwii::parse_custom_games(std::string("RMCETO\tRetro Rewind\n") + bad, &damaged);
+        EXPECT_TRUE(damaged);
+    }
+    damaged = true;
+    riftwii::parse_custom_games("# only a comment\n\r\n\n", &damaged);
+    EXPECT_TRUE(!damaged);
     // A title past the bound is cut on a whole character.
     const std::string longer(200, 'a');
     const std::vector<CustomGame> cut = riftwii::parse_custom_games("RMCETO\t" + longer + "\n");
