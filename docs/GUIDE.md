@@ -672,8 +672,11 @@ Removing a WAD removes its Home tile after the drives are read again.
 Its save stays at `<emulated NAND>/title/00010001/<title ID>/data/`, and is
 used again if the WAD is put back. An independently installed copy keeps
 its own tile and save location; the same title is shown only once.
-RiftWii reads your Wii's common key only in memory to decrypt its own
-backup. Korean-key and vWii-key WADs are not supported by this key reader.
+RiftWii first tries your Wii's hardware key, then asks IOS to read the
+game's title key. It checks the banner before trusting either result.
+If neither works, put your own Wii's BootMii `keys.bin` backup at
+`sd:/keys.bin`. Keys stay in memory only, and the session log says which
+source worked. Korean-key and vWii-key WADs are not supported by this key reader.
 The regular d2x channel-launch requirements still apply.
 
 The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)

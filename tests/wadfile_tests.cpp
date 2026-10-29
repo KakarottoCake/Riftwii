@@ -242,6 +242,77 @@ void test_metadata_and_banner() {
     EXPECT_TRUE(!read_wad_banner(source, metadata, kCommonKey, banner, error));
 }
 
+void test_title_key_sources() {
+    MemoryWad source(build_wad().file);
+    WadMetadata metadata;
+    std::string error;
+    EXPECT_TRUE(read_wad_metadata(source, metadata, error));
+
+    // -1 is unavailable (and may still dirty its output), 0 is a wrong
+    // nonzero key, 1 is the invented title key used to encrypt this WAD.
+    struct Case {
+        int keys[3];
+        int calls;
+        int selected;
+    };
+    const Case cases[] = {
+        {{1, 1, 1}, 1, 0},
+        {{0, 1, 1}, 2, 1},  // Dolphin: OTP returns nonzero but incorrect bytes
+        {{-1, 1, 1}, 2, 1},
+        {{-1, -1, 1}, 3, 2},  // no hardware access and IOS denies the call
+        {{0, 0, 1}, 3, 2},
+        {{0, -1, 0}, 3, -1},
+        {{-1, -1, -1}, 3, -1},
+    };
+    for (const Case& test : cases) {
+        std::vector<WadKeySource> calls;
+        std::uint8_t key[16];
+        std::memset(key, 0xCC, sizeof key);
+        std::vector<std::uint8_t> banner = {0xCC};
+        WadKeySource selected = WadKeySource::Otp;
+        error = "an old error";
+        const bool found = select_wad_title_key(source, metadata,
+            [&](WadKeySource candidate, std::uint8_t* out) {
+                for (unsigned i = 0; i < 16; ++i) EXPECT_EQ(out[i], 0);
+                calls.push_back(candidate);
+                const int choice = test.keys[static_cast<unsigned>(candidate)];
+                std::memset(out, 0x55, 16);
+                if (choice == 1) std::memcpy(out, kTitleKey, 16);
+                return choice >= 0;
+            }, key, selected, banner, error);
+        EXPECT_TRUE(found == (test.selected >= 0));
+        EXPECT_EQ(calls.size(), static_cast<std::size_t>(test.calls));
+        for (std::size_t i = 0; i < calls.size(); ++i) EXPECT_EQ(static_cast<unsigned>(calls[i]), i);
+        if (found) {
+            EXPECT_EQ(static_cast<int>(selected), test.selected);
+            EXPECT_TRUE(std::memcmp(key, kTitleKey, 16) == 0);
+            EXPECT_TRUE(banner == build_wad().plain[0]);
+            EXPECT_TRUE(error.empty());
+        } else {
+            for (std::uint8_t byte : key) EXPECT_EQ(byte, 0);
+            EXPECT_TRUE(banner.empty());
+            EXPECT_TRUE(!error.empty());
+        }
+        clear_wad_key(key, sizeof key);
+    }
+
+    // Correct keys cannot turn damaged content into an accepted banner.
+    source.bytes[static_cast<std::size_t>(metadata.places[0].offset)] ^= 1;
+    unsigned calls = 0;
+    std::uint8_t key[16] = {};
+    std::vector<std::uint8_t> banner;
+    WadKeySource selected = WadKeySource::Otp;
+    EXPECT_TRUE(!select_wad_title_key(source, metadata,
+        [&](WadKeySource, std::uint8_t* out) {
+            ++calls;
+            std::memcpy(out, kTitleKey, 16);
+            return true;
+        }, key, selected, banner, error));
+    EXPECT_EQ(calls, 3u);
+    for (std::uint8_t byte : key) EXPECT_EQ(byte, 0);
+    EXPECT_TRUE(banner.empty());
+}
+
 void test_cache_and_preparation() {
     WadCacheRecord record;
     record.title_id = kTitle;
@@ -303,6 +374,7 @@ int main() {
     test_bad_files();
     test_content_map();
     test_metadata_and_banner();
+    test_title_key_sources();
     test_cache_and_preparation();
     if (g_failures == 0) std::cout << "wadfile tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

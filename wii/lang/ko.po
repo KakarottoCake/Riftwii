@@ -2367,9 +2367,6 @@ msgstr "WAD 파일 설치 중"
 msgid "{1} of {2}: {3}"
 msgstr "{2}개 중 {1}번째: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다."
 
@@ -3425,3 +3422,6 @@ msgstr "게임을 준비하지 못했습니다"
 
 msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
 msgstr "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다."

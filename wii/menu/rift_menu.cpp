@@ -3553,14 +3553,8 @@ static bool InstallWads()
 		ShowPopup(tr("Install WAD files"), tr("The emulated NAND folder can't be used: {1}", {FlatCapped(nand.error, 120)}), tr("OK"));
 		return false;
 	}
-	std::uint8_t key[16];
-	if (!riftwii::wii::ConsoleCommonKey(key)) {
-		ShowPopup(tr("Install WAD files"), tr("This Wii's key could not be read, so WAD files can't be installed."), tr("OK"));
-		return false;
-	}
 	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), nand.folder}),
 		    tr("Install"), tr("Cancel")) != 0) {
-		std::memset(key, 0, sizeof key);
 		return false;
 	}
 	std::size_t installed = 0;
@@ -3582,7 +3576,7 @@ static bool InstallWads()
 			const riftwii::wii::CardWriteHold hold;
 			ResumeGui();
 			int shown = -1;
-			ok = riftwii::wii::install_wad(path, nand.folder, key, [&](double done) {
+			ok = riftwii::wii::install_wad(path, nand.folder, nullptr, [&](double done) {
 				const int percent = static_cast<int>(done * 100);
 				if (percent == shown) return;
 				shown = percent;
@@ -3599,7 +3593,6 @@ static bool InstallWads()
 			failed += (failed.empty() ? "" : ", ") + name;
 		}
 	}
-	std::memset(key, 0, sizeof key);
 	// Nothing installed: only what was not, and where the reasons are.
 	std::string summary;
 	if (installed != 0) summary = tr("Installed {1} of {2}. They are on Home now.", {std::to_string(installed), std::to_string(files.size())});

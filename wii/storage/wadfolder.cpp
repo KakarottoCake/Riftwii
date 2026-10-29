@@ -11,7 +11,6 @@
 #include <cstring>
 
 #include "log.hpp"
-#include "otpkey.hpp"
 #include "sharednandfind.hpp"
 #include "usbcatalog.hpp"
 #include "wadinstall.hpp"
@@ -211,14 +210,9 @@ unsigned list_wad_channels(bool usb, std::vector<NandChannel>& out) {
                       record.title_id == metadata.tmd.title_id && file_size_is(cache + ".bnr", record.banner_size);
         const bool banner_changed = !cached;
         if (!cached) {
-            std::uint8_t key[16];
-            if (!ConsoleCommonKey(key)) {
-                logf("WiiWare folder: %s was left out because this Wii's key could not be read.\n", path.c_str());
-                ++unreadable;
-                continue;
-            }
-            const bool read = read_wad_banner(*source, metadata, key, bytes, error);
-            std::memset(key, 0, sizeof key);
+            std::uint8_t key[16] = {};
+            const bool read = read_console_wad_banner(*source, metadata, key, bytes, error);
+            clear_wad_key(key, sizeof key);
             if (!read) {
                 logf("WiiWare folder: %s was left out because %s.\n", path.c_str(), error.c_str());
                 ++unreadable;
@@ -281,17 +275,11 @@ bool prepare_wad_channel(NandChannel& channel, const std::function<void(double)>
         return true;
     }
     const bool new_title = !read_file(title + "/content/title.tmd", 0x10000, bytes);
-    std::uint8_t key[16];
-    if (!ConsoleCommonKey(key)) {
-        error = "this Wii's key could not be read";
-        return false;
-    }
     std::string code;
     if (progress) progress(0);
     logf("WiiWare folder: getting %s ready from %s in %s.\n", channel.game_id.c_str(), channel.wad_path.c_str(), channel.emu_nand.c_str());
-    const bool installed = install_wad(channel.wad_path, channel.emu_nand, key, progress, code, error,
+    const bool installed = install_wad(channel.wad_path, channel.emu_nand, nullptr, progress, code, error,
                                        channel.title_id, managed || new_title ? &stamp : nullptr);
-    std::memset(key, 0, sizeof key);
     if (!installed) return false;
     channel.wad_stamp = stamp;
     return true;

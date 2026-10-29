@@ -25,7 +25,6 @@
 #include "nanduse.hpp"
 #include "wadfolder.hpp"
 #include "wadinstall.hpp"
-#include "otpkey.hpp"
 #include "riftwii/wadfile.hpp"
 #include "riftwii/checkedalloc.hpp"
 
@@ -624,13 +623,9 @@ bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8
         const auto source = open_wad_source(channel.wad_path, error);
         WadMetadata metadata;
         if (!source || !read_wad_metadata(*source, metadata, error)) return false;
-        std::uint8_t key[16];
-        if (!ConsoleCommonKey(key)) {
-            error = "this Wii's key could not be read";
-            return false;
-        }
-        const bool read = read_wad_banner(*source, metadata, key, out, error);
-        std::memset(key, 0, sizeof key);
+        std::uint8_t key[16] = {};
+        const bool read = read_console_wad_banner(*source, metadata, key, out, error);
+        clear_wad_key(key, sizeof key);
         return read;
     }
     if (channel.banner_path.empty()) {

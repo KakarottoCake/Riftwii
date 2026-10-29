@@ -13,6 +13,7 @@
 #include <memory>
 
 #include "log.hpp"
+#include "otpkey.hpp"
 #include "usbcatalog.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/imagevolume.hpp"
@@ -199,6 +200,24 @@ std::vector<std::string> list_wad_files() {
     return files;
 }
 
+bool read_console_wad_banner(const ByteSource& source, const WadMetadata& metadata,
+                              std::uint8_t title_key[16], std::vector<std::uint8_t>& banner,
+                              std::string& error) {
+    WadKeySource selected = WadKeySource::Otp;
+    const bool read = select_wad_title_key(source, metadata,
+        [&](WadKeySource candidate, std::uint8_t* key) {
+            return ConsoleWadTitleKey(candidate, metadata.ticket, key);
+        }, title_key, selected, banner, error);
+    if (read) {
+        const char* name = "this Wii's OTP";
+        if (selected == WadKeySource::Ios) name = "IOS";
+        if (selected == WadKeySource::BootMiiKeys) name = "sd:/keys.bin";
+        logf("WADs: %016llx passed its banner hash check with a title key from %s.\n",
+             static_cast<unsigned long long>(metadata.tmd.title_id), name);
+    }
+    return read;
+}
+
 bool install_wad(const std::string& path, const std::string& folder, const std::uint8_t common_key[16],
                  const std::function<void(double)>& progress, std::string& code, std::string& error,
                  std::uint64_t expected_title, const Sha1Digest* source_stamp) {
@@ -219,8 +238,19 @@ bool install_wad(const std::string& path, const std::string& folder, const std::
         return false;
     }
     code = channel_code(metadata.tmd.title_id);
-    std::uint8_t title_key[16];
-    if (!decrypt_title_key(metadata.ticket.data(), metadata.ticket.size(), common_key, title_key, error)) return false;
+    std::uint8_t title_key[16] = {};
+    bool have_key;
+    if (common_key) {
+        have_key = decrypt_title_key(metadata.ticket.data(), metadata.ticket.size(), common_key, title_key, error);
+    } else {
+        // Free the validation banner before allocating the install buffers.
+        std::vector<std::uint8_t> banner;
+        have_key = read_console_wad_banner(*wad, metadata, title_key, banner, error);
+    }
+    if (!have_key) {
+        clear_wad_key(title_key, sizeof title_key);
+        return false;
+    }
     char relative[64];
     std::snprintf(relative, sizeof relative, "/title/%08x/%08x", static_cast<unsigned>(metadata.tmd.title_id >> 32),
                   static_cast<unsigned>(metadata.tmd.title_id));
@@ -295,7 +325,7 @@ bool install_wad(const std::string& path, const std::string& folder, const std::
             if (!copy_content(*wad, place, title_key, stage_content + name, advanced, error)) break;
         }
     }
-    std::memset(title_key, 0, sizeof title_key);
+    clear_wad_key(title_key, sizeof title_key);
     // ES uses this list to give the title ownership of its save folder.
     // Publish its update with the ticket and content, never separately.
     std::vector<std::uint8_t> uid_bytes;

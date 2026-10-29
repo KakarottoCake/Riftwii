@@ -35,6 +35,18 @@ below and the existing full NAND emulation path, this is why RiftWii
 unpacks on first play rather than pretending the WAD itself is a NAND.
 No other loader's source was used for this feature.
 
+The key source is checked against the banner's content hash: console OTP
+first, then the read-only [ES_Decrypt call](https://wiibrew.org/wiki//dev/es)
+with [IOSC common-key handle 4](https://wiibrew.org/wiki/IOS/Syscalls), then
+the player's BootMii `sd:/keys.bin`. ES decrypts the ticket's title key;
+RiftWii does not export the common key or import a ticket into real NAND.
+An incorrect nonzero OTP result falls through just like an unavailable
+one. Each attempt and its expanded AES key are cleared after use, and only
+the successful source is logged. Dolphin implements the ES call, but its
+unfinished permission checks do not prove what every real IOS/d2x version
+allows. A Wii without hardware access may still need its own BootMii
+backup if IOS denies the call. See NOTICE.md for the Dolphin reference.
+
 First play verifies and stages every content, then replaces the content
 folder, ticket, title ownership list and shared-content map with rollback
 on a reported error. A new full emulated NAND first gets only its missing
