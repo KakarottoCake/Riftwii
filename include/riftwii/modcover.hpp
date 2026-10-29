@@ -46,7 +46,7 @@ bool parse_wiitdb_custom(const std::string& block, CustomGame& out);
 // some were not valid or the bounds cut the list).
 std::string serialize_custom_games(const std::vector<CustomGame>& games, std::size_t* written = nullptr);
 // `damaged`, when given: set when a line (not blank, not a comment) isn't
-// one the writer makes. The rest is still read, but a list with a line
+// one the writer makes, or comes after the first kMaxCustomGames. The rest is still read, but a list with a line
 // missing could make one mod look like the only match.
 std::vector<CustomGame> parse_custom_games(const std::string& text, bool* damaged = nullptr);
 

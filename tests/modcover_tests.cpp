@@ -105,6 +105,17 @@ static void TestFile() {
     damaged = true;
     riftwii::parse_custom_games("# only a comment\n\r\n\n", &damaged);
     EXPECT_TRUE(!damaged);
+    // As many as the writer keeps is whole; one more is damage, and still
+    // only the bound is read.
+    std::string full;
+    for (std::size_t i = 0; i < riftwii::kMaxCustomGames; ++i) full += "RMCETO\tRetro Rewind\n";
+    damaged = true;
+    EXPECT_EQ(riftwii::parse_custom_games(full, &damaged).size(), riftwii::kMaxCustomGames);
+    EXPECT_TRUE(!damaged);
+    full += "RMCETO\tRetro Rewind\n";
+    EXPECT_EQ(riftwii::parse_custom_games(full, &damaged).size(), riftwii::kMaxCustomGames);
+    EXPECT_TRUE(damaged);
+    EXPECT_EQ(riftwii::parse_custom_games(full).size(), riftwii::kMaxCustomGames);
     // A title past the bound is cut on a whole character.
     const std::string longer(200, 'a');
     const std::vector<CustomGame> cut = riftwii::parse_custom_games("RMCETO\t" + longer + "\n");

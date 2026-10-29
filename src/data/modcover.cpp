@@ -88,7 +88,7 @@ std::vector<CustomGame> parse_custom_games(const std::string& text, bool* damage
     std::vector<CustomGame> out;
     if (damaged) *damaged = false;
     std::size_t at = 0;
-    while (at < text.size() && out.size() < kMaxCustomGames) {
+    while (at < text.size()) {
         std::size_t end = text.find('\n', at);
         if (end == std::string::npos) end = text.size();
         std::string line = text.substr(at, end - at);
@@ -101,10 +101,18 @@ std::vector<CustomGame> parse_custom_games(const std::string& text, bool* damage
             g.id = line.substr(0, tab);
             g.title = clean_title(line.substr(tab + 1));
         }
-        if (tab != std::string::npos && is_custom_id(g.id) && !g.title.empty())
+        const bool valid = tab != std::string::npos && is_custom_id(g.id) && !g.title.empty();
+        if (valid && out.size() < kMaxCustomGames) {
             out.push_back(std::move(g));
-        else if (damaged)
-            *damaged = true;
+            continue;
+        }
+        // One past the bound isn't one the writer makes either: the list
+        // was cut, and a mod missing from it could look like the only match.
+        if (!damaged) {
+            if (valid) break;
+            continue;
+        }
+        *damaged = true;
     }
     return out;
 }
