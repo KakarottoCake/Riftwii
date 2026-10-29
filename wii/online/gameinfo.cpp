@@ -166,9 +166,8 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 bool SaveModTitles(const std::vector<CustomGame>& games) {
     const std::string text = serialize_custom_games(games);
     if (!ReplaceListFile(kModTitlesPath, text)) {
-        // An older list left would never be made again (the database counts
-        // as read): without one, the next read makes it.
-        std::remove(kModTitlesPath);
+        // The older list stays: still usable (the card is full, most
+        // likely), and better than none.
         logf("Mod covers: %s could not be written\n", kModTitlesPath);
         return false;
     }
@@ -584,9 +583,12 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
     bool missing = !have_source;
     for (const std::string& id : wanted)
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
-    // Read by a RiftWii from before the mods' list (#385): once more for it.
+    // The mods' list (#385) missing (read by a RiftWii from before it) or
+    // too big to load: read once more for it.
     struct stat mods;
-    if (have_source && stat(kModTitlesPath, &mods) != 0) missing = true;
+    if (have_source &&
+        (stat(kModTitlesPath, &mods) != 0 || static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes))
+        missing = true;
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
     read.lang = lang;
