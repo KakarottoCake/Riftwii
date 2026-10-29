@@ -13160,6 +13160,8 @@ static int MenuHome(FrontendState& state)
 					state.has_compiled = false;
 					state.compiled = riftwii::wii::CompiledMod{};
 					logf("Mods: the player went back because selected mod files are missing.\n");
+					// "Preparing the mods..." is over: the focused tile's help again.
+					shownTile = -1;
 				}
 				else {
 					logf("Compile failed: %s\n", error.c_str());
