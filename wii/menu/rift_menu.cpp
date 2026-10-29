@@ -6492,6 +6492,9 @@ static int MenuSource(FrontendState& state)
 				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
+				// The page's picker may have forgotten this game's Channels
+				// picture (Back to automatic): queue it again now.
+				else addCovers();
 				ResumeGui();
 				continue;
 			}
