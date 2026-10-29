@@ -156,7 +156,11 @@ ports it marks missing from the adapter, as for any game. Two things a
 pack does itself: there is no screen-dimming reset next to its
 `PADRead` for RiftWii to call, so the pack clears the game's dimming
 on real input itself (`VIResetRFIdle`); and without a `PADControlMotor`
-there's no rumble. A pack done this way also gets the GameCube
+there's no rumble. A pack that wants rumble adds its own
+`PADControlMotor` in the same shape as the SDK's, which the search finds
+by reading the rumble-off flag and then building the motor command with
+`oris rA, rB, 0x40` (described in `include/riftwii/symsearch.hpp`). A
+pack done this way also gets the GameCube
 controller's way back (L, R, Z and Start held two seconds), since the
 game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
 found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
