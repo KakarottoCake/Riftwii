@@ -43,9 +43,11 @@ constexpr const char* kHomebrewTitlesPath = "sd:/riftwii/homebrew-titles.txt";
 // tiles' own covers; English titles, so not per language either.
 constexpr const char* kModTitlesPath = "sd:/riftwii/mod-titles.txt";
 unsigned g_mod_titles_written = 0;
-// A list written to this card this session (cleared by ForgetGameInfo, a
-// card swap): its age against the database is then no reason to read again.
-bool g_mod_titles_written_here = false;
+// The database read for this card's list this session, written or not
+// (cleared by ForgetGameInfo, a card swap): the list's state is then no
+// reason to read the database again. A card that can't be written (full,
+// locked) would otherwise have every Home visit read it again.
+bool g_mod_titles_read_here = false;
 // Read from the database this session already (and the file written), for
 // the same reason as Cache::read_now; or stopped by the player.
 bool g_homebrew_read_now = false;
@@ -167,6 +169,7 @@ bool ReplaceListFile(const char* path, const std::string& text) {
 // Written even with no mods found, as the homebrew list is: the file says
 // the database was read for them.
 bool SaveModTitles(const std::vector<CustomGame>& games) {
+    g_mod_titles_read_here = true;
     const std::string text = serialize_custom_games(games);
     if (!ReplaceListFile(kModTitlesPath, text)) {
         // The older list stays, still usable; older than the database, it
@@ -175,7 +178,6 @@ bool SaveModTitles(const std::vector<CustomGame>& games) {
         return false;
     }
     ++g_mod_titles_written;
-    g_mod_titles_written_here = true;
     logf("Mod covers: %u of GameTDB's mods of your games kept in %s\n", static_cast<unsigned>(games.size()),
          kModTitlesPath);
     return true;
@@ -572,7 +574,7 @@ void ForgetGameInfo() {
     g_read_done.store(false, std::memory_order_relaxed);
     g_cache = Cache();
     ForgetHomebrewTitlesRead();
-    g_mod_titles_written_here = false;
+    g_mod_titles_read_here = false;
 }
 
 GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download) {
@@ -590,13 +592,13 @@ GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool do
         if (!g_cache.games.count(id) && !g_cache.not_listed.count(id)) missing = true;
     // The mods' list (#385) missing (read by a RiftWii from before it), too
     // big to load, or older than the database (its last write failed):
-    // read once more for it. The age only while none was written to
-    // this card this session: a console clock behind the database's date would make every
-    // list look older, and each Home refresh read the database again.
+    // read once more for it, once a session per card (a console clock
+    // behind the database's date would make every list look older; a card
+    // that can't be written would never have one).
     struct stat mods;
-    if (have_source && (stat(kModTitlesPath, &mods) != 0 ||
-                        static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes ||
-                        (!g_mod_titles_written_here && mods.st_mtime < source_time)))
+    if (have_source && !g_mod_titles_read_here &&
+        (stat(kModTitlesPath, &mods) != 0 || static_cast<std::uint64_t>(mods.st_size) > kMaxCustomGamesBytes ||
+         mods.st_mtime < source_time))
         missing = true;
     if (!stale && !missing) return GameInfoReadStart::NothingToRead;
     BackgroundRead read;
