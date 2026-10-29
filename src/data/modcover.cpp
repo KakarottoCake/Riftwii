@@ -135,13 +135,20 @@ std::string mod_cover_id(const std::vector<CustomGame>& customs, const std::stri
     if (stock_id.size() < 4) return {};
     const std::string prefix = stock_id.substr(0, 4);
     std::string found;
+    bool stock_matches = false;
     for (const CustomGame& g : customs) {
-        if (g.id.size() != 6 || g.id.compare(0, 4, prefix) != 0 || g.id == stock_id) continue;
+        if (g.id.size() != 6 || g.id.compare(0, 4, prefix) != 0) continue;
         if (!title_has_mod_name(g.title, name)) continue;
+        // The tile's own game (itself a mod, installed as a game of its own)
+        // is no cover to take, but it is a match: with another, two match.
+        if (g.id == stock_id) {
+            stock_matches = true;
+            continue;
+        }
         if (!found.empty() && found != g.id) return {};  // more than one: never a guess
         found = g.id;
     }
-    return found;
+    return stock_matches ? std::string() : found;
 }
 
 }  // namespace riftwii

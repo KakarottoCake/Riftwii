@@ -125,6 +125,14 @@ static void TestScanner() {
     EXPECT_EQ(installed.customs().size(), 2u);
     EXPECT_EQ(riftwii::mod_cover_id(installed.customs(), "RMCE01", "Retro Rewind"), std::string());
     EXPECT_EQ(installed.games().count("RMCETO"), 1u);  // and still its own game's details
+
+    // The tile's own game is itself a custom game whose title matches: with
+    // a near namesake, two entries match, so no cover.
+    const std::vector<CustomGame> newer = {{"SMNE02", "Newer Super Mario Bros. Wii"},
+                                           {"SMNE03", "Newer Super Mario Bros. Wii Holiday Special"}};
+    EXPECT_EQ(riftwii::mod_cover_id(newer, "SMNE02", "Newer Super Mario Bros. Wii"), std::string());
+    // A name only the other one has still finds it.
+    EXPECT_EQ(riftwii::mod_cover_id(newer, "SMNE02", "Holiday Special"), std::string("SMNE03"));
 }
 
 int main() {
