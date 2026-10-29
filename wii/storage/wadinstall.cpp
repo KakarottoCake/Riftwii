@@ -200,6 +200,16 @@ std::vector<std::string> list_wad_files() {
     return files;
 }
 
+namespace {
+
+const char* key_source_name(WadKeySource source) {
+    if (source == WadKeySource::Ios) return "IOS";
+    if (source == WadKeySource::BootMiiKeys) return "sd:/keys.bin";
+    return "this Wii's OTP";
+}
+
+}  // namespace
+
 bool read_console_wad_banner(const ByteSource& source, const WadMetadata& metadata,
                               std::uint8_t title_key[16], std::vector<std::uint8_t>& banner,
                               std::string& error) {
@@ -209,11 +219,22 @@ bool read_console_wad_banner(const ByteSource& source, const WadMetadata& metada
             return ConsoleWadTitleKey(candidate, metadata.ticket, key);
         }, title_key, selected, banner, error);
     if (read) {
-        const char* name = "this Wii's OTP";
-        if (selected == WadKeySource::Ios) name = "IOS";
-        if (selected == WadKeySource::BootMiiKeys) name = "sd:/keys.bin";
         logf("WADs: %016llx passed its banner hash check with a title key from %s.\n",
-             static_cast<unsigned long long>(metadata.tmd.title_id), name);
+             static_cast<unsigned long long>(metadata.tmd.title_id), key_source_name(selected));
+    }
+    return read;
+}
+
+bool read_console_wad_install_key(const ByteSource& source, const WadMetadata& metadata,
+                                  std::uint8_t title_key[16], std::string& error) {
+    WadKeySource selected = WadKeySource::Otp;
+    const bool read = select_wad_install_key(source, metadata,
+        [&](WadKeySource candidate, std::uint8_t* key) {
+            return ConsoleWadTitleKey(candidate, metadata.ticket, key);
+        }, title_key, selected, error);
+    if (read) {
+        logf("WADs: %016llx passed its content hash check with a title key from %s.\n",
+             static_cast<unsigned long long>(metadata.tmd.title_id), key_source_name(selected));
     }
     return read;
 }
@@ -243,9 +264,9 @@ bool install_wad(const std::string& path, const std::string& folder, const std::
     if (common_key) {
         have_key = decrypt_title_key(metadata.ticket.data(), metadata.ticket.size(), common_key, title_key, error);
     } else {
-        // Free the validation banner before allocating the install buffers.
-        std::vector<std::uint8_t> banner;
-        have_key = read_console_wad_banner(*wad, metadata, title_key, banner, error);
+        // Checked on a content rather than the banner: a channel WAD with no
+        // banner, or one over 4 MiB, still installs (as with a common key).
+        have_key = read_console_wad_install_key(*wad, metadata, title_key, error);
     }
     if (!have_key) {
         clear_wad_key(title_key, sizeof title_key);
