@@ -145,6 +145,9 @@ Slot g_pool[kPoolMax];
 int g_slots = 0;                         // of g_pool, with MEM2
 std::map<std::string, Slot*> g_index;    // the slots by id
 std::set<std::string> g_absent;          // asked for and not on the card
+// CoverWanted's answer to "does the player's own PNG read?", by game: a
+// decode each, so once until the covers are forgotten. Menu thread only.
+std::map<std::string, bool> g_ownReads;
 std::vector<Request> g_requests;
 std::vector<std::string> g_readAll;   // CoverReadAll's list
 std::size_t g_readAllNext = 0;
@@ -415,8 +418,12 @@ bool CoverWanted(const std::string& game_id) {
     if (tile && ModCoverId(game_id).empty()) return false;
     // The player's own cover is there (and reads): nothing to download.
     if (OwnCoverThere(game_id)) {
-        std::vector<std::uint8_t> own;
-        if (ReadOwnCover(game_id, own)) return false;
+        const auto known = g_ownReads.find(game_id);
+        if (known == g_ownReads.end()) {
+            std::vector<std::uint8_t> own;
+            g_ownReads[game_id] = ReadOwnCover(game_id, own);
+        }
+        if (g_ownReads[game_id]) return false;
     }
     if (tile && !TileStoredForMatch(game_id)) return true;
     struct stat st;
@@ -657,6 +664,7 @@ bool SetModCoverIds(std::map<std::string, std::string> ids) {
 }
 
 void ForgetCover(const std::string& game_id) {
+    g_ownReads.erase(game_id);
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     // The game's mod tiles show its cover too, unless they have their own.
@@ -669,6 +677,7 @@ void ForgetCover(const std::string& game_id) {
 }
 
 void ForgetGameCoversBeforeUsb() {
+    g_ownReads.clear();  // the drive may have the player's PNGs
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     for (auto it = g_absent.begin(); it != g_absent.end();)
@@ -679,6 +688,7 @@ void ForgetGameCoversBeforeUsb() {
 }
 
 void ForgetAllCovers() {
+    g_ownReads.clear();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     // Another SD card, maybe: its tiles are matched again from its list.
