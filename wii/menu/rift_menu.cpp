@@ -5354,6 +5354,11 @@ static int MenuSource(FrontendState& state)
 					[&](const std::string& id) { return (id.rfind("emu-", 0) == 0) == emulator; }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
+			// A second-set download that failed (the game page left before
+			// it ended): back on the first set, as the game page would.
+			if ((got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed) &&
+			    riftwii::wii::TakenFetchWasSecondSet() && riftwii::wii::CoverSecondSet(arrived))
+				riftwii::wii::ChooseCoverSet(arrived, false);
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
 		std::string boxArrived, boxError;
