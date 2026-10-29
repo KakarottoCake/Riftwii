@@ -2325,9 +2325,6 @@ msgstr "Instalando archivos WAD"
 msgid "{1} of {2}: {3}"
 msgstr "{1} de {2}: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "Instalados {1} de {2}. Ya están en Inicio."
 
@@ -3344,6 +3341,27 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD."
+
+msgid "Getting the game ready"
+msgstr "Preparando el juego"
+
+msgid "Getting {1} ready, first time only"
+msgstr "Preparando {1}, solo la primera vez"
+
+msgid "The game could not be prepared"
+msgstr "No se pudo preparar el juego"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves."
 
 msgid "No games here"
 msgstr "No hay juegos aquí"

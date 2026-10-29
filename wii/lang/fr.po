@@ -2325,9 +2325,6 @@ msgstr "Installation des fichiers WAD"
 msgid "{1} of {2}: {3}"
 msgstr "{1} sur {2} : {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "{1} sur {2} installés. Ils sont maintenant dans l'Accueil."
 
@@ -3344,6 +3341,27 @@ msgstr "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD."
+
+msgid "Getting the game ready"
+msgstr "Préparation du jeu"
+
+msgid "Getting {1} ready, first time only"
+msgstr "Préparation de {1}, au premier lancement seulement"
+
+msgid "The game could not be prepared"
+msgstr "Le jeu n’a pas pu être préparé"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés."
 
 msgid "No games here"
 msgstr "Aucun jeu ici"
