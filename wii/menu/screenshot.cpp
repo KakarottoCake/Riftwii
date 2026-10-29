@@ -285,11 +285,7 @@ void DecideHomeOwner() {
     const bool owns = owner != nullptr && owner();
     if (owns == g_home_owns) return;
     g_home_owns = owns;
-    if (owns) return;
-    ForgetPairHalves();
-    g_view_chord = false;
-    g_search_hold = false;
-    SpendHeldPresses();
+    if (!owns) ForgetPopupPresses();
 }
 
 void Fire() {

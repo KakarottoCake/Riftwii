@@ -56,9 +56,10 @@ void ForgetViewChord();
 // screen, and do nothing else.
 void SpendHeldPresses();
 
-// A popup closes: a view pair pressed in it, or half of one, is
-// forgotten (none of it counts towards a pair on Home), and every press
-// still kept back comes to nothing when let go.
+// A popup closes, or Home lets go of the controllers (SetHomeOwner; Home
+// itself, as a game starts opening): a view pair or hold pressed so far, or
+// half of one, is forgotten (none of it counts towards a pair on Home), and
+// every press still kept back comes to nothing when let go.
 void ForgetPopupPresses();
 
 // Home's random game by pad, as B held on the search button with a Wii

@@ -6666,7 +6666,11 @@ static int MenuSource(FrontendState& state)
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
 			// Home lets go of the controllers while the game opens: a pair or
 			// a hold begun on Home doesn't finish there and act on Home if it
-			// doesn't open (HomeOwnsControllers).
+			// doesn't open (HomeOwnsControllers). And it lets go now, with the
+			// GUI halted, not on the GUI thread's next frame: a game picked
+			// (or refused) before that frame would otherwise leave a pair or
+			// hold finished just before still pending once Home owns them again.
+			riftwii::wii::ForgetPopupPresses();
 			g_homeOpeningGame = true;
 			ResumeGui();
 			bool ok = false;
