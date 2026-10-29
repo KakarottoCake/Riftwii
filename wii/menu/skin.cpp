@@ -209,6 +209,7 @@ Tex keys[4];
 Tex layoutIcons[6];
 Tex card9;
 Tex dropShadow9;
+Tex discShadow;
 Tex channelFrame9, channelFrameOver9, channelCard9, channelCardOver9;
 Tex label9;
 
@@ -341,6 +342,8 @@ void Init() {
         card9 = Upload(c);
         paint_drop_shadow9(MenuTheme(), c);
         dropShadow9 = Upload(c);
+        paint_disc_shadow(MenuTheme(), c);
+        discShadow = Upload(c);
         SetChannelCorners(riftwii::wii::Settings().channel_corners);
         paint_label9(MenuTheme(), c);
         label9 = Upload(c);

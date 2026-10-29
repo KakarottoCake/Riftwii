@@ -900,6 +900,21 @@ msgstr "Dissolvenza"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."
 
+msgid "Banner music on game pages"
+msgstr "Musica del banner nella pagina del gioco"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Riproduce la musica del banner di un gioco quando ne apri la pagina dalla Home, come la schermata del banner della vista Canali. Non nella vista Canali, che la riproduce già."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "La vista Canali riproduce già la musica del banner di un gioco nella sua schermata del banner."
+
+msgid "Disc art"
+msgstr "Immagine del disco"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Mostra il disco del gioco sotto la custodia nella pagina del gioco. L'immagine arriva da GameTDB quando i download sono attivi ed è salvata in sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."
 
