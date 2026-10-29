@@ -15,58 +15,33 @@
 #include <cstdlib>
 
 #include "FreeTypeGX.h"
-#include "boot.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "riftwii/brfnt.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/sysfont.hpp"
 #include "skin.hpp"
-#include "nanduse.hpp"
+#include "wiimenucontent.hpp"
 
 namespace riftwii::wii {
 namespace {
 
-// A whole NAND file into a 32-byte aligned buffer, as ISFS wants: MEM2 for
-// the rest of the menu phase when `keep` (the font content), else the heap
-// (the caller frees it).
-u8* read_nand(const char* path, bool keep, std::size_t& size, std::string& why) {
-    s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
-    // The shared contents are the Wii Menu's: the Homebrew Channel's IOS
-    // refuses them to an app (-102) until its permission check is opened
-    // (boot.hpp; Dolphin never checks, a Wii and a vWii do). Closed again
-    // once the file is read, whichever way this returns.
-    struct Closer {
-        bool opened = false;
-        ~Closer() {
-            if (opened) close_nand_permissions("Menu font");
-        }
-    } closer;
-    if (fd == -102 && open_nand_permissions("Menu font")) {
-        closer.opened = true;
-        fd = ISFS_Open(path, ISFS_OPEN_READ);
-    }
-    if (fd < 0) {
-        why = std::string(path) + " could not be opened (" + std::to_string(fd) + ")";
+// Font archives stay in MEM2 while FreeTypeGX refers to their bytes.
+u8* read_content(const WiiMenuContentReader& reader, const TmdContent& content,
+                 std::size_t& size, std::string& why) {
+    constexpr std::size_t kMaxContent = 16u * 1024 * 1024;
+    if (content.size == 0 || content.size > kMaxContent) {
+        why = "the System Menu font content has no size we can read";
         return nullptr;
     }
-    static fstats stats ATTRIBUTE_ALIGN(32);
-    size = ISFS_GetFileStats(fd, &stats) < 0 ? 0 : stats.file_length;
-    if (size == 0 || size > 16u * 1024 * 1024) {
-        ISFS_Close(fd);
-        why = std::string(path) + " has no size we can read";
-        return nullptr;
-    }
-    u8* buffer = keep ? skin::Mem2Alloc(size) : static_cast<u8*>(memalign(32, (size + 31) & ~std::size_t(31)));
+    size = static_cast<std::size_t>(content.size);
+    u8* buffer = can_allocate(size) ? skin::Mem2Alloc(size) : nullptr;
     if (buffer == nullptr) {
-        ISFS_Close(fd);
         why = "no room for " + std::to_string(size) + " bytes";
         return nullptr;
     }
-    const s32 got = ISFS_Read(fd, buffer, size);
-    ISFS_Close(fd);
-    if (got != static_cast<s32>(size)) {
-        why = std::string(path) + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
-        if (!keep) std::free(buffer);
+    if (!reader.Read(content, buffer, kMaxContent, why)) {
+        skin::Mem2Release(buffer, size);
         return nullptr;
     }
     return buffer;
@@ -152,23 +127,25 @@ bool use_bitmap_app(const u8* app, std::size_t size, const char* path) {
     return true;
 }
 
-// wbf1.brfna, from the shared content `name` lists: the Wii Menu's text.
-void load_bitmap_font(const std::uint8_t* map, std::size_t map_size) {
-    const std::string name = shared_content_name(map, map_size, kWiiBitmapFontHash);
-    if (name.empty()) {
-        logf("Menu font: content.map lists no bitmap font; the TrueType one alone\n");
+// Find the shared font by hash in the System Menu's own content records.
+void load_bitmap_font(const WiiMenuContentReader& reader) {
+    const TmdContent* content = reader.FindHash(kWiiBitmapFontHash);
+    if (!content) {
+        logf("Menu font: the System Menu lists no bitmap font; the TrueType one alone\n");
         return;
     }
-    char path[32];
-    std::snprintf(path, sizeof path, "/shared1/%s.app", name.c_str());
+    const std::string path = "ES content index " + std::to_string(content->index);
     std::size_t size = 0;
     std::string why;
-    u8* app = read_nand(path, true, size, why);
+    u8* app = read_content(reader, *content, size, why);
     if (!app) {
         logf("Menu font: the bitmap font was not read (%s)\n", why.c_str());
         return;
     }
-    if (use_bitmap_app(app, size, path)) save_cache(kCacheBitmap, app, size);
+    if (use_bitmap_app(app, size, path.c_str())) {
+        logf("Menu font: read the Wii Menu's bitmap font through ES\n");
+        save_cache(kCacheBitmap, app, size);
+    }
 }
 
 // The copy on the SD card, when there is one that reads.
@@ -204,42 +181,31 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
     // (RiftWii's own font has none).
     const bool korean = CONF_GetLanguage() == CONF_LANG_KOREAN || MenuLanguage() == "ko";
     if (u8* cached = load_cached(korean, size)) return cached;
-    if (NandOpen() < 0) {
-        why = "the NAND could not be opened";
+    WiiMenuContentReader reader("Menu font");
+    if (!reader.Open(why)) return nullptr;
+    bool korean_font = korean;
+    const TmdContent* content = reader.FindHash(korean ? kWiiKoreanFontHash : kWiiFontHash);
+    if (!content) {
+        korean_font = !korean;
+        content = reader.FindHash(korean ? kWiiFontHash : kWiiKoreanFontHash);
+    }
+    if (!content) {
+        why = "the System Menu lists no Wii Menu font";
         return nullptr;
     }
-    u8* font = nullptr;
-    std::size_t map_size = 0;
-    if (u8* map = read_nand("/shared1/content.map", false, map_size, why)) {
-        // A Korean Wii has its own font; a Wii (or a menu) set to Korean
-        // looks for it first.
-        bool korean_font = korean;
-        std::string name = shared_content_name(map, map_size, korean ? kWiiKoreanFontHash : kWiiFontHash);
-        if (name.empty()) {
-            korean_font = !korean;
-            name = shared_content_name(map, map_size, korean ? kWiiFontHash : kWiiKoreanFontHash);
-        }
-        // The Wii Menu writes with its bitmap font: Korean is not in it, the
-        // TrueType font has it (the bitmap one's missing characters go there).
-        if (!name.empty()) load_bitmap_font(map, map_size);
-        std::free(map);
-        if (name.empty()) {
-            why = "content.map lists no Wii Menu font";
-        } else {
-            char path[32];
-            std::snprintf(path, sizeof path, "/shared1/%s.app", name.c_str());
-            std::size_t app_size = 0, at = 0;
-            if (u8* app = read_nand(path, true, app_size, why)) {
-                if (u8_find_font(app, app_size, at, size)) {
-                    font = app + at;
-                    save_cache(korean_font ? kCacheKorean : kCacheFont, app, app_size);
-                } else
-                    why = std::string(path) + " holds no font";
-            }
-        }
+    // Missing bitmap characters (including Hangul) use the TrueType font.
+    load_bitmap_font(reader);
+    std::size_t app_size = 0, at = 0;
+    u8* app = read_content(reader, *content, app_size, why);
+    if (!app) return nullptr;
+    if (!u8_find_font(app, app_size, at, size)) {
+        why = "ES content index " + std::to_string(content->index) + " holds no font";
+        skin::Mem2Release(app, app_size);
+        return nullptr;
     }
-    NandClose();
-    return font;
+    logf("Menu font: read the Wii Menu's TrueType font through ES\n");
+    save_cache(korean_font ? kCacheKorean : kCacheFont, app, app_size);
+    return app + at;
 }
 
 }  // namespace riftwii::wii
