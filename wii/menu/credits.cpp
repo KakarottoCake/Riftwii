@@ -92,7 +92,8 @@ const char* const kCredits[] = {
     "for its emulated NAND.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
-    "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",
+    "others): the toolchain and the Wii library, the physical GameCube card protocol reference, "
+    "and network cleanup before a launch.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
