@@ -85,6 +85,7 @@ extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
 extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
 extern Tex iconDrives, iconGear, iconSearch;  // 28x28
+extern Tex layoutIcons[6];               // 28x28: covers, 3D, carousel, shelf, channels, names
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture

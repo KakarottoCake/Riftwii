@@ -6,6 +6,12 @@ msgstr "Content-Type: text/plain; charset=UTF-8\n"
 msgid "Y: view  Z: settings  L/R: pages"
 msgstr "Y: 表示  Z: 設定  L/R: ページ"
 
+msgid "Layout"
+msgstr "レイアウト"
+
+msgid "Choose"
+msgstr "選ぶ"
+
 msgid "Games with mods"
 msgstr "MODがあるゲーム"
 
@@ -324,9 +330,6 @@ msgstr "オン ({1}個)"
 msgid "Cheat codes for this game. Press A to choose them."
 msgstr "このゲームのチートコードです。Aで選びます。"
 
-msgid "How wide the picture is drawn. 720 fills the screen from side to side."
-msgstr "画面の横幅です。720にすると画面の端から端まで表示されます。"
-
 msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
 msgstr "ちらつきを抑えるために画面をぼかすフィルターです。オフにすると一番くっきりします。"
 
@@ -387,9 +390,6 @@ msgstr "このゲームのチートはオンラインで見つかりませんで
 msgid "Cheats are only applied when this is On."
 msgstr "これがオンのときだけチートが使われます。"
 
-msgid "Downloads are off in Settings."
-msgstr "設定でダウンロードがオフになっています。"
-
 msgid "No game is selected."
 msgstr "ゲームが選ばれていません。"
 
@@ -447,9 +447,6 @@ msgstr "言語"
 msgid "Wii: {1}"
 msgstr "Wii: {1}"
 
-msgid "Download names and cheats"
-msgstr "ゲーム名とチートをダウンロード"
-
 msgid "Get the latest game names"
 msgstr "最新のゲーム名を取得"
 
@@ -492,15 +489,6 @@ msgstr "終わる"
 msgid "Game names follow the language when they are downloaded."
 msgstr "ゲーム名はダウンロード時にこの言語になります。"
 
-msgid "Game names and cheats are downloaded when the Wii is online."
-msgstr "Wiiがインターネットにつながっているとき、ゲーム名とチートをダウンロードします。"
-
-msgid "Nothing is downloaded. Names and cheats already on the card are still used."
-msgstr "何もダウンロードしません。カードにあるゲーム名とチートはそのまま使います。"
-
-msgid "Downloads are off. Turn on Download names and cheats first."
-msgstr "ダウンロードがオフです。先に「ゲーム名とチートをダウンロード」をオンにしてください。"
-
 msgid "Downloading game names..."
 msgstr "ゲーム名をダウンロードしています..."
 
@@ -524,9 +512,6 @@ msgstr "メニューとすべてのゲームがcIOS {1}で動作するので、f
 
 msgid "Takes effect the next time RiftWii starts."
 msgstr "次にRiftWiiを起動したときに反映されます。"
-
-msgid "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
-msgstr "ゲームを読み込むときにRiiFSサーバーを動かしているPCを探します。今すぐ探すには再検索してください。"
 
 msgid "Only servers named by <network> in an XML on the card are used."
 msgstr "カード上のXMLの<network>で指定されたサーバーだけを使います。"
@@ -579,9 +564,6 @@ msgstr "ゲーム"
 msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
 msgstr "ゲームはSDカードかUSBドライブのwbfsまたはgamesフォルダに入れてください (WBFS、ISO、RVZ)。ドライブのディスクも表示されます。最初はMODがあるゲームだけが表示されます。すべてのゲームを見るには、1か左下の丸いボタンを押してください。"
 
-msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
-msgstr "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutionかusb:/riivolutionに入れてください。ゲームを選び、MODを開いてパックをオンにし、設定を選びます。はじめる (か+) でMODつきで遊べます。"
-
 msgid "Buttons"
 msgstr "ボタン"
 
@@ -590,9 +572,6 @@ msgstr "WiiリモコンでポイントしてAを押すか、十字ボタンで�
 
 msgid "You're all set"
 msgstr "準備完了"
-
-msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
-msgstr "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > チュートリアル でこのガイドをもう一度見られます。"
 
 msgid "Next"
 msgstr "次へ"
@@ -620,12 +599,6 @@ msgstr "表示"
 
 msgid "Clear search"
 msgstr "検索をやめる"
-
-msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
-msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
-
-msgid "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings."
-msgstr "ゲームがまだありません。SDカードは探していません(設定 > ドライブ)。ゲーム(WBFS、ISO、RVZ)をUSBドライブのwbfsまたはgamesに入れて、設定の「ゲームをもう一度探す」を選んでください。"
 
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。"
@@ -1046,9 +1019,6 @@ msgstr "よろしいですか?"
 
 msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
 msgstr "本当に更新しませんか? 何か問題があった場合、最新の更新で直っているかもしれません!"
-
-msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
-msgstr "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。"
 
 msgid "No release is out yet. This is RiftWii {1}."
 msgstr "まだリリースはありません。これはRiftWii {1}です。"
@@ -1689,9 +1659,6 @@ msgstr "セーブを追加"
 msgid "Add a save from the SD card"
 msgstr "SDカードからセーブを追加"
 
-msgid "Back up saves"
-msgstr "セーブのバックアップ"
-
 msgid "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."
 msgstr "ゲームキューブのゲームを起動する前に、そのメモリーカードをSDカードにコピーします。最新の5つのコピーが残り、ゲームのセーブのページの「前のセーブに戻す」で使えます。"
 
@@ -2040,9 +2007,6 @@ msgstr "はい"
 msgid "No"
 msgstr "いいえ"
 
-msgid "You can bring it back any time in Settings > Disc Channel."
-msgstr "設定 > ディスクドライブチャンネル でいつでも戻せます。"
-
 msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
 msgstr "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。"
 
@@ -2162,9 +2126,6 @@ msgstr "ホームのゲームの並び順です。最後に遊んだ順とよく
 
 msgid "Your order"
 msgstr "自分の並び順"
-
-msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
-msgstr "ホームは自分の並び順になりました。設定 > ホームの並び順でA〜Z順に戻せます。"
 
 msgid "Let go of A: put it down   At a side: turn the page"
 msgstr "Aを離す: 置く   端で止める: ページをめくる"
@@ -2391,9 +2352,6 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Emulators as add-ons, with settings per game"
-msgstr "エミュレーターを追加でき、ゲームごとに設定できます"
-
 msgid "Covers for emulator games"
 msgstr "エミュレータのゲームのカバー"
 
@@ -2562,9 +2520,6 @@ msgstr "読み込めませんでした：{1}"
 msgid "No game details yet"
 msgstr "ゲーム情報はまだありません"
 
-msgid "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."
-msgstr "GameTDBのWiiゲームのデータベースから取得します。設定で「ゲーム名とチートをダウンロード」をオンにしてください。"
-
 msgid "Download game details?"
 msgstr "ゲーム情報をダウンロードしますか？"
 
@@ -2681,9 +2636,6 @@ msgstr "発売元"
 
 msgid "Up to {1} players"
 msgstr "最大{1}人"
-
-msgid "The mod's own"
-msgstr "MODのもの"
 
 msgid "Pages at the sides"
 msgstr "左右のページ"
@@ -2910,17 +2862,11 @@ msgstr "一覧を取得できません"
 msgid "There are no themes in the list yet."
 msgstr "一覧にはまだテーマがありません。"
 
-msgid "{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it."
-msgstr "{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。"
-
 msgid "A newer copy of {1} is out. Press A to update it, or delete it."
 msgstr "{1}の新しい版があります。Aで更新または削除します。"
 
 msgid "A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it."
 msgstr "{1}というテーマがすでにsd:/riftwii/themesにあります(ここから入れたものではありません)。Aで置き換えます。"
-
-msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme."
-msgstr "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。"
 
 msgid "{1} themes"
 msgstr "{1}件のテーマ"
@@ -2978,9 +2924,6 @@ msgstr "テーマを削除できません"
 
 msgid "{1} could not be deleted: {2}"
 msgstr "{1}を削除できませんでした: {2}"
-
-msgid "{1} is installed. Pick it in Settings > Theme to use it."
-msgstr "{1}をインストールしました。使うには設定 > テーマで選んでください。"
 
 msgid "Stopped. Nothing was changed."
 msgstr "中止しました。何も変更されていません。"
@@ -3381,9 +3324,6 @@ msgstr "{1} ({2})で起動します。"
 msgid "Could not save emulator settings."
 msgstr "エミュレータの設定を保存できません。"
 
-msgid "No emulators found."
-msgstr "エミュレータが見つかりません。"
-
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "起動するための設定が正しくないか、長すぎます。session.logを確認してください。"
 
@@ -3437,3 +3377,81 @@ msgstr "上下でスクロール"
 
 msgid "Up and Down scroll the story"
 msgstr "上下でストーリーをスクロール"
+
+msgid "Downloads"
+msgstr "ダウンロード"
+
+msgid "Back up GameCube saves"
+msgstr "GameCubeセーブのバックアップ"
+
+msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."
+msgstr "MODパックをそのままSDカードかUSBドライブの一番上にコピーします。XMLはriivolutionに置き、他のフォルダもパックのままにします。ゲームを選び、MODを開き、パックをオンにして設定を選びます。Bでゲームのページに戻り、「遊ぶ」（または+）でその設定で遊べます。"
+
+msgid "Downloads are off. Turn on Settings > Online > Downloads first."
+msgstr "ダウンロードがオフです。先に設定 > オンライン > ダウンロードをオンにしてください。"
+
+msgid "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it."
+msgstr "GameTDBのWiiゲームのデータベースから取得します。設定 > オンライン > ダウンロードをオンにしてください。"
+
+msgid "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off."
+msgstr "ゲーム名、カバー、チート、ゲームの詳細、テーマ、アップデートをダウンロードできます。オフでもカードにあるファイルは使えます。"
+
+msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
+msgstr "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。"
+
+msgid "Emulator games: Home > View > Emulators"
+msgstr "エミュレータのゲーム：ホーム > 表示 > エミュレータ"
+
+msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
+msgstr "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。"
+
+msgid "Left to the mod"
+msgstr "MODに任せる"
+
+msgid "Off: no server chosen"
+msgstr "オフ：サーバー未選択"
+
+msgid "Through {1}"
+msgstr "{1}経由"
+
+msgid "Match the width the game draws."
+msgstr "ゲームが描く幅に合わせます。"
+
+msgid "Use the broadcast-safe width of 704 pixels."
+msgstr "テレビ用の安全な幅の704ピクセルにします。"
+
+msgid "Fill the screen from side to side."
+msgstr "画面の左右いっぱいに表示します。"
+
+msgid "Keep the game's own picture width."
+msgstr "ゲーム本来の画面の幅を保ちます。"
+
+msgid "No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again."
+msgstr "ゲームがまだありません。SDカードは検索しません（設定 > ドライブ > SDカードのゲーム）。ゲーム（WBFS、ISO、RVZ）をUSBドライブのwbfsかgamesに置き、設定 > ドライブ > ゲームをもう一度探すを選びます。"
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again."
+msgstr "ゲームがまだありません。ゲーム（WBFS、ISO、RVZ）をSDカードかUSBドライブの一番上のwbfsかgamesフォルダに置き、設定 > ドライブ > ゲームをもう一度探すを選びます。"
+
+msgid "Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now."
+msgstr "ゲームを読むときにRiiFSサーバーを動かしているPCを探します。今探すには設定 > ドライブ > ゲームをもう一度探すを選びます。"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again."
+msgstr "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > ヘルプ > チュートリアル でこのガイドをもう一度見られます。"
+
+msgid "RiftWii {1} is out. Settings > Online > Check for a new version installs it."
+msgstr "RiftWii {1}が出ています。設定 > オンライン > 新しいバージョンを確認 でインストールできます。"
+
+msgid "You can bring it back any time in Settings > Home > Disc Channel."
+msgstr "設定 > ホーム > ディスクドライブチャンネル でいつでも戻せます。"
+
+msgid "Home is in your own order now. Settings > Home > Home order puts it back A to Z."
+msgstr "ホームは自分の並び順になりました。設定 > ホーム > ホームの並び順でA〜Z順に戻せます。"
+
+msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it."
+msgstr "{1}はインストール済みです。使うには設定 > メニュー > テーマで選んでください。Aで削除します。"
+
+msgid "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme."
+msgstr "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > メニュー > テーマで選ぶまで何も変わりません。"
+
+msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
+msgstr "{1}をインストールしました。使うには設定 > メニュー > テーマで選んでください。"
