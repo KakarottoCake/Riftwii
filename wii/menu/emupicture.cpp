@@ -160,11 +160,15 @@ bool RemovePickedPicture(const std::string& path, bool allow_hand) {
     CardWriteHold hold;
     const OwnPicture own = OwnPictureState(path);
     if (own == OwnPicture::Hand && !allow_hand) return false;
+    // The marker goes first: one left behind would mark a PNG added by hand
+    // later as the picker's, and Back to automatic would delete it unasked.
+    const std::string marker = path + ".pick";
+    struct stat markerInfo {};
+    if (lstat(marker.c_str(), &markerInfo) == 0 && std::remove(marker.c_str()) != 0) return false;
     if (own != OwnPicture::Missing) {
         struct stat info {};
         if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || std::remove(path.c_str()) != 0) return false;
     }
-    std::remove((path + ".pick").c_str());
     logf("Picture picker: removed the own picture; automatic pictures can be used again.\n");
     return true;
 }
