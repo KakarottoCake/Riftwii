@@ -3865,12 +3865,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Your own song or playlist as menu music",
-	"Press 1 and 2 together to change the view",
-	"Press 1 on a cover to see it up close",
-	"USB keyboard, mouse and uDraw in the menu",
-	"Hold B on Search to start a random game",
-	"Covers for homebrew, WiiWare and VC games",
+	"Emulators as add-ons, with settings per game",
+	"Covers for emulator games",
+	"WiiFlow's emulator plugins work here too",
+	"Games from every partition of a USB drive",
+	"Leave a frozen menu without a Wii Remote",
+	"Smoother menu motion on PAL and NTSC",
 };
 
 static std::string WhatsNewText()

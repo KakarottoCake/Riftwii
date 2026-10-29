@@ -2391,23 +2391,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Your own song or playlist as menu music"
-msgstr "自分の曲やプレイリストをメニューの音楽に"
+msgid "Emulators as add-ons, with settings per game"
+msgstr "エミュレーターを追加でき、ゲームごとに設定できます"
 
-msgid "Press 1 and 2 together to change the view"
-msgstr "1と2を同時に押して表示を切り替え"
+msgid "Covers for emulator games"
+msgstr "エミュレータのゲームのカバー"
 
-msgid "Press 1 on a cover to see it up close"
-msgstr "パッケージで1を押すと大きく表示"
+msgid "WiiFlow's emulator plugins work here too"
+msgstr "WiiFlowのエミュレーター設定もそのまま使えます"
 
-msgid "USB keyboard, mouse and uDraw in the menu"
-msgstr "メニューでUSBキーボード、マウス、uDraw"
+msgid "Games from every partition of a USB drive"
+msgstr "USBドライブのすべてのパーティションからゲームを"
 
-msgid "Hold B on Search to start a random game"
-msgstr "検索でBを長押しするとランダムなゲームを開始"
+msgid "Leave a frozen menu without a Wii Remote"
+msgstr "Wiiリモコンなしで止まったメニューを終了"
 
-msgid "Covers for homebrew, WiiWare and VC games"
-msgstr "Homebrew、WiiWare、VCにもパッケージ"
+msgid "Smoother menu motion on PAL and NTSC"
+msgstr "PALでもNTSCでもなめらかなメニュー"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
@@ -3386,9 +3386,6 @@ msgstr "エミュレータが見つかりません。"
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "起動するための設定が正しくないか、長すぎます。session.logを確認してください。"
-
-msgid "Covers for emulator games"
-msgstr "エミュレータのゲームのカバー"
 
 msgid "SteamGridDB covers"
 msgstr "SteamGridDBのカバー"

@@ -2391,23 +2391,23 @@ msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, �
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
-msgid "Your own song or playlist as menu music"
-msgstr "내 노래나 재생 목록을 메뉴 음악으로"
+msgid "Emulators as add-ons, with settings per game"
+msgstr "에뮬레이터를 추가 기능으로, 게임별 설정과 함께"
 
-msgid "Press 1 and 2 together to change the view"
-msgstr "1과 2를 함께 눌러 보기 전환"
+msgid "Covers for emulator games"
+msgstr "에뮬레이터 게임 표지"
 
-msgid "Press 1 on a cover to see it up close"
-msgstr "커버에서 1을 눌러 크게 보기"
+msgid "WiiFlow's emulator plugins work here too"
+msgstr "WiiFlow 에뮬레이터 플러그인도 사용 가능"
 
-msgid "USB keyboard, mouse and uDraw in the menu"
-msgstr "메뉴에서 USB 키보드, 마우스, uDraw"
+msgid "Games from every partition of a USB drive"
+msgstr "USB 드라이브의 모든 파티션에서 게임을"
 
-msgid "Hold B on Search to start a random game"
-msgstr "검색에서 B를 길게 눌러 무작위 게임 시작"
+msgid "Leave a frozen menu without a Wii Remote"
+msgstr "Wii 리모컨 없이 멈춘 메뉴 나가기"
 
-msgid "Covers for homebrew, WiiWare and VC games"
-msgstr "홈브루, WiiWare, VC 게임 커버"
+msgid "Smoother menu motion on PAL and NTSC"
+msgstr "PAL과 NTSC에서 더 부드러운 메뉴"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
@@ -3386,9 +3386,6 @@ msgstr "에뮬레이터를 찾지 못했습니다."
 
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요."
-
-msgid "Covers for emulator games"
-msgstr "에뮬레이터 게임 표지"
 
 msgid "SteamGridDB covers"
 msgstr "SteamGridDB 표지"
