@@ -6,6 +6,12 @@ msgstr "Content-Type: text/plain; charset=UTF-8\n"
 msgid "Y: view  Z: settings  L/R: pages"
 msgstr "Y: vista  Z: opzioni  L/R: pagine"
 
+msgid "Layout"
+msgstr "Disposizione"
+
+msgid "Choose"
+msgstr "Scegli"
+
 msgid "Games with mods"
 msgstr "Giochi con mod"
 
