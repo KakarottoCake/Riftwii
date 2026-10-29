@@ -2016,12 +2016,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-734
-    "Covers for emulator games": ("Portadas para juegos de emulador", "エミュレーターのゲームにもパッケージ", "Capas para jogos de emulador", "Copertine per i giochi degli emulatori"),
-    "WiiFlow's emulator plugins work here too": ("Los plugins de emulador de WiiFlow también funcionan", "WiiFlowのエミュレーター設定もそのまま使えます", "Os plugins de emulador do WiiFlow também funcionam", "Anche i plugin emulatore di WiiFlow funzionano"),
-    "Games from every partition of a USB drive": ("Juegos de todas las particiones de un disco USB", "USBドライブのすべてのパーティションからゲームを", "Jogos de todas as partições de um disco USB", "Giochi da ogni partizione di un disco USB"),
-    "Leave a frozen menu without a Wii Remote": ("Sal de un menú congelado sin Wiimote", "Wiiリモコンなしで止まったメニューを終了", "Saia de um menu travado sem o Wii Remote", "Esci da un menu bloccato senza Wii Remote"),
-    "Smoother menu motion on PAL and NTSC": ("Movimiento del menú más fluido en PAL y NTSC", "PALでもNTSCでもなめらかなメニュー", "Movimento do menu mais suave em PAL e NTSC", "Movimenti del menu più fluidi su PAL e NTSC"),
+    # What's new in the release after 2610-743
+    "Home: a Layout button and a Show chooser": ("Inicio: botón Diseño y selector Ver", "ホームにレイアウトと表示のボタン", "Início: botão Layout e seletor Ver", "Home: pulsante Disposizione e scelta Mostra"),
+    "WiiWare and VC played straight from WADs": ("WiiWare y VC directamente desde WADs", "WiiウェアとVCをWADから直接プレイ", "WiiWare e VC direto dos WADs", "WiiWare e VC direttamente dai WAD"),
+    "Pictures for emulator games, and a picker": ("Imágenes para juegos emulados, y un selector", "エミュレータのゲームに画像と選択画面", "Imagens para jogos emulados, e um seletor", "Immagini per i giochi emulati, e una scelta"),
+    "Banner music and disc art on game pages": ("Música del banner e imagen del disco", "ゲームページにバナーの音楽とディスクの画像", "Música do banner e imagem do disco", "Musica del banner e immagine del disco"),
+    "Asks first when mod files are missing": ("Pregunta antes si faltan archivos del mod", "MODのファイルが足りないときは確認", "Pergunta antes se faltam arquivos do mod", "Chiede prima se mancano file della mod"),
+    "Clearer messages when something goes wrong": ("Mensajes más claros cuando algo falla", "問題が起きたときのメッセージをわかりやすく", "Mensagens mais claras quando algo dá errado", "Messaggi più chiari quando qualcosa va storto"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3875,16 +3876,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Covers for emulator games":
-        "에뮬레이터 게임 커버",
-    "WiiFlow's emulator plugins work here too":
-        "WiiFlow 에뮬레이터 플러그인도 사용 가능",
-    "Games from every partition of a USB drive":
-        "USB 드라이브의 모든 파티션에서 게임을",
-    "Leave a frozen menu without a Wii Remote":
-        "Wii 리모컨 없이 멈춘 메뉴 나가기",
-    "Smoother menu motion on PAL and NTSC":
-        "PAL과 NTSC에서 더 부드러운 메뉴",
+    "Home: a Layout button and a Show chooser":
+        "홈에 배치 버튼과 표시 선택",
+    "WiiWare and VC played straight from WADs":
+        "WiiWare와 VC를 WAD에서 바로 플레이",
+    "Pictures for emulator games, and a picker":
+        "에뮬레이터 게임 이미지와 선택 화면",
+    "Banner music and disc art on game pages":
+        "게임 페이지에 배너 음악과 디스크 이미지",
+    "Asks first when mod files are missing":
+        "모드 파일이 없으면 먼저 확인",
+    "Clearer messages when something goes wrong":
+        "문제가 생겼을 때 더 알기 쉬운 메시지",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5711,16 +5714,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Covers for emulator games":
-        "Jaquettes pour les jeux d'émulateur",
-    "WiiFlow's emulator plugins work here too":
-        "Les plugins d'émulateur de WiiFlow marchent aussi",
-    "Games from every partition of a USB drive":
-        "Jeux de toutes les partitions d'un disque USB",
-    "Leave a frozen menu without a Wii Remote":
-        "Quittez un menu figé sans Wiimote",
-    "Smoother menu motion on PAL and NTSC":
-        "Menu plus fluide en PAL et NTSC",
+    "Home: a Layout button and a Show chooser":
+        "Accueil : bouton Disposition et choix Afficher",
+    "WiiWare and VC played straight from WADs":
+        "WiiWare et VC directement depuis les WAD",
+    "Pictures for emulator games, and a picker":
+        "Images pour les jeux émulés, et un choix",
+    "Banner music and disc art on game pages":
+        "Musique de bannière et image du disque",
+    "Asks first when mod files are missing":
+        "Demande d'abord s'il manque des fichiers du mod",
+    "Clearer messages when something goes wrong":
+        "Messages plus clairs quand quelque chose ne va pas",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
@@ -7574,11 +7579,6 @@ T.update({
         "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。",
         "Nenhum emulador encontrado. Coloque um emulador com seu arquivo de complemento do RiftWii na pasta do aplicativo, ou adicione arquivos de plugins do WiiFlow. Depois use Configurações > Unidades > Procurar jogos de novo. Veja Emuladores no guia do GitHub.",
         "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."),
-    "Emulator games: Home > Show > Emulators": (
-        "Juegos emulados: Inicio > Ver > Emuladores",
-        "エミュレータのゲーム：ホーム > 表示 > エミュレータ",
-        "Jogos emulados: Início > Ver > Emuladores",
-        "Giochi emulati: Home > Mostra > Emulatori"),
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": (
         "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores.",
         "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。",
@@ -7679,7 +7679,6 @@ KO.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정 > 온라인 > 다운로드를 켜세요.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를 받을 수 있습니다. 꺼도 카드에 있는 파일은 계속 사용할 수 있습니다.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요.",
-    "Emulator games: Home > Show > Emulators": "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터",
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다.",
     "Left to the mod": "모드에 맡김",
     "Off: no server chosen": "꺼짐: 서버 선택 안 됨",
@@ -7708,7 +7707,6 @@ FR.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub.",
-    "Emulator games: Home > Show > Emulators": "Jeux émulés : Accueil > Afficher > Émulateurs",
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs.",
     "Left to the mod": "Laissé au mod",
     "Off: no server chosen": "Désactivé : aucun serveur choisi",
