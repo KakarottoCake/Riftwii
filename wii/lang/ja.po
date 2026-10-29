@@ -1878,8 +1878,8 @@ msgstr "このセーブは壊れています: ブロックが合いません。�
 msgid "It is {1}."
 msgstr "{1}です。"
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWiiは{1}を読めません: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。"
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWiiは{1}を読めませんでした。"
@@ -3376,7 +3376,7 @@ msgid "Required file: {1}"
 msgstr "必要なファイル: {1}"
 
 msgid "The files are one folder too deep in {1}. Move that folder's contents into {2}."
-msgstr "ファイルは{1}の中の1つ深いフォルダーにあります。そのフォルダーの中身を{2}に移動してください。"
+msgstr "ファイルが1つ深い{1}フォルダーに入っています。{1}の中身を{2}に移動してください。"
 
 msgid "Rename {1} to exactly {2}."
 msgstr "{1}の名前を正確に{2}に変更してください。"
@@ -3384,8 +3384,8 @@ msgstr "{1}の名前を正確に{2}に変更してください。"
 msgid "Move {1} to {2}."
 msgstr "{1}を{2}に移動してください。"
 
-msgid "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder."
-msgstr "ダウンロードしたMODの{1}フォルダーを{2}にコピーしてください。riivolutionフォルダーと同じ場所に置きます。"
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
+msgstr "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください（riivolutionフォルダーと同じ場所）。"
 
 msgid "Downloads"
 msgstr "ダウンロード"
