@@ -597,9 +597,6 @@ msgstr "クレジットとライセンス"
 msgid "View"
 msgstr "表示"
 
-msgid "Clear search"
-msgstr "検索をやめる"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。"
 
@@ -2328,9 +2325,6 @@ msgstr "WADファイルをインストール中"
 msgid "{1} of {2}: {3}"
 msgstr "{2}個中{1}個目: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "このWiiのキーを読めなかったため、WADファイルをインストールできません。"
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "{2}個中{1}個をインストールしました。ホームに表示されています。"
 
@@ -3348,6 +3342,138 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
 
+msgid "Needs the internet"
+msgstr "インターネットが必要です"
+
+msgid "Choose the picture shown in Channels."
+msgstr "チャンネルに表示する画像を選びます。"
+
+msgid "Back to automatic"
+msgstr "自動に戻す"
+
+msgid "Title screen"
+msgstr "タイトル画面"
+
+msgid "Screenshot"
+msgstr "ゲーム画面"
+
+msgid "Box art"
+msgstr "パッケージ画像"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Wiiをインターネットに接続し、{2} > {3}で「{1}」をオンにしてください。"
+
+msgid "No pictures found."
+msgstr "画像が見つかりません。"
+
+msgid "Could not load pictures."
+msgstr "画像を読み込めませんでした。"
+
+msgid "Could not load this picture."
+msgstr "この画像を読み込めませんでした。"
+
+msgid "A picture could not be loaded."
+msgstr "画像を読み込めませんでした。"
+
+msgid "Not enough memory."
+msgstr "メモリが足りません。"
+
+msgid "Could not save the picture."
+msgstr "画像を保存できませんでした。"
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "この画像は手動で追加または変更されています。選んだ画像に置き換えますか？"
+
+msgid "Save location"
+msgstr "セーブの場所"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "ここを変えても、作ったセーブが移動したり消えたりすることはありません。"
+
+msgid "In use"
+msgstr "使用中"
+
+msgid "Use default options for this game"
+msgstr "このゲームは設定に合わせる"
+
+msgid "Use default options for this game?"
+msgstr "このゲームは設定に合わせる？"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "このゲームの画面・言語・コントローラー・起動の選び方は設定に戻る。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。"
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "このゲームの画面・言語・コントローラー・起動の選び方を設定に戻す。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。"
+
+msgid "Needed: {1}"
+msgstr "必要: {1}"
+
+msgid "Also works with: {1}"
+msgstr "使えるもの: {1}"
+
+msgid "Up and Down scroll"
+msgstr "上下でスクロール"
+
+msgid "Up and Down scroll the story"
+msgstr "上下でストーリーをスクロール"
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。"
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "初めて遊ぶ時にWADを準備します。セーブはSDカードの{1}に保存します。"
+
+msgid "Getting the game ready"
+msgstr "ゲームを準備中"
+
+msgid "Getting {1} ready, first time only"
+msgstr "{1}を準備中 (初回のみ)"
+
+msgid "The game could not be prepared"
+msgstr "ゲームを準備できませんでした"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "WADの破損、SDカードの空き容量やロックを確認して、もう一度お試しください。詳細はsd:/riftwii/session.logにあります。"
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "DolphinのESサービス（GPL-2.0-or-later）とwiibrew：本体に書き込まず、IOSを使ってWADのタイトルキーを読み出すしくみを参照しました。コードやキーの値はコピーしていません。"
+
+msgid "No games here"
+msgstr "ここにゲームはありません"
+
+msgid "Show all games"
+msgstr "すべてのゲームを表示"
+
+msgid "Show every drive"
+msgstr "すべてのドライブを表示"
+
+msgid "Games from: {1}"
+msgstr "ゲームの場所：{1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "「{1}」に合うゲームはありません。"
+
+msgid "No games with mods were found."
+msgstr "MODがあるゲームは見つかりませんでした。"
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "sd:/appsに自作ソフトが見つかりませんでした。"
+
+msgid "No emulator games were found."
+msgstr "エミュレータのゲームは見つかりませんでした。"
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "ここのゲームはまだRiftWiiで遊んでいません。"
+
+msgid "Mark a game as a favourite on its page."
+msgstr "ゲームのページでお気に入りにしてください。"
+
 msgid "Downloads"
 msgstr "ダウンロード"
 
@@ -3369,10 +3495,10 @@ msgstr "ゲーム名、カバー、チート、ゲームの詳細、テーマ、
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。"
 
-msgid "Emulator games: Home > View > Emulators"
+msgid "Emulator games: Home > Show > Emulators"
 msgstr "エミュレータのゲーム：ホーム > 表示 > エミュレータ"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。"
 
 msgid "Left to the mod"

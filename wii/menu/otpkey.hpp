@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "riftwii/contentbin.hpp"
+#include "riftwii/wadfile.hpp"
 
 // The console's common key, which decrypts games' title keys
 // (riftwii/wiicrypt.hpp), read from this Wii's own OTP memory
@@ -14,9 +15,15 @@
 // Homebrew Channel starts apps.
 namespace riftwii::wii {
 
-// False without hardware access, or when the OTP reads back empty (an
-// emulator that leaves it out).
+// False without hardware access or when OTP reads back empty. A nonzero
+// result still needs content-hash verification (notably in emulators).
 bool ConsoleCommonKey(std::uint8_t out[16]);
+
+// One candidate title key. IOS decrypts the ticket's encrypted title key
+// through ES without exporting the common key or installing a ticket.
+// The caller must check the banner hash and clear the result after use.
+bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>& ticket,
+                        std::uint8_t out[16]);
 
 // This Wii's console ID (OTP word 9) and PRNG key (words 26 to 29), which
 // decrypt the channels its Wii Menu moved to the SD card

@@ -514,7 +514,6 @@ T = {
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and license": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
-    "Clear search": ("Borrar búsqueda", "検索をやめる", "Limpar busca", "Annulla ricerca"),
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.": (
         "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso.",
         "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。",
@@ -1993,7 +1992,6 @@ T = {
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
     "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
     "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
-    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
     "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
     "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
@@ -3231,8 +3229,6 @@ KO = {
         "화면",
     "Other":
         "기타",
-    "Clear search":
-        "검색 지우기",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -3842,8 +3838,6 @@ KO = {
         "WAD 파일 설치 중",
     "{1} of {2}: {3}":
         "{2}개 중 {1}번째: {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
     "Installed {1} of {2}. They are on Home now.":
         "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -5239,8 +5233,6 @@ FR = {
         "Image",
     "Other":
         "Autres",
-    "Clear search":
-        "Effacer la recherche",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -5672,8 +5664,6 @@ FR = {
         "Installation des fichiers WAD",
     "{1} of {2}: {3}":
         "{1} sur {2} : {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
     "Installed {1} of {2}. They are on Home now.":
         "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -7027,6 +7017,275 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Emulator channel-picture picker.
+T.update({
+    "Needs the internet": ("Necesita internet", "インターネットが必要です", "Precisa de internet", "Serve internet"),
+    "Choose the picture shown in Channels.": ("Elige la imagen que se muestra en Canales.", "チャンネルに表示する画像を選びます。", "Escolha a imagem mostrada em Canais.", "Scegli l'immagine mostrata nei Canali."),
+    "Back to automatic": ("Volver a automático", "自動に戻す", "Voltar ao automático", "Torna ad automatico"),
+    "Title screen": ("Pantalla de título", "タイトル画面", "Tela de título", "Schermata del titolo"),
+    "Screenshot": ("Captura de pantalla", "ゲーム画面", "Captura de tela", "Schermata di gioco"),
+    "Box art": ("Carátula", "パッケージ画像", "Capa", "Copertina"),
+    "SteamGridDB": ("SteamGridDB", "SteamGridDB", "SteamGridDB", "SteamGridDB"),
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": (
+        "Conecta la Wii a internet y activa {1} en {2} > {3}.",
+        "Wiiをインターネットに接続し、{2} > {3}で「{1}」をオンにしてください。",
+        "Conecte o Wii à internet e ative {1} em {2} > {3}.",
+        "Collega il Wii a internet, poi attiva {1} in {2} > {3}."),
+    "No pictures found.": ("No se encontraron imágenes.", "画像が見つかりません。", "Nenhuma imagem encontrada.", "Nessuna immagine trovata."),
+    "Could not load pictures.": ("No se pudieron cargar las imágenes.", "画像を読み込めませんでした。", "Não foi possível carregar as imagens.", "Impossibile caricare le immagini."),
+    "Could not load this picture.": ("No se pudo cargar esta imagen.", "この画像を読み込めませんでした。", "Não foi possível carregar esta imagem.", "Impossibile caricare questa immagine."),
+    "A picture could not be loaded.": ("No se pudo cargar una imagen.", "画像を読み込めませんでした。", "Uma imagem não pôde ser carregada.", "Impossibile caricare un'immagine."),
+    "Not enough memory.": ("No hay memoria suficiente.", "メモリが足りません。", "Memória insuficiente.", "Memoria insufficiente."),
+    "Could not save the picture.": ("No se pudo guardar la imagen.", "画像を保存できませんでした。", "Não foi possível salvar a imagem.", "Impossibile salvare l'immagine."),
+    "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": (
+        "Esta imagen se añadió o cambió a mano. ¿Borrarla y usar imágenes automáticas?",
+        "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?",
+        "Questa immagine è stata aggiunta o modificata a mano. Eliminarla e usare immagini automatiche?"),
+    "This picture was added or changed by hand. Replace it with the one you picked?": (
+        "Esta imagen se añadió o cambió a mano. ¿Reemplazarla por la que elegiste?",
+        "この画像は手動で追加または変更されています。選んだ画像に置き換えますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Substituir pela que você escolheu?",
+        "Questa immagine è stata aggiunta o modificata a mano. Sostituirla con quella scelta?"),
+    "Replace": ("Reemplazar", "置き換える", "Substituir", "Sostituisci"),
+})
+KO.update({
+    "Needs the internet": "인터넷이 필요합니다",
+    "Choose the picture shown in Channels.": "채널에 표시할 그림을 선택합니다.",
+    "Back to automatic": "자동으로 되돌리기",
+    "Title screen": "타이틀 화면",
+    "Screenshot": "게임 화면",
+    "Box art": "표지",
+    "SteamGridDB": "SteamGridDB",
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": "Wii를 인터넷에 연결한 다음 {2} > {3}에서 {1}를 켜세요.",
+    "No pictures found.": "그림을 찾지 못했습니다.",
+    "Could not load pictures.": "그림을 불러오지 못했습니다.",
+    "Could not load this picture.": "이 그림을 불러오지 못했습니다.",
+    "A picture could not be loaded.": "그림 하나를 불러오지 못했습니다.",
+    "Not enough memory.": "메모리가 부족합니다.",
+    "Could not save the picture.": "그림을 저장하지 못했습니다.",
+    "Choose": "선택",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?",
+    "Replace": "바꾸기",
+})
+FR.update({
+    "Needs the internet": "Internet nécessaire",
+    "Choose the picture shown in Channels.": "Choisissez l'image affichée dans les Chaînes.",
+    "Back to automatic": "Revenir au choix automatique",
+    "Title screen": "Écran titre",
+    "Screenshot": "Capture d’écran",
+    "Box art": "Jaquette",
+    "SteamGridDB": "SteamGridDB",
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": "Connectez la Wii à Internet, puis activez {1} dans {2} > {3}.",
+    "No pictures found.": "Aucune image trouvée.",
+    "Could not load pictures.": "Impossible de charger les images.",
+    "Could not load this picture.": "Impossible de charger cette image.",
+    "A picture could not be loaded.": "Une image n'a pas pu être chargée.",
+    "Not enough memory.": "Mémoire insuffisante.",
+    "Could not save the picture.": "Impossible d'enregistrer l'image.",
+    "Choose": "Choisir",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "Cette image a été ajoutée ou modifiée à la main. La remplacer par celle que vous avez choisie ?",
+    "Replace": "Remplacer",
+})
+
+
+# ux-game-page: Save location chooser, per-game defaults reset, About controllers.
+T.update({
+    "Save location": (
+        "Dónde van las partidas",
+        "セーブの場所",
+        "Local dos saves",
+        "Posizione salvataggi"),
+    "Changing this never moves or deletes saves already made.": (
+        "Cambiar esto nunca mueve ni borra las partidas que ya tienes.",
+        "ここを変えても、作ったセーブが移動したり消えたりすることはありません。",
+        "Mudar isto nunca move nem apaga saves já feitos.",
+        "Cambiare questa scelta non sposta né elimina mai i salvataggi esistenti."),
+    "In use": ("En uso", "使用中", "Em uso", "In uso"),
+    "Use default options for this game": (
+        "Usar lo de Ajustes en este juego",
+        "このゲームは設定に合わせる",
+        "Usar opções padrão para este jogo",
+        "Usa le opzioni predefinite per questo gioco"),
+    "Use default options for this game?": (
+        "¿Usar lo de Ajustes en este juego?",
+        "このゲームは設定に合わせる？",
+        "Usar opções padrão para este jogo?",
+        "Usa le opzioni predefinite per questo gioco?"),
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": (
+        "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan como están.",
+        "このゲームの画面・言語・コントローラー・起動の選び方は設定に戻る。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。",
+        "A imagem, o idioma, o controle e o início deste jogo voltam para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e a estrela de favorito ficam como estão.",
+        "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano invariati."),
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": (
+        "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan.",
+        "このゲームの画面・言語・コントローラー・起動の選び方を設定に戻す。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。",
+        "Volta imagem, idioma, controle e início deste jogo para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e estrela de favorito ficam.",
+        "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano."),
+    "Needed: {1}": (
+        "Necesarios: {1}",
+        "必要: {1}",
+        "Precisa de: {1}",
+        "Necessario: {1}"),
+    "Also works with: {1}": (
+        "También funciona con: {1}",
+        "使えるもの: {1}",
+        "Também funciona com: {1}",
+        "Funziona anche con: {1}"),
+    "Up and Down scroll": (
+        "Arriba y Abajo desplazan el texto",
+        "上下でスクロール",
+        "Cima e Baixo rolam o texto",
+        "Su e Giù scorrono il testo"),
+    "Up and Down scroll the story": (
+        "Arriba y Abajo mueven la historia",
+        "上下でストーリーをスクロール",
+        "Cima e Baixo rolam a história",
+        "Su e Giù scorrono la storia"),
+})
+KO.update({
+    "Save location": "저장 위치",
+    "Changing this never moves or deletes saves already made.": "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다.",
+    "In use": "사용 중",
+    "Use default options for this game": "이 게임 기본 설정 사용",
+    "Use default options for this game?": "이 게임 기본 설정을 사용할까요?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Needed: {1}": "필요: {1}",
+    "Also works with: {1}": "같이 사용 가능: {1}",
+    "Up and Down scroll": "위 아래로 넘기기",
+    "Up and Down scroll the story": "위 아래로 이야기 넘기기",
+})
+FR.update({
+    "Save location": "Emplacement des sauvegardes",
+    "Changing this never moves or deletes saves already made.": "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites.",
+    "In use": "Utilisé",
+    "Use default options for this game": "Utiliser les réglages par défaut pour ce jeu",
+    "Use default options for this game?": "Utiliser les réglages par défaut pour ce jeu ?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent.",
+    "Needed: {1}": "Nécessaire : {1}",
+    "Also works with: {1}": "Fonctionne aussi avec : {1}",
+    "Up and Down scroll": "Haut et Bas font défiler le texte",
+    "Up and Down scroll the story": "Haut et Bas font défiler l’histoire",
+})
+
+
+# Drop-and-play WiiWare WAD folders.
+T.update({
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": (
+        "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log.",
+        "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。",
+        "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log.",
+        "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."),
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": (
+        "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD.",
+        "初めて遊ぶ時にWADを準備します。セーブはSDカードの{1}に保存します。",
+        "O WAD é preparado na primeira vez que jogar. Os saves ficam em {1} no cartão SD.",
+        "Il WAD viene preparato al primo avvio. I salvataggi restano in {1} sulla scheda SD."),
+    "Getting the game ready": (
+        "Preparando el juego", "ゲームを準備中", "Preparando o jogo", "Preparazione del gioco"),
+    "Getting {1} ready, first time only": (
+        "Preparando {1}, solo la primera vez", "{1}を準備中 (初回のみ)",
+        "Preparando {1}, só na primeira vez", "Preparazione di {1}, solo al primo avvio"),
+    "The game could not be prepared": (
+        "No se pudo preparar el juego", "ゲームを準備できませんでした",
+        "Não foi possível preparar o jogo", "Impossibile preparare il gioco"),
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": (
+        "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log.",
+        "WADの破損、SDカードの空き容量やロックを確認して、もう一度お試しください。詳細はsd:/riftwii/session.logにあります。",
+        "O WAD pode estar danificado, ou o cartão SD cheio ou travado. Confira o arquivo e o espaço livre e tente de novo. Detalhes em sd:/riftwii/session.log.",
+        "Il WAD potrebbe essere danneggiato o la scheda SD piena o bloccata. Controlla il file e lo spazio libero e riprova. Dettagli in sd:/riftwii/session.log."),
+})
+KO.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요.",
+    "Getting the game ready": "게임 준비 중",
+    "Getting {1} ready, first time only": "{1} 준비 중, 처음 한 번만",
+    "The game could not be prepared": "게임을 준비하지 못했습니다",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다.",
+})
+FR.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons.",
+    "Getting the game ready": "Préparation du jeu",
+    "Getting {1} ready, first time only": "Préparation de {1}, au premier lancement seulement",
+    "The game could not be prepared": "Le jeu n’a pas pu être préparé",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log.",
+})
+
+
+# The ES fallback's behavior reference, shown with the other credits.
+T.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": (
+        "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves.",
+        "DolphinのESサービス（GPL-2.0-or-later）とwiibrew：本体に書き込まず、IOSを使ってWADのタイトルキーを読み出すしくみを参照しました。コードやキーの値はコピーしていません。",
+        "Serviço ES do Dolphin (GPL-2.0-or-later) e wiibrew: como ler a chave de título de um WAD pelo IOS sem gravar no console. Consultados como documentação; nenhum código ou chave foi copiado.",
+        "Servizio ES di Dolphin (GPL-2.0-or-later) e wiibrew: lettura della chiave del titolo di un WAD tramite IOS senza scrivere sulla console. Consultati come documentazione; nessun codice o chiave copiato.",
+    ),
+})
+KO.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다.",
+})
+FR.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés.",
+})
+
+
+# Home's category chooser and recovery actions.
+T.update({
+    "No games here": ("No hay juegos aquí", "ここにゲームはありません", "Nenhum jogo aqui", "Nessun gioco qui"),
+    "Show all games": ("Mostrar todos los juegos", "すべてのゲームを表示", "Mostrar todos os jogos", "Mostra tutti i giochi"),
+    "Show every drive": ("Mostrar todas las unidades", "すべてのドライブを表示", "Mostrar todas as unidades", "Mostra tutte le unità"),
+    "Games from: {1}": ("Juegos de: {1}", "ゲームの場所：{1}", "Jogos de: {1}", "Giochi da: {1}"),
+    'No game matches "{1}".': (
+        'Ningún juego coincide con "{1}".', '「{1}」に合うゲームはありません。',
+        'Nenhum jogo corresponde a "{1}".', 'Nessun gioco corrisponde a "{1}".'),
+    "No games with mods were found.": (
+        "No se encontraron juegos con mods.", "MODがあるゲームは見つかりませんでした。",
+        "Nenhum jogo com mods foi encontrado.", "Nessun gioco con mod trovato."),
+    "No homebrew apps were found in sd:/apps.": (
+        "No se encontraron aplicaciones homebrew en sd:/apps.", "sd:/appsに自作ソフトが見つかりませんでした。",
+        "Nenhum aplicativo homebrew foi encontrado em sd:/apps.", "Nessuna app homebrew trovata in sd:/apps."),
+    "No emulator games were found.": (
+        "No se encontraron juegos de emuladores.", "エミュレータのゲームは見つかりませんでした。",
+        "Nenhum jogo de emulador foi encontrado.", "Nessun gioco per emulatori trovato."),
+    "No games here have been played from RiftWii yet.": (
+        "Aún no has jugado a estos juegos desde RiftWii.", "ここのゲームはまだRiftWiiで遊んでいません。",
+        "Nenhum jogo daqui foi jogado pelo RiftWii ainda.", "Nessun gioco qui è stato ancora giocato da RiftWii."),
+    "Mark a game as a favourite on its page.": (
+        "Marca un juego como favorito en su página.", "ゲームのページでお気に入りにしてください。",
+        "Marque um jogo como favorito na página dele.", "Segna un gioco come preferito nella sua pagina."),
+})
+KO.update({
+    "No games here": "여기에 게임이 없습니다",
+    "Show all games": "모든 게임 표시",
+    "Show every drive": "모든 드라이브 표시",
+    "Games from: {1}": "게임 위치: {1}",
+    'No game matches "{1}".': '"{1}"에 맞는 게임이 없습니다.',
+    "No games with mods were found.": "모드가 있는 게임을 찾지 못했습니다.",
+    "No homebrew apps were found in sd:/apps.": "sd:/apps에서 홈브류 앱을 찾지 못했습니다.",
+    "No emulator games were found.": "에뮬레이터 게임을 찾지 못했습니다.",
+    "No games here have been played from RiftWii yet.": "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다.",
+    "Mark a game as a favourite on its page.": "게임 페이지에서 즐겨찾기로 표시하세요.",
+})
+FR.update({
+    "No games here": "Aucun jeu ici",
+    "Show all games": "Afficher tous les jeux",
+    "Show every drive": "Afficher tous les supports",
+    "Games from: {1}": "Jeux de : {1}",
+    'No game matches "{1}".': 'Aucun jeu ne correspond à « {1} ».',
+    "No games with mods were found.": "Aucun jeu avec des mods trouvé.",
+    "No homebrew apps were found in sd:/apps.": "Aucune appli homebrew trouvée dans sd:/apps.",
+    "No emulator games were found.": "Aucun jeu pour émulateur trouvé.",
+    "No games here have been played from RiftWii yet.": "Aucun jeu ici n'a encore été lancé depuis RiftWii.",
+    "Mark a game as a favourite on its page.": "Marquez un jeu comme favori sur sa page.",
+})
+
+
 # Clearer help, complete menu paths and setting names.
 T.update({
     "Downloads": (
@@ -7064,16 +7323,16 @@ T.update({
         "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。",
         "Nenhum emulador encontrado. Coloque um emulador com seu arquivo de complemento do RiftWii na pasta do aplicativo, ou adicione arquivos de plugins do WiiFlow. Depois use Configurações > Unidades > Procurar jogos de novo. Veja Emuladores no guia do GitHub.",
         "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."),
-    "Emulator games: Home > View > Emulators": (
+    "Emulator games: Home > Show > Emulators": (
         "Juegos emulados: Inicio > Ver > Emuladores",
         "エミュレータのゲーム：ホーム > 表示 > エミュレータ",
         "Jogos emulados: Início > Ver > Emuladores",
-        "Giochi emulati: Home > Vedi > Emulatori"),
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": (
+        "Giochi emulati: Home > Mostra > Emulatori"),
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": (
         "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores.",
         "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。",
         "Muda os padrões dos emuladores instalados. Seus jogos ficam em Início > Ver > Emuladores.",
-        "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Vedi > Emulatori."),
+        "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Mostra > Emulatori."),
     "Left to the mod": (
         "Lo decide el mod",
         "MODに任せる",
@@ -7169,8 +7428,8 @@ KO.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정 > 온라인 > 다운로드를 켜세요.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를 받을 수 있습니다. 꺼도 카드에 있는 파일은 계속 사용할 수 있습니다.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요.",
-    "Emulator games: Home > View > Emulators": "에뮬레이터 게임: 홈 > 보기 > 에뮬레이터",
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 보기 > 에뮬레이터에서 찾을 수 있습니다.",
+    "Emulator games: Home > Show > Emulators": "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다.",
     "Left to the mod": "모드에 맡김",
     "Off: no server chosen": "꺼짐: 서버 선택 안 됨",
     "Through {1}": "{1} 이용",
@@ -7198,8 +7457,8 @@ FR.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub.",
-    "Emulator games: Home > View > Emulators": "Jeux émulés : Accueil > Voir > Émulateurs",
-    "Changes the defaults for installed emulators. Find their games on Home > View > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Voir > Émulateurs.",
+    "Emulator games: Home > Show > Emulators": "Jeux émulés : Accueil > Afficher > Émulateurs",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs.",
     "Left to the mod": "Laissé au mod",
     "Off: no server chosen": "Désactivé : aucun serveur choisi",
     "Through {1}": "Via {1}",
@@ -7226,7 +7485,8 @@ def check(repo):
     sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/menu/picturepicker.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

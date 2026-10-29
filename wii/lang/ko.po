@@ -597,9 +597,6 @@ msgstr "크레딧 및 라이선스"
 msgid "View"
 msgstr "보기"
 
-msgid "Clear search"
-msgstr "검색 지우기"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다."
 
@@ -2328,9 +2325,6 @@ msgstr "WAD 파일 설치 중"
 msgid "{1} of {2}: {3}"
 msgstr "{2}개 중 {1}번째: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다."
 
@@ -2911,7 +2905,7 @@ msgid "A theme called {1} is already in sd:/riftwii/themes, and it was not put t
 msgstr "{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. 받으면 교체됩니다."
 
 msgid "Replace"
-msgstr "교체"
+msgstr "바꾸기"
 
 msgid "{1} is deleted. It was the theme in use, so the menu goes back to the default look."
 msgstr "{1}을(를) 삭제했습니다. 사용 중인 테마였으므로 메뉴가 기본 모양으로 돌아갑니다."
@@ -3348,6 +3342,138 @@ msgstr "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."
 
+msgid "Needs the internet"
+msgstr "인터넷이 필요합니다"
+
+msgid "Choose the picture shown in Channels."
+msgstr "채널에 표시할 그림을 선택합니다."
+
+msgid "Back to automatic"
+msgstr "자동으로 되돌리기"
+
+msgid "Title screen"
+msgstr "타이틀 화면"
+
+msgid "Screenshot"
+msgstr "게임 화면"
+
+msgid "Box art"
+msgstr "표지"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Wii를 인터넷에 연결한 다음 {2} > {3}에서 {1}를 켜세요."
+
+msgid "No pictures found."
+msgstr "그림을 찾지 못했습니다."
+
+msgid "Could not load pictures."
+msgstr "그림을 불러오지 못했습니다."
+
+msgid "Could not load this picture."
+msgstr "이 그림을 불러오지 못했습니다."
+
+msgid "A picture could not be loaded."
+msgstr "그림 하나를 불러오지 못했습니다."
+
+msgid "Not enough memory."
+msgstr "메모리가 부족합니다."
+
+msgid "Could not save the picture."
+msgstr "그림을 저장하지 못했습니다."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?"
+
+msgid "Save location"
+msgstr "저장 위치"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다."
+
+msgid "In use"
+msgstr "사용 중"
+
+msgid "Use default options for this game"
+msgstr "이 게임 기본 설정 사용"
+
+msgid "Use default options for this game?"
+msgstr "이 게임 기본 설정을 사용할까요?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다."
+
+msgid "Needed: {1}"
+msgstr "필요: {1}"
+
+msgid "Also works with: {1}"
+msgstr "같이 사용 가능: {1}"
+
+msgid "Up and Down scroll"
+msgstr "위 아래로 넘기기"
+
+msgid "Up and Down scroll the story"
+msgstr "위 아래로 이야기 넘기기"
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다."
+
+msgid "Getting the game ready"
+msgstr "게임 준비 중"
+
+msgid "Getting {1} ready, first time only"
+msgstr "{1} 준비 중, 처음 한 번만"
+
+msgid "The game could not be prepared"
+msgstr "게임을 준비하지 못했습니다"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다."
+
+msgid "No games here"
+msgstr "여기에 게임이 없습니다"
+
+msgid "Show all games"
+msgstr "모든 게임 표시"
+
+msgid "Show every drive"
+msgstr "모든 드라이브 표시"
+
+msgid "Games from: {1}"
+msgstr "게임 위치: {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "\"{1}\"에 맞는 게임이 없습니다."
+
+msgid "No games with mods were found."
+msgstr "모드가 있는 게임을 찾지 못했습니다."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "sd:/apps에서 홈브류 앱을 찾지 못했습니다."
+
+msgid "No emulator games were found."
+msgstr "에뮬레이터 게임을 찾지 못했습니다."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "게임 페이지에서 즐겨찾기로 표시하세요."
+
 msgid "Downloads"
 msgstr "다운로드"
 
@@ -3369,11 +3495,11 @@ msgstr "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요."
 
-msgid "Emulator games: Home > View > Emulators"
-msgstr "에뮬레이터 게임: 홈 > 보기 > 에뮬레이터"
+msgid "Emulator games: Home > Show > Emulators"
+msgstr "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
-msgstr "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 보기 > 에뮬레이터에서 찾을 수 있습니다."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
+msgstr "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다."
 
 msgid "Left to the mod"
 msgstr "모드에 맡김"
