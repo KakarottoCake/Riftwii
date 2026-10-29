@@ -45,7 +45,8 @@ int ScreenshotFlash();
 // it kept back come to nothing and a pair or hold begun on Home counts for
 // nothing; when it gets them back, it watches again from that frame.
 void SetHomeOwner(bool (*owns)());
-// Whether the pair was pressed since the last call.
+// Whether the pair was pressed since the last call, and Home still owns the
+// controllers now (otherwise it's dropped).
 bool TakeViewChord();
 // Drops a pair pressed since the last call: it only woke the dimmed screen.
 void ForgetViewChord();
@@ -66,7 +67,8 @@ void ForgetPopupPresses();
 // Controller). While Home owns the controllers (SetHomeOwner), that press
 // is kept back and comes when it is let go sooner, so a short press still
 // searches. This says whether such a hold reached its second since the
-// last call.
+// last call, and Home still owns the controllers now (otherwise it's
+// dropped).
 bool TakeSearchHold();
 
 // The NAND folder the in-game blob writes (runtime/shot/shot_hook.h).

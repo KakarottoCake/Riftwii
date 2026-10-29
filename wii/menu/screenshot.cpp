@@ -267,6 +267,13 @@ void ForgetPairHalves() {
     g_drc_pair.first_watched = g_drc_pair.second_watched = false;
 }
 
+// Whether Home owns the controllers at this moment, asked afresh (not the
+// frame's decision): a carry or a close-up can start later in the frame.
+bool HomeOwnsNow() {
+    bool (*owner)() = g_home_owner;
+    return owner != nullptr && owner();
+}
+
 // At the start of each frame: Home's owner function says whether Home owns
 // the controllers now. When it lets them go (a screen, a box, a carry or a
 // close-up took them, or Home closed), every press it kept back comes to
@@ -391,10 +398,14 @@ void SetHomeOwner(bool (*owns)()) {
     g_home_owner = owns;
 }
 
+// A pair or hold finishes when a frame's presses are read, and Home takes
+// it later. It counts only if Home still owns the controllers when it does:
+// one finished in the frame a carry or a close-up began, or a box opened,
+// is dropped here, whatever the reason Home let go.
 bool TakeViewChord() {
     if (!g_view_chord) return false;
     g_view_chord = false;
-    return true;
+    return HomeOwnsNow();
 }
 
 void ForgetViewChord() { g_view_chord = false; }
@@ -424,7 +435,7 @@ void ForgetPopupPresses() {
 bool TakeSearchHold() {
     if (!g_search_hold) return false;
     g_search_hold = false;
-    return true;
+    return HomeOwnsNow();
 }
 
 }  // namespace riftwii::wii

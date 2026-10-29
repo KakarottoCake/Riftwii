@@ -6420,10 +6420,10 @@ static int MenuSource(FrontendState& state)
 		// B held with a Wii Remote pointing at the search button: a game at
 		// random, once per hold. Not while a game is carried, where B puts it back.
 		// A pad's search button held does the same (screenshot.hpp), but not
-		// while a game is carried or a cover is up close, where B is theirs
-		// (Home doesn't own the controllers then: HomeOwnsControllers).
-		// Not a hold that finished in the frame a cover came up close, either.
-		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying() && !grid.CoverZoomed();
+		// while a game is carried or a cover is up close, where B is theirs:
+		// Home doesn't own the controllers then (HomeOwnsControllers), and a
+		// hold that finished just before is dropped when it's taken.
+		const bool padHold = riftwii::wii::TakeSearchHold();
 		bool bOnSearch = false;
 		// Nor during a cover close-up, whose B is its own.
 		for (int channel = 0; channel < 4 && !grid.Carrying() && !grid.CoverZoomed(); ++channel) {
@@ -6727,11 +6727,11 @@ static int MenuSource(FrontendState& state)
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
-		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed() && !grid.Carrying()) {
-			// (Over a cover up close, or while a tile is carried, the pair is
-			// taken and dropped: it never changes the view behind the zoom,
-			// and Home built again would lose the move, as the Layout button
-			// waits too.)
+		} else if (riftwii::wii::TakeViewChord()) {
+			// (Over a cover up close, or while a tile is carried, Home doesn't
+			// own the controllers, so the pair is dropped when it's taken: it
+			// never changes the view behind the zoom, and Home built again
+			// would lose the move, as the Layout button waits too.)
 			if (ChangeHomeLayout(NextHomeTiles(riftwii::wii::Settings().home_tiles),
 				"1 and 2", grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
