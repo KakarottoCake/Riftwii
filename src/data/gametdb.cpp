@@ -177,7 +177,9 @@ void WiitdbScanner::take_block(const std::string& block) {
     }
     const std::string id = raw_id(block);
     // A mod of one of the wanted games: only a block saying CUSTOM is parsed.
-    if (customs_.size() < kMaxCustomGames && prefixes_.count(id.substr(0, 4)) && !wanted_.count(id) &&
+    // A mod installed as a game of its own is kept too: the match must see
+    // every entry, or "only one matches" could be true of a partial list.
+    if (customs_.size() < kMaxCustomGames && prefixes_.count(id.substr(0, 4)) &&
         block.find("CUSTOM") != std::string::npos) {
         CustomGame g;
         if (parse_wiitdb_custom(block, g)) customs_.push_back(std::move(g));
