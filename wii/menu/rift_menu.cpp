@@ -5264,19 +5264,24 @@ static void EmulatorDefaultsPage(const riftwii::wii::EmulatorCatalog& catalog)
 // controllers (screenshot.hpp, SetHomeOwner) is read from them.
 static GuiWindow* g_homeWindow = nullptr;
 static GuiGameGrid* g_homeGrid = nullptr;
+// Home is opening a game (reading its disc, its files, its channel): its
+// window stays up, but it takes no input until that's over, whatever box
+// opens and closes on the way.
+static volatile bool g_homeOpeningGame = false;
 
 // Asked by the GUI thread once a frame, before that frame's presses: Home
 // owns the controllers while its window is on the screen and takes input
 // (a box, the banner, the HOME Menu, a picker and the search keyboard all
 // disable mainWindow; the emulator's page and leaving Home take Home's
-// window off it), and while no game is carried and no cover is up close.
+// window off it), while no game is carried and no cover is up close, and
+// not while Home is opening a game.
 // The same test libwiigui uses to send presses to Home, so a press is
 // watched by Home exactly when Home would have received it.
 static bool HomeOwnsControllers()
 {
 	GuiWindow* home = g_homeWindow;
 	GuiGameGrid* grid = g_homeGrid;
-	if (!home || !grid || !mainWindow) return false;
+	if (!home || !grid || !mainWindow || g_homeOpeningGame) return false;
 	if (mainWindow->GetState() == STATE::DISABLED || !mainWindow->Find(home)) return false;
 	return !grid->Carrying() && !grid->CoverZoomed();
 }
@@ -5866,6 +5871,7 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::SetHomeOwner(nullptr);
 			g_homeWindow = nullptr;
 			g_homeGrid = nullptr;
+			g_homeOpeningGame = false;
 		}
 	} homeOwner(w, grid);
 	while(menu == MENU_NONE)
@@ -6416,7 +6422,8 @@ static int MenuSource(FrontendState& state)
 		// A pad's search button held does the same (screenshot.hpp), but not
 		// while a game is carried or a cover is up close, where B is theirs
 		// (Home doesn't own the controllers then: HomeOwnsControllers).
-		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying();
+		// Not a hold that finished in the frame a cover came up close, either.
+		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying() && !grid.CoverZoomed();
 		bool bOnSearch = false;
 		// Nor during a cover close-up, whose B is its own.
 		for (int channel = 0; channel < 4 && !grid.Carrying() && !grid.CoverZoomed(); ++channel) {
@@ -6657,6 +6664,10 @@ static int MenuSource(FrontendState& state)
 			std::string error;
 			g_gamePageTiming.Step("leaving the banner");
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
+			// Home lets go of the controllers while the game opens: a pair or
+			// a hold begun on Home doesn't finish there and act on Home if it
+			// doesn't open (HomeOwnsControllers).
+			g_homeOpeningGame = true;
 			ResumeGui();
 			bool ok = false;
 			if (entry.kind == HomeEntry::Kind::Disc) {
@@ -6681,6 +6692,7 @@ static int MenuSource(FrontendState& state)
 			}
 			g_gamePageTiming.Step("selecting the game");
 			HaltGui();
+			g_homeOpeningGame = false;
 			if (ok) {
 				menu = MENU_HOME;
 				// A game at random: its page presses Start for the player,
