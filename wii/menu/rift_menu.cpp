@@ -4008,7 +4008,7 @@ static void ShowTutorial()
 		{"Your games",
 		 "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."},
 		{"Mods",
-		 "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Play (or +) plays the game with them."},
+		 "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."},
 		{"Buttons",
 		 "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead."},
 		{"You're all set",
@@ -10258,7 +10258,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
 		std::string online;
 		if (state.model.packs_patch_game())
-			online = tr("The mod's own server");
+			online = tr("Left to the mod");
 		else if (server == "off" || server.empty())
 			online = tr("Off: no server chosen");
 		else

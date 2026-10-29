@@ -3354,8 +3354,8 @@ msgstr "ダウンロード"
 msgid "Back up GameCube saves"
 msgstr "GameCubeセーブのバックアップ"
 
-msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Play (or +) plays the game with them."
-msgstr "MODパックをそのままSDカードかUSBドライブの一番上にコピーします。XMLはriivolutionに置き、他のフォルダもパックのままにします。ゲームを選び、MODを開き、パックをオンにして設定を選びます。「遊ぶ」（または+）でその設定で遊べます。"
+msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."
+msgstr "MODパックをそのままSDカードかUSBドライブの一番上にコピーします。XMLはriivolutionに置き、他のフォルダもパックのままにします。ゲームを選び、MODを開き、パックをオンにして設定を選びます。Bでゲームのページに戻り、「遊ぶ」（または+）でその設定で遊べます。"
 
 msgid "Downloads are off. Turn on Settings > Online > Downloads first."
 msgstr "ダウンロードがオフです。先に設定 > オンライン > ダウンロードをオンにしてください。"
@@ -3375,8 +3375,8 @@ msgstr "エミュレータのゲーム：ホーム > 表示 > エミュレータ
 msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
 msgstr "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。"
 
-msgid "The mod's own server"
-msgstr "MOD独自のサーバー"
+msgid "Left to the mod"
+msgstr "MODに任せる"
 
 msgid "Off: no server chosen"
 msgstr "オフ：サーバー未選択"

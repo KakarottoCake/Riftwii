@@ -3354,8 +3354,8 @@ msgstr "Descargas"
 msgid "Back up GameCube saves"
 msgstr "Copiar partidas de GameCube"
 
-msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Play (or +) plays the game with them."
-msgstr "Copia el pack de mods en la raíz de la tarjeta SD o unidad USB tal como viene. Su XML va en riivolution; deja las otras carpetas donde las trae el pack. Elige un juego, abre Mods, activa un pack y elige sus opciones. Jugar (o +) inicia el juego con ellas."
+msgid "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them."
+msgstr "Copia el pack de mods en la raíz de la tarjeta SD o unidad USB tal como viene. Su XML va en riivolution; deja las otras carpetas donde las trae el pack. Elige un juego, abre Mods, activa un pack y elige sus opciones. Pulsa B para volver a la página del juego, donde Jugar (o +) lo inicia con ellas."
 
 msgid "Downloads are off. Turn on Settings > Online > Downloads first."
 msgstr "Las descargas están desactivadas. Activa primero Ajustes > En línea > Descargas."
@@ -3375,8 +3375,8 @@ msgstr "Juegos emulados: Inicio > Ver > Emuladores"
 msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
 msgstr "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores."
 
-msgid "The mod's own server"
-msgstr "El servidor del mod"
+msgid "Left to the mod"
+msgstr "Lo decide el mod"
 
 msgid "Off: no server chosen"
 msgstr "Desactivado: sin servidor"
