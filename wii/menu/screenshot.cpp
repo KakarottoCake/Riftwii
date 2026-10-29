@@ -219,13 +219,21 @@ using Chord = HeldBack;
 Chord g_remote[4];
 Chord g_pad_l[4], g_pad_r[4];
 // 1 and 2 together on Home: 2 is kept back as 1 is, so the pair works
-// whichever goes down first, but only while Home watches for it.
+// whichever goes down first, but only while Home owns the controllers.
 Chord g_remote_two[4];
-volatile bool g_view_chord_on = false;
 volatile bool g_view_chord = false;  // the pair was pressed; Home takes it
-// Whether this 1 and this 2 went down while Home watched: a 1 held since
-// before (during the HOME Menu, say) is no half of the pair, even once
-// Home watches again. Cleared when Home stops watching.
+
+// Whether Home owns the controllers this frame: its pairs and its search
+// hold are watched, and their presses kept back, only then. Decided once a
+// frame at the start of ScreenshotPoll, on the GUI thread that reads the
+// controllers, by the function Home gives SetHomeOwner: so it is never a
+// frame late, whichever screen, box, carry or close-up takes the buttons
+// or gives them back, and only this thread writes it.
+bool (*volatile g_home_owner)() = nullptr;
+bool g_home_owns = false;
+// Whether this 1 and this 2 went down while Home owned the controllers: a
+// 1 held since before (during the HOME Menu, say) is no half of the pair,
+// even once Home owns them again. Cleared when Home lets them go.
 bool g_one_watched[4] = {};
 bool g_two_watched[4] = {};
 // The same pair on the other controllers, on the buttons that are 1 and 2
@@ -235,26 +243,46 @@ ViewPair g_classic_pair[4], g_pad_pair[4], g_drc_pair;
 
 // Home's random game by pad: the search button's own button held, B on a
 // GameCube controller, ZL on a Classic Controller (or Wii U Pro
-// Controller). Its press is kept back while Home watches: let go sooner,
-// it is the search.
+// Controller). Its press is kept back while Home owns the controllers:
+// let go sooner, it is the search.
 constexpr u32 kSearchHoldFrames = 50;  // as B held on the search button with a Wii Remote
 SearchHold g_pad_search[4], g_classic_search[4];
-// Home says so on every pass of its loop: a popup opened from Home stops
-// those passes, and its B (or ZL) is not kept back.
-volatile bool g_search_hold_on = false;
-volatile u32 g_search_hold_beat = 0;  // FrameTimer at Home's last pass
-constexpr u32 kSearchHoldBeatFrames = 6;
 volatile bool g_search_hold = false;  // held its second; Home takes it
-
-bool SearchHoldWatched() { return g_search_hold_on && FrameTimer - g_search_hold_beat <= kSearchHoldBeatFrames; }
 
 // One frame of a controller's pair or hold (riftwii/homechord.hpp).
 void WatchPair(ViewPair& v, u32& down, u32 held, u32 first, u32 second) {
-    if (watch_pair(v, g_view_chord_on, down, held, first, second)) g_view_chord = true;
+    if (watch_pair(v, g_home_owns, down, held, first, second)) g_view_chord = true;
 }
 
 void WatchHold(SearchHold& h, u32& down, u32 held, u32 bit) {
-    if (watch_hold(h, SearchHoldWatched(), FrameTimer, kSearchHoldFrames, down, held, bit)) g_search_hold = true;
+    if (watch_hold(h, g_home_owns, FrameTimer, kSearchHoldFrames, down, held, bit)) g_search_hold = true;
+}
+
+// No half of a pair pressed so far counts towards one any more.
+void ForgetPairHalves() {
+    for (int i = 0; i < 4; ++i) {
+        g_one_watched[i] = g_two_watched[i] = false;
+        for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
+    }
+    g_drc_pair.first_watched = g_drc_pair.second_watched = false;
+}
+
+// At the start of each frame: Home's owner function says whether Home owns
+// the controllers now. When it lets them go (a screen, a box, a carry or a
+// close-up took them, or Home closed), every press it kept back comes to
+// nothing, a half pair or a hold begun on Home counts for nothing, and a
+// pair or hold finished this frame is dropped: the presses were made on
+// Home, and the new owner gets its own presses from this frame on.
+void DecideHomeOwner() {
+    bool (*owner)() = g_home_owner;
+    const bool owns = owner != nullptr && owner();
+    if (owns == g_home_owns) return;
+    g_home_owns = owns;
+    if (owns) return;
+    ForgetPairHalves();
+    g_view_chord = false;
+    g_search_hold = false;
+    SpendHeldPresses();
 }
 
 void Fire() {
@@ -287,27 +315,29 @@ void ScreenshotsStop() {
 }
 
 void ScreenshotPoll() {
+    DecideHomeOwner();
     for (int i = 0; i < 4; ++i) {
         WPADData* w = userInput[i].wpad;
         if (w) {
             u32 down = w->btns_d;
-            if (g_view_chord_on && (down & WPAD_BUTTON_1)) g_one_watched[i] = true;
-            if (g_view_chord_on && (down & WPAD_BUTTON_2)) g_two_watched[i] = true;
+            if (g_home_owns && (down & WPAD_BUTTON_1)) g_one_watched[i] = true;
+            if (g_home_owns && (down & WPAD_BUTTON_2)) g_two_watched[i] = true;
             if (Modifier(g_remote[i], down, w->btns_h, WPAD_BUTTON_1) && (down & WPAD_BUTTON_HOME)) {
                 down &= ~WPAD_BUTTON_HOME;
                 g_remote[i].used = true;
                 Fire();
             }
-            // A 2 already kept back is still let go here when Home stops
-            // watching, so its press is never lost.
+            // A 2 kept back is let go here even after Home lets the
+            // controllers go (DecideHomeOwner spends it, so it comes to
+            // nothing), so its hold-back always ends.
             const bool one = g_remote[i].held_back && (w->btns_h & WPAD_BUTTON_1);
-            if (g_view_chord_on || g_remote_two[i].held_back) {
+            if (g_home_owns || g_remote_two[i].held_back) {
                 const bool two = Modifier(g_remote_two[i], down, w->btns_h, WPAD_BUTTON_2);
-                // Only a pair Home watches for is used up: one pressed after
-                // it stopped watching gives both presses back when let go.
+                // Only a pair made while Home owns the controllers is used
+                // up: one made after gives both presses back when let go.
                 // As riftwii::watch_pair: a half already used (a wake press)
                 // makes the pair, and the other half, come to nothing.
-                if (g_view_chord_on && one && two && g_one_watched[i] && g_two_watched[i]) {
+                if (g_home_owns && one && two && g_one_watched[i] && g_two_watched[i]) {
                     const bool fresh = !g_remote[i].used && !g_remote_two[i].used;
                     g_remote[i].used = g_remote_two[i].used = true;
                     if (fresh) g_view_chord = true;
@@ -357,18 +387,8 @@ void ScreenshotAfterFrame(const void* xfb, int width, int height) {
 
 int ScreenshotFlash() { return g_flash; }
 
-void WatchViewChord(bool on) {
-    // Not the presses kept back (held_back): a 1 or 2 let go alone still
-    // reaches its own control.
-    if (!on) {
-        for (int i = 0; i < 4; ++i) {
-            g_one_watched[i] = g_two_watched[i] = false;
-            for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
-        }
-        g_drc_pair.first_watched = g_drc_pair.second_watched = false;
-    }
-    g_view_chord_on = on;
-    g_view_chord = false;
+void SetHomeOwner(bool (*owns)()) {
+    g_home_owner = owns;
 }
 
 bool TakeViewChord() {
@@ -394,34 +414,11 @@ void SpendHeldPresses() {
     spend(g_drc_pair.second);
 }
 
-void SpendPadHomePresses() {
-    const auto spend = [](Chord& c) {
-        if (c.held_back) c.used = true;
-    };
-    for (int i = 0; i < 4; ++i) {
-        for (Chord* c : {&g_classic_pair[i].first, &g_classic_pair[i].second, &g_pad_pair[i].first,
-                         &g_pad_pair[i].second, &g_pad_search[i].button, &g_classic_search[i].button})
-            spend(*c);
-    }
-    spend(g_drc_pair.first);
-    spend(g_drc_pair.second);
-}
-
 void ForgetPopupPresses() {
     g_view_chord = false;
     g_search_hold = false;  // a hold finished as the box opened starts no game after it
-    for (int i = 0; i < 4; ++i) {
-        g_one_watched[i] = g_two_watched[i] = false;
-        for (ViewPair* v : {&g_classic_pair[i], &g_pad_pair[i]}) v->first_watched = v->second_watched = false;
-    }
-    g_drc_pair.first_watched = g_drc_pair.second_watched = false;
+    ForgetPairHalves();
     SpendHeldPresses();
-}
-
-void WatchSearchHold(bool on) {
-    g_search_hold_beat = FrameTimer;
-    g_search_hold_on = on;
-    if (!on) g_search_hold = false;
 }
 
 bool TakeSearchHold() {

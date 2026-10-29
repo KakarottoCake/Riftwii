@@ -17,7 +17,6 @@
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/skinpaint.hpp"
-#include "screenshot.hpp"
 #include "skin.hpp"
 #include "usbinput.hpp"
 #include "wiimenusounds.hpp"
@@ -1341,13 +1340,6 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         carryFrom = carryTo = index;
         carryChan = ch;
         carryPointer = pointing;
-        // A pad press Home kept back (the search button's B or ZL) comes to
-        // nothing: let go during the carry, where B is the carry's, it would
-        // open Search. And no new one is kept back: B is the carry's from
-        // this frame. Here, on the thread that reads the pads, so neither
-        // waits for Home's loop to see the carry.
-        riftwii::wii::WatchSearchHold(false);
-        riftwii::wii::SpendPadHomePresses();
         edgeFrames = 0;
         focus = index;
         hover = -1;
@@ -1602,9 +1594,6 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
     }
     if (!ZoomArtFor((*items)[index].id, back).data) return false;  // nothing to show up close
     zoomItem = index;
-    // As at a carry's start: B is the close-up's now, kept back or new.
-    riftwii::wii::WatchSearchHold(false);
-    riftwii::wii::SpendPadHomePresses();
     zoomSlot = slot;
     zoomBack = back;
     zoomClosing = false;

@@ -2899,12 +2899,6 @@ public:
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
-		// Home's search hold stops watching here (its watch lasts a few
-		// frames after Home's last look): the box's B is its own from the
-		// first frame. A pad press Home still keeps back (B held as A opened
-		// this) was made there: let go here, it doesn't answer this box.
-		riftwii::wii::WatchSearchHold(false);
-		riftwii::wii::SpendPadHomePresses();
 		if (safeFirst) okBtn.backAction = false;
 		if (riftwii::wii::Settings().wii_menu_sounds)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
@@ -5266,6 +5260,27 @@ static void EmulatorDefaultsPage(const riftwii::wii::EmulatorCatalog& catalog)
 	});
 }
 
+// Home's window and games, while Home is open: whether Home owns the
+// controllers (screenshot.hpp, SetHomeOwner) is read from them.
+static GuiWindow* g_homeWindow = nullptr;
+static GuiGameGrid* g_homeGrid = nullptr;
+
+// Asked by the GUI thread once a frame, before that frame's presses: Home
+// owns the controllers while its window is on the screen and takes input
+// (a box, the banner, the HOME Menu, a picker and the search keyboard all
+// disable mainWindow; the emulator's page and leaving Home take Home's
+// window off it), and while no game is carried and no cover is up close.
+// The same test libwiigui uses to send presses to Home, so a press is
+// watched by Home exactly when Home would have received it.
+static bool HomeOwnsControllers()
+{
+	GuiWindow* home = g_homeWindow;
+	GuiGameGrid* grid = g_homeGrid;
+	if (!home || !grid || !mainWindow) return false;
+	if (mainWindow->GetState() == STATE::DISABLED || !mainWindow->Find(home)) return false;
+	return !grid->Carrying() && !grid->CoverZoomed();
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -5834,24 +5849,25 @@ static int MenuSource(FrontendState& state)
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
-	// 1 and 2 together change the view while Home is open (screenshot.hpp),
-	// whichever way out of here it closes.
-	struct ViewChordWatch {
-		ViewChordWatch() { riftwii::wii::WatchViewChord(true); }
-		~ViewChordWatch() {
-			riftwii::wii::WatchViewChord(false);
-			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendPadHomePresses();
+	// Home's pairs (1 and 2 together change the view) and its search hold
+	// are watched while Home owns the controllers, decided by the GUI thread
+	// each frame (HomeOwnsControllers), whichever screen, box, carry or
+	// close-up takes them or gives them back, and whichever way out of here
+	// Home closes.
+	struct HomeOwner {
+		HomeOwner(GuiWindow& home, GuiGameGrid& games)
+		{
+			g_homeWindow = &home;
+			g_homeGrid = &games;
+			riftwii::wii::SetHomeOwner(HomeOwnsControllers);
 		}
-	} viewChordWatch;
-	// Back on Home from a screen or a box: its pairs and the search button's
-	// hold are watched again at once, before the next frame's controllers
-	// are read (that happens on the GUI thread), so a B or ZL pressed as
-	// Home comes back starts a hold instead of going straight to Search.
-	const auto homeWatchesAgain = [&]() {
-		riftwii::wii::WatchViewChord(true);
-		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
-	};
+		~HomeOwner()
+		{
+			riftwii::wii::SetHomeOwner(nullptr);
+			g_homeWindow = nullptr;
+			g_homeGrid = nullptr;
+		}
+	} homeOwner(w, grid);
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -6398,10 +6414,8 @@ static int MenuSource(FrontendState& state)
 		// B held with a Wii Remote pointing at the search button: a game at
 		// random, once per hold. Not while a game is carried, where B puts it back.
 		// A pad's search button held does the same (screenshot.hpp), but not
-		// while a game is carried or a cover is up close, where B is theirs.
-		// A press kept back when a game is picked up or a cover comes close
-		// is spent there, on the GUI thread (gui_gamegrid.cpp).
-		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
+		// while a game is carried or a cover is up close, where B is theirs
+		// (Home doesn't own the controllers then: HomeOwnsControllers).
 		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying();
 		bool bOnSearch = false;
 		// Nor during a cover close-up, whose B is its own.
@@ -6532,14 +6546,7 @@ static int MenuSource(FrontendState& state)
 					const auto values = riftwii::wii::LoadEmulatorValues(addon, game.path);
 					play = StartEmulator(addon, game, values);
 				} else {
-					// Home hands over to the emulator's page: a press still kept
-					// back (a pad's, or a Wii Remote's 1 or 2), or a pair begun,
-					// was Home's.
-					riftwii::wii::WatchViewChord(false);
-					riftwii::wii::WatchSearchHold(false);
-					riftwii::wii::SpendHeldPresses();
 					play = EditEmulator(addon, &game);
-					if (!play) homeWatchesAgain();
 				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
@@ -6574,17 +6581,9 @@ static int MenuSource(FrontendState& state)
 					return riftwii::wii::LoadBanner(id, bytes);
 				};
 				int shown = clicked;
-				// The banner has 1 and 2 to itself: a pair pressed on it is
-				// not Home's, and Home starts watching afresh after it. A 1 or
-				// 2 Home kept back is spent too: let go here, 2 would turn the
-				// page and 1 set the star.
-				riftwii::wii::WatchViewChord(false);
-				riftwii::wii::WatchSearchHold(false);
-				riftwii::wii::SpendHeldPresses();
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
-				homeWatchesAgain();
 				const bool go = choice != ChannelChoice::Back;
 				if (!go) state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 				g_startOnOpen = choice == ChannelChoice::Start;
@@ -6658,13 +6657,6 @@ static int MenuSource(FrontendState& state)
 			std::string error;
 			g_gamePageTiming.Step("leaving the banner");
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
-			// A pad press still kept back was Home's: should the game not open,
-			// letting it go isn't a search. No view pair counts while it opens
-			// either; Home watches afresh if it doesn't. A Wii Remote's 1 or 2
-			// kept back too: let go on the game page, 2 would be its Dump.
-			riftwii::wii::WatchViewChord(false);
-			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendHeldPresses();
 			ResumeGui();
 			bool ok = false;
 			if (entry.kind == HomeEntry::Kind::Disc) {
@@ -6710,7 +6702,6 @@ static int MenuSource(FrontendState& state)
 				DropLingerBanner();  // Start on a banner: Home comes back from under it
 				g_startOnOpen = false;
 				g_reopenBanner.clear();
-				homeWatchesAgain();
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
@@ -6723,13 +6714,7 @@ static int MenuSource(FrontendState& state)
 			// picked
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
 			exitBtn.ResetState();
-			// A pair pressed in the HOME Menu is not Home's: Home starts
-			// watching afresh once it closes.
-			riftwii::wii::WatchViewChord(false);
-			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendPadHomePresses();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
-			homeWatchesAgain();
 		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed() && !grid.Carrying()) {
 			// (Over a cover up close, or while a tile is carried, the pair is
 			// taken and dropped: it never changes the view behind the zoom,
@@ -6746,13 +6731,7 @@ static int MenuSource(FrontendState& state)
 				ResumeGui();
 				continue;
 			}
-			// The picker's buttons are its own from its first frame, as the
-			// search keyboard's are: presses Home kept back come to nothing.
-			riftwii::wii::WatchViewChord(false);
-			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendPadHomePresses();
 			const int picked = PickHomeLayout();
-			homeWatchesAgain();
 			if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button",
 				grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
@@ -6769,9 +6748,6 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (searchBtn.Clicked()) {
 			searchBtn.button.ResetState();
-			// The keyboard's B and ZL are its own from its first frame.
-			riftwii::wii::WatchSearchHold(false);
-			riftwii::wii::SpendPadHomePresses();
 			const std::string before = g_search;
 			std::string typed = g_search;
 			// The games behind the keyboard follow what is typed.
@@ -6813,11 +6789,7 @@ static int MenuSource(FrontendState& state)
 				if (games > kNamed) matches += " " + tr("and {1} more", {std::to_string(games - kNamed)});
 				return ShownCount(g_filter, games);
 			};
-			// A pair pressed on the keyboard is not Home's: Home watches
-			// afresh once it closes.
-			riftwii::wii::WatchViewChord(false);
 			const bool searched = AskSearch(typed, live);
-			homeWatchesAgain();
 			if (searched) {
 				g_search = TrimSearch(typed);
 				logf("Home: search \"%s\"\n", g_search.c_str());
@@ -6849,12 +6821,7 @@ static int MenuSource(FrontendState& state)
 					if (kHomeFilters[index] == g_filter) picked = (index + 1) % 6;
 				}
 			} else {
-				// As the Layout picker: presses Home kept back come to nothing.
-				riftwii::wii::WatchViewChord(false);
-				riftwii::wii::WatchSearchHold(false);
-				riftwii::wii::SpendPadHomePresses();
 				picked = PickHomeFilter(state);
-				homeWatchesAgain();
 			}
 			if (picked < 0) {
 				showStatus();

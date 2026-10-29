@@ -32,9 +32,19 @@ int ScreenshotFlash();
 // Home's view change: 1 and 2 pressed together on a Wii Remote, in either
 // order (Y and X on a Classic Controller or Wii U Pro Controller, Y and Z
 // on a GameCube controller, X and Y on the Wii U GamePad: their 1 and 2 on
-// Home). While Home watches, both are kept back like 1 (a press comes when
-// it is let go alone), and neither reaches the menu after the pair.
-void WatchViewChord(bool on);
+// Home). While Home owns the controllers (SetHomeOwner), both are kept back
+// like 1 (a press comes when it is let go alone), and neither reaches the
+// menu after the pair.
+//
+// Home gives the function that says whether it owns the controllers now
+// (nullptr when Home closes): ScreenshotPoll asks it once a frame, before
+// that frame's presses, on the GUI thread. Home owns them while it is on
+// the screen and takes input: not while a box, a screen of its own (a
+// banner, the HOME Menu, a picker, the search keyboard) or a game carried
+// or a cover up close has the buttons. When it lets them go, the presses
+// it kept back come to nothing and a pair or hold begun on Home counts for
+// nothing; when it gets them back, it watches again from that frame.
+void SetHomeOwner(bool (*owns)());
 // Whether the pair was pressed since the last call.
 bool TakeViewChord();
 // Drops a pair pressed since the last call: it only woke the dimmed screen.
@@ -45,12 +55,6 @@ void ForgetViewChord();
 // screen, and do nothing else.
 void SpendHeldPresses();
 
-// Home hands over to another screen (a game's page or banner, the HOME
-// Menu, the search keyboard): the pads' presses it still keeps back (their
-// view pairs, B or ZL) were made on Home and come to nothing when let go
-// there. The Wii Remote's 1 and 2 keep their own rule (WatchViewChord).
-void SpendPadHomePresses();
-
 // A popup closes: a view pair pressed in it, or half of one, is
 // forgotten (none of it counts towards a pair on Home), and every press
 // still kept back comes to nothing when let go.
@@ -59,12 +63,10 @@ void ForgetPopupPresses();
 // Home's random game by pad, as B held on the search button with a Wii
 // Remote: the search button's own button held about a second (B on a
 // GameCube controller, ZL on a Classic Controller or Wii U Pro
-// Controller). While Home watches, that press is kept back and comes when
-// it is let go sooner, so a short press still searches. Home calls it on
-// every pass of its loop: without a call for a few frames (a popup is up),
-// nothing is kept back.
-void WatchSearchHold(bool on);
-// Whether such a hold reached its second since the last call.
+// Controller). While Home owns the controllers (SetHomeOwner), that press
+// is kept back and comes when it is let go sooner, so a short press still
+// searches. This says whether such a hold reached its second since the
+// last call.
 bool TakeSearchHold();
 
 // The NAND folder the in-game blob writes (runtime/shot/shot_hook.h).
