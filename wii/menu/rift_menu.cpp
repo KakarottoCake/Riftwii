@@ -6286,7 +6286,10 @@ static int MenuSource(FrontendState& state)
 				g_search.clear();
 				g_filter = Filter::All;
 				riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
-				riftwii::wii::SaveSettings();
+				// The games are shown either way; only remembering the view
+				// for the next start depends on the card.
+				if (!riftwii::wii::SaveSettings())
+					toast.Show(tr("Could not save the settings to the SD card."), true);
 				logf("Home: all games are now shown\n");
 			}
 			refresh(false);
