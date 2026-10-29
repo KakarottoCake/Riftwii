@@ -1084,6 +1084,71 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
+// A mod pack's own PADRead, the supported way for a pack to give a
+// Wii-Remote-only game GameCube controllers (#352, docs/ARCHITECTURE.md): a
+// framed function in a section the pack adds, with the SDK's "no controller"
+// path written out once per port, each calling the pack's own small memset.
+// The shape of the Super Sentai Battle: Ranger Cross pad pack's routine (our
+// own code, no game's), in a game whose own code has no PAD library. The
+// search must keep finding it, or packs like it stop working quietly.
+static void TestPackPadRead() {
+    Asm game{0x80004000u, {}};  // the game's code: no PADRead
+    game.prologue();
+    game.op(0x60000000u);
+    game.blr();
+
+    Asm pack{0x80600000u, {}};  // the section the pack adds
+    const std::uint32_t si_read = pack.here();
+    pack.prologue();
+    pack.blr();
+    const std::uint32_t read = pack.here();
+    const std::uint32_t pad_memset = read + 0xCC;  // the leaf after PADRead's 51 words (checked below)
+    pack.op(0x9421FFE0u);  // stwu r1,-32(r1)
+    pack.op(0x7C0802A6u);  // mflr r0
+    pack.op(0x90010024u);  // stw r0,36(r1)
+    pack.op(0x93E1001Cu);  // stw r31,28(r1)
+    pack.op(0x93C10018u);  // stw r30,24(r1)
+    pack.op(0x7C7F1B78u);  // mr r31,r3 (the four PADStatus)
+    pack.bl(si_read);      // the console's own ports; r3 = the ports with no pad
+    pack.op(0x7C7E1B78u);  // mr r30,r3
+    pack.op(0x3800FFFFu);  // li r0,-1 (PAD_ERR_NO_CONTROLLER)
+    for (unsigned port = 0; port < 4; ++port) {
+        const bool last = port == 3;
+        pack.op(0x73C90000u | (1u << port));                      // andi. r9,r30,(1 << port)
+        pack.op(0x41820000u | (last ? 28u : 32u));                // beq past this port
+        pack.op(0x393F0000u | (port * 12u));                      // addi r9,r31,port*12
+        pack.pad_error(0, 9, pad_memset);                         // stb r0,10(r9); mr r3,r9; ...; bl memset
+        if (!last) pack.op(0x3800FFFFu);                          // li r0,-1 again (memset took r0)
+    }
+    pack.op(0x38600000u);  // li r3,0 (no rumble motors)
+    pack.op(0x83C10018u);  // lwz r30,24(r1)
+    pack.op(0x83E1001Cu);  // lwz r31,28(r1)
+    pack.op(0x80010024u);  // lwz r0,36(r1)
+    pack.op(0x7C0803A6u);  // mtlr r0
+    pack.op(0x38210020u);  // addi r1,r1,32
+    pack.blr();
+    EXPECT_EQ(pack.here(), pad_memset);
+    pack.op(0x2C050000u);  // cmpwi r5,0
+    pack.op(0x4D820020u);  // beqlr
+    pack.op(0x7CA903A6u);  // mtctr r5
+    pack.op(0x3923FFFFu);  // addi r9,r3,-1
+    pack.op(0x9C890001u);  // stbu r4,1(r9)
+    pack.op(0x4200FFFCu);  // bdnz back to the stbu
+    pack.blr();
+
+    const std::vector<std::uint8_t> game_code = game.bytes();
+    const std::vector<std::uint8_t> pack_code = pack.bytes();
+    const std::vector<riftwii::CodeRange> text = {{game.base, game_code.data(), game_code.size()},
+                                                 {pack.base, pack_code.data(), pack_code.size()}};
+    riftwii::PadSymbols pad;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_pad_symbols(text, pad, error));
+    EXPECT_EQ(pad.read, read);
+    EXPECT_EQ(pad.read_sites, 4u);
+    EXPECT_EQ(pad.control_motor, 0u);  // the pack brings no motor control: no rumble
+    EXPECT_EQ(pad.idle_reset, 0u);     // nor the dimming reset: the pack clears the game's dimming itself
+}
+
 // The screen-dimming reset: li r0,0, then the store and li r3,1 in the
 // order `store_first` gives, then blr. Returns its address.
 static std::uint32_t idle_reset_function(Asm& a, std::int16_t sda_offset, bool store_first) {
@@ -1566,6 +1631,7 @@ int main() {
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
+    TestPackPadRead();
     TestIdleResetSearch();
     TestGcPadMotorSearch();
     TestGcSiTypeCacheSearch();

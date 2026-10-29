@@ -137,6 +137,36 @@ decisions are `runtime/rtleave.c`, host-tested. With any of the three
 functions missing, or one of the two hooks impossible, the way back stays
 off and boot.log says why; the adapter works as before.
 
+**Packs that add GameCube controllers** (#352). A game that reads only
+Wii Remotes has no `PADRead`, so the adapter has nothing to hook. A mod
+pack can give it one, and this is the supported way to do it: the pack
+adds a text (code) section to the game's main.dol with its own `PADRead`
+(only text sections are searched), and turns the GameCube controller
+into what the game reads (Super Sentai Battle:
+Ranger Cross's pad pack hooks the game's `KPADReadEx` call and reports a
+Wii Remote with a Nunchuk). RiftWii searches the main.dol that actually
+starts, so the pack's own copy is searched like a game's. For the search
+(`find_pad_symbols`, `src/patching/symsearch.cpp`) to take a function for
+`PADRead`, it must be a framed function (`stwu r1`, then `mflr r0`) with
+at least three of the SDK's "no controller in this port" paths, each
+`stb rE,10(rS); mr r3,rS; li r4,0; li r5,10; bl memset`, all calling the
+same function; the Ranger Cross pack writes one per port, four in all,
+and calls a small memset of its own. RiftWii then hooks it and fills the
+ports it marks missing from the adapter, as for any game. Two things a
+pack does itself: there is no screen-dimming reset next to its
+`PADRead` for RiftWii to call, so the pack clears the game's dimming
+on real input itself (`VIResetRFIdle`); and without a `PADControlMotor`
+there's no rumble. A pack that wants rumble adds its own
+`PADControlMotor` in the same shape as the SDK's, which the search finds
+by reading the rumble-off flag and then building the motor command with
+`oris rA, rB, 0x40` (described in `include/riftwii/symsearch.hpp`). A
+pack done this way also gets the GameCube
+controller's way back (L, R, Z and Start held two seconds), since the
+game's `OSReturnToMenu`, `OSSleepThread` and IPC submit routine are
+found as in any game. `TestPackPadRead` (`tests/gcad_tests.cpp`) keeps a
+routine of this shape found, so a later change to the search fails the
+tests instead of quietly breaking these packs.
+
 **Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
 screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
 the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's
