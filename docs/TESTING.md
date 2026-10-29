@@ -64,6 +64,10 @@ For things that worked, a short "works" with the game, where it ran from
 - [ ] **About page rating.** A game's About page shows the age rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR) where there is one, else the rating text.
 - [ ] **Letter jump.** B on Home (L on a GameCube controller) jumps to
   the next letter. Sorting puts "The Legend of Zelda" under L.
+- [ ] **Genres.** Hold B on Home (L on a GameCube controller) and press
+  Down: a list of the games' genres shows, holding Down scrolls it, and
+  letting go of B shows only that genre's games, its name under the
+  clock. Every genre at the top of the list shows them all again.
 - [ ] **Search.** The search button (top right; Z on a GameCube
   controller, ZL on a Classic Controller): Home filters as you type, the
   box above the keyboard names the first matching games, and the count is
