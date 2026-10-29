@@ -6507,8 +6507,13 @@ static std::string ChannelBootNote(const FrontendState& state) {
 static bool PrepareWadInMenu(riftwii::wii::NandChannel& channel)
 {
 	if (channel.wad_path.empty()) return true;
+	// The page's cover download may still run: ask it to stop, and wait
+	// for it and the drive scan with the screen still drawing.
+	riftwii::wii::NetCancelBackground();
+	ResumeGui();
 	riftwii::wii::WaitDriveScan();
 	riftwii::wii::NetWaitForBackground();
+	HaltGui();
 	std::string error;
 	bool ok;
 	{
