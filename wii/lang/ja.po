@@ -3043,7 +3043,7 @@ msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
 msgstr "ディスクのコピーには本物のWiiが必要です。Dolphinはディスク全体を読めません。"
 
 msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
-msgstr "メニューはd2xではないIOS{1}で動いているため、ディスク全体を読めません。設定 > メニュー > Menu IOSでIOS 58かd2xのcIOSを選び、RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
+msgstr "メニューはd2xではないIOS{1}で動いているため、ディスク全体を読めません。設定 > メニュー > メニューのIOSでIOS 58かd2xのcIOSを選び、RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。"
 
 msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
 msgstr "USBドライブがFAT32ではありません(NTFSなど)。コピーできるのはFAT32のUSBドライブかSDカードだけです。"
