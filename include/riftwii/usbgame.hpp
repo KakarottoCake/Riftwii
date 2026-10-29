@@ -265,6 +265,12 @@ std::string ciso_log_line(const CisoFinds& finds);
 // it is added after a real size only.
 std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs);
 
+// d2x returns the unsigned sector count as a signed IOS result. Small
+// negative values are errors, except -1 with a valid sector size: a drive
+// too large for its 32-bit count. The caller must also check init and read
+// sector zero before accepting that unknown capacity.
+bool d2x_usb_capacity_available(std::int32_t sectors, std::uint32_t sector_bytes);
+
 // Whether the first sector d2x read for a Wii game is the game the menu
 // listed: a disc starts with its six-character game ID. True when it
 // cannot be judged (the first fragment is not the disc's start, or the

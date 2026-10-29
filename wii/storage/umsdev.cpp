@@ -190,14 +190,13 @@ Started start_drive() {
     s.init = ioctlv_limited(kInit, 0, 0, nullptr, "init");
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;
+    // A failed capacity request must not reuse the preceding port's size.
+    g_args[0] = 0;
     DCFlushRange(g_args, sizeof(g_args));
     s.sectors = ioctlv_limited(kGetCapacity, 0, 1, g_vec, "capacity");
     DCInvalidateRange(g_args, sizeof(g_args));
     s.sector_bytes = g_args[0];
-    // The count comes back as the ioctl's result: a drive past 2^31
-    // sectors (1 TiB of 512-byte sectors) reads as negative. IOS's own
-    // errors are small negative numbers.
-    s.counted = s.sectors > 0 || s.sectors < -0x100000;
+    s.counted = d2x_usb_capacity_available(s.sectors, s.sector_bytes);
     // 512 for a hard drive or stick, 2048 for a DVD drive.
     s.size_ok = s.sector_bytes >= kFatSectorBytes && s.sector_bytes <= kBounceBytes &&
                 (s.sector_bytes & (s.sector_bytes - 1)) == 0;
@@ -262,9 +261,9 @@ bool Open(std::string& error) {
              static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
              static_cast<unsigned>(s.sector_bytes));
         if (s.init < 0 || !s.counted) continue;
-        if (found < 0) {
-            found = static_cast<int>(port);
-            any = s;
+        if (s.sectors == -1) {
+            logf("USB (d2x): the drive has more sectors than d2x can count (over 2 TiB with 512-byte sectors); "
+                 "its size is not checked\n");
         }
         std::uint64_t hash = 0;
         const bool has_volume = s.ok() && HasVolume(s.sector_bytes, hash);
@@ -277,6 +276,16 @@ bool Open(std::string& error) {
             }
         } else {
             logf("USB (d2x): port %u: no volume RiftWii reads on that drive\n", static_cast<unsigned>(port));
+            // -1 can also be an IOS error. Never select it through the
+            // fallback for drives that started but have no readable volume.
+            if (s.sectors == -1) {
+                s.counted = false;
+                continue;
+            }
+        }
+        if (found < 0) {
+            found = static_cast<int>(port);
+            any = s;
         }
     }
     if (match && matched < 0 && readable >= 0) {
@@ -314,6 +323,11 @@ bool Open(std::string& error) {
             s = start_drive();
             if (g_stuck) return fail_stuck(error);
             logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
+            if (s.ok() && s.sectors == -1) {
+                std::uint64_t hash = 0;
+                s.counted = HasVolume(s.sector_bytes, hash);
+                if (g_stuck) return fail_stuck(error);
+            }
         }
         g_port = static_cast<std::uint32_t>(chosen);
     }
@@ -380,6 +394,9 @@ std::uint32_t SectorBytes() { return g_sector_bytes; }
 
 bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     if (g_fd < 0 || !g_bounce || sector > 0xFFFFFFFFull) return false;
+    // d2x accepts only a 32-bit sector address, even on a larger drive.
+    // Check the whole request before splitting it, so later chunks cannot wrap.
+    if (count > 0x100000000ull - sector) return false;
     while (count > 0) {
         const std::uint32_t n = std::min(count, kBounceBytes / g_sector_bytes);
         g_args[0] = static_cast<std::uint32_t>(sector);
