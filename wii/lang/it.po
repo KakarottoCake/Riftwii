@@ -3407,3 +3407,30 @@ msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/rif
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
+
+msgid "Save location"
+msgstr "Posizione salvataggi"
+
+msgid "Saves already made stay where they are; only new saves go here."
+msgstr "I salvataggi esistenti restano dove sono; solo i nuovi vanno qui."
+
+msgid "Use default options for this game"
+msgstr "Usa le opzioni predefinite per questo gioco"
+
+msgid "Use default options for this game?"
+msgstr "Usa le opzioni predefinite per questo gioco?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are."
+msgstr "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano invariati."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay."
+msgstr "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano."
+
+msgid "Needed: {1}"
+msgstr "Necessario: {1}"
+
+msgid "Also works with: {1}"
+msgstr "Funziona anche con: {1}"
+
+msgid "Up and Down scroll the story"
+msgstr "Su e Giù scorrono la storia"

@@ -3407,3 +3407,30 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "Save location"
+msgstr "Dónde van las partidas"
+
+msgid "Saves already made stay where they are; only new saves go here."
+msgstr "Las partidas que ya tienes se quedan donde están; solo las nuevas van aquí."
+
+msgid "Use default options for this game"
+msgstr "Usar lo de Ajustes en este juego"
+
+msgid "Use default options for this game?"
+msgstr "¿Usar lo de Ajustes en este juego?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are."
+msgstr "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, los trucos, los mods y la estrella de favorito se quedan como están."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay."
+msgstr "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, los trucos, los mods y la estrella de favorito se quedan."
+
+msgid "Needed: {1}"
+msgstr "Necesarios: {1}"
+
+msgid "Also works with: {1}"
+msgstr "También funciona con: {1}"
+
+msgid "Up and Down scroll the story"
+msgstr "Arriba y Abajo mueven la historia"

@@ -7174,6 +7174,78 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# ux-game-page: Save location chooser, per-game defaults reset, About controllers.
+T.update({
+    "Save location": (
+        "Dónde van las partidas",
+        "セーブの場所",
+        "Local dos saves",
+        "Posizione salvataggi"),
+    "Saves already made stay where they are; only new saves go here.": (
+        "Las partidas que ya tienes se quedan donde están; solo las nuevas van aquí.",
+        "作ったセーブはそのまま。新しいセーブだけここに作る。",
+        "Saves já feitos ficam onde estão; só os novos vêm para cá.",
+        "I salvataggi esistenti restano dove sono; solo i nuovi vanno qui."),
+    "Use default options for this game": (
+        "Usar lo de Ajustes en este juego",
+        "このゲームは初期設定を使う",
+        "Usar opções padrão para este jogo",
+        "Usa le opzioni predefinite per questo gioco"),
+    "Use default options for this game?": (
+        "¿Usar lo de Ajustes en este juego?",
+        "このゲームは初期設定を使う？",
+        "Usar opções padrão para este jogo?",
+        "Usa le opzioni predefinite per questo gioco?"),
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are.": (
+        "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, los trucos, los mods y la estrella de favorito se quedan como están.",
+        "このゲームの画面・言語・コントローラー・起動の選び方は設定に戻る。セーブ・チート・MOD・お気に入りはそのまま。",
+        "A imagem, o idioma, o controle e o início deste jogo voltam para Ajustes. Saves, trapaças, mods e a estrela de favorito ficam como estão.",
+        "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano invariati."),
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay.": (
+        "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, los trucos, los mods y la estrella de favorito se quedan.",
+        "このゲームの画面・言語・コントローラー・起動の選び方を設定に戻す。セーブ・チート・MOD・お気に入りはそのまま。",
+        "Volta imagem, idioma, controle e início deste jogo para Ajustes. Saves, trapaças, mods e estrela de favorito ficam.",
+        "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, trucchi, mod e stella dei preferiti restano."),
+    "Needed: {1}": (
+        "Necesarios: {1}",
+        "必要: {1}",
+        "Precisa de: {1}",
+        "Necessario: {1}"),
+    "Also works with: {1}": (
+        "También funciona con: {1}",
+        "使えるもの: {1}",
+        "Também funciona com: {1}",
+        "Funziona anche con: {1}"),
+    "Up and Down scroll the story": (
+        "Arriba y Abajo mueven la historia",
+        "上下でストーリーをスクロール",
+        "Cima e Baixo rolam a história",
+        "Su e Giù scorrono la storia"),
+})
+KO.update({
+    "Save location": "저장 위치",
+    "Saves already made stay where they are; only new saves go here.": "이미 만든 저장은 그대로 있고, 새 저장만 여기에 합니다.",
+    "Use default options for this game": "이 게임 기본 설정 사용",
+    "Use default options for this game?": "이 게임 기본 설정을 사용할까요?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are.": "이 게임 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay.": "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Needed: {1}": "필요: {1}",
+    "Also works with: {1}": "같이 사용 가능: {1}",
+    "Up and Down scroll the story": "위 아래로 이야기 넘기기",
+})
+FR.update({
+    "Save location": "Emplacement des sauvegardes",
+    "Saves already made stay where they are; only new saves go here.": "Les sauvegardes déjà faites restent où elles sont ; seules les nouvelles vont ici.",
+    "Use default options for this game": "Utiliser les réglages par défaut pour ce jeu",
+    "Use default options for this game?": "Utiliser les réglages par défaut pour ce jeu ?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are.": "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, astuces, mods et l’étoile favori restent comme ils sont.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay.": "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, astuces, mods et l’étoile favori restent.",
+    "Needed: {1}": "Nécessaire : {1}",
+    "Also works with: {1}": "Fonctionne aussi avec : {1}",
+    "Up and Down scroll the story": "Haut et Bas font défiler l’histoire",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

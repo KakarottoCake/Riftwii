@@ -6415,17 +6415,17 @@ static std::string SaveNote(const riftwii::LaunchModel& model, const std::string
 {
 	const std::string owner = model.pack_save_owner();
 	if (!owner.empty())
-		return "This pack keeps its own saves. Turn it off to choose here.";
+		return tr("This pack keeps its own saves. Turn it off to choose here.");
 	const std::string& mode = model.save_mode;
-	if (mode == "separate") return "Saves go to the SD card, starting from the Wii's save.";
-	if (mode == "fresh") return "Saves go to the SD card, starting fresh.";
+	if (mode == "separate") return tr("Saves go to the SD card, starting from the Wii's save.");
+	if (mode == "fresh") return tr("Saves go to the SD card, starting fresh.");
 	if (mode == "emunand") {
 		const riftwii::wii::SharedNandLookup& shared = SharedNandFor(game_id, read_again);
 		if (shared.usable)
 			return tr("Saves go to {1} on the SD card, shared with other loaders.", {shared.folder});
 		return tr("{1} can't hold saves: use a short folder on the SD card.", {shared.configured});
 	}
-	return "Saves stay on the Wii, as usual.";
+	return tr("Saves stay on the Wii, as usual.");
 }
 
 struct ChannelCopies {
@@ -6493,7 +6493,7 @@ static std::string ChannelBootNote(const FrontendState& state) {
 
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
-		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note,
+		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
 		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
@@ -6729,9 +6729,9 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	// setting is shown as the pack's and left alone until it lets go.
 	FlowRow saves;
 	saves.kind = FlowRow::Kind::Option;
-	saves.label = "Saves";
+	saves.label = tr("Saves");
 	if (!state.model.pack_save_owner().empty()) {
-		saves.value = "Kept by the pack";
+		saves.value = tr("Kept by the pack");
 		saves.dim = true;
 	} else {
 		saves.value = SaveLabel(state.model.save_mode);
@@ -6982,6 +6982,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		rows.push_back(controls);
 		refs.push_back({W::GcControls});
 		if (settingsOnly) show({W::Cover});
+		if (settingsOnly) {
+			FlowRow reset;
+			reset.kind = FlowRow::Kind::Action;
+			reset.label = tr("Use default options for this game");
+			rows.push_back(reset);
+			refs.push_back({W::ResetOptions});
+		}
 		return;
 	}
 	heading(tr("Picture"));
@@ -7002,6 +7009,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		memory.on = budget.heavy();
 		rows.push_back(memory);
 		refs.push_back({W::Memory});
+	}
+	if (settingsOnly) {
+		FlowRow reset;
+		reset.kind = FlowRow::Kind::Action;
+		reset.label = tr("Use default options for this game");
+		rows.push_back(reset);
+		refs.push_back({W::ResetOptions});
 	}
 }
 
@@ -7837,7 +7851,7 @@ using PageAside = std::function<void(const std::function<void()>&)>;
 // second line (FlowRow::detail).
 static void RunRowPage(const std::string& title, const std::string& subtitle, std::vector<FlowRow>& rows,
 		       const std::function<std::string(int)>& note, const std::function<bool(int, const PageAside&)>& act,
-		       const std::function<std::string()>& status = nullptr, int rowHeight = 0)
+		       const std::function<std::string()>& status = nullptr, int rowHeight = 0, int initial = 0)
 {
 	GuiText titleTxt(title.c_str(), 30, skin::kInk);
 	Place(titleTxt, 78, 28);
@@ -7857,7 +7871,7 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 	if (rowHeight > 0) list.SetRowHeight(rowHeight);
 	list.SetCards(true);
 	list.SetRows(&rows);
-	list.Select(0);
+	list.Select(initial);
 	GuiText noteTxt("", 15, skin::kInkSoft);
 	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
 	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
@@ -7924,6 +7938,49 @@ static void RunRowPage(const std::string& title, const std::string& subtitle, st
 	}
 	HaltGui();
 	mainWindow->Remove(&w);
+}
+
+// Where new Wii saves go. The tile opens this page instead of cycling:
+// the current choice is lit, A picks it and stays, B leaves it unchanged.
+// Saves already made stay where they are.
+static void MenuWiiSaves(FrontendState& state)
+{
+	static const char* const kModes[] = {"nand", "separate", "fresh", "emunand"};
+	const bool kept = !state.model.pack_save_owner().empty();
+	std::vector<FlowRow> rows(4);
+	for (FlowRow& row : rows) row.kind = FlowRow::Kind::Action;
+	for (int i = 0; i < 4; ++i) {
+		rows[static_cast<std::size_t>(i)].label = tr(SaveLabel(kModes[i]).c_str());
+		rows[static_cast<std::size_t>(i)].dim = kept;
+	}
+	int current = 0;
+	while (current < 4 && state.model.save_mode != kModes[current]) ++current;
+	if (current == 4) current = 0;
+	if (!kept) rows[static_cast<std::size_t>(current)].on = true;
+	const auto note = [&](int row) -> std::string {
+		if (kept) return tr("This pack keeps its own saves. Turn it off to choose here.");
+		riftwii::LaunchModel shown = state.model;
+		shown.save_mode = kModes[row];
+		const bool fresh = row == current;
+		return SaveNote(shown, state.game_id, !fresh) + " " + tr("Saves already made stay where they are; only new saves go here.");
+	};
+	RunRowPage(tr("Save location"), GameTitle(state), rows, note, [&](int pickedRow, const auto&) {
+		if (kept) return false;
+		const std::string picked = kModes[pickedRow];
+		const std::string previous = state.model.save_mode;
+		state.model.save_mode = picked;
+		std::string error;
+		if (!SaveChoices(state, error)) {
+			state.model.save_mode = previous;
+			logf("Save location: could not save %s (%s)\n", picked.c_str(), error.c_str());
+			return false;
+		}
+		for (FlowRow& r : rows) r.on = false;
+		rows[static_cast<std::size_t>(pickedRow)].on = true;
+		current = pickedRow;
+		logf("Save location: %s picked for %s, earlier saves stay where they are\n", picked.c_str(), state.game_id.c_str());
+		return false;
+	}, nullptr, 0, current);
 }
 
 // The .gci files in sd:/riftwii/gc/saves, sorted, at most 200.
@@ -9863,6 +9920,7 @@ public:
 	};
 	static constexpr int kGridX = kTilesX, kGridY = 132, kColW = 186, kColGap = 14, kRowH = 38;
 	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
+	static constexpr int kControlTextW = 386;  // kGridX + 386 = 600, inside overscan right 608
 
 	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
 		const skin::Tex& ratingMark, const std::string& story)
@@ -9883,6 +9941,21 @@ public:
 		storyHead.reset(new GuiText(Upper(tr("Story")).c_str(), 12, skin::kInkDim));
 		ratingTxt.reset(new GuiText(this->rating.c_str(), 26, skin::kInk));
 		systemTxt.reset(new GuiText(this->ratingSystem.c_str(), 11, skin::kInkSoft));
+		// Two plain lines, not buttons: names joined per required flag.
+		// D-pad users read them without a pointer; the footer stays the source.
+		const auto joined = [&](bool required) {
+			std::string out;
+			for (const Control& c : this->controls)
+				if (c.required == required) out += (out.empty() ? "" : ", ") + c.name;
+			return out;
+		};
+		const std::string needed = joined(true), also = joined(false);
+		if (!needed.empty()) neededTxt.reset(new GuiText(tr("Needed: {1}", {needed}).c_str(), 14, skin::kInk));
+		if (!also.empty()) alsoTxt.reset(new GuiText(tr("Also works with: {1}", {also}).c_str(), 14, skin::kInk));
+		if (neededTxt) { neededTxt->SetMaxWidth(kControlTextW); neededTxt->SetParent(this); }
+		if (alsoTxt) { alsoTxt->SetMaxWidth(kControlTextW); alsoTxt->SetParent(this); }
+		scrollHint.reset(new GuiText(tr("Up and Down scroll the story"), 12, skin::kInkDim));
+		scrollHint->SetParent(this);
 		WrapStory(story);
 		for (int i = 0; i < kStoryLines; ++i) shown.emplace_back(new GuiText("", 15, skin::kInkSoft));
 		for (auto* t : {playsWith.get(), storyHead.get(), ratingTxt.get(), systemTxt.get()}) t->SetParent(this);
@@ -9926,6 +9999,12 @@ public:
 					Menu_DrawRectangle(x + 40 * kIconScale / 2 - 2, iconY + 40 * kIconScale + 2, 4, 4,
 						skin::WithAlpha(skin::kAccent, alpha), 1);
 			}
+			// Names under the icons, read-only: only what is present draws.
+			if (neededTxt) { Place(*neededTxt, kGridX, static_cast<int>(iconY + 44)); neededTxt->Draw(); }
+			if (alsoTxt) {
+				const int y = static_cast<int>(iconY + 44) + (neededTxt ? 18 : 0);
+				Place(*alsoTxt, kGridX, y); alsoTxt->Draw();
+			}
 		}
 		// The age rating: a badge in the band's top right corner.
 		if (HasRating()) {
@@ -9947,19 +10026,30 @@ public:
 		}
 		// The story, a window of it at a time.
 		if (!lines.empty()) {
-			Place(*storyHead, kStoryX, kStoryY - 18);
+			// Room: 5-6 facts plus both lines overlap kStoryY, so shift down
+			// and show 3 that page; else keep 4. Bottom stays <= 414, above
+			// the prompts (CardTop 422) and inside overscan 456.
+			const bool crowded = facts.size() >= 5 && neededTxt && alsoTxt;
+			storyY = crowded ? static_cast<int>(iconY + 44) + 18 + 32 : kStoryY;
+			storyLines = crowded ? 3 : kStoryLines;
+			if (storyY + storyLines * kLineH > 414) storyY = 414 - storyLines * kLineH;
+			Place(*storyHead, kStoryX, storyY - 18);
 			storyHead->Draw();
-			for (int i = 0; i < kStoryLines; ++i) {
+			if (Scrolls() && scrollHint) {
+				Place(*scrollHint, kStoryX + storyHead->GetTextWidth() + 12, storyY - 18);
+				scrollHint->Draw();
+			}
+			for (int i = 0; i < storyLines; ++i) {
 				const std::size_t at = static_cast<std::size_t>(first + i);
 				shown[i]->SetText(at < lines.size() ? lines[at].c_str() : "");
-				Place(*shown[i], kStoryX, kStoryY + i * kLineH);
+				Place(*shown[i], kStoryX, storyY + i * kLineH);
 				shown[i]->Draw();
 			}
 			if (Scrolls()) {
-				if (first > 0) skin::Draw(overUp ? skin::scrollUpOver : skin::scrollUp, kArrowX - 4, kStoryY - 6, alpha);
-				if (first + kStoryLines < static_cast<int>(lines.size()))
+				if (first > 0) skin::Draw(overUp ? skin::scrollUpOver : skin::scrollUp, kArrowX - 4, storyY - 6, alpha);
+				if (first + storyLines < static_cast<int>(lines.size()))
 					skin::Draw(overDown ? skin::scrollDownOver : skin::scrollDown, kArrowX - 4,
-						kStoryY + kStoryLines * kLineH - 30, alpha);
+						storyY + storyLines * kLineH - 30, alpha);
 			}
 		}
 	}
@@ -9967,7 +10057,7 @@ public:
 	void Update(GuiTrigger* t) override
 	{
 		if (!t) return;
-		const int most = std::max(0, static_cast<int>(lines.size()) - kStoryLines);
+		const int most = std::max(0, static_cast<int>(lines.size()) - storyLines);
 		if (t->Down() && first < most) ++first;
 		if (t->Up() && first > 0) --first;
 		if (!t->wpad || !t->wpad->ir.valid) {
@@ -9980,9 +10070,9 @@ public:
 			const int x = IconX(i);
 			if (px >= x && px < x + kIconStep && py >= iconY && py < iconY + 40 * kIconScale) hoverControl = i;
 		}
-		overUp = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= kStoryY - 6 && py < kStoryY + 28;
-		overDown = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= kStoryY + kStoryLines * kLineH - 30 &&
-			py < kStoryY + kStoryLines * kLineH + 4;
+		overUp = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= storyY - 6 && py < storyY + 28;
+		overDown = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= storyY + storyLines * kLineH - 30 &&
+			py < storyY + storyLines * kLineH + 4;
 		if (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A)) {
 			if (overUp && first > 0) --first;
 			if (overDown && first < most) ++first;
@@ -10000,7 +10090,7 @@ private:
 		return text;
 	}
 	int IconX(int i) const { return kGridX + i * kIconStep; }
-	bool Scrolls() const { return static_cast<int>(lines.size()) > kStoryLines; }
+	bool Scrolls() const { return static_cast<int>(lines.size()) > storyLines; }
 	// The story in lines as wide as the column, measured in the menu's
 	// font, a word at a time.
 	void WrapStory(const std::string& text)
@@ -10031,6 +10121,8 @@ private:
 	skin::Tex ratingMark;  // the board's mark (ratingbadge.hpp), kept for the menu phase; none without data
 	std::vector<std::unique_ptr<GuiText>> names, values, shown;
 	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
+	std::unique_ptr<GuiText> neededTxt, alsoTxt, scrollHint;
+	int storyY = kStoryY, storyLines = kStoryLines;
 	std::vector<std::string> lines;
 	int first = 0;
 	int hoverControl = -1;
@@ -10151,6 +10243,8 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
+		// Names live under the icons for D-pad users; the pointer
+		// still shows one controller's detail in the foot.
 		const int hovered = body.HoveredControl();
 		if (hovered != footFor) {
 			footFor = hovered;
@@ -11498,6 +11592,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."));
 			else if (ref.what == RowRef::What::Server)
 				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
+			else if (ref.what == RowRef::What::ResetOptions)
+				say(tr("Puts this game's picture, language, controller and launch choices back to Settings. Saves, cheats, mods and the favourite star stay."));
 			else say("");
 		}
 
@@ -11580,6 +11676,39 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				changed = false;
 			} else if (ref.what == RowRef::What::Server) {
 				game.server = StepValue(kServers, game.server, direction);
+			} else if (ref.what == RowRef::What::ResetOptions) {
+				// Cancel first, as in Reset all settings: A, B and HOME
+				// answer the safe button, so a stray press never resets.
+				if (ShowPopupSafeFirst(tr("Use default options for this game?"),
+				    tr("This game's picture, language, controller and launch choices go back to Settings. Saves, cheats, mods and the favourite star stay as they are."),
+				    tr("Cancel"), tr("Reset")) != 1) {
+					changed = false;
+				} else {
+					// Not the GameCube memory card or the channel's NAND: both say
+					// where saves are, and saves stay as they are.
+					const riftwii::GameSettings fresh;
+					game.video_width = fresh.video_width;
+					game.deflicker = fresh.deflicker;
+					game.borders = fresh.borders;
+					game.video_mode = fresh.video_mode;
+					game.aspect = fresh.aspect;
+					game.language = fresh.language;
+					game.rumble = fresh.rumble;
+					game.speaker = fresh.speaker;
+					game.cios = fresh.cios;
+					game.server = fresh.server;
+					game.region_video = fresh.region_video;
+					game.region_strings = fresh.region_strings;
+					game.gc_disc_reads = fresh.gc_disc_reads;
+					game.gc_progressive = fresh.gc_progressive;
+					game.gc_widescreen = fresh.gc_widescreen;
+					game.gc_language = fresh.gc_language;
+					game.gc_sharp = fresh.gc_sharp;
+					game.gc_width = fresh.gc_width;
+					game.gc_speed = fresh.gc_speed;
+					// Kept: cheats, save mode, packs, favourite.
+					logf("Game settings: %s options reset to the defaults (saves, cheats, mods kept)\n", state.game_id.c_str());
+				}
 			} else if (ref.what == RowRef::What::Cover && !state.game_id.empty()) {
 				// Back on the game page, which shows the cover as it comes.
 				coverAsked = true;
@@ -11916,13 +12045,13 @@ static int MenuHome(FrontendState& state)
 			} else if (tile == GameTile::Saves && !state.model.pack_save_owner().empty()) {
 				say(SaveNote(state.model, state.game_id));
 			} else if (tile == GameTile::Saves) {
-				static const char* const modes[] = {"nand", "separate", "fresh", "emunand"};
-				const int count = static_cast<int>(sizeof(modes) / sizeof(modes[0]));
-				int at = 0;
-				while (at < count && state.model.save_mode != modes[at]) ++at;
-				state.model.save_mode = modes[(at + 1) % count];
-				saveOrSay();
+				transition::Hold(transition::Kind::SlideForward);
+				mainWindow->Remove(&w);
+				MenuWiiSaves(state);
+				transition::Hold(transition::Kind::SlideBack);
+				mainWindow->Append(&w);
 				rebuildTiles();
+				shownTile = -1;
 				say(SaveNote(state.model, state.game_id, true));
 			} else if (tile == GameTile::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
