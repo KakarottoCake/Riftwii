@@ -712,12 +712,35 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
+        bool launch_cancelled = false;
+        const auto confirm_missing = [&](const std::vector<riftwii::MissingModInput>& missing) {
+            // Image launches compile after the IOS reload. The renderer is
+            // parked, but its art and font are still in memory. Read only
+            // controller input here; storage remains owned by this launch.
+            riftwii::wii::LogEchoToScreen(false);
+            riftwii::wii::release_wii_remotes();
+            SetupPads();
+            const bool launch_music_playing = riftwii::wii::LaunchMusicPlaying();
+            if (!launch_music_playing) InitAudio();
+            const bool play = ConfirmLaunchMissingModInputs(state, missing);
+            ShutoffRumble();
+            WPAD_Shutdown();  // release_wii_remotes already remembers this state
+            EnterConsolePhase(launch_music_playing);
+            launch_cancelled = !play;
+            return play;
+        };
         const bool booted = !error.empty() ? false : riftwii::wii::mem::GuardLaunchMemory(error, [&] {
             return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                        ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, state.model.save_mode, state.game_id)
                        : riftwii::wii::RunLaunch(state.model.selections(), error, source, state.model.save_mode,
-                                                 state.game_id);
+                                                 state.game_id, confirm_missing);
         });
+        if (launch_cancelled) {
+            // RunLaunch's session has now released the virtual disc and
+            // save emulation. Back starts a clean menu, without an error.
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::None, "");
+            std::exit(0);
+        }
         if (!booted) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card

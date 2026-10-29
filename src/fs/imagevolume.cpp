@@ -326,9 +326,10 @@ const ImageVolume* find_image_volume(const std::vector<MountedImageVolume>& volu
 
 bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& out, std::string& error,
                          const std::vector<std::string>& wanted, std::vector<std::string>* notes,
-                         const std::uint64_t* preferred_lba) {
+                         const std::uint64_t* preferred_lba, std::vector<ImagePartitionFailure>* failures) {
     out.clear();
     if (notes) notes->clear();
+    if (failures) failures->clear();
     std::uint8_t block0[512];
     if (!reader || !reader(0, 1, block0)) {
         error = "cannot read block 0";
@@ -362,6 +363,22 @@ bool mount_image_volumes(BlockReader reader, std::vector<MountedImageVolume>& ou
         std::string why;
         const std::string where = "Partition " + std::to_string(number) + " at block " + std::to_string(partition.lba);
         if (!mount_candidate(reader, partition.lba, volume, why)) {
+            if (failures) {
+                std::uint8_t boot[512];
+                std::string format;
+                const bool boot_readable = reader(partition.lba, 1, boot);
+                if (boot_readable) {
+                    if (NtfsVolume::is_boot_sector(boot)) format = "NTFS";
+                    else if (std::memcmp(boot + 82, "FAT32", 5) == 0) format = "FAT32";
+                    else if (std::memcmp(boot + 3, "EXFAT   ", 8) == 0) format = "exFAT";
+                    else if (std::memcmp(boot, "WBFS", 4) == 0) format = "WBFS";
+                }
+                if (!try_push_back(*failures, ImagePartitionFailure{number, partition.lba,
+                                                                   partition.blocks, format, why, boot_readable})) {
+                    error = "There is not enough memory to list unreadable USB partitions.";
+                    return false;
+                }
+            }
             if (notes) {
                 const std::string kind = other_partition_kind(reader, partition.lba);
                 notes->push_back(kind == "WBFS" ? where + " contains WBFS."
