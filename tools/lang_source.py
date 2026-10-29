@@ -7041,12 +7041,12 @@ T.update({
         "I salvataggi esistenti restano dove sono; solo i nuovi vanno qui."),
     "Use default options for this game": (
         "Usar lo de Ajustes en este juego",
-        "このゲームは初期設定を使う",
+        "このゲームは設定に合わせる",
         "Usar opções padrão para este jogo",
         "Usa le opzioni predefinite per questo gioco"),
     "Use default options for this game?": (
         "¿Usar lo de Ajustes en este juego?",
-        "このゲームは初期設定を使う？",
+        "このゲームは設定に合わせる？",
         "Usar opções padrão para este jogo?",
         "Usa le opzioni predefinite per questo gioco?"),
     "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": (

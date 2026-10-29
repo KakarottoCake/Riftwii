@@ -3355,10 +3355,10 @@ msgid "Saves already made stay where they are; only new saves go here."
 msgstr "作ったセーブはそのまま。新しいセーブだけここに作る。"
 
 msgid "Use default options for this game"
-msgstr "このゲームは初期設定を使う"
+msgstr "このゲームは設定に合わせる"
 
 msgid "Use default options for this game?"
-msgstr "このゲームは初期設定を使う？"
+msgstr "このゲームは設定に合わせる？"
 
 msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
 msgstr "このゲームの画面・言語・コントローラー・起動の選び方は設定に戻る。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。"
