@@ -5844,6 +5844,14 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::SpendPadHomePresses();
 		}
 	} viewChordWatch;
+	// Back on Home from a screen or a box: its pairs and the search button's
+	// hold are watched again at once, before the next frame's controllers
+	// are read (that happens on the GUI thread), so a B or ZL pressed as
+	// Home comes back starts a hold instead of going straight to Search.
+	const auto homeWatchesAgain = [&]() {
+		riftwii::wii::WatchViewChord(true);
+		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
+	};
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
@@ -6531,7 +6539,7 @@ static int MenuSource(FrontendState& state)
 					riftwii::wii::WatchSearchHold(false);
 					riftwii::wii::SpendHeldPresses();
 					play = EditEmulator(addon, &game);
-					if (!play) riftwii::wii::WatchViewChord(true);
+					if (!play) homeWatchesAgain();
 				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
@@ -6576,7 +6584,7 @@ static int MenuSource(FrontendState& state)
 				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
 					items[static_cast<std::size_t>(clicked)].id, loadBanner,
 					[&](int i) { return items[static_cast<std::size_t>(i)].key; });
-				riftwii::wii::WatchViewChord(true);
+				homeWatchesAgain();
 				const bool go = choice != ChannelChoice::Back;
 				if (!go) state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 				g_startOnOpen = choice == ChannelChoice::Start;
@@ -6702,7 +6710,7 @@ static int MenuSource(FrontendState& state)
 				DropLingerBanner();  // Start on a banner: Home comes back from under it
 				g_startOnOpen = false;
 				g_reopenBanner.clear();
-				riftwii::wii::WatchViewChord(true);
+				homeWatchesAgain();
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
@@ -6721,7 +6729,7 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::WatchSearchHold(false);
 			riftwii::wii::SpendPadHomePresses();
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
-			riftwii::wii::WatchViewChord(true);
+			homeWatchesAgain();
 		} else if (riftwii::wii::TakeViewChord() && !grid.CoverZoomed() && !grid.Carrying()) {
 			// (Over a cover up close, or while a tile is carried, the pair is
 			// taken and dropped: it never changes the view behind the zoom,
@@ -6744,7 +6752,7 @@ static int MenuSource(FrontendState& state)
 			riftwii::wii::WatchSearchHold(false);
 			riftwii::wii::SpendPadHomePresses();
 			const int picked = PickHomeLayout();
-			riftwii::wii::WatchViewChord(true);
+			homeWatchesAgain();
 			if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button",
 				grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
@@ -6809,7 +6817,7 @@ static int MenuSource(FrontendState& state)
 			// afresh once it closes.
 			riftwii::wii::WatchViewChord(false);
 			const bool searched = AskSearch(typed, live);
-			riftwii::wii::WatchViewChord(true);
+			homeWatchesAgain();
 			if (searched) {
 				g_search = TrimSearch(typed);
 				logf("Home: search \"%s\"\n", g_search.c_str());
@@ -6846,7 +6854,7 @@ static int MenuSource(FrontendState& state)
 				riftwii::wii::WatchSearchHold(false);
 				riftwii::wii::SpendPadHomePresses();
 				picked = PickHomeFilter(state);
-				riftwii::wii::WatchViewChord(true);
+				homeWatchesAgain();
 			}
 			if (picked < 0) {
 				showStatus();
