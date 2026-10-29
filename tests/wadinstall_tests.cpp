@@ -30,6 +30,8 @@ const std::uint8_t kTitleKey[16] = {4, 5, 6};
 std::map<std::string, std::vector<std::uint8_t>> usb_files;
 unsigned usb_banner_reads = 0;
 unsigned key_reads = 0;
+std::array<int, 3> key_choices = {1, -1, -1};
+std::vector<WadKeySource> key_sources;
 bool fail_commit = false;
 int writes_before_failure = -1;
 
@@ -154,6 +156,40 @@ void test_installer_rollback() {
     CHECK(!install_wad("sd:/wiiware/game.wad", "sd:/nands/01", kCommonKey, {}, code, error, kTitle + 1));
 }
 
+void test_verified_installer_sources() {
+    fs::remove_all("sd:");
+    write("sd:/wiiware/game.wad", make_wad(20));
+    std::string code, error;
+    key_choices = {0, 1, 1};
+    key_sources.clear();
+    CHECK(install_wad("sd:/wiiware/game.wad", "sd:/nands/01", nullptr, {}, code, error));
+    CHECK(key_sources == std::vector<WadKeySource>({WadKeySource::Otp, WadKeySource::Ios}));
+    const auto original_program = read(title + "/content/00000011.app");
+    write(title + "/data/save.dat", {3, 2, 1});
+
+    // A wrong key from every available source fails before staging an update.
+    key_choices = {0, -1, 0};
+    key_sources.clear();
+    write("sd:/wiiware/game.wad", make_wad(90));
+    CHECK(!install_wad("sd:/wiiware/game.wad", "sd:/nands/01", nullptr, {}, code, error));
+    CHECK(key_sources.size() == 3);
+    CHECK(read(title + "/content/00000011.app") == original_program);
+    CHECK(read(title + "/data/save.dat") == std::vector<std::uint8_t>({3, 2, 1}));
+    CHECK(!fs::exists(title + "/.riftwii-stage"));
+
+    key_choices = {-1, -1, 1};
+    key_sources.clear();
+    std::vector<NandChannel> channels;
+    CHECK(list_wad_channels(false, channels) == 0);
+    CHECK(channels.size() == 1);
+    CHECK(key_sources.size() == 3);
+    key_sources.clear();
+    if (!channels.empty()) CHECK(prepare_wad_channel(channels[0], {}, error));
+    CHECK(key_sources.size() == 3);  // first Play checks again, even after a cached scan
+    CHECK(read(title + "/content/00000011.app") != original_program);
+    key_choices = {1, -1, -1};
+}
+
 void test_drop_play_and_cache() {
     fs::remove_all("sd:");
     write("sd:/wiiware/nested/game.WAD", make_wad(20));
@@ -236,10 +272,13 @@ extern "C" int __wrap_rename(const char* from, const char* to) {
 
 namespace riftwii::wii {
 void logf(const char*, ...) {}
-bool ConsoleCommonKey(std::uint8_t out[16]) {
+bool ConsoleWadTitleKey(WadKeySource source, const std::vector<std::uint8_t>&, std::uint8_t out[16]) {
     ++key_reads;
-    std::memcpy(out, kCommonKey, 16);
-    return true;
+    key_sources.push_back(source);
+    const int choice = key_choices[static_cast<unsigned>(source)];
+    std::memset(out, 0x55, 16);
+    if (choice == 1) std::memcpy(out, kTitleKey, 16);
+    return choice >= 0;
 }
 SharedNandLookup look_up_channel_nand() {
     SharedNandLookup result;
@@ -278,6 +317,7 @@ bool list_usb_folder(const std::string& path, std::vector<VolumeEntry>& out, std
 int main() {
     fs::remove_all("sd:");
     test_installer_rollback();
+    test_verified_installer_sources();
     test_drop_play_and_cache();
     test_usb_partitions_and_merge();
     fs::remove_all("sd:");

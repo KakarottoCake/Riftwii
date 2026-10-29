@@ -151,13 +151,47 @@ bool read_wad_metadata(const ByteSource& source, WadMetadata& out, std::string& 
 
 bool read_wad_banner(const ByteSource& source, const WadMetadata& metadata,
                      const std::uint8_t common_key[16], std::vector<std::uint8_t>& out, std::string& error) {
+    std::uint8_t title_key[16] = {};
+    const bool decrypted = decrypt_title_key(metadata.ticket.data(), metadata.ticket.size(), common_key, title_key, error);
+    const bool read = decrypted && read_wad_banner_with_title_key(source, metadata, title_key, out, error);
+    clear_wad_key(title_key, sizeof title_key);
+    return read;
+}
+
+void clear_wad_key(std::uint8_t* bytes, std::size_t size) {
+    volatile std::uint8_t* destination = bytes;
+    for (std::size_t i = 0; i < size; ++i) destination[i] = 0;
+}
+
+bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
+                           const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
+                           WadKeySource& selected, std::vector<std::uint8_t>& banner, std::string& error) {
+    clear_wad_key(title_key, 16);
+    banner.clear();
+    bool had_candidate = false;
+    for (WadKeySource candidate : {WadKeySource::Otp, WadKeySource::Ios, WadKeySource::BootMiiKeys}) {
+        error.clear();
+        if (read_key(candidate, title_key)) {
+            had_candidate = true;
+            if (read_wad_banner_with_title_key(source, metadata, title_key, banner, error)) {
+                selected = candidate;
+                return true;
+            }
+        }
+        clear_wad_key(title_key, 16);
+    }
+    error = had_candidate ? "the WAD's banner did not match any available key or could not be read"
+                          : "no title key could be read from this Wii, IOS or sd:/keys.bin";
+    return false;
+}
+
+bool read_wad_banner_with_title_key(const ByteSource& source, const WadMetadata& metadata,
+                                    const std::uint8_t title_key[16], std::vector<std::uint8_t>& out,
+                                    std::string& error) {
     for (const WadContentPlace& place : metadata.places) {
         if (place.content.index != 0) continue;
         if (place.content.size > (4u << 20)) break;
-        std::uint8_t title_key[16];
-        if (!decrypt_title_key(metadata.ticket.data(), metadata.ticket.size(), common_key, title_key, error)) return false;
         WadContentDecrypter decrypter(title_key, place.content);
-        std::memset(title_key, 0, sizeof title_key);
         std::vector<std::uint8_t> bytes;
         if (!try_resize(bytes, static_cast<std::size_t>(place.stored))) {
             error = "not enough memory for the WAD's banner";

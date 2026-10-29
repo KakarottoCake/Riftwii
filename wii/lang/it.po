@@ -2367,9 +2367,6 @@ msgstr "Installazione dei file WAD"
 msgid "{1} of {2}: {3}"
 msgstr "{1} di {2}: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "Installati {1} di {2}. Ora sono nella Home."
 
@@ -3425,3 +3422,6 @@ msgstr "Impossibile preparare il gioco"
 
 msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
 msgstr "Il WAD potrebbe essere danneggiato o la scheda SD piena o bloccata. Controlla il file e lo spazio libero e riprova. Dettagli in sd:/riftwii/session.log."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Servizio ES di Dolphin (GPL-2.0-or-later) e wiibrew: lettura della chiave del titolo di un WAD tramite IOS senza scrivere sulla console. Consultati come documentazione; nessun codice o chiave copiato."

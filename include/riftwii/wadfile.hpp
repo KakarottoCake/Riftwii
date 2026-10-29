@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -65,6 +66,20 @@ struct WadMetadata {
 bool read_wad_metadata(const ByteSource& source, WadMetadata& out, std::string& error);
 bool read_wad_banner(const ByteSource& source, const WadMetadata& metadata,
                      const std::uint8_t common_key[16], std::vector<std::uint8_t>& out, std::string& error);
+
+// Providers return a title key, never an IOS common key. A successful read
+// is only a candidate: the banner's content hash must agree before use.
+enum class WadKeySource { Otp, Ios, BootMiiKeys };
+using WadTitleKeyReader = std::function<bool(WadKeySource, std::uint8_t*)>;
+bool read_wad_banner_with_title_key(const ByteSource& source, const WadMetadata& metadata,
+                                    const std::uint8_t title_key[16], std::vector<std::uint8_t>& out,
+                                    std::string& error);
+bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
+                           const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
+                           WadKeySource& selected, std::vector<std::uint8_t>& banner, std::string& error);
+
+// Volatile writes keep clearing short-lived keys even in optimized builds.
+void clear_wad_key(std::uint8_t* bytes, std::size_t size);
 
 // The small SD cache record holds the banner's name header; the complete
 // banner (including its icon) lives beside it and is read only when wanted.

@@ -150,7 +150,8 @@ contains theirs names them in its file header, and
   libogc also documents the physical GameCube card read protocol, SRAM behavior
   and MEM1-only EXI DMA, and SD card initialization when IOS cannot do it.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
-  **libruntimeiospatch**: how the Wii, IOS and the patch format behave
+  **libruntimeiospatch**: how the Wii, IOS and the patch format behave,
+  including read-only WAD title-key decryption through IOS
   (read as documentation); Dolphin also for how the Wii Remote extension's
   encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument

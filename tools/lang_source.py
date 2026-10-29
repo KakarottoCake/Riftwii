@@ -2057,7 +2057,6 @@ T = {
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
     "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
     "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
-    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
     "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
     "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
@@ -3937,8 +3936,6 @@ KO = {
         "WAD 파일 설치 중",
     "{1} of {2}: {3}":
         "{2}개 중 {1}번째: {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
     "Installed {1} of {2}. They are on Home now.":
         "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -5801,8 +5798,6 @@ FR = {
         "Installation des fichiers WAD",
     "{1} of {2}: {3}":
         "{1} sur {2} : {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
     "Installed {1} of {2}. They are on Home now.":
         "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -7215,6 +7210,23 @@ FR.update({
     "Getting {1} ready, first time only": "Préparation de {1}, au premier lancement seulement",
     "The game could not be prepared": "Le jeu n’a pas pu être préparé",
     "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log.",
+})
+
+
+# The ES fallback's behavior reference, shown with the other credits.
+T.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": (
+        "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves.",
+        "DolphinのESサービス（GPL-2.0-or-later）とwiibrew：本体に書き込まず、IOSを使ってWADのタイトルキーを読み出すしくみを参照しました。コードやキーの値はコピーしていません。",
+        "Serviço ES do Dolphin (GPL-2.0-or-later) e wiibrew: como ler a chave de título de um WAD pelo IOS sem gravar no console. Consultados como documentação; nenhum código ou chave foi copiado.",
+        "Servizio ES di Dolphin (GPL-2.0-or-later) e wiibrew: lettura della chiave del titolo di un WAD tramite IOS senza scrivere sulla console. Consultati come documentazione; nessun codice o chiave copiato.",
+    ),
+})
+KO.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다.",
+})
+FR.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés.",
 })
 
 
