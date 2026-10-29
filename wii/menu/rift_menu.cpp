@@ -12611,11 +12611,12 @@ static int MenuHome(FrontendState& state)
 				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
-			} else if (state.use_usb && state.usb_catalog.cios == riftwii::CiosReadiness::Missing) {
+			} else if (state.use_usb && !SelectedGcGame(state) && state.usb_catalog.cios == riftwii::CiosReadiness::Missing) {
 				// No cIOS in any candidate slot: refuse while the remedy is
-				// still readable on screen.
+				// still readable on screen. A GameCube game never uses the
+				// cIOS (RunLaunch starts it before any reload), so it may go.
 				ShowFullPopup(tr("Games cannot start"), tr("USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."));
-			} else if (state.use_sd && state.sd_catalog.cios == riftwii::CiosReadiness::Missing) {
+			} else if (state.use_sd && !SelectedGcGame(state) && state.sd_catalog.cios == riftwii::CiosReadiness::Missing) {
 				ShowFullPopup(tr("Games cannot start"), tr("SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."));
 			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
 				   (cios = ciosCheck()).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
