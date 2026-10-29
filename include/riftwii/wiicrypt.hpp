@@ -25,6 +25,7 @@ namespace riftwii {
 class Aes128 {
 public:
     explicit Aes128(const std::uint8_t key[16]);
+    ~Aes128();
     void encrypt_block(const std::uint8_t in[16], std::uint8_t out[16]) const;
     void decrypt_block(const std::uint8_t in[16], std::uint8_t out[16]) const;
     // CBC over whole blocks; `iv` is not changed. `in` and `out` may be the same.
