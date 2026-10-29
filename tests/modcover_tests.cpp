@@ -113,13 +113,13 @@ static void TestScanner() {
     EXPECT_EQ(scanner.games().size(), 1u);
 
     // A mod installed as a game of its own (wanted) is still among the
-    // customs: with it and a near namesake both listed, the name matches
+    // customs, and a type in any case counts: with it and a near namesake both listed, the name matches
     // two entries, so no cover.
     riftwii::WiitdbScanner installed({"RMCE01", "RMCETO"}, "EN");
     const std::string two =
         "<datafile>"
         "<game name=\"Retro Rewind\"><id>RMCETO</id><type>CUSTOM</type></game>"
-        "<game name=\"Retro Rewind Plus\"><id>RMCEXX</id><type>CUSTOM</type></game>"
+        "<game name=\"Retro Rewind Plus\"><id>RMCEXX</id><type>Custom</type></game>"
         "</datafile>";
     installed.feed(two.data(), two.size());
     EXPECT_EQ(installed.customs().size(), 2u);

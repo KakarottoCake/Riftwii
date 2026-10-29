@@ -165,6 +165,18 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
     }
 }
 
+namespace {
+// Whether "custom" is in the block in any case: parse_wiitdb_custom takes
+// <type>Custom</type> as well, so the cheap check before it must too.
+bool HasCustomType(const std::string& block) {
+    static const char kWord[] = "custom";
+    const auto at = std::search(block.begin(), block.end(), kWord, kWord + 6, [](char a, char b) {
+        return std::tolower(static_cast<unsigned char>(a)) == b;
+    });
+    return at != block.end();
+}
+}  // namespace
+
 void WiitdbScanner::take_block(const std::string& block) {
     // Homebrew apps are kept whether or not they are wanted: they are
     // matched to the apps on the card by name later, not by ID. Only a
@@ -180,7 +192,7 @@ void WiitdbScanner::take_block(const std::string& block) {
     // A mod installed as a game of its own is kept too: the match must see
     // every entry, or "only one matches" could be true of a partial list.
     if (customs_.size() < kMaxCustomGames && prefixes_.count(id.substr(0, 4)) &&
-        block.find("CUSTOM") != std::string::npos) {
+        HasCustomType(block)) {
         CustomGame g;
         if (parse_wiitdb_custom(block, g)) customs_.push_back(std::move(g));
     }
