@@ -554,7 +554,6 @@ T = {
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and license": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
-    "Clear search": ("Borrar búsqueda", "検索をやめる", "Limpar busca", "Annulla ricerca"),
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.": (
         "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz de la SD o del USB y luego elige Buscar juegos de nuevo en Ajustes.",
         "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
@@ -3320,8 +3319,6 @@ KO = {
         "화면",
     "Other":
         "기타",
-    "Clear search":
-        "검색 지우기",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
     "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
@@ -5368,8 +5365,6 @@ FR = {
         "Image",
     "Other":
         "Autres",
-    "Clear search":
-        "Effacer la recherche",
     "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
         "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
     "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
@@ -7178,6 +7173,57 @@ T.update({
 })
 KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."})
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
+
+
+# Home's category chooser and recovery actions.
+T.update({
+    "No games here": ("No hay juegos aquí", "ここにゲームはありません", "Nenhum jogo aqui", "Nessun gioco qui"),
+    "Show all games": ("Mostrar todos los juegos", "すべてのゲームを表示", "Mostrar todos os jogos", "Mostra tutti i giochi"),
+    "Show every drive": ("Mostrar todas las unidades", "すべてのドライブを表示", "Mostrar todas as unidades", "Mostra tutte le unità"),
+    "Games from: {1}": ("Juegos de: {1}", "ゲームの場所：{1}", "Jogos de: {1}", "Giochi da: {1}"),
+    'No game matches "{1}".': (
+        'Ningún juego coincide con "{1}".', '「{1}」に合うゲームはありません。',
+        'Nenhum jogo corresponde a "{1}".', 'Nessun gioco corrisponde a "{1}".'),
+    "No games with mods were found.": (
+        "No se encontraron juegos con mods.", "MODがあるゲームは見つかりませんでした。",
+        "Nenhum jogo com mods foi encontrado.", "Nessun gioco con mod trovato."),
+    "No homebrew apps were found in sd:/apps.": (
+        "No se encontraron aplicaciones homebrew en sd:/apps.", "sd:/appsに自作ソフトが見つかりませんでした。",
+        "Nenhum aplicativo homebrew foi encontrado em sd:/apps.", "Nessuna app homebrew trovata in sd:/apps."),
+    "No emulator games were found.": (
+        "No se encontraron juegos de emuladores.", "エミュレータのゲームは見つかりませんでした。",
+        "Nenhum jogo de emulador foi encontrado.", "Nessun gioco per emulatori trovato."),
+    "No games here have been played from RiftWii yet.": (
+        "Aún no has jugado a estos juegos desde RiftWii.", "ここのゲームはまだRiftWiiで遊んでいません。",
+        "Nenhum jogo daqui foi jogado pelo RiftWii ainda.", "Nessun gioco qui è stato ancora giocato da RiftWii."),
+    "Mark a game as a favourite on its page.": (
+        "Marca un juego como favorito en su página.", "ゲームのページでお気に入りにしてください。",
+        "Marque um jogo como favorito na página dele.", "Segna un gioco come preferito nella sua pagina."),
+})
+KO.update({
+    "No games here": "여기에 게임이 없습니다",
+    "Show all games": "모든 게임 표시",
+    "Show every drive": "모든 드라이브 표시",
+    "Games from: {1}": "게임 위치: {1}",
+    'No game matches "{1}".': '"{1}"에 맞는 게임이 없습니다.',
+    "No games with mods were found.": "모드가 있는 게임을 찾지 못했습니다.",
+    "No homebrew apps were found in sd:/apps.": "sd:/apps에서 홈브류 앱을 찾지 못했습니다.",
+    "No emulator games were found.": "에뮬레이터 게임을 찾지 못했습니다.",
+    "No games here have been played from RiftWii yet.": "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다.",
+    "Mark a game as a favourite on its page.": "게임 페이지에서 즐겨찾기로 표시하세요.",
+})
+FR.update({
+    "No games here": "Aucun jeu ici",
+    "Show all games": "Afficher tous les jeux",
+    "Show every drive": "Afficher tous les supports",
+    "Games from: {1}": "Jeux de : {1}",
+    'No game matches "{1}".': 'Aucun jeu ne correspond à « {1} ».',
+    "No games with mods were found.": "Aucun jeu avec des mods trouvé.",
+    "No homebrew apps were found in sd:/apps.": "Aucune appli homebrew trouvée dans sd:/apps.",
+    "No emulator games were found.": "Aucun jeu pour émulateur trouvé.",
+    "No games here have been played from RiftWii yet.": "Aucun jeu ici n'a encore été lancé depuis RiftWii.",
+    "Mark a game as a favourite on its page.": "Marquez un jeu comme favori sur sa page.",
+})
 
 
 def check(repo):

@@ -624,9 +624,6 @@ msgstr "Créditos y licencia"
 msgid "View"
 msgstr "Ver"
 
-msgid "Clear search"
-msgstr "Borrar búsqueda"
-
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
 msgstr "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz de la SD o del USB y luego elige Buscar juegos de nuevo en Ajustes."
 
@@ -3413,3 +3410,33 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "No games here"
+msgstr "No hay juegos aquí"
+
+msgid "Show all games"
+msgstr "Mostrar todos los juegos"
+
+msgid "Show every drive"
+msgstr "Mostrar todas las unidades"
+
+msgid "Games from: {1}"
+msgstr "Juegos de: {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "Ningún juego coincide con \"{1}\"."
+
+msgid "No games with mods were found."
+msgstr "No se encontraron juegos con mods."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "No se encontraron aplicaciones homebrew en sd:/apps."
+
+msgid "No emulator games were found."
+msgstr "No se encontraron juegos de emuladores."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "Aún no has jugado a estos juegos desde RiftWii."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "Marca un juego como favorito en su página."
