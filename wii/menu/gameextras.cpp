@@ -16,6 +16,7 @@
 #include "textfile.hpp"
 #include "riftwii/homeorder.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -297,7 +298,7 @@ std::vector<std::string> RestartArguments(const FrontendState& state, const Laun
     } else {
         h.from = "disc";
     }
-    if (image != nullptr && (image->path.compare(0, 4, "sd:/") == 0 || image->path.compare(0, 5, "usb:/") == 0)) {
+    if (image != nullptr && (image->path.compare(0, 4, "sd:/") == 0 || riftwii::is_usb_path(image->path))) {
         h.path = image->path;
     }
     const std::string folder = std::string(kChoicesDir) + "/";

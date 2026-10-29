@@ -621,7 +621,7 @@ void test_catalog_folder_rules() {
     for (const std::string name : {"Luigi.rvz", "Luigi.ISO", "game.iso", "game.rvz", "disc2.RVZ", "game.gcm"}) {
         EXPECT_TRUE(is_gc_image_name(name));
         std::string path;
-        for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs"}) {
+        for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs", "usb2:/games", "usb2:/wbfs"}) {
             EXPECT_TRUE(join_game_path(root, name, path));
             EXPECT_EQ(path, root + "/" + name);
             EXPECT_TRUE(join_game_path(root + "/Luigi [GLME01]", name, path));
@@ -643,7 +643,7 @@ void test_catalog_folder_rules() {
 }
 
 void test_gc_catalog_selection() {
-    for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs"}) {
+    for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs", "usb2:/games", "usb2:/wbfs"}) {
         std::vector<GcCatalogImage> images = {
             {root + "/Luigi.rvz", "GLME01", 0},
             {root + "/Luigi [GLME01]/game.iso", "GLME01", 0},
