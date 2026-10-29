@@ -1992,7 +1992,6 @@ T = {
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
     "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
     "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
-    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
     "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
     "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
@@ -3839,8 +3838,6 @@ KO = {
         "WAD 파일 설치 중",
     "{1} of {2}: {3}":
         "{2}개 중 {1}번째: {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
     "Installed {1} of {2}. They are on Home now.":
         "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -5667,8 +5664,6 @@ FR = {
         "Installation des fichiers WAD",
     "{1} of {2}: {3}":
         "{1} sur {2} : {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
     "Installed {1} of {2}. They are on Home now.":
         "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -7119,6 +7114,67 @@ FR.update({
     "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
     "Move {1} to {2}.": "Déplacez {1} vers {2}.",
     "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}, à côté du dossier riivolution.",
+})
+
+
+# Drop-and-play WiiWare WAD folders.
+T.update({
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": (
+        "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log.",
+        "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。",
+        "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log.",
+        "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."),
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": (
+        "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD.",
+        "初めて遊ぶ時にWADを準備します。セーブはSDカードの{1}に保存します。",
+        "O WAD é preparado na primeira vez que jogar. Os saves ficam em {1} no cartão SD.",
+        "Il WAD viene preparato al primo avvio. I salvataggi restano in {1} sulla scheda SD."),
+    "Getting the game ready": (
+        "Preparando el juego", "ゲームを準備中", "Preparando o jogo", "Preparazione del gioco"),
+    "Getting {1} ready, first time only": (
+        "Preparando {1}, solo la primera vez", "{1}を準備中 (初回のみ)",
+        "Preparando {1}, só na primeira vez", "Preparazione di {1}, solo al primo avvio"),
+    "The game could not be prepared": (
+        "No se pudo preparar el juego", "ゲームを準備できませんでした",
+        "Não foi possível preparar o jogo", "Impossibile preparare il gioco"),
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": (
+        "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log.",
+        "WADの破損、SDカードの空き容量やロックを確認して、もう一度お試しください。詳細はsd:/riftwii/session.logにあります。",
+        "O WAD pode estar danificado, ou o cartão SD cheio ou travado. Confira o arquivo e o espaço livre e tente de novo. Detalhes em sd:/riftwii/session.log.",
+        "Il WAD potrebbe essere danneggiato o la scheda SD piena o bloccata. Controlla il file e lo spazio libero e riprova. Dettagli in sd:/riftwii/session.log."),
+})
+KO.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요.",
+    "Getting the game ready": "게임 준비 중",
+    "Getting {1} ready, first time only": "{1} 준비 중, 처음 한 번만",
+    "The game could not be prepared": "게임을 준비하지 못했습니다",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다.",
+})
+FR.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons.",
+    "Getting the game ready": "Préparation du jeu",
+    "Getting {1} ready, first time only": "Préparation de {1}, au premier lancement seulement",
+    "The game could not be prepared": "Le jeu n’a pas pu être préparé",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log.",
+})
+
+
+# The ES fallback's behavior reference, shown with the other credits.
+T.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": (
+        "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves.",
+        "DolphinのESサービス（GPL-2.0-or-later）とwiibrew：本体に書き込まず、IOSを使ってWADのタイトルキーを読み出すしくみを参照しました。コードやキーの値はコピーしていません。",
+        "Serviço ES do Dolphin (GPL-2.0-or-later) e wiibrew: como ler a chave de título de um WAD pelo IOS sem gravar no console. Consultados como documentação; nenhum código ou chave foi copiado.",
+        "Servizio ES di Dolphin (GPL-2.0-or-later) e wiibrew: lettura della chiave del titolo di un WAD tramite IOS senza scrivere sulla console. Consultati come documentazione; nessun codice o chiave copiato.",
+    ),
+})
+KO.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다.",
+})
+FR.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés.",
 })
 
 
