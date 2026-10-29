@@ -6465,7 +6465,16 @@ static int MenuSource(FrontendState& state)
 class GameBanner : public GuiElement {
 public:
 	static constexpr int kHeight = 120;
-	GameBanner(GXColor hue, std::string id = "", bool disc = false) : hue(hue), id(std::move(id)), disc(disc) {}
+	// `cover`: the page's tile's cover name (a mod tile's key, #384), the
+	// game's ID when empty; GameTDB's box is the game's.
+	GameBanner(GXColor hue, std::string id = "", bool disc = false, std::string cover = "")
+		: hue(hue), id(std::move(id)), disc(disc), coverName(cover.empty() ? this->id : std::move(cover)) {}
+	// The page's tile changed (its mod tile removed): the art is made again.
+	// With the GUI halted, as Draw reads it.
+	void SetCoverName(std::string name) {
+		coverName = std::move(name);
+		artRank = 0;
+	}
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's band");
 		UpdateArt();
@@ -6499,13 +6508,17 @@ private:
 		// The player's own cover, or a chosen second set, before GameTDB's
 		// full box (#384), as on the shelf; made again when the cover is
 		// read again (another set) at the same rank.
-		const u8* front = id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
-		const bool frontFirst = front && riftwii::wii::CoverBeforeBox(id);
+		const u8* front = id.empty() ? nullptr : riftwii::wii::CoverTexture(coverName);
+		const bool frontFirst = front && riftwii::wii::CoverBeforeBox(coverName);
 		const u8* box = id.empty() || frontFirst ? nullptr : riftwii::wii::BoxTexture(id);
 		const u8* cover = box ? nullptr : front;
 		const int rank = frontFirst ? 4 : box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
-		const unsigned fill = cover ? riftwii::wii::CoverFill(id) : 0;
-		if (rank > artRank || (cover && rank == artRank && fill != artFill)) {
+		const unsigned fill = cover ? riftwii::wii::CoverFill(coverName) : 0;
+		// Made from the player's own cover (or a second set) that no longer
+		// comes first (back on the first set): made again, lower. Not while
+		// that cover is only being read again (none in memory for a moment).
+		const bool frontDropped = artRank == 4 && front && !frontFirst;
+		if (rank > artRank || frontDropped || (cover && rank == artRank && fill != artFill)) {
 			if (box)
 				riftwii::make_backdrop(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
 					riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, art);
@@ -6552,6 +6565,7 @@ private:
 	GXColor hue;
 	std::string id;
 	bool disc;
+	std::string coverName;  // CoverName of the page's tile
 	alignas(32) u8 art[riftwii::kBackdropBytes];
 	int artRank = 0;  // 0 none yet, 1 the disc drive's box, 2 the cover, 3 the box's front, 4 the player's own cover
 	unsigned artFill = 0;  // CoverFill of the cover it was made from
@@ -10340,7 +10354,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 	}
 
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
-	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
+	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	const skin::Tex& ratingMark = riftwii::wii::RatingBadge(info.rating_system, info.rating);
 	AboutBody body(facts, controls, info.rating, info.rating_system, ratingMark,
@@ -11921,7 +11935,7 @@ static int MenuHome(FrontendState& state)
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
-	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
+	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc, PageCoverName(state));
 	HeroCover hero(state.game_id, PageCoverName(state), fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
@@ -12251,6 +12265,7 @@ static int MenuHome(FrontendState& state)
 				if (tile == GameTile::Mods) {
 					titleTxt.SetText(GameTitle(state).c_str());
 					hero.SetCoverName(PageCoverName(state));
+					banner.SetCoverName(PageCoverName(state));
 				}
 				rebuildTiles();
 				shownTile = -1;
