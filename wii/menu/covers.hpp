@@ -51,6 +51,10 @@ bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 // without it and ask again next frame; asks not renewed for a moment are
 // dropped. `rank` orders the asks, lowest first. GUI thread only.
 const u8* CoverTexture(const std::string& game_id, int rank = 0);
+// The player's own PNGs the cover loader found but could not use (cut
+// short: CoverWanted reads only their first bytes), each once until the
+// covers are forgotten; now wanted from GameTDB after all. Menu thread.
+std::vector<std::string> TakeBrokenOwnCovers();
 // Whether the cover in memory for `name` is the player's own PNG (#384):
 // then it is shown instead of GameTDB's full box art too (the shelf, the
 // close-up). Never reads the card; false while it isn't in memory.

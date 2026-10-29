@@ -5491,6 +5491,12 @@ static int MenuSource(FrontendState& state)
 		std::string coverNote;
 		// The covers download on the network's own thread, one at a time:
 		// done on the menu's, each held every press for seconds.
+		// An own PNG the cover loader could not use after all (#384): its
+		// GameTDB cover is asked for, as for a game without one.
+		if (const std::vector<std::string> broken = riftwii::wii::TakeBrokenOwnCovers(); !broken.empty()) {
+			for (const std::string& name : broken) g_coversChecked.erase(name);
+			queueCovers();
+		}
 		std::string arrived, coverError;
 		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {

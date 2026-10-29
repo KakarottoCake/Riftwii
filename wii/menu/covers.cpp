@@ -144,6 +144,12 @@ std::set<std::string> g_absent;          // asked for and not on the card
 // CoverWanted's answer to "does the player's own PNG read?", by game: a
 // decode each, so once until the covers are forgotten. Menu thread only.
 std::map<std::string, bool> g_ownReads;
+// Own PNGs the loader found there but could not use (cut short, say: the
+// menu's check reads only their first bytes), for the menu to take
+// (TakeBrokenOwnCovers) and ask GameTDB after all; each told once until
+// the covers are forgotten. Under g_lock.
+std::vector<std::string> g_brokenOwn;
+std::set<std::string> g_brokenOwnTold;
 std::vector<Request> g_requests;
 std::vector<std::string> g_readAll;   // CoverReadAll's list
 std::size_t g_readAllNext = 0;
@@ -262,6 +268,7 @@ void* LoaderMain(void*) {
         bool ok = false;
         const bool emulator = emulator_cover_id(id);
         std::vector<std::uint8_t> local;
+        std::vector<std::string> broken;  // own PNGs there but unusable
         if (emulator) {
             ok = ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize;
         } else {
@@ -270,6 +277,10 @@ void* LoaderMain(void*) {
             const std::string game = tile_game_id(id);
             ok = (game != id && ReadOwnCover(id, local) && local.size() == kCoverFileSize) ||
                  (ReadOwnCover(game, local) && local.size() == kCoverFileSize);
+            if (!ok) {
+                if (game != id && OwnCoverThere(id)) broken.push_back(id);
+                if (OwnCoverThere(game)) broken.push_back(game);
+            }
         }
         const bool own = ok && !emulator;
         if (ok) std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
@@ -291,6 +302,8 @@ void* LoaderMain(void*) {
         LWP_MutexLock(g_lock);
         g_reading = false;
         LWP_CondBroadcast(g_idle);
+        for (const std::string& name : broken)
+            if (g_brokenOwnTold.insert(name).second) g_brokenOwn.push_back(name);
         if (ok && forgets == g_forgets) {
             slot->ready = true;
             slot->own = own;
@@ -371,21 +384,34 @@ void ForgetCoverMiss(const std::string& game_id) {
 bool CoverWanted(const std::string& game_id) {
     if (emulator_cover_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
+    // A stored cover (of the set chosen: one of the other, whose download
+    // never came, is downloaded again), or a recent miss: nothing to ask.
+    // Looked at first, as the player's own PNG may take a USB lookup.
+    struct stat st;
+    if (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) return false;
+    if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
     // The player's own cover is there: nothing to download.
     if (OwnCoverThere(game_id)) {
         const auto known = g_ownReads.find(game_id);
         if (known == g_ownReads.end()) {
             // Its first bytes only: a whole decode here would hold Home up.
+            // One the loader then can't use is told (TakeBrokenOwnCovers).
             g_ownReads[game_id] = OwnCoverLooksReadable(game_id);
         }
         if (g_ownReads[game_id]) return false;
     }
-    struct stat st;
-    // A stored cover of the other set than the one chosen (its download
-    // never came) is downloaded again.
-    if (stat(CoverPath(game_id).c_str(), &st) == 0 && StoredIsSecond(game_id) == CoverSecondSet(game_id)) return false;
-    if (stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter) return false;
     return true;
+}
+
+std::vector<std::string> TakeBrokenOwnCovers() {
+    std::vector<std::string> taken;
+    if (g_lock == LWP_MUTEX_NULL) return taken;
+    {
+        Lock lock;
+        taken.swap(g_brokenOwn);
+    }
+    for (const std::string& name : taken) g_ownReads[name] = false;
+    return taken;
 }
 
 bool CoverSecondSet(const std::string& game_id) {
@@ -587,6 +613,7 @@ void ForgetCover(const std::string& game_id) {
     g_ownReads.erase(game_id);
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_brokenOwnTold.erase(game_id);
     // The game's mod tiles show its cover too, unless they have their own.
     const std::string tiles = game_id + "@";
     for (auto it = g_absent.begin(); it != g_absent.end();)
@@ -601,6 +628,7 @@ void ForgetGameCoversBeforeUsb() {
     ForgetUsbCoversFolder();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_brokenOwnTold.clear();
     for (auto it = g_absent.begin(); it != g_absent.end();)
         it = emulator_cover_id(*it) ? std::next(it) : g_absent.erase(it);
     ++g_forgets;
@@ -612,6 +640,7 @@ void ForgetAllCovers() {
     g_ownReads.clear();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
+    g_brokenOwnTold.clear();
     g_absent.clear();
     ++g_forgets;
     for (int i = 0; i < g_slots; ++i) SetId(g_pool[i], "");
