@@ -501,6 +501,31 @@ void test_ciso_detection() {
               static_cast<std::size_t>(0));
 }
 
+void test_d2x_usb_capacity() {
+    EXPECT_FALSE(d2x_usb_capacity_available(0, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(1, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(1000000, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(INT32_MAX, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(INT32_MIN, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(INT32_MIN + 1, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(-0x100001, 512));
+
+    // READ CAPACITY's all-ones value is not an IOS error when it also
+    // supplies a usable sector size. No capacity bound can be inferred.
+    EXPECT_TRUE(d2x_usb_capacity_available(-1, 512));
+    EXPECT_TRUE(d2x_usb_capacity_available(-1, 2048));
+    EXPECT_TRUE(d2x_usb_capacity_available(-1, 4096));
+    EXPECT_TRUE(d2x_usb_capacity_available(-1, 32 * 1024));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 0));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 256));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 513));
+    EXPECT_FALSE(d2x_usb_capacity_available(-1, 64 * 1024));
+
+    for (const std::int32_t error : {-2, -4, -6, -12, -22, -1017, -0x100000}) {
+        EXPECT_FALSE(d2x_usb_capacity_available(error, 512));
+    }
+}
+
 // A Wii U's d2x often sees one rear port only: the launch must stop with
 // a reason instead of starting a game d2x cannot read.
 void test_d2x_usb_checks() {
@@ -962,6 +987,7 @@ int main() {
     test_gc_catalog_selection_other_roots();
     test_gc_scan_preserves_wii_lazy_listing();
     test_gc_container_by_magic();
+    test_d2x_usb_capacity();
     test_d2x_usb_checks();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";

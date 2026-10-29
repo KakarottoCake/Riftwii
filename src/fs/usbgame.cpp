@@ -713,6 +713,16 @@ bool UsbDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::s
     return true;
 }
 
+bool d2x_usb_capacity_available(std::int32_t sectors, std::uint32_t sector_bytes) {
+    if (sectors == -1) {
+        const bool valid_size = sector_bytes >= 512 && sector_bytes <= 32 * 1024 &&
+                                (sector_bytes & (sector_bytes - 1)) == 0;
+        return valid_size;
+    }
+    // Counts past 2^31 sectors are negative too; IOS errors stay near zero.
+    return sectors > 0 || sectors < -0x100000;
+}
+
 std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs) {
     if (sector_bytes == 0) return "d2x sees no USB drive in this port";
     std::string text = "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
