@@ -431,22 +431,20 @@ void test_collect_split_pieces() {
     EXPECT_FALSE(collect_split_pieces("", "x.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
 }
 
-void test_cios_readiness_note() {
+void test_cios_readiness() {
     CiosSlotState none[] = {{249, false}, {250, false}, {251, false}};
-    const std::string note = cios_readiness_note(none, 3);
-    EXPECT_FALSE(note.empty());
-    EXPECT_TRUE(note.find("249") != std::string::npos);
-    EXPECT_TRUE(note.find("d2x") != std::string::npos);
-    EXPECT_TRUE(note.find("v11 beta3") != std::string::npos);
+    EXPECT_TRUE(cios_readiness(none, 3) == CiosReadiness::Missing);
     CiosSlotState one[] = {{249, false}, {250, true}, {251, false}};
-    EXPECT_TRUE(cios_readiness_note(one, 3).empty());
+    EXPECT_TRUE(cios_readiness(one, 3) == CiosReadiness::Present);
     CiosSlotState all[] = {{249, true}, {250, true}, {251, true}};
-    EXPECT_TRUE(cios_readiness_note(all, 3).empty());
+    EXPECT_TRUE(cios_readiness(all, 3) == CiosReadiness::Present);
     // The scans add every other slot holding a d2x a launch would try
     // (readiness_slots, usbcatalog.cpp): d2x only in 252 is not "no cIOS".
     CiosSlotState unusual[] = {{249, false}, {250, false}, {251, false}, {252, true}};
-    EXPECT_TRUE(cios_readiness_note(unusual, 4).empty());
-    EXPECT_TRUE(cios_readiness_note(nullptr, 0).empty() == false);
+    EXPECT_TRUE(cios_readiness(unusual, 4) == CiosReadiness::Present);
+    EXPECT_TRUE(cios_readiness(nullptr, 0) == CiosReadiness::Unknown);
+    EXPECT_TRUE(cios_readiness(nullptr, 3) == CiosReadiness::Unknown);
+    EXPECT_TRUE(cios_readiness(none, 0) == CiosReadiness::Unknown);
     EXPECT_TRUE(cios_revision_is_stub(65280));
     EXPECT_FALSE(cios_revision_is_stub(65535));  // guided d2x installs stamp this whatever the version
     EXPECT_FALSE(cios_revision_is_stub(21011));  // d2x v11 beta1
@@ -877,7 +875,7 @@ int main() {
     test_dual_layer_split_wbfs();
     test_single_layer_wbfs_size();
     test_collect_split_pieces();
-    test_cios_readiness_note();
+    test_cios_readiness();
     test_plan_over_usb();
     test_ciso_detection();
     test_gc_second_disc_of();

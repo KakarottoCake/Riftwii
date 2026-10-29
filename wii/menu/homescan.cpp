@@ -14,6 +14,7 @@
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "sharednandfind.hpp"
+#include "wadfolder.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -61,6 +62,7 @@ void ReadSdCard(DriveScanPart& part) {
     // And those USB Loader GX keeps in an emulated NAND on the card.
     const SharedNandLookup emu = look_up_channel_nand();
     if (emu.usable) list_emu_channels(emu.folder, part.channels, channelStatus, true);
+    part.unreadable_wads = list_wad_channels(false, part.channels);
     part.packs = ReadPackIndex(part.package_catalog);
     mem::CheckHeap("after the pack index");
 }
@@ -68,6 +70,7 @@ void ReadSdCard(DriveScanPart& part) {
 void ReadUsbDrive(DriveScanPart& part) {
     SetStatus("Reading the USB drive... (a big drive takes a moment)");
     part.ok = scan_usb_games(part.catalog, part.error);
+    part.unreadable_wads = list_wad_channels(true, part.channels);
     // Both drives are now available, including ROM folders on the other
     // drive from the emulator. Publish this only with the final scan part.
     ScanEmulators(part.emulators);

@@ -44,7 +44,7 @@ struct SteamGridGame {
 bool steamgrid_key_valid(const std::string& key);
 bool steamgrid_image_url(const std::string& url);
 bool parse_steamgrid_search(const std::string& json, std::vector<SteamGridGame>& games);
-bool parse_steamgrid_grids(const std::string& json, std::vector<std::string>& urls);
+bool parse_steamgrid_grids(const std::string& json, std::vector<std::string>& urls, bool wide = false);
 std::uint32_t match_steamgrid_game(const std::string& game, const std::vector<SteamGridGame>& games);
 
 }  // namespace riftwii

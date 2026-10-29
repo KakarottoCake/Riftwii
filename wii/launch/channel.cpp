@@ -185,8 +185,7 @@ bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     }
     if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
     else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
-    NetCancelBackground();  // a theme download: fetched again next start
-    NetWaitForBackground();
+    NetStopForLaunch();
     LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
@@ -334,6 +333,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     }
     logf("Homebrew app: starting %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(size));
     plant_return_stub(dol, size);
+    NetStopForLaunch();
     LaunchMusicEnd("the app starts next");
     LogClose();
     fatUnmount("sd:");
