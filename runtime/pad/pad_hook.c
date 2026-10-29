@@ -296,6 +296,20 @@ static int pad_in_ram(const void* p) {
     return (a >= 0x80000000u && a < 0x81800000u) || (a >= 0x90000000u && a < 0x94000000u);
 }
 
+/* Whether `p` lies in the stack just below this thread's stack pointer:
+ * space a function that has returned gave back (the stack grows down).
+ * The KPAD buffer is the game's, and nothing says it outlives the call
+ * that passed it: one there was a local of a call that is over, and its
+ * bytes are another call's now. A buffer the game keeps (its data, its
+ * heap, a frame still running) is never there. 64 KB: deeper than any
+ * frame a game's controller code leaves behind. */
+static int pad_in_freed_stack(const void* p) {
+    uint32_t sp;
+    __asm__ volatile("mr %0, 1" : "=r"(sp));
+    const uint32_t a = (uint32_t)(uintptr_t)p;
+    return a < sp && sp - a <= 0x10000u;
+}
+
 static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = v; }
 
 /* KPADStatus's fields, laid out alike from the 2007 SDK (132 bytes) to the
@@ -461,7 +475,11 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         return result;
     }
     if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
-    if (!c->home_fresh && pad_in_ram((const void*)(uintptr_t)c->home_buffer))
+    /* The buffer the KPAD read last filled, only while it can still be
+     * the game's (not stack given back since): else nothing is written,
+     * and the stand-in waits for the game's next KPAD read. */
+    if (!c->home_fresh && pad_in_ram((const void*)(uintptr_t)c->home_buffer) &&
+        !pad_in_freed_stack((const void*)(uintptr_t)c->home_buffer))
         pad_home_status(c, (uint8_t*)(uintptr_t)c->home_buffer, t);
     c->home_fresh = 0;
     interrupts_restore(msr);
