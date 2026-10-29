@@ -7105,7 +7105,7 @@ KO.update({
     "Mods could not be prepared": "모드를 준비하지 못했습니다",
     "{1} needs its mod folder at {2}.": "{1}의 모드 폴더가 {2}에 있어야 합니다.",
     "Required file: {1}": "필요한 파일: {1}",
-    "The files are one folder too deep in {1}. Move that folder's contents into {2}.": "파일이 {1}에서 한 단계 더 깊은 폴더에 있습니다. 해당 폴더의 내용을 {2}로 옮기세요.",
+    "The files are one folder too deep in {1}. Move that folder's contents into {2}.": "파일이 한 단계 더 깊은 {1} 폴더에 들어 있습니다. {1}의 내용을 {2}로 옮기세요.",
     "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
     "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
     "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder.": "다운로드한 모드의 {1} 폴더가 riivolution 폴더 옆의 {2} 자체가 되도록 복사하세요.",
