@@ -5313,10 +5313,11 @@ static int MenuSource(FrontendState& state)
 	// the list changes (another view, a search, a part of the scan), as a
 	// game the Mods view leaves out is first listed under All games.
 	const auto queueCovers = [&]() {
-		if (riftwii::wii::Settings().home_tiles == "names") return;
-		// Offline too: the tiles' covers already downloaded show, as the
-		// games' do; only the downloads wait.
+		// Offline, and in the Names view, too: the tiles' covers already
+		// downloaded show (a tile's page shows its cover in any view), as
+		// the games' do; only the downloads wait.
 		UpdateModCoverIds();
+		if (riftwii::wii::Settings().home_tiles == "names") return;
 		if (!riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
 			// A mod's tile asks for the game's cover, which it shows without
