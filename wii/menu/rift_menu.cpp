@@ -1500,6 +1500,16 @@ static std::string HomeTilesName(const std::string& tiles)
 	return tr("Covers");
 }
 
+static const char* const kHomeLayouts[] = {"covers", "covers3d", "carousel", "shelf", "channels", "names"};
+
+static int HomeLayoutIndex(const std::string& tiles)
+{
+	for (int index = 0; index < 6; ++index) {
+		if (tiles == kHomeLayouts[index]) return index;
+	}
+	return 0;
+}
+
 // Games can be moved where the tiles are the drives' in Home's order:
 // not in a search, nor in Recently played (always latest first), nor on
 // the shelf views, which have no grid to move them in.
@@ -2395,9 +2405,16 @@ class Panel : public GuiElement {
 public:
 	// `extra` widens it that much on each side: its ends drawn as they
 	// are, the middle stretched (a widescreen popup).
-	Panel(const skin::Tex& tex, int x, int y, int extra = 0) : tex(tex), x(x), y(y), extra(extra) {}
+	Panel(const skin::Tex& tex, int x, int y, int extra = 0, int faceHeight = 0)
+		: tex(tex), x(x), y(y), extra(extra), faceHeight(faceHeight) {}
 	void Draw() override
 	{
+		if (faceHeight > 0) {
+			// Keep the corners, title band and bottom band at their original
+			// height when a popup has less content than the standard box.
+			skin::DrawNine(tex, x - 4.0f - extra, y - 4.0f, tex.w + 2.0f * extra, faceHeight + 8.0f, 48);
+			return;
+		}
 		if (extra <= 0 || !tex.data) {
 			skin::Draw(tex, x - 4.0f, y - 4.0f);
 			return;
@@ -2412,7 +2429,7 @@ public:
 	}
 private:
 	const skin::Tex& tex;
-	int x, y, extra;
+	int x, y, extra, faceHeight;
 };
 
 // The help under a page's list, in the same place on every page (inside a
@@ -2878,6 +2895,165 @@ private:
 	bool closed = false;
 	ShiftWindow w;
 };
+
+// GuiTiles owns the familiar pointer and pad focus; these hidden tiles
+// get a compact drawing with a centred picture and a two-line name.
+class HomeLayoutCards : public GuiElement {
+public:
+	HomeLayoutCards(const std::vector<TileSpec>& tiles, GuiTiles& choices, int current)
+		: tiles_(tiles), choices_(choices), current_(current)
+	{
+		width = screenwidth;
+		height = screenheight;
+		for (const TileSpec& tile : tiles_) {
+			std::unique_ptr<GuiText> label(new GuiText(tile.label.c_str(), 15, skin::kInk));
+			label->SetParent(this);
+			label->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+			label->SetPosition(tile.x + tile.w / 2 - screenwidth / 2, tile.y + 88);
+			label->SetWrap(true, tile.w - 12, 2);
+			labels_.push_back(std::move(label));
+		}
+	}
+	void Draw() override
+	{
+		for (int index = 0; index < 6; ++index) {
+			const TileSpec& tile = tiles_[index];
+			const float lift = choices_.Lift(index);
+			const float grow = 1.0f + 0.035f * lift;
+			const float w = tile.w * grow, h = tile.h * grow;
+			const float x = tile.x - (w - tile.w) / 2, y = tile.y - (h - tile.h) / 2;
+			const skin::Tex& base = index == current_ ? skin::tile9Primary : skin::tile9;
+			const skin::Tex& over = index == current_ ? skin::tile9PrimaryOver : skin::tile9Over;
+			skin::DrawNine(base, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner);
+			if (lift > 0) {
+				skin::DrawNine(over, x - 8, y - 8, w + 16, h + 16, skin::kTileCorner,
+					static_cast<int>(255 * lift));
+			}
+			skin::Draw(skin::layoutIcons[index], tile.x + (tile.w - 28) / 2.0f, tile.y + 30, 255, 1.5f);
+			labels_[index]->Draw();
+		}
+	}
+private:
+	const std::vector<TileSpec>& tiles_;
+	GuiTiles& choices_;
+	int current_;
+	std::vector<std::unique_ptr<GuiText>> labels_;
+};
+
+static int PickHomeLayout()
+{
+	const int current = HomeLayoutIndex(riftwii::wii::Settings().home_tiles);
+	const int extra = PopupExtra();
+	Dim dim;
+	// The row sits between the title band (ending at 146) and the bottom
+	// band (starting at 328), with equal room for its raised shadows.
+	Panel panel(skin::popup, 34, 102, extra, 244);
+	GuiText title(tr("Layout"), 24, skin::kInk);
+	Place(title, 0, PopupBox::kTitleY, true);
+	title.SetMaxWidth(528 + 2 * extra);
+	// Six 84px cards and five 8px gaps occupy 544px, leaving the
+	// shadows and their slight lift inside x 32..608 on a 4:3 TV.
+	const int cardWidth = (544 + 2 * extra - 5 * 8) / 6;
+	const int rowWidth = 6 * cardWidth + 5 * 8;
+	std::vector<TileSpec> tiles(6);
+	for (int index = 0; index < 6; ++index) {
+		TileSpec& tile = tiles[index];
+		tile.x = 320 - rowWidth / 2 + index * (cardWidth + 8);
+		tile.y = 164;
+		tile.w = cardWidth;
+		tile.h = 148;
+		tile.label = HomeTilesName(kHomeLayouts[index]);
+		tile.hidden = true;
+	}
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(current);
+	HomeLayoutCards cards(tiles, choices, current);
+	SkinButton back(skin::pill, skin::pillOver, 4, 0, 0, nullptr,
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME,
+		PAD_BUTTON_B | PAD_BUTTON_START, WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+	HideButton(back);
+	GuiPrompts prompts;
+	const int choosePrompt = prompts.Add("A", tr("Choose"));
+	const int backPrompt = prompts.Add("B", tr("Back"));
+	ShiftWindow window(0.86f, 0, true);
+	window.Append(&dim);
+	window.Append(&panel);
+	window.Append(&title);
+	window.Append(&choices);
+	window.Append(&cards);
+	window.Append(&back.button);
+	window.Append(&prompts);
+	mainWindow->SetState(STATE::DISABLED);
+	transition::Begin(transition::Kind::PopOpen);
+	mainWindow->Append(&window);
+	window.SetState(STATE::DEFAULT);
+	if (riftwii::wii::Settings().wii_menu_sounds)
+		riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
+	logf("Home: Layout picker opened at %s\n", kHomeLayouts[current]);
+	ResumeGui();
+	int picked = -1;
+	for (;;) {
+		usleep(20000);
+		HaltGui();
+		const int prompt = prompts.GetClicked();
+		if (back.Clicked() || prompt == backPrompt) break;
+		picked = choices.GetClicked();
+		if (prompt == choosePrompt) picked = choices.Selected();
+		if (picked >= 0) break;
+		ResumeGui();
+	}
+	transition::Begin(transition::Kind::PopClose);
+	mainWindow->Remove(&window);
+	mainWindow->SetState(STATE::DEFAULT);
+	g_popupClosedAt = gettime();
+	logf("Home: Layout picker closed, %s\n", picked < 0 ? "no change" : kHomeLayouts[picked]);
+	return picked;
+}
+
+// Read F2 on the GUI thread, where keyboard presses last one frame, then
+// leave the click latched for Home's slower menu loop to take.
+class HomeLayoutKey : public GuiElement {
+public:
+	explicit HomeLayoutKey(SkinButton& button) : button_(button) {}
+	void Draw() override {}
+	void Update(GuiTrigger* input) override
+	{
+		constexpr u8 kF2 = riftwii::wii::key::kF1 + 1;
+		if (input && input->chan == 0 && riftwii::wii::UsbKeyPressed(kF2)) button_.PressSilently();
+	}
+private:
+	SkinButton& button_;
+};
+
+// The picker and 1+2 both save before rebuilding Home. A failed save
+// restores the old layout, so reinserting the card cannot undo a change.
+static bool ChangeHomeLayout(const std::string& layout, const char* control, int focus, bool sdGone, Toast& toast)
+{
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	const std::string before = settings.home_tiles;
+	if (layout == before) return false;
+	if (sdGone) {
+		toast.Show(tr("Put the SD card back in first."), true);
+		return false;
+	}
+	settings.home_tiles = layout;
+	if (!riftwii::wii::SaveSettings()) {
+		logf("Home: tiles not changed to %s (%s), the settings could not be saved\n", layout.c_str(), control);
+		settings.home_tiles = before;
+		toast.Show(tr("Could not save the settings to the SD card."), true);
+		return false;
+	}
+	logf("Home: tiles %s (%s)\n", layout.c_str(), control);
+	g_focusRestored = true;
+	g_homeFocus = focus;
+	SetHomeNotice(std::string(tr("Layout")) + ": " + HomeTilesName(layout));
+	// The bar confirms either control's change. A second copy at the top
+	// would cover the newly selected layout's games.
+	g_homeNoticeShown = true;
+	transition::Hold(transition::Kind::Fade);
+	return true;
+}
 
 static int ShowPopup(const std::string& title, const std::string& body, const std::string& ok,
 	const std::string& cancel = "")
@@ -4895,19 +5071,20 @@ static int MenuSource(FrontendState& state)
 		Place(viewTxt, 40 - wide, 324);
 		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	}
-	// A name over a round button while the pointer rests on it.
+	// A name while the pointer rests on a round button. Layout and Search
+	// share the bar's status area so neither name covers a game's tile.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
-		searchHint(tr("Search"), 17, skin::kInk);
+		actionHint("", 17, skin::kInk);
+	std::string searchLabel;
+	std::string shownActionLabel;
 	const auto setButtonHints = [&] {
 		const std::string settingsLabel = (g_homePadHints ? "Z: " : "") + std::string(tr("Settings"));
-		const std::string searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
+		searchLabel = (g_homePadHints ? "B: " : "") + std::string(tr("Search"));
 		settingsHint.SetText(settingsLabel.c_str());
-		searchHint.SetText(searchLabel.c_str());
 	};
 	setButtonHints();
 	// The filter's and the gear's names go above them (80 square, y 384-464),
-	// centred on each; the small search button's to its left, level with it
-	// (the pointer's hand covers what is below or right of the button).
+	// centred on each.
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	filterHint.SetPosition(72 - 320 - wide, 344);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
@@ -4917,14 +5094,17 @@ static int MenuSource(FrontendState& state)
 	// bar left of the gear.
 	const bool channelsView = riftwii::wii::Settings().home_tiles == "channels";
 	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
-	const int searchHintEnd = searchX - 18, searchHintTop = searchY + 9;  // its box clear of the button
-	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(searchHintEnd - 640, searchHintTop);
-	// Each on a box of its own: the search's sits over the covers.
-	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true),
-		searchChip(searchHint, searchHintEnd, searchHintTop, false);
+	const int layoutX = channelsView ? 120 - wide : 36 - wide;
+	const int layoutY = searchY;
+	const int statusY = dip ? 434 : 392;
+	actionHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	actionHint.SetPosition(0, statusY);
+	actionHint.SetMaxWidth((channelsView ? 312 : 400) + 2 * wide);
+	// The shared hint stays clear of All games, the clock and the date,
+	// and of the hand at either button, even in Channels.
+	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true);
 	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
-	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
+	for (GuiText* hint : {&filterHint, &settingsHint, &actionHint}) {
 		hint->SetAlpha(0);
 		hint->SetVisible(false);
 	}
@@ -4944,10 +5124,10 @@ static int MenuSource(FrontendState& state)
 	// Ending by y 456, inside a TV's overscan: one line under the date on a
 	// bar that dips, three above the bottom on one that bumps.
 	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
-	Place(statusTxt, 0, dip ? 434 : 392, true);
-	// Between the round buttons (x 110 and 530 on 4:3), and clear of the
-	// search button when it is on the bar (from x 484).
-	statusTxt.SetWrap(true, (channelsView ? 330 : 400) + 2 * wide, dip ? 1 : 3);
+	Place(statusTxt, 0, statusY, true);
+	// Channels' small buttons end at x 156 and start at x 484. Keep
+	// the centred text inside x 164..476, with 8px of breathing room.
+	statusTxt.SetWrap(true, (channelsView ? 312 : 400) + 2 * wide, dip ? 1 : 3);
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 
@@ -4963,6 +5143,13 @@ static int MenuSource(FrontendState& state)
 	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_BUTTON_B, 0, &skin::iconSearch, 0.5f);
 	searchBtn.backAction = false;
+	// GameCube L/R already turn pages and L modifies letter jumps. Keep
+	// them; its control-stick pointer can reach this button. ZR and GamePad R
+	// are free on Home, and F2 is the keyboard's shortcut.
+	SkinButton layoutBtn(skin::roundBtn, skin::roundBtnOver, 2, layoutX, layoutY, nullptr,
+		WPAD_CLASSIC_BUTTON_ZR, 0, WIIDRC_BUTTON_R,
+		&skin::layoutIcons[HomeLayoutIndex(riftwii::wii::Settings().home_tiles)], 0.5f);
+	HomeLayoutKey layoutKey(layoutBtn);
 	// Point at the search button and hold B on a Wii Remote: a game at
 	// random starts, as Start on its page would. Long enough (about a
 	// second) that a B pressed in passing is not taken for it.
@@ -4993,10 +5180,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&viewTxt);
 	w.Append(&filterChip);
 	w.Append(&settingsChip);
-	w.Append(&searchChip);
 	w.Append(&filterHint);
 	w.Append(&settingsHint);
-	w.Append(&searchHint);
+	w.Append(&actionHint);
 	w.Append(&clockTxt);
 	w.Append(&lcd);
 	w.Append(&dateTxt);
@@ -5004,6 +5190,8 @@ static int MenuSource(FrontendState& state)
 	w.Append(&filterBtn.button);
 	w.Append(&settingsBtn.button);
 	w.Append(&searchBtn.button);
+	w.Append(&layoutBtn.button);
+	w.Append(&layoutKey);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
 	// A cover zoomed with 1 or 2 comes up over the bar as well.
@@ -5773,7 +5961,7 @@ static int MenuSource(FrontendState& state)
 			setButtonHints();
 			showStatus();
 		}
-		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
+		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button, &layoutBtn.button});
 		// A hover name fades in while the pointer rests on its button, and out after.
 		const auto fade = [](GuiText& hint, int& a, bool on) {
 			a = std::max(0, std::min(255, a + (on ? 40 : -40)));
@@ -5782,7 +5970,17 @@ static int MenuSource(FrontendState& state)
 		};
 		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
-		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
+		const bool layoutHovered = layoutBtn.button.GetState() == STATE::SELECTED;
+		const bool searchHovered = searchBtn.button.GetState() == STATE::SELECTED;
+		const char* nextActionLabel = nullptr;
+		if (layoutHovered) nextActionLabel = tr("Layout");
+		else if (searchHovered) nextActionLabel = searchLabel.c_str();
+		if (nextActionLabel && shownActionLabel != nextActionLabel) {
+			shownActionLabel = nextActionLabel;
+			actionHint.SetText(nextActionLabel);
+		}
+		fade(actionHint, hintAlpha[2], layoutHovered || searchHovered);
+		statusTxt.SetVisible(hintAlpha[2] == 0);
 		// Not while the scan has the drives and the network: an update
 		// writes to the card and downloads.
 		if (!g_scanning) {
@@ -6080,27 +6278,22 @@ static int MenuSource(FrontendState& state)
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 			riftwii::wii::WatchViewChord(true);
 		} else if (riftwii::wii::TakeViewChord()) {
-			// 1 and 2 together: the next view, as Settings > Home tiles
-			// steps to, with Home built again around the same game.
-			riftwii::LoaderSettings& settings = riftwii::wii::Settings();
-			const std::string before = settings.home_tiles;
-			settings.home_tiles = NextHomeTiles(before);
-			if (g_sdGone) {
-				// The view is a setting, saved on the card: without it the
-				// change would be undone when the card is back.
-				settings.home_tiles = before;
-				toast.Show(tr("Put the SD card back in first."), true);
-			} else if (!riftwii::wii::SaveSettings()) {
-				// Unsaved, the view would come back at the next start: it
-				// stays as it was.
-				logf("Home: tiles not changed to %s (1 and 2), the settings could not be saved\n", settings.home_tiles.c_str());
-				settings.home_tiles = before;
-				toast.Show(tr("Could not save the settings to the SD card."), true);
-			} else {
-				logf("Home: tiles %s (1 and 2)\n", settings.home_tiles.c_str());
-				g_focusRestored = true;  // a view change is the player's own doing
-				g_homeFocus = grid.FocusedIndex();
-				SetHomeNotice(std::string(tr("Home tiles")) + ": " + HomeTilesName(settings.home_tiles));
+			if (ChangeHomeLayout(NextHomeTiles(riftwii::wii::Settings().home_tiles),
+				"1 and 2", grid.FocusedIndex(), g_sdGone, toast)) {
+				rebuildingHome = true;
+				menu = MENU_SOURCE;
+			}
+		} else if (layoutBtn.Clicked()) {
+			layoutBtn.button.ResetState();
+			if (grid.Carrying() || grid.CoverZoomed()) {
+				ResumeGui();
+				continue;
+			}
+			riftwii::wii::WatchViewChord(false);
+			const int picked = PickHomeLayout();
+			riftwii::wii::WatchViewChord(true);
+			if (picked >= 0 && ChangeHomeLayout(kHomeLayouts[picked], "Layout button",
+				grid.FocusedIndex(), g_sdGone, toast)) {
 				rebuildingHome = true;
 				menu = MENU_SOURCE;
 			}

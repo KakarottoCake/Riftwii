@@ -25,6 +25,8 @@ T = {
         "Y: visão  Z: opções  L/R: páginas",
         "Y: vista  Z: opzioni  L/R: pagine"),
     # Home
+    "Layout": ("Diseño", "レイアウト", "Layout", "Disposizione"),
+    "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
     "Games with mods": ("Juegos con mods", "MODがあるゲーム", "Jogos com mods", "Giochi con mod"),
     "All games": ("Todos los juegos", "すべてのゲーム", "Todos os jogos", "Tutti i giochi"),
     "Recently played": ("Jugados hace poco", "最近遊んだゲーム", "Jogados recentemente", "Giocati di recente"),
@@ -2359,6 +2361,8 @@ T = {
 # Korean, a table of its own (msgid: text), from DDinghoya's translation
 # (pull request 20). A msgid missing here shows in English.
 KO = {
+    "Layout": "배치",
+    "Choose": "선택",
     "Y: view  Z: settings  L/R: pages": "Y: 보기  Z: 설정  L/R: 페이지",
     "Games with mods":
         "MOD 지원 게임",
@@ -4223,6 +4227,8 @@ KO = {
 # French, a table of its own (msgid: text), from MidyGamy's translation
 # (pull request 22). A msgid missing here shows in English.
 FR = {
+    "Layout": "Disposition",
+    "Choose": "Choisir",
     "Y: view  Z: settings  L/R: pages": "Y: vue  Z: options  L/R: pages",
     "Games with mods":
         "Jeux avec mods",

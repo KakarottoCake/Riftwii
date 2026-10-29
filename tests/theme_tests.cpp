@@ -381,7 +381,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 73U);
+    EXPECT_EQ(images.size(), 79U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -460,6 +460,32 @@ static void test_painted_images() {
     Canvas none(0, 0);
     EXPECT_FALSE(paint_theme_image("tile2", def, none));
     EXPECT_FALSE(paint_theme_image("", def, none));
+
+    // Each layout needs its own recognisable silhouette, with a clear
+    // margin when it is enlarged on a card or shrunk onto a button.
+    const char* const layouts[] = {
+        "layout_covers", "layout_covers3d", "layout_carousel",
+        "layout_shelf", "layout_channels", "layout_names"
+    };
+    std::vector<std::vector<std::uint8_t>> layoutPixels;
+    Theme layoutTheme = def;
+    layoutTheme.colors.glyph = ThemeColor{210, 30, 70, 255};
+    for (const char* name : layouts) {
+        Canvas icon(0, 0);
+        EXPECT_TRUE(paint_theme_image(name, layoutTheme, icon));
+        EXPECT_EQ(icon.at(0, 0).a, 0);
+        EXPECT_EQ(icon.at(27, 27).a, 0);
+        bool hasGlyph = false;
+        for (int y = 0; y < icon.height(); ++y) {
+            for (int x = 0; x < icon.width(); ++x) {
+                const Rgba pixel = icon.at(x, y);
+                if (pixel.a == 255 && pixel.r == 210 && pixel.g == 30 && pixel.b == 70) hasGlyph = true;
+            }
+        }
+        EXPECT_TRUE(hasGlyph);
+        for (const auto& previous : layoutPixels) EXPECT_TRUE(previous != icon.pixels());
+        layoutPixels.push_back(icon.pixels());
+    }
 
     Theme red = def;
     red.colors.chip_on = ThemeColor{200, 10, 20, 255};
