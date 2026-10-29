@@ -334,6 +334,8 @@ bool UsbCoversFolderThere() {
 }
 }  // namespace
 
+void ForgetUsbCoversFolder() { g_usbCoversFolder.store(0); }
+
 bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
     if (!emulator_art_component(name + ".png")) return false;
     const std::string relative = "/riftwii/covers/" + name + ".png";

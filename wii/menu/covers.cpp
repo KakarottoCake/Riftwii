@@ -595,6 +595,7 @@ void ForgetCover(const std::string& game_id) {
 
 void ForgetGameCoversBeforeUsb() {
     g_ownReads.clear();  // the drive may have the player's PNGs
+    ForgetUsbCoversFolder();
     if (g_lock == LWP_MUTEX_NULL) return;
     Lock lock;
     for (auto it = g_absent.begin(); it != g_absent.end();)
