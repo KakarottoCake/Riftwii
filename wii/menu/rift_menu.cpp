@@ -10544,10 +10544,10 @@ public:
 		const float grow = 1.0f + 0.035f * lit;
 		const float w = kHeroW * grow, h = kHeroH * grow;
 		const float x = kHeroX - (w - kHeroW) / 2, y = kHeroY - (h - kHeroH) / 2;
-		const auto ring = [&] {
+		const auto ring = [&](float rx, float ry, float rw, float rh) {
 			if (lit <= 0.0f) return;
 			const GXColor c = skin::WithAlpha(skin::kAccent, static_cast<int>(255 * lit));
-			for (int i = 3; i <= 5; ++i) Menu_DrawRectangle(x - i, y - i, w + 2 * i, h + 2 * i, c, 0);
+			for (int i = 3; i <= 5; ++i) Menu_DrawRectangle(rx - i, ry - i, rw + 2 * i, rh + 2 * i, c, 0);
 		};
 		const u8* art = RoundedArt();
 		hasArt = art != nullptr || (!id.empty() && riftwii::wii::BoxTexture(id)) ||
@@ -10559,25 +10559,30 @@ public:
 			const float m = riftwii::kShadowMargin;
 			skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + kDrop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner);
 			skin::DrawRgb5a3Part(art, roundedW, roundedH, 0.0f, 1.0f, x, y, w, h);
-			ring();
+			ring(x, y, w, h);
 			return;
 		}
-		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
-		ring();
-		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
-		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
+		const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
+		riftwii::wii::BannerPlayer* icon = !box && !cover && channel ? IconFor(id) : nullptr;
+		// A channel's icon gets a card of its own shape (4:3, as the
+		// Channels view shows it), centred down the box's place, rather
+		// than the box's tall one with black above and below.
+		const float ch = icon ? (w - 8) * 3 / 4 + 8 : h, cy = y + (h - ch) / 2;
+		skin::DrawNine(skin::card9, x - 8, cy - 8, w + 16, ch + 16, riftwii::kCardCorner);
+		ring(x, cy, w, ch);
+		const float ax = x + 4, ay = cy + 4, aw = w - 8, ah = ch - 8;
+		if (box) {
 			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
 			const float u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
 			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
-		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
+		} else if (cover) {
 			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, ax, ay, aw, ah);
-		} else if (riftwii::wii::BannerPlayer* icon = channel ? IconFor(id) : nullptr) {
-			// The channel's icon as the Channels view shows it (4:3, on
-			// black), across the card and centred down it.
-			const float ih = aw * 3 / 4, iy = ay + (ah - ih) / 2;
+		} else if (icon) {
+			// The channel's icon on black, filling its card.
 			Menu_DrawRectangle(ax, ay, aw, ah, (GXColor){0, 0, 0, 255}, 1);
 			icon->Step();
-			icon->Draw(ax, iy, aw, ih, 255);
+			icon->Draw(ax, ay, aw, ah, 255);
 		} else if (disc && skin::discCase.data) {
 			const float scale = aw / skin::discCase.w;
 			skin::Draw(skin::discCase, ax + (aw - skin::discCase.w) / 2, ay + (ah - skin::discCase.h) / 2, 255, scale);
