@@ -85,7 +85,8 @@ drive works too: `usb:/riivolution`.)
 3. The first time, a short tour shows the basics. Read it, then press A.
 
 You're on **Home**: your games as tiles. At first it shows only games
-that have a mod pack. Press **1** to see **all** your games.
+that have a mod pack. Press **1** to see **all** your games, or point at
+the **Show** button in the bottom left and pick what Home shows.
 
 ### Step 6: Play a game with a mod
 
@@ -227,7 +228,7 @@ above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
-press 1 (the view button), or search with nothing typed, to go back to
+press 1, or search with nothing typed, to go back to
 the view. Point at the magnifier and hold **B** on a Wii Remote for about a
 second to start a game at random from the ones shown (not the disc drive or
 a homebrew app); its page presses Start for you, so its checks and warnings
@@ -323,6 +324,21 @@ of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.
 For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
 from the console while it runs; nothing like it ships with RiftWii or is
 written to the card. A game without a banner shows its name tile.
+
+Emulator games show a title screen from libretro, then an optional wide
+SteamGridDB picture, with their cover's middle band as the fallback. You can
+supply a picture at `sd:/riftwii/banners/emulators/<system>/<game name>.png`;
+it works offline and takes priority. Pictures fill the tile without stretching.
+With Online on, open the game's page and choose **Picture** to browse title
+screens, screenshots, box art and optional SteamGridDB pictures. Six tiles
+load one at a time per page; Minus/Plus or the arrows turn pages, A saves a
+picture to SD, and B leaves. Only the current page's pictures are downloaded.
+Your saved choice appears on Home at once and works offline. **Back to
+automatic** removes it; a picture added or changed by hand needs confirmation.
+The picker needs **Settings > Online > Downloads** on; its SteamGridDB
+pictures also need **SteamGridDB covers**. **Covers for emulator games**
+only turns the automatic pictures on or off, not the picker. See
+[Emulator Channels pictures](EMULATORS.md#channels-pictures).
 
 ### A game's page
 
@@ -678,11 +694,34 @@ needs a d2x cIOS, as SD and USB games do; when it cannot start a game
 from the Wii itself, the Wii starts it as the Wii Menu would, without
 those extras. A game in an emulated NAND keeps its saves in that folder.
 
-To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
-top of the SD card and pick **Settings > Drives > Install WAD files**.
-They go into that emulated NAND (the Wii itself is not changed) and show
-up on Home. RiftWii decrypts them with your own Wii's key, read when you
-install; it carries no key itself.
+To play your own backed-up `.wad` files, put them in **`sd:/wiiware/`**
+or **`usb:/wiiware/`**. RiftWii also reads numbered USB partitions
+(`usb1:/wiiware/`, `usb2:/wiiware/`, and so on), on FAT32 or NTFS, and one
+level of subfolders. The games appear on Home with their own names,
+banners and icons. An SD card is needed even when the WAD is on USB.
+
+Press **Play**. The first start shows **Getting <game> ready, first time
+only** while RiftWii checks and unpacks the game into the channel emulated
+NAND on the SD card (`sd:/nands/01` unless configured otherwise). Later
+starts reuse those files. Replacing the WAD with a changed version prepares
+it again. This uses free space on the SD card as well as the space holding
+the WAD; updating an existing copy temporarily needs room for both copies.
+The console's own NAND is never written.
+
+Removing a WAD removes its Home tile after the drives are read again.
+Its save stays at `<emulated NAND>/title/00010001/<title ID>/data/`, and is
+used again if the WAD is put back. An independently installed copy keeps
+its own tile and save location; the same title is shown only once.
+RiftWii first tries your Wii's hardware key, then asks IOS to read the
+game's title key. It checks the banner before trusting either result.
+If neither works, put your own Wii's BootMii `keys.bin` backup at
+`sd:/keys.bin`. Keys stay in memory only, and the session log says which
+source worked. Korean-key and vWii-key WADs are not supported by this key reader.
+The regular d2x channel-launch requirements still apply.
+
+The old way also works: put `.wad` files in `sd:/wad/` (or `sd:/wads/`)
+and pick **Settings > Drives > Install WAD files**. These copies stay on
+Home independently of the WAD. This installs into the same emulated NAND.
 
 For a game the Wii Menu moved to the SD card, RiftWii looks in
 `sd:/private/wii/title/<code>/content.bin`. If it can read that copy,
@@ -724,7 +763,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's view button (all games, games with mods, Recently
+choices, and Home's Show button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -1519,8 +1558,9 @@ in `sd:/apps/<folder>/` or `usb:/apps/<folder>/`. Install the emulator and
 its file as its author says, and put your games in the folders that file
 names. RiftWii supplies no BIOS or games.
 
-On Home, press **1** or the **View** button to cycle to **Emulators**,
-beside Homebrew (**Home > View > Emulators**). These games also appear in
+On Home, point at the **Show** button and pick **Emulators**
+(**Home > Show > Emulators**), or press **1** to step through the
+categories to it, after Homebrew. These games also appear in
 **All games**, with their system's name on each tile.
 Open a game for **Play**, the emulator's settings, **Reset**, and **About**
 (which names the emulator that starts it). Each game's settings are kept

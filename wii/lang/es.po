@@ -597,9 +597,6 @@ msgstr "Créditos y licencia"
 msgid "View"
 msgstr "Ver"
 
-msgid "Clear search"
-msgstr "Borrar búsqueda"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso."
 
@@ -2328,9 +2325,6 @@ msgstr "Instalando archivos WAD"
 msgid "{1} of {2}: {3}"
 msgstr "{1} de {2}: {3}"
 
-msgid "This Wii's key could not be read, so WAD files can't be installed."
-msgstr "No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD."
-
 msgid "Installed {1} of {2}. They are on Home now."
 msgstr "Instalados {1} de {2}. Ya están en Inicio."
 
@@ -3348,6 +3342,138 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
 
+msgid "Needs the internet"
+msgstr "Necesita internet"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Elige la imagen que se muestra en Canales."
+
+msgid "Back to automatic"
+msgstr "Volver a automático"
+
+msgid "Title screen"
+msgstr "Pantalla de título"
+
+msgid "Screenshot"
+msgstr "Captura de pantalla"
+
+msgid "Box art"
+msgstr "Carátula"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Conecta la Wii a internet y activa {1} en {2} > {3}."
+
+msgid "No pictures found."
+msgstr "No se encontraron imágenes."
+
+msgid "Could not load pictures."
+msgstr "No se pudieron cargar las imágenes."
+
+msgid "Could not load this picture."
+msgstr "No se pudo cargar esta imagen."
+
+msgid "A picture could not be loaded."
+msgstr "No se pudo cargar una imagen."
+
+msgid "Not enough memory."
+msgstr "No hay memoria suficiente."
+
+msgid "Could not save the picture."
+msgstr "No se pudo guardar la imagen."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Esta imagen se añadió o cambió a mano. ¿Borrarla y usar imágenes automáticas?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Esta imagen se añadió o cambió a mano. ¿Reemplazarla por la que elegiste?"
+
+msgid "Save location"
+msgstr "Dónde van las partidas"
+
+msgid "Changing this never moves or deletes saves already made."
+msgstr "Cambiar esto nunca mueve ni borra las partidas que ya tienes."
+
+msgid "In use"
+msgstr "En uso"
+
+msgid "Use default options for this game"
+msgstr "Usar lo de Ajustes en este juego"
+
+msgid "Use default options for this game?"
+msgstr "¿Usar lo de Ajustes en este juego?"
+
+msgid "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are."
+msgstr "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan como están."
+
+msgid "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay."
+msgstr "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan."
+
+msgid "Needed: {1}"
+msgstr "Necesarios: {1}"
+
+msgid "Also works with: {1}"
+msgstr "También funciona con: {1}"
+
+msgid "Up and Down scroll"
+msgstr "Arriba y Abajo desplazan el texto"
+
+msgid "Up and Down scroll the story"
+msgstr "Arriba y Abajo mueven la historia"
+
+msgid "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons."
+msgstr "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log."
+
+msgid "The WAD is prepared on first play. Saves stay in {1} on the SD card."
+msgstr "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD."
+
+msgid "Getting the game ready"
+msgstr "Preparando el juego"
+
+msgid "Getting {1} ready, first time only"
+msgstr "Preparando {1}, solo la primera vez"
+
+msgid "The game could not be prepared"
+msgstr "No se pudo preparar el juego"
+
+msgid "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log."
+msgstr "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log."
+
+msgid "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied."
+msgstr "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves."
+
+msgid "No games here"
+msgstr "No hay juegos aquí"
+
+msgid "Show all games"
+msgstr "Mostrar todos los juegos"
+
+msgid "Show every drive"
+msgstr "Mostrar todas las unidades"
+
+msgid "Games from: {1}"
+msgstr "Juegos de: {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "Ningún juego coincide con \"{1}\"."
+
+msgid "No games with mods were found."
+msgstr "No se encontraron juegos con mods."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "No se encontraron aplicaciones homebrew en sd:/apps."
+
+msgid "No emulator games were found."
+msgstr "No se encontraron juegos de emuladores."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "Aún no has jugado a estos juegos desde RiftWii."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "Marca un juego como favorito en su página."
+
 msgid "Downloads"
 msgstr "Descargas"
 
@@ -3369,10 +3495,10 @@ msgstr "Permite descargar nombres, carátulas, trucos, detalles de juegos, temas
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "No se encontraron emuladores. Pon un emulador con su archivo de complemento de RiftWii en su carpeta de aplicación, o añade archivos de plugins de WiiFlow. Luego usa Ajustes > Unidades > Buscar juegos de nuevo. Consulta Emuladores en la guía de GitHub."
 
-msgid "Emulator games: Home > View > Emulators"
+msgid "Emulator games: Home > Show > Emulators"
 msgstr "Juegos emulados: Inicio > Ver > Emuladores"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores."
 
 msgid "Left to the mod"
