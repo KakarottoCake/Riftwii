@@ -7180,6 +7180,113 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Missing selected mod files and partial USB scans.
+T.update({
+    "Mod files are missing": (
+        "Faltan archivos del mod",
+        "MODのファイルがありません",
+        "Faltam arquivos do mod",
+        "Mancano file della mod"),
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": (
+        "Faltan archivos del mod. Sus cambios de archivos o memoria no se aplicarán. Copia los archivos y reintenta, o revisa la lista para jugar de todos modos.",
+        "MODの一部のファイルがありません。そのファイルやメモリの変更は行いません。ファイルをコピーしてやり直すか、一覧を確認してそのまま遊んでください。",
+        "Faltam arquivos do mod. Suas alterações de arquivos ou memória não serão aplicadas. Copie os arquivos e tente de novo, ou confira a lista para jogar mesmo assim.",
+        "Mancano file della mod. Le loro modifiche a file o memoria saranno saltate. Copia i file e riprova, oppure controlla l'elenco per giocare comunque."),
+    "Review files": (
+        "Ver archivos",
+        "ファイルを確認",
+        "Ver arquivos",
+        "Controlla file"),
+    "Play anyway": (
+        "Jugar igualmente",
+        "そのまま遊ぶ",
+        "Jogar mesmo assim",
+        "Gioca comunque"),
+    "and {1} more": (
+        "y {1} más",
+        "ほか{1}件",
+        "e mais {1}",
+        "e altri {1}"),
+    "USB: {1} partition(s) could not be opened. See Drives.": (
+        "USB: no se pudieron abrir {1} particiones. Ve a Unidades.",
+        "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。",
+        "USB: não foi possível abrir {1} partições. Veja Unidades.",
+        "USB: impossibile aprire {1} partizioni. Vedi Unità."),
+    "USB scan details": (
+        "Detalles de búsqueda USB",
+        "USBの読み込み結果",
+        "Detalhes da busca USB",
+        "Dettagli ricerca USB"),
+    "{1} MiB": (
+        "{1} MiB",
+        "{1} MiB",
+        "{1} MiB",
+        "{1} MiB"),
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": (
+        "Revisa esta partición en un ordenador y elige Buscar juegos de nuevo. Los juegos de otras particiones se conservan.",
+        "パソコンでこのパーティションを確認してから、もう一度ゲームを探してください。ほかのパーティションのゲームは表示したままです。",
+        "Verifique esta partição em um computador e escolha Buscar jogos novamente. Os jogos das outras partições são mantidos.",
+        "Controlla questa partizione su un computer, poi scegli Cerca giochi di nuovo. I giochi delle altre partizioni restano disponibili."),
+    "USB partition {1} could not be opened": (
+        "No se pudo abrir la partición USB {1}",
+        "USBのパーティション{1}を開けません",
+        "Não foi possível abrir a partição USB {1}",
+        "Impossibile aprire la partizione USB {1}"),
+    "The partition could not be read from the drive.": (
+        "No se pudo leer la partición de la unidad.",
+        "ドライブからパーティションを読み込めませんでした。",
+        "Não foi possível ler a partição da unidade.",
+        "Impossibile leggere la partizione dall'unità."),
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": (
+        "RiftWii no puede leer exFAT. Mueve estos juegos a una partición FAT32 o NTFS.",
+        "RiftWiiはexFATを読み込めません。このゲームをFAT32かNTFSのパーティションに移してください。",
+        "O RiftWii não pode ler exFAT. Mova estes jogos para uma partição FAT32 ou NTFS.",
+        "RiftWii non può leggere exFAT. Sposta questi giochi in una partizione FAT32 o NTFS."),
+    "The {1} data could not be read.": (
+        "No se pudieron leer los datos {1}.",
+        "{1}のデータを読み込めませんでした。",
+        "Não foi possível ler os dados {1}.",
+        "Impossibile leggere i dati {1}."),
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": (
+        "RiftWii no pudo leer esta partición como FAT32, NTFS o WBFS.",
+        "RiftWiiはこのパーティションをFAT32、NTFS、WBFSとして読み込めませんでした。",
+        "O RiftWii não conseguiu ler esta partição como FAT32, NTFS ou WBFS.",
+        "RiftWii non ha potuto leggere questa partizione come FAT32, NTFS o WBFS."),
+})
+KO.update({
+    "Mod files are missing": "모드 파일이 없습니다",
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": "일부 모드 파일이 없습니다. 해당 파일이나 메모리 변경은 적용되지 않습니다. 파일을 복사하고 다시 시도하거나, 목록을 확인한 뒤 그대로 플레이하세요.",
+    "Review files": "파일 확인",
+    "Play anyway": "그대로 플레이",
+    "and {1} more": "그 외 {1}개",
+    "USB: {1} partition(s) could not be opened. See Drives.": "USB: 파티션 {1}개를 열지 못했습니다. 드라이브를 확인하세요.",
+    "USB scan details": "USB 검색 정보",
+    "{1} MiB": "{1} MiB",
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": "컴퓨터에서 이 파티션을 확인한 뒤 게임 다시 찾기를 선택하세요. 다른 파티션의 게임은 유지됩니다.",
+    "USB partition {1} could not be opened": "USB 파티션 {1}을 열지 못했습니다",
+    "The partition could not be read from the drive.": "드라이브에서 파티션을 읽지 못했습니다.",
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": "RiftWii는 exFAT를 읽을 수 없습니다. 이 게임들을 FAT32 또는 NTFS 파티션으로 옮기세요.",
+    "The {1} data could not be read.": "{1} 데이터를 읽지 못했습니다.",
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": "RiftWii가 이 파티션을 FAT32, NTFS 또는 WBFS로 읽지 못했습니다.",
+})
+FR.update({
+    "Mod files are missing": "Des fichiers du mod manquent",
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": "Des fichiers du mod manquent. Leurs changements de fichiers ou de mémoire seront ignorés. Copiez les fichiers et réessayez, ou consultez la liste pour jouer quand même.",
+    "Review files": "Voir les fichiers",
+    "Play anyway": "Jouer quand même",
+    "and {1} more": "et {1} de plus",
+    "USB: {1} partition(s) could not be opened. See Drives.": "USB : {1} partition(s) non ouverte(s). Voir Lecteurs.",
+    "USB scan details": "Détails de recherche USB",
+    "{1} MiB": "{1} Mio",
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": "Vérifiez cette partition sur un ordinateur, puis choisissez Rechercher les jeux à nouveau. Les jeux des autres partitions restent disponibles.",
+    "USB partition {1} could not be opened": "La partition USB {1} n'a pas pu être ouverte",
+    "The partition could not be read from the drive.": "La partition n'a pas pu être lue sur le lecteur.",
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": "RiftWii ne peut pas lire exFAT. Déplacez ces jeux vers une partition FAT32 ou NTFS.",
+    "The {1} data could not be read.": "Les données {1} n'ont pas pu être lues.",
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": "RiftWii n'a pas pu lire cette partition en FAT32, NTFS ou WBFS.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

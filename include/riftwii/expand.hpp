@@ -11,6 +11,21 @@
 
 namespace riftwii {
 
+enum class MissingModInputKind { File, Memory };
+
+struct MissingModInput {
+    std::string pack;      // XML path, so equally named packs remain distinguishable
+    std::string external;
+    MissingModInputKind kind = MissingModInputKind::File;
+};
+
+// Missing external files only matter when their selected patch has a target
+// on this disc (or creates one). Other-region targets remain ordinary skips.
+bool file_patch_targets_disc(const FilePatch& patch, const Fst& fst);
+// Keeps one entry per pack/path/kind. Returns false if the list cannot grow.
+bool record_missing_mod_input(std::vector<MissingModInput>& out, const std::string& pack,
+                              const std::string& external, MissingModInputKind kind);
+
 // Turns a plan's <folder> patches into <file> patches against a disc's FST,
 // keeping document order with the plan's own <file> patches (memory and
 // savegame steps are left to their own runtimes). Semantics, from the

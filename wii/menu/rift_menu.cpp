@@ -201,6 +201,9 @@ static std::atomic<bool> guiParked{false};
 // The menu's own thread, for the GUI watch (it is the one that called InitGUIThreads).
 static lwp_t menuthread = LWP_THREAD_NULL;
 static std::atomic<bool> hidePointers{false};
+// A launch may reopen a popup after taking ownership of the drives. Drawing
+// and pad input may resume then, but menu workers must stay parked.
+static bool launchPopup = false;
 
 // The Wii's screen burn-in reduction (Wii Settings): while it is on, the
 // menu dims after five idle minutes, as the Wii Menu does. A button, a
@@ -338,7 +341,7 @@ static void ResumeGui()
 	g_menuTick = gettime();
 	// Whatever held the cover loader (an unmount, a raw read, an IOS
 	// reload) was the menu's own work, and it is done.
-	riftwii::wii::CoverLoaderRelease();
+	if (!launchPopup) riftwii::wii::CoverLoaderRelease();
 	guiHalt = false;
 	// Only from its park at the top of its loop: in the middle of a frame
 	// GX may be holding it until the GPU catches up, and woken there it
@@ -362,7 +365,7 @@ static void HaltGui()
 		usleep(THREAD_SLEEP);
 	// The next song of the player's music, read here on the menu's own
 	// thread: never at the same time as the menu reads a drive.
-	riftwii::wii::MenuMusicService();
+	if (!launchPopup) riftwii::wii::MenuMusicService();
 }
 
 // The crash screen (wii/core/crash.cpp) draws over the menu's last frame: the
@@ -423,12 +426,12 @@ UpdateGUI(void *arg)
 			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
 			LogRemotesChanged();
-			riftwii::wii::MenuMusicUpdate();
+			if (!launchPopup) riftwii::wii::MenuMusicUpdate();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
 			riftwii::wii::GuiScriptApply();
-			riftwii::wii::ScreenshotPoll();
+			if (!launchPopup) riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
 			const unsigned used = ActivitySources();
 			for (int s = 0; s < kActSources; ++s)
@@ -475,7 +478,8 @@ UpdateGUI(void *arg)
 			Menu_Render();
 			riftwii::wii::GuiPhase("after the frame");
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
-			riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
+			if (!launchPopup)
+				riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
 			riftwii::wii::GuiPhase("updating the windows");
 			if (!idle && !swallowInput && !riftwii::wii::transition::Busy())
@@ -2335,6 +2339,9 @@ static std::string ShownCount(Filter f, std::size_t count)
 
 static std::string HomeStatusLines(const FrontendState& state, const std::vector<GridItem>& items)
 {
+	if (!state.usb_catalog.partition_failures.empty())
+		return tr("USB: {1} partition(s) could not be opened. See Drives.",
+			{std::to_string(state.usb_catalog.partition_failures.size())});
 	if (!g_homeNotice.empty()) return g_homeNotice;
 	// The games shown: the disc drive's tile, when it is there, is not one,
 	// and a game's tiles (its own and its profiles') are one game. A view
@@ -2793,6 +2800,7 @@ public:
 		if (guiWasRunning) ResumeGui();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	void HighlightFirst() { okBtn.button.SetImage(&okBtn.imageOver); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e) { w.Append(e); }
 	// The text centred across the top of the room, in at most `lines`
@@ -3070,6 +3078,117 @@ static int ShowPopupSafeFirst(const std::string& title, const std::string& body,
 {
 	PopupBox box(title, body, safe, risky, true);
 	return box.Wait();
+}
+
+// Keep each selected pack visible, even when another pack has many missing
+// files. The full paths are in the log; the popup shows a few useful ones.
+static const char* MissingModExplanation()
+{
+	return tr("Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.");
+}
+
+static void CacheMissingModPopupText(const FrontendState& state)
+{
+	// Image launches ask after a reload, when external fonts must stay closed.
+	// Measuring loads the translated glyphs into the font cache beforehand.
+	const auto cache = [](const char* text, int size) {
+		GuiText probe(text, size, skin::kInk);
+		probe.GetTextWidth();
+	};
+	cache(tr("Mod files are missing"), 24);
+	cache(MissingModExplanation(), 16);
+	cache(tr("and {1} more", {"0123456789"}).c_str(), 16);
+	for (const char* label : {tr("Back"), tr("Review files"), tr("Play anyway"), tr("Next")})
+		cache(label, 22);
+	for (const auto& pack : state.model.selections()) cache(pack.xml_sd_path.c_str(), 16);
+}
+
+static int MissingModQuestion(const std::string& title, const std::string& body, const char* proceed)
+{
+	PopupBox box(title, body, tr("Back"), proceed, true);
+	box.HighlightFirst();  // Back is the visible default as well as the A/B hotkey.
+	return box.Wait();
+}
+
+static std::string MissingModPath(std::string path, int width)
+{
+	if (!path.empty() && path.front() == '/') path = "sd:" + path;
+	// Preserve the filename and device/root when a deep path would fill
+	// the popup by itself. Never abbreviate the log's copy.
+	GuiText probe(path.c_str(), 16, skin::kInk);
+	const std::size_t lastSlash = path.find_last_of('/');
+	const std::size_t rootSlash = path.find('/');
+	const std::size_t firstSlash = rootSlash == std::string::npos
+		? std::string::npos : path.find('/', rootSlash + 1);
+	if (probe.GetTextWidth() > 2 * width && firstSlash < lastSlash)
+		return path.substr(0, firstSlash) + "/..." + path.substr(lastSlash);
+	return path;
+}
+
+bool ConfirmMissingModInputs(const std::vector<riftwii::MissingModInput>& missing)
+{
+	if (missing.empty()) return true;
+	const std::string title = tr("Mod files are missing");
+	if (MissingModQuestion(title, MissingModExplanation(), tr("Review files")) != 1) return false;
+	std::vector<std::string> packs;
+	for (const riftwii::MissingModInput& input : missing) {
+		if (std::find(packs.begin(), packs.end(), input.pack) == packs.end()) packs.push_back(input.pack);
+	}
+	const int width = 528 + 2 * PopupExtra();
+	for (std::size_t packIndex = 0; packIndex < packs.size(); ++packIndex) {
+		std::vector<std::string> rows = ChunksFitting(MissingModPath(packs[packIndex], width), width, 16, 2);
+		std::size_t count = 0;
+		std::size_t shown = 0;
+		for (const riftwii::MissingModInput& input : missing) {
+			if (input.pack != packs[packIndex]) continue;
+			++count;
+			if (rows.size() >= PopupBox::kBodyLines - 1) continue;
+			const std::string path = MissingModPath(input.external, width);
+			const std::size_t room = PopupBox::kBodyLines - rows.size() - 1;
+			const auto pathRows = ChunksFitting(path, width, 16, std::min<std::size_t>(2, room));
+			rows.insert(rows.end(), pathRows.begin(), pathRows.end());
+			++shown;
+		}
+		if (count > shown) rows.push_back(tr("and {1} more", {std::to_string(count - shown)}));
+		std::string body;
+		for (const std::string& row : rows) body += (body.empty() ? "" : "\n") + row;
+		const bool last = packIndex + 1 == packs.size();
+		if (MissingModQuestion(title, body, last ? tr("Play anyway") : tr("Next")) != 1)
+			return false;
+	}
+	return true;
+}
+
+static void ShowUsbPartitionFailures(const riftwii::wii::ImageCatalog& catalog)
+{
+	for (const riftwii::ImagePartitionFailure& failure : catalog.partition_failures) {
+		std::string body = failure.format;
+		if (failure.blocks != 0) {
+			if (!body.empty()) body += ", ";
+			body += tr("{1} MiB", {std::to_string(failure.blocks / 2048)});
+		}
+		if (!body.empty()) body += "\n";
+		if (!failure.boot_readable)
+			body += tr("The partition could not be read from the drive.");
+		else if (failure.format == "exFAT")
+			body += tr("RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.");
+		else if (!failure.format.empty())
+			body += tr("The {1} data could not be read.", {failure.format});
+		else
+			body += tr("RiftWii could not read this partition as FAT32, NTFS or WBFS.");
+		// Keep the reason and the remedy on separate pages so translations
+		// cannot push either instruction below the popup's six lines.
+		const std::string title = tr("USB partition {1} could not be opened", {std::to_string(failure.partition)});
+		const auto show = [&](const std::string& text, const char* button) {
+			PopupBox box(title, text, button);
+			box.SetTitleFitted(title);
+			box.Wait();
+		};
+		show(body, tr("Next"));
+		show(
+			tr("Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."),
+			tr("OK"));
+	}
 }
 
 // A code mod is switched on for the next start.
@@ -12259,7 +12378,16 @@ static int MenuHome(FrontendState& state)
 				const bool ok = CompileSelection(state.model.selections(), state.compiled, error);
 				HaltGui();
 				state.has_compiled = ok;
-				if (ok) menu = MENU_LAUNCH;
+				if (ok && ConfirmMissingModInputs(state.compiled.missing_inputs)) {
+					if (!state.compiled.missing_inputs.empty())
+						logf("Mods: the player chose Play anyway with missing mod files.\n");
+					menu = MENU_LAUNCH;
+				}
+				else if (ok) {
+					state.has_compiled = false;
+					state.compiled = riftwii::wii::CompiledMod{};
+					logf("Mods: the player went back because selected mod files are missing.\n");
+				}
 				else {
 					logf("Compile failed: %s\n", error.c_str());
 					say(FlatCapped(error, 130) + " " + tr("(Log: sd:/riftwii/session.log)"));
@@ -13095,7 +13223,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
-		kMissingCovers, kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -13237,6 +13365,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
 		heading(tr("Finding games"));
+		if (!state.usb_catalog.partition_failures.empty()) {
+			FlowRow details;
+			details.kind = FlowRow::Kind::Action;
+			details.label = tr("USB scan details");
+			details.value = std::to_string(state.usb_catalog.partition_failures.size());
+			rows.push_back(details);
+			actions.push_back(kPartitionFailures);
+		}
 		option(tr("Games on the SD card"), settings.sd_games == "off" ? tr("Don't look") : tr("Look for them"),
 			settings.sd_games == "off", kSdGames);
 		FlowRow rescan;
@@ -13393,7 +13529,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kSdGames: case kRescan: case kNet: case kResync: case kWads:
+				case kSdGames: case kRescan: case kPartitionFailures: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -14233,6 +14369,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;
+				case kPartitionFailures:
+					ShowUsbPartitionFailures(state.usb_catalog);
+					break;
 				case kWads:
 					// The scan lists the emulated NAND's channels the install writes.
 					WaitForDriveScan(noteTxt);
@@ -14603,6 +14742,18 @@ void RefreshLaunchFrame(const FrontendState& state, int action)
 	ShowLaunchFrame(state, action);
 }
 
+bool ConfirmLaunchMissingModInputs(const FrontendState& state,
+	const std::vector<riftwii::MissingModInput>& missing)
+{
+	launchPopup = true;
+	ResetVideo_Menu();
+	hidePointers = false;
+	const bool play = ConfirmMissingModInputs(missing);
+	ShowLaunchFrame(state, MENU_LAUNCH);
+	launchPopup = false;
+	return play;
+}
+
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
@@ -14687,6 +14838,10 @@ int MainMenu(int menu, FrontendState& state)
 	state.prepared_choices = riftwii::wii::PreparedGameChoices{};
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
 		currentMenu == MENU_PLAY_CHANNEL || currentMenu == MENU_HOMEBREW) {
+		if (currentMenu == MENU_LAUNCH) {
+			HaltGui();
+			CacheMissingModPopupText(state);
+		}
 		if (riftwii::wii::Settings().wii_menu_sounds && currentMenu != MENU_DUMP)
 			riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Start);
 		// The GUI thread is halted after this; main prints the boot log

@@ -18,6 +18,10 @@ int MainMenu(int menuitem, FrontendState& state);
 // Draws the launch frame again, once the update check has finished and its
 // "waiting" footer is no longer true (main, after the wait).
 void RefreshLaunchFrame(const FrontendState& state, int action);
+// GUI halted on entry and return. False means Back, before the game starts.
+bool ConfirmMissingModInputs(const std::vector<riftwii::MissingModInput>& missing);
+bool ConfirmLaunchMissingModInputs(const FrontendState& state,
+    const std::vector<riftwii::MissingModInput>& missing);
 
 // Stops the GUI thread drawing, for the crash screen (wii/core/crash.cpp).
 void MenuHaltForCrash();

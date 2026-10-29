@@ -3413,3 +3413,42 @@ msgstr "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/rif
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."
+
+msgid "Mod files are missing"
+msgstr "Mancano file della mod"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Mancano file della mod. Le loro modifiche a file o memoria saranno saltate. Copia i file e riprova, oppure controlla l'elenco per giocare comunque."
+
+msgid "Review files"
+msgstr "Controlla file"
+
+msgid "Play anyway"
+msgstr "Gioca comunque"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: impossibile aprire {1} partizioni. Vedi Unità."
+
+msgid "USB scan details"
+msgstr "Dettagli ricerca USB"
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Controlla questa partizione su un computer, poi scegli Cerca giochi di nuovo. I giochi delle altre partizioni restano disponibili."
+
+msgid "USB partition {1} could not be opened"
+msgstr "Impossibile aprire la partizione USB {1}"
+
+msgid "The partition could not be read from the drive."
+msgstr "Impossibile leggere la partizione dall'unità."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWii non può leggere exFAT. Sposta questi giochi in una partizione FAT32 o NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "Impossibile leggere i dati {1}."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWii non ha potuto leggere questa partizione come FAT32, NTFS o WBFS."
