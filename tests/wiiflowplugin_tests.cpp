@@ -118,6 +118,31 @@ void test_dol_candidates() {
     EXPECT(with_dol(relative + "x.dol") == riftwii::WiiflowPluginResult::Refused);
 }
 
+void test_partition_dol_candidates() {
+    riftwii::WiiflowPlugin plugin;
+    std::string why;
+    const std::string text = replaced(snes, "dolFile=snes9xgx/boot.dol", "dolFile=apps/snes/boot.dol");
+
+    // The program may exist only at the root of the INI's own partition.
+    // Keep that root ahead of the older cross-drive fallbacks.
+    EXPECT(riftwii::parse_wiiflow_plugin(text, "usb2:/wiiflow/plugins", kLoader, plugin, why) ==
+           riftwii::WiiflowPluginResult::Emulator);
+    EXPECT((plugin.dol_candidates == std::vector<std::string>{
+        "usb2:/wiiflow/plugins/apps/snes/boot.dol", "usb2:/apps/snes/boot.dol",
+        "sd:/apps/snes/boot.dol", "usb:/apps/snes/boot.dol"}));
+
+    // Old USB paths keep their search order without a duplicate root.
+    EXPECT(riftwii::parse_wiiflow_plugin(text, "usb:/wiiflow/plugins", kLoader, plugin, why) ==
+           riftwii::WiiflowPluginResult::Emulator);
+    EXPECT((plugin.dol_candidates == std::vector<std::string>{
+        "usb:/wiiflow/plugins/apps/snes/boot.dol", "sd:/apps/snes/boot.dol", "usb:/apps/snes/boot.dol"}));
+
+    const std::string explicit_path = replaced(text, "dolFile=apps/snes/boot.dol", "dolFile=usb1:/apps/snes/boot.dol");
+    EXPECT(riftwii::parse_wiiflow_plugin(explicit_path, "usb2:/wiiflow/plugins", kLoader, plugin, why) ==
+           riftwii::WiiflowPluginResult::Emulator);
+    EXPECT((plugin.dol_candidates == std::vector<std::string>{"usb1:/apps/snes/boot.dol"}));
+}
+
 void test_configuration_identity() {
     riftwii::WiiflowPlugin plugin;
     EXPECT(parse(snes, plugin) == riftwii::WiiflowPluginResult::Emulator);
@@ -186,6 +211,7 @@ int main() {
     test_snes_plugin();
     test_name_and_paths();
     test_dol_candidates();
+    test_partition_dol_candidates();
     test_configuration_identity();
     test_left_out();
     test_refused();

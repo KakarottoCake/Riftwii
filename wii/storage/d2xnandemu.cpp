@@ -17,6 +17,7 @@
 #include "d2xsd.hpp"
 #include "log.hpp"
 #include "riftwii/cardvolume.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -339,7 +340,7 @@ bool release_d2x_saves() {
 
 bool packs_need_sd(const std::vector<std::string>& xml_paths) {
     for (const std::string& xml : xml_paths) {
-        if (xml.compare(0, 5, "usb:/") != 0) return true;
+        if (!riftwii::is_usb_path(xml)) return true;
     }
     return false;
 }

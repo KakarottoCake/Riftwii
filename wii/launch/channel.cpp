@@ -26,6 +26,7 @@
 #include "riftwii/channelupdate.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/returnstub.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
 
@@ -184,8 +185,7 @@ bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     }
     if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
     else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
-    NetCancelBackground();  // a theme download: fetched again next start
-    NetWaitForBackground();
+    NetStopForLaunch();
     LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
@@ -310,7 +310,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     }
     u32 size = 0;
     u8* dol = nullptr;
-    if (path.rfind("usb:/", 0) == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::uint64_t bytes = 0;
         if (read_usb_range(path, 0, nullptr, 0, bytes) && bytes > 0x100 && bytes <= (16u << 20) && can_allocate(bytes)) {
             size = static_cast<u32>(bytes);
@@ -333,6 +333,7 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
     }
     logf("Homebrew app: starting %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(size));
     plant_return_stub(dol, size);
+    NetStopForLaunch();
     LaunchMusicEnd("the app starts next");
     LogClose();
     fatUnmount("sd:");

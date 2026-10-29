@@ -139,6 +139,42 @@ void test_layout_matches_libwbfs() {
     EXPECT_EQ(l.slots, 215u);
 }
 
+void test_every_partition() {
+    Drive drive;
+    constexpr std::uint32_t first = 2048;
+    constexpr std::uint32_t blocks = 41943040;
+    constexpr std::uint32_t second = first + blocks + 2048;
+    mbr_entry(drive, 0, 0x83, 63, 1000);  // an unreadable format still has a table number
+    mbr_entry(drive, 1, 0x06, first, blocks);
+    mbr_entry(drive, 2, 0x07, second, blocks);
+    wbfs_header(drive, first, blocks, 21);
+    wbfs_header(drive, second, blocks, 21);
+    wbfs_disc(drive, first, 19, 0, "RMCE01", "First partition");
+    wbfs_disc(drive, second, 19, 0, "SMNE01", "Second partition");
+    std::string error;
+    std::vector<WbfsPartition> partitions;
+    EXPECT_TRUE(find_wbfs_partitions(drive.reader(), partitions, error));
+    EXPECT_EQ(partitions.size(), 2u);
+    if (partitions.size() != 2) return;
+    EXPECT_EQ(partitions[0].partition, 2u);
+    EXPECT_EQ(partitions[1].partition, 3u);
+    for (std::size_t i = 0; i < partitions.size(); ++i) {
+        std::vector<WbfsDisc> discs;
+        std::vector<std::string> skipped;
+        EXPECT_TRUE(list_wbfs_discs(drive.reader(), partitions[i], discs, skipped, error));
+        EXPECT_EQ(discs.size(), 1u);
+        if (!discs.empty()) EXPECT_EQ(discs[0].id, std::string(i == 0 ? "RMCE01" : "SMNE01"));
+        const UsbImage image = wbfs_slot_image(drive.reader(), partitions[i], 0);
+        EXPECT_EQ(image.pieces[0].file.fragments[0].sector, std::uint64_t(i == 0 ? first : second));
+    }
+    // A bad WBFS header cannot hide the other partition's games.
+    drive.at(first)[9] = 1;
+    EXPECT_TRUE(find_wbfs_partitions(drive.reader(), partitions, error));
+    EXPECT_EQ(partitions.size(), 1u);
+    EXPECT_EQ(partitions[0].partition, 3u);
+    EXPECT_EQ(partitions[0].lba, std::uint64_t(second));
+}
+
 void test_mbr_partition_with_fat16_type() {
     // WBFS tools leave a FAT16 type byte; the partition is found by content.
     for (std::uint8_t type : {std::uint8_t(0x04), std::uint8_t(0x06), std::uint8_t(0x0E), std::uint8_t(0x07)}) {
@@ -596,6 +632,7 @@ void test_real_game_image(const std::string& dir) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    test_every_partition();
     test_layout_matches_libwbfs();
     test_mbr_partition_with_fat16_type();
     test_second_partition_and_gpt();
