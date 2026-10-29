@@ -597,9 +597,6 @@ msgstr "Crédits et licence"
 msgid "View"
 msgstr "Voir"
 
-msgid "Clear search"
-msgstr "Effacer la recherche"
-
 msgid "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso."
 msgstr "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso."
 
@@ -3387,6 +3384,36 @@ msgstr "Déplacez {1} vers {2}."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}, à côté du dossier riivolution."
 
+msgid "No games here"
+msgstr "Aucun jeu ici"
+
+msgid "Show all games"
+msgstr "Afficher tous les jeux"
+
+msgid "Show every drive"
+msgstr "Afficher tous les supports"
+
+msgid "Games from: {1}"
+msgstr "Jeux de : {1}"
+
+msgid "No game matches \"{1}\"."
+msgstr "Aucun jeu ne correspond à « {1} »."
+
+msgid "No games with mods were found."
+msgstr "Aucun jeu avec des mods trouvé."
+
+msgid "No homebrew apps were found in sd:/apps."
+msgstr "Aucune appli homebrew trouvée dans sd:/apps."
+
+msgid "No emulator games were found."
+msgstr "Aucun jeu pour émulateur trouvé."
+
+msgid "No games here have been played from RiftWii yet."
+msgstr "Aucun jeu ici n'a encore été lancé depuis RiftWii."
+
+msgid "Mark a game as a favourite on its page."
+msgstr "Marquez un jeu comme favori sur sa page."
+
 msgid "Downloads"
 msgstr "Téléchargements"
 
@@ -3408,11 +3435,11 @@ msgstr "Autorise le téléchargement des noms, jaquettes, codes, détails des je
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub."
 
-msgid "Emulator games: Home > View > Emulators"
-msgstr "Jeux émulés : Accueil > Voir > Émulateurs"
+msgid "Emulator games: Home > Show > Emulators"
+msgstr "Jeux émulés : Accueil > Afficher > Émulateurs"
 
-msgid "Changes the defaults for installed emulators. Find their games on Home > View > Emulators."
-msgstr "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Voir > Émulateurs."
+msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
+msgstr "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs."
 
 msgid "Left to the mod"
 msgstr "Laissé au mod"

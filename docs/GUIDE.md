@@ -85,7 +85,8 @@ drive works too: `usb:/riivolution`.)
 3. The first time, a short tour shows the basics. Read it, then press A.
 
 You're on **Home**: your games as tiles. At first it shows only games
-that have a mod pack. Press **1** to see **all** your games.
+that have a mod pack. Press **1** to see **all** your games, or point at
+the **Show** button in the bottom left and pick what Home shows.
 
 ### Step 6: Play a game with a mod
 
@@ -227,7 +228,7 @@ above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
-press 1 (the view button), or search with nothing typed, to go back to
+press 1, or search with nothing typed, to go back to
 the view. Point at the magnifier and hold **B** on a Wii Remote for about a
 second to start a game at random from the ones shown (not the disc drive or
 a homebrew app); its page presses Start for you, so its checks and warnings
@@ -724,7 +725,7 @@ back into an ISO or an RVZ with Dolphin's **Convert File...** first.
 
 GameCube games are on Home with your other games, badged **GC**.
 **Settings > Home > Games from > GameCube** shows only these; the other
-choices, and Home's view button (all games, games with mods, Recently
+choices, and Home's Show button (all games, games with mods, Recently
 played, Favourites), can hide them as they hide any game.
 
 A GameCube game's page has its own options in place of a Wii game's
@@ -1519,8 +1520,9 @@ in `sd:/apps/<folder>/` or `usb:/apps/<folder>/`. Install the emulator and
 its file as its author says, and put your games in the folders that file
 names. RiftWii supplies no BIOS or games.
 
-On Home, press **1** or the **View** button to cycle to **Emulators**,
-beside Homebrew (**Home > View > Emulators**). These games also appear in
+On Home, point at the **Show** button and pick **Emulators**
+(**Home > Show > Emulators**), or press **1** to step through the
+categories to it, after Homebrew. These games also appear in
 **All games**, with their system's name on each tile.
 Open a game for **Play**, the emulator's settings, **Reset**, and **About**
 (which names the emulator that starts it). Each game's settings are kept
