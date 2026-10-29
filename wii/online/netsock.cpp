@@ -19,6 +19,8 @@ namespace riftwii::wii {
 namespace {
 
 bool g_up = false;
+// A failed start can still have started IOS's socket service.
+bool g_needs_cleanup = false;
 volatile bool g_failed = false;
 // A start that failed is not tried again for a minute: each try takes 20 s
 // or more (and a tester's menu sat for minutes on one, opening Cheats with
@@ -136,6 +138,7 @@ bool NetStart(std::string& error, bool retry) {
             error = "stopped before the network started";
             return false;
         }
+        g_needs_cleanup = true;
         rc = net_init();
         if (rc == -EAGAIN) usleep(100 * 1000);
     }
@@ -165,9 +168,20 @@ bool NetFailed() { return g_failed; }
 
 void NetStop() {
     NetWaitForBackground();
-    if (!g_up) return;
+    if (!g_needs_cleanup) return;
     net_deinit();
+    // libogc closes /dev/net/ip/top separately from the socket service
+    // started through KD. Both must be released when the next program
+    // keeps this IOS; an IOS reload would otherwise hide the leftover state.
+    net_wc24cleanup();
     g_up = false;
+    g_needs_cleanup = false;
+}
+
+void NetStopForLaunch() {
+    NetCancelBackground();
+    NetStop();
+    logf("Network: closed before the launch\n");
 }
 
 bool NetRunInBackground(void (*job)(), bool cancellable, bool run_here) {
