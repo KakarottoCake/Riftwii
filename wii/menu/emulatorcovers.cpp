@@ -372,7 +372,16 @@ CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
     mkdir("sd:/riftwii/banners", 0777);
     mkdir("sd:/riftwii/banners/emulators", 0777);
     std::vector<std::uint8_t> file;
-    if (LocalCover(game, file)) return StoreCover(game, file, "the card", error);
+    if (LocalCover(game, file)) {
+        // The player's own banner PNG is read straight from its folder
+        // (ReadEmulatorBanner) and must not enter the automatic cache, or
+        // Back to automatic would keep showing it after the PNG is removed.
+        if (game.banner) {
+            logf("Emulator banners: %s uses the player's own picture.\n", game.name.c_str());
+            return CoverFetch::Stored;
+        }
+        return StoreCover(game, file, "the card", error);
+    }
     if (game.banner) logf("Emulator banners: no readable local picture was found for %s.\n", game.name.c_str());
     if (!game.downloads) return CoverFetch::NotFound;
     if (!game.covers.empty() && !MissFresh(id, "libretro", game.covers)) {
