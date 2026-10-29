@@ -192,9 +192,113 @@ bool matches_decision(const Words& words, std::size_t start) {
     return has_cache_guard(words, start, decision[13]);
 }
 
+// Follow only simple constant construction in this basic block. An unknown
+// instruction discards all knowledge, so it cannot hide a changed VI base.
+bool is_dtv_load(const Words& words, std::size_t load) {
+    if (opcode(words[load]) != 40 || reg_a(words[load]) == 0) {
+        return false;
+    }
+    std::array<std::uint32_t, 32> values{};
+    std::array<bool, 32> known{};
+    const std::size_t first = load > 8 ? load - 8 : 0;
+    for (std::size_t index = first; index < load; ++index) {
+        const std::uint32_t word = words[index];
+        const unsigned operation = opcode(word);
+        const unsigned destination = reg_d(word);
+        const unsigned base = reg_a(word);
+        if (operation == 14 || operation == 15) {
+            const bool source_known = base == 0 || known[base];
+            const std::uint32_t source = base == 0 ? 0 : values[base];
+            std::uint32_t offset = static_cast<std::uint32_t>(static_cast<std::int16_t>(word));
+            if (operation == 15) {
+                offset <<= 16;
+            }
+            values[destination] = source + offset;
+            known[destination] = source_known;
+        } else if (operation == 24 || operation == 25) {
+            const std::uint32_t bits = immediate(word) << (operation == 25 ? 16 : 0);
+            values[base] = values[destination] | bits;
+            known[base] = known[destination];
+        } else if (operation == 32 || operation == 34 || operation == 40 || operation == 42) {
+            known[destination] = false;
+        } else if (operation == 21 || operation == 28) {
+            known[base] = false;
+        } else if (operation != 36 && operation != 38 && operation != 44 &&
+                   operation != 10 && operation != 11) {
+            known.fill(false);
+        }
+    }
+    const unsigned base = reg_a(words[load]);
+    const std::uint32_t offset = static_cast<std::uint32_t>(static_cast<std::int16_t>(words[load]));
+    const std::uint32_t address = values[base] + offset;
+    return known[base] && (address == 0xCC00206E || address == 0xCD00206E);
+}
+
+// Scheduling is allowed only when the instruction neither reads nor writes
+// the raw DTV value and leaves the condition register alone. In particular,
+// a copy, a store of that value, a call or a branch ends the search.
+bool preserves_strap(std::uint32_t word, unsigned strap) {
+    const unsigned operation = opcode(word);
+    const unsigned source = reg_d(word);
+    const unsigned base = reg_a(word);
+    if (operation == 14 || operation == 15 || operation == 32 || operation == 34 ||
+        operation == 40 || operation == 42) {
+        return source != strap && (base == 0 || base != strap);
+    }
+    if (operation == 24 || operation == 25 || operation == 36 || operation == 38 || operation == 44) {
+        return source != strap && base != strap;
+    }
+    return false;
+}
+
+bool isolates_strap(std::uint32_t word, unsigned strap) {
+    // Destructive extraction is essential: otherwise the unmasked DTV
+    // register could still supply the component-cable bit to another user.
+    if (reg_d(word) != strap || reg_a(word) != strap) {
+        return false;
+    }
+    if (opcode(word) == 28) {
+        return immediate(word) == 2;
+    }
+    if (opcode(word) != 21) {
+        return false;
+    }
+    const unsigned shift = (word >> 11) & 31;
+    const unsigned first = (word >> 6) & 31;
+    const unsigned last = (word >> 1) & 31;
+    // PowerPC numbers mask bits from the MSB. This also accepts extrwi
+    // (rlwinm with a rotation), provided its sole source bit is bit 0x2.
+    const unsigned source_bit = (31 - first + 32 - shift) & 31;
+    return first == last && source_bit == 1;
+}
+
+bool matches_strap_test(const Words& words, std::size_t load, std::size_t count) {
+    const unsigned strap = reg_d(words[load]);
+    bool isolated = false;
+    bool compared = false;
+    unsigned equal_bit = 2;
+    for (std::size_t index = load + 1; index < count && index - load <= 6; ++index) {
+        const std::uint32_t word = words[index];
+        if (!isolated && index - load <= 4 && isolates_strap(word, strap)) {
+            isolated = true;
+            compared = opcode(word) == 28 || (word & 1) != 0;
+        } else if (isolated && (compares(word, 11, strap, 0) || compares(word, 10, strap, 0))) {
+            compared = true;
+            equal_bit = condition_field(word) * 4 + 2;
+        } else if (isolated && compared && opcode(word) == 16 &&
+                   (reg_d(word) == 4 || reg_d(word) == 12) && reg_a(word) == equal_bit && (word & 3) == 0) {
+            return true;
+        } else if (!preserves_strap(word, strap)) {
+            return false;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
-std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text, const std::string& game_id) {
+std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text, const std::string& game_id,
+                                           std::vector<GcFontRead>* unclassified) {
     std::vector<GcFontPatch> patches;
     if (game_id.size() < 4 || game_id[3] != 'J') {
         return patches;
@@ -207,17 +311,28 @@ std::vector<GcFontPatch> find_gc_font_patches(const std::vector<CodeRange>& text
         // big-endian bytes directly without a second copy of the game's code.
         const Words words(range.bytes);
         const std::size_t word_count = range.size / 4;
-        for (std::size_t start = 0; start + kDecisionWords < word_count; ++start) {
-            if (!is_lis(words[start], 0x8000) || !matches_decision(words, start)) {
+        for (std::size_t load = 0; load < word_count; ++load) {
+            if (!is_dtv_load(words, load)) {
                 continue;
             }
-            const std::size_t offset = (start + 7) * 4;
+            const std::size_t offset = load * 4;
             if (offset > UINT32_MAX - range.address) {
                 continue;
             }
-            const unsigned destination = reg_d(words[start + 7]);
-            patches.push_back({range.address + static_cast<std::uint32_t>(offset),
-                               (14u << 26) | (destination << 21) | 2u});
+            const std::uint32_t address = range.address + static_cast<std::uint32_t>(offset);
+            const bool exact = load >= 7 && word_count - load > kDecisionWords - 7 &&
+                               matches_decision(words, load - 7);
+            if (exact || matches_strap_test(words, load, word_count)) {
+                const unsigned destination = reg_d(words[load]);
+                patches.push_back({address, (14u << 26) | (destination << 21) | 2u});
+            } else if (unclassified != nullptr) {
+                GcFontRead read;
+                read.address = address;
+                for (std::size_t index = load; index < word_count && read.word_count < read.words.size(); ++index) {
+                    read.words[read.word_count++] = words[index];
+                }
+                unclassified->push_back(read);
+            }
         }
     }
     return patches;

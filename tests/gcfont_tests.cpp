@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcfont.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <iostream>
@@ -135,18 +136,9 @@ void test_shapes() {
 }
 
 void test_refusals() {
-    // One changed relationship at a time: TV address/register/condition,
-    // branch destinations, VI base/register, bit and record flag, cache
-    // stores and reload. No unrelated DTV read should qualify.
+    // The TV and cache layout are no longer requirements. The VI address,
+    // exclusive use of the strap value and a complete bit test still are.
     const std::vector<std::pair<unsigned, std::uint32_t>> mutations = {
-        {0, d_form(15, 4, 0, 0x8001)},
-        {1, d_form(32, 0, 5, 0xCC)},
-        {1, d_form(32, 0, 4, 0xC8)},
-        {2, compare(11, 1, 0)},
-        {2, compare(11, 0, 1)},
-        {3, conditional(12, 2, 16)},
-        {4, conditional(12, 0, 40)},
-        {5, jump(36)},
         {6, d_form(15, 4, 0, 0xCC01)},
         {7, d_form(40, 0, 5, 0x206E)},
         {7, d_form(40, 0, 4, 0x206C)},
@@ -156,47 +148,22 @@ void test_refusals() {
         {8, d_form(28, 1, 0, 2)},
         {8, d_form(28, 0, 1, 2)},  // a different result could stay live after the decision
         {8, d_form(28, 0, 0, 1)},
-        {9, conditional(4, 2, 12)},
-        {10, d_form(14, 0, 0, 2)},
-        {11, jump(12)},
-        {12, d_form(14, 0, 0, 1)},
-        {13, d_form(44, 1, 13, kCache)},
-        {14, jump(8)},
-        {15, d_form(14, 0, 0, 1)},
-        {16, d_form(44, 0, 13, kCache + 2)},
-        {17, d_form(40, 3, 12, kCache)},
+        {9, conditional(12, 6, 12)},  // consumes another condition field
     };
     for (const auto& mutation : mutations) {
         Fixture text = make_fixture();
         text.words[text.start + mutation.first] = mutation.second;
         EXPECT_TRUE(text.patches("GGFJ01").empty());
     }
-    for (unsigned index : {0u, 1u, 2u}) {
-        Fixture text = make_fixture();
-        text.words[index] = d_form(14, 10, 0, 0);
-        EXPECT_TRUE(text.patches("GGFJ01").empty());
-    }
-    for (unsigned index : {0u, 2u, 3u, 4u, 5u, 6u, 7u}) {
-        Fixture text = make_fixture(true, true);
-        text.words[index] = compare(11, 10, 0);
-        EXPECT_TRUE(text.patches("GGFJ01").empty());
-    }
-    // Writing the cached value between load and compare invalidates the guard.
-    Fixture clobber = make_fixture(true, true);
-    clobber.words[1] = d_form(14, 9, 0, 5);
-    EXPECT_TRUE(clobber.patches("GGFJ01").empty());
-    clobber = make_fixture(true, true);
-    clobber.words[4] = d_form(14, 13, 0, 5);
-    EXPECT_TRUE(clobber.patches("GGFJ01").empty());
-
     Fixture complete = make_fixture();
-    for (std::size_t size = 0; size < complete.words.size(); ++size) {
+    // A complete local bit test is enough; later cache stores may differ.
+    for (std::size_t size = 0; size < complete.start + 10; ++size) {
         Fixture truncated = complete;
         truncated.words.resize(size);
         EXPECT_TRUE(truncated.patches("GGFJ01").empty());
     }
     auto ranges = complete.ranges();
-    ranges[0].size -= 1;
+    ranges[0].size = (complete.start + 10) * 4 - 1;
     EXPECT_TRUE(riftwii::find_gc_font_patches(ranges, "GGFJ01").empty());
     ranges[0].bytes = nullptr;
     EXPECT_TRUE(riftwii::find_gc_font_patches(ranges, "GGFJ01").empty());
@@ -207,6 +174,128 @@ void test_refusals() {
     ranges[0].size = split;
     EXPECT_TRUE(riftwii::find_gc_font_patches(ranges, "GGFJ01").empty());
     EXPECT_TRUE(riftwii::find_gc_font_patches({}, "GGFJ01").empty());
+}
+
+std::uint32_t rotate(unsigned source, unsigned destination, unsigned shift,
+                     unsigned first, unsigned last, bool record) {
+    return d_form(21, source, destination,
+                  (shift << 11) | (first << 6) | (last << 1) | (record ? 1u : 0u));
+}
+
+void expect_patch(Fixture text, std::size_t load, unsigned destination) {
+    std::vector<riftwii::GcFontRead> unclassified;
+    const auto patches = riftwii::find_gc_font_patches(text.ranges(), "GRWJD9", &unclassified);
+    EXPECT_EQ(patches.size(), 1u);
+    EXPECT_TRUE(unclassified.empty());
+    if (patches.size() == 1) {
+        EXPECT_EQ(patches[0].address, kBase + load * 4);
+        EXPECT_EQ(patches[0].instruction, d_form(14, destination, 0, 2));
+    }
+    EXPECT_TRUE(text.patches("GRWED9").empty());
+}
+
+void test_wider_layouts() {
+    // No cached getter or TV-format prelude; a different compiler schedules
+    // unrelated work between the VI base, read, mask and branch.
+    Fixture direct;
+    direct.words = {
+        d_form(15, 8, 0, 0xCC00),
+        d_form(14, 10, 0, 7),
+        d_form(40, 5, 8, 0x206E),
+        d_form(36, 10, 1, 8),
+        d_form(28, 5, 5, 2),
+        d_form(14, 9, 0, 1),
+        conditional(4, 2, 8),
+        kBlr,
+    };
+    expect_patch(direct, 2, 5);
+
+    // A different guard, relocated VI, and an offset built into another
+    // base register. A non-recording mask uses an explicit cmpwi in CR3.
+    Fixture offset;
+    offset.words = {
+        d_form(32, 3, 13, kCache),
+        compare(11, 3, 0),
+        conditional(12, 2, 28),
+        d_form(15, 11, 0, 0xCD00),
+        d_form(14, 12, 11, 0x2000),
+        d_form(40, 6, 12, 0x6E),
+        rotate(6, 6, 0, 30, 30, false),
+        compare(11, 6, 0, 3),
+        conditional(12, 14, 8),
+        kBlr,
+    };
+    expect_patch(offset, 5, 6);
+
+    // extrwi r7,r7,1,30 is rlwinm r7,r7,31,31,31. The
+    // entire address may also be constructed with ori before lhz ...,0.
+    Fixture extracted;
+    extracted.words = {
+        d_form(15, 4, 0, 0xCC00),
+        d_form(24, 4, 9, 0x206E),
+        d_form(40, 7, 9, 0),
+        rotate(7, 7, 31, 31, 31, true),
+        conditional(12, 2, 8),
+        kBlr,
+    };
+    expect_patch(extracted, 2, 7);
+    extracted.words[3] = rotate(7, 7, 31, 31, 31, false);
+    extracted.words.insert(extracted.words.begin() + 4, compare(11, 7, 0));
+    expect_patch(extracted, 2, 7);
+
+    // Signed load offsets and r0 as a logical source follow PowerPC's
+    // actual address rules, rather than matching only the literal 0x206E.
+    Fixture signed_offset;
+    signed_offset.words = {
+        d_form(15, 0, 0, 0xCC00),
+        d_form(24, 0, 4, 0x3000),
+        d_form(40, 7, 4, 0xF06E),
+        rotate(7, 7, 0, 30, 30, true),
+        conditional(12, 2, 8),
+    };
+    expect_patch(signed_offset, 2, 7);
+}
+
+void test_uncertain_reads() {
+    const std::vector<std::vector<std::uint32_t>> uses = {
+        {d_form(28, 7, 7, 1), conditional(12, 2, 8)},  // component cable
+        {rotate(7, 7, 0, 31, 31, true), conditional(12, 2, 8)},
+        {rotate(7, 7, 0, 30, 31, true), conditional(12, 2, 8)},  // both bits
+        {rotate(7, 7, 1, 30, 30, true), conditional(12, 2, 8)},  // wrong source bit
+        {d_form(28, 7, 6, 2), conditional(12, 2, 8)},  // raw r7 stays live
+        {d_form(36, 7, 1, 8), d_form(28, 7, 7, 2), conditional(12, 2, 8)},
+        {d_form(14, 8, 7, 0), d_form(28, 7, 7, 2), conditional(12, 2, 8)},
+        {jump(4), d_form(28, 7, 7, 2), conditional(12, 2, 8)},
+        {d_form(28, 7, 7, 2), compare(11, 8, 0), conditional(12, 2, 8)},
+        {rotate(7, 7, 0, 30, 30, false), conditional(12, 2, 8)},
+        {d_form(28, 7, 7, 2)},  // truncated before the branch
+        {},
+    };
+    for (const auto& use : uses) {
+        Fixture text;
+        text.words = {d_form(15, 4, 0, 0xCC00), d_form(40, 7, 4, 0x206E)};
+        text.words.insert(text.words.end(), use.begin(), use.end());
+        std::vector<riftwii::GcFontRead> reads;
+        EXPECT_TRUE(riftwii::find_gc_font_patches(text.ranges(), "GRWJD9", &reads).empty());
+        EXPECT_EQ(reads.size(), 1u);
+        if (reads.size() == 1) {
+            EXPECT_EQ(reads[0].address, kBase + 4);
+            EXPECT_EQ(reads[0].word_count, std::min<std::size_t>(5, text.words.size() - 1));
+            for (unsigned index = 0; index < reads[0].word_count; ++index) {
+                EXPECT_EQ(reads[0].words[index], text.words[index + 1]);
+            }
+        }
+    }
+    // A clobbered, unknown or non-VI base is not a proven DTV read.
+    for (std::uint32_t setup : {d_form(15, 4, 0, 0x8000), d_form(32, 4, 13, 0),
+                                d_form(14, 4, 0, 0), jump(4)}) {
+        Fixture text;
+        text.words = {d_form(15, 4, 0, 0xCC00), setup, d_form(40, 7, 4, 0x206E),
+                      d_form(28, 7, 7, 2), conditional(12, 2, 8)};
+        std::vector<riftwii::GcFontRead> reads;
+        EXPECT_TRUE(riftwii::find_gc_font_patches(text.ranges(), "GRWJD9", &reads).empty());
+        EXPECT_TRUE(reads.empty());
+    }
 }
 
 // Execute the small synthetic getter to check behavior, including branch
@@ -307,6 +396,8 @@ void test_behavior() {
 int main() {
     test_shapes();
     test_refusals();
+    test_wider_layouts();
+    test_uncertain_reads();
     test_behavior();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)\n";
