@@ -277,7 +277,16 @@ before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
 the game's settings, next to **Cover**. **Home tiles** in
 Settings switches to 3D covers, the carousel, the shelf, channels or
-name tiles. On Home, press **1 and 2** together on a Wii Remote to step
+name tiles. The small **Layout** button at Home's top left shows the
+current layout. Press it to open six cards, then point at one or move
+left and right and press **A** to choose; **B** closes without changing
+anything. The current layout is marked when the picker opens. Classic
+Controller **ZR**, Wii U GamePad **R**, and a USB keyboard's **F2** open
+it too. GameCube L/R keep their page and letter controls; use the control-stick
+pointer to press Layout. In Channels, Layout and Search sit on the bottom
+bar beside the filter and settings buttons. A change keeps the same game
+focused and is saved to the SD card.
+On Home, press **1 and 2** together on a Wii Remote to step
 to the next of these without opening Settings; 1 and 2 then do nothing
 else. Pressed alone, each does its usual job when you let go of it.
 

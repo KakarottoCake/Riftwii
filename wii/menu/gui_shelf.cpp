@@ -133,6 +133,19 @@ void Project(V3 p, float& sx, float& sy) {
     sy = 240.0f + (p.y - 240.0f) * k;
 }
 
+// Layout and Search occupy the top corners. Start lowering a picture
+// 32px before it reaches either button, so the ring keeps moving smoothly
+// while leaving an 8px gap below the buttons (which end at y 60).
+constexpr float kHomeCornerTop = 68.0f;
+float HomeCornerWeight(float left, float right) {
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    const float wide = safeX < 0 ? -safeX : 0;
+    const float byLeft = std::clamp((112.0f - wide - left) / 32.0f, 0.0f, 1.0f);
+    const float byRight = std::clamp((right - (528.0f + wide)) / 32.0f, 0.0f, 1.0f);
+    return std::max(byLeft, byRight);
+}
+
 bool PressedPage(GuiTrigger* t, int delta) {
     const u32 wpad = delta < 0 ? (WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS) : (WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS);
     const u32 drc = delta < 0 ? WIIDRC_BUTTON_MINUS : WIIDRC_BUTTON_PLUS;
@@ -358,6 +371,26 @@ Box MakeBox(float x, float z, float turn, float lift) {
     }
     b.centre = {x, kShelfY - lift - kBoxH / 2, z};
     return b;
+}
+
+// A hovered spine or a box turning near a corner can rise into a button.
+// Use its projected bounds, including its depth, and lower the whole box
+// enough that even the vertex with the smallest perspective scale clears.
+float HomeCornerLowering(const Box& box) {
+    float left, top;
+    Project(box.p[0], left, top);
+    float right = left;
+    float minScale = kEye / (kEye - box.p[0].z);
+    for (const V3& point : box.p) {
+        float x, y;
+        Project(point, x, y);
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        minScale = std::min(minScale, kEye / (kEye - point.z));
+    }
+    const float lowering = std::max(0.0f, kHomeCornerTop - top) * HomeCornerWeight(left, right);
+    return lowering / minScale;
 }
 
 bool FacesEye(const Face& f) {
@@ -858,6 +891,12 @@ void GuiGameGrid::DrawShelf(int alpha) {
         p.lift = riftwii::wii::transition::Follow(p.lift, want.lift, kBoxResponseMs);
         if (want.turn == kTau && p.turn > kTau - 0.01f) p.turn = 0.0f;
     }
+    // Include newly placed boxes too, before drawing them or recording
+    // their hit areas; their first frame must leave the same corner gap.
+    for (int index = first; index <= last; ++index) {
+        BoxPose& pose = poses[index];
+        pose.lift -= HomeCornerLowering(MakeBox(pose.x, pose.z, pose.turn, pose.lift));
+    }
     // Boxes that fell out of reach start again from their place next time.
     for (int i = 0; i < Count(); ++i)
         if (i < first || i > last) poses[i].placed = false;
@@ -1211,10 +1250,16 @@ void GuiGameGrid::DrawRing(int alpha) {
         const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
         const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
         const u8* cover = tex ? nullptr : flat;
-        float w, ph;
+        const float ph = tex ? h : h * 0.92f;
+        float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
+        if (tex) w = ph * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
+        else if (!cover && item.badge == "DISC" && skin::discCase.data)
+            w = ph * skin::discCase.w / skin::discCase.h;
+        const float pictureTop = foot - ph;
+        const float cornerWeight = HomeCornerWeight(cx - w / 2, cx + w / 2);
+        const float lowering = std::max(0.0f, kHomeCornerTop - pictureTop);
+        foot += lowering * cornerWeight;
         if (tex) {
-            ph = h;
-            w = h * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
             skin::DrawRgb5a3Region(tex, riftwii::kCover3dWidth, riftwii::kCover3dHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
                                    w, ph, lit, lit);
             // The reflection: the picture's foot mirrored under it, fading out.
@@ -1222,8 +1267,6 @@ void GuiGameGrid::DrawRing(int alpha) {
                                    cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd);
         } else if (cover) {
             // No 3D cover (yet): the flat cover, as tall as a case in one.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
             // Square to its corners, as a case is: the stored cover's
             // rounded corners are for the covers view's tiles.
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
@@ -1231,14 +1274,10 @@ void GuiGameGrid::DrawRing(int alpha) {
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 1, 1, 1 - kRingReflect,
                                    cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd, true);
         } else if (item.badge == "DISC" && skin::discCase.data) {
-            ph = h * 0.92f;
             const float k = ph / skin::discCase.h;
-            w = skin::discCase.w * k;
             skin::Draw(skin::discCase, cx - w / 2, foot - ph, alpha * shade / 255, k);
         } else {
             // Nothing to show yet: the game's colour where its case goes.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
             GXColor hue = item.hue;
             hue.r = static_cast<u8>(hue.r * shade / 255);
             hue.g = static_cast<u8>(hue.g * shade / 255);
