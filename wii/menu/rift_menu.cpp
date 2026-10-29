@@ -14455,6 +14455,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
 			case kSdGames: return tr("Don't look: the SD card is not searched for games, GameCube games included. For a setup with all its Wii games on a USB drive; packs, themes and saves on the card still work.");
 			case kRescan: return tr("Reads the SD card and the USB drive again, and retries missing covers, boxes and 3D covers.");
+			case kPartitionFailures: return tr("Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
@@ -14492,7 +14493,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				verb = tr("About this");
 			else if (row.kind == FlowRow::Kind::Action) {
 				const RowAction action = actions[static_cast<std::size_t>(focused)];
-				if (action == kMusicFile || action == kWads || action == kWiiChannel)
+				if (action == kMusicFile || action == kWads || action == kWiiChannel || action == kPartitionFailures)
 					verb = tr("Open");
 				else
 					verb = tr(row.value.c_str());
