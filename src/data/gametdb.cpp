@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cctype>
 #include <cstring>
 
 #include "riftwii/textlines.hpp"
@@ -19,6 +20,8 @@ constexpr std::size_t kMaxText = 200;       // a name, a genre, a rating
 constexpr std::size_t kMaxSynopsis = 3000;  // bytes of UTF-8
 constexpr std::size_t kMaxListItems = 24;   // genres, controls, features
 constexpr int kMaxPlayers = 99;
+// The cache's second line once it keeps the games' <type>.
+constexpr const char* kTypesLine = "# with each game's type\n";
 
 bool is_game_id(const std::string& id) {
     if (id.size() != 4 && id.size() != 6) return false;
@@ -116,15 +119,25 @@ WiitdbScanner::WiitdbScanner(std::set<std::string> wanted, std::string lang)
     : wanted_(std::move(wanted)), lang_(std::move(lang)) {}
 
 void WiitdbScanner::feed(const char* data, std::size_t size) {
+    if (complete_) return;
     buffer_.append(data, size);
     constexpr const char* kOpen = "<game ";
     constexpr const char* kClose = "</game>";
+    constexpr const char* kDatabaseClose = "</datafile>";
+    constexpr std::size_t kTail = sizeof("</datafile>") - 2;
     for (;;) {
         if (!in_game_) {
             const std::size_t at = buffer_.find(kOpen);
+            const std::size_t database_end = buffer_.find(kDatabaseClose);
+            if (database_end != std::string::npos && (at == std::string::npos || database_end < at)) {
+                complete_ = true;
+                buffer_.clear();
+                return;
+            }
             if (at == std::string::npos) {
-                // Keep a tail that may be the start of the next "<game ".
-                if (buffer_.size() > 8) buffer_.erase(0, buffer_.size() - 8);
+                // Either tag may cross a piece boundary; the database's
+                // closing tag is longer than the next game's opening.
+                if (buffer_.size() > kTail) buffer_.erase(0, buffer_.size() - kTail);
                 return;
             }
             buffer_.erase(0, at);
@@ -136,7 +149,7 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
                 // Too long to be a game: dropped, then its end looked for.
                 ++skipped_;
                 ++blocks_;
-                buffer_.erase(0, buffer_.size() - 8);
+                buffer_.erase(0, buffer_.size() - kTail);
                 in_game_ = false;
                 // The rest of that block holds no "<game ", so the scan
                 // simply resumes at the next one.
@@ -153,6 +166,15 @@ void WiitdbScanner::feed(const char* data, std::size_t size) {
 }
 
 void WiitdbScanner::take_block(const std::string& block) {
+    // Homebrew apps are kept whether or not they are wanted: they are
+    // matched to the apps on the card by name later, not by ID. Only a
+    // block with "Homebrew" somewhere in it is parsed, so the ten thousand
+    // games are not; the parser decides whether it is the block's type,
+    // spaces in the tags ("<type >") or around the word included.
+    if (block.find("Homebrew") != std::string::npos && homebrew_.size() < kMaxHomebrewTitles) {
+        HomebrewTitle title;
+        if (parse_wiitdb_homebrew(block, title)) homebrew_.push_back(std::move(title));
+    }
     const std::string id = raw_id(block);
     if (!wanted_.count(id) || found_.count(id)) return;
     GameInfo info;
@@ -168,6 +190,9 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
     GameInfo info;
     info.id = clean(game.child_value("id"), 8);
     if (!is_game_id(info.id)) return false;
+    std::string type = clean(game.child_value("type"), 16);
+    for (char& c : type) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    info.custom = type == "CUSTOM";
     info.developer = clean(game.child_value("developer"), kMaxText);
     info.publisher = clean(game.child_value("publisher"), kMaxText);
     info.genres = split_list(game.child_value("genre"));
@@ -211,8 +236,10 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
 
 std::string serialize_game_infos(const std::map<std::string, GameInfo>& games) {
     std::string out = "# GameTDB game details, made by RiftWii from wiitdb.zip\n";
+    out += kTypesLine;
     for (const auto& [id, g] : games) {
         out += "[" + id + "]\n";
+        if (g.custom) out += "type=custom\n";
         if (!g.developer.empty()) out += "developer=" + escape(g.developer) + "\n";
         if (!g.publisher.empty()) out += "publisher=" + escape(g.publisher) + "\n";
         if (!g.genres.empty()) out += "genres=" + escape(join(g.genres)) + "\n";
@@ -249,7 +276,8 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
         if (!current || eq == std::string::npos) continue;
         const std::string key = line.substr(0, eq);
         const std::string value = unescape(line.substr(eq + 1));
-        if (key == "developer") current->developer = clean(value, kMaxText);
+        if (key == "type") current->custom = value == "custom";
+        else if (key == "developer") current->developer = clean(value, kMaxText);
         else if (key == "publisher") current->publisher = clean(value, kMaxText);
         else if (key == "genres") current->genres = split_list(value);
         else if (key == "date") {
@@ -278,6 +306,8 @@ bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& 
     }
     return true;
 }
+
+bool game_infos_have_types(const std::string& text) { return text.find(kTypesLine) != std::string::npos; }
 
 std::string gametdb_locale(const std::string& menu_language) {
     static const char* const kCodes[][2] = {{"ja", "JA"}, {"es", "ES"}, {"pt", "PT"}, {"it", "IT"},

@@ -431,22 +431,20 @@ void test_collect_split_pieces() {
     EXPECT_FALSE(collect_split_pieces("", "x.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
 }
 
-void test_cios_readiness_note() {
+void test_cios_readiness() {
     CiosSlotState none[] = {{249, false}, {250, false}, {251, false}};
-    const std::string note = cios_readiness_note(none, 3);
-    EXPECT_FALSE(note.empty());
-    EXPECT_TRUE(note.find("249") != std::string::npos);
-    EXPECT_TRUE(note.find("d2x") != std::string::npos);
-    EXPECT_TRUE(note.find("v11 beta3") != std::string::npos);
+    EXPECT_TRUE(cios_readiness(none, 3) == CiosReadiness::Missing);
     CiosSlotState one[] = {{249, false}, {250, true}, {251, false}};
-    EXPECT_TRUE(cios_readiness_note(one, 3).empty());
+    EXPECT_TRUE(cios_readiness(one, 3) == CiosReadiness::Present);
     CiosSlotState all[] = {{249, true}, {250, true}, {251, true}};
-    EXPECT_TRUE(cios_readiness_note(all, 3).empty());
+    EXPECT_TRUE(cios_readiness(all, 3) == CiosReadiness::Present);
     // The scans add every other slot holding a d2x a launch would try
     // (readiness_slots, usbcatalog.cpp): d2x only in 252 is not "no cIOS".
     CiosSlotState unusual[] = {{249, false}, {250, false}, {251, false}, {252, true}};
-    EXPECT_TRUE(cios_readiness_note(unusual, 4).empty());
-    EXPECT_TRUE(cios_readiness_note(nullptr, 0).empty() == false);
+    EXPECT_TRUE(cios_readiness(unusual, 4) == CiosReadiness::Present);
+    EXPECT_TRUE(cios_readiness(nullptr, 0) == CiosReadiness::Unknown);
+    EXPECT_TRUE(cios_readiness(nullptr, 3) == CiosReadiness::Unknown);
+    EXPECT_TRUE(cios_readiness(none, 0) == CiosReadiness::Unknown);
     EXPECT_TRUE(cios_revision_is_stub(65280));
     EXPECT_FALSE(cios_revision_is_stub(65535));  // guided d2x installs stamp this whatever the version
     EXPECT_FALSE(cios_revision_is_stub(21011));  // d2x v11 beta1
@@ -600,6 +598,134 @@ void test_gc_disc_change_partner() {
     EXPECT_EQ(gc_disc_change_partner({{"GBIE08", 0}, {"GBIE08", 1}, {"GBIE08", 1}}, 0), 1);
 }
 
+void test_catalog_folder_rules() {
+    // The same rule is used for SD and USB, loose images and the files
+    // one level down in Title [ID]/. WBFS split pieces are not games.
+    for (UsbImageFormat folder : {UsbImageFormat::Iso, UsbImageFormat::Wbfs, UsbImageFormat::Rvz}) {
+        UsbImageFormat format = UsbImageFormat::Wbfs;
+        EXPECT_TRUE(catalog_image_format("Mario.RVZ", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Rvz);
+        EXPECT_TRUE(catalog_image_format("RMGE01.rvz", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Rvz);
+        EXPECT_TRUE(catalog_image_format("RMGE01.ISO", folder, format));
+        EXPECT_TRUE(format == UsbImageFormat::Iso);
+        EXPECT_EQ(catalog_image_format("RMGE01.wbfs", folder, format), folder != UsbImageFormat::Iso);
+        EXPECT_FALSE(catalog_image_format("RMGE01.wbf1", folder, format));
+        EXPECT_FALSE(catalog_image_format("._RMGE01.rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format("../RMGE01.rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format(".rvz", folder, format));
+        EXPECT_FALSE(catalog_image_format("", folder, format));
+    }
+    for (const std::string name : {"Luigi.rvz", "Luigi.ISO", "game.iso", "game.rvz", "disc2.RVZ", "game.gcm"}) {
+        EXPECT_TRUE(is_gc_image_name(name));
+        std::string path;
+        for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs", "usb2:/games", "usb2:/wbfs"}) {
+            EXPECT_TRUE(join_game_path(root, name, path));
+            EXPECT_EQ(path, root + "/" + name);
+            EXPECT_TRUE(join_game_path(root + "/Luigi [GLME01]", name, path));
+        }
+    }
+    EXPECT_FALSE(is_gc_image_name("._game.rvz"));
+    EXPECT_FALSE(is_gc_image_name("../game.iso"));
+    EXPECT_FALSE(is_gc_image_name("game.wbfs"));
+    EXPECT_FALSE(is_gc_image_name(""));
+    std::string path;
+    EXPECT_FALSE(join_game_path("sd:/games", "..", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "a/b.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "a\\b.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", "usb:game.iso", path));
+    EXPECT_FALSE(join_game_path("sd:/games", std::string("x\0.iso", 6), path));
+    EXPECT_TRUE(join_game_path("sd:/games", std::string(230, 'a'), path));
+    EXPECT_EQ(path.size(), std::size_t(240));
+    EXPECT_FALSE(join_game_path("sd:/games", std::string(231, 'a'), path));
+}
+
+void test_gc_catalog_selection() {
+    for (const std::string root : {"sd:/games", "sd:/wbfs", "usb:/games", "usb:/wbfs", "usb2:/games", "usb2:/wbfs"}) {
+        std::vector<GcCatalogImage> images = {
+            {root + "/Luigi.rvz", "GLME01", 0},
+            {root + "/Luigi [GLME01]/game.iso", "GLME01", 0},
+            {root + "/Luigi mod [GLME01]/game.rvz", "GLME01", 0},
+            {root + "/Other.iso", "GMSE01", 0},
+        };
+        auto hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[0], 1);  // Prefer the folder copy; keep distinct mod folders.
+        EXPECT_EQ(hidden[1], -1);
+        EXPECT_EQ(hidden[2], -1);
+        EXPECT_EQ(hidden[3], -1);
+        std::reverse(images.begin(), images.end());
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[3], 1);  // Independent of directory listing order.
+        EXPECT_EQ(hidden[0], -1);
+
+        images = {{root + "/disc2.rvz", "GXXE01", 1}, {root + "/game.iso", "GXXE01", 0}};
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_EQ(hidden[0], 1);
+        EXPECT_EQ(hidden[1], -1);
+        images[1].id = "GYYE01";
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);
+        images.pop_back();
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);  // Disc 2 alone remains listed.
+        images = {{root + "/Pair [GXXE01]/disc2.iso", "GXXE01", 1},
+                  {root + "/Pair [GXXE01]/game.rvz", "GXXE01", 0}};
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], 1);
+        images[1].path = root + "/Different folder/game.rvz";
+        EXPECT_EQ(gc_catalog_hidden_by(images)[0], -1);  // Never pair across folders.
+
+        // A folder containing only disc 1 must not replace a loose pair:
+        // the game needs disc 2 in the same directory when it changes discs.
+        images = {{root + "/game.iso", "GXXE01", 0},
+                  {root + "/disc2.iso", "GXXE01", 1},
+                  {root + "/Copy/game.iso", "GXXE01", 0}};
+        hidden = gc_catalog_hidden_by(images);
+        EXPECT_TRUE(hidden == (std::vector<int>{-1, 0, 0}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{2, 2, -1}));
+        std::reverse(images.begin(), images.end());
+
+        // Once the folder has its own disc 2, prefer that complete copy.
+        images.push_back({root + "/Copy/disc2.iso", "GXXE01", 1});
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{2, 0, -1, 2}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{1, -1, 0, 1}));
+
+        // With no disc 2 in either place, the folder still takes priority.
+        images = {{root + "/game.iso", "GXXE01", 0},
+                  {root + "/Copy/game.iso", "GXXE01", 0}};
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{1, -1}));
+        std::reverse(images.begin(), images.end());
+        EXPECT_TRUE(gc_catalog_hidden_by(images) == (std::vector<int>{-1, 0}));
+    }
+    const std::vector<GcCatalogImage> separate_devices = {
+        {"sd:/games/Luigi.iso", "GLME01", 0}, {"usb:/games/Luigi/game.rvz", "GLME01", 0}
+    };
+    EXPECT_EQ(gc_catalog_hidden_by(separate_devices)[0], -1);
+    const std::vector<GcCatalogImage> overlapping_roots = {
+        {"sd:/games/Luigi/game.rvz", "GLME01", 0}, {"sd:/games/Luigi/game.rvz", "GLME01", 0}
+    };
+    EXPECT_EQ(gc_catalog_hidden_by(overlapping_roots)[0], -1);
+    EXPECT_EQ(gc_catalog_hidden_by(overlapping_roots)[1], 0);
+    EXPECT_TRUE(gc_catalog_hidden_by({}).empty());
+}
+
+void test_gc_scan_preserves_wii_lazy_listing() {
+    for (const std::string root : {"sd:/wbfs", "usb:/wbfs", "sd:/games", "usb:/games"}) {
+        EXPECT_FALSE(gc_scan_should_open(root + "/Deca Sports [R2SE18]/R2SE18.rvz", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Galaxy [SB4E01]/SB4E01.iso", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/RMGE01.iso", false));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Deca.rvz", true));
+        EXPECT_FALSE(gc_scan_should_open(root + "/Wii.iso", true));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Unknown.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Luigi [GLME01]/game.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Luigi [GLME01]/game.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/GLME01.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/D43E01.gcm", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/PXXE01.rvz", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/UXXE01.iso", false));
+        EXPECT_TRUE(gc_scan_should_open(root + "/Rubbish.iso", false));
+    }
+}
+
 void test_gc_folder_skip_reason() {
     // Images RiftWii plays, hidden names, .ciso (reported on its own) and
     // files beside an image get no line.
@@ -749,12 +875,15 @@ int main() {
     test_dual_layer_split_wbfs();
     test_single_layer_wbfs_size();
     test_collect_split_pieces();
-    test_cios_readiness_note();
+    test_cios_readiness();
     test_plan_over_usb();
     test_ciso_detection();
     test_gc_second_disc_of();
     test_gc_disc_change_partner();
     test_gc_folder_skip_reason();
+    test_catalog_folder_rules();
+    test_gc_catalog_selection();
+    test_gc_scan_preserves_wii_lazy_listing();
     test_gc_container_by_magic();
     test_d2x_usb_checks();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";

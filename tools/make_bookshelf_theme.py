@@ -39,9 +39,13 @@ RNG = np.random.default_rng(1206)
 # shelf view's walls get the same planks.
 WALL_STATE = {}
 
-# Home's cover rows (wii/menu/gui_gamegrid.cpp: covers 80x112 drawn at
-# kCoverScale, 104 high, from y 30, 12 apart).
-COVER_ROW_BOTTOMS = (30 + 104, 30 + 104 + 12 + 104)
+# Home's cover rows (wii/menu/gui_gamegrid.cpp): 80x112 covers, rounded
+# to the nearest pixel after scaling, from y 30 with a 10-pixel gap.
+# Widescreen uses 1.2 instead of 0.925, so its shelves stand lower too.
+COVER_ROW_BOTTOMS = {
+    640: (30 + 104, 30 + 104 + 10 + 104),
+    856: (30 + 134, 30 + 134 + 10 + 134),
+}
 # Home's channels: three rows of 88 from y 30, 10 apart (wii/menu/gui_gamegrid.cpp).
 CHANNEL_ROW_BOTTOMS = (30 + 88, 30 + 88 + 10 + 88, 30 + 3 * 88 + 2 * 10)
 # The shelf view's plank (kShelfY in wii/menu/gui_shelf.cpp).
@@ -144,7 +148,9 @@ def shade(img, y0, y1, top, bottom):
     img[y0:y1] *= f
 
 
-def background(W=640, shelves=COVER_ROW_BOTTOMS):
+def background(W=640, shelves=None):
+    if shelves is None:
+        shelves = COVER_ROW_BOTTOMS[W]
     H = 480
     img = np.zeros((H, W, 3))
     # The wall: planks 60 high, each its own cut of the wood.
@@ -167,16 +173,23 @@ def background(W=640, shelves=COVER_ROW_BOTTOMS):
     # The shelves: a top the covers stand on, seen from a little above,
     # a front edge filling the gap to the next row, and a deep shadow.
     for bottom in shelves:
-        top_face, lip = 8, 10
+        # Leave plain, light wood behind the selected game's caption just
+        # below the last row. A deep front and shadow would cross its text.
+        last_shelf = bottom == shelves[-1]
+        top_face = 8
+        lip = 6 if last_shelf else 10
         y0 = bottom - top_face + 4
         img[y0:y0 + top_face] = wood(W, top_face, (232, 196, 142), (204, 162, 108), phase=bottom * 0.1, wave=2)
         shade(img, y0, y0 + top_face, 0.80, 1.02)
         ly = y0 + top_face
-        img[ly:ly + lip] = wood(W, lip, (176, 128, 78), (146, 100, 56), phase=bottom * 0.2, wave=2)
+        # Keep the same random sequence for the other theme pictures when
+        # trimming the last front edge from ten rows to six.
+        front = wood(W, 10, (176, 128, 78), (146, 100, 56), phase=bottom * 0.2, wave=2)
+        img[ly:ly + lip] = front[:lip]
         img[ly:ly + 1] = np.minimum(img[ly:ly + 1] * 1.25, 255)   # the lit front corner
         shade(img, ly + 1, ly + lip, 1.0, 0.78)
         img[ly + lip - 1:ly + lip] *= 0.6
-        sh = 26
+        sh = 4 if last_shelf else 26
         f = 1.0 - 0.55 * (1 - np.linspace(0, 1, sh)) ** 1.8
         img[ly + lip:ly + lip + sh] *= f[:, None, None]
     return np.clip(img, 0, 255).astype(np.uint8)

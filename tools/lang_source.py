@@ -25,6 +25,8 @@ T = {
         "Y: visão  Z: opções  L/R: páginas",
         "Y: vista  Z: opzioni  L/R: pagine"),
     # Home
+    "Layout": ("Diseño", "レイアウト", "Layout", "Disposizione"),
+    "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
     "Games with mods": ("Juegos con mods", "MODがあるゲーム", "Jogos com mods", "Giochi con mod"),
     "All games": ("Todos los juegos", "すべてのゲーム", "Todos os jogos", "Tutti i giochi"),
     "Recently played": ("Jugados hace poco", "最近遊んだゲーム", "Jogados recentemente", "Giocati di recente"),
@@ -95,6 +97,11 @@ T = {
         "RiftWiiはまだドライブを読み込んでいます。",
         "O RiftWii ainda está lendo as unidades.",
         "RiftWii sta ancora leggendo le unità."),
+    "Go back to Home and open this again once your games are shown.": (
+        "Vuelve a Inicio y abre esto de nuevo cuando se muestren tus juegos.",
+        "ホームに戻り、ゲームが表示されてからもう一度開いてください。",
+        "Volte ao Início e abra isto de novo quando seus jogos aparecerem.",
+        "Torna alla Home e riapri questa pagina quando vengono mostrati i tuoi giochi."),
     "Waiting for RiftWii to finish reading the drives...": (
         "Esperando a que RiftWii termine de leer las unidades...",
         "RiftWiiがドライブを読み終わるのを待っています...",
@@ -283,11 +290,6 @@ T = {
                                                            "このゲームのチートコードです。Aで選びます。",
                                                            "Códigos de trapaça deste jogo. Aperte A para escolhê-los.",
                                                            "Codici trucco per questo gioco. Premi A per sceglierli."),
-    "How wide the picture is drawn. 720 fills the screen from side to side.": (
-        "El ancho de la imagen. 720 llena la pantalla de lado a lado.",
-        "画面の横幅です。720にすると画面の端から端まで表示されます。",
-        "A largura da imagem. 720 preenche a tela de lado a lado.",
-        "La larghezza dell'immagine. 720 riempie lo schermo da un lato all'altro."),
     "A filter that softens the picture to hide flicker. Off gives the sharpest picture.": (
         "Un filtro que suaviza la imagen para ocultar el parpadeo. Con No se ve más nítida.",
         "ちらつきを抑えるために画面をぼかすフィルターです。オフにすると一番くっきりします。",
@@ -353,9 +355,6 @@ T = {
                                                  "これがオンのときだけチートが使われます。",
                                                  "As trapaças só são aplicadas quando isto está em Sim.",
                                                  "I trucchi si applicano solo quando questo è su Sì."),
-    "Downloads are off in Settings.": ("Las descargas están desactivadas en Ajustes.", "設定でダウンロードがオフになっています。",
-                                       "Os downloads estão desativados nas Configurações.",
-                                       "I download sono disattivati nelle Impostazioni."),
     "No game is selected.": ("No hay ningún juego elegido.", "ゲームが選ばれていません。", "Nenhum jogo escolhido.",
                              "Nessun gioco scelto."),
     "No cheat file yet. Choose Download to get one.": ("Aún no hay archivo de trucos. Elige Descargar para obtenerlo.",
@@ -394,8 +393,6 @@ T = {
     "Other": ("Otros", "その他", "Outros", "Altro"),
     "Language": ("Idioma", "言語", "Idioma", "Lingua"),
     "Wii: {1}": ("Wii: {1}", "Wii: {1}", "Wii: {1}", "Wii: {1}"),
-    "Download names and cheats": ("Descargar nombres y trucos", "ゲーム名とチートをダウンロード", "Baixar nomes e trapaças",
-                                  "Scarica nomi e trucchi"),
     "Get the latest game names": ("Actualizar nombres de juegos", "最新のゲーム名を取得", "Atualizar nomes dos jogos",
                                   "Aggiorna i nomi dei giochi"),
     "Download missing covers": ("Descargar portadas que faltan", "足りないカバーをダウンロード", "Baixar capas que faltam",
@@ -423,21 +420,6 @@ T = {
         "ゲーム名はダウンロード時にこの言語になります。",
         "Os nomes dos jogos seguem o idioma quando são baixados.",
         "I nomi dei giochi seguono la lingua quando vengono scaricati."),
-    "Game names and cheats are downloaded when the Wii is online.": (
-        "Los nombres y trucos se descargan cuando la Wii tiene conexión.",
-        "Wiiがインターネットにつながっているとき、ゲーム名とチートをダウンロードします。",
-        "Nomes e trapaças são baixados quando o Wii está online.",
-        "Nomi e trucchi vengono scaricati quando la Wii è online."),
-    "Nothing is downloaded. Names and cheats already on the card are still used.": (
-        "No se descarga nada. Se siguen usando los nombres y trucos que ya están en la tarjeta.",
-        "何もダウンロードしません。カードにあるゲーム名とチートはそのまま使います。",
-        "Nada é baixado. Os nomes e trapaças que já estão no cartão continuam sendo usados.",
-        "Non viene scaricato nulla. Nomi e trucchi già sulla scheda restano in uso."),
-    "Downloads are off. Turn on Download names and cheats first.": (
-        "Las descargas están desactivadas. Activa antes Descargar nombres y trucos.",
-        "ダウンロードがオフです。先に「ゲーム名とチートをダウンロード」をオンにしてください。",
-        "Os downloads estão desativados. Ative antes Baixar nomes e trapaças.",
-        "I download sono disattivati. Attiva prima Scarica nomi e trucchi."),
     "Downloading game names...": ("Descargando nombres de juegos...", "ゲーム名をダウンロードしています...",
                                   "Baixando nomes dos jogos...", "Download dei nomi dei giochi..."),
     "Game names updated.": ("Nombres de juegos actualizados.", "ゲーム名を更新しました。", "Nomes dos jogos atualizados.",
@@ -462,11 +444,6 @@ T = {
                                                    "次にRiftWiiを起動したときに反映されます。",
                                                    "Vale a partir da próxima vez que o RiftWii abrir.",
                                                    "Ha effetto al prossimo avvio di RiftWii."),
-    "Looks for a PC running a RiiFS server when the games are read. Rescan to look now.": (
-        "Busca un PC con un servidor RiiFS al leer los juegos. Pulsa Buscar para hacerlo ahora.",
-        "ゲームを読み込むときにRiiFSサーバーを動かしているPCを探します。今すぐ探すには再検索してください。",
-        "Procura um PC com um servidor RiiFS ao ler os jogos. Use Procurar para fazer isso agora.",
-        "Cerca un PC con un server RiiFS quando legge i giochi. Usa Cerca per farlo ora."),
     "Only servers named by <network> in an XML on the card are used.": (
         "Solo se usan los servidores indicados con <network> en un XML de la tarjeta.",
         "カード上のXMLの<network>で指定されたサーバーだけを使います。",
@@ -518,11 +495,6 @@ T = {
         "ゲームはSDカードかUSBドライブのwbfsまたはgamesフォルダに入れてください (WBFS、ISO、RVZ)。ドライブのディスクも表示されます。最初はMODがあるゲームだけが表示されます。すべてのゲームを見るには、1か左下の丸いボタンを押してください。",
         "Coloque os jogos na pasta wbfs ou games na raiz do cartão SD ou da unidade USB (WBFS, ISO ou RVZ). O disco na unidade também aparece. No início são mostrados os jogos com mods: aperte 1, ou o botão redondo embaixo à esquerda, para ver todos.",
         "Metti i giochi nella cartella wbfs o games nella radice della scheda SD o dell'unità USB (WBFS, ISO o RVZ). Appare anche il disco nell'unità. All'inizio vengono mostrati i giochi con mod: premi 1, o il pulsante rotondo in basso a sinistra, per vederli tutti."),
-    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.": (
-        "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompañan) en sd:/riivolution o usb:/riivolution. Elige un juego, abre Mods, activa un paquete y elige sus opciones. Jugar (o +) inicia el juego con ellos.",
-        "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutionかusb:/riivolutionに入れてください。ゲームを選び、MODを開いてパックをオンにし、設定を選びます。はじめる (か+) でMODつきで遊べます。",
-        "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) em sd:/riivolution ou usb:/riivolution. Escolha um jogo, abra Mods, ative um pacote e escolha as opções. Jogar (ou +) inicia o jogo com eles.",
-        "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."),
     "Buttons": ("Botones", "ボタン", "Botões", "Pulsanti"),
     "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.": (
         "Apunta con el mando de Wii y pulsa A, o usa la cruceta. -/+ pasan las páginas de Inicio; L/R también en Classic y GameCube (pulsa hasta el clic). Mantén L y usa la cruceta para saltar letras con GameCube. En Inicio, Z abre Ajustes y B busca. B vuelve en otras pantallas; HOME (Start en GameCube) abre el menú HOME; en un banner de Canales, Start en GameCube inicia el juego.",
@@ -530,11 +502,6 @@ T = {
         "Aponte com o Wii Remote e aperte A, ou use o direcional. -/+ viram as páginas de Início; L/R também no Classic e GameCube (aperte até o clique). Segure L com o direcional para saltar letras no GameCube. Em Início, Z abre Configurações e B busca. B volta em outras telas; HOME (Start no GameCube) abre o menu HOME; em um banner de Canais, Start no GameCube inicia o jogo.",
         "Punta con il telecomando Wii e premi A, o usa la croce direzionale. -/+ cambiano pagina in Home; anche L/R su Classic e GameCube (premi fino allo scatto). Tieni L e usa la croce per saltare lettere su GameCube. In Home, Z apre Impostazioni e B cerca. B torna indietro nelle altre schermate; HOME (Start su GameCube) apre il menu HOME; su un banner di Canali, Start su GameCube avvia il gioco."),
     "You're all set": ("Todo listo", "準備完了", "Tudo pronto", "Tutto pronto"),
-    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.": (
-        "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez.",
-        "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > チュートリアル でこのガイドをもう一度見られます。",
-        "As configurações têm as opções de vídeo, idioma, jogo online e atualizações. Para mais ajuda, veja o guia na página do RiftWii no GitHub ou entre no Discord. Configurações > Tutorial mostra este tour de novo.",
-        "Nelle impostazioni ci sono le opzioni di video, lingua, gioco online e aggiornamenti. Per altro aiuto, leggi la guida sulla pagina GitHub di RiftWii o entra nel Discord. Impostazioni > Tutorial mostra di nuovo questa guida."),
     "Next": ("Siguiente", "次へ", "Próximo", "Avanti"),
     "Skip": ("Omitir", "スキップ", "Pular", "Salta"),
     "Let's go": ("¡Vamos!", "はじめる", "Vamos lá", "Iniziamo"),
@@ -547,17 +514,6 @@ T = {
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and license": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
-    "Clear search": ("Borrar búsqueda", "検索をやめる", "Limpar busca", "Annulla ricerca"),
-    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.": (
-        "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz de la SD o del USB y luego elige Buscar juegos de nuevo en Ajustes.",
-        "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
-        "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações.",
-        "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice della SD o dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
-    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.": (
-        "Aún no hay juegos. La tarjeta SD no se busca (Ajustes > Unidades). Pon tus juegos (WBFS, ISO o RVZ) en wbfs o games del USB y luego elige Buscar juegos de nuevo en Ajustes.",
-        "ゲームがまだありません。SDカードは探していません(設定 > ドライブ)。ゲーム(WBFS、ISO、RVZ)をUSBドライブのwbfsまたはgamesに入れて、設定の「ゲームをもう一度探す」を選んでください。",
-        "Nenhum jogo ainda. O cartão SD não é procurado (Configurações > Unidades). Coloque seus jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e depois escolha Procurar jogos de novo em Configurações.",
-        "Ancora nessun gioco. La scheda SD non viene cercata (Impostazioni > Unità). Metti i giochi (WBFS, ISO o RVZ) in wbfs o games sull'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.": (
         "Un juego de GameCube va en su propia carpeta, como usb:/games/<su ID>/game.iso.",
         "ゲームキューブのゲームは専用のフォルダに、usb:/games/<ID>/game.isoとして入れます。",
@@ -764,7 +720,7 @@ T = {
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
     # Covers (Home's status line and the game page's Cover row)
-    "Getting covers from GameTDB: {1} left": (
+    "Getting covers: {1} left": (
         "Descargando portadas de GameTDB: faltan {1}",
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
@@ -803,18 +759,23 @@ T = {
         "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo.",
         "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."),
     # Return to RiftWii (Settings)
-    "Wii Menu button": ("Botón Menú de Wii", "Wiiメニューボタン", "Botão Menu Wii", "Pulsante Menu Wii"),
+    "Quitting a game": ("Al salir del juego", "ゲームをやめるとき", "Ao sair do jogo", "Uscita dal gioco"),
     "Back to RiftWii": ("Volver a RiftWii", "RiftWiiに戻る", "Voltar ao RiftWii", "Torna a RiftWii"),
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.": (
-        "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado.",
-        "ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。",
-        "O botão Menu Wii do menu HOME de um jogo leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado.",
-        "Il pulsante Menu Wii del menu HOME di un gioco ti riporta a RiftWii. Serve il canale RiftWii installato."),
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).": (
-        "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes).",
-        "RiftWiiチャンネルをインストールすると(設定)、ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻れます。",
-        "O botão Menu Wii do menu HOME de um jogo pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
-        "Il pulsante Menu Wii del menu HOME di un gioco può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.": (
+        "Salir del juego con el botón Menú de Wii del menú HOME te devuelve a RiftWii. Necesita el canal de RiftWii instalado.",
+        "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。",
+        "Sair do jogo com o botão Menu Wii do menu HOME leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado.",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME ti riporta a RiftWii. Serve il canale RiftWii installato."),
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).": (
+        "Salir del juego con el botón Menú de Wii del menú HOME puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes).",
+        "RiftWiiチャンネルをインストールすると(設定)、HOMEメニューの「Wiiメニュー」ボタンでゲームをやめたときRiftWiiに戻れます。",
+        "Sair do jogo com o botão Menu Wii do menu HOME pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.": (
+        "Salir del juego con el botón Menú de Wii del menú HOME te lleva al Menú de Wii.",
+        "HOMEメニューの「Wiiメニュー」ボタンでゲームをやめるとWiiメニューに戻ります。",
+        "Sair do jogo com o botão Menu Wii do menu HOME leva você ao Menu Wii.",
+        "Uscire dal gioco con il pulsante Menu Wii del menu HOME ti porta al Menu Wii."),
     # Menu music (Settings)
     "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
     "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
@@ -984,11 +945,6 @@ T = {
         "本当に更新しませんか? 何か問題があった場合、最新の更新で直っているかもしれません!",
         "Tem certeza de que não quer atualizar? Se você teve algum problema, ele pode ter sido corrigido na última atualização!",
         "Sei sicuro di non voler aggiornare? Se hai avuto un problema, potrebbe essere stato risolto nell'ultimo aggiornamento!"),
-    "RiftWii {1} is out. Settings > Check for a new version installs it.": (
-        "Ya salió RiftWii {1}. Ajustes > Buscar una versión nueva la instala.",
-        "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。",
-        "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala.",
-        "È uscita RiftWii {1}. Impostazioni > Cerca una nuova versione la installa."),
     "No release is out yet. This is RiftWii {1}.": (
         "Aún no ha salido ninguna versión. Esta es RiftWii {1}.",
         "まだリリースはありません。これはRiftWii {1}です。",
@@ -1000,6 +956,15 @@ T = {
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
     "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
     "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
+    "USB: Dragon Quest X's drive": ("USB: la unidad de Dragon Quest X", "USB: ドラゴンクエストXのドライブ", "USB: a unidade de Dragon Quest X", "USB: l'unità di Dragon Quest X"),
+    "Encrypted drive": ("Unidad cifrada", "ロックされたドライブ", "Unidade criptografada", "Unità cifrata"),
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)": ("USB: una unidad cifrada, quizá la de Dragon Quest X (RiftWii no la usa)", "USB: ロックされたドライブ(ドラゴンクエストXのものかも。RiftWiiは使いません)", "USB: uma unidade criptografada, talvez a de Dragon Quest X (o RiftWii não a usa)", "USB: un'unità cifrata, forse quella di Dragon Quest X (RiftWii non la usa)"),
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.": (
+        "La unidad USB conectada está cifrada: puede ser la de Dragon Quest X o la propia de una Wii U. RiftWii no puede leerla sin la clave WFS de esta Wii (sd:/riftwii/wfskey.bin), así que no la usa. Si contiene Dragon Quest X, déjala como está: el juego se inicia desde los canales de la Wii.",
+        "接続されているUSBドライブはロックされています。ドラゴンクエストXのドライブか、Wii U本体のドライブかもしれません。このWiiのWFSキー(sd:/riftwii/wfskey.bin)がないとRiftWiiは読めないので、使いません。ドラゴンクエストXが入っているなら、そのままにしてください。ゲームはWiiのチャンネルから起動します。",
+        "A unidade USB conectada está criptografada: pode ser a de Dragon Quest X ou a própria de um Wii U. O RiftWii não consegue lê-la sem a chave WFS deste Wii (sd:/riftwii/wfskey.bin), então não a usa. Se ela tiver Dragon Quest X, deixe-a como está: o jogo inicia pelos canais do Wii.",
+        "L'unità USB collegata è cifrata: può essere quella di Dragon Quest X o quella di una Wii U. RiftWii non può leggerla senza la chiave WFS di questa Wii (sd:/riftwii/wfskey.bin), quindi non la usa. Se contiene Dragon Quest X, lasciala così com'è: il gioco si avvia dai canali della Wii.",
+    ),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1223,6 +1188,11 @@ T = {
         "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
         "Escolha para onde ir: Homebrew Channel, Menu do Wii, Priiloader ou desligar.",
         "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.": (
+        "Elige adónde ir: Homebrew Channel, menú de Wii, reiniciar la consola o apagar.",
+        "行き先を選びます：Homebrew Channel、Wiiメニュー、本体の再起動、または電源オフ。",
+        "Escolha para onde ir: Homebrew Channel, Menu do Wii, reiniciar o console ou desligar.",
+        "Scegli dove andare: Homebrew Channel, Menu Wii, riavvio della console o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
     "Gathering the logs and sending them. This can take half a minute...": (
@@ -1526,7 +1496,6 @@ T = {
     "{1} blocks": ("{1} bloques", "{1}ブロック", "{1} blocos", "{1} blocchi"),
     "Add a save": ("Añadir una partida", "セーブを追加", "Adicionar um save", "Aggiungi un salvataggio"),
     "Add a save from the SD card": ("Añadir una partida desde la tarjeta SD", "SDカードからセーブを追加", "Adicionar um save do cartão SD", "Aggiungi un salvataggio dalla scheda SD"),
-    "Back up saves": ("Copia de seguridad de partidas", "セーブのバックアップ", "Backup dos saves", "Backup dei salvataggi"),
     "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.": ("Antes de que arranque un juego de GameCube, su tarjeta de memoria se copia en la tarjeta SD. Se guardan las cinco últimas copias, para Restaurar una partida anterior en la página de partidas del juego.", "ゲームキューブのゲームを起動する前に、そのメモリーカードをSDカードにコピーします。最新の5つのコピーが残り、ゲームのセーブのページの「前のセーブに戻す」で使えます。", "Antes de um jogo de GameCube iniciar, o cartão de memória dele é copiado para o cartão SD. As últimas cinco cópias são mantidas, para Restaurar um save anterior na página de saves do jogo.", "Prima che parta un gioco GameCube, la sua Memory Card viene copiata sulla scheda SD. Restano le ultime cinque copie, per Ripristina un salvataggio precedente nella pagina dei salvataggi del gioco."),
     "Restore an older save": ("Restaurar una partida anterior", "前のセーブに戻す", "Restaurar um save anterior", "Ripristina un salvataggio precedente"),
     "Go back to how your save was on a day you pick.": ("Vuelve a tu partida tal como estaba el día que elijas.", "選んだ日のセーブの状態に戻します。", "Volte o seu save para como estava no dia que você escolher.", "Riporta il salvataggio a com'era nel giorno che scegli."),
@@ -1605,7 +1574,7 @@ T = {
     "This game's memory card is made the first time the game starts: {1}.": ("La tarjeta de memoria de este juego se crea la primera vez que se inicia: {1}.", "このゲームのメモリーカードは、ゲームを初めて始めたときに作られます: {1}。", "O cartão de memória deste jogo é criado na primeira vez que o jogo inicia: {1}.", "La Memory Card di questo gioco viene creata al primo avvio del gioco: {1}."),
     "This save is damaged: its blocks do not add up. It can only be deleted.": ("Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar.", "このセーブは壊れています: ブロックが合いません。削除しかできません。", "Este save está danificado: os blocos não batem. Só pode ser apagado.", "Questo salvataggio è danneggiato: i blocchi non tornano. Si può solo eliminare."),
     "It is {1}.": ("Es {1}.", "{1}です。", "É {1}.", "È {1}."),
-    "RiftWii cannot read {1}: {2}": ("RiftWii no puede leer {1}: {2}", "RiftWiiは{1}を読めません: {2}", "O RiftWii não consegue ler {1}: {2}", "RiftWii non riesce a leggere {1}: {2}"),
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.": ("RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube.", "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。", "O RiftWii não consegue ler {1}: está danificado ou não é um cartão de memória de GameCube.", "RiftWii non riesce a leggere {1}: è danneggiata o non è una memory card GameCube."),
     "RiftWii could not read {1}.": ("RiftWii no pudo leer {1}.", "RiftWiiは{1}を読めませんでした。", "O RiftWii não conseguiu ler {1}.", "RiftWii non è riuscito a leggere {1}."),
     "RiftWii could not write {1}.": ("RiftWii no pudo escribir {1}.", "RiftWiiは{1}を書き込めませんでした。", "O RiftWii não conseguiu escrever {1}.", "RiftWii non è riuscito a scrivere {1}."),
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
@@ -1653,11 +1622,6 @@ T = {
         "Vuoi che il Canale Disco compaia nella Home?"),
     "Yes": ("Sí", "はい", "Sim", "Sì"),
     "No": ("No", "いいえ", "Não", "No"),
-    "You can bring it back any time in Settings > Disc Channel.": (
-        "Puedes volver a mostrarlo cuando quieras en Ajustes > Canal Disco.",
-        "設定 > ディスクドライブチャンネル でいつでも戻せます。",
-        "Você pode trazê-lo de volta quando quiser em Configurações > Canal Disco.",
-        "Puoi riaverlo quando vuoi in Impostazioni > Canale Disco."),
     "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.": (
         "La casilla del lector de discos en Inicio, para jugar desde un disco. Si está desactivada y quieres jugar desde un disco, vuelve a activarla aquí.",
         "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。",
@@ -1855,11 +1819,6 @@ T = {
         "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z. Sua ordem é a sua: no Início, segure B e aperte A num jogo para movê-lo.",
         "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z. Il tuo ordine è tuo: nella Home, tieni premuto B e premi A su un gioco per spostarlo."),
     "Your order": ("Tu orden", "自分の並び順", "Sua ordem", "Il tuo ordine"),
-    "Home is in your own order now. Settings > Home order puts it back A to Z.": (
-        "Inicio está ahora en tu propio orden. Ajustes > Orden de Inicio lo vuelve a poner de la A a la Z.",
-        "ホームは自分の並び順になりました。設定 > ホームの並び順でA〜Z順に戻せます。",
-        "O Início está agora na sua própria ordem. Configurações > Ordem do Início volta para de A a Z.",
-        "La Home è ora nel tuo ordine. Impostazioni > Ordine della Home la rimette dalla A alla Z."),
     "Let go of A: put it down   At a side: turn the page": (
         "Suelta A: dejarlo   En un lado: pasar página",
         "Aを離す: 置く   端で止める: ページをめくる",
@@ -1945,6 +1904,16 @@ T = {
         "どのポート?",
         "Qual porta?",
         "Quale porta?"),
+    "USB keyboard, mouse and tablet": (
+        "Teclado, ratón y tableta USB",
+        "USBキーボード・マウス・タブレット",
+        "Teclado, mouse e mesa digitalizadora USB",
+        "Tastiera, mouse e tavoletta USB"),
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.": (
+        "Desactivado: RiftWii no usa teclados, ratones ni tabletas USB, ni la uDraw. Desactívalo si el menú falla con uno conectado, o sin ninguno.",
+        "オフ: RiftWiiはUSBキーボード、マウス、ペンタブレット、uDrawを使いません。どれかをつないだとき、またはつないでいないときにメニューの動きがおかしければ、オフにしてください。",
+        "Desligado: o RiftWii não usa teclados, mouses nem mesas digitalizadoras USB, nem a uDraw. Desligue se o menu falhar com um conectado, ou sem nenhum.",
+        "Spento: RiftWii non usa tastiere, mouse e tavolette USB, né la uDraw. Spegnilo se il menu dà problemi con uno collegato, o senza nessuno."),
     "Wii Remote rumble": (
         "Vibración del Wii Remote",
         "Wiiリモコンの振動",
@@ -2023,7 +1992,6 @@ T = {
     "Install": ("Instalar", "インストール", "Instalar", "Installa"),
     "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
     "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
-    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
     "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
     "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
@@ -2031,12 +1999,12 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-617
-    "Wii Menu sounds and music in Settings > Menu": ("Sonidos y música del Menú de Wii en Ajustes > Menú", "Wiiメニューの音と音楽（設定 > メニュー）", "Sons e música do Wii Menu em Configurações > Menu", "Suoni e musica del menu Wii in Impostazioni > Menu"),
-    "GameCube memory cards in more games": ("Tarjetas de memoria de GameCube en más juegos", "ゲームキューブのメモリーカードがより多くのゲームで", "Cartões de memória de GameCube em mais jogos", "Memory card GameCube in più giochi"),
-    "Bring Nintendont's GameCube saves over": ("Trae las partidas de GameCube de Nintendont", "Nintendontのゲームキューブのセーブを移せます", "Traga os saves de GameCube do Nintendont", "Porta qui i salvataggi GameCube di Nintendont"),
-    "Hold L+R+Z+Start to leave a Wii game": ("Mantén L+R+Z+Start para salir de un juego de Wii", "L+R+Z+スタートを長押しでWiiのゲームを終了", "Segure L+R+Z+Start para sair de um jogo de Wii", "Tieni L+R+Z+Start per uscire da un gioco Wii"),
-    "Home starts on your last game": ("Inicio empieza en tu último juego", "ホームは最後に遊んだゲームから", "O Início abre no seu último jogo", "La Home si apre sull'ultimo gioco"),
+    # What's new in the release after 2610-734
+    "Covers for emulator games": ("Portadas para juegos de emulador", "エミュレーターのゲームにもパッケージ", "Capas para jogos de emulador", "Copertine per i giochi degli emulatori"),
+    "WiiFlow's emulator plugins work here too": ("Los plugins de emulador de WiiFlow también funcionan", "WiiFlowのエミュレーター設定もそのまま使えます", "Os plugins de emulador do WiiFlow também funcionam", "Anche i plugin emulatore di WiiFlow funzionano"),
+    "Games from every partition of a USB drive": ("Juegos de todas las particiones de un disco USB", "USBドライブのすべてのパーティションからゲームを", "Jogos de todas as partições de um disco USB", "Giochi da ogni partizione di un disco USB"),
+    "Leave a frozen menu without a Wii Remote": ("Sal de un menú congelado sin Wiimote", "Wiiリモコンなしで止まったメニューを終了", "Saia de um menu travado sem o Wii Remote", "Esci da un menu bloccato senza Wii Remote"),
+    "Smoother menu motion on PAL and NTSC": ("Movimiento del menú más fluido en PAL y NTSC", "PALでもNTSCでもなめらかなメニュー", "Movimento do menu mais suave em PAL e NTSC", "Movimenti del menu più fluidi su PAL e NTSC"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2089,7 +2057,6 @@ T = {
     "GameTDB's database does not list {1}.": ("La base de datos de GameTDB no incluye {1}.", "GameTDBのデータベースに{1}はありません。", "A base de dados do GameTDB não inclui {1}.", "Il database di GameTDB non contiene {1}."),
     "Could not read them: {1}": ("No se pudieron leer: {1}", "読み込めませんでした：{1}", "Não foi possível lê-los: {1}", "Impossibile leggerli: {1}"),
     "No game details yet": ("Aún no hay datos de los juegos", "ゲーム情報はまだありません", "Ainda não há dados dos jogos", "Ancora nessun dato dei giochi"),
-    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.": ("Vienen de la base de datos de juegos de Wii de GameTDB. Activa Descargar nombres y trucos en Ajustes para obtenerla.", "GameTDBのWiiゲームのデータベースから取得します。設定で「ゲーム名とチートをダウンロード」をオンにしてください。", "Vêm da base de dados de jogos de Wii do GameTDB. Ative Baixar nomes e trapaças nas Configurações para obtê-la.", "Provengono dal database dei giochi Wii di GameTDB. Attiva Scarica nomi e trucchi nelle Impostazioni per ottenerlo."),
     "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
     "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
@@ -2112,7 +2079,7 @@ T = {
     "This game's own picture, language, online server and the rest. The ones not changed follow Settings.": ("La imagen, el idioma, el servidor en línea y lo demás de este juego. Lo que no cambies sigue lo de Ajustes.", "このゲームだけの画面、言語、オンラインサーバーなど。変えていないものは設定に従います。", "Imagem, idioma, servidor online e o resto só deste jogo. O que não mudar segue as Configurações.", "Immagine, lingua, server online e il resto solo per questo gioco. Ciò che non cambi segue le Impostazioni."),
     "{1} changed": ("{1} cambiados", "{1}個変更", "{1} alterados", "{1} modificati"),
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.": ("Cómo se ven los juegos en tu TV: ancho de imagen, filtro de parpadeo, bordes negros, modo de vídeo y relación de aspecto.", "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。", "Como os jogos aparecem na TV: largura da imagem, filtro de cintilação, bordas pretas, modo de vídeo e proporção.", "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."),
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde lleva el botón Menú de Wii y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、Wiiメニューボタンの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde leva o botão Menu Wii e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove porta il pulsante Menu Wii e gli screenshot nel gioco."),
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde vas al salir del juego y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、ゲームをやめたときの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde você vai ao sair do jogo e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove vai quando esci dal gioco e gli screenshot nel gioco."),
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.": ("El adaptador de mandos de GameCube para Wii U, y la vibración de los mandos de GameCube y de Wii.", "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。", "O adaptador de controles do GameCube para Wii U, e a vibração dos controles do GameCube e dos Wii Remotes.", "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."),
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.": ("Cómo muestra Inicio tus juegos: portadas, estantería o canales, de qué unidad, en qué orden, el historial y el reloj.", "ホームでのゲームの見せ方：パッケージ、棚、チャンネル、どのドライブか、並び順、プレイ履歴、時計。", "Como o Início mostra seus jogos: capas, estante ou canais, de qual unidade, em que ordem, histórico e o relógio.", "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."),
     "The menu's language, theme, letters, size on the TV, sounds and music.": ("El idioma, el tema, la letra, el tamaño en la TV, los sonidos y la música del menú.", "メニューの言語、テーマ、文字、テレビでの大きさ、効果音と音楽。", "O idioma, o tema, a letra, o tamanho na TV, os sons e a música do menu.", "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."),
@@ -2129,7 +2096,6 @@ T = {
     "Developer": ("Desarrollador", "開発", "Desenvolvedor", "Sviluppatore"),
     "Publisher": ("Editor", "発売元", "Distribuidora", "Editore"),
     "Up to {1} players": ("Hasta {1} jugadores", "最大{1}人", "Até {1} jogadores", "Fino a {1} giocatori"),
-    "The mod's own": ("El del mod", "MODのもの", "O do mod", "Quello della mod"),
     "Pages at the sides": (
         "Páginas a los lados",
         "左右のページ",
@@ -2324,6 +2290,8 @@ T = {
 # Korean, a table of its own (msgid: text), from DDinghoya's translation
 # (pull request 20). A msgid missing here shows in English.
 KO = {
+    "Layout": "배치",
+    "Choose": "선택",
     "Y: view  Z: settings  L/R: pages": "Y: 보기  Z: 설정  L/R: 페이지",
     "Games with mods":
         "MOD 지원 게임",
@@ -2367,6 +2335,8 @@ KO = {
         "RiftWii가 드라이브를 다 읽으면 {1}이(가) 열립니다.",
     "RiftWii is still reading the drives.":
         "RiftWii가 아직 드라이브를 읽는 중입니다.",
+    "Go back to Home and open this again once your games are shown.":
+        "홈으로 돌아가 게임이 표시되면 다시 여세요.",
     "Waiting for RiftWii to finish reading the drives...":
         "RiftWii가 드라이브를 다 읽기를 기다리는 중...",
     "Reading the disc...":
@@ -2535,8 +2505,6 @@ KO = {
         "켬, {1} 개 선택됨",
     "Cheat codes for this game. Press A to choose them.":
         "이 게임의 치트 코드입니다. A를 눌러 선택하세요.",
-    "How wide the picture is drawn. 720 fills the screen from side to side.":
-        "화면이 얼마나 넓게 그려지는지를 나타냅니다. 720은 화면의 양쪽 끝을 가득 채웁니다.",
     "A filter that softens the picture to hide flicker. Off gives the sharpest picture.":
         "화면 깜빡임을 감추기 위해 이미지를 부드럽게 만드는 필터입니다. 끄면 가장 선명한 화면이 나옵니다.",
     "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it.":
@@ -2577,8 +2545,6 @@ KO = {
         "이 게임에 대한 치트 정보는 온라인에서 찾을 수 없습니다.",
     "Cheats are only applied when this is On.":
         "이 기능이 켜져 있을 때만 치트가 적용됩니다.",
-    "Downloads are off in Settings.":
-        "설정에서 다운로드 기능이 꺼져 있습니다.",
     "No game is selected.":
         "선택된 게임이 없습니다.",
     "No cheat file yet. Choose Download to get one.":
@@ -2595,8 +2561,6 @@ KO = {
         "언어",
     "Wii: {1}":
         "Wii: {1}",
-    "Download names and cheats":
-        "이름 및 치트 다운로드",
     "Get the latest game names":
         "최신 게임 이름 확인",
     "Download missing covers":
@@ -2625,12 +2589,6 @@ KO = {
         "나가기",
     "Game names follow the language when they are downloaded.":
         "게임 이름은 다운로드 시 해당 언어를 따릅니다.",
-    "Game names and cheats are downloaded when the Wii is online.":
-        "Wii가 온라인 상태일 때 게임 이름과 치트가 다운로드됩니다.",
-    "Nothing is downloaded. Names and cheats already on the card are still used.":
-        "아무것도 다운로드되지 않습니다. 카드에 이미 들어 있는 이름과 치트가 그대로 사용됩니다.",
-    "Downloads are off. Turn on Download names and cheats first.":
-        "다운로드 기능이 꺼져 있습니다. 먼저 이름 및 치트 다운로드 기능을 켜세요.",
     "Downloading game names...":
         "게임 이름 다운로드 중...",
     "Game names updated.":
@@ -2647,8 +2605,6 @@ KO = {
         "메뉴와 모든 게임은 cIOS {1} 환경에서 구동되므로, 'fakemote' 기능이 포함된 cIOS를 사용하면 USB로 연결된 DS3/DS4 패드를 Wii 리모컨처럼 사용할 수 있습니다. 메뉴에서 USB 드라이브를 사용하려면 base-58 cIOS가 필요합니다.",
     "Takes effect the next time RiftWii starts.":
         "다음에 RiftWii가 시작될 때 적용됩니다.",
-    "Looks for a PC running a RiiFS server when the games are read. Rescan to look now.":
-        "게임을 불러올 때 RiiFS 서버가 실행 중인 PC를 찾습니다. 지금 바로 다시 검색하려면 재검색을 수행하세요.",
     "Only servers named by <network> in an XML on the card are used.":
         "카드 내 XML의 <network>에 지정된 서버만 사용됩니다.",
     "The next launch copies every file of its network packs again.":
@@ -2675,16 +2631,12 @@ KO = {
         "게임",
     "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games.":
         "SD 카드나 USB 드라이브의 최상위 경로에 있는 `wbfs` 또는 `games` 폴더에 게임 파일(WBFS, ISO 또는 RVZ 형식)을 넣으세요. 드라이브에 삽입된 디스크도 함께 표시됩니다. 홈 화면에는 모드가 적용된 게임이 우선적으로 표시되지만, '1'번 버튼 (또는 왼쪽 하단의 원형 버튼)을 누르면 전체 게임 목록을 확인할 수 있습니다.",
-    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.":
-        "MOD 팩(XML 파일 및 관련 폴더)을 sd:/riivolution 또는 usb:/riivolution 경로에 넣으세요. 게임을 선택하고 'Mods'로 들어가 모드 팩을 활성화한 뒤 옵션을 설정하세요. 시작 (또는 +) 버튼을 누르면 해당 모드가 적용된 상태로 게임이 시작됩니다.",
     "Buttons":
         "버튼",
     "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.":
         "위모컨으로 가리키고 A를 누르거나 십자 버튼을 사용하세요. -/+로 홈 페이지를 넘깁니다. 클래식과 게임큐브는 L/R도 됩니다 (게임큐브는 끝까지 눌러 클릭). 게임큐브에서 L을 누른 채 십자 버튼으로 글자를 건너뜁니다. 홈에서 Z는 설정, B는 검색입니다. 다른 화면에서는 B로 돌아가고 HOME (게임큐브 Start)으로 HOME 메뉴를 엽니다. 채널 배너에서는 게임큐브 Start가 게임을 시작합니다.",
     "You're all set":
         "준비 완료",
-    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
-        "설정 메뉴에는 비디오, 언어, 온라인, 업데이트 관련 옵션이 있습니다. 더 자세한 내용은 RiftWii GitHub 페이지의 가이드를 참조하거나 Discord에 참여해 확인하세요. '설정 > 자습서'를 선택하면 이 안내를 다시 볼 수 있습니다.",
     "Next":
         "다음",
     "Skip":
@@ -2849,7 +2801,7 @@ KO = {
         "커스텀 (wfc_domain 설정되지 않음)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
         "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다.",
-    "Getting covers from GameTDB: {1} left":
+    "Getting covers: {1} left":
         "GameTDB에서 커버 가져오는 중: {1} 개 남음",
     "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
         "커버를 다운로드할 수 없습니다 ({1}). 다시 시도하려면 설정 > 온라인 > 없는 커버 다운로드를 이용하세요.",
@@ -2875,14 +2827,16 @@ KO = {
         "조용함",
     "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.":
         "메뉴를 클릭할 때 나는 소리의 크기입니다. '조용함' 설정은 포인터가 항목 위로 이동할 때 발생하는 '틱' 소리를 부드럽게 만들어 줍니다.",
-    "Wii Menu button":
-        "Wii 메뉴 버튼",
+    "Quitting a game":
+        "게임을 종료하면",
     "Back to RiftWii":
         "RiftWii로 돌아가기",
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.":
-        "게임 내 홈 메뉴의 'Wii 메뉴' 버튼을 누르면 RiftWii로 돌아갑니다. 이를 위해서는 RiftWii 채널이 설치되어 있어야 합니다.",
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
-        "게임 내 홈 메뉴에 있는 'Wii 메뉴' 버튼을 사용하면, Rift Wii 채널이 설치된 경우(설정에서 확인 가능) Rift Wii로 돌아갈 수 있습니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 RiftWii로 돌아갑니다. RiftWii 채널이 설치되어 있어야 합니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면, RiftWii 채널이 설치된 경우(설정) RiftWii로 돌아갈 수 있습니다.",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "HOME 메뉴의 'Wii 메뉴' 버튼으로 게임을 종료하면 Wii 메뉴로 갑니다.",
     "Menu music":
         "메뉴 음악",
     "In-game screenshots":
@@ -2969,8 +2923,6 @@ KO = {
         "정말 확실한가요?",
     "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!":
         "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최신 업데이트에서 해결되었을 수도 있습니다!",
-    "RiftWii {1} is out. Settings > Check for a new version installs it.":
-        "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다.",
     "No release is out yet. This is RiftWii {1}.":
         "아직 출시된 버전이 없습니다. 이것은 RiftWii {1}입니다.",
     "SD card: {1}":
@@ -2983,6 +2935,14 @@ KO = {
         "Wii U 드라이브",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
+    "USB: Dragon Quest X's drive":
+        "USB: 드래곤 퀘스트 X 드라이브",
+    "Encrypted drive":
+        "암호화된 드라이브",
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)":
+        "USB: 암호화된 드라이브, 드래곤 퀘스트 X의 것일 수도 있음 (RiftWii는 사용하지 않음)",
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.":
+        "연결된 USB 드라이브는 암호화되어 있습니다. 드래곤 퀘스트 X의 드라이브이거나 Wii U 본체의 드라이브일 수 있습니다. 이 Wii의 WFS 키(sd:/riftwii/wfskey.bin)가 없으면 RiftWii가 읽을 수 없으므로 사용하지 않습니다. 드래곤 퀘스트 X가 들어 있다면 그대로 두세요. 게임은 Wii 채널에서 시작됩니다.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -3115,6 +3075,8 @@ KO = {
         "닫기",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, 본체 재시작 또는 전원 끄기.",
     "Sending a report":
         "보고서 전송",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -3267,12 +3229,6 @@ KO = {
         "화면",
     "Other":
         "기타",
-    "Clear search":
-        "검색 지우기",
-    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
-        "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
-    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
-        "아직 게임을 찾지 못했습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브). USB 드라이브의 'wbfs' 또는 'games'에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "게임큐브 게임은 전용 폴더에 usb:/games/<ID>/game.iso로 넣습니다.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -3425,8 +3381,6 @@ KO = {
         "저장 데이터 추가",
     "Add a save from the SD card":
         "SD 카드에서 저장 데이터 추가",
-    "Back up saves":
-        "저장 데이터 백업",
     "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.":
         "게임큐브 게임을 시작하기 전에 메모리 카드를 SD 카드에 복사합니다. 최근 복사본 다섯 개가 남으며, 게임의 저장 페이지에 있는 이전 저장 데이터로 되돌리기에 쓰입니다.",
     "Restore an older save":
@@ -3572,8 +3526,8 @@ KO = {
         "이 저장 데이터는 손상되었습니다: 블록이 맞지 않습니다. 삭제만 할 수 있습니다.",
     "It is {1}.":
         "{1}입니다.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii가 {1}을(를) 읽을 수 없습니다: {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii가 {1}을(를) 읽을 수 없습니다. 손상되었거나 게임큐브 메모리 카드가 아닙니다.",
     "RiftWii could not read {1}.":
         "RiftWii가 {1}을(를) 읽지 못했습니다.",
     "RiftWii could not write {1}.":
@@ -3666,8 +3620,6 @@ KO = {
         "예",
     "No":
         "아니요",
-    "You can bring it back any time in Settings > Disc Channel.":
-        "언제든지 설정 > 디스크 채널에서 다시 표시할 수 있습니다.",
     "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
@@ -3748,8 +3700,6 @@ KO = {
         "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다. 내 순서는 직접 정합니다: 홈에서 B 버튼을 누른 채 게임 위에서 A 버튼을 누르면 옮길 수 있습니다.",
     "Your order":
         "내 순서",
-    "Home is in your own order now. Settings > Home order puts it back A to Z.":
-        "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다.",
     "Let go of A: put it down   At a side: turn the page":
         "A 버튼 떼기: 내려놓기   가장자리: 페이지 넘기기",
     "D-pad: move   A: put it down   B: put it back":
@@ -3784,6 +3734,10 @@ KO = {
         "어댑터가 어느 USB 포트에 꽂혀 있나요?",
     "Which port?":
         "어느 포트인가요?",
+    "USB keyboard, mouse and tablet":
+        "USB 키보드, 마우스, 태블릿",
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
+        "끔: RiftWii가 USB 키보드, 마우스, 펜 태블릿, uDraw를 사용하지 않습니다. 하나를 연결했을 때나 아무것도 연결하지 않았을 때 메뉴가 이상하면 끄세요.",
     "Wii Remote rumble":
         "Wii 리모컨 진동",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -3884,8 +3838,6 @@ KO = {
         "WAD 파일 설치 중",
     "{1} of {2}: {3}":
         "{2}개 중 {1}번째: {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
     "Installed {1} of {2}. They are on Home now.":
         "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -3896,16 +3848,16 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Wii Menu sounds and music in Settings > Menu":
-        "설정 > 메뉴에서 Wii 메뉴 소리와 음악",
-    "GameCube memory cards in more games":
-        "더 많은 게임에서 게임큐브 메모리 카드",
-    "Bring Nintendont's GameCube saves over":
-        "Nintendont의 게임큐브 세이브 가져오기",
-    "Hold L+R+Z+Start to leave a Wii game":
-        "L+R+Z+Start를 길게 눌러 Wii 게임 종료",
-    "Home starts on your last game":
-        "홈이 마지막 게임에서 시작",
+    "Covers for emulator games":
+        "에뮬레이터 게임 커버",
+    "WiiFlow's emulator plugins work here too":
+        "WiiFlow 에뮬레이터 플러그인도 사용 가능",
+    "Games from every partition of a USB drive":
+        "USB 드라이브의 모든 파티션에서 게임을",
+    "Leave a frozen menu without a Wii Remote":
+        "Wii 리모컨 없이 멈춘 메뉴 나가기",
+    "Smoother menu motion on PAL and NTSC":
+        "PAL과 NTSC에서 더 부드러운 메뉴",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4008,8 +3960,6 @@ KO = {
         "읽을 수 없습니다: {1}",
     "No game details yet":
         "아직 게임 정보가 없습니다",
-    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.":
-        "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정에서 이름 및 치트 다운로드를 켜 주세요.",
     "Download game details?":
         "게임 정보를 다운로드할까요?",
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
@@ -4054,8 +4004,8 @@ KO = {
         "{1}개 변경",
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
         "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율.",
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
-        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, Wii 메뉴 버튼의 이동 위치, 게임 중 스크린샷.",
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
+        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, 게임을 종료할 때의 이동 위치, 게임 중 스크린샷.",
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
         "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동.",
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
@@ -4088,8 +4038,6 @@ KO = {
         "유통",
     "Up to {1} players":
         "최대 {1}명",
-    "The mod's own":
-        "MOD의 서버",
     "Pages at the sides":
         "양옆 페이지",
     "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
@@ -4168,6 +4116,8 @@ KO = {
 # French, a table of its own (msgid: text), from MidyGamy's translation
 # (pull request 22). A msgid missing here shows in English.
 FR = {
+    "Layout": "Disposition",
+    "Choose": "Choisir",
     "Y: view  Z: settings  L/R: pages": "Y: vue  Z: options  L/R: pages",
     "Games with mods":
         "Jeux avec mods",
@@ -4211,6 +4161,8 @@ FR = {
         "{1} s'ouvrira une fois que RiftWii aura fini de lire les stockages.",
     "RiftWii is still reading the drives.":
         "RiftWii est encore en train de lire les stockages.",
+    "Go back to Home and open this again once your games are shown.":
+        "Revenez à l'Accueil et rouvrez cette page une fois vos jeux affichés.",
     "Waiting for RiftWii to finish reading the drives...":
         "En attente que RiftWii finisse de lire les stockages...",
     "Reading the disc...":
@@ -4379,8 +4331,6 @@ FR = {
         "Activé, {1} sélectionné(s)",
     "Cheat codes for this game. Press A to choose them.":
         "Codes de triche pour ce jeu. Appuyez sur A pour les choisir.",
-    "How wide the picture is drawn. 720 fills the screen from side to side.":
-        "Largeur d'affichage de l'image. 720 remplit l'écran d'un côté à l'autre.",
     "A filter that softens the picture to hide flicker. Off gives the sharpest picture.":
         "Un filtre qui adoucit l'image pour masquer le scintillement. Désactivé donne l'image la plus nette.",
     "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it.":
@@ -4421,8 +4371,6 @@ FR = {
         "Aucun code de triche trouvé en ligne pour ce jeu.",
     "Cheats are only applied when this is On.":
         "Les codes de triche ne s'appliquent que si cette option est activée.",
-    "Downloads are off in Settings.":
-        "Les téléchargements sont désactivés dans les paramètres.",
     "No game is selected.":
         "Aucun jeu sélectionné.",
     "No cheat file yet. Choose Download to get one.":
@@ -4439,8 +4387,6 @@ FR = {
         "Langue",
     "Wii: {1}":
         "Wii : {1}",
-    "Download names and cheats":
-        "Télécharger noms et codes de triche",
     "Get the latest game names":
         "Obtenir les derniers noms de jeux",
     "Download missing covers":
@@ -4469,12 +4415,6 @@ FR = {
         "Quitter",
     "Game names follow the language when they are downloaded.":
         "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement.",
-    "Game names and cheats are downloaded when the Wii is online.":
-        "Les noms de jeux et les codes sont téléchargés lorsque la Wii est en ligne.",
-    "Nothing is downloaded. Names and cheats already on the card are still used.":
-        "Rien n'est téléchargé. Les noms et codes déjà présents sur la carte restent utilisés.",
-    "Downloads are off. Turn on Download names and cheats first.":
-        "Téléchargements désactivés. Activez d'abord le téléchargement des noms et codes.",
     "Downloading game names...":
         "Téléchargement des noms de jeux...",
     "Game names updated.":
@@ -4491,8 +4431,6 @@ FR = {
         "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Télécommandes Wii. Les stockages USB nécessitent un cIOS base-58.",
     "Takes effect the next time RiftWii starts.":
         "Prendra effet au prochain démarrage de RiftWii.",
-    "Looks for a PC running a RiiFS server when the games are read. Rescan to look now.":
-        "Cherche un PC exécutant un serveur RiiFS lors de la lecture des jeux. Réanalysez pour chercher maintenant.",
     "Only servers named by <network> in an XML on the card are used.":
         "Seuls les serveurs désignés par <network> dans un fichier XML sur la carte sont utilisés.",
     "The next launch copies every file of its network packs again.":
@@ -4519,16 +4457,12 @@ FR = {
         "Vos jeux",
     "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games.":
         "Placez vos jeux dans le dossier wbfs ou games à la racine de la carte SD ou du stockage USB (format WBFS, ISO ou RVZ). Les disques insérés apparaissent aussi. L'accueil liste en premier les jeux moddés : appuyez sur 1 pour tout voir.",
-    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.":
-        "Placez les packs de mods (fichier XML et dossiers associés) dans sd:/riivolution ou usb:/riivolution. Choisissez un jeu, ouvrez Mods, activez un pack et ajustez ses options. Démarrer (ou +) lance le jeu.",
     "Buttons":
         "Boutons",
     "Point with the Wii Remote and press A, or use the D-pad. -/+ turn Home pages; Classic and GameCube L/R do too (GameCube: full clicks). Hold L with the D-pad for GameCube letter jumps. On Home, GameCube Z opens Settings and B searches. B goes back on other screens; HOME (GameCube Start) opens the HOME Menu; on a Channels banner, GameCube Start plays the game instead.":
         "Pointez avec la Télécommande Wii et appuyez sur A, ou utilisez la croix. -/+ tournent les pages de l'accueil ; L/R aussi sur Classique et GameCube (jusqu'au clic). Maintenez L avec la croix pour sauter des lettres sur GameCube. À l'accueil, Z ouvre les paramètres et B la recherche. B revient ailleurs ; HOME (Start sur GameCube) ouvre le menu HOME ; sur une bannière de Chaînes, Start sur GameCube lance le jeu.",
     "You're all set":
         "Vous êtes prêt",
-    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
-        "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Tutoriel réaffiche ce guide.",
     "Next":
         "Suivant",
     "Skip":
@@ -4693,7 +4627,7 @@ FR = {
         "Personnalisé (wfc_domain non défini)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
         "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
-    "Getting covers from GameTDB: {1} left":
+    "Getting covers: {1} left":
         "Récupération des jacquettes GameTDB : {1} restante(s)",
     "Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.":
         "Impossible de télécharger les jaquettes ({1}). Pour réessayer : Paramètres > En ligne > Télécharger les jaquettes manquantes.",
@@ -4719,14 +4653,16 @@ FR = {
         "Discret",
     "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.":
         "Volume des clics du menu. \"Discret\" adoucit le bruit lors du survol des éléments.",
-    "Wii Menu button":
-        "Bouton Menu Wii",
+    "Quitting a game":
+        "Quitter le jeu",
     "Back to RiftWii":
         "Retour à RiftWii",
-    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.":
-        "Le bouton \"Menu Wii\" dans le menu HOME d'un jeu vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
-    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
-        "Le bouton \"Menu Wii\" du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Quitting a game with the HOME Menu's Wii Menu button brings you back to RiftWii. It needs the RiftWii channel installed.":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
+    "Quitting a game with the HOME Menu's Wii Menu button can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Quitting a game with the HOME Menu's Wii Menu button goes to the Wii Menu.":
+        "Quitter le jeu avec le bouton « Menu Wii » du menu HOME ramène au Menu Wii.",
     "Menu music":
         "Musique du menu",
     "In-game screenshots":
@@ -4813,8 +4749,6 @@ FR = {
         "Êtes-vous sûr ?",
     "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!":
         "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !",
-    "RiftWii {1} is out. Settings > Check for a new version installs it.":
-        "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour.",
     "No release is out yet. This is RiftWii {1}.":
         "Aucune version disponible pour le moment. Version actuelle : RiftWii {1}.",
     "SD card: {1}":
@@ -4827,6 +4761,14 @@ FR = {
         "Stockage de Wii U",
     "USB: a Wii U drive (RiftWii leaves it alone)":
         "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
+    "USB: Dragon Quest X's drive":
+        "USB : le stockage de Dragon Quest X",
+    "Encrypted drive":
+        "Stockage chiffré",
+    "USB: an encrypted drive, maybe Dragon Quest X's (left alone)":
+        "USB : un stockage chiffré, peut-être celui de Dragon Quest X (RiftWii ne l'utilise pas)",
+    "The USB drive plugged in is encrypted: it may be Dragon Quest X's drive, or a Wii U's own drive. RiftWii can't read it without this Wii's WFS key (sd:/riftwii/wfskey.bin), so it leaves it alone. If it holds Dragon Quest X, keep it as it is: the game starts from the Wii's channels.":
+        "Le stockage USB branché est chiffré : ce peut être celui de Dragon Quest X, ou celui d'une Wii U. RiftWii ne peut pas le lire sans la clé WFS de cette Wii (sd:/riftwii/wfskey.bin), il ne l'utilise donc pas. S'il contient Dragon Quest X, laissez-le tel quel : le jeu se lance depuis les chaînes de la Wii.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -4959,6 +4901,8 @@ FR = {
         "Fermer",
     "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
         "Choisissez où aller : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
+"Pick where to go: the Homebrew Channel, the Wii Menu, a restart of the console, or power off.":
+        "Choisissez où aller : Chaîne Homebrew, Menu Wii, redémarrage de la console ou extinction.",
     "Sending a report":
         "Envoi du rapport",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -5105,8 +5049,6 @@ FR = {
         "Oui",
     "No":
         "Non",
-    "You can bring it back any time in Settings > Disc Channel.":
-        "Vous pouvez la réafficher à tout moment dans Paramètres > Chaîne disques.",
     "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
@@ -5187,8 +5129,6 @@ FR = {
         "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z. Votre ordre est le vôtre : sur l'accueil, maintenez B et appuyez sur A sur un jeu pour le déplacer.",
     "Your order":
         "Votre ordre",
-    "Home is in your own order now. Settings > Home order puts it back A to Z.":
-        "L'accueil est maintenant dans votre ordre. Paramètres > Ordre de l'accueil le remet de A à Z.",
     "Let go of A: put it down   At a side: turn the page":
         "Relâchez A : poser   Sur un côté : tourner la page",
     "D-pad: move   A: put it down   B: put it back":
@@ -5223,6 +5163,10 @@ FR = {
         "Sur quel port USB l'adaptateur est-il branché ?",
     "Which port?":
         "Quel port ?",
+    "USB keyboard, mouse and tablet":
+        "Clavier, souris et tablette USB",
+    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
+        "Désactivé : RiftWii n'utilise ni claviers, souris et tablettes USB, ni la uDraw. Désactivez-le si le menu se comporte mal avec l'un d'eux branché, ou sans aucun.",
     "Wii Remote rumble":
         "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -5289,12 +5233,6 @@ FR = {
         "Image",
     "Other":
         "Autres",
-    "Clear search":
-        "Effacer la recherche",
-    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
-        "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
-    "No games found yet. The SD card is not searched (Settings > Drives). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then pick Look for games again in Settings.":
-        "Aucun jeu trouvé pour l'instant. La carte SD n'est pas fouillée (Paramètres > Supports). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
     "A GameCube game goes in a folder of its own, as usb:/games/<its ID>/game.iso.":
         "Un jeu GameCube se met dans son propre dossier, en usb:/games/<son ID>/game.iso.",
     "This SD card ({1} GB) is too big for code builds. Make an SD image.":
@@ -5447,8 +5385,6 @@ FR = {
         "Ajouter une sauvegarde",
     "Add a save from the SD card":
         "Ajouter une sauvegarde depuis la carte SD",
-    "Back up saves":
-        "Sauvegarder les parties",
     "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.":
         "Avant le lancement d'un jeu GameCube, sa carte mémoire est copiée sur la carte SD. Les cinq dernières copies sont gardées, pour Restaurer une ancienne sauvegarde dans la page Sauvegardes du jeu.",
     "Restore an older save":
@@ -5594,8 +5530,8 @@ FR = {
         "Cette sauvegarde est endommagée : ses blocs ne correspondent pas. Elle ne peut qu'être supprimée.",
     "It is {1}.":
         "C'est {1}.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii ne peut pas lire {1} : {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii ne peut pas lire {1} : elle est endommagée ou ce n'est pas une carte mémoire GameCube.",
     "RiftWii could not read {1}.":
         "RiftWii n'a pas pu lire {1}.",
     "RiftWii could not write {1}.":
@@ -5728,8 +5664,6 @@ FR = {
         "Installation des fichiers WAD",
     "{1} of {2}: {3}":
         "{1} sur {2} : {3}",
-    "This Wii's key could not be read, so WAD files can't be installed.":
-        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
     "Installed {1} of {2}. They are on Home now.":
         "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
     "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
@@ -5740,16 +5674,16 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Wii Menu sounds and music in Settings > Menu":
-        "Sons et musique du menu Wii dans Paramètres > Menu",
-    "GameCube memory cards in more games":
-        "Cartes mémoire GameCube dans plus de jeux",
-    "Bring Nintendont's GameCube saves over":
-        "Récupérez les sauvegardes GameCube de Nintendont",
-    "Hold L+R+Z+Start to leave a Wii game":
-        "Maintenez L+R+Z+Start pour quitter un jeu Wii",
-    "Home starts on your last game":
-        "L'Accueil s'ouvre sur votre dernier jeu",
+    "Covers for emulator games":
+        "Jaquettes pour les jeux d'émulateur",
+    "WiiFlow's emulator plugins work here too":
+        "Les plugins d'émulateur de WiiFlow marchent aussi",
+    "Games from every partition of a USB drive":
+        "Jeux de toutes les partitions d'un disque USB",
+    "Leave a frozen menu without a Wii Remote":
+        "Quittez un menu figé sans Wiimote",
+    "Smoother menu motion on PAL and NTSC":
+        "Menu plus fluide en PAL et NTSC",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
@@ -5852,8 +5786,6 @@ FR = {
         "Lecture impossible : {1}",
     "No game details yet":
         "Pas encore d'infos sur les jeux",
-    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.":
-        "Elles viennent de la base des jeux Wii de GameTDB. Activez Télécharger noms et codes de triche dans les Paramètres pour l'obtenir.",
     "Download game details?":
         "Télécharger les infos des jeux ?",
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
@@ -5898,8 +5830,8 @@ FR = {
         "{1} modifiés",
     "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
         "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format.",
-    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
-        "La langue annoncée aux jeux, le cIOS qui les fait tourner, où mène le bouton Menu Wii et les captures en jeu.",
+    "The language games are told the console uses, the cIOS they run under, where you go when you quit a game, and in-game screenshots.":
+        "La langue annoncée aux jeux, le cIOS qu'ils utilisent, où vous allez en quittant le jeu, et les captures en jeu.",
     "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
         "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes.",
     "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
@@ -5932,8 +5864,6 @@ FR = {
         "Éditeur",
     "Up to {1} players":
         "Jusqu'à {1} joueurs",
-    "The mod's own":
-        "Celui du mod",
     "Pages at the sides":
         "Pages sur les côtés",
     "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
@@ -6167,9 +6097,6 @@ T['There are no themes in the list yet.'] = ('Todavía no hay temas en la lista.
 KO['There are no themes in the list yet.'] = '목록에 아직 테마가 없습니다.'
 FR['There are no themes in the list yet.'] = "Il n'y a pas encore de thème dans la liste."
 
-T['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo. Pulsa A para borrarlo.', '{1}はインストール済みです。使うには設定 > テーマで選んでください。Aで削除します。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo. Aperte A para apagá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo. Premi A per eliminarlo.')
-KO['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = '{1}이(가) 설치되어 있습니다. 사용하려면 설정 > 테마에서 고르세요. A를 누르면 삭제합니다.'
-FR['{1} is installed. Pick it in Settings > Theme to use it. Press A to delete it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser. Appuyez sur A pour le supprimer."
 
 T['A newer copy of {1} is out. Press A to update it, or delete it.'] = ('Hay una copia más nueva de {1}. Pulsa A para actualizarlo o borrarlo.', '{1}の新しい版があります。Aで更新または削除します。', 'Há uma cópia mais nova de {1}. Aperte A para atualizá-lo ou apagá-lo.', 'È disponibile una copia più recente di {1}. Premi A per aggiornarlo o eliminarlo.')
 KO['A newer copy of {1} is out. Press A to update it, or delete it.'] = '{1}의 새 버전이 있습니다. A를 누르면 업데이트하거나 삭제합니다.'
@@ -6179,9 +6106,6 @@ T['A theme called {1} is already in sd:/riftwii/themes, and was not put there fr
 KO['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = '{1}이라는 테마가 이미 sd:/riftwii/themes에 있으며 여기서 넣은 것이 아닙니다. A를 누르면 교체합니다.'
 FR['A theme called {1} is already in sd:/riftwii/themes, and was not put there from here. Press A to replace it.'] = "Un thème nommé {1} est déjà dans sd:/riftwii/themes et n'y a pas été mis d'ici. Appuyez sur A pour le remplacer."
 
-T['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = ('Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que lo elijas en Ajustes > Tema.', 'Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > テーマで選ぶまで何も変わりません。', 'Aperte A para baixar {1} em sd:/riftwii/themes. Nada muda até você escolhê-lo em Configurações > Tema.', 'Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finché non lo scegli in Impostazioni > Tema.')
-KO['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 테마에서 고르기 전에는 아무것도 바뀌지 않습니다.'
-FR['Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Theme.'] = 'Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Réglages > Thème.'
 
 T['{1} themes'] = ('{1} temas', '{1}件のテーマ', '{1} temas', '{1} temi')
 KO['{1} themes'] = '테마 {1}개'
@@ -6263,9 +6187,6 @@ T['{1} could not be deleted: {2}'] = ('No se pudo borrar {1}: {2}', '{1}を削�
 KO['{1} could not be deleted: {2}'] = '{1}을(를) 삭제할 수 없습니다: {2}'
 FR['{1} could not be deleted: {2}'] = 'Impossible de supprimer {1} : {2}'
 
-T['{1} is installed. Pick it in Settings > Theme to use it.'] = ('{1} está instalado. Elígelo en Ajustes > Tema para usarlo.', '{1}をインストールしました。使うには設定 > テーマで選んでください。', '{1} está instalado. Escolha em Configurações > Tema para usá-lo.', '{1} è installato. Sceglilo in Impostazioni > Tema per usarlo.')
-KO['{1} is installed. Pick it in Settings > Theme to use it.'] = '{1}이(가) 설치되었습니다. 사용하려면 설정 > 테마에서 고르세요.'
-FR['{1} is installed. Pick it in Settings > Theme to use it.'] = "{1} est installé. Choisissez-le dans Réglages > Thème pour l'utiliser."
 
 T['Stopped. Nothing was changed.'] = ('Detenido. No se cambió nada.', '中止しました。何も変更されていません。', 'Interrompido. Nada foi alterado.', 'Interrotto. Non è cambiato nulla.')
 KO['Stopped. Nothing was changed.'] = '중지했습니다. 아무것도 바뀌지 않았습니다.'
@@ -6350,6 +6271,22 @@ FR['The SD card is back in. Reading it again.'] = 'La carte SD est de retour. No
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
 NAMES["fr"] = "French"
+
+
+# Korean's separate font may be missing; the fallback catalog is English.
+T.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": (
+        "El menú está en inglés: copia apps/riftwii/korean.ttf del zip de RiftWii a la tarjeta SD y elige la fuente de RiftWii, o usa la fuente del Menú de Wii en una Wii coreana.",
+        "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。",
+        "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano.",
+        "Il menu è in inglese: copia apps/riftwii/korean.ttf dallo zip di RiftWii sulla scheda SD e scegli il carattere di RiftWii, oppure usa il carattere del Menu Wii su una Wii coreana."),
+})
+KO.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "메뉴가 영어로 표시됩니다. RiftWii zip의 apps/riftwii/korean.ttf를 SD 카드에 복사하고 RiftWii 메뉴 글꼴을 선택하거나, 한국 Wii에서 Wii 메뉴 글꼴을 사용하세요.",
+})
+FR.update({
+    "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne.",
+})
 
 
 def escape(s):
@@ -6523,11 +6460,11 @@ T.update({
         "Ao sair, o app volta ao Homebrew Channel, que iniciou o RiftWii.",
         "All'uscita, l'app torna all'Homebrew Channel, che ha avviato RiftWii.",
     ),
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": (
-        "Al salir, la app va al Menú de Wii, según el botón Menú de Wii.",
-        "アプリを終了すると、Wiiメニューボタンの設定どおりWiiメニューに戻ります。",
-        "Ao sair, o app vai para o Menu Wii, conforme o botão Menu Wii.",
-        "All'uscita, l'app va al Menu Wii, come impostato nel pulsante Menu Wii.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": (
+        "Al salir, la app va al Menú de Wii, porque Al salir del juego está en Menú de Wii.",
+        "アプリを終了すると、「ゲームをやめるとき」がWiiメニューのためWiiメニューに戻ります。",
+        "Ao sair, o app vai para o Menu Wii, porque Ao sair do jogo está em Menu Wii.",
+        "All'uscita, l'app va al Menu Wii, perché Uscita dal gioco è su Menu Wii.",
     ),
     "1: all apps": (
         "1: todas las apps",
@@ -6541,7 +6478,7 @@ MORE["ko"].update({
     "Apps keep RiftWii's IOS and hardware access.": "앱은 RiftWii의 IOS와 하드웨어 접근을 유지합니다.",
     "When the app exits, it comes back to RiftWii.": "앱을 종료하면 RiftWii로 돌아옵니다.",
     "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "앱을 종료하면 RiftWii를 시작한 홈브류 채널로 돌아갑니다.",
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "앱을 종료하면 Wii 메뉴 버튼 설정에 따라 Wii 메뉴로 갑니다.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": "앱을 종료하면 '게임을 종료하면'이 Wii 메뉴로 설정되어 있어 Wii 메뉴로 갑니다.",
     "1: all apps": "1: 모든 앱",
 })
 MORE["fr"].update({
@@ -6549,7 +6486,7 @@ MORE["fr"].update({
     "Apps keep RiftWii's IOS and hardware access.": "Les applis gardent l'IOS et l'accès matériel de RiftWii.",
     "When the app exits, it comes back to RiftWii.": "En quittant, l'appli revient à RiftWii.",
     "When the app exits, it goes back to the Homebrew Channel, which started RiftWii.": "En quittant, l'appli revient à la Chaîne Homebrew, qui a lancé RiftWii.",
-    "When the app exits, it goes to the Wii Menu, as the Wii Menu button is set.": "En quittant, l'appli va au Menu Wii, comme le bouton Menu Wii est réglé.",
+    "When the app exits, it goes to the Wii Menu, because Quitting a game is set to Wii Menu.": "En quittant, l'appli va au Menu Wii, car Quitter le jeu est réglé sur Menu Wii.",
     "1: all apps": "1 : toutes les applis",
 })
 
@@ -6793,13 +6730,863 @@ FR.update({
 })
 
 
+T.update({
+    # Settings > Online > My RiiTag
+    "My RiiTag": ("Mi RiiTag", "マイRiiTag", "Minha RiiTag", "La mia RiiTag"),
+    "Refresh": ("Actualizar", "更新", "Atualizar", "Aggiorna"),
+    "Downloading your tag...": ("Descargando tu tag...", "タグをダウンロード中...", "Baixando sua tag...", "Download della tua tag..."),
+    "No tag to show": ("No hay tag que mostrar", "表示するタグがありません", "Nenhuma tag para mostrar", "Nessuna tag da mostrare"),
+    "There is not enough free memory to show your tag.": (
+        "No hay suficiente memoria libre para mostrar tu tag.",
+        "タグを表示するための空きメモリが足りません。",
+        "Não há memória livre suficiente para mostrar sua tag.",
+        "Non c'è abbastanza memoria libera per mostrare la tua tag."),
+    "Your tag could not be downloaded: {1}. Press A to try again.": (
+        "No se pudo descargar tu tag: {1}. Pulsa A para intentarlo de nuevo.",
+        "タグをダウンロードできませんでした: {1}。Aでもう一度試します。",
+        "Não foi possível baixar sua tag: {1}. Aperte A para tentar de novo.",
+        "Impossibile scaricare la tua tag: {1}. Premi A per riprovare."),
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.": (
+        "Tu tag de riitag.t0g3pii.de, del ID de Discord riitag_id en sd:/riftwii/settings.txt. Muestra el último juego que jugaste si riitag_key también está puesto.",
+        "riitag.t0g3pii.deのタグです (sd:/riftwii/settings.txtのriitag_idのDiscord ID)。riitag_keyも設定すると、最後に遊んだゲームが表示されます。",
+        "Sua tag de riitag.t0g3pii.de, do ID do Discord riitag_id em sd:/riftwii/settings.txt. Ela mostra o último jogo que você jogou se riitag_key também estiver definido.",
+        "La tua tag da riitag.t0g3pii.de, per l'ID Discord riitag_id in sd:/riftwii/settings.txt. Mostra l'ultimo gioco a cui hai giocato se è impostato anche riitag_key."),
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).": (
+        "Muestra tu RiiTag. Primero pon riitag_id = <tu ID de Discord> en sd:/riftwii/settings.txt (Discord: Ajustes > Avanzado > Modo desarrollador, luego Copiar ID de usuario).",
+        "RiiTagを表示します。先にsd:/riftwii/settings.txtにriitag_id = <DiscordのID> を書いてください (Discord: 設定 > 詳細設定 > 開発者モード、そしてユーザーIDをコピー)。",
+        "Mostra sua RiiTag. Primeiro coloque riitag_id = <seu ID do Discord> em sd:/riftwii/settings.txt (Discord: Configurações > Avançado > Modo de desenvolvedor, depois Copiar ID do usuário).",
+        "Mostra la tua RiiTag. Prima metti riitag_id = <il tuo ID Discord> in sd:/riftwii/settings.txt (Discord: Impostazioni > Avanzate > Modalità sviluppatore, poi Copia ID utente)."),
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": (
+        "Muestra tu RiiTag, descargada de riitag.t0g3pii.de.",
+        "riitag.t0g3pii.deからダウンロードしたRiiTagを表示します。",
+        "Mostra sua RiiTag, baixada de riitag.t0g3pii.de.",
+        "Mostra la tua RiiTag, scaricata da riitag.t0g3pii.de."),
+})
+KO.update({
+    "My RiiTag": "내 RiiTag",
+    "Refresh": "새로 고침",
+    "Downloading your tag...": "태그를 다운로드하는 중...",
+    "No tag to show": "표시할 태그가 없습니다",
+    "There is not enough free memory to show your tag.": "태그를 표시할 여유 메모리가 부족합니다.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "태그를 다운로드하지 못했습니다: {1}. A를 눌러 다시 시도하세요.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "sd:/riftwii/settings.txt의 riitag_id(Discord ID)에 해당하는 riitag.t0g3pii.de의 태그입니다. riitag_key도 설정하면 마지막으로 플레이한 게임이 표시됩니다.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "RiiTag를 표시합니다. 먼저 sd:/riftwii/settings.txt에 riitag_id = <Discord ID>를 넣으세요 (Discord: 설정 > 고급 > 개발자 모드, 그다음 사용자 ID 복사).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "riitag.t0g3pii.de에서 다운로드한 RiiTag를 표시합니다.",
+})
+FR.update({
+    "My RiiTag": "Ma RiiTag",
+    "Refresh": "Actualiser",
+    "Downloading your tag...": "Téléchargement de votre tag...",
+    "No tag to show": "Aucun tag à afficher",
+    "There is not enough free memory to show your tag.": "Il n'y a pas assez de mémoire libre pour afficher votre tag.",
+    "Your tag could not be downloaded: {1}. Press A to try again.": "Impossible de télécharger votre tag : {1}. Appuyez sur A pour réessayer.",
+    "Your tag from riitag.t0g3pii.de, for the Discord ID riitag_id in sd:/riftwii/settings.txt. It shows the game you last played when riitag_key is set too.":
+        "Votre tag de riitag.t0g3pii.de, pour l'ID Discord riitag_id de sd:/riftwii/settings.txt. Il affiche le dernier jeu joué si riitag_key est aussi défini.",
+    "Shows your RiiTag. Put riitag_id = <your Discord ID> in sd:/riftwii/settings.txt first (Discord: Settings > Advanced > Developer Mode, then Copy User ID).":
+        "Affiche votre RiiTag. Mettez d'abord riitag_id = <votre ID Discord> dans sd:/riftwii/settings.txt (Discord : Paramètres > Avancés > Mode développeur, puis Copier l'identifiant).",
+    "Shows your RiiTag, downloaded from riitag.t0g3pii.de.": "Affiche votre RiiTag, téléchargée depuis riitag.t0g3pii.de.",
+})
+
+T.update({
+    # The game page: its box up close
+    "The game's box. Press A to see it up close, then Down for its back.": (
+        "La caja del juego. Pulsa A para verla de cerca y luego Abajo para ver su parte trasera.",
+        "ゲームのパッケージです。Aで大きく表示し、下で裏面を見られます。",
+        "A caixa do jogo. Aperte A para vê-la de perto e depois Baixo para ver o verso.",
+        "La confezione del gioco. Premi A per vederla da vicino, poi Giù per il retro."),
+    "There is no box art for this game yet.": (
+        "Aún no hay portada para este juego.",
+        "このゲームのパッケージ画像はまだありません。",
+        "Ainda não há capa para este jogo.",
+        "Non c'è ancora una copertina per questo gioco."),
+    "Back of the box": ("Parte trasera", "裏面", "Verso da caixa", "Retro della confezione"),
+    "Front of the box": ("Parte delantera", "表面", "Frente da caixa", "Fronte della confezione"),
+})
+KO.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "게임 패키지입니다. A로 크게 보고, 아래로 뒷면을 볼 수 있습니다.",
+    "There is no box art for this game yet.": "이 게임의 패키지 이미지가 아직 없습니다.",
+    "Back of the box": "뒷면",
+    "Front of the box": "앞면",
+})
+FR.update({
+    "The game's box. Press A to see it up close, then Down for its back.":
+        "La boîte du jeu. Appuyez sur A pour la voir de près, puis sur Bas pour son dos.",
+    "There is no box art for this game yet.": "Pas encore de jaquette pour ce jeu.",
+    "Back of the box": "Dos de la boîte",
+    "Front of the box": "Face de la boîte",
+})
+
+T.update({
+    # Settings > Music file (the player's own menu music) and its picker
+    "Music file": ("Archivo de música", "音楽ファイル", "Arquivo de música", "File musicale"),
+    "RiftWii's own": ("La de RiftWii", "RiftWiiのもの", "A do RiftWii", "Quella di RiftWii"),
+    "{1} (shuffled)": ("{1} (aleatorio)", "{1} (シャッフル)", "{1} (aleatório)", "{1} (casuale)"),
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.": (
+        "Tu música está en la unidad USB. Empezará cuando RiftWii haya leído la unidad.",
+        "音楽はUSBドライブにあります。RiftWiiがドライブを読み終えると始まります。",
+        "Sua música está na unidade USB. Ela começa quando o RiftWii terminar de ler a unidade.",
+        "La tua musica è sull'unità USB. Parte quando RiftWii ha finito di leggere l'unità."),
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.": (
+        "No se pudo reproducir nada de {1}, así que suena la música de RiftWii. Pulsa A para elegir otra cosa.",
+        "{1} の中に流せる曲がないため、RiftWiiの音楽を流します。Aでほかのものを選びます。",
+        "Nada em {1} pôde ser tocado, então toca a música do RiftWii. Aperte A para escolher outra coisa.",
+        "Niente in {1} si può riprodurre, quindi suona la musica di RiftWii. Premi A per scegliere altro."),
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.": (
+        "Tu propia música del menú: una canción, una lista o una carpeta entera en orden aleatorio, de la tarjeta SD o la unidad USB. Pulsa A para elegirla.",
+        "自分のメニュー音楽: SDカードかUSBドライブの曲、プレイリスト、またはフォルダ全体をシャッフルで。Aで選びます。",
+        "Sua própria música do menu: uma música, uma playlist ou uma pasta inteira em ordem aleatória, do cartão SD ou da unidade USB. Aperte A para escolher.",
+        "La tua musica del menu: un brano, una playlist o un'intera cartella in ordine casuale, dalla scheda SD o dall'unità USB. Premi A per sceglierla."),
+    "Menu music is off. Turn it on first.": (
+        "La música del menú está desactivada. Actívala primero.",
+        "メニューの音楽がオフです。先にオンにしてください。",
+        "A música do menu está desligada. Ligue-a primeiro.",
+        "La musica del menu è disattivata. Prima attivala."),
+    "RiftWii's own music": ("La música de RiftWii", "RiftWiiの音楽", "A música do RiftWii", "La musica di RiftWii"),
+    "Up a folder": ("Subir una carpeta", "ひとつ上のフォルダ", "Subir uma pasta", "Cartella superiore"),
+    "Shuffle this folder": ("Esta carpeta en aleatorio", "このフォルダをシャッフル", "Esta pasta em aleatório", "Questa cartella in casuale"),
+    "Shuffle": ("Aleatorio", "シャッフル", "Aleatório", "Casuale"),
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.": (
+        "Elige una canción (.ogg o .mp3) o una lista (.m3u/.m3u8), o abre una carpeta y elige Esta carpeta en aleatorio para oír todas sus canciones en orden aleatorio.",
+        "曲 (.ogg か .mp3) かプレイリスト (.m3u/.m3u8) を選ぶか、フォルダを開いて「このフォルダをシャッフル」を選ぶと、その中の曲をすべてシャッフルで流します。",
+        "Escolha uma música (.ogg ou .mp3) ou uma playlist (.m3u/.m3u8), ou abra uma pasta e escolha Esta pasta em aleatório para ouvir todas as músicas dela em ordem aleatória.",
+        "Scegli un brano (.ogg o .mp3) o una playlist (.m3u/.m3u8), oppure apri una cartella e scegli Questa cartella in casuale per sentire tutti i suoi brani in ordine casuale."),
+    "There is no USB drive, or RiftWii has not finished reading it yet.": (
+        "No hay unidad USB, o RiftWii aún no ha terminado de leerla.",
+        "USBドライブがないか、RiftWiiがまだ読み終えていません。",
+        "Não há unidade USB, ou o RiftWii ainda não terminou de lê-la.",
+        "Non c'è un'unità USB, oppure RiftWii non ha ancora finito di leggerla."),
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.": (
+        "No hay canciones .ogg ni .mp3 en esta carpeta ni en sus carpetas.",
+        "このフォルダとその中のフォルダに .ogg や .mp3 の曲がありません。",
+        "Não há músicas .ogg nem .mp3 nesta pasta nem nas pastas dentro dela.",
+        "Non ci sono brani .ogg o .mp3 in questa cartella né nelle sue cartelle."),
+})
+KO.update({
+    "Music file": "음악 파일",
+    "RiftWii's own": "RiftWii 기본",
+    "{1} (shuffled)": "{1} (셔플)",
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.":
+        "음악이 USB 드라이브에 있습니다. RiftWii가 드라이브를 다 읽으면 재생됩니다.",
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.":
+        "{1}에서 재생할 수 있는 것이 없어 RiftWii 기본 음악을 재생합니다. A를 누르면 다른 것을 고릅니다.",
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.":
+        "나만의 메뉴 음악: SD 카드나 USB 드라이브의 곡, 재생 목록 또는 폴더 전체를 셔플로 재생합니다. A를 누르면 고릅니다.",
+    "Menu music is off. Turn it on first.": "메뉴 음악이 꺼져 있습니다. 먼저 켜 주세요.",
+    "RiftWii's own music": "RiftWii 기본 음악",
+    "Up a folder": "상위 폴더",
+    "Shuffle this folder": "이 폴더 셔플",
+    "Shuffle": "셔플",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "곡(.ogg 또는 .mp3)이나 재생 목록(.m3u/.m3u8)을 고르거나, 폴더를 열고 '이 폴더 셔플'을 고르면 그 안의 모든 곡을 섞어서 재생합니다.",
+    "There is no USB drive, or RiftWii has not finished reading it yet.":
+        "USB 드라이브가 없거나 RiftWii가 아직 다 읽지 못했습니다.",
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.":
+        "이 폴더와 그 안의 폴더에 .ogg나 .mp3 곡이 없습니다.",
+})
+FR.update({
+    "Music file": "Fichier musical",
+    "RiftWii's own": "Celle de RiftWii",
+    "{1} (shuffled)": "{1} (aléatoire)",
+    "Your music is on the USB drive. It starts once RiftWii has read the drive.":
+        "Votre musique est sur le disque USB. Elle démarre une fois que RiftWii a lu le disque.",
+    "Nothing in {1} could be played, so RiftWii's own music plays. Press A to pick something else.":
+        "Rien dans {1} n'a pu être lu, la musique de RiftWii joue donc. Appuyez sur A pour choisir autre chose.",
+    "Your own menu music: a song, a playlist or a whole folder shuffled, from the SD card or the USB drive. Press A to pick it.":
+        "Votre propre musique de menu : un morceau, une playlist ou tout un dossier en aléatoire, depuis la carte SD ou le disque USB. Appuyez sur A pour la choisir.",
+    "Menu music is off. Turn it on first.": "La musique du menu est désactivée. Activez-la d'abord.",
+    "RiftWii's own music": "La musique de RiftWii",
+    "Up a folder": "Dossier parent",
+    "Shuffle this folder": "Ce dossier en aléatoire",
+    "Shuffle": "Aléatoire",
+    "Pick a song (.ogg or .mp3) or a playlist (.m3u/.m3u8), or open a folder and pick Shuffle this folder to hear all its songs in a shuffled order.":
+        "Choisissez un morceau (.ogg ou .mp3) ou une playlist (.m3u/.m3u8), ou ouvrez un dossier et choisissez Ce dossier en aléatoire pour écouter tous ses morceaux dans un ordre aléatoire.",
+    "There is no USB drive, or RiftWii has not finished reading it yet.":
+        "Il n'y a pas de disque USB, ou RiftWii n'a pas encore fini de le lire.",
+    "There are no .ogg or .mp3 songs in this folder or the folders in it.":
+        "Il n'y a aucun morceau .ogg ou .mp3 dans ce dossier ni dans ses sous-dossiers.",
+})
+
+
+# Data-only emulators. Their authors supply the individual setting labels.
+T.update({
+    "Emulators": ("Emuladores", "エミュレータ", "Emuladores", "Emulatori"),
+    "Emulator defaults": ("Valores del emulador", "エミュレータの標準設定", "Padrões do emulador", "Valori dell'emulatore"),
+    "Started with {1} ({2}).": ("Se inicia con {1} ({2}).", "{1} ({2})で起動します。", "Inicia com {1} ({2}).", "Si avvia con {1} ({2})."),
+    "Could not save emulator settings.": (
+        "No se pudieron guardar los ajustes del emulador.",
+        "エミュレータの設定を保存できません。", "Não foi possível salvar as configurações do emulador.",
+        "Impossibile salvare le impostazioni dell'emulatore."),
+    "The emulator arguments are invalid or too long. See session.log.": (
+        "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log.",
+        "起動するための設定が正しくないか、長すぎます。session.logを確認してください。",
+        "Os argumentos do emulador são inválidos ou longos demais. Veja session.log.",
+        "Gli argomenti dell'emulatore non sono validi o sono troppo lunghi. Vedi session.log."),
+})
+KO.update({
+    "Emulators": "에뮬레이터",
+    "Emulator defaults": "에뮬레이터 기본값",
+    "Started with {1} ({2}).": "{1} ({2})(으)로 시작합니다.",
+    "Could not save emulator settings.": "에뮬레이터 설정을 저장하지 못했습니다.",
+    "The emulator arguments are invalid or too long. See session.log.": "에뮬레이터 인수가 올바르지 않거나 너무 깁니다. session.log를 확인하세요.",
+})
+FR.update({
+    "Emulators": "Émulateurs",
+    "Emulator defaults": "Réglages de l'émulateur",
+    "Started with {1} ({2}).": "Démarre avec {1} ({2}).",
+    "Could not save emulator settings.": "Impossible d'enregistrer les réglages de l'émulateur.",
+    "The emulator arguments are invalid or too long. See session.log.": "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log.",
+})
+
+
+# Emulator game covers.
+T.update({
+    "Covers for emulator games": (
+        "Carátulas de juegos de emulador",
+        "エミュレータのゲームのカバー",
+        "Capas de jogos de emulador",
+        "Copertine dei giochi emulati"),
+    "SteamGridDB covers": (
+        "Carátulas de SteamGridDB",
+        "SteamGridDBのカバー",
+        "Capas do SteamGridDB",
+        "Copertine SteamGridDB"),
+    "On (key found)": (
+        "Sí (clave encontrada)",
+        "オン（キーあり）",
+        "Ligado (chave encontrada)",
+        "Sì (chiave trovata)"),
+    "Off (key found)": (
+        "No (clave encontrada)",
+        "オフ（キーあり）",
+        "Desligado (chave encontrada)",
+        "No (chiave trovata)"),
+    "No API key": (
+        "Sin clave API",
+        "APIキーなし",
+        "Sem chave de API",
+        "Nessuna chiave API"),
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": (
+        "Descarga carátulas de libretro. Desactivado usa solo tus carátulas PNG.",
+        "libretroからカバーをダウンロード。オフでは自分のPNGカバーのみ使います。",
+        "Baixa capas de emuladores do libretro. Desligado usa só suas capas PNG.",
+        "Scarica copertine da libretro. Se disattivato usa solo le tue copertine PNG."),
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": (
+        "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/steamgriddb.txt.",
+        "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgriddb.txtに入れてください。",
+        "Capas alternativas do SteamGridDB. Coloque sua chave de API em sd:/riftwii/steamgriddb.txt.",
+        "Copertine alternative da SteamGridDB. Metti la tua chiave API in sd:/riftwii/steamgriddb.txt."),
+    "Getting covers: {1} left": (
+        "Descargando carátulas: quedan {1}",
+        "カバーを取得中：残り{1}",
+        "Baixando capas: faltam {1}",
+        "Scaricamento copertine: {1} rimaste"),
+})
+KO.update({
+    "Covers for emulator games": "에뮬레이터 게임 표지",
+    "SteamGridDB covers": "SteamGridDB 표지",
+    "On (key found)": "켜기 (키 있음)",
+    "Off (key found)": "끄기 (키 있음)",
+    "No API key": "API 키 없음",
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "libretro에서 표지를 받습니다. 끄면 직접 넣은 PNG 표지만 사용합니다.",
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "SteamGridDB의 대체 표지입니다. 본인의 API 키를 sd:/riftwii/steamgriddb.txt에 넣으세요.",
+    "Getting covers: {1} left": "표지 받는 중: {1}개 남음",
+})
+FR.update({
+    "Covers for emulator games": "Jaquettes des jeux émulés",
+    "SteamGridDB covers": "Jaquettes SteamGridDB",
+    "On (key found)": "Oui (clé trouvée)",
+    "Off (key found)": "Non (clé trouvée)",
+    "No API key": "Aucune clé API",
+    "Downloads emulator covers from libretro. Off uses your own PNG covers only.": "Télécharge les jaquettes depuis libretro. Désactivé : utilise uniquement vos images PNG.",
+    "Fallback covers from SteamGridDB. Put your own API key in sd:/riftwii/steamgriddb.txt.": "Jaquettes de secours SteamGridDB. Placez votre clé API dans sd:/riftwii/steamgriddb.txt.",
+    "Getting covers: {1} left": "Téléchargement des jaquettes : {1} restantes",
+})
+
+
+T.update({
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": (
+        "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos.",
+        "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。",
+        "Capas de emuladores: colaboradores do libretro-thumbnails, MobyGames e Fandom. Capas opcionais: colaboradores do SteamGridDB. A arte original pertence aos criadores e editores dos jogos.",
+        "Copertine degli emulatori: collaboratori di libretro-thumbnails, MobyGames e Fandom. Copertine opzionali: collaboratori di SteamGridDB. La grafica originale appartiene agli sviluppatori e agli editori dei giochi."),
+})
+KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "에뮬레이터 표지: libretro-thumbnails 기여자, MobyGames, Fandom. 선택 표지: SteamGridDB 기여자. 원본 그림은 게임 개발자와 배급사의 소유입니다."})
+FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
+
+
+# Clear errors for memory cards, mod preparation and missing d2x.
+T.update({
+    "Memory card could not be read": (
+        "No se pudo leer la tarjeta de memoria",
+        "メモリーカードを読み込めません",
+        "Não foi possível ler o cartão de memória",
+        "Impossibile leggere la scheda di memoria"),
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O RiftWii não conseguiu ler {1}. O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "RiftWii non ha potuto leggere {1}. Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "Games cannot start": (
+        "Los juegos no pueden arrancar",
+        "ゲームを起動できません",
+        "Os jogos não podem iniciar",
+        "Impossibile avviare i giochi"),
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos USB precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi USB richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi SD richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "Mods could not be prepared": (
+        "No se pudieron preparar los mods",
+        "MODを準備できませんでした",
+        "Não foi possível preparar os mods",
+        "Impossibile preparare le mod"),
+    "{1} needs its mod folder to be {2}.": (
+        "{1} necesita que su carpeta de mod sea {2}.",
+        "{1}のMODフォルダーは{2}そのものである必要があります。",
+        "{1} precisa que a pasta do mod seja {2}.",
+        "{1} richiede che la cartella della mod sia {2}."),
+    "Required file: {1}": (
+        "Archivo necesario: {1}",
+        "必要なファイル: {1}",
+        "Arquivo necessário: {1}",
+        "File richiesto: {1}"),
+    "{1} is one folder too deep. Move its contents into {2}.": (
+        "{1} está una carpeta demasiado adentro. Mueve su contenido a {2}.",
+        "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。",
+        "{1} está uma pasta abaixo do esperado. Mova o conteúdo dela para {2}.",
+        "{1} è una cartella di troppo. Sposta il suo contenuto in {2}."),
+    "Rename {1} to exactly {2}.": (
+        "Renombra {1} exactamente como {2}.",
+        "{1}の名前を正確に{2}に変更してください。",
+        "Renomeie {1} para exatamente {2}.",
+        "Rinomina {1} esattamente in {2}."),
+    "Move {1} to {2}.": (
+        "Mueve {1} a {2}.",
+        "{1}を{2}に移動してください。",
+        "Mova {1} para {2}.",
+        "Sposta {1} in {2}."),
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": (
+        "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}.",
+        "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。",
+        "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}.",
+        "Copia la cartella {1} dal download della mod in modo che sia proprio {2}."),
+})
+KO.update({
+    "Memory card could not be read": "메모리 카드를 읽을 수 없습니다",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii가 {1}을 읽지 못했습니다. 파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "Games cannot start": "게임을 시작할 수 없습니다",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "USB 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "SD 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "Mods could not be prepared": "모드를 준비하지 못했습니다",
+    "{1} needs its mod folder to be {2}.": "{1}의 모드 폴더는 {2} 그 자체여야 합니다.",
+    "Required file: {1}": "필요한 파일: {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} 폴더가 한 단계 더 깊습니다. {1}의 내용을 {2}로 옮기세요.",
+    "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
+    "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "다운로드한 모드의 {1} 폴더가 {2} 자체가 되도록 복사하세요.",
+})
+FR.update({
+    "Memory card could not be read": "Impossible de lire la carte mémoire",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii n'a pas pu lire {1}. Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "Games cannot start": "Impossible de lancer les jeux",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux USB ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux SD ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "Mods could not be prepared": "Impossible de préparer les mods",
+    "{1} needs its mod folder to be {2}.": "{1} a besoin que son dossier de mod soit {2}.",
+    "Required file: {1}": "Fichier nécessaire : {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} est un dossier de trop. Déplacez son contenu dans {2}.",
+    "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
+    "Move {1} to {2}.": "Déplacez {1} vers {2}.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}.",
+})
+
+
+# Emulator channel-picture picker.
+T.update({
+    "Needs the internet": ("Necesita internet", "インターネットが必要です", "Precisa de internet", "Serve internet"),
+    "Choose the picture shown in Channels.": ("Elige la imagen que se muestra en Canales.", "チャンネルに表示する画像を選びます。", "Escolha a imagem mostrada em Canais.", "Scegli l'immagine mostrata nei Canali."),
+    "Back to automatic": ("Volver a automático", "自動に戻す", "Voltar ao automático", "Torna ad automatico"),
+    "Title screen": ("Pantalla de título", "タイトル画面", "Tela de título", "Schermata del titolo"),
+    "Screenshot": ("Captura de pantalla", "ゲーム画面", "Captura de tela", "Schermata di gioco"),
+    "Box art": ("Carátula", "パッケージ画像", "Capa", "Copertina"),
+    "SteamGridDB": ("SteamGridDB", "SteamGridDB", "SteamGridDB", "SteamGridDB"),
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": (
+        "Conecta la Wii a internet y activa {1} en {2} > {3}.",
+        "Wiiをインターネットに接続し、{2} > {3}で「{1}」をオンにしてください。",
+        "Conecte o Wii à internet e ative {1} em {2} > {3}.",
+        "Collega il Wii a internet, poi attiva {1} in {2} > {3}."),
+    "No pictures found.": ("No se encontraron imágenes.", "画像が見つかりません。", "Nenhuma imagem encontrada.", "Nessuna immagine trovata."),
+    "Could not load pictures.": ("No se pudieron cargar las imágenes.", "画像を読み込めませんでした。", "Não foi possível carregar as imagens.", "Impossibile caricare le immagini."),
+    "Could not load this picture.": ("No se pudo cargar esta imagen.", "この画像を読み込めませんでした。", "Não foi possível carregar esta imagem.", "Impossibile caricare questa immagine."),
+    "A picture could not be loaded.": ("No se pudo cargar una imagen.", "画像を読み込めませんでした。", "Uma imagem não pôde ser carregada.", "Impossibile caricare un'immagine."),
+    "Not enough memory.": ("No hay memoria suficiente.", "メモリが足りません。", "Memória insuficiente.", "Memoria insufficiente."),
+    "Could not save the picture.": ("No se pudo guardar la imagen.", "画像を保存できませんでした。", "Não foi possível salvar a imagem.", "Impossibile salvare l'immagine."),
+    "Choose": ("Elegir", "選ぶ", "Escolher", "Scegli"),
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": (
+        "Esta imagen se añadió o cambió a mano. ¿Borrarla y usar imágenes automáticas?",
+        "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?",
+        "Questa immagine è stata aggiunta o modificata a mano. Eliminarla e usare immagini automatiche?"),
+    "This picture was added or changed by hand. Replace it with the one you picked?": (
+        "Esta imagen se añadió o cambió a mano. ¿Reemplazarla por la que elegiste?",
+        "この画像は手動で追加または変更されています。選んだ画像に置き換えますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Substituir pela que você escolheu?",
+        "Questa immagine è stata aggiunta o modificata a mano. Sostituirla con quella scelta?"),
+    "Replace": ("Reemplazar", "置き換える", "Substituir", "Sostituisci"),
+})
+KO.update({
+    "Needs the internet": "인터넷이 필요합니다",
+    "Choose the picture shown in Channels.": "채널에 표시할 그림을 선택합니다.",
+    "Back to automatic": "자동으로 되돌리기",
+    "Title screen": "타이틀 화면",
+    "Screenshot": "게임 화면",
+    "Box art": "표지",
+    "SteamGridDB": "SteamGridDB",
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": "Wii를 인터넷에 연결한 다음 {2} > {3}에서 {1}를 켜세요.",
+    "No pictures found.": "그림을 찾지 못했습니다.",
+    "Could not load pictures.": "그림을 불러오지 못했습니다.",
+    "Could not load this picture.": "이 그림을 불러오지 못했습니다.",
+    "A picture could not be loaded.": "그림 하나를 불러오지 못했습니다.",
+    "Not enough memory.": "메모리가 부족합니다.",
+    "Could not save the picture.": "그림을 저장하지 못했습니다.",
+    "Choose": "선택",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?",
+    "Replace": "바꾸기",
+})
+FR.update({
+    "Needs the internet": "Internet nécessaire",
+    "Choose the picture shown in Channels.": "Choisissez l'image affichée dans les Chaînes.",
+    "Back to automatic": "Revenir au choix automatique",
+    "Title screen": "Écran titre",
+    "Screenshot": "Capture d’écran",
+    "Box art": "Jaquette",
+    "SteamGridDB": "SteamGridDB",
+    "Connect the Wii to the internet, then turn on {1} in {2} > {3}.": "Connectez la Wii à Internet, puis activez {1} dans {2} > {3}.",
+    "No pictures found.": "Aucune image trouvée.",
+    "Could not load pictures.": "Impossible de charger les images.",
+    "Could not load this picture.": "Impossible de charger cette image.",
+    "A picture could not be loaded.": "Une image n'a pas pu être chargée.",
+    "Not enough memory.": "Mémoire insuffisante.",
+    "Could not save the picture.": "Impossible d'enregistrer l'image.",
+    "Choose": "Choisir",
+    "This picture was added or changed by hand. Delete it and use automatic pictures?": "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "Cette image a été ajoutée ou modifiée à la main. La remplacer par celle que vous avez choisie ?",
+    "Replace": "Remplacer",
+})
+
+
+# ux-game-page: Save location chooser, per-game defaults reset, About controllers.
+T.update({
+    "Save location": (
+        "Dónde van las partidas",
+        "セーブの場所",
+        "Local dos saves",
+        "Posizione salvataggi"),
+    "Changing this never moves or deletes saves already made.": (
+        "Cambiar esto nunca mueve ni borra las partidas que ya tienes.",
+        "ここを変えても、作ったセーブが移動したり消えたりすることはありません。",
+        "Mudar isto nunca move nem apaga saves já feitos.",
+        "Cambiare questa scelta non sposta né elimina mai i salvataggi esistenti."),
+    "In use": ("En uso", "使用中", "Em uso", "In uso"),
+    "Use default options for this game": (
+        "Usar lo de Ajustes en este juego",
+        "このゲームは設定に合わせる",
+        "Usar opções padrão para este jogo",
+        "Usa le opzioni predefinite per questo gioco"),
+    "Use default options for this game?": (
+        "¿Usar lo de Ajustes en este juego?",
+        "このゲームは設定に合わせる？",
+        "Usar opções padrão para este jogo?",
+        "Usa le opzioni predefinite per questo gioco?"),
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": (
+        "La imagen, el idioma, los mandos y el inicio de este juego vuelven a lo de Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan como están.",
+        "このゲームの画面・言語・コントローラー・起動の選び方は設定に戻る。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。",
+        "A imagem, o idioma, o controle e o início deste jogo voltam para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e a estrela de favorito ficam como estão.",
+        "Immagine, lingua, controller e avvio di questo gioco tornano alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano invariati."),
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": (
+        "Vuelve a poner la imagen, el idioma, los mandos y el inicio de este juego como en Ajustes. Las partidas, la tarjeta de memoria de GameCube elegida, el lugar de guardado (NAND), los trucos, los mods y la estrella de favorito se quedan.",
+        "このゲームの画面・言語・コントローラー・起動の選び方を設定に戻す。セーブ・ゲームキューブのメモリーカード設定・セーブの場所（NAND）・チート・MOD・お気に入りはそのまま。",
+        "Volta imagem, idioma, controle e início deste jogo para Ajustes. Saves, a escolha do cartão de memória do GameCube, o local de salvamento (NAND), trapaças, mods e estrela de favorito ficam.",
+        "Riporta immagine, lingua, controller e avvio di questo gioco alle Impostazioni. Salvataggi, scelta della scheda di memoria GameCube, posizione dei salvataggi (NAND), trucchi, mod e stella dei preferiti restano."),
+    "Needed: {1}": (
+        "Necesarios: {1}",
+        "必要: {1}",
+        "Precisa de: {1}",
+        "Necessario: {1}"),
+    "Also works with: {1}": (
+        "También funciona con: {1}",
+        "使えるもの: {1}",
+        "Também funciona com: {1}",
+        "Funziona anche con: {1}"),
+    "Up and Down scroll": (
+        "Arriba y Abajo desplazan el texto",
+        "上下でスクロール",
+        "Cima e Baixo rolam o texto",
+        "Su e Giù scorrono il testo"),
+    "Up and Down scroll the story": (
+        "Arriba y Abajo mueven la historia",
+        "上下でストーリーをスクロール",
+        "Cima e Baixo rolam a história",
+        "Su e Giù scorrono la storia"),
+})
+KO.update({
+    "Save location": "저장 위치",
+    "Changing this never moves or deletes saves already made.": "이것을 바꿔도 이미 만든 저장은 옮겨지거나 지워지지 않습니다.",
+    "In use": "사용 중",
+    "Use default options for this game": "이 게임 기본 설정 사용",
+    "Use default options for this game?": "이 게임 기본 설정을 사용할까요?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "이 게임의 그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": "그림, 언어, 컨트롤러, 실행 선택을 설정값으로 되돌립니다. 저장, GameCube 메모리 카드 선택, 저장 위치(NAND), 치트, 모드, 즐겨찾기 별은 그대로 둡니다.",
+    "Needed: {1}": "필요: {1}",
+    "Also works with: {1}": "같이 사용 가능: {1}",
+    "Up and Down scroll": "위 아래로 넘기기",
+    "Up and Down scroll the story": "위 아래로 이야기 넘기기",
+})
+FR.update({
+    "Save location": "Emplacement des sauvegardes",
+    "Changing this never moves or deletes saves already made.": "Changer ceci ne déplace ni ne supprime jamais les sauvegardes déjà faites.",
+    "In use": "Utilisé",
+    "Use default options for this game": "Utiliser les réglages par défaut pour ce jeu",
+    "Use default options for this game?": "Utiliser les réglages par défaut pour ce jeu ?",
+    "This game's picture, language, controller and launch choices go back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay as they are.": "L’image, la langue, la manette et le lancement de ce jeu reviennent aux Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent comme ils sont.",
+    "Puts this game's picture, language, controller and launch choices back to Settings. Saves, the GameCube memory card choice, the save location (NAND), cheats, mods and the favourite star stay.": "Remet l’image, la langue, la manette et le lancement de ce jeu sur Réglages. Les sauvegardes, le choix de la carte mémoire GameCube, l’emplacement des sauvegardes (NAND), les astuces, les mods et l’étoile favorite restent.",
+    "Needed: {1}": "Nécessaire : {1}",
+    "Also works with: {1}": "Fonctionne aussi avec : {1}",
+    "Up and Down scroll": "Haut et Bas font défiler le texte",
+    "Up and Down scroll the story": "Haut et Bas font défiler l’histoire",
+})
+
+
+# Drop-and-play WiiWare WAD folders.
+T.update({
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": (
+        "No se pudieron leer algunos WAD. Consulta los nombres y motivos en sd:/riftwii/session.log.",
+        "一部のWADを読み込めませんでした。ファイル名と理由はsd:/riftwii/session.logで確認できます。",
+        "Alguns WADs não puderam ser lidos. Os nomes e motivos estão em sd:/riftwii/session.log.",
+        "Impossibile leggere alcuni WAD. Nomi e motivi sono in sd:/riftwii/session.log."),
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": (
+        "El WAD se prepara al jugar por primera vez. Las partidas quedan en {1} en la tarjeta SD.",
+        "初めて遊ぶ時にWADを準備します。セーブはSDカードの{1}に保存します。",
+        "O WAD é preparado na primeira vez que jogar. Os saves ficam em {1} no cartão SD.",
+        "Il WAD viene preparato al primo avvio. I salvataggi restano in {1} sulla scheda SD."),
+    "Getting the game ready": (
+        "Preparando el juego", "ゲームを準備中", "Preparando o jogo", "Preparazione del gioco"),
+    "Getting {1} ready, first time only": (
+        "Preparando {1}, solo la primera vez", "{1}を準備中 (初回のみ)",
+        "Preparando {1}, só na primeira vez", "Preparazione di {1}, solo al primo avvio"),
+    "The game could not be prepared": (
+        "No se pudo preparar el juego", "ゲームを準備できませんでした",
+        "Não foi possível preparar o jogo", "Impossibile preparare il gioco"),
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": (
+        "El WAD puede estar dañado, o la tarjeta SD llena o bloqueada. Revisa el archivo y el espacio libre e inténtalo de nuevo. Detalles en sd:/riftwii/session.log.",
+        "WADの破損、SDカードの空き容量やロックを確認して、もう一度お試しください。詳細はsd:/riftwii/session.logにあります。",
+        "O WAD pode estar danificado, ou o cartão SD cheio ou travado. Confira o arquivo e o espaço livre e tente de novo. Detalhes em sd:/riftwii/session.log.",
+        "Il WAD potrebbe essere danneggiato o la scheda SD piena o bloccata. Controlla il file e lo spazio libero e riprova. Dettagli in sd:/riftwii/session.log."),
+})
+KO.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "처음 실행할 때 WAD를 준비합니다. 저장 데이터는 SD 카드의 {1}에 보관됩니다.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "일부 WAD 파일을 읽지 못했습니다. 파일 이름과 이유는 sd:/riftwii/session.log에서 확인하세요.",
+    "Getting the game ready": "게임 준비 중",
+    "Getting {1} ready, first time only": "{1} 준비 중, 처음 한 번만",
+    "The game could not be prepared": "게임을 준비하지 못했습니다",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "WAD가 손상되었거나 SD 카드가 가득 찼거나 잠겨 있을 수 있습니다. 파일과 여유 공간을 확인하고 다시 시도하세요. 자세한 내용은 sd:/riftwii/session.log에 있습니다.",
+})
+FR.update({
+    "The WAD is prepared on first play. Saves stay in {1} on the SD card.": "Le WAD est préparé au premier lancement. Les sauvegardes restent dans {1} sur la carte SD.",
+    "Some WAD files could not be read. Check sd:/riftwii/session.log for the file names and reasons.": "Certains WAD n’ont pas pu être lus. Consultez sd:/riftwii/session.log pour les noms et les raisons.",
+    "Getting the game ready": "Préparation du jeu",
+    "Getting {1} ready, first time only": "Préparation de {1}, au premier lancement seulement",
+    "The game could not be prepared": "Le jeu n’a pas pu être préparé",
+    "The WAD may be damaged, or the SD card may be full or locked. Check the file and free space, then try again. Details are in sd:/riftwii/session.log.": "Le WAD est peut-être endommagé, ou la carte SD pleine ou verrouillée. Vérifiez le fichier et l’espace libre, puis réessayez. Détails dans sd:/riftwii/session.log.",
+})
+
+
+# The ES fallback's behavior reference, shown with the other credits.
+T.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": (
+        "Servicio ES de Dolphin (GPL-2.0-or-later) y wiibrew: cómo leer la clave de título de un WAD mediante IOS sin escribir en la consola. Consultados como documentación; no se copió código ni claves.",
+        "DolphinのESサービス（GPL-2.0-or-later）とwiibrew：本体に書き込まず、IOSを使ってWADのタイトルキーを読み出すしくみを参照しました。コードやキーの値はコピーしていません。",
+        "Serviço ES do Dolphin (GPL-2.0-or-later) e wiibrew: como ler a chave de título de um WAD pelo IOS sem gravar no console. Consultados como documentação; nenhum código ou chave foi copiado.",
+        "Servizio ES di Dolphin (GPL-2.0-or-later) e wiibrew: lettura della chiave del titolo di un WAD tramite IOS senza scrivere sulla console. Consultati come documentazione; nessun codice o chiave copiato.",
+    ),
+})
+KO.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Dolphin의 ES 서비스(GPL-2.0-or-later)와 wiibrew: 본체에 쓰지 않고 IOS로 WAD 타이틀 키를 읽는 방법을 문서로 참고했습니다. 코드나 키 값은 복사하지 않았습니다.",
+})
+FR.update({
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.": "Service ES de Dolphin (GPL-2.0-or-later) et wiibrew : lecture de la clé de titre d'un WAD par IOS sans écrire sur la console. Consultés comme documentation ; aucun code ni clé copiés.",
+})
+
+
+# Home's category chooser and recovery actions.
+T.update({
+    "No games here": ("No hay juegos aquí", "ここにゲームはありません", "Nenhum jogo aqui", "Nessun gioco qui"),
+    "Show all games": ("Mostrar todos los juegos", "すべてのゲームを表示", "Mostrar todos os jogos", "Mostra tutti i giochi"),
+    "Show every drive": ("Mostrar todas las unidades", "すべてのドライブを表示", "Mostrar todas as unidades", "Mostra tutte le unità"),
+    "Games from: {1}": ("Juegos de: {1}", "ゲームの場所：{1}", "Jogos de: {1}", "Giochi da: {1}"),
+    'No game matches "{1}".': (
+        'Ningún juego coincide con "{1}".', '「{1}」に合うゲームはありません。',
+        'Nenhum jogo corresponde a "{1}".', 'Nessun gioco corrisponde a "{1}".'),
+    "No games with mods were found.": (
+        "No se encontraron juegos con mods.", "MODがあるゲームは見つかりませんでした。",
+        "Nenhum jogo com mods foi encontrado.", "Nessun gioco con mod trovato."),
+    "No homebrew apps were found in sd:/apps.": (
+        "No se encontraron aplicaciones homebrew en sd:/apps.", "sd:/appsに自作ソフトが見つかりませんでした。",
+        "Nenhum aplicativo homebrew foi encontrado em sd:/apps.", "Nessuna app homebrew trovata in sd:/apps."),
+    "No emulator games were found.": (
+        "No se encontraron juegos de emuladores.", "エミュレータのゲームは見つかりませんでした。",
+        "Nenhum jogo de emulador foi encontrado.", "Nessun gioco per emulatori trovato."),
+    "No games here have been played from RiftWii yet.": (
+        "Aún no has jugado a estos juegos desde RiftWii.", "ここのゲームはまだRiftWiiで遊んでいません。",
+        "Nenhum jogo daqui foi jogado pelo RiftWii ainda.", "Nessun gioco qui è stato ancora giocato da RiftWii."),
+    "Mark a game as a favourite on its page.": (
+        "Marca un juego como favorito en su página.", "ゲームのページでお気に入りにしてください。",
+        "Marque um jogo como favorito na página dele.", "Segna un gioco come preferito nella sua pagina."),
+})
+KO.update({
+    "No games here": "여기에 게임이 없습니다",
+    "Show all games": "모든 게임 표시",
+    "Show every drive": "모든 드라이브 표시",
+    "Games from: {1}": "게임 위치: {1}",
+    'No game matches "{1}".': '"{1}"에 맞는 게임이 없습니다.',
+    "No games with mods were found.": "모드가 있는 게임을 찾지 못했습니다.",
+    "No homebrew apps were found in sd:/apps.": "sd:/apps에서 홈브류 앱을 찾지 못했습니다.",
+    "No emulator games were found.": "에뮬레이터 게임을 찾지 못했습니다.",
+    "No games here have been played from RiftWii yet.": "이곳의 게임은 아직 RiftWii에서 플레이하지 않았습니다.",
+    "Mark a game as a favourite on its page.": "게임 페이지에서 즐겨찾기로 표시하세요.",
+})
+FR.update({
+    "No games here": "Aucun jeu ici",
+    "Show all games": "Afficher tous les jeux",
+    "Show every drive": "Afficher tous les supports",
+    "Games from: {1}": "Jeux de : {1}",
+    'No game matches "{1}".': 'Aucun jeu ne correspond à « {1} ».',
+    "No games with mods were found.": "Aucun jeu avec des mods trouvé.",
+    "No homebrew apps were found in sd:/apps.": "Aucune appli homebrew trouvée dans sd:/apps.",
+    "No emulator games were found.": "Aucun jeu pour émulateur trouvé.",
+    "No games here have been played from RiftWii yet.": "Aucun jeu ici n'a encore été lancé depuis RiftWii.",
+    "Mark a game as a favourite on its page.": "Marquez un jeu comme favori sur sa page.",
+})
+
+
+# Clearer help, complete menu paths and setting names.
+T.update({
+    "Downloads": (
+        "Descargas",
+        "ダウンロード",
+        "Downloads",
+        "Download"),
+    "Back up GameCube saves": (
+        "Copiar partidas de GameCube",
+        "GameCubeセーブのバックアップ",
+        "Backup dos saves de GameCube",
+        "Backup salvataggi GameCube"),
+    "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them.": (
+        "Copia el pack de mods en la raíz de la tarjeta SD o unidad USB tal como viene. Su XML va en riivolution; deja las otras carpetas donde las trae el pack. Elige un juego, abre Mods, activa un pack y elige sus opciones. Pulsa B para volver a la página del juego, donde Jugar (o +) lo inicia con ellas.",
+        "MODパックをそのままSDカードかUSBドライブの一番上にコピーします。XMLはriivolutionに置き、他のフォルダもパックのままにします。ゲームを選び、MODを開き、パックをオンにして設定を選びます。Bでゲームのページに戻り、「遊ぶ」（または+）でその設定で遊べます。",
+        "Copie o pack de mods para a raiz do cartão SD ou do USB como ele veio. O XML vai em riivolution; mantenha as outras pastas onde o pack as coloca. Escolha um jogo, abra Mods, ative um pack e escolha suas opções. Aperte B para voltar à página do jogo, onde Jogar (ou +) inicia o jogo com elas.",
+        "Copia il pacchetto di mod nella radice della scheda SD o unità USB così com'è. Il suo XML va in riivolution; lascia le altre cartelle dove le mette il pacchetto. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le opzioni. Premi B per tornare alla pagina del gioco, dove Gioca (o +) lo avvia con esse."),
+    "Downloads are off. Turn on Settings > Online > Downloads first.": (
+        "Las descargas están desactivadas. Activa primero Ajustes > En línea > Descargas.",
+        "ダウンロードがオフです。先に設定 > オンライン > ダウンロードをオンにしてください。",
+        "Os downloads estão desativados. Ative primeiro Configurações > Online > Downloads.",
+        "I download sono disattivati. Attiva prima Impostazioni > Online > Download."),
+    "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": (
+        "Vienen de la base de datos de juegos de Wii de GameTDB. Activa Ajustes > En línea > Descargas para obtenerla.",
+        "GameTDBのWiiゲームのデータベースから取得します。設定 > オンライン > ダウンロードをオンにしてください。",
+        "Vêm da base de dados de jogos de Wii do GameTDB. Ative Configurações > Online > Downloads para obtê-la.",
+        "Provengono dal database dei giochi Wii di GameTDB. Attiva Impostazioni > Online > Download per ottenerlo."),
+    "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": (
+        "Permite descargar nombres, carátulas, trucos, detalles de juegos, temas y actualizaciones. Los archivos que ya están en la tarjeta siguen funcionando si se desactiva.",
+        "ゲーム名、カバー、チート、ゲームの詳細、テーマ、アップデートをダウンロードできます。オフでもカードにあるファイルは使えます。",
+        "Permite baixar nomes, capas, trapaças, detalhes de jogos, temas e atualizações. Os arquivos já no cartão continuam funcionando quando está desligado.",
+        "Consente di scaricare nomi, copertine, trucchi, dettagli dei giochi, temi e aggiornamenti. I file già sulla scheda funzionano anche se disattivato."),
+    "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": (
+        "No se encontraron emuladores. Pon un emulador con su archivo de complemento de RiftWii en su carpeta de aplicación, o añade archivos de plugins de WiiFlow. Luego usa Ajustes > Unidades > Buscar juegos de nuevo. Consulta Emuladores en la guía de GitHub.",
+        "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。",
+        "Nenhum emulador encontrado. Coloque um emulador com seu arquivo de complemento do RiftWii na pasta do aplicativo, ou adicione arquivos de plugins do WiiFlow. Depois use Configurações > Unidades > Procurar jogos de novo. Veja Emuladores no guia do GitHub.",
+        "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."),
+    "Emulator games: Home > Show > Emulators": (
+        "Juegos emulados: Inicio > Ver > Emuladores",
+        "エミュレータのゲーム：ホーム > 表示 > エミュレータ",
+        "Jogos emulados: Início > Ver > Emuladores",
+        "Giochi emulati: Home > Mostra > Emulatori"),
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": (
+        "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores.",
+        "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。",
+        "Muda os padrões dos emuladores instalados. Seus jogos ficam em Início > Ver > Emuladores.",
+        "Cambia le opzioni predefinite degli emulatori installati. I loro giochi sono in Home > Mostra > Emulatori."),
+    "Left to the mod": (
+        "Lo decide el mod",
+        "MODに任せる",
+        "Fica a cargo do mod",
+        "Lo decide la mod"),
+    "Off: no server chosen": (
+        "Desactivado: sin servidor",
+        "オフ：サーバー未選択",
+        "Desligado: sem servidor",
+        "Disattivato: nessun server"),
+    "Through {1}": (
+        "A través de {1}",
+        "{1}経由",
+        "Pelo {1}",
+        "Tramite {1}"),
+    "Match the width the game draws.": (
+        "Usa el ancho que dibuja el juego.",
+        "ゲームが描く幅に合わせます。",
+        "Usa a largura que o jogo desenha.",
+        "Usa la larghezza disegnata dal gioco."),
+    "Use the broadcast-safe width of 704 pixels.": (
+        "Usa el ancho de emisión de 704 píxeles.",
+        "テレビ用の安全な幅の704ピクセルにします。",
+        "Usa a largura de transmissão de 704 pixels.",
+        "Usa la larghezza televisiva di 704 pixel."),
+    "Fill the screen from side to side.": (
+        "Llena la pantalla de lado a lado.",
+        "画面の左右いっぱいに表示します。",
+        "Preenche a tela de um lado ao outro.",
+        "Riempie lo schermo da un lato all'altro."),
+    "Keep the game's own picture width.": (
+        "Mantiene el ancho de imagen del juego.",
+        "ゲーム本来の画面の幅を保ちます。",
+        "Mantém a largura de imagem do próprio jogo.",
+        "Mantiene la larghezza originale del gioco."),
+    "No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again.": (
+        "Aún no se encontraron juegos. No se busca en la tarjeta SD (Ajustes > Unidades > Juegos en la tarjeta SD). Pon tus juegos (WBFS, ISO o RVZ) en wbfs o games en el USB y usa Ajustes > Unidades > Buscar juegos de nuevo.",
+        "ゲームがまだありません。SDカードは検索しません（設定 > ドライブ > SDカードのゲーム）。ゲーム（WBFS、ISO、RVZ）をUSBドライブのwbfsかgamesに置き、設定 > ドライブ > ゲームをもう一度探すを選びます。",
+        "Nenhum jogo encontrado ainda. O cartão SD não é pesquisado (Configurações > Unidades > Jogos no cartão SD). Ponha os jogos (WBFS, ISO ou RVZ) em wbfs ou games no USB e use Configurações > Unidades > Procurar jogos de novo.",
+        "Nessun gioco trovato. La scheda SD non viene cercata (Impostazioni > Unità > Giochi sulla scheda SD). Metti i giochi (WBFS, ISO o RVZ) in wbfs o games sull'USB, poi usa Impostazioni > Unità > Cerca di nuovo i giochi."),
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again.": (
+        "Aún no se encontraron juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta wbfs o games en la raíz de la tarjeta SD o USB y usa Ajustes > Unidades > Buscar juegos de nuevo.",
+        "ゲームがまだありません。ゲーム（WBFS、ISO、RVZ）をSDカードかUSBドライブの一番上のwbfsかgamesフォルダに置き、設定 > ドライブ > ゲームをもう一度探すを選びます。",
+        "Nenhum jogo encontrado ainda. Ponha os jogos (WBFS, ISO ou RVZ) numa pasta wbfs ou games na raiz do cartão SD ou do USB e use Configurações > Unidades > Procurar jogos de novo.",
+        "Nessun gioco trovato. Metti i giochi (WBFS, ISO o RVZ) in una cartella wbfs o games nella radice della scheda SD o USB, poi usa Impostazioni > Unità > Cerca di nuovo i giochi."),
+    "Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now.": (
+        "Busca un PC con un servidor RiiFS al leer los juegos. Para buscar ahora, usa Ajustes > Unidades > Buscar juegos de nuevo.",
+        "ゲームを読むときにRiiFSサーバーを動かしているPCを探します。今探すには設定 > ドライブ > ゲームをもう一度探すを選びます。",
+        "Procura um PC com servidor RiiFS ao ler os jogos. Para procurar agora, use Configurações > Unidades > Procurar jogos de novo.",
+        "Cerca un PC con un server RiiFS quando legge i giochi. Per cercare ora, usa Impostazioni > Unità > Cerca di nuovo i giochi."),
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again.": (
+        "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Ayuda > Tutorial muestra este recorrido otra vez.",
+        "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > ヘルプ > チュートリアル でこのガイドをもう一度見られます。",
+        "As configurações têm as opções de vídeo, idioma, jogo online e atualizações. Para mais ajuda, veja o guia na página do RiftWii no GitHub ou entre no Discord. Configurações > Ajuda > Tutorial mostra este tour de novo.",
+        "Nelle impostazioni ci sono le opzioni di video, lingua, gioco online e aggiornamenti. Per altro aiuto, leggi la guida sulla pagina GitHub di RiftWii o entra nel Discord. Impostazioni > Aiuto > Tutorial mostra di nuovo questa guida."),
+    "RiftWii {1} is out. Settings > Online > Check for a new version installs it.": (
+        "Ya salió RiftWii {1}. Ajustes > En línea > Buscar una versión nueva la instala.",
+        "RiftWii {1}が出ています。設定 > オンライン > 新しいバージョンを確認 でインストールできます。",
+        "Saiu a RiftWii {1}. Configurações > Online > Procurar uma versão nova a instala.",
+        "È uscita RiftWii {1}. Impostazioni > Online > Cerca una nuova versione la installa."),
+    "You can bring it back any time in Settings > Home > Disc Channel.": (
+        "Puedes volver a mostrarlo cuando quieras en Ajustes > Inicio > Canal Disco.",
+        "設定 > ホーム > ディスクドライブチャンネル でいつでも戻せます。",
+        "Você pode trazê-lo de volta quando quiser em Configurações > Início > Canal Disco.",
+        "Puoi riaverlo quando vuoi in Impostazioni > Home > Canale Disco."),
+    "Home is in your own order now. Settings > Home > Home order puts it back A to Z.": (
+        "Inicio está ahora en tu propio orden. Ajustes > Inicio > Orden de Inicio lo vuelve a poner de la A a la Z.",
+        "ホームは自分の並び順になりました。設定 > ホーム > ホームの並び順でA〜Z順に戻せます。",
+        "O Início está agora na sua própria ordem. Configurações > Início > Ordem do Início volta para de A a Z.",
+        "La Home è ora nel tuo ordine. Impostazioni > Home > Ordine della Home la rimette dalla A alla Z."),
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it.": (
+        "{1} está instalado. Elígelo en Ajustes > Menú > Tema para usarlo. Pulsa A para borrarlo.",
+        "{1}はインストール済みです。使うには設定 > メニュー > テーマで選んでください。Aで削除します。",
+        "{1} está instalado. Escolha em Configurações > Menu > Tema para usá-lo. Aperte A para apagá-lo.",
+        "{1} è installato. Sceglilo in Impostazioni > Menu > Tema per usarlo. Premi A per eliminarlo."),
+    "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme.": (
+        "Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que lo elijas en Ajustes > Menú > Tema.",
+        "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > メニュー > テーマで選ぶまで何も変わりません。",
+        "Aperte A para baixar {1} em sd:/riftwii/themes. Nada muda até você escolhê-lo em Configurações > Menu > Tema.",
+        "Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finché non lo scegli in Impostazioni > Menu > Tema."),
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it.": (
+        "{1} está instalado. Elígelo en Ajustes > Menú > Tema para usarlo.",
+        "{1}をインストールしました。使うには設定 > メニュー > テーマで選んでください。",
+        "{1} está instalado. Escolha em Configurações > Menu > Tema para usá-lo.",
+        "{1} è installato. Sceglilo in Impostazioni > Menu > Tema per usarlo."),
+})
+
+KO.update({
+    "Downloads": "다운로드",
+    "Back up GameCube saves": "GameCube 저장 데이터 백업",
+    "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them.": "모드 팩을 받은 그대로 SD 카드나 USB 드라이브의 최상위에 복사하세요. XML은 riivolution에 넣고 다른 폴더는 팩의 배치를 유지하세요. 게임을 고르고 MOD를 열어 팩을 켠 뒤 옵션을 고르세요. B로 게임 페이지로 돌아가 플레이(또는 +)를 누르면 선택한 모드와 함께 게임을 시작합니다.",
+    "Downloads are off. Turn on Settings > Online > Downloads first.": "다운로드가 꺼져 있습니다. 먼저 설정 > 온라인 > 다운로드를 켜세요.",
+    "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정 > 온라인 > 다운로드를 켜세요.",
+    "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를 받을 수 있습니다. 꺼도 카드에 있는 파일은 계속 사용할 수 있습니다.",
+    "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요.",
+    "Emulator games: Home > Show > Emulators": "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다.",
+    "Left to the mod": "모드에 맡김",
+    "Off: no server chosen": "꺼짐: 서버 선택 안 됨",
+    "Through {1}": "{1} 이용",
+    "Match the width the game draws.": "게임이 그리는 화면 너비에 맞춥니다.",
+    "Use the broadcast-safe width of 704 pixels.": "방송용 안전 너비인 704픽셀을 사용합니다.",
+    "Fill the screen from side to side.": "화면을 좌우 끝까지 채웁니다.",
+    "Keep the game's own picture width.": "게임의 원래 화면 너비를 유지합니다.",
+    "No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again.": "아직 게임이 없습니다. SD 카드는 검색하지 않습니다(설정 > 드라이브 > SD 카드의 게임). USB의 wbfs 또는 games에 게임(WBFS, ISO, RVZ)을 넣고 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요.",
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again.": "아직 게임이 없습니다. SD 카드나 USB의 최상위 wbfs 또는 games 폴더에 게임(WBFS, ISO, RVZ)을 넣고 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요.",
+    "Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now.": "게임을 읽을 때 RiiFS 서버를 실행하는 PC를 찾습니다. 지금 찾으려면 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요.",
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again.": "설정 메뉴에는 비디오, 언어, 온라인, 업데이트 관련 옵션이 있습니다. 더 자세한 내용은 RiftWii GitHub 페이지의 가이드를 참조하거나 Discord에 참여해 확인하세요. '설정 > 도움말 > 자습서'를 선택하면 이 안내를 다시 볼 수 있습니다.",
+    "RiftWii {1} is out. Settings > Online > Check for a new version installs it.": "RiftWii {1}이(가) 출시되었습니다. 설정 > 온라인 > 새 버전 확인을 통해 설치할 수 있습니다.",
+    "You can bring it back any time in Settings > Home > Disc Channel.": "언제든지 설정 > 홈 > 디스크 채널에서 다시 표시할 수 있습니다.",
+    "Home is in your own order now. Settings > Home > Home order puts it back A to Z.": "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다.",
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it.": "{1}이(가) 설치되어 있습니다. 사용하려면 설정 > 메뉴 > 테마에서 고르세요. A를 누르면 삭제합니다.",
+    "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme.": "A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 메뉴 > 테마에서 고르기 전에는 아무것도 바뀌지 않습니다.",
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it.": "{1}이(가) 설치되었습니다. 사용하려면 설정 > 메뉴 > 테마에서 고르세요.",
+})
+
+FR.update({
+    "Downloads": "Téléchargements",
+    "Back up GameCube saves": "Sauvegarder les parties GameCube",
+    "Copy the mod pack to the top of the SD card or USB drive as it came. Its XML goes in riivolution; keep the other folders where the pack puts them. Pick a game, open Mods, switch a pack on and choose its options. Press B to go back to the game's page, where Play (or +) plays the game with them.": "Copiez le pack de mods à la racine de la carte SD ou du disque USB tel qu'il est fourni. Son XML va dans riivolution ; gardez les autres dossiers à leur place. Choisissez un jeu, ouvrez Mods, activez un pack et choisissez ses options. Appuyez sur B pour revenir à la page du jeu, où Jouer (ou +) le lance avec celles-ci.",
+    "Downloads are off. Turn on Settings > Online > Downloads first.": "Les téléchargements sont désactivés. Activez d'abord Paramètres > En ligne > Téléchargements.",
+    "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir.",
+    "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée.",
+    "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub.",
+    "Emulator games: Home > Show > Emulators": "Jeux émulés : Accueil > Afficher > Émulateurs",
+    "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs.",
+    "Left to the mod": "Laissé au mod",
+    "Off: no server chosen": "Désactivé : aucun serveur choisi",
+    "Through {1}": "Via {1}",
+    "Match the width the game draws.": "Utilise la largeur dessinée par le jeu.",
+    "Use the broadcast-safe width of 704 pixels.": "Utilise la largeur TV de 704 pixels.",
+    "Fill the screen from side to side.": "Remplit l'écran d'un bord à l'autre.",
+    "Keep the game's own picture width.": "Garde la largeur d'image d'origine du jeu.",
+    "No games found yet. The SD card is not searched (Settings > Drives > Games on the SD card). Put your games (WBFS, ISO or RVZ) in wbfs or games on the USB drive, then use Settings > Drives > Look for games again.": "Aucun jeu trouvé. La carte SD n'est pas parcourue (Paramètres > Supports > Jeux sur la carte SD). Placez vos jeux (WBFS, ISO ou RVZ) dans wbfs ou games sur le disque USB, puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux.",
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then use Settings > Drives > Look for games again.": "Aucun jeu trouvé. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier wbfs ou games à la racine de la carte SD ou du disque USB, puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux.",
+    "Looks for a PC running a RiiFS server when the games are read. Use Settings > Drives > Look for games again to look now.": "Cherche un PC avec un serveur RiiFS lors de la lecture des jeux. Pour chercher maintenant, utilisez Paramètres > Supports > Rechercher à nouveau les jeux.",
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Help > Tutorial shows this tour again.": "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Aide > Tutoriel réaffiche ce guide.",
+    "RiftWii {1} is out. Settings > Online > Check for a new version installs it.": "RiftWii {1} est disponible. Rendez-vous dans Paramètres > En ligne > Vérifier les mises à jour.",
+    "You can bring it back any time in Settings > Home > Disc Channel.": "Vous pouvez la réafficher à tout moment dans Paramètres > Accueil > Chaîne disques.",
+    "Home is in your own order now. Settings > Home > Home order puts it back A to Z.": "L'accueil est maintenant dans votre ordre. Paramètres > Accueil > Ordre de l'accueil le remet de A à Z.",
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it. Press A to delete it.": "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser. Appuyez sur A pour le supprimer.",
+    "Press A to download {1} into sd:/riftwii/themes. Nothing changes until you pick it in Settings > Menu > Theme.": "Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne change tant que vous ne le choisissez pas dans Paramètres > Menu > Thème.",
+    "{1} is installed. Pick it in Settings > Menu > Theme to use it.": "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
-               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
-               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
+               "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
+               "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",
+               "wii/menu/picturepicker.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -6883,6 +7670,12 @@ def main():
     if japanese:
         print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
+        raise SystemExit(1)
+
+    korean = menu_font_chars.korean_missing_characters()
+    if korean:
+        print("wii/font/korean.ttf lacks required characters: " +
+              ", ".join("U+%04X" % cp for cp in korean[:40]))
         raise SystemExit(1)
 
 

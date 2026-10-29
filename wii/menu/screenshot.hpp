@@ -29,6 +29,15 @@ void ScreenshotAfterFrame(const void* xfb, int width, int height);
 // 0-255: the white flash to draw over the menu (fades frame by frame).
 int ScreenshotFlash();
 
+// Home's view change: 1 and 2 pressed together on a Wii Remote, in either
+// order. While Home watches, 2 is kept back like 1 (its press comes when
+// it is let go alone), and neither reaches the menu after the pair.
+void WatchViewChord(bool on);
+// Whether the pair was pressed since the last call.
+bool TakeViewChord();
+// Drops a pair pressed since the last call: it only woke the dimmed screen.
+void ForgetViewChord();
+
 // The NAND folder the in-game blob writes (runtime/shot/shot_hook.h).
 constexpr const char* kGameShotDir = "/shared2/riftwii";
 

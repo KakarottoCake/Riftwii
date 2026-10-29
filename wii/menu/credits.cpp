@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "stash.hpp"
+#include "i18n.hpp"
 #include "zstd.h"
 
 namespace riftwii::wii {
@@ -63,9 +64,15 @@ const char* const kCredits[] = {
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
     "",
+    "OGWS community decompilation: Wii sequence envelopes, volume controls and pan, read as documentation only.",
+    "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
+    "libwiiinput by quatric: the USB keyboard, pen tablet and uDraw GameTablet drivers.",
+    "",
     "dolxz by FIX94 (MIT): the idea of the packed boot.dol (RiftWii's own stub and format).",
+    "",
+    "Priiloader by DacoTaco: how to tell it is installed, from its installer (read only, no code copied).",
     "",
     "libwiigui by Tantric (GPL), FreeTypeGX by Armin Tamzarian (GPL-3.0-or-later), oggplayer and libasnd by "
     "Francisco Munoz \"Hermes\" (BSD-3-Clause): the menu's toolkit, text and music player, and the streaming mixer API reference.",
@@ -73,21 +80,31 @@ const char* const kCredits[] = {
     "WiiLink WFC, wfc-patcher-wii (GPL-2.0-or-later): WiiLink online play. Online communications credit "
     "to WiiLink WFC, wfc.wiilink.ca.",
     "",
+    "wad2bin and Yet Another BlueDump Mod by DarkMatterCore (GPL-3.0): the layout of the content.bin the Wii "
+    "Menu writes when it moves a channel to the SD card.",
+    "",
+    "wfslib and wfs-tools by koolkdev (MIT), and Dolphin's IOS59 WFS devices (GPL-2.0-or-later): the WFS drive "
+    "format Dragon Quest X installs to, read as documentation.",
+    "",
     "WiiFlow Lite (github.com/Fledge68/WiiFlow_Lite, GPL-3.0): the USB Gecko output sent with interrupts off, "
     "and the WiiRD debugger's code handler and its pause at start.",
     "",
     "WiiFlow Lite and USB Loader GX: channel application type and BI2 setup; USB Loader GX, d2x and Dolphin: "
-    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md).",
+    "channel boot context and SD mount lifetime, read as documentation (source commits in NOTICE.md). "
+    "WiiFlow Lite's cover flow: the shelf's plastic cases round the paper, and how their colors are chosen.",
     "",
     "d2x cIOS: the USB and SD game loading interface, and how its FAT module mounts and lets go of the SD card "
     "for its emulated NAND.",
     "",
     "devkitPro, libogc and libfat (Michael Wiedenbauer, Dave Murphy, Hector Martin, Sven Peter and "
-    "others): the toolchain and the Wii library, and the physical GameCube card protocol reference.",
+    "others): the toolchain and the Wii library, the physical GameCube card protocol reference, "
+    "and network cleanup before a launch.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
     "(the Wii U Pro Controller translator).",
+    "",
+    "Dolphin's ES service (GPL-2.0-or-later) and wiibrew: read-only WAD title-key decryption through IOS, read as documentation; no code or key bytes copied.",
     "",
     "projectPiki's Pikmin 2 decompilation: GameCube SDK controller lifecycle behaviour, "
     "read as documentation; no code copied.",
@@ -100,10 +117,15 @@ const char* const kCredits[] = {
     "nothing copied.",
     "",
     "pugixml by Arseny Kapoulkine (MIT), Zstandard by Meta (BSD-3-Clause), BearSSL by Thomas Pornin "
-    "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
+    "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause), libmad by Underbit "
+    "Technologies (GPL-2.0-or-later).",
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
+    "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
+    "Age rating marks: the ESRB's, PEGI's, CERO's, the GRAC's and the GSRR's, as drawn on Wikimedia "
+    "Commons (public domain).",
     "",
     "Korean translation: DDinghoya. French translation: MidyGamy.",
     "",
@@ -117,14 +139,17 @@ const char* const kCredits[] = {
     "",
     "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",
+    "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.",
+    "",
     "RiftWii contains no Riivolution code and no Nintendo keys or assets.",
     "",
     "THE GNU GENERAL PUBLIC LICENSE, VERSION 3",
     "",
 };
 
-// Word-wrapped to `width`; a word longer than that is cut.
+// Word-wrapped to `width` bytes; long words are cut between UTF-8 characters.
 void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& out) {
+    if (width == 0) width = 1;
     if (text.empty()) {
         out.emplace_back();
         return;
@@ -139,7 +164,15 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
             break;
         }
         std::size_t cut = text.rfind(' ', end);
-        if (cut == std::string::npos || cut <= at) cut = end;
+        if (cut == std::string::npos || cut <= at) {
+            cut = end;
+            while (cut > at && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) --cut;
+            // A character wider than the line still has to make progress.
+            if (cut == at) {
+                cut = end;
+                while (cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xc0) == 0x80) ++cut;
+            }
+        }
         out.push_back(text.substr(at, cut - at));
         at = cut;
     }
@@ -193,7 +226,7 @@ void AddLicence(std::size_t width, std::vector<std::string>& out) {
 
 std::vector<std::string> CreditsLines(std::size_t width) {
     std::vector<std::string> out;
-    for (const char* paragraph : kCredits) Wrap(paragraph, width, out);
+    for (const char* paragraph : kCredits) Wrap(tr(paragraph), width, out);
     AddLicence(width, out);
     // No run of blank rows.
     std::vector<std::string> lines;

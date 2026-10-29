@@ -63,6 +63,8 @@ static void test_names_and_slugs() {
 
     EXPECT_TRUE(valid_profile_art("sd:/riivolution/RetroRewind.png"));
     EXPECT_TRUE(valid_profile_art("usb:/riivolution/Deluxe.PNG"));
+    EXPECT_TRUE(valid_profile_art("usb2:/riivolution/Deluxe.PNG"));
+    EXPECT_TRUE(!valid_profile_art("usb02:/riivolution/Deluxe.PNG"));
     EXPECT_TRUE(!valid_profile_art("sd:/riivolution/../x.png"));
     EXPECT_TRUE(!valid_profile_art("http://example.com/x.png"));
     EXPECT_TRUE(!valid_profile_art("sd:/riivolution/x.jpg"));
@@ -207,12 +209,28 @@ static void test_keyed_files() {
     EXPECT_TRUE(back.favorites == settings.favorites);
 }
 
+// riitag_id is a Discord ID: kept when it is one, dropped when it is not
+// (it ends up in a URL).
+static void test_settings_riitag_id() {
+    LoaderSettings settings;
+    settings.parse("riitag_id = 1202176528943681576\n");
+    EXPECT_EQ(settings.riitag_id, std::string("1202176528943681576"));
+    LoaderSettings back;
+    back.parse(settings.serialize());
+    EXPECT_EQ(back.riitag_id, std::string("1202176528943681576"));
+    LoaderSettings bad;
+    bad.parse("riitag_id = ../tag\n");
+    EXPECT_TRUE(bad.riitag_id.empty());
+    EXPECT_TRUE(LoaderSettings().serialize().find("riitag_id") == std::string::npos);
+}
+
 static void test_settings_after_reset() {
     LoaderSettings before;
     before.theme = "night";
     before.home_sort = "recent";
     before.online = false;
     before.riitag_key = "secret";
+    before.riitag_id = "1202176528943681576";
     before.favorites = {"RMCE01", "SMNE01@retro"};
     before.game_folders = {"/Wii Games"};
     before.other["debug_off"] = "x";
@@ -221,6 +239,7 @@ static void test_settings_after_reset() {
     EXPECT_EQ(after.home_sort, std::string("az"));
     EXPECT_TRUE(after.online);
     EXPECT_TRUE(after.riitag_key.empty());
+    EXPECT_TRUE(after.riitag_id.empty());
     EXPECT_TRUE(after.other.empty());
     EXPECT_TRUE(after.favorites == before.favorites);
     EXPECT_TRUE(after.game_folders == before.game_folders);
@@ -239,6 +258,7 @@ int main() {
     test_keyed_files();
     test_tiles_for();
     test_launched_choices_key();
+    test_settings_riitag_id();
     test_settings_after_reset();
     if (g_failures == 0) std::cout << "profiles tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;

@@ -8,6 +8,7 @@
 #include <cctype>
 
 #include "riftwii/gamelang.hpp"
+#include "riftwii/musiclist.hpp"
 #include "riftwii/textlines.hpp"
 
 namespace riftwii {
@@ -61,6 +62,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_wfc_server(value, server)) wfc_server = value;
         } else if (key == "riitag_key") {
             if (value.empty() || valid_riitag_key(value)) riitag_key = value;
+        } else if (key == "riitag_id") {
+            if (value.empty() || valid_riitag_id(value)) riitag_id = value;
         } else if (key == "wfc_domain") {
             if (value.empty() || valid_wfc_domain(value)) wfc_domain = value;
         } else if (key == "game_cios") {
@@ -95,6 +98,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "launch_music") {
             if (value == "on" || value == "off") launch_music = value;
+        } else if (key == "music_file") {
+            if (music_choice_valid(value)) music_file = value;
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_start") {
@@ -126,6 +131,10 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "normal" || value == "quiet" || value == "off") menu_sounds = value;
         } else if (key == "online") {
             online = value != "off";
+        } else if (key == "emulator_covers") {
+            if (value == "on" || value == "off") emulator_covers = value == "on";
+        } else if (key == "steamgrid_covers") {
+            if (value == "on" || value == "off") steamgrid_covers = value == "on";
         } else if (key == "favorites") {
             favorites.clear();
             std::size_t at = 0;
@@ -157,6 +166,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "on" || value == "off") gc_rumble = value;
         } else if (key == "wiimote_rumble") {
             if (value == "on" || value == "off") wiimote_rumble = value;
+        } else if (key == "usb_input") {
+            if (value == "on" || value == "off") usb_input = value;
         } else if (key == "gc_adapter") {
             if (value == "auto" || value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else if (key == "sd_games") {
@@ -199,6 +210,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "launch_music = " + launch_music + "\n";
+    s += "music_file = " + music_file + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
@@ -211,9 +223,13 @@ std::string LoaderSettings::serialize() const {
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
+    s += std::string("emulator_covers = ") + (emulator_covers ? "on" : "off") + "\n";
+    s += std::string("steamgrid_covers = ") + (steamgrid_covers ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
+    if (!riitag_id.empty()) s += "riitag_id = " + riitag_id + "\n";
     s += "gc_rumble = " + gc_rumble + "\n";
     s += "wiimote_rumble = " + wiimote_rumble + "\n";
+    s += "usb_input = " + usb_input + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     s += "sd_games = " + sd_games + "\n";
     s += "gc_backups = " + gc_backups + "\n";

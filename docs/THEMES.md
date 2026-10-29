@@ -27,7 +27,7 @@ installed can be deleted from it: it keeps their names in
 `sd:/riftwii/themes/.browser.txt`, and a theme you copied there yourself is
 left alone (the page asks before it replaces one of the same name).
 
-It needs Settings > Download names and cheats on. The list
+It needs Settings > Online > Downloads on. The list
 (`https://riftwii.github.io/themes/themes.json`) and every file come over
 https from riftwii.github.io only, and are treated as untrusted: the list
 is cut at 256 KB and 500 themes, a download must be exactly the size the
@@ -161,12 +161,18 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `panel_settings` | 580x284 | The white panel behind Settings |
 | `popup` | 580x284 | A popup's box: the title in a band across its top 44 pixels, a narrower band across the bottom 18 |
 | `bar` | 640x124 | Home's bottom bar (its top edge is a curve; see `bar` under [shape]) |
-| `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred |
+| `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred. A 16:9 menu lays copies side by side, so its left and right edges must join (diagonal stripes: a spacing that divides 640) |
 | `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |
 | `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |
 | `icon_drives` | 28x28 | Drive icon |
 | `icon_gear` | 28x28 | Gear icon |
 | `icon_search` | 28x28 | Magnifier icon on the search button |
+| `layout_covers` | 28x28 | Covers grid on Home's Layout button and picker card |
+| `layout_covers3d` | 28x28 | Tilted covers grid on Home's Layout button and picker card |
+| `layout_carousel` | 28x28 | Boxes on an arc on Home's Layout button and picker card |
+| `layout_shelf` | 28x28 | Book spines on Home's Layout button and picker card |
+| `layout_channels` | 28x28 | Rounded channel frames on Home's Layout button and picker card |
+| `layout_names` | 28x28 | Text lines on Home's Layout button and picker card |
 | `icon_star`, `icon_star_on` | 28x28 | Favourite button on a game's banner: not a favourite, a favourite |
 | `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | The game page's and Settings' tiles, stretched with 24-pixel corners kept: plain, lit, the main one (Play), the main one lit |
 | `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
@@ -196,9 +202,13 @@ it:
   the whole background, the bar's first and last 176 columns at its
   sides and its lowest 40 rows below it. Keep those parts plain (no
   words or shapes) so the mirror images look like more of the same.
-- Rows stay where they are: Home's covers are at the same height on any
-  screen, so a background drawn to go with them (shelves under the
-  covers, as in Bookshelf) still lines up.
+- Home's covers are larger on 16:9. At normal spacing their two rows end
+  at y 134 and 248 on 4:3, and y 164 and 308 on 16:9. A background with
+  shelves under those covers needs both sizes, as Bookshelf provides.
+  Leave the area below the last shelf light enough for the game's name.
+- A view's own background takes precedence over the general background.
+  If its `_wide` picture is absent, its 640-pixel picture is mirrored at
+  the sides, even when the theme supplies a general `background_wide`.
 
 ## Music
 
@@ -215,7 +225,8 @@ there are no playlists, but each theme can bring its own.
 - Mono or stereo, 44.1 or 48 kHz. It starts over from the beginning when it
   ends.
 
-Settings > **Menu music** still turns music off. A theme's `music.ogg`
+Settings > **Menu music** still turns music off, and a player's own pick in
+Settings > **Music file** plays instead of the theme's. A theme's `music.ogg`
 keeps priority when **Wii Menu music** is on. Without a theme music path,
 that choice tries the console's own System Menu music before the card's
 `music.ogg` and the release's tune. Missing or unsupported NAND resources

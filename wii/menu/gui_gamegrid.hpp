@@ -24,6 +24,7 @@
 struct ShelfFlight {
     std::string id;
     GXColor hue = {0, 0, 0, 255};
+    GXColor caseColour = {255, 255, 255, 255};  // GridItem's
     float x = 0, z = 0, turn = 0, lift = 0;
 };
 // The box flying between the shelf and a spot on screen (the game page's
@@ -32,9 +33,13 @@ struct ShelfFlight {
 void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, float toH, float e, int alpha,
                      bool reverse);
 // The focused box's place (where a game coming back from its page lands).
-ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue);
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue, GXColor caseColour);
 // The shelf leaves this game's place empty while its box flies ("" none).
 void SetShelfFlying(const std::string& id);
+// A box's back made up from its cover (as the shelf makes one up without
+// GameTDB's full scan), flat at x, y, w x h on screen: the cover zoom of a
+// box turned round.
+void DrawMadeUpBoxBack(const u8* cover, GXColor hue, float x, float y, float w, float h, int alpha);
 
 struct GridItem {
     std::string title;  // the display name, fitted to the tile
@@ -48,6 +53,10 @@ struct GridItem {
     // One of the game's profiles: its picture in the tile's top right corner.
     bool profile = false;
     GXColor hue = {90, 90, 100, 255};
+    // The colour of the game's case on the shelf, as on a real one: the
+    // player's, GameTDB's, its series' or its console's
+    // (riftwii/casecolour.hpp's resolve_case_colour).
+    GXColor caseColour = {255, 255, 255, 255};
 };
 
 class GuiGameGrid : public GuiElement {
@@ -108,6 +117,9 @@ public:
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
+    // B held for something else (Home's random game on the search button):
+    // letting go of it is not the jump to the next letter.
+    void ForgetLetterPress();
     // Keeps the focus on `index` (and its page).
     void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }
@@ -140,6 +152,16 @@ public:
     // (indices into the list). The caller moves it in the list as well,
     // in the same halt of the GUI: until then the grid shows it moved.
     bool TakeMove(int& from, int& to);
+    // Covers: 1 or 2 on a Wii Remote pointing at a cover zooms that cover
+    // up large in the middle of the screen, the rest dimmed behind it; 1,
+    // 2, A or B zooms it back down into its tile. While it is up those
+    // presses are the zoom's only (not the View or Settings button's). A
+    // tile without a cover leaves 1 and 2 to the bar. On the shelf and the
+    // carousel it is a box pointed at, its back if it is the focused box
+    // turned round (Up or Down). Drawn by
+    // GuiCoverZoom, over everything else on Home.
+    bool CoverZoomed() const { return zoomItem >= 0; }
+    void DrawCoverZoom();
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -180,6 +202,8 @@ private:
     // to the next letter when it is let go; L alone pages left. True while
     // B is held: the directions are the letters', not the focus's.
     bool LetterKeys(GuiTrigger* t);
+    // B (or L) let go after this is no letter: it was another control's.
+    void LettersDone(GuiTrigger* t);
     int LetterTarget(int dir) const;
     bool letterHeld[4] = {};
     bool letterPadHeld[4] = {};  // L alone pages on release; B alone jumps letters
@@ -227,6 +251,18 @@ private:
     int PeekAlpha(float x, int alpha) const;  // a tile at x: dimmed the further out of the page's columns
     void DrawNeighbourPages(int alpha);
     void DrawCoverTile(int i, bool on, int alpha);
+    // The cover zoom (CoverZoomed). zoomItem is the game zoomed (-1 none),
+    // zoomSlot its tile (-1 on the shelf, which zooms from the box's middle
+    // and height, zoomFrom*); zoomBack shows the box's back. zoomShown runs
+    // from 0 (in its tile) to 1 (up), towards 0 once zoomClosing, at the
+    // pace of the time between frames.
+    bool CoverZoomKeys(GuiTrigger* t);
+    void EndCoverZoom() { zoomItem = zoomSlot = -1; }
+    int zoomItem = -1, zoomSlot = -1;
+    bool zoomClosing = false, zoomBack = false;
+    float zoomFromX = 0.0f, zoomFromY = 0.0f, zoomFromH = 0.0f;
+    float zoomShown = 0.0f;
+    u64 zoomLastFrame = 0;
     void PrefetchCovers();
     void ReadAllCovers();
     // The shelf (wii/menu/gui_shelf.cpp).
@@ -265,12 +301,12 @@ private:
     bool ringPlaced = false;
     int shelfHover = -1;                // the box a pointer is on
     // The focused box turned round to its back (Up or Down), for that box
-    // only; how many frames the focus has stood still (its sway and the
-    // backdrop wait for it); the frame count the sway runs on.
+    // only; elapsed time in nominal 60 Hz frames (the sway and backdrop
+    // keep the same pace at 50 Hz).
     bool shelfFlip = false;
     int shelfFlipFor = -1;
-    int shelfStill = 0;
-    unsigned shelfClock = 0;
+    float shelfStill = 0;
+    float shelfClock = 0;
     // A held direction speeds up: the steps that came close together.
     u64 shelfLastStep = 0;
     int shelfStreak = 0;
@@ -322,4 +358,16 @@ private:
     int arrowHover = 0;
     int clicked = -1;
     bool laidOut = false;
+};
+
+// The grid's zoomed cover (GuiGameGrid::DrawCoverZoom), as an element of
+// its own: appended last to Home's window, so the cover comes up over the
+// bar and its buttons, which the grid is drawn under.
+class GuiCoverZoom : public GuiElement {
+public:
+    explicit GuiCoverZoom(GuiGameGrid& grid) : grid(grid) {}
+    void Draw() override { grid.DrawCoverZoom(); }
+
+private:
+    GuiGameGrid& grid;
 };

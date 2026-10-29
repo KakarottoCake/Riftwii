@@ -25,8 +25,16 @@ constexpr std::size_t kCoverFileSize = kCoverHeaderSize + kCoverPixelBytes;
 
 // GameTDB's cover regions to try for a game, best first: its own region
 // (for European games, the menu language's when GameTDB has one), then
-// EN, US and JA.
+// EN, US and JA. A homebrew app's four-letter code has no region: US
+// first, then EN and JA.
 std::vector<std::string> cover_regions(const std::string& game_id, const std::string& menu_language);
+// The IDs to ask GameTDB for a game's pictures under, best first. It
+// files WiiWare and Virtual Console games under their four-letter code
+// ("NAAE" for Super Mario 64; "NAAE01" has none), so a channel's ID gets
+// that code first, then the six characters: a GameCube disc's ID can look
+// like a channel's ("PZLE01" is a disc, not a TurboGrafx-16 game). Any
+// other game: its six-character ID alone.
+std::vector<std::string> gametdb_art_ids(const std::string& game_id);
 std::string cover_url(const std::string& region, const std::string& game_id);
 
 // The status a server answered with, read from a failed download's error
@@ -63,8 +71,9 @@ public:
 
     // `log_name` starts its log lines ("Covers"), `picture` names one of
     // them in the summary ("cover").
-    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover")
-        : log_name_(std::move(log_name)), picture_(std::move(picture)) {}
+    explicit CoverDownloads(std::string log_name = "Covers", std::string picture = "cover",
+                            std::string source = "GameTDB")
+        : log_name_(std::move(log_name)), picture_(std::move(picture)), source_(std::move(source)) {}
 
     // Counts one download; true when the downloads should stop now.
     bool count(CoverOutcome outcome);
@@ -74,7 +83,7 @@ public:
     std::string take_summary();
 
     // A fresh start (Settings > Look for games again).
-    void reset() { *this = CoverDownloads(log_name_, picture_); }
+    void reset() { *this = CoverDownloads(log_name_, picture_, source_); }
 
     const std::string& log_name() const { return log_name_; }
 
@@ -85,6 +94,7 @@ public:
 private:
     std::string log_name_;
     std::string picture_;
+    std::string source_;
     unsigned stored_ = 0;
     unsigned not_found_ = 0;
     unsigned no_answer_ = 0;

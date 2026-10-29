@@ -3,6 +3,7 @@
 // The launch extras: HTTP for the downloads, cheat files and their GCT,
 // the video mode patcher, and the settings file.
 #include "riftwii/cheats.hpp"
+#include "riftwii/codehook.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/http.hpp"
@@ -98,6 +99,230 @@ void TestReleaseAssetObjects() {
                                 "{\"ignored\":\"\\uXYZ0\"}"}) {
         EXPECT_FALSE(release_asset_from_json(invalid, "riftwii.dol", asset));
     }
+}
+
+void TestReleaseMetadataPolicy() {
+    std::string tag;
+    ReleaseAsset out;
+    const std::string url = "https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii.dol";
+    auto asset_doc = [&](const std::string& digest_field, const std::string& size_field) {
+        std::string doc = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\"";
+        if (!digest_field.empty()) doc += "," + digest_field;
+        if (!size_field.empty()) doc += "," + size_field;
+        return doc + "}]}";
+    };
+    auto refused_asset = [&](const std::string& doc) {
+        out.url = "unchanged";
+        out.sha256 = "unchanged";
+        out.size = 17ull;
+        EXPECT_FALSE(release_asset_from_json(doc, "riftwii.dol", out));
+        EXPECT_EQ(out.url, "unchanged");
+        EXPECT_EQ(out.sha256, "unchanged");
+        EXPECT_TRUE(out.size == 17ull);
+    };
+    auto refused_tag = [&](const std::string& doc) {
+        tag = "unchanged";
+        EXPECT_FALSE(release_tag_from_json(doc, tag));
+        EXPECT_EQ(tag, "unchanged");
+    };
+    // Only the root object's own tag counts, never a nested one.
+    EXPECT_TRUE(release_tag_from_json("{\"nested\":{\"tag_name\":\"vFake\"},\"tag_name\":\"vReal\"}", tag));
+    EXPECT_EQ(tag, "vReal");
+    refused_tag("{\"nested\":{\"tag_name\":\"v1\"}}");
+    // A string value that looks like a key never counts.
+    EXPECT_TRUE(release_tag_from_json("{\"body\":\"tag_name\",\"tag_name\":\"v2\"}", tag));
+    EXPECT_EQ(tag, "v2");
+    // An array answer reads the first release only, which must be an object.
+    EXPECT_TRUE(release_tag_from_json("[{\"tag_name\":\"v1\"},{\"tag_name\":\"v2\"}]", tag));
+    EXPECT_EQ(tag, "v1");
+    refused_tag("[42,{\"tag_name\":\"v1\"}]");
+    refused_tag("[\"v1\"]");
+    // The whole document must parse with nothing after it.
+    refused_tag("{\"tag_name\":\"v1\"} trailing");
+    refused_tag("{\"tag_name\":\"v1\"} {}");
+    // After decoding the tag is 1..64 bytes of the URL-safe set.
+    const std::string ok64(64, 'x');
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"" + ok64 + "\"}", tag));
+    EXPECT_EQ(tag, ok64);
+    refused_tag("{\"tag_name\":\"" + std::string(65, 'x') + "\"}");
+    refused_tag("{\"tag_name\":\"\"}");
+    refused_tag("{\"tag_name\":\"a\\nb\"}");
+    // tag_name null, 42, {} and missing.
+    refused_tag("{\"tag_name\":null}");
+    refused_tag("{\"tag_name\":42}");
+    refused_tag("{\"tag_name\":{}}");
+    refused_tag("{}");
+    // Only A-Z a-z 0-9 . _ + - pass; anything else after decoding refuses the tag.
+    refused_tag("{\"tag_name\":\"v1/2\"}");
+    refused_tag("{\"tag_name\":\"v1?2\"}");
+    refused_tag("{\"tag_name\":\"v1%2\"}");
+    refused_tag("{\"tag_name\":\"v1 2\"}");
+    refused_tag("{\"tag_name\":\"v1\\u002f2\"}");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v2610-691\"}", tag));
+    EXPECT_EQ(tag, "v2610-691");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v1.2_3+4-5\"}", tag));
+    EXPECT_EQ(tag, "v1.2_3+4-5");
+    // Escapes decode before the length and character checks.
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"\\u0076\\u00312\"}", tag));
+    EXPECT_EQ(tag, "v12");
+    std::string a64_escaped;
+    for (int i = 0; i < 64; ++i) a64_escaped += "\\u0061";
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"" + a64_escaped + "\"}", tag));
+    EXPECT_EQ(tag, std::string(64, 'a'));
+    std::string a65_escaped;
+    for (int i = 0; i < 65; ++i) a65_escaped += "\\u0061";
+    refused_tag("{\"tag_name\":\"" + a65_escaped + "\"}");
+    // A surrogate pair is refused as a tag now; it still decodes elsewhere.
+    refused_tag("{\"tag_name\":\"v\\uD83D\\uDE00\"}");
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\uD83D\\uDE00.dol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii\xF0\x9F\x98\x80.dol", out));
+    EXPECT_EQ(out.url, url);
+    refused_tag("{\"tag_name\":\"\\uD83D\"}");
+    refused_tag("{\"tag_name\":\"\\uDE00\\uD83D\"}");
+    refused_tag("{\"tag_name\":\"a\\u0000b\"}");
+    // Names and URLs match after decoding.
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\u002edol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii.dol", out));
+    EXPECT_EQ(out.url, url);
+    const std::string slash_url = "https:\\/\\/github.com\\/KakarottoCake\\/Riftwii\\/releases\\/download\\/v1\\/riftwii.dol";
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + slash_url + "\"}]}", "riftwii.dol", out));
+    EXPECT_EQ(out.url, url);
+    // A NUL escape in a name means no match; in a URL or digest it refuses the asset.
+    refused_asset("{\"assets\":[{\"name\":\"riftwii\\u0000.dol\",\"browser_download_url\":\"" + url + "\"}]}");
+    refused_asset("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"https://github.com/KakarottoCake/Riftwii/releases/download/v1/riftwii\\u0000.dol\"}]}");
+    // A high surrogate not followed by a low surrogate refuses the asset.
+    refused_asset("{\"assets\":[{\"name\":\"riftwii\\uD83DA.dol\",\"browser_download_url\":\"" + url + "\"}]}");
+    // Hex digits in escapes are case-insensitive.
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii\\uD83D\\uDe00.dol\",\"browser_download_url\":\"" + url + "\"}]}", "riftwii\xF0\x9F\x98\x80.dol", out));
+    EXPECT_EQ(out.url, url);
+    // Missing or null digest leaves sha256 empty.
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.sha256.empty());
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":null", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.sha256.empty());
+    const std::string hex(64, 'a');
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":\"sha256:" + hex + "\"", ""), "riftwii.dol", out));
+    EXPECT_EQ(out.sha256, hex);
+    const std::string upper(64, 'A');
+    EXPECT_TRUE(release_asset_from_json(asset_doc("\"digest\":\"sha256:" + upper + "\"", ""), "riftwii.dol", out));
+    EXPECT_EQ(out.sha256, hex);
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(10, 'a') + "\\u0000" + std::string(53, 'a') + "\"", ""));
+    // Any other present digest refuses the asset.
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(63, 'a') + "\"", ""));
+    refused_asset(asset_doc("\"digest\":\"sha256:" + std::string(64, 'a') + "b\"", ""));
+    std::string nonhex = hex;
+    nonhex[0] = 'z';
+    refused_asset(asset_doc("\"digest\":\"sha256:" + nonhex + "\"", ""));
+    refused_asset(asset_doc("\"digest\":\"sha512:" + hex + "\"", ""));
+    refused_asset(asset_doc("\"digest\":42", ""));
+    refused_asset(asset_doc("\"digest\":true", ""));
+    refused_asset(asset_doc("\"digest\":false", ""));
+    refused_asset(asset_doc("\"digest\":{}", ""));
+    // Missing or null size leaves size unknown.
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", ""), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 0ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":null"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 0ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":42"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 42ull);
+    EXPECT_TRUE(release_asset_from_json(asset_doc("", "\"size\":18446744073709551615"), "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 18446744073709551615ull);
+    EXPECT_TRUE(release_asset_from_json("{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"size\" : 42 }]}", "riftwii.dol", out));
+    EXPECT_TRUE(out.size == 42ull);
+    // Anything but a plain 1..2^64-1 integer refuses the asset.
+    refused_asset(asset_doc("", "\"size\":0"));
+    refused_asset(asset_doc("", "\"size\":-1"));
+    refused_asset(asset_doc("", "\"size\":01"));
+    refused_asset(asset_doc("", "\"size\":1.5"));
+    refused_asset(asset_doc("", "\"size\":1e3"));
+    refused_asset(asset_doc("", "\"size\":\"42\""));
+    refused_asset(asset_doc("", "\"size\":true"));
+    refused_asset(asset_doc("", "\"size\":18446744073709551616"));
+    // A refused first match is never replaced by an older release.
+    {
+        const std::string bad_digest = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"digest\":\"sha256:" + std::string(63, 'a') + "\"}]}";
+        const std::string good_digest = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"digest\":\"sha256:" + hex + "\"}]}";
+        refused_asset("[" + bad_digest + "," + good_digest + "]");
+        const std::string size_zero = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\",\"size\":0}]}";
+        const std::string size_ok = "{\"assets\":[{\"name\":\"riftwii.dol\",\"browser_download_url\":\"" + url + "\"}]}";
+        refused_asset("[" + size_zero + "," + size_ok + "]");
+    }
+    // A realistic /releases/latest object: extra members are skipped.
+    {
+        const std::string real_url = "https://github.com/KakarottoCake/Riftwii/releases/download/v2610-691/riftwii.dol";
+        const std::string latest =
+            "{\"url\":\"https://api.github.com/repos/KakarottoCake/Riftwii/releases/1\","
+            "\"id\":1,"
+            "\"tag_name\":\"v2610-691\","
+            "\"name\":\"v2610-691\","
+            "\"author\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"},"
+            "\"uploader\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"},"
+            "\"assets\":[{"
+            "\"id\":10,"
+            "\"name\":\"riftwii.dol\","
+            "\"label\":null,"
+            "\"content_type\":\"application/octet-stream\","
+            "\"state\":\"uploaded\","
+            "\"size\":12345,"
+            "\"digest\":null,"
+            "\"download_count\":7,"
+            "\"created_at\":\"2026-01-01T00:00:00Z\","
+            "\"browser_download_url\":\"" + real_url + "\","
+            "\"uploader\":{\"login\":\"someone\",\"id\":2,\"type\":\"User\"}"
+            "}],"
+            "\"reactions\":{\"total_count\":0}}";
+        EXPECT_TRUE(release_tag_from_json(latest, tag));
+        EXPECT_EQ(tag, "v2610-691");
+        EXPECT_TRUE(release_asset_from_json(latest, "riftwii.dol", out));
+        EXPECT_EQ(out.url, real_url);
+        EXPECT_TRUE(out.size == 12345ull);
+        EXPECT_TRUE(out.sha256.empty());
+    }
+    // "." and ".." would climb out of tags/ in the API address.
+    refused_tag("{\"tag_name\":\".\"}");
+    refused_tag("{\"tag_name\":\"..\"}");
+    EXPECT_TRUE(release_tag_from_json("{\"tag_name\":\"v1.0\"}", tag));
+    EXPECT_EQ(tag, "v1.0");
+}
+
+void TestTlsFailureReason() {
+    EXPECT_EQ(tls_failure_reason(31, 0), "");
+    EXPECT_EQ(tls_failure_reason(0, 0), "");
+    EXPECT_EQ(tls_failure_reason(32, 0), "");
+    EXPECT_EQ(tls_failure_reason(33, 0), "the certificate was not accepted");
+    EXPECT_EQ(tls_failure_reason(63, 0), "the certificate was not accepted");
+    EXPECT_EQ(tls_failure_reason(64, 0), "");
+    EXPECT_EQ(tls_failure_reason(100, 0), "");
+    EXPECT_EQ(tls_failure_reason(256 + 40, 0), "");
+    EXPECT_EQ(tls_failure_reason(512 + 40, 0), "");
+    EXPECT_EQ(tls_failure_reason(54, 0),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "1970-01-01; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(54, 951782400),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "2000-02-29; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(53, 0),
+              "the certificate is outside its valid dates; the Wii's clock says "
+              "1970-01-01; if that date is wrong, set it in Wii Settings");
+    EXPECT_EQ(tls_failure_reason(56, 0),
+              "the certificate is for a different server; something on the network may be "
+              "redirecting the connection");
+    EXPECT_EQ(tls_failure_reason(52, 0),
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(55, 0),
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(58, 0),
+              "the server's certificate chain does not check out; something on the network may be "
+              "intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(62, 0),
+              "the certificate's issuer is not in RiftWii's list of trusted authorities; the "
+              "list may be out of date, or something on the network is intercepting the connection");
+    EXPECT_EQ(tls_failure_reason(49, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
+    EXPECT_EQ(tls_failure_reason(51, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
+    EXPECT_EQ(tls_failure_reason(60, 0),
+              "the server's certificate is of a kind RiftWii cannot check");
 }
 
 void TestHttp() {
@@ -1117,6 +1342,16 @@ void TestSettings() {
     adapterAgain.parse(adapter.serialize());
     EXPECT_EQ(adapterAgain.gc_adapter, "on");
     EXPECT_EQ(adapterAgain.other.count("gc_adapter"), 0u);
+    LoaderSettings usb;
+    EXPECT_EQ(usb.usb_input, "on");  // the default
+    usb.parse("usb_input = off\n");
+    EXPECT_EQ(usb.usb_input, "off");
+    usb.parse("usb_input = maybe\n");  // unknown values are ignored
+    EXPECT_EQ(usb.usb_input, "off");
+    LoaderSettings usbAgain;
+    usbAgain.parse(usb.serialize());
+    EXPECT_EQ(usbAgain.usb_input, "off");
+    EXPECT_EQ(usbAgain.other.count("usb_input"), 0u);
 
     GameSettings g;
     VideoSettings v = effective_video(g, s);
@@ -1349,7 +1584,22 @@ void TestCoverArt() {
     EXPECT_EQ(cover_regions("RMCP01", "ja")[0], "EN");
     EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
     EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once
+    // A homebrew app's code: US first whatever its last letter or the menu's language.
+    const std::vector<std::string> homebrew = cover_regions("9XGX", "fr");
+    EXPECT_EQ(homebrew.size(), 3u);
+    EXPECT_EQ(homebrew[0], "US");
+    EXPECT_EQ(homebrew[1], "EN");
+    EXPECT_EQ(cover_regions("D01A", "en")[0], "US");
     EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+    // WiiWare and Virtual Console art is under the four-letter code, a
+    // disc's under its six characters; a GameCube disc that looks like a
+    // channel ("PZLE01") still gets its own ID after the code.
+    EXPECT_TRUE(gametdb_art_ids("RMCE01") == (std::vector<std::string>{"RMCE01"}));
+    EXPECT_TRUE(gametdb_art_ids("NAAE01") == (std::vector<std::string>{"NAAE", "NAAE01"}));
+    EXPECT_TRUE(gametdb_art_ids("WGOE01") == (std::vector<std::string>{"WGOE", "WGOE01"}));
+    EXPECT_TRUE(gametdb_art_ids("FAAE01") == (std::vector<std::string>{"FAAE", "FAAE01"}));
+    EXPECT_TRUE(gametdb_art_ids("PZLE01") == (std::vector<std::string>{"PZLE", "PZLE01"}));
+    EXPECT_TRUE(gametdb_art_ids("HAAA01") == (std::vector<std::string>{"HAAA01"}));
 
     // 2x2 averages to 1x1; 1 pixel spreads to 3x3.
     const std::uint8_t four[16] = {0, 0, 0, 255, 100, 100, 100, 255, 200, 200, 200, 255, 100, 100, 100, 255};
@@ -1701,6 +1951,10 @@ void TestHeadlessArguments() {
                                       h, error));
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "gct=sd:/codes/RMCE01.gct", "return_to=0001000147584c44"}, h,
                                       error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb2:/wbfs/RMCE01.wbfs", "xml=usb1:/riivolution/a.xml"}, h, error));
+    EXPECT_EQ(h.from, std::string("usb"));
+    EXPECT_EQ(h.path, std::string("usb2:/wbfs/RMCE01.wbfs"));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=usb02:/wbfs/RMCE01.wbfs"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
@@ -2077,6 +2331,60 @@ void TestFriivolutionArguments() {
     EXPECT_EQ(args[1], "path=usb:/wbfs/x.wbfs");
 }
 
+void TestReturnPlans() {
+    const std::uint32_t arena1_top = 0x817E0000;
+    const ReturnStubPlan ordinary = plan_return_stub(arena1_top, true, false);
+    EXPECT_EQ(ordinary.address, arena1_top - kReturnStubBytes);
+    EXPECT_EQ(ordinary.arena1_hi, ordinary.address);
+    EXPECT_EQ(ordinary.code_list_end, kCodeListEnd);
+    EXPECT_EQ(plan_return_stub(arena1_top + 15, true, false).address, ordinary.address);
+
+    // RE4 and code builds keep every byte of their MEM1 arena. The stub
+    // survives a clear from the game's start to its FST, and normal cheats
+    // cannot fill those last 32 bytes of low memory.
+    const ReturnStubPlan low = plan_return_stub(arena1_top, true, true);
+    EXPECT_EQ(low.address, kLowReturnStub);
+    EXPECT_EQ(low.arena1_hi, arena1_top);
+    EXPECT_EQ(low.code_list_end, low.address);
+    EXPECT_EQ(kCodeListEnd - low.code_list_end, kReturnStubBytes);
+    EXPECT_TRUE(low.address + kReturnStubBytes <= 0x80003000);
+    EXPECT_TRUE(low.address < 0x80004000);
+
+    for (bool needs_low_memory : {false, true}) {
+        const ReturnStubPlan disabled = plan_return_stub(arena1_top, false, needs_low_memory);
+        EXPECT_EQ(disabled.address, 0u);
+        EXPECT_EQ(disabled.arena1_hi, arena1_top);
+        EXPECT_EQ(disabled.code_list_end, kCodeListEnd);
+    }
+    EXPECT_EQ(plan_return_stub(16, true, false).address, 0u);
+
+    // A channel's cheats may fill the ordinary area when return is off.
+    // Enabling its low-memory stub reserves exactly the last 32 bytes.
+    const std::size_t full_gct_bytes = kCodeListEnd - kCodeListAddress;
+    const ReturnStubPlan channel_return_off = plan_return_stub(arena1_top, false, true);
+    const ReturnStubPlan channel_return_on = plan_return_stub(arena1_top, true, true);
+    EXPECT_EQ(full_gct_bytes, channel_return_off.code_list_end - kCodeListAddress);
+    EXPECT_TRUE(full_gct_bytes > channel_return_on.code_list_end - kCodeListAddress);
+    EXPECT_EQ(full_gct_bytes - kReturnStubBytes, channel_return_on.code_list_end - kCodeListAddress);
+
+    constexpr std::uint64_t channel = 0x0001000155465457ull;
+    constexpr std::uint64_t legacy_channel = 0x0001000152465457ull;
+    constexpr std::uint64_t hbc = 0x000100014C554C5Aull;
+    constexpr std::uint64_t menu = 0x0000000100000002ull;
+    // A failed channel ticket leaves HBC next, even with both installed.
+    EXPECT_TRUE(gamecube_return_titles(true, true, channel, hbc) ==
+                (std::vector<std::uint64_t>{channel, hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, legacy_channel, hbc) ==
+                (std::vector<std::uint64_t>{legacy_channel, hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, channel, 0) == (std::vector<std::uint64_t>{channel, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, 0, hbc) == (std::vector<std::uint64_t>{hbc, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, true, 0, 0) == (std::vector<std::uint64_t>{menu}));
+    // HBC is not a fallback when another app started RiftWii.
+    EXPECT_TRUE(gamecube_return_titles(true, false, channel, hbc) == (std::vector<std::uint64_t>{channel, menu}));
+    EXPECT_TRUE(gamecube_return_titles(true, false, 0, hbc) == (std::vector<std::uint64_t>{menu}));
+    EXPECT_TRUE(gamecube_return_titles(false, true, channel, hbc) == (std::vector<std::uint64_t>{menu}));
+}
+
 void TestReturnTo() {
     auto put = [](std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
         b[at] = v >> 24; b[at + 1] = (v >> 16) & 0xFF; b[at + 2] = (v >> 8) & 0xFF; b[at + 3] = v & 0xFF;
@@ -2120,6 +2428,35 @@ void TestReturnTo() {
     put(high, 0x108, 0x38A00000);
     EXPECT_TRUE(patch_return_to({{high.data(), high.size(), 0x81000000}}, 0x55465457, stub2.data(), 0x80F00000).patched);
     EXPECT_EQ(0x81000100u + (get(high, 0x100) & 0x03FFFFFCu) - 0x04000000u, 0x80F00000u);
+    // The low-memory slot is behind the callers, in both SDK layouts.
+    // Only its five instructions are written; the rest of the reserved
+    // cache line remains intact for the before/after memory comparison.
+    for (bool old_sdk : {false, true}) {
+        std::vector<std::uint8_t> low_text(0x400, 0);
+        std::vector<std::uint8_t> low_stub(kReturnStubBytes, 0xCC);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            put(low_text, at, old_sdk ? 0x38C00002 : 0x38800002);
+            put(low_text, at + 4, old_sdk ? 0x38A00001 : 0x38600001);
+        }
+        put(low_text, 0x108, old_sdk ? 0x38E00000 : 0x38A00000);
+        const ReturnStubPlan plan = plan_return_stub(0x817E0000, true, true);
+        const ReturnToReport low_report = patch_return_to(
+            {{low_text.data(), low_text.size(), 0x80004000}}, 0x55465457, low_stub.data(), plan.address);
+        EXPECT_TRUE(low_report.patched);
+        EXPECT_EQ(low_report.old_sdk, old_sdk);
+        EXPECT_EQ(get(low_stub, 0), old_sdk ? 0x3CA00001u : 0x3C600001u);
+        EXPECT_EQ(get(low_stub, 8), old_sdk ? 0x3CC05546u : 0x3C805546u);
+        EXPECT_EQ(get(low_stub, 16), 0x4E800020u);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            const std::uint32_t call = get(low_text, at);
+            EXPECT_EQ(call & 0xFC000003u, 0x48000001u);
+            const std::uint32_t signed_displacement = (call & 0x03FFFFFCu) | 0xFC000000u;
+            EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + signed_displacement, plan.address);
+        }
+        for (std::size_t at = 20; at < low_stub.size(); ++at) {
+            EXPECT_EQ(low_stub[at], 0xCC);
+        }
+    }
     // Two places only, or no stub: nothing written.
     std::vector<std::uint8_t> short_text(0x400, 0), short_stub(32, 0);
     for (std::size_t at : {0x100u, 0x180u}) {
@@ -2263,6 +2600,15 @@ void TestHistory() {
     back.parse(h.serialize());
     EXPECT_EQ(back.size(), 3u);
     EXPECT_EQ(back.find("R2SE18")->last, 1790000800);
+    // An emulator game's key is kept; a malformed one is not.
+    const std::string emu = "emu-" + std::string(64, 'a');
+    back.record(emu, 1790003000);
+    back.record("emu-" + std::string(64, 'G'), 1790003000);
+    back.record("emu-abc", 1790003000);
+    PlayHistory again;
+    again.parse(back.serialize());
+    EXPECT_EQ(again.size(), 4u);
+    EXPECT_TRUE(again.find(emu) != nullptr && again.recent(1)[0] == emu);
 }
 
 }  // namespace
@@ -2430,6 +2776,7 @@ void TestPlayerActed() {
 
 int main() {
     TestPlayLogRecord();
+    TestReturnPlans();
     TestReturnTo();
     TestHeadlessArguments();
     TestResetRequest();
@@ -2437,7 +2784,9 @@ int main() {
     TestRestartRequestSectors();
     TestFriivolutionArguments();
     TestHttp();
+    TestTlsFailureReason();
     TestReleaseAssetObjects();
+    TestReleaseMetadataPolicy();
     TestCheats();
     TestCheatRevisions();
     TestVideo();

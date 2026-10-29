@@ -46,6 +46,7 @@ constexpr s32 kIpcNotFound = -6;
 
 // The console as one launch sees it.
 struct Console {
+    s32 ios = 251;
     bool has_fat_module = true;
     bool d2x_driver = false;          // a game on the card: d2x's /dev/sdio/sdhc
     bool libogc_slot_open = true;     // the menu left libogc's driver running
@@ -210,6 +211,77 @@ void test_whole_nand_sets_the_full_flag() {
     CHECK(console.set_mode == 0x101);
     CHECK(logged("NAND emulation of the whole NAND (full flag 0x100) on for sd:/nands/01"));
     CHECK(logged("mode 0x101\n"));
+}
+
+// A channel launch remembers an IOS whose module could not mount the card,
+// even after its retry, and doesn't touch the card on it again. Another IOS
+// and a new launch still get their chance.
+void test_channel_mount_failures_are_kept_for_one_launch() {
+    start_over();
+    put_fat32_card();
+    riftwii::wii::D2xNandMountFailures mount_failures;
+    console.mount_answers = {-101, -101};
+    std::string error;
+    bool card_back = true;
+    CHECK(!riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, &card_back, &mount_failures));
+    CHECK(mount_failures.ios[251]);
+    CHECK(count_of("fat 0xF0") == 2);
+    CHECK(count_of("fat 0xF1") == 2);
+    CHECK(card_back && !console.held);
+    CHECK(count_of("fs set") == 0);
+
+    const std::size_t events_before_retry = console.events.size();
+    CHECK(!riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, &card_back, &mount_failures));
+    CHECK(error.find("already failed") != std::string::npos);
+    CHECK(console.events.size() == events_before_retry);
+    CHECK(card_back);
+
+    console.ios = 250;
+    error.clear();
+    CHECK(riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, &card_back, &mount_failures));
+    CHECK(!mount_failures.ios[250]);
+    CHECK(!card_back && console.held);
+    CHECK(riftwii::wii::release_d2x_saves());
+
+    start_over();
+    riftwii::wii::D2xNandMountFailures next_launch;
+    CHECK(riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, nullptr, &next_launch));
+}
+
+// The retry the first unmount allows still runs for a channel launch: a
+// mount that works the second time is not remembered as a failure.
+void test_channel_mount_retry_still_runs() {
+    start_over();
+    put_fat32_card();
+    riftwii::wii::D2xNandMountFailures mount_failures;
+    console.mount_answers = {-101, 0};
+    std::string error;
+    bool card_back = true;
+    CHECK(riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, &card_back, &mount_failures));
+    CHECK(!mount_failures.ios[251]);
+    CHECK(count_of("fat 0xF0") == 2);
+    CHECK(console.held && !card_back);
+    CHECK(riftwii::wii::release_d2x_saves());
+}
+
+void test_channel_mount_failure_keeps_the_card_when_unmount_fails() {
+    start_over();
+    console.mount_answers = {-101};
+    console.unmount_answer = -6;
+    riftwii::wii::D2xNandMountFailures mount_failures;
+    std::string error;
+    bool card_back = true;
+    CHECK(!riftwii::wii::enable_d2x_saves("sd:/nands/01", error,
+          riftwii::wii::D2xNandScope::WholeNand, &card_back, &mount_failures));
+    CHECK(mount_failures.ios[251]);
+    CHECK(count_of("fat 0xF0") == 1 && count_of("fat 0xF1") == 1);
+    CHECK(console.held && !card_back);
+    CHECK(count_of("fat mount") == 0 && count_of("fs set") == 0);
 }
 
 // #128's answer on every try: the module is told to let go after each
@@ -434,6 +506,19 @@ void test_release_refused_keeps_the_hold() {
                  "restarts"));
 }
 
+void test_release_keeps_the_backing_card_when_emulation_will_not_stop() {
+    start_over();
+    std::string error;
+    CHECK(riftwii::wii::enable_d2x_saves("sd:/nands/01", error));
+    console.set_answer = -101;
+    CHECK(!riftwii::wii::release_d2x_saves());
+    CHECK(console.held);
+    CHECK(count_of("fat 0xF1") == 0);
+    CHECK(console.d2x_forgets == 0);
+    CHECK(logged("NAND emulation could not be turned off (-101"));
+    CHECK(!logged("NAND emulation was turned off"));
+}
+
 // The 0xF1 before the second try fails: no second mount over a card the
 // module may still hold, the card is treated as d2x's (held, libfat off)
 // until a release works.
@@ -479,6 +564,7 @@ void test_what_needs_the_card() {
     using riftwii::wii::entries_need_sd;
     CHECK(!packs_need_sd({}));
     CHECK(!packs_need_sd({"usb:/riivolution/a.xml", "usb:/riivolution/b.xml"}));
+    CHECK(!packs_need_sd({"usb2:/riivolution/a.xml", "usb1:/riivolution/b.xml"}));
     CHECK(packs_need_sd({"usb:/riivolution/a.xml", "sd:/riivolution/b.xml"}));
     CHECK(packs_need_sd({"riifs:/server/pack.xml"}));  // anything not on the USB drive counts
     std::vector<rt_entry> entries(2);
@@ -574,7 +660,7 @@ bool fatMountSimple(const char*, const DISC_INTERFACE* interface) {
     return console.remount_works;
 }
 
-s32 IOS_GetVersion() { return console.has_fat_module ? 251 : 56; }
+s32 IOS_GetVersion() { return console.has_fat_module ? console.ios : 56; }
 s32 IOS_GetRevision() { return console.has_fat_module ? 21011 : 5918; }
 
 s32 IOS_Open(const char* path, u32) {
@@ -630,6 +716,9 @@ s32 IOS_Ioctlv(s32 fd, s32 command, u32 in, u32, ioctlv* vectors) {
 }
 
 int main() {
+    test_channel_mount_failures_are_kept_for_one_launch();
+    test_channel_mount_retry_still_runs();
+    test_channel_mount_failure_keeps_the_card_when_unmount_fails();
     test_card_is_released_before_the_mount();
     test_whole_nand_sets_the_full_flag();
     test_refused_mount_lets_go_and_falls_back();
@@ -644,6 +733,7 @@ int main() {
     test_remount_failure_after_a_refusal();
     test_release_after_the_emulation();
     test_release_refused_keeps_the_hold();
+    test_release_keeps_the_backing_card_when_emulation_will_not_stop();
     test_what_needs_the_card();
     test_failed_unmount_before_the_retry_holds_the_card();
     test_failed_final_unmount_holds_the_card();

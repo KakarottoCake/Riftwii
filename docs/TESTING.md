@@ -60,6 +60,8 @@ For things that worked, a short "works" with the game, where it ran from
   with its disc whole (Wii).
 - [ ] **Channels view**: the games' own banners and icons, with their
   banner sound when you open one; the arrows switch banners.
+- [ ] **Game page box.** On a game's page, A on the box shows it up close. If the full box art is there, Down turns it over to its back.
+- [ ] **About page rating.** A game's About page shows the age rating board's own mark (ESRB, PEGI, CERO, GRAC, GSRR) where there is one, else the rating text.
 - [ ] **Letter jump.** B on Home (L on a GameCube controller) jumps to
   the next letter. Sorting puts "The Legend of Zelda" under L.
 - [ ] **Search.** The search button (top right; Z on a GameCube
@@ -93,7 +95,13 @@ For things that worked, a short "works" with the game, where it ran from
   screen saver is on, and wakes up on any button.
 - [ ] **Menu screenshots.** Hold 1 and press HOME on a Wii Remote. A PNG
   appears in `sd:/riftwii/screenshots`.
-- [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader and
+- [ ] **Home view change.** On Home, press 1 and 2 together on a Wii
+  Remote, 1 first and then 2 first: Home steps to the next of Settings >
+  Home tiles, on the same game, and neither the view list nor Settings
+  opens. When let go, 1 alone still changes which games Home shows, and
+  2 alone still opens Settings.
+- [ ] **HOME Menu** in RiftWii: Homebrew Channel, Wii Menu, Priiloader (or
+  Restart where Priiloader is not installed: the console restarts) and
   Power off.
 - [ ] **Power button**: the console's and a Wii Remote's turn the Wii off.
 - [ ] **Look for games again** (Settings) finds a game you just copied.

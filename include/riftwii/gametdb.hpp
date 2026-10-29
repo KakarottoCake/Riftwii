@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/homebrewmatch.hpp"
+
 // What GameTDB knows about a game (its wiitdb.xml: genre, release, players,
 // controllers, online features, age rating, synopsis), for a game's About
 // page. The file is 30 MB of XML for 10,000 games; it is read as it is
@@ -36,17 +38,25 @@ struct GameInfo {
     int online_players = 0;            // 0: no online play
     std::vector<std::string> online_features;  // online, download, score, messageboard, wiimmfi...
     std::string synopsis;              // in the wanted language, else English; may be empty
+    // <type>CUSTOM</type>: a hack or mod distribution with an ID of its own
+    // (Newer Super Mario Bros. Wii, a Mario Kart Wii track pack). Home's
+    // Mods view shows it, and the banner server is asked for its own banner.
+    bool custom = false;
 };
 
 // Feeds wiitdb.xml's text in pieces of any size; keeps the games in
-// `wanted`. `lang` is GameTDB's locale code for the synopsis (EN, JA, FR,
+// `wanted`, and the names of every homebrew app it lists (the Homebrew
+// view's covers, riftwii/homebrewmatch.hpp). `lang` is GameTDB's locale code for the synopsis (EN, JA, FR,
 // DE, ES, IT, NL, PT, KO...), English when it has none.
 class WiitdbScanner {
 public:
     static constexpr std::size_t kMaxBlock = 64u << 10;  // a <game> block; longer ones are skipped
     WiitdbScanner(std::set<std::string> wanted, std::string lang);
     void feed(const char* data, std::size_t size);
+    // Only a closing </datafile> between game blocks completes the scan.
+    bool complete() const { return complete_; }
     const std::map<std::string, GameInfo>& games() const { return found_; }
+    const std::vector<HomebrewTitle>& homebrew() const { return homebrew_; }
     std::size_t blocks() const { return blocks_; }    // <game> blocks seen
     std::size_t skipped() const { return skipped_; }  // too long or unreadable
 
@@ -56,7 +66,9 @@ private:
     std::string lang_;
     std::string buffer_;
     bool in_game_ = false;
+    bool complete_ = false;
     std::map<std::string, GameInfo> found_;
+    std::vector<HomebrewTitle> homebrew_;
     std::size_t blocks_ = 0;
     std::size_t skipped_ = 0;
 };
@@ -69,6 +81,9 @@ bool parse_wiitdb_game(const std::string& block, const std::string& lang, GameIn
 // key=value lines. Reading it back is as careful as reading the network's.
 std::string serialize_game_infos(const std::map<std::string, GameInfo>& games);
 bool parse_game_infos(const std::string& text, std::map<std::string, GameInfo>& out);
+// Whether the cache was made by a RiftWii that keeps each game's <type>:
+// an older one's says no game is custom, so the database is read again.
+bool game_infos_have_types(const std::string& text);
 
 // GameTDB's locale code for a menu language ("en", "ja"...).
 std::string gametdb_locale(const std::string& menu_language);

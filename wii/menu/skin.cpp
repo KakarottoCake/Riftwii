@@ -186,13 +186,16 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
-    // The clock-dial theme paints its own (only the two: the others fall back to them).
-    if (std::strncmp(im.name, "background", 10) == 0 &&
-        !(MenuTheme().clock_dials && (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0)))
+    // The clock-dial theme paints its own wall, at 640 and natively at 856
+    // (only the two: every screen's wall falls back to them, so the clocks
+    // stay behind Settings and the game pages too).
+    const bool clockWall = std::strcmp(im.name, "background") == 0 ||
+        std::strcmp(im.name, "background_wide") == 0;
+    if (std::strncmp(im.name, "background", 10) == 0 && !(MenuTheme().clock_dials && clockWall))
         return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
-    if (MenuTheme().clock_dials && std::strncmp(im.name, "background", 10) == 0) AddSoyjak(c);
+    if (MenuTheme().clock_dials && clockWall) AddSoyjak(c);
     return Upload(c);
 }
 
@@ -203,6 +206,7 @@ Tex backgroundWide, barWide;
 Tex backgroundShelf, backgroundShelfWide;
 Tex clockDigits;
 Tex keys[4];
+Tex layoutIcons[6];
 Tex card9;
 Tex dropShadow9;
 Tex channelFrame9, channelFrameOver9, channelCard9, channelCardOver9;
@@ -313,6 +317,9 @@ void Init() {
         {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
         {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
         {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
+        {"layout_covers", &layoutIcons[0]}, {"layout_covers3d", &layoutIcons[1]},
+        {"layout_carousel", &layoutIcons[2]}, {"layout_shelf", &layoutIcons[3]},
+        {"layout_channels", &layoutIcons[4]}, {"layout_names", &layoutIcons[5]},
     };
     for (const ThemeImage& im : theme_images()) {
         // The walls: only the set the menu shows (EnsureBackgrounds).
@@ -522,14 +529,14 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
 }
 
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
-                    int alpha) {
+                    int alpha, bool opaque) {
     const u8 a = static_cast<u8>(alpha < 0 ? 0 : alpha > 255 ? 255 : alpha);
     DrawRgb5a3Region(data, w, h, u0, 0.0f, u1, 1.0f, x, y, dw, dh, (GXColor){0xFF, 0xFF, 0xFF, a},
-                     (GXColor){0xFF, 0xFF, 0xFF, a});
+                     (GXColor){0xFF, 0xFF, 0xFF, a}, opaque);
 }
 
 void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
-                      float dh, GXColor top, GXColor bottom) {
+                      float dh, GXColor top, GXColor bottom, bool opaque) {
     if (!data || (top.a == 0 && bottom.a == 0)) return;
     GxTraceTexture(data, w, h, GX_TF_RGB5A3);
     GXTexObj tex;
@@ -538,6 +545,10 @@ void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1
     GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
     GX_LoadTexObj(&tex, GX_TEXMAP0);
     GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    // The alpha from the colour alone; the colour under a cut-out texel is
+    // still stored (RGB5A3 keeps 4-bit colour at alpha 0), so the corner
+    // shows the picture's own edge.
+    if (opaque) GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
     GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     // libgui's 2D view: the identity moved to z = -50 (video.cpp).
     Mtx view;
@@ -655,14 +666,14 @@ void GuiBackdrop::DrawBackdrop() {
         // Every other screen: the theme's plain wall when it has one
         // (Bookshelf: no shelves behind Settings' panels).
         if (wide && backgroundPlainWide.data) pick = &backgroundPlainWide;
-        else if (backgroundPlain.data && !(wide && backgroundWide.data)) pick = &backgroundPlain;
+        else if (backgroundPlain.data) pick = &backgroundPlain;
     } else if (g_homeWall == HomeWall::Shelf) {
         if (wide && backgroundShelfWide.data) pick = &backgroundShelfWide;
-        else if (backgroundShelf.data && !(wide && backgroundWide.data)) pick = &backgroundShelf;
+        else if (backgroundShelf.data) pick = &backgroundShelf;
     } else if (g_homeWall == HomeWall::Channels) {
         // Channels' own wall (Bookshelf: a shelf under each row of channels).
         if (wide && backgroundChannelsWide.data) pick = &backgroundChannelsWide;
-        else if (backgroundChannels.data && !(wide && backgroundWide.data)) pick = &backgroundChannels;
+        else if (backgroundChannels.data) pick = &backgroundChannels;
     }
     const Tex& picture = *pick;
     if (picture.data) {

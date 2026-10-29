@@ -840,9 +840,19 @@ bool RunTestSwitch(std::string& refused) {
     if (file == nullptr) return false;
     std::vector<std::string> names;
     char line[96];
+    // Lines "load <name>", read by hand: RiftWii calls no scanf, which
+    // costs MEM1 (docs/MEMORY.md, "Linked out"). "load" must be a word of
+    // its own (sscanf's " load %95s" took "loader x" as "er").
+    static const char* const kSpace = " \t\r\n";
     while (std::fgets(line, sizeof(line), file)) {
-        char name[sizeof(line)];
-        if (std::sscanf(line, " load %95s", name) == 1) names.push_back(name);
+        const std::string text = line;
+        const std::size_t word = text.find_first_not_of(kSpace);
+        if (word == std::string::npos || text.compare(word, 4, "load") != 0) continue;
+        if (text.find_first_of(kSpace, word + 4) != word + 4) continue;
+        const std::size_t name_start = text.find_first_not_of(kSpace, word + 4);
+        if (name_start == std::string::npos) continue;
+        const std::size_t name_end = text.find_first_of(kSpace, name_start);
+        names.push_back(text.substr(name_start, name_end - name_start));
     }
     std::fclose(file);
     logf("Plugin test (%s): %u plugin(s) to load from %s\n", kTestFile, static_cast<unsigned>(names.size()),

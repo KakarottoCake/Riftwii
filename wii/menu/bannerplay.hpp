@@ -25,6 +25,9 @@ struct RoundClip {
     float x = 0, y = 0, w = 0, h = 0, radius = 0;
 };
 
+// A static emulator picture, cut to the same corners as animated icons.
+void DrawChannelPicture(const u8* pixels, const RoundClip& clip, int alpha);
+
 class BannerPlayer {
 public:
     BannerPlayer() = default;
@@ -44,7 +47,7 @@ public:
     // A GameCube disc's picture: it has no name drawn in it, so whoever
     // shows the full banner writes Name() under the picture.
     bool Picture() const { return picture_; }
-    // One frame on: the start animation once, then the loop.
+    // Advance by elapsed time: the start animation once, then the loop.
     void Step();
     void Restart();
     // The shown area (the icon's middle 128x96, or the whole banner) fitted
@@ -86,7 +89,8 @@ private:
     Layout base_, work_;
     Animation start_, loop_;
     bool has_start_ = false, has_loop_ = false;
-    int frame_ = 0;
+    float frame_ = 0;
+    u64 last_step_ = 0;
     std::map<std::string, Texture> textures_;
     // Worked out once at load, so a frame neither searches nor allocates:
     // the animations' panes and materials, the language's panes, the

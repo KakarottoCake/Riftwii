@@ -23,6 +23,7 @@
 #include "textfile.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/riifs_sync.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -138,7 +139,7 @@ private:
 };
 
 std::string read_text(const std::string& path) {
-    if (path.compare(0, 5, "usb:/") == 0) {
+    if (riftwii::is_usb_path(path)) {
         std::string text;
         read_usb_text(path, text);
         return text;
@@ -212,9 +213,10 @@ bool connect_server(SocketTransport& transport, riifs::Client& client, const Net
 
 std::string ReadPackText(const std::string& path) { return read_text(path); }
 
-std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
+std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited, bool keep_text) {
     limited = false;
     std::vector<PackFile> out;
+    std::size_t cached_bytes = 0;
     // The menu keys saved choices by `file`: a name already taken by the
     // first folder gets the second folder's name in front.
     const auto add = [&](const std::string& name, const std::string& path, const std::string& suffix) {
@@ -225,31 +227,40 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
                 break;
             }
         }
-        out.push_back({file, path});
+        out.push_back({file, path, "", false});
     };
     for (const char* folder : {kPackageDir, kPackageDir2}) {
         for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
             const std::string path = std::string(folder) + "/" + name;
             // An XML that only names a server (Riivolution's way of pointing
             // at one) is not a pack; with no <id> it would show for every game.
-            const std::string text = read_text(path);
+            std::string text = read_text(path);
             if (text.find("<network") != std::string::npos) {
                 Package package;
                 std::string ignored;
                 if (parse_package(text, package, ignored) && !package.networks.empty() && package.options.empty()) continue;
             }
             add(name, path, "");
+            if (keep_text && text.size() <= kPackTextCacheBytes - cached_bytes) {
+                cached_bytes += text.size();
+                out.back().text.swap(text);
+                out.back().text_cached = true;
+            }
         }
     }
     // The USB drive's (FAT32 or NTFS), through the menu's mount of it; at
     // launch their files are read from the drive through d2x.
-    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
-        for (const std::string& name : usb_xml_names(folder)) {
-            if (out.size() >= limit) {
-                limited = true;
-                break;
+    for (const std::string& root : usb_volume_roots()) {
+        const std::string device = usb_path_device(root);
+        const std::string suffix = device == "usb:" ? " @ USB" : " @ " + device;
+        for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
+            for (const std::string& name : usb_xml_names(device + folder)) {
+                if (out.size() >= limit) {
+                    limited = true;
+                    break;
+                }
+                add(name, device + folder + "/" + name, suffix);
             }
-            add(name, std::string("usb:") + folder + "/" + name, " @ USB");
         }
     }
     for (const NetServer& server : cached_servers()) {
@@ -265,7 +276,7 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
 
 std::string PackFolderOf(const std::string& xml_sd_path) {
     std::string path = xml_sd_path.compare(0, 3, "sd:") == 0    ? xml_sd_path.substr(3)
-                       : xml_sd_path.compare(0, 4, "usb:") == 0 ? xml_sd_path.substr(4)
+                       : is_usb_path(xml_sd_path) ? image_volume_path(xml_sd_path)
                                                                  : xml_sd_path;
     const std::string net_root = NetworkRootOf(xml_sd_path);
     if (!net_root.empty() && path.compare(0, net_root.size(), net_root) == 0) path = path.substr(net_root.size());

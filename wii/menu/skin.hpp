@@ -85,6 +85,7 @@ extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
 extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
 extern Tex iconDrives, iconGear, iconSearch;  // 28x28
+extern Tex layoutIcons[6];               // 28x28: covers, 3D, carousel, shelf, channels, names
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
@@ -133,13 +134,15 @@ GXColor WithAlpha(GXColor c, int alpha);
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255, float scale = 1.0f);
 // Columns u0..u1 (0 to 1) of a w x h RGB5A3 texture, drawn smoothed into
 // the dw x dh box at (x, y): the front of a game's box (wii/menu/boxart.hpp).
+// With `opaque`, solid whatever the texture's alpha (a stored cover's
+// rounded-off corners, where the cover stands in for a square case).
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
-                    int alpha = 255);
+                    int alpha = 255, bool opaque = false);
 // Texels [u0, u1) x [v0, v1) of a w x h RGB5A3 texture drawn at (x, y),
 // dw x dh, its colour multiplied by `top` along the top edge and `bottom`
-// along the bottom (a darkening gradient, or a fade).
+// along the bottom (a darkening gradient, or a fade); `opaque` as above.
 void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
-                      float dh, GXColor top, GXColor bottom);
+                      float dh, GXColor top, GXColor bottom, bool opaque = false);
 
 // Whether the menu is drawn for a 16:9 TV (Menu_SafeArea wider than 640).
 bool WideMenu();

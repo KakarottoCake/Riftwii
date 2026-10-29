@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "log.hpp"
 #include "gecko.hpp"
+#include "startuptrace.hpp"
+#include "nandpermissions.hpp"
 
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
@@ -55,6 +57,10 @@ void LogOpen(const char* sd_path, bool append) {
     g_file = std::fopen(sd_path, append ? "a" : "w");
     g_line_start = true;
     g_backlog.clear();
+    if (g_file) {
+        startup::LogReady();
+        LogNandPermissionRecovery();
+    }
 }
 
 void LogReopen() {

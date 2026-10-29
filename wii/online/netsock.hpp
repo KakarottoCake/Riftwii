@@ -8,9 +8,8 @@
 
 #include "riftwii/riifs.hpp"
 
-// The Wii's network for RiiFS: IOS sockets through libogc, only while a
-// copy runs (NetStart before, NetStop after; the game starts with the
-// network as the system menu leaves it).
+// The menu's network: IOS sockets through libogc. RiiFS copies finish
+// before the launch; the next program starts with this connection closed.
 namespace riftwii::wii {
 
 // Brings the network up with the console's saved connection. Takes a few
@@ -18,6 +17,9 @@ namespace riftwii::wii {
 // An explicit diagnostic may bypass the automatic-download retry cooldown.
 bool NetStart(std::string& error, bool retry = false);
 void NetStop();
+// After all launch-time network work, while the log and card are open.
+// Cancels cancellable jobs, waits for the rest and closes IOS's sockets.
+void NetStopForLaunch();
 // The last NetStart failed (and the next would wait as long again).
 bool NetFailed();
 
@@ -25,14 +27,18 @@ bool NetFailed();
 // while the network comes up (seconds). Until it ends, NetStart and
 // NetStop from other threads wait for it, and so must anything that
 // leaves RiftWii or reloads IOS (NetWaitForBackground). Runs `job` here
-// and now when no thread can be made. False when a job is still running.
+// and now when no thread can be made, unless `run_here` is false (then
+// false, as when a job is still running).
 // A `cancellable` job (the theme download) can be told to stop.
-bool NetRunInBackground(void (*job)(), bool cancellable = false);
+bool NetRunInBackground(void (*job)(), bool cancellable = false, bool run_here = true);
 bool NetBackgroundBusy();
 void NetWaitForBackground();
 // Stops a cancellable job's network calls: each fails within a tenth of a
 // second, and the job ends on its own. Nothing for any other job.
 void NetCancelBackground();
+// True on the background job's own thread once it was told to stop: for a
+// cancellable job's work between network calls (reading a file).
+bool NetCancelRequested();
 
 struct NetServer {
     std::uint32_t ip = 0;  // host order

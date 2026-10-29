@@ -33,8 +33,9 @@ struct pollsd { s32 socket; u32 events; u32 revents; };
 inline std::uint16_t htons(std::uint16_t value) { return value; }
 inline u32 htonl(u32 value) { return value; }
 inline u32 ntohl(u32 value) { return value; }
-inline s32 net_init() { return 0; }
-inline void net_deinit() {}
+s32 net_init();
+void net_deinit();
+void net_wc24cleanup();
 inline u32 net_gethostip() { return 0; }
 inline hostent* net_gethostbyname(const char*) { return nullptr; }
 inline s32 net_socket(int, int, int) { return 1; }

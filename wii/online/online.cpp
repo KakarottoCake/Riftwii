@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "online.hpp"
+#include "riftwii/emulatorart.hpp"
 
 #include <network.h>
 #include <ogc/machine/processor.h>
@@ -208,6 +209,29 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     }
     error = "too many redirects for " + http_url_for_messages(url);
     return false;
+}
+
+bool HttpSteamGridGet(const std::string& path, const std::string& key,
+                      std::vector<std::uint8_t>& body, std::string& error) {
+    body.clear();
+    if (!steamgrid_key_valid(key) || path.size() > 1024 || path.rfind("/api/v2/", 0) != 0 ||
+        path.find_first_of("\r\n\0", 0, 3) != std::string::npos) {
+        error = "The SteamGridDB request is invalid.";
+        return false;
+    }
+    if (!NetStart(error)) return false;
+    HttpUrl url;
+    if (!parse_http_url("https://www.steamgriddb.com" + path, url, error)) return false;
+    std::string request = http_get_request(url);
+    request.insert(request.size() - 2, "Authorization: Bearer " + key + "\r\n");
+    HttpResponse response;
+    if (!exchange(url, request, response, error, kSteamGridJsonMax, 10000, nullptr, false)) return false;
+    if (response.status != 200) {
+        error = "SteamGridDB answered " + std::to_string(response.status);
+        return false;
+    }
+    body = std::move(response.body);
+    return true;
 }
 
 namespace {
@@ -615,7 +639,7 @@ bool PluginFileAllowed(const std::string& path) {
 }
 
 bool AppsFileAllowed(const std::string& path) {
-    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || path == kMenuFontFile ||
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || is_menu_font_file(path) ||
            PluginFileAllowed(path);
 }
 
@@ -633,8 +657,10 @@ std::string PluginTargetDirectory() {
 // (PluginTargetDirectory) and the menu font, which go beside the running
 // boot.dol when that is on the SD card.
 std::string AppsFileTarget(const std::string& path) {
-    if (path == kMenuFontFile) {
-        const std::string beside = fullfont::FullFontPath();
+    if (is_menu_font_file(path)) {
+        const std::string full = fullfont::FullFontPath();
+        const std::string filename = path.substr(path.rfind('/') + 1);
+        const std::string beside = full.substr(0, full.rfind('/') + 1) + filename;
         return beside.compare(0, 4, "sd:/") == 0 ? beside : "sd:/apps/" + path;
     }
     if (!PluginFileAllowed(path)) return "sd:/apps/" + path;

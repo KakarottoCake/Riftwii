@@ -18,7 +18,8 @@
 // frame of RiftWii's own. With Download names and cheats on (Settings >
 // Online), the community's animated banner for the game is downloaded in
 // the background and takes its place; a game the server has none for is
-// stamped <ID>.none and not asked about again for a week.
+// stamped <ID>.none and not asked about again for a week. A custom Wii
+// game's own banner is downloaded the same way (CustomBannerWanted).
 namespace riftwii::wii {
 
 // True when the game's banner is not stored yet and reading it has not
@@ -45,6 +46,15 @@ enum class BannerFetch { Stored, NotFound, Failed };
 // (riftwii/gcbanner.hpp's gc_banner_regional_copy), so the server's banner
 // for its first three letters may stand in for its own.
 bool StartGameCubeBannerFetch(const std::string& game_id, bool regional_fallback);
+// A custom game GameTDB lists (gameinfo.hpp's IsCustomGame: a hack or mod
+// distribution with an ID of its own) has the banner of the game it was
+// made from on its disc. The banner server may have one of its own under
+// its ID: the same download, by that ID only, and stored in the disc's
+// banner's place, with an <ID>.web stamp so it is not asked for again.
+// True when no such banner is stored, the server was not found without one
+// in the last week, and no download of it missed this session.
+bool CustomBannerWanted(const std::string& game_id);
+bool StartCustomBannerFetch(const std::string& game_id);
 // The game a started fetch is for, until its answer is taken ("" if none).
 const std::string& GameCubeBannerFetchGame();
 // The answer once the fetch has finished, once. NotFound: the server has

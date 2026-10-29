@@ -37,6 +37,18 @@ std::set<std::string> g_downloadMissed;
 
 std::string PathOf(const std::string& id) { return std::string(kDir) + "/" + id + ".bnr"; }
 std::string MissPath(const std::string& id) { return std::string(kDir) + "/" + id + ".none"; }
+// A custom game's banner came from the banner server, not its disc.
+std::string WebPath(const std::string& id) { return std::string(kDir) + "/" + id + ".web"; }
+
+bool Exists(const std::string& path) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0;
+}
+
+bool MissedLately(const std::string& id) {
+    struct stat st;
+    return stat(MissPath(id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter;
+}
 
 bool ValidId(const std::string& id) {
     if (id.size() != 6) return false;
@@ -109,6 +121,8 @@ bool StoreBannerBytes(const std::string& id, std::vector<std::uint8_t>& bnr, boo
         error = "cannot write " + path + " (card full?)";
         return false;
     }
+    // The disc's banner now: a custom game's is asked of the server again.
+    std::remove(WebPath(id).c_str());
     logf("Banner of %s stored (%u bytes)\n", id.c_str(), static_cast<unsigned>(bnr.size()));
     return true;
 }
@@ -163,9 +177,14 @@ bool GameCubeBannerWanted(const std::string& game_id) {
     struct stat st;
     const bool animated = stat(PathOf(game_id).c_str(), &st) == 0 && st.st_size > kMaxDiscPicture;
     if (animated) return false;
-    const bool missed_lately =
-        stat(MissPath(game_id).c_str(), &st) == 0 && std::time(nullptr) - st.st_mtime < kRetryAfter;
-    return !missed_lately;
+    return !MissedLately(game_id);
+}
+
+bool CustomBannerWanted(const std::string& game_id) {
+    if (!ValidId(game_id) || g_downloadMissed.count(game_id)) return false;
+    // The stamp alone is not enough: a banner deleted by hand is asked for again.
+    const bool downloaded = Exists(PathOf(game_id)) && Exists(WebPath(game_id));
+    return !downloaded && !MissedLately(game_id);
 }
 
 namespace {
@@ -175,12 +194,13 @@ namespace {
 struct Background {
     std::string id;
     bool regional_fallback = false;
+    bool custom = false;  // a custom Wii game's (StartCustomBannerFetch)
     BannerFetch got = BannerFetch::Failed;
     std::string error;
 };
 Background g_background;
 
-BannerFetch FetchGameCubeBanner(const std::string& game_id, bool regional_fallback, std::string& error) {
+BannerFetch FetchServerBanner(const std::string& game_id, bool regional_fallback, bool custom, std::string& error) {
     std::vector<std::uint8_t> bytes;
     OutOfMemoryScope out_of_memory;
     BannerDownload answer = DownloadGameCubeBanner(game_id, regional_fallback, bytes, error);
@@ -196,17 +216,21 @@ BannerFetch FetchGameCubeBanner(const std::string& game_id, bool regional_fallba
         mkdir("sd:/riftwii", 0777);
         mkdir(kDir, 0777);
         if (FILE* f = std::fopen(MissPath(game_id).c_str(), "wb")) std::fclose(f);
-        logf("Banners: the banner server has no animated banner for %s (%s); the disc's picture stays\n",
-             game_id.c_str(), error.c_str());
+        logf("Banners: the banner server has no banner for %s (%s); the disc's stays\n", game_id.c_str(),
+             error.c_str());
         return BannerFetch::NotFound;
     }
     if (!WriteBanner(game_id, bytes, error)) return BannerFetch::Failed;
     std::remove(MissPath(game_id).c_str());
+    if (custom) {
+        if (FILE* f = std::fopen(WebPath(game_id).c_str(), "wb")) std::fclose(f);
+    }
     return BannerFetch::Stored;
 }
 
 void RunBackgroundFetch() {
-    g_background.got = FetchGameCubeBanner(g_background.id, g_background.regional_fallback, g_background.error);
+    g_background.got =
+        FetchServerBanner(g_background.id, g_background.regional_fallback, g_background.custom, g_background.error);
     // A banner is checked by unpacking it whole: a few megabytes for a moment.
     mem::WatchHeap(("after the banner download of " + g_background.id).c_str());
 }
@@ -218,6 +242,17 @@ bool StartGameCubeBannerFetch(const std::string& game_id, bool regional_fallback
     g_background = Background{};
     g_background.id = game_id;
     g_background.regional_fallback = regional_fallback;
+    if (NetRunInBackground(RunBackgroundFetch)) return true;
+    g_background.id.clear();
+    return false;
+}
+
+bool StartCustomBannerFetch(const std::string& game_id) {
+    if (!ValidId(game_id) || !g_background.id.empty() || NetBackgroundBusy()) return false;
+    g_background = Background{};
+    g_background.id = game_id;
+    // Its own ID only: the three-letter banner is the game it was made from.
+    g_background.custom = true;
     if (NetRunInBackground(RunBackgroundFetch)) return true;
     g_background.id.clear();
     return false;

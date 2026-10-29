@@ -8,6 +8,8 @@
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
 #include "riftwii/textlines.hpp"
+#include "riftwii/wfstitle.hpp"
+#include "riftwii/imagevolume.hpp"
 
 #include <fat.h>
 #include <gccore.h>
@@ -35,6 +37,7 @@
 #include "textfile.hpp"
 #include "umsdev.hpp"
 #include "usbprobe.hpp"
+#include "wfsdrive.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -82,7 +85,7 @@ bool packages_need_sd(const std::vector<PackageChoices>& packages) {
 
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
     for (const PackageChoices& p : packages) {
-        if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+        if (riftwii::is_usb_path(p.xml_sd_path)) return true;
     }
     return false;
 }
@@ -194,6 +197,17 @@ bool Session::ensure_probe(std::string& error) {
         if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
             probe.header.disc_number != source.game.disc_number) {
             error="d2x virtual disc identity does not match the selected image";
+            return false;
+        }
+        // Dragon Quest X's disc only installs the game, with IOS59's WFS
+        // drivers, which no cIOS has; from an image it cannot.
+        if (probe.wfs_install_disc) {
+            error = "Dragon Quest X's disc installs the game onto its own USB drive with the Wii's IOS59, which "
+                    "cannot read a disc image";
+            if (const std::uint64_t installed = WfsTitleForDisc(probe.header.game_id))
+                error += "; the installed game (" + wfs_title_text(installed) + ") starts from Wii channels";
+            else
+                error += "; install it from the disc with the Wii Menu, then start it from Wii channels";
             return false;
         }
     } else {

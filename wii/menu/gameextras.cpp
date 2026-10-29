@@ -16,6 +16,7 @@
 #include "textfile.hpp"
 #include "riftwii/homeorder.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/imagevolume.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -27,6 +28,9 @@ constexpr const char* kHomeOrderPath = "sd:/riftwii/order.txt";
 std::vector<std::string> g_home_order;
 bool g_home_order_loaded = false;
 bool g_home_order_unreadable = false;  // there, but not read: never written over
+constexpr const char* kCaseColoursPath = "sd:/riftwii/case_colors.txt";
+CaseColourOverrides g_case_colours;
+bool g_case_colours_loaded = false;
 
 bool read_text(const std::string& path, std::string& text) {
     return ReadTextFile(path, text);
@@ -165,7 +169,25 @@ const std::vector<std::string>& HomeOrder() {
     return g_home_order;
 }
 
+const CaseColourOverrides& PlayerCaseColours() {
+    if (!g_case_colours_loaded) {
+        g_case_colours_loaded = true;
+        std::string text;
+        if (read_text(kCaseColoursPath, text)) {
+            const int skipped = parse_case_colour_overrides(text, g_case_colours);
+            logf("Case colors: %u line(s) in %s\n", static_cast<unsigned>(g_case_colours.size()), kCaseColoursPath);
+            if (skipped > 0)
+                logf("Case colors: %d line(s) in %s were left out: not an ID and an rrggbb color, or past the "
+                     "first %u\n",
+                     skipped, kCaseColoursPath, static_cast<unsigned>(kMaxCaseColourOverrides));
+        }
+    }
+    return g_case_colours;
+}
+
 void ForgetCardHistoryAndOrder() {
+    g_case_colours.clear();
+    g_case_colours_loaded = false;
     g_history = PlayHistory{};
     g_history_loaded = false;
     g_home_order.clear();
@@ -276,7 +298,7 @@ std::vector<std::string> RestartArguments(const FrontendState& state, const Laun
     } else {
         h.from = "disc";
     }
-    if (image != nullptr && (image->path.compare(0, 4, "sd:/") == 0 || image->path.compare(0, 5, "usb:/") == 0)) {
+    if (image != nullptr && (image->path.compare(0, 4, "sd:/") == 0 || riftwii::is_usb_path(image->path))) {
         h.path = image->path;
     }
     const std::string folder = std::string(kChoicesDir) + "/";

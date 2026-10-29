@@ -26,6 +26,7 @@
 #include <string>
 
 #include "boxart.hpp"
+#include "transition.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "gameextras.hpp"
@@ -33,7 +34,6 @@
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "menutheme.hpp"
-#include "riftwii/casecolour.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -53,7 +53,16 @@ constexpr float kFovY = 43.6028f;  // 2 * atan(240 / kEye), in degrees
 constexpr float kBoxH = 164.0f;
 // A Wii case's shape: a DVD keep case, 190 x 135 x 14 mm.
 constexpr float kBoxW = kBoxH * 135.0f / 190.0f;  // spine to front edge, along z
-constexpr float kBoxT = kBoxH * 14.0f / 190.0f;   // the spine's width
+// The spine's width: as wide as the spine printed on GameTDB's full cover,
+// 58 of its 680 rows' height (1024 x 680, two 135/190 faces either side),
+// which wraps a little round the case's edges. At the case's own 14 mm the
+// printed spine was squeezed to 86% of its width on every box, the names
+// and logos on it narrower than they are; the height stays the case's.
+constexpr float kBoxT = kBoxH * 58.0f / 680.0f;
+// The plastic showing round the paper, as a share of the face: about 4 mm
+// of a Wii case's 190 mm height, and of its 135 mm width at the open edge.
+constexpr float kRimHeight = 4.0f / 190.0f;
+constexpr float kRimOpenEdge = 4.0f / 135.0f;
 // The plank lands on the lower shelf a theme paints under Home's second
 // row of covers (themes/Bookshelf): its top seen from 247 to 250, its front
 // edge down to 268.
@@ -63,7 +72,7 @@ constexpr float kOpen = kBoxW / 2.0f + 19.0f;   // the focused box's room each s
 constexpr float kPullZ = 70.0f;                 // how far the focused box comes out
 constexpr float kLift = 10.0f;                  // a spine under the pointer rises
 constexpr int kReach = 13;                      // boxes drawn each side of the focus
-constexpr float kEase = 0.25f;
+constexpr float kBoxResponseMs = 58.0f;
 constexpr int kSpineTextSize = 13;
 constexpr int kSpineTextRoom = 140;  // the length of a spine's name
 // The reflection: below the plank's front edge (16 tall), as if the floor
@@ -101,6 +110,10 @@ constexpr float kReflectPart = 0.30f;
 constexpr int kReflectAlpha = 54;
 constexpr float kDragStep = 30.0f;  // pointer pixels a box (dragging, gliding)
 constexpr float kTau = 6.2831853f;
+// The sway's two waves (0.03 and 0.045 radians a frame) meet again every
+// 2*pi/0.015 frames: the clock wraps there, so a menu left open for days
+// keeps a float clock precise enough for a smooth sway.
+constexpr float kSwayCycle = kTau / 0.015f;
 
 // The texture's spine, front and back, across its kBoxWidth.
 constexpr float kSpineU = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
@@ -118,6 +131,19 @@ void Project(V3 p, float& sx, float& sy) {
     const float k = kEye / (kEye - p.z);
     sx = 320.0f + (p.x - 320.0f) * k;
     sy = 240.0f + (p.y - 240.0f) * k;
+}
+
+// Layout and Search occupy the top corners. Start lowering a picture
+// 32px before it reaches either button, so the ring keeps moving smoothly
+// while leaving an 8px gap below the buttons (which end at y 60).
+constexpr float kHomeCornerTop = 68.0f;
+float HomeCornerWeight(float left, float right) {
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    const float wide = safeX < 0 ? -safeX : 0;
+    const float byLeft = std::clamp((112.0f - wide - left) / 32.0f, 0.0f, 1.0f);
+    const float byRight = std::clamp((right - (528.0f + wide)) / 32.0f, 0.0f, 1.0f);
+    return std::max(byLeft, byRight);
 }
 
 bool PressedPage(GuiTrigger* t, int delta) {
@@ -157,6 +183,10 @@ struct Face {
     float u0 = 0, u1 = 1;
     float v0 = 0, v1 = 1;
     bool rgba8 = false;
+    // Drawn solid whatever the texture's alpha: a stored cover's corners
+    // are rounded off for the grid's tiles (riftwii/coverart.hpp), but on
+    // a box's front they showed as pixelated notches.
+    bool opaque = false;
     // Repeats across (the plank's wood). Only for power-of-two sizes: GX
     // wraps with a power-of-two mask, so the 40x40 disc icon drawn with
     // GX_REPEAT came out as broken arcs on a Wii (Dolphin drew it whole).
@@ -170,6 +200,12 @@ struct Face {
     GXColor accent = {0, 0, 0, 255};
     // The open edge of a keep case: rounded across its thickness.
     bool rounded = false;
+    // The case's plastic showing round the paper under its sleeve, as a
+    // share of the face on each side (c[0]'s edge to c[1]'s is "left" to
+    // "right", c[0]'s to c[3]'s "top" to "bottom"), in `plastic`. The
+    // paper (the colour, texture or made-up back above) is drawn inside.
+    float rimLeft = 0, rimRight = 0, rimTop = 0, rimBottom = 0;
+    GXColor plastic = {238, 238, 236, 255};
 };
 
 V3 Mix(V3 a, V3 b, float t) { return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t}; }
@@ -177,9 +213,10 @@ V3 Add(V3 a, V3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
 V3 Scale(V3 a, float k) { return {a.x * k, a.y * k, a.z * k}; }
 float Light(V3 n) { return 0.62f + 0.38f * std::max(0.0f, (n.z * 0.85f - n.y * 0.35f - n.x * 0.25f)); }
 
-// One quad, flat colour or textured (RGB5A3 `tex` of w x h, its part u0..u1, v0..v1).
+// One quad, flat colour or textured (RGB5A3 `tex` of w x h, its part u0..u1, v0..v1);
+// with `opaque`, its alpha the colour's alone, not the texture's.
 void Quad(const V3 (&c)[4], GXColor col, const u8* fade, const u8* tex, int w, int h, float u0, float u1, float v0,
-          float v1, bool rgba8, bool repeat) {
+          float v1, bool rgba8, bool repeat, bool opaque = false) {
     if (tex) {
         GXTexObj obj;
         GX_InitTexObj(&obj, const_cast<u8*>(tex), static_cast<u16>(w), static_cast<u16>(h), rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3,
@@ -187,6 +224,7 @@ void Quad(const V3 (&c)[4], GXColor col, const u8* fade, const u8* tex, int w, i
         GX_InitTexObjLOD(&obj, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
         GX_LoadTexObj(&obj, GX_TEXMAP0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+        if (opaque) GX_SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_RASA);
         GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     } else {
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
@@ -242,7 +280,48 @@ void DrawMadeUpBack(const Face& f, float light, u8 a) {
     }
 }
 
+void DrawFace(const Face& f, int alpha);
+
+// A face with a plastic rim (Face::rimLeft...): the plastic over the whole
+// face, a darker line where its bevel meets the paper, then the paper
+// inside. Each corner's fade is carried over to the inner corners.
+void DrawRimmedFace(const Face& f, int alpha) {
+    const float light = Light(f.normal);
+    const auto shade = [&](u8 c, float k) { return static_cast<u8>(std::min(255.0f, c * light * k)); };
+    const u8 a = static_cast<u8>(f.plastic.a * f.color.a / 255 * alpha / 255);
+    const auto at = [&](const V3 (&c)[4], float u, float v) { return Mix(Mix(c[0], c[1], u), Mix(c[3], c[2], u), v); };
+    const auto fadeAt = [&](float u, float v) {
+        const float top = f.fade[0] + (f.fade[1] - f.fade[0]) * u;
+        const float bottom = f.fade[3] + (f.fade[2] - f.fade[3]) * u;
+        return static_cast<u8>(top + (bottom - top) * v);
+    };
+    const float l = f.rimLeft, r = 1 - f.rimRight, t = f.rimTop, b = 1 - f.rimBottom;
+    Quad(f.c, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a}, f.fade, nullptr, 0, 0, 0,
+         1, 0, 1, false, false);
+    // The bevel's foot: a hair outside the paper, a shade darker.
+    constexpr float kFoot = 0.35f;  // of the rim, on each side that has one
+    const float fl = l * (1 - kFoot), fr = 1 - f.rimRight * (1 - kFoot);
+    const float ft = t * (1 - kFoot), fb = 1 - f.rimBottom * (1 - kFoot);
+    const V3 foot[4] = {at(f.c, fl, ft), at(f.c, fr, ft), at(f.c, fr, fb), at(f.c, fl, fb)};
+    const u8 footFade[4] = {fadeAt(fl, ft), fadeAt(fr, ft), fadeAt(fr, fb), fadeAt(fl, fb)};
+    Quad(foot, GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a}, footFade,
+         nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    Face paper = f;
+    paper.rimLeft = paper.rimRight = paper.rimTop = paper.rimBottom = 0;
+    const V3 inner[4] = {at(f.c, l, t), at(f.c, r, t), at(f.c, r, b), at(f.c, l, b)};
+    const u8 innerFade[4] = {fadeAt(l, t), fadeAt(r, t), fadeAt(r, b), fadeAt(l, b)};
+    for (int i = 0; i < 4; ++i) {
+        paper.c[i] = inner[i];
+        paper.fade[i] = innerFade[i];
+    }
+    DrawFace(paper, alpha);
+}
+
 void DrawFace(const Face& f, int alpha) {
+    if (f.rimLeft > 0 || f.rimRight > 0 || f.rimTop > 0 || f.rimBottom > 0) {
+        DrawRimmedFace(f, alpha);
+        return;
+    }
     // Lit from above and the left, never darker than half.
     const float light = Light(f.normal);
     const auto shade = [&](u8 c) { return static_cast<u8>(std::min(255.0f, c * light)); };
@@ -270,7 +349,7 @@ void DrawFace(const Face& f, int alpha) {
         return;
     }
     Quad(f.c, GXColor{shade(f.color.r), shade(f.color.g), shade(f.color.b), a}, f.fade, f.tex, f.texW, f.texH, f.u0, f.u1,
-         f.v0, f.v1, f.rgba8, f.repeat);
+         f.v0, f.v1, f.rgba8, f.repeat, f.opaque);
     if (f.madeUpBack) DrawMadeUpBack(f, light, a);
 }
 
@@ -292,6 +371,26 @@ Box MakeBox(float x, float z, float turn, float lift) {
     }
     b.centre = {x, kShelfY - lift - kBoxH / 2, z};
     return b;
+}
+
+// A hovered spine or a box turning near a corner can rise into a button.
+// Use its projected bounds, including its depth, and lower the whole box
+// enough that even the vertex with the smallest perspective scale clears.
+float HomeCornerLowering(const Box& box) {
+    float left, top;
+    Project(box.p[0], left, top);
+    float right = left;
+    float minScale = kEye / (kEye - box.p[0].z);
+    for (const V3& point : box.p) {
+        float x, y;
+        Project(point, x, y);
+        left = std::min(left, x);
+        right = std::max(right, x);
+        top = std::min(top, y);
+        minScale = std::min(minScale, kEye / (kEye - point.z));
+    }
+    const float lowering = std::max(0.0f, kHomeCornerTop - top) * HomeCornerWeight(left, right);
+    return lowering / minScale;
 }
 
 bool FacesEye(const Face& f) {
@@ -320,22 +419,24 @@ void LoadPerspective() {
     GX_SetZMode(GX_FALSE, GX_LEQUAL, GX_FALSE);
 }
 
-// The case's plastic: white, unless GameTDB knows it another colour (New
-// Super Mario Bros. Wii's red); a black one is lifted a little so its
-// edges show.
-GXColor CasePlastic(const std::string& id) {
+// The case's plastic in the game's case colour (GridItem::caseColour):
+// white a little off so it is not paper, and a black one lifted a little
+// so its edges show.
+GXColor CasePlastic(const std::string& id, GXColor caseColour) {
     if (id.empty()) return {184, 205, 230, 255};  // the disc drive's box: pale blue, as its picture
-    std::uint8_t rgb[3];
-    if (!riftwii::game_case_colour(id, rgb)) return {238, 238, 236, 255};
-    return {static_cast<u8>(28 + rgb[0] * 210 / 255), static_cast<u8>(28 + rgb[1] * 210 / 255),
-            static_cast<u8>(28 + rgb[2] * 210 / 255), 255};
+    const bool white = caseColour.r == 255 && caseColour.g == 255 && caseColour.b == 255;
+    if (white) return {238, 238, 236, 255};
+    return {static_cast<u8>(28 + caseColour.r * 210 / 255), static_cast<u8>(28 + caseColour.g * 210 / 255),
+            static_cast<u8>(28 + caseColour.b * 210 / 255), 255};
 }
 
 // A box's five faces you can see (not its bottom), covered with its scan,
 // its cover or plain white. Spine, front, back, top, open edge; the top
 // and the open edge are the case's own plastic, in its colour (a scan is
-// drawn through its face's colour, so the paper faces stay white).
-void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
+// drawn through its face's colour, so the paper faces stay white). With
+// no scan the spine is the bare plastic too, as an empty case's is.
+void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, GXColor caseColour,
+              Face (&faces)[5]) {
     const GXColor plastic = {238, 238, 236, 255};
     // Corners by bits: x (1) y (2) z (4).
     const auto face = [&](int a, int bb, int c, int d) {
@@ -357,7 +458,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // The top (-y) and the open edge (-z).
     faces[3] = face(0, 1, 5, 4);
     faces[4] = face(1, 0, 2, 3);
-    faces[3].color = faces[4].color = CasePlastic(id);
+    faces[3].color = faces[4].color = CasePlastic(id, caseColour);
     faces[4].rounded = true;
     if (art) {
         faces[0].tex = art;
@@ -380,6 +481,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
+        faces[1].opaque = true;
     } else if (id.empty() && skin::discCase.data) {
         // The disc drive: its own box on the front and the back, the spine
         // in its pale blue.
@@ -395,11 +497,22 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // No scan: a back made up from the front cover, laid out as a Wii
     // case's back is.
     if (!art) {
+        faces[0].color = faces[3].color;
         faces[2].color = {244, 244, 242, 255};
         faces[2].madeUpBack = true;
         faces[2].art = cover;
         faces[2].accent = {hue.r, hue.g, hue.b, 255};
     }
+    // The case round its paper: a keep case's sleeve leaves a few
+    // millimetres of plastic showing above and below the paper and along
+    // the open edge, front and back (the paper wraps round the spine).
+    // A spine with no scan is bare plastic already.
+    for (Face& f : faces) f.plastic = faces[3].color;
+    faces[1].rimTop = faces[1].rimBottom = kRimHeight;
+    faces[1].rimRight = kRimOpenEdge;  // the front: c[1] is on the open edge
+    faces[2].rimTop = faces[2].rimBottom = kRimHeight;
+    faces[2].rimLeft = kRimOpenEdge;  // the back: c[0] is on the open edge
+    if (art) faces[0].rimTop = faces[0].rimBottom = kRimHeight;
 }
 
 // The game whose box is flying (DrawShelfFlight): the shelf leaves its
@@ -424,6 +537,10 @@ void Dim(Face& f, float k) {
     f.color.r = static_cast<u8>(f.color.r * k);
     f.color.g = static_cast<u8>(f.color.g * k);
     f.color.b = static_cast<u8>(f.color.b * k);
+    // The rim round the paper (DrawRimmedFace) darkens with it.
+    f.plastic.r = static_cast<u8>(f.plastic.r * k);
+    f.plastic.g = static_cast<u8>(f.plastic.g * k);
+    f.plastic.b = static_cast<u8>(f.plastic.b * k);
 }
 
 // The upright faces' lower part, mirrored under the plank and fading out
@@ -533,7 +650,7 @@ void UpdateBackdrop(const std::string& id, bool still) {
     }
     for (int k = 0; k < 2; ++k) {
         const float target = k == g_backCur && g_backId[k] == id ? 1.0f : 0.0f;
-        g_backShown[k] += (target - g_backShown[k]) * 0.08f;
+        g_backShown[k] = riftwii::wii::transition::Follow(g_backShown[k], target, 200.0f);
     }
 }
 
@@ -591,6 +708,7 @@ std::string ShelfInfo(const GridItem& item) {
     if (item.badge == "USB") add(tr("USB drive"));
     else if (item.badge == "SD") add(tr("SD card"));
     else if (item.badge == "GC") add(tr("GameCube"));
+    else if (item.key.rfind("emu-", 0) == 0) add(tr(item.badge.c_str()));
     if (item.id.size() >= 4) {
         switch (item.id[3]) {
             case 'E': add(tr("USA")); break;
@@ -671,18 +789,18 @@ void GuiGameGrid::DrawShelf(int alpha) {
         return;
     }
     if (static_cast<int>(poses.size()) != Count()) poses.assign(Count(), BoxPose{});
-    ++shelfClock;
+    const float elapsedFrames = riftwii::wii::transition::FrameMilliseconds() * (60.0f / 1000.0f);
+    shelfClock = std::fmod(shelfClock + elapsedFrames, kSwayCycle);
     if (shelfFlipFor != focus) {
         shelfFlipFor = focus;
         shelfFlip = false;
         shelfStill = 0;
     } else if (shelfStill < 100000) {
-        ++shelfStill;
+        shelfStill += elapsedFrames;
     }
     // A flick's glide: steps while it slows down.
     if (!dragging && glide != 0.0f) {
-        glideAccum += glide;
-        glide *= 0.88f;
+        glideAccum += riftwii::wii::transition::Coast(glide, 130.0f);
         while (glideAccum >= kDragStep) {
             ShelfStep(-1);
             glideAccum -= kDragStep;
@@ -759,11 +877,17 @@ void GuiGameGrid::DrawShelf(int alpha) {
             p.placed = true;
             continue;
         }
-        p.x += (want.x - p.x) * kEase;
-        p.z += (want.z - p.z) * kEase;
-        p.turn += (want.turn - p.turn) * kEase;
-        p.lift += (want.lift - p.lift) * kEase;
+        p.x = riftwii::wii::transition::Follow(p.x, want.x, kBoxResponseMs);
+        p.z = riftwii::wii::transition::Follow(p.z, want.z, kBoxResponseMs);
+        p.turn = riftwii::wii::transition::Follow(p.turn, want.turn, kBoxResponseMs);
+        p.lift = riftwii::wii::transition::Follow(p.lift, want.lift, kBoxResponseMs);
         if (want.turn == kTau && p.turn > kTau - 0.01f) p.turn = 0.0f;
+    }
+    // Include newly placed boxes too, before drawing them or recording
+    // their hit areas; their first frame must leave the same corner gap.
+    for (int index = first; index <= last; ++index) {
+        BoxPose& pose = poses[index];
+        pose.lift -= HomeCornerLowering(MakeBox(pose.x, pose.z, pose.turn, pose.lift));
     }
     // Boxes that fell out of reach start again from their place next time.
     for (int i = 0; i < Count(); ++i)
@@ -801,7 +925,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const u8* art = riftwii::wii::BoxTexture(item.id);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(item.id),
-                 item.hue, faces);
+                 item.hue, item.caseColour, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
     // The plank: its top, then its front edge, wider than the screen (none
@@ -864,7 +988,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
-        BoxFaces(item.id, b, art, cover, item.hue, faces);
+        BoxFaces(item.id, b, art, cover, item.hue, item.caseColour, faces);
         float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         bool spineShown = false;
         const float k = dimFor(i);
@@ -956,8 +1080,14 @@ void GuiGameGrid::DrawShelf(int alpha) {
     if (static_cast<int>(spineFit.size()) != Count()) spineFit.assign(Count(), {});
     for (const SpineLabel& l : labels) {
         auto& fit = spineFit[l.index];
-        const std::string& title = (*items)[l.index].title;
+        const GridItem& item = (*items)[l.index];
+        const std::string& title = item.title;
         if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};
+        // Dark letters on a light case, light ones on a dark case (black,
+        // red: Rec. 601 brightness under half).
+        const GXColor plastic = CasePlastic(item.id, item.caseColour);
+        const int brightness = (plastic.r * 299 + plastic.g * 587 + plastic.b * 114) / 1000;
+        spineText->SetColor(brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255});
         spineText->SetText(fit.second.c_str());
         spineText->SetFontSize(kSpineTextSize);
         spineText->SetAlpha(alpha);
@@ -1013,17 +1143,17 @@ void GuiGameGrid::DrawShelfCaption(int alpha) {
 void GuiGameGrid::DrawRing(int alpha) {
     const int n = Count();
     if (n <= 0) return;
-    ++shelfClock;
+    const float elapsedFrames = riftwii::wii::transition::FrameMilliseconds() * (60.0f / 1000.0f);
+    shelfClock = std::fmod(shelfClock + elapsedFrames, kSwayCycle);
     if (shelfFlipFor != focus) {
         shelfFlipFor = focus;
         shelfStill = 0;
     } else if (shelfStill < 100000) {
-        ++shelfStill;
+        shelfStill += elapsedFrames;
     }
     // A flick's glide, as on the shelf.
     if (!dragging && glide != 0.0f) {
-        glideAccum += glide;
-        glide *= 0.88f;
+        glideAccum += riftwii::wii::transition::Coast(glide, 130.0f);
         while (glideAccum >= kDragStep) {
             ShelfStep(-1);
             glideAccum -= kDragStep;
@@ -1042,7 +1172,7 @@ void GuiGameGrid::DrawRing(int alpha) {
     float ahead = focus - ringPos;
     while (ahead > n / 2.0f) ahead -= n;
     while (ahead < -n / 2.0f) ahead += n;
-    ringPos += std::fabs(ahead) < 0.002f ? ahead : ahead * 0.2f;
+    ringPos = riftwii::wii::transition::Follow(ringPos, ringPos + ahead, 75.0f, 0.002f);
     while (ringPos >= n) ringPos -= n;
     while (ringPos < 0) ringPos += n;
 
@@ -1104,10 +1234,16 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
         const u8* tex = riftwii::wii::Cover3dTexture(item.id);
         const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(item.id);
-        float w, ph;
+        const float ph = tex ? h : h * 0.92f;
+        float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
+        if (tex) w = ph * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
+        else if (!cover && item.badge == "DISC" && skin::discCase.data)
+            w = ph * skin::discCase.w / skin::discCase.h;
+        const float pictureTop = foot - ph;
+        const float cornerWeight = HomeCornerWeight(cx - w / 2, cx + w / 2);
+        const float lowering = std::max(0.0f, kHomeCornerTop - pictureTop);
+        foot += lowering * cornerWeight;
         if (tex) {
-            ph = h;
-            w = h * riftwii::kCover3dWidth / riftwii::kCover3dHeight;
             skin::DrawRgb5a3Region(tex, riftwii::kCover3dWidth, riftwii::kCover3dHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
                                    w, ph, lit, lit);
             // The reflection: the picture's foot mirrored under it, fading out.
@@ -1115,21 +1251,17 @@ void GuiGameGrid::DrawRing(int alpha) {
                                    cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd);
         } else if (cover) {
             // No 3D cover (yet): the flat cover, as tall as a case in one.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
+            // Square to its corners, as a case is: the stored cover's
+            // rounded corners are for the covers view's tiles.
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 0, 1, 1, cx - w / 2, foot - ph,
-                                   w, ph, lit, lit);
+                                   w, ph, lit, lit, true);
             skin::DrawRgb5a3Region(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, 1, 1, 1 - kRingReflect,
-                                   cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd);
+                                   cx - w / 2, foot, w, ph * kRingReflect, mirrorTop, mirrorEnd, true);
         } else if (item.badge == "DISC" && skin::discCase.data) {
-            ph = h * 0.92f;
             const float k = ph / skin::discCase.h;
-            w = skin::discCase.w * k;
             skin::Draw(skin::discCase, cx - w / 2, foot - ph, alpha * shade / 255, k);
         } else {
             // Nothing to show yet: the game's colour where its case goes.
-            ph = h * 0.92f;
-            w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
             GXColor hue = item.hue;
             hue.r = static_cast<u8>(hue.r * shade / 255);
             hue.g = static_cast<u8>(hue.g * shade / 255);
@@ -1154,6 +1286,7 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     const BoxPose& p = poses[index];
     out.id = (*items)[index].id;
     out.hue = (*items)[index].hue;
+    out.caseColour = (*items)[index].caseColour;
     out.x = p.x;
     out.z = p.z;
     out.turn = p.turn;
@@ -1161,10 +1294,11 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     return true;
 }
 
-ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue) {
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue, GXColor caseColour) {
     ShelfFlight f;
     f.id = id;
     f.hue = hue;
+    f.caseColour = caseColour;
     f.x = 320.0f;
     f.z = kPullZ;
     f.turn = static_cast<float>(M_PI) / 2;
@@ -1191,7 +1325,7 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const u8* art = riftwii::wii::BoxTexture(from.id);
     const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
     Face faces[5];
-    BoxFaces(from.id, box, art, cover, from.hue, faces);
+    BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();
     // Back to front by distance from the eye: the faces of one box.
     int order[5] = {0, 1, 2, 3, 4};
@@ -1206,6 +1340,25 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
 }
 
 void SetShelfFlying(const std::string& id) { g_flying = id; }
+
+void DrawMadeUpBoxBack(const u8* cover, GXColor hue, float x, float y, float w, float h, int alpha) {
+    // At z = 0 the shelf's view puts a point where the 2D view does.
+    Face f;
+    f.c[0] = {x, y, 0.0f};
+    f.c[1] = {x + w, y, 0.0f};
+    f.c[2] = {x + w, y + h, 0.0f};
+    f.c[3] = {x, y + h, 0.0f};
+    f.normal = {0.0f, 0.0f, 1.0f};
+    f.madeUpBack = true;
+    f.art = cover;
+    f.accent = {hue.r, hue.g, hue.b, 255};
+    const u8 a = static_cast<u8>(alpha);
+    LoadPerspective();
+    // Its paper, unshaded: it faces you, flat.
+    Quad(f.c, GXColor{244, 244, 242, a}, f.fade, nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    DrawMadeUpBack(f, 1.0f, a);
+    LoadFlat();
+}
 
 void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
     // Digital L/R clicks take the same one-box step in Update, shared
@@ -1260,7 +1413,11 @@ void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
                 dragAccum += dx;
             }
             if (dragging) {
-                dragSpeed = dragSpeed * 0.5f + dx * 0.5f;
+                const float frameMs = riftwii::wii::transition::FrameMilliseconds();
+                if (frameMs > 0.0f) {
+                    const float velocity = dx * (1000.0f / 60.0f) / frameMs;
+                    dragSpeed = riftwii::wii::transition::Follow(dragSpeed, velocity, 24.0f);
+                }
                 // Dragged right: the shelf moves right, the focus left.
                 while (dragAccum >= kDragStep) {
                     ShelfStep(-1);

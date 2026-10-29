@@ -8,6 +8,7 @@
 
 #include "drawtrace.hpp"
 #include "i18n.hpp"
+#include "transition.hpp"
 #include "video.h"
 #include "wiidrc.h"
 
@@ -175,9 +176,10 @@ void GuiTiles::Draw() {
     for (int i = 0; i < Count(); ++i) {
         const TileSpec& s = (*tiles)[i];
         float& l = lift[i];
-        l += ((i == lit ? 1.0f : 0.0f) - l) * 0.3f;
+        l = riftwii::wii::transition::Follow(l, i == lit ? 1.0f : 0.0f, 47.0f);
         if (l < 0.01f) l = 0.0f;
         if (l > 0.99f) l = 1.0f;
+        if (s.hidden) continue;
         // Lit, the tile grows a little about its middle and its ring fades in.
         const float grow = 1.0f + kLiftScale * l;
         const float w = s.w * grow, h = s.h * grow;

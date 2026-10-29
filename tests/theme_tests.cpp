@@ -381,7 +381,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 73U);
+    EXPECT_EQ(images.size(), 79U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -461,6 +461,32 @@ static void test_painted_images() {
     EXPECT_FALSE(paint_theme_image("tile2", def, none));
     EXPECT_FALSE(paint_theme_image("", def, none));
 
+    // Each layout needs its own recognisable silhouette, with a clear
+    // margin when it is enlarged on a card or shrunk onto a button.
+    const char* const layouts[] = {
+        "layout_covers", "layout_covers3d", "layout_carousel",
+        "layout_shelf", "layout_channels", "layout_names"
+    };
+    std::vector<std::vector<std::uint8_t>> layoutPixels;
+    Theme layoutTheme = def;
+    layoutTheme.colors.glyph = ThemeColor{210, 30, 70, 255};
+    for (const char* name : layouts) {
+        Canvas icon(0, 0);
+        EXPECT_TRUE(paint_theme_image(name, layoutTheme, icon));
+        EXPECT_EQ(icon.at(0, 0).a, 0);
+        EXPECT_EQ(icon.at(27, 27).a, 0);
+        bool hasGlyph = false;
+        for (int y = 0; y < icon.height(); ++y) {
+            for (int x = 0; x < icon.width(); ++x) {
+                const Rgba pixel = icon.at(x, y);
+                if (pixel.a == 255 && pixel.r == 210 && pixel.g == 30 && pixel.b == 70) hasGlyph = true;
+            }
+        }
+        EXPECT_TRUE(hasGlyph);
+        for (const auto& previous : layoutPixels) EXPECT_TRUE(previous != icon.pixels());
+        layoutPixels.push_back(icon.pixels());
+    }
+
     Theme red = def;
     red.colors.chip_on = ThemeColor{200, 10, 20, 255};
     red.colors.backdrop = ThemeColor{1, 2, 3, 255};
@@ -503,6 +529,44 @@ static void test_painted_images() {
     EXPECT_TRUE(paint_theme_image("tile", square, square_tile));
     EXPECT_TRUE(square_tile.at(8, 8).a == 255);
     EXPECT_TRUE(round_tile.at(8, 8).a < square_tile.at(8, 8).a);
+
+    // Wrapped notes need an opaque backplate even near the ends of their
+    // first and last lines, where a tall capsule used to expose the tiles.
+    Canvas note(0, 0);
+    paint_hint_box(def, 520, 184, note);
+    for (int y : {12, 172}) {
+        for (int x : {20, 500}) {
+            EXPECT_EQ(int(note.at(kHintBoxMargin + x, kHintBoxMargin + y).a), 255);
+        }
+    }
+
+    // The clock wall is painted natively at 16:9 (856 wide), so the menu
+    // never has to mirror the 640 one's sides: mirrored, its NOTHINGs read
+    // backwards and the figure stood in the middle of Settings.
+    Theme clocks = red;
+    clocks.clock_dials = true;
+    Canvas dials(0, 0);
+    Canvas dials_wide(0, 0);
+    EXPECT_TRUE(paint_theme_image("background", clocks, dials));
+    EXPECT_TRUE(paint_theme_image("background_wide", clocks, dials_wide));
+    EXPECT_EQ(dials.width(), 640);
+    EXPECT_EQ(dials_wide.width(), 856);
+    EXPECT_EQ(dials_wide.height(), 480);
+
+    // A 16:9 game page lays copies of banner_stripes side by side, so the
+    // picture's first column must carry on from its last one. Along a
+    // stripe x + y is constant: what column 640 would hold at row y is what
+    // column 639 holds at row y + 1. At a 28-pixel spacing they met 24
+    // pixels out of step, a seam on every widescreen game page.
+    Canvas stripes(0, 0);
+    EXPECT_TRUE(paint_theme_image("banner_stripes", def, stripes));
+    int seams = 0;
+    for (int y = 0; y + 1 < stripes.height(); ++y) {
+        const int first = stripes.at(0, y).a;
+        const int next = stripes.at(stripes.width() - 1, y + 1).a;
+        if (std::abs(first - next) > 8) ++seams;
+    }
+    EXPECT_EQ(seams, 0);
 }
 
 // The stick and D-pad pictures RiftWii draws itself (the GameCube controls

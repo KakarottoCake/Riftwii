@@ -41,6 +41,11 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    // The player's own menu music, picked in Settings or written here:
+    // "" for RiftWii's (a theme's, the Wii Menu's or music.ogg), else an
+    // .ogg or .mp3 song, an .m3u playlist, or a folder ending in '/' whose
+    // songs play shuffled ("usb:/Music/"); riftwii/musiclist.hpp.
+    std::string music_file;
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
@@ -53,9 +58,13 @@ struct LoaderSettings {
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
     bool online = true;                   // download game names and cheats when the Wii is online
+    bool emulator_covers = true;
+    bool steamgrid_covers = false;        // requires the player's own key on the SD card
     std::string riitag_key;               // RiiTag (riftwii/riitag.hpp): the player's key, empty for none
+    std::string riitag_id;                // RiiTag: the player's Discord ID, for Settings > Online > My RiiTag; empty for none
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
+    std::string usb_input = "on";         // on, off: USB keyboards, mice and pen tablets, and the uDraw, in the menu (wii/controllers/usbinput.hpp)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::string sd_games = "on";          // on, off: look for game images on the SD card (sd:/wbfs, sd:/games); off for setups that keep games only on USB
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts

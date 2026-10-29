@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/returnto.hpp"
+#include "riftwii/codehook.hpp"
 
 namespace riftwii {
 namespace {
@@ -41,6 +42,37 @@ std::vector<Site> find_sites(const std::vector<CodeSpan>& spans, unsigned rl, un
 }
 
 }  // namespace
+
+ReturnStubPlan plan_return_stub(std::uint32_t arena1_hi, bool enabled, bool needs_low_memory) {
+    ReturnStubPlan plan;
+    plan.arena1_hi = arena1_hi;
+    plan.code_list_end = kCodeListEnd;
+    if (!enabled) return plan;
+
+    if (needs_low_memory) {
+        plan.address = kLowReturnStub;
+        plan.code_list_end = kLowReturnStub;
+    } else if (arena1_hi >= kReturnStubBytes) {
+        plan.address = (arena1_hi - kReturnStubBytes) & ~(kReturnStubBytes - 1);
+        plan.arena1_hi = plan.address;
+    }
+    return plan;
+}
+
+std::vector<std::uint64_t> gamecube_return_titles(bool back_to_riftwii, bool started_by_homebrew_channel,
+                                                std::uint64_t channel, std::uint64_t homebrew_channel) {
+    std::vector<std::uint64_t> titles;
+    if (back_to_riftwii) {
+        if (channel != 0) {
+            titles.push_back(channel);
+        }
+        if (started_by_homebrew_channel && homebrew_channel != 0) {
+            titles.push_back(homebrew_channel);
+        }
+    }
+    titles.push_back(0x0000000100000002ull);
+    return titles;
+}
 
 std::string ReturnToReport::describe() const {
     if (patched) return std::string("patched") + (old_sdk ? " (older SDK)" : "");

@@ -218,6 +218,16 @@ struct Chord {
 };
 Chord g_remote[4];
 Chord g_pad_l[4], g_pad_r[4];
+// 1 and 2 together on Home: 2 is kept back as 1 is, so the pair works
+// whichever goes down first, but only while Home watches for it.
+Chord g_remote_two[4];
+volatile bool g_view_chord_on = false;
+volatile bool g_view_chord = false;  // the pair was pressed; Home takes it
+// Whether this 1 and this 2 went down while Home watched: a 1 held since
+// before (during the HOME Menu, say) is no half of the pair, even once
+// Home watches again. Cleared when Home stops watching.
+bool g_one_watched[4] = {};
+bool g_two_watched[4] = {};
 
 void Fire() {
     if (g_busy || g_want) return;
@@ -264,10 +274,24 @@ void ScreenshotPoll() {
         WPADData* w = userInput[i].wpad;
         if (w) {
             u32 down = w->btns_d;
+            if (g_view_chord_on && (down & WPAD_BUTTON_1)) g_one_watched[i] = true;
+            if (g_view_chord_on && (down & WPAD_BUTTON_2)) g_two_watched[i] = true;
             if (Modifier(g_remote[i], down, w->btns_h, WPAD_BUTTON_1) && (down & WPAD_BUTTON_HOME)) {
                 down &= ~WPAD_BUTTON_HOME;
                 g_remote[i].used = true;
                 Fire();
+            }
+            // A 2 already kept back is still let go here when Home stops
+            // watching, so its press is never lost.
+            const bool one = g_remote[i].held_back && (w->btns_h & WPAD_BUTTON_1);
+            if (g_view_chord_on || g_remote_two[i].held_back) {
+                const bool two = Modifier(g_remote_two[i], down, w->btns_h, WPAD_BUTTON_2);
+                // Only a pair Home watches for is used up: one pressed after
+                // it stopped watching gives both presses back when let go.
+                if (g_view_chord_on && one && two && g_one_watched[i] && g_two_watched[i] && !g_remote_two[i].used) {
+                    g_remote[i].used = g_remote_two[i].used = true;
+                    g_view_chord = true;
+                }
             }
             w->btns_d = down;
         }
@@ -304,5 +328,23 @@ void ScreenshotAfterFrame(const void* xfb, int width, int height) {
 }
 
 int ScreenshotFlash() { return g_flash; }
+
+void WatchViewChord(bool on) {
+    // Not the presses kept back (held_back): a 1 or 2 let go alone still
+    // reaches its own control.
+    if (!on) {
+        for (int i = 0; i < 4; ++i) g_one_watched[i] = g_two_watched[i] = false;
+    }
+    g_view_chord_on = on;
+    g_view_chord = false;
+}
+
+bool TakeViewChord() {
+    if (!g_view_chord) return false;
+    g_view_chord = false;
+    return true;
+}
+
+void ForgetViewChord() { g_view_chord = false; }
 
 }  // namespace riftwii::wii

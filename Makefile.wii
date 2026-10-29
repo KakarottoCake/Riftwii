@@ -74,13 +74,36 @@ CXXFLAGS	+=	-DPUGIXML_NO_EXCEPTIONS
 CXXFLAGS	+=	-DPUGIXML_NO_STL
 # Linked high so the game's DOL (0x80004000 up) and apploader (0x81200000)
 # can be loaded while this program is still running; see wii/main.cpp.
-LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue
+LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x80a00000 -Wl,--wrap=_sbrk_r -Wl,--wrap=__CheckARGV -Wl,--wrap=dvmUnmountVolume -Wl,--wrap=wiiuse_init_cmd_queue \
+				-Wl,--wrap=classic_ctrl_handshake,--wrap=parse_event,--wrap=USB_GetDeviceList
+# No .eh_frame_hdr: the sorted index of the unwinding tables the prebuilt
+# libraries still carry. libgcc's unwinder here would find frames through
+# the list crtbegin.o registers (__register_frame_info), never through
+# that index (it needs dl_iterate_phdr, which a DOL has not), so its
+# 17 KiB sat in MEM1 unread (docs/MEMORY.md, "Linked out").
+LDFLAGS		+=	-Wl,--no-eh-frame-hdr
+# Keep libgcc's own unwind initialization records, but no exception tables
+# for the libraries: this program catches nothing (docs/MEMORY.md).
+# The driver sees -T and skips its implicit rvl.ld; name it here after
+# our discard rules so the rest of libogc's layout stays the default.
+LDFLAGS		+=	-T $(PROJECT_ROOT)/wii/core/noexcept.ld -T $(DEVKITPPC)/powerpc-eabi/lib/rvl.ld
+# FILE and console output share snprintf's formatter. Keep stdio's writes
+# and buffering, without a second 15 KiB engine (wii/core/streamprint.cpp).
+LDFLAGS		+=	-Wl,--wrap=printf,--wrap=fprintf,--wrap=vprintf,--wrap=vfprintf
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
 # libbearssl.a comes from Makefile.bearssl (the TLS client, wii/online/tls.cpp).
-LIBS :=	-lbearssl -lz -lfat -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
+# libogc's own libmad.a, by its path: it carries libogc's MP3 player (the
+# menu's .mp3 music, wii/menu/menumusic.cpp), which the portlibs' libmad,
+# found first through -L, does not.
+# libwiikeyboard: the menu's USB keyboard (wii/controllers/usbkeyboard.cpp).
+# The pen tablet driver (wii/controllers/pentablet.c, udraw.c) wraps three of
+# libogc's functions above: two keep wiiuse from taking a uDraw for a Classic
+# Controller, one hides tablets and the GameCube adapter from libogc's own
+# USB mouse and keyboard scans.
+LIBS :=	-lbearssl -lz -lfat -lwiikeyboard -lwiiuse -lbte $(LIBOGC_LIB)/libmad.a -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
@@ -305,7 +328,7 @@ $(OFILES_SOURCES): $(HFILES)
 # they depend on a stamp rewritten when the version differs.
 # Every object also depends on this Makefile, so a changed -O or other
 # flag (the per-file -O2 list below) rebuilds the objects it applies to.
-$(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt $(PROJECT_ROOT)/Makefile.wii
+$(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt $(PROJECT_ROOT)/Makefile.wii $(PROJECT_ROOT)/wii/core/noexcept.ld
 VERSION_STAMP := riftwii_version.stamp
 VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_VERSION -e RIFTWII_BUILD_STAMP $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
 $(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(VERSION_STAMP))

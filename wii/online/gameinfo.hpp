@@ -6,12 +6,14 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "riftwii/gametdb.hpp"
 
 // A game's details for its About page (riftwii/gametdb.hpp), from GameTDB's
 // database of every Wii game: sd:/riftwii/wiitdb-<lang>.zip, which the
-// About page downloads when the player asks (about 2 MB: the texts in the
+// About page downloads when the player asks, and Home once the drives are
+// read with Download names and cheats on (about 2 MB: the texts in the
 // menu's language, English where there is no translation), else a
 // wiitdb.xml another loader left on the card. Reading the whole database
 // takes seconds on a Wii, so the details of the games on the player's
@@ -36,6 +38,50 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
 // facts. Reads nothing but the cache file (once a session), never the
 // database.
 bool PeekGameInfo(const std::string& id, GameInfo& out);
+
+// Whether GameTDB's database lists the game as custom (GameInfo::custom:
+// <type>CUSTOM</type>), from the cache: false until the database was read
+// for it (StartGameInfoRead, or the About page).
+bool IsCustomGame(const std::string& id);
+
+// Discards the card's cached details and any untaken background answer.
+// Call only once its background jobs have stopped, before Home rebuilds
+// after removal or replacement; the next lookup reads the new card.
+void ForgetGameInfo();
+
+// Reads the database on the network's background thread for the games in
+// `wanted` the cache has not looked for yet (all of them once the database
+// is newer than the cache), so Home knows which are custom without the
+// About page being opened. With no database on the card it is downloaded
+// first when `download` (Download names and cheats on). Busy: the network's
+// thread is, or an earlier read was not taken yet; ask again later. The
+// read is cancellable (NetCancelBackground): the SD card taken out stops it.
+enum class GameInfoReadStart { Started, NothingToRead, Busy };
+GameInfoReadStart StartGameInfoRead(const std::set<std::string>& wanted, bool download);
+// A started read whose answer was not taken yet.
+bool GameInfoReadPending();
+// True, once, when a started read has ended, the cache then updated; also
+// while another job holds the network's thread by then. `changed`: the
+// games found custom are not the ones before.
+bool TakeGameInfoRead(bool& changed);
+
+// GameTDB's homebrew apps (riftwii/homebrewmatch.hpp), kept in
+// sd:/riftwii/homebrew-titles.txt whenever the database is read, for the
+// Homebrew view's covers. False when there is no such file or it can't be
+// read; true with no apps for the empty list (a database without homebrew).
+bool LoadHomebrewTitles(std::vector<HomebrewTitle>& out);
+// How many times that file was written this session: the apps are matched
+// again once it changes (a game's About page read the database).
+unsigned HomebrewTitlesWritten();
+// Whether the database on the card is newer than that file (or there is
+// no file yet), and was not read for it this session.
+bool HomebrewTitlesNeedReading();
+// Forgets that the database was read for its homebrew apps this session:
+// the SD card was put back and may be another one, with its own database.
+void ForgetHomebrewTitlesRead();
+// Reads the database for its homebrew apps alone and keeps them;
+// `progress` as FindGameInfo's.
+bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.

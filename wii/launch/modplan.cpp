@@ -12,6 +12,7 @@
 #include <set>
 
 #include "di.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "netpacks.hpp"
 #include "progress.hpp"
@@ -84,8 +85,7 @@ bool is_missing(const std::string& error) { return error.find("no such ") != std
 
 // A pack on the USB drive names its files with this in front
 // ("usb:/riivolution/..."); every other external is on the SD card.
-constexpr char kUsbPrefix[] = "usb:";
-bool OnUsb(const std::string& external) { return external.compare(0, 4, kUsbPrefix) == 0; }
+bool OnUsb(const std::string& external) { return is_usb_path(external); }
 
 // The disc path the compile gives the game's executable, which the FST
 // does not list (absolute, as patches need; no FST name holds '<').
@@ -127,12 +127,12 @@ public:
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out,
                              std::string& error) override {
         const bool usb = OnUsb(sd_path);
-        std::string abs = usb ? sd_path.substr(4) : sd_path;
+        std::string abs = usb ? image_volume_path(sd_path) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        const std::string key = (usb ? "usb:" : "sd:") + abs;
+        const std::string key = (usb ? usb_path_device(sd_path) : "sd:") + abs;
         if (usb) {
             const ImageVolume* volume = nullptr;
-            if (!ums::Volume(volume, error)) {
+            if (!ums::Volume(volume, error, sd_path)) {
                 error = "external file '" + sd_path + "': " + error;
                 return OpenStatus::IoError;
             }
@@ -179,12 +179,12 @@ public:
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
         const bool usb = OnUsb(sd_dir);
-        std::string abs = usb ? sd_dir.substr(4) : sd_dir;
+        std::string abs = usb ? image_volume_path(sd_dir) : sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         out.clear();
         if (usb) {
             const ImageVolume* volume = nullptr;
-            if (!ums::Volume(volume, error)) return OpenStatus::IoError;
+            if (!ums::Volume(volume, error, sd_dir)) return OpenStatus::IoError;
             std::vector<VolumeEntry> listed;
             if (!volume->list(abs, listed, error)) return is_missing(error) ? OpenStatus::NotFound : OpenStatus::IoError;
             out.reserve(listed.size());
@@ -476,14 +476,14 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     if (!net_root.empty()) RebasePlan(plan, net_root);
     if (on_usb) {
         // Its files are on the drive; a save folder stays on the card.
-        const auto to_usb = [](std::string& path) {
-            if (!path.empty()) path = std::string(kUsbPrefix) + (path[0] == '/' ? "" : "/") + path;
+        const auto to_usb = [&](std::string& path) {
+            if (!path.empty()) path = usb_path_device(xml_sd_path) + (path[0] == '/' ? "" : "/") + path;
         };
         for (FilePatch& f : plan.files) to_usb(f.external);
         for (FolderPatch& f : plan.folders) to_usb(f.external);
         for (MemoryPatch& m : plan.memory) to_usb(m.valuefile);
     }
-    use_misplaced_folders(plan, xml_sd_path, on_usb ? std::string(kUsbPrefix) : std::string(), provider, mod);
+    use_misplaced_folders(plan, xml_sd_path, on_usb ? usb_path_device(xml_sd_path) : std::string(), provider, mod);
 
     // <savegame>: one folder per launch. When the choices picked give more
     // than one, the last one picked wins, with its own clone setting: a
@@ -633,33 +633,28 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                                   : !first_missing.empty() ? first_missing
                                                            : first_missing_file;
         const bool usb = OnUsb(what);
-        std::string path = usb ? what.substr(4) : what;
+        std::string path = usb ? image_volume_path(what) : what;
         if (path.empty() || path[0] != '/') path = "/" + path;
-        const std::string device = usb ? "usb:" : "sd:";
+        const std::string device = usb ? usb_path_device(what) : "sd:";
         const std::string folder = path.substr(1, path.find('/', 1) == std::string::npos ? std::string::npos
                                                                                        : path.find('/', 1) - 1);
         const std::string top = device + "/" + folder;
-        const std::string drive = usb ? "USB drive" : "SD card";
         const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
         // In words a player follows: which folder, where it goes, and where
         // a copy that looks like it is (a tester's pack had no folder at all
         // and the message read as a riddle).
-        error = "This mod's files aren't where it looks for them. " + xml_name + " needs a folder called " + folder +
-                " at the top of the " + drive + " (" + top + "), next to the riivolution folder";
-        if (!missing_value.empty()) error += ", with " + device + path + " in it";
-        error += ".";
+        error = tr("{1} needs its mod folder to be {2}.", {xml_name, top});
+        if (!missing_value.empty()) error += "\n" + tr("Required file: {1}", {device + path});
         const std::string pack_dir = PackFolderOf(xml_sd_path);
         const std::string found = usb ? std::string() : similar_folder(folder, pack_dir);
         if (!found.empty() && found.compare(0, top.size() + 1, top + "/") == 0) {
-            error += " Its files are one folder too deep, in " + found + ": move what is inside that folder up into " +
-                     top + ".";
+            error += "\n" + tr("{1} is one folder too deep. Move its contents into {2}.", {found, top});
         } else if (!found.empty() && found.find('/', 4) == std::string::npos) {
-            error += " There is one at " + found + ": rename it to exactly " + folder + ".";
+            error += "\n" + tr("Rename {1} to exactly {2}.", {found, top});
         } else if (!found.empty()) {
-            error += " There is one at " + found + ": move it to the top of the SD card and name it exactly " +
-                     folder + ".";
+            error += "\n" + tr("Move {1} to {2}.", {found, top});
         } else {
-            error += " Copy the " + folder + " folder from the mod's download there.";
+            error += "\n" + tr("Copy the {1} folder from the mod's download so that it is {2} itself.", {folder, top});
             const std::string hint = nearest_on_card(what);
             if (!hint.empty()) error += " (" + hint + ")";
         }

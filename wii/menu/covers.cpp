@@ -12,18 +12,22 @@
 #include <zlib.h>
 
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <map>
 #include <set>
 #include <vector>
 
 #include "fullfont.hpp"
+#include "emulatorcovers.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/emulatorart.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "riftwii/pngdecode.hpp"
 #include "skin.hpp"
 
@@ -32,9 +36,12 @@ namespace {
 
 constexpr const char* kCoverDir = "sd:/riftwii/covers";
 constexpr std::time_t kRetryAfter = 7 * 24 * 60 * 60;
-// Room for every game's cover (CoverReserve), up to this many: 7 MB of
-// MEM2, where 37 MB were free with 326 games. A bigger library shares it.
-constexpr int kPoolMax = 400;
+// Keep the original 400-cover MEM2 budget, including Channels pictures.
+// A large library shares the remaining 369 cover slots by recent use.
+constexpr int kBannerPoolMax = 24;
+constexpr std::size_t kPictureBudget = 400 * kCoverPixelBytes;
+constexpr int kPoolMax = (kPictureBudget - kBannerPoolMax * kEmulatorBannerPixelBytes) / kCoverPixelBytes;
+static_assert(kPoolMax == 369);
 // Before the grid says how many: four pages and the game page.
 constexpr int kPoolMin = 49;
 
@@ -42,8 +49,11 @@ std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "
 // An empty file: GameTDB had no cover when it was written.
 std::string MissPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".none"; }
 
+// A game's six characters, or a homebrew app's four (GameTDB's 9XGX for
+// Snes9x GX, riftwii/homebrewmatch.hpp).
 bool ValidId(const std::string& id) {
-    if (id.size() != 6) return false;
+    if (emulator_cover_id(id) || emulator_banner_id(id)) return true;
+    if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     }
@@ -114,6 +124,10 @@ struct Request {
     u64 at;                // last asked (gettime ticks)
 };
 Slot g_pool[kPoolMax];
+// Only pictures requested by Channels drawing enter this pool. No library
+// read-ahead: room for the current page, its peeking columns and a turn.
+Slot g_bannerPool[kBannerPoolMax];
+int g_bannerSlots = 0;
 int g_slots = 0;                         // of g_pool, with MEM2
 std::map<std::string, Slot*> g_index;    // the slots by id
 std::set<std::string> g_absent;          // asked for and not on the card
@@ -153,9 +167,11 @@ void SetId(Slot& s, const std::string& id) {
     if (!id.empty()) g_index[id] = &s;
 }
 
-Slot* EmptySlot() {
-    for (int i = 0; i < g_slots; ++i) {
-        if (g_pool[i].id.empty()) return &g_pool[i];
+Slot* EmptySlot(bool banner = false) {
+    Slot* pool = banner ? g_bannerPool : g_pool;
+    const int count = banner ? g_bannerSlots : g_slots;
+    for (int i = 0; i < count; ++i) {
+        if (pool[i].id.empty()) return &pool[i];
     }
     return nullptr;
 }
@@ -182,12 +198,14 @@ bool NextRequest(std::string& id) {
 // The slot to read an asked-for cover into: an empty one, else the one
 // longest not drawn or asked for (CoverPrefetch renews a ready one).
 // Locked.
-Slot* Victim() {
-    if (Slot* s = EmptySlot()) return s;
+Slot* Victim(bool banner) {
+    if (Slot* s = EmptySlot(banner)) return s;
     const u64 now = gettime();
     Slot* pick = nullptr;
-    for (int i = 0; i < g_slots; ++i) {
-        Slot& s = g_pool[i];
+    Slot* pool = banner ? g_bannerPool : g_pool;
+    const int count = banner ? g_bannerSlots : g_slots;
+    for (int i = 0; i < count; ++i) {
+        Slot& s = pool[i];
         if (!s.ready || ticks_to_millisecs(now - s.touched) < kDrawnMs) continue;
         if (!pick || s.touched < pick->touched) pick = &s;
     }
@@ -220,7 +238,7 @@ void* LoaderMain(void*) {
     for (;;) {
         std::string id;
         Slot* slot = nullptr;
-        const bool asked = !g_hold && NextRequest(id) && (slot = Victim());
+        const bool asked = !g_hold && NextRequest(id) && (slot = Victim(emulator_banner_id(id)));
         if (!asked && (g_hold || !NextReadAll(id, slot))) {
             LWP_CondWait(g_wake, g_lock);
             continue;
@@ -231,13 +249,31 @@ void* LoaderMain(void*) {
         LWP_MutexUnlock(g_lock);
 
         bool ok = false;
-        if (FILE* f = std::fopen(CoverPath(id).c_str(), "rb")) {
+        const bool banner = emulator_banner_id(id);
+        const std::size_t pixel_bytes = banner ? kEmulatorBannerPixelBytes : kCoverPixelBytes;
+        if (banner) {
+            std::vector<std::uint8_t> picture;
+            if (ReadEmulatorBanner(id, picture)) {
+                std::memcpy(slot->data, picture.data() + 8, pixel_bytes);
+                ok = true;
+            }
+        }
+        if (emulator_cover_id(id)) {
+            std::vector<std::uint8_t> local;
+            if (ReadEmulatorLocalCover(id, local) && local.size() == kCoverFileSize) {
+                std::memcpy(slot->data, local.data() + kCoverHeaderSize, kCoverPixelBytes);
+                ok = true;
+            }
+        }
+        const bool cache_allowed = !emulator_cover_id(id) || EmulatorDownloadedCoversAllowed();
+        FILE* f = banner || ok || !cache_allowed ? nullptr : std::fopen(CoverPath(id).c_str(), "rb");
+        if (f) {
             std::uint8_t header[kCoverHeaderSize];
             ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
                  std::fread(slot->data, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
             std::fclose(f);
         }
-        if (ok) DCFlushRange(slot->data, kCoverPixelBytes);
+        if (ok) DCFlushRange(slot->data, pixel_bytes);
 
         LWP_MutexLock(g_lock);
         g_reading = false;
@@ -312,10 +348,16 @@ void Ask(const std::string& game_id, int rank) {
 }  // namespace
 
 void ForgetCoverMiss(const std::string& game_id) {
+    if (emulator_cover_id(game_id)) {
+        ForgetEmulatorCoverMiss(game_id);
+        ForgetEmulatorCoverMiss(emulator_banner_key(game_id));
+    }
+    if (emulator_banner_id(game_id)) ForgetEmulatorCoverMiss(game_id);
     if (ValidId(game_id)) std::remove(MissPath(game_id).c_str());
 }
 
 bool CoverWanted(const std::string& game_id) {
+    if (emulator_cover_id(game_id) || emulator_banner_id(game_id)) return EmulatorCoverWanted(game_id);
     if (!ValidId(game_id)) return false;
     struct stat st;
     if (stat(CoverPath(game_id).c_str(), &st) == 0) return false;
@@ -342,34 +384,37 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error) {
 
 namespace {
 CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
+    if (emulator_cover_id(game_id) || emulator_banner_id(game_id)) return FetchEmulatorCover(game_id, error);
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
-    for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
-        std::vector<std::uint8_t> png;
-        std::string why;
-        if (!HttpGet(cover_url(region, game_id), png, why, 512u << 10, 8000)) {
-            // GameTDB's refusal (a 404 most often) means no cover in this
-            // region; anything else is no answer about this game at all.
-            if (cover_answer_means_missing(http_answered_status(why))) continue;
-            error = why;
-            return CoverFetch::NoAnswer;
+    for (const std::string& art_id : gametdb_art_ids(game_id)) {
+        for (const std::string& region : cover_regions(game_id, MenuLanguage())) {
+            std::vector<std::uint8_t> png;
+            std::string why;
+            if (!HttpGet(cover_url(region, art_id), png, why, 512u << 10, 8000)) {
+                // GameTDB's refusal (a 404 most often) means no cover in this
+                // region; anything else is no answer about this game at all.
+                if (cover_answer_means_missing(http_answered_status(why))) continue;
+                error = why;
+                return CoverFetch::NoAnswer;
+            }
+            std::vector<std::uint8_t> rgba;
+            int w = 0, h = 0;
+            if (!DecodePng(png, rgba, w, h)) {
+                logf("Covers: GameTDB's %s cover of %s is not a PNG we can read\n", region.c_str(), game_id.c_str());
+                continue;
+            }
+            const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
+            if (file.empty()) continue;
+            if (!WriteAll(CoverPath(game_id), file)) {
+                error = "cannot write " + CoverPath(game_id) + " (card full?)";
+                return CoverFetch::Failed;
+            }
+            std::remove(MissPath(game_id).c_str());
+            logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
+            return CoverFetch::Stored;
         }
-        std::vector<std::uint8_t> rgba;
-        int w = 0, h = 0;
-        if (!DecodePng(png, rgba, w, h)) {
-            logf("Covers: GameTDB's %s cover of %s is not a PNG we can read\n", region.c_str(), game_id.c_str());
-            continue;
-        }
-        const std::vector<std::uint8_t> file = make_cover_file(rgba.data(), w, h);
-        if (file.empty()) continue;
-        if (!WriteAll(CoverPath(game_id), file)) {
-            error = "cannot write " + CoverPath(game_id) + " (card full?)";
-            return CoverFetch::Failed;
-        }
-        std::remove(MissPath(game_id).c_str());
-        logf("Covers: %s (%s, %dx%d)\n", game_id.c_str(), region.c_str(), w, h);
-        return CoverFetch::Stored;
     }
     WriteAll(MissPath(game_id), {});
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
@@ -394,7 +439,7 @@ bool StartCoverFetch(const std::string& game_id) {
     if (!g_background.id.empty() || NetBackgroundBusy()) return false;
     g_background = Background{};
     g_background.id = game_id;
-    if (NetRunInBackground(RunBackgroundFetch)) return true;
+    if (NetRunInBackground(RunBackgroundFetch, false, false)) return true;
     g_background.id.clear();
     return false;
 }
@@ -431,6 +476,22 @@ const u8* CoverTexture(const std::string& game_id, int rank) {
     return nullptr;
 }
 
+const u8* EmulatorBannerTexture(const std::string& game_id) {
+    const std::string key = emulator_banner_key(game_id, skin::WideMenu());
+    if (key.empty() || !Started()) return nullptr;
+    if (g_bannerSlots == 0) {
+        u8* block = skin::Mem2Alloc(kBannerPoolMax * kEmulatorBannerPixelBytes);
+        if (!block) return nullptr;
+        Lock lock;
+        for (int i = 0; i < kBannerPoolMax; ++i)
+            g_bannerPool[i].data = block + static_cast<std::size_t>(i) * kEmulatorBannerPixelBytes;
+        g_bannerSlots = kBannerPoolMax;
+        logf("Emulator banners: room for %d visible pictures using %u KB of MEM2.\n", kBannerPoolMax,
+             static_cast<unsigned>(kBannerPoolMax * kEmulatorBannerPixelBytes / 1024));
+    }
+    return CoverTexture(key);
+}
+
 void CoverPrefetch(const std::string& game_id, int rank) {
     if (!ValidId(game_id) || !Started()) return;
     Lock lock;
@@ -447,6 +508,13 @@ void ForgetCover(const std::string& game_id) {
     g_absent.erase(game_id);
     ++g_forgets;
     if (Slot* s = Find(game_id)) SetId(*s, "");
+    // A cover arriving replaces a missing banner's temporary cover crop.
+    for (const bool wide : {false, true}) {
+        const std::string banner = emulator_banner_key(game_id, wide);
+        if (banner.empty()) continue;
+        g_absent.erase(banner);
+        if (Slot* s = Find(banner)) SetId(*s, "");
+    }
 }
 
 void ForgetAllCovers() {
@@ -455,6 +523,7 @@ void ForgetAllCovers() {
     g_absent.clear();
     ++g_forgets;
     for (int i = 0; i < g_slots; ++i) SetId(g_pool[i], "");
+    for (int i = 0; i < g_bannerSlots; ++i) SetId(g_bannerPool[i], "");
 }
 
 void CoverReserve(int covers) {

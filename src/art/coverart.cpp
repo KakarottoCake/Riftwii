@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "riftwii/nandchannel.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -60,11 +62,21 @@ std::vector<std::string> cover_regions(const std::string& game_id, const std::st
     const auto add = [&](const std::string& r) {
         if (std::find(out.begin(), out.end(), r) == out.end()) out.push_back(r);
     };
-    if (game_id.size() >= 4) add(region_for(game_id[3], menu_language));
+    // A homebrew app's four-letter code (riftwii/homebrewmatch.hpp) says
+    // nothing about a region ("9XGX", "D01A"): GameTDB keeps most of their
+    // covers under US, so that is asked first.
+    if (game_id.size() == 4) add("US");
+    else if (game_id.size() >= 4) add(region_for(game_id[3], menu_language));
     add("EN");
     add("US");
     add("JA");
     return out;
+}
+
+std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
+    const std::string code = channel_cheat_code(game_id);
+    if (code.empty()) return {game_id};
+    return {code, game_id};
 }
 
 std::string cover_url(const std::string& region, const std::string& game_id) {
@@ -120,7 +132,7 @@ bool CoverDownloads::count(CoverOutcome outcome) {
 std::string CoverDownloads::take_summary() {
     if (!counted_since_summary_) return std::string();
     counted_since_summary_ = false;
-    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; GameTDB has no " +
+    std::string text = log_name_ + ": " + std::to_string(stored_) + " downloaded this session; " + source_ + " has no " +
                        picture_ + " for " + std::to_string(not_found_) + " game(s) (asked again in a week)";
     if (no_answer_ != 0) {
         text += "; " + std::to_string(no_answer_) +
