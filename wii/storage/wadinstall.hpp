@@ -35,6 +35,10 @@ std::unique_ptr<ByteSource> open_wad_source(const std::string& path, std::string
 bool read_console_wad_banner(const ByteSource& source, const WadMetadata& metadata,
                               std::uint8_t title_key[16], std::vector<std::uint8_t>& banner,
                               std::string& error);
+// The same sources, proven on the WAD's smallest content instead of its
+// banner, for installing a WAD that has no banner or a large one.
+bool read_console_wad_install_key(const ByteSource& source, const WadMetadata& metadata,
+                                  std::uint8_t title_key[16], std::string& error);
 
 // Installs the WAD at `path` into the emulated NAND `folder` (sd:/...).
 // `progress` gets the fraction done. False with `error` in a plain

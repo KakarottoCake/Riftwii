@@ -163,26 +163,79 @@ void clear_wad_key(std::uint8_t* bytes, std::size_t size) {
     for (std::size_t i = 0; i < size; ++i) destination[i] = 0;
 }
 
-bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
-                           const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
-                           WadKeySource& selected, std::vector<std::uint8_t>& banner, std::string& error) {
+namespace {
+
+// The key sources in order; the first whose key passes `check` wins.
+bool select_checked_key(const WadTitleKeyReader& read_key, std::uint8_t title_key[16], WadKeySource& selected,
+                        const std::function<bool(const std::uint8_t*, std::string&)>& check,
+                        const char* mismatch, std::string& error) {
     clear_wad_key(title_key, 16);
-    banner.clear();
     bool had_candidate = false;
     for (WadKeySource candidate : {WadKeySource::Otp, WadKeySource::Ios, WadKeySource::BootMiiKeys}) {
         error.clear();
         if (read_key(candidate, title_key)) {
             had_candidate = true;
-            if (read_wad_banner_with_title_key(source, metadata, title_key, banner, error)) {
+            if (check(title_key, error)) {
                 selected = candidate;
                 return true;
             }
         }
         clear_wad_key(title_key, 16);
     }
-    error = had_candidate ? "the WAD's banner did not match any available key or could not be read"
-                          : "no title key could be read from this Wii, IOS or sd:/keys.bin";
+    error = had_candidate ? mismatch : "no title key could be read from this Wii, IOS or sd:/keys.bin";
     return false;
+}
+
+}  // namespace
+
+bool select_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
+                           const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
+                           WadKeySource& selected, std::vector<std::uint8_t>& banner, std::string& error) {
+    banner.clear();
+    return select_checked_key(read_key, title_key, selected,
+        [&](const std::uint8_t* key, std::string& why) {
+            return read_wad_banner_with_title_key(source, metadata, key, banner, why);
+        }, "the WAD's banner did not match any available key or could not be read", error);
+}
+
+bool verify_wad_title_key(const ByteSource& source, const WadMetadata& metadata,
+                          const std::uint8_t title_key[16], std::string& error) {
+    // Any content proves the key through its TMD hash; the smallest one is
+    // the least to read. A channel WAD may have no banner, or a large one.
+    const WadContentPlace* smallest = nullptr;
+    for (const WadContentPlace& place : metadata.places) {
+        if (place.content.size > (4u << 20)) continue;
+        if (!smallest || place.content.size < smallest->content.size) smallest = &place;
+    }
+    if (!smallest) {
+        error = "the WAD has no content small enough to check its key";
+        return false;
+    }
+    std::vector<std::uint8_t> bytes;
+    if (!try_resize(bytes, static_cast<std::size_t>(smallest->stored))) {
+        error = "not enough memory to check the WAD's key";
+        return false;
+    }
+    if (!source.read(smallest->offset, bytes.data(), bytes.size())) {
+        error = "the WAD could not be read";
+        return false;
+    }
+    WadContentDecrypter decrypter(title_key, smallest->content);
+    decrypter.decrypt(bytes.data(), bytes.size());
+    if (!decrypter.matches()) {
+        error = "the WAD is damaged or uses another key";
+        return false;
+    }
+    return true;
+}
+
+bool select_wad_install_key(const ByteSource& source, const WadMetadata& metadata,
+                            const WadTitleKeyReader& read_key, std::uint8_t title_key[16],
+                            WadKeySource& selected, std::string& error) {
+    return select_checked_key(read_key, title_key, selected,
+        [&](const std::uint8_t* key, std::string& why) {
+            return verify_wad_title_key(source, metadata, key, why);
+        }, "the WAD did not match any available key or could not be read", error);
 }
 
 bool read_wad_banner_with_title_key(const ByteSource& source, const WadMetadata& metadata,
