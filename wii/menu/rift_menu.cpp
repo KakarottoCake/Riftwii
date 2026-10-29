@@ -69,6 +69,7 @@
 #include "riftwii/gcbanner.hpp"
 #include "boxart.hpp"
 #include "cover3d.hpp"
+#include "discart.hpp"
 #include "covers.hpp"
 #include "emulatorcovers.hpp"
 #include "emupicture.hpp"
@@ -343,6 +344,13 @@ static void LogRemotesChanged()
 // The menu's own loops tick here (HaltGui and ResumeGui, every frame).
 static volatile u64 g_menuTick = 0;
 
+// A game page's banner sound is playing (Settings > Banner music on game
+// pages): the GUI thread starts its loop when the first time through ends,
+// on the page and on every page opened from it alike. Changed only with
+// the GUI halted, and the menu's thread starts or stops no banner sound
+// while it is set.
+static volatile bool g_tendPageSound = false;
+
 static void ResumeGui()
 {
 	g_menuTick = gettime();
@@ -434,6 +442,7 @@ UpdateGUI(void *arg)
 			UpdatePads();
 			LogRemotesChanged();
 			if (!launchPopup) riftwii::wii::MenuMusicUpdate();
+			if (g_tendPageSound) riftwii::wii::BannerSoundUpdate();
 			// The Remotes' sensor noise and timing, for TLS (entropy.hpp).
 			for (int c = 0; c < 4; ++c)
 				if (userInput[c].wpad) riftwii::wii::EntropyAdd(userInput[c].wpad, sizeof(*userInput[c].wpad));
@@ -1133,6 +1142,11 @@ static void LoadFilter()
 	else if (it->second == "favorites") g_filter = Filter::Favorites;
 }
 
+// The GameTDB genre Home shows (B with Down or Up), as GameTDB spells it;
+// empty for every genre. Kept for the session across views, and let go
+// once the view shown has no game of it.
+static std::string g_genre;
+
 // What the player typed into the search; empty when none. While it is set
 // it picks from every game on the drives, whatever the filter.
 static std::string g_search;
@@ -1395,6 +1409,41 @@ static std::vector<std::size_t> HomeFilterCounts(const FrontendState& state)
 	return counts;
 }
 
+// A row's genres from the game details' cache (wii/online/gameinfo.hpp):
+// none for an emulator's game, or before GameTDB's database was read.
+static std::vector<std::string> HomeRowGenres(const HomeRow& row)
+{
+	std::vector<std::string> genres;
+	if (row.entry.kind == HomeEntry::Kind::Channel && row.id.size() >= 4)
+		// GameTDB lists channels under their four letters ("WBME"), not the six of the game ID.
+		riftwii::wii::PeekGameGenres(row.id.substr(0, 4), genres);
+	else if (row.entry.kind != HomeEntry::Kind::Emulator && !row.id.empty())
+		riftwii::wii::PeekGameGenres(row.id, genres);
+	return genres;
+}
+
+// The genres of the games the view shows, the most common first: what B
+// with Down or Up steps through. A game's profiles and its copies on two
+// drives count once.
+static std::vector<std::string> HomeGenreChoices(const FrontendState& state)
+{
+	std::vector<std::vector<std::string>> gameGenres;
+	std::set<std::string> counted;
+	for (const HomeRow& row : HomeRows(state, false)) {
+		if (!HomeRowMatchesFilter(row, g_filter) || !counted.insert(row.id.empty() ? row.key : row.id).second) continue;
+		gameGenres.push_back(HomeRowGenres(row));
+	}
+	return riftwii::genre_choices(gameGenres);
+}
+
+// "Kart racing": GameTDB's word with a capital.
+static std::string GenreName(const std::string& genre)
+{
+	std::string name = genre;
+	if (!name.empty() && name[0] >= 'a' && name[0] <= 'z') name[0] = static_cast<char>(name[0] - 'a' + 'A');
+	return name;
+}
+
 static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries,
 	bool searchOpen = false)
 {
@@ -1423,7 +1472,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	// and Favorites list particular games, so a tile that is none of them
 	// was only noise there.
 	const bool searching = searchOpen || !g_search.empty();
-	const bool discViews = !searching && (g_filter == Filter::Mods || g_filter == Filter::All);
+	// A genre lists particular games too: the disc drive has none.
+	const bool genreChosen = !searching && !g_genre.empty();
+	const bool discViews = !searching && !genreChosen && (g_filter == Filter::Mods || g_filter == Filter::All);
 	if (discViews) {
 		GridItem disc;
 		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
@@ -1447,6 +1498,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		const bool emulator = r.entry.kind == HomeEntry::Kind::Emulator;
 		// Search includes every scanned source, whatever Home's category.
 		if (!searching && !HomeRowMatchesFilter(r, g_filter)) continue;
+		if (genreChosen && !riftwii::has_genre(HomeRowGenres(r), g_genre)) continue;
 		const bool profile = !r.entry.profile.empty();
 		// A game GameTDB lists as custom (a hack or mod distribution with an
 		// ID of its own: Newer Super Mario Bros. Wii, a Mario Kart Wii track
@@ -1475,6 +1527,14 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		item.caseColour = {caseRgb[0], caseRgb[1], caseRgb[2], 255};
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
+	}
+	// The view has no game of the genre (another view, or the drives read
+	// again): every genre again, rather than an empty Home.
+	if (genreChosen && items.empty()) {
+		logf("Home: no game here is %s, so every genre is shown again\n", g_genre.c_str());
+		g_genre.clear();
+		BuildHome(state, items, entries, searchOpen);
+		return;
 	}
 	// Settings > Home > Disc Channel off: the tile goes (an empty view keeps its
 	// note under the clock: Press 1 for all games).
@@ -1682,6 +1742,76 @@ private:
 	bool isError = false, on = false;
 	u64 start = 0;
 };
+// Home's genres while B is held with Up or Down: a card in the middle
+// with every genre ("Every genre" first) and the one picked lit. Seven
+// rows at most; the list scrolls to keep the pick in view, with arrows
+// where it goes on.
+class GenrePanel : public GuiElement {
+public:
+	GenrePanel() : title("", 17, skin::kInkSoft), hint("", 14, skin::kInkSoft) {
+		title.SetParent(this);
+		hint.SetParent(this);
+		for (std::unique_ptr<GuiText>& row : rows) {
+			row.reset(new GuiText("", 17, skin::kInk));
+			row->SetParent(this);
+			row->SetMaxWidth(kRowW - 24);
+		}
+	}
+	// `choices` as the genres' own names; `picked` -1 for every genre.
+	void Show(const std::vector<std::string>& choices, int picked) {
+		std::vector<std::string> names;
+		names.push_back(tr("Every genre"));
+		for (const std::string& genre : choices) names.push_back(GenreName(genre));
+		const int lit = picked + 1;
+		count = static_cast<int>(names.size());
+		shown = std::min(count, kRows);
+		// The window of rows around the pick.
+		first = std::max(0, std::min(lit - kRows / 2, count - shown));
+		litRow = lit - first;
+		for (int i = 0; i < shown; ++i) {
+			rows[i]->SetText(names[static_cast<std::size_t>(first + i)].c_str());
+			rows[i]->SetColor(i == litRow ? skin::kAccentInk : skin::kInk);
+		}
+		title.SetText(tr("Genre"));
+		hint.SetText(tr("Up/Down: genre   Let go: show"));
+		on = true;
+	}
+	void Hide() { on = false; }
+	void Draw() override {
+		if (!on) return;
+		const int boxH = kTitleH + shown * kRowH + kHintH;
+		// Centred over the tiles, above Home's bar.
+		const float x = 320 - kBoxW / 2.0f, y = std::max(36.0f, 180 - boxH / 2.0f);
+		skin::DrawNine(skin::card9, x - 8, y - 8, kBoxW + 16, boxH + 16, riftwii::kCardCorner);
+		title.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		title.SetPosition(static_cast<int>(x + kBoxW / 2.0f), static_cast<int>(y) + 8);
+		title.Draw();
+		const float rowsTop = y + kTitleH;
+		const float rowX = x + (kBoxW - kRowW) / 2.0f;
+		for (int i = 0; i < shown; ++i) {
+			const float rowY = rowsTop + i * kRowH;
+			if (i == litRow) skin::DrawNine(skin::chipOn, rowX - 2, rowY - 3, kRowW + 4, kRowH + 2, 14);
+			rows[i]->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+			rows[i]->SetPosition(static_cast<int>(rowX + kRowW / 2.0f), static_cast<int>(rowY + kRowH / 2.0f - 2));
+			rows[i]->Draw();
+		}
+		// More genres above or below the window.
+		const float arrowX = x + kBoxW - 30;
+		if (first > 0) skin::Draw(skin::scrollUp, arrowX, rowsTop - 2, 255, 0.6f);
+		if (first + shown < count) skin::Draw(skin::scrollDown, arrowX, rowsTop + shown * kRowH - 22, 255, 0.6f);
+		hint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		hint.SetPosition(static_cast<int>(x + kBoxW / 2.0f), static_cast<int>(rowsTop + shown * kRowH) + 6);
+		hint.Draw();
+	}
+private:
+	static constexpr int kRows = 7;
+	static constexpr int kBoxW = 280, kRowW = 220, kRowH = 30, kTitleH = 34, kHintH = 28;
+	GuiText title, hint;
+	std::unique_ptr<GuiText> rows[kRows];
+	int count = 0, shown = 0, first = 0, litRow = 0;
+	bool on = false;
+};
+
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
@@ -2455,7 +2585,10 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		: moving ? tr("1: view   2: settings   -/+: pages   B+A: move")
 		: tr("1: view   2: settings   -/+: pages");
 	if (g_homePadHints) keys = tr("Y: view  Z: settings  L/R: pages");
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + keys;
+	// The Homebrew view keeps a genre chosen elsewhere without using it: apps have none.
+	const bool genreShown = !g_genre.empty() && g_filter != Filter::Homebrew;
+	const std::string genre = genreShown ? " · " + GenreName(g_genre) : std::string();
+	return std::string(tr(FilterLabel(g_filter))) + genre + ": " + count + "\n" + keys;
 }
 
 class Panel : public GuiElement {
@@ -4405,12 +4538,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Emulator games: Home > Show > Emulators",
-	"Covers for emulator games",
-	"WiiFlow's emulator plugins work here too",
-	"Games from every partition of a USB drive",
-	"Leave a frozen menu without a Wii Remote",
-	"Smoother menu motion on PAL and NTSC",
+	"Home: a Layout button and a Show chooser",
+	"WiiWare and VC played straight from WADs",
+	"Pictures for emulator games, and a picker",
+	"Banner music and disc art on game pages",
+	"Asks first when mod files are missing",
+	"Clearer messages when something goes wrong",
 };
 
 static std::string WhatsNewText()
@@ -5454,6 +5587,7 @@ static int MenuSource(FrontendState& state)
 	BuildHome(state, items, entries);
 
 	HomeGameGrid grid;
+	grid.SetGenreKeys(true);
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	const std::string& homeTiles = riftwii::wii::Settings().home_tiles;
 	grid.SetShelf(homeTiles == "shelf" || homeTiles == "carousel" || homeTiles == "covers3d");
@@ -5685,6 +5819,8 @@ static int MenuSource(FrontendState& state)
 	w.Append(&coverZoom);
 	Toast toast;
 	w.Append(&toast);
+	GenrePanel genrePanel;
+	w.Append(&genrePanel);
 	mainWindow->Append(&w);
 	// News left for Home (a report sent, a new version): a notice as well,
 	// once. Home is built again each time Settings or a game's page is
@@ -5843,6 +5979,52 @@ static int MenuSource(FrontendState& state)
 		SetHomeMovable(grid, entries);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		showStatus();
+	};
+	// B with Down or Up (GuiGameGrid::GenreKeys): the next or the previous
+	// of the genres the view's games have, then every genre again, shown
+	// in the genre panel while B stays held. Letting go of B shows the
+	// games of the one picked (applyGenre): Home is rebuilt once, not at
+	// every step a held Down scrolls through.
+	std::vector<std::string> genreChoices;
+	std::string genrePicked;
+	bool genrePicking = false;
+	const auto stepGenre = [&](int step) {
+		if (!genrePicking) {
+			if (!g_search.empty()) {
+				toast.Show(tr("A search looks through every genre. Press 1 to end it first."), false);
+				return;
+			}
+			if (g_filter == Filter::Homebrew) {
+				toast.Show(tr("Homebrew apps have no genres."), false);
+				return;
+			}
+			genreChoices = HomeGenreChoices(state);
+			if (genreChoices.empty()) {
+				// Genres are in the details GameTDB's database gives each game.
+				toast.Show(std::string(tr("No genres yet.")) + " " +
+					tr("They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it."), false);
+				return;
+			}
+			genrePicked = g_genre;
+			genrePicking = true;
+		}
+		genrePicked = riftwii::step_genre(genreChoices, genrePicked, step);
+		int picked = -1;
+		for (std::size_t i = 0; i < genreChoices.size(); ++i)
+			if (genreChoices[i] == genrePicked) picked = static_cast<int>(i);
+		genrePanel.Show(genreChoices, picked);
+	};
+	const auto applyGenre = [&]() {
+		genrePicking = false;
+		genrePanel.Hide();
+		if (genrePicked == g_genre) return;
+		g_genre = genrePicked;
+		logf("Home: genre %s (%u genre(s) here)\n", g_genre.empty() ? "every one" : g_genre.c_str(),
+			static_cast<unsigned>(genreChoices.size()));
+		g_focusRestored = true;  // the player's own doing
+		// The tiles change: a press read before it would open another game.
+		grid.GetClicked();
+		refresh(false);
 	};
 	// A tile across a refresh: its drive as well as its game (one game on
 	// both the card and the drive has two tiles with the same key), and
@@ -6077,6 +6259,8 @@ static int MenuSource(FrontendState& state)
 			std::set<std::string> wanted;
 			for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
 			for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+			// Channels sit in the genre choices too.
+			for (const riftwii::wii::NandChannel& c : state.channels) if (!c.code.empty()) wanted.insert(c.code);
 			// No database on the card: downloaded first, as the game names are.
 			const bool download = riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
 			if (riftwii::wii::StartGameInfoRead(wanted, download) != riftwii::wii::GameInfoReadStart::Busy)
@@ -6307,15 +6491,27 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		// GameTDB's database read in the background (started below): the
-		// games it lists as custom join the Mods view.
+		// games it lists as custom join the Mods view, and with a genre
+		// chosen, the games it gave that genre join Home's tiles.
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && customChanged) {
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty() || genrePicking)) {
 				const std::string focused = focusedTile();
 				takePress();
 				refreshKeepingTile(focused, false);
 				putPressBack();
+				if (genrePicking) {
+					// The genres the read gave: the panel shows them while B is held.
+					genreChoices = HomeGenreChoices(state);
+					int picked = -1;
+					for (std::size_t i = 0; i < genreChoices.size(); ++i)
+						if (riftwii::has_genre({genreChoices[i]}, genrePicked)) {
+							picked = static_cast<int>(i);
+							genrePicked = genreChoices[i];
+						}
+					genrePanel.Show(genreChoices, picked);
+				}
 			}
 		}
 		if (g_scanning && !coverNoteShown && !grid.Carrying() && riftwii::wii::DriveScanStatus() != shownScanStatus)
@@ -6605,6 +6801,7 @@ static int MenuSource(FrontendState& state)
 				logf("Home: every drive is now shown\n");
 			} else {
 				g_search.clear();
+				g_genre.clear();
 				g_filter = Filter::All;
 				riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
 				// The games are shown either way; only remembering the view
@@ -6616,6 +6813,12 @@ static int MenuSource(FrontendState& state)
 			refresh(false);
 			matchHomebrewCovers();
 			addCovers();
+			ResumeGui();
+			continue;
+		}
+		if (const int genreStep = grid.TakeGenreStep(); genreStep != 0 && menu == MENU_NONE) stepGenre(genreStep);
+		if (genrePicking && !grid.GenreHeld()) {
+			applyGenre();
 			ResumeGui();
 			continue;
 		}
@@ -10513,6 +10716,13 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
 static constexpr int kTilesX = 214, kTilesRight = 600;  // 40 in from each side, as the box
 static constexpr int kTilesW = kTilesRight - kTilesX;
+// The game's disc under its box (Settings > Disc art), at the left of
+// the space the Favourite tile has otherwise: as tall as fits between the
+// box's shadow and the status lines along the bottom, the Favourite tile
+// narrowed to its star beside it.
+static constexpr int kHeroDiscSize = 78, kHeroDiscY = 306;
+static constexpr int kFavoriteY = 310, kFavoriteH = 70;
+static constexpr int kStarX = kHeroX + kHeroDiscSize + 8, kStarW = kHeroX + kHeroW - kStarX;
 
 
 // The game's box on its page: the front of its full cover when one is
@@ -10536,11 +10746,16 @@ public:
 		litGrid = grid;
 		litTile = tile;
 	}
+	// GameTDB's picture of the game's disc, drawn under the box; nullptr
+	// for none. Set with the GUI halted; the menu thread owns it.
+	void SetDisc(const riftwii::wii::DiscArt* art) { discArt = art; }
+	bool HasDisc() const { return discArt != nullptr; }
 	// A box or cover was drawn: there is something to see up close. Read
 	// by the menu thread, as the textures are the GUI thread's.
 	bool HasArt() const { return hasArt; }
 	void Draw() override {
 		riftwii::wii::DrawTrace trace("the page's cover");
+		DrawDisc();
 		const float lit = litGrid && litTile >= 0 ? litGrid->Lift(litTile) : 0.0f;
 		const float grow = 1.0f + 0.035f * lit;
 		const float w = kHeroW * grow, h = kHeroH * grow;
@@ -10593,6 +10808,25 @@ public:
 		}
 	}
 private:
+	void DrawDisc() {
+		if (!discArt || !discArt->data) return;
+		// Square, beside the Favourite tile's star; a picture of another
+		// shape keeps it.
+		const float k = static_cast<float>(kHeroDiscSize) / std::max(discArt->w, discArt->h);
+		const float dw = discArt->w * k, dh = discArt->h * k;
+		const float dx = kHeroX + (kHeroDiscSize - dw) / 2, dy = kHeroDiscY + (kHeroDiscSize - dh) / 2;
+		// A round drop shadow, lit from above as the box's is.
+		if (skin::discShadow.data) {
+			constexpr float kDrop = 4.0f;
+			// skin::Draw scales about the picture's centre: place that
+			// centre under the disc's.
+			const float scale = static_cast<float>(kHeroDiscSize) / riftwii::kDiscShadowDisc;
+			const float half = riftwii::kDiscShadowSize / 2.0f;
+			const float cx = kHeroX + kHeroDiscSize / 2.0f, cy = kHeroDiscY + kHeroDiscSize / 2.0f;
+			skin::Draw(skin::discShadow, cx - half, cy - half + kDrop, 255, scale);
+		}
+		skin::DrawRgb5a3Part(discArt->data, discArt->w, discArt->h, 0.0f, 1.0f, dx, dy, dw, dh);
+	}
 	// The corners' radius as drawn: about a real case's, in proportion.
 	static constexpr float kArtCorner = 6.0f;
 	// The box's front (or the cover) with its corners rounded off
@@ -10630,6 +10864,7 @@ private:
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
 	const u8* roundedFrom = nullptr;
 	int roundedW = 0, roundedH = 0;
+	const riftwii::wii::DiscArt* discArt = nullptr;
 };
 
 // The game's box up close (A on the box on its page): it grows out of the
@@ -12294,7 +12529,10 @@ enum class GameTile { Play, Mods, Cheats, Saves, Favorite, Options, About, Cover
 // what is changed most (cheats, saves), then the rest; the favourite
 // switch under the box, and the box itself (drawn by HeroCover), which A
 // shows up close.
-static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& tiles, std::vector<GameTile>& what)
+// `disc`: the game's disc is shown under its box (Settings > Disc art),
+// and the Favourite tile is its star alone, beside it.
+static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& tiles, std::vector<GameTile>& what,
+	bool disc = false)
 {
 	tiles.clear();
 	what.clear();
@@ -12376,8 +12614,13 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		!gamecube && state.model.save_mode != "nand");
 	// A full card is a warning, in the theme's colour for one.
 	tiles.back().warn = cardFull;
-	add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
-		favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
+	if (disc) {
+		add(GameTile::Favorite, kStarX, kFavoriteY, kStarW, kFavoriteH, "", "",
+			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
+	} else {
+		add(GameTile::Favorite, kHeroX, kFavoriteY, kHeroW, kFavoriteH, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
+	}
 	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
 	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
@@ -12691,6 +12934,41 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	mainWindow->Remove(&w);
 }
 
+// The selected game's banner sound, for its page opened outside the
+// Channels view (Settings > Banner music on game pages): its stored banner,
+// read from the game's image first when it is not on the card yet (seconds
+// on USB: call it with the GUI running). Empty when it has none: a disc in
+// the drive, a GameCube game's picture banner, or one that cannot be read.
+static std::vector<std::uint8_t> PageBannerSound(const FrontendState& state)
+{
+	const std::string& id = state.game_id;
+	std::vector<std::uint8_t> bytes;
+	if (id.empty()) return bytes;
+	if (!riftwii::wii::LoadBanner(id, bytes) && riftwii::wii::BannerWanted(id)) {
+		std::string why;
+		bool stored = false;
+		if (state.use_channel && state.channel_index < state.channels.size())
+			stored = riftwii::wii::StoreChannelBanner(state.channels[state.channel_index], why);
+		else if (state.use_usb && state.usb_index < state.usb_catalog.games.size())
+			stored = riftwii::wii::StoreBanner(state.usb_catalog.games[state.usb_index], why);
+		else if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
+			stored = riftwii::wii::StoreBanner(state.sd_catalog.games[state.sd_index], why);
+		if (!stored || !riftwii::wii::LoadBanner(id, bytes)) {
+			if (!why.empty()) logf("Game page: no banner sound for %s: %s\n", id.c_str(), why.c_str());
+			return {};
+		}
+	}
+	if (bytes.empty() || riftwii::is_gc_banner(bytes.data(), bytes.size())) return {};
+	riftwii::OutOfMemoryScope out_of_memory;
+	riftwii::OpeningBanner parts;
+	std::string error;
+	if (!riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false)) {
+		logf("Game page: the banner of %s: %s\n", id.c_str(), out_of_memory.failed() ? "out of memory" : error.c_str());
+		return {};
+	}
+	return std::move(parts.sound);
+}
+
 static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -12716,7 +12994,13 @@ static int MenuHome(FrontendState& state)
 	if (state.use_channel && state.model.game.cios == "auto") state.model.game.cios = "global";
 	std::vector<TileSpec> tiles;
 	std::vector<GameTile> tileWhat;
-	BuildGameTiles(state, tiles, tileWhat);
+	// Settings > Disc art: the game's disc under its box, read before the
+	// tiles are laid out (the Favourite tile makes room for it), outliving
+	// the box that draws it. A WiiWare or Virtual Console game has none.
+	const bool discArtOn = riftwii::wii::Settings().disc_art == "on" && !state.use_channel;
+	riftwii::wii::DiscArt discArt;
+	if (discArtOn) riftwii::wii::LoadDiscArt(state.game_id, discArt);
+	BuildGameTiles(state, tiles, tileWhat, discArt.data != nullptr);
 	if (riftwii::wii::g_gxWatch) logf("Game page: tiles built\n");
 	if (buildBehindBanner) HaltGui();
 	// A channel's page shows its icon (HeroCover): loaded here when Home's
@@ -12736,6 +13020,7 @@ static int MenuHome(FrontendState& state)
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
 	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
+	if (discArt.data) hero.SetDisc(&discArt);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
 	// smaller lines for a long one), the facts under it; each outlined in
@@ -12851,6 +13136,19 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	statusTxt.SetText(modsNote);
 	ResumeGui();
+	// Settings > Banner music on game pages: the game's banner sound, as
+	// the Channels view's banner screen plays it, for a page opened from
+	// Home's other views (the Channels view's banner screen already played
+	// it). Not for a Start pressed for the player: the game is starting.
+	bool pageSound = false;
+	if (riftwii::wii::Settings().page_banner_sound == "on" && riftwii::wii::Settings().home_tiles != "channels" &&
+	    !fromBanner) {
+		const std::vector<std::uint8_t> sound = PageBannerSound(state);
+		pageSound = !sound.empty() && riftwii::wii::BannerSoundStart(sound);
+		HaltGui();
+		g_tendPageSound = pageSound;
+		ResumeGui();
+	}
 	// Downloads need no part of the first frame. Check their files with
 	// drawing running, once the page (or the continuing Start banner) is up.
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
@@ -12890,12 +13188,14 @@ static int MenuHome(FrontendState& state)
 		return check;
 	};
 	const auto rebuildTiles = [&]() {
-		BuildGameTiles(state, tiles, tileWhat);
+		BuildGameTiles(state, tiles, tileWhat, hero.HasDisc());
 		tileGrid.Refresh();
 		lightHero();
 		factsTxt.SetText(GameFacts(state).c_str());
 		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
+	bool discStart = discArtOn && !hero.HasDisc() && riftwii::wii::Settings().online && !riftwii::wii::NetFailed() &&
+			 riftwii::wii::DiscArtWanted(state.game_id);
 	int shownTile = -1;
 	while(menu == MENU_NONE)
 	{
@@ -12948,6 +13248,24 @@ static int MenuHome(FrontendState& state)
 			if (riftwii::wii::TakeBoxFetch(id, got, error)) {
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetBox(id);
 				if (CountPictureFetch(g_boxRun, got, id, error)) g_boxesOff = true;
+			}
+		}
+		// The disc's picture, once the cover's and the box's are done: one
+		// try a page, a miss remembered for a week as the covers' are.
+		if (discStart && !coverStart && !boxStart &&
+		    (riftwii::wii::DiscArtFetchGame() == state.game_id || riftwii::wii::StartDiscArtFetch(state.game_id)))
+			discStart = false;
+		{
+			std::string id, error;
+			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
+			if (riftwii::wii::TakeDiscArtFetch(id, got, error)) {
+				if (got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed)
+					logf("Disc art: %s: %s\n", id.c_str(), error.c_str());
+				if (got == riftwii::wii::CoverFetch::Stored && id == state.game_id &&
+				    riftwii::wii::LoadDiscArt(id, discArt)) {
+					hero.SetDisc(&discArt);
+					rebuildTiles();
+				}
 			}
 		}
 
@@ -13195,6 +13513,10 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
+	hero.SetDisc(nullptr);
+	// The page's banner sound ends with the page; the menu's music comes back.
+	g_tendPageSound = false;
+	if (pageSound) riftwii::wii::BannerSoundStop();
 	if (menu != MENU_LAUNCH && menu != MENU_BOOT && menu != MENU_PLAY_CHANNEL) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not, and
 	// with a channel's.
@@ -14004,7 +14326,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
+	enum RowAction { kEmulators, kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kNonGames, kServer, kHomeTiles, kChannelCorners, kChannelBackground, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kHomeStart, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kThemeBrowse, kClockFormat, kNoClock, kFont, kSounds, kWiiSounds, kWiiMusic, kMusic, kMusicFile, kLaunchMusic, kPageBannerSound, kDiscArt, kReturnTo, kShots, kOnline, kEmulatorCovers, kSteamGridCovers, kNetTest, kNames, kRiiTag, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kUsbInput, kGcBackups, kNintendontSaves, kSdGames, kIos, kNet, kResync, kWads,
 		kMissingCovers, kRescan, kPartitionFailures, kUpdate, kReport, kTests, kGeckoLog, kWiirdDebugger, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -14138,6 +14460,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.launch_music != "off", kLaunchMusic);
 		// Without menu music there is nothing to keep or fade.
 		if (settings.menu_music == "off") rows.back().dim = true;
+		option(tr("Banner music on game pages"), settings.page_banner_sound == "on" ? tr("On") : tr("Off"),
+			settings.page_banner_sound == "on", kPageBannerSound, FlowRow::Kind::Toggle);
+		// The Channels view's banner screen plays it already.
+		if (settings.home_tiles == "channels") rows.back().dim = true;
+		option(tr("Disc art"), settings.disc_art == "on" ? tr("On") : tr("Off"), settings.disc_art == "on", kDiscArt,
+			FlowRow::Kind::Toggle);
 		FlowRow ios;
 		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
 		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
@@ -14314,6 +14642,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kNoClock:
 					return SettingsSection::HomeScreen;
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kThemeBrowse: case kFont: case kSounds: case kWiiSounds: case kWiiMusic: case kMusic: case kMusicFile: case kLaunchMusic:
+				case kPageBannerSound: case kDiscArt:
 				case kIos: case kNone:
 					return SettingsSection::Look;
 				case kOnline: case kEmulatorCovers: case kSteamGridCovers: case kNetTest: case kNames: case kRiiTag: case kMissingCovers: case kServer: case kUpdate:
@@ -14431,6 +14760,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kHomeStart: return tr("Last game: Home opens on the page of the last game you played as soon as its drive has been read, unless you have already pressed a button or moved the stick. First page: Home opens on page 1.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kLaunchMusic: return tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.");
+			case kPageBannerSound: return tr("Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.");
+			case kDiscArt: return tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.");
 			case kMusicFile: return MusicFileNote(settings.music_file);
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
@@ -14785,6 +15116,21 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
+				case kPageBannerSound:
+					// Greyed in the Channels view: its banner screen plays the music.
+					if (settings.home_tiles == "channels") {
+						note(tr("The Channels view already plays a game's banner music on its banner screen."));
+						break;
+					}
+					settings.page_banner_sound = settings.page_banner_sound == "on" ? "off" : "on";
+					saveAndNote(tr("Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."));
+					rebuild();
+					break;
+				case kDiscArt:
+					settings.disc_art = settings.disc_art == "on" ? "off" : "on";
+					saveAndNote(tr("Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."));
+					rebuild();
+					break;
 				case kLaunchMusic:
 					settings.launch_music = settings.launch_music == "off" ? "on" : "off";
 					saveAndNote(tr("Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."));

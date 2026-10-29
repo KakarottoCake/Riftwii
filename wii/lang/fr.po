@@ -900,6 +900,21 @@ msgstr "Fondu sortant"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu."
 
+msgid "Banner music on game pages"
+msgstr "Musique de la bannière sur la page du jeu"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Joue la musique de la bannière d'un jeu quand vous ouvrez sa page depuis l'Accueil, comme l'écran de bannière de la vue Chaînes. Pas dans la vue Chaînes, qui la joue déjà."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "La vue Chaînes joue déjà la musique de la bannière d'un jeu sur son écran de bannière."
+
+msgid "Disc art"
+msgstr "Image du disque"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique."
 
@@ -2346,20 +2361,23 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
 
-msgid "Covers for emulator games"
-msgstr "Jaquettes des jeux émulés"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "Accueil : bouton Disposition et choix Afficher"
 
-msgid "WiiFlow's emulator plugins work here too"
-msgstr "Les plugins d'émulateur de WiiFlow marchent aussi"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiWare et VC directement depuis les WAD"
 
-msgid "Games from every partition of a USB drive"
-msgstr "Jeux de toutes les partitions d'un disque USB"
+msgid "Pictures for emulator games, and a picker"
+msgstr "Images pour les jeux émulés, et un choix"
 
-msgid "Leave a frozen menu without a Wii Remote"
-msgstr "Quittez un menu figé sans Wiimote"
+msgid "Banner music and disc art on game pages"
+msgstr "Musique de bannière et image du disque"
 
-msgid "Smoother menu motion on PAL and NTSC"
-msgstr "Menu plus fluide en PAL et NTSC"
+msgid "Asks first when mod files are missing"
+msgstr "Demande d'abord s'il manque des fichiers du mod"
+
+msgid "Clearer messages when something goes wrong"
+msgstr "Messages plus clairs quand quelque chose ne va pas"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"
@@ -3012,6 +3030,21 @@ msgstr "Les jeux Wii démarrent avec le débogueur WiiRD. Connectez-vous depuis 
 msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
 msgstr "Aucun USB Gecko ne répond dans le port B ni dans le port A pour l'instant. Sans lui, les jeux démarrent sans le débogueur."
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "Une recherche parcourt tous les genres. Appuyez d’abord sur 1 pour la terminer."
+
+msgid "Homebrew apps have no genres."
+msgstr "Les applications homebrew n’ont pas de genre."
+
+msgid "No genres yet."
+msgstr "Pas encore de genres."
+
+msgid "Every genre"
+msgstr "Tous les genres"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "Haut/Bas : genre   Relâcher : afficher"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne."
 
@@ -3354,6 +3387,9 @@ msgstr "Impossible d'enregistrer les réglages de l'émulateur."
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Les arguments de l'émulateur sont incorrects ou trop longs. Consultez session.log."
 
+msgid "Covers for emulator games"
+msgstr "Jaquettes des jeux émulés"
+
 msgid "SteamGridDB covers"
 msgstr "Jaquettes SteamGridDB"
 
@@ -3608,9 +3644,6 @@ msgstr "Autorise le téléchargement des noms, jaquettes, codes, détails des je
 
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub."
-
-msgid "Emulator games: Home > Show > Emulators"
-msgstr "Jeux émulés : Accueil > Afficher > Émulateurs"
 
 msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs."
