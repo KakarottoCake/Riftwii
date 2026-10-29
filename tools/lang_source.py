@@ -7180,10 +7180,110 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Clear errors for memory cards, mod preparation and missing d2x.
+T.update({
+    "Memory card could not be read": (
+        "No se pudo leer la tarjeta de memoria",
+        "メモリーカードを読み込めません",
+        "Não foi possível ler o cartão de memória",
+        "Impossibile leggere la scheda di memoria"),
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O RiftWii não conseguiu ler {1}. O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "RiftWii non ha potuto leggere {1}. Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "Games cannot start": (
+        "Los juegos no pueden arrancar",
+        "ゲームを起動できません",
+        "Os jogos não podem iniciar",
+        "Impossibile avviare i giochi"),
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos USB precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi USB richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi SD richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "Mods could not be prepared": (
+        "No se pudieron preparar los mods",
+        "MODを準備できませんでした",
+        "Não foi possível preparar os mods",
+        "Impossibile preparare le mod"),
+    "{1} needs its mod folder at {2}.": (
+        "{1} necesita su carpeta de mod en {2}.",
+        "{1}には{2}にMODフォルダーが必要です。",
+        "{1} precisa da pasta do mod em {2}.",
+        "{1} richiede la cartella della mod in {2}."),
+    "Required file: {1}": (
+        "Archivo necesario: {1}",
+        "必要なファイル: {1}",
+        "Arquivo necessário: {1}",
+        "File richiesto: {1}"),
+    "The files are one folder too deep in {1}. Move that folder's contents into {2}.": (
+        "Los archivos están una carpeta demasiado adentro, en {1}. Mueve el contenido de esa carpeta a {2}.",
+        "ファイルは{1}の中の1つ深いフォルダーにあります。そのフォルダーの中身を{2}に移動してください。",
+        "Os arquivos estão uma pasta abaixo do esperado, em {1}. Mova o conteúdo dessa pasta para {2}.",
+        "I file si trovano in una cartella di troppo in {1}. Sposta il contenuto di quella cartella in {2}."),
+    "Rename {1} to exactly {2}.": (
+        "Renombra {1} exactamente como {2}.",
+        "{1}の名前を正確に{2}に変更してください。",
+        "Renomeie {1} para exatamente {2}.",
+        "Rinomina {1} esattamente in {2}."),
+    "Move {1} to {2}.": (
+        "Mueve {1} a {2}.",
+        "{1}を{2}に移動してください。",
+        "Mova {1} para {2}.",
+        "Sposta {1} in {2}."),
+    "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder.": (
+        "Copia la carpeta {1} de la descarga del mod a {2}, junto a la carpeta riivolution.",
+        "ダウンロードしたMODの{1}フォルダーを{2}にコピーしてください。riivolutionフォルダーと同じ場所に置きます。",
+        "Copie a pasta {1} do download do mod para {2}, ao lado da pasta riivolution.",
+        "Copia la cartella {1} dal download della mod in {2}, accanto alla cartella riivolution."),
+})
+KO.update({
+    "Memory card could not be read": "메모리 카드를 읽을 수 없습니다",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii가 {1}을 읽지 못했습니다. 파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "Games cannot start": "게임을 시작할 수 없습니다",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "USB 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "SD 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "Mods could not be prepared": "모드를 준비하지 못했습니다",
+    "{1} needs its mod folder at {2}.": "{1}의 모드 폴더가 {2}에 있어야 합니다.",
+    "Required file: {1}": "필요한 파일: {1}",
+    "The files are one folder too deep in {1}. Move that folder's contents into {2}.": "파일이 {1}에서 한 단계 더 깊은 폴더에 있습니다. 해당 폴더의 내용을 {2}로 옮기세요.",
+    "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
+    "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
+    "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder.": "다운로드한 모드의 {1} 폴더를 riivolution 폴더 옆의 {2}(으)로 복사하세요.",
+})
+FR.update({
+    "Memory card could not be read": "Impossible de lire la carte mémoire",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii n'a pas pu lire {1}. Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "Games cannot start": "Impossible de lancer les jeux",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux USB ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux SD ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "Mods could not be prepared": "Impossible de préparer les mods",
+    "{1} needs its mod folder at {2}.": "{1} a besoin de son dossier de mod dans {2}.",
+    "Required file: {1}": "Fichier nécessaire : {1}",
+    "The files are one folder too deep in {1}. Move that folder's contents into {2}.": "Les fichiers sont dans un dossier de trop dans {1}. Déplacez le contenu de ce dossier vers {2}.",
+    "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
+    "Move {1} to {2}.": "Déplacez {1} vers {2}.",
+    "Copy the {1} folder from the mod's download to {2}, next to the riivolution folder.": "Copiez le dossier {1} du téléchargement du mod vers {2}, à côté du dossier riivolution.",
+})
+
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp"]
@@ -7230,7 +7330,7 @@ def main():
             lines.append('msgid "%s"' % escape(msgid))
             lines.append('msgstr "%s"' % escape(row[i]))
             lines.append("")
-        with open(os.path.join(root, lang + ".po"), "w", encoding="utf-8", newline="\n") as f:
+        with open(os.path.join(root, lang + ".po"), "w", encoding="utf-8", newline="\r\n") as f:
             f.write("\n".join(lines))
     for lang, table in MORE.items():
         unknown = [k for k in table if k not in T]
@@ -7249,7 +7349,7 @@ def main():
             lines.append('msgid "%s"' % escape(msgid))
             lines.append('msgstr "%s"' % escape(table.get(msgid, "")))
             lines.append("")
-        with open(os.path.join(root, lang + ".po"), "w", encoding="utf-8", newline="\n") as f:
+        with open(os.path.join(root, lang + ".po"), "w", encoding="utf-8", newline="\r\n") as f:
             f.write("\n".join(lines))
         print("%s: %d of %d translated" % (lang, sum(1 for k in T if table.get(k)), len(T)))
     print("%d entries, %d languages" % (len(T), len(LANGS) + len(MORE)))

@@ -12,6 +12,7 @@
 #include <set>
 
 #include "di.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "netpacks.hpp"
 #include "progress.hpp"
@@ -638,27 +639,22 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         const std::string folder = path.substr(1, path.find('/', 1) == std::string::npos ? std::string::npos
                                                                                        : path.find('/', 1) - 1);
         const std::string top = device + "/" + folder;
-        const std::string drive = usb ? "USB drive" : "SD card";
         const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
         // In words a player follows: which folder, where it goes, and where
         // a copy that looks like it is (a tester's pack had no folder at all
         // and the message read as a riddle).
-        error = "This mod's files aren't where it looks for them. " + xml_name + " needs a folder called " + folder +
-                " at the top of the " + drive + " (" + top + "), next to the riivolution folder";
-        if (!missing_value.empty()) error += ", with " + device + path + " in it";
-        error += ".";
+        error = tr("{1} needs its mod folder at {2}.", {xml_name, top});
+        if (!missing_value.empty()) error += "\n" + tr("Required file: {1}", {device + path});
         const std::string pack_dir = PackFolderOf(xml_sd_path);
         const std::string found = usb ? std::string() : similar_folder(folder, pack_dir);
         if (!found.empty() && found.compare(0, top.size() + 1, top + "/") == 0) {
-            error += " Its files are one folder too deep, in " + found + ": move what is inside that folder up into " +
-                     top + ".";
+            error += "\n" + tr("The files are one folder too deep in {1}. Move that folder's contents into {2}.", {found, top});
         } else if (!found.empty() && found.find('/', 4) == std::string::npos) {
-            error += " There is one at " + found + ": rename it to exactly " + folder + ".";
+            error += "\n" + tr("Rename {1} to exactly {2}.", {found, top});
         } else if (!found.empty()) {
-            error += " There is one at " + found + ": move it to the top of the SD card and name it exactly " +
-                     folder + ".";
+            error += "\n" + tr("Move {1} to {2}.", {found, top});
         } else {
-            error += " Copy the " + folder + " folder from the mod's download there.";
+            error += "\n" + tr("Copy the {1} folder from the mod's download to {2}, next to the riivolution folder.", {folder, top});
             const std::string hint = nearest_on_card(what);
             if (!hint.empty()) error += " (" + hint + ")";
         }
