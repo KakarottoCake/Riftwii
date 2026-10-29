@@ -71,6 +71,9 @@
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "emulatorcovers.hpp"
+#include "emupicture.hpp"
+#include "picturepicker.hpp"
+#include "riftwii/emulatorbanner.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/gcbackup.hpp"
@@ -1679,12 +1682,14 @@ static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
 // Emulator sources can fail while GameTDB still answers, and vice versa.
 static bool g_emulatorCoversOff = false;
+static bool g_emulatorBannersOff = false;
 
 // What the downloads came to: a cover GameTDB has none of, or one that got
 // no answer, is passed over; only several in a row with no answer, or a
 // full card, stop them (riftwii/coverart.hpp, issue #130).
 static riftwii::CoverDownloads g_coverRun("Covers", "cover");
 static riftwii::CoverDownloads g_emulatorCoverRun("Emulator covers", "cover", "the emulator cover search");
+static riftwii::CoverDownloads g_emulatorBannerRun("Emulator banners", "picture", "the emulator picture search");
 // The shelf's boxes (wii/menu/boxart.cpp): GameTDB's full covers, queued
 // for every game as the covers are and fetched once the covers are in.
 static std::set<std::string> g_boxesChecked;
@@ -1702,6 +1707,7 @@ static bool g_retryMissingCovers = false;
 
 static bool& CoverDownloadsOff(const std::string& game)
 {
+	if (riftwii::emulator_banner_id(game)) return g_emulatorBannersOff;
 	return game.rfind("emu-", 0) == 0 ? g_emulatorCoversOff : g_coversOff;
 }
 
@@ -1710,9 +1716,11 @@ static void ResetCoverDownloads()
 {
 	g_coversOff = false;
 	g_emulatorCoversOff = false;
+	g_emulatorBannersOff = false;
 	g_coversChecked.clear();
 	g_coverRun.reset();
 	g_emulatorCoverRun.reset();
+	g_emulatorBannerRun.reset();
 
 	g_boxesOff = false;
 	g_boxesChecked.clear();
@@ -1743,6 +1751,7 @@ static bool CountPictureFetch(riftwii::CoverDownloads& run, riftwii::wii::CoverF
 }
 static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
 {
+	if (riftwii::emulator_banner_id(game)) return CountPictureFetch(g_emulatorBannerRun, got, game, error);
 	const bool emulator = game.rfind("emu-", 0) == 0;
 	return CountPictureFetch(emulator ? g_emulatorCoverRun : g_coverRun, got, game, error);
 }
@@ -5104,18 +5113,121 @@ static bool StartEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwi
 	return true;
 }
 
+static bool EmulatorPictureOnline()
+{
+	return riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
+}
+
+static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
+	const riftwii::wii::EmulatorGame& game)
+{
+	using namespace riftwii::wii;
+	if (!EmulatorPictureOnline()) {
+		ShowPopup(tr("Picture"),
+			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
+				{tr("Downloads"), tr("Settings"), tr("Online")}), tr("OK"));
+		return;
+	}
+	const std::string path = riftwii::emulator_banner_local_path(addon.file.system, game.name);
+	if (!riftwii::picture_save_path_valid(path)) {
+		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+		return;
+	}
+	GuiPicturePicker::Result choice;
+	std::vector<std::uint8_t> png;
+	{
+		const bool steamgrid = riftwii::wii::Settings().steamgrid_covers;
+		GuiPicturePicker picker([&](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
+			return FindEmulatorPictures(addon.file.covers, game.name, steamgrid, candidates, error);
+		}, skin::WideMenu());
+		TitleBand band;
+		GuiText title(tr("Picture"), 30, skin::kInk);
+		Place(title, 78, 28);
+		GuiPrompts prompts;
+		const int back = prompts.Add("B", tr("Back"));
+		const int choose = prompts.Add("A", tr("Choose"));
+		GuiWindow window(screenwidth, screenheight);
+		window.Append(&band);
+		window.Append(&title);
+		window.Append(&picker);
+		window.Append(&prompts);
+		mainWindow->Append(&window);
+		ResumeGui();
+		while (true) {
+			usleep(10000);
+			HaltGui();
+			const int prompt = prompts.GetClicked();
+			if (prompt == back || ExitRequested) picker.Back();
+			else if (prompt == choose) picker.Accept();
+			picker.Pump();
+			if (picker.Choice() != GuiPicturePicker::Result::Waiting) break;
+			ResumeGui();
+		}
+		choice = picker.Choice();
+		if (choice == GuiPicturePicker::Result::Picked) png = picker.TakePicture();
+		mainWindow->Remove(&window);
+	}
+	bool changed = false;
+	if (choice == GuiPicturePicker::Result::Automatic) {
+		ResumeGui();
+		const OwnPicture own = OwnPictureState(path);
+		HaltGui();
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+			tr("This picture was added or changed by hand. Delete it and use automatic pictures?"),
+			tr("Back"), tr("Delete")) != 1) return;
+		ResumeGui();
+		changed = RemovePickedPicture(path, own == OwnPicture::Hand);
+		HaltGui();
+	} else if (choice == GuiPicturePicker::Result::Picked) {
+		// A picture put there by hand is the player's own work: replacing it
+		// asks first, as Back to automatic does.
+		ResumeGui();
+		const OwnPicture own = OwnPictureState(path);
+		HaltGui();
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+			tr("This picture was added or changed by hand. Replace it with the one you picked?"),
+			tr("Back"), tr("Replace")) != 1) return;
+		ResumeGui();
+		changed = SavePickedPicture(path, png);
+		HaltGui();
+	} else {
+		return;
+	}
+	if (changed) {
+		ForgetCover(game.key);
+		// The Channels picture has keys of its own (4:3 and 16:9). Forget
+		// them and let Home check them again, so after Back to automatic the
+		// automatic picture is fetched rather than the cover standing in.
+		for (bool wide : {false, true}) {
+			const std::string banner = riftwii::emulator_banner_key(game.key, wide);
+			if (banner.empty()) continue;
+			g_coversChecked.erase(banner);
+			ForgetCover(banner);
+		}
+	} else {
+		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+	}
+}
+
 static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
 {
 	auto values = riftwii::wii::LoadEmulatorValues(addon, game ? game->path : "");
 	const std::string about = tr("Started with {1} ({2}).", {addon.file.name, addon.file.system});
 	std::vector<FlowRow> rows;
 	std::vector<std::string> help;
+	std::size_t pictureAt = static_cast<std::size_t>(-1);
 	if (game) {
 		FlowRow play;
 		play.kind = FlowRow::Kind::Action;
 		play.label = tr("Play");
 		rows.push_back(play);
 		help.push_back(about);
+		FlowRow picture;
+		picture.kind = FlowRow::Kind::Action;
+		picture.label = tr("Picture");
+		pictureAt = rows.size();
+		rows.push_back(picture);
+		help.push_back(tr("Choose the picture shown in Channels."));
 	}
 	const std::size_t firstSetting = rows.size();
 	for (const auto& setting : addon.file.settings) {
@@ -5138,6 +5250,7 @@ static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii
 	rows.push_back(info);
 	help.push_back(about);
 	const auto refresh = [&]() {
+		if (game) rows[pictureAt].value = EmulatorPictureOnline() ? tr("Open") : tr("Needs the internet");
 		for (std::size_t i = 0; i < addon.file.settings.size(); ++i) {
 			const auto& setting = addon.file.settings[i];
 			auto& row = rows[firstSetting + i];
@@ -5152,6 +5265,11 @@ static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii
 		const auto index = static_cast<std::size_t>(clicked);
 		if (game && index == 0) {
 			return StartEmulator(addon, *game, values);
+		}
+		if (game && index == pictureAt) {
+			PickEmulatorPicture(addon, *game);
+			refresh();
+			return false;
 		}
 		if (index == aboutAt) {
 			ShowPopup(tr("About"), about + "\n" + addon.file.dol, tr("OK"));
@@ -5244,6 +5362,11 @@ static int MenuSource(FrontendState& state)
 				const float drawY = fit.y - (static_cast<float>(art.h) - fit.h) / 2.0f;
 				Menu_DrawImg(drawX, drawY, static_cast<u16>(art.w), static_cast<u16>(art.h), art.data, 0, fit.scale,
 					fit.scale, static_cast<u8>(b.alpha));
+				return true;
+			}
+			if (const u8* picture = riftwii::wii::EmulatorBannerTexture(items[at].id)) {
+				const riftwii::wii::RoundClip clip = {b.clipX, b.clipY, b.clipW, b.clipH, b.radius};
+				riftwii::wii::DrawChannelPicture(picture, clip, b.alpha);
 				return true;
 			}
 			riftwii::wii::BannerPlayer* icon = IconFor(items[at].id);
@@ -5564,10 +5687,15 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
 			if (item.id.empty()) continue;
-			if (CoverDownloadsOff(item.id)) continue;
-			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
+			if (!CoverDownloadsOff(item.id) && g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
 			    riftwii::wii::CoverWanted(item.id))
 				coverQueue.push_back(item.id);
+			if (grid.Channels()) {
+				const std::string banner = riftwii::emulator_banner_key(item.id, skin::WideMenu());
+				if (!banner.empty() && !g_emulatorBannersOff && g_coversChecked.insert(banner).second &&
+				    banner != riftwii::wii::CoverFetchGame() && riftwii::wii::CoverWanted(banner))
+					coverQueue.push_back(banner);
+			}
 		}
 		if (g_boxesOff || g_coversOff) return;
 		for (const GridItem& item : items) {
@@ -5775,12 +5903,14 @@ static int MenuSource(FrontendState& state)
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
 			if (CountCoverFetch(got, arrived, coverError)) {
 				CoverDownloadsOff(arrived) = true;
-				const bool emulator = arrived.rfind("emu-", 0) == 0;
 				coverQueue.erase(std::remove_if(coverQueue.begin(), coverQueue.end(),
-					[&](const std::string& id) { return (id.rfind("emu-", 0) == 0) == emulator; }), coverQueue.end());
+					[](const std::string& id) { return CoverDownloadsOff(id); }), coverQueue.end());
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Online > Download missing covers.", {FlatCapped(coverError, 60)});
 			}
-			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
+			// A stored picture (a cover or a Channels banner) clears its
+			// "absent" mark at once, even if this pass of the loop ends early.
+			if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(arrived);
+			else arrived.clear();
 		}
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
@@ -5872,7 +6002,7 @@ static int MenuSource(FrontendState& state)
 				if (CoverDownloadsOff(coverQueue[q])) continue;
 				if (pick == coverQueue.size()) pick = q;
 				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
-					onPage = items[k].id == coverQueue[q];
+					onPage = items[k].id == coverQueue[q] || riftwii::emulator_banner_key(items[k].id, skin::WideMenu()) == coverQueue[q];
 					if (onPage) pick = q;
 				}
 			}
@@ -5887,6 +6017,8 @@ static int MenuSource(FrontendState& state)
 			if (!summary.empty()) logf("%s\n", summary.c_str());
 			const std::string emulatorSummary = g_emulatorCoverRun.take_summary();
 			if (!emulatorSummary.empty()) logf("%s\n", emulatorSummary.c_str());
+			const std::string bannerSummary = g_emulatorBannerRun.take_summary();
+			if (!bannerSummary.empty()) logf("%s\n", bannerSummary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
@@ -6223,7 +6355,7 @@ static int MenuSource(FrontendState& state)
 		if (!cover3dArrived.empty()) grid.Cover3dArrived(cover3dArrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
-			coverNoteShown = !g_coversOff && !g_emulatorCoversOff;  // a failure stays up
+			coverNoteShown = !g_coversOff && !g_emulatorCoversOff && !g_emulatorBannersOff;  // a failure stays up
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
 			showStatus();
 			coverNoteShown = false;
@@ -6425,6 +6557,9 @@ static int MenuSource(FrontendState& state)
 				}
 				mainWindow->Append(&w);
 				if (play) menu = MENU_HOMEBREW;
+				// The page's picker may have forgotten this game's Channels
+				// picture (Back to automatic): queue it again now.
+				else addCovers();
 				ResumeGui();
 				continue;
 			}

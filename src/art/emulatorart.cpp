@@ -500,7 +500,7 @@ bool parse_steamgrid_search(const std::string& json, std::vector<SteamGridGame>&
     return true;
 }
 
-bool parse_steamgrid_grids(const std::string& json, std::vector<std::string>& urls) {
+bool parse_steamgrid_grids(const std::string& json, std::vector<std::string>& urls, bool wide) {
     urls.clear();
     std::vector<std::string_view> items;
     if (!response_items(json, items)) return false;
@@ -510,7 +510,9 @@ bool parse_steamgrid_grids(const std::string& json, std::vector<std::string>& ur
         std::string_view width, height;
         if (!string_field(item, "url", url) || !string_field(item, "mime", mime) ||
             !Json(item).field("width", width) || !Json(item).field("height", height)) return false;
-        if (mime != "image/png" || width != "600" || height != "900" || !steamgrid_image_url(url)) continue;
+        const bool dimensions = wide ? (width == "460" && height == "215") || (width == "920" && height == "430")
+                                     : width == "600" && height == "900";
+        if (mime != "image/png" || !dimensions || !steamgrid_image_url(url)) continue;
         if (!try_push_back(ready, std::move(url))) return false;
     }
     urls = std::move(ready);

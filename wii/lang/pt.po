@@ -3381,6 +3381,54 @@ msgstr "Mova {1} para {2}."
 msgid "Copy the {1} folder from the mod's download so that it is {2} itself, next to the riivolution folder."
 msgstr "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}, ao lado da pasta riivolution."
 
+msgid "Needs the internet"
+msgstr "Precisa de internet"
+
+msgid "Choose the picture shown in Channels."
+msgstr "Escolha a imagem mostrada em Canais."
+
+msgid "Back to automatic"
+msgstr "Voltar ao automático"
+
+msgid "Title screen"
+msgstr "Tela de título"
+
+msgid "Screenshot"
+msgstr "Captura de tela"
+
+msgid "Box art"
+msgstr "Capa"
+
+msgid "SteamGridDB"
+msgstr "SteamGridDB"
+
+msgid "Connect the Wii to the internet, then turn on {1} in {2} > {3}."
+msgstr "Conecte o Wii à internet e ative {1} em {2} > {3}."
+
+msgid "No pictures found."
+msgstr "Nenhuma imagem encontrada."
+
+msgid "Could not load pictures."
+msgstr "Não foi possível carregar as imagens."
+
+msgid "Could not load this picture."
+msgstr "Não foi possível carregar esta imagem."
+
+msgid "A picture could not be loaded."
+msgstr "Uma imagem não pôde ser carregada."
+
+msgid "Not enough memory."
+msgstr "Memória insuficiente."
+
+msgid "Could not save the picture."
+msgstr "Não foi possível salvar a imagem."
+
+msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
+msgstr "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?"
+
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Esta imagem foi adicionada ou alterada à mão. Substituir pela que você escolheu?"
+
 msgid "Save location"
 msgstr "Local dos saves"
 
