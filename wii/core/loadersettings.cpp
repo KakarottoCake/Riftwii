@@ -23,8 +23,10 @@ LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
         std::string text;
-        // A save cut off between its two steps leaves only the new copy.
-        if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text)) g_settings.parse(text);
+        // A save cut off between its steps leaves the new copy (.part) or
+        // the old one (.bak).
+        if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text) ||
+            ReadTextFile(std::string(kPath) + ".bak", text)) g_settings.parse(text);
     }
     return g_settings;
 }
@@ -33,7 +35,8 @@ void ReloadSettings() {
     g_settings = LoaderSettings{};
     g_loaded = true;
     std::string text;
-    if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text)) g_settings.parse(text);
+    if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text) ||
+        ReadTextFile(std::string(kPath) + ".bak", text)) g_settings.parse(text);
 }
 
 // Written whole beside it, then put in its place: truncating it first left
@@ -46,12 +49,27 @@ bool SaveSettings() {
     const std::string text = Settings().serialize();
     bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
     ok = std::fclose(f) == 0 && ok;
-    if (ok) {
-        std::remove(kPath);
-        ok = std::rename(temp.c_str(), kPath) == 0;
+    if (!ok) {
+        std::remove(temp.c_str());
+        return false;
     }
-    if (!ok) std::remove(temp.c_str());
-    return ok;
+    // The old copy steps aside as .bak until the new one is in place, so a
+    // rename that fails leaves the player's settings on the card.
+    const std::string backup = std::string(kPath) + ".bak";
+    std::remove(backup.c_str());
+    struct stat present;
+    const bool hadOld = stat(kPath, &present) == 0;
+    if (hadOld && std::rename(kPath, backup.c_str()) != 0) {
+        std::remove(temp.c_str());
+        return false;
+    }
+    if (std::rename(temp.c_str(), kPath) != 0) {
+        if (hadOld) std::rename(backup.c_str(), kPath);
+        std::remove(temp.c_str());
+        return false;
+    }
+    std::remove(backup.c_str());
+    return true;
 }
 
 std::string MenuLanguage() {
