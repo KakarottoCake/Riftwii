@@ -528,6 +528,12 @@ bool open_usb_raw_disc(std::string& error) {
 
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (!g_usb_volumes.empty() || g_usb_raw_disc || !g_usb_wbfs.empty())) return true;
+    // Without the lock (InitUsbLock failed), the drive is shared by threads
+    // that would trip over each other: not mounted at all.
+    if (g_usb_lock == LWP_MUTEX_NULL) {
+        error = "the USB drive's lock could not be set up";
+        return false;
+    }
     g_usb_preferred_known = false;
     g_usb_wiiu_drive = false;
     ForgetWfsDrive();
@@ -1428,7 +1434,8 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
 }
 
 void InitUsbLock() {
-    if (g_usb_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_usb_lock, true);
+    if (g_usb_lock != LWP_MUTEX_NULL) return;
+    if (LWP_MutexInit(&g_usb_lock, true) < 0) g_usb_lock = LWP_MUTEX_NULL;  // ensure_usb then mounts nothing
 }
 
 bool usb_volume_ready() {
