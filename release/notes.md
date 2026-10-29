@@ -16,40 +16,56 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Emulators as add-ons with their own settings, covers for emulator games, WiiFlow Lite's emulator plugins, games from every partition of a USB drive, and a few fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** An easier Home (a Layout button, a Show chooser, help when a list is empty), WiiWare and Virtual Console straight from WAD files, pictures for emulator games, banner music and disc art on game pages, and clearer messages when something goes wrong. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Emulator games on Home with their covers]({{SCREENSHOTS}}2610-emulator-covers.png)
+![The Layout button's picker on Home]({{SCREENSHOTS}}2610-layout-picker.png)
 
 ## What changed
 
+### Home
+
+- **A Layout button.** The round button in the top-left corner (on the bar in Channels) opens a picker with the six layouts: Covers, 3D covers, Carousel, Shelf, Channels and Names. Before, the layout changed only in Settings or with 1 and 2 together, which still works.
+- **A Show chooser.** The bottom-left button now opens a chooser with Games with mods, All games, Homebrew, Emulators, Recently played and Favourites, each with how many games it has. The 1 button still steps through them.
+- **No more empty Home.** When the list you chose has nothing in it, Home says why and offers "Show all games".
+- **Settings > Home > Games from is no longer hidden.** When it is set to one drive, Home says so beside the list's name, and Search now finds games on every drive.
+
+### Games
+
+- **WiiWare and Virtual Console from WAD files, with no install step.** Put the `.wad` files in a `wiiware` folder on the SD card or a USB drive. They show on Home with their name and banner. The first Play unpacks the game into the SD card's emulated NAND (`sd:/nands/01`); later Plays start at once. Saves stay there, and are kept if you remove the WAD. This uses d2x's NAND emulation and hasn't been tried on a real Wii yet.
+- **Retro Rewind online (error 50330):** RiftWii now fully shuts down the menu's internet connection before every game starts. A tester got error 50330 when the menu had been online first; this is the most likely cause, but it couldn't be checked in Dolphin.
+- **Asks before playing with missing mod files.** If some files of the mods you switched on are missing, RiftWii says which changes will be left out, with Back, Review files and Play anyway.
+- **Clearer messages:** a GameCube memory card that can't be read no longer says "No memory card yet"; a mod error shows in full instead of cut off; the missing-cIOS message names the right drive (SD or USB); a USB partition that can't be read is named in Settings > Drives > USB scan details.
+
+### Game pages
+
+- **Banner music and disc art.** Two new switches in Settings, both off at first: the game's banner music plays when its page opens from any layout (Channels already did), and GameTDB's picture of the disc shows under the box.
+- **A Save location page.** The Saves tile opens a page that shows where the game's new saves go and lets you choose. Before, each press switched it. Saves already made never move.
+- **Use default options for this game**, the last row of a game's Options, puts its picture, language, controller and launch choices back to following Settings.
+- **About lists the controllers in words** ("Needed" and "Also works with"), for players using the D-pad.
+- **WiiWare and VC games without box art** show their channel icon in a card of its own shape.
+
 ### Emulators
 
-- **Emulators as add-ons.** An emulator can come with a `riftwii-emulator.ini` that lists its settings and how to start it. On an emulator game's page you can change those settings for that one game, or for all its games. `docs/EMULATORS.md` says how to write one.
-- **Covers for emulator games.** RiftWii looks on the SD card first (`sd:/riftwii/covers/emulators/<system>/<game>.png`), then in libretro's thumbnails, then on SteamGridDB if you switch that on in Settings > Online.
-- **WiiFlow Lite's emulator plugins work in RiftWii.** If you set up emulators for WiiFlow Lite (`wiiflow/plugins/*.ini`), RiftWii reads those files as emulators, with their games and covers.
+- **Pictures for emulator games in the Channels view**, instead of a plain tile: your own PNG first, then libretro's title screens, SteamGridDB (when on), or part of the cover.
+- **Pick a picture yourself when online:** on an emulator game's page, Picture shows the pictures found online, six at a time, and saves the one you pick to the SD card.
 
-### Games and drives
+### Small things
 
-- **Games from every partition of a USB drive.** Before, RiftWii read only one partition. The partition it used before is still `usb:/`; the others are `usb1:/`, `usb2:/` and so on, in their order on the drive. Each game starts from its own partition.
-- **Quitting a game on a d2x cIOS lands back in RiftWii again.** d2x was refusing RiftWii's "come back here" request because it was sent too late.
-
-### Menu
-
-- **Leave a frozen menu without a Wii Remote:** HOME on a Classic Controller, Pro Controller or GamePad, or Start on a GameCube controller.
-- **Menu motion matches on PAL and NTSC TVs**, and the menu has 152 KiB more free memory.
-- **A game-names file that was cut off while downloading** no longer counts as complete; it is read only once it is whole.
+- The menu's words are plainer: Settings paths in full, "Downloads" for the online switches, and hints that say what A does.
+- The icon on the Layout button sits in the middle of the button.
 
 ## What to test
 
-1. **Games on a second USB partition**, if your drive has more than one: do they show on Home and start? Wii games (WBFS, ISO, RVZ, split files) and GameCube games.
-2. **4 players:** play a game with four Wii Remotes, or four GameCube controllers, or a mix. Do all four work all the way through?
-3. **Emulators:** if you use WiiFlow Lite plugins or add an emulator, do the games show with covers and start?
-4. **Quit a game** with HOME > Wii Menu on a d2x cIOS: do you land back in RiftWii?
-5. **Retro Rewind online from the disc:** does it connect? If it shows an error, please send a problem report right after.
+1. **WiiWare or VC from a WAD:** put one in `sd:/wiiware` (or a USB drive's `wiiware` folder). Does it show on Home, unpack on the first Play, start, save, and start again without unpacking?
+2. **Retro Rewind online from the disc**, after the menu has been online (covers or names downloading): does it connect now? If it shows an error, send a problem report right after.
+3. **The Layout and Show buttons** on Home: do they do what you expect? Is anything hard to find?
+4. **Mods with a file missing:** do you get the question, and does Play anyway work?
+5. **Banner music and disc art** (Settings): do they show and play on your games?
 
 ## Known issues
 
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. We're looking into it; a problem report from anyone who sees it helps.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. This release has a likely fix that couldn't be checked in Dolphin; a problem report from anyone who still sees it helps.
+- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
 - **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
@@ -61,7 +77,7 @@ have it, or that haven't changed since the last release's tag.
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
 
-![An emulator game's own settings]({{SCREENSHOTS}}2610-emulator-settings.png)
+![Mario Kart Wii's page with its disc art]({{SCREENSHOTS}}2610-disc-art.png)
 
 ## Download
 

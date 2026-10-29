@@ -4413,12 +4413,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Emulator games: Home > Show > Emulators",
-	"Covers for emulator games",
-	"WiiFlow's emulator plugins work here too",
-	"Games from every partition of a USB drive",
-	"Leave a frozen menu without a Wii Remote",
-	"Smoother menu motion on PAL and NTSC",
+	"Home: a Layout button and a Show chooser",
+	"WiiWare and VC played straight from WADs",
+	"Pictures for emulator games, and a picker",
+	"Banner music and disc art on game pages",
+	"Asks first when mod files are missing",
+	"Clearer messages when something goes wrong",
 };
 
 static std::string WhatsNewText()

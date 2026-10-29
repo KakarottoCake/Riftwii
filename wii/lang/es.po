@@ -2361,20 +2361,23 @@ msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
-msgid "Covers for emulator games"
-msgstr "Carátulas de juegos de emulador"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "Inicio: botón Diseño y selector Ver"
 
-msgid "WiiFlow's emulator plugins work here too"
-msgstr "Los plugins de emulador de WiiFlow también funcionan"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiWare y VC directamente desde WADs"
 
-msgid "Games from every partition of a USB drive"
-msgstr "Juegos de todas las particiones de un disco USB"
+msgid "Pictures for emulator games, and a picker"
+msgstr "Imágenes para juegos emulados, y un selector"
 
-msgid "Leave a frozen menu without a Wii Remote"
-msgstr "Sal de un menú congelado sin Wiimote"
+msgid "Banner music and disc art on game pages"
+msgstr "Música del banner e imagen del disco"
 
-msgid "Smoother menu motion on PAL and NTSC"
-msgstr "Movimiento del menú más fluido en PAL y NTSC"
+msgid "Asks first when mod files are missing"
+msgstr "Pregunta antes si faltan archivos del mod"
+
+msgid "Clearer messages when something goes wrong"
+msgstr "Mensajes más claros cuando algo falla"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"
@@ -3336,6 +3339,9 @@ msgstr "No se pudieron guardar los ajustes del emulador."
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log."
 
+msgid "Covers for emulator games"
+msgstr "Carátulas de juegos de emulador"
+
 msgid "SteamGridDB covers"
 msgstr "Carátulas de SteamGridDB"
 
@@ -3590,9 +3596,6 @@ msgstr "Permite descargar nombres, carátulas, trucos, detalles de juegos, temas
 
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "No se encontraron emuladores. Pon un emulador con su archivo de complemento de RiftWii en su carpeta de aplicación, o añade archivos de plugins de WiiFlow. Luego usa Ajustes > Unidades > Buscar juegos de nuevo. Consulta Emuladores en la guía de GitHub."
-
-msgid "Emulator games: Home > Show > Emulators"
-msgstr "Juegos emulados: Inicio > Ver > Emuladores"
 
 msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores."
