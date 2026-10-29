@@ -1443,6 +1443,11 @@ bool usb_volume_ready() {
     return !g_usb_volumes.empty();
 }
 
+std::uint64_t usb_mount_generation() {
+    UsbLocked locked;
+    return g_usb_mount_generation;
+}
+
 bool usb_preferred_volume_lba(std::uint64_t& lba) {
     lba = g_usb_preferred_lba;
     return g_usb_preferred_known;

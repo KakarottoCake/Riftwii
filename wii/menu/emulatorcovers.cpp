@@ -315,12 +315,31 @@ bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& fi
     return FindGame(id, game) && LocalCover(game, file);
 }
 
+namespace {
+// Whether usb:/riftwii/covers is there, per mount of the drive: without it,
+// no PNG is looked up there game by game (each lookup holds the USB lock).
+// (mount generation << 2) | 1 absent, 2 there; 0 not known yet. Two threads
+// working it out at once reach the same answer.
+std::atomic<std::uint32_t> g_usbCoversFolder{0};
+
+bool UsbCoversFolderThere() {
+    if (!DriveScanDone()) return false;  // the scan owns the drive until its last part
+    const std::uint32_t generation = static_cast<std::uint32_t>(usb_mount_generation()) & 0x3FFFFFFFu;
+    const std::uint32_t known = g_usbCoversFolder.load();
+    if (known != 0 && (known >> 2) == generation) return (known & 3u) == 2u;
+    std::vector<VolumeEntry> entries;
+    const bool there = list_usb_folder("usb:/riftwii/covers", entries, nullptr);
+    g_usbCoversFolder.store((generation << 2) | (there ? 2u : 1u));
+    return there;
+}
+}  // namespace
+
 bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
     if (!emulator_art_component(name + ".png")) return false;
     const std::string relative = "/riftwii/covers/" + name + ".png";
     for (const char* device : {"sd:", "usb:"}) {
         // The scan owns the USB drive's volume state until its last part.
-        if (device[0] == 'u' && !DriveScanDone()) continue;
+        if (device[0] == 'u' && !UsbCoversFolderThere()) continue;
         std::vector<std::uint8_t> png;
         if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
     }
@@ -333,7 +352,7 @@ bool OwnCoverThere(const std::string& name) {
     struct stat info {};
     if (stat(("sd:" + relative).c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0) return true;
     std::uint64_t bytes = 0;
-    return DriveScanDone() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
+    return UsbCoversFolderThere() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
 }
 
 CoverFetch FetchEmulatorCover(const std::string& id, std::string& error) {
