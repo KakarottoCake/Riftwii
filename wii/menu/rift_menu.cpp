@@ -4939,6 +4939,14 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 		changed = RemovePickedPicture(path, own == OwnPicture::Hand);
 		HaltGui();
 	} else if (choice == GuiPicturePicker::Result::Picked) {
+		// A picture put there by hand is the player's own work: replacing it
+		// asks first, as Back to automatic does.
+		ResumeGui();
+		const OwnPicture own = OwnPictureState(path);
+		HaltGui();
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+			tr("This picture was added or changed by hand. Replace it with the one you picked?"),
+			tr("Back"), tr("Replace")) != 1) return;
 		ResumeGui();
 		changed = SavePickedPicture(path, png);
 		HaltGui();

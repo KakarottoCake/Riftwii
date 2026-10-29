@@ -3393,6 +3393,9 @@ msgstr "Não foi possível salvar a imagem."
 msgid "This picture was added or changed by hand. Delete it and use automatic pictures?"
 msgstr "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?"
 
+msgid "This picture was added or changed by hand. Replace it with the one you picked?"
+msgstr "Esta imagem foi adicionada ou alterada à mão. Substituir pela que você escolheu?"
+
 msgid "Downloads"
 msgstr "Downloads"
 

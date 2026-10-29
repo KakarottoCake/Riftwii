@@ -7053,6 +7053,12 @@ T.update({
         "この画像は手動で追加または変更されています。削除して自動の画像を使いますか？",
         "Esta imagem foi adicionada ou alterada à mão. Apagar e usar imagens automáticas?",
         "Questa immagine è stata aggiunta o modificata a mano. Eliminarla e usare immagini automatiche?"),
+    "This picture was added or changed by hand. Replace it with the one you picked?": (
+        "Esta imagen se añadió o cambió a mano. ¿Reemplazarla por la que elegiste?",
+        "この画像は手動で追加または変更されています。選んだ画像に置き換えますか？",
+        "Esta imagem foi adicionada ou alterada à mão. Substituir pela que você escolheu?",
+        "Questa immagine è stata aggiunta o modificata a mano. Sostituirla con quella scelta?"),
+    "Replace": ("Reemplazar", "置き換える", "Substituir", "Sostituisci"),
 })
 KO.update({
     "Needs the internet": "인터넷이 필요합니다",
@@ -7071,6 +7077,8 @@ KO.update({
     "Could not save the picture.": "그림을 저장하지 못했습니다.",
     "Choose": "선택",
     "This picture was added or changed by hand. Delete it and use automatic pictures?": "이 그림은 직접 추가하거나 변경한 것입니다. 삭제하고 자동 그림을 사용할까요?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "이 그림은 직접 추가하거나 변경한 것입니다. 고른 그림으로 바꿀까요?",
+    "Replace": "바꾸기",
 })
 FR.update({
     "Needs the internet": "Internet nécessaire",
@@ -7089,6 +7097,8 @@ FR.update({
     "Could not save the picture.": "Impossible d'enregistrer l'image.",
     "Choose": "Choisir",
     "This picture was added or changed by hand. Delete it and use automatic pictures?": "Cette image a été ajoutée ou modifiée à la main. La supprimer et utiliser les images automatiques ?",
+    "This picture was added or changed by hand. Replace it with the one you picked?": "Cette image a été ajoutée ou modifiée à la main. La remplacer par celle que vous avez choisie ?",
+    "Replace": "Remplacer",
 })
 
 
