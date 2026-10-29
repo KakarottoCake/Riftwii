@@ -6350,10 +6350,16 @@ private:
 	// drive's box), made small and soft once (riftwii::make_backdrop), and
 	// again when better art arrives; faded in over a third of a second.
 	void UpdateArt() {
-		const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
-		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
-		const int rank = box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
-		if (rank > artRank) {
+		// The player's own cover, or a chosen second set, before GameTDB's
+		// full box (#384), as on the shelf; made again when the cover is
+		// read again (another set) at the same rank.
+		const u8* front = id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
+		const bool frontFirst = front && riftwii::wii::CoverBeforeBox(id);
+		const u8* box = id.empty() || frontFirst ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box ? nullptr : front;
+		const int rank = frontFirst ? 4 : box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
+		const unsigned fill = cover ? riftwii::wii::CoverFill(id) : 0;
+		if (rank > artRank || (cover && rank == artRank && fill != artFill)) {
 			if (box)
 				riftwii::make_backdrop(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
 					riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, art);
@@ -6365,6 +6371,7 @@ private:
 			DCFlushRange(art, sizeof(art));
 			GX_InvalidateTexAll();
 			artRank = rank;
+			artFill = fill;
 		}
 		if (artRank > 0 && artShown < 1.0f) artShown = std::min(1.0f, artShown + 0.06f);
 	}
@@ -6400,7 +6407,8 @@ private:
 	std::string id;
 	bool disc;
 	alignas(32) u8 art[riftwii::kBackdropBytes];
-	int artRank = 0;  // 0 none yet, 1 the disc drive's box, 2 the cover, 3 the box's front
+	int artRank = 0;  // 0 none yet, 1 the disc drive's box, 2 the cover, 3 the box's front, 4 the player's own cover
+	unsigned artFill = 0;  // CoverFill of the cover it was made from
 	float artShown = 0.0f;
 };
 
