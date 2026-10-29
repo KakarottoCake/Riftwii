@@ -6396,7 +6396,8 @@ static int MenuSource(FrontendState& state)
 		riftwii::wii::WatchSearchHold(!grid.Carrying() && !grid.CoverZoomed());
 		const bool padHold = riftwii::wii::TakeSearchHold() && !grid.Carrying();
 		bool bOnSearch = false;
-		for (int channel = 0; channel < 4 && !grid.Carrying(); ++channel) {
+		// Nor during a cover close-up, whose B is its own.
+		for (int channel = 0; channel < 4 && !grid.Carrying() && !grid.CoverZoomed(); ++channel) {
 			const WPADData* remote = userInput[channel].wpad;
 			if (!remote || !remote->ir.valid || !(remote->btns_h & WPAD_BUTTON_B)) continue;
 			const int pointerX = static_cast<int>(remote->ir.x), pointerY = static_cast<int>(remote->ir.y);
