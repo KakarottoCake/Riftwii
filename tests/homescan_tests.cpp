@@ -103,6 +103,7 @@ bool list_emu_channels(const std::string&, std::vector<NandChannel>&, std::strin
 SharedNandLookup look_up_channel_nand() { return {}; }
 PackageCatalog ReadPackageCatalog(PackIndex*) { return {}; }
 void ScanEmulators(EmulatorCatalog&) {}
+unsigned list_wad_channels(bool, std::vector<NandChannel>&) { return 0; }
 
 std::string RefreshNetworkPacks(const std::function<void(const char*)>&) {
     // The SD part is published while the USB part is still being read.

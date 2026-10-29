@@ -11,7 +11,8 @@
 // Box art (riftwii/coverart.hpp) on the Wii: fetched from GameTDB (or the
 // emulator sources in emulatorcovers.hpp) into
 // sd:/riftwii/covers/<ID>.rwc, and read back into a fixed pool of
-// textures in MEM2 (room for every game's cover, up to 400) for drawing.
+// textures in MEM2 (up to 369 covers, within a shared 7 MB picture budget)
+// for drawing.
 namespace riftwii::wii {
 
 // True when the game has no stored cover and GameTDB was not found
@@ -68,6 +69,9 @@ bool CoverBeforeBox(const std::string& name);
 // is read again (another set, a USB drive's), at the same address. 0
 // while it isn't in memory.
 unsigned CoverFill(const std::string& name);
+// The same loader, with a separate 24-picture pool, for Channels' emulator
+// pictures. Called only for drawn tiles; no whole-library read-ahead.
+const u8* EmulatorBannerTexture(const std::string& game_id);
 // Asks for a cover to be read ahead (a page next to the one shown), and
 // keeps it in memory while asked for every frame.
 void CoverPrefetch(const std::string& game_id, int rank);
