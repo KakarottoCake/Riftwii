@@ -5,7 +5,7 @@
   <version>2610</version>
   <release_date>20261008000000</release_date>
   <short_description>USB loader, Riivolution replacement</short_description>
-  <long_description>RiftWii is a USB loader and a Riivolution replacement. It starts your games from a USB drive, the SD card or the disc, and loads Riivolution-format mod packs (XML in sd:/riivolution) into them. It can keep modded saves on the SD card, apart from your Wii saves.
+  <long_description>RiftWii is a USB loader and a Riivolution replacement. It starts your games from a USB drive, the SD card or the disc, and loads Riivolution-format mod packs (XML in sd:/riivolution or usb:/riivolution) into them. It can keep modded saves on the SD card, apart from your Wii saves.
 
 Games that have mods show as tiles with their covers; 1 switches to all games. Pick a game, open Mods, turn its packs on and pick their settings, and press Start. Games can also have cheats, picture settings and an online server (Wiimmfi, WiiLink WFC, AltWFC).
 
