@@ -48,7 +48,9 @@ static const char* const kPaths[] = {
 };
 
 static GXRModeObj* g_mode;
-static u32* g_xfb;
+static u32* g_front_xfb;
+static u32* g_back_xfb;
+static u32 g_xfb_size;
 // How wide the name and the rift are drawn, in 256ths: 192 on a 16:9 TV,
 // where the picture is stretched to the screen's full width (as the
 // menu's) and each pixel is wider by 4:3.
@@ -105,8 +107,8 @@ static bool status_covers(int px, int glyph_y, int text_x, int length) {
     return bits & (0x80 >> (column % kGlyphWidth));
 }
 
-// Rows y_from..y_to-1 of a frame, into the framebuffer.
-static void render_rows(const Frame* f, int y_from, int y_to) {
+// Rows y_from..y_to-1 of a frame, into the chosen framebuffer.
+static void render_rows(u32* xfb, const Frame* f, int y_from, int y_to) {
     const int w = g_mode->fbWidth, h = g_mode->xfbHeight;
     const int sq = g_squeeze;
     const int word_x = (w - kWordWidth * sq / 256) / 2, word_y = (h - kWordHeight) / 2 - 6;
@@ -116,7 +118,7 @@ static void render_rows(const Frame* f, int y_from, int y_to) {
     const int text_length = g_status ? (int)strlen(g_status) : 0;
     const int text_x = (w - text_length * kGlyphWidth * sq / 256) / 2;
     for (int y = y_from; y < y_to; ++y) {
-        u32* row = g_xfb + y * (w / 2);
+        u32* row = xfb + y * (w / 2);
         const u8* bg_row = splash_bg_rgb + (y * kBgHeight / h) * kBgWidth * 3;
         const int wy = y - word_y;
         const bool in_word = f->word > 0 && wy >= 0 && wy < kWordHeight;
@@ -160,19 +162,36 @@ static void render_rows(const Frame* f, int y_from, int y_to) {
     }
 }
 
+static void present_back(void) {
+    DCFlushRange(g_back_xfb, g_xfb_size);
+    VIDEO_SetNextFramebuffer(g_back_xfb);
+    VIDEO_Flush();
+    // With the video mode unchanged, libogc applies the new XFB at the
+    // next retrace before waking this wait, including non-interlaced modes.
+    VIDEO_WaitVSync();
+    u32* old_front = g_front_xfb;
+    g_front_xfb = g_back_xfb;
+    g_back_xfb = old_front;
+}
+
 static void draw(const Frame* f) {
     g_last = *f;
-    render_rows(f, 0, g_mode->xfbHeight);
-    DCFlushRange(g_xfb, g_mode->fbWidth * g_mode->xfbHeight * 2);
-    VIDEO_WaitVSync();
+    render_rows(g_back_xfb, f, 0, g_mode->xfbHeight);
+    present_back();
 }
 
 // A new status line over the frame on screen: only its rows are drawn again.
 static void show_status(const char* text) {
+    // A draw leaves the older frame in back. Copy the current one first,
+    // then copy just the changed rows back after the flip, so both buffers
+    // hold g_last and the new status without rendering the full frame again.
+    memcpy(g_back_xfb, g_front_xfb, g_xfb_size);
     g_status = text;
     const int top = status_top();
-    render_rows(&g_last, top, top + kGlyphHeight);
-    DCFlushRange(g_xfb + top * (g_mode->fbWidth / 2), g_mode->fbWidth * kGlyphHeight * 2);
+    render_rows(g_back_xfb, &g_last, top, top + kGlyphHeight);
+    present_back();
+    const int offset = top * (g_mode->fbWidth / 2);
+    memcpy(g_back_xfb + offset, g_front_xfb + offset, g_mode->fbWidth * kGlyphHeight * 2);
 }
 
 static int ease_out(int t, int span) {  // 0..256 over span frames, slowing down
@@ -193,9 +212,17 @@ static void video_init(void) {
         g_mode->viWidth = VI_MAX_WIDTH_PAL;
         g_squeeze = 192;
     }
-    g_xfb = (u32*)MEM_K0_TO_K1(SYS_AllocateFramebuffer(g_mode));
+    g_front_xfb = (u32*)MEM_K0_TO_K1(SYS_AllocateFramebuffer(g_mode));
+    g_back_xfb = (u32*)MEM_K0_TO_K1(SYS_AllocateFramebuffer(g_mode));
+    g_xfb_size = VIDEO_GetFrameBufferSize(g_mode);
+    // Match the first animation frame's Y=0, Cb=Cr=128 in both buffers
+    // before either can be shown; zero bytes would have a green tint.
+    VIDEO_ClearFrameBuffer(g_mode, g_front_xfb, 0x00800080);
+    VIDEO_ClearFrameBuffer(g_mode, g_back_xfb, 0x00800080);
+    DCFlushRange(g_front_xfb, g_xfb_size);
+    DCFlushRange(g_back_xfb, g_xfb_size);
     VIDEO_Configure(g_mode);
-    VIDEO_SetNextFramebuffer(g_xfb);
+    VIDEO_SetNextFramebuffer(g_front_xfb);
     VIDEO_SetBlack(FALSE);
     VIDEO_Flush();
     VIDEO_WaitVSync();
@@ -268,7 +295,7 @@ static const char kRetryAdvice[] =
 // nor the USB drive, only the screen, the controller ports (SI, not IOS)
 // and the return to the Wii Menu.
 static void fail(const char* why, const char* advice) {
-    CON_Init(g_xfb, 20, 20, g_mode->fbWidth, g_mode->xfbHeight, g_mode->fbWidth * VI_DISPLAY_PIX_SZ);
+    CON_Init(g_front_xfb, 20, 20, g_mode->fbWidth, g_mode->xfbHeight, g_mode->fbWidth * VI_DISPLAY_PIX_SZ);
     printf("\x1b[2J\x1b[4;2H");
     printf("RiftWii could not be started.\n\n  %s\n\n", why);
     printf("%s\n", advice);

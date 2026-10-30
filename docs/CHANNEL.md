@@ -227,6 +227,11 @@ foreground moves down 4 rows to centre its word in the visible 128x96 tile.
 Only the parents change: all animation tracks, keys and timing stay the same.
 Both layouts keep their existing 608x456 size, and no texture grows.
 
+The forwarder's start animation is drawn by the CPU, which takes longer than
+one screen refresh. Since version 15 it draws each frame into a second,
+hidden framebuffer and shows it at the next retrace, so the TV never shows a
+frame half drawn (before, the flash could cover only the top of the screen).
+
 ## Building
 
 `make -f Makefile.channel` builds the forwarder, then the package
