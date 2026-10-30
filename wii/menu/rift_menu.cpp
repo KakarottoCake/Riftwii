@@ -1287,10 +1287,10 @@ static std::string GameInfoKey(const std::string& id, bool channel)
 // cache knows (riftwii/parental.hpp).
 static int RatedAgeFor(const std::string& id, bool channel)
 {
-	riftwii::GameInfo info;
+	std::string system, rating;
 	const std::string key = GameInfoKey(id, channel);
-	if (key.empty() || !riftwii::wii::PeekGameInfo(key, info)) return -1;
-	return riftwii::rating_minimum_age(info.rating_system, info.rating);
+	if (key.empty() || !riftwii::wii::PeekGameRating(key, system, rating)) return -1;
+	return riftwii::rating_minimum_age(system, rating);
 }
 
 static riftwii::ParentalVerdict ParentalVerdictFor(const std::string& id, bool channel)
@@ -1307,7 +1307,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 	using Row = HomeRow;
 	std::vector<Row> rows;
 	// Only hiding drops rows: locking leaves them all, so no rating is looked up.
-	const bool parentalHide = riftwii::parental_rules(riftwii::wii::Settings()).hide;
+	const riftwii::ParentalRules parentalRules = riftwii::parental_rules(riftwii::wii::Settings());
+	const bool parentalHide = parentalRules.active && parentalRules.hide;
 	const auto add = [&](const std::string& name, HomeEntry::Kind kind, std::size_t i, const std::string& id,
 				const riftwii::wii::ImageGame* game) {
 		// Parental controls set to hide: a game rated too old is not
@@ -1315,7 +1316,8 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 		// Emulator keys identify covers, not GameTDB-rated games, so these
 		// rows bypass parental ratings while keeping the shared row creation.
 		if (parentalHide && kind != HomeEntry::Kind::Emulator &&
-			ParentalVerdictFor(id, kind == HomeEntry::Kind::Channel) == riftwii::ParentalVerdict::Hidden) return;
+			riftwii::parental_verdict(parentalRules, RatedAgeFor(id, kind == HomeEntry::Kind::Channel)) ==
+				riftwii::ParentalVerdict::Hidden) return;
 		rows.push_back({name, name, {kind, i, "", name}, id, id, game});
 	};
 	// Settings > Games from: everything, or one place's games only (a
