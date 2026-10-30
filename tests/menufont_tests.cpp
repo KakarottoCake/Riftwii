@@ -1,12 +1,9 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The menu font in two parts (wii/menu/fullfont.hpp): the core in the DOL
-// (wii/font/core.ttf) and the whole font next to it (wii/font/rounded.ttf,
-// shipped as apps/riftwii/font.ttf). Checked here on the committed files:
-// every character of the translations is in the core, the core and the
-// full font together draw every character of the full font, and both are
-// rounded to 8 font units (tools/make_menu_font.py).
+// The complete M PLUS 1 menu font ships beside boot.dol and stays in MEM2.
+// Check its Japanese coverage, static weight, placement metrics, outline
+// rounding and keyboard widths against the actual files that will ship.
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
@@ -187,65 +184,51 @@ static std::set<std::uint32_t> Utf8Characters(const Bytes& text) {
     return out;
 }
 
-static bool InCoreRanges(std::uint32_t cp) {
-    return cp < 0x3000 || (cp >= 0x3000 && cp <= 0x30FF) || (cp >= 0xFF00 && cp <= 0xFFEF);
-}
-
-static void TestSplit(const std::string& repo) {
-    const Bytes core = ReadFile(repo + "/wii/font/core.ttf");
-    const Bytes full = ReadFile(repo + "/wii/font/rounded.ttf");
-    EXPECT_TRUE(!core.empty());
-    EXPECT_TRUE(!full.empty());
-    const std::set<std::uint32_t> coreChars = ReadCmap(core);
-    const std::set<std::uint32_t> fullChars = ReadCmap(full);
-    // Nothing is dropped: the full font file keeps all 4,012 characters
-    // rounded.ttf was cut with, so with the core every one of them draws,
-    // and the core holds only the full font's characters (its glyphs).
-    EXPECT_EQ(fullChars.size(), 4012u);
-    std::size_t notInFull = 0;
-    for (std::uint32_t cp : coreChars) notInFull += fullChars.count(cp) == 0;
-    EXPECT_EQ(notInFull, 0u);
-    // The core's blocks are whole: Latin, symbols, kana, full-width forms.
-    std::size_t blockMissing = 0;
-    for (std::uint32_t cp : fullChars) blockMissing += InCoreRanges(cp) && !coreChars.count(cp);
-    EXPECT_EQ(blockMissing, 0u);
-    // Every character of every translation (and the English msgids) that
-    // the font has is in the core, so the menu's own text never needs the
-    // SD card. Hangul is checked separately against korean.ttf.
-    std::size_t translationMissing = 0;
-    for (const auto& entry : std::filesystem::directory_iterator(repo + "/wii/lang")) {
-        if (entry.path().extension() != ".po") continue;
-        for (std::uint32_t cp : Utf8Characters(ReadFile(entry.path().string()))) {
-            if (fullChars.count(cp) && !coreChars.count(cp)) {
-                std::cerr << entry.path().filename().string() << ": U+" << std::hex << cp << std::dec
-                          << " is not in wii/font/core.ttf (tools/make_menu_font.py core)" << std::endl;
-                ++translationMissing;
-            }
+static void TestMenuFont(const std::string& repo) {
+    const Bytes font = ReadFile(repo + "/wii/font/menu.ttf");
+    EXPECT_TRUE(!font.empty());
+    EXPECT_TRUE(font.size() < 2u * 1024u * 1024u);
+    const std::set<std::uint32_t> characters = ReadCmap(font);
+    const auto former = ReadCmap(ReadFile(repo + "/wii/font/rounded.ttf"));
+    for (std::uint32_t cp : former) {
+        EXPECT_TRUE(characters.count(cp) != 0);
+    }
+    EXPECT_EQ(TableOffset(font, "fvar"), 0u);
+    EXPECT_EQ(TableOffset(font, "fpgm"), 0u);
+    EXPECT_EQ(Get16(font, TableOffset(font, "OS/2") + 4), 600u);
+    // These are the line metrics the existing widget offsets were measured
+    // with. Preserve them even though the source font's metrics differ.
+    const std::size_t hhea = TableOffset(font, "hhea");
+    EXPECT_EQ(Get16(font, hhea + 4), 1075u);
+    EXPECT_EQ(Get16(font, hhea + 6), static_cast<unsigned>(static_cast<std::uint16_t>(-320)));
+    EXPECT_EQ(Get16(font, hhea + 8), 90u);
+    for (std::uint32_t cp = 0xFF61; cp <= 0xFF9F; ++cp) {
+        EXPECT_TRUE(characters.count(cp) != 0);
+    }
+    // Latin translations and English keys must also stay drawable without
+    // the card. Korean has its separate retained face, checked below.
+    for (const char* language : {"es", "fr", "it", "pt"}) {
+        const Bytes translation = ReadFile(repo + "/wii/lang/" + language + ".po");
+        for (std::uint32_t cp : Utf8Characters(translation)) {
+            if (cp < 0x20 || cp == 0x7F) continue;
+            EXPECT_TRUE(characters.count(cp) != 0);
         }
     }
-    EXPECT_EQ(translationMissing, 0u);
-    // Japanese text is checked against the core alone, without asking the
-    // full font: a character in neither would draw blank on the Wii.
-    // (Only the msgstr lines, which are what the menu shows.)
-    std::size_t japaneseMissing = 0;
-    {
-        const Bytes ja = ReadFile(repo + "/wii/lang/ja.po");
-        std::istringstream lines(std::string(ja.begin(), ja.end()));
-        std::string line;
-        while (std::getline(lines, line)) {
-            if (line.rfind("msgstr \"", 0) != 0) continue;
-            const Bytes shown(line.begin() + 8, line.end());
-            for (std::uint32_t cp : Utf8Characters(shown)) {
-                if (cp == '"' || cp == '\r' || coreChars.count(cp)) continue;
-                std::cerr << "ja.po: U+" << std::hex << cp << std::dec
-                          << " is in neither menu font" << std::endl;
-                ++japaneseMissing;
-            }
+    std::size_t missing = 0;
+    const Bytes ja = ReadFile(repo + "/wii/lang/ja.po");
+    std::istringstream lines(std::string(ja.begin(), ja.end()));
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.rfind("msgstr \"", 0) != 0) continue;
+        const Bytes shown(line.begin() + 8, line.end());
+        for (std::uint32_t cp : Utf8Characters(shown)) {
+            if (cp == '"' || cp == '\r' || characters.count(cp)) continue;
+            std::cerr << "ja.po: U+" << std::hex << cp << std::dec
+                      << " is absent from wii/font/menu.ttf" << std::endl;
+            ++missing;
         }
     }
-    EXPECT_EQ(japaneseMissing, 0u);
-    // The core is much smaller than the whole (about a third of the characters).
-    EXPECT_TRUE(coreChars.size() < fullChars.size() / 2);
+    EXPECT_EQ(missing, 0u);
 }
 
 static void TestKorean(const std::string& repo) {
@@ -282,7 +265,7 @@ static void TestKorean(const std::string& repo) {
 }
 
 static void TestRounded(const std::string& repo) {
-    for (const char* name : {"/wii/font/core.ttf", "/wii/font/rounded.ttf"}) {
+    for (const char* name : {"/wii/font/menu.ttf", "/wii/font/rounded.ttf"}) {
         int simple = 0;
         const int offGrid = GlyphsOffGrid(ReadFile(repo + name), simple);
         EXPECT_EQ(offGrid, 0);
@@ -318,7 +301,7 @@ static int TextAdvance(const Bytes& font, const std::map<std::uint32_t, std::uin
 static void TestKeyboardLabels(const std::string& repo) {
     for (const char* language : {"en", "es", "ja", "pt", "it", "ko", "fr"}) {
         const bool korean = std::string(language) == "ko";
-        const Bytes font = ReadFile(repo + (korean ? "/wii/font/korean.ttf" : "/wii/font/core.ttf"));
+        const Bytes font = ReadFile(repo + (korean ? "/wii/font/korean.ttf" : "/wii/font/menu.ttf"));
         std::map<std::uint32_t, std::uint32_t> glyphs;
         ReadCmap(font, &glyphs);
         std::map<std::string, std::string> translated;
@@ -359,7 +342,7 @@ int main(int argc, char** argv) {
     }
     const std::string repo = argv[1];
     TestKeyboardLabels(repo);
-    TestSplit(repo);
+    TestMenuFont(repo);
     TestRounded(repo);
     TestKorean(repo);
     if (g_failures == 0) std::cout << "menufont: all tests passed" << std::endl;

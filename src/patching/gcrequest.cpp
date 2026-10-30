@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcrequest.hpp"
+#include "rthid.h"
 
 #include "riftwii/checkedalloc.hpp"
 
@@ -118,6 +119,11 @@ bool gc_request_check(const rwp_gc_launch* request, std::uint32_t bytes, std::ui
         }
     } else if (request->pack_fst_bytes != 0 || request->pack_header != nullptr || request->pack_entry_count != 0) {
         why = "the launch request has parts of a packs' plan without its FST";
+        return false;
+    }
+    if (!sized(request->hid_catalog, request->hid_catalog_bytes) ||
+        (request->hid_catalog != nullptr && request->hid_catalog_bytes != sizeof(rthid_catalog))) {
+        why = "the USB controller mappings have the wrong size";
         return false;
     }
     if (!sized(request->cheat_gct, request->cheat_gct_bytes) ||

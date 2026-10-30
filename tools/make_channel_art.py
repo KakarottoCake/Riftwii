@@ -170,7 +170,7 @@ def letters(out):
     # where "Wii" starts in the icon word, to colour it apart
     info["word_split"] = (font_s.getlength("Rift") + 8 - l) / w
     font_t = ImageFont.truetype(FONT, 26)
-    tag = "M O D   L O A D E R"
+    tag = "U S B   L O A D E R"
     l, t, r, b = font_t.getbbox(tag)
     w, h = int(r - l) + 8, int(b - t) + 8
     w += -w % 4
@@ -285,7 +285,7 @@ def main(argv):
     save_alpha(os.path.join(out, "streak.png"), streak(32, 128))
     info = letters(out)
     hbc_icon(os.path.join(HERE, "..", "channel", "installer", "hbc", "icon.png"), "C H A N N E L")
-    hbc_icon(os.path.join(HERE, "..", "hbc", "icon.png"), "M O D   L O A D E R")
+    hbc_icon(os.path.join(HERE, "..", "hbc", "icon.png"), "U S B   L O A D E R")
     splash(os.path.join(HERE, "..", "channel", "forwarder", "data"))
     json.dump(info, open(os.path.join(out, "letters.json"), "w"), indent=1)
     print("art written to", out)

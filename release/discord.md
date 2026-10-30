@@ -19,23 +19,17 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Home: a Layout button (top left) and a Show chooser (bottom left), and help when a list is empty
-* WiiWare and VC straight from .wad files in a wiiware folder, no install step
-* A likely fix for Retro Rewind's error 50330 online
-* Asks before playing when mod files are missing
-* Banner music and disc art on game pages (Settings, off at first)
-* A Save location page, and "Use default options for this game"
-* Pictures for emulator games in Channels, and a picker to choose one
-* Clearer error messages
+* USB gamepads (PS3, PS4, generic pads, arcade sticks) play as GameCube controllers, with Nintendont's controller.ini configs: Settings > Controllers > USB input devices, and Check USB controllers to see a pad's buttons
+* The RiftWii channel fits a 16:9 Wii Menu: no more stretched banner, and it sits above the buttons
+* No more tearing in the channel's start animation
+* USB LOADER under the name, on the channel and the Homebrew Channel icon
 
 To test, please:
 
-1. Put a WiiWare or VC .wad in sd:/wiiware: does it show, start, save, and start again without unpacking?
-2. Retro Rewind online from the disc, after the menu was online: does it connect now?
-3. The Layout and Show buttons on Home: anything confusing?
-4. A mod with a file missing: do you get the question, and does Play anyway work?
+1. A USB gamepad with its controller.ini: does Check USB controllers show its buttons, and does it play in a GameCube game?
+2. Update the channel (Settings > Help > RiftWii channel on the Wii Menu): does the banner look right on your TV, and does the start animation play cleanly?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![The Layout picker](docs/screenshots/2610-layout-picker.png)
-![Disc art on a game's page](docs/screenshots/2610-disc-art.png)
+![USB controller settings](docs/screenshots/2610-usb-controllers.png)
+![The channel banner on 16:9](docs/screenshots/2610-channel-banner.png)

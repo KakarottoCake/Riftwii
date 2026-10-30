@@ -305,7 +305,11 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
     }
     // The Wii Menu shows an icon's middle 128x96.
     const bool icon = kind == "icon";
-    const int W = icon ? 128 : static_cast<int>(lyt.width), H = icon ? 96 : static_cast<int>(lyt.height);
+    // BANNER_WIDE=1 shows the Menu's 16:9 stretch and flag-4 correction.
+    const char* wide_setting = std::getenv("BANNER_WIDE");
+    const float wide_x = wide_setting && std::string(wide_setting) == "1" ? 0.75f : 1.0f;
+    const int W = static_cast<int>((icon ? 128.0f : lyt.width) / wide_x + 0.5f);
+    const int H = icon ? 96 : static_cast<int>(lyt.height);
     for (const int frame : frames) {
         Layout at = lyt;
         if (has_start) apply_animation(start, static_cast<float>(std::min(frame, start_frames)), at);
@@ -316,7 +320,7 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
         std::vector<Texture*> textures;
         for (const std::string& name : at.textures) textures.push_back(texture(name));
         std::vector<std::uint8_t> px, png;
-        rasterise(at, textures, W, H, px);
+        rasterise(at, textures, W, H, px, wide_x);
         encode_png_rgba(px.data(), W, H, png);
         write_file(out_dir + "/" + kind + "_" + std::to_string(frame) + ".png", png);
     }

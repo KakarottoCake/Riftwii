@@ -546,8 +546,8 @@ msgstr "Attente de la fin de la recherche de mise à jour..."
 msgid "GameCube adapter"
 msgstr "Adaptateur GameCube"
 
-msgid "Check the GameCube adapter"
-msgstr "Vérifier l'adaptateur GameCube"
+msgid "Check USB controllers"
+msgstr "Vérifier les manettes USB"
 
 msgid "Test"
 msgstr "Tester"
@@ -630,8 +630,8 @@ msgstr "Adaptateur : pas de réponse ({1}), nouvel essai"
 msgid "Adapter: not found. Plug in its black USB plug."
 msgstr "Adaptateur : introuvable. Branchez sa prise USB noire."
 
-msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
-msgstr "Appuyez sur les boutons d'une manette reliée à l'adaptateur pour les tester ici. Dans un jeu compatible GameCube, ses manettes occupent les ports vides."
+msgid "Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in."
+msgstr "Appuyez sur les boutons d'une manette branchée à l'adaptateur, ou d'une manette USB, pour les voir ici. Dans un jeu compatible avec la manette GameCube, elles prennent les ports où aucune manette n'est branchée."
 
 msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
 msgstr "Cet IOS ne gère pas le USB HID (IOS{1}). Choisissez l'IOS 58 ou un cIOS d2x comme IOS du menu."
@@ -2190,11 +2190,17 @@ msgstr "Sur quel port USB l'adaptateur est-il branché ?"
 msgid "Which port?"
 msgstr "Quel port ?"
 
-msgid "USB keyboard, mouse and tablet"
-msgstr "Clavier, souris et tablette USB"
+msgid "USB controllers"
+msgstr "Manettes USB"
 
-msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
-msgstr "Désactivé : RiftWii n'utilise ni claviers, souris et tablettes USB, ni la uDraw. Désactivez-le si le menu se comporte mal avec l'un d'eux branché, ou sans aucun."
+msgid "USB controllers: working"
+msgstr "Manettes USB : actives"
+
+msgid "USB input devices"
+msgstr "Périphériques USB"
+
+msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrations Télécommande Wii"
@@ -3258,8 +3264,8 @@ msgstr "4. Les jeux dans le dossier /wbfs ou /games."
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x dans le slot 249/250/251."
 
-msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
-msgstr "Certains caractères ne peuvent pas s'afficher sans la police complète de RiftWii. Copiez apps/riftwii/font.ttf depuis le zip de RiftWii vers la carte SD."
+msgid "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "La police de RiftWii est absente. Copiez apps/riftwii/font.ttf du zip de RiftWii sur la carte SD."
 
 msgid "Bring your Nintendont saves?"
 msgstr "Récupérer vos sauvegardes Nintendont ?"
