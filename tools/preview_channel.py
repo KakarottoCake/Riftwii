@@ -7,8 +7,8 @@ numpy and ffmpeg.
 
     preview_channel.py <art dir> <out dir>
 
-writes banner.mp4 (banner_start, then banner_loop twice; 832x456, the
-widescreen view) and icon.mp4 (the tile, three times its size).
+writes banner.mp4 (banner_start, then banner_loop twice; 810x456, as a
+16:9 Wii Menu shows it) and icon.mp4 (the tile, three times its size, 4:3).
 """
 import math
 import os
@@ -22,20 +22,25 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import make_channel as mc  # noqa: E402
 
 
-def matrix(node, values):
-    """The node's own transform (scale, then turn, then move), 3x3."""
+def matrix(node, values, narrow=1.0):
+    """The node's own transform (scale, then turn, then move), 3x3.
+    `narrow` scales it across, as a 16:9 Wii Menu does to a pane that keeps
+    its shape (its position stays)."""
     x = values.get("x", node.pos[0])
     y = values.get("y", node.pos[1])
     r = math.radians(values.get("rot", node.rot))
-    sx = values.get("sx", node.scale[0])
+    sx = values.get("sx", node.scale[0]) * narrow
     sy = values.get("sy", node.scale[1])
     c, s = math.cos(r), math.sin(r)
     return np.array([[c * sx, -s * sy, x], [s * sx, c * sy, y], [0, 0, 1]])
 
 
 class Renderer:
-    def __init__(self, textures, width, height, zoom=1.0):
-        self.w, self.h, self.zoom = width, height, zoom
+    # `wide_x` 0.75 draws as a 16:9 Wii Menu does: the layout stretched
+    # across by 4/3, the panes flagged to keep their shape narrowed back
+    # first (once, at the topmost one), as riftwii/brlyt.hpp's layout_quads.
+    def __init__(self, textures, width, height, zoom=1.0, wide_x=1.0):
+        self.w, self.h, self.zoom, self.wide_x = width, height, zoom, wide_x
         self.tex = {}
         for name, img in textures.items():
             a = np.array(img.pixels, np.float32).reshape(img.height, img.width, 4)
@@ -62,11 +67,12 @@ class Renderer:
         for (pane, target), keys in tracks.items():
             values.setdefault(pane, {})[target] = mc.hermite_at(keys, f)
         canvas = np.zeros((self.h, self.w, 3), np.float32)
-        screen = np.array([[self.zoom, 0, self.w / 2], [0, -self.zoom, self.h / 2], [0, 0, 1]])
+        screen = np.array([[self.zoom / self.wide_x, 0, self.w / 2], [0, -self.zoom, self.h / 2], [0, 0, 1]])
 
-        def draw(node, parent, alpha):
+        def draw(node, parent, alpha, narrowed=False):
             v = values.get(node.name, {})
-            m = parent @ matrix(node, v)
+            narrow = node.keep_aspect and not narrowed
+            m = parent @ matrix(node, v, self.wide_x if narrow else 1.0)
             a = alpha * v.get("alpha", node.alpha) / 255.0
             if node.tex and a > 0.002 and abs(np.linalg.det(m)) > 1e-9:
                 t = self.tinted(node)
@@ -81,7 +87,7 @@ class Renderer:
                 pa = p[..., 3:4] / 255.0 * a
                 canvas[:] = canvas * (1 - pa) + p[..., :3] * pa
             for c in node.children:
-                draw(c, m, a)
+                draw(c, m, a, narrowed or narrow)
 
         for c in root.children:
             draw(c, np.eye(3), 1.0)
@@ -107,13 +113,13 @@ def main(argv):
     os.makedirs(out, exist_ok=True)
 
     root, start, loop = mc.scene_banner(art)
-    r = Renderer(images, 832, 456)
+    r = Renderer(images, 810, 456, wide_x=0.75)
     frames = [r.frame(root, start, f) for f in range(mc.START)]
     frames += [r.frame(root, loop, f) for f in range(mc.LOOP)] * 2
     for f in (40, 70, mc.START - 1):
         Image.fromarray(frames[f]).save(os.path.join(out, f"banner_{f:03d}.png"))
     Image.fromarray(frames[mc.START + 280]).save(os.path.join(out, "banner_loop.png"))
-    video(os.path.join(out, "banner.mp4"), frames, 832, 456)
+    video(os.path.join(out, "banner.mp4"), frames, 810, 456)
 
     root, anim = mc.scene_icon(art)
     r = Renderer(images, 384, 288, zoom=3.0)

@@ -204,9 +204,14 @@ All of it is drawn for RiftWii; no Nintendo data is used.
   as the rift opens, a note for each letter and a closing chord, encoded as
   DSP-ADPCM.
 - **Preview:** `tools/preview_channel.py channel/art <dir>` renders the banner
-  and icon to video from the same data (Pillow, numpy, ffmpeg).
-  For still frames from the built content, run `bannerdump
-  <00000000.app> <existing output dir>`; `BANNER_WIDE=1` includes the Wii
+  and icon to video from the same data (Pillow, numpy, ffmpeg); the banner as
+  a 16:9 Wii Menu shows it, the icon at 4:3. For still frames from the built
+  content, write content 0 with an eighth argument to the build step that
+  `make -f Makefile.channel` runs (`python3 tools/make_channel.py build
+  build-channel/loader.dol build-channel/forwarder.dol build-channel/start.bin
+  build-channel/forwarder_wii.dol channel/art build-channel <dir>` writes
+  `<dir>/00000000.app`), then run `bannerdump <dir>/00000000.app <existing
+  output dir>`; `BANNER_WIDE=1` includes the Wii
   Menu's 16:9 stretch and shape correction (unset for 4:3).
 
 The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN, BNS, IMET) were written from
