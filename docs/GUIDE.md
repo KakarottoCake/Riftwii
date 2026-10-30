@@ -993,7 +993,8 @@ SD card is offered, and RiftWii says why.
 
 A d2x cIOS that is set as Settings > Menu > Menu IOS is used as it is;
 when that setting names a cIOS that is not d2x, choose IOS 58 or a d2x
-there first. Copying needs a real Wii: Dolphin cannot read a whole disc.
+there first. A Menu IOS chosen since RiftWii started takes effect only
+after it starts again. Copying needs a real Wii: Dolphin cannot read a whole disc.
 
 ### USB DVD drives (experimental)
 

@@ -3078,6 +3078,9 @@ msgstr "디스크를 복사하려면 실제 Wii가 필요합니다. Dolphin은 �
 msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
 msgstr "메뉴가 d2x가 아닌 IOS{1}에서 실행 중이라 디스크 전체를 읽을 수 없습니다. 설정 > 메뉴 > 메뉴 IOS에서 IOS 58이나 d2x cIOS를 고르고 RiftWii를 다시 시작한 뒤 게임 디스크 복사를 선택하세요."
 
+msgid "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc."
+msgstr "설정 > 메뉴 > 메뉴 IOS가 IOS{1}(으)로 되어 있지만, RiftWii를 다음에 시작할 때부터 적용됩니다. RiftWii를 다시 시작한 뒤 게임 디스크 복사를 선택하세요."
+
 msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
 msgstr "USB 드라이브가 FAT32가 아닙니다(NTFS 등). 복사는 FAT32 USB 드라이브나 SD 카드에만 할 수 있습니다."
 

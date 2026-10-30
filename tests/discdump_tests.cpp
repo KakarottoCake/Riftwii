@@ -204,8 +204,9 @@ struct Built {
 
 // Four partitions in three of the four groups: the update and game in
 // group 0, a channel installer in group 1, and an odd partition with a
-// Korean ticket in group 3, which cannot be looked into.
-std::unique_ptr<Built> build_disc() {
+// Korean ticket in group 3, which cannot be looked into. With
+// `update_without_fst`, the update partition's boot header names no file table.
+std::unique_ptr<Built> build_disc(bool update_without_fst = false) {
     auto b = std::make_unique<Built>();
     SparseDisc& d = b->disc;
     const char id[] = "RDCE01";
@@ -235,6 +236,10 @@ std::unique_ptr<Built> build_disc() {
     };
     setup(b->update, kUpdate, 0x700000, 0x10);
     lay_out(b->update, {{0x80000, 0x1000}});
+    if (update_without_fst) {
+        b->update.put32(0x424, 0);
+        b->update.put32(0x428, 0);
+    }
     setup(b->channel, kChannel, 0x600000, 0x20);
     lay_out(b->channel, {{0x60000, 0x20}});
     setup(b->game, kGame, 0x10000000, 0x30);  // 256 MiB of data
@@ -326,6 +331,20 @@ void test_wrong_key_keeps_the_partition_whole() {
     std::string error;
     EXPECT_TRUE(riftwii::map_disc_usage(b->disc, wrong, usage, error));
     for (const auto& p : usage.partitions) EXPECT_TRUE(p.whole);
+}
+
+void test_no_file_table_keeps_the_partition_whole() {
+    const auto b = build_disc(true);
+    riftwii::DiscUsage usage;
+    std::string error;
+    EXPECT_TRUE(riftwii::map_disc_usage(b->disc, kCommonKey, usage, error));
+    EXPECT_EQ(usage.partitions.size(), std::size_t(4));
+    if (usage.partitions.size() != 4) return;
+    EXPECT_TRUE(usage.partitions[0].whole);
+    EXPECT_TRUE(usage.partitions[0].why.find("file table") != std::string::npos);
+    EXPECT_FALSE(usage.partitions[1].whole);
+    EXPECT_TRUE(sector_used(usage, cluster_at(b->update, 0x80000)));
+    EXPECT_TRUE(sector_used(usage, b->update.data_offset() + b->update.data_size - 1));
 }
 
 void test_not_a_wii_disc() {
@@ -473,6 +492,7 @@ int main() {
     test_usage_covers_every_partition();
     test_without_key_everything_is_whole();
     test_wrong_key_keeps_the_partition_whole();
+    test_no_file_table_keeps_the_partition_whole();
     test_not_a_wii_disc();
     test_image_reads_back_as_the_disc();
     test_stopped_copy();

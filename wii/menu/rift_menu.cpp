@@ -13866,6 +13866,12 @@ static bool CopyGameDisc()
 		// A Menu IOS the player chose wins over the restart's session cIOS
 		// (StartMenuIos), so restarting would come back to the same IOS.
 		const int chosen = riftwii::wii::LoadMenuIos();
+		if (chosen != 0 && chosen != riftwii::wii::MenuCiosSlot()) {
+			// Chosen in this session: the menu still runs under the IOS it started with.
+			ShowPopup(title, tr("Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc.",
+				{std::to_string(chosen)}), tr("OK"));
+			return false;
+		}
 		if (chosen != 0) {
 			ShowPopup(title, tr("The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc.",
 				{std::to_string(chosen)}), tr("OK"));

@@ -136,7 +136,12 @@ bool mark_partition_files(const ByteSource& disc, const PartitionHeader& header,
     // The file table, then every file it names.
     const std::uint64_t fst_offset = std::uint64_t(be32(boot + 0x424)) << 2;
     const std::uint64_t fst_bytes = std::uint64_t(be32(boot + 0x428)) << 2;
-    if (fst_offset == 0 || fst_bytes == 0) return true;  // no files (some update partitions)
+    // No file table to read: what else the partition holds is unknown, so it is
+    // kept whole rather than copied in part.
+    if (fst_offset == 0 || fst_bytes == 0) {
+        why = "it names no file table";
+        return false;
+    }
     if (fst_bytes > kMaxFstBytes) {
         why = "its file table is implausibly large";
         return false;

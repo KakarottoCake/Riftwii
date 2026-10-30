@@ -177,11 +177,16 @@ bool RunDiscCopy(const DiscCopyJob& job, const DiscCopyPlace& place, const DiscC
     exists = false;
     const std::string path = DiscCopyPath(job, place);
     const std::string folder = path.substr(0, path.rfind('/'));
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0) {
-        exists = true;
-        error = path + " is already there";
-        return false;
+    // Every piece the copy would write: a .wbf1 left behind by another copy
+    // would otherwise be overwritten, then removed if this one fails.
+    for (unsigned i = 0; i < wbfs_piece_count(job.plan.file_bytes); ++i) {
+        const std::string piece = wbfs_piece_path(path, i);
+        struct stat st;
+        if (stat(piece.c_str(), &st) == 0) {
+            exists = true;
+            error = piece + " is already there";
+            return false;
+        }
     }
     if (!make_folder(place.root + "wbfs") || !make_folder(folder)) {
         error = "cannot make the folder " + folder + ": " + std::strerror(errno);
