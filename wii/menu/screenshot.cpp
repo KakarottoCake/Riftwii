@@ -392,6 +392,12 @@ int ScreenshotFlash() { return g_flash; }
 
 void SetHomeOwner(bool (*owns)()) {
     g_home_owner = owns;
+    // Home closing lets go at once (with the GUI halted): no frame may come
+    // before the next Home, which would inherit what this one kept back.
+    if (!owns && g_home_owns) {
+        g_home_owns = false;
+        ForgetPopupPresses();
+    }
 }
 
 // A pair or hold finishes when a frame's presses are read, and Home takes

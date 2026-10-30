@@ -44,6 +44,7 @@ int ScreenshotFlash();
 // or a cover up close has the buttons. When it lets them go, the presses
 // it kept back come to nothing and a pair or hold begun on Home counts for
 // nothing; when it gets them back, it watches again from that frame.
+// nullptr (Home closing, with the GUI halted) lets go there and then.
 void SetHomeOwner(bool (*owns)());
 // Whether the pair was pressed since the last call, and Home still owns the
 // controllers now (otherwise it's dropped).
