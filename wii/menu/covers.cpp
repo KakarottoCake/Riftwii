@@ -355,8 +355,11 @@ void* LoaderMain(void*) {
             }
         }
         const bool cache_allowed = !emulator || EmulatorDownloadedCoversAllowed();
-        // A mod's tile without a cover of its own shows the game's.
-        if (!ok && !banner && cache_allowed) ok = ReadStoredCover(game, slot->data);
+        // A mod's tile without a cover of its own shows the game's. A
+        // second-set cover stored while the first set is chosen isn't
+        // shown: the first set's download replaces it (CoverWanted).
+        const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(game) && !CoverSecondSet(game);
+        if (!ok && !banner && cache_allowed && !wrong_set) ok = ReadStoredCover(game, slot->data);
         if (ok) DCFlushRange(slot->data, pixel_bytes);
         // GameTDB's full box art is of the first set only: a second-set
         // cover comes before it, as the player's own does.

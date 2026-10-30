@@ -72,9 +72,10 @@ std::uint64_t g_usb_preferred_lba = 0;
 // volumes' FAT32 and NTFS code keeps caches in its const methods, the
 // storage driver its request, and read_usb_range the last file it looked
 // up, so every use of the drive takes this one lock: each volume operation
-// and sector read on its own (a scan never holds it for long), a lookup for
-// its whole length, and mounting or dropping the volumes while the list
-// changes. Only the scan's own thread changes the list, so the scan reads
+// and sector read on its own, a lookup for its whole length, and mounting or
+// dropping the volumes while the list changes (which reads the drive, so can
+// hold it a long while: the GUI's and the covers' reads wait for the scan,
+// DriveScanDone, rather than for the lock). Only the scan's own thread changes the list, so the scan reads
 // it without the lock; every other thread takes it. Recursive: a lookup
 // that holds it reads through a volume, which takes it again. Made at start
 // (InitUsbLock), before any other thread runs.

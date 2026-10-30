@@ -13047,6 +13047,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				// The other set, downloaded on the game page as Cover's is.
 				const bool second = !riftwii::wii::CoverSecondSet(state.game_id);
 				if (riftwii::wii::ChooseCoverSet(state.game_id, second)) {
+					// The set in memory was the other one's: read again.
+					riftwii::wii::ForgetCover(state.game_id);
 					g_coverSecondAsked = second;
 					coverAsked = true;
 					done = true;
