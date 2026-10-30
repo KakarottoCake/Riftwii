@@ -124,9 +124,10 @@ bool DiscCopyUsbNotFat32() { return usb_volume_ready() && !usb_fat32_mounted(); 
 bool DiscCopyCanRead() {
     if (running_in_dolphin()) return false;
     const int slot = MenuCiosSlot();
-    // d2x_base reads the cIOS's own information block: 0 for a cIOS that
-    // is not d2x, whose disc reads stop at the start as the Wii's IOS's do.
-    return slot != 0 && d2x_base(slot) != 0;
+    // The cIOS's own information block: a cIOS that is not d2x stops disc
+    // reads at the start, as the Wii's IOS does. One whose block could not
+    // be read may be d2x all the same: PrepareDiscCopy tries a read first.
+    return slot != 0 && slot_d2x_check(slot) != D2xCheck::NotD2x;
 }
 
 int DiscCopySlot() {
@@ -137,18 +138,35 @@ int DiscCopySlot() {
     for (int slot : slots) {
         if (slot_has_ticket(slot) && d2x_base(slot) != 0) return slot;
     }
+    // Last, a cIOS whose information block could not be read: it may be
+    // d2x, and PrepareDiscCopy finds out before anything is copied.
+    for (int slot : slots) {
+        if (slot_has_ticket(slot) && slot_d2x_check(slot) == D2xCheck::Unread) return slot;
+    }
     return 0;
 }
 
 bool PrepareDiscCopy(DiscCopyJob& job, std::string& error) {
     DiscCopyJob prepared;
     if (!ProbeInserted(prepared.id, prepared.title, error)) return false;
+    const di::RawDiscSource disc;
+    // Under a cIOS whose d2x block could not be read, one sector past the
+    // system area (0x50000, the first partition's usual start) tells: only
+    // d2x reads it.
+    if (const int slot = MenuCiosSlot(); slot_d2x_check(slot) == D2xCheck::Unread) {
+        std::uint8_t probe[32];
+        if (!disc.read(0x50000, probe, sizeof(probe))) {
+            error = "IOS" + std::to_string(slot) + " reads only the start of a disc, so it is not d2x";
+            logf("Disc copy: %s (its d2x information could not be read)\n", error.c_str());
+            return false;
+        }
+        logf("Disc copy: IOS%d reads past the start of the disc (its d2x information could not be read)\n", slot);
+    }
     logf("Disc copy: %s \"%s\" in the drive; finding what every partition uses\n", prepared.id.c_str(),
          prepared.title.c_str());
     std::uint8_t key[16];
     const bool have_key = ConsoleCommonKey(key);
     if (!have_key) logf("Disc copy: this Wii's disc key could not be read; every partition is kept whole\n");
-    const di::RawDiscSource disc;
     const bool mapped = map_disc_usage(disc, have_key ? key : nullptr, prepared.usage, error);
     std::memset(key, 0, sizeof(key));
     if (!mapped) {

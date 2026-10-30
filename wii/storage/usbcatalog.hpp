@@ -224,6 +224,13 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
 // it is not a d2x that could be read, or one older than d2x v11 beta3.
 int d2x_base(int slot);
 
+// What `slot`'s information block says: a d2x RiftWii runs games on (v11 or
+// newer), something else, or nothing, when it could not be read (or there
+// is no cIOS in the slot). d2x_base leaves the unread ones out with the
+// rest; the disc copy tells them apart, and tries an unread one.
+enum class D2xCheck { D2x, NotD2x, Unread };
+D2xCheck slot_d2x_check(int slot);
+
 // Whether games from the SD card or a USB drive may start on `slot`: false,
 // with `why` saying what to install, when its information block shows a
 // cIOS that is not d2x or a d2x older than v11 (riftwii/d2xversion.hpp).

@@ -28,12 +28,15 @@ std::vector<DiscCopyPlace> DiscCopyPlaces();
 // it is not among DiscCopyPlaces.
 bool DiscCopyUsbNotFat32();
 
-// Whether the menu can read a whole disc now: it runs under a d2x cIOS.
+// Whether the menu can read a whole disc now: it runs under a d2x cIOS, or
+// one whose d2x information could not be read (PrepareDiscCopy then reads
+// past the start of the disc before anything else, and says when it can't).
 // Never in Dolphin, which refuses these reads as the Wii's own IOS does.
 bool DiscCopyCanRead();
 // The cIOS the menu restarts under to copy a disc: a d2x on base 58 first,
 // since only that one also reads USB drives in the menu, else any other
-// d2x. 0 when there is none.
+// d2x, last a cIOS whose d2x information could not be read. 0 when there
+// is none.
 int DiscCopySlot();
 
 // The disc in the drive, looked into.
