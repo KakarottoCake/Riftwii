@@ -33,7 +33,8 @@ import zlib
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
 # Matches wii/launch/channel.hpp kChannelVersion. Version 15 keeps the banner
-# and icon's shapes on 16:9 and centres the art above the Menu's buttons.
+# and icon's shapes on 16:9 and centres the art above the Menu's buttons; its
+# start animation no longer tears (two framebuffers).
 TITLE_VERSION = 15
 # The TMD's access rights (0x1D8): bit 0 asks ES for hardware access (AHBPROT
 # off), as the Homebrew Channel's own title does. Without it RiftWii started
