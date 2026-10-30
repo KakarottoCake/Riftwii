@@ -478,7 +478,11 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     faces[4] = face(1, 0, 2, 3);
     faces[3].color = faces[4].color = CasePlastic(id, caseColour);
     faces[4].rounded = true;
+    // The paper (a scan or a cover) through plain white: through the
+    // plastic's off-white, every picture came out a little grey.
+    constexpr GXColor kPaper = {255, 255, 255, 255};
     if (art) {
+        faces[0].color = faces[1].color = faces[2].color = kPaper;
         faces[0].tex = art;
         faces[0].texW = riftwii::kBoxWidth;
         faces[0].texH = riftwii::kBoxHeight;
@@ -496,6 +500,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[2].u0 = kBackU;
         faces[2].u1 = 1;
     } else if (cover) {
+        faces[1].color = kPaper;
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
