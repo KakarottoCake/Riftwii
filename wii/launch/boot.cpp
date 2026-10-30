@@ -869,6 +869,15 @@ namespace {
 // Leaves g_extras.gc_adapter On or Off (Demo stays Demo), and the
 // adapter's USB handle open only when it is On.
 void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
+    HidPadsPreload();
+    const bool usb_pads = HidPadsConnected();
+    if (HidPadsWanted() && !usb_pads) {
+        logf("USB controllers: none of the %u configured pads is plugged in; plug one in before starting a game.\n",
+             static_cast<unsigned>(HidPadsCatalog().count));
+    }
+    // A connected mapped pad needs the shared hook. Config files alone do
+    // not justify changing a game's code; the menu still allows hotplug.
+    if (usb_pads && g_extras.gc_adapter == GcAdapterMode::Off) g_extras.gc_adapter = GcAdapterMode::Auto;
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Where the adapter broke the launch on hardware, it stays off and
         // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
@@ -907,7 +916,7 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
             g_extras.gc_adapter = GcAdapterMode::Off;
         }
     }
-    if (g_extras.gc_adapter == GcAdapterMode::Auto && GcAdapterMenuSawNone()) {
+    if (g_extras.gc_adapter == GcAdapterMode::Auto && !usb_pads && GcAdapterMenuSawNone()) {
         // The menu looked every 2 s until the launch and USB listed none:
         // USB is left alone, and the launch does not wait for our own
         // /dev/usb/hid (on a Wii's d2x 250 its v5 GetVersion never answered,
@@ -929,7 +938,7 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
         // the SD card, adapter On) every disc command after this failed
         // (BCA -4, then the partition DI 128), from 2610-178, which added it,
         // to 2610-290; 2610-168 never called it and the adapter worked there.
-        if (d2x_device == 0 && !fresh_ios) USB_Deinitialize();
+        if (d2x_device == 0 && !fresh_ios) release_menu_usb_for_game();
         // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
         // are v5, as IOS 58's).
         const int base = d2x_base(game_ios);
@@ -944,9 +953,13 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
         // command after it failed (BCA -4, then opening the partition).
         // The adapter is found in the USB device list instead.
         const AdapterSeen seen = look_for_gc_adapter(how);
-        logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        logf("USB controllers (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        if (usb_pads) {
+            logf("USB controllers: keeping %u mappings for the game; the GameCube adapter setting is %s.\n",
+                 static_cast<unsigned>(HidPadsCatalog().count), Settings().gc_adapter.c_str());
+        }
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {
-            g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
+            g_extras.gc_adapter = seen == AdapterSeen::Missing && !usb_pads ? GcAdapterMode::Off : GcAdapterMode::On;
         }
         // The handle the check opened is the game's only with the adapter on.
         if (g_extras.gc_adapter == GcAdapterMode::Off) close_adapter_session();
@@ -1169,7 +1182,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     // of the above, when the menu saw a Pro Controller.
     std::string why;
     const PadPairings pairings = ReadPadPairings();
-    const bool wanted = wpad_log_wanted(pairings.pro.size(), why);
+    const bool wanted = wpad_log_wanted(pairings.pro.size(), out.pad.active, why);
     if (!wanted) {
         // Said only when a setting turned it off or a Pro is paired: most
         // launches never want it.
@@ -1255,6 +1268,7 @@ void install_wpad_log_last(GameExtras& extras) {
     if (!extras.wlog.active) return;
     std::string why;
     if (!install_wpad_log(extras.wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
+    else if (extras.pad.active) log_pad_diagnostics(extras.pad.code_base, extras.wlog.print_entry);
 }
 
 // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
@@ -2882,12 +2896,9 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
 }
 
 void SetLaunchExtras(LaunchExtras extras) {
-    // Configured USB pads use the existing pad hook and IOS safety rules.
-    // The binary table still keeps the separate adapter setting off.
-    if (extras.gc_adapter == GcAdapterMode::Off && Settings().usb_input == "on") {
-        HidPadsPreload(); // headless launches have no preceding menu scan
-        if (HidPadsCatalog().count != 0) extras.gc_adapter = GcAdapterMode::Auto;
-    }
+    // Refresh the menu's list before any launch IOS reload. Asking libogc
+    // to start USB again under a storage cIOS can break its disc reads.
+    HidPadsPreload(true);
     g_extras = std::move(extras);
 }
 
@@ -2897,10 +2908,6 @@ bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t&
     fd = -1;
     version = 0;
     known_dev = -1;
-    if (g_extras.gc_adapter == GcAdapterMode::Off) {
-        logf("GameCube adapter: off (the setting is Off)\n");
-        return false;
-    }
     // Demo's made-up presses are for Wii games' test runs: a GameCube
     // game takes the adapter as On.
     if (g_extras.gc_adapter == GcAdapterMode::Demo) g_extras.gc_adapter = GcAdapterMode::On;
@@ -2909,7 +2916,10 @@ bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t&
     // game's rules, no d2x reads. From the USB drive it is the d2x cIOS
     // the launch reloaded into, which reads the drive as for a USB Wii game.
     settle_gc_adapter(IOS_GetVersion(), game_on_usb ? 1 : 0, "the game", false);
-    if (g_extras.gc_adapter != GcAdapterMode::On) return false;
+    if (g_extras.gc_adapter != GcAdapterMode::On) {
+        if (Settings().gc_adapter == "off") logf("GameCube adapter: off (the setting is Off)\n");
+        return false;
+    }
     std::string why;
     if (!take_adapter_handle(fd, version, known_dev, why)) {
         logf("GameCube adapter: off: %s\n", why.c_str());

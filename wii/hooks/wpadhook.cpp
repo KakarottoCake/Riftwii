@@ -8,8 +8,8 @@
 #include <cstdio>
 #include <cstring>
 
-#include "loadersettings.hpp"
 #include "log.hpp"
+#include "hidpads.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/returnto.hpp"
 #include "riftwii/symsearch.hpp"
@@ -28,8 +28,6 @@ constexpr std::uint32_t kBusClock = 0x0E7BE2C0;
 constexpr std::uint32_t kPrintStubFirst = 0x9421FF90;  // stwu r1,-0x70(r1)
 constexpr unsigned kScratchRegister = 12;              // wlog_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
-
-bool g_wiiu_pro_seen = false;
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
@@ -91,42 +89,6 @@ bool prepare_ioctlv(const WpadLogHook& hook, const rt_wlog_header& h) {
 
 }  // namespace
 
-void note_wiiu_pro_seen() { g_wiiu_pro_seen = true; }
-
-bool pro_translator_wanted() {
-    const auto it = Settings().other.find("pro_controller");
-    return it == Settings().other.end() || it->second != "off";
-}
-
-bool pro_translator_every_link() {
-    const auto it = Settings().other.find("pro_controller");
-    return it != Settings().other.end() && it->second == "every";
-}
-
-bool wpad_log_wanted(std::size_t pro_pairings, std::string& why) {
-    const auto it = Settings().other.find("wpad_log");
-    const std::string mode = it == Settings().other.end() ? "auto" : it->second;
-    if (mode == "on") {
-        why = "wpad_log = on";
-        return true;
-    }
-    if (mode == "off") {
-        why = "wpad_log = off";
-        return false;
-    }
-    if (g_wiiu_pro_seen) {
-        why = "a Wii U Pro Controller was connected in the menu";
-        return true;
-    }
-    // A pairing alone is not enough: the log takes 43 KB of the game's MEM2
-    // and the blob 10 KB of MEM1, and Newer Super Mario Bros. Wii from an
-    // RVZ ran out of MEM2 on a Wii with a Pro paired but not in use.
-    why = pro_pairings > 0 ? std::to_string(pro_pairings) +
-                                 " Wii U Pro Controller pairing(s), but none was connected in the menu"
-                           : "no Wii U Pro Controller connected in the menu";
-    return false;
-}
-
 bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    const std::uint32_t known_ios[4], std::uint32_t known_ioctlv,
                    const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate,
@@ -161,7 +123,8 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         }
         out.tables = find_extension_tables(all);
     }
-    if (out.stubs.empty()) {
+    out.usb_diagnostics = HidPadsConnected();
+    if (out.stubs.empty() && !out.usb_diagnostics) {
         why = "the game has no empty print functions";
         return false;
     }
@@ -257,6 +220,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         ctx->pro_count = RTPRO_EVERY_LINK;
         logf("Wii Remote log: pro_controller = every: every link is taken as a Wii U Pro Controller (a test)\n");
     }
+    out.print_entry = out.code_base + h.hook_print;
     out.active = true;
     logf("Wii Remote log: blob %u bytes at 0x%08x, log %u bytes at 0x%08x; %u print function(s), "
          "HOME Menu exit at 0x%08x\n",
@@ -309,7 +273,7 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
         branches.push_back(branch);
         ++hooked;
     }
-    if (hooked == 0) {
+    if (hooked == 0 && !hook.usb_diagnostics) {
         why = "no print function could be hooked";
         hook.active = false;
         return false;

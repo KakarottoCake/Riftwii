@@ -3,14 +3,19 @@
 // The GameCube controller adapter in a GameCube game (runtime/gc/gc_gcad.c):
 // its controllers written into the game's PADStatus[4] on the ports
 // gc_ports.h's rule gives them, next to real GameCube controllers, and the
-// game's rumble sent to the controller on that port. The driver's state is
-// set as reports flowing would leave it (runtime/rtgcad.c is tested on its
-// own in gcad_tests).
+// game's rumble sent to the controller on that port. Also exercises the
+// blob's reply routing, late discovery and saved setup records against
+// mock IOS requests, without relying on calls to the game's PADRead.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 
 #include "gc_gcad.h"
+#include "gc_rt.h"
+#include "riftwii/gccrash.hpp"
+#include "riftwii/hidconfig.hpp"
+#include <string>
+#include <vector>
 
 namespace {
 
@@ -32,6 +37,157 @@ constexpr std::uint8_t kNoController = 0xFF;
 constexpr std::uint32_t kTicksPerMs = 1000;
 
 std::uint32_t g_now = 5000000;
+bool g_mock_ios = false;
+
+void answer(gc_gcad& ad, unsigned slot, int result) {
+    auto& request = ad.rq[slot];
+    EXPECT_EQ(request.state, GC_GCAD_RQ_SENT);
+    request.ipc[1] = static_cast<std::uint32_t>(result);
+    const auto physical = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(request.ipc)) & 0x3FFFFFFFu;
+    EXPECT_EQ(gc_gcad_on_reply(&ad, physical), 1);
+    EXPECT_EQ(request.state, GC_GCAD_RQ_DONE);
+    gc_gcad_service(&ad, g_now);
+}
+
+void descriptors(gcad& pad, unsigned number, unsigned interface_class) {
+    auto* bytes = pad.setup_out;
+    std::memset(bytes, 0, sizeof(pad.setup_out));
+    bytes[36] = 18;
+    bytes[37] = 1;
+    bytes[56] = 9;
+    bytes[57] = 2;
+    bytes[68] = 9;
+    bytes[69] = 4;
+    bytes[70] = static_cast<std::uint8_t>(number);
+    bytes[73] = static_cast<std::uint8_t>(interface_class);
+    bytes[80] = 7;
+    bytes[81] = 5;
+    bytes[82] = 0x84;
+    bytes[83] = 3;
+    bytes[85] = 64;
+}
+
+// Exercise the blob's real request completion and service loop, without
+// calling PADRead: the heartbeat can now perform the entire setup.
+void test_late_composite_pad() {
+    gc_gcad ad{};
+    ad.fd = 4;
+    ad.version = 5;
+    ad.known_dev = -1;
+    ad.ticks_per_ms = 1;
+    std::string error;
+    EXPECT_EQ(riftwii::parse_hid_config("VID=054C\nPID=09CC\nPolltype=1\nA=0,1\n", ad.catalog.maps[0], error), true);
+    ad.catalog.count = 1;
+    g_mock_ios = true;
+    gc_gcad_service(&ad, g_now);
+    answer(ad, GCAD_TAG_CHANGE, 0); // reload's first list is empty
+    EXPECT_EQ(ad.rq[GCAD_TAG_CHANGE].ipc[3], GCAD_V5_ATTACH_FINISH);
+    answer(ad, GCAD_TAG_CHANGE, 0);
+    EXPECT_EQ(ad.rq[GCAD_TAG_CHANGE].ipc[3], GCAD_V5_GET_DEVICE_CHANGE);
+
+    const std::uint32_t ids[] = {0x001F0021, 0x011E0021, 0x021D0021, 0x031C0021};
+    for (unsigned i = 0; i < 4; ++i) {
+        gcad_put32(ad.g.change + 12 * i, ids[i]);
+        gcad_put32(ad.g.change + 12 * i + 4, 0x054C09CC);
+    }
+    answer(ad, GCAD_TAG_CHANGE, 4);
+    g_now += 600;
+    gc_gcad_service(&ad, g_now);
+    for (unsigned i = 0; i < 4; ++i) {
+        auto& pad = ad.pads[i];
+        const unsigned setup = (i + 1) * GCAD_TAGS + GCAD_TAG_SETUP;
+        EXPECT_EQ(pad.dev_id, ids[i]);
+        EXPECT_EQ(ad.rq[setup].ipc[3], GCAD_V5_SUSPEND_RESUME);
+        answer(ad, setup, 0);
+        descriptors(pad, i, i == 3 ? 3 : 1);
+        answer(ad, setup, 0);
+        gc_gcad_service(&ad, g_now);
+    }
+    EXPECT_EQ(ad.g.excluded_count, 3);
+    for (unsigned i = 0; i < 3; ++i) EXPECT_EQ(ad.pads[i].dev_id, -1);
+    EXPECT_EQ(ad.pads[3].link, GCAD_LINK_POLL);
+    EXPECT_EQ(ad.pads[3].interface_number, 3);
+    EXPECT_EQ(ad.pads[3].endpoint_in, 0x84);
+    ad.pads[3].in_data[0] = 1;
+    answer(ad, 4 * GCAD_TAGS + GCAD_TAG_IN, 64);
+    EXPECT_EQ(ad.pads[3].reports, 1);
+    EXPECT_EQ(ad.rq[GCAD_TAG_CHANGE].ipc[3], GCAD_V5_ATTACH_FINISH);
+    answer(ad, GCAD_TAG_CHANGE, 0);
+
+    // A second pad gets one of the released slots. The old audio entries
+    // remain listed, but are never resumed or announced again.
+    gcad_put32(ad.g.change + 48, 0x041B0022);
+    gcad_put32(ad.g.change + 52, 0x054C09CC);
+    answer(ad, GCAD_TAG_CHANGE, 5);
+    g_now += 600;
+    gc_gcad_service(&ad, g_now);
+    EXPECT_EQ(ad.pads[0].dev_id, 0x041B0022);
+    answer(ad, GCAD_TAGS + GCAD_TAG_SETUP, 0);
+    descriptors(ad.pads[0], 4, 3);
+    answer(ad, GCAD_TAGS + GCAD_TAG_SETUP, 0);
+    EXPECT_EQ(ad.pads[0].link, GCAD_LINK_POLL);
+    EXPECT_EQ(ad.pads[1].dev_id, -1);
+    EXPECT_EQ(ad.pads[2].dev_id, -1);
+
+    unsigned records = 0, excluded = 0, inputs = 0;
+    std::vector<std::uint8_t> trace;
+    while (const auto* record = gc_gcad_next_diagnostic(&ad)) {
+        const auto saved = *record;
+        // A skipped or failed SD write leaves the same record pending.
+        EXPECT_EQ(gc_gcad_next_diagnostic(&ad)->diagnostic, saved.diagnostic);
+        EXPECT_EQ(record->id, 0x054C09CC);
+        std::uint32_t words[128]{};
+        words[GC_TR_MAGIC] = GC_TRACE_MAGIC;
+        words[GC_TR_WHERE] = GC_TRACE_HID;
+        words[GC_TR_SEQ] = records + 1;
+        EXPECT_EQ(gc_gcad_trace_record(&ad, words), 1);
+        const auto offset = trace.size();
+        trace.resize(offset + 512);
+        for (unsigned i = 0; i < 128; ++i) gcad_put32(trace.data() + offset + 4 * i, words[i]);
+        const unsigned step = record->diagnostic & 255;
+        if (step == GCAD_HID_INTERFACE) ++excluded;
+        if (step == GCAD_HID_INPUT) ++inputs;
+        ++records;
+        gc_gcad_diagnostic_written(&ad);
+    }
+    EXPECT_EQ(excluded, 3);
+    EXPECT_EQ(inputs, 1);
+    EXPECT_EQ(records, 24); // discovery, three rejections, two HID setups, one input
+    std::string text;
+    EXPECT_EQ(riftwii::describe_gc_usb_pads(trace, text), true);
+    EXPECT_EQ(text.find("interface 0 is not a HID interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("interface 1 is not a HID interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("interface 2 is not a HID interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("input arrived (64 bytes)") != std::string::npos, true);
+    EXPECT_EQ(text.find("USB device list answered (result 0)") != std::string::npos, true);
+    // A noisy device cannot overwrite records still waiting for the SD card.
+    for (unsigned i = 0; i < GC_GCAD_DIAGNOSTICS + 3; ++i) {
+        gc_gcad_event(&ad, &ad.pads[3], GCAD_EV_HID_DIAG, GCAD_HID_INPUT, static_cast<int>(i));
+    }
+    EXPECT_EQ(ad.diagnostic_head - ad.diagnostic_tail, GC_GCAD_DIAGNOSTICS);
+    EXPECT_EQ(gc_gcad_next_diagnostic(&ad)->result, 0);
+
+    // IOS may have given libogc the only list before manager shutdown.
+    // With the saved list, setup must start while GetDeviceChange remains
+    // unanswered: leaving the pad plugged in is not a new device change.
+    gc_gcad carried{};
+    carried.fd = 4;
+    carried.version = 5;
+    carried.known_dev = -1;
+    carried.ticks_per_ms = 1;
+    carried.catalog.maps[0] = ad.catalog.maps[0];
+    carried.catalog.count = 1;
+    carried.catalog.known_count = 1;
+    carried.catalog.known[0] = {static_cast<std::int32_t>(ids[3]), 0x054C09CC};
+    gc_gcad_service(&carried, g_now);
+    answer(carried, GCAD_TAGS + GCAD_TAG_SETUP, 0);
+    descriptors(carried.pads[0], 3, 3);
+    answer(carried, GCAD_TAGS + GCAD_TAG_SETUP, 0);
+    EXPECT_EQ(carried.pads[0].link, GCAD_LINK_POLL);
+    EXPECT_EQ(carried.rq[GCAD_TAG_CHANGE].state, GC_GCAD_RQ_SENT);
+    EXPECT_EQ(carried.rq[GCAD_TAG_CHANGE].ipc[3], GCAD_V5_GET_DEVICE_CHANGE);
+    g_mock_ios = false;
+}
 
 // PADStatus[4] as PADRead leaves it with no controller in any port.
 struct Status {
@@ -270,22 +426,33 @@ void test_adapter_own_port_before_displaced_and_hid() {
 
 extern "C" std::uint32_t gc_gcad_host_now(void) { return g_now; }
 
-// The driver's environment, which only its requests reach: none here (the
-// state is set as reports flowing leave it). Any request is refused.
-std::int32_t gcad_env_ioctl(gcad*, std::uint32_t, std::uint32_t, void*, std::uint32_t, void*, std::uint32_t) {
+// The blob service tests queue requests in its real request slots. Port
+// tests set state directly and must never send anything to IOS.
+std::int32_t gcad_env_ioctl(gcad* g, std::uint32_t tag, std::uint32_t command, void*, std::uint32_t, void*, std::uint32_t) {
+    if (g_mock_ios) {
+        auto& ad = *static_cast<gc_gcad*>(g->env_ctx);
+        auto& request = ad.rq[GCAD_REQUEST_SLOT(tag)];
+        EXPECT_EQ(request.state, GC_GCAD_RQ_IDLE);
+        request.tag = tag;
+        request.ipc[3] = command;
+        request.state = GC_GCAD_RQ_SENT;
+        return 0;
+    }
     ++failures;
     return -1;
 }
-std::int32_t gcad_env_ioctlv(gcad*, std::uint32_t, std::uint32_t, void*, std::uint32_t, void*, std::uint32_t, int) {
-    ++failures;
-    return -1;
+std::int32_t gcad_env_ioctlv(gcad* g, std::uint32_t tag, std::uint32_t command, void* message, std::uint32_t length, void* data, std::uint32_t bytes, int) {
+    return gcad_env_ioctl(g, tag, command, message, length, data, bytes);
 }
 std::uint32_t gcad_env_address(gcad*, void* p) { return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(p)); }
 void gcad_env_flush(gcad*, void*, std::uint32_t) {}
 void gcad_env_invalidate(gcad*, void*, std::uint32_t) {}
-void gcad_env_event(gcad*, std::uint32_t, std::uint32_t, std::int32_t) {}
+void gcad_env_event(gcad* g, std::uint32_t code, std::uint32_t a, std::int32_t b) {
+    if (g_mock_ios) gc_gcad_event(static_cast<gc_gcad*>(g->env_ctx), g, code, a, b);
+}
 
 int main() {
+    test_late_composite_pad();
     test_disabled_native_pad_keeps_its_port();
     test_own_ports();
     test_real_pad_keeps_its_port();

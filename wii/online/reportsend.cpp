@@ -238,6 +238,9 @@ void add_gc_remotes(std::vector<ReportPart>& parts) {
         if (!read_text(path, raw)) continue;  // at most kReadCap; a trace is 128 KB
         const std::vector<std::uint8_t> trace(raw.begin(), raw.end());
         std::string text;
+        if (riftwii::describe_gc_usb_pads(trace, text)) {
+            parts.push_back({std::string("USB controllers in the GameCube game (") + path + ")", text, true});
+        }
         if (!riftwii::describe_gc_remotes(trace, text)) continue;
         parts.push_back({std::string("Wii Remotes in the GameCube game (") + path + ")", text, true});
         return;
@@ -516,15 +519,26 @@ std::string DescribeControllers() {
         if (ports & (1u << i)) add("GameCube port " + std::to_string(i + 1));
     }
     GcAdapterView view;
-    if (GcAdapterMenuLastView(view) && view.open) {
+    if (GcAdapterMenuLastView(view) && view.open && view.adapter_present) {
         std::string s = "GameCube adapter (ports";
         bool any = false;
         for (unsigned i = 0; i < GCAD_PORTS; ++i) {
-            if (!view.present[i]) continue;
+            if (!view.adapter_ports[i]) continue;
             s += " " + std::to_string(i + 1);
             any = true;
         }
         add(s + (any ? ")" : " empty)"));
+    }
+    if (view.open) {
+        for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
+            if (!view.hid_ids[i]) continue;
+            char pad[96];
+            std::snprintf(pad, sizeof(pad), "USB controller %04x:%04x (%s)",
+                          static_cast<unsigned>(view.hid_ids[i] >> 16),
+                          static_cast<unsigned>(view.hid_ids[i] & 65535u),
+                          view.hid_input[i] ? "input arrived" : "no input yet");
+            add(pad);
+        }
     }
     if (WiiDRC_Inited() && WiiDRC_Connected()) add("Wii U GamePad");
     const std::string usb = UsbInputDescribe();

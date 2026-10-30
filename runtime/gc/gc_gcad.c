@@ -114,11 +114,11 @@ void gcad_env_invalidate(gcad* g, void* p, uint32_t len) {
 }
 
 void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
-    (void)g;
-    (void)code;
-    (void)a;
-    (void)b;
+    struct gc_gcad* ad = (struct gc_gcad*)g->env_ctx;
+    gc_gcad_event(ad, g, code, a, b);
 }
+
+#endif /* RT_TARGET_PPC */
 
 /* --- Replies and the poll -------------------------------------------- */
 
@@ -126,9 +126,10 @@ int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
     uint32_t i;
     for (i = 0; i < GCAD_REQUESTS; ++i) {
         struct gc_gcad_rq* rq = &ad->rq[i];
-        if (rq->state != GC_GCAD_RQ_SENT || ad_phys((uint32_t)(uintptr_t)rq->ipc) != reply) continue;
-        gc_invalidate((uint32_t)(uintptr_t)rq->ipc, sizeof(rq->ipc));
-        if (rq->out) gc_invalidate(rq->out, rq->out_len);
+        const uint32_t physical = (uint32_t)(uintptr_t)rq->ipc & 0x3FFFFFFFu;
+        if (rq->state != GC_GCAD_RQ_SENT || physical != reply) continue;
+        gcad_env_invalidate(&ad->g, rq->ipc, sizeof(rq->ipc));
+        if (rq->out) gcad_env_invalidate(&ad->g, (void*)(uintptr_t)rq->out, rq->out_len);
         rq->result = (int32_t)rq->ipc[1];
         rq->state = GC_GCAD_RQ_DONE;
         ad->replies++;
@@ -137,11 +138,66 @@ int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
     return 0;
 }
 
+void gc_gcad_event(struct gc_gcad* ad, gcad* g, uint32_t code, uint32_t a, int32_t b) {
+    struct gc_gcad_diagnostic* record;
+    const rthid_mapping* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    if ((code != GCAD_EV_HID_DIAG && code != GCAD_EV_HID_LIST) || !mapping ||
+        ad->diagnostic_head - ad->diagnostic_tail >= GC_GCAD_DIAGNOSTICS) return;
+    record = &ad->diagnostics[ad->diagnostic_head % GC_GCAD_DIAGNOSTICS];
+    record->id = (uint32_t)mapping->vid << 16 | mapping->pid;
+    record->diagnostic = a;
+    record->result = b;
+    record->slot = g->slot ? g->slot - 1 : 0;
+    ++ad->diagnostic_head;
+}
+
+const struct gc_gcad_diagnostic* gc_gcad_next_diagnostic(const struct gc_gcad* ad) {
+    if (ad->diagnostic_head == ad->diagnostic_tail) return 0;
+    return &ad->diagnostics[ad->diagnostic_tail % GC_GCAD_DIAGNOSTICS];
+}
+
+int gc_gcad_trace_record(const struct gc_gcad* ad, uint32_t* words) {
+    const struct gc_gcad_diagnostic* diagnostic = gc_gcad_next_diagnostic(ad);
+    if (!diagnostic) return 0;
+    words[GC_TR_CRASH_R1] = diagnostic->id;
+    words[GC_TR_CRASH_R1 + 1] = diagnostic->diagnostic;
+    words[GC_TR_CRASH_R1 + 2] = (uint32_t)diagnostic->result;
+    words[GC_TR_CRASH_R1 + 3] = diagnostic->slot;
+    return 1;
+}
+
+void gc_gcad_diagnostic_written(struct gc_gcad* ad) {
+    if (ad->diagnostic_head != ad->diagnostic_tail) ++ad->diagnostic_tail;
+}
+
+void gc_gcad_service(struct gc_gcad* ad, uint32_t now) {
+    uint32_t i, handed;
+    if (!ad->inited) {
+        gcad_links_init(&ad->g, ad->pads, &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
+        if (ad->known_dev >= 0) gcad_expect(&ad->g, ad->known_dev);
+        ad->inited = 1;
+    }
+    do {
+        handed = 0;
+        for (i = 0; i < GCAD_REQUESTS; ++i) {
+            struct gc_gcad_rq* rq = &ad->rq[i];
+            if (rq->state != GC_GCAD_RQ_DONE) continue;
+            rq->state = GC_GCAD_RQ_IDLE;
+            gcad_on_reply(&ad->g, rq->tag, rq->result, now);
+            handed = 1;
+        }
+    } while (handed);
+    gcad_tick(&ad->g, now);
+}
+
+#ifdef RT_TARGET_PPC
+
 /* The driver is only ever entered from here, with interrupts off and the
  * send handshake free: a reply arriving during one of its sends is marked
  * done and handed over by the loop below, never from inside the driver. */
 void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
-    uint32_t msr, reply, i, handed;
+    uint32_t msr, reply;
     if (ad->fd < 0) return;
     msr = gc_irq_off();
     if (gc_ipc_poll_blocked(ctx)) {
@@ -150,25 +206,11 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
     }
     ad->ctx = (uint32_t)(uintptr_t)ctx;
     ad->polls++;
-    if (!ad->inited) {
-        gcad_links_init(&ad->g, ad->pads, &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
-        if (ad->known_dev >= 0) gcad_expect(&ad->g, ad->known_dev);
-        ad->inited = 1;
-    }
     while ((reply = gc_ipc_take()) != 0) gc_ipc_route(ctx, reply);
-    do {
-        handed = 0;
-        for (i = 0; i < GCAD_REQUESTS; ++i) {
-            struct gc_gcad_rq* rq = &ad->rq[i];
-            if (rq->state != GC_GCAD_RQ_DONE) continue;
-            rq->state = GC_GCAD_RQ_IDLE;
-            gcad_on_reply(&ad->g, rq->tag, rq->result, ad_now());
-            handed = 1;
-        }
-    } while (handed);
-    gcad_tick(&ad->g, ad_now());
+    gc_gcad_service(ad, ad_now());
     gc_guard(ctx);
     gc_irq_restore(msr);
+    if (ctx->io_trace_where == 0 && gc_gcad_next_diagnostic(ad)) gc_on_trace_now(ctx, GC_TRACE_HID);
 }
 
 #endif /* RT_TARGET_PPC */

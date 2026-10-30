@@ -11,6 +11,7 @@
 
 #include "riftwii/wpadlog.hpp"
 #include "rtwlog.h"
+#include "rtgcad.h"
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -89,6 +90,15 @@ struct LogFile {
 };
 
 int main() {
+    {
+        LogFile log;
+        log.add(0, "RiftWii USB controller diagnostic", {0x054C0268, GCAD_HID_WAKE, 17});
+        log.add(2, "RiftWii USB controller diagnostic", {0x054C0268, GCAD_HID_SILENT, 17});
+        std::string text, error;
+        EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
+        EXPECT_TRUE(has(text, "USB controller 054c:0268: PS3 feature-report wake-up answered (result 17)."));
+        EXPECT_TRUE(has(text, "no input for 2 s"));
+    }
     // The print stub: found exactly, even twice; one changed word refuses it.
     {
         const std::vector<std::uint32_t> stub = {0x9421FF90, 0x40860024, 0xD8210028, 0xD8410030, 0xD8610038,

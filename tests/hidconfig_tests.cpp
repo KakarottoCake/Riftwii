@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "riftwii/gccrash.hpp"
 
 namespace {
 
@@ -131,7 +132,7 @@ void ParserAndReports() {
     Reject("VID=1\nPID=1\nPolltype=1\nStickX=0,0,-1\n");
     Reject("VID=1\nPID=1\nPolltype=1\nStickX=0,0,1001\n");
     Reject("VID=1\nPID=1\nPolltype=1\nStickX=0,0,\n");
-    Reject("VID=1\nPID=1\nPolltype=1\nDPAD=1\n");
+    CHECK(Parse("VID=1\nPID=1\nPolltype=1\nDPAD=1\n").dpad_mask == 15);
     Reject("VID=1\nPID=1\nPolltype=1\nDPAD=\n");
     Reject(std::string(8193, '#'));
     Reject(std::string("VID=1\0PID=1", 11));
@@ -179,6 +180,10 @@ struct Bus {
     unsigned missing = 0;
     unsigned found = 0;
     unsigned lost = 0;
+    struct Diagnostic { unsigned step, detail; int result; };
+    std::vector<Diagnostic> diagnostics;
+    std::vector<Request> outputs;
+    unsigned refuse_slot = GCAD_REQUESTS;
     std::uint32_t clock = 100;
 
     explicit Bus(unsigned version = 5, const std::string& config = Config()) {
@@ -215,7 +220,7 @@ struct Bus {
         data[start + 57] = 64;
     }
 
-    void List(const std::vector<rthid_device>& devices) {
+    void List(const std::vector<rthid_device>& devices, unsigned packet_bytes = 64) {
         auto* list = hub.adapter.change;
         std::memset(list, 0, sizeof(hub.adapter.change));
         if (hub.adapter.version == 5) {
@@ -230,6 +235,7 @@ struct Bus {
                 gcad_put32(list + offset, 68);
                 gcad_put32(list + offset + 4, device.id);
                 Descriptors(list + offset, 8);
+                list[offset + 8 + 49] = static_cast<std::uint8_t>(packet_bytes);
                 gcad_put32(list + offset + 16, device.vid_pid);
                 offset += 68;
             }
@@ -253,7 +259,17 @@ struct Bus {
                 if (hub.adapter.version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
                     Descriptors(static_cast<std::uint8_t*>(request.output), 36);
                 }
-                Reply(slot);
+                const bool wake = request.driver->mapping && (slot % GCAD_TAGS) == GCAD_TAG_SETUP &&
+                                  request.driver->setup_step == GCAD_STEP_CTRL;
+                if (wake) {
+                    const auto* message = request.driver->out_msg;
+                    const unsigned offset = hub.adapter.version == 5 ? 8 : 20;
+                    CHECK(message[offset] == 0xA1 && message[offset + 1] == 1);
+                    CHECK(message[offset + 2] == 3 && message[offset + 3] == 0xF2);
+                    CHECK(hub.adapter.version == 4 ? message[27] == 17 : request.bytes == 17);
+                    CHECK(!requests[(slot / GCAD_TAGS) * GCAD_TAGS + GCAD_TAG_IN].pending);
+                }
+                Reply(slot, wake ? 17 : 0);
             }
         }
     }
@@ -267,7 +283,156 @@ struct Bus {
         driver.in_data[4] = driver.in_data[6] = 127;
         Reply((pad + 1) * GCAD_TAGS + GCAD_TAG_IN, 64);
     }
+
+    unsigned Count(unsigned step) const {
+        unsigned count = 0;
+        for (const auto& diagnostic : diagnostics) {
+            if (diagnostic.step == step) ++count;
+        }
+        return count;
+    }
 };
+
+void LegacyConfigs() {
+    // Field values from the two reported Nintendont configurations. Keep
+    // these fixtures local: the tests do not depend on a reference checkout.
+    const auto saitek = Parse("[Saitek P990]\nVID=06A3\nPID=040B\nPolltype=1\nDPAD=1\nDigitalLR=0\n"
+        "Power=7,20\nA=6,4\nB=6,2\nX=7,1\nY=7,2\nZ=6,20\nL=6,40\nR=6,80\nS=7,10\n"
+        "Left=5,7\nDown=5,5\nRight=5,3\nUp=5,1\nStickX=0\nStickY=1\nCStickX=2\nCStickY=3\n"
+        "RAnalog=7,8\nLAnalog=7,4\n");
+    CHECK(saitek.analog_l == 7 && saitek.analog_r == 7 && saitek.report_bytes == 8);
+    CHECK(saitek.buttons[RTHID_RIGHT_UP].offset == 0 && saitek.buttons[RTHID_RIGHT_UP].mask == 0);
+    CHECK(saitek.dpad_mask == 255);
+    const auto gravis = Parse("[Gravis AfterShock]\nVID=047D\nPID=4006\nPolltype=1\nDPAD=1\n"
+        "B=6,02\nA=6,04\nY=6,01\nX=6,08\nL=6,10\nZL=6,40\nZ=6,80\nR=6,20\nS=7,02\nPower=7,03\n"
+        "Left=4,00\nDown=5,FF\nRight=4,FF\nUp=5,00\nStickX=0\nStickY=1\nCStickX=3\nCStickY=2\n"
+        "DigitalLR=1\nLAnalog=0\nRAnalog=0\nRumble=1\nRumbleType=0\nRumbleDataLen=05\n"
+        "RumbleDataOn=01,00,00,7F,7F\nRumbleDataOff=01,00,00,00,00\nRumbleTransferLen=05\nRumbleTransfers=1\n");
+    CHECK(gravis.dpad_mask == 255 && gravis.rumble_bytes == 5);
+    std::uint8_t report[8] = {128, 127, 128, 127, 0, 255, 4, 0};
+    gcad_pad pad{};
+    CHECK(rthid_decode(&gravis, report, sizeof(report), &pad));
+    CHECK(pad.buttons == (GCAD_PAD_A | GCAD_PAD_LEFT | GCAD_PAD_DOWN));
+    Reject("VID=1\nPID=1\nPolltype=1\nLAnalog=80,4\n");
+    Reject("VID=1\nPID=1\nPolltype=1\nLAnalog=7,100\n");
+}
+
+void SetupDiagnostics(unsigned version) {
+    const unsigned setup = GCAD_TAGS + GCAD_TAG_SETUP;
+    const unsigned input = GCAD_TAGS + GCAD_TAG_IN;
+    const unsigned output = GCAD_TAGS + GCAD_TAG_OUT;
+    Bus bus(version, "VID=054C\nPID=0268\nPolltype=0\nA=2,40\nLAnalog=30\n");
+    bus.hub.adapter.adapter_disabled = 1;
+    bus.List({{11, 0x054C0268}, {12, GCAD_VID_PID}});
+    bus.Settle();
+    CHECK(bus.hub.adapter.dev_id == -1);
+    CHECK(bus.hub.pads[0].link == GCAD_LINK_POLL);
+    CHECK(bus.outputs.size() == 1);
+    if (!bus.outputs.empty()) {
+        const auto& wake = bus.outputs[0];
+        CHECK(wake.bytes == 49 && wake.payload[0] == 1 && wake.payload[10] == 2);
+        CHECK(wake.payload[2] == 255 && wake.payload[3] == 0 && wake.payload[4] == 255 && wake.payload[5] == 0);
+        CHECK(wake.payload[11] == 255 && wake.payload[12] == 0x27 && wake.payload[15] == 0x32);
+    }
+    CHECK(bus.Count(GCAD_HID_WAKE) == 1 && bus.Count(GCAD_HID_OUTPUT) == 1 && bus.Count(GCAD_HID_POLL) == 1);
+    bus.clock += 2100;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    gcad_tick(&bus.hub.adapter, bus.clock + 1);
+    CHECK(bus.Count(GCAD_HID_SILENT) == 1);
+    bus.Reply(input, 4);
+    bus.Reply(input, 4);
+    CHECK(bus.Count(GCAD_HID_SHORT) == 1);
+    bus.hub.pads[0].in_data[2] = 0x40;
+    bus.Reply(input, 49);
+    CHECK(bus.Count(GCAD_HID_INPUT) == 1 && bus.requests[output].pending);
+    CHECK(bus.requests[output].payload[10] == 2);
+    bus.Reply(output, 49);
+    CHECK(bus.Count(GCAD_HID_LED) == 1);
+    bus.Reply(input, -7022);
+    CHECK(bus.Count(GCAD_HID_POLL_ERROR) == 1);
+
+    Bus small(version);
+    small.List({{11, 0x12345678}}, 4);
+    if (version == 5) {
+        small.clock += 600;
+        gcad_tick(&small.hub.adapter, small.clock);
+        small.Reply(setup, -4); // already resumed: still request device info
+        Bus::Descriptors(small.hub.pads[0].setup_out, 36);
+        small.hub.pads[0].setup_out[36 + 49] = 4;
+        small.Reply(setup);
+    } else {
+        small.hub.adapter.descriptors[0].packet_bytes = 4;
+        gcad_refresh_hid(&small.hub.adapter, small.clock);
+    }
+    CHECK(small.Count(GCAD_HID_DESCRIPTORS) == 1);
+    CHECK(!small.requests[input].pending);
+    CHECK(small.hub.pads[0].link == GCAD_LINK_FAILED || small.hub.pads[0].link == GCAD_LINK_BUSY);
+}
+
+void SetupFailures() {
+    const unsigned setup = GCAD_TAGS + GCAD_TAG_SETUP;
+    for (unsigned stage = 0; stage < 5; ++stage) {
+        Bus bus(5, "VID=054C\nPID=0268\nPolltype=0\nA=2,40\n");
+        bus.List({{11, 0x054C0268}});
+        if (stage == 0) bus.refuse_slot = setup;
+        bus.clock += 600;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+        if (stage == 0) {
+            CHECK(bus.Count(GCAD_HID_RESUME) == 1);
+            continue;
+        }
+        if (stage == 1) bus.refuse_slot = setup;
+        bus.Reply(setup);
+        if (stage == 1) {
+            CHECK(bus.Count(GCAD_HID_INFO) == 1);
+            continue;
+        }
+        Bus::Descriptors(bus.hub.pads[0].setup_out, 36);
+        if (stage == 2) bus.refuse_slot = setup;
+        bus.Reply(setup);
+        if (stage == 2) {
+            CHECK(bus.Count(GCAD_HID_WAKE) == 1);
+            continue;
+        }
+        if (stage == 3) bus.refuse_slot = GCAD_TAGS + GCAD_TAG_OUT;
+        bus.Reply(setup, 17);
+        if (stage == 3) {
+            CHECK(bus.Count(GCAD_HID_OUTPUT) == 1);
+            continue;
+        }
+        bus.refuse_slot = GCAD_TAGS + GCAD_TAG_IN;
+        bus.Reply(GCAD_TAGS + GCAD_TAG_OUT, 49);
+        CHECK(bus.Count(GCAD_HID_POLL) == 1);
+    }
+
+    Bus waiting(5, "VID=054C\nPID=0268\nPolltype=0\nA=2,40\n");
+    waiting.List({{11, 0x054C0268}});
+    waiting.clock += 600;
+    gcad_tick(&waiting.hub.adapter, waiting.clock);
+    waiting.clock += 2100;
+    gcad_tick(&waiting.hub.adapter, waiting.clock);
+    gcad_tick(&waiting.hub.adapter, waiting.clock + 1);
+    CHECK(waiting.Count(GCAD_HID_TIMEOUT) == 1);
+    CHECK(waiting.diagnostics.back().detail == GCAD_STEP_RESUME);
+
+    Bus failed_info;
+    failed_info.List({{11, 0x12345678}});
+    failed_info.clock += 600;
+    gcad_tick(&failed_info.hub.adapter, failed_info.clock);
+    failed_info.Reply(setup);
+    failed_info.Reply(setup, -6);
+    CHECK(failed_info.Count(GCAD_HID_INFO) == 1);
+    CHECK(failed_info.hub.pads[0].link == GCAD_LINK_BUSY);
+
+    Bus no_endpoints;
+    no_endpoints.List({{11, 0x12345678}});
+    no_endpoints.clock += 600;
+    gcad_tick(&no_endpoints.hub.adapter, no_endpoints.clock);
+    no_endpoints.Reply(setup);
+    no_endpoints.Reply(setup); // all-zero device-info reply
+    CHECK(no_endpoints.Count(GCAD_HID_DESCRIPTORS) == 1);
+    CHECK(no_endpoints.hub.pads[0].link == GCAD_LINK_BUSY);
+}
 
 void SharedDriver(unsigned version) {
     Bus bus(version);
@@ -308,6 +473,27 @@ void SharedDriver(unsigned version) {
     CHECK(gcad_read_ports(&adapter, 0, pads, bus.clock + GCAD_TIMEOUT_MS) == 0);
 }
 
+void CompositeV4() {
+    Bus bus(4);
+    bus.List({{11, 0x12345678}, {12, 0x12345678}, {13, 0x12345678}, {14, 0x12345678}});
+    for (unsigned i = 0; i < 3; ++i) {
+        auto& info = bus.hub.adapter.descriptors[i];
+        info.interface_number = static_cast<std::uint8_t>(i);
+        info.interface_class = 1;
+    }
+    gcad_refresh_hid(&bus.hub.adapter, bus.clock);
+    bus.Settle();
+    CHECK(bus.hub.adapter.excluded_count == 3);
+    for (unsigned i = 0; i < 3; ++i) CHECK(bus.hub.pads[i].dev_id == -1);
+    CHECK(bus.hub.pads[3].link == GCAD_LINK_POLL);
+    // The same list does not bring the audio interfaces back.
+    gcad_refresh_hid(&bus.hub.adapter, bus.clock);
+    for (unsigned i = 0; i < 3; ++i) CHECK(bus.hub.pads[i].dev_id == -1);
+    CHECK(bus.Count(GCAD_HID_INTERFACE) == 3);
+    bus.List({{14, 0x12345678}});
+    CHECK(bus.hub.adapter.excluded_count == 0);
+}
+
 void RumbleAndControl() {
     Bus bus(5, Config("Rumble=1\nRumbleType=1\nRumbleDataLen=4\nRumbleDataOn=AA,BB,CC,DD\n"
                       "RumbleDataOff=0,0,0,0\nRumbleTransferLen=2\nRumbleTransfers=2\n"));
@@ -343,6 +529,7 @@ void RumbleAndControl() {
 extern "C" {
 int32_t gcad_env_ioctl(gcad* driver, uint32_t tag, uint32_t command, void*, uint32_t, void* out, uint32_t bytes) {
     auto& bus = *static_cast<Bus*>(driver->env_ctx);
+    if (bus.refuse_slot == GCAD_REQUEST_SLOT(tag)) return -22;
     auto& request = bus.requests[GCAD_REQUEST_SLOT(tag)];
     CHECK(!request.pending);
     request = {};
@@ -355,32 +542,41 @@ int32_t gcad_env_ioctl(gcad* driver, uint32_t tag, uint32_t command, void*, uint
     if (driver->version == 4 && command == GCAD_V4_INTERRUPT_OUT) {
         request.bytes = gcad_get32(driver->out_msg + 24);
         std::memcpy(request.payload.data(), driver->out_data, request.bytes);
+        bus.outputs.push_back(request);
     }
     return 0;
 }
 
 int32_t gcad_env_ioctlv(gcad* driver, uint32_t tag, uint32_t command, void*, uint32_t, void* data,
                        uint32_t bytes, int data_in) {
-    gcad_env_ioctl(driver, tag, command, nullptr, 0, data, bytes);
+    const auto result = gcad_env_ioctl(driver, tag, command, nullptr, 0, data, bytes);
+    if (result < 0) return result;
     auto& bus = *static_cast<Bus*>(driver->env_ctx);
     if (data_in && bytes) std::memcpy(bus.requests[GCAD_REQUEST_SLOT(tag)].payload.data(), data, bytes);
+    if (data_in && command == GCAD_V5_INTERRUPT) bus.outputs.push_back(bus.requests[GCAD_REQUEST_SLOT(tag)]);
     return 0;
 }
 uint32_t gcad_env_address(gcad*, void*) { return 0; }
 void gcad_env_flush(gcad*, void*, uint32_t) {}
 void gcad_env_invalidate(gcad*, void*, uint32_t) {}
-void gcad_env_event(gcad* driver, uint32_t code, uint32_t, int32_t) {
+void gcad_env_event(gcad* driver, uint32_t code, uint32_t a, int32_t b) {
     auto& bus = *static_cast<Bus*>(driver->env_ctx);
     if (code == GCAD_EV_HID_MISSING) ++bus.missing;
     if (code == GCAD_EV_HID_FOUND) ++bus.found;
     if (code == GCAD_EV_HID_LOST) ++bus.lost;
+    if (code == GCAD_EV_HID_DIAG) bus.diagnostics.push_back({a & 255u, a >> 8, b});
 }
 }
 
 int main() {
     ParserAndReports();
+    LegacyConfigs();
+    SetupDiagnostics(4);
+    SetupDiagnostics(5);
+    SetupFailures();
     SharedDriver(4);
     SharedDriver(5);
+    CompositeV4();
     RumbleAndControl();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;
