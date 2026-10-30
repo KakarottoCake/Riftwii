@@ -152,6 +152,14 @@ bool PressedB(GuiTrigger* t) {
            (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B);
 }
 
+// Home's search button answers a GameCube controller's B and a Classic
+// Controller's ZL (rift_menu.cpp): while a game is carried, by the pointer
+// or the D-pad, from any controller, they don't reach it (#382).
+void KeepFromSearch(GuiTrigger* t) {
+    t->pad.btns_d &= ~PAD_BUTTON_B;
+    if (t->wpad) t->wpad->btns_d &= ~WPAD_CLASSIC_BUTTON_ZL;
+}
+
 // The cover zoom (GuiGameGrid::CoverZoomed): the cover comes up this tall,
 // in the middle of the screen and inside a TV's overscan (y 64 to 416),
 // in this long each way, over Home dimmed this much.
@@ -1342,7 +1350,10 @@ void GuiGameGrid::PutDown() {
 // Picking a game up, moving it and putting it down (SetMovable). True
 // while that has the controller's buttons.
 bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
-    if (carryDropped) return true;
+    if (carryDropped) {
+        KeepFromSearch(t);
+        return true;
+    }
     const int ch = t->chan;
     if (carryFrom < 0) {
         if (!movable || shelf || !PressedA(t) || !HeldLetterB(t)) return false;
@@ -1369,6 +1380,8 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         soundClick->Play();
         return true;
     }
+    const bool back = PressedB(t);
+    KeepFromSearch(t);
     // Another controller waits while one moves a game.
     if (ch != carryChan) return true;
     if (carryPointer) {
@@ -1406,13 +1419,11 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         PutDown();
         return true;
     }
-    if (PressedB(t)) {
+    if (back) {
         // Back where it was, nothing moved.
         CarryTo(carryFrom);
         PutDown();
         LettersDone(t);
-        // Home uses B for search otherwise; this press only cancels the move.
-        t->pad.btns_d &= ~PAD_BUTTON_B;
         return true;
     }
     const int cols = Cols();

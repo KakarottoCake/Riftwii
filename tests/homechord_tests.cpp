@@ -100,7 +100,8 @@ static void TestPair() {
         EXPECT_TRUE(p.down & kY);
     }
     // A popup closes after half a pair (forgotten and spent): the other
-    // half completes nothing, and letting go of the first does nothing.
+    // half completes nothing, and letting go of either does nothing (not
+    // Z's Settings, #382).
     {
         ViewPair v;
         Pad p;
@@ -109,6 +110,21 @@ static void TestPair() {
         riftwii::spend(v);
         EXPECT_TRUE(!PairFrame(v, true, p, kY | kZ));
         PairFrame(v, true, p, kZ);
+        EXPECT_TRUE(!(p.down & kY));
+        PairFrame(v, true, p, 0);
+        EXPECT_TRUE(!(p.down & kZ));
+    }
+    // The same with Z let go first: neither comes either.
+    {
+        ViewPair v;
+        Pad p;
+        PairFrame(v, true, p, kY);
+        riftwii::forget_pair(v);
+        riftwii::spend(v);
+        EXPECT_TRUE(!PairFrame(v, true, p, kY | kZ));
+        PairFrame(v, true, p, kY);
+        EXPECT_TRUE(!(p.down & kZ));
+        PairFrame(v, true, p, 0);
         EXPECT_TRUE(!(p.down & kY));
     }
     // Y woke the screen (spent) and is still held: Z makes no pair, and

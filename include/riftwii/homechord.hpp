@@ -63,11 +63,13 @@ inline bool watch_pair(ViewPair& v, bool watching, std::uint32_t& down, std::uin
     }
     const bool a = hold_back(v.first, down, held, first);
     const bool b = hold_back(v.second, down, held, second);
-    if (!(a && b && v.first_watched && v.second_watched)) return false;
+    if (!(a && b)) return false;
     // A half already used (a press that woke the screen, or this pair made
-    // while the other half was pressed again) makes the pair come to
-    // nothing, and the other half with it.
-    const bool fresh = !v.first.used && !v.second.used;
+    // while the other half was pressed again) or held since before Home
+    // watched (through a popup, say) makes the pair come to nothing, and
+    // the other half with it: the player meant the pair, not its other
+    // half's own job.
+    const bool fresh = v.first_watched && v.second_watched && !v.first.used && !v.second.used;
     v.first.used = v.second.used = true;
     return fresh;
 }
