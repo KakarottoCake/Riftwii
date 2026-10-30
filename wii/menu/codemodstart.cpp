@@ -126,8 +126,12 @@ void HoldCodeModAnswers(bool held) {
 bool RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys, CodeModStart picked) {
     if (g_held) return false;
     Answers();
-    // One the file couldn't take (it is full) isn't kept either.
+    // One the file couldn't take (it is full) isn't kept either. Nothing new
+    // (each mod already had its answer, or asks each time) writes nothing, so
+    // a locked card isn't a failed save the player didn't ask for.
+    const CodeModAnswers before = g_answers;
     const bool taken = remember_code_mod_answer(g_answers, game_id, keys, picked);
+    if (g_answers == before) return taken;
     return Save() && taken;
 }
 
