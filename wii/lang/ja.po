@@ -546,8 +546,8 @@ msgstr "アップデートの確認が終わるのを待っています..."
 msgid "GameCube adapter"
 msgstr "GCコントローラ接続タップ"
 
-msgid "Check the GameCube adapter"
-msgstr "接続タップを確認"
+msgid "Check USB controllers"
+msgstr "USBコントローラを確認"
 
 msgid "Test"
 msgstr "テスト"
@@ -630,8 +630,8 @@ msgstr "接続タップ：応答がありません（{1}）。もう一度ため
 msgid "Adapter: not found. Plug in its black USB plug."
 msgstr "接続タップ：見つかりません。黒いUSBプラグをつないでください。"
 
-msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
-msgstr "接続タップにつないだコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに接続タップのコントローラが入ります。"
+msgid "Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in."
+msgstr "接続タップにつないだコントローラやUSBコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに入ります。"
 
 msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
 msgstr "このIOSにはUSB HIDがありません（IOS{1}）。メニューのIOSにIOS 58かd2x cIOSを選んでください。"
@@ -2190,11 +2190,17 @@ msgstr "アダプターはどのUSBポートにつないでいますか?"
 msgid "Which port?"
 msgstr "どのポート?"
 
-msgid "USB keyboard, mouse and tablet"
-msgstr "USBキーボード・マウス・タブレット"
+msgid "USB controllers"
+msgstr "USBコントローラー"
 
-msgid "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."
-msgstr "オフ: RiftWiiはUSBキーボード、マウス、ペンタブレット、uDrawを使いません。どれかをつないだとき、またはつないでいないときにメニューの動きがおかしければ、オフにしてください。"
+msgid "USB controllers: working"
+msgstr "USBコントローラー: 動作中"
+
+msgid "USB input devices"
+msgstr "USB入力機器"
+
+msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "USBコントローラーはメニューとゲームでcontroller.iniを使います。オフではキーボード、マウス、タブレット、uDrawも使いません。"
 
 msgid "Wii Remote rumble"
 msgstr "Wiiリモコンの振動"

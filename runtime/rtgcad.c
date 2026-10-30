@@ -7,7 +7,7 @@
 
 #define BIT(tag) (1u << (tag))
 #define TAG_OF(value) ((value) & 15u)
-#define GEN_OF(value) ((value) >> 4)
+#define GEN_OF(value) (((value) >> 4) & 0x00FFFFFFu)
 
 uint32_t gcad_get32(const uint8_t* p) {
     return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
@@ -110,7 +110,9 @@ int gcad_pad_moved(const gcad_pad* before, const gcad_pad* now) {
     return 0;
 }
 
-static uint32_t tag_value(gcad* g, uint32_t tag) { return tag | (g->generation << 4); }
+static uint32_t tag_value(gcad* g, uint32_t tag) {
+    return tag | ((g->generation & 0x00FFFFFFu) << 4) | (g->slot << 28);
+}
 
 static void failed(gcad* g, uint32_t step, int32_t result) {
     ++g->errors;
@@ -231,7 +233,23 @@ static void submit_change(gcad* g, uint32_t now) {
     }
 }
 
+static int setup_waiting(const gcad* g) {
+    uint32_t i;
+    if (g->link == GCAD_LINK_SETTLE || g->link == GCAD_LINK_SETUP) return 1;
+    if (g->peers) {
+        for (i = 0; i < GCAD_HID_PADS; ++i) {
+            const gcad* peer = &g->peers[i];
+            if (peer->link == GCAD_LINK_SETTLE || peer->link == GCAD_LINK_SETUP) return 1;
+        }
+    }
+    return 0;
+}
+
 static void submit_finish(gcad* g, uint32_t now) {
+    if (setup_waiting(g)) {
+        g->finish_pending = 1;
+        return;
+    }
     g->finish_pending = 0;
     g->change_step = GCAD_STEP_FINISH;
     if (!ioctl_(g, GCAD_TAG_CHANGE, GCAD_STEP_FINISH, GCAD_V5_ATTACH_FINISH, 0, 0, 0, 0)) {
@@ -274,7 +292,7 @@ static void v5_message(gcad* g, uint8_t* msg, uint32_t out) {
 static int send_out(gcad* g, uint32_t step, uint32_t len) {
     gcad_env_flush(g, g->out_data, sizeof(g->out_data));
     if (g->version == 4) {
-        v4_request(g, g->out_msg, 0x02, g->out_data, len);
+        v4_request(g, g->out_msg, g->endpoint_out, g->out_data, len);
         return ioctl_(g, GCAD_TAG_OUT, step, GCAD_V4_INTERRUPT_OUT, g->out_msg, 32, 0, 0);
     }
     v5_message(g, g->out_msg, 1);
@@ -287,7 +305,51 @@ static void link_failed(gcad* g, uint32_t now, uint32_t link) {
     set_stale(g);
 }
 
+/* Class requests use separate messages on each request slot. This is
+ * also Polltype=0's PS3 input path; it never shares the rumble buffer. */
+static int control(gcad* g, uint32_t tag, uint32_t step, uint8_t* msg,
+                   uint8_t* data, uint32_t bytes, uint8_t type, uint8_t request, uint16_t value) {
+    zero(msg, 0x40);
+    gcad_env_flush(g, data, bytes);
+    if (g->version == 4) {
+        gcad_put32(msg + 16, (uint32_t)g->dev_id);
+        msg[20] = type;
+        msg[21] = request;
+        msg[22] = (uint8_t)(value >> 8);
+        msg[23] = (uint8_t)value;
+        msg[25] = g->interface_number;
+        msg[26] = (uint8_t)(bytes >> 8);
+        msg[27] = (uint8_t)bytes;
+        gcad_put32(msg + 28, gcad_env_address(g, data));
+        return ioctl_(g, tag, step, GCAD_V4_CONTROL, msg, 32, 0, 0);
+    }
+    gcad_put32(msg, (uint32_t)g->dev_id);
+    msg[8] = type;
+    msg[9] = request;
+    msg[10] = (uint8_t)(value >> 8);
+    msg[11] = (uint8_t)value;
+    msg[13] = g->interface_number;
+    return ioctlv_(g, tag, step, GCAD_V5_CONTROL, msg, data, bytes, (type & 0x80) == 0);
+}
+
+static void submit_poll(gcad* g);
+
+static void reports_started(gcad* g, uint32_t now) {
+    uint32_t i;
+    g->link = GCAD_LINK_POLL;
+    ++g->links;
+    g->data_time = now;
+    if (!g->mapping) gcad_env_event(g, GCAD_EV_LINKED, (uint32_t)g->dev_id, 0);
+    for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;
+    submit_poll(g);
+    if (!(g->busy & BIT(GCAD_TAG_IN))) link_failed(g, now, GCAD_LINK_FAILED);
+}
+
 static void start_init(gcad* g, uint32_t now) {
+    if (g->mapping) {
+        reports_started(g, now);
+        return;
+    }
     g->link = GCAD_LINK_INIT;
     zero(g->out_data, sizeof(g->out_data));
     g->out_data[0] = 0x13;
@@ -303,6 +365,18 @@ static void start_ctrl(gcad* g, uint32_t now) {
     g->link = GCAD_LINK_CTRL;
     g->link_time = now;
     g->setup_step = GCAD_STEP_CTRL;
+    if (g->mapping) {
+        /* Only PS3 needs a feature-report wakeup. Other pads already
+         * speak reports; do not send the adapter's init command to them. */
+        if (g->mapping->vid == 0x054C && g->mapping->pid == 0x0268) {
+            sent = control(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, g->out_msg,
+                           g->out_data, 17, 0xA1, 1, 0x03F2);
+            if (!sent) link_failed(g, now, GCAD_LINK_FAILED);
+        } else {
+            reports_started(g, now);
+        }
+        return;
+    }
     if (g->version == 4) {
         zero(g->setup_in, sizeof(g->setup_in));
         gcad_put32(g->setup_in + 16, (uint32_t)g->dev_id);
@@ -339,28 +413,154 @@ static void start_link(gcad* g, uint32_t now) {
 }
 
 static void drop_link(gcad* g) {
-    gcad_env_event(g, GCAD_EV_LOST, (uint32_t)g->dev_id, 0);
+    if (g->mapping) {
+        const uint32_t id = ((uint32_t)g->mapping->vid << 16) | g->mapping->pid;
+        gcad_env_event(g, GCAD_EV_HID_LOST, id, 0);
+    } else {
+        gcad_env_event(g, GCAD_EV_LOST, (uint32_t)g->dev_id, 0);
+    }
     g->dev_id = -1;
     g->link = GCAD_LINK_NONE;
     ++g->generation;  /* what the old link still has in flight is ignored */
     set_stale(g);
+    g->announced_port = 255;
+}
+
+/* IOS returns USB descriptors with each descriptor padded to a word and
+ * its 16-bit fields in CPU byte order. v5 prefixes them with 36 bytes;
+ * v4 starts them after its size and id. Never walk beyond that reply. */
+static int read_descriptors(gcad_descriptor* info, const uint8_t* bytes, uint32_t length, uint32_t offset) {
+    uint8_t input = 0, output = 0, interface_number = 0;
+    uint16_t packet = 0;
+    int hid_interface = 0;
+    while (offset + 2 <= length) {
+        const uint32_t size = bytes[offset];
+        const uint32_t type = bytes[offset + 1];
+        if (size < 2 || size > length - offset) break;
+        if (type == 4 && size >= 9) {
+            if (input) break; /* keep one HID interface's endpoints together */
+            interface_number = bytes[offset + 2];
+            hid_interface = bytes[offset + 5] == 3;
+        }
+        if (type == 5 && size >= 7 && hid_interface && (bytes[offset + 3] & 3u) == 3u) {
+            const uint8_t endpoint = bytes[offset + 2];
+            if ((endpoint & 0x80) && !input) {
+                input = endpoint;
+                packet = (uint16_t)(((uint16_t)bytes[offset + 4] << 8) | bytes[offset + 5]);
+            } else if (!(endpoint & 0x80)) {
+                output = endpoint;
+            }
+        }
+        offset += (size + 3u) & ~3u;
+    }
+    if (!input || !packet || packet > RTHID_REPORT_MAX) return 0;
+    info->endpoint_in = input;
+    info->endpoint_out = output;
+    info->interface_number = interface_number;
+    info->packet_bytes = packet;
+    return 1;
+}
+
+static int use_descriptors(gcad* g, const gcad_descriptor* info) {
+    if (!info->endpoint_in || info->packet_bytes < g->mapping->report_bytes) return 0;
+    g->endpoint_in = info->endpoint_in;
+    g->endpoint_out = info->endpoint_out;
+    g->interface_number = info->interface_number;
+    g->input_bytes = g->mapping->polltype ? info->packet_bytes : 49;
+    return g->input_bytes >= g->mapping->report_bytes;
+}
+
+static uint32_t mapping_id(const gcad* g) {
+    return ((uint32_t)g->mapping->vid << 16) | g->mapping->pid;
+}
+
+static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, uint32_t now) {
+    uint32_t i, j, previous_count;
+    int32_t previous[RTHID_DEVICE_MAX];
+    if (!g->peers || !g->catalog || count > RTHID_DEVICE_MAX) return;
+    previous_count = g->ignored_count;
+    for (i = 0; i < previous_count; ++i) previous[i] = g->ignored[i];
+    g->ignored_count = 0;
+    for (i = 0; i < GCAD_HID_PADS; ++i) {
+        gcad* peer = &g->peers[i];
+        if (peer->dev_id < 0) continue;
+        for (j = 0; j < count; ++j) {
+            if (devices[j].id == peer->dev_id && devices[j].vid_pid == mapping_id(peer)) break;
+        }
+        if (j == count) drop_link(peer);
+    }
+    for (i = 0; i < count; ++i) {
+        const rthid_mapping* mapping;
+        gcad* peer = 0;
+        if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id < 0) continue;
+        mapping = rthid_find(g->catalog, devices[i].vid_pid);
+        if (!mapping) {
+            for (j = 0; j < previous_count; ++j) if (previous[j] == devices[i].id) break;
+            if (j == previous_count) gcad_env_event(g, GCAD_EV_HID_MISSING, devices[i].vid_pid, 0);
+            g->ignored[g->ignored_count++] = devices[i].id;
+            continue;
+        }
+        if (g->version == 4 && (!g->descriptors[i].endpoint_in ||
+            g->descriptors[i].packet_bytes < mapping->report_bytes)) continue;
+        for (j = 0; j < GCAD_HID_PADS; ++j) {
+            if (g->peers[j].dev_id == devices[i].id) break;
+            if (!peer && g->peers[j].dev_id < 0 && !g->peers[j].busy) peer = &g->peers[j];
+        }
+        if (j < GCAD_HID_PADS || !peer) continue;
+        peer->mapping = mapping;
+        peer->dev_id = devices[i].id;
+        peer->announced_port = 255;
+        peer->link = GCAD_LINK_SETTLE;
+        peer->link_time = now;
+        peer->stale = 1;
+        gcad_env_event(peer, GCAD_EV_HID_FOUND, devices[i].vid_pid, devices[i].id);
+    }
 }
 
 static void submit_poll(gcad* g) {
-    g->in_data[0] = 0;
+    zero(g->in_data, sizeof(g->in_data));
     gcad_env_flush(g, g->in_data, sizeof(g->in_data));
+    if (g->mapping && !g->mapping->polltype) {
+        control(g, GCAD_TAG_IN, GCAD_STEP_POLL, g->in_msg,
+                g->in_data, g->input_bytes, 0xA1, 1, 0x0101);
+        return;
+    }
     if (g->version == 4) {
-        v4_request(g, g->in_msg, 0x81, g->in_data, GCAD_REPORT_BYTES);
+        v4_request(g, g->in_msg, g->endpoint_in, g->in_data, g->input_bytes);
         ioctl_(g, GCAD_TAG_IN, GCAD_STEP_POLL, GCAD_V4_INTERRUPT_IN, g->in_msg, 32, 0, 0);
     } else {
         v5_message(g, g->in_msg, 0);
-        ioctlv_(g, GCAD_TAG_IN, GCAD_STEP_POLL, GCAD_V5_INTERRUPT, g->in_msg, g->in_data, GCAD_REPORT_BYTES, 0);
+        ioctlv_(g, GCAD_TAG_IN, GCAD_STEP_POLL, GCAD_V5_INTERRUPT, g->in_msg, g->in_data, g->input_bytes, 0);
+    }
+}
+
+static void hid_rumble_transfer(gcad* g) {
+    const rthid_mapping* m = g->mapping;
+    const uint8_t* data = g->rumble_flight[0] ? m->rumble_on : m->rumble_off;
+    uint32_t i;
+    /* Interrupt rumble advances through the payload; control rumble
+     * repeats its first transfer, matching Nintendont's file semantics. */
+    const uint32_t offset = m->rumble_type ? g->rumble_index * m->rumble_transfer : 0;
+    for (i = 0; i < m->rumble_transfer; ++i) g->out_data[i] = data[offset + i];
+    if (m->rumble_type) {
+        if (g->endpoint_out) send_out(g, GCAD_STEP_RUMBLE, m->rumble_transfer);
+    } else {
+        control(g, GCAD_TAG_OUT, GCAD_STEP_RUMBLE, g->out_msg,
+                g->out_data, m->rumble_transfer, 0x21, 9, 0x0201);
     }
 }
 
 static void pump_rumble(gcad* g) {
     uint32_t i, differ = 0;
     if (g->busy & BIT(GCAD_TAG_OUT)) return;
+    if (g->mapping) {
+        if (!g->mapping->rumble_bytes || (g->mapping->rumble_type && !g->endpoint_out) ||
+            g->rumble_want[0] == g->rumble_sent[0]) return;
+        g->rumble_flight[0] = g->rumble_want[0];
+        g->rumble_index = 0;
+        hid_rumble_transfer(g);
+        return;
+    }
     for (i = 0; i < GCAD_PORTS; ++i) differ |= (uint32_t)(g->rumble_want[i] != g->rumble_sent[i]);
     if (!differ) return;
     zero(g->out_data, sizeof(g->out_data));
@@ -446,13 +646,56 @@ void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ti
     g->ticks_per_ms = ticks_per_ms ? ticks_per_ms : 1;
     g->dev_id = -1;
     g->stale = 1;
+    g->input_bytes = GCAD_REPORT_BYTES;
+    g->endpoint_in = 0x81;
+    g->endpoint_out = 0x02;
+    g->announced_port = 255;
+    for (i = 0; i < GCAD_PORTS; ++i) g->port_source[i] = (uint8_t)i;
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;  /* unknown: the first poll turns rumble off */
 }
 
-void gcad_expect(gcad* g, int32_t dev_id) { g->dev_id = dev_id; }
+void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    gcad_links_init(&hub->adapter, hub->pads, &hub->catalog, env_ctx, fd, version, ticks_per_ms);
+}
+
+void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
+                     void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms) {
+    uint32_t i;
+    gcad_init(g, env_ctx, fd, version, ticks_per_ms);
+    if (!rthid_catalog_valid(catalog)) {
+        catalog->count = 0;
+        catalog->known_count = 0;
+        catalog->adapter_disabled = 0;
+    }
+    g->catalog = catalog;
+    g->adapter_disabled = (uint8_t)catalog->adapter_disabled;
+    g->peers = pads;
+    for (i = 0; i < GCAD_HID_PADS; ++i) {
+        gcad* peer = &pads[i];
+        gcad_init(peer, env_ctx, fd, version, ticks_per_ms);
+        peer->owner = g;
+        peer->slot = i + 1;
+        peer->started = 1; /* only the owner requests a device list */
+    }
+    if (version == 5) {
+        hid_devices(g, catalog->known, catalog->known_count, 0);
+        for (i = 0; i < catalog->known_count; ++i) {
+            if (!g->adapter_disabled && catalog->known[i].vid_pid == GCAD_VID_PID) g->dev_id = catalog->known[i].id;
+        }
+    }
+}
+
+void gcad_expect(gcad* g, int32_t dev_id) {
+    if (!g->adapter_disabled) g->dev_id = dev_id;
+}
 
 void gcad_tick(gcad* g, uint32_t now) {
+    uint32_t i;
     if (g->stopping || (g->version != 4 && g->version != 5)) return;
+    if (g->peers) {
+        for (i = 0; i < GCAD_HID_PADS; ++i) gcad_tick(&g->peers[i], now);
+        if (g->finish_pending && !(g->busy & BIT(GCAD_TAG_SETUP)) && !setup_waiting(g)) submit_finish(g, now);
+    }
     if (!g->started) {
         g->started = 1;
         g->data_time = now;
@@ -474,18 +717,29 @@ void gcad_tick(gcad* g, uint32_t now) {
         start_link(g, now);
     }
     if (g->link == GCAD_LINK_SETTLE && elapsed(now, g->link_time) >= ms(g, GCAD_SETTLE_MS)) {
-        g->finish_pending = 1;  /* sent once the setup is done, as fakemote does */
+        if (!g->owner) g->finish_pending = g->version == 5;
+        /* v5 descriptor setup is serial across the shared list. */
+        if (g->owner) {
+            if (g->owner->link == GCAD_LINK_SETUP || (g->owner->busy & BIT(GCAD_TAG_SETUP))) return;
+            for (i = 0; i < GCAD_HID_PADS; ++i) {
+                if (g->owner->peers[i].link == GCAD_LINK_SETUP) return;
+            }
+        }
         start_link(g, now);
         if (!(g->busy & BIT(GCAD_TAG_SETUP)) && g->finish_pending) submit_finish(g, now);
     }
-    if (g->link == GCAD_LINK_CTRL && elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) start_init(g, now);
+    if (g->link == GCAD_LINK_CTRL && elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) {
+        if (g->mapping) link_failed(g, now, GCAD_LINK_FAILED);
+        else start_init(g, now);
+    }
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
 }
 
 static void on_change(gcad* g, int32_t result, uint32_t now) {
     int32_t found;
     int start = 0;
-    uint32_t i;
+    uint32_t i, count = 0;
+    rthid_device devices[RTHID_DEVICE_MAX];
     if (g->change_step == GCAD_STEP_FINISH) {
         submit_change(g, now);
         return;
@@ -505,6 +759,12 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
             const uint32_t size = gcad_get32(g->change + at);
             if (size == 0xFFFFFFFFu || size < 20 || (size & 3) != 0 || size > 0x600 - at) break;
             gcad_env_event(g, GCAD_EV_DEVICE, gcad_get32(g->change + at + 4), (int32_t)gcad_get32(g->change + at + 16));
+            if (count < RTHID_DEVICE_MAX) {
+                devices[count].id = (int32_t)gcad_get32(g->change + at + 4);
+                zero(&g->descriptors[count], sizeof(gcad_descriptor));
+                read_descriptors(&g->descriptors[count], g->change + at, size, 8);
+                devices[count++].vid_pid = gcad_get32(g->change + at + 16);
+            }
             ++g->listed;
             at += size;
         }
@@ -514,9 +774,15 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         for (i = 0; i < g->listed; ++i) {
             gcad_env_event(g, GCAD_EV_DEVICE, gcad_get32(g->change + i * 12),
                            (int32_t)gcad_get32(g->change + i * 12 + 4));
+            devices[count].id = (int32_t)gcad_get32(g->change + i * 12);
+            devices[count++].vid_pid = gcad_get32(g->change + i * 12 + 4);
         }
         found = gcad_find_v5(g->change, g->listed);
     }
+    if (g->adapter_disabled) found = -1;
+    g->device_count = count;
+    for (i = 0; i < count; ++i) g->devices[i] = devices[i];
+    gcad_refresh_hid(g, now);
     if (g->dev_id >= 0 && found != g->dev_id) drop_link(g);
     if (found >= 0 && g->dev_id < 0) {
         g->dev_id = found;
@@ -540,9 +806,28 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     }
 }
 
+void gcad_refresh_hid(gcad* g, uint32_t now) {
+    uint32_t i, j;
+    if (!g->peers || !g->changes || g->stopping) return;
+    hid_devices(g, g->devices, g->device_count, now);
+    if (g->version == 4) {
+        for (i = 0; i < GCAD_HID_PADS; ++i) {
+            gcad* peer = &g->peers[i];
+            if (peer->link != GCAD_LINK_SETTLE) continue;
+            for (j = 0; j < g->device_count; ++j) {
+                if (g->devices[j].id == peer->dev_id && !use_descriptors(peer, &g->descriptors[j])) drop_link(peer);
+            }
+        }
+    }
+}
+
 static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
     if (g->setup_step == GCAD_STEP_CTRL) {
         g->ctrl_result = result;
+        if (g->mapping && result < 0 && current) {
+            link_failed(g, now, GCAD_LINK_FAILED);
+            return;
+        }
         if (current && g->link == GCAD_LINK_CTRL && !g->stopping) start_init(g, now);
         return;
     }
@@ -554,8 +839,14 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
         } else {
             g->info_result = result;
             if (result >= 0) {
+                gcad_descriptor info;
                 gcad_env_invalidate(g, g->setup_out, sizeof(g->setup_out));
-                g->link = GCAD_LINK_INIT;
+                if (!g->mapping || (read_descriptors(&info, g->setup_out, sizeof(g->setup_out), 36) && use_descriptors(g, &info))) {
+                    g->link = GCAD_LINK_INIT;
+                } else {
+                    failed(g, GCAD_STEP_INFO, -4);
+                    link_failed(g, now, GCAD_LINK_BUSY);
+                }
             } else {
                 failed(g, GCAD_STEP_INFO, result);
                 link_failed(g, now, GCAD_LINK_BUSY);
@@ -578,17 +869,15 @@ static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
             link_failed(g, now, GCAD_LINK_FAILED);
             return;
         }
-        g->link = GCAD_LINK_POLL;
-        ++g->links;
-        g->data_time = now;
-        gcad_env_event(g, GCAD_EV_LINKED, (uint32_t)g->dev_id, 0);
-        for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;
-        submit_poll(g);
-        if (!(g->busy & BIT(GCAD_TAG_IN))) link_failed(g, now, GCAD_LINK_FAILED);
+        reports_started(g, now);
         return;
     }
     if (result < 0) {
         failed(g, GCAD_STEP_RUMBLE, result);
+        return;
+    }
+    if (g->mapping && ++g->rumble_index < g->mapping->rumble_count) {
+        hid_rumble_transfer(g);
         return;
     }
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = g->rumble_flight[i];
@@ -603,7 +892,17 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
         return;
     }
     gcad_env_invalidate(g, g->in_data, sizeof(g->in_data));
-    if (g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {
+    if (g->mapping) {
+        const uint32_t bytes = result == 0 ? g->input_bytes : (uint32_t)result;
+        if (bytes <= g->input_bytes && rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad)) {
+            if (g->mapping->rumble_type && !g->endpoint_out) g->hid_pad.wireless = 1;
+            g->data_time = now;
+            g->stale = 0;
+            ++g->reports;
+        } else {
+            ++g->bad_reports;
+        }
+    } else if (g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {
         take_report(g, now);
     } else {
         ++g->bad_reports;
@@ -618,8 +917,16 @@ static void stop_next(gcad* g);
 
 void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
     const uint32_t tag = TAG_OF(tag_value_);
-    const int current = GEN_OF(tag_value_) == (g->generation & 0x0FFFFFFFu);
+    int current;
     uint32_t step = 0;
+    if (!g->owner && GCAD_SLOT(tag_value_)) {
+        const uint32_t slot = GCAD_SLOT(tag_value_);
+        if (g->peers && slot <= GCAD_HID_PADS) gcad_on_reply(&g->peers[slot - 1], tag_value_, result, now);
+        if (!g->stopping) gcad_refresh_hid(g, now);
+        return;
+    }
+    if (GCAD_SLOT(tag_value_) != g->slot) return;
+    current = GEN_OF(tag_value_) == (g->generation & 0x00FFFFFFu);
     if (tag == 0 || tag >= GCAD_TAGS) return;
     g->busy &= ~BIT(tag);
     if (tag == GCAD_TAG_CHANGE) step = g->change_step;
@@ -643,7 +950,7 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
     else if (tag == GCAD_TAG_IN) on_in(g, result, current, now);
 }
 
-int gcad_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
+static int adapter_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
     if (port >= GCAD_PORTS || g->link != GCAD_LINK_POLL || g->stale || g->stopping) return 0;
     if (elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) {
         set_stale(g);
@@ -653,8 +960,61 @@ int gcad_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
     return gcad_decode(g->raw[port], g->origin[port], out);
 }
 
+uint32_t gcad_read_ports(gcad* g, uint32_t taken, gcad_pad out[GCAD_PORTS], uint32_t now) {
+    uint32_t i, port, filled = 0;
+    for (i = 0; i < GCAD_PORTS; ++i) g->port_source[i] = 255;
+    for (i = 0; i < GCAD_PORTS + GCAD_HID_PADS; ++i) {
+        gcad_pad pad;
+        gcad* peer = 0;
+        if (i < GCAD_PORTS) {
+            if (!adapter_port(g, i, &pad, now)) continue;
+            port = i;
+        } else {
+            if (!g->peers) break;
+            peer = &g->peers[i - GCAD_PORTS];
+            if (!peer->mapping || peer->link != GCAD_LINK_POLL || peer->stale || peer->stopping ||
+                elapsed(now, peer->data_time) >= ms(peer, GCAD_TIMEOUT_MS)) continue;
+            pad = peer->hid_pad;
+            port = GCAD_PORTS;
+        }
+        if (port >= GCAD_PORTS || ((taken | filled) & BIT(port))) {
+            for (port = 0; port < GCAD_PORTS; ++port) if (!((taken | filled) & BIT(port))) break;
+        }
+        if (port == GCAD_PORTS) continue;
+        out[port] = pad;
+        filled |= BIT(port);
+        g->port_source[port] = (uint8_t)i;
+        if (peer && peer->announced_port != port) {
+            peer->announced_port = (uint8_t)port;
+            gcad_env_event(peer, GCAD_EV_HID_PORT, mapping_id(peer), (int32_t)port);
+        }
+    }
+    return filled;
+}
+
+int gcad_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
+    gcad_pad pads[GCAD_PORTS];
+    uint32_t filled;
+    if (port >= GCAD_PORTS) return 0;
+    if (!g->peers) return adapter_port(g, port, out, now);
+    filled = gcad_read_ports(g, 0, pads, now);
+    if (!(filled & BIT(port))) return 0;
+    *out = pads[port];
+    return 1;
+}
+
 void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
     if (port >= GCAD_PORTS) return;
+    if (g->peers) {
+        const uint32_t source = g->port_source[port];
+        if (source >= GCAD_PORTS && source < GCAD_PORTS + GCAD_HID_PADS) {
+            gcad* peer = &g->peers[source - GCAD_PORTS];
+            peer->rumble_want[0] = (uint8_t)(command == 1 && peer->mapping && peer->mapping->rumble_bytes);
+            return;
+        }
+        if (source >= GCAD_PORTS) return;
+        port = source;
+    }
     /* A WaveBird has no motor (Dolphin skips it too). */
     g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) ? 1 : 0);
 }
@@ -672,7 +1032,7 @@ static void stop_next(gcad* g) {
             g->stopping |= 4;
             zero(g->stop_msg, sizeof(g->stop_msg));
             gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-            g->stop_msg[4] = 0x81;
+            g->stop_msg[4] = g->endpoint_in;
             ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
             return;
         }
@@ -680,7 +1040,7 @@ static void stop_next(gcad* g) {
             g->stopping |= 8;
             zero(g->stop_msg, sizeof(g->stop_msg));
             gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-            g->stop_msg[4] = 0x02;
+            g->stop_msg[4] = g->endpoint_out;
             ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
         }
         return;
@@ -709,13 +1069,23 @@ static void stop_next(gcad* g) {
 }
 
 void gcad_stop(gcad* g, uint32_t now) {
-    (void)now;
+    uint32_t i;
     if (g->stopping) return;
     g->stopping = 1;
     set_stale(g);
+    if (g->peers) {
+        for (i = 0; i < GCAD_HID_PADS; ++i) gcad_stop(&g->peers[i], now);
+    }
     stop_next(g);
 }
 
-int gcad_idle(const gcad* g) { return g->busy == 0; }
+int gcad_idle(const gcad* g) {
+    uint32_t i;
+    if (g->busy) return 0;
+    if (g->peers) {
+        for (i = 0; i < GCAD_HID_PADS; ++i) if (g->peers[i].busy) return 0;
+    }
+    return 1;
+}
 
 void gcad_release(gcad* g) { (void)g; }

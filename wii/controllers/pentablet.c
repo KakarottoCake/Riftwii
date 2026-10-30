@@ -694,6 +694,8 @@ s32 __real_USB_GetDeviceList(usb_device_entry *list, u8 max, u8 cls, u8 *count);
  * device's removal hooks: the adapter's driver (gcadapter.cpp) may hold it
  * through libogc's handle. RiftWii's own adapter code asks for the whole
  * list (USB_GetDeviceListUnfiltered). */
+extern int riftwii_hid_pad_configured(u16 vid, u16 pid);
+
 s32 __wrap_USB_GetDeviceList(usb_device_entry *list, u8 max, u8 cls, u8 *count)
 {
 	s32 ret = __real_USB_GetDeviceList(list, max, cls, count);
@@ -706,6 +708,8 @@ s32 __wrap_USB_GetDeviceList(usb_device_entry *list, u8 max, u8 cls, u8 *count)
 		if (tablet_vendor(vid) || listed(tb_tablets, tb_ntablets, vid, pid))
 			continue;
 		if (cls == USB_CLASS_HID && vid == 0x057E && pid == 0x0337)
+			continue;
+		if (cls == USB_CLASS_HID && riftwii_hid_pad_configured(vid, pid))
 			continue;
 		list[kept++] = list[i];
 	}
