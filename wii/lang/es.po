@@ -1417,7 +1417,7 @@ msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If
 msgstr "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador."
 
 msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
-msgstr "La mayoría de los mods de códigos, como Project+, funcionan con los extras de RiftWii. Si uno se queda con la pantalla en negro, inícialo sin ellos. RiftWii lo recordará para {1}; se cambia en la página de Mods."
+msgstr "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods."
 
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii."
@@ -1435,7 +1435,7 @@ msgid "With extras"
 msgstr "Con extras"
 
 msgid "Crash reports, back to RiftWii"
-msgstr "Informes de fallos, volver a RiftWii"
+msgstr "Informes de fallos, volver"
 
 msgid "Without extras"
 msgstr "Sin extras"
