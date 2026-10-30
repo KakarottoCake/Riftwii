@@ -17,17 +17,6 @@ constexpr std::size_t kCount = (sizeof(kColours) - 1) / 12;
 
 int Hex(char c) { return c <= '9' ? c - '0' : c - 'a' + 10; }
 
-// Series whose cases share one colour in every region and edition, so a
-// copy GameTDB does not list (another region, a mod keeping the game's
-// first letters) still gets it. By the ID's first three characters.
-struct Series {
-    const char* prefix;
-    std::uint8_t rgb[3];
-};
-const Series kSeries[] = {
-    {"SMN", {0xff, 0x00, 0x00}},  // New Super Mario Bros. Wii: red
-};
-
 // The ID, upper case, if it is three to six letters and digits. The
 // length is checked first, so a long run of junk is never copied.
 bool CleanId(std::string_view word, std::string& id) {
@@ -133,12 +122,10 @@ CaseColourSource resolve_case_colour(const std::string& game_id, bool gamecube, 
         for (int i = 0; i < 3; ++i) rgb[i] = best->rgb[i];
         return CaseColourSource::Player;
     }
+    // GameTDB's colour for this exact game only: a mod that keeps the
+    // game's first letters (SMNE with a maker code of its own) is not the
+    // game, and took its red case and tint.
     if (game_case_colour(id, rgb)) return CaseColourSource::GameTdb;
-    for (const Series& series : kSeries) {
-        if (!StartsWith(id, series.prefix)) continue;
-        for (int i = 0; i < 3; ++i) rgb[i] = series.rgb[i];
-        return CaseColourSource::Series;
-    }
     // A GameCube case is black, a Wii case white.
     const std::uint8_t console = gamecube ? 0x00 : 0xff;
     rgb[0] = rgb[1] = rgb[2] = console;
