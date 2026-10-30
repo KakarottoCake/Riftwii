@@ -11,6 +11,7 @@
 #include "boot.hpp"
 #include "riftwii/bnr.hpp"
 #include "riftwii/launch.hpp"
+#include "riftwii/expand.hpp"
 #include "riftwii/patch.hpp"
 #include "rtable.h"
 
@@ -40,6 +41,7 @@ struct CompiledMod {
     bool savegame_clone = false;      // the <savegame> used (the last picked) asks for clone (the default)
     std::vector<std::string> notes;  // one line per folder, patched file and memory patch, for the log
     std::vector<std::string> warnings;  // from the package parser
+    std::vector<MissingModInput> missing_inputs;
     // The game's executable, when a patch names the bare file "main.dol"
     // (as Riivolution and Dolphin treat it; CT-CODE packs replace it this
     // way): the whole patched DOL, for the apploader only.

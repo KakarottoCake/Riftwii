@@ -55,6 +55,14 @@ USB drive (FAT32 or NTFS). On a USB drive, make the same `wbfs` and
 | Wii game, `.rvz` | `games` | `games/Mario Kart Wii.rvz` |
 | GameCube game (`.iso`, `.gcm` or `.rvz`) | a **folder of its own** inside `games` | `games/Luigi's Mansion/game.iso` |
 
+GameCube game folders kept in another folder at the top of the drive
+(`game1/Luigi's Mansion/game.iso`, say) are found too, as long as the
+image is named `game.iso`, `game.gcm` or `game.rvz` as Nintendont names it.
+RiftWii decides by looking in that folder's first four subfolders only: if
+none of those holds such an image, the folder is passed over. To be sure
+every game is found, keep them in `games`, or name the folder in
+`game_folders` (see [Installing](#installing)).
+
 A big `.wbfs` that was split into pieces (`.wbfs`, `.wbf1`, `.wbf2`, …)
 is fine: keep all the pieces together in the same folder.
 
@@ -221,9 +229,16 @@ when released; L held with a D-pad letter jump does not page again on
 release. L and R together never page, keeping L+R+Down for screenshots.
 Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
-game of the next or the previous letter (Down and Up turn a
-page); B pressed alone on a Wii Remote, Classic Controller or GamePad jumps
-to the next letter. Letter jumps work in A to Z order. The magnifier button
+game of the next or the previous letter; B pressed alone on a Wii Remote,
+Classic Controller or GamePad jumps to the next letter. Letter jumps work in
+A to Z order. Hold **B** (L on a GameCube controller) and press **Down** or
+**Up** to pick a genre: a list of the genres your games have shows in the
+middle of the screen (the most common first), and holding Down or Up scrolls
+through it. Let go of B (or L) and Home shows only that genre's games; pick
+**Every genre** to see them all again. The genres come from GameTDB's game
+details, so they need Settings > Online > Downloads on (without a local
+GameTDB copy, a game's About page offers the download only when Downloads
+is on). The magnifier button
 above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
@@ -609,6 +624,21 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Banner music on game pages** (off at first): opening a game's page
+  from Home's covers, shelf, carousel, 3D covers or names plays the game's
+  banner music, as the Channels view's banner screen does, with the menu's
+  music paused until you leave the page (a looping one keeps looping on
+  the pages opened from it, such as Mods). The Channels view already plays
+  it on its banner screen, so the row is dimmed there. A game whose banner
+  is not on the SD card yet has it read from its image first (a moment on
+  USB). `page_banner_sound = on|off` in `settings.txt`.
+- **Disc art** (off at first): GameTDB's picture of the game's disc,
+  under the box on the game's page, with the Favourite tile narrowed to
+  its star beside it. It is downloaded the first time the
+  page opens with Downloads on, kept in `sd:/riftwii/discs` exactly as
+  GameTDB serves it (a PNG, over HTTPS), and asked for again after a week
+  when GameTDB had none. A stored picture that can't be read is downloaded
+  again. `disc_art = on|off` in `settings.txt`.
 - **In-game screenshots** (experimental, off at first): see Screenshots
   below. The picture is written straight from the screen, using almost
   none of the game's memory (games need it: keeping a copy of the
@@ -624,7 +654,7 @@ the tiles.
   covers): retries the covers, boxes
   and 3D covers Home is missing when you return to Home, with downloads on.
   Games GameTDB has no picture for stay without one.
-- **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
+- **GameCube adapter** (experimental), and **Check USB controllers** (below).
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.
 - **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
@@ -1194,7 +1224,7 @@ games that support the GameCube controller (Mario Kart Wii, Super Smash
 Bros. Brawl and others), its controllers fill the ports that have no
 controller plugged in, rumble included. Its controllers work the RiftWii
 menu too, like a GameCube controller in the Wii's own ports.
-**Check the GameCube adapter** shows what each port reports before you
+**Check USB controllers** shows what each port reports before you
 start a game.
 
 **Check each cIOS** on that page restarts RiftWii and asks IOS 58 and
@@ -1245,6 +1275,42 @@ also reaches the adapter's controllers.
 > twice before it turns **On** on a Wii U. Leave it on **Automatic**
 > unless you are testing the adapter, and send a problem report when it
 > freezes.
+
+### USB gamepads as GameCube controllers
+
+Turn on **Settings > Controllers > USB input devices** (on by default).
+A USB pad can control the menu, GameCube games, and Wii games that support
+GameCube controllers. Open **Settings > Controllers > Check USB controllers**
+to see its buttons and sticks. The separate GameCube
+adapter setting still controls the WUP-028 adapter.
+
+Use an existing Nintendont `controller.ini` for your device. RiftWii looks
+in this order, where `VID_PID` is the pad's four-digit hexadecimal vendor
+and product IDs, for example `1234_5678`:
+
+1. `sd:/riftwii/controllers/VID_PID.ini`
+2. `sd:/controllers/VID_PID.ini`
+3. `sd:/controller.ini`, when its VID and PID match the pad.
+
+The session log names the file used, the device, its assigned port and an
+unplug. With no usable file it names the IDs and the path to use; RiftWii
+does not guess a layout. Restart RiftWii after editing a file. A broken
+file in a higher folder is reported and must be fixed or removed before
+a lower folder is used. Native GameCube pads keep their ports, adapter
+pads fill next, then USB pads, one per empty port.
+
+Files are limited to 8 KiB, reports and rumble data to 128 bytes, and a
+session to 16 different mappings and four USB pads. Connected devices are
+loaded first. Remaining mapping slots are filled from the two controller
+folders and the single file for pads plugged in during a game. If you keep
+a large config collection, connect the pads you will use before launching.
+The usual button masks, bit or hat D-pads, stick deadzones and radius,
+digital or analog triggers, `Polltype=0/1`, `MultiIn=0/1`, and explicit
+rumble data are supported. Multi-controller report formats (`MultiIn=2/3/4`)
+and device-specific packed/signed stick encodings are not supported.
+`Power` is accepted but does not turn off the console. Rumble stays off
+unless the file supplies its commands. The same IOS and USB-drive limits
+as the GameCube adapter apply; real USB pads need checking on a Wii.
 
 ### Wii Remote controls in GameCube games
 
