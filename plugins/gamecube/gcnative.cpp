@@ -2827,6 +2827,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // take their ports before the Wii Remotes.
     if (gcad_addr != 0) {
         auto* ad = static_cast<gc_gcad*>(staged(gcad_addr));
+        if (extras.hid_catalog != nullptr) {
+            std::memcpy(&ad->catalog, extras.hid_catalog, sizeof(ad->catalog));
+        }
         ad->fd = extras.adapter_fd;
         ad->version = extras.adapter_version;
         ad->known_dev = extras.adapter_dev;
