@@ -3033,6 +3033,9 @@ msgstr "ペアレンタルコントロールのPINではありません。"
 msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
 msgstr "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。"
 
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "このゲームの対象年れいを読み込めなかったため、ペアレンタルコントロールがロックしています。遊ぶにはPINを入力してください。"
+
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。"
 
@@ -3096,8 +3099,8 @@ msgstr "この年れいより上向けのゲームにはPINが必要です。対
 msgid "Games with no rating"
 msgstr "対象年れいがないゲーム"
 
-msgid "A game's rating is known once GameTDB's database has been read for it (Download names and cheats). Treat as too old locks or hides the others too."
-msgstr "ゲームの対象年れいは、GameTDBのデータベースを読み込むとわかります (名前とチートをダウンロード)。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。"
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "対象年れいはGameTDBのデータベース ({2} > {3}の「{1}」) からわかり、ゲームを始めるときか、そのゲームの「情報」を開いたときに読み込まれます。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。"
 
 msgid "Turn off parental controls"
 msgstr "ペアレンタルコントロールをオフにする"

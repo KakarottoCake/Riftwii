@@ -3033,6 +3033,9 @@ msgstr "Ce n'est pas le code PIN du contrôle parental."
 msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
 msgstr "Ce jeu n'a pas de classification d'âge connue, et le contrôle parental verrouille les jeux sans classification. Entrez le code PIN pour y jouer."
 
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "La classification d'âge de ce jeu n'a pas pu être lue, donc le contrôle parental le verrouille. Entrez le code PIN pour y jouer."
+
 msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
 msgstr "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer."
 
@@ -3096,8 +3099,8 @@ msgstr "Les jeux classés pour des joueurs plus âgés que cela demandent le cod
 msgid "Games with no rating"
 msgstr "Jeux sans classification"
 
-msgid "A game's rating is known once GameTDB's database has been read for it (Download names and cheats). Treat as too old locks or hides the others too."
-msgstr "La classification d'un jeu est connue une fois la base de données de GameTDB lue pour lui (Télécharger noms et codes). Traiter comme trop âgés verrouille ou masque aussi les autres."
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "Les classifications viennent de la base de données de GameTDB ({1} dans {2} > {3}), lue pour un jeu quand il démarre ou quand sa page À propos s'ouvre. Traiter comme trop âgés verrouille ou masque aussi les autres."
 
 msgid "Turn off parental controls"
 msgstr "Désactiver le contrôle parental"

@@ -1272,23 +1272,32 @@ struct HomeRow {
 	const riftwii::wii::ImageGame* game;
 };
 
-// What parental controls (riftwii/parental.hpp) do with the game `id`:
-// its age from GameTDB's rating, as the About page's cache has it. A game
-// the cache does not know yet counts as unrated.
+// The key GameTDB lists the game `id` under: a channel's four letters
+// ("WBME"), not the six of its game ID; any other game's own ID.
+static std::string GameInfoKey(const std::string& id, bool channel)
+{
+	return channel && id.size() >= 4 ? id.substr(0, 4) : id;
+}
+
+// What parental controls (riftwii/parental.hpp) do with the game `id`
+// (`channel`: a Wii channel's): its age from GameTDB's rating, as the
+// About page's cache has it. A game the cache does not know yet counts as
+// unrated here; Start reads the database for it first (parentalAllows).
 // The youngest age the game `id`'s rating is for, -1 when it has none the
 // cache knows (riftwii/parental.hpp).
-static int RatedAgeFor(const std::string& id)
+static int RatedAgeFor(const std::string& id, bool channel)
 {
 	riftwii::GameInfo info;
-	if (id.empty() || !riftwii::wii::PeekGameInfo(id, info)) return -1;
+	const std::string key = GameInfoKey(id, channel);
+	if (key.empty() || !riftwii::wii::PeekGameInfo(key, info)) return -1;
 	return riftwii::rating_minimum_age(info.rating_system, info.rating);
 }
 
-static riftwii::ParentalVerdict ParentalVerdictFor(const std::string& id)
+static riftwii::ParentalVerdict ParentalVerdictFor(const std::string& id, bool channel)
 {
 	const riftwii::ParentalRules rules = riftwii::parental_rules(riftwii::wii::Settings());
 	if (!rules.active) return riftwii::ParentalVerdict::Allowed;
-	return riftwii::parental_verdict(rules, RatedAgeFor(id));
+	return riftwii::parental_verdict(rules, RatedAgeFor(id, channel));
 }
 
 // The games in Settings > Home > Home order (`ordered`; else A to Z), before a
@@ -1297,14 +1306,16 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered, b
 {
 	using Row = HomeRow;
 	std::vector<Row> rows;
+	// Only hiding drops rows: locking leaves them all, so no rating is looked up.
+	const bool parentalHide = riftwii::parental_rules(riftwii::wii::Settings()).hide;
 	const auto add = [&](const std::string& name, HomeEntry::Kind kind, std::size_t i, const std::string& id,
 				const riftwii::wii::ImageGame* game) {
 		// Parental controls set to hide: a game rated too old is not
 		// listed, nor are its profiles (made from its row below).
 		// Emulator keys identify covers, not GameTDB-rated games, so these
 		// rows bypass parental ratings while keeping the shared row creation.
-		if (kind != HomeEntry::Kind::Emulator &&
-			ParentalVerdictFor(id) == riftwii::ParentalVerdict::Hidden) return;
+		if (parentalHide && kind != HomeEntry::Kind::Emulator &&
+			ParentalVerdictFor(id, kind == HomeEntry::Kind::Channel) == riftwii::ParentalVerdict::Hidden) return;
 		rows.push_back({name, name, {kind, i, "", name}, id, id, game});
 	};
 	// Settings > Games from: everything, or one place's games only (a
@@ -10710,38 +10721,48 @@ static bool DownloadGameInfoNow()
 	return ok;
 }
 
+// The selected game's details from the cache, or read out of the database
+// for it and the drives' games (with a popup and a bar while that takes
+// seconds). Downloads nothing.
+static riftwii::wii::GameInfoResult ReadGameInfo(const FrontendState& state, riftwii::GameInfo& info, std::string& error)
+{
+	std::set<std::string> wanted;
+	for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
+	for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+	std::unique_ptr<ProgressBar> bar;
+	std::unique_ptr<PopupBox> box;
+	const auto progress = [&](double done) {
+		if (!box) {
+			bar.reset(new ProgressBar(56, 280, 528));
+			box.reset(new PopupBox(tr("Reading game details..."),
+				tr("Once for all your games: next time they open at once."), "", tr("Stop")));
+			box->Add(bar.get(), 528);
+			ResumeGui();
+		}
+		HaltGui();
+		bar->Set(done);
+		const bool stop = box->Pressed();
+		ResumeGui();
+		return !stop;
+	};
+	const riftwii::wii::GameInfoResult result = riftwii::wii::FindGameInfo(GameInfoKey(state.game_id, state.use_channel),
+		wanted, info, error, progress);
+	if (box) {
+		HaltGui();
+		box.reset();
+		bar.reset();
+	}
+	return result;
+}
+
 // The game's details, from the cache or read out of the database (with a
 // popup and a bar while that takes seconds), downloading the database
 // first when the player agrees. False, having said why, when there are none.
 static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 {
-	std::set<std::string> wanted;
-	for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
-	for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
 	for (int attempt = 0; attempt < 2; ++attempt) {
 		std::string error;
-		std::unique_ptr<ProgressBar> bar;
-		std::unique_ptr<PopupBox> box;
-		const auto progress = [&](double done) {
-			if (!box) {
-				bar.reset(new ProgressBar(56, 280, 528));
-				box.reset(new PopupBox(tr("Reading game details..."),
-					tr("Once for all your games: next time they open at once."), "", tr("Stop")));
-				box->Add(bar.get(), 528);
-				ResumeGui();
-			}
-			HaltGui();
-			bar->Set(done);
-			const bool stop = box->Pressed();
-			ResumeGui();
-			return !stop;
-		};
-		const riftwii::wii::GameInfoResult result = riftwii::wii::FindGameInfo(state.game_id, wanted, info, error, progress);
-		if (box) {
-			HaltGui();
-			box.reset();
-			bar.reset();
-		}
+		const riftwii::wii::GameInfoResult result = ReadGameInfo(state, info, error);
 		switch (result) {
 			case riftwii::wii::GameInfoResult::Found:
 				return true;
@@ -12546,7 +12567,7 @@ static std::string GameFacts(const FrontendState& state)
 	if (!state.game_id.empty()) parts.push_back(state.game_id);
 	if (SelectedGcGame(state)) parts.push_back(tr("GameCube"));
 	riftwii::GameInfo info;
-	if (!state.game_id.empty() && riftwii::wii::PeekGameInfo(state.game_id, info)) {
+	if (!state.game_id.empty() && riftwii::wii::PeekGameInfo(GameInfoKey(state.game_id, state.use_channel), info)) {
 		if (info.year) parts.push_back(std::to_string(info.year));
 		if (!info.genres.empty()) parts.push_back(GenreText({info.genres[0]}));
 		if (info.players == 1) parts.push_back(tr("1 player"));
@@ -13252,11 +13273,27 @@ static int MenuHome(FrontendState& state)
 	// again after a warning). Every way to start a game passes here.
 	bool parentalUnlocked = false;
 	const auto parentalAllows = [&]() {
-		if (parentalUnlocked || ParentalVerdictFor(state.game_id) == riftwii::ParentalVerdict::Allowed) return true;
-		// Locked for its age, or (with Games with no rating set to Treat as
-		// too old) for having no rating at all: the pad says which.
-		const bool unrated = RatedAgeFor(state.game_id) < 0;
-		parentalUnlocked = AskParentalPin(unrated
+		if (parentalUnlocked || !riftwii::parental_rules(riftwii::wii::Settings()).active) return true;
+		// The cache only has the games Home's read asked for: a disc, or a
+		// game added since, is read for here. Not listed is unrated; no
+		// answer at all (no database, a failed or stopped read) is not
+		// taken as unrated, as that would let any game through.
+		riftwii::GameInfo info;
+		bool known = riftwii::wii::PeekGameInfo(GameInfoKey(state.game_id, state.use_channel), info);
+		if (!known && !state.game_id.empty()) {
+			std::string error;
+			const riftwii::wii::GameInfoResult read = ReadGameInfo(state, info, error);
+			known = read == riftwii::wii::GameInfoResult::Found || read == riftwii::wii::GameInfoResult::NotListed;
+			if (!known) logf("Parental controls: no rating could be read for %s, so it needs the PIN\n", state.game_id.c_str());
+		}
+		if (known && ParentalVerdictFor(state.game_id, state.use_channel) == riftwii::ParentalVerdict::Allowed) return true;
+		// Locked for its age, (with Games with no rating set to Treat as too
+		// old) for having no rating at all, or for a rating that could not
+		// be read: the pad says which.
+		const bool unrated = RatedAgeFor(state.game_id, state.use_channel) < 0;
+		parentalUnlocked = AskParentalPin(!known
+			? tr("This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.")
+			: unrated
 			? tr("This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.")
 			: tr("This game's age rating is above what parental controls allow. Type the PIN to play it."));
 		if (parentalUnlocked) logf("Parental controls: %s started with the PIN\n", state.game_id.c_str());
@@ -14436,7 +14473,8 @@ static void MenuParentalControls()
 		add(FlowRow::Kind::Option, tr("Highest age allowed"), std::to_string(settings.parental_age), true,
 			tr("Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."));
 		add(FlowRow::Kind::Option, tr("Games with no rating"), unratedName(), settings.parental_unrated == "restrict",
-			tr("A game's rating is known once GameTDB's database has been read for it (Download names and cheats). Treat as too old locks or hides the others too."));
+			tr("Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.",
+				{tr("Downloads"), tr("Settings"), tr("Online")}));
 		add(FlowRow::Kind::Action, tr("Turn off parental controls"), tr("Turn off"), false,
 			tr("Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."));
 		rows.back().dim = !active;
