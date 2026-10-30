@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>A mod loader for the Wii.</b> Play Riivolution-format mods from the disc, a USB drive or the SD card.
+  <b>A USB loader and Riivolution replacement for the Wii.</b> Play your games from a USB drive, the SD card or the disc, with or without Riivolution-format mods.
   <br><br>
   <a href="https://github.com/KakarottoCake/Riftwii/releases/latest"><b>Download</b></a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
@@ -114,7 +114,7 @@ contains theirs names them in its file header, and
 - **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
   sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
   controller adapter.
-- **Nintendont** by FIX94 and contributors: the USB HID driver and the
+- **Nintendont** by FIX94 and contributors: the USB HID driver, controller.ini mapping format and the
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
   USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
@@ -170,7 +170,8 @@ contains theirs names them in its file header, and
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
-  for the menu font, **Adobe and the Noto authors** for Noto Sans KR
+  for M PLUS 1 SemiBold (the menu font) and M PLUS Rounded 1c Bold (the logo and rare fallback characters),
+  both SIL Open Font License 1.1, **Adobe and the Noto authors** for Noto Sans KR
   (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures,
   **Wikimedia Commons** for the age rating boards' marks (public domain).
