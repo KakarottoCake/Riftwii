@@ -6345,11 +6345,11 @@ T.update({
         "ゲームは通常のコードハンドラーで起動します。",
         "Os jogos começam com o gerenciador de códigos normal.",
         "I giochi partono con il gestore dei codici normale."),
-    "Wii games start with the WiiRD debugger. Connect from the PC once the game is running.": (
-        "Los juegos de Wii empiezan con el depurador WiiRD. Conéctate desde el PC cuando el juego esté en marcha.",
-        "WiiのゲームはWiiRDデバッガー付きで起動します。ゲームが始まったらPCから接続してください。",
-        "Os jogos de Wii começam com o depurador WiiRD. Conecte pelo PC quando o jogo estiver rodando.",
-        "I giochi Wii partono con il debugger WiiRD. Collegati dal PC quando il gioco è avviato."),
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": (
+        "Los juegos de Wii empiezan con el depurador WiiRD, salvo aquellos cuyos ganchos de RiftWii necesitan su memoria. Conéctate desde el PC cuando el juego esté en marcha.",
+        "WiiのゲームはWiiRDデバッガー付きで起動します。ただし、RiftWiiのフックがそのメモリを使うゲームはデバッガーなしで起動します。ゲームが始まったらPCから接続してください。",
+        "Os jogos de Wii começam com o depurador WiiRD, exceto aqueles cujos ganchos do RiftWii precisam da memória dele. Conecte pelo PC quando o jogo estiver rodando.",
+        "I giochi Wii partono con il debugger WiiRD, tranne quelli i cui agganci di RiftWii usano la sua memoria. Collegati dal PC quando il gioco è avviato."),
     "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": (
         "Ahora ningún USB Gecko responde en la ranura B ni en la A. Sin uno, los juegos empiezan sin el depurador.",
         "今はスロットBにもAにもUSB Geckoが応答しません。USB Geckoがないと、ゲームはデバッガーなしで起動します。",
@@ -6368,7 +6368,7 @@ KO.update({
     "On. RiftWii's log now also goes to the USB Gecko in slot B.": "켜졌습니다. 이제 RiftWii의 로그가 슬롯 B의 USB Gecko로도 보내집니다.",
     "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "다음에 RiftWii를 실행할 때부터 켜집니다. 지금은 슬롯 B의 USB Gecko가 응답하지 않습니다.",
     "Games start with the plain code handler.": "게임이 일반 코드 핸들러로 시작됩니다.",
-    "Wii games start with the WiiRD debugger. Connect from the PC once the game is running.": "Wii 게임이 WiiRD 디버거와 함께 시작됩니다. 게임이 실행되면 PC에서 연결하세요.",
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": "Wii 게임이 WiiRD 디버거와 함께 시작됩니다. 단, RiftWii의 후크가 그 메모리를 쓰는 게임은 디버거 없이 시작됩니다. 게임이 실행되면 PC에서 연결하세요.",
     "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": "지금은 슬롯 B와 A 모두 USB Gecko가 응답하지 않습니다. 없으면 게임이 디버거 없이 시작됩니다.",
 })
 FR.update({
@@ -6383,7 +6383,7 @@ FR.update({
     "On. RiftWii's log now also goes to the USB Gecko in slot B.": "Activé. Le journal de RiftWii part maintenant aussi vers l'USB Gecko du port B.",
     "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "Activé au prochain démarrage de RiftWii. Aucun USB Gecko ne répond dans le port B pour l'instant.",
     "Games start with the plain code handler.": "Les jeux démarrent avec le gestionnaire de codes normal.",
-    "Wii games start with the WiiRD debugger. Connect from the PC once the game is running.": "Les jeux Wii démarrent avec le débogueur WiiRD. Connectez-vous depuis le PC une fois le jeu lancé.",
+    "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.": "Les jeux Wii démarrent avec le débogueur WiiRD, sauf ceux dont les crochets de RiftWii ont besoin de sa mémoire. Connectez-vous depuis le PC une fois le jeu lancé.",
     "No USB Gecko answers in slot B or A now. Without one, games start without the debugger.": "Aucun USB Gecko ne répond dans le port B ni dans le port A pour l'instant. Sans lui, les jeux démarrent sans le débogueur.",
 })
 T['A search looks through every genre. Press 1 to end it first.'] = ('Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero.', '検索はすべてのジャンルから探します。先に1を押して検索を終えてください。', 'Uma busca procura em todos os gêneros. Aperte 1 para encerrá-la primeiro.', 'Una ricerca guarda in tutti i generi. Premi 1 per terminarla prima.')

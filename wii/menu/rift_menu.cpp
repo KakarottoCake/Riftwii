@@ -15594,7 +15594,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.wiird_debugger = kDebuggerChoices[((at % 3) + 3 + direction) % 3];
 					saveAndNote(settings.wiird_debugger == "off" ? tr("Games start with the plain code handler.")
 						: riftwii::wii::GeckoInSlot(EXI_CHANNEL_1) || riftwii::wii::GeckoInSlot(EXI_CHANNEL_0)
-							? tr("Wii games start with the WiiRD debugger. Connect from the PC once the game is running.")
+							? tr("Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running.")
 							: tr("No USB Gecko answers in slot B or A now. Without one, games start without the debugger."));
 					rebuild();
 					break;

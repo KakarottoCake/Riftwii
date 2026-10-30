@@ -3024,8 +3024,8 @@ msgstr "다음에 RiftWii를 실행할 때부터 켜집니다. 지금은 슬롯 
 msgid "Games start with the plain code handler."
 msgstr "게임이 일반 코드 핸들러로 시작됩니다."
 
-msgid "Wii games start with the WiiRD debugger. Connect from the PC once the game is running."
-msgstr "Wii 게임이 WiiRD 디버거와 함께 시작됩니다. 게임이 실행되면 PC에서 연결하세요."
+msgid "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running."
+msgstr "Wii 게임이 WiiRD 디버거와 함께 시작됩니다. 단, RiftWii의 후크가 그 메모리를 쓰는 게임은 디버거 없이 시작됩니다. 게임이 실행되면 PC에서 연결하세요."
 
 msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
 msgstr "지금은 슬롯 B와 A 모두 USB Gecko가 응답하지 않습니다. 없으면 게임이 디버거 없이 시작됩니다."
