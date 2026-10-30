@@ -960,34 +960,56 @@ static int adapter_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now) {
     return gcad_decode(g->raw[port], g->origin[port], out);
 }
 
-uint32_t gcad_read_ports(gcad* g, uint32_t taken, gcad_pad out[GCAD_PORTS], uint32_t now) {
-    uint32_t i, port, filled = 0;
-    for (i = 0; i < GCAD_PORTS; ++i) g->port_source[i] = 255;
-    for (i = 0; i < GCAD_PORTS + GCAD_HID_PADS; ++i) {
-        gcad_pad pad;
-        gcad* peer = 0;
-        if (i < GCAD_PORTS) {
-            if (!adapter_port(g, i, &pad, now)) continue;
-            port = i;
-        } else {
-            if (!g->peers) break;
-            peer = &g->peers[i - GCAD_PORTS];
-            if (!peer->mapping || peer->link != GCAD_LINK_POLL || peer->stale || peer->stopping ||
-                elapsed(now, peer->data_time) >= ms(peer, GCAD_TIMEOUT_MS)) continue;
-            pad = peer->hid_pad;
-            port = GCAD_PORTS;
-        }
-        if (port >= GCAD_PORTS || ((taken | filled) & BIT(port))) {
-            for (port = 0; port < GCAD_PORTS; ++port) if (!((taken | filled) & BIT(port))) break;
-        }
-        if (port == GCAD_PORTS) continue;
-        out[port] = pad;
-        filled |= BIT(port);
-        g->port_source[port] = (uint8_t)i;
-        if (peer && peer->announced_port != port) {
+static uint32_t assign_port(gcad* g, gcad_pad out[GCAD_PORTS], uint32_t port,
+                           const gcad_pad* pad, uint32_t source) {
+    out[port] = *pad;
+    g->port_source[port] = (uint8_t)source;
+    if (source >= GCAD_PORTS) {
+        gcad* peer = &g->peers[source - GCAD_PORTS];
+        if (peer->announced_port != port) {
             peer->announced_port = (uint8_t)port;
             gcad_env_event(peer, GCAD_EV_HID_PORT, mapping_id(peer), (int32_t)port);
         }
+    }
+    return BIT(port);
+}
+
+static uint32_t free_port(uint32_t taken) {
+    uint32_t port;
+    for (port = 0; port < GCAD_PORTS; ++port) {
+        if (!(taken & BIT(port))) break;
+    }
+    return port;
+}
+
+uint32_t gcad_read_ports(gcad* g, uint32_t taken, gcad_pad out[GCAD_PORTS], uint32_t now) {
+    gcad_pad adapter_pads[GCAD_PORTS];
+    uint32_t i, port, displaced = 0, filled = 0;
+    for (i = 0; i < GCAD_PORTS; ++i) g->port_source[i] = 255;
+
+    /* Reserve free own-numbered ports before a displaced pad can take one. */
+    for (i = 0; i < GCAD_PORTS; ++i) {
+        if (!adapter_port(g, i, &adapter_pads[i], now)) continue;
+        if (taken & BIT(i)) {
+            displaced |= BIT(i);
+        } else {
+            filled |= assign_port(g, out, i, &adapter_pads[i], i);
+        }
+    }
+    for (i = 0; i < GCAD_PORTS; ++i) {
+        if (!(displaced & BIT(i))) continue;
+        port = free_port(taken | filled);
+        if (port == GCAD_PORTS) break;
+        filled |= assign_port(g, out, port, &adapter_pads[i], i);
+    }
+    if (!g->peers) return filled;
+    for (i = 0; i < GCAD_HID_PADS; ++i) {
+        gcad* peer = &g->peers[i];
+        if (!peer->mapping || peer->link != GCAD_LINK_POLL || peer->stale || peer->stopping ||
+            elapsed(now, peer->data_time) >= ms(peer, GCAD_TIMEOUT_MS)) continue;
+        port = free_port(taken | filled);
+        if (port == GCAD_PORTS) break;
+        filled |= assign_port(g, out, port, &peer->hid_pad, GCAD_PORTS + i);
     }
     return filled;
 }

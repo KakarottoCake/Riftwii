@@ -646,7 +646,7 @@ the tiles.
   covers): retries the covers, boxes
   and 3D covers Home is missing when you return to Home, with downloads on.
   Games GameTDB has no picture for stay without one.
-- **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
+- **GameCube adapter** (experimental), and **Check USB controllers** (below).
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.
 - **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
@@ -1216,7 +1216,7 @@ games that support the GameCube controller (Mario Kart Wii, Super Smash
 Bros. Brawl and others), its controllers fill the ports that have no
 controller plugged in, rumble included. Its controllers work the RiftWii
 menu too, like a GameCube controller in the Wii's own ports.
-**Check the GameCube adapter** shows what each port reports before you
+**Check USB controllers** shows what each port reports before you
 start a game.
 
 **Check each cIOS** on that page restarts RiftWii and asks IOS 58 and
@@ -1272,8 +1272,8 @@ also reaches the adapter's controllers.
 
 Turn on **Settings > Controllers > USB input devices** (on by default).
 A USB pad can control the menu, GameCube games, and Wii games that support
-GameCube controllers. Open the GameCube adapter's **Test** page (titled
-**USB controllers**) to see its buttons and sticks. The separate GameCube
+GameCube controllers. Open **Settings > Controllers > Check USB controllers**
+to see its buttons and sticks. The separate GameCube
 adapter setting still controls the WUP-028 adapter.
 
 Use an existing Nintendont `controller.ini` for your device. RiftWii looks
