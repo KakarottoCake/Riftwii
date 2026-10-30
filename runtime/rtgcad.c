@@ -246,6 +246,18 @@ static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t
     origin_event(g, port, how, origin);
 }
 
+/* A discovery record for the configured pads: `answered` 0 when the list
+ * was asked for, 1 when it came back. Each kind repeats only with a new
+ * result. */
+static void discovery_event(gcad* g, uint32_t answered, int32_t result) {
+    const uint8_t seen = (uint8_t)(1u << answered);
+    if (!g->catalog || !g->catalog->count) return;
+    if ((g->discovery_seen & seen) && g->discovery_result[answered] == result) return;
+    g->discovery_seen |= seen;
+    g->discovery_result[answered] = result;
+    gcad_env_event(g, GCAD_EV_HID_LIST, GCAD_HID_DISCOVERY | (answered << 8), result);
+}
+
 static void submit_change(gcad* g, uint32_t now) {
     g->change_step = GCAD_STEP_CHANGE;
     g->change_time = now;
@@ -256,10 +268,7 @@ static void submit_change(gcad* g, uint32_t now) {
     } else if (!ioctl_(g, GCAD_TAG_CHANGE, GCAD_STEP_CHANGE, GCAD_V5_GET_DEVICE_CHANGE, 0, 0, g->change, 0x180)) {
         g->change_failed = 1;
     }
-    if (g->catalog && g->catalog->count) {
-        gcad_env_event(g, GCAD_EV_HID_LIST, GCAD_HID_DISCOVERY,
-                       (g->busy & BIT(GCAD_TAG_CHANGE)) ? 0 : g->last_error);
-    }
+    discovery_event(g, 0, (g->busy & BIT(GCAD_TAG_CHANGE)) ? 0 : g->last_error);
 }
 
 static int setup_waiting(const gcad* g) {
@@ -860,9 +869,7 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         submit_change(g, now);
         return;
     }
-    if (g->catalog && g->catalog->count) {
-        gcad_env_event(g, GCAD_EV_HID_LIST, GCAD_HID_DISCOVERY | (1u << 8), result);
-    }
+    discovery_event(g, 1, result);
     if (result < 0) {
         failed(g, GCAD_STEP_CHANGE, result);
         g->change_failed = 1;

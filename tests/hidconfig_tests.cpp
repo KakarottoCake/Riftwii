@@ -180,6 +180,7 @@ struct Bus {
     unsigned missing = 0;
     unsigned found = 0;
     unsigned lost = 0;
+    unsigned discoveries = 0;
     struct Diagnostic { unsigned step, detail; int result; };
     std::vector<Diagnostic> diagnostics;
     std::vector<Request> outputs;
@@ -494,6 +495,26 @@ void CompositeV4() {
     CHECK(bus.hub.adapter.excluded_count == 0);
 }
 
+// A failing device list is asked again every GCAD_RESCAN_MS: each kind of
+// discovery record (asked, answered) repeats only with a new result, so a
+// game whose trace writes stall cannot fill its queue with them.
+void DiscoveryRepeats() {
+    Bus bus(5);
+    CHECK(bus.discoveries == 1);  // asked
+    bus.Reply(GCAD_TAG_CHANGE, -4);
+    CHECK(bus.discoveries == 2);  // answered -4
+    for (unsigned retry = 0; retry < 5; ++retry) {
+        bus.clock += GCAD_RESCAN_MS + 1;
+        gcad_tick(&bus.hub.adapter, bus.clock);
+        bus.Reply(GCAD_TAG_CHANGE, -4);
+    }
+    CHECK(bus.discoveries == 2);
+    bus.clock += GCAD_RESCAN_MS + 1;
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    bus.List({{11, 0x12345678}});
+    CHECK(bus.discoveries == 3);  // answered with one device
+}
+
 void RumbleAndControl() {
     Bus bus(5, Config("Rumble=1\nRumbleType=1\nRumbleDataLen=4\nRumbleDataOn=AA,BB,CC,DD\n"
                       "RumbleDataOff=0,0,0,0\nRumbleTransferLen=2\nRumbleTransfers=2\n"));
@@ -564,6 +585,7 @@ void gcad_env_event(gcad* driver, uint32_t code, uint32_t a, int32_t b) {
     if (code == GCAD_EV_HID_MISSING) ++bus.missing;
     if (code == GCAD_EV_HID_FOUND) ++bus.found;
     if (code == GCAD_EV_HID_LOST) ++bus.lost;
+    if (code == GCAD_EV_HID_LIST) ++bus.discoveries;
     if (code == GCAD_EV_HID_DIAG) bus.diagnostics.push_back({a & 255u, a >> 8, b});
 }
 }
@@ -578,6 +600,7 @@ int main() {
     SharedDriver(5);
     CompositeV4();
     RumbleAndControl();
+    DiscoveryRepeats();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;
 }

@@ -249,6 +249,11 @@ typedef struct gcad {
     uint32_t diagnostic_detail[GCAD_HID_DIAGS];
     int32_t diagnostic_result[GCAD_HID_DIAGS];
     gcad_pad hid_pad;
+    /* The device list's discovery records, asked (0) and answered (1):
+     * one per new result, so retries every GCAD_RESCAN_MS cannot fill a
+     * game's trace queue while its writes stall. */
+    uint8_t discovery_seen;
+    int32_t discovery_result[2];
     uint32_t ignored_count;
     int32_t ignored[RTHID_DEVICE_MAX]; /* log an unconfigured device once per plug */
     uint32_t excluded_count;
