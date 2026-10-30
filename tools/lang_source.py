@@ -1384,10 +1384,10 @@ T = {
         "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
         "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
     "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.": (
-        "La mayoría de los mods de códigos, como Project+, funcionan con los extras de RiftWii. Si uno se queda con la pantalla en negro, inícialo sin ellos. RiftWii lo recordará para {1}; se cambia en la página de Mods.",
+        "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods.",
         "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。",
-        "A maioria dos mods de códigos, como o Project+, funciona com os extras do RiftWii. Se um ficar com a tela preta, inicie-o sem eles. O RiftWii vai lembrar disso para {1}; dá para mudar na página de Mods.",
-        "La maggior parte dei mod di codici, come Project+, funziona con gli extra di RiftWii. Se uno resta su uno schermo nero, avvialo senza. RiftWii lo ricorderà per {1}; si cambia nella pagina Mod."),
+        "A maioria dos mods de códigos, como o Project+, usa os extras do RiftWii. Se a tela ficar preta, inicie sem. O RiftWii vai lembrar para {1}; a página Mods muda isso.",
+        "La maggior parte dei mod di codici, come Project+, funziona con gli extra di RiftWii. Se resta nero, avvialo senza. RiftWii lo ricorderà per {1}; la pagina Mod lo cambia."),
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.": (
         "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii.",
         "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。",
@@ -1414,10 +1414,10 @@ T = {
         "Com extras",
         "Con gli extra"),
     "Crash reports, back to RiftWii": (
-        "Informes de fallos, volver a RiftWii",
+        "Informes de fallos, volver",
         "クラッシュ記録、RiftWiiに戻る",
-        "Relatórios de falhas, voltar ao RiftWii",
-        "Rapporti di crash, ritorno a RiftWii"),
+        "Relatórios de falhas, voltar",
+        "Rapporti di crash, ritorno"),
     "Without extras": (
         "Sin extras",
         "追加機能なし",
@@ -5083,7 +5083,7 @@ FR = {
     "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
         "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
     "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
-        "La plupart des mods de code, comme Project+, fonctionnent avec les extras de RiftWii. Si l'un reste sur un écran noir, démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods permet de le changer.",
+        "La plupart des mods de code, comme Project+, marchent avec les extras de RiftWii. Écran noir ? Démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods le change.",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
         "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii.",
     "Asked at the first Start":
@@ -5095,7 +5095,7 @@ FR = {
     "With extras":
         "Avec les extras",
     "Crash reports, back to RiftWii":
-        "Rapports de plantage, retour à RiftWii",
+        "Rapports de plantage, retour",
     "Without extras":
         "Sans extras",
     "As the mod's own loader":
