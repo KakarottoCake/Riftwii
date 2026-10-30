@@ -113,6 +113,58 @@ void test_protected() {
     EXPECT_EQ(game_start_file("RNF"), 0u);  // a short ID matches nothing
 }
 
+void test_patch_policy() {
+    // The two system/game-specific exceptions must not grow to include
+    // data patches: Prince of Persia also checks its video tables.
+    const std::string protected_ids[] = {
+        "SPXP41", "SPXE41", "RPWZ41", "RPWE41", "SDVE41", "STNP41", "SLVP41", "SDUX41"
+    };
+    for (int value = 0; value <= static_cast<int>(GamePatchKind::Debug); ++value) {
+        const GamePatchKind kind = static_cast<GamePatchKind>(value);
+        const bool safe = kind == GamePatchKind::PerGameFix || kind == GamePatchKind::SystemGlobals;
+        for (const std::string& id : protected_ids) {
+            EXPECT_EQ(gx_patch_allowed(id, kind), safe);
+        }
+        // Kirby's GX patch removes its checks; its extras remain available.
+        for (const char* id : {"RMCE01", "SUKE01", "SUKP01", "SUKJ01", "SUKK01", "SLVE41", "SDUEO1", ""}) {
+            EXPECT_TRUE(gx_patch_allowed(id, kind));
+        }
+    }
+    EXPECT_FALSE(gx_patch_allowed("RPWZ41", static_cast<GamePatchKind>(999)));
+    EXPECT_FALSE(gx_patch_allowed("RMCE01", static_cast<GamePatchKind>(999)));
+}
+
+void test_protected_game_fix() {
+    // The five checked WIP writes still apply, but a matching generic
+    // anti-002 instruction beside them must stay byte-for-byte unchanged.
+    const std::uint32_t offsets[] = {0x6A, 0x75, 0x82, 0x92, 0x9D};
+    const std::uint32_t originals[] = {0x7A6B6F6A, 0x7C7A6939, 0x7376686B, 0x80717570, 0x82806F3F};
+    const std::uint32_t replacements[] = {0x6F6A7A6B, 0x69397C7A, 0x686B7376, 0x75708071, 0x6F3F8280};
+    for (const char* id : {"SPXP41", "RPWZ41"}) {
+        Memory memory(0x80004000, 0x200, 0x11);
+        DolHeader dol;
+        // WIP positions count loaded section sizes after the 0x100-byte
+        // header, rather than seeking by each section's file offset.
+        dol.sections[0] = DolSection{0x100, 0x90004000, 0x007AAB00, true};
+        dol.sections[1] = DolSection{0x007AAC00, memory.base, 0x200, true};
+        for (unsigned i = 0; i < 5; ++i) memory.set(memory.base + offsets[i], originals[i]);
+        memory.set(memory.base + 0x100, 0x2C000000);
+        memory.set(memory.base + 0x104, 0x48000214);
+        memory.set(memory.base + 0x108, 0x3C608000);
+        std::vector<std::uint8_t> expected = memory.bytes;
+        for (unsigned i = 0; i < 5; ++i) {
+            for (unsigned byte = 0; byte < 4; ++byte)
+                expected[offsets[i] + byte] = static_cast<std::uint8_t>(replacements[i] >> (24 - byte * 8));
+        }
+        GxReport report;
+        EXPECT_EQ(gx_game_patches(id, dol, memory.spans(), report), 20u);
+        EXPECT_TRUE(memory.bytes == expected);
+        EXPECT_TRUE(std::any_of(report.notes.begin(), report.notes.end(), [](const std::string& note) {
+            return note.find("Error #002 code fix: not applied") != std::string::npos;
+        }));
+    }
+}
+
 // Kirby: every word kirbypatch.c stores, read back from memory.
 void test_kirby_against_gx() {
     // GX_SOURCE: a USB Loader GX checkout; else one beside the repository
@@ -447,6 +499,8 @@ void test_d2x_fallbacks() {
 
 int main() {
     test_protected();
+    test_patch_policy();
+    test_protected_game_fix();
     test_kirby_against_gx();
     test_outside_untouched();
     test_re4();
