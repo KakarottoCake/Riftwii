@@ -13560,6 +13560,9 @@ static int MenuHome(FrontendState& state)
 				// page is the game's own then).
 				if (tile == GameTile::Mods) {
 					titleTxt.SetText(GameTitle(state).c_str());
+					// A renamed tile may match another GameTDB entry (or none):
+					// the cover in memory for the old match goes first.
+					UpdateModCoverIds();
 					hero.SetCoverName(PageCoverName(state));
 					banner.SetCoverName(PageCoverName(state));
 				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
