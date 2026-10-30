@@ -28,6 +28,7 @@ struct GcAdapterView {
     unsigned link = GCAD_LINK_NONE;
     unsigned reports = 0;
     unsigned listed = 0;        // devices in the last list
+    unsigned hid_pads = 0;      // configurable pads currently reporting
     int last_error = 0;
     bool present[GCAD_PORTS] = {};
     gcad_pad pads[GCAD_PORTS] = {};

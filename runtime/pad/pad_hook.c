@@ -114,7 +114,7 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
 static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
-        gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
+        gcad_hub_init((gcad_hub*)(void*)g, c, c->fd, c->version, c->ticks_per_ms);
         if (c->known_dev >= 0) gcad_expect(g, c->known_dev);
         c->inited = 1;
     }
@@ -282,7 +282,13 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
     const uint32_t t = now();
     gcad* g = state(c);
     uint32_t i, mask = 0;
+    gcad_pad usb_pads[GCAD_PORTS];
+    uint32_t taken = 0, usb_present;
+    for (i = 0; i < GCAD_PORTS; ++i) {
+        if ((int8_t)status[i * PAD_STATUS_BYTES + 10] == 0) taken |= 1u << i;
+    }
     gcad_tick(g, t);
+    usb_present = gcad_read_ports(g, taken, usb_pads, t);
     for (i = 0; i < GCAD_PORTS; ++i) {
         uint8_t* s = status + i * PAD_STATUS_BYTES;
         gcad_pad pad;
@@ -296,8 +302,9 @@ uint32_t pad_on_read(struct rt_pad_context* c, uint8_t* status, uint32_t motor) 
             pad.stick_x = pad.stick_y = pad.substick_x = pad.substick_y = 0;
             pad.trigger_l = pad.trigger_r = 0;
             pad.wireless = 1;
-        } else if (!gcad_port(g, i, &pad, t)) {
-            continue;
+        } else {
+            if (!(usb_present & (1u << i))) continue;
+            pad = usb_pads[i];
         }
         s[0] = (uint8_t)(pad.buttons >> 8);
         s[1] = (uint8_t)pad.buttons;

@@ -7,6 +7,7 @@
 // card's backup, which the menu's own card tools share. The loader itself
 // is plugins/gamecube/gcnative.cpp.
 #include "gcplugin.hpp"
+#include "hidpads.hpp"
 #include "i18n.hpp"
 #include "gcrealcard.hpp"
 
@@ -309,12 +310,17 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
 
     // The GameCube adapter: opened here, on the menu's IOS the game keeps,
     // as a Wii game's launch opens it (gc_gcad.h).
+    rthid_catalog hid_catalog{};
+    HidPadsCopyCatalog(hid_catalog);
+    request.hid_catalog = &hid_catalog;
+    request.hid_catalog_bytes = sizeof(hid_catalog);
     request.adapter_fd = -1;
     request.adapter_dev = -1;
     {
         std::int32_t fd = -1, dev = -1;
         std::uint32_t version = 0;
         if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev)) {
+            HidPadsCopyCatalog(hid_catalog); // includes the final IOS device list
             request.adapter_fd = fd;
             request.adapter_version = version;
             request.adapter_dev = dev;

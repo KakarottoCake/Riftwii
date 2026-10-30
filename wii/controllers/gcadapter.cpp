@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gcadapter.hpp"
+#include "hidpads.hpp"
 
 #include <gccore.h>
 #include <ogc/cache.h>
@@ -29,6 +30,9 @@ namespace {
 gcad* g_state = nullptr;   // in MEM2, taken once (skin::Mem2Alloc)
 std::int32_t g_fd = -1;    // RiftWii's own /dev/usb/hid, -1 on libogc's
 bool g_running = false;
+bool g_usb_enabled = false;
+bool g_adapter_enabled = false;
+std::uint32_t g_config_changes = 0;
 
 // The driver's log events, queued in the IPC interrupt and written out
 // by GcAdapterPoll (the log writes to the card).
@@ -57,7 +61,7 @@ bool g_ogc = false;
 // The adapter as libogc opened it (USB_OpenDevice), closed when the driver
 // stops: left open, libogc's handle kept the adapter, and a disc game
 // (the menu's IOS kept, nothing reloaded) could not take it.
-s32 g_ogc_dev_fd = -1;
+s32 g_ogc_dev_fd[GCAD_INSTANCES] = {-1, -1, -1, -1, -1};
 volatile bool g_list_wanted = false;   // the driver's device list waits
 volatile bool g_ogc_changed = false;   // libogc has a list not yet given
 bool g_notify_armed = false;
@@ -68,13 +72,14 @@ struct Reply {
     std::uint32_t tag;
     std::int32_t result;
 };
-Reply g_replies[4];
+Reply g_replies[GCAD_REQUESTS];
 unsigned g_reply_count = 0;
 struct Op {
     std::uint32_t tag, cmd;
     std::int32_t dev;
+    gcad* driver;
 };
-Op g_ops[4];
+Op g_ops[GCAD_REQUESTS];
 unsigned g_op_count = 0;
 
 // The menu's use (GcAdapterMenuPads).
@@ -123,10 +128,45 @@ void Answer(std::uint32_t tag, std::int32_t result) {
     if (g_reply_count < sizeof(g_replies) / sizeof(g_replies[0])) g_replies[g_reply_count++] = Reply{tag, result};
 }
 
-bool Defer(std::uint32_t tag, std::uint32_t cmd, std::int32_t dev) {
+bool Defer(std::uint32_t tag, std::uint32_t cmd, std::int32_t dev, gcad* driver) {
     if (g_op_count >= sizeof(g_ops) / sizeof(g_ops[0])) return false;
-    g_ops[g_op_count++] = Op{tag, cmd, dev};
+    g_ops[g_op_count++] = Op{tag, cmd, dev, driver};
     return true;
+}
+
+// libogc already read the descriptors while opening the device. Rebuild
+// the small IOS descriptor reply the shared driver consumes, keeping the
+// interface for this device id and at most two interrupt endpoints.
+int SharedDescriptors(gcad* driver) {
+    usb_devdesc description{};
+    const s32 result = USB_GetDescriptors(driver->dev_id, &description);
+    if (result < 0) return result;
+    bool found = false;
+    auto* out = driver->setup_out;
+    std::memset(out, 0, sizeof(driver->setup_out));
+    for (unsigned c = 0; c < description.bNumConfigurations && !found; ++c) {
+        const auto& config = description.configurations[c];
+        for (unsigned i = 0; i < config.bNumInterfaces && !found; ++i) {
+            const auto& interface = config.interfaces[i];
+            if (interface.bInterfaceClass != USB_CLASS_HID || interface.bInterfaceNumber != (driver->dev_id >> 24)) continue;
+            out[36] = 18;
+            out[37] = 1;
+            out[56] = 9;
+            out[57] = 2;
+            std::memcpy(out + 68, &interface, 9);
+            unsigned offset = 80;
+            for (unsigned e = 0; e < interface.bNumEndpoints && offset + 8 <= sizeof(driver->setup_out); ++e) {
+                const auto& endpoint = interface.endpoints[e];
+                if ((endpoint.bmAttributes & 3u) != 3u) continue;
+                std::memcpy(out + offset, &endpoint, 7);
+                offset += 8;
+            }
+            found = true;
+        }
+    }
+    USB_FreeDescriptors(&description);
+    DCFlushRange(out, sizeof(driver->setup_out));
+    return found ? 0 : -4;
 }
 
 // Gives the shared mode's answers to the driver, and makes libogc's
@@ -150,11 +190,17 @@ void ServeShared() {
             // Resumes it and reads its descriptors, which v5 wants before
             // any transfer (libogc's USB_OpenDevice).
             s32 fd = -1;
-            result = USB_OpenDevice(ops[i].dev, GCAD_VID_PID >> 16, GCAD_VID_PID & 0xFFFF, &fd);
+            const gcad* driver = ops[i].driver;
+            const unsigned vid = driver->mapping ? driver->mapping->vid : GCAD_VID_PID >> 16;
+            const unsigned pid = driver->mapping ? driver->mapping->pid : GCAD_VID_PID & 0xFFFF;
+            result = USB_OpenDevice(ops[i].dev, vid, pid, &fd);
             if (result >= 0 && fd >= 0) {
-                if (g_ogc_dev_fd >= 0 && g_ogc_dev_fd != fd) USB_CloseDevice(&g_ogc_dev_fd);
-                g_ogc_dev_fd = fd;
+                s32& previous = g_ogc_dev_fd[driver->slot];
+                if (previous >= 0 && previous != fd) USB_CloseDevice(&previous);
+                previous = fd;
             }
+        } else if (ops[i].cmd == GCAD_V5_GET_DEVICE_INFO) {
+            result = SharedDescriptors(ops[i].driver);
         } else {
             result = USB_ClearHalt(ops[i].dev, 0);  // v5: cancels its control and interrupt transfers
         }
@@ -170,11 +216,17 @@ void ServeShared() {
         g_ogc_changed = false;
         have_list = true;
         if (USB_GetDeviceListUnfiltered(list, 32, USB_CLASS_HID, &count) < 0) count = 0;
+        rthid_device devices[RTHID_DEVICE_MAX];
+        for (unsigned i = 0; i < count; ++i) {
+            devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+        }
+        HidPadsRemember(devices, count);
     } else if (g_list_wanted && !g_notify_armed) {
         g_notify_armed = true;  // left set when refused: libogc has no HID list to follow
         USB_DeviceChangeNotifyAsync(USB_CLASS_HID, OnOgcChange, nullptr);
     }
     _CPU_ISR_Disable(level);
+    HidPadsCopyCatalog(reinterpret_cast<gcad_hub*>(g_state)->catalog);
     const std::uint32_t now = Now();
     Reply replies[sizeof(g_replies) / sizeof(g_replies[0])];
     const unsigned n = g_reply_count;
@@ -211,6 +263,19 @@ void Drain() {
         const Event e = g_events[g_event_tail % kEvents];
         g_event_tail = g_event_tail + 1;
         switch (e.code) {
+            case GCAD_EV_HID_FOUND:
+                logf("USB controller %04x:%04x: found device %08x.\n", static_cast<unsigned>(e.a >> 16),
+                     static_cast<unsigned>(e.a & 65535u), static_cast<unsigned>(e.b));
+                break;
+            case GCAD_EV_HID_LOST:
+                logf("USB controller %04x:%04x: unplugged.\n", static_cast<unsigned>(e.a >> 16),
+                     static_cast<unsigned>(e.a & 65535u));
+                break;
+            case GCAD_EV_HID_PORT:
+                logf("USB controller %04x:%04x: playing on GameCube port %u.\n", static_cast<unsigned>(e.a >> 16),
+                     static_cast<unsigned>(e.a & 65535u), static_cast<unsigned>(e.b) + 1);
+                break;
+            case GCAD_EV_HID_MISSING: break; // the file reader already named the config path
             case GCAD_EV_SUBMIT_FAIL:
                 if (ErrorLine()) logf("GameCube adapter: %s not sent (%d)\n", StepName(e.a >> 8), static_cast<int>(e.b));
                 break;
@@ -280,11 +345,12 @@ void ResetShared() {
     g_reply_count = 0;
     g_op_count = 0;
     g_error_lines = 0;
+    g_config_changes = 0;
 }
 
 // Why the menu leaves the adapter alone, or nullptr.
 const char* MenuOff() {
-    if (Settings().gc_adapter == "off") return "the setting is Off";
+    if (Settings().gc_adapter == "off" && Settings().usb_input != "on") return "USB controllers are off";
     // A Wii U's d2x cIOS never answered /dev/usb/hid with an adapter in
     // (On tries anyway; every call at the start has a time limit).
     if (Settings().gc_adapter != "on" && IOS_GetVersion() != 58 && is_wii_u() && IOS_GetVersion() != wii_u_adapter_slot()) {
@@ -298,7 +364,7 @@ const char* MenuOff() {
 bool GcAdapterStart(std::string& why, bool own_handle) {
     if (g_running) return true;
     if (g_state == nullptr) {
-        g_state = reinterpret_cast<gcad*>(skin::Mem2Alloc(sizeof(gcad)));
+        g_state = reinterpret_cast<gcad*>(skin::Mem2Alloc(sizeof(gcad_hub)));
         if (g_state == nullptr) {
             why = "no memory for the adapter's buffers";
             return false;
@@ -311,7 +377,7 @@ bool GcAdapterStart(std::string& why, bool own_handle) {
     std::int32_t dev = -1;
     std::uint32_t version = 5;
     std::string devices;
-    if (!own_handle && ogc_adapter(dev, devices) == AdapterSeen::Found && dev >= 0) {
+    if (!own_handle && ogc_adapter(dev, devices) == AdapterSeen::Found) {
         // libogc's USB owns v5's handle: its device-change notices, its
         // list and its transfers stand in for ours.
         g_fd = -1;
@@ -328,10 +394,15 @@ bool GcAdapterStart(std::string& why, bool own_handle) {
         logf("GameCube adapter: /dev/usb/hid v%u on IOS%d, fd %d\n", version, IOS_GetVersion(),
              static_cast<int>(g_fd));
     }
+    HidPadsPreload();
     g_running = true;
+    g_usb_enabled = Settings().usb_input != "off";
+    g_adapter_enabled = Settings().gc_adapter != "off";
     u32 level;
     _CPU_ISR_Disable(level);
-    gcad_init(g_state, nullptr, g_fd, version, TB_TIMER_CLOCK);
+    auto* hub = reinterpret_cast<gcad_hub*>(g_state);
+    HidPadsCopyCatalog(hub->catalog);
+    gcad_hub_init(hub, nullptr, g_fd, version, TB_TIMER_CLOCK);
     if (dev >= 0) gcad_expect(g_state, dev);
     gcad_tick(g_state, Now());
     _CPU_ISR_Restore(level);
@@ -367,6 +438,23 @@ void GcAdapterPoll(GcAdapterView& out) {
     out = GcAdapterView{};
     if (!g_running || g_state == nullptr) return;
     ServeShared();
+    // v4's list arrives through our own IPC callback. Compile any newly
+    // seen device's file here, with interrupts on, then reconsider that
+    // saved list. v5's shared path already did this in ServeShared.
+    if (!g_shared && g_config_changes != g_state->changes) {
+        rthid_device devices[RTHID_DEVICE_MAX];
+        u32 snapshot_level;
+        _CPU_ISR_Disable(snapshot_level);
+        const unsigned count = g_state->device_count;
+        std::memcpy(devices, g_state->devices, count * sizeof(devices[0]));
+        g_config_changes = g_state->changes;
+        _CPU_ISR_Restore(snapshot_level);
+        HidPadsRemember(devices, count);
+        _CPU_ISR_Disable(snapshot_level);
+        HidPadsCopyCatalog(reinterpret_cast<gcad_hub*>(g_state)->catalog);
+        gcad_refresh_hid(g_state, Now());
+        _CPU_ISR_Restore(snapshot_level);
+    }
     u32 level;
     _CPU_ISR_Disable(level);
     const std::uint32_t now = Now();
@@ -378,6 +466,12 @@ void GcAdapterPoll(GcAdapterView& out) {
     out.reports = g_state->reports;
     out.listed = g_state->listed;
     out.last_error = g_state->last_error;
+    for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
+        const gcad& pad = g_state->peers[i];
+        if (pad.link == GCAD_LINK_POLL && !pad.stale) ++out.hid_pads;
+        out.reports += pad.reports;
+    }
+    if (out.hid_pads && out.link == GCAD_LINK_NONE) out.link = GCAD_LINK_POLL;
     for (unsigned p = 0; p < GCAD_PORTS; ++p) out.present[p] = gcad_port(g_state, p, &out.pads[p], now) != 0;
     _CPU_ISR_Restore(level);
     Drain();
@@ -397,9 +491,9 @@ void GcAdapterStop() {
     ServeShared();
     const bool idle = gcad_idle(g_state);
     gcad_release(g_state);
-    if (g_ogc_dev_fd >= 0) {
-        USB_CloseDevice(&g_ogc_dev_fd);
-        g_ogc_dev_fd = -1;
+    for (auto& fd : g_ogc_dev_fd) {
+        if (fd >= 0) USB_CloseDevice(&fd);
+        fd = -1;
     }
     if (g_fd >= 0) IOS_Close(g_fd);
     g_fd = -1;
@@ -412,7 +506,14 @@ void GcAdapterStop() {
 void GcAdapterMenuPads(GcAdapterView& out) {
     out = GcAdapterView{};
     if (g_menu_ended) return;
-    if (g_running && g_menu_started && Settings().gc_adapter == "off") {
+    if (g_running && g_menu_started &&
+        (g_usb_enabled != (Settings().usb_input != "off") ||
+         g_adapter_enabled != (Settings().gc_adapter != "off"))) {
+        GcAdapterStop();
+        g_menu_checked = 0;
+        g_menu_failed = false;
+    }
+    if (g_running && g_menu_started && Settings().gc_adapter == "off" && Settings().usb_input != "on") {
         GcAdapterStop();
         return;
     }
@@ -500,10 +601,13 @@ int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t i
             case GCAD_V5_ATTACH:
             case GCAD_V5_RELEASE:
             // USB_OpenDevice read the descriptors with the resume.
-            case GCAD_V5_GET_DEVICE_INFO: Answer(tag, 0); return 0;
+                Answer(tag, 0); return 0;
+            case GCAD_V5_GET_DEVICE_INFO:
+                if (!g->mapping) { Answer(tag, 0); return 0; }
+                return Defer(tag, cmd, g->dev_id, g) ? 0 : -22;
             case GCAD_V5_SUSPEND_RESUME:
             case GCAD_V5_CANCEL_ENDPOINT:
-                return Defer(tag, cmd, static_cast<std::int32_t>(gcad_get32(static_cast<const uint8_t*>(in)))) ? 0 : -22;
+                return Defer(tag, cmd, static_cast<std::int32_t>(gcad_get32(static_cast<const uint8_t*>(in))), g) ? 0 : -22;
             default: return -4;
         }
     }
@@ -532,8 +636,8 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
         }
         if (cmd != GCAD_V5_INTERRUPT) return -4;
         return gcad_get32(m + 8) != 0
-                   ? USB_WriteIntrMsgAsync(dev, 0x02, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t)
-                   : USB_ReadIntrMsgAsync(dev, 0x81, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t);
+                   ? USB_WriteIntrMsgAsync(dev, g->endpoint_out, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t)
+                   : USB_ReadIntrMsgAsync(dev, g->endpoint_in, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t);
     }
     // Each slot its own vectors, kept until the reply: libogc turns them
     // into physical addresses in place. The slots using ioctlv are 2-4.

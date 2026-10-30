@@ -190,6 +190,82 @@ void test_motor() {
     EXPECT_EQ(wavebird.g.rumble_want[0], 0);
 }
 
+void test_hid_after_adapter() {
+    gc_gcad ad;
+    set_up(ad, 0x1u);
+    ad.g.peers = ad.pads;
+    ad.catalog.maps[0].vid = 0x1234;
+    ad.catalog.maps[0].pid = 0x5678;
+    ad.catalog.maps[0].rumble_bytes = 2;
+    gcad& hid = ad.pads[0];
+    hid.mapping = &ad.catalog.maps[0];
+    hid.link = GCAD_LINK_POLL;
+    hid.data_time = g_now;
+    hid.ticks_per_ms = kTicksPerMs;
+    hid.hid_pad.buttons = GCAD_PAD_B;
+    Status status;
+    // An SI-identified native pad reserves port 1 even before PADRead's
+    // status becomes ready. Adapter moves to port 2; HID takes port 3.
+    gc_gcad_fill(&ad, status.bytes, 1);
+    EXPECT_EQ(status.err(0), kNoController);
+    EXPECT_EQ(status.buttons(1), GCAD_PAD_A);
+    EXPECT_EQ(status.buttons(2), GCAD_PAD_B);
+    EXPECT_EQ(ad.filled, 6u);
+    gc_gcad_motor(&ad, 2, 1);
+    EXPECT_EQ(hid.rumble_want[0], 1);
+    gc_gcad_motor(&ad, 1, 1);
+    EXPECT_EQ(ad.g.rumble_want[0], 1);
+    ad.rumble = 0;
+    gc_gcad_motor(&ad, 2, 1);
+    EXPECT_EQ(hid.rumble_want[0], 0);
+    hid.stale = 1;
+    Status unplugged;
+    gc_gcad_fill(&ad, unplugged.bytes, 0);
+    EXPECT_EQ(ad.filled, 1u);
+}
+
+// Relocating adapter pad 0 must leave adapter pad 1 on its own free port.
+// HID pads wait until both adapter pads have a place, including for rumble.
+void test_adapter_own_port_before_displaced_and_hid() {
+    gc_gcad ad;
+    set_up(ad, 0x3u);
+    ad.g.raw[1][1] = 0x02;  // adapter pad 1 presses B
+    ad.g.peers = ad.pads;
+    ad.catalog.maps[0].vid = 0x1234;
+    ad.catalog.maps[0].pid = 0x5678;
+    ad.catalog.maps[0].rumble_bytes = 2;
+    gcad& hid = ad.pads[0];
+    hid.mapping = &ad.catalog.maps[0];
+    hid.link = GCAD_LINK_POLL;
+    hid.data_time = g_now;
+    hid.ticks_per_ms = kTicksPerMs;
+    hid.announced_port = 255;
+    hid.hid_pad.buttons = GCAD_PAD_X;
+    Status status;
+    status.err(0) = 0;
+    status.bytes[1] = 0x10;  // native pad presses Z
+
+    gc_gcad_fill(&ad, status.bytes, 1u);
+    EXPECT_EQ(ad.filled, 0xEu);
+    EXPECT_EQ(status.buttons(0), GCAD_PAD_Z);
+    EXPECT_EQ(status.buttons(1), GCAD_PAD_B);
+    EXPECT_EQ(status.buttons(2), GCAD_PAD_A);
+    EXPECT_EQ(status.buttons(3), GCAD_PAD_X);
+    EXPECT_EQ(ad.g.port_source[0], 255);
+    EXPECT_EQ(ad.g.port_source[1], 1);
+    EXPECT_EQ(ad.g.port_source[2], 0);
+    EXPECT_EQ(ad.g.port_source[3], GCAD_PORTS);
+    EXPECT_EQ(hid.announced_port, 3);
+
+    gc_gcad_motor(&ad, 1, 1);
+    EXPECT_EQ(ad.g.rumble_want[1], 1);
+    EXPECT_EQ(ad.g.rumble_want[0], 0);
+    gc_gcad_motor(&ad, 2, 1);
+    EXPECT_EQ(ad.g.rumble_want[0], 1);
+    gc_gcad_motor(&ad, 3, 1);
+    EXPECT_EQ(hid.rumble_want[0], 1);
+}
+
 }  // namespace
 
 extern "C" std::uint32_t gc_gcad_host_now(void) { return g_now; }
@@ -217,6 +293,8 @@ int main() {
     test_stale_reports();
     test_not_inited();
     test_motor();
+    test_hid_after_adapter();
+    test_adapter_own_port_before_displaced_and_hid();
     if (failures == 0) std::printf("gcgcad: all passed\n");
     return failures == 0 ? 0 : 1;
 }

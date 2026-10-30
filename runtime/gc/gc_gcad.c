@@ -31,8 +31,8 @@ static uint32_t ad_phys(uint32_t p) { return p & 0x3FFFFFFFu; }
 
 static struct gc_gcad_rq* ad_slot(gcad* g, uint32_t tag) {
     struct gc_gcad* ad = (struct gc_gcad*)g->env_ctx;
-    const uint32_t slot = tag & 15u;
-    if (slot >= GCAD_TAGS || ad->rq[slot].state == GC_GCAD_RQ_SENT) return 0;
+    const uint32_t slot = GCAD_REQUEST_SLOT(tag);
+    if (slot >= GCAD_REQUESTS || ad->rq[slot].state == GC_GCAD_RQ_SENT) return 0;
     return &ad->rq[slot];
 }
 
@@ -124,7 +124,7 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
 
 int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply) {
     uint32_t i;
-    for (i = 0; i < GCAD_TAGS; ++i) {
+    for (i = 0; i < GCAD_REQUESTS; ++i) {
         struct gc_gcad_rq* rq = &ad->rq[i];
         if (rq->state != GC_GCAD_RQ_SENT || ad_phys((uint32_t)(uintptr_t)rq->ipc) != reply) continue;
         gc_invalidate((uint32_t)(uintptr_t)rq->ipc, sizeof(rq->ipc));
@@ -151,14 +151,14 @@ void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad) {
     ad->ctx = (uint32_t)(uintptr_t)ctx;
     ad->polls++;
     if (!ad->inited) {
-        gcad_init(&ad->g, ad, ad->fd, ad->version, ad->ticks_per_ms);
+        gcad_links_init(&ad->g, ad->pads, &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
         if (ad->known_dev >= 0) gcad_expect(&ad->g, ad->known_dev);
         ad->inited = 1;
     }
     while ((reply = gc_ipc_take()) != 0) gc_ipc_route(ctx, reply);
     do {
         handed = 0;
-        for (i = 0; i < GCAD_TAGS; ++i) {
+        for (i = 0; i < GCAD_REQUESTS; ++i) {
             struct gc_gcad_rq* rq = &ad->rq[i];
             if (rq->state != GC_GCAD_RQ_DONE) continue;
             rq->state = GC_GCAD_RQ_IDLE;
@@ -181,9 +181,14 @@ void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native) {
     uint32_t i, present = 0;
     const uint32_t taken = gc_ports_taken(status, native);
     if (!ad->inited) return;
-    for (i = 0; i < GCAD_PORTS; ++i)
-        if (gcad_port(&ad->g, i, &pads[i], now)) present |= 1u << i;
-    gc_ports_assign(taken, present, ad->port_of);
+    if (ad->g.peers) {
+        present = gcad_read_ports(&ad->g, taken, pads, now);
+        for (i = 0; i < GCAD_PORTS; ++i) ad->port_of[i] = (present & (1u << i)) ? i : GC_PORT_NONE;
+    } else {
+        for (i = 0; i < GCAD_PORTS; ++i)
+            if (gcad_port(&ad->g, i, &pads[i], now)) present |= 1u << i;
+        gc_ports_assign(taken, present, ad->port_of);
+    }
     ad->filled = 0;
     for (i = 0; i < GCAD_PORTS; ++i) {
         const uint32_t port = ad->port_of[i];

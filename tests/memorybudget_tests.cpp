@@ -44,7 +44,7 @@ static void test_adapter_budget() {
             const ExtrasBudget without_adapter = EstimateExtras(state);
             settings.gc_adapter = "on";
             const ExtrasBudget with_adapter = EstimateExtras(state);
-            const auto state_bytes = (sizeof(gcad) + 31) & ~std::size_t(31);
+            const auto state_bytes = (sizeof(gcad_hub) + 31) & ~std::size_t(31);
             EXPECT_EQ(with_adapter.mem1() - without_adapter.mem1(), budget_pad.size);
             EXPECT_EQ(with_adapter.mem2() - without_adapter.mem2(), state_bytes);
             EXPECT_EQ(with_adapter.pieces.size(), without_adapter.pieces.size() + 1);
@@ -85,7 +85,7 @@ static void test_code_build_adapter_budget() {
         const ExtrasBudget without_adapter = EstimateExtras(state);
         settings.gc_adapter = "on";
         const ExtrasBudget with_adapter = EstimateExtras(state);
-        const auto state_bytes = (sizeof(gcad) + 31) & ~std::size_t(31);
+        const auto state_bytes = (sizeof(gcad_hub) + 31) & ~std::size_t(31);
         EXPECT_EQ(with_adapter.mem1(), without_adapter.mem1());
         EXPECT_EQ(with_adapter.mem2() - without_adapter.mem2(), budget_pad.size + state_bytes);
         EXPECT_TRUE(with_adapter.list().find("GameCube adapter") != std::string::npos);
