@@ -204,10 +204,36 @@ All of it is drawn for RiftWii; no Nintendo data is used.
   as the rift opens, a note for each letter and a closing chord, encoded as
   DSP-ADPCM.
 - **Preview:** `tools/preview_channel.py channel/art <dir>` renders the banner
-  and icon to video from the same data (Pillow, numpy, ffmpeg).
+  and icon to video from the same data (Pillow, numpy, ffmpeg); the banner as
+  a 16:9 Wii Menu shows it, the icon at 4:3. For still frames from the built
+  content, write content 0 with an eighth argument to the build step that
+  `make -f Makefile.channel` runs (`python3 tools/make_channel.py build
+  build-channel/loader.dol build-channel/forwarder.dol build-channel/start.bin
+  build-channel/forwarder_wii.dol channel/art build-channel build-channel`
+  writes `build-channel/00000000.app`; another folder must exist first), then
+  run `build-host/bannerdump build-channel/00000000.app <existing output
+  dir>`. `bannerdump` is a host tool, built with the host
+  tests (`cmake --build build-host --target bannerdump`), not by
+  `Makefile.channel`. `BANNER_WIDE=1` includes the Wii Menu's 16:9 stretch and
+  shape correction (unset for 4:3).
 
 The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN, BNS, IMET) were written from
 their public descriptions and checked against a retail banner's layout.
+
+Since channel version 15, the banner and grid icon keep their foreground
+shapes on a 16:9 Wii Menu. A parent pane uses BRLYT flag `0x04`, as retail
+logos do; the Menu narrows that group by 3/4 before stretching the screen.
+The nebula and clouds stay outside it and fill the width. The banner's
+foreground moves up 36 layout rows, centring the word and rift above the
+Wii Menu / Start bar and bringing the tagline into view. The icon's
+foreground moves down 4 rows to centre its word in the visible 128x96 tile.
+Only the parents change: all animation tracks, keys and timing stay the same.
+Both layouts keep their existing 608x456 size, and no texture grows.
+
+The forwarder's start animation is drawn by the CPU, which takes longer than
+one screen refresh. Since version 15 it draws each frame into a second,
+hidden framebuffer and shows it at the next retrace, so the TV never shows a
+frame half drawn (before, the flash could cover only the top of the screen).
 
 ## Building
 
