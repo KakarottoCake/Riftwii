@@ -154,7 +154,8 @@ bool PressedB(GuiTrigger* t) {
 
 // Home's search button answers a GameCube controller's B and a Classic
 // Controller's ZL (rift_menu.cpp): while a game is carried, by the pointer
-// or the D-pad, from any controller, they don't reach it (#382).
+// or the D-pad, from any controller, or a cover is up close, they don't
+// reach it (#382).
 void KeepFromSearch(GuiTrigger* t) {
     t->pad.btns_d &= ~PAD_BUTTON_B;
     if (t->wpad) t->wpad->btns_d &= ~WPAD_CLASSIC_BUTTON_ZL;
@@ -1594,6 +1595,7 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         LettersDone(t);
         if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
         t->pad.btns_d &= ~(kPadZoomKeys | PAD_BUTTON_A | PAD_BUTTON_B);
+        KeepFromSearch(t);
         t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B | WIIDRC_BUTTON_X | WIIDRC_BUTTON_Y);
         return true;
     }
