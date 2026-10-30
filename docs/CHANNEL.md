@@ -210,9 +210,11 @@ All of it is drawn for RiftWii; no Nintendo data is used.
   `make -f Makefile.channel` runs (`python3 tools/make_channel.py build
   build-channel/loader.dol build-channel/forwarder.dol build-channel/start.bin
   build-channel/forwarder_wii.dol channel/art build-channel <dir>` writes
-  `<dir>/00000000.app`), then run `bannerdump <dir>/00000000.app <existing
-  output dir>`; `BANNER_WIDE=1` includes the Wii
-  Menu's 16:9 stretch and shape correction (unset for 4:3).
+  `<dir>/00000000.app`), then run `build-host/bannerdump <dir>/00000000.app
+  <existing output dir>`. `bannerdump` is a host tool, built with the host
+  tests (`cmake --build build-host --target bannerdump`), not by
+  `Makefile.channel`. `BANNER_WIDE=1` includes the Wii Menu's 16:9 stretch and
+  shape correction (unset for 4:3).
 
 The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN, BNS, IMET) were written from
 their public descriptions and checked against a retail banner's layout.
