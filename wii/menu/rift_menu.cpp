@@ -5630,9 +5630,12 @@ static int MenuSource(FrontendState& state)
 				// channel's card, rather than a blank card with its name.
 				const u8* cover = items[at].id.empty() ? nullptr : riftwii::wii::CoverTexture(items[at].id);
 				if (!cover) return false;
-				const float m = static_cast<float>(riftwii::kChannelFrameMargin) + 1.0f;  // and the rim's border
-				skin::DrawNine(skin::channelCard9, b.clipX - m, b.clipY - m, b.clipW + 2 * m, b.clipH + 2 * m,
-					riftwii::kChannelFrameCorner, b.alpha);
+				// The grid has already drawn the card behind it when the card backdrop is on.
+				if (riftwii::wii::Settings().channel_background != "card") {
+					const float m = static_cast<float>(riftwii::kChannelFrameMargin) + 1.0f;  // and the rim's border
+					skin::DrawNine(skin::channelCard9, b.clipX - m, b.clipY - m, b.clipW + 2 * m, b.clipH + 2 * m,
+						riftwii::kChannelFrameCorner, b.alpha);
+				}
 				const float k = b.clipH * 0.9f / riftwii::kCoverHeight;
 				skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight,
 					b.clipX + b.clipW / 2.0f - riftwii::kCoverWidth / 2.0f,
