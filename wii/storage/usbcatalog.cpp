@@ -607,10 +607,17 @@ bool ensure_usb(std::string& error) {
             unmount_usb_games();
             return false;
         }
+        UsbLocked locked;
+        // A new mount, a new generation (as below).
+        ++g_usb_mount_generation;
         g_raw_mounted = true;
         return true;
     }
     UsbLocked locked;  // to the end: the volumes' list changes
+    // A new mount is a new generation: a lookup cached while the drive was
+    // unmounted (before the first mount, or during a rescan) mustn't stand
+    // for it, or usb:/riftwii/covers stays "not there" (UsbCoversFolderThere).
+    ++g_usb_mount_generation;
     std::vector<std::string> partition_notes;
     const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(),
                                              &partition_notes, nullptr, &g_usb_partition_failures);
