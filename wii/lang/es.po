@@ -3671,3 +3671,9 @@ msgstr "Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que 
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1} está instalado. Elígelo en Ajustes > Menú > Tema para usarlo."
+
+msgid "Not applied"
+msgstr "No se aplica"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "Este juego comprueba su propio código. Para que arranque, no se aplican cambios de imagen, idioma, región, mandos, juego en línea ni trucos."
