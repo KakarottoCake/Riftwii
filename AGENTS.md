@@ -135,8 +135,9 @@ Readability beats brevity. For all code you write or change:
 - Every menu string is English in the source, goes through `tr()`, and
   needs its six translations in `tools/lang_source.py` (Spanish, Japanese,
   Portuguese, Italian, Korean, French). Run the script so the `.po` files
-  follow. New Japanese text must exist in the menu font's core, which the
-  script checks (`tools/make_menu_font.py core` makes it again).
+  follow. New Japanese text must exist in `wii/font/menu.ttf`, which the
+  script checks (`tools/make_menu_font.py cut` rebuilds it from the pinned
+  M PLUS 1 variable font; see docs/DEVELOPING.md).
 - US spelling "license" in anything players read (existing code identifiers
   such as `licence_zst` stay as they are).
 - Log lines (`logf`) are read by testers and by us in problem reports. Write

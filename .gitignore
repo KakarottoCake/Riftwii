@@ -1,4 +1,5 @@
 build-host/
+build-font/
 build_wii/
 *.elf
 *.dol
@@ -11,3 +12,4 @@ build-bearssl/
 build-channel/
 build-plugins/
 tests/local/
+__pycache__/

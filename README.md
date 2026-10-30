@@ -170,7 +170,8 @@ contains theirs names them in its file header, and
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
-  for the menu font, **Adobe and the Noto authors** for Noto Sans KR
+  for M PLUS 1 SemiBold (the menu font) and M PLUS Rounded 1c Bold (the logo and rare fallback characters),
+  both SIL Open Font License 1.1, **Adobe and the Noto authors** for Noto Sans KR
   (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures,
   **Wikimedia Commons** for the age rating boards' marks (public domain).

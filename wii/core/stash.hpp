@@ -5,7 +5,7 @@
 #include <gctypes.h>
 
 // The start-up stash (include/riftwii/stashimage.hpp, docs/MEMORY.md):
-// the menu's font, its translations and the GPL's text, which boot.dol
+// the menu's translations and the GPL's text, which boot.dol
 // carries as one more section just above .bss, where the heap grows.
 //
 // crt0 calls TakeStash (from __wrap___CheckARGV, before .bss is cleared):
@@ -26,7 +26,7 @@ bool FreshStart();
 // 2 starts above it.
 u32 ReservedEnd();
 
-// An entry ("menufont.zst", "es.po.zst", "licence.zst"); false when the
+// An entry ("es.po.zst", "licence.zst"); false when the
 // stash is missing (riftwii.elf started directly has none) or damaged.
 bool Find(const char* name, const u8*& data, u32& size);
 

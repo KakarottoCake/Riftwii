@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Makes RiftWii's menu font from M PLUS Rounded 1c Bold, in two parts.
+"""Makes the card's complete menu font from Google Fonts' M PLUS 1 variable font.
 
-The full font (Google Fonts, ofl/mplusrounded1c/MPLUSRounded1c-Bold.ttf,
-SIL Open Font License 1.1) is 3.5 MB. Three steps:
+Source: ofl/mplus1/MPLUS1[wght].ttf at google/fonts commit
+e20f9bdde5d8538dcef0c95022d1d3d12acbc453, SIL Open Font License 1.1.
+`cut` first makes a static SemiBold (weight 600) instance, then subsets and
+rounds it. No part of this font goes in the DOL.
 
-  cut    the characters RiftWii's menu shows, kept as wii/font/rounded.ttf
-         (4,012 of them):
+  cut    the characters RiftWii's menu shows, kept as wii/font/menu.ttf:
            - Latin with the accents of the menu's languages (Latin-1, Latin
              Extended-A) and common punctuation;
            - JIS X 0208's symbols, kana and first-level kanji (the everyday
@@ -19,30 +20,30 @@ SIL Open Font License 1.1) is 3.5 MB. Three steps:
          kept and the bounds recomputed. It looks the same at 18 to 60 px
          and packs about a third smaller. Not 16 units: the letter spacing
          shifts at 24 px. `cut` rounds too.
-  core   the small part the DOL carries (wii/font/core.ttf, zstd in the
-         start-up stash): tools/menu_font_chars.py says which characters.
-
-wii/font/rounded.ttf itself, rounded, ships next to the DOL as
-sd:/apps/riftwii/font.ttf (tools/make_release_zip.py), and the menu reads
-a character the core lacks from there (wii/menu/fullfont.cpp). Run `core`
-again whenever a translation brings a character the core lacks;
-tools/lang_source.py and the menufont host test say when.
+The default subset includes the sources, translations and the extra Japanese
+title characters retained in tools/japanese_title_chars.txt. Use --text for
+additional GameTDB titles. The whole file ships beside boot.dol as font.ttf
+and stays in MEM2 throughout the menu, including every unmount and update.
+wii/font/rounded.ttf remains the logo artwork's font and is left unchanged.
+Its rare characters absent from M PLUS 1 are retained in the new file too,
+so existing titles keep drawing without a second installed font file.
 
 Needs fontTools (pip install fonttools).
 
-    python tools/make_menu_font.py cut MPLUSRounded1c-Bold.ttf wii/font/rounded.ttf \\
-        --text wii/lang/ja.po --text wiitdb-ja.txt
-    python tools/make_menu_font.py round wii/font/rounded.ttf wii/font/rounded.ttf
-    python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf
+    python tools/make_menu_font.py cut 'build-font/MPLUS1[wght].ttf' wii/font/menu.ttf
 """
 
 import argparse
+import hashlib
 import math
+import unicodedata
+from pathlib import Path
 
 import menu_font_chars
 
 # A multiple of 8 font units: 16 moves letters at 24 px.
 GRID = 8
+SOURCE_SHA256 = "32dab296a06c3e87841ecd2bc9912434a964ad541e22ea19f764969dae93fced"
 
 
 def jis_chars(lead_bytes):
@@ -105,8 +106,83 @@ def round_outlines(font):
     return rounded
 
 
+def add_halfwidth_kana(font):
+    """The source omits half-width kana. Derive them from its own full-width
+    outlines, so Japanese titles keep their characters and half-em advances."""
+    from fontTools.pens.recordingPen import DecomposingRecordingPen
+    from fontTools.pens.transformPen import TransformPen
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    cmap = font.getBestCmap()
+    glyph_set = font.getGlyphSet()
+    glyph_order = font.getGlyphOrder()[:]
+    for codepoint in range(0xFF61, 0xFFA0):
+        if codepoint in cmap:
+            continue
+        normalized = unicodedata.normalize("NFKC", chr(codepoint))
+        source_name = cmap[ord(normalized)]
+        recording = DecomposingRecordingPen(glyph_set)
+        glyph_set[source_name].draw(recording)
+        pen = TTGlyphPen(None)
+        recording.replay(TransformPen(pen, (0.5, 0, 0, 1, 0, 0)))
+        glyph_name = "riftwii%04X" % codepoint
+        glyph_order.append(glyph_name)
+        glyph = pen.glyph()
+        font["glyf"][glyph_name] = glyph
+        glyph.recalcBounds(font["glyf"])
+        font["hmtx"][glyph_name] = (500, glyph.xMin)
+        if "vmtx" in font:
+            font["vmtx"][glyph_name] = font["vmtx"][source_name]
+        for table in font["cmap"].tables:
+            if table.isUnicode():
+                table.cmap[codepoint] = glyph_name
+    font.setGlyphOrder(glyph_order)
+
+
+def retain_missing_characters(font, characters):
+    """Keep the former font's rare symbols and scripts the new source lacks.
+    Copy outlines only; the menu's ordinary text and metrics remain M PLUS 1."""
+    from fontTools.pens.recordingPen import DecomposingRecordingPen
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+    from fontTools.ttLib import TTFont
+
+    legacy_path = Path(menu_font_chars.REPO) / "wii" / "font" / "rounded.ttf"
+    legacy = TTFont(legacy_path, recalcTimestamp=False)
+    legacy_cmap = legacy.getBestCmap()
+    legacy_glyphs = legacy.getGlyphSet()
+    cmap = font.getBestCmap()
+    glyph_order = font.getGlyphOrder()[:]
+    count = 0
+    for character in sorted(characters):
+        codepoint = ord(character)
+        if codepoint in cmap or codepoint not in legacy_cmap:
+            continue
+        source_name = legacy_cmap[codepoint]
+        recording = DecomposingRecordingPen(legacy_glyphs)
+        legacy_glyphs[source_name].draw(recording)
+        pen = TTGlyphPen(None)
+        recording.replay(pen)
+        glyph_name = "retained%04X" % codepoint
+        glyph_order.append(glyph_name)
+        glyph = pen.glyph()
+        font["glyf"][glyph_name] = glyph
+        glyph.recalcBounds(font["glyf"])
+        font["hmtx"][glyph_name] = legacy["hmtx"][source_name]
+        if "vmtx" in font:
+            font["vmtx"][glyph_name] = legacy["vmtx"][source_name]
+        for table in font["cmap"].tables:
+            if table.isUnicode():
+                table.cmap[codepoint] = glyph_name
+        count += 1
+    font.setGlyphOrder(glyph_order)
+    print("%d rare characters retained from the former font" % count)
+
+
 def cut(args):
     from fontTools.ttLib import TTFont
+
+    if hashlib.sha256(Path(args.font).read_bytes()).hexdigest() != SOURCE_SHA256:
+        raise SystemExit("Use MPLUS1[wght].ttf from the Google Fonts commit pinned above.")
 
     ranges = [(0x20, 0x7E), (0xA0, 0x17F), (0x2010, 0x2027), (0x2030, 0x203A), (0x2122, 0x2122),
               (0x2190, 0x2193), (0x3000, 0x30FF), (0xFF01, 0xFF9F)]
@@ -120,11 +196,28 @@ def cut(args):
         with open(path, encoding="utf-8", errors="ignore") as f:
             chars.update(f.read())
 
+    chars |= menu_font_chars.text_characters()
+    title_chars = Path(__file__).with_name("japanese_title_chars.txt")
+    for line in title_chars.read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            chars.update(chr(int(point, 16)) for point in line.split())
+
     font = TTFont(args.font, recalcTimestamp=False)
+    from fontTools.varLib.instancer import instantiateVariableFont
+
+    font = instantiateVariableFont(font, {"wght": 600}, inplace=True, updateFontNames=True)
+    add_halfwidth_kana(font)
+    retain_missing_characters(font, chars)
     cmap = font.getBestCmap()
     unicodes = sorted(ord(c) for c in chars if ord(c) in cmap)
     subset_font(font, unicodes)
     round_outlines(font)
+    # Existing widgets compensate for Rounded 1c's line box. Keep that box
+    # centrally, rather than moving every button, row and tile. The new
+    # outlines' cap/x heights (730/520) match the old rounded ones (728/520).
+    font["hhea"].ascent = 1075
+    font["hhea"].descent = -320
+    font["hhea"].lineGap = 90
     font.save(args.out)
     print("%d characters kept, rounded to %d units, written to %s" % (len(unicodes), GRID, args.out))
 
@@ -138,19 +231,6 @@ def round_only(args):
     print("%d glyphs rounded to %d units, written to %s" % (count, GRID, args.out))
 
 
-def core(args):
-    from fontTools.ttLib import TTFont
-
-    font = TTFont(args.font, recalcTimestamp=False)
-    unicodes = menu_font_chars.core_codepoints(set(font.getBestCmap()))
-    subset_font(font, unicodes)
-    # Rounded already when cut from the rounded full font; once more in
-    # case it was not, so the core's glyphs never differ from the full's.
-    round_outlines(font)
-    font.save(args.out)
-    print("%d characters in the core, written to %s" % (len(unicodes), args.out))
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     steps = ap.add_subparsers(dest="step", required=True)
@@ -158,12 +238,11 @@ def main():
     cut_step.add_argument("font")
     cut_step.add_argument("out")
     cut_step.add_argument("--text", action="append", default=[], help="a UTF-8 file whose characters are kept")
-    for name, what in (("round", "rounds a font's outlines"), ("core", "the core font for the DOL")):
-        step = steps.add_parser(name, help=what)
-        step.add_argument("font")
-        step.add_argument("out")
+    round_step = steps.add_parser("round", help="rounds a font's outlines")
+    round_step.add_argument("font")
+    round_step.add_argument("out")
     args = ap.parse_args()
-    {"cut": cut, "round": round_only, "core": core}[args.step](args)
+    {"cut": cut, "round": round_only}[args.step](args)
 
 
 if __name__ == "__main__":

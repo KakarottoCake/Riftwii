@@ -5,25 +5,22 @@
 #include <gccore.h>
 #include <ogc/lwp_heap.h>
 #include <ogc/mutex.h>
-
-#include <dirent.h>
 #include <sys/stat.h>
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <vector>
 
 #include "FreeTypeGX.h"
 #include "log.hpp"
+#include "riftwii/checkedalloc.hpp"
 #include "riftwii/pluginfile.hpp"
 #include "skin.hpp"
+#include "usbcatalog.hpp"
 
 #include FT_MODULE_H
 
-// The same four FreeType modules as the core font: both external fonts
-// are TrueType without hinting. They share this library and its MEM2 pool.
 extern "C" {
 extern const FT_Module_Class sfnt_module_class;
 extern const FT_Module_Class tt_driver_class;
@@ -34,43 +31,20 @@ extern const FT_Module_Class ft_smooth_renderer_class;
 namespace riftwii::wii::fullfont {
 namespace {
 
-// The external fonts' shared memory in MEM2: FreeType's face for it (about 40 KB
-// once open, about 105 KB at its peak while glyphs are drawn, measured
-// with FreeType on a computer), the file's stdio buffer and the textures
-// of the glyphs drawn from it (288 bytes for a kanji at 24 px). What does
-// not fit goes to the heap.
 constexpr std::size_t kPoolBytes = 384 * 1024;
-// Small enough that one read is one or two of the card's sectors runs, as
-// FreeType reads a glyph's few hundred bytes at a time.
-constexpr std::size_t kFileBufferBytes = 4096;
-struct StreamFont {
-    const char* filename;
-    const char* description;
-    FT_Face face = nullptr;
-    FT_StreamRec stream = {};
-    FILE* file = nullptr;
-    char* file_buffer = nullptr;
-    unsigned long file_position = 0;
-    bool missing = false;
-    bool missing_logged = false;
-};
-
-StreamFont g_full = {"font.ttf", "full font"};
-StreamFont g_korean = {"korean.ttf", "Korean font"};
-
+constexpr std::size_t kMaxFontBytes = 16 * 1024 * 1024;
 mutex_t g_lock = LWP_MUTEX_NULL;
-
 bool g_enabled = false;
 bool g_menu_ended = false;
 int g_closed_holds = 0;
 bool g_note_due = false;
 bool g_note_given = false;
-
+bool g_korean_missing = false;
 u8* g_pool_block = nullptr;
 heap_cntrl g_pool;
-
 FT_MemoryRec_ g_memory;
 FT_Library g_library = nullptr;
+FT_Face g_korean = nullptr;
 
 // The last glyph drawn, width-packed, until FreeTypeGX has copied it.
 u8* g_glyph_pixels = nullptr;
@@ -90,8 +64,6 @@ bool InPool(const void* block) {
     return at >= g_pool_block && at < g_pool_block + kPoolBytes;
 }
 
-// Taken the first time the file is there, so a card without it costs no
-// MEM2. Kept for the menu phase: Mem2Alloc never gives memory back.
 bool PoolReady() {
     if (g_pool_block != nullptr) return true;
     g_pool_block = skin::Mem2Alloc(kPoolBytes);
@@ -114,9 +86,7 @@ void PoolFree(void* block) {
     }
 }
 
-// FreeType's allocator for the full font's library: the pool first.
 void* FtAlloc(FT_Memory, long bytes) { return PoolAlloc(static_cast<std::size_t>(bytes)); }
-
 void FtFree(FT_Memory, void* block) { PoolFree(block); }
 
 void* FtRealloc(FT_Memory, long current, long wanted, void* block) {
@@ -127,30 +97,6 @@ void* FtRealloc(FT_Memory, long current, long wanted, void* block) {
         PoolFree(block);
     }
     return moved;
-}
-
-// FreeType's stream: reads at `offset`; with `count` 0 only seeks, and
-// then answers 0 for success.
-unsigned long StreamRead(FT_Stream stream, unsigned long offset, unsigned char* buffer, unsigned long count) {
-    auto& font = *static_cast<StreamFont*>(stream->descriptor.pointer);
-    if (font.file == nullptr) return count == 0 ? 1 : 0;
-    if (offset != font.file_position) {
-        if (std::fseek(font.file, static_cast<long>(offset), SEEK_SET) != 0) return count == 0 ? 1 : 0;
-        font.file_position = offset;
-    }
-    if (count == 0) return 0;
-    const std::size_t got = std::fread(buffer, 1, count, font.file);
-    font.file_position += got;
-    return got;
-}
-
-// Called by FT_Done_Face, and by FT_Open_Face when it fails.
-void StreamClose(FT_Stream stream) {
-    auto& font = *static_cast<StreamFont*>(stream->descriptor.pointer);
-    if (font.file != nullptr) std::fclose(font.file);
-    font.file = nullptr;
-    PoolFree(font.file_buffer);
-    font.file_buffer = nullptr;
 }
 
 bool LibraryReady() {
@@ -179,141 +125,110 @@ std::string RunningDolPath() {
     return "";
 }
 
-// Whether the drive `path` is on can be read at all ("sd:/" mounted): a
-// file not found on an unmounted card is not missing.
-bool DriveReadable(const std::string& path) {
-    const std::size_t colon = path.find(":/");
-    if (colon == std::string::npos) return false;
-    DIR* root = opendir(path.substr(0, colon + 2).c_str());
-    if (root == nullptr) return false;
-    closedir(root);
-    return true;
-}
-
-std::string FontPath(const StreamFont& font) {
+std::string FontPath(const char* filename) {
     const std::string full = menu_font_path_for(RunningDolPath());
-    return full.substr(0, full.rfind('/') + 1) + font.filename;
+    return full.substr(0, full.rfind('/') + 1) + filename;
 }
 
-void CloseLocked(const char* why) {
-    for (StreamFont* font : {&g_full, &g_korean}) {
-        if (font->face != nullptr) {
-            FT_Done_Face(font->face);  // closes its stream and file
-            logf("Menu font: the %s closed (%s); opened again when a character needs it\n",
-                 font->description, why);
+// TrueType's whole-file checksum includes the directory and outline data.
+// FreeType alone can open a file whose later glyphs were damaged in a copy.
+bool FontChecksum(const u8* data, std::size_t size) {
+    if (size < 12 || data[0] != 0 || data[1] != 1 || data[2] != 0 || data[3] != 0) return false;
+    std::uint32_t sum = 0;
+    for (std::size_t at = 0; at < size; at += 4) {
+        std::uint32_t word = 0;
+        for (std::size_t byte = 0; byte < 4; ++byte) {
+            word <<= 8;
+            if (at + byte < size) word |= data[at + byte];
         }
-        font->face = nullptr;
-        font->missing = false;
+        sum += word;
     }
+    return sum == 0xB1B0AFBA;
 }
 
-// Missing files are retried after a remount, but logged only once a session.
-void NoteMissing(StreamFont& font, const std::string& why, bool copying_helps) {
-    font.missing = true;
-    if (!font.missing_logged) {
-        font.missing_logged = true;
-        logf("Menu font: the %s is unavailable (%s).%s%s%s\n", font.description, why.c_str(),
-             copying_helps ? " Copy apps/riftwii/" : "",
-             copying_helps ? font.filename : "",
-             copying_helps ? " from the RiftWii zip to the SD card." : "");
+u8* ReadAt(const std::string& path, std::size_t& size, std::string& why) {
+    // RiftWii's USB view also supports NTFS; it is not a stdio mount.
+    if (path.compare(0, 4, "usb:") == 0) {
+        std::uint64_t length = 0;
+        if (!mount_usb_files(why) || !read_usb_range(path, 0, nullptr, 0, length) ||
+            length == 0 || length > kMaxFontBytes) {
+            why = path + " could not be read from the USB drive: " + why;
+            return nullptr;
+        }
+        size = static_cast<std::size_t>(length);
+        u8* data = can_allocate(size) ? skin::Mem2Alloc(size) : nullptr;
+        if (data == nullptr) {
+            why = "there is no memory for " + path;
+            return nullptr;
+        }
+        if (!read_usb_range(path, 0, data, size, length) || !FontChecksum(data, size)) {
+            skin::Mem2Release(data, size);
+            why = path + " is incomplete or has a damaged TrueType checksum";
+            return nullptr;
+        }
+        return data;
     }
-    // The existing full-font notice is unchanged; Korean falls back to
-    // English through MenuLanguageDrawable when its font is missing.
-    if (&font == &g_full && copying_helps && !g_note_given) g_note_due = true;
-}
-
-bool FileThere(const std::string& path) {
-    struct stat info;
-    return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0;
-}
-
-// FreeType's stream on the file at `path`, and the face on it; nullptr,
-// with `why`, when it cannot be opened or read as a font.
-FT_Face OpenAt(StreamFont& font, const std::string& path, std::string& why) {
     FILE* file = std::fopen(path.c_str(), "rb");
     struct stat info;
-    if (file == nullptr || fstat(fileno(file), &info) != 0 || info.st_size <= 0 || info.st_size > 16 * 1024 * 1024) {
+    if (file == nullptr || fstat(fileno(file), &info) != 0 || info.st_size <= 0 ||
+        info.st_size > static_cast<long>(kMaxFontBytes)) {
         if (file != nullptr) std::fclose(file);
-        why = path + " could not be opened";
+        why = path + " is missing, unreadable or larger than 16 MiB";
         return nullptr;
     }
-    font.file = file;
-    font.file_position = 0;
-    font.file_buffer = static_cast<char*>(PoolAlloc(kFileBufferBytes));
-    if (font.file_buffer != nullptr) setvbuf(font.file, font.file_buffer, _IOFBF, kFileBufferBytes);
-    std::memset(&font.stream, 0, sizeof(font.stream));
-    font.stream.size = static_cast<unsigned long>(info.st_size);
-    font.stream.descriptor.pointer = &font;
-    font.stream.read = StreamRead;
-    font.stream.close = StreamClose;
-    FT_Open_Args args;
-    std::memset(&args, 0, sizeof(args));
-    args.flags = FT_OPEN_STREAM;
-    args.stream = &font.stream;
-    const FT_Error error = FT_Open_Face(g_library, &args, 0, &font.face);
-    if (error != 0) {
-        font.face = nullptr;
-        StreamClose(&font.stream);  // FreeType has closed it already; harmless again
-        why = path + " could not be read as a font (FreeType error " + std::to_string(error) + ")";
+    size = static_cast<std::size_t>(info.st_size);
+    u8* data = can_allocate(size) ? skin::Mem2Alloc(size) : nullptr;
+    if (data == nullptr) {
+        std::fclose(file);
+        why = "there is no memory for " + path;
         return nullptr;
     }
-    // Once a session in the usual menu; again after each unmount.
-    logf("Menu font: the %s opened from %s (%ld bytes, %ld glyphs) for characters the core font "
-         "lacks; read a glyph at a time\n", font.description, path.c_str(),
-         static_cast<long>(info.st_size), font.face->num_glyphs);
-    return font.face;
+    const bool complete = std::fread(data, 1, size, file) == size;
+    const bool closed = std::fclose(file) == 0;
+    if (!complete || !closed || !FontChecksum(data, size)) {
+        skin::Mem2Release(data, size);
+        why = path + " is incomplete or has a damaged TrueType checksum";
+        return nullptr;
+    }
+    return data;
 }
 
-// The face, opening it if need be; nullptr when it can't be had now.
-FT_Face FaceLocked(StreamFont& font) {
-    if (font.face != nullptr) return font.face;
-    if (!g_enabled || g_menu_ended || g_closed_holds > 0 || font.missing) return nullptr;
-    const std::string beside = FontPath(font);
-    const std::string default_path = std::string("sd:/apps/riftwii/") + font.filename;
-    if (!DriveReadable(beside) && !DriveReadable(default_path)) return nullptr;  // tried again later
-    // Beside the running boot.dol, then where the release zip puts it (a
-    // DOL started by a loader that passes no path, or a broken copy beside
-    // it): missing only when neither opens.
-    std::vector<std::string> candidates;
-    if (FileThere(beside)) candidates.push_back(beside);
-    if (beside != default_path && FileThere(default_path)) candidates.push_back(default_path);
-    if (candidates.empty()) {
-        NoteMissing(font, beside + " is missing", true);
-        return nullptr;
-    }
-    // The MEM2 pool and the library only once a file is there.
-    if (!LibraryReady()) {
-        NoteMissing(font, "there was no memory for FreeType", false);
-        return nullptr;
-    }
+FT_Face KoreanLocked() {
+    if (g_korean != nullptr) return g_korean;
+    if (!g_enabled || g_menu_ended || g_closed_holds > 0 || g_korean_missing) return nullptr;
+    if (!LibraryReady()) return nullptr;
+    const std::string beside = FontPath("korean.ttf");
+    const std::string standard = "sd:/apps/riftwii/korean.ttf";
     std::string why;
-    for (const std::string& path : candidates) {
-        std::string failed;
-        if (FT_Face face = OpenAt(font, path, failed)) return face;
-        why += (why.empty() ? "" : "; ") + failed;
+    for (const std::string& path : {beside, standard}) {
+        if (path == standard && beside == standard && !why.empty()) continue;
+        std::size_t size = 0;
+        u8* data = ReadAt(path, size, why);
+        if (data == nullptr) continue;
+        if (FT_New_Memory_Face(g_library, data, size, 0, &g_korean) == 0) {
+            logf("Menu font: the Korean font was read from %s (%u bytes) and stays in MEM2 during unmounts.\n",
+                 path.c_str(), static_cast<unsigned>(size));
+            return g_korean;
+        }
+        g_korean = nullptr;
+        skin::Mem2Release(data, size);
+        why = path + " could not be read by FreeType";
     }
-    NoteMissing(font, why, true);
+    g_korean_missing = true;
+    logf("Menu font: the Korean font is unavailable because %s.\n", why.c_str());
     return nullptr;
 }
 
-// FreeTypeGX asks after the selected menu font: full font first, then
-// Korean. Its existing texture cache keeps every glyph already drawn.
 bool Glyph(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out) {
     Lock lock;
-    FT_Face face = FaceLocked(g_full);
-    FT_UInt index = face != nullptr ? FT_Get_Char_Index(face, static_cast<FT_ULong>(charCode)) : 0;
-    if (index == 0) {
-        face = FaceLocked(g_korean);
-        index = face != nullptr ? FT_Get_Char_Index(face, static_cast<FT_ULong>(charCode)) : 0;
-    }
+    FT_Face face = KoreanLocked();
+    const FT_UInt index = face != nullptr ? FT_Get_Char_Index(face, static_cast<FT_ULong>(charCode)) : 0;
     if (index == 0) return false;
     if (FT_Set_Pixel_Sizes(face, 0, static_cast<FT_UInt>(pixelSize)) != 0) return false;
     if (FT_Load_Glyph(face, index, FT_LOAD_DEFAULT | FT_LOAD_RENDER) != 0) return false;
     const FT_GlyphSlot slot = face->glyph;
     const FT_Bitmap& bitmap = slot->bitmap;
     if (bitmap.pixel_mode != FT_PIXEL_MODE_GRAY) return false;
-    // Copied out: the slot's bitmap goes with the face, which another
-    // thread may close as soon as the lock is let go.
     const std::size_t bytes = static_cast<std::size_t>(bitmap.width) * bitmap.rows;
     if (bytes > g_glyph_bytes) {
         PoolFree(g_glyph_pixels);
@@ -333,15 +248,13 @@ bool Glyph(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out) {
     return true;
 }
 
-// A glyph texture: 32-byte aligned for GX, the block's own start kept in
-// the word before it.
+// GX needs 32-byte alignment; keep the pool allocation before that address.
 void* TextureAlloc(std::size_t bytes) {
     Lock lock;
     if (!PoolReady()) return nullptr;
-    // Room for the start's word and up to 31 bytes of alignment.
     const std::size_t slack = sizeof(void*) + 32;
     u8* block = static_cast<u8*>(__lwp_heap_allocate(&g_pool, bytes + slack));
-    if (block == nullptr) return nullptr;  // FreeTypeGX takes the heap's
+    if (block == nullptr) return nullptr;
     const std::uintptr_t first = reinterpret_cast<std::uintptr_t>(block) + sizeof(void*);
     const std::uintptr_t aligned = (first + 31) & ~std::uintptr_t(31);
     reinterpret_cast<void**>(aligned)[-1] = block;
@@ -359,30 +272,47 @@ const FtgxMissingGlyphSource kSource = {Glyph, TextureAlloc, TextureFree};
 
 }  // namespace
 
-void Enable() {
-    {
-        Lock lock;
-        g_enabled = true;
+bool Load() {
+    Lock lock;
+    const std::string beside = FullFontPath();
+    const std::string standard = "sd:/apps/riftwii/font.ttf";
+    std::string why;
+    for (const std::string& path : {beside, standard}) {
+        if (path == standard && beside == standard && !why.empty()) continue;
+        std::size_t size = 0;
+        u8* data = ReadAt(path, size, why);
+        if (data == nullptr) continue;
+        if (InitFreeType(data, size)) {
+            g_enabled = true;
+            SetMissingGlyphSource(&kSource);
+            logf("Menu font: M PLUS 1 SemiBold was read from %s (%u bytes) and stays in MEM2 during unmounts.\n",
+                 path.c_str(), static_cast<unsigned>(size));
+            return true;
+        }
+        DeinitFreeType();
+        skin::Mem2Release(data, size);
+        why = path + " could not be read by FreeType";
     }
-    SetMissingGlyphSource(&kSource);
+    g_note_due = !g_note_given;
+    logf("Menu font: RiftWii's font is unavailable because %s. "
+         "Copy apps/riftwii/font.ttf from the RiftWii zip to restore RiftWii's font.\n", why.c_str());
+    return false;
 }
 
 ClosedHold::ClosedHold(const char* why) {
     Lock lock;
     ++g_closed_holds;
-    CloseLocked(why);
+    logf("Menu font: card reads are held while %s; loaded fonts remain readable.\n", why);
 }
 
 ClosedHold::~ClosedHold() {
     Lock lock;
     --g_closed_holds;
-    g_full.missing = false;
-    g_korean.missing = false;  // a remounted card or an update may have brought it
+    g_korean_missing = false;
 }
 
 void EndMenu() {
     Lock lock;
-    CloseLocked("the menu closed");
     g_menu_ended = true;
 }
 
@@ -396,10 +326,10 @@ bool TakeMissingNote() {
 
 bool HasKoreanCharacters() {
     Lock lock;
-    FT_Face face = FaceLocked(g_korean);
+    FT_Face face = KoreanLocked();
     return face != nullptr && FT_Get_Char_Index(face, 0xD55C) != 0;  // 한
 }
 
-std::string FullFontPath() { return FontPath(g_full); }
+std::string FullFontPath() { return FontPath("font.ttf"); }
 
 }  // namespace riftwii::wii::fullfont

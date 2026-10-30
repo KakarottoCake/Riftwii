@@ -253,6 +253,13 @@ memory only; it is never copied into the theme's folder.
 ## Layout and fonts
 
 Layout (where things are on screen) and fonts are not themeable yet.
+RiftWii's menu uses M PLUS 1 SemiBold (`wii/font/menu.ttf`, shipped as
+`font.ttf` beside `boot.dol` with `OFL.txt`). It is loaded completely into
+MEM2; no font data lives in the DOL. Settings can select the Wii Menu's
+own font from NAND, also used if the card font is missing or damaged.
+Korean keeps its separate `korean.ttf`. M PLUS Rounded 1c Bold
+(`wii/font/rounded.ttf`) stays unchanged for generated logo artwork; the font builder also retains
+205 of its rare characters absent from M PLUS 1 in the single card font.
 
 ## The theme kit
 

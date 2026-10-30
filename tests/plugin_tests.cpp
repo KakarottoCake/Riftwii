@@ -697,6 +697,16 @@ static void TestUpdateOrder() {
         EXPECT_EQ(writes[4].path, std::string("sd:/apps/renamed/Korean-OFL.txt"));
         EXPECT_TRUE(writes[5].dol);
     }
+    // The menu font's OFL text follows its face in new updaters. Older
+    // updaters still install font.ttf, then the new DOL applies this file.
+    withFont.files.push_back(ThemePackFile{"riftwii/OFL.txt", 2076830, 4500});
+    EXPECT_TRUE(riftwii::plan_update_writes(withFont, "v2610-500", folder,
+                                         "sd:/apps/renamed/boot.dol", writes, why));
+    EXPECT_EQ(writes.size(), 7u);
+    if (writes.size() == 7) {
+        EXPECT_EQ(writes[5].path, std::string("sd:/apps/renamed/OFL.txt"));
+        EXPECT_TRUE(writes[6].dol);
+    }
     // A pack with no plugins: the DOL alone.
     ThemePack plain;
     plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};
