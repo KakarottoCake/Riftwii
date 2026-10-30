@@ -19,23 +19,20 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Emulators as add-ons, with settings you can change per game
-* Covers for emulator games (SD card, then libretro, then SteamGridDB if on)
-* WiiFlow Lite's emulator plugins work in RiftWii
-* Games from every partition of a USB drive (the others show as usb1:/, usb2:/...)
-* Quitting a game on a d2x cIOS lands back in RiftWii again
-* Leave a frozen menu with HOME on a Classic, Pro or GamePad, or Start on a GameCube pad
-* Smoother menu motion on PAL and NTSC, and more free memory
+* Pick a genre on Home: hold B, press Down or Up, let go
+* USB drives over 2 TiB start games again
+* Japanese GameCube games on a Western console: memory cards no longer read as damaged in more games
+* Wii Menu music and sounds keep working after you quit a game
+* GameCube games in another top folder of the drive are found
+* Box names in the Carousel and Shelf stay on their spines
 
 To test, please:
 
-1. If your USB drive has more than one partition: do the games on the others show and start?
-2. 4 players: play a game with four Wii Remotes or four GameCube controllers (or a mix). Do all four work?
-3. If you use WiiFlow plugins or emulators: do the games show with covers and start?
-4. Quit a game with HOME > Wii Menu on a d2x cIOS: back in RiftWii?
-5. Retro Rewind online from the disc: does it connect? One tester got error 50330, so a report from anyone who sees it helps a lot.
+1. A USB drive bigger than 2 TiB: do games start?
+2. A Japanese GameCube game with its memory card: does the save load?
+3. Quit a game with HOME > Wii Menu (Wii Menu music on): does the music play back in RiftWii?
+4. The genre picker: does it find your games' genres?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Emulator games with covers](docs/screenshots/2610-emulator-covers.png)
-![An emulator game's settings](docs/screenshots/2610-emulator-settings.png)
+![Picking a genre on Home](docs/screenshots/2610-genre-picker.png)

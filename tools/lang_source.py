@@ -822,6 +822,23 @@ T = {
         "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。",
         "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo.",
         "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."),
+    "Banner music on game pages": ("Música del banner en la página del juego", "ゲームページでバナーの音楽", "Música do banner na página do jogo", "Musica del banner nella pagina del gioco"),
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.": (
+        "Reproduce la música del banner de un juego al abrir su página desde Inicio, como la pantalla del banner de la vista Canales. No en la vista Canales, que ya la reproduce.",
+        "ホームからゲームのページを開くと、チャンネル表示のバナー画面と同じようにバナーの音楽を流します。チャンネル表示ではすでに流れるので使いません。",
+        "Toca a música do banner de um jogo ao abrir a página dele no Início, como a tela do banner da vista Canais. Não na vista Canais, que já a toca.",
+        "Riproduce la musica del banner di un gioco quando ne apri la pagina dalla Home, come la schermata del banner della vista Canali. Non nella vista Canali, che la riproduce già."),
+    "The Channels view already plays a game's banner music on its banner screen.": (
+        "La vista Canales ya reproduce la música del banner de un juego en su pantalla del banner.",
+        "チャンネル表示では、バナー画面でゲームのバナーの音楽がすでに流れます。",
+        "A vista Canais já toca a música do banner de um jogo na tela do banner.",
+        "La vista Canali riproduce già la musica del banner di un gioco nella sua schermata del banner."),
+    "Disc art": ("Imagen del disco", "ディスクの画像", "Imagem do disco", "Immagine del disco"),
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.": (
+        "Muestra el disco del juego bajo su caja en la página del juego. La imagen viene de GameTDB cuando las descargas están activadas y se guarda en sd:/riftwii/discs.",
+        "ゲームのページで、ケースの下にディスクを表示します。画像はダウンロードがオンのときにGameTDBから取得し、sd:/riftwii/discsに保存します。",
+        "Mostra o disco do jogo abaixo da caixa na página do jogo. A imagem vem do GameTDB quando os downloads estão ligados e fica em sd:/riftwii/discs.",
+        "Mostra il disco del gioco sotto la custodia nella pagina del gioco. L'immagine arriva da GameTDB quando i download sono attivi ed è salvata in sd:/riftwii/discs."),
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.": (
         "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música.",
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
@@ -1599,7 +1616,7 @@ T = {
     "This game's memory card is made the first time the game starts: {1}.": ("La tarjeta de memoria de este juego se crea la primera vez que se inicia: {1}.", "このゲームのメモリーカードは、ゲームを初めて始めたときに作られます: {1}。", "O cartão de memória deste jogo é criado na primeira vez que o jogo inicia: {1}.", "La Memory Card di questo gioco viene creata al primo avvio del gioco: {1}."),
     "This save is damaged: its blocks do not add up. It can only be deleted.": ("Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar.", "このセーブは壊れています: ブロックが合いません。削除しかできません。", "Este save está danificado: os blocos não batem. Só pode ser apagado.", "Questo salvataggio è danneggiato: i blocchi non tornano. Si può solo eliminare."),
     "It is {1}.": ("Es {1}.", "{1}です。", "É {1}.", "È {1}."),
-    "RiftWii cannot read {1}: {2}": ("RiftWii no puede leer {1}: {2}", "RiftWiiは{1}を読めません: {2}", "O RiftWii não consegue ler {1}: {2}", "RiftWii non riesce a leggere {1}: {2}"),
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.": ("RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube.", "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。", "O RiftWii não consegue ler {1}: está danificado ou não é um cartão de memória de GameCube.", "RiftWii non riesce a leggere {1}: è danneggiata o non è una memory card GameCube."),
     "RiftWii could not read {1}.": ("RiftWii no pudo leer {1}.", "RiftWiiは{1}を読めませんでした。", "O RiftWii não conseguiu ler {1}.", "RiftWii non è riuscito a leggere {1}."),
     "RiftWii could not write {1}.": ("RiftWii no pudo escribir {1}.", "RiftWiiは{1}を書き込めませんでした。", "O RiftWii não conseguiu escrever {1}.", "RiftWii non è riuscito a scrivere {1}."),
     "This game's own options: how its disc is read, and its controls.": ("Las opciones propias de este juego: cómo se lee su disco y sus controles.", "このゲーム専用のオプション: ディスクの読み込み方と操作。", "As opções próprias deste jogo: como o disco é lido e os controles.", "Le opzioni proprie di questo gioco: come viene letto il disco e i comandi."),
@@ -2024,12 +2041,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-734
-    "Covers for emulator games": ("Portadas para juegos de emulador", "エミュレーターのゲームにもパッケージ", "Capas para jogos de emulador", "Copertine per i giochi degli emulatori"),
-    "WiiFlow's emulator plugins work here too": ("Los plugins de emulador de WiiFlow también funcionan", "WiiFlowのエミュレーター設定もそのまま使えます", "Os plugins de emulador do WiiFlow também funcionam", "Anche i plugin emulatore di WiiFlow funzionano"),
-    "Games from every partition of a USB drive": ("Juegos de todas las particiones de un disco USB", "USBドライブのすべてのパーティションからゲームを", "Jogos de todas as partições de um disco USB", "Giochi da ogni partizione di un disco USB"),
-    "Leave a frozen menu without a Wii Remote": ("Sal de un menú congelado sin Wiimote", "Wiiリモコンなしで止まったメニューを終了", "Saia de um menu travado sem o Wii Remote", "Esci da un menu bloccato senza Wii Remote"),
-    "Smoother menu motion on PAL and NTSC": ("Movimiento del menú más fluido en PAL y NTSC", "PALでもNTSCでもなめらかなメニュー", "Movimento do menu mais suave em PAL e NTSC", "Movimenti del menu più fluidi su PAL e NTSC"),
+    # What's new in the release after 2610-743
+    "Home: a Layout button and a Show chooser": ("Inicio: botón Diseño y selector Ver", "ホームにレイアウトと表示のボタン", "Início: botão Layout e seletor Ver", "Home: pulsante Disposizione e scelta Mostra"),
+    "WiiWare and VC played straight from WADs": ("WiiWare y VC directamente desde WADs", "WiiウェアとVCをWADから直接プレイ", "WiiWare e VC direto dos WADs", "WiiWare e VC direttamente dai WAD"),
+    "Pictures for emulator games, and a picker": ("Imágenes para juegos emulados, y un selector", "エミュレータのゲームに画像と選択画面", "Imagens para jogos emulados, e um seletor", "Immagini per i giochi emulati, e una scelta"),
+    "Banner music and disc art on game pages": ("Música del banner e imagen del disco", "ゲームページにバナーの音楽とディスクの画像", "Música do banner e imagem do disco", "Musica del banner e immagine del disco"),
+    "Asks first when mod files are missing": ("Pregunta antes si faltan archivos del mod", "MODのファイルが足りないときは確認", "Pergunta antes se faltam arquivos do mod", "Chiede prima se mancano file della mod"),
+    "Clearer messages when something goes wrong": ("Mensajes más claros cuando algo falla", "問題が起きたときのメッセージをわかりやすく", "Mensagens mais claras quando algo dá errado", "Messaggi più chiari quando qualcosa va storto"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2888,6 +2906,16 @@ KO = {
         "페이드 아웃",
     "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
         "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다.",
+    "Banner music on game pages":
+        "게임 페이지에서 배너 음악",
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.":
+        "홈에서 게임 페이지를 열면 채널 보기의 배너 화면처럼 배너 음악을 재생합니다. 채널 보기에서는 이미 재생되므로 해당되지 않습니다.",
+    "The Channels view already plays a game's banner music on its banner screen.":
+        "채널 보기에서는 배너 화면에서 게임의 배너 음악이 이미 재생됩니다.",
+    "Disc art":
+        "디스크 이미지",
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.":
+        "게임 페이지에서 케이스 아래에 게임 디스크를 표시합니다. 이미지는 다운로드가 켜져 있을 때 GameTDB에서 받아 sd:/riftwii/discs에 저장됩니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -3561,8 +3589,8 @@ KO = {
         "이 저장 데이터는 손상되었습니다: 블록이 맞지 않습니다. 삭제만 할 수 있습니다.",
     "It is {1}.":
         "{1}입니다.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii가 {1}을(를) 읽을 수 없습니다: {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii가 {1}을(를) 읽을 수 없습니다. 손상되었거나 게임큐브 메모리 카드가 아닙니다.",
     "RiftWii could not read {1}.":
         "RiftWii가 {1}을(를) 읽지 못했습니다.",
     "RiftWii could not write {1}.":
@@ -3883,16 +3911,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Covers for emulator games":
-        "에뮬레이터 게임 커버",
-    "WiiFlow's emulator plugins work here too":
-        "WiiFlow 에뮬레이터 플러그인도 사용 가능",
-    "Games from every partition of a USB drive":
-        "USB 드라이브의 모든 파티션에서 게임을",
-    "Leave a frozen menu without a Wii Remote":
-        "Wii 리모컨 없이 멈춘 메뉴 나가기",
-    "Smoother menu motion on PAL and NTSC":
-        "PAL과 NTSC에서 더 부드러운 메뉴",
+    "Home: a Layout button and a Show chooser":
+        "홈에 배치 버튼과 표시 선택",
+    "WiiWare and VC played straight from WADs":
+        "WiiWare와 VC를 WAD에서 바로 플레이",
+    "Pictures for emulator games, and a picker":
+        "에뮬레이터 게임 이미지와 선택 화면",
+    "Banner music and disc art on game pages":
+        "게임 페이지에 배너 음악과 디스크 이미지",
+    "Asks first when mod files are missing":
+        "모드 파일이 없으면 먼저 확인",
+    "Clearer messages when something goes wrong":
+        "문제가 생겼을 때 더 알기 쉬운 메시지",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4724,6 +4754,16 @@ FR = {
         "Fondu sortant",
     "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
         "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu.",
+    "Banner music on game pages":
+        "Musique de la bannière sur la page du jeu",
+    "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already.":
+        "Joue la musique de la bannière d'un jeu quand vous ouvrez sa page depuis l'Accueil, comme l'écran de bannière de la vue Chaînes. Pas dans la vue Chaînes, qui la joue déjà.",
+    "The Channels view already plays a game's banner music on its banner screen.":
+        "La vue Chaînes joue déjà la musique de la bannière d'un jeu sur son écran de bannière.",
+    "Disc art":
+        "Image du disque",
+    "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs.":
+        "Affiche le disque du jeu sous sa boîte sur la page du jeu. L'image vient de GameTDB quand les téléchargements sont activés et est gardée dans sd:/riftwii/discs.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -5575,8 +5615,8 @@ FR = {
         "Cette sauvegarde est endommagée : ses blocs ne correspondent pas. Elle ne peut qu'être supprimée.",
     "It is {1}.":
         "C'est {1}.",
-    "RiftWii cannot read {1}: {2}":
-        "RiftWii ne peut pas lire {1} : {2}",
+    "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card.":
+        "RiftWii ne peut pas lire {1} : elle est endommagée ou ce n'est pas une carte mémoire GameCube.",
     "RiftWii could not read {1}.":
         "RiftWii n'a pas pu lire {1}.",
     "RiftWii could not write {1}.":
@@ -5719,16 +5759,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Covers for emulator games":
-        "Jaquettes pour les jeux d'émulateur",
-    "WiiFlow's emulator plugins work here too":
-        "Les plugins d'émulateur de WiiFlow marchent aussi",
-    "Games from every partition of a USB drive":
-        "Jeux de toutes les partitions d'un disque USB",
-    "Leave a frozen menu without a Wii Remote":
-        "Quittez un menu figé sans Wiimote",
-    "Smoother menu motion on PAL and NTSC":
-        "Menu plus fluide en PAL et NTSC",
+    "Home: a Layout button and a Show chooser":
+        "Accueil : bouton Disposition et choix Afficher",
+    "WiiWare and VC played straight from WADs":
+        "WiiWare et VC directement depuis les WAD",
+    "Pictures for emulator games, and a picker":
+        "Images pour les jeux émulés, et un choix",
+    "Banner music and disc art on game pages":
+        "Musique de bannière et image du disque",
+    "Asks first when mod files are missing":
+        "Demande d'abord s'il manque des fichiers du mod",
+    "Clearer messages when something goes wrong":
+        "Messages plus clairs quand quelque chose ne va pas",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
@@ -6312,6 +6354,26 @@ FR['Put the SD card back in first.'] = 'Remettez d’abord la carte SD.'
 T['The SD card is back in. Reading it again.'] = ('La tarjeta SD está de vuelta. Leyéndola de nuevo.', 'SDカードがもどりました。よみなおしています。', 'O cartão SD está de volta. Lendo novamente.', 'La scheda SD è di nuovo inserita. Lettura in corso.')
 KO['The SD card is back in. Reading it again.'] = 'SD 카드가 다시 삽입되었습니다. 다시 읽는 중입니다.'
 FR['The SD card is back in. Reading it again.'] = 'La carte SD est de retour. Nouvelle lecture en cours.'
+
+T['A search looks through every genre. Press 1 to end it first.'] = ('Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero.', '検索はすべてのジャンルから探します。先に1を押して検索を終えてください。', 'Uma busca procura em todos os gêneros. Aperte 1 para encerrá-la primeiro.', 'Una ricerca guarda in tutti i generi. Premi 1 per terminarla prima.')
+KO['A search looks through every genre. Press 1 to end it first.'] = '검색은 모든 장르에서 찾습니다. 먼저 1을 눌러 검색을 끝내 주세요.'
+FR['A search looks through every genre. Press 1 to end it first.'] = 'Une recherche parcourt tous les genres. Appuyez d’abord sur 1 pour la terminer.'
+
+T['Homebrew apps have no genres.'] = ('Las apps homebrew no tienen géneros.', 'ホームブリューのアプリにはジャンルがありません。', 'Os apps homebrew não têm gêneros.', 'Le app homebrew non hanno generi.')
+KO['Homebrew apps have no genres.'] = '홈브루 앱에는 장르가 없습니다.'
+FR['Homebrew apps have no genres.'] = 'Les applications homebrew n’ont pas de genre.'
+
+T['No genres yet.'] = ('Aún no hay géneros.', 'まだジャンルがありません。', 'Ainda não há gêneros.', 'Ancora nessun genere.')
+KO['No genres yet.'] = '아직 장르가 없습니다.'
+FR['No genres yet.'] = 'Pas encore de genres.'
+
+T['Every genre'] = ('Todos los géneros', 'すべてのジャンル', 'Todos os gêneros', 'Tutti i generi')
+KO['Every genre'] = '모든 장르'
+FR['Every genre'] = 'Tous les genres'
+
+T['Up/Down: genre   Let go: show'] = ('Arriba/Abajo: género   Suelta: mostrar', '上下: ジャンル   はなす: 表示', 'Cima/Baixo: gênero   Solte: mostrar', 'Su/Giù: genere   Rilascia: mostra')
+KO['Up/Down: genre   Let go: show'] = '위/아래: 장르   떼기: 보기'
+FR['Up/Down: genre   Let go: show'] = 'Haut/Bas : genre   Relâcher : afficher'
 
 MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
@@ -7062,6 +7124,220 @@ KO.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fan
 FR.update({"Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers.": "Jaquettes des émulateurs : contributeurs de libretro-thumbnails, MobyGames et Fandom. Jaquettes facultatives : contributeurs de SteamGridDB. Les images originales appartiennent aux créateurs et éditeurs des jeux."})
 
 
+# Missing selected mod files and partial USB scans.
+T.update({
+    "Mod files are missing": (
+        "Faltan archivos del mod",
+        "MODのファイルがありません",
+        "Faltam arquivos do mod",
+        "Mancano file della mod"),
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": (
+        "Faltan archivos del mod. Sus cambios de archivos o memoria no se aplicarán. Copia los archivos y reintenta, o revisa la lista para jugar de todos modos.",
+        "MODの一部のファイルがありません。そのファイルやメモリの変更は行いません。ファイルをコピーしてやり直すか、一覧を確認してそのまま遊んでください。",
+        "Faltam arquivos do mod. Suas alterações de arquivos ou memória não serão aplicadas. Copie os arquivos e tente de novo, ou confira a lista para jogar mesmo assim.",
+        "Mancano file della mod. Le loro modifiche a file o memoria saranno saltate. Copia i file e riprova, oppure controlla l'elenco per giocare comunque."),
+    "Review files": (
+        "Ver archivos",
+        "ファイルを確認",
+        "Ver arquivos",
+        "Controlla file"),
+    "Play anyway": (
+        "Jugar igualmente",
+        "そのまま遊ぶ",
+        "Jogar mesmo assim",
+        "Gioca comunque"),
+    "and {1} more": (
+        "y {1} más",
+        "ほか{1}件",
+        "e mais {1}",
+        "e altri {1}"),
+    "USB: {1} partition(s) could not be opened. See Drives.": (
+        "USB: no se pudieron abrir {1} particiones. Ve a Unidades.",
+        "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。",
+        "USB: não foi possível abrir {1} partições. Veja Unidades.",
+        "USB: impossibile aprire {1} partizioni. Vedi Unità."),
+    "USB scan details": (
+        "Detalles de búsqueda USB",
+        "USBの読み込み結果",
+        "Detalhes da busca USB",
+        "Dettagli ricerca USB"),
+    "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": (
+        "No se pudieron abrir algunas particiones de la unidad USB. Los juegos de las demás particiones se siguen mostrando. Abre la lista con el problema de cada partición y qué hacer.",
+        "USBドライブの一部のパーティションを開けませんでした。ほかのパーティションのゲームは表示されています。各パーティションの問題と、どうすればよいかの一覧を開きます。",
+        "Algumas partições da unidade USB não puderam ser abertas. Os jogos das outras partições continuam aparecendo. Abre a lista com o problema de cada partição e o que fazer.",
+        "Alcune partizioni dell'unità USB non si sono potute aprire. I giochi delle altre partizioni sono ancora mostrati. Apre l'elenco con il problema di ogni partizione e cosa fare."),
+    "{1} MiB": (
+        "{1} MiB",
+        "{1} MiB",
+        "{1} MiB",
+        "{1} MiB"),
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": (
+        "Revisa esta partición en un ordenador y elige Buscar juegos de nuevo. Los juegos de otras particiones se conservan.",
+        "パソコンでこのパーティションを確認してから、もう一度ゲームを探してください。ほかのパーティションのゲームは表示したままです。",
+        "Verifique esta partição em um computador e escolha Buscar jogos novamente. Os jogos das outras partições são mantidos.",
+        "Controlla questa partizione su un computer, poi scegli Cerca giochi di nuovo. I giochi delle altre partizioni restano disponibili."),
+    "USB partition {1} could not be opened": (
+        "No se pudo abrir la partición USB {1}",
+        "USBのパーティション{1}を開けません",
+        "Não foi possível abrir a partição USB {1}",
+        "Impossibile aprire la partizione USB {1}"),
+    "The partition could not be read from the drive.": (
+        "No se pudo leer la partición de la unidad.",
+        "ドライブからパーティションを読み込めませんでした。",
+        "Não foi possível ler a partição da unidade.",
+        "Impossibile leggere la partizione dall'unità."),
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": (
+        "RiftWii no puede leer exFAT. Mueve estos juegos a una partición FAT32 o NTFS.",
+        "RiftWiiはexFATを読み込めません。このゲームをFAT32かNTFSのパーティションに移してください。",
+        "O RiftWii não pode ler exFAT. Mova estes jogos para uma partição FAT32 ou NTFS.",
+        "RiftWii non può leggere exFAT. Sposta questi giochi in una partizione FAT32 o NTFS."),
+    "The {1} data could not be read.": (
+        "No se pudieron leer los datos {1}.",
+        "{1}のデータを読み込めませんでした。",
+        "Não foi possível ler os dados {1}.",
+        "Impossibile leggere i dati {1}."),
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": (
+        "RiftWii no pudo leer esta partición como FAT32, NTFS o WBFS.",
+        "RiftWiiはこのパーティションをFAT32、NTFS、WBFSとして読み込めませんでした。",
+        "O RiftWii não conseguiu ler esta partição como FAT32, NTFS ou WBFS.",
+        "RiftWii non ha potuto leggere questa partizione come FAT32, NTFS o WBFS."),
+})
+KO.update({
+    "Mod files are missing": "모드 파일이 없습니다",
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": "일부 모드 파일이 없습니다. 해당 파일이나 메모리 변경은 적용되지 않습니다. 파일을 복사하고 다시 시도하거나, 목록을 확인한 뒤 그대로 플레이하세요.",
+    "Review files": "파일 확인",
+    "Play anyway": "그대로 플레이",
+    "and {1} more": "그 외 {1}개",
+    "USB: {1} partition(s) could not be opened. See Drives.": "USB: 파티션 {1}개를 열지 못했습니다. 드라이브를 확인하세요.",
+    "USB scan details": "USB 검색 정보",
+    "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "USB 드라이브의 일부 파티션을 열지 못했습니다. 다른 파티션의 게임은 계속 표시됩니다. 파티션마다 문제와 해결 방법이 담긴 목록을 엽니다.",
+    "{1} MiB": "{1} MiB",
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": "컴퓨터에서 이 파티션을 확인한 뒤 게임 다시 찾기를 선택하세요. 다른 파티션의 게임은 유지됩니다.",
+    "USB partition {1} could not be opened": "USB 파티션 {1}을 열지 못했습니다",
+    "The partition could not be read from the drive.": "드라이브에서 파티션을 읽지 못했습니다.",
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": "RiftWii는 exFAT를 읽을 수 없습니다. 이 게임들을 FAT32 또는 NTFS 파티션으로 옮기세요.",
+    "The {1} data could not be read.": "{1} 데이터를 읽지 못했습니다.",
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": "RiftWii가 이 파티션을 FAT32, NTFS 또는 WBFS로 읽지 못했습니다.",
+})
+FR.update({
+    "Mod files are missing": "Des fichiers du mod manquent",
+    "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway.": "Des fichiers du mod manquent. Leurs changements de fichiers ou de mémoire seront ignorés. Copiez les fichiers et réessayez, ou consultez la liste pour jouer quand même.",
+    "Review files": "Voir les fichiers",
+    "Play anyway": "Jouer quand même",
+    "and {1} more": "et {1} de plus",
+    "USB: {1} partition(s) could not be opened. See Drives.": "USB : {1} partition(s) non ouverte(s). Voir Supports.",
+    "USB scan details": "Détails de recherche USB",
+    "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do.": "Certaines partitions du disque USB n'ont pas pu être ouvertes. Les jeux des autres partitions restent affichés. Ouvre la liste, avec le problème de chaque partition et la marche à suivre.",
+    "{1} MiB": "{1} Mio",
+    "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept.": "Vérifiez cette partition sur un ordinateur, puis choisissez Rechercher les jeux à nouveau. Les jeux des autres partitions restent disponibles.",
+    "USB partition {1} could not be opened": "La partition USB {1} n'a pas pu être ouverte",
+    "The partition could not be read from the drive.": "La partition n'a pas pu être lue sur le lecteur.",
+    "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition.": "RiftWii ne peut pas lire exFAT. Déplacez ces jeux vers une partition FAT32 ou NTFS.",
+    "The {1} data could not be read.": "Les données {1} n'ont pas pu être lues.",
+    "RiftWii could not read this partition as FAT32, NTFS or WBFS.": "RiftWii n'a pas pu lire cette partition en FAT32, NTFS ou WBFS.",
+})
+
+
+# Clear errors for memory cards, mod preparation and missing d2x.
+T.update({
+    "Memory card could not be read": (
+        "No se pudo leer la tarjeta de memoria",
+        "メモリーカードを読み込めません",
+        "Não foi possível ler o cartão de memória",
+        "Impossibile leggere la scheda di memoria"),
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O RiftWii não conseguiu ler {1}. O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "RiftWii non ha potuto leggere {1}. Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": (
+        "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo.",
+        "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。",
+        "O arquivo não foi alterado. Verifique o cartão SD e guarde uma cópia deste arquivo antes de tentar de novo.",
+        "Il file non è stato modificato. Controlla la scheda SD e conserva una copia del file prima di riprovare."),
+    "Games cannot start": (
+        "Los juegos no pueden arrancar",
+        "ゲームを起動できません",
+        "Os jogos não podem iniciar",
+        "Impossibile avviare i giochi"),
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos USB precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi USB richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": (
+        "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo.",
+        "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。",
+        "Jogos SD precisam do d2x cIOS, que não está instalado. Instale o d2x cIOS seguindo o guia em wii.hacks.guide e tente de novo.",
+        "I giochi SD richiedono d2x cIOS, che non è installato. Installa d2x cIOS seguendo la guida su wii.hacks.guide, poi riprova."),
+    "Mods could not be prepared": (
+        "No se pudieron preparar los mods",
+        "MODを準備できませんでした",
+        "Não foi possível preparar os mods",
+        "Impossibile preparare le mod"),
+    "{1} needs its mod folder to be {2}.": (
+        "{1} necesita que su carpeta de mod sea {2}.",
+        "{1}のMODフォルダーは{2}そのものである必要があります。",
+        "{1} precisa que a pasta do mod seja {2}.",
+        "{1} richiede che la cartella della mod sia {2}."),
+    "Required file: {1}": (
+        "Archivo necesario: {1}",
+        "必要なファイル: {1}",
+        "Arquivo necessário: {1}",
+        "File richiesto: {1}"),
+    "{1} is one folder too deep. Move its contents into {2}.": (
+        "{1} está una carpeta demasiado adentro. Mueve su contenido a {2}.",
+        "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。",
+        "{1} está uma pasta abaixo do esperado. Mova o conteúdo dela para {2}.",
+        "{1} è una cartella di troppo. Sposta il suo contenuto in {2}."),
+    "Rename {1} to exactly {2}.": (
+        "Renombra {1} exactamente como {2}.",
+        "{1}の名前を正確に{2}に変更してください。",
+        "Renomeie {1} para exatamente {2}.",
+        "Rinomina {1} esattamente in {2}."),
+    "Move {1} to {2}.": (
+        "Mueve {1} a {2}.",
+        "{1}を{2}に移動してください。",
+        "Mova {1} para {2}.",
+        "Sposta {1} in {2}."),
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": (
+        "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}.",
+        "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。",
+        "Copie a pasta {1} do download do mod para que ela fique exatamente em {2}.",
+        "Copia la cartella {1} dal download della mod in modo che sia proprio {2}."),
+})
+KO.update({
+    "Memory card could not be read": "메모리 카드를 읽을 수 없습니다",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii가 {1}을 읽지 못했습니다. 파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "파일은 변경되지 않았습니다. SD 카드를 확인하고 이 파일의 사본을 보관한 뒤 다시 시도하세요.",
+    "Games cannot start": "게임을 시작할 수 없습니다",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "USB 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "SD 게임에는 d2x cIOS가 필요하지만 설치되어 있지 않습니다. wii.hacks.guide의 설치 안내에 따라 d2x cIOS를 설치한 뒤 다시 시도하세요.",
+    "Mods could not be prepared": "모드를 준비하지 못했습니다",
+    "{1} needs its mod folder to be {2}.": "{1}의 모드 폴더는 {2} 그 자체여야 합니다.",
+    "Required file: {1}": "필요한 파일: {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} 폴더가 한 단계 더 깊습니다. {1}의 내용을 {2}로 옮기세요.",
+    "Rename {1} to exactly {2}.": "{1}의 이름을 정확히 {2}(으)로 바꾸세요.",
+    "Move {1} to {2}.": "{1}을(를) {2}(으)로 옮기세요.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "다운로드한 모드의 {1} 폴더가 {2} 자체가 되도록 복사하세요.",
+})
+FR.update({
+    "Memory card could not be read": "Impossible de lire la carte mémoire",
+    "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again.": "RiftWii n'a pas pu lire {1}. Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "The file was not changed. Check the SD card and keep a copy of this file before trying again.": "Le fichier n'a pas été modifié. Vérifiez la carte SD et gardez une copie de ce fichier avant de réessayer.",
+    "Games cannot start": "Impossible de lancer les jeux",
+    "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux USB ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again.": "Les jeux SD ont besoin de d2x cIOS, qui n'est pas installé. Installez d2x cIOS en suivant le guide sur wii.hacks.guide, puis réessayez.",
+    "Mods could not be prepared": "Impossible de préparer les mods",
+    "{1} needs its mod folder to be {2}.": "{1} a besoin que son dossier de mod soit {2}.",
+    "Required file: {1}": "Fichier nécessaire : {1}",
+    "{1} is one folder too deep. Move its contents into {2}.": "{1} est un dossier de trop. Déplacez son contenu dans {2}.",
+    "Rename {1} to exactly {2}.": "Renommez {1} exactement en {2}.",
+    "Move {1} to {2}.": "Déplacez {1} vers {2}.",
+    "Copy the {1} folder from the mod's download so that it is {2} itself.": "Copiez le dossier {1} du téléchargement du mod pour qu'il soit exactement {2}.",
+})
+
+
 # Emulator channel-picture picker.
 T.update({
     "Needs the internet": ("Necesita internet", "インターネットが必要です", "Precisa de internet", "Serve internet"),
@@ -7368,11 +7644,6 @@ T.update({
         "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。",
         "Nenhum emulador encontrado. Coloque um emulador com seu arquivo de complemento do RiftWii na pasta do aplicativo, ou adicione arquivos de plugins do WiiFlow. Depois use Configurações > Unidades > Procurar jogos de novo. Veja Emuladores no guia do GitHub.",
         "Nessun emulatore trovato. Metti un emulatore con il suo file aggiuntivo RiftWii nella cartella dell'app, oppure aggiungi i file dei plugin WiiFlow. Poi usa Impostazioni > Unità > Cerca di nuovo i giochi. Vedi Emulatori nella guida su GitHub."),
-    "Emulator games: Home > Show > Emulators": (
-        "Juegos emulados: Inicio > Ver > Emuladores",
-        "エミュレータのゲーム：ホーム > 表示 > エミュレータ",
-        "Jogos emulados: Início > Ver > Emuladores",
-        "Giochi emulati: Home > Mostra > Emulatori"),
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": (
         "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores.",
         "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。",
@@ -7473,7 +7744,6 @@ KO.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정 > 온라인 > 다운로드를 켜세요.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "게임 이름, 표지, 치트, 게임 정보, 테마 및 업데이트를 받을 수 있습니다. 꺼도 카드에 있는 파일은 계속 사용할 수 있습니다.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "에뮬레이터가 없습니다. 앱 폴더에 에뮬레이터와 RiftWii 추가 기능 파일을 넣거나 WiiFlow 플러그인 파일을 추가하세요. 그런 다음 설정 > 드라이브 > 다시 게임을 찾아보기를 선택하세요. GitHub 가이드의 에뮬레이터 항목을 참고하세요.",
-    "Emulator games: Home > Show > Emulators": "에뮬레이터 게임: 홈 > 표시 > 에뮬레이터",
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "설치된 에뮬레이터의 기본 설정을 바꿉니다. 게임은 홈 > 표시 > 에뮬레이터에서 찾을 수 있습니다.",
     "Left to the mod": "모드에 맡김",
     "Off: no server chosen": "꺼짐: 서버 선택 안 됨",
@@ -7502,7 +7772,6 @@ FR.update({
     "They come from GameTDB's database of Wii games. Turn on Settings > Online > Downloads to get it.": "Elles viennent de la base des jeux Wii de GameTDB. Activez Paramètres > En ligne > Téléchargements pour l'obtenir.",
     "Allows downloads of game names, covers, cheats, game details, themes and updates. Files already on the card still work when this is off.": "Autorise le téléchargement des noms, jaquettes, codes, détails des jeux, thèmes et mises à jour. Les fichiers déjà sur la carte restent utilisables si cette option est désactivée.",
     "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub.": "Aucun émulateur trouvé. Placez un émulateur avec son fichier d'extension RiftWii dans son dossier d'application, ou ajoutez des fichiers de plugins WiiFlow. Puis utilisez Paramètres > Supports > Rechercher à nouveau les jeux. Consultez Émulateurs dans le guide GitHub.",
-    "Emulator games: Home > Show > Emulators": "Jeux émulés : Accueil > Afficher > Émulateurs",
     "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators.": "Change les réglages par défaut des émulateurs installés. Leurs jeux sont dans Accueil > Afficher > Émulateurs.",
     "Left to the mod": "Laissé au mod",
     "Off: no server chosen": "Désactivé : aucun serveur choisi",
@@ -7527,7 +7796,7 @@ FR.update({
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+    sources = ["wii/launch/modplan.cpp", "wii/core/i18n.cpp", "wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/launch/gcplugin.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
                "wii/menu/gui_shelf.cpp", "wii/menu/credits.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
                "wii/core/plugins.cpp", "wii/menu/homescan.cpp", "wii/storage/homebrew.cpp", "wii/online/online.cpp",

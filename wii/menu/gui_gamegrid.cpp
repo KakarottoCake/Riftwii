@@ -1254,6 +1254,27 @@ bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     return true;
 }
 
+bool GuiGameGrid::GenreKeys(GuiTrigger* t) {
+    if (!genreKeys || t->chan < 0 || t->chan > 3 || !HeldLetterB(t)) return false;
+    // L and R together are the screenshot combo (with Down), not a genre.
+    if (t->pad.btns_h & PAD_TRIGGER_R) return false;
+    const bool down = t->Down();
+    if (!down && !t->Up()) return false;
+    genreStep = down ? 1 : -1;
+    genreHeld = true;
+    genreChan = t->chan;
+    soundOver->Play();
+    // Letting go of B (or L) afterwards is no letter jump or page either.
+    LettersDone(t);
+    return true;
+}
+
+int GuiGameGrid::TakeGenreStep() {
+    const int step = genreStep;
+    genreStep = 0;
+    return step;
+}
+
 void GuiGameGrid::SetMovable(bool on, int fixed) {
     movable = on;
     fixedFirst = fixed < 0 ? 0 : fixed;
@@ -1454,6 +1475,8 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     // call this Update at all, and those are the player's own doing (they end
     // the start-up focus in the menu). So the input is counted for every call.
     if (t) acted.see(PlayerActedThisFrame(t));
+    // Before anything that returns early: B let go always ends the picking.
+    if (t && genreHeld && t->chan == genreChan && !HeldLetterB(t)) genreHeld = false;
     if (state == STATE::DISABLED || !t || Count() == 0) return;
     if (CoverZoomKeys(t)) return;
     int shoulderPage = ShoulderPage(t);
@@ -1466,6 +1489,7 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     if (t->chan >= 0 && t->chan < 4 &&
         (padPages[t->chan].chord || classicPages[t->chan].chord)) return;
     if (CarryKeys(t, shoulderPage)) return;
+    if (GenreKeys(t)) return;
     if (LetterKeys(t)) return;
     if (shoulderPage != 0) {
         if (shelf) ShelfStep(shoulderPage);

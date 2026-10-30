@@ -62,6 +62,7 @@ namespace {
 // blocks); SD images stay FAT32 or NTFS. libfat is only asked to mount usb:
 // to bring the storage interface up; its answer does not matter.
 std::vector<MountedImageVolume> g_usb_volumes;
+std::vector<ImagePartitionFailure> g_usb_partition_failures;
 std::uint64_t g_usb_mount_generation = 0;
 bool g_usb_preferred_known = false;
 std::uint64_t g_usb_preferred_lba = 0;
@@ -534,6 +535,7 @@ bool ensure_usb(std::string& error) {
         error = "the USB drive's lock could not be set up";
         return false;
     }
+    g_usb_partition_failures.clear();
     g_usb_preferred_known = false;
     g_usb_wiiu_drive = false;
     ForgetWfsDrive();
@@ -610,7 +612,8 @@ bool ensure_usb(std::string& error) {
     }
     UsbLocked locked;  // to the end: the volumes' list changes
     std::vector<std::string> partition_notes;
-    const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(), &partition_notes);
+    const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(),
+                                             &partition_notes, nullptr, &g_usb_partition_failures);
     // Every volume behind the lock, or none used: with no memory for a
     // wrapper, the drive counts as not mounted (an unlocked volume's caches
     // would be open to every thread).
@@ -633,6 +636,21 @@ bool ensure_usb(std::string& error) {
     // readable beside FAT32/NTFS rather than being a fallback for the drive.
     std::string why;
     find_wbfs_partitions(&usb_read, g_usb_wbfs, why);
+    // WBFS uses its own reader; a successful WBFS mount is not a failure
+    // merely because the FAT32/NTFS reader left it out.
+    g_usb_partition_failures.erase(
+        std::remove_if(g_usb_partition_failures.begin(), g_usb_partition_failures.end(),
+                       [&](const ImagePartitionFailure& failure) {
+                           for (const WbfsPartition& wbfs : g_usb_wbfs) {
+                               if (failure.lba == wbfs.lba) return true;
+                           }
+                           return false;
+                       }),
+        g_usb_partition_failures.end());
+    for (const ImagePartitionFailure& failure : g_usb_partition_failures) {
+        logf("USB: partition %u could not be opened (%s); games on other partitions are kept.\n",
+             failure.partition, failure.reason.c_str());
+    }
     for (const WbfsPartition& wbfs : g_usb_wbfs) {
         const bool legacy = g_usb_volumes.empty() && &wbfs == &g_usb_wbfs.front();
         const std::string prefix = legacy ? "usb:/" : "usb" + std::to_string(wbfs.partition) + ":/";
@@ -1977,7 +1995,20 @@ static std::vector<CiosSlotState> readiness_slots(bool sd_card) {
 }
 
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
-    out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
+    out = ImageCatalog{};
+    out.device = ImageDevice::Usb;
+    // A rescan must retry partitions that failed earlier, including after
+    // the player repairs the drive on a computer and plugs it back in.
+    unmount_usb_games();
+    // Close the drive picked last time and forget it, so the scan picks
+    // from the drives plugged in now rather than retrying only that one.
+    if (g_picked.open) picked_shutdown();
+    g_picked.known = false;
+    const bool mounted = ensure_usb(error);
+    // Kept even when nothing mounted: then every partition failed, and
+    // Home and USB scan details still name them.
+    out.partition_failures = g_usb_partition_failures;
+    if (!mounted) return false;
     if (g_usb_raw_disc) {
         out.games.push_back(g_usb_disc_game);
         apply_titles(out);
@@ -1985,7 +2016,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         logf("%s\n", out.status.c_str());
         if (!running_in_dolphin()) {
             const std::vector<CiosSlotState> slots = readiness_slots(false);
-            out.cios_note = cios_readiness_note(slots.data(), slots.size());
+            out.cios = cios_readiness(slots.data(), slots.size());
         }
         error.clear();
         return true;
@@ -2025,8 +2056,9 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
             if (!game.gamecube && game.format != UsbImageFormat::Rvz) every_game_reads_sd = false;
         }
         const std::vector<CiosSlotState> slots = readiness_slots(every_game_reads_sd);
-        out.cios_note = cios_readiness_note(slots.data(), slots.size());
-        if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
+        out.cios = cios_readiness(slots.data(), slots.size());
+        if (out.cios == CiosReadiness::Missing)
+            logf("USB games cannot start because no candidate cIOS slot is installed. Install d2x cIOS using the setup guide.\n");
     }
     error.clear(); return true;
 }
@@ -2075,8 +2107,9 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     if (!running_in_dolphin()) {
         logf("SD: checking cIOS slots\n");
         const std::vector<CiosSlotState> slots = readiness_slots(true);
-        out.cios_note = cios_readiness_note(slots.data(), slots.size());
-        if (!out.cios_note.empty()) logf("SD: %s\n", out.cios_note.c_str());
+        out.cios = cios_readiness(slots.data(), slots.size());
+        if (out.cios == CiosReadiness::Missing)
+            logf("SD games cannot start because no candidate cIOS slot is installed. Install d2x cIOS using the setup guide.\n");
     }
     error.clear(); return true;
 }

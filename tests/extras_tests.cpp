@@ -1308,6 +1308,17 @@ void TestSettingsMusic() {
     EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
     s.parse("launch_music = loud\n");
     EXPECT_EQ(s.launch_music, "off");
+    // A game page's banner sound and disc art: off until turned on.
+    EXPECT_EQ(s.page_banner_sound, "off");
+    EXPECT_EQ(s.disc_art, "off");
+    s.parse("page_banner_sound = on\ndisc_art = on\n");
+    EXPECT_EQ(s.page_banner_sound, "on");
+    EXPECT_EQ(s.disc_art, "on");
+    EXPECT_TRUE(s.serialize().find("page_banner_sound = on\n") != std::string::npos);
+    EXPECT_TRUE(s.serialize().find("disc_art = on\n") != std::string::npos);
+    s.parse("page_banner_sound = loud\ndisc_art = big\n");
+    EXPECT_EQ(s.page_banner_sound, "on");
+    EXPECT_EQ(s.disc_art, "on");
 }
 
 void TestSettings() {
@@ -1734,6 +1745,38 @@ void TestCoverArt() {
         EXPECT_TRUE(make_cover3d_file(narrow.data(), 4, 4).empty());
         std::uint8_t wrong[8] = {'R', 'W', '3', 'D', 0, 176, 0, 200};
         EXPECT_FALSE(cover3d_header_valid(wrong));
+    }
+
+    // Disc art: GameTDB's picture made a texture at its own size, its
+    // see-through corners kept; a size that isn't whole tiles is padded.
+    {
+        EXPECT_EQ(disc_art_url("EN", "RMCP01"), "https://art.gametdb.com/wii/disc/EN/RMCP01.png");
+        std::vector<std::uint8_t> pic(160 * 160 * 4, 0);  // see-through
+        for (int y = 40; y < 120; ++y)
+            for (int x = 40; x < 120; ++x) {
+                std::uint8_t* p = &pic[(static_cast<std::size_t>(y) * 160 + x) * 4];
+                p[2] = 255;  // opaque blue
+                p[3] = 255;
+            }
+        int tw = 0, th = 0;
+        const std::vector<std::uint8_t> tex = disc_art_texture(pic.data(), 160, 160, tw, th);
+        EXPECT_EQ(tw, 160);
+        EXPECT_EQ(th, 160);
+        EXPECT_EQ(tex.size(), static_cast<std::size_t>(160 * 160 * 2));
+        const auto texel = [](const std::vector<std::uint8_t>& t, int width, int x, int y) {
+            const std::size_t at = (static_cast<std::size_t>(y / 4) * (width / 4) + x / 4) * 32 +
+                                   static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            return (t[at] << 8) | t[at + 1];
+        };
+        EXPECT_EQ(texel(tex, 160, 0, 0) & 0xF000, 0);  // see-through: alpha 0
+        EXPECT_EQ(texel(tex, 160, 80, 80), 0x801F);    // opaque blue
+        std::vector<std::uint8_t> odd(150 * 150 * 4, 255);
+        const std::vector<std::uint8_t> padded = disc_art_texture(odd.data(), 150, 150, tw, th);
+        EXPECT_EQ(tw, 152);
+        EXPECT_EQ(texel(padded, 152, 149, 149), 0xFFFF);
+        EXPECT_EQ(texel(padded, 152, 151, 10) & 0xF000, 0);
+        EXPECT_TRUE(disc_art_texture(odd.data(), 4, 4, tw, th).empty());
+        EXPECT_TRUE(disc_art_texture(odd.data(), 1024, 8, tw, th).empty());
     }
 
     LoaderSettings s;
