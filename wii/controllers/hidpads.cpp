@@ -7,10 +7,13 @@
 #include <cstring>
 #include <dirent.h>
 #include <atomic>
+#include <ogc/usb.h>
+#include <unistd.h>
 
 #include "riftwii/hidconfig.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "pentablet.h"
 
 namespace riftwii::wii {
 namespace {
@@ -123,7 +126,28 @@ void HidPadsCopyCatalog(rthid_catalog& out) {
 void HidPadsPreload() {
     if (g_preloaded || Settings().usb_input == "off") return;
     g_preloaded = true;
-    // Connected pads have already been loaded. Fill remaining slots for
+    // A headless launch may reach here before any menu or adapter scan.
+    // Use the unfiltered list so the keyboard/tablet filter cannot hide pads.
+    static usb_device_entry list[RTHID_DEVICE_MAX] __attribute__((aligned(32)));
+    std::uint8_t count = 0;
+    std::int32_t result = USB_GetDeviceListUnfiltered(list, RTHID_DEVICE_MAX, USB_CLASS_HID, &count);
+    if (result < 0 && USB_Initialize() >= 0) {
+        // As in the adapter probe, allow libogc's first device-change reply.
+        for (unsigned attempt = 0; attempt < 30; ++attempt) {
+            result = USB_GetDeviceListUnfiltered(list, RTHID_DEVICE_MAX, USB_CLASS_HID, &count);
+            if (result < 0 || count != 0) break;
+            usleep(10000);
+        }
+    }
+    if (result >= 0) {
+        if (count > RTHID_DEVICE_MAX) count = RTHID_DEVICE_MAX;
+        rthid_device devices[RTHID_DEVICE_MAX];
+        for (unsigned i = 0; i < count; ++i) {
+            devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+        }
+        HidPadsRemember(devices, count);
+    }
+    // Connected pads now have their mappings. Fill remaining slots for
     // in-game hotplug, with a bounded directory walk and no path from an
     // untrusted filename ever passed to fopen.
     const char* folders[] = {"sd:/riftwii/controllers", "sd:/controllers"};

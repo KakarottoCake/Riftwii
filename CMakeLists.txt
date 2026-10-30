@@ -307,6 +307,18 @@ if(BUILD_TESTING)
         target_compile_options(hidsession_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
     add_test(NAME hidsession COMMAND hidsession_tests)
+    # Connected mappings must get slots before absent pads fill the catalog,
+    # including launches without a menu scan and with the adapter setting off.
+    add_executable(hidpads_tests tests/hidpads_tests.cpp wii/controllers/hidpads.cpp)
+    target_include_directories(hidpads_tests PRIVATE tests/hidpads_mock wii/controllers wii/core)
+    target_link_libraries(hidpads_tests PRIVATE riftwii)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(hidpads_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    foreach(mode connected initialize off)
+        add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
+            "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
+    endforeach()
     foreach(suite disccache patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart wfs wfstitle rtfat rtfs dol hook riifs extras gcad hidconfig png shot rvz codebuild qrcode report gamefault rtfaultstack vsd vsdblob gxpatches ctgpconfig theme riitag sysfont brfnt vsdparts vsdbuild modart bnr bnrsound themepack d2xversion nandcheck offlinegames casecolour extrasbudget wpadlog gametdb pro vcdiff gcoverlay gccard gccrash gclayout gcload gcclock gcbanner gcrvz gcports gccontrols sharednand nandchannel wadfile contentbin homeorder homeinput profiles namekeys gcvideo gcfont gcreset gctgc gcexi gcaram stash plugin gcrequest gcgcad gcdsp gcreal osrestart textlines appmeta homebrewmatch themebrowse gcdisc ghcheats menufont zipstream cardvolume returnstub padleave channelupdate sdhotplug wiisound nandlist ratingmark musiclist menumotion streamformat emulatorfile emulatorart emulatorbanner picturepick wiiflowplugin)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)

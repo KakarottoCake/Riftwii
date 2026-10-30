@@ -11,7 +11,8 @@ namespace riftwii::wii {
 void HidPadsRemember(const rthid_device* devices, unsigned count);
 const rthid_catalog& HidPadsCatalog();
 void HidPadsCopyCatalog(rthid_catalog& out);
-void HidPadsPreload(); // additional mappings for pads plugged in after launch
+// Remembers connected devices first, then fills unused slots for in-game hotplug.
+void HidPadsPreload();
 bool HidPadsConfigured(std::uint32_t vid_pid);
 
 }  // namespace riftwii::wii
