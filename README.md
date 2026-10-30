@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>A mod loader for the Wii.</b> Play Riivolution-format mods from the disc, a USB drive or the SD card.
+  <b>A USB loader and Riivolution replacement for the Wii.</b> Play your games from a USB drive, the SD card or the disc, with or without Riivolution-format mods.
   <br><br>
   <a href="https://github.com/KakarottoCake/Riftwii/releases/latest"><b>Download</b></a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
