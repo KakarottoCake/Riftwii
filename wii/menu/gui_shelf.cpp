@@ -631,13 +631,14 @@ void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool s
     const bool disc = id == kDiscBackdrop;
     const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
     const bool own = front && riftwii::wii::CoverBeforeBox(cover_name);
-    // Made again once the player's own cover is in memory, and when the
-    // cover is read again (another GameTDB set, for a game without a box).
+    // Made again once the player's own cover is in memory, when the cover
+    // is read again (another GameTDB set, for a game without a box), and
+    // when the box comes after the cover stood in for it.
     const unsigned fill = front ? riftwii::wii::CoverFill(cover_name) : 0;
-    const std::string key = (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
+    const u8* art = disc || own || id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+    const u8* cover = art || disc ? nullptr : front;
+    const std::string key = art ? id + "#box" : (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
     if (g_backId[g_backCur] != key && still && !id.empty()) {
-        const u8* art = disc || own ? nullptr : riftwii::wii::BoxTexture(id);
-        const u8* cover = art || disc ? nullptr : front;
         if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
             if (disc)

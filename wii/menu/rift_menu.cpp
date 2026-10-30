@@ -6218,9 +6218,12 @@ static int MenuSource(FrontendState& state)
 			}
 			// A second-set download that failed (the game page left before
 			// it ended): back on the first set, as the game page would.
+			// A second-set cover already in memory goes with it.
 			if ((got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed) &&
-			    riftwii::wii::TakenFetchWasSecondSet() && riftwii::wii::CoverSecondSet(arrived))
-				riftwii::wii::ChooseCoverSet(arrived, false);
+			    riftwii::wii::TakenFetchWasSecondSet() && riftwii::wii::CoverSecondSet(arrived)) {
+				if (riftwii::wii::ChooseCoverSet(arrived, false)) riftwii::wii::ForgetCover(arrived);
+				else logf("Covers: %s stays on the second set (its marker can't be removed)\n", arrived.c_str());
+			}
 			// A stored picture (a cover or a Channels banner) clears its
 			// "absent" mark at once, even if this pass of the loop ends early.
 			if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(arrived);
@@ -13327,7 +13330,16 @@ static int MenuHome(FrontendState& state)
 				// hidden for it.
 				const bool failedSecond = (got == riftwii::wii::CoverFetch::NoAnswer || got == riftwii::wii::CoverFetch::Failed) &&
 				                          riftwii::wii::TakenFetchWasSecondSet() && riftwii::wii::CoverSecondSet(id);
-				if (failedSecond) riftwii::wii::ChooseCoverSet(id, false);
+				// A second-set cover already in memory goes with it, and the
+				// band is made again from what comes first now.
+				if (failedSecond) {
+					if (riftwii::wii::ChooseCoverSet(id, false)) {
+						riftwii::wii::ForgetCover(id);
+						if (id == state.game_id) banner.SetCoverName(PageCoverName(state));
+					} else {
+						logf("Covers: %s stays on the second set (its marker can't be removed)\n", id.c_str());
+					}
+				}
 				if (id == state.game_id && coverAsked && !failedSecond &&
 				    riftwii::wii::TakenFetchWasSecondSet() != riftwii::wii::CoverSecondSet(id)) {
 					// Started before the GameTDB cover row changed the set: the
@@ -13475,6 +13487,7 @@ static int MenuHome(FrontendState& state)
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
 				bool askedCover = false;
+				const bool secondBefore = riftwii::wii::CoverSecondSet(state.game_id);
 				if (tile == GameTile::Mods) MenuMods(state, scanStatus);
 				else if (tile == GameTile::Cheats) MenuCheats(state);
 				else MenuGameSettings(state, askedCover);
@@ -13485,6 +13498,9 @@ static int MenuHome(FrontendState& state)
 				if (tile == GameTile::Mods) {
 					titleTxt.SetText(GameTitle(state).c_str());
 					hero.SetCoverName(PageCoverName(state));
+					banner.SetCoverName(PageCoverName(state));
+				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
+					// Another GameTDB cover set: the band's art was the old one's.
 					banner.SetCoverName(PageCoverName(state));
 				}
 				rebuildTiles();
