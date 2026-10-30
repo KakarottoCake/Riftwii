@@ -78,6 +78,7 @@ struct GcLaunchExtras {
     std::uint32_t adapter_version = 0;
     std::int32_t adapter_dev = -1;
     bool adapter_rumble = false;
+    const void* hid_catalog = nullptr;
     u64 way_back_title = 0;  // 0: none
     const void* way_back_view = nullptr;
     std::size_t way_back_view_bytes = 0;
