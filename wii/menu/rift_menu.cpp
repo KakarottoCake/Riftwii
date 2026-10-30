@@ -1859,8 +1859,7 @@ static void UpdateModCoverIds()
 		if (!id.empty()) ids[p.key()] = id;
 	}
 	const unsigned matched = static_cast<unsigned>(ids.size());
-	// Not kept yet (the covers' memory isn't set up): tried again next time.
-	if (!riftwii::wii::SetModCoverIds(std::move(ids))) return;
+	riftwii::wii::SetModCoverIds(std::move(ids));
 	seenWritten = written;
 	seenCleared = cleared;
 	seenTiles = tiles;

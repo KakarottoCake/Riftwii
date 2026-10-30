@@ -8,6 +8,7 @@
 #include <ogc/cond.h>
 #include <ogc/lwp.h>
 #include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
 #include <sys/stat.h>
 #include <zlib.h>
 
@@ -402,15 +403,25 @@ void Reserve(int covers) {
          static_cast<unsigned>((reinterpret_cast<u32>(SYS_GetArena2Hi()) - reinterpret_cast<u32>(SYS_GetArena2Lo())) >> 10));
 }
 
-// The lock and the loader thread, the first time a cover is asked for,
-// with kPoolMin slots unless CoverReserve gave some. GUI thread.
-bool Started() {
-    if (g_thread != LWP_THREAD_NULL) return true;
+// The lock (and the loader's conditions), once: the GUI thread makes it for
+// the covers, the menu's for the mod tiles' matches (SetModCoverIds), so
+// with interrupts off, as either may come first.
+void MakeLock() {
+    u32 level;
+    _CPU_ISR_Disable(level);
     if (g_lock == LWP_MUTEX_NULL) {
         LWP_MutexInit(&g_lock, false);
         LWP_CondInit(&g_wake);
         LWP_CondInit(&g_idle);
     }
+    _CPU_ISR_Restore(level);
+}
+
+// The lock and the loader thread, the first time a cover is asked for,
+// with kPoolMin slots unless CoverReserve gave some. GUI thread.
+bool Started() {
+    if (g_thread != LWP_THREAD_NULL) return true;
+    MakeLock();
     if (g_slots == 0) Reserve(kPoolMin);
     // Below the GUI thread (70) and the menu's: it reads while they wait.
     if (LWP_CreateThread(&g_thread, LoaderMain, nullptr, g_stack, sizeof(g_stack), 40) < 0) {
@@ -733,10 +744,12 @@ unsigned ModCoverIdsCleared() {
     return g_modCoverIdsCleared;
 }
 
-bool SetModCoverIds(std::map<std::string, std::string> ids) {
-    if (g_lock == LWP_MUTEX_NULL) return false;
+void SetModCoverIds(std::map<std::string, std::string> ids) {
+    // Kept before any cover is asked for too: the Names view asks for none
+    // until a game page opens, and that page shows the mod's cover.
+    MakeLock();
     Lock lock;
-    if (ids == g_modCoverIds) return true;
+    if (ids == g_modCoverIds) return;
     // A tile matched anew, or no longer, may show another cover now: what
     // is in memory for it (or being read) is read again.
     std::set<std::string> changed;
@@ -756,7 +769,6 @@ bool SetModCoverIds(std::map<std::string, std::string> ids) {
     }
     if (forgot) ++g_forgets;
     g_modCoverIds = std::move(ids);
-    return true;
 }
 
 void ForgetCover(const std::string& game_id) {
@@ -810,11 +822,7 @@ void ForgetAllCovers() {
 }
 
 void CoverReserve(int covers) {
-    if (g_lock == LWP_MUTEX_NULL) {
-        LWP_MutexInit(&g_lock, false);
-        LWP_CondInit(&g_wake);
-        LWP_CondInit(&g_idle);
-    }
+    MakeLock();
     Reserve(covers);
 }
 
