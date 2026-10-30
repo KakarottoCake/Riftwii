@@ -152,7 +152,7 @@ void test_late_composite_pad() {
     }
     EXPECT_EQ(excluded, 3);
     EXPECT_EQ(inputs, 1);
-    EXPECT_EQ(records, 24); // discovery, three rejections, two HID setups, one input
+    EXPECT_EQ(records, 22); // discovery (repeats only with a new result), three rejections, two HID setups, one input
     std::string text;
     EXPECT_EQ(riftwii::describe_gc_usb_pads(trace, text), true);
     EXPECT_EQ(text.find("interface 0 is not a HID interface, left alone") != std::string::npos, true);
