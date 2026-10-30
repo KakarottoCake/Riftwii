@@ -6,6 +6,7 @@
 // before it uses any of it (docs/PLUGINS.md, "Stage (b)").
 #include "riftwii/gcrequest.hpp"
 #include "riftwii/checkedalloc.hpp"
+#include "rthid.h"
 
 #include <cstddef>
 #include <cstring>
@@ -267,6 +268,19 @@ static void test_refusals() {
 }
 
 int main() {
+    {
+        Fixture mappings;
+        std::string error;
+        rthid_catalog catalog{};
+        mappings.request.hid_catalog = &catalog;
+        EXPECT_FALSE(mappings.check(error));
+        mappings.request.hid_catalog_bytes = sizeof(catalog) - 1;
+        EXPECT_FALSE(mappings.check(error));
+        mappings.request.hid_catalog_bytes = sizeof(catalog);
+        EXPECT_TRUE(mappings.check(error));
+        mappings.request.hid_catalog = nullptr;
+        EXPECT_FALSE(mappings.check(error));
+    }
     Fixture card_choice;
     std::string why;
     card_choice.request.real_card = 1;

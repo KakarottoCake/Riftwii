@@ -46,6 +46,7 @@
 #include "riftwii/mempatch.hpp"
 #include "riftwii/nandcheck.hpp"
 #include "gcadapter.hpp"
+#include "hidpads.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
 #include "faulthook.hpp"
@@ -2880,7 +2881,15 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     return true;
 }
 
-void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
+void SetLaunchExtras(LaunchExtras extras) {
+    // Configured USB pads use the existing pad hook and IOS safety rules.
+    // The binary table still keeps the separate adapter setting off.
+    if (extras.gc_adapter == GcAdapterMode::Off && Settings().usb_input == "on") {
+        HidPadsPreload(); // headless launches have no preceding menu scan
+        if (HidPadsCatalog().count != 0) extras.gc_adapter = GcAdapterMode::Auto;
+    }
+    g_extras = std::move(extras);
+}
 
 const LaunchExtras& CurrentLaunchExtras() { return g_extras; }
 

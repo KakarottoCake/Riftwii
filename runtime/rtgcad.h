@@ -32,6 +32,7 @@
 #define RIFTWII_RTGCAD_H
 
 #include <stdint.h>
+#include "rthid.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +83,11 @@ extern "C" {
 #define GCAD_TAG_OUT 4u      /* init, then rumble */
 #define GCAD_TAG_STOP 5u     /* gcad_stop's cancels */
 #define GCAD_TAGS 6u
+#define GCAD_HID_PADS 4u
+#define GCAD_INSTANCES (1u + GCAD_HID_PADS)
+#define GCAD_REQUESTS (GCAD_TAGS * GCAD_INSTANCES)
+#define GCAD_SLOT(tag) ((uint32_t)(tag) >> 28)
+#define GCAD_REQUEST_SLOT(tag) (GCAD_SLOT(tag) * GCAD_TAGS + ((tag) & 15u))
 
 /* Link states. */
 #define GCAD_LINK_NONE 0u    /* no adapter listed */
@@ -106,6 +112,11 @@ extern "C" {
 #define GCAD_EV_ORIGIN 10u   /* a = port | how << 8 | L << 16 | R << 24, b = stick x, y, substick x, y (x highest) */
 
 /* How a port's origin was taken (GCAD_EV_ORIGIN). */
+#define GCAD_EV_HID_FOUND 11u /* a = VID/PID, b = device id */
+#define GCAD_EV_HID_MISSING 12u /* a = VID/PID: no mapping, never claimed */
+#define GCAD_EV_HID_LOST 13u /* a = VID/PID */
+#define GCAD_EV_HID_PORT 14u /* a = VID/PID, b = game port (zero based) */
+
 #define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
 #define GCAD_ORIGIN_MIDDLE 1u  /* nothing steady at rest for GCAD_ORIGIN_WAIT_MS: the axes not settled took the middle */
 #define GCAD_ORIGIN_RECAL 2u   /* X+Y+Start held */
@@ -131,6 +142,11 @@ typedef struct gcad_pad {
     uint8_t wireless;          /* a WaveBird receiver: no rumble */
 } gcad_pad;
 
+typedef struct gcad_descriptor {
+    uint16_t packet_bytes;
+    uint8_t endpoint_in, endpoint_out, interface_number;
+} gcad_descriptor;
+
 /* SDK PAD button bits. */
 #define GCAD_PAD_LEFT 0x0001u
 #define GCAD_PAD_RIGHT 0x0002u
@@ -154,9 +170,9 @@ typedef struct gcad {
     uint8_t setup_in[0x20];
     uint8_t setup_out[0x60];
     uint8_t in_msg[0x40];      /* v4 request (32 bytes) or v5 message (64) */
-    uint8_t in_data[0x40];     /* the report */
+    uint8_t in_data[RTHID_REPORT_MAX]; /* adapter or configurable pad report */
     uint8_t out_msg[0x40];
-    uint8_t out_data[0x20];    /* init or rumble command */
+    uint8_t out_data[RTHID_RUMBLE_MAX]; /* init or one configured rumble transfer */
     uint8_t stop_msg[0x20];    /* gcad_stop's cancel argument */
     uint8_t env[0x40];         /* the environment's own (ioctlv vectors) */
 
@@ -193,7 +209,34 @@ typedef struct gcad {
     uint32_t last_error_step;
     int32_t ctrl_result, resume_result, info_result, init_result;
     uint32_t listed;           /* devices in the last list */
-} gcad;
+    /* The adapter owns the one device list and AttachFinish sequence.
+     * Pad links reuse its fd and state machine, with distinct IPC tags. */
+    struct gcad* owner;        /* null for the adapter/list owner */
+    struct gcad* peers;        /* four pad links, null without HID support */
+    const rthid_catalog* catalog;
+    const rthid_mapping* mapping; /* non-null only for a configured pad */
+    uint32_t slot;             /* callback routing: 0 adapter, 1..4 pads */
+    uint16_t input_bytes;
+    uint8_t endpoint_in, endpoint_out, interface_number;
+    uint8_t rumble_index;
+    uint8_t port_source[GCAD_PORTS]; /* 0..3 adapter, 4..7 HID, 255 none */
+    uint8_t announced_port;
+    uint8_t adapter_disabled;
+    gcad_pad hid_pad;
+    uint32_t ignored_count;
+    int32_t ignored[RTHID_DEVICE_MAX]; /* log an unconfigured device once per plug */
+    uint32_t device_count;
+    rthid_device devices[RTHID_DEVICE_MAX];
+    gcad_descriptor descriptors[RTHID_DEVICE_MAX]; /* v4 list snapshot */
+} __attribute__((aligned(32))) gcad;
+
+/* Loader-filled catalog survives initialization; everything else is
+ * initialized in place. This entire object must be in aligned MEM2. */
+typedef struct gcad_hub {
+    gcad adapter;
+    gcad pads[GCAD_HID_PADS];
+    rthid_catalog catalog;
+} gcad_hub;
 
 /* The environment. Each returns what IOS_IoctlAsync / IOS_IoctlvAsync
  * returned (0 when queued); the reply must reach gcad_on_reply with the
@@ -214,6 +257,12 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b);
 
 /* Zeroes the state. `version` is what GetVersion answered (4 or 5). */
 void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+void gcad_links_init(gcad* adapter, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
+                     void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+/* Menu thread only: new configs have been compiled since the last list.
+ * Reconsiders that list without issuing another IOS device-change call. */
+void gcad_refresh_hid(gcad* adapter, uint32_t now);
 /* The adapter's device id when the loader already knows it: v5 hands
  * its device list out once per change, to whoever asks first, and the
  * menu's USB had it; the list request still goes out, for later changes.
@@ -227,6 +276,10 @@ void gcad_on_reply(gcad* g, uint32_t tag, int32_t result, uint32_t now);
 /* 1 and the port's state when a controller is plugged into it and the
  * adapter is reporting, else 0. */
 int gcad_port(gcad* g, uint32_t port, gcad_pad* out, uint32_t now);
+/* Console ports in `taken` keep priority. Adapter pads fill first (their
+ * own number if free, otherwise first free), then one HID pad per port.
+ * Saves the routing used by gcad_rumble. Returns the ports filled. */
+uint32_t gcad_read_ports(gcad* g, uint32_t taken, gcad_pad out[GCAD_PORTS], uint32_t now);
 /* PADControlMotor's command for a port: 1 rumbles, 0 and 2 stop. */
 void gcad_rumble(gcad* g, uint32_t port, uint32_t command);
 /* Stops for good: cancels what is in flight (Shutdown for the device

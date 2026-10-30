@@ -114,7 +114,7 @@ contains theirs names them in its file header, and
 - **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
   sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
   controller adapter.
-- **Nintendont** by FIX94 and contributors: the USB HID driver and the
+- **Nintendont** by FIX94 and contributors: the USB HID driver, controller.ini mapping format and the
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
   USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the

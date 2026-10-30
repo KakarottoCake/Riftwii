@@ -66,7 +66,7 @@ struct LoaderSettings {
     std::string riitag_id;                // RiiTag: the player's Discord ID, for Settings > Online > My RiiTag; empty for none
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
-    std::string usb_input = "on";         // on, off: USB keyboards, mice and pen tablets, and the uDraw, in the menu (wii/controllers/usbinput.hpp)
+    std::string usb_input = "on";         // on, off: configured USB pads (menu and games), keyboards, mice, pen tablets and uDraw
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::string sd_games = "on";          // on, off: look for game images on the SD card (sd:/wbfs, sd:/games); off for setups that keep games only on USB
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts

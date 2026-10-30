@@ -42,7 +42,9 @@ struct gc_gcad_rq {
  * with fd, version, known_dev, ticks_per_ms and rumble filled. */
 struct gc_gcad {
     gcad g;  /* first: its buffers, 32-byte aligned */
-    struct gc_gcad_rq rq[GCAD_TAGS] __attribute__((aligned(32)));
+    gcad pads[GCAD_HID_PADS];
+    rthid_catalog catalog; /* same prefix as gcad_hub */
+    struct gc_gcad_rq rq[GCAD_REQUESTS] __attribute__((aligned(32)));
     int32_t fd;
     uint32_t version;       /* 4 or 5 */
     int32_t known_dev;      /* -1: none */

@@ -78,6 +78,7 @@ riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     extras.crash_screen = request.crash_screen;
     extras.crash_screen_bytes = request.crash_screen_bytes;
     extras.crash_screen_way_back = request.crash_screen_way_back != 0;
+    extras.hid_catalog = request.hid_catalog;
     extras.adapter_fd = request.adapter_fd;
     extras.adapter_version = request.adapter_version;
     extras.adapter_dev = request.adapter_dev;
