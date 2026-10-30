@@ -154,8 +154,8 @@ bool PressedB(GuiTrigger* t) {
 
 // Home's search button answers a GameCube controller's B and a Classic
 // Controller's ZL (rift_menu.cpp): while a game is carried, by the pointer
-// or the D-pad, from any controller, or a cover is up close, they don't
-// reach it (#382).
+// or the D-pad, from any controller, or a cover is up close (and on the
+// press that starts either), they don't reach it (#382).
 void KeepFromSearch(GuiTrigger* t) {
     t->pad.btns_d &= ~PAD_BUTTON_B;
     if (t->wpad) t->wpad->btns_d &= ~WPAD_CLASSIC_BUTTON_ZL;
@@ -1378,6 +1378,7 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         hover = -1;
         arrowHover = 0;
         LettersDone(t);
+        KeepFromSearch(t);
         soundClick->Play();
         return true;
     }
@@ -1638,6 +1639,7 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
     zoomLastFrame = 0;
     t->wpad->btns_d &= ~kZoomKeys;
     t->pad.btns_d &= ~kPadZoomKeys;
+    KeepFromSearch(t);
     riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
     return true;
 }
