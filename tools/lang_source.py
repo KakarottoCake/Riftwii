@@ -6642,20 +6642,20 @@ FR.update({
 })
 
 
-# The menu font's core is in the DOL; the rest is font.ttf next to it
+# The whole menu font is font.ttf beside boot.dol, retained in MEM2
 # (wii/menu/fullfont.hpp). Said once a session when that file is missing.
 T.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": (
-        "Algunos caracteres no se pueden mostrar sin la fuente completa de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD.",
-        "RiftWiiの完全なフォントがないため、表示できない文字があります。RiftWiiのzipにあるapps/riftwii/font.ttfをSDカードにコピーしてください。",
-        "Alguns caracteres não podem ser exibidos sem a fonte completa do RiftWii. Copie apps/riftwii/font.ttf do zip do RiftWii para o cartão SD.",
-        "Alcuni caratteri non possono essere mostrati senza il carattere completo di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."),
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": (
+        "Falta la fuente de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD.",
+        "RiftWiiのフォントがありません。RiftWiiのzipにあるapps/riftwii/font.ttfをSDカードにコピーしてください。",
+        "A fonte do RiftWii não está no cartão. Copie apps/riftwii/font.ttf do zip do RiftWii para o cartão SD.",
+        "Manca il carattere di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."),
 })
 KO.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "RiftWii의 전체 글꼴이 없어 표시할 수 없는 문자가 있습니다. RiftWii zip의 apps/riftwii/font.ttf를 SD 카드에 복사하세요.",
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "RiftWii 글꼴이 없습니다. RiftWii zip의 apps/riftwii/font.ttf를 SD 카드에 복사하세요.",
 })
 FR.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "Certains caractères ne peuvent pas s'afficher sans la police complète de RiftWii. Copiez apps/riftwii/font.ttf depuis le zip de RiftWii vers la carte SD.",
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "La police de RiftWii est absente. Copiez apps/riftwii/font.ttf du zip de RiftWii sur la carte SD.",
 })
 
 
@@ -7828,22 +7828,11 @@ def main():
             f.write("\n".join(lines))
         print("%s: %d of %d translated" % (lang, sum(1 for k in T if table.get(k)), len(T)))
     print("%d entries, %d languages" % (len(T), len(LANGS) + len(MORE)))
-    # Every character the translations use must be in the core font the
-    # DOL carries (tools/menu_font_chars.py): one only in the full font on
-    # the SD card would read the card for the menu's own text, and show
-    # nothing where that file is missing.
+    # The whole menu face stays in MEM2, so Japanese text must exist in it.
     import menu_font_chars
-    missing = menu_font_chars.missing_from_core()
-    if missing:
-        print("wii/font/core.ttf lacks %d character(s) of the menu's text: %s" %
-              (len(missing), "".join(chr(cp) for cp in missing[:40])))
-        print("Run: python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf")
-        raise SystemExit(1)
-    # A Japanese character in neither font draws blank, and the check above
-    # cannot see it (it only asks about what the full font has).
-    japanese = menu_font_chars.japanese_missing_from_core()
+    japanese = menu_font_chars.japanese_missing_characters()
     if japanese:
-        print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
+        print("wii/lang/ja.po uses %d character(s) missing from wii/font/menu.ttf: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
         raise SystemExit(1)
 

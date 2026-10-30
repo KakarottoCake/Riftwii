@@ -558,14 +558,18 @@ the tiles.
 - **Clock**: how Home's clock writes the time: *12-hour* (with AM and
   PM), *24-hour*, or *Automatic*, as the menu's language writes it. Saved
   as `clock = auto`, `12` or `24`.
-- **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
-  writes with, read from your Wii's own memory (nothing is downloaded, and
-  it covers Japanese too). Leaving Settings, RiftWii offers to restart its menu to switch.
-  If the Wii's font can't be read, RiftWii uses its own and says so on
-  Home. Saved as `menu_font = riftwii` or `menu_font = wii`. The first
-  read copies the font to `sd:/riftwii/fontcache/`, and later starts read
-  that copy (quicker, and it needs no hardware access or cIOS). Delete
-  the folder to read it from the Wii again.
+- **Menu font**: *RiftWii* uses M PLUS 1 SemiBold from `font.ttf` beside
+  `boot.dol` on the SD card or USB drive. *Wii Menu* uses your own Wii's
+  font, read from its memory (nothing is downloaded, and it covers Japanese).
+  Leaving Settings, RiftWii offers to restart its menu to switch. Both
+  stay readable while a drive is unmounted or an update replaces the font.
+  If `font.ttf` is missing or damaged, RiftWii uses the Wii Menu font and
+  asks you to copy `apps/riftwii/font.ttf` from the release zip. If neither
+  font can be read, a plain text screen explains how to restore the file.
+  If the Wii Menu font was selected but cannot be read, RiftWii tries its
+  own instead. Saved as `menu_font = riftwii` or `menu_font = wii`. The
+  first NAND read copies the Wii font to `sd:/riftwii/fontcache/`; later
+  starts read that copy. Delete the folder to read from the Wii again.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.

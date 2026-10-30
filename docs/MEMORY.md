@@ -116,44 +116,34 @@ Japanese with RiftWii's font.
 
 | Item | KiB in MEM1 | Used | Choice | MEM1 saved |
 | --- | ---: | --- | --- | ---: |
-| Menu font (`wii/font/rounded.ttf`, zstd) | 750 | Once at start (and after a warm restart), unpacked to MEM2 | **Start-up stash** (built); since issue #242 only the core (`wii/font/core.ttf`, 114 KiB zstd, 303 KiB unpacked in MEM2), the rest read a glyph at a time from `apps/riftwii/font.ttf` (`wii/menu/fullfont.hpp`, a 384 KiB MEM2 pool taken only when a character needs it) | 747 |
+| Menu font (`wii/font/menu.ttf`) | 0 | Read from `apps/riftwii/font.ttf` once at start | **External file**, copied completely into MEM2, no font bytes in the DOL or stash. Replaces the former 310,920-byte core plus 384 KiB stream pool; see `wii/menu/fullfont.hpp`. | 750 |
 | Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
 | Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
-Korean is supplied separately by `apps/riftwii/korean.ttf` (457 KiB,
-Noto Sans KR under OFL 1.1), never in the stash or the DOL. The external
-fonts share the existing 384 KiB MEM2 pool and FreeType library; opening
-the Korean face does not load its entire file or take a second pool.
-It is tried after the core and full fonts, and both streams close before
-unmounts. [KOREAN_FONT.md](KOREAN_FONT.md) records the measurements.
+The main font is copied into MEM2 in full before the GUI starts. Korean is
+supplied separately by `apps/riftwii/korean.ttf` (457 KiB, Noto Sans KR
+under OFL 1.1), and also retained in MEM2 on first use. Korean's FreeType
+face, temporary bitmap and glyph textures share the existing 384 KiB MEM2
+pool; allocations that do not fit still use the heap. There are no open
+font files to close on unmount or while an update replaces them. Historical
+size tables above describe the older builds named in their headings.
 
-The **start-up stash** keeps these files in `boot.dol`, so the DOL alone
-still works, but not in RiftWii's resident image. `tools/dol_stash.py` adds
+The **start-up stash** keeps translations and the GPL in `boot.dol`,
+outside RiftWii's resident image. Menu fonts are now external. `tools/dol_stash.py` adds
 them after the link as one more DOL data section placed right above `.bss`,
 which is where libogc starts the heap. crt0 copies the section to MEM2
 before `.bss` is cleared (the wrapped `__CheckARGV`, `wii/core/stash.cpp`)
 and erases its magic. From then on those bytes of MEM1 are ordinary heap.
 
-### Why not files next to the DOL
+### Files next to the DOL
 
-External files (`sd:/apps/riftwii/data/...`, read into MEM2 on first use)
-would also save the DOL's size and the MEM2 the copies take. They were
-weighed for each item and not built for now:
-
-- **The font can't be external.** Without it RiftWii can draw nothing, not
-  even the message saying the file is missing. The Wii Menu's font needs
-  hardware access or a d2x cIOS, so it is not a fallback everyone has.
-- **The other items gain nothing more in MEM1.** In the stash they already
-  cost no MEM1 after start. As files they would bring missing-file and
-  wrong-version cases, plus work in the release zip, the update pack, the
-  in-menu update (which replaces only `boot.dol` today) and the channel
-  (which starts `boot.dol` from the SD card or the USB drive).
-- **Files win if the loaded image itself grows too big.** The stash still
-  has to load below the limit. When code plus stash no longer fits under
-  `0x81200000`, files (or plugins, [PLUGINS.md](PLUGINS.md)) are the next
-  step, starting with the sounds and runtime blobs.
+The menu font is now external. `font.ttf` is already installed by older
+in-app updaters before the new DOL. A missing file uses the Wii Menu's NAND
+font, and libogc's built-in console can explain recovery when NAND is also
+unavailable. This removes the earlier reason to embed the font.
+Translations and the GPL remain in the stash; they cost no MEM1 after start.
 
 ## The limits
 

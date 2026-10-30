@@ -3189,8 +3189,8 @@ msgstr "4. Juegos en la carpeta /wbfs o /games."
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x en el slot 249/250/251."
 
-msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
-msgstr "Algunos caracteres no se pueden mostrar sin la fuente completa de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD."
+msgid "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "Falta la fuente de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD."
 
 msgid "Bring your Nintendont saves?"
 msgstr "¿Traer tus partidas de Nintendont?"
