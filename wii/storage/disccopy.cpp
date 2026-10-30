@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "disccopy.hpp"
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
@@ -46,9 +47,16 @@ public:
                     return false;
                 }
                 const std::string path = wbfs_piece_path(primary_, static_cast<unsigned>(pieces_.size()));
-                file_ = std::fopen(path.c_str(), "wb");
+                // Created, never opened over: a piece already there is not
+                // truncated, and not removed by remove_all either.
+                const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0666);
+                if (fd >= 0) {
+                    file_ = fdopen(fd, "wb");
+                    if (file_ == nullptr) close(fd);
+                }
                 if (file_ == nullptr) {
-                    error = "cannot create " + path + ": " + std::strerror(errno);
+                    error = errno == EEXIST ? path + " is already there"
+                                            : "cannot create " + path + ": " + std::strerror(errno);
                     return false;
                 }
                 pieces_.push_back(path);
@@ -185,6 +193,11 @@ bool RunDiscCopy(const DiscCopyJob& job, const DiscCopyPlace& place, const DiscC
         if (stat(piece.c_str(), &st) == 0) {
             exists = true;
             error = piece + " is already there";
+            return false;
+        }
+        if (errno != ENOENT) {
+            error = "cannot check " + piece + ": " + std::strerror(errno);
+            logf("Disc copy: %s\n", error.c_str());
             return false;
         }
     }
