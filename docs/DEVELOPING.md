@@ -80,19 +80,19 @@ the Wii from the same sources.
 
 Translations: `python tools/lang_source.py` checks that every table entry
 is still in the menu's sources and writes `wii/lang/*.po`. New Japanese
-text must be in the menu font's core (`wii/font/core.ttf`, in the DOL):
-`lang_source.py` and the `menufont` host test fail when a character is
-missing, and `python tools/make_menu_font.py core wii/font/rounded.ttf
-wii/font/core.ttf` (fontTools) makes the core again. The whole font
-(`wii/font/rounded.ttf`) ships next to the DOL as
-`sd:/apps/riftwii/font.ttf`, read only for characters the core lacks
-(`wii/menu/fullfont.hpp`); `tools/make_menu_font.py` explains both.
-Korean uses a third font, `wii/font/korean.ttf`, shipped as
-`apps/riftwii/korean.ttf` with `Korean-OFL.txt`, never embedded. The same
-stream, cache and close holds serve it. `tools/make_korean_font.py` builds
-it from the pinned Noto Sans KR source; [KOREAN_FONT.md](KOREAN_FONT.md)
-records its coverage and checks. Translation checks also verify Korean
-against this file.
+text must be in `wii/font/menu.ttf`: `lang_source.py` and the `menufont`
+host test fail when a character is missing. With fontTools installed, run
+`python tools/make_menu_font.py cut 'build-font/MPLUS1[wght].ttf' wii/font/menu.ttf`
+to rebuild from the pinned Google Fonts source described in the script.
+This static M PLUS 1 SemiBold subset ships as `apps/riftwii/font.ttf`,
+with `OFL.txt`. The whole face stays in MEM2 across unmounts and updates;
+no font data is embedded in the DOL (`wii/menu/fullfont.hpp`).
+`wii/font/rounded.ttf` stays unchanged for logo art (`make_channel_art.py`) and supplies 205 rare
+characters absent from the new source when the card font is generated.
+Korean keeps `apps/riftwii/korean.ttf` and `Korean-OFL.txt`; it too stays in
+MEM2 once used. `tools/make_korean_font.py` builds it from the pinned Noto
+Sans KR source; [KOREAN_FONT.md](KOREAN_FONT.md) records its coverage and
+checks. Translation checks also verify Korean against this file.
 
 ## Running in Dolphin
 
@@ -426,7 +426,7 @@ py -3.13 tools/release_notes.py render --version YYMM-N --dol riftwii.dol --out 
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
    `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`),
-   `font.ttf` (`wii/font/rounded.ttf`, the whole menu font), `korean.ttf`
+   `font.ttf` (`wii/font/menu.ttf`, the whole menu font) and `OFL.txt`, `korean.ttf`
    and `Korean-OFL.txt` (both from `wii/font/`),
    and `plugins/` with every file of `build-plugins/plugins/` from the
    same build (`make_update_pack.py` refuses plugins that don't match the

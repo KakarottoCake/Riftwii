@@ -4,32 +4,30 @@
 
 #include <string>
 
-// The DOL carries core.ttf: Latin, symbols, kana and the Japanese menu
-// text. The full menu font ships as font.ttf beside boot.dol; Korean is
-// supplied by korean.ttf in the same folder. Missing characters are tried
-// in that order, through FreeType streams that read glyphs on demand.
-// FreeTypeGX caches every drawn glyph. Both external faces, their file
-// buffers and glyph textures share the existing 384 KiB MEM2 pool; only
-// allocations that do not fit use the heap.
+// font.ttf beside the running boot.dol (SD or USB) is the entire main
+// menu face (M PLUS 1 SemiBold, with rare legacy glyphs retained). It is
+// checked and copied into MEM2 before the GUI starts;
+// no font bytes are embedded in the DOL. The file is closed immediately.
+// FreeType reads the copy throughout the menu, including launches, IOS
+// reloads, remounts and updates replacing the file. The next menu start
+// reads the updated font. There is no face or buffer to close on unmount.
+//
+// korean.ttf keeps its separate path. On first use it too is copied into
+// MEM2, so Korean text remains drawable during those same windows. Its
+// FreeType face, temporary glyph bitmap and missing-glyph textures share
+// the existing 384 KiB MEM2 pool, with heap overflow as before. The main
+// face's normal FreeType allocations and glyph cache use the heap as before.
 namespace riftwii::wii::fullfont {
 
-// With RiftWii's own font in use (not the Wii Menu's, Settings > Menu
-// font): characters the core lacks come from the external fonts.
-void Enable();
+// Initialize the main face from the card. False: log why, arrange the
+// copy-font notice, and let main.cpp try the Wii Menu's NAND font.
+bool Load();
 
-// The Korean font is a separate OFL file, korean.ttf beside boot.dol.
-// Both streams share the existing MEM2 pool, glyph cache and close holds.
-// Check Hangul coverage without drawing a glyph, for the language choice.
-// With the Wii Menu font selected, its own coverage remains authoritative.
 bool HasKoreanCharacters();
 
-// While one lives both files stay closed: for the
-// whole of every unmount (covers.cpp's dvmUnmountVolume wrap: a launch
-// handing the card to the game, an IOS reload, a remount), so the GUI
-// thread cannot open either on a card going away, or while an update rewrites
-// the fonts (on the network's thread). Afterwards each opens again when a
-// character the core lacks needs it, and a missing file is looked for
-// again. `why` is for the log line of the close.
+// Prevent new Korean file reads for the entire unmount or update. Already
+// loaded faces and every glyph they contain stay usable. The main face
+// only reads its file at startup, before these holds can exist.
 class ClosedHold {
 public:
     explicit ClosedHold(const char* why);
@@ -38,16 +36,13 @@ public:
     ClosedHold& operator=(const ClosedHold&) = delete;
 };
 
-// The menu has closed for a launch, which hands the card to the game:
-// closed, and not opened again in this run.
+// No more card reads after the menu hands the card to the game.
 void EndMenu();
 
-// True once a session, the first time the full font was found missing or
-// unreadable: the menu then tells the player to copy it.
+// Once per session: tell the player to copy font.ttf from the release zip.
 bool TakeMissingNote();
 
-// Where the full font is read from and an update writes it: font.ttf next
-// to the running boot.dol, as its plugins/ folder is.
+// The old updater already writes this single file beside boot.dol.
 std::string FullFontPath();
 
 }  // namespace riftwii::wii::fullfont

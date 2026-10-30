@@ -6630,7 +6630,7 @@ static int MenuSource(FrontendState& state)
 		// keeps Home's other news, until a game is opened. Here, with the
 		// GUI halted, as the toast and the status line are drawn by it.
 		if (!g_askAfterScan && riftwii::wii::fullfont::TakeMissingNote()) {
-			const std::string fontNote = tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
+			const std::string fontNote = tr("RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
 			SetHomeNotice(fontNote);
 			g_homeNoticeShown = true;
 			toast.Show(fontNote, true);

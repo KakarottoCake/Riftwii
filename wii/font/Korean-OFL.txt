@@ -1,4 +1,10 @@
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'
+Copyright 2021 The M+ FONTS Project Authors (https://github.com/coz-m/MPLUS_FONTS)
+
+This license accompanies korean.ttf (RiftWii Korean, from Noto Sans KR)
+and font.ttf (the static weight-600 subset of M PLUS 1). M PLUS 1 also
+ships with OFL.txt. Keeping its copyright here lets older RiftWii updaters
+deliver the font's license through the Korean-OFL.txt path they already write.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

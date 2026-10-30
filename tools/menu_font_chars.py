@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Which characters the menu's core font holds, and what a TrueType font
-maps, with the standard library alone (the CI translation check has no
-fontTools).
+"""Checks the complete card font's Japanese menu coverage without fontTools.
 
-The menu font comes in two parts (issue #242, item 4):
-  - wii/font/core.ttf, in the DOL's start-up stash: everything below
-    U+3000 (Latin, punctuation, symbols), U+3000-U+30FF (CJK punctuation
-    and kana), U+FF00-U+FFEF (half- and full-width forms), and every
-    character of wii/lang/*.po and of the menu's own sources;
-  - wii/font/rounded.ttf, all of it, shipped as sd:/apps/riftwii/font.ttf
-    and read by the menu only for a character the core lacks
-    (wii/menu/fullfont.cpp).
-
-    python tools/menu_font_chars.py    # checks wii/font/core.ttf
+wii/font/menu.ttf ships as apps/riftwii/font.ttf and stays in memory during
+unmounts. Korean uses its own korean.ttf. No font is embedded in the DOL.
 """
 
 import glob
@@ -24,13 +14,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, ".."))
-CORE_FONT = os.path.join(REPO, "wii", "font", "core.ttf")
-FULL_FONT = os.path.join(REPO, "wii", "font", "rounded.ttf")
+FULL_FONT = os.path.join(REPO, "wii", "font", "menu.ttf")
 KOREAN_FONT = os.path.join(REPO, "wii", "font", "korean.ttf")
-
-# Whole blocks kept in the core whatever the text uses, so a game name or
-# a pack's text in kana or Latin never needs the SD card.
-CORE_RANGES = [(0x0000, 0x2FFF), (0x3000, 0x30FF), (0xFF00, 0xFFEF)]
 
 
 def text_characters(repo=REPO):
@@ -46,17 +31,6 @@ def text_characters(repo=REPO):
         with open(path, encoding="utf-8", errors="ignore") as f:
             chars.update(f.read())
     return chars
-
-
-def in_core_ranges(codepoint):
-    return any(low <= codepoint <= high for low, high in CORE_RANGES)
-
-
-def core_codepoints(full_cmap, repo=REPO):
-    """The code points the core keeps: those of the full font in the core
-    ranges or in the text."""
-    wanted = {ord(c) for c in text_characters(repo)}
-    return sorted(cp for cp in full_cmap if in_core_ranges(cp) or cp in wanted)
 
 
 def read_cmap(path):
@@ -126,27 +100,15 @@ def read_format12(data, table):
     return out
 
 
-def missing_from_core(core_path=CORE_FONT, full_path=FULL_FONT, repo=REPO):
-    """The text's characters that the full font has and the core lacks
-    (sorted). Empty when the core is up to date."""
-    core = read_cmap(core_path)
-    full = read_cmap(full_path)
-    return sorted(cp for cp in core_codepoints(full, repo) if cp not in core)
-
-
-def japanese_missing_from_core(core_path=CORE_FONT, repo=REPO):
-    """The characters of the Japanese msgstr values that the core font lacks
-    (sorted). Unlike missing_from_core() this does not ask the full font
-    first: a Japanese character in neither font would draw blank on the
-    Wii, and that must fail here rather than pass unnoticed. Korean has
-    its own external font, checked by korean_missing_characters()."""
-    core = read_cmap(core_path)
+def japanese_missing_characters(font_path=FULL_FONT, repo=REPO):
+    """Every Japanese msgstr character must exist, including new translations."""
+    font = read_cmap(font_path)
     shown = set()
     with open(os.path.join(repo, "wii", "lang", "ja.po"), encoding="utf-8") as f:
         for line in f:
             if line.startswith('msgstr "'):
                 shown.update(line[len('msgstr "'):].rstrip("\n").rstrip('"'))
-    return sorted(ord(c) for c in shown if ord(c) not in core and c not in " \t")
+    return sorted(ord(c) for c in shown if ord(c) not in font and c not in " \t")
 
 
 def korean_missing_characters(repo=REPO):
@@ -168,15 +130,9 @@ def korean_missing_characters(repo=REPO):
 
 
 def main():
-    missing = missing_from_core()
-    if missing:
-        print("wii/font/core.ttf lacks %d character(s) the menu's text uses: %s" %
-              (len(missing), "".join(chr(cp) for cp in missing[:40])))
-        print("Run: python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf")
-        sys.exit(1)
-    japanese = japanese_missing_from_core()
+    japanese = japanese_missing_characters()
     if japanese:
-        print("Japanese text uses %d character(s) in neither font: %s" %
+        print("Japanese text uses %d character(s) missing from wii/font/menu.ttf: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
         sys.exit(1)
     korean = korean_missing_characters()
@@ -184,7 +140,7 @@ def main():
         print("wii/font/korean.ttf lacks required characters: " +
               ", ".join("U+%04X" % cp for cp in korean[:40]))
         sys.exit(1)
-    print("The core and Korean fonts cover the menu's text")
+    print("The menu and Korean fonts cover the menu's text")
 
 
 if __name__ == "__main__":
