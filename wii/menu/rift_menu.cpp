@@ -13313,6 +13313,20 @@ static int MenuHome(FrontendState& state)
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
 		bool startHandled = false;
 
+		// A player's own cover the loader couldn't use: Home looks at the
+		// others again when it's back; this page's game asks GameTDB now,
+		// as it would have if the cover's first bytes had shown it.
+		if (const std::vector<std::string> broken = riftwii::wii::TakeBrokenOwnCovers(); !broken.empty()) {
+			for (const std::string& name : broken) g_coversChecked.erase(name);
+			const bool ours = std::find(broken.begin(), broken.end(), state.game_id) != broken.end() ||
+			                  std::find(broken.begin(), broken.end(), PageCoverName(state)) != broken.end();
+			if (ours && !coverStart && riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
+			    !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(state.game_id)) {
+				g_coversChecked.insert(state.game_id);
+				coverStart = true;
+			}
+		}
+
 		if (coverStart && (coverAsked || (!CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()))) {
 			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
 				coverStart = false;
