@@ -656,7 +656,7 @@ the tiles.
   covers): retries the covers, boxes
   and 3D covers Home is missing when you return to Home, with downloads on.
   Games GameTDB has no picture for stay without one.
-- **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
+- **GameCube adapter** (experimental), and **Check USB controllers** (below).
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.
 - **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
@@ -1226,7 +1226,7 @@ games that support the GameCube controller (Mario Kart Wii, Super Smash
 Bros. Brawl and others), its controllers fill the ports that have no
 controller plugged in, rumble included. Its controllers work the RiftWii
 menu too, like a GameCube controller in the Wii's own ports.
-**Check the GameCube adapter** shows what each port reports before you
+**Check USB controllers** shows what each port reports before you
 start a game.
 
 **Check each cIOS** on that page restarts RiftWii and asks IOS 58 and
@@ -1277,6 +1277,42 @@ also reaches the adapter's controllers.
 > twice before it turns **On** on a Wii U. Leave it on **Automatic**
 > unless you are testing the adapter, and send a problem report when it
 > freezes.
+
+### USB gamepads as GameCube controllers
+
+Turn on **Settings > Controllers > USB input devices** (on by default).
+A USB pad can control the menu, GameCube games, and Wii games that support
+GameCube controllers. Open **Settings > Controllers > Check USB controllers**
+to see its buttons and sticks. The separate GameCube
+adapter setting still controls the WUP-028 adapter.
+
+Use an existing Nintendont `controller.ini` for your device. RiftWii looks
+in this order, where `VID_PID` is the pad's four-digit hexadecimal vendor
+and product IDs, for example `1234_5678`:
+
+1. `sd:/riftwii/controllers/VID_PID.ini`
+2. `sd:/controllers/VID_PID.ini`
+3. `sd:/controller.ini`, when its VID and PID match the pad.
+
+The session log names the file used, the device, its assigned port and an
+unplug. With no usable file it names the IDs and the path to use; RiftWii
+does not guess a layout. Restart RiftWii after editing a file. A broken
+file in a higher folder is reported and must be fixed or removed before
+a lower folder is used. Native GameCube pads keep their ports, adapter
+pads fill next, then USB pads, one per empty port.
+
+Files are limited to 8 KiB, reports and rumble data to 128 bytes, and a
+session to 16 different mappings and four USB pads. Connected devices are
+loaded first. Remaining mapping slots are filled from the two controller
+folders and the single file for pads plugged in during a game. If you keep
+a large config collection, connect the pads you will use before launching.
+The usual button masks, bit or hat D-pads, stick deadzones and radius,
+digital or analog triggers, `Polltype=0/1`, `MultiIn=0/1`, and explicit
+rumble data are supported. Multi-controller report formats (`MultiIn=2/3/4`)
+and device-specific packed/signed stick encodings are not supported.
+`Power` is accepted but does not turn off the console. Rumble stays off
+unless the file supplies its commands. The same IOS and USB-drive limits
+as the GameCube adapter apply; real USB pads need checking on a Wii.
 
 ### Wii Remote controls in GameCube games
 

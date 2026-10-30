@@ -13762,6 +13762,7 @@ static std::string AdapterNote(const std::string& mode)
 
 static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 {
+	if (v.hid_pads != 0) return tr("USB controllers: working");
 	switch (v.link) {
 		case GCAD_LINK_POLL: return tr("Adapter: working");
 		case GCAD_LINK_SETUP:
@@ -13776,7 +13777,7 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 
 static void GcAdapterTestPage()
 {
-	GuiText titleTxt(tr("GameCube adapter"), 30, skin::kInk);
+	GuiText titleTxt(tr("USB controllers"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
 	TitleBand titleBand;
 	Panel panel(skin::panelSettings, 34, 76);
@@ -13787,7 +13788,7 @@ static void GcAdapterTestPage()
 	GuiText portTxt[GCAD_PORTS] = {GuiText("", 17, skin::kInkSoft), GuiText("", 17, skin::kInkSoft),
 		GuiText("", 17, skin::kInkSoft), GuiText("", 17, skin::kInkSoft)};
 	for (unsigned p = 0; p < GCAD_PORTS; ++p) Place(portTxt[p], 56, 154 + static_cast<int>(p) * 32);
-	GuiText noteTxt(tr("Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."),
+	GuiText noteTxt(tr("Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in."),
 		15, skin::kInkDim);
 	Place(noteTxt, 56, 288);
 	noteTxt.SetWrap(true, 528, 3);
@@ -14570,11 +14571,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			settings.wiimote_rumble != "off", kWiiRumble, FlowRow::Kind::Toggle);
 		FlowRow gcTest;
 		gcTest.kind = FlowRow::Kind::Action;
-		gcTest.label = tr("Check the GameCube adapter");
+		gcTest.label = tr("Check USB controllers");
 		gcTest.value = tr("Test");
 		rows.push_back(gcTest);
 		actions.push_back(kGcTest);
-		option(tr("USB keyboard, mouse and tablet"), settings.usb_input == "off" ? tr("Off") : tr("On"),
+		option(tr("USB input devices"), settings.usb_input == "off" ? tr("Off") : tr("On"),
 			settings.usb_input != "off", kUsbInput, FlowRow::Kind::Toggle);
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
@@ -14948,7 +14949,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
-			case kUsbInput: return tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.");
+			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -15538,7 +15539,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
 					// After the save: one that fails puts the setting back, and
 					// the drivers follow what the row shows.
-					saveAndNote(tr("Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none."));
+					saveAndNote(tr("USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."));
 					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
