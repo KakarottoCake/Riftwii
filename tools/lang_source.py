@@ -479,8 +479,8 @@ T = {
     # The GameCube adapter (Settings). "Tap" is its name in Japan.
     "GameCube adapter": ("Adaptador de GameCube", "GCコントローラ接続タップ", "Adaptador de GameCube",
                          "Adattatore GameCube"),
-    "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
-                                   "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
+    "Check USB controllers": ("Probar los mandos USB", "USBコントローラを確認",
+                              "Testar os controles USB", "Prova i controller USB"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
     # First-start tutorial
     "Welcome to RiftWii": ("Te damos la bienvenida a RiftWii", "RiftWiiへようこそ", "Boas-vindas ao RiftWii", "Benvenuto in RiftWii"),
@@ -560,11 +560,11 @@ T = {
         "接続タップ：見つかりません。黒いUSBプラグをつないでください。",
         "Adaptador: não encontrado. Conecte o plugue USB preto.",
         "Adattatore: non trovato. Collega la spina USB nera."),
-    "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in.": (
-        "Pulsa botones en un mando conectado al adaptador para verlos aquí. En un juego compatible con el mando de GameCube, los mandos del adaptador ocupan los puertos que no tienen ninguno conectado.",
-        "接続タップにつないだコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに接続タップのコントローラが入ります。",
-        "Aperte botões em um controle ligado ao adaptador para vê-los aqui. Em um jogo compatível com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado.",
-        "Premi i pulsanti di un controller collegato all'adattatore per vederli qui. In un gioco che supporta il controller GameCube, i controller dell'adattatore occupano le porte senza nulla collegato."),
+    "Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in.": (
+        "Pulsa botones en un mando conectado al adaptador, o en un mando USB, para verlos aquí. En un juego compatible con el mando de GameCube, ocupan los puertos que no tienen ningún mando conectado.",
+        "接続タップにつないだコントローラやUSBコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに入ります。",
+        "Aperte botões em um controle ligado ao adaptador, ou em um controle USB, para vê-los aqui. Em um jogo compatível com o controle de GameCube, eles ocupam as portas sem nenhum controle conectado.",
+        "Premi i pulsanti di un controller collegato all'adattatore, o di un controller USB, per vederli qui. In un gioco che supporta il controller GameCube, occupano le porte senza nessun controller collegato."),
     # {1} the IOS number.
     "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.": (
         "Este IOS no tiene USB HID (IOS{1}). Elige IOS 58 o un cIOS d2x como IOS del menú.",
@@ -1921,16 +1921,18 @@ T = {
         "どのポート?",
         "Qual porta?",
         "Quale porta?"),
-    "USB keyboard, mouse and tablet": (
-        "Teclado, ratón y tableta USB",
-        "USBキーボード・マウス・タブレット",
-        "Teclado, mouse e mesa digitalizadora USB",
-        "Tastiera, mouse e tavoletta USB"),
-    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.": (
-        "Desactivado: RiftWii no usa teclados, ratones ni tabletas USB, ni la uDraw. Desactívalo si el menú falla con uno conectado, o sin ninguno.",
-        "オフ: RiftWiiはUSBキーボード、マウス、ペンタブレット、uDrawを使いません。どれかをつないだとき、またはつないでいないときにメニューの動きがおかしければ、オフにしてください。",
-        "Desligado: o RiftWii não usa teclados, mouses nem mesas digitalizadoras USB, nem a uDraw. Desligue se o menu falhar com um conectado, ou sem nenhum.",
-        "Spento: RiftWii non usa tastiere, mouse e tavolette USB, né la uDraw. Spegnilo se il menu dà problemi con uno collegato, o senza nessuno."),
+    "USB controllers": ("Mandos USB", "USBコントローラー", "Controles USB", "Controller USB"),
+    "USB controllers: working": ("Mandos USB: funcionando", "USBコントローラー: 動作中", "Controles USB: funcionando", "Controller USB: funzionanti"),
+    "USB input devices": (
+        "Dispositivos de entrada USB",
+        "USB入力機器",
+        "Dispositivos de entrada USB",
+        "Dispositivi di ingresso USB"),
+    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.": (
+        "Los mandos USB usan archivos controller.ini en el menú y los juegos. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw.",
+        "USBコントローラーはメニューとゲームでcontroller.iniを使います。オフではキーボード、マウス、タブレット、uDrawも使いません。",
+        "Controles USB usam arquivos controller.ini no menu e nos jogos. Desligado também não usa teclados, mouses, mesas digitalizadoras nem a uDraw.",
+        "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."),
     "Wii Remote rumble": (
         "Vibración del Wii Remote",
         "Wiiリモコンの振動",
@@ -2637,8 +2639,8 @@ KO = {
         "게임을 시작하는 중...",
     "GameCube adapter":
         "게임큐브 어댑터",
-    "Check the GameCube adapter":
-        "게임큐브 어댑터 확인",
+    "Check USB controllers":
+        "USB 컨트롤러 확인",
     "Test":
         "테스트",
     "Welcome to RiftWii":
@@ -2691,8 +2693,8 @@ KO = {
         "어답터：({1})에 응답하지 않음, 다시 시도",
     "Adapter: not found. Plug in its black USB plug.":
         "어댑터: 찾을 수 없습니다. 검은색 USB 플러그를 연결하세요.",
-    "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in.":
-        "어댑터에 연결된 컨트롤러의 버튼을 누르면 이곳에 표시됩니다. 게임큐브 컨트롤러를 지원하는 게임에서는 어댑터에 연결된 컨트롤러가 비어 있는 포트를 채우게 됩니다.",
+    "Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in.":
+        "어댑터에 연결된 컨트롤러나 USB 컨트롤러의 버튼을 누르면 이곳에 표시됩니다. 게임큐브 컨트롤러를 지원하는 게임에서는 컨트롤러가 연결되지 않은 포트를 채우게 됩니다.",
     "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.":
         "이 IOS에는 USB HID (IOS{1}) 기능이 없습니다. 메뉴 IOS로 IOS 58 또는 d2x cIOS를 선택하세요.",
     "Port {1}":
@@ -3762,10 +3764,12 @@ KO = {
         "어댑터가 어느 USB 포트에 꽂혀 있나요?",
     "Which port?":
         "어느 포트인가요?",
-    "USB keyboard, mouse and tablet":
-        "USB 키보드, 마우스, 태블릿",
-    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
-        "끔: RiftWii가 USB 키보드, 마우스, 펜 태블릿, uDraw를 사용하지 않습니다. 하나를 연결했을 때나 아무것도 연결하지 않았을 때 메뉴가 이상하면 끄세요.",
+    "USB controllers": "USB 컨트롤러",
+    "USB controllers: working": "USB 컨트롤러: 작동 중",
+    "USB input devices":
+        "USB 입력 장치",
+    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다.",
     "Wii Remote rumble":
         "Wii 리모컨 진동",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -4475,8 +4479,8 @@ FR = {
         "Ouverture du jeu...",
     "GameCube adapter":
         "Adaptateur GameCube",
-    "Check the GameCube adapter":
-        "Vérifier l'adaptateur GameCube",
+    "Check USB controllers":
+        "Vérifier les manettes USB",
     "Test":
         "Tester",
     "Welcome to RiftWii":
@@ -4529,8 +4533,8 @@ FR = {
         "Adaptateur : pas de réponse ({1}), nouvel essai",
     "Adapter: not found. Plug in its black USB plug.":
         "Adaptateur : introuvable. Branchez sa prise USB noire.",
-    "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in.":
-        "Appuyez sur les boutons d'une manette reliée à l'adaptateur pour les tester ici. Dans un jeu compatible GameCube, ses manettes occupent les ports vides.",
+    "Press buttons on a controller in the adapter, or on a USB pad, to see them here. In a game that supports the GameCube controller, they fill the ports that have no controller plugged in.":
+        "Appuyez sur les boutons d'une manette branchée à l'adaptateur, ou d'une manette USB, pour les voir ici. Dans un jeu compatible avec la manette GameCube, elles prennent les ports où aucune manette n'est branchée.",
     "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.":
         "Cet IOS ne gère pas le USB HID (IOS{1}). Choisissez l'IOS 58 ou un cIOS d2x comme IOS du menu.",
     "Port {1}":
@@ -5203,10 +5207,12 @@ FR = {
         "Sur quel port USB l'adaptateur est-il branché ?",
     "Which port?":
         "Quel port ?",
-    "USB keyboard, mouse and tablet":
-        "Clavier, souris et tablette USB",
-    "Off: RiftWii leaves USB keyboards, mice, pen tablets and the uDraw alone. Turn it off if the menu acts up with one plugged in, or with none.":
-        "Désactivé : RiftWii n'utilise ni claviers, souris et tablettes USB, ni la uDraw. Désactivez-le si le menu se comporte mal avec l'un d'eux branché, ou sans aucun.",
+    "USB controllers": "Manettes USB",
+    "USB controllers: working": "Manettes USB : actives",
+    "USB input devices":
+        "Périphériques USB",
+    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté.",
     "Wii Remote rumble":
         "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -6712,20 +6718,20 @@ FR.update({
 })
 
 
-# The menu font's core is in the DOL; the rest is font.ttf next to it
+# The whole menu font is font.ttf beside boot.dol, retained in MEM2
 # (wii/menu/fullfont.hpp). Said once a session when that file is missing.
 T.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": (
-        "Algunos caracteres no se pueden mostrar sin la fuente completa de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD.",
-        "RiftWiiの完全なフォントがないため、表示できない文字があります。RiftWiiのzipにあるapps/riftwii/font.ttfをSDカードにコピーしてください。",
-        "Alguns caracteres não podem ser exibidos sem a fonte completa do RiftWii. Copie apps/riftwii/font.ttf do zip do RiftWii para o cartão SD.",
-        "Alcuni caratteri non possono essere mostrati senza il carattere completo di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."),
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": (
+        "Falta la fuente de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD.",
+        "RiftWiiのフォントがありません。RiftWiiのzipにあるapps/riftwii/font.ttfをSDカードにコピーしてください。",
+        "A fonte do RiftWii não está no cartão. Copie apps/riftwii/font.ttf do zip do RiftWii para o cartão SD.",
+        "Manca il carattere di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."),
 })
 KO.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "RiftWii의 전체 글꼴이 없어 표시할 수 없는 문자가 있습니다. RiftWii zip의 apps/riftwii/font.ttf를 SD 카드에 복사하세요.",
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "RiftWii 글꼴이 없습니다. RiftWii zip의 apps/riftwii/font.ttf를 SD 카드에 복사하세요.",
 })
 FR.update({
-    "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "Certains caractères ne peuvent pas s'afficher sans la police complète de RiftWii. Copiez apps/riftwii/font.ttf depuis le zip de RiftWii vers la carte SD.",
+    "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.": "La police de RiftWii est absente. Copiez apps/riftwii/font.ttf du zip de RiftWii sur la carte SD.",
 })
 
 
@@ -7898,22 +7904,11 @@ def main():
             f.write("\n".join(lines))
         print("%s: %d of %d translated" % (lang, sum(1 for k in T if table.get(k)), len(T)))
     print("%d entries, %d languages" % (len(T), len(LANGS) + len(MORE)))
-    # Every character the translations use must be in the core font the
-    # DOL carries (tools/menu_font_chars.py): one only in the full font on
-    # the SD card would read the card for the menu's own text, and show
-    # nothing where that file is missing.
+    # The whole menu face stays in MEM2, so Japanese text must exist in it.
     import menu_font_chars
-    missing = menu_font_chars.missing_from_core()
-    if missing:
-        print("wii/font/core.ttf lacks %d character(s) of the menu's text: %s" %
-              (len(missing), "".join(chr(cp) for cp in missing[:40])))
-        print("Run: python tools/make_menu_font.py core wii/font/rounded.ttf wii/font/core.ttf")
-        raise SystemExit(1)
-    # A Japanese character in neither font draws blank, and the check above
-    # cannot see it (it only asks about what the full font has).
-    japanese = menu_font_chars.japanese_missing_from_core()
+    japanese = menu_font_chars.japanese_missing_characters()
     if japanese:
-        print("wii/lang/ja.po uses %d character(s) found in neither menu font: %s" %
+        print("wii/lang/ja.po uses %d character(s) missing from wii/font/menu.ttf: %s" %
               (len(japanese), "".join(chr(cp) for cp in japanese[:40])))
         raise SystemExit(1)
 

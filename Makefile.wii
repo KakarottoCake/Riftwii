@@ -177,17 +177,16 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
-# for the recursive build after runtime-blob has completed. menufont.zst and
-# licence.zst are made in the build (below) from wii/font/core.ttf and
-# LICENSE. The GameCube runtime blobs (riftwii_gc*) are the gamecube
-# plugin's (plugins/gamecube/gcblobs.S), not the DOL's.
+# for the recursive build after runtime-blob has completed. licence.zst
+# is made in the build (below) from LICENSE. The GameCube runtime blobs
+# (riftwii_gc*) are the gamecube plugin's (plugins/gamecube/gcblobs.S),
+# not the DOL's.
 BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin codehandler.bin codehandlerslota.bin riftwii_stub.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
-# the heap's after the start. The menu's core font (the full one is a file
-# next to the DOL, wii/menu/fullfont.hpp), the GPL's text (credits) and
-# its translations (wii/lang/*.po), zstd-compressed.
-export STASHFILES	:=	menufont.zst licence.zst \
+# the heap's after the start. The GPL's text (credits) and translations
+# (wii/lang/*.po), zstd-compressed. All menu fonts are external files.
+export STASHFILES	:=	licence.zst \
 					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
 
 #---------------------------------------------------------------------------------
@@ -353,14 +352,10 @@ $(TEST_USERS): $(TEST_STAMP)
 	@echo $(notdir $<)
 	$(bin2o)
 
-# The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
+# The menu's translations (wii/core/i18n.cpp) and the GPL
 # (credits.cpp) are zstd-compressed into the start-up stash (above) and
 # unpacked when needed: none of them takes MEM1 after the start.
 %.po.zst : %.po
-	@echo $(notdir $@)
-	@zstd -q -19 -f -o $@ $<
-
-menufont.zst : $(PROJECT_ROOT)/wii/font/core.ttf
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
 

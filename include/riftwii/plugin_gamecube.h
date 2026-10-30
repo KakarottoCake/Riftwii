@@ -100,6 +100,8 @@ typedef struct rwp_gc_launch {
     uint32_t adapter_version;
     int32_t adapter_dev;
     uint32_t adapter_rumble;
+    const void* hid_catalog; /* fixed-size loader-compiled controller mappings */
+    uint32_t hid_catalog_bytes;
 
     /* What holding HOME goes to: the title and its first ticket view
      * (libogc's tikview, 32-byte aligned), or kind NONE. */

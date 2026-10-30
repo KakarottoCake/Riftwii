@@ -59,7 +59,7 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver and the GameCube sound program patches, used "
+    "Nintendont by FIX94 and contributors: the USB HID driver, controller.ini mappings and the GameCube sound program patches, used "
     "with its developers' permission.",
     "",
     "Mario Party 4 community decompilation: GameCube font encoding behavior, read as documentation only.",
@@ -120,7 +120,8 @@ const char* const kCredits[] = {
     "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause), libmad by Underbit "
     "Technologies (GPL-2.0-or-later).",
     "",
-    "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Menu font: M PLUS 1 SemiBold by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Logo lettering and rare fallback characters: M PLUS Rounded 1c Bold by the M+ Fonts Project (SIL Open Font License 1.1).",
     "Korean font: Noto Sans KR by Adobe and the Noto authors (SIL Open Font License 1.1), "
     "cut down and rounded for RiftWii; korean.ttf and Korean-OFL.txt beside boot.dol.",
     "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",

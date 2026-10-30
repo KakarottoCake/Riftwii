@@ -16,55 +16,29 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** An easier Home (a Layout button, a Show chooser, help when a list is empty), WiiWare and Virtual Console straight from WAD files, pictures for emulator games, banner music and disc art on game pages, and clearer messages when something goes wrong. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** USB gamepads play as GameCube controllers, and the RiftWii channel fits a 16:9 Wii Menu. RiftWii is now a USB loader and a Riivolution replacement, and says so. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![The Layout button's picker on Home]({{SCREENSHOTS}}2610-layout-picker.png)
+![Settings > Controllers: USB input devices and Check USB controllers]({{SCREENSHOTS}}2610-usb-controllers.png)
+
+![The RiftWii channel's banner in a 16:9 Wii Menu]({{SCREENSHOTS}}2610-channel-banner.png)
 
 ## What changed
 
-### Home
-
-- **A Layout button.** The round button in the top-left corner (on the bar in Channels) opens a picker with the six layouts: Covers, 3D covers, Carousel, Shelf, Channels and Names. Before, the layout changed only in Settings or with 1 and 2 together, which still works.
-- **A Show chooser.** The bottom-left button now opens a chooser with Games with mods, All games, Homebrew, Emulators, Recently played and Favourites, each with how many games it has. The 1 button still steps through them.
-- **No more empty Home.** When the list you chose has nothing in it, Home says why and offers "Show all games".
-- **Settings > Home > Games from is no longer hidden.** When it is set to one drive, Home says so beside the list's name, and Search now finds games on every drive.
-
-### Games
-
-- **WiiWare and Virtual Console from WAD files, with no install step.** Put the `.wad` files in a `wiiware` folder on the SD card or a USB drive. They show on Home with their name and banner. The first Play unpacks the game into the SD card's emulated NAND (`sd:/nands/01`); later Plays start at once. Saves stay there, and are kept if you remove the WAD. This uses d2x's NAND emulation and hasn't been tried on a real Wii yet.
-- **Retro Rewind online (error 50330):** RiftWii now fully shuts down the menu's internet connection before every game starts. A tester got error 50330 when the menu had been online first; this is the most likely cause, but it couldn't be checked in Dolphin.
-- **Asks before playing with missing mod files.** If some files of the mods you switched on are missing, RiftWii says which changes will be left out, with Back, Review files and Play anyway.
-- **Clearer messages:** a GameCube memory card that can't be read no longer says "No memory card yet"; a mod error shows in full instead of cut off; the missing-cIOS message names the right drive (SD or USB); a USB partition that can't be read is named in Settings > Drives > USB scan details.
-
-### Game pages
-
-- **Banner music and disc art.** Two new switches in Settings, both off at first: the game's banner music plays when its page opens from any layout (Channels already did), and GameTDB's picture of the disc shows under the box.
-- **A Save location page.** The Saves tile opens a page that shows where the game's new saves go and lets you choose. Before, each press switched it. Saves already made never move.
-- **Use default options for this game**, the last row of a game's Options, puts its picture, language, controller and launch choices back to following Settings.
-- **About lists the controllers in words** ("Needed" and "Also works with"), for players using the D-pad.
-- **WiiWare and VC games without box art** show their channel icon in a card of its own shape.
-
-### Emulators
-
-- **Pictures for emulator games in the Channels view**, instead of a plain tile: your own PNG first, then libretro's title screens, SteamGridDB (when on), or part of the cover.
-- **Pick a picture yourself when online:** on an emulator game's page, Picture shows the pictures found online, six at a time, and saves the one you pick to the SD card.
-
-### Small things
-
-- The menu's words are plainer: Settings paths in full, "Downloads" for the online switches, and hints that say what A does.
-- The icon on the Layout button sits in the middle of the button.
+- **USB gamepads play as GameCube controllers**, as in Nintendont: a PS3 or PS4 pad, a generic USB pad or an arcade stick, in GameCube games, in Wii games that read GameCube controllers, and in the menu. Each pad needs a Nintendont `controller.ini` for its make, in the same format, so the configs you already have work: `sd:/riftwii/controllers/VID_PID.ini`, `sd:/controllers/VID_PID.ini` or `sd:/controller.ini`. A pad with no config isn't guessed at; the log names it and says where its config goes. Settings > Controllers has **USB input devices** to turn this on or off, and **Check USB controllers** shows a pad's buttons so you can check its config. Not tried with real pads on a Wii yet.
+- **The RiftWii channel fits a 16:9 Wii Menu.** Its banner and grid tile were stretched sideways and sat too low; the name now keeps its shape, sits in the middle of what you see, and the line under it shows above the Wii Menu / Start buttons.
+- **No more tearing in the channel's start animation** after you press Start: a frame was sometimes shown half drawn (the flash covering only the top of the screen).
+- **USB LOADER** under the name in the channel banner and on the Homebrew Channel icon, instead of MOD LOADER. The Homebrew Channel listing also says mod packs can go in `usb:/riivolution`.
+- **To update the channel** (version 15): Settings > Help > RiftWii channel on the Wii Menu opens the installer. On a Wii U RiftWii asks you to by itself.
 
 ## What to test
 
-1. **WiiWare or VC from a WAD:** put one in `sd:/wiiware` (or a USB drive's `wiiware` folder). Does it show on Home, unpack on the first Play, start, save, and start again without unpacking?
-2. **Retro Rewind online from the disc**, after the menu has been online (covers or names downloading): does it connect now? If it shows an error, send a problem report right after.
-3. **The Layout and Show buttons** on Home: do they do what you expect? Is anything hard to find?
-4. **Mods with a file missing:** do you get the question, and does Play anyway work?
-5. **Banner music and disc art** (Settings): do they show and play on your games?
+1. **A USB gamepad** with its `controller.ini`: does Check USB controllers show its buttons, and does it play in a GameCube game?
+2. **The RiftWii channel** after updating it: does the banner look right on your TV (16:9 or 4:3), and does the start animation play cleanly?
 
 ## Known issues
 
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. This release has a likely fix that couldn't be checked in Dolphin; a problem report from anyone who still sees it helps.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad needs a config.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. A likely fix is in; a problem report from anyone who still sees it helps.
 - **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
 - **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
@@ -76,8 +50,6 @@ have it, or that haven't changed since the last release's tag.
 - **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
-
-![Mario Kart Wii's page with its disc art]({{SCREENSHOTS}}2610-disc-art.png)
 
 ## Download
 

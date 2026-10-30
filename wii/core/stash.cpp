@@ -101,7 +101,7 @@ void Log() {
              static_cast<unsigned>(g_total >> 10), static_cast<unsigned>(reinterpret_cast<u32>(image())), how,
              static_cast<unsigned>(g_total >> 10), static_cast<unsigned>(n->mem1_address));
     } else {
-        logf("Start-up data: MISSING (%s; riftwii.elf has none, start the .dol): no menu font, translations or license text\n",
+        logf("Start-up data: MISSING (%s; riftwii.elf has none, start the .dol): no translations or license text\n",
              how);
     }
 }
