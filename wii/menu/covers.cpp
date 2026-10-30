@@ -311,7 +311,10 @@ void* LoaderMain(void*) {
         const bool cache_allowed = !emulator || EmulatorDownloadedCoversAllowed();
         // A mod's tile shows the game's downloaded cover.
         const std::string stored = emulator ? id : tile_game_id(id);
-        FILE* f = banner || ok || !cache_allowed ? nullptr : std::fopen(CoverPath(stored).c_str(), "rb");
+        // A second-set cover stored while the first set is chosen isn't
+        // shown: the first set's download replaces it (CoverWanted).
+        const bool wrong_set = !ok && !emulator && !banner && StoredIsSecond(stored) && !CoverSecondSet(stored);
+        FILE* f = banner || ok || !cache_allowed || wrong_set ? nullptr : std::fopen(CoverPath(stored).c_str(), "rb");
         if (f) {
             std::uint8_t header[kCoverHeaderSize];
             ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
