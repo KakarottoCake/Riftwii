@@ -147,6 +147,20 @@ std::string cover3d_url(const std::string& region, const std::string& game_id);
 std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int h);
 bool cover3d_header_valid(const std::uint8_t* header);
 
+// GameTDB's disc art: a picture of the game's disc, round on a
+// see-through ground (160x160 as GameTDB serves it), shown under the box
+// on a game's page. Kept on the SD card as GameTDB's PNG, at its own size;
+// only the page's copy in memory is a texture.
+std::string disc_art_url(const std::string& region, const std::string& game_id);
+// The largest side a disc picture may have (GameTDB's are 160): a bigger
+// one is not taken.
+constexpr int kDiscArtMaxSide = 512;
+// An RGBA image as GX RGB5A3 in 4x4 tiles at its own size, its
+// see-through parts kept; `tw` x `th` is the texture's size, the image's
+// rounded up to whole tiles (the extra see-through). Empty when the size
+// is unusable.
+std::vector<std::uint8_t> disc_art_texture(const std::uint8_t* rgba, int w, int h, int& tw, int& th);
+
 // Where the spine is across a full cover `w` x `h`: [x0, x1). A Wii case's
 // front and back are 135 mm wide and 190 mm tall, the spine between them
 // about 14 mm; a picture whose middle strip is far off that gets a 14 mm

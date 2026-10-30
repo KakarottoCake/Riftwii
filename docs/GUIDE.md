@@ -55,6 +55,14 @@ USB drive (FAT32 or NTFS). On a USB drive, make the same `wbfs` and
 | Wii game, `.rvz` | `games` | `games/Mario Kart Wii.rvz` |
 | GameCube game (`.iso`, `.gcm` or `.rvz`) | a **folder of its own** inside `games` | `games/Luigi's Mansion/game.iso` |
 
+GameCube game folders kept in another folder at the top of the drive
+(`game1/Luigi's Mansion/game.iso`, say) are found too, as long as the
+image is named `game.iso`, `game.gcm` or `game.rvz` as Nintendont names it.
+RiftWii decides by looking in that folder's first four subfolders only: if
+none of those holds such an image, the folder is passed over. To be sure
+every game is found, keep them in `games`, or name the folder in
+`game_folders` (see [Installing](#installing)).
+
 A big `.wbfs` that was split into pieces (`.wbfs`, `.wbf1`, `.wbf2`, …)
 is fine: keep all the pieces together in the same folder.
 
@@ -221,9 +229,16 @@ when released; L held with a D-pad letter jump does not page again on
 release. L and R together never page, keeping L+R+Down for screenshots.
 Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
-game of the next or the previous letter (Down and Up turn a
-page); B pressed alone on a Wii Remote, Classic Controller or GamePad jumps
-to the next letter. Letter jumps work in A to Z order. The magnifier button
+game of the next or the previous letter; B pressed alone on a Wii Remote,
+Classic Controller or GamePad jumps to the next letter. Letter jumps work in
+A to Z order. Hold **B** (L on a GameCube controller) and press **Down** or
+**Up** to pick a genre: a list of the genres your games have shows in the
+middle of the screen (the most common first), and holding Down or Up scrolls
+through it. Let go of B (or L) and Home shows only that genre's games; pick
+**Every genre** to see them all again. The genres come from GameTDB's game
+details, so they need Settings > Online > Downloads on (without a local
+GameTDB copy, a game's About page offers the download only when Downloads
+is on). The magnifier button
 above the settings button (B on a GameCube controller, ZL
 on a Classic Controller) opens a keyboard to search every game by name
 or game ID; point and press A on the keys, or use the D-pad, and Minus
@@ -608,6 +623,21 @@ the tiles.
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
   fades it out when you start a game and keeps it off for the whole launch.
   `launch_music = on|off` in `settings.txt`.
+- **Banner music on game pages** (off at first): opening a game's page
+  from Home's covers, shelf, carousel, 3D covers or names plays the game's
+  banner music, as the Channels view's banner screen does, with the menu's
+  music paused until you leave the page (a looping one keeps looping on
+  the pages opened from it, such as Mods). The Channels view already plays
+  it on its banner screen, so the row is dimmed there. A game whose banner
+  is not on the SD card yet has it read from its image first (a moment on
+  USB). `page_banner_sound = on|off` in `settings.txt`.
+- **Disc art** (off at first): GameTDB's picture of the game's disc,
+  under the box on the game's page, with the Favourite tile narrowed to
+  its star beside it. It is downloaded the first time the
+  page opens with Downloads on, kept in `sd:/riftwii/discs` exactly as
+  GameTDB serves it (a PNG, over HTTPS), and asked for again after a week
+  when GameTDB had none. A stored picture that can't be read is downloaded
+  again. `disc_art = on|off` in `settings.txt`.
 - **In-game screenshots** (experimental, off at first): see Screenshots
   below. The picture is written straight from the screen, using almost
   none of the game's memory (games need it: keeping a copy of the

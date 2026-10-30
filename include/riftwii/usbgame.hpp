@@ -56,6 +56,18 @@ bool catalog_image_format(const std::string& name, UsbImageFormat folder, UsbIma
 // GameCube images use the same names loose or in a game's own folder.
 bool is_gc_image_name(const std::string& name);
 
+// The name Nintendont gives a GameCube game's image in a folder of its own
+// ("game.iso", "disc2.iso", or .gcm/.rvz), in any case. A folder holding one
+// is a GameCube game's folder, wherever the folders around it are.
+bool is_gc_game_folder_image_name(const std::string& name);
+
+// Whether the GameCube scan looks into a folder at the top of a drive for
+// game folders laid out as Nintendont's (<folder>/<game>/game.iso), when
+// players keep them somewhere other than games (a "game1" left by a copy):
+// not a hidden name, not games, wbfs or a folder that holds homebrew,
+// loader settings or the Wii's own data.
+bool gc_scan_probes_top_folder(const std::string& name);
+
 // Preserve Wii lazy listing when the GameCube scan shares its folders:
 // skip a known Wii image, or a Wii-style path carrying an R/S ID6.
 bool gc_scan_should_open(const std::string& path, bool known_wii);
@@ -152,12 +164,12 @@ struct CiosSlotState {
     bool installed = false;
 };
 
-// User-visible warning when no candidate slot holds anything: image games
-// cannot boot without a d2x cIOS. Empty when at least one slot is
-// installed. Deliberately presence-only: the guided d2x installer stamps
+// Presence only; the menu supplies translated advice for the chosen drive.
+// The guided d2x installer stamps
 // revision 65535 whatever the version, so a revision cannot tell v8 from
 // v11, and the launch-time F9/FA probe remains the real capability gate.
-std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count);
+enum class CiosReadiness { Unknown, Missing, Present };
+CiosReadiness cios_readiness(const CiosSlotState* slots, std::size_t count);
 
 // CompactISO (.ciso) GameCube images, which RiftWii does not play and
 // will not: the GameCube loader reads .iso, .gcm and .rvz. The SD scan
@@ -200,10 +212,13 @@ struct GcCatalogImage {
 
 // For each image, the index that replaces it in the list, or -1 to list
 // it. Disc 2 belongs to disc 1 in the same directory. A loose copy in
-// games/ or wbfs/ yields to a copy in a game's folder on the same device.
-// A loose pair stays listed instead if the folder copy lacks disc 2.
-// Copies in separate game folders remain separate (they may be mods).
-std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images);
+// games/ or wbfs/ yields to a copy in a game's folder on the same device:
+// one inside games/ or wbfs/, or inside one of `folder_roots` (the scan's
+// game_folders and the top folders it found game folders in, such as
+// "usb:/game1"). A loose pair stays listed instead if the folder copy lacks
+// disc 2. Copies in separate game folders remain separate (they may be mods).
+std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
+                                      const std::vector<std::string>& folder_roots = {});
 
 // Which images of one game folder are a two-disc game's second disc kept
 // with its first: for each image, the index of the first disc (same ID,
@@ -249,6 +264,12 @@ std::string ciso_log_line(const CisoFinds& finds);
 // sectors. `needs` names what needs 512-byte sectors ("GameCube games");
 // it is added after a real size only.
 std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs);
+
+// d2x returns the unsigned sector count as a signed IOS result. Small
+// negative values are errors, except -1 with 512- or 2048-byte sectors: a drive
+// too large for its 32-bit count. The caller must also check init and read
+// sector zero before accepting that unknown capacity.
+bool d2x_usb_capacity_available(std::int32_t sectors, std::uint32_t sector_bytes);
 
 // Whether the first sector d2x read for a Wii game is the game the menu
 // listed: a disc starts with its six-character game ID. True when it

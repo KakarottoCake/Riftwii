@@ -192,8 +192,11 @@ void GuiTiles::Draw() {
             skin::DrawNine(over, x - kShadow, y - kShadow, w + 2 * kShadow, h + 2 * kShadow, skin::kTileCorner,
                            static_cast<int>(tileAlpha * l));
         if (s.icon && s.icon->data) {
-            const float iconX = s.x + kPad;
-            const float iconY = Tall(s) ? s.y + kPad : s.y + (s.h - kIcon) / 2.0f;
+            // An icon with no words (the game page's Favourite star beside
+            // the disc) sits in the middle of its tile.
+            const bool iconOnly = s.label.empty() && s.value.empty();
+            const float iconX = iconOnly ? s.x + (s.w - kIcon) / 2.0f : s.x + kPad;
+            const float iconY = Tall(s) && !iconOnly ? s.y + kPad : s.y + (s.h - kIcon) / 2.0f;
             skin::Draw(*s.icon, iconX, iconY, s.dim ? alpha / 2 : alpha);
         }
         // The lit tile's name scrolls when it does not fit; the others end in "...".

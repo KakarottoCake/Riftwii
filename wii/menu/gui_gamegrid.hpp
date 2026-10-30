@@ -125,6 +125,14 @@ public:
     // B held for something else (Home's random game on the search button):
     // letting go of it is not the jump to the next letter.
     void ForgetLetterPress();
+    // Home's genres: B held (L on a GameCube controller) with Down or Up
+    // steps to the next or the previous genre instead of turning a page,
+    // in any Home order; held, they keep stepping. The step since the last
+    // call: 1, -1, or 0. GenreHeld: B is still held since the last step
+    // (Home shows the genres until it is let go).
+    void SetGenreKeys(bool on) { genreKeys = on; }
+    int TakeGenreStep();
+    bool GenreHeld() const { return genreHeld; }
     // Keeps the focus on `index` (and its page).
     void Focus(int index, bool crossfade = true);
     int FocusedIndex() const { return focus; }
@@ -203,13 +211,20 @@ private:
     void TurnPage(int delta);
     // Letters, as WiiFlow does: B held (L on a GameCube controller) with
     // right or left goes to the first game of the next or the previous
-    // letter, wrapping round; with down or up, a page. B pressed alone goes
+    // letter, wrapping round; with down or up, a page (a genre on Home,
+    // GenreKeys). B pressed alone goes
     // to the next letter when it is let go; L alone pages left. True while
     // B is held: the directions are the letters', not the focus's.
     bool LetterKeys(GuiTrigger* t);
     // B (or L) let go after this is no letter: it was another control's.
     void LettersDone(GuiTrigger* t);
     int LetterTarget(int dir) const;
+    // B held with Down or Up while genreKeys is on (SetGenreKeys).
+    bool GenreKeys(GuiTrigger* t);
+    bool genreKeys = false;
+    int genreStep = 0;  // waiting for TakeGenreStep
+    bool genreHeld = false;
+    int genreChan = -1;  // the controller that stepped
     bool letterHeld[4] = {};
     bool letterPadHeld[4] = {};  // L alone pages on release; B alone jumps letters
     bool padPageHeld[4] = {};    // starts a fresh L click even while carrying a tile
@@ -290,15 +305,21 @@ private:
     // A box without its art: where its name goes up its spine.
     struct SpineLabel {
         int index;
-        float x, y0, y1;
+        float x, y0, y1, width;
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;
     std::vector<int> shelfOutward;  // the boxes in reach, from the focus outwards (DrawShelf)
     std::vector<SpineLabel> spineLabels;
     GuiText* spineText = nullptr;       // a box without its art: the name up its spine
-    // Each spine's name as fitted, with the title it was fitted from.
-    std::vector<std::pair<std::string, std::string>> spineFit;
+    // Each name is measured again only when its title, room or size changes.
+    struct SpineFit {
+        std::string title;
+        std::string text;
+        int room = 0;
+        int fontSize = 0;
+    };
+    std::vector<SpineFit> spineFit;
     bool shelf = false;
     bool carousel = false;
     bool ring = false;
