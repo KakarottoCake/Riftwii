@@ -4,8 +4,7 @@
  * driver Wii games and the menu run (runtime/rtgcad.c), here through the
  * blob's own polled IPC, as the Wii Remotes' Bluetooth is (gc_bt.c).
  *
- * A GameCube game runs on the menu's IOS (no reload), so /dev/usb/hid is
- * the one the menu reached the adapter through. The loader opens it before
+ * The loader opens /dev/usb/hid on the IOS the game will use, before
  * the hand-over, as a Wii game's launch does (wii/hooks/padhook.cpp), and
  * passes the handle, the HID version and the adapter's device id from the
  * menu's USB list: v5 hands its list out once per change, to whoever asks
@@ -38,6 +37,14 @@ struct gc_gcad_rq {
 #define GC_GCAD_RQ_SENT 1u
 #define GC_GCAD_RQ_DONE 2u
 
+#define GC_GCAD_DIAGNOSTICS 96u
+struct gc_gcad_diagnostic {
+    uint32_t id;
+    uint32_t diagnostic;
+    int32_t result;
+    uint32_t slot;
+};
+
 /* Loader-placed in MEM2 (every /dev/usb buffer must be there), zeroed,
  * with fd, version, known_dev, ticks_per_ms and rumble filled. */
 struct gc_gcad {
@@ -61,6 +68,8 @@ struct gc_gcad {
     uint32_t sends;
     uint32_t send_failures;
     uint32_t replies;
+    uint32_t diagnostic_head, diagnostic_tail;
+    struct gc_gcad_diagnostic diagnostics[GC_GCAD_DIAGNOSTICS];
 };
 
 #ifdef __cplusplus
@@ -76,13 +85,24 @@ void gc_gcad_fill(struct gc_gcad* ad, uint8_t* status, uint32_t native);
  * port rumbles (1) or stops (0, 2), when its rumble is on. */
 void gc_gcad_motor(struct gc_gcad* ad, uint32_t chan, uint32_t command);
 
+/* Reply delivery and timer work, shared with the host tests. The caller
+ * serializes entry and ensures the IPC send handshake is free. */
+void gc_gcad_service(struct gc_gcad* ad, uint32_t now);
+int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply);
+void gc_gcad_event(struct gc_gcad* ad, gcad* g, uint32_t code, uint32_t a, int32_t b);
+const struct gc_gcad_diagnostic* gc_gcad_next_diagnostic(const struct gc_gcad* ad);
+/* Fills the HID fields of one 512-byte trace record. A failed SD write
+ * must leave the queue unchanged; acknowledge only after it succeeds. */
+int gc_gcad_trace_record(const struct gc_gcad* ad, uint32_t* words);
+void gc_gcad_diagnostic_written(struct gc_gcad* ad);
+
 #ifdef RT_TARGET_PPC
 struct gc_rt_context;
-/* Once a frame, from PADRead: replies handed to the driver, then its tick. */
+/* From PADRead and the heartbeat alarm: replies handed to the driver,
+ * then its tick. Neither caller may interrupt an active send handshake. */
 void gc_gcad_poll(struct gc_rt_context* ctx, struct gc_gcad* ad);
 /* A reply from IOS: 1 when it is one of the adapter's, marked done for the
  * next poll. */
-int gc_gcad_on_reply(struct gc_gcad* ad, uint32_t reply);
 #else
 /* The host tests' clock, in the driver's ticks (the Wii's is the timebase). */
 uint32_t gc_gcad_host_now(void);

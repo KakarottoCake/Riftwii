@@ -116,6 +116,26 @@ extern "C" {
 #define GCAD_EV_HID_MISSING 12u /* a = VID/PID: no mapping, never claimed */
 #define GCAD_EV_HID_LOST 13u /* a = VID/PID */
 #define GCAD_EV_HID_PORT 14u /* a = VID/PID, b = game port (zero based) */
+#define GCAD_EV_HID_DIAG 15u /* a = diagnostic step | detail << 8, b = IOS result */
+#define GCAD_EV_HID_LIST 16u /* discovery diagnostic for the configured catalog */
+
+#define GCAD_HID_RESUME 0u
+#define GCAD_HID_INFO 1u
+#define GCAD_HID_DESCRIPTORS 2u
+#define GCAD_HID_WAKE 3u
+#define GCAD_HID_OUTPUT 4u
+#define GCAD_HID_POLL 5u
+#define GCAD_HID_INPUT 6u
+#define GCAD_HID_SILENT 7u
+#define GCAD_HID_SHORT 8u
+#define GCAD_HID_TIMEOUT 9u
+#define GCAD_HID_BLOCKED 10u
+#define GCAD_HID_LED 11u
+#define GCAD_HID_POLL_ERROR 12u
+#define GCAD_HID_RUMBLE 13u
+#define GCAD_HID_INTERFACE 14u /* detail: interface number, result: class */
+#define GCAD_HID_DISCOVERY 15u /* detail: 0 queued, 1 replied; result: IOS result */
+#define GCAD_HID_DIAGS 16u
 
 #define GCAD_ORIGIN_RESTING 0u /* from a reading of the pad at rest */
 #define GCAD_ORIGIN_MIDDLE 1u  /* nothing steady at rest for GCAD_ORIGIN_WAIT_MS: the axes not settled took the middle */
@@ -145,6 +165,7 @@ typedef struct gcad_pad {
 typedef struct gcad_descriptor {
     uint16_t packet_bytes;
     uint8_t endpoint_in, endpoint_out, interface_number;
+    uint8_t interface_class, interface_seen;
 } gcad_descriptor;
 
 /* SDK PAD button bits. */
@@ -222,9 +243,16 @@ typedef struct gcad {
     uint8_t port_source[GCAD_PORTS]; /* 0..3 adapter, 4..7 HID, 255 none */
     uint8_t announced_port;
     uint8_t adapter_disabled;
+    uint8_t ps3_led;
+    uint8_t output_step;
+    uint32_t diagnostic_seen;
+    uint32_t diagnostic_detail[GCAD_HID_DIAGS];
+    int32_t diagnostic_result[GCAD_HID_DIAGS];
     gcad_pad hid_pad;
     uint32_t ignored_count;
     int32_t ignored[RTHID_DEVICE_MAX]; /* log an unconfigured device once per plug */
+    uint32_t excluded_count;
+    int32_t excluded[RTHID_DEVICE_MAX]; /* non-HID interfaces, until unplugged */
     uint32_t device_count;
     rthid_device devices[RTHID_DEVICE_MAX];
     gcad_descriptor descriptors[RTHID_DEVICE_MAX]; /* v4 list snapshot */

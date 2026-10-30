@@ -106,6 +106,7 @@ std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 // It belongs to the IOS that gave it out: forget_usb_hid_handle drops it
 // before an IOS reload (hidsession.hpp).
 OwnHidHandle g_own;
+HidDeviceHandoff g_handoff_devices;
 
 // For usb_open_matrix only: the same request with its buffer in MEM1.
 std::uint32_t g_mem1_probe[8] ATTRIBUTE_ALIGN(32);
@@ -355,6 +356,12 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
             usleep(10000);
         }
     }
+    // A live USB manager can still have an empty list just after reload.
+    // Allow its first enumeration to arrive before reporting absence.
+    while (ret >= 0 && count == 0 && ms_since_ios_reload() < 2500) {
+        usleep(100000);
+        ret = USB_GetDeviceListUnfiltered(list, 32, USB_CLASS_HID, &count);
+    }
     if (ret < 0) {
         devices = "no list: error " + std::to_string(ret);
         return AdapterSeen::Unknown;
@@ -363,17 +370,24 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
     for (unsigned i = 0; i < count && i < RTHID_DEVICE_MAX; ++i) {
         hid_devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
     }
+    const unsigned listed = g_handoff_devices.restore_if_empty(hid_devices, count);
+    if (listed != count) {
+        logf("USB controllers: using the device list read before USB shutdown; the game will verify each interface.\n");
+    }
+    count = static_cast<u8>(listed);
     HidPadsRemember(hid_devices, count);
     bool found = false;
     bool hid_found = false;
     for (unsigned i = 0; i < count && i < 32; ++i) {
         char one[16];
-        std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "", list[i].vid, list[i].pid);
+        const auto id = hid_devices[i].vid_pid;
+        std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "",
+                      static_cast<unsigned>(id >> 16), static_cast<unsigned>(id & 65535u));
         devices += one;
         hid_found = hid_found || HidPadsConfigured(hid_devices[i].vid_pid);
-        if ((static_cast<std::uint32_t>(list[i].vid) << 16 | list[i].pid) == GCAD_VID_PID && !found) {
+        if (id == GCAD_VID_PID && !found) {
             found = true;
-            if (list[i].device_id != 0) dev_id = list[i].device_id;
+            if (hid_devices[i].id != 0) dev_id = hid_devices[i].id;
         }
     }
     if (devices.empty()) devices = "no devices";
@@ -406,6 +420,13 @@ void forget_usb_hid_handle() {
     // keeps its stuck state: nothing says the new IOS answers better, and
     // forget_usb_hid_stuck is for whoever has tested it.
     g_own.forget_for_reload(g_hid_stuck);
+    g_handoff_devices.clear();
+}
+
+void release_menu_usb_for_game() {
+    const auto& catalog = HidPadsCatalog();
+    g_handoff_devices.remember(catalog.known, catalog.known_count);
+    USB_Deinitialize();
 }
 
 // v5 through our own handle: the list from a fresh handle, once more
@@ -446,17 +467,39 @@ AdapterSeen own_adapter_list(std::string& how) {
         for (s32 i = 0; i < count && i < static_cast<s32>(RTHID_DEVICE_MAX); ++i) {
             hid_devices[i] = {static_cast<std::int32_t>(gcad_get32(list + i * 12)), gcad_get32(list + i * 12 + 4)};
         }
+        const unsigned restored = g_handoff_devices.restore_if_empty(hid_devices, static_cast<unsigned>(count));
+        if (restored != static_cast<unsigned>(count)) {
+            count = static_cast<s32>(restored);
+            devices.clear();
+            for (s32 i = 0; i < count; ++i) {
+                const auto id = hid_devices[i].vid_pid;
+                char one[16];
+                std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "",
+                              static_cast<unsigned>(id >> 16), static_cast<unsigned>(id & 65535u));
+                devices += one;
+            }
+            logf("USB controllers: using the device list read before USB shutdown; the game will verify each interface.\n");
+        }
         HidPadsRemember(hid_devices, count);
         for (s32 i = 0; i < count && i < static_cast<s32>(RTHID_DEVICE_MAX); ++i) {
             hid_found = hid_found || HidPadsConfigured(hid_devices[i].vid_pid);
         }
-        g_own.device = gcad_find_v5(list, static_cast<std::uint32_t>(count));
+        g_own.device = -1;
+        for (s32 i = 0; i < count; ++i) {
+            if (hid_devices[i].vid_pid == GCAD_VID_PID) {
+                g_own.device = hid_devices[i].id;
+                break;
+            }
+        }
         // As libogc does after each device change.
         s32 finish = 0;
         g_async_done = false;
         await_async(IOS_IoctlAsync(g_own.fd, GCAD_V5_ATTACH_FINISH, nullptr, 0, nullptr, 0, on_async, nullptr), finish);
         if (g_own.device >= 0 || hid_found || attempt == 1 || ms_since_ios_reload() >= 2500) {
-            how = std::string((g_own.device >= 0 || hid_found) ? "plugged in" : "not plugged in") + " (our own " + g_usb_path_used + " v5 lists " +
+            const char* status = "no mapped USB controller or GameCube adapter plugged in";
+            if (g_own.device >= 0) status = "GameCube adapter plugged in";
+            else if (hid_found) status = "GameCube adapter not plugged in; mapped USB controller(s) found";
+            how = std::string(status) + " (our own " + g_usb_path_used + " v5 lists " +
                   (devices.empty() ? std::string("no devices") : devices) + ")";
             return (g_own.device >= 0 || hid_found) ? AdapterSeen::Found : AdapterSeen::Missing;
         }
@@ -490,9 +533,12 @@ AdapterSeen look_for_gc_adapter(std::string& how) {
     }
     char extra[64] = "";
     if (waited) std::snprintf(extra, sizeof(extra), ", after %u ms more", waited);
-    how = std::string(seen == AdapterSeen::Found     ? "plugged in"
-                      : seen == AdapterSeen::Missing ? "not plugged in"
-                                                     : "unknown, taken as plugged in") +
+    const char* status = "unknown, taken as plugged in";
+    if (seen == AdapterSeen::Missing) status = "not plugged in";
+    else if (seen == AdapterSeen::Found) {
+        status = dev_id >= 0 ? "GameCube adapter plugged in" : "GameCube adapter not plugged in; mapped USB controller(s) found";
+    }
+    how = std::string(status) +
           " (USB lists " + devices + extra + ")";
     return seen;
 }
@@ -730,6 +776,12 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     }
     auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
     HidPadsCopyCatalog(hub->catalog);
+    for (unsigned i = 0; i < hub->catalog.count; ++i) {
+        const auto& mapping = hub->catalog.maps[i];
+        logf("USB controller %04x:%04x: mapping sent to the Wii game's pad hook (%u report bytes).\n",
+             static_cast<unsigned>(mapping.vid), static_cast<unsigned>(mapping.pid),
+             static_cast<unsigned>(mapping.report_bytes));
+    }
     DCFlushRange(hub, out.state_bytes);
     ctx->state = out.state_base;
     ctx->ioctl_async = ioctl_async;
@@ -747,6 +799,13 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
          out.state_bytes, out.state_base, demo ? " (demo)" : "",
          mem1_veneer != 0 ? "; in MEM2, through veneers (a code build)" : "");
     return true;
+}
+
+void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry) {
+    auto* ctx = reinterpret_cast<rt_pad_context*>(code_base + header().context_offset);
+    std::strcpy(ctx->diagnostic_format, "RiftWii USB controller diagnostic");
+    ctx->diagnostic_print = print_entry;
+    DCFlushRange(ctx, sizeof(*ctx));
 }
 
 bool install_pad_hook(PadHook& hook, std::string& why) {

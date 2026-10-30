@@ -10,9 +10,13 @@ namespace riftwii::wii {
 // File access runs on the menu/loader thread, never an IPC callback.
 void HidPadsRemember(const rthid_device* devices, unsigned count);
 const rthid_catalog& HidPadsCatalog();
+bool HidPadsWanted();
+// Launches need a mapped pad in the latest device list, not just config files.
+bool HidPadsConnected();
 void HidPadsCopyCatalog(rthid_catalog& out);
 // Remembers connected devices first, then fills unused slots for in-game hotplug.
-void HidPadsPreload();
+// A launch refreshes the list even when the menu already loaded the configs.
+void HidPadsPreload(bool refresh_devices = false);
 bool HidPadsConfigured(std::uint32_t vid_pid);
 
 }  // namespace riftwii::wii
