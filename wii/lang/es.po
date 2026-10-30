@@ -900,6 +900,21 @@ msgstr "Desvanecer"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego."
 
+msgid "Banner music on game pages"
+msgstr "Música del banner en la página del juego"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "Reproduce la música del banner de un juego al abrir su página desde Inicio, como la pantalla del banner de la vista Canales. No en la vista Canales, que ya la reproduce."
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "La vista Canales ya reproduce la música del banner de un juego en su pantalla del banner."
+
+msgid "Disc art"
+msgstr "Imagen del disco"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "Muestra el disco del juego bajo su caja en la página del juego. La imagen viene de GameTDB cuando las descargas están activadas y se guarda en sd:/riftwii/discs."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música."
 
@@ -1890,8 +1905,8 @@ msgstr "Esta partida está dañada: sus bloques no cuadran. Solo se puede borrar
 msgid "It is {1}."
 msgstr "Es {1}."
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWii no puede leer {1}: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWii no puede leer {1}: está dañada o no es una tarjeta de memoria de GameCube."
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWii no pudo leer {1}."
@@ -2361,20 +2376,23 @@ msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
-msgid "Covers for emulator games"
-msgstr "Carátulas de juegos de emulador"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "Inicio: botón Diseño y selector Ver"
 
-msgid "WiiFlow's emulator plugins work here too"
-msgstr "Los plugins de emulador de WiiFlow también funcionan"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiWare y VC directamente desde WADs"
 
-msgid "Games from every partition of a USB drive"
-msgstr "Juegos de todas las particiones de un disco USB"
+msgid "Pictures for emulator games, and a picker"
+msgstr "Imágenes para juegos emulados, y un selector"
 
-msgid "Leave a frozen menu without a Wii Remote"
-msgstr "Sal de un menú congelado sin Wiimote"
+msgid "Banner music and disc art on game pages"
+msgstr "Música del banner e imagen del disco"
 
-msgid "Smoother menu motion on PAL and NTSC"
-msgstr "Movimiento del menú más fluido en PAL y NTSC"
+msgid "Asks first when mod files are missing"
+msgstr "Pregunta antes si faltan archivos del mod"
+
+msgid "Clearer messages when something goes wrong"
+msgstr "Mensajes más claros cuando algo falla"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"
@@ -2994,6 +3012,21 @@ msgstr "Primero vuelve a insertar la tarjeta SD."
 msgid "The SD card is back in. Reading it again."
 msgstr "La tarjeta SD está de vuelta. Leyéndola de nuevo."
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "Una búsqueda mira en todos los géneros. Pulsa 1 para terminarla primero."
+
+msgid "Homebrew apps have no genres."
+msgstr "Las apps homebrew no tienen géneros."
+
+msgid "No genres yet."
+msgstr "Aún no hay géneros."
+
+msgid "Every genre"
+msgstr "Todos los géneros"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "Arriba/Abajo: género   Suelta: mostrar"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "El menú está en inglés: copia apps/riftwii/korean.ttf del zip de RiftWii a la tarjeta SD y elige la fuente de RiftWii, o usa la fuente del Menú de Wii en una Wii coreana."
 
@@ -3336,6 +3369,9 @@ msgstr "No se pudieron guardar los ajustes del emulador."
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "Los argumentos del emulador no son válidos o son demasiado largos. Consulta session.log."
 
+msgid "Covers for emulator games"
+msgstr "Carátulas de juegos de emulador"
+
 msgid "SteamGridDB covers"
 msgstr "Carátulas de SteamGridDB"
 
@@ -3356,6 +3392,87 @@ msgstr "Carátulas alternativas de SteamGridDB. Pon tu clave API en sd:/riftwii/
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "Carátulas de emuladores: colaboradores de libretro-thumbnails, MobyGames y Fandom. Carátulas opcionales: colaboradores de SteamGridDB. El arte original pertenece a los creadores y editores de los juegos."
+
+msgid "Mod files are missing"
+msgstr "Faltan archivos del mod"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "Faltan archivos del mod. Sus cambios de archivos o memoria no se aplicarán. Copia los archivos y reintenta, o revisa la lista para jugar de todos modos."
+
+msgid "Review files"
+msgstr "Ver archivos"
+
+msgid "Play anyway"
+msgstr "Jugar igualmente"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: no se pudieron abrir {1} particiones. Ve a Unidades."
+
+msgid "USB scan details"
+msgstr "Detalles de búsqueda USB"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "No se pudieron abrir algunas particiones de la unidad USB. Los juegos de las demás particiones se siguen mostrando. Abre la lista con el problema de cada partición y qué hacer."
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "Revisa esta partición en un ordenador y elige Buscar juegos de nuevo. Los juegos de otras particiones se conservan."
+
+msgid "USB partition {1} could not be opened"
+msgstr "No se pudo abrir la partición USB {1}"
+
+msgid "The partition could not be read from the drive."
+msgstr "No se pudo leer la partición de la unidad."
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWii no puede leer exFAT. Mueve estos juegos a una partición FAT32 o NTFS."
+
+msgid "The {1} data could not be read."
+msgstr "No se pudieron leer los datos {1}."
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWii no pudo leer esta partición como FAT32, NTFS o WBFS."
+
+msgid "Memory card could not be read"
+msgstr "No se pudo leer la tarjeta de memoria"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWii no pudo leer {1}. El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo."
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "El archivo no se cambió. Comprueba la tarjeta SD y guarda una copia del archivo antes de volver a intentarlo."
+
+msgid "Games cannot start"
+msgstr "Los juegos no pueden arrancar"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Los juegos USB necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo."
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "Los juegos SD necesitan d2x cIOS, que no está instalado. Instala d2x cIOS siguiendo la guía de wii.hacks.guide y vuelve a intentarlo."
+
+msgid "Mods could not be prepared"
+msgstr "No se pudieron preparar los mods"
+
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1} necesita que su carpeta de mod sea {2}."
+
+msgid "Required file: {1}"
+msgstr "Archivo necesario: {1}"
+
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1} está una carpeta demasiado adentro. Mueve su contenido a {2}."
+
+msgid "Rename {1} to exactly {2}."
+msgstr "Renombra {1} exactamente como {2}."
+
+msgid "Move {1} to {2}."
+msgstr "Mueve {1} a {2}."
+
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "Copia la carpeta {1} de la descarga del mod para que quede exactamente en {2}."
 
 msgid "Needs the internet"
 msgstr "Necesita internet"
@@ -3509,9 +3626,6 @@ msgstr "Permite descargar nombres, carátulas, trucos, detalles de juegos, temas
 
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "No se encontraron emuladores. Pon un emulador con su archivo de complemento de RiftWii en su carpeta de aplicación, o añade archivos de plugins de WiiFlow. Luego usa Ajustes > Unidades > Buscar juegos de nuevo. Consulta Emuladores en la guía de GitHub."
-
-msgid "Emulator games: Home > Show > Emulators"
-msgstr "Juegos emulados: Inicio > Ver > Emuladores"
 
 msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "Cambia las opciones predeterminadas de los emuladores instalados. Sus juegos están en Inicio > Ver > Emuladores."

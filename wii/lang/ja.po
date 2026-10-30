@@ -900,6 +900,21 @@ msgstr "フェードアウト"
 msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
 msgstr "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。"
 
+msgid "Banner music on game pages"
+msgstr "ゲームページでバナーの音楽"
+
+msgid "Plays a game's banner music when you open its page from Home, as the Channels view's banner screen does. Not in the Channels view, which plays it already."
+msgstr "ホームからゲームのページを開くと、チャンネル表示のバナー画面と同じようにバナーの音楽を流します。チャンネル表示ではすでに流れるので使いません。"
+
+msgid "The Channels view already plays a game's banner music on its banner screen."
+msgstr "チャンネル表示では、バナー画面でゲームのバナーの音楽がすでに流れます。"
+
+msgid "Disc art"
+msgstr "ディスクの画像"
+
+msgid "Shows the game's disc under its box on the game's page. The picture comes from GameTDB when downloads are on, and is kept in sd:/riftwii/discs."
+msgstr "ゲームのページで、ケースの下にディスクを表示します。画像はダウンロードがオンのときにGameTDBから取得し、sd:/riftwii/discsに保存します。"
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。"
 
@@ -1099,7 +1114,7 @@ msgid "Cancel"
 msgstr "キャンセル"
 
 msgid "and {1} more"
-msgstr "ほか{1}本"
+msgstr "ほか{1}件"
 
 msgid "No online play"
 msgstr "オンラインプレイなし"
@@ -1890,8 +1905,8 @@ msgstr "このセーブは壊れています: ブロックが合いません。�
 msgid "It is {1}."
 msgstr "{1}です。"
 
-msgid "RiftWii cannot read {1}: {2}"
-msgstr "RiftWiiは{1}を読めません: {2}"
+msgid "RiftWii cannot read {1}: it is damaged or is not a GameCube memory card."
+msgstr "RiftWiiは{1}を読めません。壊れているか、ゲームキューブのメモリーカードではありません。"
 
 msgid "RiftWii could not read {1}."
 msgstr "RiftWiiは{1}を読めませんでした。"
@@ -2361,20 +2376,23 @@ msgstr "ホームに表示するゲーム：すべてのドライブとWii本体
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"
 
-msgid "Covers for emulator games"
-msgstr "エミュレータのゲームのカバー"
+msgid "Home: a Layout button and a Show chooser"
+msgstr "ホームにレイアウトと表示のボタン"
 
-msgid "WiiFlow's emulator plugins work here too"
-msgstr "WiiFlowのエミュレーター設定もそのまま使えます"
+msgid "WiiWare and VC played straight from WADs"
+msgstr "WiiウェアとVCをWADから直接プレイ"
 
-msgid "Games from every partition of a USB drive"
-msgstr "USBドライブのすべてのパーティションからゲームを"
+msgid "Pictures for emulator games, and a picker"
+msgstr "エミュレータのゲームに画像と選択画面"
 
-msgid "Leave a frozen menu without a Wii Remote"
-msgstr "Wiiリモコンなしで止まったメニューを終了"
+msgid "Banner music and disc art on game pages"
+msgstr "ゲームページにバナーの音楽とディスクの画像"
 
-msgid "Smoother menu motion on PAL and NTSC"
-msgstr "PALでもNTSCでもなめらかなメニュー"
+msgid "Asks first when mod files are missing"
+msgstr "MODのファイルが足りないときは確認"
+
+msgid "Clearer messages when something goes wrong"
+msgstr "問題が起きたときのメッセージをわかりやすく"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
@@ -2994,6 +3012,21 @@ msgstr "さきにSDカードを入れてください。"
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
+msgid "A search looks through every genre. Press 1 to end it first."
+msgstr "検索はすべてのジャンルから探します。先に1を押して検索を終えてください。"
+
+msgid "Homebrew apps have no genres."
+msgstr "ホームブリューのアプリにはジャンルがありません。"
+
+msgid "No genres yet."
+msgstr "まだジャンルがありません。"
+
+msgid "Every genre"
+msgstr "すべてのジャンル"
+
+msgid "Up/Down: genre   Let go: show"
+msgstr "上下: ジャンル   はなす: 表示"
+
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "メニューは英語です。RiftWiiのzipにあるapps/riftwii/korean.ttfをSDカードにコピーしてRiftWiiのフォントを選んでください。または韓国版WiiでWiiメニューのフォントを使ってください。"
 
@@ -3336,6 +3369,9 @@ msgstr "エミュレータの設定を保存できません。"
 msgid "The emulator arguments are invalid or too long. See session.log."
 msgstr "起動するための設定が正しくないか、長すぎます。session.logを確認してください。"
 
+msgid "Covers for emulator games"
+msgstr "エミュレータのゲームのカバー"
+
 msgid "SteamGridDB covers"
 msgstr "SteamGridDBのカバー"
 
@@ -3356,6 +3392,87 @@ msgstr "SteamGridDBの予備カバー。自分のAPIキーをsd:/riftwii/steamgr
 
 msgid "Emulator covers: libretro-thumbnails contributors, MobyGames and Fandom. Optional covers: SteamGridDB contributors. Original artwork belongs to the games' developers and publishers."
 msgstr "エミュレータのカバー：libretro-thumbnailsの参加者、MobyGames、Fandom。予備のカバー：SteamGridDBの参加者。元の画像はゲームの開発者と発売元のものです。"
+
+msgid "Mod files are missing"
+msgstr "MODのファイルがありません"
+
+msgid "Some mod files are missing. Their file or memory changes will be left out. Copy the files and try again, or review the list to play anyway."
+msgstr "MODの一部のファイルがありません。そのファイルやメモリの変更は行いません。ファイルをコピーしてやり直すか、一覧を確認してそのまま遊んでください。"
+
+msgid "Review files"
+msgstr "ファイルを確認"
+
+msgid "Play anyway"
+msgstr "そのまま遊ぶ"
+
+msgid "USB: {1} partition(s) could not be opened. See Drives."
+msgstr "USB: {1}個のパーティションを開けませんでした。ドライブを確認してください。"
+
+msgid "USB scan details"
+msgstr "USBの読み込み結果"
+
+msgid "Some partitions of the USB drive could not be opened. Games on the other partitions are still shown. Opens the list, with each partition's problem and what to do."
+msgstr "USBドライブの一部のパーティションを開けませんでした。ほかのパーティションのゲームは表示されています。各パーティションの問題と、どうすればよいかの一覧を開きます。"
+
+msgid "{1} MiB"
+msgstr "{1} MiB"
+
+msgid "Check this partition on a computer, then choose Look for games again. Other partitions' games are kept."
+msgstr "パソコンでこのパーティションを確認してから、もう一度ゲームを探してください。ほかのパーティションのゲームは表示したままです。"
+
+msgid "USB partition {1} could not be opened"
+msgstr "USBのパーティション{1}を開けません"
+
+msgid "The partition could not be read from the drive."
+msgstr "ドライブからパーティションを読み込めませんでした。"
+
+msgid "RiftWii cannot read exFAT. Move these games to a FAT32 or NTFS partition."
+msgstr "RiftWiiはexFATを読み込めません。このゲームをFAT32かNTFSのパーティションに移してください。"
+
+msgid "The {1} data could not be read."
+msgstr "{1}のデータを読み込めませんでした。"
+
+msgid "RiftWii could not read this partition as FAT32, NTFS or WBFS."
+msgstr "RiftWiiはこのパーティションをFAT32、NTFS、WBFSとして読み込めませんでした。"
+
+msgid "Memory card could not be read"
+msgstr "メモリーカードを読み込めません"
+
+msgid "RiftWii could not read {1}. The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "RiftWiiは{1}を読み込めませんでした。ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "The file was not changed. Check the SD card and keep a copy of this file before trying again."
+msgstr "ファイルは変更していません。SDカードを確認し、このファイルのコピーを保存してから、もう一度お試しください。"
+
+msgid "Games cannot start"
+msgstr "ゲームを起動できません"
+
+msgid "USB games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "USBのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "SD games need d2x cIOS, which is not installed. Install d2x cIOS by following the setup guide at wii.hacks.guide, then try again."
+msgstr "SDのゲームにはd2x cIOSが必要ですが、インストールされていません。wii.hacks.guideの設定ガイドに従ってd2x cIOSをインストールしてから、もう一度お試しください。"
+
+msgid "Mods could not be prepared"
+msgstr "MODを準備できませんでした"
+
+msgid "{1} needs its mod folder to be {2}."
+msgstr "{1}のMODフォルダーは{2}そのものである必要があります。"
+
+msgid "Required file: {1}"
+msgstr "必要なファイル: {1}"
+
+msgid "{1} is one folder too deep. Move its contents into {2}."
+msgstr "{1}は1つ深すぎるフォルダーです。{1}の中身を{2}に移動してください。"
+
+msgid "Rename {1} to exactly {2}."
+msgstr "{1}の名前を正確に{2}に変更してください。"
+
+msgid "Move {1} to {2}."
+msgstr "{1}を{2}に移動してください。"
+
+msgid "Copy the {1} folder from the mod's download so that it is {2} itself."
+msgstr "ダウンロードしたMODの{1}フォルダーを、{2}そのものになるようにコピーしてください。"
 
 msgid "Needs the internet"
 msgstr "インターネットが必要です"
@@ -3509,9 +3626,6 @@ msgstr "ゲーム名、カバー、チート、ゲームの詳細、テーマ、
 
 msgid "No emulators found. Put an emulator with its RiftWii add-on file in its app folder, or add WiiFlow plugin files. Then use Settings > Drives > Look for games again. See Emulators in the guide on GitHub."
 msgstr "エミュレータがありません。アプリのフォルダにエミュレータとRiftWiiのアドオンファイルを置くか、WiiFlowのプラグインファイルを追加してください。その後、設定 > ドライブ > ゲームをもう一度探すを選びます。GitHubのガイドのエミュレータの説明も見てください。"
-
-msgid "Emulator games: Home > Show > Emulators"
-msgstr "エミュレータのゲーム：ホーム > 表示 > エミュレータ"
 
 msgid "Changes the defaults for installed emulators. Find their games on Home > Show > Emulators."
 msgstr "インストール済みのエミュレータの標準設定を変えます。ゲームはホーム > 表示 > エミュレータにあります。"

@@ -67,8 +67,10 @@ bool GcImageOnUsb(const std::string& path);
 bool FindGcImage(const std::string& game, const std::string& path, GcImage& out);
 
 // GameCube images in sd:/games and sd:/wbfs, loose or one folder down,
-// plus custom game_folders, for the game list: opened (header read), never
-// needing d2x. A folder copy takes precedence over a loose duplicate.
+// plus custom game_folders and any other top folder whose game folders
+// hold a Nintendont-named image (game1/<game>/game.iso), for the game
+// list: opened (header read), never needing d2x. A folder copy takes
+// precedence over a loose duplicate.
 // An RVZ carries
 // check_rvz's verdict (refused ones are listed, and say why at Start).
 // The .ciso files beside them, which RiftWii does not play, are noted in

@@ -16,40 +16,30 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Emulators as add-ons with their own settings, covers for emulator games, WiiFlow Lite's emulator plugins, games from every partition of a USB drive, and a few fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** Pick a genre on Home, and fixes for USB drives over 2 TiB, Japanese GameCube games' memory cards, and the Wii Menu music after quitting a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Emulator games on Home with their covers]({{SCREENSHOTS}}2610-emulator-covers.png)
+![Picking a genre on Home]({{SCREENSHOTS}}2610-genre-picker.png)
 
 ## What changed
 
-### Emulators
-
-- **Emulators as add-ons.** An emulator can come with a `riftwii-emulator.ini` that lists its settings and how to start it. On an emulator game's page you can change those settings for that one game, or for all its games. `docs/EMULATORS.md` says how to write one.
-- **Covers for emulator games.** RiftWii looks on the SD card first (`sd:/riftwii/covers/emulators/<system>/<game>.png`), then in libretro's thumbnails, then on SteamGridDB if you switch that on in Settings > Online.
-- **WiiFlow Lite's emulator plugins work in RiftWii.** If you set up emulators for WiiFlow Lite (`wiiflow/plugins/*.ini`), RiftWii reads those files as emulators, with their games and covers.
-
-### Games and drives
-
-- **Games from every partition of a USB drive.** Before, RiftWii read only one partition. The partition it used before is still `usb:/`; the others are `usb1:/`, `usb2:/` and so on, in their order on the drive. Each game starts from its own partition.
-- **Quitting a game on a d2x cIOS lands back in RiftWii again.** d2x was refusing RiftWii's "come back here" request because it was sent too late.
-
-### Menu
-
-- **Leave a frozen menu without a Wii Remote:** HOME on a Classic Controller, Pro Controller or GamePad, or Start on a GameCube controller.
-- **Menu motion matches on PAL and NTSC TVs**, and the menu has 152 KiB more free memory.
-- **A game-names file that was cut off while downloading** no longer counts as complete; it is read only once it is whole.
+- **Pick a genre on Home.** Hold B (L on a GameCube controller) and press Down or Up: a list of your games' genres opens. Let go of B and Home shows only that genre's games; pick Every genre to see them all again. The genres come from GameTDB's game details.
+- **USB drives over 2 TiB start games again.** A drive that big reports its size in a way RiftWii took for "the drive didn't start", so every USB launch stopped with "d2x can't read the USB drive in this port" (#413). Not tried on such a drive yet.
+- **Japanese GameCube games on a Western Wii or Wii U** see a Japanese console in more games. Super Robot Taisen GC said its memory card save was damaged and asked to format it (#391). Not tried with that game yet; if a Japanese game still complains, a problem report now shows why.
+- **The Wii Menu music and sounds keep working after you quit a game.** When RiftWii came back through its channel, they were replaced by RiftWii's own until it was started again from the Homebrew Channel. Settings > Menu font reads the Wii Menu's font the same new way.
+- **GameCube games kept in another folder** at the top of the SD card or USB drive (for example `game1/<Title [ID]>/game.iso`, as Nintendont names them) are found and listed.
+- **Box names in the Carousel and Shelf** stay on their spines: a far box's name is shortened and made smaller, and a spine seen almost edge-on gets none.
 
 ## What to test
 
-1. **Games on a second USB partition**, if your drive has more than one: do they show on Home and start? Wii games (WBFS, ISO, RVZ, split files) and GameCube games.
-2. **4 players:** play a game with four Wii Remotes, or four GameCube controllers, or a mix. Do all four work all the way through?
-3. **Emulators:** if you use WiiFlow Lite plugins or add an emulator, do the games show with covers and start?
-4. **Quit a game** with HOME > Wii Menu on a d2x cIOS: do you land back in RiftWii?
-5. **Retro Rewind online from the disc:** does it connect? If it shows an error, please send a problem report right after.
+1. **A USB drive bigger than 2 TiB:** do games start?
+2. **A Japanese GameCube game** on a Western console with its memory card: does the save load?
+3. **Quit a game with HOME > Wii Menu** with Wii Menu music on: does the music play when you land back in RiftWii?
+4. **The genre picker** on Home: does it find your games' genres?
 
 ## Known issues
 
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. We're looking into it; a problem report from anyone who sees it helps.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. The last release has a likely fix that couldn't be checked in Dolphin; a problem report from anyone who still sees it helps.
+- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
 - **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
@@ -60,8 +50,6 @@ have it, or that haven't changed since the last release's tag.
 - **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
-
-![An emulator game's own settings]({{SCREENSHOTS}}2610-emulator-settings.png)
 
 ## Download
 

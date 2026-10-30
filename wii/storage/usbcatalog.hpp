@@ -61,13 +61,13 @@ struct ImageCatalog {
     ImageDevice device = ImageDevice::Usb;
     std::vector<ImageGame> games;
     std::string status;
-    // Empty when at least one candidate cIOS slot holds a ticket; otherwise
-    // a user-visible warning that image games cannot boot yet. Presence only:
+    // Whether at least one candidate cIOS slot holds a ticket. Presence only:
     // identity is proven by the launch-time d2x probe, not here.
-    std::string cios_note;
+    CiosReadiness cios = CiosReadiness::Unknown;
     // .ciso files the scan passed over (RiftWii does not play them): Home
     // says so once per start (riftwii/usbgame.hpp).
     CisoFinds ciso;
+    std::vector<ImagePartitionFailure> partition_failures;
 };
 
 struct LaunchSource {

@@ -303,6 +303,10 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
 void LogCompileNotes(const CompiledMod& mod) {
     constexpr std::size_t kMaxNoteLines = 60;
     LogBatch batch;
+    for (const MissingModInput& input : mod.missing_inputs) {
+        logf("Mods: %s is missing %s; its %s changes will be left out.\n", input.pack.c_str(),
+             input.external.c_str(), input.kind == MissingModInputKind::Memory ? "memory patch" : "file");
+    }
     for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
     if (mod.notes.size() <= kMaxNoteLines) {
         for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
@@ -417,7 +421,8 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 }
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
-               const std::string& save_mode, const std::string& game_id) {
+               const std::string& save_mode, const std::string& game_id,
+               const MissingModConfirmation& confirm_missing) {
     // A GameCube game: RiftWii's own loader, its packs served past the image.
     if (source.game.gamecube) return LaunchGcGame(gc_image_of(source), packages, error);
     {
@@ -472,7 +477,21 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
     s.sd_after_probe = packages_need_sd(packages) || !CurrentLaunchExtras().code_builds.empty();
     if (!s.ensure_layout(error)) return false;
-    CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    CompiledMod mod;
+    if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    LogCompileNotes(mod);
+    if (!mod.missing_inputs.empty()) {
+        if (confirm_missing) {
+            if (!confirm_missing(mod.missing_inputs)) {
+                logf("Mods: the player went back because selected mod files are missing.\n");
+                error.clear();  // a cancellation, not a failed launch
+                return false;
+            }
+            logf("Mods: the player chose Play anyway with missing mod files.\n");
+        } else {
+            logf("Mods: selected files are missing; this unattended launch continues without a question.\n");
+        }
+    }
     // A pack on the USB drive whose files turned out to be on the SD card:
     // the runtime would read the card that d2x's emulation holds, and the
     // emulation cannot be turned off once the game's partition is open.
@@ -483,7 +502,6 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 "the game runs: move the pack's files to the USB drive, or pick another Saves choice for the game";
         return false;
     }
-    LogCompileNotes(mod);
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
          static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
          static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
