@@ -246,6 +246,16 @@ void test_finds_end_after_base() {
     Text end_changed = t;
     end_changed.words[(lis + 8 - kBase) / 4] = 0x38000010;  // li r0,0x10
     EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(end_changed.ranges()).empty());
+    // Anything else between (a compare, a branch, a store) ends the search.
+    Text compared = t;
+    compared.words[(lis + 4 - kBase) / 4] = 0x2C030000;  // cmpwi r3,0
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(compared.ranges()).empty());
+    Text branched = t;
+    branched.words[(lis + 4 - kBase) / 4] = 0x41820008;  // beq +8
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(branched.ranges()).empty());
+    Text stored = t;
+    stored.words[(lis + 4 - kBase) / 4] = 0x90010008;  // stw r0,8(r1)
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(stored.ranges()).empty());
     // The base taken by mr instead: still found.
     Text moved = t;
     moved.words[(call + 4 - kBase) / 4] = 0x7C661B78;  // mr r6,r3

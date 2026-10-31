@@ -102,17 +102,15 @@ std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRa
                 from_base &= ~(1u << field_d);
                 continue;
             }
+            // Only addi/li, lis, ori and mr may come between: anything else
+            // (a branch, a compare, a load, a store, other arithmetic) ends
+            // the search, so what the words do is never guessed.
             const bool mr = opcode == 31 && ((x >> 1) & 0x3FF) == 444 && field_d == field_b;  // or rA,rS,rS
-            const bool store = opcode >= 36 && opcode <= 45 && opcode != 40 && opcode != 41 && opcode != 42 &&
-                               opcode != 43;  // stw, stwu, stb, stbu, sth, sthu
-            if (store) continue;
-            // What this word writes: rA for or/ori/rlwinm and the like, rD otherwise.
-            const bool writes_a = mr || opcode == 24 || opcode == 25 || opcode == 28 || opcode == 29 ||
-                                  opcode == 21 || opcode == 20 || opcode == 23 ||
-                                  (opcode == 31 && ((x >> 1) & 0x3FF) != 266 && ((x >> 1) & 0x3FF) != 40);
-            const unsigned written = writes_a ? field_a : field_d;
+            const bool addi = opcode == 14, ori = opcode == 24;
+            if (!mr && !addi && !ori && !lis) return;
+            const unsigned written = mr || ori ? field_a : field_d;  // or/ori write rA
             if (lis_at != 0 && written == end_reg) return;  // the end changed before the subtraction
-            const bool derived = (opcode == 14 && field_a != 0 && ((from_base >> field_a) & 1)) ||
+            const bool derived = (addi && field_a != 0 && ((from_base >> field_a) & 1)) ||
                                  (mr && ((from_base >> field_d) & 1));
             if (derived) from_base |= 1u << written;
             else from_base &= ~(1u << written);
