@@ -52,6 +52,7 @@
 /* Not weak: a weak reference does not pull wiiuse's io.o and events.o out
  * of the archive.  Without the wrappers the link fails on these names. */
 void wiiuse_send_next_command(struct wiimote_t *wm); /* wiiuse's, not in its public header */
+void wiiuse_pressed_buttons(struct wiimote_t *wm, ubyte *msg); /* likewise (events.h) */
 
 int  __real_classic_ctrl_handshake(struct wiimote_t *wm, struct classic_ctrl_t *cc, ubyte *data, uword len);
 void __real_parse_event(struct wiimote_t *wm);
@@ -326,6 +327,11 @@ void __wrap_parse_event(struct wiimote_t *wm)
 	}
 	if (deliver)
 		__real_parse_event(wm);
+	else
+		/* A read answer carries the buttons too, and libogc reads them
+		 * before it looks at the read: keep them, so a withheld answer
+		 * loses no press or release. */
+		wiiuse_pressed_buttons(wm, wm->event_buf + 1);
 	forget_finished_read(wm);
 	resend_stalled(wm);
 	/* unplugged: wiiuse has put the expansion type back to none */
