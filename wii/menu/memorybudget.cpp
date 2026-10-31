@@ -105,10 +105,11 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
             b.add(tr("screenshots"), blob_bytes<rt_shot_header>(riftwii_shot_bin), align(sizeof(rt_shot_state)));
         if (adapter)
             b.add(tr("GameCube adapter"), blob_bytes<rt_pad_header>(riftwii_pad_bin), align(sizeof(gcad_hub)));
-    } else if (!protected_game && code_build && adapter) {
+    } else if (!protected_game && code_build && !clears_mem1_top && adapter) {
         // A code build keeps all of MEM1: the adapter's code and state both
         // go to the top of the MEM2 arena, reached through veneers in low
-        // memory (wii/hooks/padhook.cpp).
+        // memory (wii/hooks/padhook.cpp). A game that clears MEM1's top
+        // gets no adapter at all (boot.cpp), code build or not.
         b.add(tr("GameCube adapter"), 0,
               blob_bytes<rt_pad_header>(riftwii_pad_bin) + align(sizeof(gcad_hub)));
     }
