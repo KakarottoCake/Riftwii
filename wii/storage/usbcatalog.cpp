@@ -1850,6 +1850,11 @@ CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd) {
     return check;
 }
 
+bool slot_is_d2x(int slot) {
+    const D2xInfo* info = slot_info(slot);
+    return info != nullptr && info->d2x;
+}
+
 int d2x_base(int slot) {
     for (const D2xSlot& s : d2x_slots())
         if (s.slot == slot) return s.base;

@@ -171,7 +171,13 @@ bool ChannelCanUpdateHere(std::string& why) {
         why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel";
         return false;
     }
-    return true;
+    // With that access the installer tries only slots it identifies as d2x;
+    // a ticket alone (another cIOS) would send it back without updating.
+    for (int slot : {249, 250, 251}) {
+        if (slot_has_ticket(slot) && slot_is_d2x(slot)) return true;
+    }
+    why = "Installing the channel needs a d2x cIOS in slot 249, 250 or 251";
+    return false;
 }
 
 bool StartChannelInstaller(std::string& error, bool allow_unmarked, bool update) {

@@ -226,6 +226,10 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
 // it is not a d2x that could be read, or one older than d2x v11 beta3.
 int d2x_base(int slot);
 
+// Whether the cIOS in `slot` has an information block that was read and
+// shows d2x, of any version: what the channel installer tries.
+bool slot_is_d2x(int slot);
+
 // Whether games from the SD card or a USB drive may start on `slot`: false,
 // with `why` saying what to install, when its information block shows a
 // cIOS that is not d2x or a d2x older than v11 (riftwii/d2xversion.hpp).
