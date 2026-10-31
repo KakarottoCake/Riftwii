@@ -1355,6 +1355,21 @@ the Wireless Gaming Receiver) and Xbox One or Series controllers are not
 supported. These pads have been tested in Dolphin, but not yet on a real
 Wii.
 
+### Wii U GamePad
+
+The GamePad's buttons work in RiftWii's menu only when RiftWii runs as a
+Wii Virtual Console inject on the Wii U Menu. That needs a specially
+patched inject, such as one built with TeconMoon's WiiVC Injector. Started
+the usual way, from the Homebrew Channel or the RiftWii channel in Wii
+mode, the GamePad only shows the picture and its buttons do nothing. In
+Wii mode, the Wii U passes the GamePad's buttons on only to a Virtual
+Console inject.
+
+Games never get the GamePad's buttons. Even in an inject, starting a game
+switches to a d2x cIOS, and that ends the inject's GamePad support. To play
+wirelessly on a Wii U, use a Wii Remote or a Wii U Pro Controller: in
+games, the Pro Controller plays as a Classic Controller Pro.
+
 ### Wii Remote controls in GameCube games
 
 In a GameCube game a Wii Remote plays as a GameCube controller. Without
