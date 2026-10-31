@@ -13456,6 +13456,18 @@ static int MenuHome(FrontendState& state)
 	                  riftwii::wii::CoverWanted(state.game_id);
 	// The name that fetch is for: the game's, or a mod tile's own (its key).
 	std::string coverStartName = state.game_id;
+	// A mod tile's own cover, when the game's needs none (its stock cover is
+	// stored): Home may only have queued it, so the page asks for it now,
+	// as it does for the game's.
+	if (!coverStart && riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
+	    !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()) {
+		const std::string pageCover = PageCoverName(state);
+		if (pageCover != state.game_id && !CoverDownloadsOff(pageCover) && riftwii::wii::CoverWanted(pageCover)) {
+			g_coversChecked.insert(pageCover);
+			coverStartName = pageCover;
+			coverStart = true;
+		}
+	}
 	// A press on the Cover row asks again even after automatic downloads stopped.
 	bool coverAsked = false;
 	bool boxStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
