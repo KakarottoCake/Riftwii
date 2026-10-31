@@ -712,7 +712,8 @@ as the game reads it:
   `runtime/gc/gc_programs.h`, from `gc_read_step`);
 - a program's first two words become `li r0,index` and a branch to
   `gc_hook_program`. There `gc_on_program_start` drains the old
-  program's I/O, writes the card back, sets RiftWii's words in MEM1 to
+  program's I/O (back to RiftWii when it will not finish, as for Reset),
+  writes the card back, sets RiftWii's words in MEM1 to
   that program's (the hooks' replay slots, the context's function
   addresses, the ARAM stubs: whatever any program's patches changed in
   them, the disc's own included; the context's flags excepted, which every
