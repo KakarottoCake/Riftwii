@@ -282,4 +282,4 @@ pad_continue_\name:
     .globl pad_context_data
 pad_context_data:
     .long 0x52575043
-    .fill 103, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */
+    .fill 119, 4, 0  /* RT_PAD_CONTEXT_BYTES / 4 - 1 */

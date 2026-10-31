@@ -23,6 +23,7 @@
 #include "padhook.hpp"
 #include "pentablet.h"
 #include "skin.hpp"
+#include "riftwii/hidconfig.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -39,8 +40,9 @@ std::uint32_t g_config_changes = 0;
 struct Event {
     std::uint32_t code, a;
     std::int32_t b;
+    std::uint32_t pad;
 };
-constexpr unsigned kEvents = 32;
+constexpr unsigned kEvents = 128;
 Event g_events[kEvents];
 volatile unsigned g_event_head = 0, g_event_tail = 0;
 volatile unsigned g_events_lost = 0;
@@ -61,7 +63,7 @@ bool g_ogc = false;
 // The adapter as libogc opened it (USB_OpenDevice), closed when the driver
 // stops: left open, libogc's handle kept the adapter, and a disc game
 // (the menu's IOS kept, nothing reloaded) could not take it.
-s32 g_ogc_dev_fd[GCAD_INSTANCES] = {-1, -1, -1, -1, -1};
+s32 g_ogc_dev_fd[GCAD_INSTANCES] = {-1, -1, -1, -1, -1, -1};
 volatile bool g_list_wanted = false;   // the driver's device list waits
 volatile bool g_ogc_changed = false;   // libogc has a list not yet given
 bool g_notify_armed = false;
@@ -72,6 +74,31 @@ struct Reply {
     std::uint32_t tag;
     std::int32_t result;
 };
+// The same for libogc's /dev/usb/ven list (wired Xbox 360 pads): its
+// device-change notices answer the ven list's waiting request.
+constexpr u8 kVenClass = 0xFF;  // libogc: any class but HID is the ven list
+volatile bool g_ven_wanted = false;
+volatile bool g_ven_changed = false;
+bool g_ven_armed = false;
+// Each ven device's interface number, from the last ven list: a v5 entry
+// has it in byte 10. hid's device ids carry it in their top byte, ven's
+// do not (0xE7 there, in Dolphin as on IOS by its hardware tests).
+struct VenInterface {
+    std::int32_t device;
+    std::uint8_t number;
+};
+VenInterface g_ven_interfaces[32];
+unsigned g_ven_interface_count = 0;
+
+unsigned InterfaceOf(const gcad* driver) {
+    if (!driver->ven) return static_cast<std::uint32_t>(driver->dev_id) >> 24;
+    for (unsigned i = 0; i < g_ven_interface_count; ++i) {
+        if (g_ven_interfaces[i].device == driver->dev_id) return g_ven_interfaces[i].number;
+    }
+    return 256;  // matches no interface
+}
+std::uint32_t g_ven_tag = 0;
+void* g_ven_out = nullptr;
 Reply g_replies[GCAD_REQUESTS];
 unsigned g_reply_count = 0;
 struct Op {
@@ -122,6 +149,29 @@ s32 OnOgcChange(s32 result, void* data) {
     return 0;
 }
 
+s32 OnVenChange(s32 result, void* data) {
+    (void)result;
+    (void)data;
+    g_ven_armed = false;
+    g_ven_changed = true;
+    return 0;
+}
+
+// A /dev/usb/ven device's reply as IOS gives it (rtgcad.c read_ven_info):
+// its interface descriptor at 52, its endpoints from 64, 8 bytes each.
+// True when that interface is a wired Xbox 360 pad's gamepad.
+bool VenDescriptors(gcad* driver, const usb_interfacedesc& interface) {
+    auto* out = driver->setup_out;
+    std::memcpy(out + 52, &interface, 9);
+    unsigned offset = 64;
+    for (unsigned e = 0; e < interface.bNumEndpoints && offset + 8 <= GCAD_VEN_INFO_BYTES; ++e) {
+        std::memcpy(out + offset, &interface.endpoints[e], 7);
+        offset += 8;
+    }
+    return interface.bInterfaceClass == GCAD_XBOX_CLASS && interface.bInterfaceSubClass == GCAD_XBOX_SUBCLASS &&
+           interface.bInterfaceProtocol == GCAD_XBOX_PROTOCOL;
+}
+
 // Both run with interrupts off (the driver's calls into the environment
 // come from its IPC replies or from under _CPU_ISR_Disable).
 void Answer(std::uint32_t tag, std::int32_t result) {
@@ -142,29 +192,43 @@ int SharedDescriptors(gcad* driver) {
     const s32 result = USB_GetDescriptors(driver->dev_id, &description);
     if (result < 0) return result;
     bool found = false;
+    bool usable_interface = false;
     auto* out = driver->setup_out;
     std::memset(out, 0, sizeof(driver->setup_out));
     for (unsigned c = 0; c < description.bNumConfigurations && !found; ++c) {
         const auto& config = description.configurations[c];
         for (unsigned i = 0; i < config.bNumInterfaces && !found; ++i) {
             const auto& interface = config.interfaces[i];
-            if (interface.bInterfaceClass != USB_CLASS_HID || interface.bInterfaceNumber != (driver->dev_id >> 24)) continue;
+            if (interface.bInterfaceNumber != InterfaceOf(driver)) continue;
+            found = true;
+            if (driver->ven) {
+                usable_interface = VenDescriptors(driver, interface);
+                continue;
+            }
+            usable_interface = interface.bInterfaceClass == USB_CLASS_HID;
             out[36] = 18;
             out[37] = 1;
             out[56] = 9;
             out[57] = 2;
             std::memcpy(out + 68, &interface, 9);
+            // hid's reply is 0x60 bytes: room for two interrupt endpoints.
             unsigned offset = 80;
-            for (unsigned e = 0; e < interface.bNumEndpoints && offset + 8 <= sizeof(driver->setup_out); ++e) {
+            for (unsigned e = 0; e < interface.bNumEndpoints && offset + 8 <= 0x60; ++e) {
                 const auto& endpoint = interface.endpoints[e];
                 if ((endpoint.bmAttributes & 3u) != 3u) continue;
                 std::memcpy(out + offset, &endpoint, 7);
                 offset += 8;
             }
-            found = true;
         }
     }
     USB_FreeDescriptors(&description);
+    if (found && !usable_interface) {
+        // A composite pad's audio interfaces must not retain libogc
+        // device handles after the driver frees their candidate slots.
+        s32& fd = g_ogc_dev_fd[driver->slot];
+        if (fd >= 0) USB_CloseDevice(&fd);
+        fd = -1;
+    }
     DCFlushRange(out, sizeof(driver->setup_out));
     return found ? 0 : -4;
 }
@@ -225,6 +289,24 @@ void ServeShared() {
         g_notify_armed = true;  // left set when refused: libogc has no HID list to follow
         USB_DeviceChangeNotifyAsync(USB_CLASS_HID, OnOgcChange, nullptr);
     }
+    static usb_device_entry ven_list[32] ATTRIBUTE_ALIGN(32);
+    u8 ven_count = 0;
+    bool have_ven_list = false;
+    if (g_ven_wanted && g_ven_changed) {
+        g_ven_changed = false;
+        have_ven_list = true;
+        if (USB_GetDeviceListUnfiltered(ven_list, 32, kVenClass, &ven_count) < 0) ven_count = 0;
+        rthid_device devices[RTHID_DEVICE_MAX];
+        for (unsigned i = 0; i < ven_count; ++i) {
+            devices[i] = {ven_list[i].device_id, (static_cast<std::uint32_t>(ven_list[i].vid) << 16) | ven_list[i].pid};
+            g_ven_interfaces[i] = {ven_list[i].device_id, reinterpret_cast<const std::uint8_t*>(&ven_list[i])[10]};
+        }
+        g_ven_interface_count = ven_count;
+        HidPadsRememberVen(devices, ven_count);
+    } else if (g_ven_wanted && !g_ven_armed) {
+        g_ven_armed = true;
+        USB_DeviceChangeNotifyAsync(kVenClass, OnVenChange, nullptr);
+    }
     _CPU_ISR_Disable(level);
     HidPadsCopyCatalog(reinterpret_cast<gcad_hub*>(g_state)->catalog);
     const std::uint32_t now = Now();
@@ -239,6 +321,13 @@ void ServeShared() {
         std::memcpy(g_list_out, list, count * sizeof(usb_device_entry));
         DCFlushRange(g_list_out, 0x180);  // the driver invalidates it before reading
         gcad_on_reply(g_state, g_list_tag, count, now);
+    }
+    if (have_ven_list && g_ven_wanted) {
+        g_ven_wanted = false;
+        std::memset(g_ven_out, 0, 0x180);
+        std::memcpy(g_ven_out, ven_list, ven_count * sizeof(usb_device_entry));
+        DCFlushRange(g_ven_out, 0x180);
+        gcad_on_reply(g_state, g_ven_tag, ven_count, now);
     }
     _CPU_ISR_Restore(level);
 }
@@ -262,7 +351,13 @@ void Drain() {
     while (g_event_tail != g_event_head) {
         const Event e = g_events[g_event_tail % kEvents];
         g_event_tail = g_event_tail + 1;
+        if (e.pad && e.code != GCAD_EV_HID_DIAG &&
+            (e.code == GCAD_EV_REPLY || e.code == GCAD_EV_SUBMIT_FAIL)) continue;
         switch (e.code) {
+            case GCAD_EV_HID_DIAG:
+            case GCAD_EV_HID_LIST:
+                logf("%s\n", describe_hid_diagnostic(e.pad, e.a, e.b).c_str());
+                break;
             case GCAD_EV_HID_FOUND:
                 logf("USB controller %04x:%04x: found device %08x.\n", static_cast<unsigned>(e.a >> 16),
                      static_cast<unsigned>(e.a & 65535u), static_cast<unsigned>(e.b));
@@ -280,7 +375,7 @@ void Drain() {
                 if (ErrorLine()) logf("GameCube adapter: %s not sent (%d)\n", StepName(e.a >> 8), static_cast<int>(e.b));
                 break;
             case GCAD_EV_DEVICE:
-                logf("GameCube adapter: USB device %08x, %04x:%04x\n", static_cast<unsigned>(e.a),
+                logf("USB: device %08x, %04x:%04x\n", static_cast<unsigned>(e.a),
                      static_cast<unsigned>(e.b) >> 16, static_cast<unsigned>(e.b) & 0xFFFF);
                 break;
             case GCAD_EV_FOUND: logf("GameCube adapter: found (device %08x)\n", static_cast<unsigned>(e.a)); break;
@@ -341,6 +436,9 @@ void ResetShared() {
     g_list_wanted = false;
     g_ogc_changed = false;
     g_notify_armed = false;
+    g_ven_wanted = false;
+    g_ven_changed = false;
+    g_ven_armed = false;
     g_refused = 0;
     g_reply_count = 0;
     g_op_count = 0;
@@ -384,7 +482,7 @@ bool GcAdapterStart(std::string& why, bool own_handle) {
         g_shared = g_ogc = true;
         g_ogc_changed = true;  // libogc's current list answers the first request
         g_notify_armed = USB_DeviceChangeNotifyAsync(USB_CLASS_HID, OnOgcChange, nullptr) >= 0;
-        logf("GameCube adapter: through libogc's USB (/dev/usb/hid v5 on IOS%d), device %08x\n", IOS_GetVersion(),
+        logf("USB controllers: through libogc's USB (/dev/usb/hid v5 on IOS%d), adapter device %08x\n", IOS_GetVersion(),
              static_cast<unsigned>(dev));
     } else {
         if (!open_usb_hid(g_fd, version, why)) {
@@ -404,6 +502,12 @@ bool GcAdapterStart(std::string& why, bool own_handle) {
     HidPadsCopyCatalog(hub->catalog);
     gcad_hub_init(hub, nullptr, g_fd, version, TB_TIMER_CLOCK);
     if (dev >= 0) gcad_expect(g_state, dev);
+    // Wired Xbox 360 pads, through libogc's /dev/usb/ven list. Only on
+    // libogc's handles: RiftWii's own handle is for a menu without them.
+    if (g_ogc && Settings().usb_input == "on") {
+        gcad_ven_init(g_state, &hub->ven, hub->xbox, nullptr, -1, TB_TIMER_CLOCK);
+        g_ven_changed = true;  // libogc's current list answers the first request
+    }
     gcad_tick(g_state, Now());
     _CPU_ISR_Restore(level);
     return true;
@@ -466,13 +570,21 @@ void GcAdapterPoll(GcAdapterView& out) {
     out.reports = g_state->reports;
     out.listed = g_state->listed;
     out.last_error = g_state->last_error;
+    out.adapter_present = g_state->dev_id != GCAD_NO_DEVICE;
     for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
         const gcad& pad = g_state->peers[i];
+        if (pad.mapping && pad.dev_id != GCAD_NO_DEVICE) {
+            out.hid_ids[i] = (static_cast<std::uint32_t>(pad.mapping->vid) << 16) | pad.mapping->pid;
+            out.hid_input[i] = pad.reports != 0;
+        }
         if (pad.link == GCAD_LINK_POLL && !pad.stale) ++out.hid_pads;
         out.reports += pad.reports;
     }
     if (out.hid_pads && out.link == GCAD_LINK_NONE) out.link = GCAD_LINK_POLL;
     for (unsigned p = 0; p < GCAD_PORTS; ++p) out.present[p] = gcad_port(g_state, p, &out.pads[p], now) != 0;
+    for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+        out.adapter_ports[p] = out.present[p] && g_state->port_source[p] < GCAD_PORTS;
+    }
     _CPU_ISR_Restore(level);
     Drain();
 }
@@ -531,10 +643,16 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         g_menu_said_off = false;
         std::int32_t dev = -1;
         std::string devices;
+        // ogc_adapter keeps the last ven list over an empty one (the launch
+        // restarts libogc's USB, whose first list is empty): here, every
+        // 2 s in the menu, an empty list means an Xbox pad was unplugged.
+        HidPadsRefreshVen();
         const AdapterSeen seen = ogc_adapter(dev, devices);
         g_menu_missing = seen == AdapterSeen::Missing;
         if (seen != AdapterSeen::Found) return;
-        logf("GameCube adapter: plugged in (USB lists %s); the menu takes its controllers\n", devices.c_str());
+        logf("%s (USB lists %s); the menu takes its controllers.\n",
+             dev >= 0 ? "GameCube adapter: plugged in" : "GameCube adapter: not plugged in; mapped USB controller(s) found",
+             devices.c_str());
         std::string why;
         if (!GcAdapterStart(why)) {
             g_menu_failed = true;
@@ -578,15 +696,22 @@ extern "C" {
 int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t in_len, void* out, uint32_t out_len) {
     using namespace riftwii::wii;
     if (g->version == 5 && cmd == GCAD_V5_GET_DEVICE_CHANGE) {
-        g_list_tag = tag;
-        g_list_out = out;
+        (g->ven ? g_ven_tag : g_list_tag) = tag;
+        (g->ven ? g_ven_out : g_list_out) = out;
     }
     if (g_shared) {
         switch (cmd) {
-            case GCAD_V5_GET_DEVICE_CHANGE: g_list_wanted = true; return 0;
+            case GCAD_V5_GET_DEVICE_CHANGE:
+                (g->ven ? g_ven_wanted : g_list_wanted) = true;
+                return 0;
             case GCAD_V5_ATTACH_FINISH: Answer(tag, 0); return 0;  // libogc sends its own
             case GCAD_V5_SHUTDOWN:  // it would cancel libogc's
-                if (g_list_wanted) {
+                if (g->ven) {
+                    if (g_ven_wanted) {
+                        g_ven_wanted = false;
+                        Answer(g_ven_tag, 0);
+                    }
+                } else if (g_list_wanted) {
                     g_list_wanted = false;
                     Answer(g_list_tag, 0);
                 }
@@ -635,7 +760,10 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
                                          data_len ? data : nullptr, riftwii::wii::OnReply, t);
         }
         if (cmd != GCAD_V5_INTERRUPT) return -4;
-        return gcad_get32(m + 8) != 0
+        // hid: a direction word at 8; ven: the endpoint itself at 14.
+        const bool out = g->ven ? (m[14] & 0x80) == 0 : gcad_get32(m + 8) != 0;
+        return out
+
                    ? USB_WriteIntrMsgAsync(dev, g->endpoint_out, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t)
                    : USB_ReadIntrMsgAsync(dev, g->endpoint_in, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t);
     }
@@ -668,13 +796,15 @@ void gcad_env_invalidate(gcad* g, void* p, uint32_t len) {
 }
 
 void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
-    (void)g;
     using namespace riftwii::wii;
     if (g_event_head - g_event_tail >= kEvents) {
         g_events_lost = g_events_lost + 1;
         return;
     }
-    g_events[g_event_head % kEvents] = Event{code, a, b};
+    const rthid_mapping* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const std::uint32_t pad = mapping ? (static_cast<std::uint32_t>(mapping->vid) << 16) | mapping->pid : 0;
+    g_events[g_event_head % kEvents] = Event{code, a, b, pad};
     g_event_head = g_event_head + 1;
 }
 

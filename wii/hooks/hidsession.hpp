@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <string>
+#include "rthid.h"
 
 // The launch's own /dev/usb/hid handle (padhook.cpp opens it before libogc's
 // USB touches the device, and hands it to the game). The state is here, apart
@@ -13,6 +14,27 @@
 // A handle belongs to the IOS that gave it out. After an IOS reload it is a
 // dead descriptor, and reusing it would skip the open on the new IOS.
 namespace riftwii::wii {
+
+// IOS v5 sends a list per device change, rather than per opened handle.
+// Keep the list read just before libogc shuts down for the game. A new
+// manager's empty cache must not erase it; a real IOS reload must.
+struct HidDeviceHandoff {
+    rthid_device devices[RTHID_DEVICE_MAX]{};
+    unsigned count = 0;
+
+    void clear() { count = 0; }
+
+    void remember(const rthid_device* list, unsigned listed) {
+        count = list && listed <= RTHID_DEVICE_MAX ? listed : 0;
+        for (unsigned i = 0; i < count; ++i) devices[i] = list[i];
+    }
+
+    unsigned restore_if_empty(rthid_device* list, unsigned listed) const {
+        if (listed) return listed;
+        for (unsigned i = 0; i < count; ++i) list[i] = devices[i];
+        return count;
+    }
+};
 
 struct OwnHidHandle {
     std::int32_t fd = -1;        // -1: none
