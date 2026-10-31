@@ -6211,7 +6211,6 @@ static int MenuSource(FrontendState& state)
 	queueCovers();
 	HaltGui();
 	matchHomebrewCovers();
-	ResumeGui();
 
 	SetHomeMovable(grid, entries);
 	int shownPage = -1, shownPages = -1;
@@ -6240,6 +6239,9 @@ static int MenuSource(FrontendState& state)
 			g_homeOpeningGame = false;
 		}
 	} homeOwner(w, grid);
+	// The GUI thread reads the owner each frame: it starts again once
+	// Home's owner is in.
+	ResumeGui();
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
