@@ -141,9 +141,12 @@ static struct {
 	/* A resent read that ended in an error may get its second error
 	 * answer after libogc has moved on, and that answer would end the next
 	 * read with nothing in it.  The one error answer that can still come is
-	 * withheld, for as long as a resend waits. */
+	 * withheld, for as long as a resend waits, and only when it names the
+	 * ended read's address and the read now waited on is elsewhere: the
+	 * current read's own error must still end it. */
 	bool echo;
 	u32 echo_at;
+	u32 echo_addr;
 } ud_sent[WIIMOTES];
 
 /* The address and size of a read request, from cmd->data as libogc 3.1.0's
@@ -161,21 +164,37 @@ static bool read_request(const struct cmd_blk_t *cmd, u32 *addr, u16 *size)
 	return true;
 }
 
-/* True when a 0x21 report's chunk lies inside the read at addr for size.
+/* True when a 0x21 report's chunk is one of the read at addr for size.
  * libogc 3.1.0's events.c gets msg = event_buf + 1, so the size/error byte is
  * event_buf[3], the big-endian offset event_buf[4..5] and the data
- * event_buf[6..].  An error answer has no chunk and must still reach libogc
- * so that the failed read can finish. */
+ * event_buf[6..].  A Remote answers a read in 16-byte pieces from its start,
+ * the last one shorter, so a chunk must start on a piece and be that piece's
+ * length: a late answer to another read inside the range (the 6-byte
+ * expansion ID at 0xFA lies inside the 224-byte read from 0x20) would
+ * otherwise take a piece's place.  An error answer has no chunk and must
+ * still reach libogc so that the failed read can finish. */
 static bool chunk_matches(const struct wiimote_t *wm, u32 addr, u16 size)
 {
 	const u8 *buf = wm->event_buf;
 	u32 offset = ((u32)buf[4] << 8) | buf[5];
 	u32 len = ((buf[3] & 0xf0) >> 4) + 1;
 	u32 base = addr & 0xffff;
+	u32 piece_len;
 
 	if (buf[3] & 0x0f)
 		return true;
-	return offset >= base && offset + len <= base + size;
+	if (offset < base || offset >= base + size || ((offset - base) & 15))
+		return false;
+	piece_len = base + size - offset;
+	if (piece_len > 16)
+		piece_len = 16;
+	return len == piece_len;
+}
+
+/* The offset a 0x21 report names (event_buf[4..5], big-endian). */
+static u32 report_offset(const struct wiimote_t *wm)
+{
+	return ((u32)wm->event_buf[4] << 8) | wm->event_buf[5];
 }
 
 /* Which 16-byte pieces of the read being waited on have arrived.  A resent
@@ -289,6 +308,7 @@ void __wrap_parse_event(struct wiimote_t *wm)
 	int chan = wm->unid;
 	bool deliver = true;
 	bool was_resent = false;
+	u32 resent_addr = 0;
 	const struct cmd_blk_t *head = wm->cmd_head;
 
 	if (wm->event_buf[0] == READ_REPORT) {
@@ -298,8 +318,11 @@ void __wrap_parse_event(struct wiimote_t *wm)
 		u32 addr;
 		u16 size;
 
-		was_resent = tracked && ud_sent[chan].resent && ud_sent[chan].cmd == cmd;
-		if (error && tracked && ud_sent[chan].echo && now_ms() - ud_sent[chan].echo_at <= RESEND_MS) {
+		was_resent = tracked && ud_sent[chan].resent && ud_sent[chan].cmd == cmd &&
+		             read_request(cmd, &resent_addr, &size);
+		if (error && tracked && ud_sent[chan].echo && now_ms() - ud_sent[chan].echo_at <= RESEND_MS &&
+		    report_offset(wm) == ud_sent[chan].echo_addr &&
+		    !(read_request(cmd, &addr, &size) && (addr & 0xffff) == ud_sent[chan].echo_addr)) {
 			/* The resent read's second error answer. */
 			ud_sent[chan].echo = false;
 			deliver = false;
@@ -346,6 +369,7 @@ void __wrap_parse_event(struct wiimote_t *wm)
 		if (was_resent && (wm->event_buf[3] & 0x0f) && wm->cmd_head != head) {
 			ud_sent[chan].echo = true;
 			ud_sent[chan].echo_at = now_ms();
+			ud_sent[chan].echo_addr = resent_addr & 0xffff;
 		}
 	} else {
 		/* A read answer carries the buttons too, and libogc reads them
