@@ -19,20 +19,17 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* Pick a genre on Home: hold B, press Down or Up, let go
-* USB drives over 2 TiB start games again
-* Japanese GameCube games on a Western console: memory cards no longer read as damaged in more games
-* Wii Menu music and sounds keep working after you quit a game
-* GameCube games in another top folder of the drive are found
-* Box names in the Carousel and Shelf stay on their spines
+* USB gamepads (PS3, PS4, generic pads, arcade sticks) play as GameCube controllers, with Nintendont's controller.ini configs: Settings > Controllers > USB input devices, and Check USB controllers to see a pad's buttons
+* The RiftWii channel fits a 16:9 Wii Menu: no more stretched banner, and it sits above the buttons
+* No more tearing in the channel's start animation
+* USB LOADER under the name, on the channel and the Homebrew Channel icon
 
 To test, please:
 
-1. A USB drive bigger than 2 TiB: do games start?
-2. A Japanese GameCube game with its memory card: does the save load?
-3. Quit a game with HOME > Wii Menu (Wii Menu music on): does the music play back in RiftWii?
-4. The genre picker: does it find your games' genres?
+1. A USB gamepad with its controller.ini: does Check USB controllers show its buttons, and does it play in a GameCube game?
+2. Update the channel (Settings > Help > RiftWii channel on the Wii Menu): does the banner look right on your TV, and does the start animation play cleanly?
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![Picking a genre on Home](docs/screenshots/2610-genre-picker.png)
+![USB controller settings](docs/screenshots/2610-usb-controllers.png)
+![The channel banner on 16:9](docs/screenshots/2610-channel-banner.png)

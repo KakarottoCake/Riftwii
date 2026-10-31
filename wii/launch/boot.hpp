@@ -238,7 +238,10 @@ const LaunchExtras& CurrentLaunchExtras();
 // with the /dev/usb/hid handle the game takes over, its HID version and
 // the adapter's v5 device id (-1: none); false when the adapter stays off
 // (the reason is in the log).
-bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev);
+// `ven_fd`: /dev/usb/ven for wired Xbox 360 pads, -1: none.
+bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev,
+                              std::int32_t& ven_fd);
+
 // The menu's word on the next launch: a pack keeps its own saves.
 bool LaunchPackKeepsSaves();
 

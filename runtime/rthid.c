@@ -6,6 +6,19 @@
  * No heap, libc, floating point, globals or address-dependent tables. */
 #include "rtgcad.h"
 
+/* Microsoft and the makers of wired pads in the Xbox 360's protocol
+ * (Mad Catz, PDP, Hori, RedOctane, Nacon, Razer, Numark, Joytech,
+ * Harmonix, PowerA and its BDA name, 8BitDo, Hyperkin, Fanatec,
+ * Thrustmaster, Logitech's F310/F710 in their Xbox mode). A comparison
+ * chain, not a table: the game blobs carry no constant data. */
+/* Here, not in rtgcad.c: the menu's USB code asks it without the driver. */
+int gcad_xbox_vendor(uint32_t vid) {
+    return vid == 0x045E || vid == 0x0738 || vid == 0x0E6F || vid == 0x0F0D || vid == 0x1430 ||
+           vid == 0x146B || vid == 0x1532 || vid == 0x15E4 || vid == 0x162E || vid == 0x1689 ||
+           vid == 0x1BAD || vid == 0x20D6 || vid == 0x24C6 || vid == 0x2DC8 || vid == 0x2E24 ||
+           vid == 0x3767 || vid == 0x044F || vid == 0x046D;
+}
+
 static int valid_offset(uint16_t offset, uint16_t bytes) {
     return offset == RTHID_ABSENT || offset < bytes;
 }
@@ -39,7 +52,7 @@ int rthid_valid(const rthid_mapping* m) {
 int rthid_catalog_valid(const rthid_catalog* catalog) {
     uint32_t i;
     if (!catalog || catalog->adapter_disabled > 1 || catalog->count > RTHID_CONFIG_MAX ||
-        catalog->known_count > RTHID_DEVICE_MAX) return 0;
+        catalog->known_count > RTHID_DEVICE_MAX || catalog->ven_known_count > RTHID_DEVICE_MAX) return 0;
     for (i = 0; i < catalog->count; ++i) {
         if (!rthid_valid(&catalog->maps[i])) return 0;
     }

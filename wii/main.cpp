@@ -30,7 +30,6 @@
 #include "input.h"
 #include "menu.h"
 #include "video.h"
-#include "zstd.h"
 
 #include "launchrun.hpp"
 #ifdef RIFTWII_TEST_BUILD
@@ -408,23 +407,6 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::mem::LogUsage("start");
 }
 
-// The menu font's core (wii/font/core.ttf; the rest is read from the SD
-// card when needed, wii/menu/fullfont.hpp) ships zstd-compressed in the
-// start-up stash (Makefile.wii, wii/core/stash.hpp), already in MEM2.
-// Unpacked into MEM2 too, where FreeType reads it for the whole menu
-// phase, so neither the DOL's resident part nor the MEM1 heap carries it.
-bool UnpackMenuFont(u8*& font, std::size_t& size) {
-    const u8* packed = nullptr;
-    u32 packed_size = 0;
-    if (!riftwii::wii::stash::Find("menufont.zst", packed, packed_size)) return false;
-    const unsigned long long full = ZSTD_getFrameContentSize(packed, packed_size);
-    if (full == ZSTD_CONTENTSIZE_UNKNOWN || full == ZSTD_CONTENTSIZE_ERROR || full == 0) return false;
-    size = static_cast<std::size_t>(full);
-    font = riftwii::wii::skin::Mem2Alloc(size);
-    if (font == nullptr) return false;
-    return ZSTD_decompress(font, size, packed, packed_size) == size;
-}
-
 }  // namespace
 
 int main() {
@@ -509,13 +491,17 @@ int main() {
     // Games copied to the Wii from the SD card for the last session go
     // again, so they take no room on the Wii past the game they were for.
     if (sd_mounted) riftwii::wii::UnstageMovedChannels();
+    const bool selected_wii_font = riftwii::wii::Settings().menu_font == "wii";
+    const bool own_font_tried = !selected_wii_font;
+    bool font_ready = own_font_tried && riftwii::wii::fullfont::Load();
+    const bool need_wii_font = !font_ready;
     // A marker on the card while the Wii Menu's font is read: reading it
     // may open IOS's NAND permission check, which hung consoles before
     // 3.3.3. Found at the next start, the font is skipped, so a console it
     // stops is not stopped at every start.
     constexpr const char* kFontTry = "sd:/riftwii/menu_font_try.txt";
     bool font_tried_before = false;
-    if (riftwii::wii::Settings().menu_font == "wii" && sd_mounted) {
+    if (need_wii_font && sd_mounted) {
         if (FILE* f = std::fopen(kFontTry, "rb")) {
             std::fclose(f);
             font_tried_before = true;
@@ -546,7 +532,7 @@ int main() {
     // in the menu (a tester's drive went missing). Later starts read the
     // copy. Asked after the IOS above is up, since a restart's reload
     // changes what the menu has. Not when a menu IOS is chosen in Settings.
-    if (sd_mounted && riftwii::wii::Settings().menu_font == "wii" && !font_tried_before &&
+    if (sd_mounted && need_wii_font && !font_tried_before &&
         read32(0x0D800064) != 0xFFFFFFFF && !riftwii::wii::running_in_dolphin() &&
         riftwii::wii::MenuCiosSlot() == 0 && riftwii::wii::LoadMenuIos() == 0 && !riftwii::wii::WiiMenuFontCached()) {
         const int slot = riftwii::wii::BurnedDiscSlot();
@@ -595,14 +581,13 @@ int main() {
     InitAudio();
     riftwii::wii::DecodeMenuSounds();
     timed("video, pads and audio");
-    // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
-    bool font_ready = false;
-    if (font_tried_before) {
+    // The Wii Menu face also rescues an install with a missing card font.
+    if (need_wii_font && font_tried_before) {
         riftwii::wii::logf("Menu font: the Wii Menu's stopped RiftWii last time (%s was left); RiftWii's instead\n",
                            kFontTry);
         std::remove(kFontTry);
         SetHomeNotice(riftwii::wii::tr("RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."));
-    } else if (riftwii::wii::Settings().menu_font == "wii") {
+    } else if (need_wii_font) {
         if (!font_read) read_wii_font();
         std::string& why = font_why;
         if (font != nullptr && !InitFreeType(font, font_size, riftwii::wii::kWiiMenuFontFace)) {
@@ -622,16 +607,22 @@ int main() {
         }
         timed("Wii Menu font read");
     }
+    if (!font_ready && !own_font_tried) {
+        font_ready = riftwii::wii::fullfont::Load();
+        timed("card font read");
+    }
     if (!font_ready) {
-        if (!UnpackMenuFont(font, font_size)) {
-            // Only if MEM2 were already full: FreeType can't run without a face.
-            riftwii::wii::logf("Menu font: unpacking failed\n");
-            ExitApp();
-        }
-        timed("font unpacked");
-        InitFreeType(font, font_size);
-        // Characters the core lacks (kanji in game names) from font.ttf.
-        riftwii::wii::fullfont::Enable();
+        // libogc's built-in console remains readable without either menu
+        // font. Keep this recovery message in English: its font is ASCII.
+        SetBitmapGlyphSource(nullptr);
+        riftwii::wii::ConsoleStart(true);
+        riftwii::wii::logf("RiftWii could not read either menu font.\n"
+                           "Copy apps/riftwii/font.ttf from the RiftWii zip\n"
+                           "to the SD card, then start RiftWii again.\n"
+                           "Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        ExitApp();
+        return 0;
     }
     if (!riftwii::wii::MenuLanguageDrawable(riftwii::wii::MenuLanguage())) {
         riftwii::wii::SetMenuLanguage("en");

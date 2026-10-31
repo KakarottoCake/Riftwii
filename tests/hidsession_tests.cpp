@@ -124,6 +124,28 @@ void test_plain_close() {
     CHECK(ios.closes == 1 && !handle.is_open());
 }
 
+void test_device_list_survives_manager_shutdown_only() {
+    riftwii::wii::HidDeviceHandoff handoff;
+    const rthid_device composite[] = {
+        {0x001F0021, 0x054C09CC}, {0x011E0021, 0x054C09CC},
+        {0x021D0021, 0x054C09CC}, {0x031C0021, 0x054C09CC}
+    };
+    handoff.remember(composite, 4);
+    rthid_device list[RTHID_DEVICE_MAX]{};
+    CHECK(handoff.restore_if_empty(list, 0) == 4);
+    CHECK(list[3].id == composite[3].id && list[3].vid_pid == 0x054C09CC);
+    list[0] = {42, 0x12345678};
+    CHECK(handoff.restore_if_empty(list, 1) == 1);
+    CHECK(list[0].id == 42); // a new nonempty list keeps priority
+    handoff.clear(); // forget_usb_hid_handle, before an IOS reload
+    CHECK(handoff.restore_if_empty(list, 0) == 0);
+    handoff.remember(composite, 4);
+    handoff.remember(nullptr, 0); // fresh launch refresh found no devices
+    CHECK(handoff.restore_if_empty(list, 0) == 0);
+    handoff.remember(composite, RTHID_DEVICE_MAX + 1);
+    CHECK(handoff.restore_if_empty(list, 0) == 0);
+}
+
 }  // namespace
 
 s32 IOS_Close(s32 fd) {
@@ -137,6 +159,7 @@ s32 IOS_Close(s32 fd) {
 }
 
 int main() {
+    test_device_list_survives_manager_shutdown_only();
     test_reload_between_uses_opens_again();
     test_stuck_handle_is_not_closed();
     test_forget_without_a_handle();

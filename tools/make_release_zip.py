@@ -118,9 +118,9 @@ def zip_entries(args, values, commit_time):
         (apps + "riftwii/meta.xml", crlf(release_meta_xml(args.version, commit_time))),
         (apps + "riftwii/icon.png", (ROOT / "hbc" / "icon.png").read_bytes()),
         (apps + "riftwii/music.ogg", (ROOT / "hbc" / "music.ogg").read_bytes()),
-        # The whole menu font, uncompressed so the menu can read a glyph in
-        # place: the DOL carries only its core (wii/menu/fullfont.hpp).
-        (apps + "riftwii/font.ttf", (ROOT / "wii" / "font" / "rounded.ttf").read_bytes()),
+        # The entire menu font stays in MEM2; no font data goes in the DOL.
+        (apps + "riftwii/font.ttf", (ROOT / "wii" / "font" / "menu.ttf").read_bytes()),
+        (apps + "riftwii/OFL.txt", (ROOT / "wii" / "font" / "OFL.txt").read_bytes()),
         (apps + "riftwii/korean.ttf", (ROOT / "wii" / "font" / "korean.ttf").read_bytes()),
         (apps + "riftwii/Korean-OFL.txt", (ROOT / "wii" / "font" / "Korean-OFL.txt").read_bytes()),
     ]

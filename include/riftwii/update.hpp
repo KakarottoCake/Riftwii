@@ -67,12 +67,14 @@ struct UpdateWrite {
 // False, with `error`, and nothing to write, otherwise.
 // The apps part's name for the full menu font (tools/make_update_pack.py).
 constexpr const char* kMenuFontFile = "riftwii/font.ttf";
+constexpr const char* kMenuFontLicense = "riftwii/OFL.txt";
 constexpr const char* kKoreanFontFile = "riftwii/korean.ttf";
 constexpr const char* kKoreanFontLicense = "riftwii/Korean-OFL.txt";
 
 // Fonts and their license go beside the DOL, before the new DOL is written.
 inline bool is_menu_font_file(const std::string& path) {
-    return path == kMenuFontFile || path == kKoreanFontFile || path == kKoreanFontLicense;
+    return path == kMenuFontFile || path == kMenuFontLicense ||
+           path == kKoreanFontFile || path == kKoreanFontLicense;
 }
 
 bool plan_update_writes(const ThemePack& apps, const std::string& release, const std::string& plugin_dir,
