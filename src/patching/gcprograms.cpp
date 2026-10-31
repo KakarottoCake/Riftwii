@@ -38,6 +38,13 @@ bool is_relative_branch(std::uint32_t word) {
     return opcode == 16 || opcode == 18;  // bc, b (and their l/a forms)
 }
 
+// bclrl and the like: run from the blob's replay slot, it would leave LR
+// pointing there instead of into the program.
+bool is_link_branch(std::uint32_t word) {
+    const unsigned extended = (word >> 1) & 0x3FF;
+    return (word >> 26) == 19 && (extended == 16 || extended == 528) && (word & 1) != 0;
+}
+
 // Whether a word may touch r12 or CTR. The blob uses both around the two
 // words it replays: gc_hook_program keeps the caller's LR in CTR on the way
 // in, and the way back to the third word (gc_continue_program: lis/ori r12,
@@ -178,7 +185,7 @@ bool gc_sort_disc_patches(std::vector<GcDiscPatch>& patches, std::string& why) {
 
 bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint32_t second, unsigned index,
                             std::uint32_t hook, std::uint32_t out[2], std::string& why) {
-    if (is_relative_branch(first) || is_relative_branch(second)) {
+    if (is_relative_branch(first) || is_relative_branch(second) || is_link_branch(first) || is_link_branch(second)) {
         why = "the program starts with a branch, which cannot run from elsewhere";
         return false;
     }
