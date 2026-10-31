@@ -3357,6 +3357,9 @@ msgstr "El instalador se ejecutó, pero el canal sigue en la versión {1}."
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "El instalador del canal ({1}) falta o está dañado"
 
+msgid "{1} could not be read again after the IOS restart"
+msgstr "{1} no se pudo leer de nuevo tras reiniciar el IOS"
+
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda."
 

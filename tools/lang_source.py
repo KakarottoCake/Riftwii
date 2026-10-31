@@ -6866,6 +6866,11 @@ T.update({
         "チャンネルのインストーラー ({1}) がないか、破損しています",
         "O instalador do canal ({1}) está ausente ou danificado",
         "L'installer del canale ({1}) è assente o danneggiato"),
+    "{1} could not be read again after the IOS restart": (
+        "{1} no se pudo leer de nuevo tras reiniciar el IOS",
+        "IOSの再起動後、{1} をもう一度読み込めませんでした",
+        "Não foi possível ler {1} novamente após reiniciar o IOS",
+        "Impossibile leggere di nuovo {1} dopo il riavvio dell'IOS"),
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.": (
         "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda.",
         "RiftWiiはインストーラーを開きましたが、終了を確認できていません。問題の報告にsd:/riftwii/channel.logを付けてください。",
@@ -6890,6 +6895,7 @@ T.update({
 })
 KO.update({
     "The channel installer ({1}) is missing or damaged": "채널 설치 프로그램 ({1})이 없거나 손상되었습니다",
+    "{1} could not be read again after the IOS restart": "IOS를 다시 시작한 뒤 {1}을(를) 다시 읽지 못했습니다",
     "The installer ran, but the channel is still version {1}.": "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}입니다.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다.",
@@ -6902,6 +6908,7 @@ KO.update({
 })
 FR.update({
     "The channel installer ({1}) is missing or damaged": "L'installateur de la chaîne ({1}) est absent ou endommagé",
+    "{1} could not be read again after the IOS restart": "Impossible de relire {1} après le redémarrage de l'IOS",
     "The installer ran, but the channel is still version {1}.": "L'installateur a été exécuté, mais la chaîne est toujours en version {1}.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile.",
