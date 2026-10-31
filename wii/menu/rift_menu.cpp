@@ -13375,6 +13375,8 @@ static int MenuHome(FrontendState& state)
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
 	                  !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
 	                  riftwii::wii::CoverWanted(state.game_id);
+	// The name that fetch is for: the game's, or a mod tile's own (its key).
+	std::string coverStartName = state.game_id;
 	// A press on the Cover row asks again even after automatic downloads stopped.
 	bool coverAsked = false;
 	bool boxStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
@@ -13428,20 +13430,35 @@ static int MenuHome(FrontendState& state)
 
 		// A player's own cover the loader couldn't use: Home looks at the
 		// others again when it's back; this page's game asks GameTDB now,
-		// as it would have if the cover's first bytes had shown it.
+		// as it would have if the cover's first bytes had shown it. A mod
+		// tile's cover has its own name, kept even when the game's stock
+		// cover is stored, so the tile's is asked again too.
 		if (const std::vector<std::string> broken = riftwii::wii::TakeBrokenOwnCovers(); !broken.empty()) {
 			for (const std::string& name : broken) g_coversChecked.erase(name);
-			const bool ours = std::find(broken.begin(), broken.end(), state.game_id) != broken.end() ||
-			                  std::find(broken.begin(), broken.end(), PageCoverName(state)) != broken.end();
-			if (ours && !coverStart && riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
-			    !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(state.game_id)) {
-				g_coversChecked.insert(state.game_id);
+			const std::string pageCover = PageCoverName(state);
+			const bool gameBroken = std::find(broken.begin(), broken.end(), state.game_id) != broken.end();
+			const bool tileBroken = pageCover != state.game_id &&
+			                        std::find(broken.begin(), broken.end(), pageCover) != broken.end();
+			const bool gameWanted = riftwii::wii::CoverWanted(state.game_id);
+			const bool tileWanted = pageCover != state.game_id && riftwii::wii::CoverWanted(pageCover);
+			if ((gameBroken || tileBroken) && !coverStart && riftwii::wii::Settings().online &&
+			    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(state.game_id) &&
+			    !riftwii::wii::NetFailed() && (gameWanted || tileWanted)) {
+				// The game's own broken cover first, as before; the tile's
+				// when it is the one broken (the game's may be stored).
+				if (gameBroken && gameWanted)
+					coverStartName = state.game_id;
+				else if (tileWanted)
+					coverStartName = pageCover;
+				else
+					coverStartName = state.game_id;
+				g_coversChecked.insert(coverStartName);
 				coverStart = true;
 			}
 		}
 
 		if (coverStart && (coverAsked || (!CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()))) {
-			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
+			if (riftwii::wii::CoverFetchGame() == coverStartName || riftwii::wii::StartCoverFetch(coverStartName))
 				coverStart = false;
 		} else if (coverStart) {
 			coverStart = false;
@@ -13471,6 +13488,7 @@ static int MenuHome(FrontendState& state)
 				    riftwii::wii::TakenFetchWasSecondSet() != riftwii::wii::CoverSecondSet(id)) {
 					// Started before the GameTDB cover row changed the set: the
 					// one now chosen is fetched again, and its answer is said.
+					coverStartName = state.game_id;
 					coverStart = true;
 				} else if (id != state.game_id) {
 					// One Home started before this page opened, or another game's.
@@ -13644,6 +13662,7 @@ static int MenuHome(FrontendState& state)
 					// Started at the top of the loop, or as soon as the
 					// network's thread is free; the answer is said when it comes.
 					say(tr("Downloading the cover..."));
+					coverStartName = state.game_id;
 					coverStart = true;
 					coverAsked = true;
 					shownTile = acted;
