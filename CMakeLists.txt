@@ -315,7 +315,7 @@ if(BUILD_TESTING)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(hidpads_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
-    foreach(mode connected initialize absent unmapped adapter off)
+    foreach(mode connected initialize absent unmapped adapter xbox off)
         add_test(NAME hidpads_${mode} COMMAND hidpads_tests ${mode}
             "${CMAKE_CURRENT_BINARY_DIR}/hidpads-test-${mode}")
     endforeach()

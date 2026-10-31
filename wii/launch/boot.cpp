@@ -2904,10 +2904,12 @@ void SetLaunchExtras(LaunchExtras extras) {
 
 const LaunchExtras& CurrentLaunchExtras() { return g_extras; }
 
-bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev) {
+bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev,
+                              std::int32_t& ven_fd) {
     fd = -1;
     version = 0;
     known_dev = -1;
+    ven_fd = -1;
     // Demo's made-up presses are for Wii games' test runs: a GameCube
     // game takes the adapter as On.
     if (g_extras.gc_adapter == GcAdapterMode::Demo) g_extras.gc_adapter = GcAdapterMode::On;
@@ -2925,8 +2927,10 @@ bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t&
         logf("GameCube adapter: off: %s\n", why.c_str());
         return false;
     }
+    if (version == 5) ven_fd = open_usb_ven_for_game();
     return true;
 }
+
 
 bool LaunchPackKeepsSaves() { return g_extras.pack_keeps_saves; }
 

@@ -2199,8 +2199,8 @@ msgstr "Controller USB: funzionanti"
 msgid "USB input devices"
 msgstr "Dispositivi di ingresso USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "I controller USB usano i file controller.ini nel menu e nei giochi; i controller Xbox 360 con filo non ne hanno bisogno. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrazione del Wii Remote"

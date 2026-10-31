@@ -77,6 +77,7 @@ struct GcLaunchExtras {
     std::int32_t adapter_fd = -1;
     std::uint32_t adapter_version = 0;
     std::int32_t adapter_dev = -1;
+    std::int32_t ven_fd = -1;  // /dev/usb/ven for Xbox 360 pads, -1: none
     bool adapter_rumble = false;
     const void* hid_catalog = nullptr;
     u64 way_back_title = 0;  // 0: none

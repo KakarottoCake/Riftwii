@@ -2199,8 +2199,8 @@ msgstr "Manettes USB : actives"
 msgid "USB input devices"
 msgstr "Périphériques USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux ; les manettes Xbox 360 filaires n'en ont pas besoin. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrations Télécommande Wii"
