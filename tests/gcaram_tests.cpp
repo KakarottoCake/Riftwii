@@ -234,6 +234,22 @@ void test_finds_end_after_base() {
     Text no_subf = t;
     no_subf.words[(lis + 12 - kBase) / 4] = kNop;
     EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(no_subf.ranges()).empty());
+    // The subtrahend not from the base: subf r0,r5,r0 with r5 never set
+    // from r3, or r6 written again after its addi.
+    Text not_base = t;
+    not_base.words[(lis + 12 - kBase) / 4] = 0x7C050050;  // subf r0,r5,r0
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(not_base.ranges()).empty());
+    Text rewritten = t;
+    rewritten.words[(lis + 4 - kBase) / 4] = 0x38C00010;  // li r6,0x10
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(rewritten.ranges()).empty());
+    // The end's register written again before the subtraction.
+    Text end_changed = t;
+    end_changed.words[(lis + 8 - kBase) / 4] = 0x38000010;  // li r0,0x10
+    EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(end_changed.ranges()).empty());
+    // The base taken by mr instead: still found.
+    Text moved = t;
+    moved.words[(call + 4 - kBase) / 4] = 0x7C661B78;  // mr r6,r3
+    EXPECT_EQ(riftwii::find_gc_aram_ends_after_base(moved.ranges()).size(), 1u);
     Text other_getter = t;
     other_getter.words[(getter - kBase) / 4] = 0x38608000;  // li r3,-0x8000
     EXPECT_TRUE(riftwii::find_gc_aram_ends_after_base(other_getter.ranges()).empty());

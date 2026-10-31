@@ -79,18 +79,43 @@ std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRa
         const bool base_getter = getter != 0 && code.has(getter + 4) && code.at(getter) == 0x38604000 &&
                                  code.at(getter + 4) == kBlr;  // li r3,0x4000; blr
         if (!base_getter) return;
-        for (std::uint32_t b = a + 4; b <= a + 12 && code.has(b); b += 4) {
-            const std::uint32_t lis = code.at(b);
-            const std::uint32_t end = lis & 0xFFFF;
-            if ((lis & 0xFC1F0000) != 0x3C000000 || end == 0 || end > 0x100) continue;  // lis rX,H
-            const std::uint32_t end_reg = (lis >> 21) & 31;
-            bool subtracted = false;
-            for (std::uint32_t c = b + 4; c <= b + 16 && code.has(c); c += 4) {
-                const std::uint32_t x = code.at(c);
-                const bool subf = (x & 0xFC0007FE) == 0x7C000050;  // subf rD,rA,rB: rB - rA
-                if (subf && ((x >> 11) & 31) == end_reg) subtracted = true;
+        // The words after the call, followed value by value: which
+        // registers hold the base (r3, or one made from it by addi or mr),
+        // and the end's `lis` with its register left alone up to the subf.
+        std::uint32_t from_base = 1u << 3;
+        std::uint32_t lis_at = 0;
+        unsigned end_reg = 0;
+        for (std::uint32_t b = a + 4; b <= a + 24 && code.has(b); b += 4) {
+            const std::uint32_t x = code.at(b);
+            const unsigned opcode = x >> 26, field_d = (x >> 21) & 31, field_a = (x >> 16) & 31;
+            const unsigned field_b = (x >> 11) & 31;
+            const std::uint32_t end = x & 0xFFFF;
+            const bool subf = (x & 0xFC0007FE) == 0x7C000050;  // subf rD,rA,rB: rB - rA
+            if (subf && lis_at != 0 && field_b == end_reg && (from_base >> field_a) & 1) {
+                found.push_back(lis_at);
+                return;
             }
-            if (subtracted) found.push_back(b);
+            const bool lis = opcode == 15 && field_a == 0;
+            if (lis && lis_at == 0 && end != 0 && end <= 0x100 && b <= a + 12) {
+                lis_at = b;
+                end_reg = field_d;
+                from_base &= ~(1u << field_d);
+                continue;
+            }
+            const bool mr = opcode == 31 && ((x >> 1) & 0x3FF) == 444 && field_d == field_b;  // or rA,rS,rS
+            const bool store = opcode >= 36 && opcode <= 45 && opcode != 40 && opcode != 41 && opcode != 42 &&
+                               opcode != 43;  // stw, stwu, stb, stbu, sth, sthu
+            if (store) continue;
+            // What this word writes: rA for or/ori/rlwinm and the like, rD otherwise.
+            const bool writes_a = mr || opcode == 24 || opcode == 25 || opcode == 28 || opcode == 29 ||
+                                  opcode == 21 || opcode == 20 || opcode == 23 ||
+                                  (opcode == 31 && ((x >> 1) & 0x3FF) != 266 && ((x >> 1) & 0x3FF) != 40);
+            const unsigned written = writes_a ? field_a : field_d;
+            if (lis_at != 0 && written == end_reg) return;  // the end changed before the subtraction
+            const bool derived = (opcode == 14 && field_a != 0 && ((from_base >> field_a) & 1)) ||
+                                 (mr && ((from_base >> field_d) & 1));
+            if (derived) from_base |= 1u << written;
+            else from_base &= ~(1u << written);
         }
     });
     return found;
