@@ -22,6 +22,7 @@
 #include "gc_gcad.h"
 #include "gc_card.h"
 #include "gc_disc.h"
+#include "gc_programs.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
 #include "gc_video.h"
@@ -38,6 +39,7 @@
 #include "riftwii/gcfont.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcload.hpp"
+#include "riftwii/gcprograms.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gctgc.hpp"
 #include "riftwii/gcvideo.hpp"
@@ -75,6 +77,10 @@ constexpr std::uint32_t kGcMem2DataMax = 0x00100000;
 // Nothing needs to be in them at the jump, so they are not staged.
 constexpr std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
 constexpr std::uint32_t kGcRvzCacheMax = 0x00200000;
+// The stack gc_on_program_start runs on when a program the game loads
+// itself starts (gc_programs.h), in MEM2's data: it drains the I/O and
+// writes the card back, as the restart does on its 4 KB.
+constexpr std::uint32_t kGcProgramStackBytes = 0x2000;
 // The restart's copy of MEM1 as the game starts (Reset, riftwii/gcreset.hpp),
 // after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
 // IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
@@ -753,13 +759,28 @@ unsigned raise_aram_base(Code& code, std::uint32_t check, std::uint32_t stubs, s
 // MusyX clamps its pool's top to ARGetSize() in another shape (Doshin the
 // Giant PAL could allocate no sound stream, and restarted itself through
 // its error screen 0.2 s in, again and again; riftwii/gcaram.hpp): both of
-// that clamp's calls answer the raised end instead. Returns how many
-// limits were raised.
-unsigned raise_aram_limits(Code& code) {
+// that clamp's calls answer the raised end instead. EA's ARAM allocator
+// keeps its top 16 KB below ARGetSize() and stopped in OSPanic, "ARAM
+// Full", at its first allocation (007: NightFire): that call answers the
+// raised end too. A sound engine that sizes its pool as a fixed end less
+// ARGetBaseAddress() (NightFire's driving.elf) has that end raised with
+// the base: `ends_after_base`, found before the base was raised. Returns
+// how many limits were raised.
+unsigned raise_aram_limits(Code& code, const std::vector<std::uint32_t>& ends_after_base) {
     unsigned raised = 0;
+    // A pool's fixed end less ARAM's base (riftwii/gcaram.hpp): the end
+    // goes up with the base, by 0x10000000.
+    for (std::uint32_t lis : ends_after_base) {
+        code.put(lis, code.at(lis) | 0x1000);
+        ++raised;
+    }
     for (const GcAramClamp& clamp : find_gc_aram_size_clamps(code.ranges())) {
         code.put(clamp.first_call, kGcAramRaisedEndWord);
         code.put(clamp.second_call, kGcAramRaisedEndWord);
+        ++raised;
+    }
+    for (std::uint32_t call : find_gc_aram_tops_below_size(code.ranges())) {
+        code.put(call, kGcAramRaisedEndWord);
         ++raised;
     }
     code.each([&](std::uint32_t a, std::uint32_t w) {
@@ -1258,6 +1279,65 @@ std::uint32_t find_gx_set_projection(const Code& code) {
         }
     });
     return count == 1 ? found : 0;
+}
+
+// A piece of RiftWii's part of MEM1 that a program's patches write: its
+// address and length.
+struct GcResidentPiece {
+    std::uint32_t address;
+    std::uint32_t bytes;
+};
+
+std::vector<GcResidentRegion> read_resident(const std::vector<GcResidentPiece>& pieces) {
+    std::vector<GcResidentRegion> state;
+    for (const GcResidentPiece& piece : pieces) {
+        GcResidentRegion region;
+        region.address = piece.address;
+        const auto* bytes = reinterpret_cast<const std::uint8_t*>(piece.address);
+        region.bytes.assign(bytes, bytes + piece.bytes);
+        state.push_back(std::move(region));
+    }
+    return state;
+}
+
+void write_resident(const std::vector<GcResidentRegion>& state) {
+    for (const GcResidentRegion& region : state)
+        std::memcpy(reinterpret_cast<void*>(region.address), region.bytes.data(), region.bytes.size());
+}
+
+// A program the game loads itself from its ELF file on the disc (`file`),
+// as the patches see a disc's own program: the segments with bytes in the
+// file as code or data, the largest zeroed tail as the BSS. Below
+// `ceiling`, where RiftWii's part of MEM1 starts.
+bool read_elf_program(const ByteSource& f, const GcFstFile& file, std::uint32_t ceiling, GcElfProgram& elf, Dol& out,
+                      std::string& why) {
+    std::vector<std::uint8_t> head(std::min<std::size_t>(file.size, kGcElfHeadBytes));
+    if (!read_at(f, file.offset, head.data(), head.size())) {
+        why = "the file could not be read";
+        return false;
+    }
+    if (!parse_gc_elf(head.data(), head.size(), file.size, kGameFloor, ceiling, elf, why)) return false;
+    out = Dol();
+    out.entry = elf.entry;
+    for (const GcElfSegment& segment : elf.segments) {
+        if (segment.file_bytes != 0) {
+            Section section;
+            section.address = segment.address;
+            section.bytes.resize(segment.file_bytes);
+            if (!read_at(f, std::uint64_t(file.offset) + segment.file_offset, section.bytes.data(),
+                         section.bytes.size())) {
+                why = "the file could not be read";
+                return false;
+            }
+            (segment.executable ? out.text : out.data).push_back(std::move(section));
+        }
+        const std::uint32_t zeroed = segment.memory_bytes - segment.file_bytes;
+        if (zeroed > out.bss_size) {
+            out.bss = segment.address + segment.file_bytes;
+            out.bss_size = zeroed;
+        }
+    }
+    return true;
 }
 
 }  // namespace
@@ -2287,7 +2367,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         disc_change_addr = 0;
         fst_copy_addr = 0;
     };
-    const std::uint32_t mem2_bytes = mem2_next - kGcMem2Data;
+    // Grows once more for the programs the game loads itself, at the end.
+    std::uint32_t mem2_bytes = mem2_next - kGcMem2Data;
     if (mem2_bytes > kGcMem2DataMax) {
         error = "the packs' disc layout is too large";
         return false;
@@ -2643,96 +2724,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         }
     }
 
-    // Hooks into the blob, in the staged code.
-    auto hook = [&](std::uint32_t fn, std::uint32_t entry) {
-        if (fn != 0) code.put(fn, branch(fn, blob_addr + entry));
-    };
-    // A hook that runs the original afterwards: its first word to the
-    // replay slot, then the jump to its second.
-    auto replay_hook = [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay, std::uint32_t back) {
-        store32(blob_addr + replay, code.at(fn));
-        store32(blob_addr + back, 0x3D800000 | ((fn + 4) >> 16));
-        store32(blob_addr + back + 4, 0x618C0000 | ((fn + 4) & 0xFFFF));
-        hook(fn, entry);
-    };
-    // The game's picture and language options, while the log still
-    // reaches the card (testers send it).
-    apply_picture_and_language(image, code, [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay,
-                                                std::uint32_t back) {
-        // The replay slot runs the first word elsewhere: not a relative branch.
-        const unsigned first = opcode(code.at(fn));
-        if (first == 16 || first == 18) return false;
-        replay_hook(fn, entry, replay, back);
-        return true;
-    }, h, ctx, test_no_widen, test_no_vi_hook);
-
-    // A Japanese game picks its IPL font (Shift-JIS or ANSI) from the
-    // Japanese console strap, VI DTV bit 0x2, which a Western Wii or Wii U
-    // leaves clear: Giftpia's and Kururin Squash's system text came out as
-    // gaps and stray letters. Every recognized decision, inlined copies
-    // too, is told the strap is set (riftwii/gcfont.hpp). The 480p patch
-    // above matches only reads of the low two bits, never this bit test,
-    // and once the load is replaced nothing later can match it either.
-    if (image.id.size() > 3 && image.id[3] == 'J') {
-        std::vector<GcFontRead> unclassified;
-        const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id, &unclassified);
-        for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
-        if (!fonts.empty()) {
-            logf("GameCube: %u font choice(s) (OSGetFontEncode, first at 0x%08x) see a Japanese console, so the "
-                 "game's system text uses the Shift-JIS font\n",
-                 static_cast<unsigned>(fonts.size()), fonts.front().address);
-        } else if (unclassified.empty()) {
-            logf("GameCube: no font choice (OSGetFontEncode) found: on a Western console this Japanese game's "
-                 "system text may come out garbled\n");
-        }
-        for (const GcFontRead& read : unclassified) {
-            // One complete line per uncertain read makes a problem report
-            // useful even when a different SDK layout has not been seen yet.
-            char words[5 * 9 + 1] = {};
-            for (unsigned index = 0; index < read.word_count; ++index) {
-                std::snprintf(words + index * 9, sizeof(words) - index * 9, "%08x ",
-                              static_cast<unsigned>(read.words[index]));
-            }
-            logf("GameCube: DTV read at 0x%08x was left unchanged because a font-only bit test was not confirmed; "
-                 "the load and following instruction words are %s\n", read.address, words);
-        }
-    }
-
-    // Luigi's Mansion: buffers use the queued heap, callbacks escape only
-    // temporary heaps so a scene-queued archive can still live persistently.
-    const LmLoader lm = find_lm_loader(image.id, code);
-    if (lm.heap_offset != 0) {
-        const GcLoadHeaps heaps = find_gc_load_heaps(code.ranges(), lm.group,
-                                                   static_cast<std::int32_t>(lm.heap_offset));
-        ctx->load_post = lm.post;
-        ctx->load_group = lm.group;
-        ctx->load_alloc = lm.alloc;
-        ctx->load_heap_offset = lm.heap_offset;
-        for (std::uint32_t site : lm.post_sites) code.put(site, branch(site, blob_addr + h.hook_load_queued) | 1);  // bl
-        code.put(lm.alloc_site, branch(lm.alloc_site, blob_addr + h.hook_load_alloc) | 1);
-        logf("GameCube: the file loader's buffers use the heap each load was queued from (post 0x%08x "
-             "from %u place(s), alloc 0x%08x, current heap at r13%+d)\n",
-             static_cast<unsigned>(lm.post), static_cast<unsigned>(lm.post_sites.size()),
-             static_cast<unsigned>(lm.alloc), static_cast<int>(static_cast<std::int32_t>(lm.heap_offset)));
-        if (heaps.found) {
-            for (unsigned i = 0; i < heaps.offsets.size(); ++i) {
-                ctx->load_root_heap_offsets[i] = static_cast<std::uint32_t>(heaps.offsets[i]);
-            }
-            code.put(lm.callbacks_site, branch(lm.callbacks_site, blob_addr + h.hook_load_callbacks) | 1);
-            code.put(lm.callbacks_done_site, branch(lm.callbacks_done_site, blob_addr + h.hook_load_callbacks_done) | 1);
-            logf("GameCube: the file loader's callbacks keep the current heap when it is one of the game's main "
-                 "heaps at r13%+d and r13%+d or JKRHeap's system and root heaps at r13%+d and r13%+d; "
-                 "otherwise they use the queued heap to avoid a temporary heap\n",
-                 static_cast<int>(heaps.offsets[0]), static_cast<int>(heaps.offsets[1]),
-                 static_cast<int>(heaps.offsets[2]), static_cast<int>(heaps.offsets[3]));
-        } else {
-            logf("GameCube: the file loader's callback heaps were not identified; callbacks keep the game's "
-                 "current heap, so only read buffers are protected from temporary heaps\n");
-        }
-    } else if (gc_loads_use_queued_heap(image.id)) {
-        logf("GameCube: Luigi's Mansion's file loader was not found; it allocates from whichever heap is current\n");
-    }
-
     // What holding HOME goes to.
     prepare_leave(ctx, leave_addr, test_leave, extras);
     ctx->crash_card = 0;
@@ -2782,7 +2773,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
              runs2_addr, second.on_usb ? ", on the USB drive" : "", disc_change_addr,
              fst_copy_addr ? ", disc 1's packed FST kept in MEM2 too" : "", static_cast<unsigned>(fst_max));
     }
-    ctx->set_alarm = low.set_alarm;
     ctx->alarm_entry = blob_addr + h.alarm_entry;
     ctx->bounce = bounce_addr;
     ctx->bounce_bytes = kBounceBytes;
@@ -2862,513 +2852,845 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     memcard->landing[0] = 0x7C0802A6;  // mflr r0
     memcard->landing[1] = branch(card_addr + 4, blob_addr + h.stray_entry) | 1;  // bl gc_stray_entry
 
-    // The hooks, in the staged code. A libogc game's DI command starts jump
-    // to the slots instead (gc_rt.h, "libogc"): the store, a frame for r0
-    // and LR, gc_di_common, and back.
-    if (ogc) {
-        ctx->ogc_create_alarm = ogc_create_alarm;
-        ctx->ogc_alarm_entry = blob_addr + h.alarm_entry_ogc;
-        ctx->di_handler = ogc_di_handler;
-        for (std::size_t i = 0; i < di_starts.size(); ++i) {
-            const std::uint32_t site = di_starts[i];
-            const std::uint32_t slot = blob_addr + h.di_slots + static_cast<std::uint32_t>(i) * GC_DI_SLOT_WORDS * 4;
-            const std::uint32_t words[GC_DI_SLOT_WORDS] = {
-                code.at(site),
-                0x9421FFF0,  // stwu r1,-16(r1)
-                0x90010008,  // stw r0,8(r1)
-                0x7C0802A6,  // mflr r0
-                0x9001000C,  // stw r0,12(r1)
-                branch(slot + 20, blob_addr + h.di_common) | 1,  // bl gc_di_common
-                0x8001000C,  // lwz r0,12(r1)
-                0x7C0803A6,  // mtlr r0
-                0x80010008,  // lwz r0,8(r1)
-                0x38210010,  // addi r1,r1,16
-                branch(slot + 40, site + 4),  // b back
-            };
-            for (unsigned k = 0; k < GC_DI_SLOT_WORDS; ++k) store32(slot + 4 * k, words[k]);
-            code.put(site, branch(site, slot));
-        }
-    } else {
-        hook(low.read, h.hook_read);
-        hook(low.seek, h.hook_seek);
-        hook(low.disk_id, h.hook_disk_id);
-        hook(low.inquiry, h.hook_inquiry);
-        // With a second disc the stop of the motor changes discs
-        // (gc_on_stop_motor); otherwise it is only answered, as before.
-        hook(low.stop_motor, ctx->disc_change != 0 ? h.hook_stop_motor : h.hook_cb_r3);
-        hook(low.request_error, h.hook_cb_r3);
-        if (ctx->disc_change != 0 && low.stop_motor == 0)
-            logf("GameCube: DVDLowStopMotor was not found: the game cannot ask for disc 2\n");
-        hook(low.audio_status, h.hook_audio_status);
-        hook(low.audio_config, h.hook_cb_r5);
-        hook(low.audio_stream, h.hook_audio_stream);
-    }
-    const unsigned di_patches = redirect_di_registers(code, di_regs);
-    unsigned wii_mixed = 0;
-    const unsigned wii_blocks = redirect_wii_blocks(code, wii_mixed);
-    logf("GameCube: %u SI/EXI/AI register base(s) moved to 0xCD00 (%u also used elsewhere, left)\n", wii_blocks,
-         wii_mixed);
-    const std::uint32_t ai_dma = find_dsp_stores(code, {0xCC005030, 0xCC005032, 0xCC005036});
-    if (ai_dma != 0) {
-        // Its first word to the replay slot, then the jump to its second.
-        const std::uint32_t replay = blob_addr + h.replay_ai_dma;
-        const std::uint32_t back = blob_addr + h.continue_ai_dma;
-        const std::uint32_t first = code.at(ai_dma);
-        if ((first >> 26) == 18 || (first >> 26) == 16) {
-            error = "AIInitDMA starts with a branch (not handled yet)";
-            return false;
-        }
-        store32(replay, first);
-        store32(back, 0x3D800000 | ((ai_dma + 4) >> 16));        // lis r12, hi
-        store32(back + 4, 0x618C0000 | ((ai_dma + 4) & 0xFFFF));  // ori r12, r12, lo
-        hook(ai_dma, h.hook_ai_dma);
-    }
-    // PADRead: the Wii Remotes are polled from it, and the test presses
-    // go in there.
-    std::uint32_t pad_read = find_pad_read(code);
-    if (pad_read == 0) pad_read = find_pad_read_gcc(code);
-    const std::uint32_t si_types = find_gc_si_type_cache(code.ranges(), pad_read);
-    // A structural match must name a complete array in the game's own
-    // data/BSS. Never follow an inferred pointer into code or free memory.
-    bool si_types_in_data = dol.bss_size >= 16 && si_types >= dol.bss &&
-                            si_types - dol.bss <= dol.bss_size - 16;
-    for (const Section& section : dol.data) {
-        if (section.bytes.size() >= 16 && si_types >= section.address &&
-            si_types - section.address <= section.bytes.size() - 16) si_types_in_data = true;
-    }
-    ctx->si_type_cache = si_types_in_data ? si_types : 0;
-    ctx->pad_enabled_offset = find_gc_pad_enabled_offset(code.ranges(), pad_read);
-    std::uint32_t motor = 0;
-    if (pad_read != 0) {
-        replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
-        if (test_presses) ctx->flags |= GC_FLAG_PRESS;
-        if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
-        if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
-        if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
-        if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
-        if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
-        // SIProbe: a game that reads only the ports SIProbe calls a
-        // controller (Mario Kart: Double Dash!!) hears one on a Wii
-        // Remote's port where no GameCube port answers, as on a Wii U.
-        const std::uint32_t si_probe = find_gc_si_probe(code.ranges(), pad_read);
-        if (si_probe != 0) {
-            replay_hook(si_probe, h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
-            ctx->si_probe = si_probe;
-        }
-        // PADControlMotor: a Wii Remote on the port the game rumbles
-        // rumbles too, unless Settings' Wii Remote rumble (or this game's
-        // own Rumble) is off, as for Wii games. The game's own function
-        // runs first, for a GameCube controller on the port.
-        std::vector<CodeRange> ranges;
-        for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
-        std::string motor_error;
-        if (test_no_motor)
-            logf("GameCube: PADControlMotor not hooked, as sd:/riftwii/gc/test/nomotor asks: no Wii Remote rumble\n");
-        else if (!find_gc_pad_motor(ranges, motor, motor_error))
-            logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
-        if (motor != 0) {
-            replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
-            if (!extras.rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
-            if (test_rumble) {
-                ctx->flags |= GC_FLAG_RUMBLE_TEST;
-                ctx->test_motor = motor;
-            }
-        }
-    }
-    if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
-    // The game's own code words that need a different value in Wii mode
-    // (gc_code_fixes, riftwii/gxpatches.hpp). Each is checked against the
-    // word it expects first, so another version of the game is left as it is.
-    for (const GcCodeFix& fix : gc_code_fixes(image.id)) {
-        if (!code.has(fix.address) || code.at(fix.address) != fix.expected) {
-            logf("GameCube: game fix at 0x%08x not applied, the game's code is not what it was made for (%s)\n",
-                 static_cast<unsigned>(fix.address), fix.what);
-            continue;
-        }
-        code.put(fix.address, fix.replacement);
-        logf("GameCube: game fix at 0x%08x: %s\n", static_cast<unsigned>(fix.address), fix.what);
-    }
-    // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
-    // game's OSResetSystem and its reset routine go to the blob, and MEM1's
-    // pieces as they are at the jump are kept in MEM2 to be put back, in
-    // this order: the zeroed BSS and DI stand-in, then the game's sections,
-    // BI2, the FST and low memory (copied there just before the jump).
-    const GcResetFunctions reset = find_gc_reset_functions(code.ranges());
-    const bool reset_hookable = reset.reset_system != 0 && opcode(code.at(reset.reset_system)) != 16 &&
-                                opcode(code.at(reset.reset_system)) != 18;
-    GcRestartPlan restart;
-    if (reset_hookable && gc_restart_known_to_work(image.id)) {
-        std::vector<GcRestartPiece> pieces;
-        if (dol.bss_size != 0) pieces.push_back({dol.bss, dol.bss_size, true});
-        pieces.push_back({di_regs, kGcDiRegsBytes, true});
-        for (const Section& s : dol.text)
-            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
-        for (const Section& s : dol.data)
-            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
-        pieces.push_back({bi2_addr, static_cast<std::uint32_t>(bi2.size()), false});
-        if (!fst.empty()) pieces.push_back({fst_addr, static_cast<std::uint32_t>(fst.size()), false});
-        pieces.push_back({0x80000000, kGameFloor - 0x80000000, false});
-        restart = plan_gc_restart(pieces, kGcRestartWindow, kGcRestartWindowBytes - kGcRestartStackBytes,
-                                  GC_RESTART_REGIONS);
-    }
-    // The table, kept here (the plan's own vector may be in MEM2's window).
+    // What follows patches one program: the disc's own, then each program
+    // the game loads itself from the disc (riftwii/gcprograms.hpp), which
+    // has its own copy of the SDK. RiftWii's part of MEM1 is set up above
+    // for all of them; what a program's patches write there (its hooks'
+    // replay slots, the context's function addresses, the ARAM stubs) is
+    // that program's, and main_program says whether it is the disc's own,
+    // which alone has Reset's restart and the switches through RiftWii.
+    // What the jump needs of the disc's own program: Reset's restart table
+    // (in MEM2's window, copied there at the jump) and the clocks the game
+    // is told.
     gc_restart_region restart_table[GC_RESTART_REGIONS] = {};
-    const std::uint32_t restart_count = static_cast<std::uint32_t>(restart.regions.size());
-    // Hooked for every game: the ones without a restart go back to RiftWii
-    // on Reset (gc_on_reset_system), rather than stop the console.
-    if (reset_hookable) {
-        replay_hook(reset.reset_system, h.hook_reset_system, h.replay_reset_system, h.continue_reset_system);
-        hook(reset.hardware_reset, h.hook_hot_reset);
-        ctx->reset_system = reset.reset_system;
-        if (test_reset) ctx->flags |= GC_FLAG_RESET_TEST;
-    }
-    if (restart_count != 0) {
-        for (std::uint32_t i = 0; i < restart_count; ++i)
-            restart_table[i] = {restart.regions[i].address, restart.regions[i].length, restart.regions[i].source};
-        ctx->entry = dol.entry;
-        ctx->restart_regions = restart.table;
-        ctx->restart_count = restart_count;
-        ctx->restart_stack = kGcRestartWindow + kGcRestartWindowBytes - 16;  // a frame's back chain and LR above it
-        logf("GameCube: Reset restarts the game: OSResetSystem 0x%08x, reset routine 0x%08x, MEM1 kept in %u "
-             "piece(s), 0x%08x-0x%08x%s\n",
-             reset.reset_system, reset.hardware_reset, static_cast<unsigned>(restart_count), restart.table,
-             restart.end, pad_read != 0 ? "" : " (PADRead not found: only the game's own Reset)");
-    } else if (reset_hookable && gc_restart_known_to_work(image.id)) {
-        logf("GameCube: Reset goes back to RiftWii: the game's memory does not fit in the restart's %u MB\n",
-             static_cast<unsigned>(kGcRestartWindowBytes >> 20));
-    } else if (reset_hookable) {
-        logf("GameCube: Reset goes back to RiftWii, as holding HOME (OSResetSystem 0x%08x): this game's restart is "
-             "not known to work yet\n",
-             reset.reset_system);
-    } else {
-        logf("GameCube: Reset goes back to RiftWii, as holding HOME: OSResetSystem and the reset routine were not "
-             "found\n");
-    }
-    // A switch to another program on the disc (OSExec, or a restart into a
-    // named program) goes back through RiftWii, which starts the image
-    // again with that program (gc_on_boot_dol): sd:/riftwii/gc/exec.txt,
-    // "--idle--" and the image, is the launch the blob fills in. Only for
-    // an image on the SD card, whose headless launch RiftWii carries out
-    // at its next start, and with a way back to leave by.
-    // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
-    // the Wind Waker demo disc) starts its games another way: each is a
-    // whole disc packed in a TGC image, whose program the menu reads with
-    // its own loader and jumps to, unpatched. Its read of a TGC's header
-    // or of its program goes back through RiftWii the same way
-    // (gc_on_tgc_read, runtime/gc/gc_tgc.h).
-    // Not with packs, which move the disc's files.
-    const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
-    // A game from a TGC image reads its own disc ID, the packed header's.
-    if (tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
+    std::uint32_t restart_count = 0;
+    GcClocks clocks = kWiiClocks;
+    auto patch_program = [&](Dol& dol, Code& code, const DvdLow& low, bool ogc, std::uint32_t ogc_di_handler,
+                             std::uint32_t ogc_create_alarm, const std::vector<std::uint32_t>& di_starts,
+                             bool main_program, std::string& error) -> bool {
+        // Hooks into the blob, in the staged code.
+        auto hook = [&](std::uint32_t fn, std::uint32_t entry) {
+            if (fn != 0) code.put(fn, branch(fn, blob_addr + entry));
+        };
+        // A hook that runs the original afterwards: its first word to the
+        // replay slot, then the jump to its second.
+        auto replay_hook = [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay, std::uint32_t back) {
+            store32(blob_addr + replay, code.at(fn));
+            store32(blob_addr + back, 0x3D800000 | ((fn + 4) >> 16));
+            store32(blob_addr + back + 4, 0x618C0000 | ((fn + 4) & 0xFFFF));
+            hook(fn, entry);
+        };
+        // The game's picture and language options, while the log still
+        // reaches the card (testers send it).
+        apply_picture_and_language(image, code, [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay,
+                                                    std::uint32_t back) {
+            // The replay slot runs the first word elsewhere: not a relative branch.
+            const unsigned first = opcode(code.at(fn));
+            if (first == 16 || first == 18) return false;
+            replay_hook(fn, entry, replay, back);
+            return true;
+        }, h, ctx, test_no_widen, test_no_vi_hook);
+
+        // A Japanese game picks its IPL font (Shift-JIS or ANSI) from the
+        // Japanese console strap, VI DTV bit 0x2, which a Western Wii or Wii U
+        // leaves clear: Giftpia's and Kururin Squash's system text came out as
+        // gaps and stray letters. Every recognized decision, inlined copies
+        // too, is told the strap is set (riftwii/gcfont.hpp). The 480p patch
+        // above matches only reads of the low two bits, never this bit test,
+        // and once the load is replaced nothing later can match it either.
+        if (image.id.size() > 3 && image.id[3] == 'J') {
+            std::vector<GcFontRead> unclassified;
+            const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id, &unclassified);
+            for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
+            if (!fonts.empty()) {
+                logf("GameCube: %u font choice(s) (OSGetFontEncode, first at 0x%08x) see a Japanese console, so the "
+                     "game's system text uses the Shift-JIS font\n",
+                     static_cast<unsigned>(fonts.size()), fonts.front().address);
+            } else if (unclassified.empty()) {
+                logf("GameCube: no font choice (OSGetFontEncode) found: on a Western console this Japanese game's "
+                     "system text may come out garbled\n");
+            }
+            for (const GcFontRead& read : unclassified) {
+                // One complete line per uncertain read makes a problem report
+                // useful even when a different SDK layout has not been seen yet.
+                char words[5 * 9 + 1] = {};
+                for (unsigned index = 0; index < read.word_count; ++index) {
+                    std::snprintf(words + index * 9, sizeof(words) - index * 9, "%08x ",
+                                  static_cast<unsigned>(read.words[index]));
+                }
+                logf("GameCube: DTV read at 0x%08x was left unchanged because a font-only bit test was not confirmed; "
+                     "the load and following instruction words are %s\n", read.address, words);
+            }
+        }
+
+        // Luigi's Mansion: buffers use the queued heap, callbacks escape only
+        // temporary heaps so a scene-queued archive can still live persistently.
+        const LmLoader lm = find_lm_loader(image.id, code);
+        if (lm.heap_offset != 0) {
+            const GcLoadHeaps heaps = find_gc_load_heaps(code.ranges(), lm.group,
+                                                       static_cast<std::int32_t>(lm.heap_offset));
+            ctx->load_post = lm.post;
+            ctx->load_group = lm.group;
+            ctx->load_alloc = lm.alloc;
+            ctx->load_heap_offset = lm.heap_offset;
+            for (std::uint32_t site : lm.post_sites) code.put(site, branch(site, blob_addr + h.hook_load_queued) | 1);  // bl
+            code.put(lm.alloc_site, branch(lm.alloc_site, blob_addr + h.hook_load_alloc) | 1);
+            logf("GameCube: the file loader's buffers use the heap each load was queued from (post 0x%08x "
+                 "from %u place(s), alloc 0x%08x, current heap at r13%+d)\n",
+                 static_cast<unsigned>(lm.post), static_cast<unsigned>(lm.post_sites.size()),
+                 static_cast<unsigned>(lm.alloc), static_cast<int>(static_cast<std::int32_t>(lm.heap_offset)));
+            if (heaps.found) {
+                for (unsigned i = 0; i < heaps.offsets.size(); ++i) {
+                    ctx->load_root_heap_offsets[i] = static_cast<std::uint32_t>(heaps.offsets[i]);
+                }
+                code.put(lm.callbacks_site, branch(lm.callbacks_site, blob_addr + h.hook_load_callbacks) | 1);
+                code.put(lm.callbacks_done_site, branch(lm.callbacks_done_site, blob_addr + h.hook_load_callbacks_done) | 1);
+                logf("GameCube: the file loader's callbacks keep the current heap when it is one of the game's main "
+                     "heaps at r13%+d and r13%+d or JKRHeap's system and root heaps at r13%+d and r13%+d; "
+                     "otherwise they use the queued heap to avoid a temporary heap\n",
+                     static_cast<int>(heaps.offsets[0]), static_cast<int>(heaps.offsets[1]),
+                     static_cast<int>(heaps.offsets[2]), static_cast<int>(heaps.offsets[3]));
+            } else {
+                logf("GameCube: the file loader's callback heaps were not identified; callbacks keep the game's "
+                     "current heap, so only read buffers are protected from temporary heaps\n");
+            }
+        } else if (gc_loads_use_queued_heap(image.id)) {
+            logf("GameCube: Luigi's Mansion's file loader was not found; it allocates from whichever heap is current\n");
+        }
+
+        ctx->set_alarm = low.set_alarm;
+        // The hooks, in the staged code. A libogc game's DI command starts jump
+        // to the slots instead (gc_rt.h, "libogc"): the store, a frame for r0
+        // and LR, gc_di_common, and back.
+        if (ogc) {
+            ctx->ogc_create_alarm = ogc_create_alarm;
+            ctx->ogc_alarm_entry = blob_addr + h.alarm_entry_ogc;
+            ctx->di_handler = ogc_di_handler;
+            for (std::size_t i = 0; i < di_starts.size(); ++i) {
+                const std::uint32_t site = di_starts[i];
+                const std::uint32_t slot = blob_addr + h.di_slots + static_cast<std::uint32_t>(i) * GC_DI_SLOT_WORDS * 4;
+                const std::uint32_t words[GC_DI_SLOT_WORDS] = {
+                    code.at(site),
+                    0x9421FFF0,  // stwu r1,-16(r1)
+                    0x90010008,  // stw r0,8(r1)
+                    0x7C0802A6,  // mflr r0
+                    0x9001000C,  // stw r0,12(r1)
+                    branch(slot + 20, blob_addr + h.di_common) | 1,  // bl gc_di_common
+                    0x8001000C,  // lwz r0,12(r1)
+                    0x7C0803A6,  // mtlr r0
+                    0x80010008,  // lwz r0,8(r1)
+                    0x38210010,  // addi r1,r1,16
+                    branch(slot + 40, site + 4),  // b back
+                };
+                for (unsigned k = 0; k < GC_DI_SLOT_WORDS; ++k) store32(slot + 4 * k, words[k]);
+                code.put(site, branch(site, slot));
+            }
+        } else {
+            hook(low.read, h.hook_read);
+            hook(low.seek, h.hook_seek);
+            hook(low.disk_id, h.hook_disk_id);
+            hook(low.inquiry, h.hook_inquiry);
+            // With a second disc the stop of the motor changes discs
+            // (gc_on_stop_motor); otherwise it is only answered, as before.
+            hook(low.stop_motor, ctx->disc_change != 0 ? h.hook_stop_motor : h.hook_cb_r3);
+            hook(low.request_error, h.hook_cb_r3);
+            if (ctx->disc_change != 0 && low.stop_motor == 0)
+                logf("GameCube: DVDLowStopMotor was not found: the game cannot ask for disc 2\n");
+            hook(low.audio_status, h.hook_audio_status);
+            hook(low.audio_config, h.hook_cb_r5);
+            hook(low.audio_stream, h.hook_audio_stream);
+        }
+        const unsigned di_patches = redirect_di_registers(code, di_regs);
+        unsigned wii_mixed = 0;
+        const unsigned wii_blocks = redirect_wii_blocks(code, wii_mixed);
+        logf("GameCube: %u SI/EXI/AI register base(s) moved to 0xCD00 (%u also used elsewhere, left)\n", wii_blocks,
+             wii_mixed);
+        const std::uint32_t ai_dma = find_dsp_stores(code, {0xCC005030, 0xCC005032, 0xCC005036});
+        if (ai_dma != 0) {
+            // Its first word to the replay slot, then the jump to its second.
+            const std::uint32_t replay = blob_addr + h.replay_ai_dma;
+            const std::uint32_t back = blob_addr + h.continue_ai_dma;
+            const std::uint32_t first = code.at(ai_dma);
+            if ((first >> 26) == 18 || (first >> 26) == 16) {
+                error = "AIInitDMA starts with a branch (not handled yet)";
+                return false;
+            }
+            store32(replay, first);
+            store32(back, 0x3D800000 | ((ai_dma + 4) >> 16));        // lis r12, hi
+            store32(back + 4, 0x618C0000 | ((ai_dma + 4) & 0xFFFF));  // ori r12, r12, lo
+            hook(ai_dma, h.hook_ai_dma);
+        }
+        // PADRead: the Wii Remotes are polled from it, and the test presses
+        // go in there.
+        std::uint32_t pad_read = find_pad_read(code);
+        if (pad_read == 0) pad_read = find_pad_read_gcc(code);
+        const std::uint32_t si_types = find_gc_si_type_cache(code.ranges(), pad_read);
+        // A structural match must name a complete array in the game's own
+        // data/BSS. Never follow an inferred pointer into code or free memory.
+        bool si_types_in_data = dol.bss_size >= 16 && si_types >= dol.bss &&
+                                si_types - dol.bss <= dol.bss_size - 16;
+        for (const Section& section : dol.data) {
+            if (section.bytes.size() >= 16 && si_types >= section.address &&
+                si_types - section.address <= section.bytes.size() - 16) si_types_in_data = true;
+        }
+        ctx->si_type_cache = si_types_in_data ? si_types : 0;
+        ctx->pad_enabled_offset = find_gc_pad_enabled_offset(code.ranges(), pad_read);
+        std::uint32_t motor = 0;
+        if (pad_read != 0) {
+            replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
+            if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+            if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
+            if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
+            if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
+            if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
+            if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+            // SIProbe: a game that reads only the ports SIProbe calls a
+            // controller (Mario Kart: Double Dash!!) hears one on a Wii
+            // Remote's port where no GameCube port answers, as on a Wii U.
+            const std::uint32_t si_probe = find_gc_si_probe(code.ranges(), pad_read);
+            if (si_probe != 0) {
+                replay_hook(si_probe, h.hook_si_probe, h.replay_si_probe, h.continue_si_probe);
+                ctx->si_probe = si_probe;
+            }
+            // PADControlMotor: a Wii Remote on the port the game rumbles
+            // rumbles too, unless Settings' Wii Remote rumble (or this game's
+            // own Rumble) is off, as for Wii games. The game's own function
+            // runs first, for a GameCube controller on the port.
+            std::vector<CodeRange> ranges;
+            for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+            std::string motor_error;
+            if (test_no_motor)
+                logf("GameCube: PADControlMotor not hooked, as sd:/riftwii/gc/test/nomotor asks: no Wii Remote rumble\n");
+            else if (!find_gc_pad_motor(ranges, motor, motor_error))
+                logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
+            if (motor != 0) {
+                replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
+                if (!extras.rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
+                if (test_rumble) {
+                    ctx->flags |= GC_FLAG_RUMBLE_TEST;
+                    ctx->test_motor = motor;
+                }
+            }
+        }
+        if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
+        // The game's own code words that need a different value in Wii mode
+        // (gc_code_fixes, riftwii/gxpatches.hpp). Each is checked against the
+        // word it expects first, so another version of the game is left as it is.
+        for (const GcCodeFix& fix : gc_code_fixes(image.id)) {
+            if (!code.has(fix.address) || code.at(fix.address) != fix.expected) {
+                logf("GameCube: game fix at 0x%08x not applied, the game's code is not what it was made for (%s)\n",
+                     static_cast<unsigned>(fix.address), fix.what);
+                continue;
+            }
+            code.put(fix.address, fix.replacement);
+            logf("GameCube: game fix at 0x%08x: %s\n", static_cast<unsigned>(fix.address), fix.what);
+        }
+        // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
+        // game's OSResetSystem and its reset routine go to the blob, and MEM1's
+        // pieces as they are at the jump are kept in MEM2 to be put back, in
+        // this order: the zeroed BSS and DI stand-in, then the game's sections,
+        // BI2, the FST and low memory (copied there just before the jump).
+        const GcResetFunctions reset = find_gc_reset_functions(code.ranges());
+        const bool reset_hookable = reset.reset_system != 0 && opcode(code.at(reset.reset_system)) != 16 &&
+                                    opcode(code.at(reset.reset_system)) != 18;
+        GcRestartPlan restart;
+        if (main_program && reset_hookable && gc_restart_known_to_work(image.id)) {
+            std::vector<GcRestartPiece> pieces;
+            if (dol.bss_size != 0) pieces.push_back({dol.bss, dol.bss_size, true});
+            pieces.push_back({di_regs, kGcDiRegsBytes, true});
+            for (const Section& s : dol.text)
+                pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+            for (const Section& s : dol.data)
+                pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+            pieces.push_back({bi2_addr, static_cast<std::uint32_t>(bi2.size()), false});
+            if (!fst.empty()) pieces.push_back({fst_addr, static_cast<std::uint32_t>(fst.size()), false});
+            pieces.push_back({0x80000000, kGameFloor - 0x80000000, false});
+            restart = plan_gc_restart(pieces, kGcRestartWindow, kGcRestartWindowBytes - kGcRestartStackBytes,
+                                      GC_RESTART_REGIONS);
+        }
+        // The table, kept out here (the plan's own vector may be in MEM2's
+        // window). Only the disc's own program plans one.
+        if (main_program) restart_count = static_cast<std::uint32_t>(restart.regions.size());
+        // Hooked for every game: the ones without a restart go back to RiftWii
+        // on Reset (gc_on_reset_system), rather than stop the console.
+        if (reset_hookable) {
+            replay_hook(reset.reset_system, h.hook_reset_system, h.replay_reset_system, h.continue_reset_system);
+            hook(reset.hardware_reset, h.hook_hot_reset);
+            ctx->reset_system = reset.reset_system;
+            if (test_reset) ctx->flags |= GC_FLAG_RESET_TEST;
+        }
+        if (main_program && restart_count != 0) {
+            for (std::uint32_t i = 0; i < restart_count; ++i)
+                restart_table[i] = {restart.regions[i].address, restart.regions[i].length, restart.regions[i].source};
+            ctx->entry = dol.entry;
+            ctx->restart_regions = restart.table;
+            ctx->restart_count = restart_count;
+            ctx->restart_stack = kGcRestartWindow + kGcRestartWindowBytes - 16;  // a frame's back chain and LR above it
+            logf("GameCube: Reset restarts the game: OSResetSystem 0x%08x, reset routine 0x%08x, MEM1 kept in %u "
+                 "piece(s), 0x%08x-0x%08x%s\n",
+                 reset.reset_system, reset.hardware_reset, static_cast<unsigned>(restart_count), restart.table,
+                 restart.end, pad_read != 0 ? "" : " (PADRead not found: only the game's own Reset)");
+        } else if (main_program && reset_hookable && gc_restart_known_to_work(image.id)) {
+            logf("GameCube: Reset goes back to RiftWii: the game's memory does not fit in the restart's %u MB\n",
+                 static_cast<unsigned>(kGcRestartWindowBytes >> 20));
+        } else if (reset_hookable) {
+            logf("GameCube: Reset goes back to RiftWii, as holding HOME (OSResetSystem 0x%08x): this game's restart is "
+                 "not known to work yet\n",
+                 reset.reset_system);
+        } else {
+            logf("GameCube: Reset goes back to RiftWii, as holding HOME: OSResetSystem and the reset routine were not "
+                 "found\n");
+        }
+        // The disc's own program alone: a program the game loads itself is
+        // not one exec.txt can name.
+        if (main_program) {
+            // A switch to another program on the disc (OSExec, or a restart into a
+            // named program) goes back through RiftWii, which starts the image
+            // again with that program (gc_on_boot_dol): sd:/riftwii/gc/exec.txt,
+            // "--idle--" and the image, is the launch the blob fills in. Only for
+            // an image on the SD card, whose headless launch RiftWii carries out
+            // at its next start, and with a way back to leave by.
+            // A bonus disc's menu (the Zelda Ocarina of Time / Master Quest disc,
+            // the Wind Waker demo disc) starts its games another way: each is a
+            // whole disc packed in a TGC image, whose program the menu reads with
+            // its own loader and jumps to, unpatched. Its read of a TGC's header
+            // or of its program goes back through RiftWii the same way
+            // (gc_on_tgc_read, runtime/gc/gc_tgc.h).
+            // Not with packs, which move the disc's files.
+            const std::vector<GcTgc> tgcs = pack == nullptr ? find_gc_tgc_starts(f, fst) : std::vector<GcTgc>();
+            // A game from a TGC image reads its own disc ID, the packed header's.
+            if (tgc_offset != 0) ctx->disc_id_offset = tgc.boot_at();
+            {
+                std::vector<CodeRange> data_ranges;
+                for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+                const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
+                const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
+                const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
+                // A game from a TGC image: exec.txt names programs by their offset
+                // on the outer disc and starts them with its boot.bin and FST, not
+                // the TGC's, so its own switches run as made (not seen in a game).
+                const bool from_tgc = tgc_offset != 0;
+                const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
+                const bool exec_test_on = test_exec && !boot_dol_branch;
+                const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
+                                                 : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
+                                                                   "cannot name"
+                                                                 : nullptr;
+                const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
+                std::string why_not;
+                if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
+                    why_not = boot_dol_off != nullptr ? boot_dol_off
+                                                      : "the game has no switch to another program (__OSBootDolSimple not found)";
+                else if (!on_sd) why_not = "only for a game on the SD card so far";
+                else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
+                else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
+                std::uint32_t exec_sector = 0;
+                if (why_not.empty()) {
+                    static const char kExec[] = "sd:/riftwii/gc/exec.txt";
+                    std::vector<std::uint8_t> sector(512, 0);
+                    const std::string text = "--idle--\npath=" + image.path + "\ngame=" + image.id + "\n";
+                    std::copy(text.begin(), text.end(), sector.begin());
+                    std::FILE* e = std::fopen(kExec, "wb");
+                    const bool written = e && std::fwrite(sector.data(), 1, sector.size(), e) == sector.size();
+                    if (e) std::fclose(e);
+                    forget_sd_layout();
+                    Fat32File ef;
+                    if (written && resolve_sd_file(kExec, ef, why_not) && !ef.fragments.empty())
+                        exec_sector = static_cast<std::uint32_t>(ef.fragments[0].sector);
+                    else if (why_not.empty())
+                        why_not = "sd:/riftwii/gc/exec.txt could not be made";
+                }
+                if (exec_sector != 0 && exec_test_on) ctx->flags |= GC_FLAG_EXEC_TEST;
+                if (exec_sector != 0 && boot_dol_hookable) {
+                    replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
+                    ctx->exec_sector = exec_sector;
+                    logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
+                         "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                         boot_dol, exec_sector);
+                } else if (exec_sector != 0 && exec_test_on) {
+                    ctx->exec_sector = exec_sector;
+                    logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                         exec_sector);
+                }
+                if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
+                    logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
+                         boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
+                }
+                // The TGC images' programs, whose reads the blob watches. A sector
+                // word of their own, so a disc with TGCs alone keeps the restart a
+                // game without a program switch has (gc_on_reset_system).
+                if (exec_sector != 0 && !tgcs.empty()) {
+                    ctx->tgc_sector = exec_sector;
+                    ctx->tgc_count = static_cast<std::uint32_t>(tgcs.size());
+                    for (std::size_t i = 0; i < tgcs.size(); ++i) {
+                        ctx->tgc_offset[i] = tgcs[i].disc_offset;
+                        ctx->tgc_dol_start[i] = tgcs[i].dol_at();
+                        ctx->tgc_dol_end[i] = tgcs[i].dol_end();
+                    }
+                    logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
+                         "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
+                         static_cast<unsigned>(tgcs.size()), exec_sector);
+                } else if (!tgcs.empty()) {
+                    logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
+                         why_not.c_str());
+                }
+            }
+        }
+        // The memory card: the EXI functions to the blob (gc_card.h).
+        if (!card_image.empty()) {
+            // The disc's ID tells the finder the few games whose 0x40-byte SDK
+            // links no EXIProbeEx (gcexi.cpp's links_no_probe_ex).
+            const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges(), image.id);
+            const auto& exi = found_exi.hooks;
+            const std::uint32_t ecb = found_exi.blocks;
+            // All or nothing (riftwii/gcexi.hpp's decide_gc_exi_hooks): a game
+            // whose card functions are only partly hooked would reach the Wii's
+            // own EXI half way through a card command. Only an EXIProbeEx the
+            // finder says the SDK has none of may stay unhooked.
+            const GcExiDecision decision = decide_gc_exi_hooks(found_exi, code.ranges());
+            if (decision.verdict == GcExiVerdict::Hook) {
+                for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+                    if (exi[i] == 0) continue;  // an EXIProbeEx the game's SDK does not have
+                    const std::uint32_t entry = h.exi_hooks + 12 * i;
+                    replay_hook(exi[i], load32(blob_addr + entry), load32(blob_addr + entry + 4),
+                                load32(blob_addr + entry + 8));
+                }
+                memcard->image = GC_CARD_IMAGE;
+                memcard->ecb = ecb;
+                memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
+                std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
+                ctx->card = card_addr;
+            }
+            // The names of the hooks a test picks, for the log.
+            auto names = [](auto picked) {
+                std::string list;
+                for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+                    if (picked(i)) list += std::string(list.empty() ? "" : ", ") + gc_exi_function_name(i);
+                }
+                return list;
+            };
+            // Without the hooks the game talks to the Wii's own EXI, which has no
+            // GameCube card: it reports "no card". The first line says why, so a
+            // problem report shows the cause.
+            switch (decision.verdict) {
+            case GcExiVerdict::Hook:
+                logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n", ecb,
+                     exi[GC_EXI_IMM], exi[GC_EXI_GET_ID]);
+                if (found_exi.probe_ex_absent && found_exi.old_sdk) {
+                    logf("GameCube: memory card: no EXIProbeEx was found; the 0x38-byte layout is accepted without "
+                         "one, so the other ten EXI functions are hooked\n");
+                } else if (found_exi.probe_ex_absent) {
+                    logf("GameCube: memory card: no EXIProbeEx found; %s is on the list of games whose SDK has none, "
+                         "so the other ten EXI functions are hooked\n",
+                         image.id.c_str());
+                }
+                break;
+            case GcExiVerdict::NoTables:
+                logf("GameCube: memory card off: no EXI control-block table with more than 7 users was found\n");
+                break;
+            case GcExiVerdict::NotAllFound:
+                logf("GameCube: memory card off: the EXI functions were not all found (%u table(s) tried)\n",
+                     found_exi.tables_tried);
+                logf("GameCube: memory card: in the table at 0x%08x, the finder could not place these EXI functions: "
+                     "%s\n",
+                     found_exi.partial_blocks,
+                     names([&](unsigned i) { return found_exi.partial[i] == 0; }).c_str());
+                break;
+            case GcExiVerdict::ListedRefused: {
+                // A listed game's other ten functions were all placed; one of the
+                // checks that no EXIProbeEx is hiding said no.
+                using Refusal = GcExiFunctions::ListedRefusal;
+                const char* why = "the check that no EXIProbeEx is hiding refused";
+                if (found_exi.listed_refusal == Refusal::ProbeLike) {
+                    why = "EXIProbe is not the only one of its functions calling the probe and EXIGetID";
+                } else if (found_exi.listed_refusal == Refusal::AttachDoesNotFollow) {
+                    why = "the code after EXIProbe is not EXIAttach";
+                } else if (found_exi.listed_refusal == Refusal::ProbeCaller) {
+                    why = "a branch to the probe outside the placed EXI functions";
+                }
+                logf("GameCube: memory card off: %s is on the list of games without EXIProbeEx, but the listed-game "
+                     "check refused (EXI blocks 0x%08x): %s at 0x%08x\n",
+                     image.id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
+                break;
+            }
+            case GcExiVerdict::Overlapping:
+                logf("GameCube: memory card off: %s (0x%08x) and %s (0x%08x) are closer than a hook's %u bytes, so "
+                     "hooking both would break one\n",
+                     gc_exi_function_name(decision.overlap_first), exi[decision.overlap_first],
+                     gc_exi_function_name(decision.overlap_second), exi[decision.overlap_second], kGcExiHookSpan);
+                break;
+            case GcExiVerdict::SeveralTables:
+                // Hooking the wrong table's functions would leave the real card
+                // functions on the Wii's own EXI, so the card stays off instead.
+                logf("GameCube: memory card off: %u EXI control-block tables each gave a full set of EXI functions "
+                     "(the first at 0x%08x), and RiftWii does not guess which one is the SDK's\n",
+                     found_exi.resolving_tables, found_exi.partial_blocks);
+                break;
+            case GcExiVerdict::Incomplete:
+                logf("GameCube: memory card off: the finder's result at EXI blocks 0x%08x lacks %s\n", ecb,
+                     names([&](unsigned i) { return exi[i] == 0; }).c_str());
+                break;
+            case GcExiVerdict::StartsWithBranch:
+                logf("GameCube: memory card off: every EXI function was found (EXI blocks 0x%08x), but these start "
+                     "with a branch, which a hook cannot replay: %s\n",
+                     ecb, names([&](unsigned i) { return decision.branching[i]; }).c_str());
+                break;
+            }
+        }
+        const std::uint32_t ar_dma = find_dsp_stores(code, {0xCC005020, 0xCC005022, 0xCC005024, 0xCC005026,
+                                                             0xCC005028, 0xCC00502A});
+        if (ar_dma != 0) replay_hook(ar_dma, h.hook_ar_dma, h.replay_ar_dma, h.continue_ar_dma);
+        // The sound program reads ARAM from MEM2 (where the blob keeps it) in
+        // one of two ways, and a Wii and Dolphin each take only one of them.
+        // The DSP's sample reader keeps its addresses in the samples' own units
+        // (nibbles for 4-bit samples, words for 16-bit). A Wii picks MEM2 by
+        // bit 28 of that register: Nintendont's patched programs set it there,
+        // and they play right on a Wii. Dolphin turns the register into a byte
+        // address first and looks at bit 28 of that, and its fast HLE audio
+        // reads byte addresses itself and stops on a patched program. So:
+        //  - on a Wii, the program is patched (patch_dsp_programs). Raising
+        //    the game's byte addresses instead (raise_aram_base) put bit 29,
+        //    not 28, into a 4-bit sample's register, and Super Mario Eclipse's
+        //    music came out garbled on a Wii (clean in Dolphin);
+        //  - in Dolphin, and for a program not in Nintendont's list, the game's
+        //    ARAM addresses are raised.
+        const bool on_wii = !extras.in_dolphin;
+        const unsigned dsp_patched = on_wii ? patch_dsp_programs(dol) : 0;
+        std::vector<std::uint32_t> stub_words;
+        // A game whose own checks need the SDK's ARAM addresses keeps them
+        // (gxpatches.hpp's gc_keeps_aram_addresses).
+        const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
+        // Read before ARGetBaseAddress is raised, which changes its shape.
+        const std::vector<std::uint32_t> aram_ends_after_base = find_gc_aram_ends_after_base(code.ranges());
+        const unsigned aram_raised =
+            dsp_patched || keep_aram ? 0 : raise_aram_base(code, find_aram_check(code), stubs_addr, stub_words);
+        const unsigned aram_limits = aram_raised ? raise_aram_limits(code, aram_ends_after_base) : 0;
+        for (std::size_t i = 0; i < stub_words.size(); ++i) store32(stubs_addr + 4 * i, stub_words[i]);
+        DCFlushRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
+        ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
+        if (dsp_patched)
+            logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
+        else if (keep_aram && !gc_keeps_aram_addresses(image.id))
+            logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
+                 "may play wrong)\n");
+        else if (keep_aram)
+            logf("GameCube: ARAM addresses left as the SDK gives them: %s breaks when they are raised (see "
+                 "gc_keeps_aram_addresses; its sound may play wrong)\n", image.id.c_str());
+        else
+            logf("GameCube: ARAM addresses from 0x10004000 (%u place(s), %u sound heap limit(s) raised with them) for the "
+                 "sound program to read MEM2 (%s)\n",
+                 aram_raised, aram_limits, on_wii ? "a Wii, the program not one Nintendont's list knows" : "Dolphin");
+        const bool aram_check_skipped = skip_aram_size_check(code);
+        const unsigned ai_waits = skip_ai_stream_waits(code);
+        logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
+        // Colour-indexed textures (C4/C8/C14X2) get their palettes through
+        // GXInitTlutObj, whose older SDK builds the load word from the old
+        // word's top bits and whose newer one keeps its low bits instead
+        // (riftwii/gcvideo.hpp): harmless on a GameCube, which ignores
+        // addresses past its 24 MB, but in Wii mode the GPU is sent to MEM2
+        // or nowhere and Mario Party 4 comes out in the wrong colours, Sonic
+        // Gems Collection without its capitals.
+        const GcTlutSites tlut = find_gc_tlut_sites(code.ranges());
+        for (std::uint32_t at : tlut.stale) code.put(at, gc_tlut_li_for(code.at(at)));
+        if (!tlut.stale.empty()) {
+            const std::uint32_t first_fn = function_start(code, tlut.stale.front());
+            const std::uint32_t where = first_fn != 0 ? first_fn : tlut.stale.front();
+            if (tlut.stale.size() == 1) {
+                logf("GameCube: GXInitTlutObj 0x%08x builds its palette address from the new pointer alone (it kept "
+                     "stale bits that, in Wii mode, point the GPU at the wrong memory: wrong colours on paletted "
+                     "textures)\n",
+                     static_cast<unsigned>(where));
+            } else {
+                logf("GameCube: %u GXInitTlutObj site(s), first at 0x%08x, build their palette addresses from the new "
+                     "pointer alone (they kept stale bits that, in Wii mode, point the GPU at the wrong memory: wrong "
+                     "colours on paletted textures)\n",
+                     static_cast<unsigned>(tlut.stale.size()), static_cast<unsigned>(where));
+            }
+        } else if (!tlut.clean.empty()) {
+            logf("GameCube: GXInitTlutObj already builds its palette address from the new pointer alone (%u site(s) "
+                 "already clean)\n",
+                 static_cast<unsigned>(tlut.clean.size()));
+        } else {
+            logf("GameCube: no GXInitTlutObj keeping stale palette address bits found (none in this game, or another "
+                 "SDK's that the search does not know): its palettes load as the game builds them\n");
+        }
+        const GcClocks program_clocks = match_game_to_clocks(code, dol);
+        if (main_program) clocks = program_clocks;
+        logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
+             aram_check_skipped ? "skipped" : "not found");
+        // A crash shows itself on the screen and in the trace instead of a
+        // blank halt.
+        const std::uint32_t unhandled = find_unhandled_exception(code, dol);
+        hook(unhandled, h.hook_fatal);
+        std::vector<std::uint32_t> moved;
+        const bool moved_out = move_out_of_ios(code, moved_addr, moved);
+        for (std::size_t i = 0; i < moved.size(); ++i) store32(moved_addr + 4 * i, moved[i]);
+        DCFlushRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
+        ICInvalidateRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
+        logf("GameCube: the code at IOS's counter (0x%08x) %s\n", kIosCounter,
+             moved_out ? "runs from a copy" : "left where it is");
+        // The guard (gc_rt.h): the game's bytes for IOS's globals area, taken
+        // after every patch above (the branch to the moved code is one), or the
+        // guard would put the unpatched words back.
+        for (const Section& s : dol.text)
+            if (s.address <= 0x80003100 && s.address + s.bytes.size() >= 0x80003200) {
+                ctx->guard_addr = 0x80003100;
+                for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
+            }
+        logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
+        logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
+             test_fake_remote ? " (test remote)" : "", ar_dma);
+        logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+        if (pad_read != 0) {
+            if (ctx->si_type_cache != 0 && ctx->pad_enabled_offset != 0) {
+                logf("GameCube: a port where the game found a GameCube controller stays the controller's, even while the "
+                     "game has it switched off, until a read finds it unplugged, so a Wii Remote never takes it over "
+                     "(the SDK's controller types at 0x%08x, its enabled ports at r13%+d)\n",
+                     ctx->si_type_cache, ctx->pad_enabled_offset);
+            } else if (ctx->si_type_cache != 0) {
+                logf("GameCube: the game's enabled ports were not found, so a port is kept for a GameCube controller "
+                     "only while the SDK's controller types (0x%08x) show one there; a port the game switches off may "
+                     "go to a Wii Remote\n",
+                     ctx->si_type_cache);
+            } else {
+                logf("GameCube: the SDK's controller types were not found, so a port is kept for a GameCube controller "
+                     "only while the game reads one there\n");
+            }
+        }
+        if (pad_read != 0) {
+            if (ctx->si_probe != 0)
+                logf("GameCube: SIProbe 0x%08x: a port a Wii Remote or the adapter plays on answers as a GameCube "
+                     "controller while no device of its own answers there, for games that ask before they read a port\n",
+                     ctx->si_probe);
+            else
+                logf("GameCube: SIProbe was not found: a game that asks it which ports have a controller sees none "
+                     "for a Wii Remote where the console has no GameCube controller\n");
+        }
+        logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
+             motor == 0 ? " (not found: a Wii Remote does not rumble)"
+             : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"
+                                                    : ": Wii Remote rumble is off in the settings");
+        logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
+             ai_dma ? "" : " (not found: no disc audio streaming)");
+        if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset
+
+        return true;
+    };
+    // RiftWii's part of MEM1 as it is before any program's patches.
+    const std::vector<GcResidentPiece> resident_pieces = {{blob_addr, h.size},
+                                                          {card_addr, static_cast<std::uint32_t>(sizeof(gc_card))},
+                                                          {moved_addr, kMovedBytes},
+                                                          {stubs_addr, kStubBytes}};
+    const std::vector<GcResidentRegion> resident_base = read_resident(resident_pieces);
+    if (!patch_program(dol, code, low, ogc, ogc_di_handler, ogc_create_alarm, di_starts, true, error)) return false;
+
+    // Programs the game loads itself (riftwii/gcprograms.hpp): its ELF
+    // files, each patched as the disc's own program is, from RiftWii's part
+    // of MEM1 as it was before any patch; that part is then put back as the
+    // disc's own program has it. What a program's patches change in its
+    // code and data goes into the reads that bring it (gc_programs_patch),
+    // and what they change in RiftWii's part is set when it starts
+    // (gc_on_program_start). Not with packs (they move the disc's files),
+    // a game from a TGC image, or a second disc (the patches are for disc
+    // 1's offsets).
+    const std::vector<GcResidentRegion> resident_main = read_resident(resident_pieces);
+    std::vector<std::vector<GcResidentRegion>> resident_programs;
+    std::vector<GcDiscPatch> program_patches;
+    std::uint32_t program_flags = ctx->flags;
+    bool card_hooked = ctx->card != 0;
     {
-        std::vector<CodeRange> data_ranges;
-        for (const Section& s : dol.data) data_ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
-        const std::uint32_t boot_dol = find_gc_boot_dol(code.ranges(), data_ranges);
-        const unsigned first = boot_dol != 0 ? opcode(code.at(boot_dol)) : 0;
-        const bool boot_dol_branch = boot_dol != 0 && (first == 16 || first == 18);
-        // A game from a TGC image: exec.txt names programs by their offset
-        // on the outer disc and starts them with its boot.bin and FST, not
-        // the TGC's, so its own switches run as made (not seen in a game).
-        const bool from_tgc = tgc_offset != 0;
-        const bool boot_dol_hookable = boot_dol != 0 && !boot_dol_branch && !from_tgc;
-        const bool exec_test_on = test_exec && !boot_dol_branch;
-        const char* const boot_dol_off = boot_dol_branch ? "its first word is a branch"
-                                         : from_tgc      ? "the game came from a TGC image, whose programs exec.txt "
-                                                           "cannot name"
-                                                         : nullptr;
-        const bool on_sd = image.path.compare(0, 4, "sd:/") == 0;
-        std::string why_not;
-        if (!boot_dol_hookable && !exec_test_on && tgcs.empty())
-            why_not = boot_dol_off != nullptr ? boot_dol_off
-                                              : "the game has no switch to another program (__OSBootDolSimple not found)";
-        else if (!on_sd) why_not = "only for a game on the SD card so far";
-        else if (ctx->leave_buf == 0) why_not = "there is no way back to RiftWii";
-        else if (image.path.size() + image.id.size() > 400) why_not = "the image's path is too long for exec.txt";
-        std::uint32_t exec_sector = 0;
-        if (why_not.empty()) {
-            static const char kExec[] = "sd:/riftwii/gc/exec.txt";
-            std::vector<std::uint8_t> sector(512, 0);
-            const std::string text = "--idle--\npath=" + image.path + "\ngame=" + image.id + "\n";
-            std::copy(text.begin(), text.end(), sector.begin());
-            std::FILE* e = std::fopen(kExec, "wb");
-            const bool written = e && std::fwrite(sector.data(), 1, sector.size(), e) == sector.size();
-            if (e) std::fclose(e);
-            forget_sd_layout();
-            Fat32File ef;
-            if (written && resolve_sd_file(kExec, ef, why_not) && !ef.fragments.empty())
-                exec_sector = static_cast<std::uint32_t>(ef.fragments[0].sector);
-            else if (why_not.empty())
-                why_not = "sd:/riftwii/gc/exec.txt could not be made";
-        }
-        if (exec_sector != 0 && exec_test_on) ctx->flags |= GC_FLAG_EXEC_TEST;
-        if (exec_sector != 0 && boot_dol_hookable) {
-            replay_hook(boot_dol, h.hook_boot_dol, h.replay_boot_dol, h.continue_boot_dol);
-            ctx->exec_sector = exec_sector;
-            logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) goes back through RiftWii, which "
-                 "starts the image again with it (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                 boot_dol, exec_sector);
-        } else if (exec_sector != 0 && exec_test_on) {
-            ctx->exec_sector = exec_sector;
-            logf("GameCube: the test of a program switch at the 1500th pad read (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                 exec_sector);
-        }
-        if (boot_dol != 0 && !(exec_sector != 0 && boot_dol_hookable)) {
-            logf("GameCube: a switch to another program (__OSBootDolSimple 0x%08x) runs as made, unpatched: %s\n",
-                 boot_dol, boot_dol_off != nullptr ? boot_dol_off : why_not.c_str());
-        }
-        // The TGC images' programs, whose reads the blob watches. A sector
-        // word of their own, so a disc with TGCs alone keeps the restart a
-        // game without a program switch has (gc_on_reset_system).
-        if (exec_sector != 0 && !tgcs.empty()) {
-            ctx->tgc_sector = exec_sector;
-            ctx->tgc_count = static_cast<std::uint32_t>(tgcs.size());
-            for (std::size_t i = 0; i < tgcs.size(); ++i) {
-                ctx->tgc_offset[i] = tgcs[i].disc_offset;
-                ctx->tgc_dol_start[i] = tgcs[i].dol_at();
-                ctx->tgc_dol_end[i] = tgcs[i].dol_end();
+        const char* programs_off = pack != nullptr ? "the packs move the disc's files"
+                                   : tgc_offset != 0 ? "the game came from a TGC image"
+                                   : second.on       ? "the game has a second disc"
+                                                     : nullptr;
+        const std::vector<GcFstFile> elf_files = find_gc_fst_files_ending(fst, ".elf", GC_PROGRAMS_MAX);
+        if (!elf_files.empty() && programs_off != nullptr)
+            logf("GameCube: the disc's %u ELF program(s) run as made, unpatched: %s\n",
+                 static_cast<unsigned>(elf_files.size()), programs_off);
+        for (std::size_t i = 0; programs_off == nullptr && i < elf_files.size(); ++i) {
+            const GcFstFile& file = elf_files[i];
+            const unsigned index = static_cast<unsigned>(resident_programs.size());
+            GcElfProgram elf;
+            Dol program;
+            std::string why;
+            bool patched = read_elf_program(f, file, arena_hi, elf, program, why);
+            const Dol original = program;
+            Code program_code(program.text);
+            DvdLow program_low;
+            if (patched) patched = find_dvd_low(program_code, program_low, why);
+            if (patched) {
+                // As for the disc's own program: a stack or arena above the
+                // arena's top would run into RiftWii's part once it starts.
+                const GcCodeReader read_program = [&program_code](std::uint32_t address, std::uint32_t& word) {
+                    if (!program_code.has(address)) return false;
+                    word = program_code.at(address);
+                    return true;
+                };
+                std::vector<GcTextRange> program_text;
+                for (const Section& s : program.text)
+                    program_text.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+                const GcStackTop program_stack = find_gc_stack_top(read_program, elf.entry);
+                const std::uint32_t program_floor =
+                    std::max(program_stack.address, find_gc_arena_lo(read_program, program_text));
+                if (program_floor > arena_hi) {
+                    char text[96];
+                    std::snprintf(text, sizeof(text), "its stack or arena starts at 0x%08x, above the arena's top 0x%08x",
+                                  static_cast<unsigned>(program_floor), static_cast<unsigned>(arena_hi));
+                    why = text;
+                    patched = false;
+                }
             }
-            logf("GameCube: the menu's start of a game packed in a TGC image (%u on the disc) goes back through "
-                 "RiftWii, which starts that game with the usual patches (sd:/riftwii/gc/exec.txt, sector %u)\n",
-                 static_cast<unsigned>(tgcs.size()), exec_sector);
-        } else if (!tgcs.empty()) {
-            logf("GameCube: the menu's start of a game packed in a TGC image runs as made, unpatched: %s\n",
-                 why_not.c_str());
+            if (patched) {
+                ori_to_addi(program_code);
+                if (is_ogc_set_alarm(program_code, program_low.set_alarm)) {
+                    why = "it is built on libogc";
+                    patched = false;
+                }
+            }
+            if (patched) {
+                logf("GameCube: an ELF program the game loads itself, at disc offset 0x%08x (%u bytes, entry "
+                     "0x%08x): patched as the disc's own, from here to its last line\n",
+                     file.offset, file.size, elf.entry);
+                write_resident(resident_base);
+                patched = patch_program(program, program_code, program_low, false, 0, 0, {}, false, why);
+            }
+            // Its start, to the blob: the first two words, as patched, run
+            // from the replay slot after gc_on_program_start.
+            std::uint32_t entry_words[2] = {};
+            if (patched)
+                patched = gc_program_entry_words(elf.entry, program_code.at(elf.entry), program_code.at(elf.entry + 4),
+                                                 index, blob_addr + h.hook_program, entry_words, why);
+            if (patched && gc_code_branches_to(program_code.ranges(), elf.entry + 4)) {
+                why = "its code branches to its second word, which becomes the jump to the blob";
+                patched = false;
+            }
+            std::vector<GcDiscPatch> patches;
+            if (patched) {
+                store32(blob_addr + h.replay_program, program_code.at(elf.entry));
+                store32(blob_addr + h.replay_program + 4, program_code.at(elf.entry + 4));
+                // The way back to the program's third word: lis r12,hi; ori r12,r12,lo.
+                const std::uint32_t third = elf.entry + 8;
+                store32(blob_addr + h.continue_program, 0x3D800000 | (third >> 16));
+                store32(blob_addr + h.continue_program + 4, 0x618C0000 | (third & 0xFFFF));
+                program_code.put(elf.entry, entry_words[0]);
+                program_code.put(elf.entry + 4, entry_words[1]);
+                std::vector<std::pair<std::uint32_t, std::uint32_t>> changed;
+                for (std::size_t s = 0; s < program.text.size(); ++s)
+                    gc_changed_words(program.text[s].address, original.text[s].bytes, program.text[s].bytes, changed);
+                for (std::size_t s = 0; s < program.data.size(); ++s)
+                    gc_changed_words(program.data[s].address, original.data[s].bytes, program.data[s].bytes, changed);
+                for (const auto& word : changed) {
+                    GcDiscPatch patch;
+                    patch.word = word.second;
+                    if (!gc_elf_disc_offset(elf, file.offset, word.first, patch.offset)) {
+                        why = "a patch is outside the program's bytes on the disc";
+                        patched = false;
+                        break;
+                    }
+                    patches.push_back(patch);
+                }
+            }
+            if (patched) {
+                resident_programs.push_back(read_resident(resident_pieces));
+                program_flags |= ctx->flags;
+                card_hooked = card_hooked || ctx->card != 0;
+                program_patches.insert(program_patches.end(), patches.begin(), patches.end());
+                logf("GameCube: the ELF program at disc offset 0x%08x is program %u: %u word(s) of it patched as "
+                     "the game reads it, its start taken at 0x%08x\n",
+                     file.offset, index, static_cast<unsigned>(patches.size()), elf.entry);
+            } else {
+                logf("GameCube: the file at disc offset 0x%08x (named .elf) runs as the disc has it, if the game "
+                     "loads it: %s\n",
+                     file.offset, why.c_str());
+            }
+            write_resident(resident_main);
         }
     }
-    // The memory card: the EXI functions to the blob (gc_card.h).
-    if (!card_image.empty()) {
-        // The disc's ID tells the finder the few games whose 0x40-byte SDK
-        // links no EXIProbeEx (gcexi.cpp's links_no_probe_ex).
-        const GcExiFunctions found_exi = find_gc_exi_functions(code.ranges(), image.id);
-        const auto& exi = found_exi.hooks;
-        const std::uint32_t ecb = found_exi.blocks;
-        // All or nothing (riftwii/gcexi.hpp's decide_gc_exi_hooks): a game
-        // whose card functions are only partly hooked would reach the Wii's
-        // own EXI half way through a card command. Only an EXIProbeEx the
-        // finder says the SDK has none of may stay unhooked.
-        const GcExiDecision decision = decide_gc_exi_hooks(found_exi, code.ranges());
-        if (decision.verdict == GcExiVerdict::Hook) {
-            for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
-                if (exi[i] == 0) continue;  // an EXIProbeEx the game's SDK does not have
-                const std::uint32_t entry = h.exi_hooks + 12 * i;
-                replay_hook(exi[i], load32(blob_addr + entry), load32(blob_addr + entry + 4),
-                            load32(blob_addr + entry + 8));
-            }
+    // Their table in MEM2's stage, after everything else there: the
+    // patches, RiftWii's words each program sets and their values, and the
+    // stack gc_on_program_start runs on.
+    std::string programs_why;
+    if (!resident_programs.empty() && !gc_sort_disc_patches(program_patches, programs_why)) {
+        logf("GameCube: the ELF programs run as the disc has them: %s\n", programs_why.c_str());
+        resident_programs.clear();
+    }
+    if (!resident_programs.empty()) {
+        // The flags are the context's one word the blob also changes as it
+        // runs: every program gets them all (each flag only matters where
+        // its hook is).
+        const std::uint32_t flags_address = blob_addr + h.context_offset + offsetof(gc_rt_context, flags);
+        // The memory card is the game's, whichever program runs: when any
+        // program hooks it, it stays on for all of them (its image, its
+        // file's pieces), so saves still waiting to be written back are
+        // never dropped at a switch. Only the EXI blocks it answers through
+        // (card->ecb, 0 for a program without the hooks) are a program's.
+        std::vector<std::uint32_t> unswitched = {flags_address};
+        if (card_hooked) {
+            ctx->card = card_addr;
             memcard->image = GC_CARD_IMAGE;
-            memcard->ecb = ecb;
             memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
             std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
-            ctx->card = card_addr;
+            unswitched.push_back(blob_addr + h.context_offset + offsetof(gc_rt_context, card));
+            unswitched.push_back(card_addr + offsetof(gc_card, image));
+            unswitched.push_back(card_addr + offsetof(gc_card, run_count));
+            for (std::uint32_t at = 0; at < sizeof(memcard->runs); at += 4)
+                unswitched.push_back(card_addr + offsetof(gc_card, runs) + at);
         }
-        // The names of the hooks a test picks, for the log.
-        auto names = [](auto picked) {
-            std::string list;
-            for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
-                if (picked(i)) list += std::string(list.empty() ? "" : ", ") + gc_exi_function_name(i);
-            }
-            return list;
-        };
-        // Without the hooks the game talks to the Wii's own EXI, which has no
-        // GameCube card: it reports "no card". The first line says why, so a
-        // problem report shows the cause.
-        switch (decision.verdict) {
-        case GcExiVerdict::Hook:
-            logf("GameCube: memory card in slot A (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n", ecb,
-                 exi[GC_EXI_IMM], exi[GC_EXI_GET_ID]);
-            if (found_exi.probe_ex_absent && found_exi.old_sdk) {
-                logf("GameCube: memory card: no EXIProbeEx was found; the 0x38-byte layout is accepted without "
-                     "one, so the other ten EXI functions are hooked\n");
-            } else if (found_exi.probe_ex_absent) {
-                logf("GameCube: memory card: no EXIProbeEx found; %s is on the list of games whose SDK has none, "
-                     "so the other ten EXI functions are hooked\n",
-                     image.id.c_str());
-            }
-            break;
-        case GcExiVerdict::NoTables:
-            logf("GameCube: memory card off: no EXI control-block table with more than 7 users was found\n");
-            break;
-        case GcExiVerdict::NotAllFound:
-            logf("GameCube: memory card off: the EXI functions were not all found (%u table(s) tried)\n",
-                 found_exi.tables_tried);
-            logf("GameCube: memory card: in the table at 0x%08x, the finder could not place these EXI functions: "
-                 "%s\n",
-                 found_exi.partial_blocks,
-                 names([&](unsigned i) { return found_exi.partial[i] == 0; }).c_str());
-            break;
-        case GcExiVerdict::ListedRefused: {
-            // A listed game's other ten functions were all placed; one of the
-            // checks that no EXIProbeEx is hiding said no.
-            using Refusal = GcExiFunctions::ListedRefusal;
-            const char* why = "the check that no EXIProbeEx is hiding refused";
-            if (found_exi.listed_refusal == Refusal::ProbeLike) {
-                why = "EXIProbe is not the only one of its functions calling the probe and EXIGetID";
-            } else if (found_exi.listed_refusal == Refusal::AttachDoesNotFollow) {
-                why = "the code after EXIProbe is not EXIAttach";
-            } else if (found_exi.listed_refusal == Refusal::ProbeCaller) {
-                why = "a branch to the probe outside the placed EXI functions";
-            }
-            logf("GameCube: memory card off: %s is on the list of games without EXIProbeEx, but the listed-game "
-                 "check refused (EXI blocks 0x%08x): %s at 0x%08x\n",
-                 image.id.c_str(), found_exi.partial_blocks, why, found_exi.listed_refusal_at);
-            break;
-        }
-        case GcExiVerdict::Overlapping:
-            logf("GameCube: memory card off: %s (0x%08x) and %s (0x%08x) are closer than a hook's %u bytes, so "
-                 "hooking both would break one\n",
-                 gc_exi_function_name(decision.overlap_first), exi[decision.overlap_first],
-                 gc_exi_function_name(decision.overlap_second), exi[decision.overlap_second], kGcExiHookSpan);
-            break;
-        case GcExiVerdict::SeveralTables:
-            // Hooking the wrong table's functions would leave the real card
-            // functions on the Wii's own EXI, so the card stays off instead.
-            logf("GameCube: memory card off: %u EXI control-block tables each gave a full set of EXI functions "
-                 "(the first at 0x%08x), and RiftWii does not guess which one is the SDK's\n",
-                 found_exi.resolving_tables, found_exi.partial_blocks);
-            break;
-        case GcExiVerdict::Incomplete:
-            logf("GameCube: memory card off: the finder's result at EXI blocks 0x%08x lacks %s\n", ecb,
-                 names([&](unsigned i) { return exi[i] == 0; }).c_str());
-            break;
-        case GcExiVerdict::StartsWithBranch:
-            logf("GameCube: memory card off: every EXI function was found (EXI blocks 0x%08x), but these start "
-                 "with a branch, which a hook cannot replay: %s\n",
-                 ecb, names([&](unsigned i) { return decision.branching[i]; }).c_str());
-            break;
-        }
-    }
-    const std::uint32_t ar_dma = find_dsp_stores(code, {0xCC005020, 0xCC005022, 0xCC005024, 0xCC005026,
-                                                         0xCC005028, 0xCC00502A});
-    if (ar_dma != 0) replay_hook(ar_dma, h.hook_ar_dma, h.replay_ar_dma, h.continue_ar_dma);
-    // The sound program reads ARAM from MEM2 (where the blob keeps it) in
-    // one of two ways, and a Wii and Dolphin each take only one of them.
-    // The DSP's sample reader keeps its addresses in the samples' own units
-    // (nibbles for 4-bit samples, words for 16-bit). A Wii picks MEM2 by
-    // bit 28 of that register: Nintendont's patched programs set it there,
-    // and they play right on a Wii. Dolphin turns the register into a byte
-    // address first and looks at bit 28 of that, and its fast HLE audio
-    // reads byte addresses itself and stops on a patched program. So:
-    //  - on a Wii, the program is patched (patch_dsp_programs). Raising
-    //    the game's byte addresses instead (raise_aram_base) put bit 29,
-    //    not 28, into a 4-bit sample's register, and Super Mario Eclipse's
-    //    music came out garbled on a Wii (clean in Dolphin);
-    //  - in Dolphin, and for a program not in Nintendont's list, the game's
-    //    ARAM addresses are raised.
-    const bool on_wii = !extras.in_dolphin;
-    const unsigned dsp_patched = on_wii ? patch_dsp_programs(dol) : 0;
-    std::vector<std::uint32_t> stub_words;
-    // A game whose own checks need the SDK's ARAM addresses keeps them
-    // (gxpatches.hpp's gc_keeps_aram_addresses).
-    const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
-    const unsigned aram_raised =
-        dsp_patched || keep_aram ? 0 : raise_aram_base(code, find_aram_check(code), stubs_addr, stub_words);
-    const unsigned aram_limits = aram_raised ? raise_aram_limits(code) : 0;
-    for (std::size_t i = 0; i < stub_words.size(); ++i) store32(stubs_addr + 4 * i, stub_words[i]);
-    DCFlushRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
-    ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
-    if (dsp_patched)
-        logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
-    else if (keep_aram && !gc_keeps_aram_addresses(image.id))
-        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
-             "may play wrong)\n");
-    else if (keep_aram)
-        logf("GameCube: ARAM addresses left as the SDK gives them: %s breaks when they are raised (see "
-             "gc_keeps_aram_addresses; its sound may play wrong)\n", image.id.c_str());
-    else
-        logf("GameCube: ARAM addresses from 0x10004000 (%u place(s), %u sound heap limit(s) raised with them) for the "
-             "sound program to read MEM2 (%s)\n",
-             aram_raised, aram_limits, on_wii ? "a Wii, the program not one Nintendont's list knows" : "Dolphin");
-    const bool aram_check_skipped = skip_aram_size_check(code);
-    const unsigned ai_waits = skip_ai_stream_waits(code);
-    logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
-    // Colour-indexed textures (C4/C8/C14X2) get their palettes through
-    // GXInitTlutObj, whose older SDK builds the load word from the old
-    // word's top bits and whose newer one keeps its low bits instead
-    // (riftwii/gcvideo.hpp): harmless on a GameCube, which ignores
-    // addresses past its 24 MB, but in Wii mode the GPU is sent to MEM2
-    // or nowhere and Mario Party 4 comes out in the wrong colours, Sonic
-    // Gems Collection without its capitals.
-    const GcTlutSites tlut = find_gc_tlut_sites(code.ranges());
-    for (std::uint32_t at : tlut.stale) code.put(at, gc_tlut_li_for(code.at(at)));
-    if (!tlut.stale.empty()) {
-        const std::uint32_t first_fn = function_start(code, tlut.stale.front());
-        const std::uint32_t where = first_fn != 0 ? first_fn : tlut.stale.front();
-        if (tlut.stale.size() == 1) {
-            logf("GameCube: GXInitTlutObj 0x%08x builds its palette address from the new pointer alone (it kept "
-                 "stale bits that, in Wii mode, point the GPU at the wrong memory: wrong colours on paletted "
-                 "textures)\n",
-                 static_cast<unsigned>(where));
+        // The disc's own program's changes count too: a program that does
+        // not set a word (Reset's restart, the IOS guard) must start with
+        // the base value, not the disc's own program's.
+        std::vector<std::vector<GcResidentRegion>> compared = resident_programs;
+        compared.push_back(resident_main);
+        const std::vector<std::uint32_t> words = gc_resident_words(resident_base, compared, unswitched);
+        const std::uint32_t program_count = static_cast<std::uint32_t>(resident_programs.size());
+        const std::uint32_t word_count = static_cast<std::uint32_t>(words.size());
+        const std::uint32_t mem2_before = mem2_next;
+        const std::uint32_t table_addr = mem2_take(sizeof(gc_programs));
+        const std::uint32_t patches_addr =
+            mem2_take(static_cast<std::uint32_t>(program_patches.size() * sizeof(gc_disc_patch)));
+        const std::uint32_t addresses_addr = mem2_take(word_count * 4);
+        const std::uint32_t values_addr = mem2_take(program_count * word_count * 4);
+        const std::uint32_t stack_addr = mem2_take(kGcProgramStackBytes);
+        if (mem2_next - kGcMem2Data > kGcMem2DataMax) {
+            logf("GameCube: the ELF programs run as the disc has them: their %u patches and %u words of RiftWii's "
+                 "do not fit in the %u KB of MEM2 set aside\n",
+                 static_cast<unsigned>(program_patches.size()), word_count,
+                 static_cast<unsigned>(kGcMem2DataMax / 1024));
+            mem2_next = mem2_before;
         } else {
-            logf("GameCube: %u GXInitTlutObj site(s), first at 0x%08x, build their palette addresses from the new "
-                 "pointer alone (they kept stale bits that, in Wii mode, point the GPU at the wrong memory: wrong "
-                 "colours on paletted textures)\n",
-                 static_cast<unsigned>(tlut.stale.size()), static_cast<unsigned>(where));
+            mem2_bytes = mem2_next - kGcMem2Data;
+            mem2_stage.resize(mem2_bytes, 0);
+            auto* table = static_cast<gc_programs*>(staged(table_addr));
+            table->magic = GC_PROGRAMS_MAGIC;
+            table->patch_count = static_cast<std::uint32_t>(program_patches.size());
+            table->patches = patches_addr;
+            table->program_count = program_count;
+            table->word_count = word_count;
+            table->addresses = addresses_addr;
+            table->values = values_addr;
+            auto* patches = static_cast<gc_disc_patch*>(staged(patches_addr));
+            for (std::size_t i = 0; i < program_patches.size(); ++i)
+                patches[i] = {program_patches[i].offset, program_patches[i].word};
+            auto* addresses = static_cast<std::uint32_t*>(staged(addresses_addr));
+            auto* values = static_cast<std::uint32_t*>(staged(values_addr));
+            for (std::uint32_t w = 0; w < word_count; ++w) {
+                addresses[w] = words[w];
+                for (std::uint32_t p = 0; p < program_count; ++p)
+                    values[p * word_count + w] = gc_resident_word(resident_programs[p], words[w]);
+            }
+            // The stack's top, with a frame's back chain and LR above it.
+            store32(blob_addr + h.program_saved + GC_PROGRAM_SAVED_STACK, stack_addr + kGcProgramStackBytes - 16);
+            ctx->flags = program_flags;
+            ctx->programs = table_addr;
+            logf("GameCube: %u ELF program(s) the game loads itself: %u patch(es) put into the reads that bring "
+                 "them, %u of RiftWii's words set when each starts; table 0x%08x\n",
+                 program_count, table->patch_count, word_count, table_addr);
         }
-    } else if (!tlut.clean.empty()) {
-        logf("GameCube: GXInitTlutObj already builds its palette address from the new pointer alone (%u site(s) "
-             "already clean)\n",
-             static_cast<unsigned>(tlut.clean.size()));
-    } else {
-        logf("GameCube: no GXInitTlutObj keeping stale palette address bits found (none in this game, or another "
-             "SDK's that the search does not know): its palettes load as the game builds them\n");
     }
-    const GcClocks clocks = match_game_to_clocks(code, dol);
-    logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
-         aram_check_skipped ? "skipped" : "not found");
-    // A crash shows itself on the screen and in the trace instead of a
-    // blank halt.
-    const std::uint32_t unhandled = find_unhandled_exception(code, dol);
-    hook(unhandled, h.hook_fatal);
-    std::vector<std::uint32_t> moved;
-    const bool moved_out = move_out_of_ios(code, moved_addr, moved);
-    for (std::size_t i = 0; i < moved.size(); ++i) store32(moved_addr + 4 * i, moved[i]);
-    DCFlushRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
+    // What a program's patches left in the code moved from IOS's counter
+    // and the ARAM stubs is the disc's own program's again.
     ICInvalidateRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
-    logf("GameCube: the code at IOS's counter (0x%08x) %s\n", kIosCounter,
-         moved_out ? "runs from a copy" : "left where it is");
-    // The guard (gc_rt.h): the game's bytes for IOS's globals area, taken
-    // after every patch above (the branch to the moved code is one), or the
-    // guard would put the unpatched words back.
-    for (const Section& s : dol.text)
-        if (s.address <= 0x80003100 && s.address + s.bytes.size() >= 0x80003200) {
-            ctx->guard_addr = 0x80003100;
-            for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
-        }
-    logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
-    logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
-         test_fake_remote ? " (test remote)" : "", ar_dma);
-    logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
-    if (pad_read != 0) {
-        if (ctx->si_type_cache != 0 && ctx->pad_enabled_offset != 0) {
-            logf("GameCube: a port where the game found a GameCube controller stays the controller's, even while the "
-                 "game has it switched off, until a read finds it unplugged, so a Wii Remote never takes it over "
-                 "(the SDK's controller types at 0x%08x, its enabled ports at r13%+d)\n",
-                 ctx->si_type_cache, ctx->pad_enabled_offset);
-        } else if (ctx->si_type_cache != 0) {
-            logf("GameCube: the game's enabled ports were not found, so a port is kept for a GameCube controller "
-                 "only while the SDK's controller types (0x%08x) show one there; a port the game switches off may "
-                 "go to a Wii Remote\n",
-                 ctx->si_type_cache);
-        } else {
-            logf("GameCube: the SDK's controller types were not found, so a port is kept for a GameCube controller "
-                 "only while the game reads one there\n");
-        }
-    }
-    if (pad_read != 0) {
-        if (ctx->si_probe != 0)
-            logf("GameCube: SIProbe 0x%08x: a port a Wii Remote or the adapter plays on answers as a GameCube "
-                 "controller while no device of its own answers there, for games that ask before they read a port\n",
-                 ctx->si_probe);
-        else
-            logf("GameCube: SIProbe was not found: a game that asks it which ports have a controller sees none "
-                 "for a Wii Remote where the console has no GameCube controller\n");
-    }
-    logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
-         motor == 0 ? " (not found: a Wii Remote does not rumble)"
-         : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"
-                                                : ": Wii Remote rumble is off in the settings");
-    logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
-         ai_dma ? "" : " (not found: no disc audio streaming)");
-    if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset
+    ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
     // The cheats' hook, last: every patch above is in, so none can have
     // taken its word unnoticed.
     if (!cheats.gct.empty()) {
@@ -3389,10 +3711,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // system lets go first, as a Wii game's launch does.
     // What goes to MEM2 at the jump, as one block: the card's image (when
     // the game has a card) and the blob's buffers right after it.
-    const std::uint32_t mem2_card_bytes = ctx->card ? GC_CARD_BYTES : 0;
+    // A program the game loads itself may hook the card where the disc's
+    // own does not (EA's loader has no card functions of its own).
+    const std::uint32_t mem2_card_bytes = card_hooked ? GC_CARD_BYTES : 0;
     const std::uint32_t mem2_from = kGcMem2Data - mem2_card_bytes;
     std::vector<std::uint8_t> mem2_image;
-    if (ctx->card) {
+    if (card_hooked) {
         card_image.resize(GC_CARD_BYTES + mem2_bytes);
         std::memcpy(card_image.data() + GC_CARD_BYTES, mem2_stage.data(), mem2_bytes);
         mem2_image.swap(card_image);

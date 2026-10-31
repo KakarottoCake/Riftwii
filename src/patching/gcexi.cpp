@@ -260,8 +260,23 @@ bool resolve_exi_functions(const Words& code, std::uint32_t index_word, std::uin
             }
         }
     }
-    out[GC_EXI_ATTACH] = only(
-        [&](const Fn& fn) { return fn.sets[3] && calls(fn, probe) && !fn.probe_times && fn.start != get_id; });
+    auto attach_shape = [&](const Fn& fn) {
+        return fn.sets[3] && calls(fn, probe) && !fn.probe_times && fn.start != get_id;
+    };
+    out[GC_EXI_ATTACH] = only(attach_shape);
+    if (out[GC_EXI_ATTACH] == 0) {
+        // EA's SDK (007: NightFire's Nightfire.elf) links a second function
+        // of that shape that nothing in the game branches to, beside the
+        // EXIAttach its card code calls: then the one the game calls.
+        auto called = [&](std::uint32_t start) {
+            bool found = false;
+            code.each([&](std::uint32_t a, std::uint32_t w) {
+                if (!found && any_branch_target(a, w) == start) found = true;
+            });
+            return found;
+        };
+        out[GC_EXI_ATTACH] = only([&](const Fn& fn) { return attach_shape(fn) && called(fn.start); });
+    }
     out[GC_EXI_PROBE] = only([&](const Fn& fn) {
         return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && !fn.minus_one && !fn.sets[3] && fn.size < 0x100;
     });

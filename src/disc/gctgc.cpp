@@ -33,15 +33,21 @@ bool fst_entry_count(const std::vector<std::uint8_t>& fst, std::uint32_t& count)
     return root_is_directory && count >= 1 && count <= fst.size() / kFstEntryBytes;
 }
 
-bool ends_in_tgc(const std::vector<std::uint8_t>& fst, std::size_t names_at, std::uint32_t name_offset) {
+// Whether the name at `name_offset` in the names' table ends in `suffix`
+// (lower case, compared in any case).
+bool name_ends_in(const std::vector<std::uint8_t>& fst, std::size_t names_at, std::uint32_t name_offset,
+                  const std::string& suffix) {
     const std::size_t start = names_at + name_offset;
     if (name_offset >= fst.size() || start >= fst.size()) return false;
     std::size_t end = start;
     while (end < fst.size() && fst[end] != 0) ++end;
-    if (end == fst.size() || end - start < 4) return false;  // not ended inside the table, or too short
+    if (end == fst.size() || end - start < suffix.size()) return false;  // not ended inside the table, or too short
     auto lower = [](std::uint8_t c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c + 32 : c); };
-    return lower(fst[end - 4]) == '.' && lower(fst[end - 3]) == 't' && lower(fst[end - 2]) == 'g' &&
-           lower(fst[end - 1]) == 'c';
+    const std::size_t suffix_at = end - suffix.size();
+    for (std::size_t i = 0; i < suffix.size(); ++i) {
+        if (lower(fst[suffix_at + i]) != suffix[i]) return false;
+    }
+    return true;
 }
 
 }  // namespace
@@ -163,6 +169,11 @@ bool gc_tgc_rebase_fst(std::vector<std::uint8_t>& fst, const GcTgc& tgc, std::st
 }
 
 std::vector<GcFstFile> find_gc_tgc_files(const std::vector<std::uint8_t>& fst, std::size_t max) {
+    return find_gc_fst_files_ending(fst, ".tgc", max);
+}
+
+std::vector<GcFstFile> find_gc_fst_files_ending(const std::vector<std::uint8_t>& fst, const std::string& suffix,
+                                                std::size_t max) {
     std::vector<GcFstFile> found;
     std::uint32_t count = 0;
     if (!fst_entry_count(fst, count)) return found;
@@ -171,7 +182,7 @@ std::vector<GcFstFile> find_gc_tgc_files(const std::vector<std::uint8_t>& fst, s
         const std::uint8_t* entry = &fst[std::size_t(i) * kFstEntryBytes];
         if (entry[0] != 0) continue;
         const std::uint32_t name_offset = read_be32(entry) & 0x00FFFFFFu;
-        if (!ends_in_tgc(fst, names_at, name_offset)) continue;
+        if (!name_ends_in(fst, names_at, name_offset, suffix)) continue;
         GcFstFile file;
         file.offset = read_be32(entry + 4);
         file.size = read_be32(entry + 8);
