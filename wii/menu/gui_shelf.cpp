@@ -625,11 +625,20 @@ int g_backCur = 0;
 // `id` "*disc": the disc drive's box (skin::discCase).
 constexpr const char* kDiscBackdrop = "*disc";
 
-void UpdateBackdrop(const std::string& id, bool still) {
-    if (g_backId[g_backCur] != id && still && !id.empty()) {
-        const bool disc = id == kDiscBackdrop;
-        const u8* art = disc ? nullptr : riftwii::wii::BoxTexture(id);
-        const u8* cover = art || disc ? nullptr : riftwii::wii::CoverTexture(id);
+// `cover_name`: the tile's (CoverName): the player's own cover (#384)
+// comes before GameTDB's box here too, as on the box itself.
+void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool still) {
+    const bool disc = id == kDiscBackdrop;
+    const u8* front = disc || id.empty() ? nullptr : riftwii::wii::CoverTexture(cover_name);
+    const bool own = front && riftwii::wii::CoverBeforeBox(cover_name);
+    // Made again once the player's own cover is in memory, when the cover
+    // is read again (another GameTDB set, for a game without a box), and
+    // when the box comes after the cover stood in for it.
+    const unsigned fill = front ? riftwii::wii::CoverFill(cover_name) : 0;
+    const u8* art = disc || own || id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+    const u8* cover = art || disc ? nullptr : front;
+    const std::string key = art ? id + "#box" : (own ? cover_name + "#own" : id) + "#" + std::to_string(fill);
+    if (g_backId[g_backCur] != key && still && !id.empty()) {
         if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
             if (disc)
@@ -643,13 +652,13 @@ void UpdateBackdrop(const std::string& id, bool still) {
                                        g_backPx[next]);
             DCFlushRange(g_backPx[next], sizeof(g_backPx[next]));
             GX_InvalidateTexAll();
-            g_backId[next] = id;
+            g_backId[next] = key;
             g_backShown[next] = 0;
             g_backCur = next;
         }
     }
     for (int k = 0; k < 2; ++k) {
-        const float target = k == g_backCur && g_backId[k] == id ? 1.0f : 0.0f;
+        const float target = k == g_backCur && g_backId[k] == key ? 1.0f : 0.0f;
         g_backShown[k] = riftwii::wii::transition::Follow(g_backShown[k], target, 200.0f);
     }
 }
@@ -911,7 +920,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
     const std::string backdrop = focus < 0 || focus >= Count()      ? std::string()
                                  : (*items)[focus].badge == "DISC" ? std::string(kDiscBackdrop)
                                                                    : (*items)[focus].id;
-    UpdateBackdrop(backdrop, shelfStill >= 8);
+    UpdateBackdrop(backdrop, focus < 0 || focus >= Count() ? std::string() : CoverName((*items)[focus]), shelfStill >= 8);
     DrawBackdrop(alpha);
     if (!carousel && focus >= first && focus <= last && poses[focus].placed &&
         (g_flying.empty() || (*items)[focus].id != g_flying)) {
@@ -922,9 +931,11 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         if (!g_flying.empty() && item.id == g_flying) continue;
         const BoxPose& p = poses[i];
-        const u8* art = riftwii::wii::BoxTexture(item.id);
+        // The player's own cover (#384) comes before GameTDB's full box.
+        const u8* front = riftwii::wii::CoverTexture(CoverName(item));
+        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         Face faces[5];
-        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : riftwii::wii::CoverTexture(item.id),
+        BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
                  item.hue, item.caseColour, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
@@ -983,8 +994,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         const BoxPose& p = poses[i];
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
-        const u8* art = riftwii::wii::BoxTexture(item.id);
-        const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(item.id);
+        // The player's own cover (#384) comes before GameTDB's full box.
+        const u8* front = riftwii::wii::CoverTexture(CoverName(item));
+        const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
@@ -1204,7 +1217,7 @@ void GuiGameGrid::DrawRing(int alpha) {
 
     LoadPerspective();
     const std::string backdrop = (*items)[focus].badge == "DISC" ? std::string(kDiscBackdrop) : (*items)[focus].id;
-    UpdateBackdrop(backdrop, shelfStill >= 8);
+    UpdateBackdrop(backdrop, CoverName((*items)[focus]), shelfStill >= 8);
     DrawBackdrop(alpha);
     LoadFlat();
 
@@ -1258,8 +1271,11 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor lit = {shade, shade, shade, static_cast<u8>(alpha)};
         const u8 glint = static_cast<u8>(70 * near * alpha / 255);
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
-        const u8* tex = riftwii::wii::Cover3dTexture(item.id);
-        const u8* cover = tex ? nullptr : riftwii::wii::CoverTexture(item.id);
+        // The player's own cover (#384) comes before GameTDB's 3D one.
+        const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
+        const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
+        const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
+        const u8* cover = tex ? nullptr : flat;
         const float ph = tex ? h : h * 0.92f;
         float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
         if (tex) w = ph * riftwii::kCover3dWidth / riftwii::kCover3dHeight;

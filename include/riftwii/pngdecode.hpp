@@ -36,6 +36,14 @@ bool decode_png_in(const std::uint8_t* png, std::size_t size, ZlibInflate inflat
                    std::uint8_t* block, std::size_t block_size, const std::uint8_t*& rgba, std::uint32_t& width,
                    std::uint32_t& height, std::string& error);
 
+// The bytes a PNG's start needs for png_header_plausible: the signature
+// and the IHDR chunk's length, name, width and height.
+constexpr std::size_t kPngHeaderBytes = 24;
+// Whether `head` (a file's first bytes) starts as a PNG decode_png would
+// take: the signature, then IHDR of 13 bytes, a size of 1..max_side each
+// way. A cheap look before a whole read, not a promise the rest decodes.
+bool png_header_plausible(const std::uint8_t* head, std::size_t size, std::uint32_t max_side);
+
 // The PNG CRC-32 (ISO 3309) of `size` bytes.
 std::uint32_t png_crc32(const std::uint8_t* data, std::size_t size);
 
