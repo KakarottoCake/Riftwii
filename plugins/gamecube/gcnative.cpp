@@ -3514,6 +3514,28 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             DvdLow program_low;
             if (patched) patched = find_dvd_low(program_code, program_low, why);
             if (patched) {
+                // As for the disc's own program: a stack or arena above the
+                // arena's top would run into RiftWii's part once it starts.
+                const GcCodeReader read_program = [&program_code](std::uint32_t address, std::uint32_t& word) {
+                    if (!program_code.has(address)) return false;
+                    word = program_code.at(address);
+                    return true;
+                };
+                std::vector<GcTextRange> program_text;
+                for (const Section& s : program.text)
+                    program_text.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+                const GcStackTop program_stack = find_gc_stack_top(read_program, elf.entry);
+                const std::uint32_t program_floor =
+                    std::max(program_stack.address, find_gc_arena_lo(read_program, program_text));
+                if (program_floor > arena_hi) {
+                    char text[96];
+                    std::snprintf(text, sizeof(text), "its stack or arena starts at 0x%08x, above the arena's top 0x%08x",
+                                  static_cast<unsigned>(program_floor), static_cast<unsigned>(arena_hi));
+                    why = text;
+                    patched = false;
+                }
+            }
+            if (patched) {
                 ori_to_addi(program_code);
                 if (is_ogc_set_alarm(program_code, program_low.set_alarm)) {
                     why = "it is built on libogc";
