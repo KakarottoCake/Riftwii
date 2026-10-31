@@ -38,6 +38,17 @@ bool is_relative_branch(std::uint32_t word) {
     return opcode == 16 || opcode == 18;  // bc, b (and their l/a forms)
 }
 
+// Whether a word may leave a value in r12 or CTR, which the blob's way back
+// to the program's third word (gc_continue_program: lis/ori r12, mtctr,
+// bctr) overwrites before that word runs. Any word naming r12 in its rD/rS
+// or rA field counts, a little more than needed: every program seen starts
+// with `lis r1` and `ori r1,r1`.
+bool may_set_r12_or_ctr(std::uint32_t word) {
+    const unsigned field_d = (word >> 21) & 31, field_a = (word >> 16) & 31;
+    const bool mtctr = (word & 0xFC1FFFFE) == 0x7C0903A6;  // mtspr 9,rS
+    return field_d == 12 || field_a == 12 || mtctr;
+}
+
 }  // namespace
 
 bool parse_gc_elf(const std::uint8_t* head, std::size_t head_bytes, std::uint32_t file_bytes, std::uint32_t floor,
@@ -156,6 +167,10 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
                             std::uint32_t hook, std::uint32_t out[2], std::string& why) {
     if (is_relative_branch(first) || is_relative_branch(second)) {
         why = "the program starts with a branch, which cannot run from elsewhere";
+        return false;
+    }
+    if (may_set_r12_or_ctr(first) || may_set_r12_or_ctr(second)) {
+        why = "the program's first two words may set r12 or CTR, which the way back to its third word uses";
         return false;
     }
     if (index > 0x7FFF) {

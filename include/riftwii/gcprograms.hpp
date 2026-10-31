@@ -71,7 +71,8 @@ bool gc_sort_disc_patches(std::vector<GcDiscPatch>& patches, std::string& why);
 // A program's first two words become "li r0,index" and "b hook" (from
 // entry + 4): the blob takes the program's start there, then runs the two
 // from a slot of its own. False when either cannot run from elsewhere (a
-// relative branch).
+// relative branch) or may set r12 or CTR, which the blob's way back to the
+// third word overwrites.
 bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint32_t second, unsigned index,
                             std::uint32_t hook, std::uint32_t out[2], std::string& why);
 
