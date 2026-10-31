@@ -450,7 +450,26 @@ static void test_block_decode() {
     EXPECT_EQ(block[block.size() - 1], 0xEE);
 }
 
+static void test_header_plausible() {
+    // A real PNG's first bytes, from the encoder this suite already uses.
+    const std::vector<std::uint8_t> head = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 13, 'I', 'H', 'D', 'R',
+                                            0, 0, 0x01, 0x60, 0, 0, 0x02, 0x00};  // 352 x 512
+    EXPECT_TRUE(riftwii::png_header_plausible(head.data(), head.size(), 1024));
+    EXPECT_TRUE(!riftwii::png_header_plausible(head.data(), head.size(), 500));       // too tall
+    EXPECT_TRUE(!riftwii::png_header_plausible(head.data(), head.size() - 1, 1024));  // too short to tell
+    std::vector<std::uint8_t> bad = head;
+    bad[1] = 'J';  // not a PNG (a JPEG renamed, say)
+    EXPECT_TRUE(!riftwii::png_header_plausible(bad.data(), bad.size(), 1024));
+    bad = head;
+    bad[12] = 'X';  // no IHDR first
+    EXPECT_TRUE(!riftwii::png_header_plausible(bad.data(), bad.size(), 1024));
+    bad = head;
+    bad[18] = bad[19] = 0;  // a width of 0
+    EXPECT_TRUE(!riftwii::png_header_plausible(bad.data(), bad.size(), 1024));
+}
+
 int main() {
+    test_header_plausible();
     test_block_decode();
     test_rgb8_filters();
     test_adam7();

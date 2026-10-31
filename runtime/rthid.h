@@ -70,6 +70,11 @@ typedef struct rthid_catalog {
      * until hotplug. Keep that snapshot alongside the mappings. */
     uint32_t known_count;
     rthid_device known[RTHID_DEVICE_MAX];
+    /* The same for /dev/usb/ven's list (wired Xbox 360 pads): the menu's
+     * libogc took its one answer, and the game's request waits for the
+     * next plug or unplug. */
+    uint32_t ven_known_count;
+    rthid_device ven_known[RTHID_DEVICE_MAX];
 } rthid_catalog;
 
 #ifdef __cplusplus

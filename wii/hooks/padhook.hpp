@@ -46,6 +46,8 @@
 // code hooked it). A Gecko code that later writes over the hook simply
 // wins: its own branch replaces ours and the adapter goes quiet.
 namespace riftwii::wii {
+// Connects the shared pad driver's events to the game's saved controller log.
+void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
 // OSSleepThread and OSSuspendThread (a code build's veneers, one each).
@@ -69,6 +71,7 @@ struct PadHook {
     std::int32_t fd = -1;            // /dev/usb/hid
     std::uint32_t version = 0;       // 4 or 5
     std::int32_t known_dev = -1;     // the adapter's v5 device id from libogc's list, -1: none
+    std::int32_t ven_fd = -1;        // /dev/usb/ven for Xbox 360 pads, -1: none
     // The way back; return_to_menu 0: off (missing, or a hook failed).
     std::uint32_t return_to_menu = 0;  // OSReturnToMenu
     std::uint32_t sleep_thread = 0;    // OSSleepThread
@@ -90,6 +93,9 @@ void forget_usb_hid_stuck();
 // is dropped without a close (the close would wait behind it), and the stuck
 // state stays. Does nothing when no handle is held.
 void forget_usb_hid_handle();
+// Keep this IOS's live device list before libogc drops its cache. Cleared
+// by forget_usb_hid_handle on an actual IOS reload.
+void release_menu_usb_for_game();
 // The running IOS's /dev/usb/hid is v4 (a d2x cIOS on base 56 or older):
 // it is asked only v4's GetVersion. v5's (request 0) is v4's
 // GetDeviceChange, which waits for the next plug or unplug.
@@ -128,6 +134,12 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
 // look_for_gc_adapter opened, else a fresh one once libogc's USB has let
 // go. False, with `why`, when /dev/usb/hid could not be opened.
 bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why);
+
+// After take_adapter_handle (v5): /dev/usb/ven for the game's wired Xbox
+// 360 pads, on a handle of its own, or -1 when none was plugged in at the
+// launch (HidPadsXboxPlugged) or the handle failed (logged).
+std::int32_t open_usb_ven_for_game();
+
 
 // Before the <memory> patches, on what find_pad_functions filled in.
 // `arena1_hi` and `arena2_lo` are the arena ends left by the resident

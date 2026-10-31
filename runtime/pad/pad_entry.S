@@ -6,7 +6,7 @@
     .section .text.pad_entry, "ax", @progbits
     .globl _pad_blob_start
 _pad_blob_start:
-    .long 0x52575044, 4, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
+    .long 0x52575044, 5, _pad_blob_end - _pad_blob_start, pad_context_data - _pad_blob_start
     .long pad_hook_read - _pad_blob_start, pad_replay_read - _pad_blob_start, pad_continue_read - _pad_blob_start
     .long pad_hook_motor - _pad_blob_start, pad_replay_motor - _pad_blob_start, pad_continue_motor - _pad_blob_start
     .long pad_complete - _pad_blob_start
@@ -185,4 +185,4 @@ pad_continue_\name:
     .globl pad_context_data
 pad_context_data:
     .long 0x52575043
-    .fill 47, 4, 0
+    .fill 63, 4, 0

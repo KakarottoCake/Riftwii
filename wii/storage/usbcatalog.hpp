@@ -142,11 +142,16 @@ bool read_usb_text(const std::string& usb_path, std::string& out);
 // such file.
 bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
                     std::uint64_t& size);
+// The one lock every use of the USB drive takes (usbcatalog.cpp), made
+// once at start, before any thread but the main one runs.
+void InitUsbLock();
 // Whether the menu's view of the USB drive is up (no drive is started for it).
 bool usb_volume_ready();
 // Whether libfat has a FAT32 partition of the USB drive mounted as usb:/,
 // the only kind the menu writes to. An NTFS drive is read but not mounted.
 bool usb_fat32_mounted();
+// Which mount of the USB drive this is: another after each unmount.
+std::uint64_t usb_mount_generation();
 // Mounted USB partition roots, with the legacy usb:/ first.
 std::vector<std::string> usb_volume_roots();
 // The legacy usb:/ volume's start, retained across the launch's IOS reload.

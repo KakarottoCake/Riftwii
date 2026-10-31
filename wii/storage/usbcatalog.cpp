@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <set>
 #include <sys/stat.h>
 
@@ -65,6 +66,49 @@ std::vector<ImagePartitionFailure> g_usb_partition_failures;
 std::uint64_t g_usb_mount_generation = 0;
 bool g_usb_preferred_known = false;
 std::uint64_t g_usb_preferred_lba = 0;
+// The USB drive is used by several threads: the drive scan (Home's scan
+// thread), the covers' loader (emulator covers, the player's own covers)
+// and the menu thread (music, icons, mod folders, a game's page). The
+// volumes' FAT32 and NTFS code keeps caches in its const methods, the
+// storage driver its request, and read_usb_range the last file it looked
+// up, so every use of the drive takes this one lock: each volume operation
+// and sector read on its own, a lookup for its whole length, and mounting or
+// dropping the volumes while the list changes (which reads the drive, so can
+// hold it a long while: the GUI's and the covers' reads wait for the scan,
+// DriveScanDone, rather than for the lock). Only the scan's own thread changes the list, so the scan reads
+// it without the lock; every other thread takes it. Recursive: a lookup
+// that holds it reads through a volume, which takes it again. Made at start
+// (InitUsbLock), before any other thread runs.
+mutex_t g_usb_lock = LWP_MUTEX_NULL;
+struct UsbLocked {
+    UsbLocked() {
+        if (g_usb_lock != LWP_MUTEX_NULL) LWP_MutexLock(g_usb_lock);
+    }
+    ~UsbLocked() {
+        if (g_usb_lock != LWP_MUTEX_NULL) LWP_MutexUnlock(g_usb_lock);
+    }
+};
+// A mounted USB volume whose every operation holds the lock.
+class LockedVolume : public ImageVolume {
+public:
+    explicit LockedVolume(std::unique_ptr<ImageVolume>&& inner) : inner_(std::move(inner)) {}
+    const char* kind() const override { return inner_->kind(); }
+    bool lookup(const std::string& path, VolumeFile& out, std::string& error) const override {
+        UsbLocked locked;
+        return inner_->lookup(path, out, error);
+    }
+    bool list(const std::string& path, std::vector<VolumeEntry>& out, std::string& error) const override {
+        UsbLocked locked;
+        return inner_->list(path, out, error);
+    }
+    bool read(const VolumeFile& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const override {
+        UsbLocked locked;
+        return inner_->read(file, offset, out, length);
+    }
+
+private:
+    std::unique_ptr<ImageVolume> inner_;
+};
 // A USB drive formatted as WBFS, with no file system: read only through
 // wbfspart, its games in slots rather than files.
 std::vector<WbfsPartition> g_usb_wbfs;
@@ -169,6 +213,7 @@ const DISC_INTERFACE kPickedIo = {DEVICE_TYPE_WII_USB, FEATURE_MEDIUM_CANREAD | 
 // the drive again (opened under its new device id), so a failed read does
 // that once and is tried again.
 bool usb_read_sectors(sec_t sector, sec_t count, void* out) {
+    UsbLocked locked;
     if (g_picked.open) return picked_read(sector, count, out);
     if (__io_usbstorage.readSectors(sector, count, out)) return true;
     const bool back = __io_usbstorage.isInserted();
@@ -485,6 +530,12 @@ bool open_usb_raw_disc(std::string& error) {
 
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (!g_usb_volumes.empty() || g_usb_raw_disc || !g_usb_wbfs.empty())) return true;
+    // Without the lock (InitUsbLock failed), the drive is shared by threads
+    // that would trip over each other: not mounted at all.
+    if (g_usb_lock == LWP_MUTEX_NULL) {
+        error = "the USB drive's lock could not be set up";
+        return false;
+    }
     g_usb_partition_failures.clear();
     g_usb_preferred_known = false;
     g_usb_wiiu_drive = false;
@@ -557,12 +608,37 @@ bool ensure_usb(std::string& error) {
             unmount_usb_games();
             return false;
         }
+        UsbLocked locked;
+        // A new mount, a new generation (as below).
+        ++g_usb_mount_generation;
         g_raw_mounted = true;
         return true;
     }
+    UsbLocked locked;  // to the end: the volumes' list changes
+    // A new mount is a new generation: a lookup cached while the drive was
+    // unmounted (before the first mount, or during a rescan) mustn't stand
+    // for it, or usb:/riftwii/covers stays "not there" (UsbCoversFolderThere).
+    ++g_usb_mount_generation;
     std::vector<std::string> partition_notes;
     const bool mounted = mount_image_volumes(&usb_read, g_usb_volumes, error, usb_wanted_folders(),
                                              &partition_notes, nullptr, &g_usb_partition_failures);
+    // Every volume behind the lock, or none used: with no memory for a
+    // wrapper, the drive counts as not mounted (an unlocked volume's caches
+    // would be open to every thread).
+    bool wrapped_all = mounted;
+    for (MountedImageVolume& mounted_volume : g_usb_volumes) {
+        LockedVolume* wrapped = new (std::nothrow) LockedVolume(std::move(mounted_volume.volume));
+        if (!wrapped) {
+            wrapped_all = false;
+            break;
+        }
+        mounted_volume.volume.reset(wrapped);
+    }
+    if (mounted && !wrapped_all) {
+        error = "no memory to share the USB drive between threads";
+        unmount_usb_games();
+        return false;
+    }
     for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());
     // Older USB loaders also used WBFS-format partitions. They remain
     // readable beside FAT32/NTFS rather than being a fallback for the drive.
@@ -759,6 +835,7 @@ bool write_if_changed(const std::string& path, const std::vector<std::uint8_t>& 
 // Before the IOS reload: the stub d2x boots from (the disc's headers,
 // sd:/riftwii/rvz/<ID>.stub) and the fragment list that places it.
 bool prepare_rvz_launch(const ImageGame& game, D2xFragmentList& fragments, std::string& error) {
+    UsbLocked locked;
     if (rvz_refused(game, error)) return false;
     // The stub goes on the SD card whichever drive holds the RVZ: d2x
     // boots the headers from there, and the loader writes nothing to USB.
@@ -1157,6 +1234,7 @@ bool slot_title_is_launchable(int slot, std::string& why) {
 // listed, and it is the same test that gates the reload itself, so the
 // warning and the launch never disagree.
 bool check_image_game(ImageGame& game, std::string& error) {
+    UsbLocked locked;
     if (game.checked) return !rvz_refused(game, error);
     if (game.wbfs_slot >= 0) {
         const auto partition = std::find_if(g_usb_wbfs.begin(), g_usb_wbfs.end(), [&](const WbfsPartition& wbfs) {
@@ -1220,6 +1298,7 @@ bool check_image_game(ImageGame& game, std::string& error) {
 
 bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
                           std::string& error) {
+    UsbLocked locked;
     UsbImage image;
     if (game.wbfs_slot >= 0) {
         const auto partition = std::find_if(g_usb_wbfs.begin(), g_usb_wbfs.end(), [&](const WbfsPartition& wbfs) {
@@ -1280,6 +1359,7 @@ bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, s
 }
 
 std::vector<std::string> usb_mod_folders(const std::string& game_id) {
+    UsbLocked locked;
     std::vector<std::string> out;
     if (game_id.empty()) return out;
     for (const std::string& prefix : usb_volume_roots()) {
@@ -1320,6 +1400,7 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
 }
 
 std::vector<std::string> usb_file_names(const std::string& folder, const char* ext) {
+    UsbLocked locked;
     std::vector<std::string> out;
     std::vector<VolumeEntry> entries;
     std::string error;
@@ -1336,6 +1417,7 @@ std::vector<std::string> usb_file_names(const std::string& folder, const char* e
 std::vector<std::string> usb_xml_names(const std::string& folder) { return usb_file_names(folder, ".xml"); }
 
 bool read_usb_text(const std::string& usb_path, std::string& out) {
+    UsbLocked locked;
     out.clear();
     VolumeFile file;
     std::string error;
@@ -1355,6 +1437,7 @@ bool read_usb_text(const std::string& usb_path, std::string& out) {
 
 bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
                     std::uint64_t& size) {
+    UsbLocked locked;
     // The last file looked up is kept: a mounted image reads it sector by sector.
     static std::string cached_path;
     static VolumeFile cached;
@@ -1376,7 +1459,20 @@ bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint
     return length == 0 || volume->read(cached, offset, out, length);
 }
 
-bool usb_volume_ready() { return !g_usb_volumes.empty(); }
+void InitUsbLock() {
+    if (g_usb_lock != LWP_MUTEX_NULL) return;
+    if (LWP_MutexInit(&g_usb_lock, true) < 0) g_usb_lock = LWP_MUTEX_NULL;  // ensure_usb then mounts nothing
+}
+
+bool usb_volume_ready() {
+    UsbLocked locked;
+    return !g_usb_volumes.empty();
+}
+
+std::uint64_t usb_mount_generation() {
+    UsbLocked locked;
+    return g_usb_mount_generation;
+}
 
 bool usb_fat32_mounted() { return g_libfat_mounted; }
 
@@ -1386,6 +1482,7 @@ bool usb_preferred_volume_lba(std::uint64_t& lba) {
 }
 
 std::vector<std::string> usb_volume_roots() {
+    UsbLocked locked;
     std::vector<std::string> roots;
     if (!try_reserve(roots, g_usb_volumes.size())) return roots;
     // Keep the legacy volume first wherever scan order creates saved keys.
@@ -1399,6 +1496,7 @@ std::vector<std::string> usb_volume_roots() {
 }
 
 bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out, std::string* error) {
+    UsbLocked locked;
     out.clear();
     std::string why;
     const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
@@ -1415,6 +1513,7 @@ bool list_usb_folder(const std::string& usb_path, std::vector<VolumeEntry>& out,
 }
 
 bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& error) {
+    UsbLocked locked;
     out = VolumeFile{};
     const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
     if (!volume) {
@@ -1426,6 +1525,7 @@ bool usb_file_lookup(const std::string& usb_path, VolumeFile& out, std::string& 
 
 bool usb_file_pieces(const std::string& usb_path, std::uint64_t& size, std::vector<Fragment>& out,
                      std::string& error) {
+    UsbLocked locked;
     out.clear();
     size = 0;
     const ImageVolume* volume = find_image_volume(g_usb_volumes, usb_path);
@@ -2038,6 +2138,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     error.clear(); return true;
 }
 void unmount_usb_games() {
+    UsbLocked locked;
     if (g_libfat_mounted) fatUnmount("usb:");
     g_libfat_mounted = false;
     g_raw_mounted = false;

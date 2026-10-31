@@ -5,6 +5,9 @@
 
 #include <array>
 #include <cstdint>
+#include <cstdio>
+
+#include "rtgcad.h"
 
 namespace riftwii {
 namespace {
@@ -144,9 +147,20 @@ bool parse_hid_config(std::string_view text, rthid_mapping& mapping, std::string
     if (!scalar("VID", result.vid, 65535, true) || !scalar("PID", result.pid, 65535, true) ||
         !scalar("Polltype", result.polltype, 1, true) || !scalar("DPAD", result.dpad, 1) ||
         !scalar("DigitalLR", result.digital_lr, 2) || !scalar("MultiIn", result.multi_in, 1) ||
-        !scalar("MultiInValue", result.multi_value, 255) ||
-        !scalar("LAnalog", result.analog_l, RTHID_REPORT_MAX - 1) ||
-        !scalar("RAnalog", result.analog_r, RTHID_REPORT_MAX - 1)) return false;
+        !scalar("MultiInValue", result.multi_value, 255)) return false;
+    // Nintendont uses the first value as the analog offset. Some shipped
+    // configs also supply a mask, which its analog reader ignores.
+    const auto analog = [&](std::string_view key, std::uint16_t& offset) {
+        if (get(key).empty()) return true;
+        std::uint32_t parts[2]{};
+        if (!values(get(key), parts, 1, 2, false) || parts[0] >= RTHID_REPORT_MAX) {
+            error = "Invalid controller value: " + std::string(key);
+            return false;
+        }
+        offset = static_cast<std::uint16_t>(parts[0]);
+        return true;
+    };
+    if (!analog("LAnalog", result.analog_l) || !analog("RAnalog", result.analog_r)) return false;
     const auto include_offset = [&](std::uint16_t offset) {
         if (offset != RTHID_ABSENT && result.report_bytes <= offset) result.report_bytes = offset + 1;
     };
@@ -176,12 +190,14 @@ bool parse_hid_config(std::string_view text, rthid_mapping& mapping, std::string
     }
     if (result.dpad) {
         std::uint16_t mask = 0;
-        const auto offset = result.buttons[RTHID_LEFT].offset;
+        const auto left_offset = result.buttons[RTHID_LEFT].offset;
+        const auto offset = left_offset == RTHID_ABSENT ? 0 : left_offset;
         bool same = true;
         for (unsigned i = RTHID_LEFT; i <= RTHID_UP_LEFT; ++i) {
             if (result.buttons[i].offset == RTHID_ABSENT) {
-                error = "A hat D-pad needs all eight directions.";
-                return false;
+                // Missing directions default to offset/mask zero upstream,
+                // including configs whose D-pad uses two separate axes.
+                result.buttons[i] = {0, 0};
             }
             same = same && result.buttons[i].offset == offset;
             mask |= result.buttons[i].mask;
@@ -219,6 +235,75 @@ bool parse_hid_config(std::string_view text, rthid_mapping& mapping, std::string
     }
     mapping = result;
     return true;
+}
+
+std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, std::int32_t result) {
+    const unsigned step = diagnostic & 255u;
+    const unsigned detail = diagnostic >> 8;
+    char prefix[64];
+    std::snprintf(prefix, sizeof(prefix), "USB controller %04x:%04x: ",
+                  static_cast<unsigned>(id >> 16), static_cast<unsigned>(id & 65535u));
+    char text[256];
+    const char* action = nullptr;
+    switch (step) {
+        case GCAD_HID_RESUME:
+            if (result == -4 && !detail) {
+                std::snprintf(text, sizeof(text), "resume answered -4; the device may already be resumed, so setup continues.");
+            } else action = "resume";
+            break;
+        case GCAD_HID_INFO: action = "device info"; break;
+        case GCAD_HID_DISCOVERY:
+            if (detail) {
+                std::snprintf(text, sizeof(text), "USB device list answered (result %d).", static_cast<int>(result));
+            } else {
+                std::snprintf(text, sizeof(text), "USB device list request %s (result %d).",
+                              result < 0 ? "was not sent" : "was queued", static_cast<int>(result));
+            }
+            break;
+        case GCAD_HID_INTERFACE:
+            std::snprintf(text, sizeof(text), "interface %u is not a controller interface, left alone.", detail);
+            break;
+        case GCAD_HID_WAKE: action = "PS3 feature-report wake-up"; break;
+        case GCAD_HID_OUTPUT: action = "PS3 initial output report"; break;
+        case GCAD_HID_LED: action = "PS3 LED and motor output report"; break;
+        case GCAD_HID_POLL:
+            std::snprintf(text, sizeof(text), "first input poll %s (result %d).",
+                          result < 0 ? "was not sent" : "was queued", static_cast<int>(result));
+            break;
+        case GCAD_HID_POLL_ERROR: action = "input poll"; break;
+        case GCAD_HID_RUMBLE: action = "motor output report"; break;
+        case GCAD_HID_DESCRIPTORS:
+            std::snprintf(text, sizeof(text), "device info gave %s HID endpoints (in 0x%02x, %u bytes; the config needs %u).",
+                          result < 0 ? "no usable" : "usable", detail >> 16, (detail >> 8) & 255u, detail & 255u);
+            break;
+        case GCAD_HID_INPUT:
+            std::snprintf(text, sizeof(text), "input arrived (%d bytes).", static_cast<int>(result));
+            break;
+        case GCAD_HID_SILENT:
+            if (detail & 2u) {
+                std::snprintf(text, sizeof(text), "%s input for 2 s (the PS3 wake-up result was %d).",
+                              detail & 1u ? "no further" : "no", static_cast<int>(result));
+            } else {
+                std::snprintf(text, sizeof(text), "%s input for 2 s.", detail & 1u ? "no further" : "no");
+            }
+            break;
+        case GCAD_HID_SHORT:
+            std::snprintf(text, sizeof(text), "input report was too short (%d bytes; the config needs %u).", static_cast<int>(result), detail);
+            break;
+        case GCAD_HID_TIMEOUT:
+            std::snprintf(text, sizeof(text), "setup is waiting for %s (no reply).",
+                          detail == GCAD_STEP_RESUME ? "resume" : detail == GCAD_STEP_INFO ? "device info" :
+                          detail == GCAD_STEP_CTRL ? "the PS3 wake-up" : "the PS3 output report");
+            break;
+        default:
+            std::snprintf(text, sizeof(text), "setup stopped at stage %u (result %d); it will try again.", detail, static_cast<int>(result));
+            break;
+    }
+    if (action) {
+        std::snprintf(text, sizeof(text), "%s %s (result %d).", action,
+                      detail == 1 ? "was not sent" : result < 0 ? "failed" : "answered", static_cast<int>(result));
+    }
+    return std::string(prefix) + text;
 }
 
 }  // namespace riftwii

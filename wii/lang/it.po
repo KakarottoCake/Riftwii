@@ -834,6 +834,21 @@ msgstr "Copertina"
 msgid "Download again"
 msgstr "Scarica di nuovo"
 
+msgid "GameTDB cover"
+msgstr "Copertina di GameTDB"
+
+msgid "First"
+msgstr "Prima"
+
+msgid "Second"
+msgstr "Seconda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Alcuni giochi hanno una seconda copertina su GameTDB. Il tuo riftwii/covers/{1}.png sulla scheda SD o sull'unità USB viene prima di entrambe."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB ha una sola copertina per questo gioco."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Scarica ora la copertina di questo gioco da GameTDB."
 
@@ -2199,8 +2214,8 @@ msgstr "Controller USB: funzionanti"
 msgid "USB input devices"
 msgstr "Dispositivi di ingresso USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "I controller USB usano i file controller.ini nel menu e nei giochi; i controller Xbox 360 con filo non ne hanno bisogno. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrazione del Wii Remote"
@@ -3324,6 +3339,9 @@ msgstr "L'installer è stato eseguito, ma il canale è ancora alla versione {1}.
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "L'installer del canale ({1}) è assente o danneggiato"
 
+msgid "{1} could not be read again after the IOS restart"
+msgstr "Impossibile leggere di nuovo {1} dopo il riavvio dell'IOS"
+
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii ha aperto l'installer e non ne ha visto la fine. Una segnalazione con sd:/riftwii/channel.log è utile."
 
@@ -3746,3 +3764,9 @@ msgstr "Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finch�
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1} è installato. Sceglilo in Impostazioni > Menu > Tema per usarlo."
+
+msgid "Not applied"
+msgstr "Non applicato"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."
