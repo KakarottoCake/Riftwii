@@ -71,7 +71,8 @@ std::vector<std::uint32_t> find_gc_aram_tops_below_size(const std::vector<CodeRa
 // 0x100, an end within 16 MB) in the three words after the call, and,
 // within six words of the call, a `subf` with rX, unchanged since, as the
 // minuend and as the subtrahend a register holding the base (r3, or one
-// made from it by addi or mr and not written again since). Found
+// made from it by addi or mr and not written again since), with nothing
+// but addi/li, lis, ori and mr between the call and the subf. Found
 // before the base itself is raised (ARGetBaseAddress is recognised by its
 // `li r3,0x4000`). The `lis` addresses, in address order.
 std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRange>& text);
