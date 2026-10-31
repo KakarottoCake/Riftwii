@@ -2199,8 +2199,8 @@ msgstr "USB 컨트롤러: 작동 중"
 msgid "USB input devices"
 msgstr "USB 입력 장치"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 유선 Xbox 360 패드에는 필요 없습니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다."
 
 msgid "Wii Remote rumble"
 msgstr "Wii 리모컨 진동"

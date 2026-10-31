@@ -27,6 +27,14 @@
  *  - fakemote (embedded-game-controller): Attach, resume and read the
  *    descriptors before AttachFinish; other handles (fakemote uses 15,
  *    libogc 0) may own a device for a while and release it later.
+ *  - Dolphin's IOS /dev/usb/ven emulation, for wired Xbox 360 pads (a
+ *    vendor-class interface, which /dev/usb/hid does not list): its
+ *    GetDeviceInfo reply of 0xC0 bytes (interface descriptor at 52,
+ *    endpoints from 64, 8 bytes each), the interrupt endpoint as a byte
+ *    at 14 of the message, the cancel's endpoint at 8.
+ *  - The Xbox 360 pad's public protocol notes (free60, the class triple
+ *    0xFF/0x5D/0x01): the 20-byte report, the LED and rumble output
+ *    messages. No driver's code was used.
  */
 #ifndef RIFTWII_RTGCAD_H
 #define RIFTWII_RTGCAD_H
@@ -39,6 +47,9 @@ extern "C" {
 #endif
 
 #define GCAD_VID_PID 0x057E0337u  /* Nintendo WUP-028 */
+/* No device. Only -1: Dolphin numbers /dev/usb/ven's devices from
+ * 0xE71F0021 up, negative as an int32_t (an Xbox 360 pad was skipped). */
+#define GCAD_NO_DEVICE (-1)
 #define GCAD_PORTS 4u
 #define GCAD_REPORT_BYTES 37u
 #define GCAD_TIMEOUT_MS 1500u     /* no report for this long: every port reads as unplugged */
@@ -84,7 +95,8 @@ extern "C" {
 #define GCAD_TAG_STOP 5u     /* gcad_stop's cancels */
 #define GCAD_TAGS 6u
 #define GCAD_HID_PADS 4u
-#define GCAD_INSTANCES (1u + GCAD_HID_PADS)
+#define GCAD_VEN_SLOT (GCAD_HID_PADS + 1u) /* the /dev/usb/ven list's requests */
+#define GCAD_INSTANCES (2u + GCAD_HID_PADS)
 #define GCAD_REQUESTS (GCAD_TAGS * GCAD_INSTANCES)
 #define GCAD_SLOT(tag) ((uint32_t)(tag) >> 28)
 #define GCAD_REQUEST_SLOT(tag) (GCAD_SLOT(tag) * GCAD_TAGS + ((tag) & 15u))
@@ -166,7 +178,16 @@ typedef struct gcad_descriptor {
     uint16_t packet_bytes;
     uint8_t endpoint_in, endpoint_out, interface_number;
     uint8_t interface_class, interface_seen;
+    uint8_t interface_subclass, interface_protocol;
 } gcad_descriptor;
+
+/* A wired Xbox 360 pad's gamepad interface (the headset and security
+ * interfaces of the same pad have other subclasses or protocols). */
+#define GCAD_XBOX_CLASS 0xFFu
+#define GCAD_XBOX_SUBCLASS 0x5Du
+#define GCAD_XBOX_PROTOCOL 0x01u
+#define GCAD_XBOX_REPORT_BYTES 14u /* type, length, buttons, triggers, sticks */
+#define GCAD_VEN_INFO_BYTES 0xC0u
 
 /* SDK PAD button bits. */
 #define GCAD_PAD_LEFT 0x0001u
@@ -189,7 +210,7 @@ typedef struct gcad_descriptor {
 typedef struct gcad {
     uint8_t change[0x600];     /* device list: v4 fills 0x600, v5 0x180 */
     uint8_t setup_in[0x20];
-    uint8_t setup_out[0x60];
+    uint8_t setup_out[GCAD_VEN_INFO_BYTES]; /* device info: hid's is 0x60 bytes, ven's 0xC0 */
     uint8_t in_msg[0x40];      /* v4 request (32 bytes) or v5 message (64) */
     uint8_t in_data[RTHID_REPORT_MAX]; /* adapter or configurable pad report */
     uint8_t out_msg[0x40];
@@ -261,6 +282,15 @@ typedef struct gcad {
     uint32_t device_count;
     rthid_device devices[RTHID_DEVICE_MAX];
     gcad_descriptor descriptors[RTHID_DEVICE_MAX]; /* v4 list snapshot */
+    /* /dev/usb/ven, for Xbox 360 pads. On the /dev/usb/hid list owner,
+     * ven_list is the second list owner (null without one). On that one,
+     * `ven` is set and `xbox` holds a built-in mapping per pad link. On a
+     * pad link, `ven` says its device came from the ven list, whose fd it
+     * then uses; `owner` stays the /dev/usb/hid list owner either way. */
+    struct gcad* ven_list;
+    rthid_mapping* xbox;
+    uint8_t ven;
+    uint8_t led_port;          /* Xbox 360: the port its ring shows, 255: none yet */
 } __attribute__((aligned(32))) gcad;
 
 /* Loader-filled catalog survives initialization; everything else is
@@ -269,6 +299,8 @@ typedef struct gcad_hub {
     gcad adapter;
     gcad pads[GCAD_HID_PADS];
     rthid_catalog catalog;
+    gcad ven;                  /* /dev/usb/ven's list (gcad_ven_init) */
+    rthid_mapping xbox[GCAD_HID_PADS];
 } gcad_hub;
 
 /* The environment. Each returns what IOS_IoctlAsync / IOS_IoctlvAsync
@@ -293,6 +325,17 @@ void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ti
 void gcad_hub_init(gcad_hub* hub, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
 void gcad_links_init(gcad* adapter, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
                      void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+/* Adds /dev/usb/ven's device list, for wired Xbox 360 pads, on its own
+ * handle `fd` (v5 only), after gcad_links_init on the same adapter. Its
+ * pads take the same four links as the configured HID pads. */
+void gcad_ven_init(gcad* adapter, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], void* env_ctx, int32_t fd,
+                   uint32_t ticks_per_ms);
+/* 1 for a vendor whose wired pads speak the Xbox 360 protocol: only
+ * their devices on the ven list are asked for their interface, so a USB
+ * drive or another vendor's device on that list is never touched. */
+int gcad_xbox_vendor(uint32_t vid);
+/* An Xbox 360 report as a GameCube pad: 1 when `report` was one. */
+int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out);
 /* Menu thread only: new configs have been compiled since the last list.
  * Reconsiders that list without issuing another IOS device-change call. */
 void gcad_refresh_hid(gcad* adapter, uint32_t now);

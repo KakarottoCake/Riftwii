@@ -2575,7 +2575,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     {
         static const char kTrace[] = "sd:/riftwii/gc/trace.bin";
         const auto* hid = static_cast<const rthid_catalog*>(extras.hid_catalog);
-        const bool usb_pads = hid != nullptr && hid->count != 0 && extras.adapter_fd >= 0;
+        const bool usb_pads = (hid != nullptr && hid->count != 0 && extras.adapter_fd >= 0) || extras.ven_fd >= 0;
         const std::uint32_t requested_records = test_trace ? 256 : usb_pads ? 96 : 1;
         std::vector<std::uint8_t> zeros(requested_records * 512);
         std::FILE* t = std::fopen(kTrace, "wb");
@@ -2824,6 +2824,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             std::memcpy(&ad->catalog, extras.hid_catalog, sizeof(ad->catalog));
         }
         ad->fd = extras.adapter_fd;
+        ad->ven_fd = extras.ven_fd;
         ad->version = extras.adapter_version;
         ad->known_dev = extras.adapter_dev;
         ad->ticks_per_ms = 60750;  // the timebase, the bus clock / 4 in Wii mode
@@ -2833,6 +2834,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         logf("GameCube: USB controller driver on (/dev/usb/hid v%u fd %d, adapter device %d, rumble %s), state 0x%08x\n",
              static_cast<unsigned>(extras.adapter_version), static_cast<int>(extras.adapter_fd),
              static_cast<int>(extras.adapter_dev), extras.adapter_rumble ? "on" : "off", gcad_addr);
+        if (extras.ven_fd >= 0) {
+            logf("GameCube: Xbox 360 pads through /dev/usb/ven fd %d; their setup results go in the SD trace.\n",
+                 static_cast<int>(extras.ven_fd));
+        }
         for (unsigned i = 0; i < ad->catalog.count && i < RTHID_CONFIG_MAX; ++i) {
             const auto& mapping = ad->catalog.maps[i];
             logf("USB controller %04x:%04x: mapping sent to the game (%u report bytes); setup results go in the SD trace.\n",
