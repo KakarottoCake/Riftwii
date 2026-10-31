@@ -3579,7 +3579,12 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // runs: every program gets them all (each flag only matters where
         // its hook is).
         const std::uint32_t flags_address = blob_addr + h.context_offset + offsetof(gc_rt_context, flags);
-        const std::vector<std::uint32_t> words = gc_resident_words(resident_base, resident_programs, {flags_address});
+        // The disc's own program's changes count too: a program that does
+        // not set a word (Reset's restart, the IOS guard) must start with
+        // the base value, not the disc's own program's.
+        std::vector<std::vector<GcResidentRegion>> compared = resident_programs;
+        compared.push_back(resident_main);
+        const std::vector<std::uint32_t> words = gc_resident_words(resident_base, compared, {flags_address});
         const std::uint32_t program_count = static_cast<std::uint32_t>(resident_programs.size());
         const std::uint32_t word_count = static_cast<std::uint32_t>(words.size());
         const std::uint32_t mem2_before = mem2_next;
