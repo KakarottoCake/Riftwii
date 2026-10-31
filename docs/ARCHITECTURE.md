@@ -715,8 +715,10 @@ as the game reads it:
   program's I/O, writes the card back, sets RiftWii's words in MEM1 to
   that program's (the hooks' replay slots, the context's function
   addresses, the ARAM stubs: whatever any program's patches changed in
-  them, the disc's own included, the context's flags excepted, which every
-  program gets all of; the instruction cache is invalidated for each),
+  them, the disc's own included; the context's flags excepted, which every
+  program gets all of, and the memory card, which stays on for every
+  program when any hooks it; the instruction cache is invalidated for
+  each),
   forgets the old program's drive command, alarms, music and card
   transfer (`gc_forget_game`, as Reset does) and runs the program's two
   words from `gc_replay_program`. It runs on a stack of its own in MEM2,

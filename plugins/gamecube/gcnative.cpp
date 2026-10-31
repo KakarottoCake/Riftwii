@@ -3579,12 +3579,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
         // runs: every program gets them all (each flag only matters where
         // its hook is).
         const std::uint32_t flags_address = blob_addr + h.context_offset + offsetof(gc_rt_context, flags);
+        // The memory card is the game's, whichever program runs: when any
+        // program hooks it, it stays on for all of them (its image, its
+        // file's pieces), so saves still waiting to be written back are
+        // never dropped at a switch. Only the EXI blocks it answers through
+        // (card->ecb, 0 for a program without the hooks) are a program's.
+        std::vector<std::uint32_t> unswitched = {flags_address};
+        if (card_hooked) {
+            ctx->card = card_addr;
+            memcard->image = GC_CARD_IMAGE;
+            memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
+            std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
+            unswitched.push_back(blob_addr + h.context_offset + offsetof(gc_rt_context, card));
+            unswitched.push_back(card_addr + offsetof(gc_card, image));
+            unswitched.push_back(card_addr + offsetof(gc_card, run_count));
+            for (std::uint32_t at = 0; at < sizeof(memcard->runs); at += 4)
+                unswitched.push_back(card_addr + offsetof(gc_card, runs) + at);
+        }
         // The disc's own program's changes count too: a program that does
         // not set a word (Reset's restart, the IOS guard) must start with
         // the base value, not the disc's own program's.
         std::vector<std::vector<GcResidentRegion>> compared = resident_programs;
         compared.push_back(resident_main);
-        const std::vector<std::uint32_t> words = gc_resident_words(resident_base, compared, {flags_address});
+        const std::vector<std::uint32_t> words = gc_resident_words(resident_base, compared, unswitched);
         const std::uint32_t program_count = static_cast<std::uint32_t>(resident_programs.size());
         const std::uint32_t word_count = static_cast<std::uint32_t>(words.size());
         const std::uint32_t mem2_before = mem2_next;
