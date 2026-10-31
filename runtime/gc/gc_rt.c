@@ -2756,9 +2756,12 @@ void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index) {
         const uint32_t* addresses = (const uint32_t*)(uintptr_t)programs->addresses;
         const uint32_t* values = (const uint32_t*)(uintptr_t)programs->values + index * programs->word_count;
         for (i = 0; i < programs->word_count; ++i) {
+            /* Many are instructions (replay slots, the moved code, the ARAM
+             * stubs) that may have run for the program before: out to
+             * memory, and out of the instruction cache. */
             *(volatile uint32_t*)(uintptr_t)addresses[i] = values[i];
             gc_flush(addresses[i], 4);
-            gc_invalidate(addresses[i], 4);
+            gc_icache_invalidate(addresses[i], 4);
         }
     }
     ctx->program_starts++;
