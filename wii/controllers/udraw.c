@@ -138,6 +138,12 @@ static struct {
 	const struct cmd_blk_t *cmd;
 	u32 since;
 	bool resent;
+	/* A resent read that ended in an error may get its second error
+	 * answer after libogc has moved on, and that answer would end the next
+	 * read with nothing in it.  The one error answer that can still come is
+	 * withheld, for as long as a resend waits. */
+	bool echo;
+	u32 echo_at;
 } ud_sent[WIIMOTES];
 
 /* The address and size of a read request, from cmd->data as libogc 3.1.0's
@@ -282,13 +288,22 @@ void __wrap_parse_event(struct wiimote_t *wm)
 {
 	int chan = wm->unid;
 	bool deliver = true;
+	bool was_resent = false;
+	const struct cmd_blk_t *head = wm->cmd_head;
 
 	if (wm->event_buf[0] == READ_REPORT) {
 		struct cmd_blk_t *cmd = wm->cmd_head;
+		bool error = (wm->event_buf[3] & 0x0f) != 0;
+		bool tracked = chan >= 0 && chan < WIIMOTES;
 		u32 addr;
 		u16 size;
 
-		if (read_request(cmd, &addr, &size)) {
+		was_resent = tracked && ud_sent[chan].resent && ud_sent[chan].cmd == cmd;
+		if (error && tracked && ud_sent[chan].echo && now_ms() - ud_sent[chan].echo_at <= RESEND_MS) {
+			/* The resent read's second error answer. */
+			ud_sent[chan].echo = false;
+			deliver = false;
+		} else if (read_request(cmd, &addr, &size)) {
 			if (chunk_matches(wm, addr, size)) {
 				/* A repeat from a resend would count twice,
 				 * and is not progress either. */
@@ -325,13 +340,19 @@ void __wrap_parse_event(struct wiimote_t *wm)
 			_CPU_ISR_Restore(level);
 		}
 	}
-	if (deliver)
+	if (deliver) {
 		__real_parse_event(wm);
-	else
+		/* An error answer that ended a resent read: its twin may follow. */
+		if (was_resent && (wm->event_buf[3] & 0x0f) && wm->cmd_head != head) {
+			ud_sent[chan].echo = true;
+			ud_sent[chan].echo_at = now_ms();
+		}
+	} else {
 		/* A read answer carries the buttons too, and libogc reads them
 		 * before it looks at the read: keep them, so a withheld answer
 		 * loses no press or release. */
 		wiiuse_pressed_buttons(wm, wm->event_buf + 1);
+	}
 	forget_finished_read(wm);
 	resend_stalled(wm);
 	/* unplugged: wiiuse has put the expansion type back to none */
