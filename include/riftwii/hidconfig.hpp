@@ -4,6 +4,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 #include <string_view>
 
 #include "rthid.h"
@@ -15,5 +16,8 @@ constexpr std::size_t kHidConfigMaxBytes = 8192;
 // Strict, bounded reader for Nintendont's controller.ini format. No
 // partially parsed mapping escapes on failure; error names the bad key.
 bool parse_hid_config(std::string_view text, rthid_mapping& mapping, std::string& error);
+
+// Shared wording for the menu queue and saved game diagnostics.
+std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, std::int32_t result);
 
 }  // namespace riftwii

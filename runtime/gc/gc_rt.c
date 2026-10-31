@@ -668,11 +668,12 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     uint32_t* w = (uint32_t*)(uintptr_t)ctx->trace_buf;
     const struct gc_rt_stream* st = (const struct gc_rt_stream*)(uintptr_t)ctx->stream;
     uint32_t msr, tbu, tbl, i, sector;
+    int diagnostic = 0;
     if (!gc_trace_allowed(ctx->flags, where)) return GC_TRACE_SKIPPED;
     if (ctx->trace_sector == 0 || ctx->trace_count == 0 || w == 0) return GC_TRACE_SKIPPED;
     if (!ctx->io_running && (where == GC_TRACE_READ || where == GC_TRACE_PAD || where == GC_TRACE_AI ||
         where == GC_TRACE_AR || where == GC_TRACE_BEAT || where == GC_TRACE_COMMAND ||
-        where == GC_TRACE_PAD_SI || where == GC_TRACE_DISC)) {
+        where == GC_TRACE_PAD_SI || where == GC_TRACE_DISC || where == GC_TRACE_HID)) {
         ctx->io_trace_where = where;
         gc_io_start(ctx, GC_IO_TRACE);
         return 0;
@@ -847,8 +848,16 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_DISC_DICVR] = ctx->di_regs != 0 ? gc_read32(ctx->di_regs + 4u * GC_DI_CVR) : 0;
         w[GC_TR_DISC_STEP] = dc->state << 24 | (dc->alarm_queued & 0xFFu) << 16 | (dc->looks & 0xFFFFu);
     }
+    if (where == GC_TRACE_HID && ctx->gcad) {
+        struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
+        diagnostic = gc_gcad_trace_record(ad, w);
+    }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
+    if (result >= 0 && diagnostic) {
+        struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
+        gc_gcad_diagnostic_written(ad);
+    }
     ctx->storage_busy = 0;
     gc_irq_restore(msr);
     return result;
@@ -1417,6 +1426,9 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         }
         gc_guard(ctx);
         gc_vi_note(ctx);
+        /* Games may stop reading pads while loading or while waiting for
+         * a port to appear. Keep USB discovery and its trace moving then. */
+        if (ctx->gcad) gc_gcad_poll(ctx, (struct gc_gcad*)(uintptr_t)ctx->gcad);
         if (ctx->bt && !(ctx->flags & GC_FLAG_FAKE_REMOTE)) {
             struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
             if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);

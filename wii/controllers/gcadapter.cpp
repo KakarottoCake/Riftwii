@@ -23,6 +23,7 @@
 #include "padhook.hpp"
 #include "pentablet.h"
 #include "skin.hpp"
+#include "riftwii/hidconfig.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -39,8 +40,9 @@ std::uint32_t g_config_changes = 0;
 struct Event {
     std::uint32_t code, a;
     std::int32_t b;
+    std::uint32_t pad;
 };
-constexpr unsigned kEvents = 32;
+constexpr unsigned kEvents = 128;
 Event g_events[kEvents];
 volatile unsigned g_event_head = 0, g_event_tail = 0;
 volatile unsigned g_events_lost = 0;
@@ -142,13 +144,15 @@ int SharedDescriptors(gcad* driver) {
     const s32 result = USB_GetDescriptors(driver->dev_id, &description);
     if (result < 0) return result;
     bool found = false;
+    bool hid_interface = false;
     auto* out = driver->setup_out;
     std::memset(out, 0, sizeof(driver->setup_out));
     for (unsigned c = 0; c < description.bNumConfigurations && !found; ++c) {
         const auto& config = description.configurations[c];
         for (unsigned i = 0; i < config.bNumInterfaces && !found; ++i) {
             const auto& interface = config.interfaces[i];
-            if (interface.bInterfaceClass != USB_CLASS_HID || interface.bInterfaceNumber != (driver->dev_id >> 24)) continue;
+            if (interface.bInterfaceNumber != (driver->dev_id >> 24)) continue;
+            hid_interface = interface.bInterfaceClass == USB_CLASS_HID;
             out[36] = 18;
             out[37] = 1;
             out[56] = 9;
@@ -165,6 +169,13 @@ int SharedDescriptors(gcad* driver) {
         }
     }
     USB_FreeDescriptors(&description);
+    if (found && !hid_interface) {
+        // A composite pad's audio interfaces must not retain libogc
+        // device handles after the driver frees their candidate slots.
+        s32& fd = g_ogc_dev_fd[driver->slot];
+        if (fd >= 0) USB_CloseDevice(&fd);
+        fd = -1;
+    }
     DCFlushRange(out, sizeof(driver->setup_out));
     return found ? 0 : -4;
 }
@@ -262,7 +273,13 @@ void Drain() {
     while (g_event_tail != g_event_head) {
         const Event e = g_events[g_event_tail % kEvents];
         g_event_tail = g_event_tail + 1;
+        if (e.pad && e.code != GCAD_EV_HID_DIAG &&
+            (e.code == GCAD_EV_REPLY || e.code == GCAD_EV_SUBMIT_FAIL)) continue;
         switch (e.code) {
+            case GCAD_EV_HID_DIAG:
+            case GCAD_EV_HID_LIST:
+                logf("%s\n", describe_hid_diagnostic(e.pad, e.a, e.b).c_str());
+                break;
             case GCAD_EV_HID_FOUND:
                 logf("USB controller %04x:%04x: found device %08x.\n", static_cast<unsigned>(e.a >> 16),
                      static_cast<unsigned>(e.a & 65535u), static_cast<unsigned>(e.b));
@@ -280,7 +297,7 @@ void Drain() {
                 if (ErrorLine()) logf("GameCube adapter: %s not sent (%d)\n", StepName(e.a >> 8), static_cast<int>(e.b));
                 break;
             case GCAD_EV_DEVICE:
-                logf("GameCube adapter: USB device %08x, %04x:%04x\n", static_cast<unsigned>(e.a),
+                logf("USB: device %08x, %04x:%04x\n", static_cast<unsigned>(e.a),
                      static_cast<unsigned>(e.b) >> 16, static_cast<unsigned>(e.b) & 0xFFFF);
                 break;
             case GCAD_EV_FOUND: logf("GameCube adapter: found (device %08x)\n", static_cast<unsigned>(e.a)); break;
@@ -384,7 +401,7 @@ bool GcAdapterStart(std::string& why, bool own_handle) {
         g_shared = g_ogc = true;
         g_ogc_changed = true;  // libogc's current list answers the first request
         g_notify_armed = USB_DeviceChangeNotifyAsync(USB_CLASS_HID, OnOgcChange, nullptr) >= 0;
-        logf("GameCube adapter: through libogc's USB (/dev/usb/hid v5 on IOS%d), device %08x\n", IOS_GetVersion(),
+        logf("USB controllers: through libogc's USB (/dev/usb/hid v5 on IOS%d), adapter device %08x\n", IOS_GetVersion(),
              static_cast<unsigned>(dev));
     } else {
         if (!open_usb_hid(g_fd, version, why)) {
@@ -466,13 +483,21 @@ void GcAdapterPoll(GcAdapterView& out) {
     out.reports = g_state->reports;
     out.listed = g_state->listed;
     out.last_error = g_state->last_error;
+    out.adapter_present = g_state->dev_id >= 0;
     for (unsigned i = 0; i < GCAD_HID_PADS; ++i) {
         const gcad& pad = g_state->peers[i];
+        if (pad.mapping && pad.dev_id >= 0) {
+            out.hid_ids[i] = (static_cast<std::uint32_t>(pad.mapping->vid) << 16) | pad.mapping->pid;
+            out.hid_input[i] = pad.reports != 0;
+        }
         if (pad.link == GCAD_LINK_POLL && !pad.stale) ++out.hid_pads;
         out.reports += pad.reports;
     }
     if (out.hid_pads && out.link == GCAD_LINK_NONE) out.link = GCAD_LINK_POLL;
     for (unsigned p = 0; p < GCAD_PORTS; ++p) out.present[p] = gcad_port(g_state, p, &out.pads[p], now) != 0;
+    for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+        out.adapter_ports[p] = out.present[p] && g_state->port_source[p] < GCAD_PORTS;
+    }
     _CPU_ISR_Restore(level);
     Drain();
 }
@@ -534,7 +559,9 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         const AdapterSeen seen = ogc_adapter(dev, devices);
         g_menu_missing = seen == AdapterSeen::Missing;
         if (seen != AdapterSeen::Found) return;
-        logf("GameCube adapter: plugged in (USB lists %s); the menu takes its controllers\n", devices.c_str());
+        logf("%s (USB lists %s); the menu takes its controllers.\n",
+             dev >= 0 ? "GameCube adapter: plugged in" : "GameCube adapter: not plugged in; mapped USB controller(s) found",
+             devices.c_str());
         std::string why;
         if (!GcAdapterStart(why)) {
             g_menu_failed = true;
@@ -668,13 +695,15 @@ void gcad_env_invalidate(gcad* g, void* p, uint32_t len) {
 }
 
 void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
-    (void)g;
     using namespace riftwii::wii;
     if (g_event_head - g_event_tail >= kEvents) {
         g_events_lost = g_events_lost + 1;
         return;
     }
-    g_events[g_event_head % kEvents] = Event{code, a, b};
+    const rthid_mapping* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    const std::uint32_t pad = mapping ? (static_cast<std::uint32_t>(mapping->vid) << 16) | mapping->pid : 0;
+    g_events[g_event_head % kEvents] = Event{code, a, b, pad};
     g_event_head = g_event_head + 1;
 }
 

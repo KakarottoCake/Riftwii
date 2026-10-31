@@ -7754,6 +7754,25 @@ FR.update({
 })
 
 
+
+# Games with code checks keep their loaded program and data unchanged.
+T.update({
+    "Not applied": ("No se aplica", "適用しません", "Não aplicado", "Non applicato"),
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": (
+        "Este juego comprueba su propio código. Para que arranque, no se aplican cambios de imagen, idioma, región, mandos, juego en línea ni trucos.",
+        "このゲームは自身のコードを確認します。起動できるように、映像、言語、地域、コントローラー、オンライン、チートの変更を無効にします。",
+        "Este jogo verifica o próprio código. Para que ele inicie, mudanças de imagem, idioma, região, controles, jogo online e trapaças ficam desativadas.",
+        "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."),
+})
+KO.update({
+    "Not applied": "적용 안 함",
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "이 게임은 자체 코드를 확인합니다. 시작할 수 있도록 화면, 언어, 지역, 컨트롤러, 온라인 및 치트 변경은 적용하지 않습니다.",
+})
+FR.update({
+    "Not applied": "Non appliqué",
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
+})
+
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""

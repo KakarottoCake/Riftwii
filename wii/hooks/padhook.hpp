@@ -46,6 +46,8 @@
 // code hooked it). A Gecko code that later writes over the hook simply
 // wins: its own branch replaces ours and the adapter goes quiet.
 namespace riftwii::wii {
+// Connects the shared pad driver's events to the game's saved controller log.
+void log_pad_diagnostics(std::uint32_t code_base, std::uint32_t print_entry);
 
 // The blob's hooks: PADRead, PADControlMotor, the IPC submit routine,
 // OSSleepThread and OSSuspendThread (a code build's veneers, one each).
@@ -90,6 +92,9 @@ void forget_usb_hid_stuck();
 // is dropped without a close (the close would wait behind it), and the stuck
 // state stays. Does nothing when no handle is held.
 void forget_usb_hid_handle();
+// Keep this IOS's live device list before libogc drops its cache. Cleared
+// by forget_usb_hid_handle on an actual IOS reload.
+void release_menu_usb_for_game();
 // The running IOS's /dev/usb/hid is v4 (a d2x cIOS on base 56 or older):
 // it is asked only v4's GetVersion. v5's (request 0) is v4's
 // GetDeviceChange, which waits for the next plug or unplug.

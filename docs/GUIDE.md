@@ -1300,6 +1300,13 @@ session to 16 different mappings and four USB pads. Connected devices are
 loaded first. Remaining mapping slots are filled from the two controller
 folders and the single file for pads plugged in during a game. If you keep
 a large config collection, connect the pads you will use before launching.
+
+Plug in at least one mapped pad before starting a game. Config files alone
+do not install the USB controller driver or turn on its diagnostic log.
+A pad plugged in after the game starts works only if the shared driver
+was already installed for a real GameCube adapter or another connected
+mapped pad. Otherwise, leave the game, plug in the pad, and start it again.
+
 The usual button masks, bit or hat D-pads, stick deadzones and radius,
 digital or analog triggers, `Polltype=0/1`, `MultiIn=0/1`, and explicit
 rumble data are supported. Multi-controller report formats (`MultiIn=2/3/4`)
