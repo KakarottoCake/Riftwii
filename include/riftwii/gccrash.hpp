@@ -25,6 +25,7 @@ bool describe_gc_crash(const std::vector<std::uint8_t>& trace, const std::string
 // sentences for a problem report: how far the Bluetooth got and where it
 // stopped. False when `trace` holds no record.
 bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& text);
+bool describe_gc_usb_pads(const std::vector<std::uint8_t>& trace, std::string& text);
 
 // The crash screen the menu draws for the blob (runtime/gc/gc_crash.h):
 // a card with the header and the hint, and a strip of pieces the blob

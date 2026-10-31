@@ -30,6 +30,29 @@ static uint32_t elapsed(uint32_t now, uint32_t then) { return now - then; }
 
 static uint32_t ms(const gcad* g, uint32_t n) { return n * g->ticks_per_ms; }
 
+static int ps3(const gcad* g) {
+    return g->mapping && g->mapping->vid == 0x054C && g->mapping->pid == 0x0268;
+}
+
+/* Retained for game reports, and emitted once per plugged-in pad/step.
+ * Retries must not fill the menu queue or the game's trace with repeats. */
+static void hid_diagnostic(gcad* g, uint32_t step, uint32_t detail, int32_t result) {
+    if (!g->mapping || (g->diagnostic_seen & BIT(step))) return;
+    g->diagnostic_seen |= BIT(step);
+    g->diagnostic_detail[step] = detail;
+    g->diagnostic_result[step] = result;
+    gcad_env_event(g, GCAD_EV_HID_DIAG, step | (detail << 8), result);
+}
+
+static uint32_t diagnostic_step(uint32_t step) {
+    if (step == GCAD_STEP_RESUME) return GCAD_HID_RESUME;
+    if (step == GCAD_STEP_INFO) return GCAD_HID_INFO;
+    if (step == GCAD_STEP_CTRL) return GCAD_HID_WAKE;
+    if (step == GCAD_STEP_INIT) return GCAD_HID_OUTPUT;
+    if (step == GCAD_STEP_RUMBLE) return GCAD_HID_RUMBLE;
+    return GCAD_HID_POLL;
+}
+
 int32_t gcad_find_v4(const uint8_t* list, uint32_t list_bytes) {
     /* Entries: [total size][device id][descriptors...], sizes counted in
      * bytes and padded to 4; 0xFFFFFFFF ends the list. The device
@@ -130,6 +153,7 @@ static int ioctl_(gcad* g, uint32_t tag, uint32_t step, uint32_t cmd, void* in, 
         g->busy &= ~BIT(tag);
         failed(g, step, r);
         gcad_env_event(g, GCAD_EV_SUBMIT_FAIL, tag | (step << 8), r);
+        hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
         return 0;
     }
     return 1;
@@ -144,6 +168,7 @@ static int ioctlv_(gcad* g, uint32_t tag, uint32_t step, uint32_t cmd, void* msg
         g->busy &= ~BIT(tag);
         failed(g, step, r);
         gcad_env_event(g, GCAD_EV_SUBMIT_FAIL, tag | (step << 8), r);
+        hid_diagnostic(g, ps3(g) && tag == GCAD_TAG_OUT ? g->output_step : diagnostic_step(step), 1, r);
         return 0;
     }
     return 1;
@@ -221,6 +246,18 @@ static void set_origin(gcad* g, uint32_t port, const uint8_t analog[6], uint32_t
     origin_event(g, port, how, origin);
 }
 
+/* A discovery record for the configured pads: `answered` 0 when the list
+ * was asked for, 1 when it came back. Each kind repeats only with a new
+ * result. */
+static void discovery_event(gcad* g, uint32_t answered, int32_t result) {
+    const uint8_t seen = (uint8_t)(1u << answered);
+    if (!g->catalog || !g->catalog->count) return;
+    if ((g->discovery_seen & seen) && g->discovery_result[answered] == result) return;
+    g->discovery_seen |= seen;
+    g->discovery_result[answered] = result;
+    gcad_env_event(g, GCAD_EV_HID_LIST, GCAD_HID_DISCOVERY | (answered << 8), result);
+}
+
 static void submit_change(gcad* g, uint32_t now) {
     g->change_step = GCAD_STEP_CHANGE;
     g->change_time = now;
@@ -231,6 +268,7 @@ static void submit_change(gcad* g, uint32_t now) {
     } else if (!ioctl_(g, GCAD_TAG_CHANGE, GCAD_STEP_CHANGE, GCAD_V5_GET_DEVICE_CHANGE, 0, 0, g->change, 0x180)) {
         g->change_failed = 1;
     }
+    discovery_event(g, 0, (g->busy & BIT(GCAD_TAG_CHANGE)) ? 0 : g->last_error);
 }
 
 static int setup_waiting(const gcad* g) {
@@ -300,6 +338,7 @@ static int send_out(gcad* g, uint32_t step, uint32_t len) {
 }
 
 static void link_failed(gcad* g, uint32_t now, uint32_t link) {
+    hid_diagnostic(g, GCAD_HID_BLOCKED, g->link, g->last_error);
     g->link = (uint8_t)link;
     g->link_time = now;
     set_stale(g);
@@ -342,10 +381,41 @@ static void reports_started(gcad* g, uint32_t now) {
     if (!g->mapping) gcad_env_event(g, GCAD_EV_LINKED, (uint32_t)g->dev_id, 0);
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;
     submit_poll(g);
+    if (g->busy & BIT(GCAD_TAG_IN)) hid_diagnostic(g, GCAD_HID_POLL, 0, 0);
     if (!(g->busy & BIT(GCAD_TAG_IN))) link_failed(g, now, GCAD_LINK_FAILED);
 }
 
+/* Build the DS3 output protocol in place: motors off, LED 1 steady.
+ * Its four LED timing groups use the device's full duty-cycle pattern.
+ * No address-dependent constant table is embedded in the game blob. */
+static int ps3_output(gcad* g, uint32_t step) {
+    uint32_t led;
+    zero(g->out_data, sizeof(g->out_data));
+    g->out_data[0] = 1;
+    g->out_data[2] = g->out_data[4] = 255;
+    if (g->rumble_flight[0]) g->out_data[3] = 1;
+    g->out_data[10] = 2;
+    for (led = 11; led < 31; led += 5) {
+        g->out_data[led] = 255;
+        g->out_data[led + 1] = 0x27;
+        g->out_data[led + 2] = 0x10;
+        g->out_data[led + 4] = 0x32;
+    }
+    g->output_step = (uint8_t)step;
+    if (!g->endpoint_out) {
+        hid_diagnostic(g, step, 1, -4);
+        return 0;
+    }
+    return send_out(g, step == GCAD_HID_OUTPUT ? GCAD_STEP_INIT : GCAD_STEP_RUMBLE, 49);
+}
+
 static void start_init(gcad* g, uint32_t now) {
+    if (ps3(g)) {
+        g->link = GCAD_LINK_INIT;
+        g->link_time = now;
+        if (!ps3_output(g, GCAD_HID_OUTPUT)) link_failed(g, now, GCAD_LINK_FAILED);
+        return;
+    }
     if (g->mapping) {
         reports_started(g, now);
         return;
@@ -368,7 +438,7 @@ static void start_ctrl(gcad* g, uint32_t now) {
     if (g->mapping) {
         /* Only PS3 needs a feature-report wakeup. Other pads already
          * speak reports; do not send the adapter's init command to them. */
-        if (g->mapping->vid == 0x054C && g->mapping->pid == 0x0268) {
+        if (ps3(g)) {
             sent = control(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, g->out_msg,
                            g->out_data, 17, 0xA1, 1, 0x03F2);
             if (!sent) link_failed(g, now, GCAD_LINK_FAILED);
@@ -397,12 +467,19 @@ static void start_ctrl(gcad* g, uint32_t now) {
 
 /* Starts (or restarts) the link to g->dev_id. */
 static void start_link(gcad* g, uint32_t now) {
+    if (g->mapping && g->version == 4 && !g->input_bytes) {
+        link_failed(g, now, GCAD_LINK_FAILED);
+        return;
+    }
     if (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) {
         /* The old link's requests are still coming back: later. */
         link_failed(g, now, GCAD_LINK_FAILED);
         return;
     }
     ++g->generation;
+    g->link_time = now;
+    g->ps3_led = 0;
+    g->rumble_flight[0] = 0;
     if (g->version == 5) {
         g->link = GCAD_LINK_SETUP;
         submit_setup(g, GCAD_STEP_RESUME);
@@ -440,6 +517,8 @@ static int read_descriptors(gcad_descriptor* info, const uint8_t* bytes, uint32_
         if (type == 4 && size >= 9) {
             if (input) break; /* keep one HID interface's endpoints together */
             interface_number = bytes[offset + 2];
+            info->interface_seen = 1;
+            info->interface_class = bytes[offset + 5];
             hid_interface = bytes[offset + 5] == 3;
         }
         if (type == 5 && size >= 7 && hid_interface && (bytes[offset + 3] & 3u) == 3u) {
@@ -453,16 +532,23 @@ static int read_descriptors(gcad_descriptor* info, const uint8_t* bytes, uint32_
         }
         offset += (size + 3u) & ~3u;
     }
-    if (!input || !packet || packet > RTHID_REPORT_MAX) return 0;
     info->endpoint_in = input;
     info->endpoint_out = output;
     info->interface_number = interface_number;
     info->packet_bytes = packet;
-    return 1;
+    return input && packet && packet <= RTHID_REPORT_MAX;
 }
 
 static int use_descriptors(gcad* g, const gcad_descriptor* info) {
-    if (!info->endpoint_in || info->packet_bytes < g->mapping->report_bytes) return 0;
+    const int usable = info->endpoint_in && info->packet_bytes >= g->mapping->report_bytes &&
+                       info->packet_bytes <= RTHID_REPORT_MAX;
+    const uint32_t detail = (uint32_t)info->endpoint_in << 16 |
+                           (uint32_t)info->packet_bytes << 8 | g->mapping->report_bytes;
+    hid_diagnostic(g, GCAD_HID_DESCRIPTORS, detail, usable ? 0 : -4);
+    if (!usable) {
+        g->input_bytes = 0;
+        return 0;
+    }
     g->endpoint_in = info->endpoint_in;
     g->endpoint_out = info->endpoint_out;
     g->interface_number = info->interface_number;
@@ -474,10 +560,28 @@ static uint32_t mapping_id(const gcad* g) {
     return ((uint32_t)g->mapping->vid << 16) | g->mapping->pid;
 }
 
+/* Remember rejected interfaces on the list owner, rather than retaining
+ * a pad slot for each audio interface of a composite controller. */
+static void exclude_interface(gcad* g, const gcad_descriptor* info) {
+    gcad* owner = g->owner;
+    if (owner && owner->excluded_count < RTHID_DEVICE_MAX) {
+        owner->excluded[owner->excluded_count++] = g->dev_id;
+    }
+    hid_diagnostic(g, GCAD_HID_INTERFACE, info->interface_number, info->interface_class);
+    drop_link(g);
+}
+
 static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, uint32_t now) {
     uint32_t i, j, previous_count;
     int32_t previous[RTHID_DEVICE_MAX];
     if (!g->peers || !g->catalog || count > RTHID_DEVICE_MAX) return;
+    /* An unplug forgets the rejection, allowing a new device with a
+     * recycled IOS id to be checked normally. */
+    for (i = 0; i < g->excluded_count;) {
+        for (j = 0; j < count; ++j) if (devices[j].id == g->excluded[i]) break;
+        if (j == count) g->excluded[i] = g->excluded[--g->excluded_count];
+        else ++i;
+    }
     previous_count = g->ignored_count;
     for (i = 0; i < previous_count; ++i) previous[i] = g->ignored[i];
     g->ignored_count = 0;
@@ -493,6 +597,8 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
         const rthid_mapping* mapping;
         gcad* peer = 0;
         if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id < 0) continue;
+        for (j = 0; j < g->excluded_count; ++j) if (g->excluded[j] == devices[i].id) break;
+        if (j < g->excluded_count) continue;
         mapping = rthid_find(g->catalog, devices[i].vid_pid);
         if (!mapping) {
             for (j = 0; j < previous_count; ++j) if (previous[j] == devices[i].id) break;
@@ -500,14 +606,15 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
             g->ignored[g->ignored_count++] = devices[i].id;
             continue;
         }
-        if (g->version == 4 && (!g->descriptors[i].endpoint_in ||
-            g->descriptors[i].packet_bytes < mapping->report_bytes)) continue;
         for (j = 0; j < GCAD_HID_PADS; ++j) {
             if (g->peers[j].dev_id == devices[i].id) break;
             if (!peer && g->peers[j].dev_id < 0 && !g->peers[j].busy) peer = &g->peers[j];
         }
         if (j < GCAD_HID_PADS || !peer) continue;
         peer->mapping = mapping;
+        peer->diagnostic_seen = 0;
+        peer->reports = 0;
+        peer->ctrl_result = 0;
         peer->dev_id = devices[i].id;
         peer->announced_port = 255;
         peer->link = GCAD_LINK_SETTLE;
@@ -553,6 +660,12 @@ static void hid_rumble_transfer(gcad* g) {
 static void pump_rumble(gcad* g) {
     uint32_t i, differ = 0;
     if (g->busy & BIT(GCAD_TAG_OUT)) return;
+    if (ps3(g)) {
+        if (g->ps3_led != 1 && g->rumble_want[0] == g->rumble_sent[0]) return;
+        g->rumble_flight[0] = g->rumble_want[0];
+        if (ps3_output(g, GCAD_HID_LED)) g->ps3_led = 2;
+        return;
+    }
     if (g->mapping) {
         if (!g->mapping->rumble_bytes || (g->mapping->rumble_type && !g->endpoint_out) ||
             g->rumble_want[0] == g->rumble_sent[0]) return;
@@ -729,8 +842,20 @@ void gcad_tick(gcad* g, uint32_t now) {
         if (!(g->busy & BIT(GCAD_TAG_SETUP)) && g->finish_pending) submit_finish(g, now);
     }
     if (g->link == GCAD_LINK_CTRL && elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) {
-        if (g->mapping) link_failed(g, now, GCAD_LINK_FAILED);
+        if (g->mapping) {
+            hid_diagnostic(g, GCAD_HID_TIMEOUT, GCAD_STEP_CTRL, -1);
+            link_failed(g, now, GCAD_LINK_FAILED);
+        }
         else start_init(g, now);
+    }
+    if (g->mapping && (g->link == GCAD_LINK_SETUP || g->link == GCAD_LINK_INIT) &&
+        elapsed(now, g->link_time) >= ms(g, GCAD_RESCAN_MS)) {
+        hid_diagnostic(g, GCAD_HID_TIMEOUT,
+                       g->link == GCAD_LINK_SETUP ? g->setup_step : GCAD_STEP_INIT, -1);
+    }
+    if (g->mapping && g->link == GCAD_LINK_POLL &&
+        elapsed(now, g->data_time) >= ms(g, GCAD_RESCAN_MS)) {
+        hid_diagnostic(g, GCAD_HID_SILENT, (g->reports != 0) | (ps3(g) ? 2u : 0u), g->ctrl_result);
     }
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
 }
@@ -744,6 +869,7 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
         submit_change(g, now);
         return;
     }
+    discovery_event(g, 1, result);
     if (result < 0) {
         failed(g, GCAD_STEP_CHANGE, result);
         g->change_failed = 1;
@@ -815,7 +941,13 @@ void gcad_refresh_hid(gcad* g, uint32_t now) {
             gcad* peer = &g->peers[i];
             if (peer->link != GCAD_LINK_SETTLE) continue;
             for (j = 0; j < g->device_count; ++j) {
-                if (g->devices[j].id == peer->dev_id && !use_descriptors(peer, &g->descriptors[j])) drop_link(peer);
+                const gcad_descriptor* info = &g->descriptors[j];
+                if (g->devices[j].id != peer->dev_id) continue;
+                if (info->interface_seen && info->interface_class != 3) {
+                    exclude_interface(peer, info);
+                } else if (!use_descriptors(peer, info)) {
+                    link_failed(peer, now, GCAD_LINK_FAILED);
+                }
             }
         }
     }
@@ -824,6 +956,7 @@ void gcad_refresh_hid(gcad* g, uint32_t now) {
 static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
     if (g->setup_step == GCAD_STEP_CTRL) {
         g->ctrl_result = result;
+        if (current) hid_diagnostic(g, GCAD_HID_WAKE, 0, result);
         if (g->mapping && result < 0 && current) {
             link_failed(g, now, GCAD_LINK_FAILED);
             return;
@@ -835,13 +968,19 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
         if (g->setup_step == GCAD_STEP_RESUME) {
             /* -4 when it is already resumed (the state must change). */
             g->resume_result = result;
+            hid_diagnostic(g, GCAD_HID_RESUME, 0, result);
             submit_setup(g, GCAD_STEP_INFO);
         } else {
             g->info_result = result;
+            hid_diagnostic(g, GCAD_HID_INFO, 0, result);
             if (result >= 0) {
                 gcad_descriptor info;
                 gcad_env_invalidate(g, g->setup_out, sizeof(g->setup_out));
-                if (!g->mapping || (read_descriptors(&info, g->setup_out, sizeof(g->setup_out), 36) && use_descriptors(g, &info))) {
+                zero(&info, sizeof(info));
+                if (g->mapping) read_descriptors(&info, g->setup_out, sizeof(g->setup_out), 36);
+                if (g->mapping && info.interface_seen && info.interface_class != 3) {
+                    exclude_interface(g, &info);
+                } else if (!g->mapping || use_descriptors(g, &info)) {
                     g->link = GCAD_LINK_INIT;
                 } else {
                     failed(g, GCAD_STEP_INFO, -4);
@@ -862,6 +1001,7 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
 static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
     uint32_t i;
     if (!current || g->stopping) return;
+    if (ps3(g)) hid_diagnostic(g, g->output_step, 0, result);
     if (g->link == GCAD_LINK_INIT) {
         g->init_result = result;
         if (result < 0) {
@@ -874,9 +1014,10 @@ static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
     }
     if (result < 0) {
         failed(g, GCAD_STEP_RUMBLE, result);
+        hid_diagnostic(g, GCAD_HID_RUMBLE, 0, result);
         return;
     }
-    if (g->mapping && ++g->rumble_index < g->mapping->rumble_count) {
+    if (g->mapping && !ps3(g) && ++g->rumble_index < g->mapping->rumble_count) {
         hid_rumble_transfer(g);
         return;
     }
@@ -888,17 +1029,24 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
     if (result < 0) {
         /* -7022 when unplugged; the device list follows. */
         failed(g, GCAD_STEP_POLL, result);
+        hid_diagnostic(g, GCAD_HID_POLL_ERROR, 0, result);
         link_failed(g, now, GCAD_LINK_FAILED);
         return;
     }
     gcad_env_invalidate(g, g->in_data, sizeof(g->in_data));
     if (g->mapping) {
         const uint32_t bytes = result == 0 ? g->input_bytes : (uint32_t)result;
+        if (bytes < g->mapping->report_bytes) {
+            hid_diagnostic(g, GCAD_HID_SHORT, g->mapping->report_bytes, (int32_t)bytes);
+        }
         if (bytes <= g->input_bytes && rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad)) {
+            if (ps3(g)) g->hid_pad.wireless = 0;
             if (g->mapping->rumble_type && !g->endpoint_out) g->hid_pad.wireless = 1;
             g->data_time = now;
             g->stale = 0;
             ++g->reports;
+            hid_diagnostic(g, GCAD_HID_INPUT, 0, (int32_t)bytes);
+            if (ps3(g) && !g->ps3_led) g->ps3_led = 1;
         } else {
             ++g->bad_reports;
         }
@@ -1031,7 +1179,7 @@ void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
         const uint32_t source = g->port_source[port];
         if (source >= GCAD_PORTS && source < GCAD_PORTS + GCAD_HID_PADS) {
             gcad* peer = &g->peers[source - GCAD_PORTS];
-            peer->rumble_want[0] = (uint8_t)(command == 1 && peer->mapping && peer->mapping->rumble_bytes);
+            peer->rumble_want[0] = (uint8_t)(command == 1 && peer->mapping && (peer->mapping->rumble_bytes || ps3(peer)));
             return;
         }
         if (source >= GCAD_PORTS) return;

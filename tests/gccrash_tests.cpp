@@ -13,6 +13,7 @@
 
 #include "gc_bt.h"
 #include "gc_rt.h"
+#include "rtgcad.h"
 #include "riftwii/gccrash.hpp"
 
 namespace {
@@ -378,6 +379,32 @@ void test_compose() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    {
+        std::vector<std::uint8_t> trace(512 * 4 + 17);
+        record(trace, 0, 1, GC_TRACE_HID);
+        put(trace, 0, GC_TR_CRASH_R1, 0x054C0268);
+        put(trace, 0, GC_TR_CRASH_R1 + 1, GCAD_HID_WAKE);
+        put(trace, 0, GC_TR_CRASH_R1 + 2, 17);
+        record(trace, 1, 2, GC_TRACE_HID);
+        put(trace, 1, GC_TR_CRASH_R1, 0x054C0268);
+        put(trace, 1, GC_TR_CRASH_R1 + 1, GCAD_HID_DESCRIPTORS | (0x810431u << 8));
+        put(trace, 1, GC_TR_CRASH_R1 + 2, static_cast<std::uint32_t>(-4));
+        // A malformed step and slot from the card cannot index past bounds.
+        record(trace, 2, 3, GC_TRACE_HID);
+        put(trace, 2, GC_TR_CRASH_R1, 1);
+        put(trace, 2, GC_TR_CRASH_R1 + 1, 255);
+        put(trace, 2, GC_TR_CRASH_R1 + 3, 4);
+        // A later controller can reuse the same slot and setup step.
+        record(trace, 3, 4, GC_TRACE_HID);
+        put(trace, 3, GC_TR_CRASH_R1, 0x054C09CC);
+        put(trace, 3, GC_TR_CRASH_R1 + 1, GCAD_HID_WAKE);
+        std::string text;
+        EXPECT_TRUE(riftwii::describe_gc_usb_pads(trace, text));
+        EXPECT_TRUE(text.find("PS3 feature-report wake-up answered (result 17)") != std::string::npos);
+        EXPECT_TRUE(text.find("no usable HID endpoints (in 0x81, 4 bytes; the config needs 49)") != std::string::npos);
+        EXPECT_TRUE(text.find("054c:09cc") != std::string::npos);
+        EXPECT_TRUE(gc_trace_allowed(0, GC_TRACE_HID));
+    }
     test_flag_bits(argc > 1 ? argv[1] : ".");
     test_no_crash();
     test_crash_only_capture();

@@ -105,10 +105,14 @@ void gcad_env_invalidate(gcad* g, void* p, uint32_t len) {
 }
 
 void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
-    (void)g;
-    (void)code;
-    (void)a;
-    (void)b;
+    struct rt_pad_context* c = (struct rt_pad_context*)g->env_ctx;
+    typedef void (*diagnostic_fn)(const char*, uint32_t, uint32_t, int32_t);
+    const rthid_mapping* mapping = g->mapping;
+    if (code == GCAD_EV_HID_LIST && g->catalog && g->catalog->count) mapping = &g->catalog->maps[0];
+    if ((code == GCAD_EV_HID_DIAG || code == GCAD_EV_HID_LIST) && c->diagnostic_print && mapping) {
+        const uint32_t id = (uint32_t)mapping->vid << 16 | mapping->pid;
+        ((diagnostic_fn)(uintptr_t)c->diagnostic_print)(c->diagnostic_format, id, a, b);
+    }
 }
 
 static gcad* state(struct rt_pad_context* c) {

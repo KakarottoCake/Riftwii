@@ -24,9 +24,10 @@
 // Pro reaches the game as a Wii Remote with a Classic Controller) and
 // to keep a trace of the game's Bluetooth traffic in the same file.
 //
-// It is on when the menu saw a Pro Controller or the console has one
-// paired (or settings.txt says wpad_log = on), never in a code build or a
-// game that clears MEM1's top; settings.txt pro_controller = off keeps the
+// It is on when the menu saw a Pro Controller, a mapped USB pad is connected
+// at launch and its hook is active, or settings.txt says wpad_log = on;
+// never in a code build or a game that clears MEM1's top.
+// settings.txt pro_controller = off keeps the
 // trace and leaves the traffic alone. The blob goes below the MEM1 arena's
 // top, under the other blobs, its log at the bottom of the MEM2 arena,
 // above theirs. Anything in the way turns it off with a reason for the
@@ -42,6 +43,8 @@ struct WpadLogHook {
     std::uint32_t tables = 0;          // the game's encryption lookup tables (riftwii/wpadlog.hpp), 0: none
     std::uint32_t code_base = 0;       // the blob (MEM1)
     std::uint32_t code_bytes = 0;
+    std::uint32_t print_entry = 0;
+    bool usb_diagnostics = false;
     std::uint32_t state_base = 0;      // the log (MEM2)
     std::uint32_t state_bytes = 0;
     std::uint32_t new_arena1_hi = 0;
@@ -56,9 +59,10 @@ struct WpadLogHook {
 // closes): with wpad_log = auto (the default) the launch keeps the log.
 void note_wiiu_pro_seen();
 // Whether this launch keeps the log, from settings.txt's wpad_log (auto,
-// on, off) and, for auto, whether a Pro Controller was seen in the menu
+// on, off) and, for auto, whether a Pro Controller was seen in the menu or
+// a mapped USB pad is connected and the shared pad hook is active
 // (the console's `pro_pairings` only go into `why`, for boot.log).
-bool wpad_log_wanted(std::size_t pro_pairings, std::string& why);
+bool wpad_log_wanted(std::size_t pro_pairings, bool pad_hook_active, std::string& why);
 // Whether the translator runs (settings.txt pro_controller, on unless off).
 bool pro_translator_wanted();
 // settings.txt pro_controller = every: every link is taken as a Pro
