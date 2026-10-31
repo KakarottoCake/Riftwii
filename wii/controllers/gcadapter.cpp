@@ -643,6 +643,10 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         g_menu_said_off = false;
         std::int32_t dev = -1;
         std::string devices;
+        // ogc_adapter keeps the last ven list over an empty one (the launch
+        // restarts libogc's USB, whose first list is empty): here, every
+        // 2 s in the menu, an empty list means an Xbox pad was unplugged.
+        HidPadsRefreshVen();
         const AdapterSeen seen = ogc_adapter(dev, devices);
         g_menu_missing = seen == AdapterSeen::Missing;
         if (seen != AdapterSeen::Found) return;

@@ -17,6 +17,9 @@ bool HidPadsConnected();
 // /dev/usb/ven's list from libogc (it lists every device that is not
 // HID): the Xbox 360 makers' devices in it count as pads plugged in.
 void HidPadsRememberVen(const rthid_device* devices, unsigned count);
+// Reads libogc's ven list again and keeps it, empty or not (the menu's
+// look for pads every 2 s); a failed read leaves the last list.
+void HidPadsRefreshVen();
 // The VID:PID of an Xbox 360 maker's device in the last ven list, 0: none.
 std::uint32_t HidPadsXboxPlugged();
 

@@ -733,6 +733,19 @@ std::int32_t open_usb_ven_for_game() {
     return fd;
 }
 
+namespace {
+
+// A plan that fails after find_pad_functions gives both USB handles back:
+// the launch goes on without the hook, and nothing else would close them.
+void close_pad_handles(PadHook& out) {
+    if (out.fd >= 0) IOS_Close(out.fd);
+    if (out.ven_fd >= 0) IOS_Close(out.ven_fd);
+    out.fd = -1;
+    out.ven_fd = -1;
+}
+
+}  // namespace
+
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
@@ -755,6 +768,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         IpcSymbols ipc;
         if (!find_ipc_symbols(text, ipc, error)) {
             why = "the game's IOS_IoctlAsync was not found: " + error;
+            close_pad_handles(out);
             return false;
         }
         ioctl_async = ipc.ioctl_async;
@@ -768,7 +782,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // 2. /dev/usb/hid, opened by find_pad_functions.
     if (out.version == 5 && ioctlv_async == 0) {
         why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
-        if (out.fd >= 0) IOS_Close(out.fd);
+        close_pad_handles(out);
         return false;
     }
 
@@ -796,7 +810,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                           "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)", arena2_lo,
                           arena2_end, loader_top);
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
         out.code_base = base;
@@ -813,7 +827,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
                           arena1_hi, mem1_floor, arena2_lo, arena2_end);
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
     }
@@ -823,7 +837,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             std::snprintf(buf, sizeof(buf), "a pack's memory patch at 0x%08x uses the memory it needs",
                           static_cast<unsigned>(p.offset));
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
     }
@@ -837,7 +851,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     rt_pad_context* ctx = reinterpret_cast<rt_pad_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_PAD_CONTEXT_MAGIC) {
         why = "the pad blob's context is not where its header says";
-        if (out.fd >= 0) IOS_Close(out.fd);
+        close_pad_handles(out);
         return false;
     }
     auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
