@@ -59,6 +59,11 @@ struct GridItem {
     GXColor caseColour = {255, 255, 255, 255};
 };
 
+// The name a tile's 2D cover is asked by (covers.hpp): a mod's tile asks by
+// its key, so the player's own riftwii/covers/<game ID>@<slug>.png shows on
+// it (else the game's cover); every other tile by its game's ID.
+inline const std::string& CoverName(const GridItem& item) { return item.profile ? item.key : item.id; }
+
 class GuiGameGrid : public GuiElement {
 public:
     static constexpr int kPerPage = 12;

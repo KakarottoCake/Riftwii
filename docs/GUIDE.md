@@ -282,7 +282,14 @@ moving the pointer, brings it back; that press does nothing else.
 The tiles show each game's cover, the name of the one you point at
 under them. Covers come from GameTDB while Home is open (about a second
 each, the page on screen first) and are kept in `sd:/riftwii/covers`;
-a game GameTDB has no cover for shows its name. **Home tiles** in
+a game GameTDB has no cover for shows its name. To use your own cover,
+put a PNG named after the game's ID in `riftwii/covers` on the SD card
+or the USB drive: `sd:/riftwii/covers/RMCE01.png`. For a mod's own Home
+tile, add its tile key: `sd:/riftwii/covers/RMCE01@retro-rewind.png`
+(a tile without one shows the game's cover). Your own cover comes
+before GameTDB's, works offline and is never written over. Some games
+have a second cover on GameTDB: switch to it with **GameTDB cover** in
+the game's settings, next to **Cover**. **Home tiles** in
 Settings switches to 3D covers, the carousel, the shelf, channels or
 name tiles. The small **Layout** button at Home's top left shows the
 current layout. Press it to open six cards, then point at one or move

@@ -79,8 +79,8 @@ std::vector<std::string> gametdb_art_ids(const std::string& game_id) {
     return {code, game_id};
 }
 
-std::string cover_url(const std::string& region, const std::string& game_id) {
-    return "http://art.gametdb.com/wii/cover/" + region + "/" + game_id + ".png";
+std::string cover_url(const std::string& region, const std::string& game_id, bool second) {
+    return std::string("http://art.gametdb.com/wii/") + (second ? "coverB/" : "cover/") + region + "/" + game_id + ".png";
 }
 
 int http_answered_status(const std::string& error) {

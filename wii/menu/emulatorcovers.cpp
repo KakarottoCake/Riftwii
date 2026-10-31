@@ -22,6 +22,7 @@
 #include "riftwii/homebrewmatch.hpp"
 #include "riftwii/sha256.hpp"
 #include "riftwii/imagevolume.hpp"
+#include "riftwii/pngdecode.hpp"
 #include "textfile.hpp"
 #include "usbcatalog.hpp"
 
@@ -337,6 +338,70 @@ bool ReadEmulatorLocalCover(const std::string& id, std::vector<std::uint8_t>& fi
     if (!DriveScanDone()) return false;
     CoverGame game;
     return FindGame(id, game) && LocalCover(game, file);
+}
+
+namespace {
+// Whether usb:/riftwii/covers is there, per mount of the drive: without it,
+// no PNG is looked up there game by game (each lookup holds the USB lock).
+// (mount generation << 2) | 1 absent, 2 there; 0 not known yet. Two threads
+// working it out at once reach the same answer.
+std::atomic<std::uint32_t> g_usbCoversFolder{0};
+// The largest side the cover reader takes (DecodePngRgba, covers.cpp).
+constexpr std::uint32_t kOwnCoverMaxSide = 1024;
+
+bool UsbCoversFolderThere() {
+    if (!DriveScanDone()) return false;  // the scan owns the drive until its last part
+    const std::uint32_t generation = static_cast<std::uint32_t>(usb_mount_generation()) & 0x3FFFFFFFu;
+    const std::uint32_t known = g_usbCoversFolder.load();
+    if (known != 0 && (known >> 2) == generation) return (known & 3u) == 2u;
+    std::vector<VolumeEntry> entries;
+    const bool there = list_usb_folder("usb:/riftwii/covers", entries, nullptr);
+    g_usbCoversFolder.store((generation << 2) | (there ? 2u : 1u));
+    return there;
+}
+}  // namespace
+
+void ForgetUsbCoversFolder() { g_usbCoversFolder.store(0); }
+
+bool OwnCoverLooksReadable(const std::string& name) {
+    if (!emulator_art_component(name + ".png")) return false;
+    const std::string relative = "/riftwii/covers/" + name + ".png";
+    std::uint8_t head[kPngHeaderBytes];
+    // As ReadOwnCover: the card first, then the USB drive.
+    struct stat info {};
+    const std::string sd = "sd:" + relative;
+    if (lstat(sd.c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0 &&
+        static_cast<std::uint64_t>(info.st_size) <= kEmulatorCoverMax) {
+        FILE* f = std::fopen(sd.c_str(), "rb");
+        const bool read = f && std::fread(head, 1, sizeof(head), f) == sizeof(head);
+        if (f) std::fclose(f);
+        if (read && png_header_plausible(head, sizeof(head), kOwnCoverMaxSide)) return true;
+    }
+    std::uint64_t bytes = 0;
+    return UsbCoversFolderThere() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0 &&
+           bytes <= kEmulatorCoverMax && read_usb_range("usb:" + relative, 0, head, sizeof(head), bytes) &&
+           png_header_plausible(head, sizeof(head), kOwnCoverMaxSide);
+}
+
+bool ReadOwnCover(const std::string& name, std::vector<std::uint8_t>& file) {
+    if (!emulator_art_component(name + ".png")) return false;
+    const std::string relative = "/riftwii/covers/" + name + ".png";
+    for (const char* device : {"sd:", "usb:"}) {
+        // The scan owns the USB drive's volume state until its last part.
+        if (device[0] == 'u' && !UsbCoversFolderThere()) continue;
+        std::vector<std::uint8_t> png;
+        if (ReadPng(device + relative, png) && MakeCover(png, file)) return true;
+    }
+    return false;
+}
+
+bool OwnCoverThere(const std::string& name) {
+    if (!emulator_art_component(name + ".png")) return false;
+    const std::string relative = "/riftwii/covers/" + name + ".png";
+    struct stat info {};
+    if (stat(("sd:" + relative).c_str(), &info) == 0 && S_ISREG(info.st_mode) && info.st_size > 0) return true;
+    std::uint64_t bytes = 0;
+    return UsbCoversFolderThere() && read_usb_range("usb:" + relative, 0, nullptr, 0, bytes) && bytes > 0;
 }
 
 bool ReadEmulatorBanner(const std::string& key, std::vector<std::uint8_t>& file) {
