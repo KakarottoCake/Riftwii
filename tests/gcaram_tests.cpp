@@ -201,6 +201,16 @@ void test_finds_ea_top() {
     Text not_getter = t;
     not_getter.words[(getter - kBase) / 4] = lwz_r13(4, -0x62cc);
     EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(not_getter.ranges()).empty());
+    // Left alone too: the top overwritten, or a branch, before the store.
+    Text overwritten = t;
+    overwritten.words[(call + 8 - kBase) / 4] = 0x38000000;  // li r0,0
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(overwritten.ranges()).empty());
+    Text moved_over = t;
+    moved_over.words[(call + 8 - kBase) / 4] = 0x7C601B78;  // mr r0,r3
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(moved_over.ranges()).empty());
+    Text branched = t;
+    branched.words[(call + 8 - kBase) / 4] = 0x48000008;  // b +8
+    EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(branched.ranges()).empty());
 }
 
 // 007: NightFire's driving.elf, its sound code at 0x80211320-0x80211334

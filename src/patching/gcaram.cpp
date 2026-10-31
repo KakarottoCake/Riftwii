@@ -133,11 +133,21 @@ std::vector<std::uint32_t> find_gc_aram_tops_below_size(const std::vector<CodeRa
         if (!addi_from_r3 || delta >= 0 || delta < -0x10000 || (delta & 31) != 0) return;
         const std::uint32_t top_reg = (below >> 21) & 31;
 
-        // stw rD,top(r13) within the next two words.
+        // stw rD,top(r13) within the next two words. Only an mr that leaves
+        // rD alone may come before it (NightFire's mr r3,r0); anything else
+        // (a branch, a word that writes rD) ends the search.
         const std::uint32_t store = 0x900D0000 | (top_reg << 21);  // stw rD,d(r13), d masked out
         bool stored = false;
-        for (std::uint32_t b = a + 8; b <= a + 12 && code.has(b); b += 4)
-            if ((code.at(b) & 0xFFFF0000) == store) stored = true;
+        for (std::uint32_t b = a + 8; b <= a + 12 && code.has(b); b += 4) {
+            const std::uint32_t x = code.at(b);
+            if ((x & 0xFFFF0000) == store) {
+                stored = true;
+                break;
+            }
+            const bool mr = (x >> 26) == 31 && ((x >> 1) & 0x3FF) == 444 && ((x >> 21) & 31) == ((x >> 11) & 31);
+            const bool writes_top = ((x >> 16) & 31) == top_reg;
+            if (!mr || writes_top) break;
+        }
         if (stored) found.push_back(a);
     });
     return found;
