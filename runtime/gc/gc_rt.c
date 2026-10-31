@@ -2768,8 +2768,11 @@ void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index) {
     }
     ctx->program_starts++;
     ctx->program_current = index + 1;  /* 0: the disc's own */
-    gc_forget_game(ctx, 0);
+    /* The trace's record may write to the card: drained too, as Reset
+     * does, before the old program's state is forgotten. */
     gc_trace(ctx, GC_TRACE_PROGRAM);
+    if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
+    gc_forget_game(ctx, 0);
 }
 
 /* Test presses: every 240 reads, 10 reads of A, then B, then Start, on
