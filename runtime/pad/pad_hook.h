@@ -129,19 +129,11 @@ struct rt_pad_context {
     uint32_t kpad_takes_error;
     uint32_t pad_read;
     struct rthome home;
-    uint32_t home_buffer;      /* the KPAD buffer the stand-in's status went into last */
+    uint32_t home_buffer;      /* the KPAD buffer the stand-in's status went into last, when the game keeps it (0: on a stack) */
     uint32_t home_fresh;       /* the KPAD read wrote it since the HOME Menu's last probe */
     uint32_t home_writes;      /* statuses written in this stand-in's time */
     uint32_t home_judged;      /* this stand-in's end has been looked at (pad_home_check) */
     uint32_t last_pad_read;    /* when PADRead last ran (low bit set) */
-    /* Counters for a memory read in Dolphin: KPAD reads, the channels the
-     * game reads (a bit each), probes, HOME Menu frames. */
-    uint32_t kpad_reads;
-    uint32_t kpad_channels;
-    uint32_t probes;
-    uint32_t menu_frames;
-    uint32_t selects;          /* HBMGetSelectBtnNum answers other than -1 */
-    uint32_t last_select;      /* the last such answer */
     uint8_t pad_scratch[48];   /* PADStatus[4] for that read of our own */
 };
 

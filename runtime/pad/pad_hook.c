@@ -305,18 +305,27 @@ static int pad_in_ram(const void* p) {
     return (a >= 0x80000000u && a < 0x81800000u) || (a >= 0x90000000u && a < 0x94000000u);
 }
 
-/* Whether `p` lies in the stack just below this thread's stack pointer:
- * space a function that has returned gave back (the stack grows down).
- * The KPAD buffer is the game's, and nothing says it outlives the call
- * that passed it: one there was a local of a call that is over, and its
- * bytes are another call's now. A buffer the game keeps (its data, its
- * heap, a frame still running) is never there. 64 KB: deeper than any
- * frame a game's controller code leaves behind. */
-static int pad_in_freed_stack(const void* p) {
+/* Whether `p`, a KPAD read's buffer, lies on the running thread's stack.
+ * Decided at the read, while the caller's frame is surely live: a stack
+ * buffer is a local of that call (Brawl, Mario Kart Wii and NASCAR Kart
+ * Racing pass one, 31 Oct), the game reads it only before the call
+ * returns, and afterwards its bytes may be another call's. So it is never
+ * kept for a later probe to fill; a buffer in the game's data or heap is.
+ * The running thread's OSThread is at 0x800000E4, its stack's top at
+ * +0x304 and its bottom at +0x308; with no usable bounds, the 64 KB above
+ * this stack pointer (the call chain the read runs in) stands in. */
+static int pad_on_running_stack(const void* p) {
+    const uint32_t a = (uint32_t)(uintptr_t)p;
+    const uint32_t thread = *(volatile uint32_t*)(uintptr_t)0x800000E4u;
+    if (pad_in_ram((const void*)(uintptr_t)thread)) {
+        const uint32_t top = *(volatile uint32_t*)(uintptr_t)(thread + 0x304u);
+        const uint32_t bottom = *(volatile uint32_t*)(uintptr_t)(thread + 0x308u);
+        if (pad_in_ram((const void*)(uintptr_t)top) && bottom < top && top - bottom <= 0x100000u)
+            return a >= bottom && a < top;
+    }
     uint32_t sp;
     __asm__ volatile("mr %0, 1" : "=r"(sp));
-    const uint32_t a = (uint32_t)(uintptr_t)p;
-    return a < sp && sp - a <= 0x10000u;
+    return a >= sp && a - sp <= 0x10000u;
 }
 
 static void pad_put32(uint8_t* p, uint32_t v) { *(volatile uint32_t*)(void*)p = v; }
@@ -422,8 +431,6 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
     if (!c->home_on) return result;
     msr = interrupts_off();
     t = now();
-    ++c->kpad_reads;
-    if (chan >= 0 && chan < (int32_t)RTHOME_CHANNELS) c->kpad_channels |= 1u << chan;
     stand_in = rthome_stand_in(&c->home, t);
     if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in || !pad_in_ram(status) ||
         c->kpad_status_bytes < PAD_KPAD_END) {
@@ -431,7 +438,7 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
         return result;
     }
     pad_home_status(c, status, t);
-    c->home_buffer = (uint32_t)(uintptr_t)status;
+    c->home_buffer = pad_on_running_stack(status) ? 0u : (uint32_t)(uintptr_t)status;
     c->home_fresh = 1;
     if (c->kpad_takes_error && pad_in_ram(error)) *error = 0;
     interrupts_restore(msr);
@@ -478,7 +485,6 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
     }
     msr = interrupts_off();
     t = now();  /* again: that PADRead may have noted a later time */
-    ++c->probes;
     stand_in = rthome_stand_in(&c->home, t);
     if (stand_in == RTHOME_NO_CHANNEL || (uint32_t)chan != stand_in) {
         if (chan >= 0) rthome_probed(&c->home, (uint32_t)chan, result);
@@ -486,11 +492,10 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
         return result;
     }
     if (pad_in_ram(type)) *type = PAD_DEV_CLASSIC;
-    /* The buffer the KPAD read last filled, only while it can still be
-     * the game's (not stack given back since): else nothing is written,
-     * and the stand-in waits for the game's next KPAD read. */
-    if (!c->home_fresh && pad_in_ram((const void*)(uintptr_t)c->home_buffer) &&
-        !pad_in_freed_stack((const void*)(uintptr_t)c->home_buffer))
+    /* The buffer the KPAD read last filled, when the game keeps it (not
+     * on a stack, pad_on_running_stack): else nothing is written, and the
+     * stand-in waits for the game's next KPAD read. */
+    if (!c->home_fresh && pad_in_ram((const void*)(uintptr_t)c->home_buffer))
         pad_home_status(c, (uint8_t*)(uintptr_t)c->home_buffer, t);
     c->home_fresh = 0;
     interrupts_restore(msr);
@@ -500,7 +505,6 @@ int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int
 /* HBMCalc: the HOME Menu runs this frame. */
 void pad_on_menu(struct rt_pad_context* c) {
     const uint32_t msr = interrupts_off();
-    ++c->menu_frames;
     if (c->home_on) rthome_menu_frame(&c->home, now());
     interrupts_restore(msr);
 }
@@ -511,8 +515,6 @@ int32_t pad_on_select(struct rt_pad_context* c, int32_t result) {
     uint32_t msr;
     if (result == -1) return result;
     msr = interrupts_off();
-    ++c->selects;
-    c->last_select = (uint32_t)result;
     if (c->home_on) rthome_selected(&c->home, result);
     interrupts_restore(msr);
     return result;
