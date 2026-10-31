@@ -408,6 +408,9 @@ reader helpers stay beside their source.
 Header-only helpers in `include/riftwii/`: `checkedalloc.hpp` checks
 allocations before a container grows; `disccache.hpp` tracks disc identity
 between drive probes; `homeinput.hpp` handles Home's controller paging;
+`homechord.hpp` handles Home's held-back buttons (a tap against a hold, one
+button against a pair, the search button's hold, what each screen change
+leaves behind);
 `startupnote.hpp` records start-up progress. `plugin_api.h` and
 `plugin_gamecube.h` define the loader/plugin boundary and GameCube request.
 
