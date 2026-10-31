@@ -19,6 +19,8 @@
 #include <utility>
 #include <vector>
 
+#include "riftwii/symsearch.hpp"
+
 namespace riftwii {
 
 // A program's loadable segment: `file_bytes` from `file_offset` in the ELF
@@ -75,6 +77,12 @@ bool gc_sort_disc_patches(std::vector<GcDiscPatch>& patches, std::string& why);
 // and on the way back to the third word.
 bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint32_t second, unsigned index,
                             std::uint32_t hook, std::uint32_t out[2], std::string& why);
+
+// Whether any relative branch in the code (b, bc, with or without link)
+// goes to `target`. A program whose code branches to its entry + 4 is not
+// taken over: that word becomes the jump to the blob, and only a start at
+// the entry has set r0 to the program's index first.
+bool gc_code_branches_to(const std::vector<CodeRange>& text, std::uint32_t target);
 
 // RiftWii's part of MEM1 as a set of regions, read whole: before any
 // program's patches (`base`) and after each program's. The words a program

@@ -3524,6 +3524,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
             if (patched)
                 patched = gc_program_entry_words(elf.entry, program_code.at(elf.entry), program_code.at(elf.entry + 4),
                                                  index, blob_addr + h.hook_program, entry_words, why);
+            if (patched && gc_code_branches_to(program_code.ranges(), elf.entry + 4)) {
+                why = "its code branches to its second word, which becomes the jump to the blob";
+                patched = false;
+            }
             std::vector<GcDiscPatch> patches;
             if (patched) {
                 store32(blob_addr + h.replay_program, program_code.at(elf.entry));
