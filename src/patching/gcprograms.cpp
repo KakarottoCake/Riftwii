@@ -38,15 +38,28 @@ bool is_relative_branch(std::uint32_t word) {
     return opcode == 16 || opcode == 18;  // bc, b (and their l/a forms)
 }
 
-// Whether a word may leave a value in r12 or CTR, which the blob's way back
-// to the program's third word (gc_continue_program: lis/ori r12, mtctr,
-// bctr) overwrites before that word runs. Any word naming r12 in its rD/rS
-// or rA field counts, a little more than needed: every program seen starts
-// with `lis r1` and `ori r1,r1`.
-bool may_set_r12_or_ctr(std::uint32_t word) {
-    const unsigned field_d = (word >> 21) & 31, field_a = (word >> 16) & 31;
-    const bool mtctr = (word & 0xFC1FFFFE) == 0x7C0903A6;  // mtspr 9,rS
-    return field_d == 12 || field_a == 12 || mtctr;
+// Whether a word may touch r12 or CTR. The blob uses both around the two
+// words it replays: gc_hook_program keeps the caller's LR in CTR on the way
+// in, and the way back to the third word (gc_continue_program: lis/ori r12,
+// mtctr, bctr) overwrites them before that word runs. So a word that reads
+// either sees the blob's value, and one that sets either loses it. Any
+// word naming r12 in its rD/rS or rA field (or rB, for the X-forms of
+// opcodes 19 and 31) counts, a little more than needed, and so do lmw from
+// r12 or below and lswi/lswx, which load runs of registers, and every move
+// to or from CTR and bcctr. Every program seen starts with `lis r1` and
+// `ori r1,r1`.
+bool may_touch_r12_or_ctr(std::uint32_t word) {
+    const unsigned opcode = word >> 26;
+    const unsigned field_d = (word >> 21) & 31, field_a = (word >> 16) & 31, field_b = (word >> 11) & 31;
+    const unsigned extended = (word >> 1) & 0x3FF;
+    const bool x_form = opcode == 19 || opcode == 31;
+    const bool names_r12 = field_d == 12 || field_a == 12 || (x_form && field_b == 12);
+    const bool lmw_through_r12 = opcode == 46 && field_d <= 12;
+    const bool load_string = opcode == 31 && (extended == 597 || extended == 533);  // lswi, lswx
+    const bool ctr_move = (word & 0xFC1FFFFE) == 0x7C0903A6 ||                   // mtspr 9,rS
+                          (word & 0xFC1FFFFE) == 0x7C0902A6;                     // mfspr rD,9
+    const bool bcctr = opcode == 19 && extended == 528;
+    return names_r12 || lmw_through_r12 || load_string || ctr_move || bcctr;
 }
 
 }  // namespace
@@ -169,8 +182,8 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
         why = "the program starts with a branch, which cannot run from elsewhere";
         return false;
     }
-    if (may_set_r12_or_ctr(first) || may_set_r12_or_ctr(second)) {
-        why = "the program's first two words may set r12 or CTR, which the way back to its third word uses";
+    if (may_touch_r12_or_ctr(first) || may_touch_r12_or_ctr(second)) {
+        why = "the program's first two words may use r12 or CTR, which the blob uses around them";
         return false;
     }
     if (index > 0x7FFF) {
