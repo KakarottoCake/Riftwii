@@ -13,83 +13,85 @@
 #include "riftwii/nandcheck.hpp"
 
 namespace installer {
-namespace {
 
-// IOS58 refuses other titles' files. Follow RiftWii's own cIOS search:
-// open its NAND permission check only after -102, with AHBPROT access,
-// then restore the word before returning (and before any IOS reload).
-class NandReadAccess {
-public:
-    bool Open() {
-        if (read32(0x0D800064) != 0xFFFFFFFF) {
-            Log("The cIOS information needs hardware access, which this start does not have.\n");
-            return false;
-        }
-        constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
-        protection_ = read16(0x0D8B420A);
-        protection_saved_ = true;
+bool NandReadAccess::Open() {
+    if (attempted_) return opened_;
+    attempted_ = true;
+    if (read32(0x0D800064) != 0xFFFFFFFF) {
+        Log("The cIOS information needs hardware access, which this start does not have.\n");
+        opened_ = false;
+        return false;
+    }
+    constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
+    protection_ = read16(0x0D8B420A);
+    protection_saved_ = true;
+    write16(0x0D8B420A, 2);
+    std::size_t offset = 0;
+    if (!riftwii::find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, offset)) {
+        RestoreProtection();
+        Log("IOS%d's NAND permission check could not be found.\n", IOS_GetVersion());
+        opened_ = false;
+        return false;
+    }
+    const auto store = riftwii::nand_check_store(kFrom + static_cast<u32>(offset));
+    word_ = store.word;
+    shift_ = store.shift;
+    before_ = read32(word_);
+    after_ = riftwii::nand_check_opened(before_, store.shift);
+    // An aligned word store is necessary on the uncached MEM2 mirror;
+    // a halfword store hung Wii and vWii consoles in RiftWii before.
+    write32(word_, after_);
+    const bool opened = read32(word_) == after_;
+    // A failed store may be partial: put the original back at once, as
+    // RiftWii does. Restore still checks the word holds the original.
+    if (!opened) write32(word_, before_);
+    RestoreProtection();
+    Log("IOS%d's NAND permission check %s for the cIOS information.\n", IOS_GetVersion(),
+        opened ? "was opened" : "could not be opened");
+    opened_ = opened && protection_restored_;
+    return opened_;
+}
+
+bool NandReadAccess::Restore() {
+    if (finished_) return word_restored_ && protection_restored_;
+    finished_ = true;
+    if (word_ != 0) {
         write16(0x0D8B420A, 2);
-        std::size_t offset = 0;
-        if (!riftwii::find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, offset)) {
-            Log("IOS%d's NAND permission check could not be found.\n", IOS_GetVersion());
-            return false;
+        const u32 current = read32(word_);
+        // Only the patched halfword is ours; IOS may have changed the other
+        // halfword of the same word, which must neither block nor be undone.
+        if (riftwii::nand_check_half(current, shift_) == riftwii::nand_check_half(after_, shift_)) {
+            const u32 mask = static_cast<u32>(0xFFFF) << shift_;
+            write32(word_, (current & ~mask) | (before_ & mask));
         }
-        const auto store = riftwii::nand_check_store(kFrom + static_cast<u32>(offset));
-        word_ = store.word;
-        before_ = read32(word_);
-        const u32 after = riftwii::nand_check_opened(before_, store.shift);
-        // An aligned word store is necessary on the uncached MEM2 mirror;
-        // a halfword store hung Wii and vWii consoles in RiftWii before.
-        write32(word_, after);
-        const bool opened = read32(word_) == after;
-        // Keep the original word even if opening failed: the store may
-        // have changed it partially, and Restore must check that too.
-        RestoreProtection();
-        Log("IOS%d's NAND permission check %s for the cIOS information.\n", IOS_GetVersion(),
-            opened ? "was opened" : "could not be opened");
-        return opened && protection_restored_;
-    }
-
-    bool Restore() {
-        if (finished_) return word_restored_ && protection_restored_;
-        finished_ = true;
-        if (word_ != 0) {
-            write16(0x0D8B420A, 2);
-            write32(word_, before_);
-            word_restored_ = read32(word_) == before_;
-            Log("IOS%d's NAND permission check %s after reading the cIOS information.\n", IOS_GetVersion(),
-                word_restored_ ? "was restored" : "could not be restored");
+        const u32 now = read32(word_);
+        word_restored_ = riftwii::nand_check_half(now, shift_) == riftwii::nand_check_half(before_, shift_);
+        if (word_restored_) {
+            Log("IOS%d's NAND permission check was restored after reading the cIOS information.\n",
+                IOS_GetVersion());
+        } else {
+            Log("IOS%d's NAND permission check could not be restored after reading the cIOS information "
+                "(word 0x%08x read 0x%08x, original 0x%08x, opened 0x%08x).\n",
+                IOS_GetVersion(), word_, now, before_, after_);
         }
-        RestoreProtection();
-        return word_restored_ && protection_restored_;
     }
+    RestoreProtection();
+    return word_restored_ && protection_restored_;
+}
 
-    ~NandReadAccess() { Restore(); }
+NandReadAccess::~NandReadAccess() { Restore(); }
 
-private:
-    void RestoreProtection() {
-        if (!protection_saved_) return;
-        write16(0x0D8B420A, protection_);
-        const bool restored = read16(0x0D8B420A) == protection_;
-        // Latch a failure even if a later cleanup attempt succeeds.
-        protection_restored_ = protection_restored_ && restored;
-        if (!restored) Log("The NAND memory protection register could not be restored.\n");
-    }
+void NandReadAccess::RestoreProtection() {
+    if (!protection_saved_) return;
+    write16(0x0D8B420A, protection_);
+    const bool restored = read16(0x0D8B420A) == protection_;
+    // Latch a failure even if a later cleanup attempt succeeds.
+    protection_restored_ = protection_restored_ && restored;
+    if (!restored) Log("The NAND memory protection register could not be restored.\n");
+}
 
-    u32 word_ = 0;
-    u32 before_ = 0;
-    u16 protection_ = 0;
-    bool protection_saved_ = false;
-    bool word_restored_ = true;
-    bool protection_restored_ = true;
-    bool finished_ = false;
-};
-
-}  // namespace
-
-riftwii::D2xInfo ReadCios(int slot, bool& read, bool& restored) {
+riftwii::D2xInfo ReadCios(int slot, NandReadAccess& access, bool& read) {
     read = false;
-    restored = true;
     const u64 title = 0x0000000100000000ull | static_cast<u32>(slot);
     // IOS TMD views are small. A fixed, bounded buffer keeps the installer
     // independent of the app's allocator and large platform modules.
@@ -109,30 +111,23 @@ riftwii::D2xInfo ReadCios(int slot, bool& read, bool& restored) {
     alignas(32) char path[64];
     std::snprintf(path, sizeof(path), "/title/00000001/%08x/content/%08x.app", static_cast<unsigned>(slot),
                   static_cast<unsigned>(view->contents[0].cid));
-    NandReadAccess access;
-    // All exits after opening access go through the restoration check.
-    const auto read_content = [&]() -> riftwii::D2xInfo {
-        s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
-        if (fd == -102 && access.Open()) fd = ISFS_Open(path, ISFS_OPEN_READ);
-        if (fd < 0) {
-            Log("IOS%d was skipped because its d2x information could not be opened (%d).\n", slot, fd);
-            return {};
-        }
-        alignas(32) u8 head[0x40];
-        const s32 got = ISFS_Read(fd, head, sizeof(head));
-        ISFS_Close(fd);
-        if (got < 0x30 || got > static_cast<s32>(sizeof(head))) {
-            Log("IOS%d was skipped because its d2x information could not be read (%d).\n", slot, got);
-            return {};
-        }
-        read = true;
-        const auto info = riftwii::parse_d2x_info(head, static_cast<std::size_t>(got));
-        if (!info.d2x) Log("IOS%d was skipped because it is not a d2x cIOS.\n", slot);
-        else Log("IOS%d holds %s with base %d.\n", slot, riftwii::d2x_name(info).c_str(), info.base);
-        return info;
-    };
-    const auto info = read_content();
-    restored = access.Restore();
+    s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
+    if (fd == -102 && access.Open()) fd = ISFS_Open(path, ISFS_OPEN_READ);
+    if (fd < 0) {
+        Log("IOS%d was skipped because its d2x information could not be opened (%d).\n", slot, fd);
+        return {};
+    }
+    alignas(32) u8 head[0x40];
+    const s32 got = ISFS_Read(fd, head, sizeof(head));
+    ISFS_Close(fd);
+    if (got < 0x30 || got > static_cast<s32>(sizeof(head))) {
+        Log("IOS%d was skipped because its d2x information could not be read (%d).\n", slot, got);
+        return {};
+    }
+    read = true;
+    const auto info = riftwii::parse_d2x_info(head, static_cast<std::size_t>(got));
+    if (!info.d2x) Log("IOS%d was skipped because it is not a d2x cIOS.\n", slot);
+    else Log("IOS%d holds %s with base %d.\n", slot, riftwii::d2x_name(info).c_str(), info.base);
     return info;
 }
 

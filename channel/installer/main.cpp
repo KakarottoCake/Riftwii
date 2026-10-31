@@ -133,18 +133,20 @@ void enter_cios() {
     if (isfs < 0) {
         installer::Log("The cIOS search could not open the NAND file system (%d).\n", isfs);
     } else {
+        // The check stays open for the whole search; nothing between here and
+        // access.Restore() may reload IOS.
+        installer::NandReadAccess access;
         for (unsigned i = 0; i < 3; ++i) {
             bool read = false;
-            bool restored = true;
-            candidates[i] = installer::ReadCios(slots[i], read, restored);
-            if (!restored) {
-                g_ios_state_safe = false;
-                ISFS_Deinitialize();
-                installer::Log("The installer cannot continue safely because NAND access was not restored. "
-                               "No IOS will be reloaded; restart the installer from the Homebrew Channel.\n");
-                return;
-            }
+            candidates[i] = installer::ReadCios(slots[i], access, read);
             any_read = any_read || read;
+        }
+        if (!access.Restore()) {
+            g_ios_state_safe = false;
+            ISFS_Deinitialize();
+            installer::Log("The installer cannot continue safely because NAND access was not restored. "
+                           "No IOS will be reloaded; restart the installer from the Homebrew Channel.\n");
+            return;
         }
         ISFS_Deinitialize();
     }

@@ -39,6 +39,7 @@ bool fail_word_restore;
 unsigned fail_protection_restore;
 unsigned protection_restores;
 unsigned open_calls;
+unsigned opening_stores;
 s32 read_result;
 u32 permission_word;
 u16 protection;
@@ -53,6 +54,7 @@ void reset(void* memory) {
     fail_protection_restore = 0;
     protection_restores = 0;
     open_calls = 0;
+    opening_stores = 0;
     read_result = 0x40;
     permission_word = kOriginalWord;
     protection = kOriginalProtection;
@@ -81,6 +83,7 @@ void write16(u32, u16 value) {
 void write32(u32 address, u32 value) {
     if (address != kPermissionWord) return;
     if (value == kOriginalWord && fail_word_restore) return;
+    if (value != kOriginalWord) ++opening_stores;
     if (value != kOriginalWord && fail_open_store) {
         permission_word = 0xDEADBEEF;  // even a partial failed store needs cleanup
         return;
@@ -100,9 +103,10 @@ s32 ES_GetTMDView(u64 title, tmd_view* view, u32) {
     return 0;
 }
 
+// IOS58 refuses the file until its permission check is opened.
 s32 ISFS_Open(const char*, int) {
     ++open_calls;
-    return open_calls == 1 ? -102 : 7;
+    return permission_word == kOriginalWord ? -102 : 7;
 }
 
 s32 ISFS_Read(s32, void* data, u32 size) {
@@ -148,8 +152,9 @@ int main() {
     unsigned failures = 0;
     const auto check = [&](const char* name, bool expected_read, bool expected_restored) {
         bool read = false;
-        bool restored = true;
-        const auto info = installer::ReadCios(249, read, restored);
+        installer::NandReadAccess access;
+        const auto info = installer::ReadCios(249, access, read);
+        const bool restored = access.Restore();
         if (read != expected_read || restored != expected_restored || info.d2x != expected_read ||
             (restored && (permission_word != kOriginalWord || protection != kOriginalProtection))) {
             std::cerr << "FAILED: " << name << "\n" << logs;
@@ -185,6 +190,50 @@ int main() {
     reset(memory);
     hardware_access = false;
     check("no hardware access leaves state alone", false, true);
+
+    // The whole search shares one opening, closed once after every slot.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        bool all_read = true;
+        for (const int slot : {249, 250, 251}) {
+            bool read = false;
+            all_read = installer::ReadCios(slot, access, read).d2x && read && all_read;
+        }
+        const bool restored = access.Restore();
+        if (!all_read || !restored || opening_stores != 1 || open_calls != 4 ||
+            permission_word != kOriginalWord || protection != kOriginalProtection) {
+            std::cerr << "FAILED: three slots share one opening\n" << logs;
+            ++failures;
+        }
+    }
+
+    // A change outside the patched halfword is kept.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        bool read = false;
+        installer::ReadCios(249, access, read);
+        permission_word = (permission_word & 0x0000FFFF) | 0xABCD0000;
+        if (!access.Restore() || permission_word != 0xABCDD001) {
+            std::cerr << "FAILED: a change outside the patched halfword is kept\n" << logs;
+            ++failures;
+        }
+    }
+
+    // A patched halfword someone else changed is left alone and reported.
+    reset(memory);
+    {
+        installer::NandReadAccess access;
+        bool read = false;
+        installer::ReadCios(249, access, read);
+        permission_word = 0x428B1234;
+        if (access.Restore() || permission_word != 0x428B1234 ||
+            logs.find("read 0x428b1234") == std::string::npos) {
+            std::cerr << "FAILED: a patched halfword someone else changed is left alone and reported\n" << logs;
+            ++failures;
+        }
+    }
 
 #if defined(_WIN32) || defined(__CYGWIN__)
     VirtualFree(memory, 0, MEM_RELEASE);
