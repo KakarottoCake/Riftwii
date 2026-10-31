@@ -13594,6 +13594,16 @@ static int MenuHome(FrontendState& state)
 					} else if (stop) {
 						CoverDownloadsOff(id) = true;
 					}
+					// The game's cover came first: a mod tile's own is asked for
+					// next, as at page entry when the game's is stored.
+					const std::string tileCover = PageCoverName(state);
+					if (!coverAsked && !stop && tileCover != state.game_id && riftwii::wii::Settings().online &&
+					    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(tileCover) &&
+					    !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(tileCover)) {
+						g_coversChecked.insert(tileCover);
+						coverStartName = tileCover;
+						coverStart = true;
+					}
 					if (coverAsked) {
 						// Asked for the second set, and back on the first (downloaded
 						// again, or kept): GameTDB has only the one.
