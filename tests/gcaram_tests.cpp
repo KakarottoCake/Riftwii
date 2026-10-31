@@ -201,7 +201,11 @@ void test_finds_ea_top() {
     Text not_getter = t;
     not_getter.words[(getter - kBase) / 4] = lwz_r13(4, -0x62cc);
     EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(not_getter.ranges()).empty());
-    // Left alone too: the top overwritten, or a branch, before the store.
+    // A nop before the store is taken.
+    Text nopped = t;
+    nopped.words[(call + 8 - kBase) / 4] = kNop;
+    EXPECT_EQ(riftwii::find_gc_aram_tops_below_size(nopped.ranges()).size(), 1u);
+    // Left alone: the top overwritten, or a branch, before the store.
     Text overwritten = t;
     overwritten.words[(call + 8 - kBase) / 4] = 0x38000000;  // li r0,0
     EXPECT_TRUE(riftwii::find_gc_aram_tops_below_size(overwritten.ranges()).empty());
