@@ -449,10 +449,12 @@ int32_t pad_on_kpad(struct rt_pad_context* c, int32_t chan, uint8_t* status, int
 int32_t pad_on_probe(struct rt_pad_context* c, int32_t chan, uint32_t* type, int32_t result) {
     uint32_t msr, t, stand_in;
     if (!c->home_on) return result;
-    t = now();
     /* Interrupts off for the state, as everywhere (the SI callback's
-     * PADRead changes it too), then on again for the game's PADRead. */
+     * PADRead changes it too), then on again for the game's PADRead. The
+     * time is read with them off: read before, a PADRead in the SI callback
+     * could note a later one, and the stand-in's elapsed time would wrap. */
     msr = interrupts_off();
+    t = now();
     stand_in = rthome_stand_in(&c->home, t);
     interrupts_restore(msr);
     /* Only while a stand-in is up or a HOME Menu runs (rthome_reads_pads),
