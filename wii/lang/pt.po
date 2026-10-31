@@ -834,6 +834,21 @@ msgstr "Capa"
 msgid "Download again"
 msgstr "Baixar de novo"
 
+msgid "GameTDB cover"
+msgstr "Capa do GameTDB"
+
+msgid "First"
+msgstr "Primeira"
+
+msgid "Second"
+msgstr "Segunda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão SD ou na unidade USB vem antes de ambas."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "O GameTDB tem só uma capa para este jogo."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Baixa agora a capa deste jogo do GameTDB."
 
@@ -3263,6 +3278,9 @@ msgstr "O instalador foi executado, mas o canal ainda está na versão {1}."
 
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "O instalador do canal ({1}) está ausente ou danificado"
+
+msgid "{1} could not be read again after the IOS restart"
+msgstr "Não foi possível ler {1} novamente após reiniciar o IOS"
 
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "O RiftWii abriu o instalador e não viu ele terminar. Um relatório do problema com sd:/riftwii/channel.log ajuda."

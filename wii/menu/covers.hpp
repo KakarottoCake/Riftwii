@@ -39,6 +39,10 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error);
 bool StartCoverFetch(const std::string& game_id);
 // The game a started fetch is for, until its answer is taken ("" if none).
 const std::string& CoverFetchGame();
+// Whether the fetch TakeCoverFetch last gave was of GameTDB's second set
+// (CoverSecondSet when it started): a set changed meanwhile means another
+// fetch.
+bool TakenFetchWasSecondSet();
 // The answer of a started fetch once it has finished, once.
 bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 
@@ -48,6 +52,23 @@ bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 // without it and ask again next frame; asks not renewed for a moment are
 // dropped. `rank` orders the asks, lowest first. GUI thread only.
 const u8* CoverTexture(const std::string& game_id, int rank = 0);
+// The player's own PNGs the cover loader found but could not use (cut
+// short: CoverWanted reads only their first bytes), each once until the
+// covers are forgotten; now wanted from GameTDB after all. Menu thread.
+std::vector<std::string> TakeBrokenOwnCovers();
+// Whether the cover in memory for `name` is the player's own PNG (#384):
+// then it is shown instead of GameTDB's full box art too (the shelf, the
+// close-up). Never reads the card; false while it isn't in memory.
+bool CoverIsOwn(const std::string& name);
+// Whether the cover in memory for `name` is shown instead of the game's
+// full box art (the shelf, the ring, the close-up, the game page): the
+// player's own, or GameTDB's second set when chosen, which the full box
+// (always the first set's) is not.
+bool CoverBeforeBox(const std::string& name);
+// Which reading of `name`'s slot the cover in memory is: another once it
+// is read again (another set, a USB drive's), at the same address. 0
+// while it isn't in memory.
+unsigned CoverFill(const std::string& name);
 // The same loader, with a separate 24-picture pool, for Channels' emulator
 // pictures. Called only for drawn tiles; no whole-library read-ahead.
 const u8* EmulatorBannerTexture(const std::string& game_id);
@@ -61,8 +82,19 @@ void CoverReserve(int covers);
 // Covers for the loader to read when nothing is asked for, in this order,
 // while there is room: then no page has to wait for its covers.
 void CoverReadAll(const std::vector<std::string>& game_ids);
+// Which of GameTDB's cover sets the game shows (#384): the first, or the
+// second (coverB) that some games have. Kept per game beside its cover
+// (sd:/riftwii/covers/<ID>.second), so every download follows it.
+bool CoverSecondSet(const std::string& game_id);
+// False: the card could not be written.
+bool ChooseCoverSet(const std::string& game_id, bool second);
+
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
+// The USB drive is read now (or again): every game cover in memory is
+// read again, in case the drive has the player's own PNG (#384), another
+// one than before, or none any more.
+void ForgetGameCoversBeforeUsb();
 // Drops every cover the pool holds and every "not on the card" it
 // remembers: the SD card was put back and may be another one.
 void ForgetAllCovers();

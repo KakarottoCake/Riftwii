@@ -834,6 +834,21 @@ msgstr "커버"
 msgid "Download again"
 msgstr "다시 다운로드"
 
+msgid "GameTDB cover"
+msgstr "GameTDB 표지"
+
+msgid "First"
+msgstr "첫 번째"
+
+msgid "Second"
+msgstr "두 번째"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "GameTDB에 두 번째 표지가 있는 게임도 있습니다. SD 카드나 USB 드라이브에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB에는 이 게임의 표지가 하나뿐입니다."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "지금 GameTDB에서 이 게임의 박스 아트를 다운로드하세요."
 
@@ -3263,6 +3278,9 @@ msgstr "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}
 
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "채널 설치 프로그램 ({1})이 없거나 손상되었습니다"
+
+msgid "{1} could not be read again after the IOS restart"
+msgstr "IOS를 다시 시작한 뒤 {1}을(를) 다시 읽지 못했습니다"
 
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다."
