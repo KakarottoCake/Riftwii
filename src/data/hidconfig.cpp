@@ -261,7 +261,7 @@ std::string describe_hid_diagnostic(std::uint32_t id, std::uint32_t diagnostic, 
             }
             break;
         case GCAD_HID_INTERFACE:
-            std::snprintf(text, sizeof(text), "interface %u is not a HID interface, left alone.", detail);
+            std::snprintf(text, sizeof(text), "interface %u is not a controller interface, left alone.", detail);
             break;
         case GCAD_HID_WAKE: action = "PS3 feature-report wake-up"; break;
         case GCAD_HID_OUTPUT: action = "PS3 initial output report"; break;

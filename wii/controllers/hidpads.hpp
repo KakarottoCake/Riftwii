@@ -11,8 +11,15 @@ namespace riftwii::wii {
 void HidPadsRemember(const rthid_device* devices, unsigned count);
 const rthid_catalog& HidPadsCatalog();
 bool HidPadsWanted();
-// Launches need a mapped pad in the latest device list, not just config files.
+// Launches need a mapped pad in the latest device list, not just config
+// files, or a wired Xbox 360 pad (built in, no config) in the ven list.
 bool HidPadsConnected();
+// /dev/usb/ven's list from libogc (it lists every device that is not
+// HID): the Xbox 360 makers' devices in it count as pads plugged in.
+void HidPadsRememberVen(const rthid_device* devices, unsigned count);
+// The VID:PID of an Xbox 360 maker's device in the last ven list, 0: none.
+std::uint32_t HidPadsXboxPlugged();
+
 void HidPadsCopyCatalog(rthid_catalog& out);
 // Remembers connected devices first, then fills unused slots for in-game hotplug.
 // A launch refreshes the list even when the menu already loaded the configs.

@@ -1315,6 +1315,31 @@ and device-specific packed/signed stick encodings are not supported.
 unless the file supplies its commands. The same IOS and USB-drive limits
 as the GameCube adapter apply; real USB pads need checking on a Wii.
 
+### Wired Xbox 360 controllers
+
+Wired Xbox 360 controllers work with no config file while **USB input
+devices** is on: Microsoft's own and wired pads from other makers that
+use the same protocol (PowerA, PDP, Mad Catz, Hori, Razer and others).
+They play in the same places as the USB gamepads above and share their
+four slots and ports. The light ring shows the GameCube port the pad
+plays on, and the game's rumble reaches both motors.
+
+| Xbox 360 | GameCube |
+| --- | --- |
+| A, B, X, Y | A, B, X, Y |
+| LB or RB | Z |
+| LT, RT | L, R (pressing all the way also clicks the button) |
+| Left stick, right stick | Control stick, C-stick |
+| D-pad, Start | D-pad, Start |
+| Guide, or Back with Start | L+R+Z+Start, which held goes back to RiftWii where the way back is on |
+
+As with the other USB pads, plug the controller in before starting a
+game. The session log names it ("an Xbox 360 maker's device, tried as a
+wired Xbox 360 pad") and its port. Wireless Xbox 360 controllers (through
+the Wireless Gaming Receiver) and Xbox One or Series controllers are not
+supported. These pads have been tested in Dolphin, but not yet on a real
+Wii.
+
 ### Wii Remote controls in GameCube games
 
 In a GameCube game a Wii Remote plays as a GameCube controller. Without
