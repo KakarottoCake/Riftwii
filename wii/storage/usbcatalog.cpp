@@ -1474,6 +1474,8 @@ std::uint64_t usb_mount_generation() {
     return g_usb_mount_generation;
 }
 
+bool usb_fat32_mounted() { return g_libfat_mounted; }
+
 bool usb_preferred_volume_lba(std::uint64_t& lba) {
     lba = g_usb_preferred_lba;
     return g_usb_preferred_known;
@@ -1848,6 +1850,12 @@ CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd) {
     // the launch says what is missing, as before.
     if (!check.why.empty()) check.verdict = CiosCheck::Verdict::Refused;
     return check;
+}
+
+D2xCheck slot_d2x_check(int slot) {
+    const D2xInfo* info = slot_info(slot);
+    if (info == nullptr) return D2xCheck::Unread;
+    return d2x_allowed(*info) ? D2xCheck::D2x : D2xCheck::NotD2x;
 }
 
 int d2x_base(int slot) {

@@ -239,6 +239,7 @@ The build compiles every folder into one, so no two files share a name.
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
 | `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
 | `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
+| `disccopy.cpp`, `disccopy.hpp` | Settings > Copy a game disc: the Wii disc in the drive to a split `.wbfs` file in `wbfs/` on a FAT32 USB drive or the SD card, every partition kept; restarts the menu under d2x first when needed |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
 | `wfsdrive.cpp`, `wfsdrive.hpp` | Dragon Quest X's WFS drive as the USB scan finds it: opened with the Wii's WFS key, what is installed on it kept for Home and the start |
@@ -321,6 +322,7 @@ reader helpers stay beside their source.
 | `bnrsound` | Banner audio decoding, with limits on archive and sample sizes |
 | `sysfont`, `brfnt` | Finding/extracting the Wii Menu's font content and reading its bitmap glyphs |
 | `wiicrypt` | AES and Wii disc-content decryption, using keys supplied by the caller |
+| `discdump` | Copying a disc to a `.wbfs` file: which sectors every partition uses, and the trimmed WBFS layout the copy is written in |
 | `gcdiscs` | Validating a two-disc GameCube game's partner image and the file-table room both need |
 | `gctgc` | TGC images inside GameCube bonus discs: bounded headers, executable sections and file tables |
 | `gcprograms` | Programs a GameCube game loads itself (`src/patching/gcprograms.cpp`, `runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |

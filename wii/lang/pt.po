@@ -3036,6 +3036,81 @@ msgstr "Cima/Baixo: gênero   Solte: mostrar"
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "O menu está em inglês: copie apps/riftwii/korean.ttf do zip do RiftWii para o cartão SD e escolha a fonte do RiftWii, ou use a fonte do Wii Menu em um Wii coreano."
 
+msgid "Copy a game disc"
+msgstr "Copiar um disco de jogo"
+
+msgid "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS."
+msgstr "Copia o disco de Wii da unidade para a pasta wbfs de uma unidade USB FAT32 ou do cartão SD, com todas as partições do disco, para jogar sem o disco. Precisa de um cIOS d2x."
+
+msgid "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."
+msgstr "Ler um disco inteiro precisa de um cIOS d2x, e este Wii não tem nenhum. Instale o d2x (wii.hacks.guide/cios) e tente de novo."
+
+msgid "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again."
+msgstr "O IOS do próprio Wii lê só o começo de um disco. O RiftWii reinicia com o IOS{1} (d2x) nesta sessão; depois escolha Copiar um disco de jogo de novo."
+
+msgid "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc."
+msgstr "O menu usa o IOS{1} nesta sessão, para copiar um disco de jogo. Configurações > Unidades > Copiar um disco de jogo."
+
+msgid "There is no SD card or FAT32 USB drive to copy the disc to."
+msgstr "Não há cartão SD nem unidade USB FAT32 para onde copiar o disco."
+
+msgid "The disc can't be copied: {1}"
+msgstr "O disco não pode ser copiado: {1}"
+
+msgid "Where should {1} go? It needs {2}."
+msgstr "Para onde copiar {1}? Precisa de {2}."
+
+msgid "{1} free"
+msgstr "{1} livres"
+
+msgid "{1} needs {2}, and the {3} has {4} free."
+msgstr "{1} precisa de {2}, e em {3} há {4} livres."
+
+msgid "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes."
+msgstr "Copiar {1} ({2}) para {3}? Todas as partições do disco vão junto: o jogo, a atualização do sistema e qualquer canal. Leva cerca de {4} minutos."
+
+msgid "{1} partition(s) could not be looked into, so they are copied whole."
+msgstr "Não foi possível olhar dentro de {1} partição(ões), então elas são copiadas inteiras."
+
+msgid "Copying {1}"
+msgstr "Copiando {1}"
+
+msgid "From the disc to the {1}"
+msgstr "Do disco para: {1}"
+
+msgid "Stop copying {1}?"
+msgstr "Parar de copiar {1}?"
+
+msgid "What is copied so far is deleted. It can be copied again later, from the start."
+msgstr "O que foi copiado até agora é apagado. Dá para copiar de novo depois, do começo."
+
+msgid "{1} is already on the {2}: {3}"
+msgstr "{1} já está em {2}: {3}"
+
+msgid "{1} could not be copied: {2}. Nothing was kept."
+msgstr "Não foi possível copiar {1}: {2}. Nada foi mantido."
+
+msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
+msgstr "{1} foi copiado para {2}. Já está no Início e funciona sem o disco."
+
+msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
+msgstr "Copiar um disco precisa de um Wii de verdade: o Dolphin não consegue ler um disco inteiro."
+
+msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
+msgstr "O menu roda no IOS{1}, que não é d2x, então não consegue ler um disco inteiro. Escolha o IOS 58 ou um cIOS d2x em Configurações > Menu > IOS do menu, inicie o RiftWii de novo e depois escolha Copiar um disco de jogo."
+
+msgid "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc."
+msgstr "Configurações > Menu > IOS do menu está no IOS{1}, que vale a partir da próxima vez que o RiftWii abrir. Inicie o RiftWii de novo e depois escolha Copiar um disco de jogo."
+
+msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
+msgstr "A unidade USB não é FAT32 (é NTFS, por exemplo), e uma cópia só pode ir para uma unidade USB FAT32 ou para o cartão SD."
+
+msgid "The USB drive is not FAT32, so the copy goes to the SD card."
+msgstr "A unidade USB não é FAT32, então a cópia vai para o cartão SD."
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
+msgstr "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Unidades > Jogos no cartão SD estiver em Procurar."
+
 msgid "Channel background"
 msgstr "Fundo dos canais"
 
