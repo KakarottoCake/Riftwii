@@ -171,6 +171,52 @@ static bool chunk_matches(const struct wiimote_t *wm, u32 addr, u16 size)
 	return offset >= base && offset + len <= base + size;
 }
 
+/* Which 16-byte pieces of the read being waited on have arrived.  A resent
+ * read is answered twice, and libogc 3.1.0 counts every piece it is given
+ * against the read's length, repeats included, so a 224-byte read could end
+ * before all of its own pieces arrived and leave the extension's data part
+ * stale.  A piece seen before is withheld.  Reads longer than 64 pieces
+ * (1 KB; RiftWii's longest is 224 bytes) are not tracked. */
+static struct {
+	const struct cmd_blk_t *cmd;
+	u64 seen;
+} ud_read[WIIMOTES];
+
+/* False when this chunk of the read at addr has already arrived. */
+static bool first_copy(struct wiimote_t *wm, u32 addr)
+{
+	const u8 *buf = wm->event_buf;
+	u32 piece = ((((u32)buf[4] << 8) | buf[5]) - (addr & 0xffff)) >> 4;
+	int i = wm->unid;
+
+	if (i < 0 || i >= WIIMOTES || (buf[3] & 0x0f) || piece >= 64)
+		return true;
+	if (ud_read[i].cmd != wm->cmd_head) {
+		ud_read[i].cmd = wm->cmd_head;
+		ud_read[i].seen = 0;
+	}
+	if (ud_read[i].seen & (1ull << piece))
+		return false;
+	ud_read[i].seen |= 1ull << piece;
+	return true;
+}
+
+/* After an event: once libogc has ended the read (its last piece or an
+ * error moves cmd_head on, and a finished block goes back to the pool only
+ * after that), its record is cleared, so a block reused for a new read
+ * starts with no pieces seen. */
+static void forget_finished_read(struct wiimote_t *wm)
+{
+	int i = wm->unid;
+
+	if (i < 0 || i >= WIIMOTES || !ud_read[i].cmd)
+		return;
+	if (wm->cmd_head != ud_read[i].cmd || wm->cmd_head->state != CMD_SENT) {
+		ud_read[i].cmd = NULL;
+		ud_read[i].seen = 0;
+	}
+}
+
 /* A read answer that is arriving is progress: an answer that is still coming
  * in must never look stalled, or it gets resent and answered twice. */
 static void mark_progress(struct wiimote_t *wm)
@@ -244,6 +290,8 @@ void __wrap_parse_event(struct wiimote_t *wm)
 		if (read_request(cmd, &addr, &size)) {
 			if (chunk_matches(wm, addr, size)) {
 				mark_progress(wm);
+				/* A repeat from a resend would count twice. */
+				deliver = first_copy(wm, addr);
 			} else {
 				/* A duplicate or stray chunk: libogc would
 				 * memcpy it with this read's address and the
@@ -276,6 +324,7 @@ void __wrap_parse_event(struct wiimote_t *wm)
 	}
 	if (deliver)
 		__real_parse_event(wm);
+	forget_finished_read(wm);
 	resend_stalled(wm);
 	/* unplugged: wiiuse has put the expansion type back to none */
 	if (chan >= 0 && chan < CHANNELS && ud_raw[chan].attached && wm->exp.type != EXP_UDRAW)
