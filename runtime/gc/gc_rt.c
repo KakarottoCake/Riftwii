@@ -2746,11 +2746,13 @@ void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index) {
     const struct gc_programs* programs = (const struct gc_programs*)(uintptr_t)ctx->programs;
     uint32_t i;
     (void)gc_irq_off();
-    (void)gc_io_drain(ctx, 0);
+    /* I/O that will not finish would land in the new program: back to
+     * RiftWii, as Reset does then. */
+    if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
     if (ctx->card) {
         struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
         for (i = 0; i < 3 && card->dirty_count != 0; ++i) gc_card_flush(ctx, card, 1);
-        (void)gc_io_drain(ctx, 0);
+        if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
     }
     if (programs != 0 && programs->magic == GC_PROGRAMS_MAGIC && index < programs->program_count) {
         const uint32_t* addresses = (const uint32_t*)(uintptr_t)programs->addresses;
