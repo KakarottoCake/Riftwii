@@ -614,8 +614,15 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
         g_fellBack = true;
         return FetchCoverNow(game_id, error);
     }
-    WriteAll(MissPath(game_id), {});
+    const bool missed = WriteAll(MissPath(game_id), {});
     if (tile) {
+        // A tile without its miss would still want its cover, and Home asks
+        // again for a tile that still does when a download ends: a failure,
+        // counted as one, not a miss to ask about again at once.
+        if (!missed) {
+            error = "cannot write " + MissPath(game_id) + " (card full?)";
+            return CoverFetch::Failed;
+        }
         // A cover stored for the tile's earlier match is not this one's.
         std::remove(CoverPath(game_id).c_str());
         // The miss is this entry's only with its name beside it.
