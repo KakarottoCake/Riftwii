@@ -134,6 +134,18 @@ void HidPadsRememberVen(const rthid_device* devices, unsigned count) {
     }
 }
 
+void HidPadsRefreshVen() {
+    static usb_device_entry list[RTHID_DEVICE_MAX] __attribute__((aligned(32)));
+    std::uint8_t count = 0;
+    if (USB_GetDeviceListUnfiltered(list, RTHID_DEVICE_MAX, 0xFF, &count) < 0) return;
+    if (count > RTHID_DEVICE_MAX) count = RTHID_DEVICE_MAX;
+    rthid_device devices[RTHID_DEVICE_MAX];
+    for (unsigned i = 0; i < count; ++i) {
+        devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+    }
+    HidPadsRememberVen(devices, count);
+}
+
 std::uint32_t HidPadsXboxPlugged() {
     if (Settings().usb_input != "on") return 0;
     for (unsigned i = 0; i < g_catalog.ven_known_count; ++i) {

@@ -792,7 +792,7 @@ int32_t gcad_env_ioctl(gcad* driver, uint32_t tag, uint32_t command, void*, uint
     request.output = out;
     request.bytes = bytes;
     request.fd = driver->fd;
-    if (driver->owner && driver->dev_id >= 0) bus.devices_asked.push_back(driver->dev_id);
+    if (driver->owner && driver->dev_id != GCAD_NO_DEVICE) bus.devices_asked.push_back(driver->dev_id);
     if (driver->version == 4 && command == GCAD_V4_INTERRUPT_OUT) {
         request.bytes = gcad_get32(driver->out_msg + 24);
         std::memcpy(request.payload.data(), driver->out_data, request.bytes);
