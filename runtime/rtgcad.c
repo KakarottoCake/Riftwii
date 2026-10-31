@@ -34,6 +34,97 @@ static int ps3(const gcad* g) {
     return g->mapping && g->mapping->vid == 0x054C && g->mapping->pid == 0x0268;
 }
 
+/* The stick's dead zone and full reach, on the report's top byte: an
+ * Xbox 360 stick at rest reads up to about 20 of 128 on worn pads, and a
+ * GameCube stick reaches about 104 at its gate. */
+#define XBOX_DEADZONE 24
+#define XBOX_STICK_REACH 104
+/* A trigger this far down (of 255) also presses the GameCube's L or R,
+ * as the GameCube's own triggers click at the end of their travel. */
+#define XBOX_TRIGGER_CLICK 230u
+
+static int8_t xbox_axis(const uint8_t* p) {
+    /* Signed 16-bit little endian, up positive as on the GameCube. */
+    const int32_t raw = (int16_t)(uint16_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8));
+    const int32_t value = raw >> 8;
+    int32_t magnitude = value < 0 ? -value : value;
+    if (magnitude <= XBOX_DEADZONE) return 0;
+    magnitude = (magnitude - XBOX_DEADZONE) * XBOX_STICK_REACH / (128 - XBOX_DEADZONE);
+    if (magnitude > 127) magnitude = 127;
+    return (int8_t)(value < 0 ? -magnitude : magnitude);
+}
+
+/* Report type 0, at least 0x14 bytes long: buttons at 2 and 3, the
+ * triggers at 4 and 5, then the two sticks. LED and rumble status
+ * reports (types 1, 3, 8) carry no input. */
+int gcad_xbox_decode(const uint8_t* report, uint32_t bytes, gcad_pad* out) {
+    uint16_t buttons = 0;
+    uint8_t dpad, face;
+    if (!report || !out || bytes < GCAD_XBOX_REPORT_BYTES || report[0] != 0 || report[1] < 0x14) return 0;
+    dpad = report[2];
+    face = report[3];
+    if (dpad & 0x01) buttons |= GCAD_PAD_UP;
+    if (dpad & 0x02) buttons |= GCAD_PAD_DOWN;
+    if (dpad & 0x04) buttons |= GCAD_PAD_LEFT;
+    if (dpad & 0x08) buttons |= GCAD_PAD_RIGHT;
+    if (dpad & 0x10) buttons |= GCAD_PAD_START;
+    if (face & 0x03) buttons |= GCAD_PAD_Z;  /* either bumper */
+    if (face & 0x10) buttons |= GCAD_PAD_A;
+    if (face & 0x20) buttons |= GCAD_PAD_B;
+    if (face & 0x40) buttons |= GCAD_PAD_X;
+    if (face & 0x80) buttons |= GCAD_PAD_Y;
+    out->trigger_l = report[4];
+    out->trigger_r = report[5];
+    if (report[4] >= XBOX_TRIGGER_CLICK) buttons |= GCAD_PAD_L;
+    if (report[5] >= XBOX_TRIGGER_CLICK) buttons |= GCAD_PAD_R;
+    /* The Guide button, or Back with Start, holds the way back's
+     * L+R+Z+Start, which no player reaches on this pad otherwise. */
+    if ((face & 0x04) || (dpad & 0x30) == 0x30) {
+        buttons |= GCAD_PAD_L | GCAD_PAD_R | GCAD_PAD_Z | GCAD_PAD_START;
+    }
+    out->buttons = buttons;
+    out->stick_x = xbox_axis(report + 6);
+    out->stick_y = xbox_axis(report + 8);
+    out->substick_x = xbox_axis(report + 10);
+    out->substick_y = xbox_axis(report + 12);
+    out->wireless = 0;  /* wired: it has motors */
+    return 1;
+}
+
+/* The built-in mapping: no config file. Only its report length, the
+ * interrupt poll and the rumble messages are used; gcad_xbox_decode
+ * reads the report. Rumble: both motors full, or both off. */
+static void xbox_mapping(rthid_mapping* m, uint32_t vid_pid) {
+    uint32_t i;
+    zero(m, sizeof(*m));
+    m->version = RTHID_VERSION;
+    m->bytes = sizeof(*m);
+    m->vid = (uint16_t)(vid_pid >> 16);
+    m->pid = (uint16_t)vid_pid;
+    m->report_bytes = GCAD_XBOX_REPORT_BYTES;
+    m->polltype = 1;
+    m->analog_l = RTHID_ABSENT;
+    m->analog_r = RTHID_ABSENT;
+    for (i = 0; i < RTHID_BUTTONS; ++i) m->buttons[i].offset = RTHID_ABSENT;
+    for (i = 0; i < 4; ++i) {
+        m->axes[i].offset = RTHID_ABSENT;
+        m->axes[i].scale = 1000;
+    }
+    m->rumble_type = 1;
+    m->rumble_bytes = 8;
+    m->rumble_transfer = 8;
+    m->rumble_count = 1;
+    m->rumble_on[1] = 8;   /* message 0, 8 bytes long */
+    m->rumble_off[1] = 8;
+    m->rumble_on[3] = 0xFF; /* the big motor */
+    m->rumble_on[4] = 0xFF; /* the small one */
+}
+
+/* The list a pad link's device came from. */
+static gcad* list_owner(gcad* g) {
+    return g->ven && g->owner && g->owner->ven_list ? g->owner->ven_list : g->owner;
+}
+
 /* Retained for game reports, and emitted once per plugged-in pad/step.
  * Retries must not fill the menu queue or the game's trace with repeats. */
 static void hid_diagnostic(gcad* g, uint32_t step, uint32_t detail, int32_t result) {
@@ -307,8 +398,11 @@ static void submit_setup(gcad* g, uint32_t step) {
         gcad_put32(g->setup_in + 8, 1);  /* byte 11: resume */
         ioctl_(g, GCAD_TAG_SETUP, step, GCAD_V5_SUSPEND_RESUME, g->setup_in, 0x20, 0, 0);
     } else {
+        /* ven checks for exactly 0xC0 bytes, hid for 0x60. ven's in
+         * buffer has the alternate setting at 8: 0, the gamepad's. */
         zero(g->setup_out, sizeof(g->setup_out));
-        ioctl_(g, GCAD_TAG_SETUP, step, GCAD_V5_GET_DEVICE_INFO, g->setup_in, 0x20, g->setup_out, 0x60);
+        ioctl_(g, GCAD_TAG_SETUP, step, GCAD_V5_GET_DEVICE_INFO, g->setup_in, 0x20, g->setup_out,
+               g->ven ? GCAD_VEN_INFO_BYTES : 0x60);
     }
 }
 
@@ -324,7 +418,11 @@ static void v4_request(gcad* g, uint8_t* msg, uint32_t endpoint, void* data, uin
 static void v5_message(gcad* g, uint8_t* msg, uint32_t out) {
     zero(msg, 0x40);
     gcad_put32(msg, (uint32_t)g->dev_id);
-    gcad_put32(msg + 8, out);  /* non-zero: the interrupt OUT endpoint */
+    if (g->ven) {
+        msg[14] = (uint8_t)(out ? g->endpoint_out : g->endpoint_in);  /* ven: the endpoint itself */
+    } else {
+        gcad_put32(msg + 8, out);  /* non-zero: the interrupt OUT endpoint */
+    }
 }
 
 static int send_out(gcad* g, uint32_t step, uint32_t len) {
@@ -479,6 +577,7 @@ static void start_link(gcad* g, uint32_t now) {
     ++g->generation;
     g->link_time = now;
     g->ps3_led = 0;
+    g->led_port = 255;
     g->rumble_flight[0] = 0;
     if (g->version == 5) {
         g->link = GCAD_LINK_SETUP;
@@ -539,6 +638,35 @@ static int read_descriptors(gcad_descriptor* info, const uint8_t* bytes, uint32_
     return input && packet && packet <= RTHID_REPORT_MAX;
 }
 
+/* ven's GetDeviceInfo: the interface descriptor at 52, then its
+ * endpoint descriptors from 64, 8 bytes apart, 16-bit fields in CPU
+ * byte order. At most 16 endpoints fit in the 0xC0 bytes. */
+static void read_ven_info(gcad_descriptor* info, const uint8_t* bytes) {
+    const uint8_t* interface = bytes + 52;
+    uint32_t i, endpoints = interface[4];
+    if (endpoints > 16) endpoints = 16;
+    info->interface_seen = interface[1] == 4;
+    info->interface_number = interface[2];
+    info->interface_class = interface[5];
+    info->interface_subclass = interface[6];
+    info->interface_protocol = interface[7];
+    for (i = 0; i < endpoints; ++i) {
+        const uint8_t* endpoint = bytes + 64 + 8 * i;
+        if (endpoint[1] != 5 || (endpoint[3] & 3u) != 3u) continue;  /* interrupt endpoints only */
+        if ((endpoint[2] & 0x80) && !info->endpoint_in) {
+            info->endpoint_in = endpoint[2];
+            info->packet_bytes = (uint16_t)(((uint16_t)endpoint[4] << 8) | endpoint[5]);
+        } else if (!(endpoint[2] & 0x80) && !info->endpoint_out) {
+            info->endpoint_out = endpoint[2];
+        }
+    }
+}
+
+static int xbox_interface(const gcad_descriptor* info) {
+    return info->interface_seen && info->interface_class == GCAD_XBOX_CLASS &&
+           info->interface_subclass == GCAD_XBOX_SUBCLASS && info->interface_protocol == GCAD_XBOX_PROTOCOL;
+}
+
 static int use_descriptors(gcad* g, const gcad_descriptor* info) {
     const int usable = info->endpoint_in && info->packet_bytes >= g->mapping->report_bytes &&
                        info->packet_bytes <= RTHID_REPORT_MAX;
@@ -563,7 +691,7 @@ static uint32_t mapping_id(const gcad* g) {
 /* Remember rejected interfaces on the list owner, rather than retaining
  * a pad slot for each audio interface of a composite controller. */
 static void exclude_interface(gcad* g, const gcad_descriptor* info) {
-    gcad* owner = g->owner;
+    gcad* owner = list_owner(g);
     if (owner && owner->excluded_count < RTHID_DEVICE_MAX) {
         owner->excluded[owner->excluded_count++] = g->dev_id;
     }
@@ -574,7 +702,7 @@ static void exclude_interface(gcad* g, const gcad_descriptor* info) {
 static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, uint32_t now) {
     uint32_t i, j, previous_count;
     int32_t previous[RTHID_DEVICE_MAX];
-    if (!g->peers || !g->catalog || count > RTHID_DEVICE_MAX) return;
+    if (!g->peers || (!g->ven && !g->catalog) || (g->ven && !g->xbox) || count > RTHID_DEVICE_MAX) return;
     /* An unplug forgets the rejection, allowing a new device with a
      * recycled IOS id to be checked normally. */
     for (i = 0; i < g->excluded_count;) {
@@ -587,7 +715,8 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
     g->ignored_count = 0;
     for (i = 0; i < GCAD_HID_PADS; ++i) {
         gcad* peer = &g->peers[i];
-        if (peer->dev_id < 0) continue;
+        /* The other list's pads are that list's to drop. */
+        if (peer->dev_id == GCAD_NO_DEVICE || peer->ven != g->ven) continue;
         for (j = 0; j < count; ++j) {
             if (devices[j].id == peer->dev_id && devices[j].vid_pid == mapping_id(peer)) break;
         }
@@ -596,10 +725,13 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
     for (i = 0; i < count; ++i) {
         const rthid_mapping* mapping;
         gcad* peer = 0;
-        if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id < 0) continue;
+        if (devices[i].vid_pid == GCAD_VID_PID || devices[i].id == GCAD_NO_DEVICE) continue;
         for (j = 0; j < g->excluded_count; ++j) if (g->excluded[j] == devices[i].id) break;
         if (j < g->excluded_count) continue;
-        mapping = rthid_find(g->catalog, devices[i].vid_pid);
+        /* ven lists every device that is not HID, USB drives too: only an
+         * Xbox 360 maker's are asked for their interface. */
+        if (g->ven && !gcad_xbox_vendor(devices[i].vid_pid >> 16)) continue;
+        mapping = g->ven ? g->xbox : rthid_find(g->catalog, devices[i].vid_pid);
         if (!mapping) {
             for (j = 0; j < previous_count; ++j) if (previous[j] == devices[i].id) break;
             if (j == previous_count) gcad_env_event(g, GCAD_EV_HID_MISSING, devices[i].vid_pid, 0);
@@ -607,10 +739,19 @@ static void hid_devices(gcad* g, const rthid_device* devices, uint32_t count, ui
             continue;
         }
         for (j = 0; j < GCAD_HID_PADS; ++j) {
-            if (g->peers[j].dev_id == devices[i].id) break;
-            if (!peer && g->peers[j].dev_id < 0 && !g->peers[j].busy) peer = &g->peers[j];
+            if (g->peers[j].dev_id == devices[i].id && g->peers[j].ven == g->ven) break;
+            if (!peer && g->peers[j].dev_id == GCAD_NO_DEVICE && !g->peers[j].busy) peer = &g->peers[j];
         }
         if (j < GCAD_HID_PADS || !peer) continue;
+        if (g->ven) {
+            /* Its own copy, for its VID and PID in the logs. */
+            rthid_mapping* own = &g->xbox[peer - g->peers];
+            xbox_mapping(own, devices[i].vid_pid);
+            mapping = own;
+        }
+        peer->ven = g->ven;
+        peer->fd = g->fd;
+        peer->version = g->version;
         peer->mapping = mapping;
         peer->diagnostic_seen = 0;
         peer->reports = 0;
@@ -664,6 +805,17 @@ static void pump_rumble(gcad* g) {
         if (g->ps3_led != 1 && g->rumble_want[0] == g->rumble_sent[0]) return;
         g->rumble_flight[0] = g->rumble_want[0];
         if (ps3_output(g, GCAD_HID_LED)) g->ps3_led = 2;
+        return;
+    }
+    if (g->ven && g->endpoint_out && g->announced_port < GCAD_PORTS && g->led_port != g->announced_port) {
+        /* An Xbox 360 pad's ring shows its GameCube port: message 1, 3
+         * bytes long, 6 to 9 for the first to the fourth light lit. */
+        zero(g->out_data, sizeof(g->out_data));
+        g->out_data[0] = 1;
+        g->out_data[1] = 3;
+        g->out_data[2] = (uint8_t)(6u + g->announced_port);
+        g->led_port = g->announced_port;
+        send_out(g, GCAD_STEP_RUMBLE, 3);
         return;
     }
     if (g->mapping) {
@@ -763,6 +915,7 @@ void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ti
     g->endpoint_in = 0x81;
     g->endpoint_out = 0x02;
     g->announced_port = 255;
+    g->led_port = 255;
     for (i = 0; i < GCAD_PORTS; ++i) g->port_source[i] = (uint8_t)i;
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;  /* unknown: the first poll turns rumble off */
 }
@@ -778,6 +931,7 @@ void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
     if (!rthid_catalog_valid(catalog)) {
         catalog->count = 0;
         catalog->known_count = 0;
+        catalog->ven_known_count = 0;
         catalog->adapter_disabled = 0;
     }
     g->catalog = catalog;
@@ -798,6 +952,26 @@ void gcad_links_init(gcad* g, gcad pads[GCAD_HID_PADS], rthid_catalog* catalog,
     }
 }
 
+void gcad_ven_init(gcad* g, gcad* ven, rthid_mapping xbox[GCAD_HID_PADS], void* env_ctx, int32_t fd,
+                   uint32_t ticks_per_ms) {
+    /* fd may be -1 where the environment serves the list itself (the
+     * menu, through libogc's handles). */
+    gcad_init(ven, env_ctx, fd, 5, ticks_per_ms);
+    if (!g->peers) return;
+    ven->ven = 1;
+    ven->slot = GCAD_VEN_SLOT;
+    ven->peers = g->peers;
+    ven->xbox = xbox;
+    /* An adapter on this list too (Dolphin lists every device on ven)
+     * is the /dev/usb/hid list's. */
+    ven->adapter_disabled = 1;
+    g->ven_list = ven;
+    /* The list read before the launch, as for the HID pads: a pad left
+     * plugged in is no new device change, so the game's list request
+     * would not hear of it. */
+    if (g->catalog) hid_devices(ven, g->catalog->ven_known, g->catalog->ven_known_count, 0);
+}
+
 void gcad_expect(gcad* g, int32_t dev_id) {
     if (!g->adapter_disabled) g->dev_id = dev_id;
 }
@@ -806,14 +980,18 @@ void gcad_tick(gcad* g, uint32_t now) {
     uint32_t i;
     if (g->stopping || (g->version != 4 && g->version != 5)) return;
     if (g->peers) {
-        for (i = 0; i < GCAD_HID_PADS; ++i) gcad_tick(&g->peers[i], now);
+        /* The /dev/usb/hid list owner drives the pad links and the ven list. */
+        if (!g->ven) {
+            for (i = 0; i < GCAD_HID_PADS; ++i) gcad_tick(&g->peers[i], now);
+            if (g->ven_list) gcad_tick(g->ven_list, now);
+        }
         if (g->finish_pending && !(g->busy & BIT(GCAD_TAG_SETUP)) && !setup_waiting(g)) submit_finish(g, now);
     }
     if (!g->started) {
         g->started = 1;
         g->data_time = now;
         submit_change(g, now);
-        if (g->dev_id >= 0) {
+        if (g->dev_id != GCAD_NO_DEVICE) {
             gcad_env_event(g, GCAD_EV_FOUND, (uint32_t)g->dev_id, 0);
             start_link(g, now);
         }
@@ -824,7 +1002,7 @@ void gcad_tick(gcad* g, uint32_t now) {
         g->change_failed = 0;
         submit_change(g, now);
     }
-    if (g->dev_id >= 0 && (g->link == GCAD_LINK_FAILED || g->link == GCAD_LINK_BUSY) &&
+    if (g->dev_id != GCAD_NO_DEVICE && (g->link == GCAD_LINK_FAILED || g->link == GCAD_LINK_BUSY) &&
         !(g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) &&
         elapsed(now, g->link_time) >= ms(g, g->link == GCAD_LINK_BUSY ? GCAD_RESCAN_MS : GCAD_RELINK_MS)) {
         start_link(g, now);
@@ -909,12 +1087,12 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     g->device_count = count;
     for (i = 0; i < count; ++i) g->devices[i] = devices[i];
     gcad_refresh_hid(g, now);
-    if (g->dev_id >= 0 && found != g->dev_id) drop_link(g);
-    if (found >= 0 && g->dev_id < 0) {
+    if (g->dev_id != GCAD_NO_DEVICE && found != g->dev_id) drop_link(g);
+    if (found != GCAD_NO_DEVICE && g->dev_id == GCAD_NO_DEVICE) {
         g->dev_id = found;
         gcad_env_event(g, GCAD_EV_FOUND, (uint32_t)found, 0);
         start = 1;
-    } else if (found >= 0 && (g->link == GCAD_LINK_BUSY || g->link == GCAD_LINK_FAILED)) {
+    } else if (found != GCAD_NO_DEVICE && (g->link == GCAD_LINK_BUSY || g->link == GCAD_LINK_FAILED)) {
         start = 1;  /* a change may mean the owner let it go */
     }
     if (g->version == 5) {
@@ -934,12 +1112,13 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
 
 void gcad_refresh_hid(gcad* g, uint32_t now) {
     uint32_t i, j;
+    if (g->ven_list) gcad_refresh_hid(g->ven_list, now);
     if (!g->peers || !g->changes || g->stopping) return;
     hid_devices(g, g->devices, g->device_count, now);
     if (g->version == 4) {
         for (i = 0; i < GCAD_HID_PADS; ++i) {
             gcad* peer = &g->peers[i];
-            if (peer->link != GCAD_LINK_SETTLE) continue;
+            if (peer->link != GCAD_LINK_SETTLE || peer->ven) continue;
             for (j = 0; j < g->device_count; ++j) {
                 const gcad_descriptor* info = &g->descriptors[j];
                 if (g->devices[j].id != peer->dev_id) continue;
@@ -977,8 +1156,13 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
                 gcad_descriptor info;
                 gcad_env_invalidate(g, g->setup_out, sizeof(g->setup_out));
                 zero(&info, sizeof(info));
-                if (g->mapping) read_descriptors(&info, g->setup_out, sizeof(g->setup_out), 36);
-                if (g->mapping && info.interface_seen && info.interface_class != 3) {
+                if (g->mapping && g->ven) read_ven_info(&info, g->setup_out);
+                else if (g->mapping) read_descriptors(&info, g->setup_out, 0x60, 36);
+                if (g->mapping && g->ven && !xbox_interface(&info)) {
+                    /* The pad's headset or security interface, or another
+                     * device of the same maker: left alone until unplugged. */
+                    exclude_interface(g, &info);
+                } else if (g->mapping && !g->ven && info.interface_seen && info.interface_class != 3) {
                     exclude_interface(g, &info);
                 } else if (!g->mapping || use_descriptors(g, &info)) {
                     g->link = GCAD_LINK_INIT;
@@ -1036,10 +1220,17 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
     gcad_env_invalidate(g, g->in_data, sizeof(g->in_data));
     if (g->mapping) {
         const uint32_t bytes = result == 0 ? g->input_bytes : (uint32_t)result;
-        if (bytes < g->mapping->report_bytes) {
+        int decoded = 0;
+        /* An Xbox 360 pad's LED and rumble status reports are short and
+         * carry no input: only its input report (type 0) counts. */
+        if (bytes < g->mapping->report_bytes && (!g->ven || g->in_data[0] == 0)) {
             hid_diagnostic(g, GCAD_HID_SHORT, g->mapping->report_bytes, (int32_t)bytes);
         }
-        if (bytes <= g->input_bytes && rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad)) {
+        if (bytes <= g->input_bytes) {
+            decoded = g->ven ? gcad_xbox_decode(g->in_data, bytes, &g->hid_pad)
+                             : rthid_decode(g->mapping, g->in_data, bytes, &g->hid_pad);
+        }
+        if (decoded) {
             if (ps3(g)) g->hid_pad.wireless = 0;
             if (g->mapping->rumble_type && !g->endpoint_out) g->hid_pad.wireless = 1;
             g->data_time = now;
@@ -1047,7 +1238,7 @@ static void on_in(gcad* g, int32_t result, int current, uint32_t now) {
             ++g->reports;
             hid_diagnostic(g, GCAD_HID_INPUT, 0, (int32_t)bytes);
             if (ps3(g) && !g->ps3_led) g->ps3_led = 1;
-        } else {
+        } else if (!g->ven || g->in_data[0] == 0) {
             ++g->bad_reports;
         }
     } else if (g->in_data[0] == 0x21 && (result == 0 || (uint32_t)result >= GCAD_REPORT_BYTES)) {
@@ -1067,9 +1258,10 @@ void gcad_on_reply(gcad* g, uint32_t tag_value_, int32_t result, uint32_t now) {
     const uint32_t tag = TAG_OF(tag_value_);
     int current;
     uint32_t step = 0;
-    if (!g->owner && GCAD_SLOT(tag_value_)) {
+    if (!g->owner && !g->ven && GCAD_SLOT(tag_value_)) {
         const uint32_t slot = GCAD_SLOT(tag_value_);
         if (g->peers && slot <= GCAD_HID_PADS) gcad_on_reply(&g->peers[slot - 1], tag_value_, result, now);
+        else if (slot == GCAD_VEN_SLOT && g->ven_list) gcad_on_reply(g->ven_list, tag_value_, result, now);
         if (!g->stopping) gcad_refresh_hid(g, now);
         return;
     }
@@ -1198,7 +1390,7 @@ static void stop_next(gcad* g) {
             ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_SHUTDOWN, 0, 0, 0, 0);
             return;
         }
-        if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id >= 0 && !(g->stopping & 4)) {
+        if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 4)) {
             g->stopping |= 4;
             zero(g->stop_msg, sizeof(g->stop_msg));
             gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
@@ -1206,7 +1398,7 @@ static void stop_next(gcad* g) {
             ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V4_CANCEL_INTERRUPT, g->stop_msg, 8, 0, 0);
             return;
         }
-        if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id >= 0 && !(g->stopping & 8)) {
+        if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 8)) {
             g->stopping |= 8;
             zero(g->stop_msg, sizeof(g->stop_msg));
             gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
@@ -1220,19 +1412,19 @@ static void stop_next(gcad* g) {
         ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_SHUTDOWN, 0, 0, 0, 0);
         return;
     }
-    if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id >= 0 && !(g->stopping & 4)) {
+    if ((g->busy & BIT(GCAD_TAG_IN)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 4)) {
         g->stopping |= 4;
         zero(g->stop_msg, sizeof(g->stop_msg));
         gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-        g->stop_msg[8] = 1;  /* the interrupt IN endpoint */
+        g->stop_msg[8] = g->ven ? g->endpoint_in : 1;  /* hid: 1 for IN; ven: the endpoint */
         ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
         return;
     }
-    if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id >= 0 && !(g->stopping & 8)) {
+    if ((g->busy & BIT(GCAD_TAG_OUT)) && g->dev_id != GCAD_NO_DEVICE && !(g->stopping & 8)) {
         g->stopping |= 8;
         zero(g->stop_msg, sizeof(g->stop_msg));
         gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-        g->stop_msg[8] = 2;  /* the interrupt OUT endpoint */
+        g->stop_msg[8] = g->ven ? g->endpoint_out : 2;  /* hid: 2 for OUT; ven: the endpoint */
         ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
     }
     /* Nothing to release: without an Attach the device was never taken. */
@@ -1246,6 +1438,7 @@ void gcad_stop(gcad* g, uint32_t now) {
     if (g->peers) {
         for (i = 0; i < GCAD_HID_PADS; ++i) gcad_stop(&g->peers[i], now);
     }
+    if (g->ven_list) gcad_stop(g->ven_list, now);
     stop_next(g);
 }
 
@@ -1255,6 +1448,7 @@ int gcad_idle(const gcad* g) {
     if (g->peers) {
         for (i = 0; i < GCAD_HID_PADS; ++i) if (g->peers[i].busy) return 0;
     }
+    if (g->ven_list && g->ven_list->busy) return 0;
     return 1;
 }
 

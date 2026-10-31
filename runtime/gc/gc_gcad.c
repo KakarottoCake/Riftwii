@@ -55,13 +55,12 @@ static int32_t ad_send(gcad* g, struct gc_gcad_rq* rq, uint32_t tag) {
 }
 
 int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t in_len, void* out, uint32_t out_len) {
-    struct gc_gcad* ad = (struct gc_gcad*)g->env_ctx;
     struct gc_gcad_rq* rq = ad_slot(g, tag);
     uint32_t i;
     if (rq == 0) return -1;
     for (i = 0; i < 16; ++i) rq->ipc[i] = 0;
     rq->ipc[0] = GC_IOS_IOCTL;
-    rq->ipc[2] = (uint32_t)ad->fd;
+    rq->ipc[2] = (uint32_t)g->fd;  /* each link's own: /dev/usb/hid's or /dev/usb/ven's */
     rq->ipc[3] = cmd;
     rq->ipc[4] = in ? ad_phys((uint32_t)(uintptr_t)in) : 0;
     rq->ipc[5] = in_len;
@@ -76,7 +75,6 @@ int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t i
 
 int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t msg_len, void* data,
                         uint32_t data_len, int data_in) {
-    struct gc_gcad* ad = (struct gc_gcad*)g->env_ctx;
     struct gc_gcad_rq* rq = ad_slot(g, tag);
     uint32_t i;
     if (rq == 0) return -1;
@@ -86,7 +84,7 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
     rq->vec[2] = ad_phys((uint32_t)(uintptr_t)data);
     rq->vec[3] = data_len;
     rq->ipc[0] = GC_IOS_IOCTLV;
-    rq->ipc[2] = (uint32_t)ad->fd;
+    rq->ipc[2] = (uint32_t)g->fd;
     rq->ipc[3] = cmd;
     rq->ipc[4] = data_in ? 2u : 1u;
     rq->ipc[5] = data_in ? 0u : 1u;
@@ -175,8 +173,10 @@ void gc_gcad_service(struct gc_gcad* ad, uint32_t now) {
     uint32_t i, handed;
     if (!ad->inited) {
         gcad_links_init(&ad->g, ad->pads, &ad->catalog, ad, ad->fd, ad->version, ad->ticks_per_ms);
-        if (ad->known_dev >= 0) gcad_expect(&ad->g, ad->known_dev);
+        if (ad->known_dev != GCAD_NO_DEVICE) gcad_expect(&ad->g, ad->known_dev);
+        if (ad->ven_fd >= 0) gcad_ven_init(&ad->g, &ad->ven, ad->xbox, ad, ad->ven_fd, ad->ticks_per_ms);
         ad->inited = 1;
+
     }
     do {
         handed = 0;
