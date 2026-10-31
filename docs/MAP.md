@@ -42,6 +42,7 @@ headers, generated data and assets with the code that uses them.
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
+| Parental controls (a PIN that locks or hides games by age rating) | `src/data/parental.cpp` (ages, the PIN's salted hash), `src/data/settingsfile.cpp` (`parental_*` lines), Settings > Games > Parental controls, Home's list and the game page's Start in `wii/menu/rift_menu.cpp`, the PIN pad in `wii/menu/gui_searchkeys.cpp`, `tests/parental_tests.cpp` |
 | Finding games on the SD card and USB drives | `wii/menu/homescan.cpp` (Home's scan thread), `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/imagevolume.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
 | Riivolution packs: reading the XML | `src/patching/patch.cpp` |
 | Riivolution packs: what a launch does with them | `wii/launch/modplan.cpp`, `src/patching/apply.cpp`, `src/patching/expand.cpp`, `src/patching/redirect.cpp`, `src/patching/mempatch.cpp` |
@@ -377,6 +378,7 @@ reader helpers stay beside their source.
 | `ghcheats` | GameHacking.org's archive: picking the newest Wii zip from its listing, the bounds on the zip, the game ID index and its file |
 | `titles` | Game names |
 | `settingsfile` | `settings.txt` |
+| `parental` | Parental controls: the age a rating is for, and the PIN kept as a salted PBKDF2 hash |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |

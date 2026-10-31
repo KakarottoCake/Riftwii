@@ -697,10 +697,25 @@ the tiles.
 - **Settings > Help > Credits and license**: RiftWii's license (the GNU
   GPL, version 3 or
   later, in full), where its source is, and who its parts come from.
+- **Parental controls** (Settings > Games > Parental controls): set a
+  4-digit PIN, then choose the **Highest age allowed** (3, 6, 7, 10, 12,
+  13, 15, 16, 17 or 18), whether games rated too old are locked (they
+  stay on Home and ask for the PIN at Start) or hidden (left off Home; a
+  game started another way, like a disc, still asks), and whether games
+  with no rating are allowed or treated as too old. Opening the page and
+  turning parental controls off both ask for the PIN. Ratings come from
+  GameTDB (ESRB, PEGI, CERO, USK and the Korean and Taiwanese boards), so
+  turn on **Downloads** in Settings, or open a game's About page, to fetch
+  them. `settings.txt` holds only a salted hash of the PIN, never the PIN;
+  deleting the `parental_pin` line in `sd:/riftwii/settings.txt` removes
+  every lock, which is the way back if the PIN is forgotten. A game started
+  by another loader (headless mode, `launch.txt` or a WiiFlow plugin file)
+  skips parental controls, since anyone who can do that can also edit the SD
+  card.
 - **Reset all settings** (Settings > Help > Reset all settings) restores
   the defaults and
   restarts RiftWii. It keeps games' own choices, favorites, play history,
-  mods and any extra game folders you set.
+  mods, parental controls and any extra game folders you set.
 
 ### HOME Menu
 
