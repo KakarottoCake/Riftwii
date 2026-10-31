@@ -1431,6 +1431,24 @@ msgstr "このコードModをどう起動しますか？"
 msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
 msgstr "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。"
 
+msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
+msgstr "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。"
+
+msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
+msgstr "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。"
+
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "この選択は保存されませんでした。今は sd:/riftwii/codemods.txt に入れられません。"
+
+msgid "Asked at the first Start"
+msgstr "最初の起動でたずねます"
+
+msgid "Ask each time"
+msgstr "そのつどたずねる"
+
+msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
+msgstr "{1}をオンにしているすべてのページとタイルで使います。「そのつどたずねる」にすると、起動のたびにたずねます。"
+
 msgid "With extras"
 msgstr "追加機能あり"
 
