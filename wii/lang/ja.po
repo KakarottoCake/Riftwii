@@ -1170,8 +1170,8 @@ msgstr "Dolphinは本物の署名を確認するので、チャンネルはWii�
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です"
 
-msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel"
-msgstr "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。RiftWiiチャンネルかHomebrew ChannelからRiftWiiを起動してください"
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。Homebrew ChannelかRiftWiiチャンネル（バージョン9以降）からRiftWiiを起動してください"
 
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(ログ: sd:/riftwii/session.log)"

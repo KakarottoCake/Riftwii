@@ -1170,8 +1170,8 @@ msgstr "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서�
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함"
 
-msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel"
-msgstr "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. RiftWii 채널이나 Homebrew Channel에서 RiftWii를 실행하세요"
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. Homebrew Channel이나 RiftWii 채널(버전 9 이상)에서 RiftWii를 실행하세요"
 
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(로그: sd:/riftwii/session.log)"

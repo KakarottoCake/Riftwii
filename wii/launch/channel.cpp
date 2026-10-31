@@ -168,7 +168,7 @@ bool ChannelCanUpdateHere(std::string& why) {
     // takes that access away (its IOS58 reload), so a try from that start
     // could only fail (31 Oct, on a Wii U).
     if (read32(0x0D800064) != 0xFFFFFFFF) {
-        why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel";
+        why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)";
         return false;
     }
     // With that access the installer tries only slots it identifies as d2x,
