@@ -247,6 +247,17 @@ void test_entry_words() {
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x3D808032, 0x60000000, 1, 0x817DA000, words, why));
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x386C0008, 1, 0x817DA000, words, why));
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x7C6903A6, 0x60000000, 1, 0x817DA000, words, why));
+    // Nor may they read them, as the blob uses both on the way in: add
+    // r3,r4,r12 (r12 as rB), mfctr r3, bctr; or load runs of registers
+    // through r12: lmw r10,8(r1), lswi r3,r4,8.
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x7C646214, 0x60000000, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x7C6902A6, 0x60000000, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x4E800420, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0xB9410008, 0x60000000, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x7C6444AA, 0x60000000, 1, 0x817DA000, words, why));
+    // lmw r13 and up leaves r12 alone; an immediate whose bits look like r12 is no register.
+    EXPECT_TRUE(riftwii::gc_program_entry_words(0x80007100, 0xB9A10008, 0x60000000, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(riftwii::gc_program_entry_words(0x80007100, 0x38606000, 0x60000000, 1, 0x817DA000, words, why));
     // Every one of 007: NightFire's four programs starts lis r1 / ori r1,r1.
     EXPECT_TRUE(riftwii::gc_program_entry_words(0x80500000, 0x3C20806E, 0x60216760, 0, 0x817DA000, words, why));
     // Out of a branch's 32 MB reach, or an index li cannot hold.
