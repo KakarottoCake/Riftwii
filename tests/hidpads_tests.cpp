@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Exercise the real mapping loader with a full config folder and a connected
 // pad whose only mapping is controller.ini, outside the directory preload.
+// Launch hooks and automatic diagnostics require a connected mapped pad.
 #include "hidpads.hpp"
 #include "loadersettings.hpp"
 #include "pentablet.h"
+#include "wpadhook.hpp"
 
 #include <ogc/usb.h>
 
@@ -19,6 +21,14 @@ int failures = 0;
 unsigned list_calls = 0;
 unsigned initialize_calls = 0;
 bool needs_initialize = false;
+bool configs_loaded = false;
+bool list_failed = false;
+usb_device_entry listed_devices[2]{};
+std::uint8_t listed_count = 0;
+// libogc's /dev/usb/ven list (any class but HID), for Xbox 360 pads.
+usb_device_entry ven_devices[2]{};
+std::uint8_t ven_count = 0;
+unsigned ven_calls = 0;
 riftwii::LoaderSettings settings;
 
 #define CHECK(condition) \
@@ -47,19 +57,25 @@ void logf(const char*, ...) {}
 
 std::int32_t USB_GetDeviceListUnfiltered(usb_device_entry* entries, std::uint8_t capacity,
                                        std::uint8_t device_class, std::uint8_t* count) {
-    ++list_calls;
     CHECK(capacity == RTHID_DEVICE_MAX);
+    if (device_class == 0xFF) {
+        ++ven_calls;
+        for (unsigned i = 0; i < ven_count; ++i) entries[i] = ven_devices[i];
+        *count = ven_count;
+        return 0;
+    }
+    ++list_calls;
     CHECK(device_class == USB_CLASS_HID);
     // No absent mapping may consume a slot before the connected list is read.
-    CHECK(riftwii::wii::HidPadsCatalog().count == 0);
+    if (!configs_loaded) CHECK(riftwii::wii::HidPadsCatalog().count == 0);
+    if (list_failed) return -4;
     if (needs_initialize && list_calls == 1) return -4;
     if (needs_initialize && list_calls == 2) {
         *count = 0;
         return 0;
     }
-    entries[0] = {42, 0x1234, 0x5678};
-    entries[1] = {43, 0x057E, 0x0337};  // adapter has its own driver
-    *count = 2;
+    for (unsigned i = 0; i < listed_count; ++i) entries[i] = listed_devices[i];
+    *count = listed_count;
     return 0;
 }
 
@@ -72,6 +88,28 @@ int main(int argc, char** argv) {
     if (argc != 3) return 1;
     const bool disabled = std::string(argv[1]) == "off";
     needs_initialize = std::string(argv[1]) == "initialize";
+    const bool connected = std::string(argv[1]) == "connected" || needs_initialize;
+    // A wired Xbox 360 pad on the ven list counts with no config; a USB
+    // drive (SanDisk) there does not.
+    const bool xbox = std::string(argv[1]) == "xbox";
+    ven_devices[0] = {60, 0x0781, 0x5581};
+    ven_count = 1;
+    if (xbox) {
+        ven_devices[1] = {61, 0x24C6, 0x530A};
+        ven_count = 2;
+    }
+    const bool plugged = connected || xbox;
+    if (connected) {
+        listed_devices[0] = {42, 0x1234, 0x5678};
+        listed_devices[1] = {43, 0x057E, 0x0337};
+        listed_count = 2;
+    } else if (std::string(argv[1]) == "unmapped") {
+        listed_devices[0] = {44, 0x9999, 0x8888};
+        listed_count = 1;
+    } else if (std::string(argv[1]) == "adapter") {
+        listed_devices[0] = {43, 0x057E, 0x0337};
+        listed_count = 1;
+    }
     settings.usb_input = disabled ? "off" : "on";
     settings.gc_adapter = "off";
 
@@ -91,7 +129,23 @@ int main(int argc, char** argv) {
     CHECK(WriteConfig("sd:/controller.ini", 0x1234, 0x5678));
 
     riftwii::wii::HidPadsPreload();
+    configs_loaded = true;
     const rthid_catalog& catalog = riftwii::wii::HidPadsCatalog();
+    CHECK(riftwii::wii::HidPadsWanted() == !disabled);
+    // This is the launch's USB driver gate. Configs, unrelated devices,
+    // and a real adapter alone do not request the driver for mapped pads.
+    CHECK(riftwii::wii::HidPadsConnected() == plugged);
+    CHECK(riftwii::wii::HidPadsXboxPlugged() == (xbox ? 0x24C6530Au : 0u));
+    CHECK(ven_calls == (disabled ? 0u : 1u));
+    std::string why;
+    CHECK(riftwii::wii::wpad_log_wanted(0, true, why) == plugged);
+    if (plugged) CHECK(why.find("plugged in at launch") != std::string::npos);
+    CHECK(!riftwii::wii::wpad_log_wanted(0, false, why));
+    settings.other["wpad_log"] = "off";
+    CHECK(!riftwii::wii::wpad_log_wanted(0, true, why));
+    settings.other["wpad_log"] = "on";
+    CHECK(riftwii::wii::wpad_log_wanted(0, false, why));
+    settings.other.erase("wpad_log");
     if (disabled) {
         CHECK(list_calls == 0);
         CHECK(catalog.count == 0);
@@ -100,13 +154,15 @@ int main(int argc, char** argv) {
         CHECK(list_calls == (needs_initialize ? 3u : 1u));
         CHECK(initialize_calls == (needs_initialize ? 1u : 0u));
         CHECK(catalog.count == RTHID_CONFIG_MAX);
-        CHECK(catalog.maps[0].vid == 0x1234);
-        CHECK(catalog.maps[0].pid == 0x5678);
-        CHECK(rthid_find(&catalog, 0x12345678) != nullptr);
+        if (connected) {
+            CHECK(catalog.maps[0].vid == 0x1234);
+            CHECK(catalog.maps[0].pid == 0x5678);
+            CHECK(rthid_find(&catalog, 0x12345678) != nullptr);
+            CHECK(catalog.known[0].id == 42);
+            CHECK(catalog.known[0].vid_pid == 0x12345678);
+        }
         CHECK(rthid_find(&catalog, 0x057E0337) == nullptr);
-        CHECK(catalog.known_count == 2);
-        CHECK(catalog.known[0].id == 42);
-        CHECK(catalog.known[0].vid_pid == 0x12345678);
+        CHECK(catalog.known_count == listed_count);
         rthid_catalog copied{};
         riftwii::wii::HidPadsCopyCatalog(copied);
         CHECK(copied.adapter_disabled == 1);
@@ -115,6 +171,43 @@ int main(int argc, char** argv) {
     const unsigned previous_calls = list_calls;
     riftwii::wii::HidPadsPreload();
     CHECK(list_calls == previous_calls);
+    if (!disabled) {
+        // Unplugged from the ven list: the HID checks below are alone.
+        ven_count = 1;
+        riftwii::wii::HidPadsPreload(true);
+        CHECK(riftwii::wii::HidPadsXboxPlugged() == 0);
+        // Refresh at launch even if the menu loaded the folder earlier.
+        listed_devices[0] = {45, catalog.maps[0].vid, catalog.maps[0].pid};
+        listed_count = 1;
+        riftwii::wii::HidPadsPreload(true);
+        CHECK(riftwii::wii::HidPadsConnected());
+        CHECK(riftwii::wii::wpad_log_wanted(0, true, why));
+
+        listed_count = 0;
+        riftwii::wii::HidPadsPreload(true);
+        CHECK(riftwii::wii::HidPadsWanted());
+        CHECK(!riftwii::wii::HidPadsConnected());
+        CHECK(!riftwii::wii::wpad_log_wanted(0, true, why));
+        CHECK(!riftwii::wii::wpad_log_wanted(1, true, why));
+
+        listed_count = 1;
+        riftwii::wii::HidPadsPreload(true);
+        CHECK(riftwii::wii::HidPadsConnected());
+        list_failed = true;
+        riftwii::wii::HidPadsPreload(true);
+        CHECK(!riftwii::wii::HidPadsConnected());
+        CHECK(!riftwii::wii::wpad_log_wanted(0, true, why));
+
+        // Turning USB input off also overrides a previously remembered pad.
+        const rthid_device device = {45, (static_cast<std::uint32_t>(catalog.maps[0].vid) << 16) |
+                                             catalog.maps[0].pid};
+        riftwii::wii::HidPadsRemember(&device, 1);
+        settings.usb_input = "off";
+        CHECK(!riftwii::wii::HidPadsConnected());
+        CHECK(!riftwii::wii::wpad_log_wanted(0, true, why));
+    }
+    riftwii::wii::note_wiiu_pro_seen();
+    CHECK(riftwii::wii::wpad_log_wanted(0, false, why));
     if (failures == 0) std::printf("hidpads %s: all passed\n", argv[1]);
     return failures == 0 ? 0 : 1;
 }

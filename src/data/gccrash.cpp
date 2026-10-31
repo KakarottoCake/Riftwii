@@ -7,8 +7,33 @@
 
 #include "gc_bt.h"
 #include "gc_rt.h"
+#include "rtgcad.h"
+#include "riftwii/hidconfig.hpp"
 
 namespace riftwii {
+bool describe_gc_usb_pads(const std::vector<std::uint8_t>& trace, std::string& text) {
+    text.clear();
+    // A slot can be reused after an audio interface is rejected or a pad
+    // is unplugged. Keep those later setup records too. Trace sectors are
+    // untrusted, so bound both the scan and the resulting text.
+    unsigned records = 0;
+    for (std::size_t at = 0; at + 512 <= trace.size() && at < (2u << 20); at += 512) {
+        const auto read = [&](unsigned index) {
+            const auto* p = trace.data() + at + index * 4;
+            return std::uint32_t(p[0]) << 24 | std::uint32_t(p[1]) << 16 | std::uint32_t(p[2]) << 8 | p[3];
+        };
+        if (read(GC_TR_MAGIC) != GC_TRACE_MAGIC || read(GC_TR_WHERE) != GC_TRACE_HID) continue;
+        const auto id = read(GC_TR_CRASH_R1);
+        const auto diagnostic = read(GC_TR_CRASH_R1 + 1);
+        const auto slot = read(GC_TR_CRASH_R1 + 3);
+        const auto step = diagnostic & 255u;
+        if (!id || slot >= GCAD_HID_PADS || step >= GCAD_HID_DIAGS) continue;
+        if (records++ >= 96) break;
+        text += describe_hid_diagnostic(id, diagnostic, static_cast<std::int32_t>(read(GC_TR_CRASH_R1 + 2))) + "\n";
+    }
+    return !text.empty();
+}
+
 namespace {
 
 constexpr std::size_t kRecordBytes = 512;

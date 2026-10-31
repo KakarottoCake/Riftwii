@@ -89,6 +89,9 @@ bool scan_usb_games(UsbCatalog& out, std::string& error);
 // by another loader (a WiiFlow plugin) looks before the drive it just let
 // go of is listed again under the new IOS; the menu reads drives later.
 bool wait_for_usb_drive(int seconds);
+// Mount the menu's USB file view without scanning games. A USB-started
+// app needs font.ttf before its first screen can be drawn.
+bool mount_usb_files(std::string& error);
 // The top folders that pick the legacy usb:/ partition: the user's
 // game_folders, then wbfs, games and riivolution. Other partitions are
 // scanned too, under numbered USB paths.

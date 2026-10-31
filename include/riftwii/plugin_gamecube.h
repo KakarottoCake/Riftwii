@@ -102,6 +102,7 @@ typedef struct rwp_gc_launch {
     uint32_t adapter_rumble;
     const void* hid_catalog; /* fixed-size loader-compiled controller mappings */
     uint32_t hid_catalog_bytes;
+    int32_t ven_fd;          /* /dev/usb/ven for wired Xbox 360 pads, -1: none */
 
     /* What holding HOME goes to: the title and its first ticket view
      * (libogc's tikview, 32-byte aligned), or kind NONE. */
@@ -146,6 +147,7 @@ typedef struct rwp_gc_launch {
      * is, because the request is const to the plugin. NULL: not wanted. */
     uint32_t* error_code;
 } rwp_gc_launch;
+
 
 #define RWP_GC_ERROR_NONE 0u
 #define RWP_GC_ERROR_REAL_CARD_SRAM 1u /* the real card's ID could not be written to SRAM */
