@@ -240,8 +240,10 @@ void test_entry_words() {
     // A relative branch among the two cannot run from the blob's slot.
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x48000011, 0x60000000, 1, 0x817DA000, words, why));
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x4182FFF8, 1, 0x817DA000, words, why));
-    // blr is not relative: it replays anywhere.
+    // blr is not relative: it replays anywhere. blrl would leave LR in the
+    // blob's slot.
     EXPECT_TRUE(riftwii::gc_program_entry_words(0x80007100, 0x7C0802A6, 0x4E800020, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x4E800021, 0x60000000, 1, 0x817DA000, words, why));
     // r12 or CTR set by the two would be lost on the way back to the third
     // word: lis r12, addi r3,r12,8, mtctr r3 are refused.
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x3D808032, 0x60000000, 1, 0x817DA000, words, why));
