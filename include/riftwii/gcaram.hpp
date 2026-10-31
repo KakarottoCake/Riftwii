@@ -68,8 +68,10 @@ std::vector<std::uint32_t> find_gc_aram_tops_below_size(const std::vector<CodeRa
 // driving mission's sound allocations failed and it read through a null
 // pointer while loading. Such an end is raised with the base (`lis
 // r0,0x1080`), so the size stays the same. Taken: a `lis rX,H` (H up to
-// 0x100, an end within 16 MB) in the three words after the call, and a
-// `subf` with rX as the minuend in the four words after the `lis`. Found
+// 0x100, an end within 16 MB) in the three words after the call, and,
+// within six words of the call, a `subf` with rX, unchanged since, as the
+// minuend and as the subtrahend a register holding the base (r3, or one
+// made from it by addi or mr and not written again since). Found
 // before the base itself is raised (ARGetBaseAddress is recognised by its
 // `li r3,0x4000`). The `lis` addresses, in address order.
 std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRange>& text);
