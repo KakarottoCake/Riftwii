@@ -117,15 +117,27 @@ const rthid_catalog& HidPadsCatalog() {
     return g_catalog;
 }
 
+bool HidPadsWanted() {
+    return Settings().usb_input == "on" && g_published_count.load(std::memory_order_acquire) != 0;
+}
+
+bool HidPadsConnected() {
+    if (!HidPadsWanted()) return false;
+    for (unsigned i = 0; i < g_catalog.known_count; ++i) {
+        const std::uint32_t id = g_catalog.known[i].vid_pid;
+        if (id != 0x057E0337u && rthid_find(&g_catalog, id) != nullptr) return true;
+    }
+    return false;
+}
+
 void HidPadsCopyCatalog(rthid_catalog& out) {
     out = g_catalog;
     out.adapter_disabled = Settings().gc_adapter == "off" ? 1 : 0;
     if (Settings().usb_input != "on") out.count = 0;
 }
 
-void HidPadsPreload() {
-    if (g_preloaded || Settings().usb_input == "off") return;
-    g_preloaded = true;
+void HidPadsPreload(bool refresh_devices) {
+    if ((g_preloaded && !refresh_devices) || Settings().usb_input == "off") return;
     // A headless launch may reach here before any menu or adapter scan.
     // Use the unfiltered list so the keyboard/tablet filter cannot hide pads.
     static usb_device_entry list[RTHID_DEVICE_MAX] __attribute__((aligned(32)));
@@ -146,7 +158,12 @@ void HidPadsPreload() {
             devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
         }
         HidPadsRemember(devices, count);
+    } else {
+        // A previous menu list cannot prove a pad is still connected.
+        HidPadsRemember(nullptr, 0);
     }
+    if (g_preloaded) return;
+    g_preloaded = true;
     // Connected pads now have their mappings. Fill remaining slots for
     // in-game hotplug, with a bounded directory walk and no path from an
     // untrusted filename ever passed to fopen.

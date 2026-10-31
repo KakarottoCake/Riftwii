@@ -268,7 +268,8 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_EXEC 11u   /* the game switches to another program: exec.txt written, the way back next */
 #define GC_TRACE_PAD_SI 12u /* a pad record with the crash-word overlay above */
 #define GC_TRACE_DISC 13u   /* a two-disc game's disc change moved on (gc_disc.h) */
-#define GC_TRACE_PROGRAM 14u /* a program the game loaded itself starts (gc_programs.h) */
+#define GC_TRACE_HID 14u    /* crash_r1 overlay: VID/PID, diagnostic, result, pad slot */
+#define GC_TRACE_PROGRAM 15u /* a program the game loaded itself starts (gc_programs.h) */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -348,7 +349,7 @@ GC_FLAG_CHECK(gc_flags_single_bits, GC_FLAG_IS_BIT(GC_FLAG_PRESS) &&
 /* A stopped game's crash record remains available to problem reports
  * without making normal play wait for diagnostic SD writes. */
 static inline int gc_trace_allowed(uint32_t flags, uint32_t where) {
-    return where == GC_TRACE_FATAL || (flags & GC_FLAG_TRACE_GAMEPLAY) != 0;
+    return where == GC_TRACE_FATAL || where == GC_TRACE_HID || (flags & GC_FLAG_TRACE_GAMEPLAY) != 0;
 }
 
 /* The callers of GXSetProjection that gc_on_projection notes for the

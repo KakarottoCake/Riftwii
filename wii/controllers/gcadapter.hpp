@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 #include "rtgcad.h"
 
@@ -29,8 +30,12 @@ struct GcAdapterView {
     unsigned reports = 0;
     unsigned listed = 0;        // devices in the last list
     unsigned hid_pads = 0;      // configurable pads currently reporting
+    bool adapter_present = false;
+    std::uint32_t hid_ids[GCAD_HID_PADS] = {};
+    bool hid_input[GCAD_HID_PADS] = {};
     int last_error = 0;
     bool present[GCAD_PORTS] = {};
+    bool adapter_ports[GCAD_PORTS] = {};
     gcad_pad pads[GCAD_PORTS] = {};
 };
 

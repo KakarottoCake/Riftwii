@@ -147,6 +147,37 @@ bool g_card_live_for_log = false;
 // card is unmounted, served in-game when the image is usable.
 VsdImage g_vsd;
 
+bool allow_game_patch(GamePatchKind kind, const char* setting) {
+    if (gx_patch_allowed(g_extras.game_id, kind)) return true;
+    logf("%s: not applied: it checks its own code (MetaFortress)\n", setting);
+    return false;
+}
+
+// The same preferences for discs, images and channels. Every one changes
+// loaded bytes, including the country names that look like plain data.
+unsigned apply_game_preferences(char region, const std::vector<CodeSpan>& spans, GxReport& report,
+                                bool plain_code_build = false) {
+    if (plain_code_build) {
+        if (g_extras.region_video || g_extras.region_strings || g_extras.rumble_off ||
+            g_extras.speaker_off || g_extras.aspect >= 0) {
+            report.notes.push_back("the game page's preferences left out: a code build starts without RiftWii's extras");
+        }
+        return 0;
+    }
+    unsigned changed = 0;
+    if (g_extras.region_video && allow_game_patch(GamePatchKind::RegionVideo, "Region video fix"))
+        changed += gx_region_video_fix(region, spans, report);
+    if (g_extras.region_strings && allow_game_patch(GamePatchKind::RegionStrings, "Region strings fix"))
+        changed += gx_country_strings(CONF_GetRegion(), region, spans, report);
+    if (g_extras.rumble_off && allow_game_patch(GamePatchKind::Rumble, "Wii Remote rumble"))
+        changed += gx_rumble_off(spans, report);
+    if (g_extras.speaker_off && allow_game_patch(GamePatchKind::Speaker, "Wii Remote speaker"))
+        changed += gx_speaker_off(spans, report);
+    if (g_extras.aspect >= 0 && allow_game_patch(GamePatchKind::Aspect, "Aspect ratio"))
+        changed += gx_force_aspect(g_extras.aspect == 1, spans, report);
+    return changed;
+}
+
 extern "C" const std::uint8_t riftwii_dolswitch_stub[];
 extern "C" const std::uint8_t riftwii_dolswitch_stub_end[];
 extern "C" const std::uint8_t riftwii_startfile_stub[];
@@ -190,6 +221,10 @@ void install_dol_switch(const std::vector<CodeRange>& text, const std::uint32_t*
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
                     const std::vector<MemoryRegion>& keep_out, std::string& why,
                     std::uint32_t default_list_end = kCodeListEnd) {
+    if (!gx_patch_allowed(g_extras.game_id, GamePatchKind::Cheats)) {
+        why = "the game checks its own code (MetaFortress)";
+        return false;
+    }
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
     // A code build's gameconfig.txt may move the list out of the handler's
     // own room, to memory the game leaves free.
@@ -305,18 +340,32 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
 void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount) {
     VideoPatchReport report;
     unsigned language_sites = 0;
+    VideoSettings video = g_extras.video;
+    int language = g_extras.language;
+    if (!gx_patch_allowed(g_extras.game_id, GamePatchKind::VideoModes)) {
+        logf("Video: video modes left as the game has them: it checks its own code (MetaFortress)\n");
+        if (video.width != VideoWidth::Game || video.deflicker != Deflicker::Game || video.remove_borders)
+            logf("Video: width, deflicker and borders left as the game has them: it checks its own code (MetaFortress)\n");
+        // A default VideoSettings only counts the tables and borders. In
+        // particular its target is empty, so it writes no mode bytes.
+        video = VideoSettings{};
+    }
+    if (language >= 0 && !gx_patch_allowed(g_extras.game_id, GamePatchKind::Language)) {
+        logf("Language: not patched: it checks its own code (MetaFortress); the game follows the console's language\n");
+        language = -1;
+    }
     for (const MemoryRegion& r : loaded) {
         std::uint8_t* bytes = reinterpret_cast<std::uint8_t*>(r.address);
-        patch_video_modes(bytes, r.length, g_extras.video, report);
-        language_sites += patch_game_language(bytes, r.length, g_extras.language);
-        if (g_extras.video.any() || g_extras.language >= 0) DCFlushRange(bytes, r.length);
+        patch_video_modes(bytes, r.length, video, report);
+        language_sites += patch_game_language(bytes, r.length, language);
+        if (video.any() || language >= 0) DCFlushRange(bytes, r.length);
     }
     logf("Video: %s (mode %s, width %s, deflicker %s, borders %s)\n", report.describe().c_str(),
-         to_string(g_extras.video.mode), to_string(g_extras.video.width), to_string(g_extras.video.deflicker),
-         !g_extras.video.remove_borders ? "kept"
-         : g_extras.video.remove_top_bottom ? "all removed (experimental)" : "removed at the sides");
-    if (g_extras.language >= 0) {
-        logf("Language: %s, %u place(s) patched%s\n", game_language_name(g_extras.language), language_sites,
+         to_string(video.mode), to_string(video.width), to_string(video.deflicker),
+         !video.remove_borders ? "kept"
+         : video.remove_top_bottom ? "all removed (experimental)" : "removed at the sides");
+    if (language >= 0) {
+        logf("Language: %s, %u place(s) patched%s\n", game_language_name(language), language_sites,
              language_sites == 0 ? " (the game reads it some other way: it keeps the console's)" : "");
     }
     if (g_extras.game_id.empty() || report.modes == 0) return;
@@ -553,9 +602,13 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
 void configure_video_for_game(char region) {
     const bool component = VIDEO_HaveComponentCable();
     const bool progressive_ok = CONF_GetProgressiveScan() > 0 && component;
-    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok, component);
+    // Keep the same initial system video state as a launch with the
+    // game's own settings; its protected tables cannot follow a forced mode.
+    const VideoMode selected_mode = gx_patch_allowed(g_extras.game_id, GamePatchKind::VideoModes)
+                                        ? g_extras.video.mode : VideoMode::Game;
+    g_extras.video.target = resolve_video_target(selected_mode, region, progressive_ok, component);
     const VideoTarget& target = g_extras.video.target;
-    if (g_extras.video.mode == VideoMode::Progressive && !component)
+    if (selected_mode == VideoMode::Progressive && !component)
         logf("Video: 480p needs a component cable and none is in; 480i instead\n");
     if (target.format >= 0) {
         GXRModeObj* forced = &TVNtsc480IntDf;
@@ -869,6 +922,15 @@ namespace {
 // Leaves g_extras.gc_adapter On or Off (Demo stays Demo), and the
 // adapter's USB handle open only when it is On.
 void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
+    HidPadsPreload();
+    const bool usb_pads = HidPadsConnected();
+    if (HidPadsWanted() && !usb_pads) {
+        logf("USB controllers: none of the %u configured pads is plugged in; plug one in before starting a game.\n",
+             static_cast<unsigned>(HidPadsCatalog().count));
+    }
+    // A connected mapped pad needs the shared hook. Config files alone do
+    // not justify changing a game's code; the menu still allows hotplug.
+    if (usb_pads && g_extras.gc_adapter == GcAdapterMode::Off) g_extras.gc_adapter = GcAdapterMode::Auto;
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Where the adapter broke the launch on hardware, it stays off and
         // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
@@ -907,7 +969,7 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
             g_extras.gc_adapter = GcAdapterMode::Off;
         }
     }
-    if (g_extras.gc_adapter == GcAdapterMode::Auto && GcAdapterMenuSawNone()) {
+    if (g_extras.gc_adapter == GcAdapterMode::Auto && !usb_pads && GcAdapterMenuSawNone()) {
         // The menu looked every 2 s until the launch and USB listed none:
         // USB is left alone, and the launch does not wait for our own
         // /dev/usb/hid (on a Wii's d2x 250 its v5 GetVersion never answered,
@@ -929,7 +991,7 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
         // the SD card, adapter On) every disc command after this failed
         // (BCA -4, then the partition DI 128), from 2610-178, which added it,
         // to 2610-290; 2610-168 never called it and the adapter worked there.
-        if (d2x_device == 0 && !fresh_ios) USB_Deinitialize();
+        if (d2x_device == 0 && !fresh_ios) release_menu_usb_for_game();
         // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
         // are v5, as IOS 58's).
         const int base = d2x_base(game_ios);
@@ -944,9 +1006,13 @@ void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool
         // command after it failed (BCA -4, then opening the partition).
         // The adapter is found in the USB device list instead.
         const AdapterSeen seen = look_for_gc_adapter(how);
-        logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        logf("USB controllers (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        if (usb_pads) {
+            logf("USB controllers: keeping %u mappings for the game; the GameCube adapter setting is %s.\n",
+                 static_cast<unsigned>(HidPadsCatalog().count), Settings().gc_adapter.c_str());
+        }
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {
-            g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
+            g_extras.gc_adapter = seen == AdapterSeen::Missing && !usb_pads ? GcAdapterMode::Off : GcAdapterMode::On;
         }
         // The handle the check opened is the game's only with the adapter on.
         if (g_extras.gc_adapter == GcAdapterMode::Off) close_adapter_session();
@@ -964,6 +1030,8 @@ const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
 // (false when it turns the adapter off; its USB handle is then let go,
 // so the game's own USB gets it), and Settings > GameCube rumble Off.
 bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, PadHook& pad) {
+    if (gx_protected && g_extras.gc_adapter != GcAdapterMode::Off)
+        logf("GameCube adapter: off: the game checks its own code (MetaFortress)\n");
     if (gc_adapter) {
         std::string why;
         if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
@@ -975,7 +1043,7 @@ bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, P
     // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
     // once, for the Wii's own ports and the adapter alike (the adapter's
     // hook is not put on it then).
-    if (g_extras.gc_rumble_off && !gx_protected) {
+    if (g_extras.gc_rumble_off && allow_game_patch(GamePatchKind::Rumble, "GameCube rumble")) {
         std::uint32_t motor = gc_adapter ? pad.motor : 0;
         if (motor == 0) {
             std::vector<CodeRange> text;
@@ -1106,6 +1174,8 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
         }
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
+    if (g_extras.screenshots && ctx.gx_protected)
+        logf("Screenshots: off: the game checks its own code (MetaFortress)\n");
     if (g_extras.screenshots && whole_mem1) logf("Screenshots: off: %s\n", whole_mem1_why);
     if (g_extras.screenshots && !ctx.gx_protected && !whole_mem1) {
         std::string why;
@@ -1169,7 +1239,7 @@ void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras
     // of the above, when the menu saw a Pro Controller.
     std::string why;
     const PadPairings pairings = ReadPadPairings();
-    const bool wanted = wpad_log_wanted(pairings.pro.size(), why);
+    const bool wanted = wpad_log_wanted(pairings.pro.size(), out.pad.active, why);
     if (!wanted) {
         // Said only when a setting turned it off or a Pro is paired: most
         // launches never want it.
@@ -1255,6 +1325,7 @@ void install_wpad_log_last(GameExtras& extras) {
     if (!extras.wlog.active) return;
     std::string why;
     if (!install_wpad_log(extras.wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
+    else if (extras.pad.active) log_pad_diagnostics(extras.pad.code_base, extras.wlog.print_entry);
 }
 
 // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
@@ -1265,7 +1336,7 @@ void install_wpad_log_last(GameExtras& extras) {
 // the places they patch every frame.
 void apply_debug_crash(const DolHeader& dol) {
     const auto it = Settings().other.find("debug_crash");
-    if (it == Settings().other.end()) return;
+    if (it == Settings().other.end() || !allow_game_patch(GamePatchKind::Debug, "Debug crash")) return;
     std::uint32_t at = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 16)) & ~3u;
     if (it->second == "pad") {
         std::vector<CodeRange> text;
@@ -1479,7 +1550,7 @@ static_assert(kRestartTriggerStub + kRestartTriggerBytes <= kDolSwitchStubEnd, "
 // not hooked), the address the switch calls then.
 void apply_debug_reset(const DolHeader& dol, std::uint32_t known_os_restart) {
     const auto it = Settings().other.find("debug_reset");
-    if (it == Settings().other.end()) return;
+    if (it == Settings().other.end() || !allow_game_patch(GamePatchKind::Debug, "Debug reset")) return;
     const std::uint32_t seconds = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 10));
     std::vector<CodeRange> text;
     for (std::size_t i = 0; i < kDolTextSections; ++i) {
@@ -2023,7 +2094,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     std::uint8_t dol_bytes[kDolHeaderBytes];
     // USB Loader GX's exclude_game list: games that check their own code
     // (MetaFortress). RiftWii's hooks and code patches stay out of them.
-    const bool gx_protected = gx_protected_game(probe.header.game_id);
+    const bool gx_protected = !gx_patch_allowed(probe.header.game_id, GamePatchKind::RuntimeHooks);
     // A code build that moved its code list (Project+, PMEX Remix) sizes
     // its heaps to all of MEM1 and finds its MEM2 data at fixed
     // addresses: RiftWii's blobs below the MEM1 arena's top were
@@ -2395,7 +2466,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
     const bool return_disabled = debug_off("returnto");
-    const u64 return_to = gx_protected || plain_code_build || return_disabled ? 0 : return_title();
+    const bool return_allowed = allow_game_patch(GamePatchKind::ReturnTo, "Return to RiftWii");
+    const u64 return_to = !return_allowed || plain_code_build || return_disabled ? 0 : return_title();
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
     const ReturnStubPlan return_plan = plan_return_stub(arena1_top, return_to != 0, code_build || clears_mem1_top);
     const std::uint32_t return_stub = return_plan.address;
@@ -2558,41 +2630,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         GxReport gx;
         const bool own_executable = !options.main_dol.empty();
         unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
-        if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
-        const bool page_prefs = g_extras.region_video || g_extras.region_strings || g_extras.rumble_off ||
-                                g_extras.speaker_off || g_extras.aspect >= 0;
-        if (page_prefs && plain_code_build) {
-            gx.notes.push_back("the game page's preferences left out: a code build starts without RiftWii's extras");
-        }
-        if (g_extras.region_video && !gx_protected && !plain_code_build && probe.header.game_id.size() >= 4)
-            changed += gx_region_video_fix(probe.header.game_id[3], loaded_spans, gx);
-        // The game page's preferences, as GX applies them. Its data only
-        // (the country strings) also in games that check their own code.
-        if (g_extras.region_strings && !plain_code_build && probe.header.game_id.size() >= 4)
-            changed += gx_country_strings(CONF_GetRegion(), probe.header.game_id[3], loaded_spans, gx);
-        const bool prefs = g_extras.rumble_off || g_extras.speaker_off || g_extras.aspect >= 0;
-        if (plain_code_build) {
-            // Noted above.
-        } else if (prefs && gx_protected) {
-            gx.notes.push_back("rumble, speaker and aspect ratio left as the game has them: it checks its own code");
-        } else {
-            if (g_extras.rumble_off) changed += gx_rumble_off(loaded_spans, gx);
-            if (g_extras.speaker_off) changed += gx_speaker_off(loaded_spans, gx);
-            if (g_extras.aspect >= 0) changed += gx_force_aspect(g_extras.aspect == 1, loaded_spans, gx);
-        }
+        if (di::frag_device() == 2 && !own_executable && allow_game_patch(GamePatchKind::SdCard, "SD card game fix"))
+            changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
+        if (probe.header.game_id.size() >= 4)
+            changed += apply_game_preferences(probe.header.game_id[3], loaded_spans, gx, plain_code_build);
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }
     apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
-    if (gx_protected && (g_extras.video.width != VideoWidth::Game || g_extras.video.deflicker != Deflicker::Game ||
-                         g_extras.video.remove_borders)) {
-        // GX leaves width and deflicker out of these games too.
-        logf("Video: width, deflicker and borders as the game has them: it checks its own code (MetaFortress)\n");
-        g_extras.video.width = VideoWidth::Game;
-        g_extras.video.deflicker = Deflicker::Game;
-        g_extras.video.remove_borders = false;
-        g_extras.video.remove_top_bottom = false;
-    }
     if (game_keeps_picture_width(probe.header.game_id) &&
         (g_extras.video.width != VideoWidth::Game || g_extras.video.remove_borders)) {
         logf("Video: width and borders as the game has them: its picture breaks when they change\n");
@@ -2624,7 +2669,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
-    if (!gx_protected) {
+    if (allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
         GxReport gx;
         if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
         else if (plain_code_build) logf("Game fixes: no 480p fix: a code build starts without RiftWii's extras\n");
@@ -2647,7 +2692,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
                            file_replacements;
-        if (packs) logf("WFC: not patched; packs are on\n");
+        if (!allow_game_patch(GamePatchKind::Wfc, "Online server")) {
+            // The reason was logged above.
+        } else if (packs) logf("WFC: not patched; packs are on\n");
         else if (plain_code_build) logf("WFC: not patched: a code build starts without RiftWii's extras\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
@@ -2882,12 +2929,9 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
 }
 
 void SetLaunchExtras(LaunchExtras extras) {
-    // Configured USB pads use the existing pad hook and IOS safety rules.
-    // The binary table still keeps the separate adapter setting off.
-    if (extras.gc_adapter == GcAdapterMode::Off && Settings().usb_input == "on") {
-        HidPadsPreload(); // headless launches have no preceding menu scan
-        if (HidPadsCatalog().count != 0) extras.gc_adapter = GcAdapterMode::Auto;
-    }
+    // Refresh the menu's list before any launch IOS reload. Asking libogc
+    // to start USB again under a storage cIOS can break its disc reads.
+    HidPadsPreload(true);
     g_extras = std::move(extras);
 }
 
@@ -2897,10 +2941,6 @@ bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t&
     fd = -1;
     version = 0;
     known_dev = -1;
-    if (g_extras.gc_adapter == GcAdapterMode::Off) {
-        logf("GameCube adapter: off (the setting is Off)\n");
-        return false;
-    }
     // Demo's made-up presses are for Wii games' test runs: a GameCube
     // game takes the adapter as On.
     if (g_extras.gc_adapter == GcAdapterMode::Demo) g_extras.gc_adapter = GcAdapterMode::On;
@@ -2909,7 +2949,10 @@ bool TakeGcAdapterForGameCube(bool game_on_usb, std::int32_t& fd, std::uint32_t&
     // game's rules, no d2x reads. From the USB drive it is the d2x cIOS
     // the launch reloaded into, which reads the drive as for a USB Wii game.
     settle_gc_adapter(IOS_GetVersion(), game_on_usb ? 1 : 0, "the game", false);
-    if (g_extras.gc_adapter != GcAdapterMode::On) return false;
+    if (g_extras.gc_adapter != GcAdapterMode::On) {
+        if (Settings().gc_adapter == "off") logf("GameCube adapter: off (the setting is Off)\n");
+        return false;
+    }
     std::string why;
     if (!take_adapter_handle(fd, version, known_dev, why)) {
         logf("GameCube adapter: off: %s\n", why.c_str());
@@ -3127,6 +3170,31 @@ void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& b
 }
 
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {
+    // Use the probed ID even for headless/autorun callers that did not set
+    // menu extras. Refuse a partial pack before any of its bytes are loaded.
+    g_extras.game_id = probe.header.game_id;
+    const char* refused = nullptr;
+    if (!options.memory_patches.empty() && !gx_patch_allowed(g_extras.game_id, GamePatchKind::PackMemory))
+        refused = "this pack's memory patches";
+    else if ((!options.main_dol.empty() || !options.table_entries.empty() || !options.relocations.empty() ||
+              !options.replacements.empty() || !options.virtual_files.empty() || !options.sd_replacements.empty()) &&
+             !gx_patch_allowed(g_extras.game_id, GamePatchKind::PackFiles))
+        refused = "this pack's file or program replacements";
+    else if (!g_extras.code_builds.empty() && !gx_patch_allowed(g_extras.game_id, GamePatchKind::Cheats))
+        refused = "this code mod";
+    else if (g_extras.code_build_in_image && !gx_patch_allowed(g_extras.game_id, GamePatchKind::VirtualSd))
+        refused = "this virtual SD card";
+    else if (di::has_partition_resolver() && !gx_patch_allowed(g_extras.game_id, GamePatchKind::RuntimeHooks))
+        refused = "this RVZ image (try an ISO, WBFS or the disc)";
+    else if ((options.install_resident || !options.savegame_dir.empty()) &&
+             !gx_patch_allowed(g_extras.game_id, GamePatchKind::RuntimeHooks))
+        refused = "the runtime needed for these files or saves (try saves on the console)";
+    if (refused != nullptr) {
+        error = std::string("the game checks its own code (MetaFortress), so RiftWii cannot start it with ") + refused +
+                ". Turn off these changes and try again.";
+        logf("Launch refused: %s\n", error.c_str());
+        return false;
+    }
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
         error = "the TMD does not name an IOS";
@@ -3221,7 +3289,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         logf("Keeping IOS%d for the code build, as its own launcher does; reporting IOS%u to the game\n",
              running_ios, required);
     }
-    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) && !keyboard_ios &&
+    if (gx_patch_allowed(g_extras.game_id, GamePatchKind::RuntimeHooks) &&
+        !effective.preserve_current_ios && running_ios != static_cast<int>(required) && !keyboard_ios &&
         g_extras.gc_adapter != GcAdapterMode::Off && usb_hid_present()) {
         // The adapter needs /dev/usb/hid, which the IOS a game asks for
         // often lacks (IOS36 has none); the running one has it.
@@ -3386,6 +3455,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 }
 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
+    g_extras.game_id = files.game_id;
     NetStopForLaunch();
     const DolHeader& dol = files.program.dol;
     // Every section goes below this loader, in MEM1: it is copied while
@@ -3422,7 +3492,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
 
     // Resolve the installed RiftWii channel before NAND emulation changes
     // which titles ES sees. The same target is used for the later patch.
-    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+    const u64 return_to = debug_off("returnto") || !allow_game_patch(GamePatchKind::ReturnTo, "Return to RiftWii")
+                              ? 0 : return_title();
 
     // As for a disc game: the Wii Remotes, the log and the card go before
     // each reload kills their handles; the card comes back after it, for
@@ -3686,7 +3757,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // goes into low memory, where the program may start (0x80003400).
     // Code builds (Project+ and its kind) are disc games, so a channel is
     // never one.
-    const bool gx_protected = gx_protected_game(files.game_id);
+    const bool gx_protected = !gx_patch_allowed(files.game_id, GamePatchKind::RuntimeHooks);
     const bool clears_mem1_top = game_clears_mem1_top(files.game_id);
     const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
     const std::uint32_t bi2_address = channel_bi2_address(dol, loader_end);
@@ -3778,13 +3849,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     {
         GxReport gx;
-        unsigned changed = 0;
-        if (g_extras.region_video) changed += gx_region_video_fix(region, spans, gx);
-        if (g_extras.region_strings) changed += gx_country_strings(CONF_GetRegion(), region, spans, gx);
-        if (g_extras.rumble_off) changed += gx_rumble_off(spans, gx);
-        if (g_extras.speaker_off) changed += gx_speaker_off(spans, gx);
-        if (g_extras.aspect >= 0) changed += gx_force_aspect(g_extras.aspect == 1, spans, gx);
-        if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
+        unsigned changed = apply_game_preferences(region, spans, gx);
+        if (!allow_game_patch(GamePatchKind::Fix480p, "480p fix")) {
+            // The reason was logged above.
+        } else if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
         else if (gx_fix_480p(spans, gx)) ++changed;
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) {
@@ -3811,7 +3879,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     }
     install_game_extras(extras);
     apply_debug_crash(dol);
-    if (g_extras.server != WfcServer::Off) ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, 0);
+    if (g_extras.server != WfcServer::Off && allow_game_patch(GamePatchKind::Wfc, "Online server"))
+        ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, 0);
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
