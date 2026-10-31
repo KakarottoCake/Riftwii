@@ -457,6 +457,9 @@ int main() {
         riftwii::wii::mem::DetectDolphin();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
+        // Settings > USB Gecko log applies here too; no session log opens
+        // on this path, so it is asked for directly.
+        if (sd_mounted && riftwii::wii::Settings().usb_gecko_log == "on") riftwii::wii::GeckoStart();
         riftwii::wii::RunHeadless(args);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();
