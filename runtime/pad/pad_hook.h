@@ -102,6 +102,7 @@ struct rt_pad_context {
     uint32_t leave_asked_at;
     uint32_t diagnostic_print; /* the installed Wii Remote log's print entry */
     char diagnostic_format[40]; /* loader-filled marker, decoded at next start */
+    int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
 };
 
 #ifdef RT_TARGET_PPC

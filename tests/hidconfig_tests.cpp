@@ -171,6 +171,8 @@ struct Request {
     void* output = nullptr;
     std::uint32_t bytes = 0;
     std::array<std::uint8_t, 128> payload{};
+    std::int32_t fd = -1;
+    std::array<std::uint8_t, 64> message{};  // an ioctlv's first vector
 };
 
 struct Bus {
@@ -186,6 +188,7 @@ struct Bus {
     std::vector<Request> outputs;
     unsigned refuse_slot = GCAD_REQUESTS;
     std::uint32_t clock = 100;
+    std::vector<std::int32_t> devices_asked;  // every device a pad link sent a request to
 
     explicit Bus(unsigned version = 5, const std::string& config = Config()) {
         hub.catalog.maps[0] = Parse(config);
@@ -219,6 +222,53 @@ struct Bus {
         data[start + 54] = 0x04;
         data[start + 55] = 3;
         data[start + 57] = 64;
+    }
+
+    // /dev/usb/ven's GetDeviceInfo for a wired Xbox 360 pad's interface:
+    // 0 the gamepad (0xFF/0x5D/0x01), 1 and 2 its headset (0x5D/0x03,
+    // 0x5D/0x02), 3 its security interface (0xFD/0x13). Endpoints 0x81 IN
+    // and 0x01 OUT, 32 bytes.
+    static void VenInfo(std::uint8_t* out, unsigned interface_number) {
+        static const std::uint8_t kSubclass[4] = {0x5D, 0x5D, 0x5D, 0xFD};
+        static const std::uint8_t kProtocol[4] = {0x01, 0x03, 0x02, 0x13};
+        const unsigned i = interface_number < 4 ? interface_number : 3;
+        std::memset(out, 0, GCAD_VEN_INFO_BYTES);
+        out[52] = 9;
+        out[53] = 4;
+        out[54] = static_cast<std::uint8_t>(interface_number);
+        out[56] = 2;
+        out[57] = 0xFF;
+        out[58] = kSubclass[i];
+        out[59] = kProtocol[i];
+        const std::uint8_t endpoints[2] = {0x81, 0x01};
+        for (unsigned e = 0; e < 2; ++e) {
+            std::uint8_t* endpoint = out + 64 + 8 * e;
+            endpoint[0] = 7;
+            endpoint[1] = 5;
+            endpoint[2] = endpoints[e];
+            endpoint[3] = 3;
+            endpoint[5] = 32;
+        }
+    }
+
+    // ven's device ids as Dolphin gives them (as IOS by its hardware
+    // tests): 0xE7 on top, negative as an int32_t, then an index counting
+    // down per interface. The interface itself is not in the id.
+    static std::int32_t VenId(unsigned interface_number) {
+        return static_cast<std::int32_t>(0xE71F0021u - (interface_number << 16));
+    }
+    static unsigned VenInterface(std::int32_t id) {
+        return 0x1Fu - ((static_cast<std::uint32_t>(id) >> 16) & 0xFFu);
+    }
+
+    void VenList(const std::vector<rthid_device>& devices) {
+        auto* list = hub.ven.change;
+        std::memset(list, 0, sizeof(hub.ven.change));
+        for (unsigned i = 0; i < devices.size(); ++i) {
+            gcad_put32(list + i * 12, devices[i].id);
+            gcad_put32(list + i * 12 + 4, devices[i].vid_pid);
+        }
+        Reply(GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_CHANGE, static_cast<int>(devices.size()));
     }
 
     void List(const std::vector<rthid_device>& devices, unsigned packet_bytes = 64) {
@@ -258,7 +308,12 @@ struct Bus {
                     ++finishes;
                 }
                 if (hub.adapter.version == 5 && request.command == GCAD_V5_GET_DEVICE_INFO) {
-                    Descriptors(static_cast<std::uint8_t*>(request.output), 36);
+                    if (request.driver->ven) {
+                        VenInfo(static_cast<std::uint8_t*>(request.output),
+                                VenInterface(request.driver->dev_id));
+                    } else {
+                        Descriptors(static_cast<std::uint8_t*>(request.output), 36);
+                    }
                 }
                 const bool wake = request.driver->mapping && (slot % GCAD_TAGS) == GCAD_TAG_SETUP &&
                                   request.driver->setup_step == GCAD_STEP_CTRL;
@@ -495,6 +550,182 @@ void CompositeV4() {
     CHECK(bus.hub.adapter.excluded_count == 0);
 }
 
+void XboxReports() {
+    std::uint8_t report[20] = {0, 0x14};
+    gcad_pad pad{};
+    CHECK(gcad_xbox_decode(report, sizeof(report), &pad));
+    CHECK(pad.buttons == 0 && pad.stick_x == 0 && pad.stick_y == 0 && pad.trigger_l == 0 && !pad.wireless);
+    report[2] = 0x1F;  // the D-pad and Start
+    report[3] = 0xF3;  // both bumpers, A, B, X, Y
+    report[4] = 255;   // left trigger all the way: also L
+    report[5] = 100;   // right trigger part way
+    const auto put = [&](unsigned at, int value) {
+        report[at] = static_cast<std::uint8_t>(value & 0xFF);
+        report[at + 1] = static_cast<std::uint8_t>((value >> 8) & 0xFF);
+    };
+    put(6, 32767);   // left stick right
+    put(8, -32768);  // and down
+    put(10, 5000);   // right stick inside the dead zone
+    put(12, -7000);  // just past it, down
+    CHECK(gcad_xbox_decode(report, sizeof(report), &pad));
+    CHECK(pad.buttons == (GCAD_PAD_UP | GCAD_PAD_DOWN | GCAD_PAD_LEFT | GCAD_PAD_RIGHT | GCAD_PAD_START |
+                          GCAD_PAD_Z | GCAD_PAD_A | GCAD_PAD_B | GCAD_PAD_X | GCAD_PAD_Y | GCAD_PAD_L));
+    CHECK(pad.trigger_l == 255 && pad.trigger_r == 100);
+    CHECK(pad.stick_x == 103 && pad.stick_y == -104);
+    CHECK(pad.substick_x == 0 && pad.substick_y == -4);
+    // The Guide button, or Back with Start: the way back's L+R+Z+Start.
+    const std::uint16_t way_back = GCAD_PAD_L | GCAD_PAD_R | GCAD_PAD_Z | GCAD_PAD_START;
+    std::memset(report + 2, 0, 12);
+    report[3] = 0x04;
+    CHECK(gcad_xbox_decode(report, sizeof(report), &pad) && pad.buttons == way_back);
+    report[3] = 0;
+    report[2] = 0x20;  // Back alone: nothing
+    CHECK(gcad_xbox_decode(report, sizeof(report), &pad) && pad.buttons == 0);
+    report[2] = 0x30;
+    CHECK(gcad_xbox_decode(report, sizeof(report), &pad) && pad.buttons == way_back);
+    // LED and rumble status reports, and a cut-off report, are no input.
+    const std::uint8_t led[3] = {1, 3, 6};
+    CHECK(!gcad_xbox_decode(led, sizeof(led), &pad));
+    CHECK(!gcad_xbox_decode(report, 13, &pad));
+    report[1] = 0x13;
+    CHECK(!gcad_xbox_decode(report, sizeof(report), &pad));
+    CHECK(gcad_xbox_vendor(0x24C6) && gcad_xbox_vendor(0x045E));
+    CHECK(!gcad_xbox_vendor(0x0781) && !gcad_xbox_vendor(0x054C));
+}
+
+// /dev/usb/ven beside /dev/usb/hid: a configured HID pad, a wired Xbox
+// 360 pad's four interfaces and a USB drive. Only the gamepad interface
+// is taken, the drive is never asked anything, and the two pads share
+// the four links and the ports.
+void XboxPads() {
+    constexpr std::int32_t kVenFd = 77;
+    const std::int32_t kGamepad = Bus::VenId(0);
+    const std::int32_t kDrive = static_cast<std::int32_t>(0xE7100031u);
+    Bus bus(5);
+    gcad_ven_init(&bus.hub.adapter, &bus.hub.ven, bus.hub.xbox, &bus, kVenFd, 1);
+    gcad_tick(&bus.hub.adapter, bus.clock);
+    const unsigned ven_change = GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_CHANGE;
+    CHECK(bus.requests[ven_change].pending && bus.requests[ven_change].fd == kVenFd);
+    CHECK(bus.requests[ven_change].command == GCAD_V5_GET_DEVICE_CHANGE && bus.requests[ven_change].bytes == 0x180);
+    bus.List({{11, 0x12345678}});
+    bus.VenList({{kGamepad, 0x24C6530A}, {Bus::VenId(1), 0x24C6530A}, {Bus::VenId(2), 0x24C6530A},
+                 {Bus::VenId(3), 0x24C6530A}, {kDrive, 0x07815581}});
+    // Three links free for four interfaces: the last waits for one the
+    // headset gave back, and settles a round later.
+    bus.Settle();
+    bus.Settle();
+    CHECK(bus.finishes >= 2);  // each list's AttachFinish
+    for (const std::int32_t device : bus.devices_asked) CHECK(device != kDrive);
+    const gcad& hid = bus.hub.pads[0];
+    CHECK(hid.link == GCAD_LINK_POLL && !hid.ven && hid.fd == 42);
+    const gcad* xbox = nullptr;
+    unsigned xbox_index = 0, polling = 0;
+    for (unsigned i = 1; i < GCAD_HID_PADS; ++i) {
+        const gcad& pad = bus.hub.pads[i];
+        if (pad.link == GCAD_LINK_POLL) ++polling;
+        if (pad.dev_id == kGamepad) {
+            xbox = &pad;
+            xbox_index = i;
+        }
+    }
+    CHECK(polling == 1 && xbox != nullptr);
+    if (xbox == nullptr) return;
+    CHECK(xbox->ven && xbox->fd == kVenFd && xbox->link == GCAD_LINK_POLL);
+    CHECK(xbox->endpoint_in == 0x81 && xbox->endpoint_out == 0x01 && xbox->input_bytes == 32);
+    CHECK(xbox->mapping == &bus.hub.xbox[xbox_index]);
+    CHECK(xbox->mapping->vid == 0x24C6 && xbox->mapping->pid == 0x530A);
+    CHECK(bus.Count(GCAD_HID_INTERFACE) == 3);  // the headset's two and the security interface
+    const unsigned input = (xbox_index + 1) * GCAD_TAGS + GCAD_TAG_IN;
+    const unsigned output = (xbox_index + 1) * GCAD_TAGS + GCAD_TAG_OUT;
+    CHECK(bus.requests[input].pending && bus.requests[input].fd == kVenFd);
+    CHECK(bus.requests[input].command == GCAD_V5_INTERRUPT && bus.requests[input].message[14] == 0x81);
+    CHECK(bus.requests[input].bytes == 32);
+
+    // Input from both: the HID pad on port 1, the Xbox pad on port 2.
+    bus.Report(0, 1);
+    auto& driver = bus.hub.pads[xbox_index];
+    // IOS writes each report into the buffer the driver cleared for it.
+    const auto pressing_a = [&]() {
+        std::memset(driver.in_data, 0, sizeof(driver.in_data));
+        driver.in_data[1] = 0x14;
+        driver.in_data[3] = 0x10;  // A
+        bus.Reply(input, 20);
+    };
+    pressing_a();
+    // The first poll's reply turns the motors off, as for every USB pad.
+    const std::uint8_t off[8] = {0, 8, 0, 0, 0, 0, 0, 0};
+    CHECK(bus.requests[output].pending && bus.requests[output].bytes == 8);
+    CHECK(std::memcmp(bus.requests[output].payload.data(), off, sizeof(off)) == 0);
+    bus.Reply(output, 8);
+    gcad_pad pads[GCAD_PORTS]{};
+    CHECK(gcad_read_ports(&bus.hub.adapter, 0, pads, bus.clock) == 0x3u);
+    CHECK(pads[0].buttons == GCAD_PAD_A && pads[1].buttons == GCAD_PAD_A);
+    // Its ring then shows the second light, between two polls.
+    pressing_a();
+    CHECK(bus.requests[output].pending && bus.requests[output].fd == kVenFd);
+    CHECK(bus.requests[output].message[14] == 0x01 && bus.requests[output].bytes == 3);
+    CHECK(bus.requests[output].payload[0] == 1 && bus.requests[output].payload[1] == 3);
+    CHECK(bus.requests[output].payload[2] == 7);
+    bus.Reply(output, 3);
+    // The game's rumble: both motors, then off.
+    gcad_rumble(&bus.hub.adapter, 1, 1);
+    pressing_a();
+    CHECK(bus.requests[output].pending && bus.requests[output].bytes == 8);
+    const std::uint8_t on[8] = {0, 8, 0, 0xFF, 0xFF, 0, 0, 0};
+    CHECK(std::memcmp(bus.requests[output].payload.data(), on, sizeof(on)) == 0);
+    bus.Reply(output, 8);
+    gcad_rumble(&bus.hub.adapter, 1, 2);
+    pressing_a();
+    CHECK(bus.requests[output].pending && bus.requests[output].payload[3] == 0);
+    CHECK(bus.requests[output].payload[4] == 0);
+    bus.Reply(output, 8);
+    // An LED status report between inputs is no input and no bad report.
+    driver.in_data[0] = 1;
+    driver.in_data[1] = 3;
+    bus.Reply(input, 3);
+    CHECK(driver.bad_reports == 0 && bus.Count(GCAD_HID_SHORT) == 0);
+
+    // Stopping: ven's list is shut down and the pad's endpoint cancelled
+    // by its address, both on ven's handle.
+    gcad_stop(&bus.hub.adapter, bus.clock);
+    const unsigned ven_stop = GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_STOP;
+    CHECK(bus.requests[ven_stop].pending && bus.requests[ven_stop].command == GCAD_V5_SHUTDOWN);
+    CHECK(bus.requests[ven_stop].fd == kVenFd);
+    const unsigned pad_stop = (xbox_index + 1) * GCAD_TAGS + GCAD_TAG_STOP;
+    CHECK(bus.requests[pad_stop].pending && bus.requests[pad_stop].command == GCAD_V5_CANCEL_ENDPOINT);
+    CHECK(driver.stop_msg[8] == 0x81 && bus.requests[pad_stop].fd == kVenFd);
+    CHECK(!gcad_idle(&bus.hub.adapter));
+
+    // Unplugged: ven's list drops its link, the HID pad's stays.
+    Bus again(5);
+    gcad_ven_init(&again.hub.adapter, &again.hub.ven, again.hub.xbox, &again, kVenFd, 1);
+    gcad_tick(&again.hub.adapter, again.clock);
+    again.List({{11, 0x12345678}});
+    again.VenList({{kGamepad, 0x045E028E}});
+    again.Settle();
+    CHECK(again.hub.pads[1].dev_id == kGamepad && again.hub.pads[1].ven);
+    const unsigned lost = again.lost;
+    again.VenList({});
+    CHECK(again.hub.pads[1].dev_id == -1 && again.lost == lost + 1);
+    CHECK(again.hub.pads[0].dev_id == 11);
+
+    // In a game: the menu's libogc took ven's one answer, so the game's
+    // list request waits for the next plug. The list read before the
+    // launch sets the pad up without it.
+    Bus carried(5);
+    carried.hub.catalog.ven_known[0] = {kGamepad, 0x24C6530A};
+    carried.hub.catalog.ven_known[1] = {kDrive, 0x07815581};
+    carried.hub.catalog.ven_known_count = 2;
+    gcad_ven_init(&carried.hub.adapter, &carried.hub.ven, carried.hub.xbox, &carried, kVenFd, 1);
+    gcad_tick(&carried.hub.adapter, carried.clock);
+    carried.Settle();
+    const unsigned carried_change = GCAD_VEN_SLOT * GCAD_TAGS + GCAD_TAG_CHANGE;
+    CHECK(carried.requests[carried_change].pending);  // still waiting, unanswered
+    CHECK(carried.hub.pads[0].dev_id == kGamepad && carried.hub.pads[0].ven);
+    CHECK(carried.hub.pads[0].link == GCAD_LINK_POLL);
+    for (const std::int32_t device : carried.devices_asked) CHECK(device != kDrive);
+}
+
 // A failing device list is asked again every GCAD_RESCAN_MS: each kind of
 // discovery record (asked, answered) repeats only with a new result, so a
 // game whose trace writes stall cannot fill its queue with them.
@@ -560,6 +791,8 @@ int32_t gcad_env_ioctl(gcad* driver, uint32_t tag, uint32_t command, void*, uint
     request.command = command;
     request.output = out;
     request.bytes = bytes;
+    request.fd = driver->fd;
+    if (driver->owner && driver->dev_id != GCAD_NO_DEVICE) bus.devices_asked.push_back(driver->dev_id);
     if (driver->version == 4 && command == GCAD_V4_INTERRUPT_OUT) {
         request.bytes = gcad_get32(driver->out_msg + 24);
         std::memcpy(request.payload.data(), driver->out_data, request.bytes);
@@ -568,11 +801,13 @@ int32_t gcad_env_ioctl(gcad* driver, uint32_t tag, uint32_t command, void*, uint
     return 0;
 }
 
-int32_t gcad_env_ioctlv(gcad* driver, uint32_t tag, uint32_t command, void*, uint32_t, void* data,
-                       uint32_t bytes, int data_in) {
+int32_t gcad_env_ioctlv(gcad* driver, uint32_t tag, uint32_t command, void* message, uint32_t message_bytes,
+                       void* data, uint32_t bytes, int data_in) {
     const auto result = gcad_env_ioctl(driver, tag, command, nullptr, 0, data, bytes);
     if (result < 0) return result;
     auto& bus = *static_cast<Bus*>(driver->env_ctx);
+    auto& sent = bus.requests[GCAD_REQUEST_SLOT(tag)].message;
+    std::memcpy(sent.data(), message, message_bytes < sent.size() ? message_bytes : sent.size());
     if (data_in && bytes) std::memcpy(bus.requests[GCAD_REQUEST_SLOT(tag)].payload.data(), data, bytes);
     if (data_in && command == GCAD_V5_INTERRUPT) bus.outputs.push_back(bus.requests[GCAD_REQUEST_SLOT(tag)]);
     return 0;
@@ -600,6 +835,8 @@ int main() {
     SharedDriver(5);
     CompositeV4();
     RumbleAndControl();
+    XboxReports();
+    XboxPads();
     DiscoveryRepeats();
     if (failures) std::cerr << failures << " failures\n";
     return failures ? 1 : 0;

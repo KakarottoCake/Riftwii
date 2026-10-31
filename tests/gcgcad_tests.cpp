@@ -72,6 +72,7 @@ void descriptors(gcad& pad, unsigned number, unsigned interface_class) {
 void test_late_composite_pad() {
     gc_gcad ad{};
     ad.fd = 4;
+    ad.ven_fd = -1;
     ad.version = 5;
     ad.known_dev = -1;
     ad.ticks_per_ms = 1;
@@ -155,9 +156,9 @@ void test_late_composite_pad() {
     EXPECT_EQ(records, 22); // discovery (repeats only with a new result), three rejections, two HID setups, one input
     std::string text;
     EXPECT_EQ(riftwii::describe_gc_usb_pads(trace, text), true);
-    EXPECT_EQ(text.find("interface 0 is not a HID interface, left alone") != std::string::npos, true);
-    EXPECT_EQ(text.find("interface 1 is not a HID interface, left alone") != std::string::npos, true);
-    EXPECT_EQ(text.find("interface 2 is not a HID interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("interface 0 is not a controller interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("interface 1 is not a controller interface, left alone") != std::string::npos, true);
+    EXPECT_EQ(text.find("interface 2 is not a controller interface, left alone") != std::string::npos, true);
     EXPECT_EQ(text.find("input arrived (64 bytes)") != std::string::npos, true);
     EXPECT_EQ(text.find("USB device list answered (result 0)") != std::string::npos, true);
     // A noisy device cannot overwrite records still waiting for the SD card.
@@ -172,6 +173,7 @@ void test_late_composite_pad() {
     // unanswered: leaving the pad plugged in is not a new device change.
     gc_gcad carried{};
     carried.fd = 4;
+    carried.ven_fd = -1;
     carried.version = 5;
     carried.known_dev = -1;
     carried.ticks_per_ms = 1;
