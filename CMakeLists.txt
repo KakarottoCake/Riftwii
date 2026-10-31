@@ -11,10 +11,6 @@ set(RIFTWII_BASE_TAG "v2.7.0")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-# Strict C++17 hides the POSIX calls the Wii code uses on the host (usleep
-# and friends) inside MSYS2's headers; Linux compilers expose them through
-# their own _GNU_SOURCE, so ask for the same declarations everywhere.
-add_compile_definitions(_DEFAULT_SOURCE)
 # The CI sanitizer job (-DRIFTWII_SANITIZE=ON): AddressSanitizer and
 # UndefinedBehaviorSanitizer on everything built here, libraries included. An
 # undefined-behavior finding stops the test (no-sanitize-recover), so it fails
