@@ -1928,11 +1928,11 @@ T = {
         "USB入力機器",
         "Dispositivos de entrada USB",
         "Dispositivi di ingresso USB"),
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.": (
-        "Los mandos USB usan archivos controller.ini en el menú y los juegos. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw.",
-        "USBコントローラーはメニューとゲームでcontroller.iniを使います。オフではキーボード、マウス、タブレット、uDrawも使いません。",
-        "Controles USB usam arquivos controller.ini no menu e nos jogos. Desligado também não usa teclados, mouses, mesas digitalizadoras nem a uDraw.",
-        "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."),
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.": (
+        "Los mandos USB usan archivos controller.ini en el menú y los juegos; los mandos de Xbox 360 con cable no necesitan ninguno. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw.",
+        "USBコントローラーはメニューとゲームでcontroller.iniを使います。有線のXbox 360コントローラーには不要です。オフではキーボード、マウス、タブレット、uDrawも使いません。",
+        "Controles USB usam arquivos controller.ini no menu e nos jogos; controles com fio de Xbox 360 não precisam de nenhum. Desligado também não usa teclados, mouses, mesas digitalizadoras nem a uDraw.",
+        "I controller USB usano i file controller.ini nel menu e nei giochi; i controller Xbox 360 con filo non ne hanno bisogno. Spento disattiva anche tastiere, mouse, tavolette e uDraw."),
     "Wii Remote rumble": (
         "Vibración del Wii Remote",
         "Wiiリモコンの振動",
@@ -3768,8 +3768,8 @@ KO = {
     "USB controllers: working": "USB 컨트롤러: 작동 중",
     "USB input devices":
         "USB 입력 장치",
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
-        "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다.",
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 유선 Xbox 360 패드에는 필요 없습니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다.",
     "Wii Remote rumble":
         "Wii 리모컨 진동",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -5211,8 +5211,8 @@ FR = {
     "USB controllers: working": "Manettes USB : actives",
     "USB input devices":
         "Périphériques USB",
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
-        "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté.",
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux ; les manettes Xbox 360 filaires n'en ont pas besoin. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté.",
     "Wii Remote rumble":
         "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -7869,6 +7869,25 @@ FR.update({
     "{1} is installed. Pick it in Settings > Menu > Theme to use it.": "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser.",
 })
 
+
+
+# Games with code checks keep their loaded program and data unchanged.
+T.update({
+    "Not applied": ("No se aplica", "適用しません", "Não aplicado", "Non applicato"),
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": (
+        "Este juego comprueba su propio código. Para que arranque, no se aplican cambios de imagen, idioma, región, mandos, juego en línea ni trucos.",
+        "このゲームは自身のコードを確認します。起動できるように、映像、言語、地域、コントローラー、オンライン、チートの変更を無効にします。",
+        "Este jogo verifica o próprio código. Para que ele inicie, mudanças de imagem, idioma, região, controles, jogo online e trapaças ficam desativadas.",
+        "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."),
+})
+KO.update({
+    "Not applied": "적용 안 함",
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "이 게임은 자체 코드를 확인합니다. 시작할 수 있도록 화면, 언어, 지역, 컨트롤러, 온라인 및 치트 변경은 적용하지 않습니다.",
+})
+FR.update({
+    "Not applied": "Non appliqué",
+    "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.": "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés.",
+})
 
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it

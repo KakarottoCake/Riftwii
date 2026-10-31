@@ -2199,8 +2199,8 @@ msgstr "USBコントローラー: 動作中"
 msgid "USB input devices"
 msgstr "USB入力機器"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "USBコントローラーはメニューとゲームでcontroller.iniを使います。オフではキーボード、マウス、タブレット、uDrawも使いません。"
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "USBコントローラーはメニューとゲームでcontroller.iniを使います。有線のXbox 360コントローラーには不要です。オフではキーボード、マウス、タブレット、uDrawも使いません。"
 
 msgid "Wii Remote rumble"
 msgstr "Wiiリモコンの振動"
@@ -3779,3 +3779,9 @@ msgstr "Aで{1}をsd:/riftwii/themesにダウンロードします。設定 > �
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1}をインストールしました。使うには設定 > メニュー > テーマで選んでください。"
+
+msgid "Not applied"
+msgstr "適用しません"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "このゲームは自身のコードを確認します。起動できるように、映像、言語、地域、コントローラー、オンライン、チートの変更を無効にします。"
