@@ -834,6 +834,21 @@ msgstr "Copertina"
 msgid "Download again"
 msgstr "Scarica di nuovo"
 
+msgid "GameTDB cover"
+msgstr "Copertina di GameTDB"
+
+msgid "First"
+msgstr "Prima"
+
+msgid "Second"
+msgstr "Seconda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Alcuni giochi hanno una seconda copertina su GameTDB. Il tuo riftwii/covers/{1}.png sulla scheda SD o sull'unità USB viene prima di entrambe."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB ha una sola copertina per questo gioco."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Scarica ora la copertina di questo gioco da GameTDB."
 
