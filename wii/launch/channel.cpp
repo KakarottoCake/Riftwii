@@ -6,6 +6,7 @@
 #include <fat.h>
 #include <malloc.h>
 #include <ogc/es.h>
+#include <ogc/machine/processor.h>
 
 #include <cstdio>
 #include <sys/stat.h>
@@ -15,7 +16,9 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "d2xsd.hpp"
 #include "dolboot.h"
+#include "gcadapter.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
@@ -29,6 +32,7 @@
 #include "riftwii/imagevolume.hpp"
 #include "riftwii_stub_bin.h"
 #include "usbcatalog.hpp"
+#include "usbinput.hpp"
 
 namespace riftwii::wii {
 
@@ -302,13 +306,12 @@ bool StartHomebrewApp(const std::string& path, std::string& error) {
     return StartHomebrewApp(path, line, error);
 }
 
-bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
-    if (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0') {
-        error = "The app arguments are empty or exceed the 1024-byte limit.";
-        logf("Homebrew app: %s\n", error.c_str());
-        return false;
-    }
-    u32 size = 0;
+namespace {
+
+// The app's DOL, whole, in memory of its own (nullptr when it is missing
+// or there is no room for it).
+u8* read_homebrew_dol(const std::string& path, u32& size) {
+    size = 0;
     u8* dol = nullptr;
     if (riftwii::is_usb_path(path)) {
         std::uint64_t bytes = 0;
@@ -325,6 +328,60 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
             return can_allocate(n) ? memalign(32, n) : nullptr;
         }, [](void* p) { std::free(p); });
     }
+    return dol;
+}
+
+// The app read once more and compared with `dol`, the copy about to start:
+// a copy read on a Wii U around the IOS reload came out damaged once, and
+// the app's unpacker stopped on a red screen. Two reads in a row that agree
+// are taken as the app, up to three more reads when they don't. Returns the
+// copy to start (`dol` or a later read; the others are freed), or nullptr
+// when no two reads agreed. With no room for a second copy, `dol` is
+// started unchecked, as before; once two reads have differed, a read that
+// fails leaves nothing to start.
+u8* check_homebrew_dol(const std::string& path, u8* dol, u32& size) {
+    constexpr int kExtraReads = 3;
+    for (int read = 2; read <= kExtraReads + 1; ++read) {
+        u32 again_size = 0;
+        u8* again = read_homebrew_dol(path, again_size);
+        if (!again && read > 2) {
+            logf("Homebrew app: read %d failed after two reads differed; the app is not started\n", read);
+            std::free(dol);
+            return nullptr;
+        }
+        if (!again) {
+            logf("Homebrew app: not checked (no room for a second copy, or the second read failed)\n");
+            return dol;
+        }
+        u32 differing = 0;
+        if (again_size == size) {
+            for (u32 at = 0; at < size; ++at) differing += dol[at] != again[at];
+        }
+        if (again_size == size && differing == 0) {
+            std::free(again);
+            logf("Homebrew app: read %d matches the one before it\n", read);
+            return dol;
+        }
+        logf("Homebrew app: read %d differs from the one before it (%u of %u bytes); reading it again\n", read,
+             static_cast<unsigned>(again_size == size ? differing : again_size), static_cast<unsigned>(size));
+        std::free(dol);
+        dol = again;
+        size = again_size;
+    }
+    std::free(dol);
+    return nullptr;
+}
+
+}  // namespace
+
+bool StartHomebrewApp(const std::string& path, const std::string& command_line, std::string& error) {
+    if (command_line.empty() || command_line.size() > 1024 || command_line.back() != '\0') {
+        error = "The app arguments are empty or exceed the 1024-byte limit.";
+        logf("Homebrew app: %s\n", error.c_str());
+        return false;
+    }
+    u32 size = 0;
+    u8* dol = read_homebrew_dol(path, size);
     if (!dol || !dolboot_valid(dol, size)) {
         error = path + " is missing, damaged or does not fit next to RiftWii";
         logf("Homebrew app: %s\n", error.c_str());
@@ -332,12 +389,64 @@ bool StartHomebrewApp(const std::string& path, const std::string& command_line, 
         return false;
     }
     logf("Homebrew app: starting %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(size));
-    plant_return_stub(dol, size);
     NetStopForLaunch();
+    // The menu's USB users close first, so their requests don't outlive it
+    // (an IOS reload below closes them too; this is for when there's none).
+    GcAdapterStop();
+    UsbInputStop();
     LaunchMusicEnd("the app starts next");
+    // On the menu's IOS58 the app starts on a fresh IOS58, as it would from
+    // the Homebrew Channel. Once /dev/usb/hid has been used on an IOS, a new
+    // program's device list comes back empty even with every user closed, so
+    // the app would see no GameCube adapter, USB pad or keyboard (Dolphin and
+    // a Wii U both). Not under a cIOS: there d2x may be serving the app a
+    // disc (launchrun.cpp), and a reload would take it away.
+    const bool fresh_ios = IOS_GetVersion() == 58;
+    if (fresh_ios) {
+        const bool on_usb = riftwii::is_usb_path(path);
+        // Hardware access, as the Homebrew Channel leaves it for an app that
+        // asks for it (<ahb_access/>), carried over to the new IOS.
+        if (read32(0x0D800064) == 0xFFFFFFFF) keep_hardware_access("Homebrew app");
+        release_wii_remotes();  // Bluetooth stops before its IOS goes
+        logf("Homebrew app: on a fresh IOS58\n");
+        LogClose();
+        fatUnmount("sd:");
+        release_usb_driver();
+        // libogc's USB opens afresh on the new IOS, as after the USB check's
+        // reloads (usbprobe.cpp): its handles belong to the IOS that goes,
+        // and a drive is not listed through them again.
+        USB_Deinitialize();
+        libogc_sd_stop();
+        std::string reload_error;
+        if (reload_ios(58, reload_error, true) == ReloadResult::Terminal) halt_after_terminal_reload();
+        const bool card = libogc_sd_start() && fatMountSimple("sd", sd_interface());
+        if (card) LogReopen();
+        logf("Homebrew app: IOS%d rev %d now%s\n", IOS_GetVersion(), IOS_GetRevision(),
+             reload_error.empty() ? "" : (" (" + reload_error + ")").c_str());
+        // The app is read again on the new IOS: on a Wii U the copy read
+        // before the reload once came out damaged (a red screen). An app on
+        // the USB drive needs the drive back first; the menu's view of it
+        // went with the old IOS.
+        std::string usb_error;
+        const bool drive = on_usb ? mount_usb_files(usb_error) : card;
+        if (on_usb && !drive) logf("Homebrew app: the USB drive is not back after the reload: %s\n", usb_error.c_str());
+        std::free(dol);
+        dol = drive ? read_homebrew_dol(path, size) : nullptr;
+        if (dol) dol = check_homebrew_dol(path, dol, size);
+        if (!dol || !dolboot_valid(dol, size)) {
+            error = tr("{1} could not be read again after the IOS restart", {path});
+            logf("Homebrew app: %s\n", error.c_str());
+            std::free(dol);
+            return false;
+        }
+    }
+    plant_return_stub(dol, size);
     LogClose();
     fatUnmount("sd:");
-    fatUnmount("usb:");
+    // On the fresh IOS the menu's USB driver is closed for the app, which
+    // starts its own; under a cIOS the drive is left as it always was.
+    if (fresh_ios) release_usb_driver();
+    else fatUnmount("usb:");
     AUDIO_StopDMA();
     dolboot_run_line(dol, command_line.data(), static_cast<u32>(command_line.size()));
 }
