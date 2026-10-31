@@ -1928,11 +1928,11 @@ T = {
         "USB入力機器",
         "Dispositivos de entrada USB",
         "Dispositivi di ingresso USB"),
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.": (
-        "Los mandos USB usan archivos controller.ini en el menú y los juegos. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw.",
-        "USBコントローラーはメニューとゲームでcontroller.iniを使います。オフではキーボード、マウス、タブレット、uDrawも使いません。",
-        "Controles USB usam arquivos controller.ini no menu e nos jogos. Desligado também não usa teclados, mouses, mesas digitalizadoras nem a uDraw.",
-        "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."),
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.": (
+        "Los mandos USB usan archivos controller.ini en el menú y los juegos; los mandos de Xbox 360 con cable no necesitan ninguno. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw.",
+        "USBコントローラーはメニューとゲームでcontroller.iniを使います。有線のXbox 360コントローラーには不要です。オフではキーボード、マウス、タブレット、uDrawも使いません。",
+        "Controles USB usam arquivos controller.ini no menu e nos jogos; controles com fio de Xbox 360 não precisam de nenhum. Desligado também não usa teclados, mouses, mesas digitalizadoras nem a uDraw.",
+        "I controller USB usano i file controller.ini nel menu e nei giochi; i controller Xbox 360 con filo non ne hanno bisogno. Spento disattiva anche tastiere, mouse, tavolette e uDraw."),
     "Wii Remote rumble": (
         "Vibración del Wii Remote",
         "Wiiリモコンの振動",
@@ -3768,8 +3768,8 @@ KO = {
     "USB controllers: working": "USB 컨트롤러: 작동 중",
     "USB input devices":
         "USB 입력 장치",
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
-        "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다.",
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 유선 Xbox 360 패드에는 필요 없습니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다.",
     "Wii Remote rumble":
         "Wii 리모컨 진동",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
@@ -5211,8 +5211,8 @@ FR = {
     "USB controllers: working": "Manettes USB : actives",
     "USB input devices":
         "Périphériques USB",
-    "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.":
-        "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté.",
+    "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.":
+        "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux ; les manettes Xbox 360 filaires n'en ont pas besoin. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté.",
     "Wii Remote rumble":
         "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":

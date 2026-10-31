@@ -376,8 +376,28 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
     }
     count = static_cast<u8>(listed);
     HidPadsRemember(hid_devices, count);
+    // And /dev/usb/ven's list (every device that is not HID), for wired
+    // Xbox 360 pads, which need no config.
+    {
+        static usb_device_entry ven[32] ATTRIBUTE_ALIGN(32);
+        u8 ven_count = 0;
+        rthid_device ven_devices[RTHID_DEVICE_MAX];
+        // Only a list with devices in it is news here. libogc's USB is
+        // shut down and started again on the way to a game, and its first
+        // list after that came back empty in Dolphin with the pad plugged
+        // in: taken as an unplug, the game got no Xbox handle. The launch's
+        // own refresh (HidPadsPreload) still notices a real unplug.
+        const bool listed = USB_GetDeviceListUnfiltered(ven, 32, 0xFF, &ven_count) >= 0;
+        if (listed && ven_count != 0) {
+            for (unsigned i = 0; i < ven_count && i < RTHID_DEVICE_MAX; ++i) {
+                ven_devices[i] = {ven[i].device_id, (static_cast<std::uint32_t>(ven[i].vid) << 16) | ven[i].pid};
+            }
+            HidPadsRememberVen(ven_devices, ven_count < RTHID_DEVICE_MAX ? ven_count : RTHID_DEVICE_MAX);
+        }
+    }
+    const std::uint32_t xbox = HidPadsXboxPlugged();
     bool found = false;
-    bool hid_found = false;
+    bool hid_found = xbox != 0;
     for (unsigned i = 0; i < count && i < 32; ++i) {
         char one[16];
         const auto id = hid_devices[i].vid_pid;
@@ -391,6 +411,12 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
         }
     }
     if (devices.empty()) devices = "no devices";
+    if (xbox != 0) {
+        char one[48];
+        std::snprintf(one, sizeof(one), "; Xbox 360 pad %04x:%04x on /dev/usb/ven", static_cast<unsigned>(xbox >> 16),
+                      static_cast<unsigned>(xbox & 65535u));
+        devices += one;
+    }
     return found || hid_found ? AdapterSeen::Found : AdapterSeen::Missing;
 }
 
@@ -626,6 +652,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         out.fd = -1;
         out.version = 5;
     }
+    out.ven_fd = out.fd >= 0 && out.version == 5 ? open_usb_ven_for_game() : -1;
     return true;
 }
 
@@ -667,6 +694,58 @@ bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t&
     return true;
 }
 
+std::int32_t open_usb_ven_for_game() {
+    // Pads plugged in when the game starts, as for the HID pads: no
+    // handle, and nothing more in the game, without one.
+    const std::uint32_t xbox = HidPadsXboxPlugged();
+    if (xbox == 0) return -1;
+    if (std::strcmp(g_usb_path_used, "/dev/usb/ven") == 0) {
+        logf("USB controllers: no Xbox 360 pads in this game: /dev/usb/ven already serves the GameCube adapter.\n");
+        return -1;
+    }
+    if (!usb_buffers() || g_hid_stuck) return -1;
+    s32 fd = 0;
+    g_async_done = false;
+    if (!await_async(IOS_OpenAsync(g_ven_path, 0, on_async, nullptr), fd) || fd < 0) {
+        logf("USB controllers: /dev/usb/ven could not be opened (%d); no Xbox 360 pads in this game.\n",
+             static_cast<int>(fd));
+        return -1;
+    }
+    std::memset(g_version_out, 0, kVersionBytes);
+    DCFlushRange(g_version_out, kVersionBytes);
+    s32 v5 = 0;
+    g_async_done = false;
+    if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, kVersionBytes, on_async,
+                                    nullptr),
+                     v5)) {
+        logf("USB controllers: /dev/usb/ven did not answer its GetVersion; no Xbox 360 pads in this game.\n");
+        return -1;  // left open: closing it could wait too
+    }
+    DCInvalidateRange(g_version_out, kVersionBytes);
+    if (v5 != 0 || g_version_out[0] != GCAD_V5_VERSION) {
+        logf("USB controllers: /dev/usb/ven is not v5 (%d, %08x); no Xbox 360 pads in this game.\n",
+             static_cast<int>(v5), static_cast<unsigned>(g_version_out[0]));
+        IOS_Close(fd);
+        return -1;
+    }
+    logf("USB controllers: /dev/usb/ven v5 fd %d for Xbox 360 pads (%04x:%04x plugged in).\n", static_cast<int>(fd),
+         static_cast<unsigned>(xbox >> 16), static_cast<unsigned>(xbox & 65535u));
+    return fd;
+}
+
+namespace {
+
+// A plan that fails after find_pad_functions gives both USB handles back:
+// the launch goes on without the hook, and nothing else would close them.
+void close_pad_handles(PadHook& out) {
+    if (out.fd >= 0) IOS_Close(out.fd);
+    if (out.ven_fd >= 0) IOS_Close(out.ven_fd);
+    out.fd = -1;
+    out.ven_fd = -1;
+}
+
+}  // namespace
+
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
@@ -689,6 +768,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         IpcSymbols ipc;
         if (!find_ipc_symbols(text, ipc, error)) {
             why = "the game's IOS_IoctlAsync was not found: " + error;
+            close_pad_handles(out);
             return false;
         }
         ioctl_async = ipc.ioctl_async;
@@ -702,7 +782,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // 2. /dev/usb/hid, opened by find_pad_functions.
     if (out.version == 5 && ioctlv_async == 0) {
         why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
-        if (out.fd >= 0) IOS_Close(out.fd);
+        close_pad_handles(out);
         return false;
     }
 
@@ -730,7 +810,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                           "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)", arena2_lo,
                           arena2_end, loader_top);
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
         out.code_base = base;
@@ -747,7 +827,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
                           arena1_hi, mem1_floor, arena2_lo, arena2_end);
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
     }
@@ -757,7 +837,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             std::snprintf(buf, sizeof(buf), "a pack's memory patch at 0x%08x uses the memory it needs",
                           static_cast<unsigned>(p.offset));
             why = buf;
-            if (out.fd >= 0) IOS_Close(out.fd);
+            close_pad_handles(out);
             return false;
         }
     }
@@ -771,7 +851,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     rt_pad_context* ctx = reinterpret_cast<rt_pad_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_PAD_CONTEXT_MAGIC) {
         why = "the pad blob's context is not where its header says";
-        if (out.fd >= 0) IOS_Close(out.fd);
+        close_pad_handles(out);
         return false;
     }
     auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
@@ -793,6 +873,8 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->inited = 0;
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
+    ctx->ven_fd = out.ven_fd;
+
     ctx->idle_reset = out.idle_reset;
     out.active = true;
     logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s\n", h.size, out.code_base,

@@ -60,7 +60,9 @@ int32_t gcad_env_ioctl(gcad* g, uint32_t tag, uint32_t cmd, void* in, uint32_t i
     struct rt_pad_context* c = (struct rt_pad_context*)g->env_ctx;
     pad_ioctl_fn fn = (pad_ioctl_fn)(uintptr_t)c->ioctl_async;
     if (fn == 0) return -1;
-    return fn(c->fd, cmd, in, in_len, out, out_len, c->complete_entry, tag);
+    /* Each link's own handle: /dev/usb/hid's, or /dev/usb/ven's for an
+     * Xbox 360 pad and its list. */
+    return fn(g->fd, cmd, in, in_len, out, out_len, c->complete_entry, tag);
 }
 
 int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t msg_len, void* data,
@@ -78,7 +80,7 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
     vec[1] = msg_len;
     vec[2] = (uint32_t)(uintptr_t)data;
     vec[3] = data_len;
-    return fn(c->fd, cmd, data_in ? 2u : 1u, data_in ? 0u : 1u, vec, c->complete_entry, tag);
+    return fn(g->fd, cmd, data_in ? 2u : 1u, data_in ? 0u : 1u, vec, c->complete_entry, tag);
 }
 
 uint32_t gcad_env_address(gcad* g, void* p) {
@@ -118,8 +120,11 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b) {
 static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
-        gcad_hub_init((gcad_hub*)(void*)g, c, c->fd, c->version, c->ticks_per_ms);
-        if (c->known_dev >= 0) gcad_expect(g, c->known_dev);
+        gcad_hub* hub = (gcad_hub*)(void*)g;
+        gcad_hub_init(hub, c, c->fd, c->version, c->ticks_per_ms);
+        if (c->known_dev != GCAD_NO_DEVICE) gcad_expect(g, c->known_dev);
+        if (c->ven_fd >= 0) gcad_ven_init(g, &hub->ven, hub->xbox, c, c->ven_fd, c->ticks_per_ms);
+
         c->inited = 1;
     }
     return g;

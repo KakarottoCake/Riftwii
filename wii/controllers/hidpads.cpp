@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "riftwii/hidconfig.hpp"
+#include "rtgcad.h"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "pentablet.h"
@@ -121,7 +122,40 @@ bool HidPadsWanted() {
     return Settings().usb_input == "on" && g_published_count.load(std::memory_order_acquire) != 0;
 }
 
+void HidPadsRememberVen(const rthid_device* devices, unsigned count) {
+    if (count > RTHID_DEVICE_MAX) count = RTHID_DEVICE_MAX;
+    const std::uint32_t before = HidPadsXboxPlugged();
+    g_catalog.ven_known_count = count;
+    for (unsigned i = 0; i < count; ++i) g_catalog.ven_known[i] = devices[i];
+    const std::uint32_t now = HidPadsXboxPlugged();
+    if (now != 0 && now != before) {
+        logf("USB controller %04x:%04x: plugged in; an Xbox 360 maker's device, tried as a wired Xbox 360 pad.\n",
+             static_cast<unsigned>(now >> 16), static_cast<unsigned>(now & 65535u));
+    }
+}
+
+void HidPadsRefreshVen() {
+    static usb_device_entry list[RTHID_DEVICE_MAX] __attribute__((aligned(32)));
+    std::uint8_t count = 0;
+    if (USB_GetDeviceListUnfiltered(list, RTHID_DEVICE_MAX, 0xFF, &count) < 0) return;
+    if (count > RTHID_DEVICE_MAX) count = RTHID_DEVICE_MAX;
+    rthid_device devices[RTHID_DEVICE_MAX];
+    for (unsigned i = 0; i < count; ++i) {
+        devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+    }
+    HidPadsRememberVen(devices, count);
+}
+
+std::uint32_t HidPadsXboxPlugged() {
+    if (Settings().usb_input != "on") return 0;
+    for (unsigned i = 0; i < g_catalog.ven_known_count; ++i) {
+        if (gcad_xbox_vendor(g_catalog.ven_known[i].vid_pid >> 16)) return g_catalog.ven_known[i].vid_pid;
+    }
+    return 0;
+}
+
 bool HidPadsConnected() {
+    if (HidPadsXboxPlugged() != 0) return true;
     if (!HidPadsWanted()) return false;
     for (unsigned i = 0; i < g_catalog.known_count; ++i) {
         const std::uint32_t id = g_catalog.known[i].vid_pid;
@@ -133,7 +167,10 @@ bool HidPadsConnected() {
 void HidPadsCopyCatalog(rthid_catalog& out) {
     out = g_catalog;
     out.adapter_disabled = Settings().gc_adapter == "off" ? 1 : 0;
-    if (Settings().usb_input != "on") out.count = 0;
+    if (Settings().usb_input != "on") {
+        out.count = 0;
+        out.ven_known_count = 0;
+    }
 }
 
 void HidPadsPreload(bool refresh_devices) {
@@ -162,6 +199,20 @@ void HidPadsPreload(bool refresh_devices) {
         // A previous menu list cannot prove a pad is still connected.
         HidPadsRemember(nullptr, 0);
     }
+    // libogc's /dev/usb/ven list, for wired Xbox 360 pads: every device
+    // that is not HID, the libogc way (any class but HID).
+    count = 0;
+    if (result >= 0 && USB_GetDeviceListUnfiltered(list, RTHID_DEVICE_MAX, 0xFF, &count) >= 0) {
+        if (count > RTHID_DEVICE_MAX) count = RTHID_DEVICE_MAX;
+        rthid_device devices[RTHID_DEVICE_MAX];
+        for (unsigned i = 0; i < count; ++i) {
+            devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+        }
+        HidPadsRememberVen(devices, count);
+    } else {
+        HidPadsRememberVen(nullptr, 0);
+    }
+
     if (g_preloaded) return;
     g_preloaded = true;
     // Connected pads now have their mappings. Fill remaining slots for

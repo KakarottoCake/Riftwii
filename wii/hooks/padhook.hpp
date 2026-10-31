@@ -71,6 +71,7 @@ struct PadHook {
     std::int32_t fd = -1;            // /dev/usb/hid
     std::uint32_t version = 0;       // 4 or 5
     std::int32_t known_dev = -1;     // the adapter's v5 device id from libogc's list, -1: none
+    std::int32_t ven_fd = -1;        // /dev/usb/ven for Xbox 360 pads, -1: none
     // The way back; return_to_menu 0: off (missing, or a hook failed).
     std::uint32_t return_to_menu = 0;  // OSReturnToMenu
     std::uint32_t sleep_thread = 0;    // OSSleepThread
@@ -133,6 +134,12 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
 // look_for_gc_adapter opened, else a fresh one once libogc's USB has let
 // go. False, with `why`, when /dev/usb/hid could not be opened.
 bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why);
+
+// After take_adapter_handle (v5): /dev/usb/ven for the game's wired Xbox
+// 360 pads, on a handle of its own, or -1 when none was plugged in at the
+// launch (HidPadsXboxPlugged) or the handle failed (logged).
+std::int32_t open_usb_ven_for_game();
+
 
 // Before the <memory> patches, on what find_pad_functions filled in.
 // `arena1_hi` and `arena2_lo` are the arena ends left by the resident

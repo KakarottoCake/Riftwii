@@ -51,9 +51,13 @@ struct gc_gcad {
     gcad g;  /* first: its buffers, 32-byte aligned */
     gcad pads[GCAD_HID_PADS];
     rthid_catalog catalog; /* same prefix as gcad_hub */
+    gcad ven;              /* /dev/usb/ven's list, for Xbox 360 pads */
+    rthid_mapping xbox[GCAD_HID_PADS];
     struct gc_gcad_rq rq[GCAD_REQUESTS] __attribute__((aligned(32)));
     int32_t fd;
+    int32_t ven_fd;         /* /dev/usb/ven, -1: none */
     uint32_t version;       /* 4 or 5 */
+
     int32_t known_dev;      /* -1: none */
     uint32_t ticks_per_ms;
     uint32_t rumble;        /* 1: the game's rumble reaches the adapter's controllers */
