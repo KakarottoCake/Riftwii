@@ -160,6 +160,20 @@ bool ChannelCanInstall(std::string& why) {
     return false;
 }
 
+bool ChannelCanUpdateHere(std::string& why) {
+    if (!ChannelCanInstall(why)) return false;
+    // The installer starts with RiftWii's hardware access and needs it to
+    // read which cIOS slots hold d2x; in update mode it tries no unchecked
+    // slot (no one is there to ask). An installer going back to RiftWii
+    // takes that access away (its IOS58 reload), so a try from that start
+    // could only fail (31 Oct, on a Wii U).
+    if (read32(0x0D800064) != 0xFFFFFFFF) {
+        why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel";
+        return false;
+    }
+    return true;
+}
+
 bool StartChannelInstaller(std::string& error, bool allow_unmarked, bool update) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;

@@ -51,6 +51,10 @@ bool ChannelInstallerPresent(std::string& why);
 // says what is missing.
 bool ChannelCanInstall(std::string& why);
 
+// ChannelCanInstall, and for the update prompt's installer (its "update"
+// argument) also the hardware access it needs to find the d2x cIOS.
+bool ChannelCanUpdateHere(std::string& why);
+
 // Shared refusal text identifies a failed marker write across the warm restart.
 extern const char* const kChannelMarkerError;
 // Starts the installer app. Runs after the menu has closed; returns only

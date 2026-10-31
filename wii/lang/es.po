@@ -1170,6 +1170,9 @@ msgstr "Dolphin comprueba las firmas reales, así que el canal solo se puede ins
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "Para instalar el canal hace falta un cIOS d2x en el slot 249, 250 o 251"
 
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel"
+msgstr "esta vez RiftWii se inició sin acceso al hardware, que el instalador necesita. Inicia RiftWii desde el canal de RiftWii o el Homebrew Channel"
+
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(Registro: sd:/riftwii/session.log)"
 

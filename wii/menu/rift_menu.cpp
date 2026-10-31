@@ -4852,7 +4852,7 @@ static int RequireChannelUpdate(FrontendState& state)
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
-		const bool can = riftwii::wii::ChannelCanInstall(why);
+		const bool can = riftwii::wii::ChannelCanUpdateHere(why);
 		std::string body;
 		if (required)
 			body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.",

@@ -29,7 +29,11 @@ on a package it uses once.
   controller on a Wii U's adapter could press nothing there. If no
   cIOS slot can be checked, update mode takes the safe answer (no unchecked
   cIOS), shows that a d2x cIOS is needed and goes back; RiftWii then says the
-  channel is still old.
+  channel is still old. The slots are checked with RiftWii's hardware access,
+  which a RiftWii started by the installer doesn't have (the installer's
+  IOS58 reload takes it away), so from such a start the prompt offers no
+  **Update now** and says to start RiftWii from the RiftWii channel or the
+  Homebrew Channel.
 - **From the Homebrew Channel:** it is listed as RiftWii Channel Installer.
 
 The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
