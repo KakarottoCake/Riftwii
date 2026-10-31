@@ -732,6 +732,31 @@ T = {
         "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Online > Scarica le copertine mancanti."),
     "Cover": ("Portada", "カバー", "Capa", "Copertina"),
     "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
+    "GameTDB cover": (
+        "Portada de GameTDB",
+        "GameTDBのカバー",
+        "Capa do GameTDB",
+        "Copertina di GameTDB"),
+    "First": (
+        "Primera",
+        "1つ目",
+        "Primeira",
+        "Prima"),
+    "Second": (
+        "Segunda",
+        "2つ目",
+        "Segunda",
+        "Seconda"),
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.": (
+        "Algunos juegos tienen una segunda portada en GameTDB. Tu propio riftwii/covers/{1}.png en la tarjeta SD o la unidad USB va antes que ambas.",
+        "GameTDBに2つ目のカバーがあるゲームもあります。SDカードかUSBドライブにある自分のriftwii/covers/{1}.pngが、どちらよりも先に使われます。",
+        "Alguns jogos têm uma segunda capa no GameTDB. Seu próprio riftwii/covers/{1}.png no cartão SD ou na unidade USB vem antes de ambas.",
+        "Alcuni giochi hanno una seconda copertina su GameTDB. Il tuo riftwii/covers/{1}.png sulla scheda SD o sull'unità USB viene prima di entrambe."),
+    "GameTDB has only one cover for this game.": (
+        "GameTDB solo tiene una portada para este juego.",
+        "GameTDBにあるこのゲームのカバーは1つだけです。",
+        "O GameTDB tem só uma capa para este jogo.",
+        "GameTDB ha una sola copertina per questo gioco."),
     "Downloads this game's box art from GameTDB now.": (
         "Descarga ahora la portada de este juego desde GameTDB.",
         "このゲームのカバーを今すぐGameTDBからダウンロードします。",
@@ -2829,6 +2854,16 @@ KO = {
         "커버",
     "Download again":
         "다시 다운로드",
+    "GameTDB cover":
+        "GameTDB 표지",
+    "First":
+        "첫 번째",
+    "Second":
+        "두 번째",
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.":
+        "GameTDB에 두 번째 표지가 있는 게임도 있습니다. SD 카드나 USB 드라이브에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다.",
+    "GameTDB has only one cover for this game.":
+        "GameTDB에는 이 게임의 표지가 하나뿐입니다.",
     "Downloads this game's box art from GameTDB now.":
         "지금 GameTDB에서 이 게임의 박스 아트를 다운로드하세요.",
     "Downloading the cover...":
@@ -4669,6 +4704,16 @@ FR = {
         "Jacquette",
     "Download again":
         "Re-télécharger",
+    "GameTDB cover":
+        "Jaquette GameTDB",
+    "First":
+        "Première",
+    "Second":
+        "Deuxième",
+    "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.":
+        "Certains jeux ont une deuxième jaquette sur GameTDB. Votre propre riftwii/covers/{1}.png sur la carte SD ou le disque USB passe avant les deux.",
+    "GameTDB has only one cover for this game.":
+        "GameTDB n'a qu'une jaquette pour ce jeu.",
     "Downloads this game's box art from GameTDB now.":
         "Télécharge la jacquette de ce jeu depuis GameTDB.",
     "Downloading the cover...":
@@ -6750,6 +6795,11 @@ T.update({
         "チャンネルのインストーラー ({1}) がないか、破損しています",
         "O instalador do canal ({1}) está ausente ou danificado",
         "L'installer del canale ({1}) è assente o danneggiato"),
+    "{1} could not be read again after the IOS restart": (
+        "{1} no se pudo leer de nuevo tras reiniciar el IOS",
+        "IOSの再起動後、{1} をもう一度読み込めませんでした",
+        "Não foi possível ler {1} novamente após reiniciar o IOS",
+        "Impossibile leggere di nuovo {1} dopo il riavvio dell'IOS"),
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.": (
         "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda.",
         "RiftWiiはインストーラーを開きましたが、終了を確認できていません。問題の報告にsd:/riftwii/channel.logを付けてください。",
@@ -6774,6 +6824,7 @@ T.update({
 })
 KO.update({
     "The channel installer ({1}) is missing or damaged": "채널 설치 프로그램 ({1})이 없거나 손상되었습니다",
+    "{1} could not be read again after the IOS restart": "IOS를 다시 시작한 뒤 {1}을(를) 다시 읽지 못했습니다",
     "The installer ran, but the channel is still version {1}.": "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}입니다.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다.",
@@ -6786,6 +6837,7 @@ KO.update({
 })
 FR.update({
     "The channel installer ({1}) is missing or damaged": "L'installateur de la chaîne ({1}) est absent ou endommagé",
+    "{1} could not be read again after the IOS restart": "Impossible de relire {1} après le redémarrage de l'IOS",
     "The installer ran, but the channel is still version {1}.": "L'installateur a été exécuté, mais la chaîne est toujours en version {1}.",
     "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps.":
         "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile.",

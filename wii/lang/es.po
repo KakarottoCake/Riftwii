@@ -834,6 +834,21 @@ msgstr "Portada"
 msgid "Download again"
 msgstr "Volver a descargar"
 
+msgid "GameTDB cover"
+msgstr "Portada de GameTDB"
+
+msgid "First"
+msgstr "Primera"
+
+msgid "Second"
+msgstr "Segunda"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Algunos juegos tienen una segunda portada en GameTDB. Tu propio riftwii/covers/{1}.png en la tarjeta SD o la unidad USB va antes que ambas."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB solo tiene una portada para este juego."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Descarga ahora la portada de este juego desde GameTDB."
 
@@ -3248,6 +3263,9 @@ msgstr "El instalador se ejecutó, pero el canal sigue en la versión {1}."
 
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "El instalador del canal ({1}) falta o está dañado"
+
+msgid "{1} could not be read again after the IOS restart"
+msgstr "{1} no se pudo leer de nuevo tras reiniciar el IOS"
 
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda."
