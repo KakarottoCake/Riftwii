@@ -202,11 +202,16 @@ bool gx_protected_game(const std::string& id) {
 // PKE meter's tutorial, from a WBFS and an ISO, and the crash recorder
 // alone below its FST did it: without it (debug_off = fault) a tester's
 // Wii played on (2610-350). Its runtime stays in MEM1 (game_runs_no_mem2_code).
+// A game that needs all of MEM1 gets the same: 007 Quantum of Solace
+// (RJ2?52) stopped at "Out of memory: physicalmemory.cpp, line 1303" with
+// the runtime's 108 KiB off MEM1's top (an RVZ, on a tester's Wii and in
+// Dolphin, 2610-769); with the runtime in MEM2 it plays.
 bool game_clears_mem1_top(const std::string& id) {
     const bool by_publisher = id.size() >= 6;
     return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") || id_is(id, "RGQ") ||
            (by_publisher && id_is(id, "RLI") && id.compare(4, 2, "64") == 0) ||
-           (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0);
+           (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0) ||
+           (by_publisher && id_is(id, "RJ2") && id.compare(4, 2, "52") == 0);
 }
 
 // Ghostbusters' SDK: the runtime's code at the top of MEM2 stopped it at
