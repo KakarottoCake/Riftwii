@@ -312,6 +312,27 @@ void test_patch_reads() {
     EXPECT_EQ(gc_programs_patch(&top, 1, tail, 0, 8), 0u);
 }
 
+// A branch to a program's entry + 4 would reach the blob without the
+// program's index in r0.
+void test_branches_to() {
+    std::vector<std::uint8_t> code(16, 0);
+    auto word = [&](std::size_t at, std::uint32_t w) { put32(code, at, w); };
+    const std::uint32_t base = 0x80007100;
+    word(0, 0x3C208032);   // lis r1,0x8032
+    word(4, 0x60211100);   // ori r1,r1,0x1100
+    word(8, 0x60000000);
+    word(12, 0x60000000);
+    std::vector<riftwii::CodeRange> text = {{base, code.data(), code.size()}};
+    EXPECT_TRUE(!riftwii::gc_code_branches_to(text, base + 4));
+    word(12, 0x4BFFFFF8);  // b -8: to base + 4
+    EXPECT_TRUE(riftwii::gc_code_branches_to(text, base + 4));
+    word(12, 0x4182FFF8);  // beq -8
+    EXPECT_TRUE(riftwii::gc_code_branches_to(text, base + 4));
+    word(12, 0x4BFFFFF5);  // bl -12: to base, the entry, which is fine
+    EXPECT_TRUE(!riftwii::gc_code_branches_to(text, base + 4));
+    EXPECT_TRUE(riftwii::gc_code_branches_to(text, base));
+}
+
 void test_resident_words() {
     // Two regions of RiftWii's part (the blob's start, then the ARAM stubs).
     auto region = [](std::uint32_t address, std::vector<std::uint32_t> words) {
@@ -350,6 +371,7 @@ int main() {
     test_sort_patches();
     test_entry_words();
     test_patch_reads();
+    test_branches_to();
     test_resident_words();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

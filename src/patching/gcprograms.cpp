@@ -208,6 +208,29 @@ bool gc_program_entry_words(std::uint32_t entry, std::uint32_t first, std::uint3
     return true;
 }
 
+bool gc_code_branches_to(const std::vector<CodeRange>& text, std::uint32_t target) {
+    for (const CodeRange& range : text) {
+        for (std::size_t i = 0; i + 4 <= range.size; i += 4) {
+            const std::uint32_t word = read_be32(range.bytes + i);
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>(i);
+            const unsigned opcode = word >> 26;
+            const bool absolute = (word & 2) != 0;
+            std::int32_t offset = 0;
+            if (opcode == 18) {
+                offset = static_cast<std::int32_t>(word & 0x03FFFFFC);
+                if (offset & 0x02000000) offset -= 0x04000000;
+            } else if (opcode == 16) {
+                offset = static_cast<std::int16_t>(word & 0xFFFC);
+            } else {
+                continue;
+            }
+            const std::uint32_t to = absolute ? static_cast<std::uint32_t>(offset) : at + offset;
+            if (to == target) return true;
+        }
+    }
+    return false;
+}
+
 std::vector<std::uint32_t> gc_resident_words(const std::vector<GcResidentRegion>& base,
                                              const std::vector<std::vector<GcResidentRegion>>& programs,
                                              const std::vector<std::uint32_t>& excluded) {
