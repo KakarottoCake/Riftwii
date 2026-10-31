@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "rtwlog.h"
+#include "riftwii/hidconfig.hpp"
 
 namespace riftwii {
 namespace {
@@ -147,6 +148,9 @@ std::string message_text(const std::uint8_t* entry) {
     const std::string format = text_field(entry + 40, RTWLOG_FMT_BYTES);
     std::uint32_t args[RTWLOG_ARGS];
     for (std::uint32_t i = 0; i < RTWLOG_ARGS; ++i) args[i] = be32(entry + 12 + 4 * i);
+    if (format == "RiftWii USB controller diagnostic") {
+        return describe_hid_diagnostic(args[0], args[1], static_cast<std::int32_t>(args[2]));
+    }
     const std::uint8_t* strings = entry + 40 + RTWLOG_FMT_BYTES;
 
     const std::vector<Conversion> list = conversions(format);

@@ -12,6 +12,7 @@
 #include "gc_video.h"
 #include "gc_load.h"
 #include "gc_disc.h"
+#include "gc_programs.h"
 #ifdef RT_RVZ
 #include "gc_rvz.h"
 #endif
@@ -667,11 +668,12 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     uint32_t* w = (uint32_t*)(uintptr_t)ctx->trace_buf;
     const struct gc_rt_stream* st = (const struct gc_rt_stream*)(uintptr_t)ctx->stream;
     uint32_t msr, tbu, tbl, i, sector;
+    int diagnostic = 0;
     if (!gc_trace_allowed(ctx->flags, where)) return GC_TRACE_SKIPPED;
     if (ctx->trace_sector == 0 || ctx->trace_count == 0 || w == 0) return GC_TRACE_SKIPPED;
     if (!ctx->io_running && (where == GC_TRACE_READ || where == GC_TRACE_PAD || where == GC_TRACE_AI ||
         where == GC_TRACE_AR || where == GC_TRACE_BEAT || where == GC_TRACE_COMMAND ||
-        where == GC_TRACE_PAD_SI || where == GC_TRACE_DISC)) {
+        where == GC_TRACE_PAD_SI || where == GC_TRACE_DISC || where == GC_TRACE_HID)) {
         ctx->io_trace_where = where;
         gc_io_start(ctx, GC_IO_TRACE);
         return 0;
@@ -846,8 +848,16 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_DISC_DICVR] = ctx->di_regs != 0 ? gc_read32(ctx->di_regs + 4u * GC_DI_CVR) : 0;
         w[GC_TR_DISC_STEP] = dc->state << 24 | (dc->alarm_queued & 0xFFu) << 16 | (dc->looks & 0xFFFFu);
     }
+    if (where == GC_TRACE_HID && ctx->gcad) {
+        struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
+        diagnostic = gc_gcad_trace_record(ad, w);
+    }
     sector = gc_trace_slot(ctx, ctx->trace_seq);
     result = gc_sd_write_locked(ctx, sector, 1, ctx->trace_buf);
+    if (result >= 0 && diagnostic) {
+        struct gc_gcad* ad = (struct gc_gcad*)(uintptr_t)ctx->gcad;
+        gc_gcad_diagnostic_written(ad);
+    }
     ctx->storage_busy = 0;
     gc_irq_restore(msr);
     return result;
@@ -1051,6 +1061,13 @@ static void gc_read_step(struct gc_rt_context* ctx) {
         /* A reset or replacement command may have arrived while IOS was
          * working. Its buffers and progress belong to the new command. */
         if (generation != ctx->read_generation) return;
+        if (ok && ctx->programs != 0) {
+            /* A program the game loads itself, patched as it arrives. */
+            const struct gc_programs* programs = (const struct gc_programs*)(uintptr_t)ctx->programs;
+            ctx->program_patches += gc_programs_patch((const struct gc_disc_patch*)(uintptr_t)programs->patches,
+                                                      programs->patch_count, (uint8_t*)(uintptr_t)ctx->io_buffer,
+                                                      ctx->read_offset, piece);
+        }
         if (ok) {
             gc_copy((uint8_t*)(uintptr_t)ctx->read_addr, (const uint8_t*)(uintptr_t)ctx->io_buffer, piece);
             gc_flush(ctx->read_addr, piece);
@@ -1409,6 +1426,9 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
         }
         gc_guard(ctx);
         gc_vi_note(ctx);
+        /* Games may stop reading pads while loading or while waiting for
+         * a port to appear. Keep USB discovery and its trace moving then. */
+        if (ctx->gcad) gc_gcad_poll(ctx, (struct gc_gcad*)(uintptr_t)ctx->gcad);
         if (ctx->bt && !(ctx->flags & GC_FLAG_FAKE_REMOTE)) {
             struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
             if (bt->stage == GC_BT_STAGE_READY && !gc_bt_wants_frame_polls(bt)) gc_bt_poll(ctx, bt);
@@ -2518,7 +2538,7 @@ static void gc_copy_region(uint32_t to, uint32_t from, uint32_t length) {
  * command under way, the alarms in the old OS's queue, the music stream,
  * the card's transfer, Luigi's Mansion's loads. What the player has (the
  * Wii Remotes, the card's contents) stays. */
-static void gc_forget_game(struct gc_rt_context* ctx) {
+static void gc_forget_game(struct gc_rt_context* ctx, int restart) {
     uint32_t i;
     ctx->commands = 0;  /* the first command after the restart starts the heartbeat again */
     ctx->pending_cb = 0;
@@ -2552,8 +2572,9 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
     ctx->pad_filled_errs = 0xFFFFFFFFu;
     ctx->pad_played = 0;
     /* A two-disc game restarts from disc 1, as MEM1 (its FST, its ID) is
-     * put back as it was at the jump. */
-    if (ctx->disc_change) {
+     * put back as it was at the jump. A program the game starts itself
+     * goes on with the disc that is in. */
+    if (restart && ctx->disc_change) {
         struct gc_disc_change* dc = (struct gc_disc_change*)(uintptr_t)ctx->disc_change;
         gc_disc_restart(dc);
         gc_disc_insert(ctx, dc);
@@ -2719,10 +2740,51 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
     storage_ready = gc_io_drain(ctx, 0);
     /* Neither the snapshot nor the new OS may overwrite late DMA. */
     if (!storage_ready) gc_hot_reset_leave(ctx, 0);
-    gc_forget_game(ctx);
+    gc_forget_game(ctx, 1);
     __asm__ volatile("mr 1,%0\n\tmr 3,%1\n\tb gc_restore_and_start" : : "r"(ctx->restart_stack), "r"(ctx) : "memory");
     for (;;) {
     }
+}
+
+/* A program the game loaded itself starts (gc_programs.h, from
+ * gc_hook_program): EA's loader has read it from the disc, shut its own OS
+ * down (OSResetSystem's shutdown) and jumped to it. Like a restart, the
+ * old program's drive command, alarms, music and card transfer end here,
+ * its I/O drained first so no DMA lands in the new one; then RiftWii's
+ * words in MEM1 become this program's, as the plugin left them for it:
+ * the hooks' replay slots, the context's function addresses, the ARAM
+ * stubs. The interrupts stay off until the new program's OSInit. */
+void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index) {
+    const struct gc_programs* programs = (const struct gc_programs*)(uintptr_t)ctx->programs;
+    uint32_t i;
+    (void)gc_irq_off();
+    /* I/O that will not finish would land in the new program: back to
+     * RiftWii, as Reset does then. */
+    if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
+    if (ctx->card) {
+        struct gc_card* card = (struct gc_card*)(uintptr_t)ctx->card;
+        for (i = 0; i < 3 && card->dirty_count != 0; ++i) gc_card_flush(ctx, card, 1);
+        if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
+    }
+    if (programs != 0 && programs->magic == GC_PROGRAMS_MAGIC && index < programs->program_count) {
+        const uint32_t* addresses = (const uint32_t*)(uintptr_t)programs->addresses;
+        const uint32_t* values = (const uint32_t*)(uintptr_t)programs->values + index * programs->word_count;
+        for (i = 0; i < programs->word_count; ++i) {
+            /* Many are instructions (replay slots, the moved code, the ARAM
+             * stubs) that may have run for the program before: out to
+             * memory, and out of the instruction cache. */
+            *(volatile uint32_t*)(uintptr_t)addresses[i] = values[i];
+            gc_flush(addresses[i], 4);
+            gc_icache_invalidate(addresses[i], 4);
+        }
+    }
+    ctx->program_starts++;
+    ctx->program_current = index + 1;  /* 0: the disc's own */
+    /* The trace's record may write to the card: drained too, as Reset
+     * does, before the old program's state is forgotten. */
+    gc_trace(ctx, GC_TRACE_PROGRAM);
+    if (!gc_io_drain(ctx, 0)) gc_hot_reset_leave(ctx, 0);
+    gc_forget_game(ctx, 0);
 }
 
 /* Test presses: every 240 reads, 10 reads of A, then B, then Start, on

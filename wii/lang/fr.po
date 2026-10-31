@@ -834,6 +834,21 @@ msgstr "Jacquette"
 msgid "Download again"
 msgstr "Re-télécharger"
 
+msgid "GameTDB cover"
+msgstr "Jaquette GameTDB"
+
+msgid "First"
+msgstr "Première"
+
+msgid "Second"
+msgstr "Deuxième"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "Certains jeux ont une deuxième jaquette sur GameTDB. Votre propre riftwii/covers/{1}.png sur la carte SD ou le disque USB passe avant les deux."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB n'a qu'une jaquette pour ce jeu."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "Télécharge la jacquette de ce jeu depuis GameTDB."
 
@@ -2199,8 +2214,8 @@ msgstr "Manettes USB : actives"
 msgid "USB input devices"
 msgstr "Périphériques USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "Les manettes USB utilisent les fichiers controller.ini dans le menu et les jeux ; les manettes Xbox 360 filaires n'en ont pas besoin. Désactivé laisse aussi les claviers, souris, tablettes et uDraw de côté."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrations Télécommande Wii"
@@ -3249,6 +3264,9 @@ msgstr "L'installateur a été exécuté, mais la chaîne est toujours en versio
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "L'installateur de la chaîne ({1}) est absent ou endommagé"
 
+msgid "{1} could not be read again after the IOS restart"
+msgstr "Impossible de relire {1} après le redémarrage de l'IOS"
+
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii a ouvert l'installateur sans en voir la fin. Un rapport de problème avec sd:/riftwii/channel.log est utile."
 
@@ -3671,3 +3689,9 @@ msgstr "Appuyez sur A pour télécharger {1} dans sd:/riftwii/themes. Rien ne ch
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1} est installé. Choisissez-le dans Paramètres > Menu > Thème pour l'utiliser."
+
+msgid "Not applied"
+msgstr "Non appliqué"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "Ce jeu vérifie son propre code. Pour qu'il démarre, les modifications d'image, de langue, de région, de manettes, de jeu en ligne et les codes de triche restent désactivés."

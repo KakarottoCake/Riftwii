@@ -171,10 +171,13 @@ struct ZoomArt {
     bool madeUpBack = false;  // `data` is the cover to make the back up from
 };
 
-ZoomArt ZoomArtFor(const std::string& id, bool back) {
+ZoomArt ZoomArtFor(const std::string& id, const std::string& cover_name, bool back) {
     ZoomArt art;
     if (id.empty()) return art;
-    if (const u8* box = riftwii::wii::BoxTexture(id)) {
+    // The player's own cover (#384) comes before GameTDB's full box.
+    const u8* own = riftwii::wii::CoverTexture(cover_name);
+    if (own && !riftwii::wii::CoverBeforeBox(cover_name)) own = nullptr;
+    if (const u8* box = own ? nullptr : riftwii::wii::BoxTexture(id)) {
         const int from = riftwii::kBoxSpineWidth + (back ? riftwii::kBoxFrontWidth : 0);
         const int width = back ? riftwii::kBoxBackWidth : riftwii::kBoxFrontWidth;
         art.data = box;
@@ -183,7 +186,7 @@ ZoomArt ZoomArtFor(const std::string& id, bool back) {
         art.u0 = static_cast<float>(from) / riftwii::kBoxWidth;
         art.u1 = static_cast<float>(from + width) / riftwii::kBoxWidth;
         art.aspect = static_cast<float>(width) / riftwii::kBoxHeight;
-    } else if (const u8* cover = riftwii::wii::CoverTexture(id)) {
+    } else if (const u8* cover = riftwii::wii::CoverTexture(cover_name)) {
         art.data = cover;
         art.texW = riftwii::kCoverWidth;
         art.texH = riftwii::kCoverHeight;
@@ -770,7 +773,7 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // The stored cover and its frame, drawn at CoverScale() about the tile's middle.
     const float kCoverScale = CoverScale();
     const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
-    const u8* cover = riftwii::wii::CoverTexture(item.id);
+    const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
     // A cover stands on its own: the card's grey edge and shadow, the
     // cover's size, ringed it (plain on a white Wii cover's edge). The
     // card stays for the lit tile's ring and under a tile with no cover.
@@ -959,7 +962,7 @@ void GuiGameGrid::PrefetchCovers() {
     for (const int p : {page + turning, page + 2 * turning, page - turning}) {
         if (p >= 0 && p < Pages()) {
             for (int i = p * kPerPage; i < (p + 1) * kPerPage && i < Count(); ++i)
-                riftwii::wii::CoverPrefetch((*items)[i].id, rank);
+                riftwii::wii::CoverPrefetch(CoverName((*items)[i]), rank);
         }
         ++rank;
     }
@@ -1612,9 +1615,9 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         index = ItemAt(slot);
         // A tile drawn as a name (no cover yet) keeps 1 and 2 for the bar,
         // even when the game's box is already on the card.
-        if (!riftwii::wii::CoverTexture((*items)[index].id)) return false;
+        if (!riftwii::wii::CoverTexture(CoverName((*items)[index]))) return false;
     }
-    if (!ZoomArtFor((*items)[index].id, back).data) return false;  // nothing to show up close
+    if (!ZoomArtFor((*items)[index].id, CoverName((*items)[index]), back).data) return false;  // nothing to show up close
     zoomItem = index;
     zoomSlot = slot;
     zoomBack = back;
@@ -1645,7 +1648,7 @@ void GuiGameGrid::DrawCoverZoom() {
         EndCoverZoom();
         return;
     }
-    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id, zoomBack);
+    const ZoomArt art = ZoomArtFor((*items)[zoomItem].id, CoverName((*items)[zoomItem]), zoomBack);
     if (!art.data) {
         EndCoverZoom();
         return;

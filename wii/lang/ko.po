@@ -834,6 +834,21 @@ msgstr "커버"
 msgid "Download again"
 msgstr "다시 다운로드"
 
+msgid "GameTDB cover"
+msgstr "GameTDB 표지"
+
+msgid "First"
+msgstr "첫 번째"
+
+msgid "Second"
+msgstr "두 번째"
+
+msgid "Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either."
+msgstr "GameTDB에 두 번째 표지가 있는 게임도 있습니다. SD 카드나 USB 드라이브에 있는 내 riftwii/covers/{1}.png가 어느 쪽보다도 먼저 쓰입니다."
+
+msgid "GameTDB has only one cover for this game."
+msgstr "GameTDB에는 이 게임의 표지가 하나뿐입니다."
+
 msgid "Downloads this game's box art from GameTDB now."
 msgstr "지금 GameTDB에서 이 게임의 박스 아트를 다운로드하세요."
 
@@ -2199,8 +2214,8 @@ msgstr "USB 컨트롤러: 작동 중"
 msgid "USB input devices"
 msgstr "USB 입력 장치"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "USB 패드는 메뉴와 게임에서 controller.ini 파일을 사용합니다. 유선 Xbox 360 패드에는 필요 없습니다. 끄면 키보드, 마우스, 태블릿과 uDraw도 사용하지 않습니다."
 
 msgid "Wii Remote rumble"
 msgstr "Wii 리모컨 진동"
@@ -3249,6 +3264,9 @@ msgstr "설치 프로그램이 실행되었지만 채널은 여전히 버전 {1}
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "채널 설치 프로그램 ({1})이 없거나 손상되었습니다"
 
+msgid "{1} could not be read again after the IOS restart"
+msgstr "IOS를 다시 시작한 뒤 {1}을(를) 다시 읽지 못했습니다"
+
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii가 설치 프로그램을 열었지만 완료를 확인하지 못했습니다. sd:/riftwii/channel.log가 포함된 문제 보고가 도움이 됩니다."
 
@@ -3671,3 +3689,9 @@ msgstr "A를 누르면 {1}을(를) sd:/riftwii/themes에 받습니다. 설정 > 
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1}이(가) 설치되었습니다. 사용하려면 설정 > 메뉴 > 테마에서 고르세요."
+
+msgid "Not applied"
+msgstr "적용 안 함"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "이 게임은 자체 코드를 확인합니다. 시작할 수 있도록 화면, 언어, 지역, 컨트롤러, 온라인 및 치트 변경은 적용하지 않습니다."

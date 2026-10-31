@@ -25,9 +25,9 @@
 #include "rtleave.h"
 
 #define RT_PAD_MAGIC 0x52575044u          /* "RWPD" */
-#define RT_PAD_VERSION 4u               /* also in pad_entry.S's header */
+#define RT_PAD_VERSION 5u               /* also in pad_entry.S's header */
 #define RT_PAD_CONTEXT_MAGIC 0x52575043u  /* "RWPC" */
-#define RT_PAD_CONTEXT_BYTES 192u
+#define RT_PAD_CONTEXT_BYTES 256u
 
 /* rt_pad_context.leave_asked: the combo asked for the way back; an
  * OSSleepThread has gone into OSReturnToMenu (rtleave_sleep_leaves: the
@@ -100,6 +100,9 @@ struct rt_pad_context {
      * then) and when (low bit set), both 0 while none is open. */
     uint32_t leave_thread;
     uint32_t leave_asked_at;
+    uint32_t diagnostic_print; /* the installed Wii Remote log's print entry */
+    char diagnostic_format[40]; /* loader-filled marker, decoded at next start */
+    int32_t ven_fd;            /* /dev/usb/ven for Xbox 360 pads, opened by the loader; -1: none */
 };
 
 #ifdef RT_TARGET_PPC
