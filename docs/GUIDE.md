@@ -1535,7 +1535,11 @@ launch:
 - **Resident Evil 4** clears the top of the Wii's main memory at its
   title screen, where RiftWii keeps the code for in-game screenshots,
   the GameCube adapter and crash recording. It gets none of them, and
-  *Return to RiftWii* goes to the Wii Menu instead.
+  *Return to RiftWii* goes to the Wii Menu instead. Its ordinary cheats
+  stay off too: RiftWii's hooks then use the memory the cheat list would
+  go in, and the game starts without them (boot.log: "Codes are off"). A
+  code build whose gameconfig.txt moves the list elsewhere can still run
+  codes.
 - **New Super Mario Bros. Wii** (its disc check), **Resident Evil 4**
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some
