@@ -61,6 +61,10 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RL4P64"));
     EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));
     EXPECT_TRUE(game_clears_mem1_top("RGQE70"));  // Ghostbusters: the hotel's PKE tutorial
+    EXPECT_TRUE(game_clears_mem1_top("RJ2E52"));  // 007 Quantum of Solace: out of memory
+    EXPECT_TRUE(game_clears_mem1_top("RJ2P52"));
+    EXPECT_FALSE(game_clears_mem1_top("RJ2E01"));  // another publisher's RJ2
+    EXPECT_FALSE(game_runs_no_mem2_code("RJ2E52"));
     EXPECT_TRUE(game_runs_no_mem2_code("RGQE70"));
     EXPECT_FALSE(game_runs_no_mem2_code("RB4E08"));
     EXPECT_TRUE(game_needs_most_of_mem2("SMNE01"));
