@@ -52,6 +52,7 @@
 /* Not weak: a weak reference does not pull wiiuse's io.o and events.o out
  * of the archive.  Without the wrappers the link fails on these names. */
 void wiiuse_send_next_command(struct wiimote_t *wm); /* wiiuse's, not in its public header */
+void wiiuse_pressed_buttons(struct wiimote_t *wm, ubyte *msg); /* likewise (events.h) */
 
 int  __real_classic_ctrl_handshake(struct wiimote_t *wm, struct classic_ctrl_t *cc, ubyte *data, uword len);
 void __real_parse_event(struct wiimote_t *wm);
@@ -113,14 +114,149 @@ int __wrap_classic_ctrl_handshake(struct wiimote_t *wm, struct classic_ctrl_t *c
  * (lp_acl_write).  wiiuse sends one command at a time and waits for its
  * answer with no timeout, so a dropped one stops every command after it:
  * an extension's handshake then never ends, and a uDraw (or a Nunchuk) is
- * never seen.  A command that has had no answer for this long goes again. */
-#define RESEND_MS 300
+ * never seen.  A command that has had no answer for this long goes again.
+ *
+ * The wait has to be long and the resend rare.  With four Remotes setting up
+ * at once, a 224-byte read can simply be slow (its answer comes back as up to
+ * 14 chunks); resending it makes the Remote answer twice.  libogc finishes
+ * the read with the first answer and moves on to the next command, then
+ * applies the duplicate's chunks to that command's read with the old offset
+ * and the new address.  The memcpy can write far outside the buffer, into the
+ * 64 KB kernel heap that also holds thread data: the menu hard-freezes with
+ * no crash screen and a dead power button (issue #138).  So a read answer
+ * that is still arriving counts as progress (mark_progress), a chunk that is
+ * not inside the read being waited for is dropped (chunk_matches), and each
+ * command is resent at most once. */
+#define RESEND_MS 1000
 #define WIIMOTES  6
+
+/* From libogc 3.1.0: WM_CMD_READ_DATA and WM_RPT_READ (wiiuse_internal.h). */
+#define READ_CMD     0x17
+#define READ_REPORT  0x21
 
 static struct {
 	const struct cmd_blk_t *cmd;
 	u32 since;
+	bool resent;
+	/* A resent read that ended in an error may get its second error
+	 * answer after libogc has moved on, and that answer would end the next
+	 * read with nothing in it.  The one error answer that can still come is
+	 * withheld, for as long as a resend waits, and only when it names the
+	 * ended read's address and the read now waited on is elsewhere: the
+	 * current read's own error must still end it. */
+	bool echo;
+	u32 echo_at;
+	u32 echo_addr;
 } ud_sent[WIIMOTES];
+
+/* The address and size of a read request, from cmd->data as libogc 3.1.0's
+ * struct op_t lays them out: the command byte, then a packed big-endian u32
+ * address and a big-endian u16 size (cmd_blk_t's data is 48 bytes). */
+static bool read_request(const struct cmd_blk_t *cmd, u32 *addr, u16 *size)
+{
+	const u8 *d;
+
+	if (!cmd || cmd->state != CMD_SENT || cmd->data[0] != READ_CMD)
+		return false;
+	d = cmd->data;
+	*addr = ((u32)d[1] << 24) | ((u32)d[2] << 16) | ((u32)d[3] << 8) | d[4];
+	*size = (u16)(((u16)d[5] << 8) | d[6]);
+	return true;
+}
+
+/* True when a 0x21 report's chunk is one of the read at addr for size.
+ * libogc 3.1.0's events.c gets msg = event_buf + 1, so the size/error byte is
+ * event_buf[3], the big-endian offset event_buf[4..5] and the data
+ * event_buf[6..].  A Remote answers a read in 16-byte pieces from its start,
+ * the last one shorter, so a chunk must start on a piece and be that piece's
+ * length: a late answer to another read inside the range (the 6-byte
+ * expansion ID at 0xFA lies inside the 224-byte read from 0x20) would
+ * otherwise take a piece's place.  An error answer has no chunk and must
+ * still reach libogc so that the failed read can finish. */
+static bool chunk_matches(const struct wiimote_t *wm, u32 addr, u16 size)
+{
+	const u8 *buf = wm->event_buf;
+	u32 offset = ((u32)buf[4] << 8) | buf[5];
+	u32 len = ((buf[3] & 0xf0) >> 4) + 1;
+	u32 base = addr & 0xffff;
+	u32 piece_len;
+
+	if (buf[3] & 0x0f)
+		return true;
+	if (offset < base || offset >= base + size || ((offset - base) & 15))
+		return false;
+	piece_len = base + size - offset;
+	if (piece_len > 16)
+		piece_len = 16;
+	return len == piece_len;
+}
+
+/* The offset a 0x21 report names (event_buf[4..5], big-endian). */
+static u32 report_offset(const struct wiimote_t *wm)
+{
+	return ((u32)wm->event_buf[4] << 8) | wm->event_buf[5];
+}
+
+/* Which 16-byte pieces of the read being waited on have arrived.  A resent
+ * read is answered twice, and libogc 3.1.0 counts every piece it is given
+ * against the read's length, repeats included, so a 224-byte read could end
+ * before all of its own pieces arrived and leave the extension's data part
+ * stale.  A piece seen before is withheld.  Reads longer than 64 pieces
+ * (1 KB; RiftWii's longest is 224 bytes) are not tracked. */
+static struct {
+	const struct cmd_blk_t *cmd;
+	u64 seen;
+} ud_read[WIIMOTES];
+
+/* False when this chunk of the read at addr has already arrived. */
+static bool first_copy(struct wiimote_t *wm, u32 addr)
+{
+	const u8 *buf = wm->event_buf;
+	u32 piece = ((((u32)buf[4] << 8) | buf[5]) - (addr & 0xffff)) >> 4;
+	int i = wm->unid;
+
+	if (i < 0 || i >= WIIMOTES || (buf[3] & 0x0f) || piece >= 64)
+		return true;
+	if (ud_read[i].cmd != wm->cmd_head) {
+		ud_read[i].cmd = wm->cmd_head;
+		ud_read[i].seen = 0;
+	}
+	if (ud_read[i].seen & (1ull << piece))
+		return false;
+	ud_read[i].seen |= 1ull << piece;
+	return true;
+}
+
+/* After an event: once libogc has ended the read (its last piece or an
+ * error moves cmd_head on, and a finished block goes back to the pool only
+ * after that), its record is cleared, so a block reused for a new read
+ * starts with no pieces seen. */
+static void forget_finished_read(struct wiimote_t *wm)
+{
+	int i = wm->unid;
+
+	if (i < 0 || i >= WIIMOTES || !ud_read[i].cmd)
+		return;
+	if (wm->cmd_head != ud_read[i].cmd || wm->cmd_head->state != CMD_SENT) {
+		ud_read[i].cmd = NULL;
+		ud_read[i].seen = 0;
+	}
+}
+
+/* A read answer that is arriving is progress: an answer that is still coming
+ * in must never look stalled, or it gets resent and answered twice. */
+static void mark_progress(struct wiimote_t *wm)
+{
+	int i = wm->unid;
+
+	if (i < 0 || i >= WIIMOTES)
+		return;
+	if (wm->cmd_head != ud_sent[i].cmd) {
+		ud_sent[i].cmd = wm->cmd_head;
+		ud_sent[i].resent = false;
+	}
+	ud_sent[i].since = now_ms();
+}
 
 static void resend_stalled(struct wiimote_t *wm)
 {
@@ -130,15 +266,20 @@ static void resend_stalled(struct wiimote_t *wm)
 	if (i < 0 || i >= WIIMOTES)
 		return;
 	/* Off (TB_SetHooks), the command's wait is not timed: turned on again,
-	 * timing starts afresh. */
+	 * timing starts afresh.  This also resets the count when cmd_head
+	 * changes or a command is completed and later reused, so the same
+	 * pointer coming back starts over. */
 	if (!tb_hooks_on || !cmd || cmd->state != CMD_SENT) {
 		ud_sent[i].cmd = NULL;
+		ud_sent[i].resent = false;
 		return;
 	}
 	if (cmd != ud_sent[i].cmd) {
 		ud_sent[i].cmd = cmd;
 		ud_sent[i].since = now_ms();
-	} else if (now_ms() - ud_sent[i].since > RESEND_MS) {
+		ud_sent[i].resent = false;
+	} else if (!ud_sent[i].resent && now_ms() - ud_sent[i].since > RESEND_MS) {
+		ud_sent[i].resent = true;
 		cmd->state = CMD_READY;
 		ud_sent[i].since = now_ms();
 		wiiuse_send_next_command(wm);
@@ -165,6 +306,46 @@ static int ext_offset(u8 report)
 void __wrap_parse_event(struct wiimote_t *wm)
 {
 	int chan = wm->unid;
+	bool deliver = true;
+	bool was_resent = false;
+	u32 resent_addr = 0;
+	const struct cmd_blk_t *head = wm->cmd_head;
+
+	if (wm->event_buf[0] == READ_REPORT) {
+		struct cmd_blk_t *cmd = wm->cmd_head;
+		bool error = (wm->event_buf[3] & 0x0f) != 0;
+		bool tracked = chan >= 0 && chan < WIIMOTES;
+		u32 addr;
+		u16 size;
+
+		was_resent = tracked && ud_sent[chan].resent && ud_sent[chan].cmd == cmd &&
+		             read_request(cmd, &resent_addr, &size);
+		if (error && tracked && ud_sent[chan].echo && now_ms() - ud_sent[chan].echo_at <= RESEND_MS &&
+		    report_offset(wm) == ud_sent[chan].echo_addr &&
+		    !(read_request(cmd, &addr, &size) && (addr & 0xffff) == ud_sent[chan].echo_addr)) {
+			/* The resent read's second error answer. */
+			ud_sent[chan].echo = false;
+			deliver = false;
+		} else if (read_request(cmd, &addr, &size)) {
+			if (chunk_matches(wm, addr, size)) {
+				/* A repeat from a resend would count twice,
+				 * and is not progress either. */
+				deliver = first_copy(wm, addr);
+				if (deliver)
+					mark_progress(wm);
+			} else {
+				/* A duplicate or stray chunk: libogc would
+				 * memcpy it with this read's address and the
+				 * sender's offset, outside the buffer. */
+				deliver = false;
+			}
+		} else {
+			/* Not an answer to the read we are waiting for.  An
+			 * error answer to that read is passed above, so libogc
+			 * can still end it. */
+			deliver = false;
+		}
+	}
 
 	if (chan >= 0 && chan < CHANNELS && wm->exp.type == EXP_UDRAW) {
 		int off = ext_offset(wm->event_buf[0]);
@@ -182,7 +363,21 @@ void __wrap_parse_event(struct wiimote_t *wm)
 			_CPU_ISR_Restore(level);
 		}
 	}
-	__real_parse_event(wm);
+	if (deliver) {
+		__real_parse_event(wm);
+		/* An error answer that ended a resent read: its twin may follow. */
+		if (was_resent && (wm->event_buf[3] & 0x0f) && wm->cmd_head != head) {
+			ud_sent[chan].echo = true;
+			ud_sent[chan].echo_at = now_ms();
+			ud_sent[chan].echo_addr = resent_addr & 0xffff;
+		}
+	} else {
+		/* A read answer carries the buttons too, and libogc reads them
+		 * before it looks at the read: keep them, so a withheld answer
+		 * loses no press or release. */
+		wiiuse_pressed_buttons(wm, wm->event_buf + 1);
+	}
+	forget_finished_read(wm);
 	resend_stalled(wm);
 	/* unplugged: wiiuse has put the expansion type back to none */
 	if (chan >= 0 && chan < CHANNELS && ud_raw[chan].attached && wm->exp.type != EXP_UDRAW)
