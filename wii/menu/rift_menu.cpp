@@ -4811,6 +4811,7 @@ static int PickInterruptedChannelUpdate(const std::string& body, const std::stri
 static int RequireChannelUpdate(FrontendState& state)
 {
 	state.channel_allow_unmarked = false;
+	state.channel_update_now = false;
 	static bool postponed = false;
 	if (postponed) return MENU_NONE;
 	// A ChannelDone restart with a message: the installer never started
@@ -4886,6 +4887,7 @@ static int RequireChannelUpdate(FrontendState& state)
 			if (markerRefused)
 				logf("Channel: the player accepted opening the installer without interruption detection.\n");
 			logf("Channel: update to %u accepted\n", riftwii::wii::kChannelVersion);
+			state.channel_update_now = true;
 			return MENU_CHANNEL;
 		}
 		// Check again: the card may have been fixed meanwhile.

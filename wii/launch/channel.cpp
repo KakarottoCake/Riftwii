@@ -26,6 +26,7 @@
 #include "menumusic.hpp"
 #include "netsock.hpp"
 #include "restart.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/channelupdate.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/returnstub.hpp"
@@ -159,7 +160,7 @@ bool ChannelCanInstall(std::string& why) {
     return false;
 }
 
-bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
+bool StartChannelInstaller(std::string& error, bool allow_unmarked, bool update) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;
     u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); },
@@ -189,11 +190,18 @@ bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     }
     if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
     else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
+    // From the update prompt the installer gets "update": it updates without
+    // waiting for a button. It reads only the Wii Remote's own buttons and the
+    // Wii's own GameCube ports, so a player with a GameCube controller on a
+    // Wii U's adapter couldn't press one there (31 Oct, on a Wii U).
+    const std::string line = update ? riftwii::app_command_line(kInstaller, {"update"}) : std::string();
+    if (update) logf("Channel: the installer updates at once (its \"update\" argument).\n");
     NetStopForLaunch();
     LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
     AUDIO_StopDMA();
+    if (!line.empty()) dolboot_run_line(dol, line.data(), static_cast<u32>(line.size()));
     dolboot_run(dol, kInstaller);
 }
 
