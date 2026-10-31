@@ -39,4 +39,39 @@ std::vector<GcAramClamp> find_gc_aram_size_clamps(const std::vector<CodeRange>& 
 // end in the raised addresses.
 constexpr std::uint32_t kGcAramRaisedEndWord = 0x3C601100;
 
+// An allocator's top a little below ARAM's end, in the shape EA's ARAM
+// code has (007: NightFire, Nightfire.elf at 0x80033d64; "GC ARAM.cpp"):
+//
+//     bl   ARGetSize          ; lwz r3,d(r13), blr
+//     addi r0,r3,-0x4000      ; 16 KB below the end
+//     mr   r3,r0
+//     stw  r0,top(r13)        ; the top every allocation is checked against
+//
+// With the addresses raised, the first allocation (0x10004000) was past
+// that top (0x00FFC000) and the game stopped in OSPanic, "ARAM Full", on
+// a black screen. Its call answers ARAM's raised end too, so the top is
+// 16 KB below 0x11000000. Taken: an `addi rD,r3,-N` right after the call
+// (N up to 64 KB, a multiple of 32), rD stored to a small-data variable
+// within the next two words. The calls, in address order.
+std::vector<std::uint32_t> find_gc_aram_tops_below_size(const std::vector<CodeRange>& text);
+
+// A pool size from ARAM's base to a fixed end, in the shape 007:
+// NightFire's driving.elf has in its sound code (at 0x80211320):
+//
+//     bl   ARGetBaseAddress   ; li r3,0x4000, blr
+//     addi r6,r3,0x100
+//     lis  r0,0x80            ; the pool's end: 8 MB
+//     ...
+//     subf r0,r6,r0           ; its size: the end less the base
+//
+// With the base raised to 0x10004000 the size came out negative, the
+// driving mission's sound allocations failed and it read through a null
+// pointer while loading. Such an end is raised with the base (`lis
+// r0,0x1080`), so the size stays the same. Taken: a `lis rX,H` (H up to
+// 0x100, an end within 16 MB) in the three words after the call, and a
+// `subf` with rX as the minuend in the four words after the `lis`. Found
+// before the base itself is raised (ARGetBaseAddress is recognised by its
+// `li r3,0x4000`). The `lis` addresses, in address order.
+std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRange>& text);
+
 }  // namespace riftwii

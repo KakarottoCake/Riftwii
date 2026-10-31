@@ -92,6 +92,11 @@ struct GcFstFile {
 // may load. Empty when the table is not whole.
 std::vector<GcFstFile> find_gc_tgc_files(const std::vector<std::uint8_t>& fst, std::size_t max);
 
+// The same for names ending in `suffix`, given in lower case (".elf": the
+// programs a game may load itself, riftwii/gcprograms.hpp).
+std::vector<GcFstFile> find_gc_fst_files_ending(const std::vector<std::uint8_t>& fst, const std::string& suffix,
+                                                std::size_t max);
+
 // The file of a GameCube FST that starts at `offset`; false when none does.
 bool find_gc_fst_file_at(const std::vector<std::uint8_t>& fst, std::uint32_t offset, GcFstFile& out);
 

@@ -23,7 +23,7 @@ HEADER = os.path.join(os.path.dirname(__file__), '..', 'runtime', 'gc', 'gc_rt.h
 MAGIC = 0x52575452  # "RWTR"
 RECORD_BYTES = 512
 WHERE = {1: 'read', 2: 'pad', 3: 'ai', 4: 'ar', 5: 'jump', 6: 'beat', 7: 'fatal', 8: 'command', 9: 'leave',
-         10: 'restart', 11: 'exec', 12: 'pad_si', 13: 'disc'}
+         10: 'restart', 11: 'exec', 12: 'pad_si', 13: 'disc', 14: 'program'}
 PAD_SI_WHERE = 12
 DISC_WHERE = 13
 DISC_NAMES = ['disc_state', 'disc_stops', 'disc_dicvr', 'disc_step']
