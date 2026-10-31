@@ -289,9 +289,11 @@ void __wrap_parse_event(struct wiimote_t *wm)
 
 		if (read_request(cmd, &addr, &size)) {
 			if (chunk_matches(wm, addr, size)) {
-				mark_progress(wm);
-				/* A repeat from a resend would count twice. */
+				/* A repeat from a resend would count twice,
+				 * and is not progress either. */
 				deliver = first_copy(wm, addr);
+				if (deliver)
+					mark_progress(wm);
 			} else {
 				/* A duplicate or stray chunk: libogc would
 				 * memcpy it with this read's address and the
