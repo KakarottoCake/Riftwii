@@ -16,29 +16,29 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Pick a genre on Home, and fixes for USB drives over 2 TiB, Japanese GameCube games' memory cards, and the Wii Menu music after quitting a game. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** USB gamepads play as GameCube controllers, and the RiftWii channel fits a 16:9 Wii Menu. RiftWii is now a USB loader and a Riivolution replacement, and says so. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Picking a genre on Home]({{SCREENSHOTS}}2610-genre-picker.png)
+![Settings > Controllers: USB input devices and Check USB controllers]({{SCREENSHOTS}}2610-usb-controllers.png)
+
+![The RiftWii channel's banner in a 16:9 Wii Menu]({{SCREENSHOTS}}2610-channel-banner.png)
 
 ## What changed
 
-- **Pick a genre on Home.** Hold B (L on a GameCube controller) and press Down or Up: a list of your games' genres opens. Let go of B and Home shows only that genre's games; pick Every genre to see them all again. The genres come from GameTDB's game details.
-- **USB drives over 2 TiB start games again.** A drive that big reports its size in a way RiftWii took for "the drive didn't start", so every USB launch stopped with "d2x can't read the USB drive in this port" (#413). Not tried on such a drive yet.
-- **Japanese GameCube games on a Western Wii or Wii U** see a Japanese console in more games. Super Robot Taisen GC said its memory card save was damaged and asked to format it (#391). Not tried with that game yet; if a Japanese game still complains, a problem report now shows why.
-- **The Wii Menu music and sounds keep working after you quit a game.** When RiftWii came back through its channel, they were replaced by RiftWii's own until it was started again from the Homebrew Channel. Settings > Menu font reads the Wii Menu's font the same new way.
-- **GameCube games kept in another folder** at the top of the SD card or USB drive (for example `game1/<Title [ID]>/game.iso`, as Nintendont names them) are found and listed.
-- **Box names in the Carousel and Shelf** stay on their spines: a far box's name is shortened and made smaller, and a spine seen almost edge-on gets none.
+- **USB gamepads play as GameCube controllers**, as in Nintendont: a PS3 or PS4 pad, a generic USB pad or an arcade stick, in GameCube games, in Wii games that read GameCube controllers, and in the menu. Each pad needs a Nintendont `controller.ini` for its make, in the same format, so the configs you already have work: `sd:/riftwii/controllers/VID_PID.ini`, `sd:/controllers/VID_PID.ini` or `sd:/controller.ini`. A pad with no config isn't guessed at; the log names it and says where its config goes. Settings > Controllers has **USB input devices** to turn this on or off, and **Check USB controllers** shows a pad's buttons so you can check its config. Not tried with real pads on a Wii yet.
+- **The RiftWii channel fits a 16:9 Wii Menu.** Its banner and grid tile were stretched sideways and sat too low; the name now keeps its shape, sits in the middle of what you see, and the line under it shows above the Wii Menu / Start buttons.
+- **No more tearing in the channel's start animation** after you press Start: a frame was sometimes shown half drawn (the flash covering only the top of the screen).
+- **USB LOADER** under the name in the channel banner and on the Homebrew Channel icon, instead of MOD LOADER. The Homebrew Channel listing also says mod packs can go in `usb:/riivolution`.
+- **To update the channel** (version 15): Settings > Help > RiftWii channel on the Wii Menu opens the installer. On a Wii U RiftWii asks you to by itself.
 
 ## What to test
 
-1. **A USB drive bigger than 2 TiB:** do games start?
-2. **A Japanese GameCube game** on a Western console with its memory card: does the save load?
-3. **Quit a game with HOME > Wii Menu** with Wii Menu music on: does the music play when you land back in RiftWii?
-4. **The genre picker** on Home: does it find your games' genres?
+1. **A USB gamepad** with its `controller.ini`: does Check USB controllers show its buttons, and does it play in a GameCube game?
+2. **The RiftWii channel** after updating it: does the banner look right on your TV (16:9 or 4:3), and does the start animation play cleanly?
 
 ## Known issues
 
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. The last release has a likely fix that couldn't be checked in Dolphin; a problem report from anyone who still sees it helps.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad needs a config.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. A likely fix is in; a problem report from anyone who still sees it helps.
 - **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
 - **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.

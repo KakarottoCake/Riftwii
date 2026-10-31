@@ -2002,6 +2002,14 @@ static std::vector<CiosSlotState> readiness_slots(bool sd_card) {
     return slots;
 }
 
+bool mount_usb_files(std::string& error) {
+    if (!g_raw_mounted && !wait_for_usb_drive(5)) {
+        error = "no USB drive answered before the menu font was needed";
+        return false;
+    }
+    return ensure_usb(error);
+}
+
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{};
     out.device = ImageDevice::Usb;

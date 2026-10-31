@@ -41,6 +41,34 @@ struct GxReport {
 // victim ("MetaFortress response!" on a tester's Wii).
 bool gx_protected_game(const std::string& game_id);
 
+// All launch paths use this rule before changing a game's loaded bytes.
+// Only the game's own GX fix and system state outside its image are safe
+// for games whose MetaFortress checks are still present.
+enum class GamePatchKind {
+    PerGameFix,
+    SystemGlobals,
+    VideoModes,
+    Language,
+    RegionVideo,
+    RegionStrings,
+    PictureFilters,
+    Rumble,
+    Speaker,
+    Aspect,
+    Error002,
+    SdCard,
+    Fix480p,
+    Cheats,
+    PackMemory,
+    PackFiles,
+    RuntimeHooks,
+    VirtualSd,
+    Wfc,
+    ReturnTo,
+    Debug
+};
+bool gx_patch_allowed(const std::string& game_id, GamePatchKind kind);
+
 // Kirby's Return to Dream Land checks its code too, but GX patches the
 // checks out of it (gx_game_patches), so changing it is safe afterwards.
 bool gx_kirby_game(const std::string& game_id);
@@ -121,7 +149,8 @@ std::vector<GcCodeFix> gc_code_fixes(const std::string& game_id);
 std::uint32_t game_start_file(const std::string& game_id);
 
 // patch_nsmb, patch_pop, patch_kirby, patch_re4, then anti_002_fix over
-// each loaded part. `dol` is the game's executable as the apploader saw it
+// each loaded part unless the game's code checks forbid that generic fix.
+// `dol` is the game's executable as the apploader saw it
 // (for the WIP codes' file offsets). With `own_executable` (a pack's
 // main.dol in place of the game's) the patches GX writes to fixed
 // addresses (Kirby's, Resident Evil 4's) are left out: that code is not

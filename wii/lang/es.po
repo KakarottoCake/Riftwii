@@ -2214,8 +2214,8 @@ msgstr "Mandos USB: funcionando"
 msgid "USB input devices"
 msgstr "Dispositivos de entrada USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "Los mandos USB usan archivos controller.ini en el menú y los juegos. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "Los mandos USB usan archivos controller.ini en el menú y los juegos; los mandos de Xbox 360 con cable no necesitan ninguno. Desactivado tampoco usa teclados, ratones, tabletas ni la uDraw."
 
 msgid "Wii Remote rumble"
 msgstr "Vibración del Wii Remote"
@@ -3204,8 +3204,8 @@ msgstr "4. Juegos en la carpeta /wbfs o /games."
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x en el slot 249/250/251."
 
-msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
-msgstr "Algunos caracteres no se pueden mostrar sin la fuente completa de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD."
+msgid "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "Falta la fuente de RiftWii. Copia apps/riftwii/font.ttf del zip de RiftWii a la tarjeta SD."
 
 msgid "Bring your Nintendont saves?"
 msgstr "¿Traer tus partidas de Nintendont?"
@@ -3263,6 +3263,9 @@ msgstr "El instalador se ejecutó, pero el canal sigue en la versión {1}."
 
 msgid "The channel installer ({1}) is missing or damaged"
 msgstr "El instalador del canal ({1}) falta o está dañado"
+
+msgid "{1} could not be read again after the IOS restart"
+msgstr "{1} no se pudo leer de nuevo tras reiniciar el IOS"
 
 msgid "RiftWii opened the installer and hasn't seen it finish. A problem report with sd:/riftwii/channel.log helps."
 msgstr "RiftWii abrió el instalador y no ha visto que termine. Un informe del problema con sd:/riftwii/channel.log ayuda."
@@ -3686,3 +3689,9 @@ msgstr "Pulsa A para descargar {1} en sd:/riftwii/themes. Nada cambia hasta que 
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1} está instalado. Elígelo en Ajustes > Menú > Tema para usarlo."
+
+msgid "Not applied"
+msgstr "No se aplica"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "Este juego comprueba su propio código. Para que arranque, no se aplican cambios de imagen, idioma, región, mandos, juego en línea ni trucos."

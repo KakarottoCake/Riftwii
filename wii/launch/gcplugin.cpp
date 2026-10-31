@@ -316,12 +316,15 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     request.hid_catalog_bytes = sizeof(hid_catalog);
     request.adapter_fd = -1;
     request.adapter_dev = -1;
+    request.ven_fd = -1;
     {
-        std::int32_t fd = -1, dev = -1;
+        std::int32_t fd = -1, dev = -1, ven_fd = -1;
         std::uint32_t version = 0;
-        if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev)) {
+        if (TakeGcAdapterForGameCube(image.usb_in_use, fd, version, dev, ven_fd)) {
             HidPadsCopyCatalog(hid_catalog); // includes the final IOS device list
             request.adapter_fd = fd;
+            request.ven_fd = ven_fd;
+
             request.adapter_version = version;
             request.adapter_dev = dev;
             request.adapter_rumble = extras.gc_rumble_off ? 0 : 1;

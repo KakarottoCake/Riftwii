@@ -1,7 +1,11 @@
+Copyright 2021 The M+ FONTS Project Authors (https://github.com/coz-m/MPLUS_FONTS)
 Copyright 2016 The Rounded M+ Project Authors.
 
-rounded.ttf is M PLUS Rounded 1c Bold (Google Fonts), cut down to Latin
-characters for Riftwii's menu. It keeps its own license, below.
+menu.ttf (shipped as font.ttf) is a static weight-600 instance and rounded
+subset of M PLUS 1, with 205 rare characters retained from Rounded 1c.
+M PLUS 1 source: Google Fonts commit e20f9bdde5d8538dcef0c95022d1d3d12acbc453.
+rounded.ttf is the former M PLUS Rounded 1c Bold subset, retained unchanged
+for RiftWii's logo artwork and those rare fallback outlines. Both fonts keep the license below.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
