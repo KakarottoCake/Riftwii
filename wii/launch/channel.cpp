@@ -171,10 +171,13 @@ bool ChannelCanUpdateHere(std::string& why) {
         why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the RiftWii channel or the Homebrew Channel";
         return false;
     }
-    // With that access the installer tries only slots it identifies as d2x;
-    // a ticket alone (another cIOS) would send it back without updating.
+    // With that access the installer tries only slots it identifies as d2x,
+    // so a slot RiftWii read as another cIOS would send it back without
+    // updating. One RiftWii could not read is left to the installer, which
+    // reads them its own way (a Wii U, 31 Oct: RiftWii's reads failed with
+    // -102, and the installer's found d2x in 249-251).
     for (int slot : {249, 250, 251}) {
-        if (slot_has_ticket(slot) && slot_is_d2x(slot)) return true;
+        if (slot_has_ticket(slot) && !slot_known_not_d2x(slot)) return true;
     }
     why = "Installing the channel needs a d2x cIOS in slot 249, 250 or 251";
     return false;

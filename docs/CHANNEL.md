@@ -33,8 +33,9 @@ on a package it uses once.
   which a RiftWii started by the installer doesn't have (the installer's
   IOS58 reload takes it away), so from such a start the prompt offers no
   **Update now** and says to start RiftWii from the RiftWii channel or the
-  Homebrew Channel. With that access, **Update now** also needs a slot that
-  RiftWii identifies as d2x, the only kind the installer tries.
+  Homebrew Channel. With that access, **Update now** is not offered when every
+  slot with a ticket reads as a cIOS that is not d2x, the only kind the
+  installer tries.
 - **From the Homebrew Channel:** it is listed as RiftWii Channel Installer.
 
 The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
