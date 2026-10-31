@@ -82,6 +82,7 @@ riftwii::wii::GcLaunchExtras extras_of(const rwp_gc_launch& request) {
     extras.adapter_fd = request.adapter_fd;
     extras.adapter_version = request.adapter_version;
     extras.adapter_dev = request.adapter_dev;
+    extras.ven_fd = request.ven_fd;
     extras.adapter_rumble = request.adapter_rumble != 0;
     if (request.way_back_kind != RWP_GC_WAY_BACK_NONE) {
         extras.way_back_title = request.way_back_title;

@@ -2199,8 +2199,8 @@ msgstr "Controller USB: funzionanti"
 msgid "USB input devices"
 msgstr "Dispositivi di ingresso USB"
 
-msgid "USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."
-msgstr "I controller USB usano i file controller.ini nel menu e nei giochi. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
+msgid "USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."
+msgstr "I controller USB usano i file controller.ini nel menu e nei giochi; i controller Xbox 360 con filo non ne hanno bisogno. Spento disattiva anche tastiere, mouse, tavolette e uDraw."
 
 msgid "Wii Remote rumble"
 msgstr "Vibrazione del Wii Remote"
@@ -3189,8 +3189,8 @@ msgstr "4. Giochi nella cartella /wbfs o /games."
 msgid "5. A d2x cIOS in slot 249/250/251."
 msgstr "5. Un cIOS d2x nello slot 249/250/251."
 
-msgid "Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
-msgstr "Alcuni caratteri non possono essere mostrati senza il carattere completo di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."
+msgid "RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card."
+msgstr "Manca il carattere di RiftWii. Copia apps/riftwii/font.ttf dallo zip di RiftWii sulla scheda SD."
 
 msgid "Bring your Nintendont saves?"
 msgstr "Portare i salvataggi di Nintendont?"
@@ -3671,3 +3671,9 @@ msgstr "Premi A per scaricare {1} in sd:/riftwii/themes. Non cambia nulla finchÃ
 
 msgid "{1} is installed. Pick it in Settings > Menu > Theme to use it."
 msgstr "{1} Ã¨ installato. Sceglilo in Impostazioni > Menu > Tema per usarlo."
+
+msgid "Not applied"
+msgstr "Non applicato"
+
+msgid "This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start."
+msgstr "Questo gioco controlla il proprio codice. Per avviarlo, le modifiche a immagine, lingua, regione, controller, gioco online e trucchi restano disattivate."

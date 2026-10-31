@@ -566,14 +566,18 @@ the tiles.
 - **Clock**: how Home's clock writes the time: *12-hour* (with AM and
   PM), *24-hour*, or *Automatic*, as the menu's language writes it. Saved
   as `clock = auto`, `12` or `24`.
-- **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
-  writes with, read from your Wii's own memory (nothing is downloaded, and
-  it covers Japanese too). Leaving Settings, RiftWii offers to restart its menu to switch.
-  If the Wii's font can't be read, RiftWii uses its own and says so on
-  Home. Saved as `menu_font = riftwii` or `menu_font = wii`. The first
-  read copies the font to `sd:/riftwii/fontcache/`, and later starts read
-  that copy (quicker, and it needs no hardware access or cIOS). Delete
-  the folder to read it from the Wii again.
+- **Menu font**: *RiftWii* uses M PLUS 1 SemiBold from `font.ttf` beside
+  `boot.dol` on the SD card or USB drive. *Wii Menu* uses your own Wii's
+  font, read from its memory (nothing is downloaded, and it covers Japanese).
+  Leaving Settings, RiftWii offers to restart its menu to switch. Both
+  stay readable while a drive is unmounted or an update replaces the font.
+  If `font.ttf` is missing or damaged, RiftWii uses the Wii Menu font and
+  asks you to copy `apps/riftwii/font.ttf` from the release zip. If neither
+  font can be read, a plain text screen explains how to restore the file.
+  If the Wii Menu font was selected but cannot be read, RiftWii tries its
+  own instead. Saved as `menu_font = riftwii` or `menu_font = wii`. The
+  first NAND read copies the Wii font to `sd:/riftwii/fontcache/`; later
+  starts read that copy. Delete the folder to read from the Wii again.
 - **Quitting a game**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
@@ -1304,6 +1308,13 @@ session to 16 different mappings and four USB pads. Connected devices are
 loaded first. Remaining mapping slots are filled from the two controller
 folders and the single file for pads plugged in during a game. If you keep
 a large config collection, connect the pads you will use before launching.
+
+Plug in at least one mapped pad before starting a game. Config files alone
+do not install the USB controller driver or turn on its diagnostic log.
+A pad plugged in after the game starts works only if the shared driver
+was already installed for a real GameCube adapter or another connected
+mapped pad. Otherwise, leave the game, plug in the pad, and start it again.
+
 The usual button masks, bit or hat D-pads, stick deadzones and radius,
 digital or analog triggers, `Polltype=0/1`, `MultiIn=0/1`, and explicit
 rumble data are supported. Multi-controller report formats (`MultiIn=2/3/4`)
@@ -1311,6 +1322,31 @@ and device-specific packed/signed stick encodings are not supported.
 `Power` is accepted but does not turn off the console. Rumble stays off
 unless the file supplies its commands. The same IOS and USB-drive limits
 as the GameCube adapter apply; real USB pads need checking on a Wii.
+
+### Wired Xbox 360 controllers
+
+Wired Xbox 360 controllers work with no config file while **USB input
+devices** is on: Microsoft's own and wired pads from other makers that
+use the same protocol (PowerA, PDP, Mad Catz, Hori, Razer and others).
+They play in the same places as the USB gamepads above and share their
+four slots and ports. The light ring shows the GameCube port the pad
+plays on, and the game's rumble reaches both motors.
+
+| Xbox 360 | GameCube |
+| --- | --- |
+| A, B, X, Y | A, B, X, Y |
+| LB or RB | Z |
+| LT, RT | L, R (pressing all the way also clicks the button) |
+| Left stick, right stick | Control stick, C-stick |
+| D-pad, Start | D-pad, Start |
+| Guide, or Back with Start | L+R+Z+Start, which held goes back to RiftWii where the way back is on |
+
+As with the other USB pads, plug the controller in before starting a
+game. The session log names it ("an Xbox 360 maker's device, tried as a
+wired Xbox 360 pad") and its port. Wireless Xbox 360 controllers (through
+the Wireless Gaming Receiver) and Xbox One or Series controllers are not
+supported. These pads have been tested in Dolphin, but not yet on a real
+Wii.
 
 ### Wii Remote controls in GameCube games
 

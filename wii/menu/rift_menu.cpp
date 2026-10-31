@@ -6679,7 +6679,7 @@ static int MenuSource(FrontendState& state)
 		// keeps Home's other news, until a game is opened. Here, with the
 		// GUI halted, as the toast and the status line are drawn by it.
 		if (!g_askAfterScan && riftwii::wii::fullfont::TakeMissingNote()) {
-			const std::string fontNote = tr("Some characters cannot be shown without RiftWii's full font. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
+			const std::string fontNote = tr("RiftWii's font is missing. Copy apps/riftwii/font.ttf from the RiftWii zip to the SD card.");
 			SetHomeNotice(fontNote);
 			g_homeNoticeShown = true;
 			toast.Show(fontNote, true);
@@ -7600,6 +7600,53 @@ struct RowRef {
 	std::size_t pkg = 0, opt = 0;
 };
 
+static bool GameRowNotApplied(const std::string& gameId, RowRef::What what)
+{
+	using K = riftwii::GamePatchKind;
+	K kind;
+	switch (what) {
+	case RowRef::What::Width:
+	case RowRef::What::Deflicker:
+	case RowRef::What::Borders:
+		kind = K::PictureFilters;
+		break;
+	case RowRef::What::VideoMode:
+		kind = K::VideoModes;
+		break;
+	case RowRef::What::Language:
+		kind = K::Language;
+		break;
+	case RowRef::What::RegionVideo:
+		kind = K::RegionVideo;
+		break;
+	case RowRef::What::RegionStrings:
+		kind = K::RegionStrings;
+		break;
+	case RowRef::What::Aspect:
+		kind = K::Aspect;
+		break;
+	case RowRef::What::Rumble:
+		kind = K::Rumble;
+		break;
+	case RowRef::What::Speaker:
+		kind = K::Speaker;
+		break;
+	case RowRef::What::Cheats:
+		kind = K::Cheats;
+		break;
+	case RowRef::What::Server:
+		kind = K::Wfc;
+		break;
+	default: return false;
+	}
+	return !riftwii::gx_patch_allowed(gameId, kind);
+}
+
+static const char* ProtectedGameNote()
+{
+	return tr("This game checks its own code. Picture, language, region, controller, online and cheat changes stay off so it can start.");
+}
+
 // The game's video settings: "global" follows Settings, the rest are
 // riftwii/videopatch.hpp's names.
 static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
@@ -7818,7 +7865,15 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	refs.clear();
 	// Made in any order, shown in groups (below).
 	std::vector<std::pair<FlowRow, RowRef>> made;
-	const auto add = [&](FlowRow row, RowRef ref) { made.emplace_back(std::move(row), ref); };
+	const auto add = [&](FlowRow row, RowRef ref) {
+		if (GameRowNotApplied(state.game_id, ref.what)) {
+			row.dim = true;
+			row.on = false;
+			row.kind = FlowRow::Kind::Option;
+			row.value = tr("Not applied");
+		}
+		made.emplace_back(std::move(row), ref);
+	};
 	// Mods first: the reason most games are opened here.
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
@@ -8104,6 +8159,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	heading(tr("Picture"));
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
+	if (settingsOnly && GameRowNotApplied(state.game_id, W::Cheats)) show({W::Cheats});
 	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
 	if (settingsOnly) show({W::Cover});
 	// What RiftWii's extras take of the game's memory this time.
@@ -12638,7 +12694,8 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
 		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		: std::string(tr(SaveLabel(state.model.save_mode).c_str()));
-	const std::string cheats = CheatsValue(game);
+	const std::string cheats = GameRowNotApplied(state.game_id, RowRef::What::Cheats)
+		? std::string(tr("Not applied")) : CheatsValue(game);
 	// Until a patch's game is made: what making it takes, where the mods
 	// count would be.
 	std::string play = tr("Play"), playValue = modsOn;
@@ -12656,7 +12713,7 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		// and its saves stay where the Wii keeps them. Play across the
 		// row, the cheats and the game's settings under it.
 		add(GameTile::Play, kTilesX, 132, kTilesRight - kTilesX, 84, tr("Play"), "", &skin::iconPlay, false);
-		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
+		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 			game.cheats && !game.cheat_names.empty());
 		add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Boot"), ChannelBootLabel(game.nand_source),
 			&skin::iconSaves, game.nand_source != "auto");
@@ -12779,7 +12836,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				(rows[static_cast<std::size_t>(row)].dim || rows[static_cast<std::size_t>(row)].kind == FlowRow::Kind::Info);
 			prompts.SetShown(promptChange, ref.what != RowRef::What::Memory);
 			prompts.SetAction(promptChange, fixedRow ? tr("About this") : tr("Change"));
-			if (ref.what == RowRef::What::Width)
+			if (GameRowNotApplied(state.game_id, ref.what))
+				say(ProtectedGameNote());
+			else if (ref.what == RowRef::What::Width)
 				say(WidthNote(gameSettings.video_width == "global" ? riftwii::wii::Settings().video_width : gameSettings.video_width));
 			else if (ref.what == RowRef::What::Deflicker)
 				say(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
@@ -12859,6 +12918,11 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		}
 		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
 			const RowRef ref = refs[static_cast<std::size_t>(acted)];
+			if (GameRowNotApplied(state.game_id, ref.what)) {
+				say(ProtectedGameNote());
+				ResumeGui();
+				continue;
+			}
 			riftwii::GameSettings& game = state.model.game;
 			// What a reset that cannot be saved puts back.
 			const riftwii::GameSettings beforePress = game;
@@ -13343,7 +13407,10 @@ static int MenuHome(FrontendState& state)
 					say(state.use_channel ? std::string(tr("Starts the game with the cheats and settings shown here.")) : PlayTileNote(state));
 					break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
-				case GameTile::Cheats: say(tr("Cheat codes for this game. Press A to choose them.")); break;
+				case GameTile::Cheats:
+					if (GameRowNotApplied(state.game_id, RowRef::What::Cheats)) say(ProtectedGameNote());
+					else say(tr("Cheat codes for this game. Press A to choose them."));
+					break;
 				case GameTile::Saves:
 					if (state.use_channel) say(ChannelBootNote(state));
 					else if (SelectedGcGame(state)) say(GcSaveNote(state));
@@ -13413,6 +13480,8 @@ static int MenuHome(FrontendState& state)
 				}
 				rebuildTiles();
 				shownTile = -1;
+			} else if (tile == GameTile::Cheats && GameRowNotApplied(state.game_id, RowRef::What::Cheats)) {
+				say(ProtectedGameNote());
 			} else if (tile == GameTile::Mods || tile == GameTile::Cheats || tile == GameTile::Options) {
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
@@ -14839,7 +14908,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
 			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
-			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone.");
+			case kUsbInput: return tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone.");
 			case kNintendontSaves: return tr("Copy saves from Nintendont's memory cards (in sd:/saves or usb:/saves) to RiftWii's. Nintendont's files are not changed.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -15429,7 +15498,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					settings.usb_input = settings.usb_input == "off" ? "on" : "off";
 					// After the save: one that fails puts the setting back, and
 					// the drivers follow what the row shows.
-					saveAndNote(tr("USB pads use controller.ini mappings in the menu and games. Off also leaves keyboards, mice, tablets and the uDraw alone."));
+					saveAndNote(tr("USB pads use controller.ini mappings in the menu and games; wired Xbox 360 pads need none. Off also leaves keyboards, mice, tablets and the uDraw alone."));
 					riftwii::wii::UsbInputSetEnabled(settings.usb_input != "off");
 					rebuild();
 					break;
