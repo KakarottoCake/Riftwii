@@ -16,7 +16,7 @@
 // tinted so the eye finds it first.
 struct TileSpec {
     int x = 0, y = 0, w = 0, h = 0;  // on the 640x480 screen
-    std::string label;
+    std::string label;                          // empty with no value: the icon alone, in the middle
     std::string value;                          // under the name, smaller; empty for none
     const riftwii::wii::skin::Tex* icon = nullptr;  // 28x28
     bool primary = false;

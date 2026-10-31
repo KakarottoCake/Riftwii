@@ -61,13 +61,13 @@ struct ImageCatalog {
     ImageDevice device = ImageDevice::Usb;
     std::vector<ImageGame> games;
     std::string status;
-    // Empty when at least one candidate cIOS slot holds a ticket; otherwise
-    // a user-visible warning that image games cannot boot yet. Presence only:
+    // Whether at least one candidate cIOS slot holds a ticket. Presence only:
     // identity is proven by the launch-time d2x probe, not here.
-    std::string cios_note;
+    CiosReadiness cios = CiosReadiness::Unknown;
     // .ciso files the scan passed over (RiftWii does not play them): Home
     // says so once per start (riftwii/usbgame.hpp).
     CisoFinds ciso;
+    std::vector<ImagePartitionFailure> partition_failures;
 };
 
 struct LaunchSource {
@@ -89,6 +89,9 @@ bool scan_usb_games(UsbCatalog& out, std::string& error);
 // by another loader (a WiiFlow plugin) looks before the drive it just let
 // go of is listed again under the new IOS; the menu reads drives later.
 bool wait_for_usb_drive(int seconds);
+// Mount the menu's USB file view without scanning games. A USB-started
+// app needs font.ttf before its first screen can be drawn.
+bool mount_usb_files(std::string& error);
 // The top folders that pick the legacy usb:/ partition: the user's
 // game_folders, then wbfs, games and riivolution. Other partitions are
 // scanned too, under numbered USB paths.

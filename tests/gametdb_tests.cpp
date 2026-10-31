@@ -218,6 +218,38 @@ static void test_cache_round_trip() {
     EXPECT_EQ(damaged["RSBE01"].players, 0);
 }
 
+static void test_genres() {
+    // The most common first, A to Z among equals; a case difference is
+    // one genre, kept as first spelled.
+    const std::vector<std::vector<std::string>> games = {
+        {"racing", "kart racing"}, {"platformer", "action"}, {"Racing"}, {"action"}, {}, {"puzzle", "puzzle"},
+    };
+    const std::vector<std::string> choices = genre_choices(games);
+    EXPECT_EQ(choices.size(), 5u);
+    if (choices.size() == 5) {
+        EXPECT_EQ(choices[0], "action");
+        EXPECT_EQ(choices[1], "racing");
+        EXPECT_EQ(choices[2], "kart racing");
+        EXPECT_EQ(choices[3], "platformer");
+        EXPECT_EQ(choices[4], "puzzle");
+    }
+    EXPECT_TRUE(has_genre({"racing", "kart racing"}, "Kart Racing"));
+    EXPECT_FALSE(has_genre({"kart racing"}, "racing"));
+    EXPECT_TRUE(genre_choices({}).empty());
+
+    // Down from every genre goes to the first, Up to the last; past either
+    // end comes every genre again.
+    EXPECT_EQ(step_genre(choices, "", 1), "action");
+    EXPECT_EQ(step_genre(choices, "", -1), "puzzle");
+    EXPECT_EQ(step_genre(choices, "action", 1), "racing");
+    EXPECT_EQ(step_genre(choices, "RACING", -1), "action");
+    EXPECT_EQ(step_genre(choices, "puzzle", 1), "");
+    EXPECT_EQ(step_genre(choices, "action", -1), "");
+    // A genre the games shown no longer have starts from every genre.
+    EXPECT_EQ(step_genre(choices, "fishing", 1), "action");
+    EXPECT_EQ(step_genre({}, "action", 1), "");
+}
+
 static void test_locale() {
     EXPECT_EQ(gametdb_locale("en"), "EN");
     EXPECT_EQ(gametdb_locale("ja"), "JA");
@@ -271,6 +303,7 @@ int main() {
     test_scanner_oversized();
     test_cache_round_trip();
     test_locale();
+    test_genres();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

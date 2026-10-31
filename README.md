@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>A mod loader for the Wii.</b> Play Riivolution-format mods from the disc, a USB drive or the SD card.
+  <b>A USB loader and Riivolution replacement for the Wii.</b> Play your games from a USB drive, the SD card or the disc, with or without Riivolution-format mods.
   <br><br>
   <a href="https://github.com/KakarottoCake/Riftwii/releases/latest"><b>Download</b></a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
@@ -49,7 +49,7 @@
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves, or in the same emulated NAND as USB Loader GX's.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
+- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, optional sounds and music read from your own Wii Menu into memory, favourites, recently played, search, letter jumps (hold B, or L on a GameCube controller, and press Left or Right), genres from GameTDB (hold B or L and press Up or Down), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
 - **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), the Wii U GamePad (in the menu), and USB DS3/DS4 pads through fakemote; in the menu, a USB keyboard, mouse or pen tablet, and the uDraw GameTablet.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
 - **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
@@ -114,7 +114,7 @@ contains theirs names them in its file header, and
 - **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
   sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
   controller adapter.
-- **Nintendont** by FIX94 and contributors: the USB HID driver and the
+- **Nintendont** by FIX94 and contributors: the USB HID driver, controller.ini mapping format and the
   GameCube sound program patches, used with its developers' permission.
   **WiiDRC** by FIX94: the Wii U GamePad. **libwiiinput** by quatric: the
   USB keyboard, pen tablet and uDraw GameTablet drivers. **dolxz** by FIX94 (MIT): the
@@ -170,7 +170,8 @@ contains theirs names them in its file header, and
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **GameHacking.org** for the cheat codes RiiConnect24's archive
   lacks (fetched at most once a month, when a game needs them), **M+ Fonts**
-  for the menu font, **Adobe and the Noto authors** for Noto Sans KR
+  for M PLUS 1 SemiBold (the menu font) and M PLUS Rounded 1c Bold (the logo and rare fallback characters),
+  both SIL Open Font License 1.1, **Adobe and the Noto authors** for Noto Sans KR
   (the Korean font, SIL Open Font License 1.1), **Zane Little** for the menu
   music, **Kenney** (kenney.nl) for the controller and button pictures,
   **Wikimedia Commons** for the age rating boards' marks (public domain).

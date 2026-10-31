@@ -323,17 +323,12 @@ bool collect_split_pieces(const std::string& dir, const std::string& primary_lea
     return true;
 }
 
-std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count) {
-    if (!slots) return "No cIOS slot state to check; USB boot needs a d2x cIOS.";
+CiosReadiness cios_readiness(const CiosSlotState* slots, std::size_t count) {
+    if (!slots || count == 0) return CiosReadiness::Unknown;
     for (std::size_t i = 0; i < count; ++i) {
-        if (slots[i].installed) return std::string();
+        if (slots[i].installed) return CiosReadiness::Present;
     }
-    std::string note = "No cIOS found in slots";
-    for (std::size_t i = 0; i < count; ++i) {
-        note += (i == 0 ? " " : ", ") + std::to_string(slots[i].slot);
-    }
-    note += ". USB games need d2x (v11 beta3 is the latest) and will not boot until it is installed.";
-    return note;
+    return CiosReadiness::Missing;
 }
 
 bool is_ciso_image_name(const std::string& name) {
@@ -398,6 +393,29 @@ bool is_gc_image_name(const std::string& name) {
     return has_extension(name, ".iso") || has_extension(name, ".gcm") || has_extension(name, ".rvz");
 }
 
+bool is_gc_game_folder_image_name(const std::string& name) {
+    if (!is_gc_image_name(name)) return false;
+    const std::size_t dot = name.rfind('.');
+    std::string stem = name.substr(0, dot);
+    for (char& c : stem) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return stem == "game" || stem == "disc2";
+}
+
+bool gc_scan_probes_top_folder(const std::string& name) {
+    if (name.empty() || name[0] == '.' || name.find_first_of("/\\:") != std::string::npos) return false;
+    std::string lower = name;
+    for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    static const char* const kNotProbed[] = {
+        "games", "wbfs", "apps", "private", "riftwii", "riivolution", "wiiflow", "usb-loader", "usbloader_gx",
+        "config", "codes", "txtcodes", "saves", "nands", "sneek", "title", "shared1", "shared2", "sys",
+        "ticket", "import", "meta", "tmp", "wad", "wads", "themes", "music", "controllers", "nintendont",
+        "system volume information",
+    };
+    for (const char* skip : kNotProbed)
+        if (lower == skip) return false;
+    return true;
+}
+
 bool gc_scan_should_open(const std::string& path, bool known_wii) {
     if (known_wii) return false;
     const std::string id = id_from_image_path(path);
@@ -413,7 +431,18 @@ bool join_game_path(const std::string& directory, const std::string& name, std::
     return true;
 }
 
-std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images) {
+// In a game's folder: below games/, wbfs/ or one of folder_roots.
+bool in_game_folder_of(const std::string& device, const std::string& d, const std::vector<std::string>& folder_roots) {
+    if (d.compare(0, device.size() + 6, device + "games/") == 0 || d.compare(0, device.size() + 5, device + "wbfs/") == 0)
+        return true;
+    return std::any_of(folder_roots.begin(), folder_roots.end(), [&](const std::string& root) {
+        return root.compare(0, device.size(), device) == 0 && d.size() > root.size() + 1 &&
+               d.compare(0, root.size(), root) == 0 && d[root.size()] == '/';
+    });
+}
+
+std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images,
+                                      const std::vector<std::string>& folder_roots) {
     std::vector<int> hidden_by;
     if (!try_assign(hidden_by, images.size(), -1)) return hidden_by;
     std::vector<std::uint8_t> has_second_disc;
@@ -439,9 +468,8 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
         const std::string directory = image.path.substr(0, slash);
         const std::size_t device_end = image.path.find('/');
         const std::string device = image.path.substr(0, device_end + 1);
+        const auto in_game_folder = [&](const std::string& d) { return in_game_folder_of(device, d, folder_roots); };
         const bool loose = directory == device + "games" || directory == device + "wbfs";
-        const bool nested = directory.compare(0, device.size() + 6, device + "games/") == 0 ||
-                            directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
         for (std::size_t j = 0; j < images.size(); ++j) {
             if (i == j || image.id != images[j].id) continue;
             // Overlapping custom roots can encounter the same file twice.
@@ -458,19 +486,34 @@ std::vector<int> gc_catalog_hidden_by(const std::vector<GcCatalogImage>& images)
             }
             // Prefer a game folder unless that would strand the loose
             // copy's disc 2. Never merge devices or distinct mod folders.
-            const bool other_nested = other_directory.compare(0, device.size() + 6, device + "games/") == 0 ||
-                                      other_directory.compare(0, device.size() + 5, device + "wbfs/") == 0;
+            const bool other_nested = in_game_folder(other_directory);
             if (loose && other_nested && image.disc_number == images[j].disc_number) {
                 if (has_second_disc[i] && !has_second_disc[j]) continue;
                 hidden_by[i] = static_cast<int>(j);
                 break;
             }
-            const bool other_loose = other_directory == device + "games" || other_directory == device + "wbfs";
-            if (nested && other_loose && image.disc_number == 0 && images[j].disc_number == 0 &&
-                !has_second_disc[i] && has_second_disc[j]) {
-                hidden_by[i] = static_cast<int>(j);
-                break;
-            }
+        }
+    }
+    // An incomplete folder copy yields to a loose pair only while that pair
+    // stays visible; if the pair is itself hidden by another folder copy,
+    // the two folder copies remain separate.
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        const GcCatalogImage& image = images[i];
+        if (hidden_by[i] >= 0 || image.disc_number != 0 || has_second_disc[i]) continue;
+        const std::size_t slash = image.path.rfind('/');
+        if (slash == std::string::npos) continue;
+        const std::string device = image.path.substr(0, image.path.find('/') + 1);
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (i == j || hidden_by[j] >= 0 || image.id != images[j].id || images[j].disc_number != 0 ||
+                !has_second_disc[j])
+                continue;
+            const std::size_t other_slash = images[j].path.rfind('/');
+            if (other_slash == std::string::npos) continue;
+            const std::string other_directory = images[j].path.substr(0, other_slash);
+            if (other_directory != device + "games" && other_directory != device + "wbfs") continue;
+            if (!in_game_folder_of(device, image.path.substr(0, slash), folder_roots)) continue;
+            hidden_by[i] = static_cast<int>(j);
+            break;
         }
     }
     return hidden_by;
@@ -668,6 +711,16 @@ bool UsbDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::s
         offset += take; destination += take; length -= take;
     }
     return true;
+}
+
+bool d2x_usb_capacity_available(std::int32_t sectors, std::uint32_t sector_bytes) {
+    if (sectors == -1) {
+        // Only the sizes whose sector 0 the caller can check: a hard drive's
+        // 512 and a DVD drive's 2048. A 4K drive reaches -1 only past 16 TiB.
+        return sector_bytes == 512 || sector_bytes == 2048;
+    }
+    // Counts past 2^31 sectors are negative too; IOS errors stay near zero.
+    return sectors > 0 || sectors < -0x100000;
 }
 
 std::string d2x_sector_size_problem(std::uint32_t sector_bytes, const char* needs) {

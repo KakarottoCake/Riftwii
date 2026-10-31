@@ -46,7 +46,7 @@ OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(O
 PADSRC  := runtime/pad
 PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
-PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rtleave.o $(PADOUT)/rthome.o
+PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o $(PADOUT)/rthid.o $(PADOUT)/rtleave.o $(PADOUT)/rthome.o
 
 # The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
 # functions served from the SD card in Wii mode.
@@ -54,7 +54,7 @@ GCSRC   := runtime/gc
 GCOUT   := $(OUT)/gc
 GCBLOB  := $(OUT)/riftwii_gc.bin
 GCOBJS  := $(GCOUT)/gc_entry.o $(GCOUT)/gc_rt.o $(GCOUT)/gc_bt.o $(GCOUT)/gc_card.o $(GCOUT)/gc_gcad.o \
-           $(GCOUT)/rtgcad.o
+           $(GCOUT)/rtgcad.o $(GCOUT)/rthid.o
 
 # The GameCube blob's RVZ build (docs/RVZ.md, "GameCube games"): the same
 # blob built with RT_RVZ, plus RVZ packing and Zstandard, for GameCube
@@ -64,7 +64,7 @@ GCRVZOUT  := $(OUT)/gcrvz
 GCRVZBLOB := $(OUT)/riftwii_gc_rvz.bin
 GCRVZREL  := $(OUT)/riftwii_gc_rvz.rel
 GCRVZOBJS := $(GCRVZOUT)/gc_entry.o $(GCRVZOUT)/gc_rt.o $(GCRVZOUT)/gc_bt.o $(GCRVZOUT)/gc_card.o \
-             $(GCRVZOUT)/gc_gcad.o $(GCRVZOUT)/rtgcad.o \
+             $(GCRVZOUT)/gc_gcad.o $(GCRVZOUT)/rtgcad.o $(GCRVZOUT)/rthid.o \
              $(GCRVZOUT)/gc_rvz.o $(GCRVZOUT)/rtrvz.o $(GCRVZOUT)/rt_zstd.o
 
 # The in-game screenshot blob (runtime/shot): IOS_IoctlvAsync and PADRead
@@ -221,10 +221,13 @@ $(PADOUT):
 $(PADOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h runtime/rtleave.h runtime/rthome.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
-$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rtleave.h runtime/rthome.h | $(PADOUT)
+$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h runtime/rthid.h runtime/rtleave.h runtime/rthome.h | $(PADOUT)
 	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
 
-$(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(PADOUT)
+$(PADOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h | $(PADOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(PADOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(PADOUT)/rtleave.o: runtime/rtleave.c runtime/rtleave.h | $(PADOUT)
@@ -263,10 +266,13 @@ $(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)
 $(GCOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h | $(GCOUT)
+$(GCOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
 
-$(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(GCOUT)
+$(GCOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(GCOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(GCOUT)/riftwii_gc.elf: $(GCOBJS) $(GCSRC)/gc.ld
@@ -299,10 +305,13 @@ $(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCS
 $(GCRVZOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h | $(GCRVZOUT)
+$(GCRVZOUT)/gc_gcad.o: $(GCSRC)/gc_gcad.c $(GCSRC)/gc_gcad.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
 
-$(GCRVZOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(GCRVZOUT)
+$(GCRVZOUT)/rthid.o: runtime/rthid.c runtime/rthid.h runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(GCRVZOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h runtime/rthid.h | $(GCRVZOUT)
 	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
 
 $(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GCRVZOUT)

@@ -12,6 +12,7 @@
 #include <set>
 
 #include "di.hpp"
+#include "i18n.hpp"
 #include "log.hpp"
 #include "netpacks.hpp"
 #include "progress.hpp"
@@ -560,6 +561,11 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             std::string open_error;
             const OpenStatus opened = provider.open_external(m.valuefile, source, open_error);
             if (opened == OpenStatus::NotFound) {
+                if (!record_missing_mod_input(mod.missing_inputs, xml_sd_path, m.valuefile,
+                                              MissingModInputKind::Memory)) {
+                    error = "There is not enough memory to list the mod's missing files.";
+                    return false;
+                }
                 std::string warning = "memory patch skipped: its file '" + m.valuefile + "' is not on the card";
                 const std::string hint = nearest_on_card(m.valuefile);
                 if (!hint.empty()) warning += " (" + hint + ")";
@@ -618,7 +624,15 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         std::unique_ptr<ByteSource> external;
         std::string open_error;
         if (provider.open_external(patch.external, external, open_error) != OpenStatus::NotFound) ++files_present;
-        else if (first_missing_file.empty()) first_missing_file = patch.external;
+        else {
+            if (first_missing_file.empty()) first_missing_file = patch.external;
+            if (file_patch_targets_disc(patch, fst) &&
+                !record_missing_mod_input(mod.missing_inputs, xml_sd_path, patch.external,
+                                          MissingModInputKind::File)) {
+                error = "There is not enough memory to list the mod's missing files.";
+                return false;
+            }
+        }
     }
     const std::size_t files_missing = expanded.size() - files_present;
     // A memory patch whose valuefile is missing is a code blob the pack's
@@ -638,27 +652,22 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         const std::string folder = path.substr(1, path.find('/', 1) == std::string::npos ? std::string::npos
                                                                                        : path.find('/', 1) - 1);
         const std::string top = device + "/" + folder;
-        const std::string drive = usb ? "USB drive" : "SD card";
         const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
         // In words a player follows: which folder, where it goes, and where
         // a copy that looks like it is (a tester's pack had no folder at all
         // and the message read as a riddle).
-        error = "This mod's files aren't where it looks for them. " + xml_name + " needs a folder called " + folder +
-                " at the top of the " + drive + " (" + top + "), next to the riivolution folder";
-        if (!missing_value.empty()) error += ", with " + device + path + " in it";
-        error += ".";
+        error = tr("{1} needs its mod folder to be {2}.", {xml_name, top});
+        if (!missing_value.empty()) error += "\n" + tr("Required file: {1}", {device + path});
         const std::string pack_dir = PackFolderOf(xml_sd_path);
         const std::string found = usb ? std::string() : similar_folder(folder, pack_dir);
         if (!found.empty() && found.compare(0, top.size() + 1, top + "/") == 0) {
-            error += " Its files are one folder too deep, in " + found + ": move what is inside that folder up into " +
-                     top + ".";
+            error += "\n" + tr("{1} is one folder too deep. Move its contents into {2}.", {found, top});
         } else if (!found.empty() && found.find('/', 4) == std::string::npos) {
-            error += " There is one at " + found + ": rename it to exactly " + folder + ".";
+            error += "\n" + tr("Rename {1} to exactly {2}.", {found, top});
         } else if (!found.empty()) {
-            error += " There is one at " + found + ": move it to the top of the SD card and name it exactly " +
-                     folder + ".";
+            error += "\n" + tr("Move {1} to {2}.", {found, top});
         } else {
-            error += " Copy the " + folder + " folder from the mod's download there.";
+            error += "\n" + tr("Copy the {1} folder from the mod's download so that it is {2} itself.", {folder, top});
             const std::string hint = nearest_on_card(what);
             if (!hint.empty()) error += " (" + hint + ")";
         }

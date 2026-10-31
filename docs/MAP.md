@@ -33,13 +33,14 @@ headers, generated data and assets with the code that uses them.
 | How a list or the tile grid looks or scrolls | `wii/menu/gui_flowlist.cpp`, `wii/menu/gui_gamegrid.cpp`, `wii/menu/skin.cpp` |
 | The game page's and Settings' tiles, the prompts bar | `wii/menu/gui_tiles.cpp`, `wii/menu/gui_prompts.cpp`, `wii/menu/rift_menu.cpp` (`MenuHome`, `SettingsHub`), `src/art/skinpaint.cpp` (tile frames and icons) |
 | Home's shelf, carousel and 3D covers ring; their boxes and 3D cover pictures | `wii/menu/gui_shelf.cpp`, `wii/menu/boxart.cpp`, `wii/menu/cover3d.cpp`, `src/art/coverart.cpp` |
+| A game page's disc art from GameTDB | `wii/menu/discart.cpp`, `src/art/coverart.cpp` |
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
 | A menu that freezes on a console only (the GUI watch, the GX trace, `debug_gx`) | `wii/menu/drawtrace.cpp`, `LogGuiWatch` and `UpdateGUI` in `wii/menu/rift_menu.cpp` |
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | Downloading themes (Settings > Theme > Get more themes) | `wii/menu/themestore.cpp`, `wii/online/httpmem.cpp`, `src/art/themelist.cpp` (themes.json), `src/fs/zipread.cpp` (the zip), `tests/themebrowse_tests.cpp`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
-| The menu font: the core in the DOL, the rest from `font.ttf` on the card | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
+| The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
 | Finding games on the SD card and USB drives | `wii/menu/homescan.cpp` (Home's scan thread), `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/imagevolume.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
 | Riivolution packs: reading the XML | `src/patching/patch.cpp` |
@@ -55,7 +56,7 @@ headers, generated data and assets with the code that uses them.
 | Dragon Quest X on its WFS USB drive ([WFS.md](WFS.md)) | `src/fs/wfs.cpp` (the drive), `src/fs/wfstitle.cpp` (what is installed, the disc's installer partition), `wii/storage/wfsdrive.cpp` (the USB scan's look at the drive), `wii/menu/wfskey.cpp` (the Wii's WFS key), `StartWfsTitle` in `wii/main.cpp` (the start), `tests/wfs_tests.cpp`, `tests/wfstitle_tests.cpp` |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `runtime/gc/gc_rvz.c` (GameCube games), `docs/RVZ.md` |
 | Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py`; the in-app update writes them before the DOL (`plan_update_writes` in `src/net/update.cpp`, `wii/online/online.cpp`) |
-| What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
+| What takes MEM1, and the start-up stash (translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | USB keyboards, USB mice, pen tablets and the uDraw GameTablet in the menu | `wii/controllers/usbinput.cpp` (into player 1's controls, called from `UpdatePads` in `vendor-libgui/source/input.cpp`), `wii/controllers/usbkeyboard.cpp`, `wii/controllers/pentablet.c` and `tablethid.c` (USB tablets), `wii/controllers/udraw.c`; typing in `wii/menu/gui_searchkeys.cpp` |
 | The way back from a Wii game by a GameCube controller (L, R, Z and Start held) | `runtime/rtleave.c` (when it goes: the hold, the save guard; `tests/padleave_tests.cpp`), `runtime/pad/` (the submit, OSSleepThread and OSSuspendThread hooks), `find_way_back` and `install_pad_hook` in `wii/hooks/padhook.cpp`, `find_os_return_to_menu` in `src/patching/symsearch.cpp` |
@@ -113,7 +114,7 @@ The build compiles every folder into one, so no two files share a name.
 | --- | --- |
 | `main.cpp` | Start-up: video, pads, SD card, crash handler, the menu, and what happens when the player leaves |
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
-| `font/` | The menu font (`tools/make_menu_font.py`): `core.ttf`, packed into the DOL by the build, and the whole `rounded.ttf`, shipped as `apps/riftwii/font.ttf` (`wii/menu/fullfont.cpp` reads it) |
+| `font/` | `menu.ttf`: M PLUS 1 SemiBold, shipped as `apps/riftwii/font.ttf` with `OFL.txt` and copied into MEM2 (`fullfont.cpp`); `korean.ttf` and its OFL serve Korean. `rounded.ttf` stays unchanged for logo art and rare fallback outlines when building the menu font. No font data in the DOL. |
 | `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (drawn by KakarottoCake); `rating_*.png`, the age rating boards' marks for the About page (NOTICE.md) |
 
 ### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
@@ -467,12 +468,13 @@ and the `*_mock/` folders provide synthetic files, discs and hardware calls.
 | --- | --- |
 | `lang_source.py` | The translation table: writes `wii/lang/*.po` and checks every string still appears in the code |
 | `make_menu_font.py`, `make_sounds.py` | Build-time assets |
-| `menu_font_chars.py` | Which characters the menu font's core holds; checks `wii/font/core.ttf` (also run by `lang_source.py`) |
+| `japanese_title_chars.txt` | Japanese title characters retained from the previous menu subset |
+| `menu_font_chars.py` | Checks Japanese coverage of `wii/font/menu.ttf` (also run by `lang_source.py`) |
 | `make_sjis_table.py` | The Shift-JIS table for Japanese memory cards' text (`src/fs/sjis_table.inc`) |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
-| `dol_stash.py` | Adds the start-up stash (menu font, translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
+| `dol_stash.py` | Adds the start-up stash (translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
 | `pack_dol.py` | Packs `riftwii.dol` last: each section a Zstandard frame behind the `runtime/dolpack` stub, every frame checked before it is written (`PACK=0` skips it) |
 | `make_release_zip.py`, `make_update_pack.py`, `release_notes.py` | A release: the zip, the in-app update's pack, the notes and the Discord message (run by `.github/workflows/release.yml`) |
 | `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |

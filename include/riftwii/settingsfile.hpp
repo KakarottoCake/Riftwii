@@ -41,6 +41,8 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string launch_music = "on";      // on, off: the music plays on under the launch screen, or fades out as the menu closes
+    std::string page_banner_sound = "off";  // on, off: a game's page plays its banner's sound when opened outside the Channels view
+    std::string disc_art = "off";         // on, off: GameTDB's picture of the game's disc under the box on its page
     // The player's own menu music, picked in Settings or written here:
     // "" for RiftWii's (a theme's, the Wii Menu's or music.ogg), else an
     // .ogg or .mp3 song, an .m3u playlist, or a folder ending in '/' whose
@@ -64,7 +66,7 @@ struct LoaderSettings {
     std::string riitag_id;                // RiiTag: the player's Discord ID, for Settings > Online > My RiiTag; empty for none
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
-    std::string usb_input = "on";         // on, off: USB keyboards, mice and pen tablets, and the uDraw, in the menu (wii/controllers/usbinput.hpp)
+    std::string usb_input = "on";         // on, off: configured USB pads (menu and games), keyboards, mice, pen tablets and uDraw
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::string sd_games = "on";          // on, off: look for game images on the SD card (sd:/wbfs, sd:/games); off for setups that keep games only on USB
     std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts

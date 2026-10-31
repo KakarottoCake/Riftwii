@@ -2671,15 +2671,27 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // above matches only reads of the low two bits, never this bit test,
     // and once the load is replaced nothing later can match it either.
     if (image.id.size() > 3 && image.id[3] == 'J') {
-        const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id);
+        std::vector<GcFontRead> unclassified;
+        const std::vector<GcFontPatch> fonts = find_gc_font_patches(code.ranges(), image.id, &unclassified);
         for (const GcFontPatch& font : fonts) code.put(font.address, font.instruction);
         if (!fonts.empty()) {
             logf("GameCube: %u font choice(s) (OSGetFontEncode, first at 0x%08x) see a Japanese console, so the "
                  "game's system text uses the Shift-JIS font\n",
                  static_cast<unsigned>(fonts.size()), fonts.front().address);
-        } else {
+        } else if (unclassified.empty()) {
             logf("GameCube: no font choice (OSGetFontEncode) found: on a Western console this Japanese game's "
                  "system text may come out garbled\n");
+        }
+        for (const GcFontRead& read : unclassified) {
+            // One complete line per uncertain read makes a problem report
+            // useful even when a different SDK layout has not been seen yet.
+            char words[5 * 9 + 1] = {};
+            for (unsigned index = 0; index < read.word_count; ++index) {
+                std::snprintf(words + index * 9, sizeof(words) - index * 9, "%08x ",
+                              static_cast<unsigned>(read.words[index]));
+            }
+            logf("GameCube: DTV read at 0x%08x was left unchanged because a font-only bit test was not confirmed; "
+                 "the load and following instruction words are %s\n", read.address, words);
         }
     }
 
@@ -2815,6 +2827,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // take their ports before the Wii Remotes.
     if (gcad_addr != 0) {
         auto* ad = static_cast<gc_gcad*>(staged(gcad_addr));
+        if (extras.hid_catalog != nullptr) {
+            std::memcpy(&ad->catalog, extras.hid_catalog, sizeof(ad->catalog));
+        }
         ad->fd = extras.adapter_fd;
         ad->version = extras.adapter_version;
         ad->known_dev = extras.adapter_dev;

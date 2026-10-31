@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "padhook.hpp"
+#include "hidpads.hpp"
 
 #include <gccore.h>
 #include <ogc/cache.h>
@@ -369,18 +370,25 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
         devices = "no list: error " + std::to_string(ret);
         return AdapterSeen::Unknown;
     }
+    rthid_device hid_devices[RTHID_DEVICE_MAX];
+    for (unsigned i = 0; i < count && i < RTHID_DEVICE_MAX; ++i) {
+        hid_devices[i] = {list[i].device_id, (static_cast<std::uint32_t>(list[i].vid) << 16) | list[i].pid};
+    }
+    HidPadsRemember(hid_devices, count);
     bool found = false;
+    bool hid_found = false;
     for (unsigned i = 0; i < count && i < 32; ++i) {
         char one[16];
         std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "", list[i].vid, list[i].pid);
         devices += one;
+        hid_found = hid_found || HidPadsConfigured(hid_devices[i].vid_pid);
         if ((static_cast<std::uint32_t>(list[i].vid) << 16 | list[i].pid) == GCAD_VID_PID && !found) {
             found = true;
             if (list[i].device_id != 0) dev_id = list[i].device_id;
         }
     }
     if (devices.empty()) devices = "no devices";
-    return found ? AdapterSeen::Found : AdapterSeen::Missing;
+    return found || hid_found ? AdapterSeen::Found : AdapterSeen::Missing;
 }
 
 void forget_usb_hid_stuck() { g_hid_stuck = false; }
@@ -444,15 +452,24 @@ AdapterSeen own_adapter_list(std::string& how) {
                           static_cast<unsigned>(gcad_get32(list + i * 12 + 4) & 0xFFFF));
             devices += one;
         }
+        rthid_device hid_devices[RTHID_DEVICE_MAX];
+        bool hid_found = false;
+        for (s32 i = 0; i < count && i < static_cast<s32>(RTHID_DEVICE_MAX); ++i) {
+            hid_devices[i] = {static_cast<std::int32_t>(gcad_get32(list + i * 12)), gcad_get32(list + i * 12 + 4)};
+        }
+        HidPadsRemember(hid_devices, count);
+        for (s32 i = 0; i < count && i < static_cast<s32>(RTHID_DEVICE_MAX); ++i) {
+            hid_found = hid_found || HidPadsConfigured(hid_devices[i].vid_pid);
+        }
         g_own.device = gcad_find_v5(list, static_cast<std::uint32_t>(count));
         // As libogc does after each device change.
         s32 finish = 0;
         g_async_done = false;
         await_async(IOS_IoctlAsync(g_own.fd, GCAD_V5_ATTACH_FINISH, nullptr, 0, nullptr, 0, on_async, nullptr), finish);
-        if (g_own.device >= 0 || attempt == 1 || ms_since_ios_reload() >= 2500) {
-            how = std::string(g_own.device >= 0 ? "plugged in" : "not plugged in") + " (our own " + g_usb_path_used + " v5 lists " +
+        if (g_own.device >= 0 || hid_found || attempt == 1 || ms_since_ios_reload() >= 2500) {
+            how = std::string((g_own.device >= 0 || hid_found) ? "plugged in" : "not plugged in") + " (our own " + g_usb_path_used + " v5 lists " +
                   (devices.empty() ? std::string("no devices") : devices) + ")";
-            return g_own.device >= 0 ? AdapterSeen::Found : AdapterSeen::Missing;
+            return (g_own.device >= 0 || hid_found) ? AdapterSeen::Found : AdapterSeen::Missing;
         }
         // Just after an IOS reload: a fresh handle once more, later.
         close_adapter_session();
@@ -607,6 +624,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
 }
 
 bool take_adapter_handle(std::int32_t& fd, std::uint32_t& version, std::int32_t& known_dev, std::string& why) {
+    HidPadsPreload();
     // The adapter's device, with the IOS the game will run. The menu's
     // USB storage left libogc's device-change requests pending: v5 takes
     // one at a time (Dolphin refuses a second), and their answers would
@@ -687,7 +705,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     //    the MEM2 arena instead, the arena's start (and the build's fixed
     //    addresses) left alone. A pack's patch there turns it off.
     out.code_bytes = align_up(h.size);
-    out.state_bytes = align_up(sizeof(gcad));
+    out.state_bytes = align_up(sizeof(gcad_hub));
     // A code build puts this blob at MEM2's top. The resident runtime's
     // staged data is still there until the jump, so keep below it too.
     const std::uint32_t arena2_end = stage_base != 0 && mem1_veneer != 0
@@ -750,6 +768,9 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         if (out.fd >= 0) IOS_Close(out.fd);
         return false;
     }
+    auto* hub = reinterpret_cast<gcad_hub*>(out.state_base);
+    HidPadsCopyCatalog(hub->catalog);
+    DCFlushRange(hub, out.state_bytes);
     ctx->state = out.state_base;
     ctx->ioctl_async = ioctl_async;
     ctx->ioctlv_async = ioctlv_async;

@@ -16,40 +16,30 @@ Rewrite the intro, What changed, What to test and Known issues for every
 release, then delete the line below: the workflow refuses notes that still
 have it, or that haven't changed since the last release's tag.
 -->
-**RiftWii {{VERSION}}.** Emulators as add-ons with their own settings, covers for emulator games, WiiFlow Lite's emulator plugins, games from every partition of a USB drive, and a few fixes. Every RiftWii offers this update by itself (Settings > Check for a new version).
+**RiftWii {{VERSION}}.** USB gamepads play as GameCube controllers, and the RiftWii channel fits a 16:9 Wii Menu. RiftWii is now a USB loader and a Riivolution replacement, and says so. Every RiftWii offers this update by itself (Settings > Check for a new version).
 
-![Emulator games on Home with their covers]({{SCREENSHOTS}}2610-emulator-covers.png)
+![Settings > Controllers: USB input devices and Check USB controllers]({{SCREENSHOTS}}2610-usb-controllers.png)
+
+![The RiftWii channel's banner in a 16:9 Wii Menu]({{SCREENSHOTS}}2610-channel-banner.png)
 
 ## What changed
 
-### Emulators
-
-- **Emulators as add-ons.** An emulator can come with a `riftwii-emulator.ini` that lists its settings and how to start it. On an emulator game's page you can change those settings for that one game, or for all its games. `docs/EMULATORS.md` says how to write one.
-- **Covers for emulator games.** RiftWii looks on the SD card first (`sd:/riftwii/covers/emulators/<system>/<game>.png`), then in libretro's thumbnails, then on SteamGridDB if you switch that on in Settings > Online.
-- **WiiFlow Lite's emulator plugins work in RiftWii.** If you set up emulators for WiiFlow Lite (`wiiflow/plugins/*.ini`), RiftWii reads those files as emulators, with their games and covers.
-
-### Games and drives
-
-- **Games from every partition of a USB drive.** Before, RiftWii read only one partition. The partition it used before is still `usb:/`; the others are `usb1:/`, `usb2:/` and so on, in their order on the drive. Each game starts from its own partition.
-- **Quitting a game on a d2x cIOS lands back in RiftWii again.** d2x was refusing RiftWii's "come back here" request because it was sent too late.
-
-### Menu
-
-- **Leave a frozen menu without a Wii Remote:** HOME on a Classic Controller, Pro Controller or GamePad, or Start on a GameCube controller.
-- **Menu motion matches on PAL and NTSC TVs**, and the menu has 152 KiB more free memory.
-- **A game-names file that was cut off while downloading** no longer counts as complete; it is read only once it is whole.
+- **USB gamepads play as GameCube controllers**, as in Nintendont: a PS3 or PS4 pad, a generic USB pad or an arcade stick, in GameCube games, in Wii games that read GameCube controllers, and in the menu. Each pad needs a Nintendont `controller.ini` for its make, in the same format, so the configs you already have work: `sd:/riftwii/controllers/VID_PID.ini`, `sd:/controllers/VID_PID.ini` or `sd:/controller.ini`. A pad with no config isn't guessed at; the log names it and says where its config goes. Settings > Controllers has **USB input devices** to turn this on or off, and **Check USB controllers** shows a pad's buttons so you can check its config. Not tried with real pads on a Wii yet.
+- **The RiftWii channel fits a 16:9 Wii Menu.** Its banner and grid tile were stretched sideways and sat too low; the name now keeps its shape, sits in the middle of what you see, and the line under it shows above the Wii Menu / Start buttons.
+- **No more tearing in the channel's start animation** after you press Start: a frame was sometimes shown half drawn (the flash covering only the top of the screen).
+- **USB LOADER** under the name in the channel banner and on the Homebrew Channel icon, instead of MOD LOADER. The Homebrew Channel listing also says mod packs can go in `usb:/riivolution`.
+- **To update the channel** (version 15): Settings > Help > RiftWii channel on the Wii Menu opens the installer. On a Wii U RiftWii asks you to by itself.
 
 ## What to test
 
-1. **Games on a second USB partition**, if your drive has more than one: do they show on Home and start? Wii games (WBFS, ISO, RVZ, split files) and GameCube games.
-2. **4 players:** play a game with four Wii Remotes, or four GameCube controllers, or a mix. Do all four work all the way through?
-3. **Emulators:** if you use WiiFlow Lite plugins or add an emulator, do the games show with covers and start?
-4. **Quit a game** with HOME > Wii Menu on a d2x cIOS: do you land back in RiftWii?
-5. **Retro Rewind online from the disc:** does it connect? If it shows an error, please send a problem report right after.
+1. **A USB gamepad** with its `controller.ini`: does Check USB controllers show its buttons, and does it play in a GameCube game?
+2. **The RiftWii channel** after updating it: does the banner look right on your TV (16:9 or 4:3), and does the start animation play cleanly?
 
 ## Known issues
 
-- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. We're looking into it; a problem report from anyone who sees it helps.
+- **USB gamepads:** `MultiIn` 2 to 4 and pads that pack their sticks in their own way aren't supported yet; a pad needs a config.
+- **Retro Rewind online from the disc** gave one tester error 50330 on a Wii U. A likely fix is in; a problem report from anyone who still sees it helps.
+- **WADs:** Korean and vWii-only WADs aren't read yet. WADs need an SD card for the emulated NAND.
 - **Emulators and other USB partitions:** some emulators may not understand `usb1:/` or `usb2:/` paths for games on a second partition.
 - **GameCube is a trial:** some games may not start or may stop. Send a problem report from Settings > Help when one doesn't.
 - **The channel installer goes black on some Wii U consoles** (#317). RiftWii offers Not now instead of locking you out, but the cause isn't confirmed: `sd:/riftwii/channel.log` in a problem report helps.
@@ -60,8 +50,6 @@ have it, or that haven't changed since the last release's tag.
 - **Pokémon Channel** stops on The Pokémon Company logo (#194).
 - **Cars 2 is cursed:** it goes black if RiftWii changes anything in it. RiftWii warns before you play it (and Toy Story 3 and Disney Infinity, which share its engine).
 - **Ghostbusters from an RVZ** can still freeze in the hotel: play it from an ISO or WBFS.
-
-![An emulator game's own settings]({{SCREENSHOTS}}2610-emulator-settings.png)
 
 ## Download
 
