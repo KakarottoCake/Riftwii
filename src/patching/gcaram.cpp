@@ -71,4 +71,53 @@ std::vector<GcAramClamp> find_gc_aram_size_clamps(const std::vector<CodeRange>& 
     return found;
 }
 
+std::vector<std::uint32_t> find_gc_aram_ends_after_base(const std::vector<CodeRange>& text) {
+    const Words code(text);
+    std::vector<std::uint32_t> found;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        const std::uint32_t getter = bl_target(a, w);
+        const bool base_getter = getter != 0 && code.has(getter + 4) && code.at(getter) == 0x38604000 &&
+                                 code.at(getter + 4) == kBlr;  // li r3,0x4000; blr
+        if (!base_getter) return;
+        for (std::uint32_t b = a + 4; b <= a + 12 && code.has(b); b += 4) {
+            const std::uint32_t lis = code.at(b);
+            const std::uint32_t end = lis & 0xFFFF;
+            if ((lis & 0xFC1F0000) != 0x3C000000 || end == 0 || end > 0x100) continue;  // lis rX,H
+            const std::uint32_t end_reg = (lis >> 21) & 31;
+            bool subtracted = false;
+            for (std::uint32_t c = b + 4; c <= b + 16 && code.has(c); c += 4) {
+                const std::uint32_t x = code.at(c);
+                const bool subf = (x & 0xFC0007FE) == 0x7C000050;  // subf rD,rA,rB: rB - rA
+                if (subf && ((x >> 11) & 31) == end_reg) subtracted = true;
+            }
+            if (subtracted) found.push_back(b);
+        }
+    });
+    return found;
+}
+
+std::vector<std::uint32_t> find_gc_aram_tops_below_size(const std::vector<CodeRange>& text) {
+    const Words code(text);
+    std::vector<std::uint32_t> found;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        const std::uint32_t getter = bl_target(a, w);
+        if (getter == 0 || !is_r13_word_getter(code, getter) || !code.has(a + 4)) return;
+
+        // addi rD,r3,-N: the top, N below what ARGetSize answered.
+        const std::uint32_t below = code.at(a + 4);
+        const bool addi_from_r3 = (below >> 26) == 14 && ((below >> 16) & 31) == 3;
+        const std::int32_t delta = static_cast<std::int16_t>(below & 0xFFFF);
+        if (!addi_from_r3 || delta >= 0 || delta < -0x10000 || (delta & 31) != 0) return;
+        const std::uint32_t top_reg = (below >> 21) & 31;
+
+        // stw rD,top(r13) within the next two words.
+        const std::uint32_t store = 0x900D0000 | (top_reg << 21);  // stw rD,d(r13), d masked out
+        bool stored = false;
+        for (std::uint32_t b = a + 8; b <= a + 12 && code.has(b); b += 4)
+            if ((code.at(b) & 0xFFFF0000) == store) stored = true;
+        if (stored) found.push_back(a);
+    });
+    return found;
+}
+
 }  // namespace riftwii
