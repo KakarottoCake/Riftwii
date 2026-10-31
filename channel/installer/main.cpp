@@ -40,6 +40,12 @@ int g_cios;  // the cIOS slot this runs under, 0 if none
 // still offered there, but the screen doesn't claim a d2x.
 bool g_cios_identified;
 bool g_ios_state_safe = true;
+// Started by RiftWii's update prompt with "update": the player chose Update
+// there already, so nothing here waits for a button. This installer reads
+// only the Wii Remote's own buttons and the Wii's own GameCube ports, and a
+// Wii U's vWii has no GameCube ports: a player with only a GameCube
+// controller on an adapter could press nothing here (31 Oct, on a Wii U).
+bool g_update;
 
 enum Button { kNone, kInstall, kRemove, kBack };
 Button wait_button();
@@ -90,6 +96,11 @@ void init_pads() {
     WPAD_Init();
     PAD_Init();
     g_pads = true;
+}
+
+// Keeps what's on screen up for a while, so the player can read it.
+void show_for_seconds(int seconds) {
+    for (int frame = 0; frame < seconds * 60; ++frame) VIDEO_WaitVSync();
 }
 
 void shutdown_pads() {
@@ -154,6 +165,13 @@ void enter_cios() {
     // player may choose the old ticket fallback after an explicit warning.
     // Each attempt is logged first, so a hang still leaves its slot behind.
     if (!any_read) {
+        if (g_update) {
+            // No one to ask: the safe answer. Without a cIOS the update screen
+            // says why before going back; RiftWii then says the channel is
+            // still the old version, and the installer can be opened by hand.
+            installer::Log("No cIOS slot could be checked; in update mode the unchecked ticket fallback is not tried.\n");
+            return;
+        }
         installer::Log("No cIOS slot could be checked; waiting for permission to try slots with a ticket.\n");
         std::printf("\n  An unchecked cIOS can freeze the console; if it does, hold\n"
                     "  POWER to turn it off.\n\n");
@@ -326,12 +344,15 @@ void Log(const char* format, ...) {
 
 }  // namespace installer
 
-int main() {
+int main(int argc, char** argv) {
     const bool dolphin = in_dolphin();
+    for (int i = 1; i < argc; ++i)
+        if (argv[i] && std::string(argv[i]) == "update") g_update = true;
     video_init();
     mount_sd();
     installer::Log("RiftWii Channel Installer %u, IOS%d revision %d\n", installer::PackageVersion(),
                    IOS_GetVersion(), IOS_GetRevision());
+    if (g_update) installer::Log("Started by RiftWii's update prompt: updating without waiting for a button.\n");
     installer::Log("The starting AHBPROT register is 0x%08x.\n", static_cast<unsigned>(read32(0x0D800064)));
     std::printf("  RiftWii Channel Installer: checking d2x cIOS slots...\n");
     if (!dolphin) enter_cios();
@@ -346,6 +367,23 @@ int main() {
         note = "Dolphin checks real signatures, so the channel can only be\n  installed on a Wii.";
     } else if (!g_cios) {
         note = "\x1b[33mThis needs a d2x cIOS in slot 249, 250 or 251 (the one\n  RiftWii uses).\x1b[37m";
+    }
+    if (g_update) {
+        // The update the player already chose in RiftWii, then the result on
+        // screen for a few seconds and back to RiftWii, all without a button.
+        if (g_ios_state_safe && !dolphin && g_cios) {
+            screen("\x1b[36mUpdating...\x1b[37m", "");
+            std::string error;
+            const bool updated = installer::Install(error);
+            status = updated ? "\x1b[32mDone. The RiftWii channel is on the Wii Menu.\x1b[37m"
+                             : "\x1b[31mNot updated: " + error + ".\x1b[37m Nothing else on the Wii changed.";
+            installer::Log("Update mode: %s.\n", updated ? "the channel was updated" : error.c_str());
+        } else {
+            installer::Log("Update mode: the channel could not be updated here.\n");
+        }
+        screen(status, note + (note.empty() ? "" : "\n\n  ") + "Going back to RiftWii...");
+        show_for_seconds(4);
+        leave();
     }
     for (;;) {
         screen(status, note);
