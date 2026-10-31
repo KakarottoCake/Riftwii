@@ -26,7 +26,7 @@
 #include "gc_load.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 10u                /* also in gc_entry.S's header */
+#define GC_RT_VERSION 11u                /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The way back owns its IPC memory even when storage DMA is quarantined. */
@@ -114,6 +114,13 @@ struct gc_rt_header {
     uint32_t hook_si_probe;         /* SIProbe(chan): the original, then gc_on_si_probe (gc_ports_probe) */
     uint32_t replay_si_probe;
     uint32_t continue_si_probe;
+    /* A program the game loaded itself starts (gc_programs.h): its first
+     * two words jump here with its index in r0; gc_on_program_start, then
+     * those two words from the replay slot. */
+    uint32_t hook_program;
+    uint32_t replay_program;
+    uint32_t continue_program;
+    uint32_t program_saved;         /* GC_PROGRAM_SAVED_BYTES (gc_layout.h); its stack word loader-written */
 };
 
 /* libogc. A game built on libogc (Sonic Riders Tournament Edition, a
@@ -262,6 +269,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_TRACE_PAD_SI 12u /* a pad record with the crash-word overlay above */
 #define GC_TRACE_DISC 13u   /* a two-disc game's disc change moved on (gc_disc.h) */
 #define GC_TRACE_HID 14u    /* crash_r1 overlay: VID/PID, diagnostic, result, pad slot */
+#define GC_TRACE_PROGRAM 15u /* a program the game loaded itself starts (gc_programs.h) */
 /* The last records of the trace go round; the others stay. */
 #define GC_TRACE_RING 16u
 
@@ -640,6 +648,13 @@ struct gc_rt_context {
     uint32_t io_buffers_idle; /* checkpoint/modelled wait: private controller requests may run */
     uint32_t io_stream_restart; /* a leave discarded an unpublished ring top-up */
     uint8_t io_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
+    /* Programs the game loads itself (gc_programs.h): their struct
+     * gc_programs in MEM2 (loader-placed, 0: none), how many have started,
+     * the one running (0: the disc's own) and the patches put into reads. */
+    uint32_t programs;
+    uint32_t program_starts;
+    uint32_t program_current;
+    uint32_t program_patches;
 };
 
 /* It fits the room gc_entry.S keeps (gc_layout.h); the rest stays zero. */
@@ -668,6 +683,7 @@ uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 void gc_on_reset_system(struct gc_rt_context* ctx, uint32_t* args);
 void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code);
 void gc_on_boot_dol(struct gc_rt_context* ctx, uint32_t* args);
+void gc_on_program_start(struct gc_rt_context* ctx, uint32_t index);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);
 void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context);
