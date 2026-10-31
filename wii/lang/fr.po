@@ -1437,6 +1437,9 @@ msgstr "La plupart des mods de code, comme Project+, marchent avec les extras de
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii."
 
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "Cette réponse n'a pas été gardée : sd:/riftwii/codemods.txt ne peut pas la prendre pour l'instant."
+
 msgid "Asked at the first Start"
 msgstr "Demandé au premier démarrage"
 

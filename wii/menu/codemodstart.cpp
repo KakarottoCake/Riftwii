@@ -105,11 +105,12 @@ CodeModStart SharedCodeModAnswer(const std::string& game_id, const std::vector<s
     return shared_code_mod_answer(Answers(), game_id, keys);
 }
 
-bool SetCodeModAnswer(const std::string& game_id, const std::string& key, CodeModStart start) {
-    if (g_held) return false;
+CodeModAnswerKept SetCodeModAnswer(const std::string& game_id, const std::string& key, CodeModStart start) {
+    if (g_held) return CodeModAnswerKept::NotKept;
     Answers();
-    if (!set_code_mod_answer(g_answers, game_id, key, start)) return false;
-    return Save();
+    // A full file takes no new answer, and nothing changes in memory either.
+    if (!set_code_mod_answer(g_answers, game_id, key, start)) return CodeModAnswerKept::NotKept;
+    return Save() ? CodeModAnswerKept::Saved : CodeModAnswerKept::UntilClose;
 }
 
 void ForgetCodeModAnswers() {
@@ -123,16 +124,17 @@ void HoldCodeModAnswers(bool held) {
     g_held = held;
 }
 
-bool RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys, CodeModStart picked) {
-    if (g_held) return false;
+CodeModAnswerKept RememberCodeModAnswer(const std::string& game_id, const std::vector<std::string>& keys,
+                                        CodeModStart picked) {
+    if (g_held) return CodeModAnswerKept::NotKept;
     Answers();
     // One the file couldn't take (it is full) isn't kept either. Nothing new
     // (each mod already had its answer, or asks each time) writes nothing, so
     // a locked card isn't a failed save the player didn't ask for.
     const CodeModAnswers before = g_answers;
     const bool taken = remember_code_mod_answer(g_answers, game_id, keys, picked);
-    if (g_answers == before) return taken;
-    return Save() && taken;
+    if (g_answers != before && !Save()) return CodeModAnswerKept::UntilClose;
+    return taken ? CodeModAnswerKept::Saved : CodeModAnswerKept::NotKept;
 }
 
 }  // namespace riftwii::wii

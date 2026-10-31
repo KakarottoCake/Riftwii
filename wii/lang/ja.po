@@ -1437,6 +1437,9 @@ msgstr "Project+など多くのコードModは、RiftWiiの追加機能ありで
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。"
 
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "この選択は保存されませんでした。今は sd:/riftwii/codemods.txt に入れられません。"
+
 msgid "Asked at the first Start"
 msgstr "最初の起動でたずねます"
 

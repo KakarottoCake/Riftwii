@@ -1437,6 +1437,9 @@ msgstr "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능�
 msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
 msgstr "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다."
 
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "이 선택은 저장되지 않았습니다. 지금은 sd:/riftwii/codemods.txt에 넣을 수 없습니다."
+
 msgid "Asked at the first Start"
 msgstr "처음 시작할 때 묻습니다"
 

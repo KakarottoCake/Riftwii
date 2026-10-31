@@ -1418,6 +1418,11 @@ T = {
         "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。",
         "Não foi possível gravar sd:/riftwii/codemods.txt: a resposta vale até o RiftWii ser fechado.",
         "Impossibile scrivere sd:/riftwii/codemods.txt: la risposta vale finché RiftWii non si chiude."),
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.": (
+        "Esta respuesta no se guardó: sd:/riftwii/codemods.txt no puede aceptarla ahora.",
+        "この選択は保存されませんでした。今は sd:/riftwii/codemods.txt に入れられません。",
+        "Esta resposta não foi guardada: sd:/riftwii/codemods.txt não pode aceitá-la agora.",
+        "Questa risposta non è stata salvata: sd:/riftwii/codemods.txt ora non può accettarla."),
     "Asked at the first Start": (
         "Se pregunta al primer inicio",
         "最初の起動でたずねます",
@@ -3271,6 +3276,8 @@ KO = {
         "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다.",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
         "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "이 선택은 저장되지 않았습니다. 지금은 sd:/riftwii/codemods.txt에 넣을 수 없습니다.",
     "Asked at the first Start":
         "처음 시작할 때 묻습니다",
     "Ask each time":
@@ -5131,6 +5138,8 @@ FR = {
         "La plupart des mods de code, comme Project+, marchent avec les extras de RiftWii. Écran noir ? Démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods le change.",
     "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
         "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "Cette réponse n'a pas été gardée : sd:/riftwii/codemods.txt ne peut pas la prendre pour l'instant.",
     "Asked at the first Start":
         "Demandé au premier démarrage",
     "Ask each time":

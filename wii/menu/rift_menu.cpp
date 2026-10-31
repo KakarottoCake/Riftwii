@@ -3646,7 +3646,7 @@ static bool PickCodeModStart(FrontendState& state)
 		remembering.empty()
 			? tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.")
 			: tr("Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.",
-			     {remembering}),
+			     {FlatCapped(remembering, 24)}),  // the names cut short, so the three lines keep the rest
 		"", tr("Back"));
 	box.CenterCancel();
 	// The text's three lines at most (from y 158, 22 apart) end at 224,
@@ -3684,11 +3684,16 @@ static bool PickCodeModStart(FrontendState& state)
 	// Kept for each mod that had no answer; one that had its own, or asks
 	// each time, keeps it.
 	// The game starts either way; the player hears the answer wasn't kept.
-	if (!remembering.empty() &&
-	    !riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
-		    state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With))
-		ShowPopup(tr("How should this code mod start?"),
-			tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."), tr("OK"));
+	if (!remembering.empty()) {
+		const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::RememberCodeModAnswer(state.game_id, keys,
+			state.code_build_plain ? riftwii::CodeModStart::Without : riftwii::CodeModStart::With);
+		if (kept != riftwii::wii::CodeModAnswerKept::Saved)
+			ShowPopup(tr("How should this code mod start?"),
+				kept == riftwii::wii::CodeModAnswerKept::UntilClose
+					? tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.")
+					: tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."),
+				tr("OK"));
+	}
 	return true;
 }
 
@@ -12648,8 +12653,11 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				// Not the game's choices: the answer is the mod's own.
 				const std::string& key = state.model.packages[ref.pkg].file;
 				const riftwii::CodeModStart next = NextCodeModStart(riftwii::wii::CodeModAnswer(state.game_id, key), direction);
-				if (!riftwii::wii::SetCodeModAnswer(state.game_id, key, next))
+				const riftwii::wii::CodeModAnswerKept kept = riftwii::wii::SetCodeModAnswer(state.game_id, key, next);
+				if (kept == riftwii::wii::CodeModAnswerKept::UntilClose)
 					say(tr("Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."));
+				else if (kept == riftwii::wii::CodeModAnswerKept::NotKept)
+					say(tr("This answer was not kept: sd:/riftwii/codemods.txt can't take it now."));
 				else
 					shownRow = -1;
 				logf("Mods: %s on %s starts: %s\n", key.c_str(), state.game_id.c_str(), CodeModStartName(next).c_str());
