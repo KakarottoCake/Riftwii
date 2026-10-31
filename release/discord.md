@@ -19,17 +19,21 @@ Rewrite it for every release and delete the line below.
 
 New:
 
-* USB gamepads (PS3, PS4, generic pads, arcade sticks) play as GameCube controllers, with Nintendont's controller.ini configs: Settings > Controllers > USB input devices, and Check USB controllers to see a pad's buttons
-* The RiftWii channel fits a 16:9 Wii Menu: no more stretched banner, and it sits above the buttons
-* No more tearing in the channel's start animation
-* USB LOADER under the name, on the channel and the Homebrew Channel icon
+* No more freeze with a 4th Wii Remote
+* USB gamepads work inside games now, and wired Xbox 360 pads work with no config file
+* A cleaner menu font
+* Your own covers (a PNG in sd:/riftwii/covers named after the game ID), and GameTDB's second cover for games that have one
+* Home's shortcuts on every controller
+* Fixes for EA's 007 GameCube games, 007 Quantum of Solace and Prince of Persia: The Forgotten Sands
+* Restart with a USB drive no longer crashes, and homebrew started from RiftWii sees the GameCube adapter again
 
 To test, please:
 
-1. A USB gamepad with its controller.ini: does Check USB controllers show its buttons, and does it play in a GameCube game?
-2. Update the channel (Settings > Help > RiftWii channel on the Wii Menu): does the banner look right on your TV, and does the start animation play cleanly?
+1. Four Wii Remotes in the menu, at start and one at a time
+2. A USB pad or wired Xbox 360 pad in a GameCube game (plug it in before starting)
+3. Your own cover, and the GameTDB cover row on Brawl or Mario Kart Wii
 
 Sending logs (you don't need to take out your SD card): in RiftWii go to Settings > Help > Send a problem report, scan the QR code or copy the link, and post it here with what you tested.
 
-![USB controller settings](docs/screenshots/2610-usb-controllers.png)
-![The channel banner on 16:9](docs/screenshots/2610-channel-banner.png)
+![What's new](docs/screenshots/2610-whatsnew-781.png)
+![The GameTDB cover row](docs/screenshots/2610-gametdb-cover.png)

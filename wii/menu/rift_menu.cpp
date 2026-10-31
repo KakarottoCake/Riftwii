@@ -4546,12 +4546,12 @@ static void OfferNintendontSavesOnce(const std::function<void(bool)>& homeShown)
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > Help > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Home: a Layout button and a Show chooser",
-	"WiiWare and VC played straight from WADs",
-	"Pictures for emulator games, and a picker",
-	"Banner music and disc art on game pages",
-	"Asks first when mod files are missing",
-	"Clearer messages when something goes wrong",
+	"A cleaner, lighter menu font",
+	"USB gamepads and Xbox 360 pads in games",
+	"Your own covers, and GameTDB's second cover",
+	"Home's shortcuts on every controller",
+	"Fixes for 007 games and Prince of Persia",
+	"No more freeze with a 4th Wii Remote",
 };
 
 static std::string WhatsNewText()
