@@ -6269,7 +6269,17 @@ static int MenuSource(FrontendState& state)
 			// A stored picture (a cover or a Channels banner) clears its
 			// "absent" mark at once, even if this pass of the loop ends early.
 			if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(arrived);
-			else arrived.clear();
+			// A mod tile matched again while its download ran: what came is
+			// the old match's, and the tile was marked checked when it was
+			// skipped for that download, so it is asked for again now. Only
+			// a tile: a game whose miss could not be written would be asked
+			// for again at every pass.
+			if ((got == riftwii::wii::CoverFetch::Stored || got == riftwii::wii::CoverFetch::NotFound) &&
+			    riftwii::tile_game_id(arrived) != arrived && riftwii::wii::CoverWanted(arrived)) {
+				g_coversChecked.erase(arrived);
+				queueCovers();
+			}
+			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
