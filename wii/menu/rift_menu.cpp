@@ -1844,6 +1844,36 @@ static riftwii::CoverDownloads g_cover3dRun("3D covers", "3D cover");
 // Settings leaves the retry for Home, where the picture queues are built.
 static bool g_retryMissingCovers = false;
 
+// The mod tiles GameTDB lists as games of their own (#385), matched again
+// when the tiles or GameTDB's list of mods change: their own covers.
+static void UpdateModCoverIds()
+{
+	static unsigned seenWritten = ~0u, seenCleared = ~0u;
+	static std::string seenTiles;
+	std::string tiles;
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) tiles += p.key() + "\t" + p.name + "\n";
+	const unsigned written = riftwii::wii::ModTitlesWritten();
+	const unsigned cleared = riftwii::wii::ModCoverIdsCleared();
+	if (written == seenWritten && cleared == seenCleared && tiles == seenTiles) return;
+	std::vector<riftwii::CustomGame> customs;
+	std::map<std::string, std::string> ids;
+	// No list to read (none yet, or a card error): tried again next time.
+	if (!riftwii::wii::LoadModTitles(customs)) return;
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) {
+		const std::string id = riftwii::mod_cover_id(customs, p.game_id, p.name);
+		if (!id.empty()) ids[p.key()] = id;
+	}
+	const unsigned matched = static_cast<unsigned>(ids.size());
+	riftwii::wii::SetModCoverIds(std::move(ids));
+	seenWritten = written;
+	seenCleared = cleared;
+	seenTiles = tiles;
+	logf("Mod covers: %u of %u mod tile(s) are listed on GameTDB as games of their own\n", matched,
+	     static_cast<unsigned>(riftwii::wii::Profiles().all().size()));
+	// The tiles checked before, without a match then, are checked again.
+	for (const riftwii::Profile& p : riftwii::wii::Profiles().all()) g_coversChecked.erase(p.key());
+}
+
 static bool& CoverDownloadsOff(const std::string& game)
 {
 	if (riftwii::emulator_banner_id(game)) return g_emulatorBannersOff;
@@ -5976,12 +6006,22 @@ static int MenuSource(FrontendState& state)
 	// the list changes (another view, a search, a part of the scan), as a
 	// game the Mods view leaves out is first listed under All games.
 	const auto queueCovers = [&]() {
-		if (riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		// Offline, and in the Names view, too: the tiles' covers already
+		// downloaded show (a tile's page shows its cover in any view), as
+		// the games' do; only the downloads wait.
+		UpdateModCoverIds();
+		if (riftwii::wii::Settings().home_tiles == "names") return;
+		if (!riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
-			if (item.id.empty()) continue;
-			if (!CoverDownloadsOff(item.id) && g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
-			    riftwii::wii::CoverWanted(item.id))
-				coverQueue.push_back(item.id);
+			// A mod's tile asks for the game's cover, which it shows without
+			// one of its own, and for its own (#385), when GameTDB has one.
+			for (const std::string& cover : {item.id, CoverName(item)}) {
+				if (cover.empty()) continue;
+				if (CoverDownloadsOff(cover)) continue;
+				if (g_coversChecked.insert(cover).second && cover != riftwii::wii::CoverFetchGame() &&
+				    riftwii::wii::CoverWanted(cover))
+					coverQueue.push_back(cover);
+			}
 			if (grid.Channels()) {
 				const std::string banner = riftwii::emulator_banner_key(item.id, skin::WideMenu());
 				if (!banner.empty() && !g_emulatorBannersOff && g_coversChecked.insert(banner).second &&
@@ -6200,6 +6240,8 @@ static int MenuSource(FrontendState& state)
 		// in the last week are asked again (it may have one by now).
 		for (const GridItem& item : items) {
 			riftwii::wii::ForgetCoverMiss(item.id);
+			// A mod tile's own cover too (#385).
+			if (CoverName(item) != item.id) riftwii::wii::ForgetCoverMiss(CoverName(item));
 			riftwii::wii::ForgetBoxMiss(item.id);
 			riftwii::wii::ForgetCover3dMiss(item.id);
 		}
@@ -6278,7 +6320,17 @@ static int MenuSource(FrontendState& state)
 			// A stored picture (a cover or a Channels banner) clears its
 			// "absent" mark at once, even if this pass of the loop ends early.
 			if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(arrived);
-			else arrived.clear();
+			// A mod tile matched again while its download ran: what came is
+			// the old match's, and the tile was marked checked when it was
+			// skipped for that download, so it is asked for again now. Only
+			// a tile: a game whose miss could not be written would be asked
+			// for again at every pass.
+			if ((got == riftwii::wii::CoverFetch::Stored || got == riftwii::wii::CoverFetch::NotFound) &&
+			    riftwii::tile_game_id(arrived) != arrived && riftwii::wii::CoverWanted(arrived)) {
+				g_coversChecked.erase(arrived);
+				queueCovers();
+			}
+			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
 		std::string boxArrived, boxError;
 		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
@@ -6372,7 +6424,8 @@ static int MenuSource(FrontendState& state)
 				if (CoverDownloadsOff(coverQueue[q])) continue;
 				if (pick == coverQueue.size()) pick = q;
 				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
-					onPage = items[k].id == coverQueue[q] || riftwii::emulator_banner_key(items[k].id, skin::WideMenu()) == coverQueue[q];
+					onPage = items[k].id == coverQueue[q] || CoverName(items[k]) == coverQueue[q] ||
+					         riftwii::emulator_banner_key(items[k].id, skin::WideMenu()) == coverQueue[q];
 					if (onPage) pick = q;
 				}
 			}
@@ -6564,21 +6617,27 @@ static int MenuSource(FrontendState& state)
 		{
 			bool customChanged = false;
 			// Not while a tile is carried: the refresh would drop it.
-			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged) && (customChanged || !g_genre.empty() || genrePicking)) {
-				const std::string focused = focusedTile();
-				takePress();
-				refreshKeepingTile(focused, false);
-				putPressBack();
-				if (genrePicking) {
-					// The genres the read gave: the panel shows them while B is held.
-					genreChoices = HomeGenreChoices(state);
-					int picked = -1;
-					for (std::size_t i = 0; i < genreChoices.size(); ++i)
-						if (riftwii::has_genre({genreChoices[i]}, genrePicked)) {
-							picked = static_cast<int>(i);
-							genrePicked = genreChoices[i];
-						}
-					genrePanel.Show(genreChoices, picked);
+			if (!grid.Carrying() && riftwii::wii::TakeGameInfoRead(customChanged)) {
+				if (customChanged || !g_genre.empty() || genrePicking) {
+					const std::string focused = focusedTile();
+					takePress();
+					refreshKeepingTile(focused, false);
+					putPressBack();
+					if (genrePicking) {
+						// The genres the read gave: the panel shows them while B is held.
+						genreChoices = HomeGenreChoices(state);
+						int picked = -1;
+						for (std::size_t i = 0; i < genreChoices.size(); ++i)
+							if (riftwii::has_genre({genreChoices[i]}, genrePicked)) {
+								picked = static_cast<int>(i);
+								genrePicked = genreChoices[i];
+							}
+						genrePanel.Show(genreChoices, picked);
+					}
+				} else {
+					// The read also made GameTDB's list of mods again: their
+					// tiles' own covers (#385).
+					queueCovers();
 				}
 			}
 		}
@@ -13395,6 +13454,20 @@ static int MenuHome(FrontendState& state)
 	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
 	                  !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
 	                  riftwii::wii::CoverWanted(state.game_id);
+	// The name that fetch is for: the game's, or a mod tile's own (its key).
+	std::string coverStartName = state.game_id;
+	// A mod tile's own cover, when the game's needs none (its stock cover is
+	// stored): Home may only have queued it, so the page asks for it now,
+	// as it does for the game's.
+	if (!coverStart && riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
+	    !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()) {
+		const std::string pageCover = PageCoverName(state);
+		if (pageCover != state.game_id && !CoverDownloadsOff(pageCover) && riftwii::wii::CoverWanted(pageCover)) {
+			g_coversChecked.insert(pageCover);
+			coverStartName = pageCover;
+			coverStart = true;
+		}
+	}
 	// A press on the Cover row asks again even after automatic downloads stopped.
 	bool coverAsked = false;
 	bool boxStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
@@ -13448,20 +13521,35 @@ static int MenuHome(FrontendState& state)
 
 		// A player's own cover the loader couldn't use: Home looks at the
 		// others again when it's back; this page's game asks GameTDB now,
-		// as it would have if the cover's first bytes had shown it.
+		// as it would have if the cover's first bytes had shown it. A mod
+		// tile's cover has its own name, kept even when the game's stock
+		// cover is stored, so the tile's is asked again too.
 		if (const std::vector<std::string> broken = riftwii::wii::TakeBrokenOwnCovers(); !broken.empty()) {
 			for (const std::string& name : broken) g_coversChecked.erase(name);
-			const bool ours = std::find(broken.begin(), broken.end(), state.game_id) != broken.end() ||
-			                  std::find(broken.begin(), broken.end(), PageCoverName(state)) != broken.end();
-			if (ours && !coverStart && riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
-			    !CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(state.game_id)) {
-				g_coversChecked.insert(state.game_id);
+			const std::string pageCover = PageCoverName(state);
+			const bool gameBroken = std::find(broken.begin(), broken.end(), state.game_id) != broken.end();
+			const bool tileBroken = pageCover != state.game_id &&
+			                        std::find(broken.begin(), broken.end(), pageCover) != broken.end();
+			const bool gameWanted = riftwii::wii::CoverWanted(state.game_id);
+			const bool tileWanted = pageCover != state.game_id && riftwii::wii::CoverWanted(pageCover);
+			if ((gameBroken || tileBroken) && !coverStart && riftwii::wii::Settings().online &&
+			    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(state.game_id) &&
+			    !riftwii::wii::NetFailed() && (gameWanted || tileWanted)) {
+				// The game's own broken cover first, as before; the tile's
+				// when it is the one broken (the game's may be stored).
+				if (gameBroken && gameWanted)
+					coverStartName = state.game_id;
+				else if (tileWanted)
+					coverStartName = pageCover;
+				else
+					coverStartName = state.game_id;
+				g_coversChecked.insert(coverStartName);
 				coverStart = true;
 			}
 		}
 
 		if (coverStart && (coverAsked || (!CoverDownloadsOff(state.game_id) && !riftwii::wii::NetFailed()))) {
-			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
+			if (riftwii::wii::CoverFetchGame() == coverStartName || riftwii::wii::StartCoverFetch(coverStartName))
 				coverStart = false;
 		} else if (coverStart) {
 			coverStart = false;
@@ -13491,6 +13579,7 @@ static int MenuHome(FrontendState& state)
 				    riftwii::wii::TakenFetchWasSecondSet() != riftwii::wii::CoverSecondSet(id)) {
 					// Started before the GameTDB cover row changed the set: the
 					// one now chosen is fetched again, and its answer is said.
+					coverStartName = state.game_id;
 					coverStart = true;
 				} else if (id != state.game_id) {
 					// One Home started before this page opened, or another game's.
@@ -13504,6 +13593,16 @@ static int MenuHome(FrontendState& state)
 						CoverDownloadsOff(id) = false;
 					} else if (stop) {
 						CoverDownloadsOff(id) = true;
+					}
+					// The game's cover came first: a mod tile's own is asked for
+					// next, as at page entry when the game's is stored.
+					const std::string tileCover = PageCoverName(state);
+					if (!coverAsked && !stop && tileCover != state.game_id && riftwii::wii::Settings().online &&
+					    riftwii::wii::Settings().home_tiles != "names" && !CoverDownloadsOff(tileCover) &&
+					    !riftwii::wii::NetFailed() && riftwii::wii::CoverWanted(tileCover)) {
+						g_coversChecked.insert(tileCover);
+						coverStartName = tileCover;
+						coverStart = true;
 					}
 					if (coverAsked) {
 						// Asked for the second set, and back on the first (downloaded
@@ -13649,6 +13748,9 @@ static int MenuHome(FrontendState& state)
 				// page is the game's own then).
 				if (tile == GameTile::Mods) {
 					titleTxt.SetText(GameTitle(state).c_str());
+					// A renamed tile may match another GameTDB entry (or none):
+					// the cover in memory for the old match goes first.
+					UpdateModCoverIds();
 					hero.SetCoverName(PageCoverName(state));
 					banner.SetCoverName(PageCoverName(state));
 				} else if (riftwii::wii::CoverSecondSet(state.game_id) != secondBefore) {
@@ -13661,6 +13763,7 @@ static int MenuHome(FrontendState& state)
 					// Started at the top of the loop, or as soon as the
 					// network's thread is free; the answer is said when it comes.
 					say(tr("Downloading the cover..."));
+					coverStartName = state.game_id;
 					coverStart = true;
 					coverAsked = true;
 					shownTile = acted;
