@@ -240,8 +240,15 @@ void test_entry_words() {
     // A relative branch among the two cannot run from the blob's slot.
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x48000011, 0x60000000, 1, 0x817DA000, words, why));
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x4182FFF8, 1, 0x817DA000, words, why));
-    // blr and bctr are not relative: they replay anywhere.
+    // blr is not relative: it replays anywhere.
     EXPECT_TRUE(riftwii::gc_program_entry_words(0x80007100, 0x7C0802A6, 0x4E800020, 1, 0x817DA000, words, why));
+    // r12 or CTR set by the two would be lost on the way back to the third
+    // word: lis r12, addi r3,r12,8, mtctr r3 are refused.
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x3D808032, 0x60000000, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x386C0008, 1, 0x817DA000, words, why));
+    EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x7C6903A6, 0x60000000, 1, 0x817DA000, words, why));
+    // Every one of 007: NightFire's four programs starts lis r1 / ori r1,r1.
+    EXPECT_TRUE(riftwii::gc_program_entry_words(0x80500000, 0x3C20806E, 0x60216760, 0, 0x817DA000, words, why));
     // Out of a branch's 32 MB reach, or an index li cannot hold.
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x60000000, 1, 0x93000000, words, why));
     EXPECT_TRUE(!riftwii::gc_program_entry_words(0x80007100, 0x60000000, 0x60000000, 0x8000, 0x817DA000, words, why));
