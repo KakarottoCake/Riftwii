@@ -102,15 +102,18 @@ contains theirs names them in its file header, and
   zlib), how to find the Wii Menu's fonts for Settings > Menu font
   (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
   Dimok, zlib), how to drive d2x's USB device on
-  either USB port (Dimok, Rodries, Kwiirk, zlib), and RiftWii's copy of
-  the Gecko code handler; the channel identity and synthetic ticket layout
+  either USB port (Dimok, Rodries, Kwiirk, zlib), RiftWii's copies of
+  the Gecko code handler and its WiiRD debugger builds (`load_handler`),
+  and the USB Gecko debug output (`gecko.c`: gprintf, hexdump,
+  USBGeckoOutput); the channel identity and synthetic ticket layout
   (dude, Miigotu and Dimok, zlib; source commit in NOTICE.md). Thanks to
   its developers and everyone whose work it carries: ToadKing
   (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke
   and the GeckoOS authors, crediar, dcx2, container12345, blackb0x and
   WiiPower.
 - **Gecko OS** by Nuke, brkirch, Link and the Gecko authors: the cheat
-  code handler (full source in [vendor-gecko](vendor-gecko)).
+  code handler and its WiiRD debugger builds (full source in
+  [vendor-gecko](vendor-gecko)).
 - **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
   sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
   controller adapter.
@@ -135,7 +138,9 @@ contains theirs names them in its file header, and
 - **wfslib** and **wfs-tools** by koolkdev (MIT), with **Dolphin**'s IOS59
   WFS devices: the WFS drive format Dragon Quest X installs to, which
   RiftWii reads to find the game (its own reader; commits in NOTICE.md).
-- **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite): channel
+- **WiiFlow Lite** (https://github.com/Fledge68/WiiFlow_Lite, GPL-3.0):
+  the USB Gecko output sent with interrupts off (`gecko.cpp`), the WiiRD
+  debugger's handler choice and pause at start (`load_handler`); channel
   application type and BI2 setup, checked alongside USB Loader GX; RiftWii's
   boot context and SD mount lifetime also follow the behavior documented by
   USB Loader GX, d2x and Dolphin (source commits in NOTICE.md). Its cover
@@ -201,8 +206,8 @@ anyone who needs it spelled out:
   to the commit) and its license.
 - Every release zip carries the full license, the notices and the exact
   commit it was built from.
-- The Gecko code handler ships with its assembly source, which rebuilds
-  it byte for byte. That's more than most Wii loaders bother with.
+- The Gecko code handlers ship with their assembly source, which rebuilds
+  them byte for byte. That's more than most Wii loaders bother with.
 - RiftWii itself will show you all ~840 lines of the GPL, in Settings >
   Credits and license. Scrolling to the end is left as an exercise for
   the reader.

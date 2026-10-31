@@ -3018,6 +3018,39 @@ msgstr "Primeiro coloque o cartão SD de volta."
 msgid "The SD card is back in. Reading it again."
 msgstr "O cartão SD está de volta. Lendo novamente."
 
+msgid "USB Gecko log"
+msgstr "Registro no USB Gecko"
+
+msgid "WiiRD debugger"
+msgstr "Depurador WiiRD"
+
+msgid "Pause at start"
+msgstr "Pausar no início"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "Para desenvolvedores. O registro do RiftWii também vai para um USB Gecko no slot B de cartões de memória enquanto é escrito, para ler num PC."
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "Para desenvolvedores. Os jogos de Wii começam com o depurador WiiRD, para um PC ligado a um USB Gecko no slot B ou A (WiiRD, Gecko dotNET). Pausar no início segura o jogo no primeiro quadro até o PC liberar."
+
+msgid "Off from the next start of RiftWii."
+msgstr "Desligado a partir da próxima vez que o RiftWii abrir."
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "Ligado. O registro do RiftWii agora também vai para o USB Gecko no slot B."
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "Ligado a partir da próxima vez que o RiftWii abrir. Nenhum USB Gecko responde no slot B agora."
+
+msgid "Games start with the plain code handler."
+msgstr "Os jogos começam com o gerenciador de códigos normal."
+
+msgid "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running."
+msgstr "Os jogos de Wii começam com o depurador WiiRD, exceto aqueles cujos ganchos do RiftWii precisam da memória dele. Conecte pelo PC quando o jogo estiver rodando."
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "Nenhum USB Gecko responde no slot B nem no A agora. Sem um, os jogos começam sem o depurador."
+
 msgid "A search looks through every genre. Press 1 to end it first."
 msgstr "Uma busca procura em todos os gêneros. Aperte 1 para encerrá-la primeiro."
 

@@ -124,6 +124,7 @@ The build compiles every folder into one, so no two files share a name.
 | `console.cpp` | libogc's text console, for the launch screen and errors |
 | `crash.cpp` | RiftWii's crash screen and `crash.txt` |
 | `log.cpp` | The log (`session.log`, `boot.log`) |
+| `gecko.cpp` | Debug output over a USB Gecko in slot B (Settings > USB Gecko log), and the slot probe for the WiiRD debugger |
 | `nanduse.cpp` | The NAND (`/dev/fs`) opened and closed for everyone, counted |
 | `loadersettings.cpp` | Settings as the app reads and writes them |
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
@@ -515,7 +516,7 @@ code comments cite.
 | `vendor-bearssl/` | TLS |
 | `vendor-kenney/input-prompts/` | Kenney's controller and button pictures (CC0); `tools/make_input_icons.py` turns them into `src/art/inputicons_data.cpp` |
 | `vendor-zstd/` | The Zstandard decoder (RVZ) |
-| `vendor-gecko/` | The Gecko code handler, with its source |
+| `vendor-gecko/` | The Gecko code handler and its WiiRD debugger builds (USB Gecko in slot B or A), with their source |
 | `vendor-wwfc/` | WiiLink WFC's patcher pieces |
 
 Licenses and what RiftWii changed are in [NOTICE.md](../NOTICE.md).

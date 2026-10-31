@@ -330,6 +330,35 @@ when the first is still taken, `tools/dolphin/gecko_log.py`):
 write and its IOS result, `XL` the channel's launch result: it only
 reports when IOS refused). Never leave either in a tester's settings.
 
+## USB Gecko log and the WiiRD debugger
+
+Two rows in Settings > Help, for anyone with a USB Gecko (or Dolphin's
+emulated one: `SlotB = 7`, read with `tools/dolphin/gecko_log.py`):
+
+- **USB Gecko log** (`usb_gecko_log = on`): from the start of RiftWii,
+  every `logf` line goes to the USB Gecko in slot B as it is logged, with
+  the same timestamps as `session.log`, and so does whatever libogc and
+  the libraries print to stdout and stderr (`wii/core/gecko.cpp`, after
+  USB Loader GX's and WiiFlow Lite's `gecko.c`). It works without an SD
+  card's log too, so a hang before the card mounts still shows on the
+  PC. `GeckoHexDump` prints a buffer as USB Loader GX's `hexdump` does,
+  for a look at bytes while debugging. Without a USB Gecko the setting
+  does nothing but log one line saying so.
+- **WiiRD debugger** (`wiird_debugger = off | on | pause`): Wii games
+  start with Gecko OS's code handler with the debugger built in
+  (`vendor-gecko/codehandler.s`, slot B, or `codehandlerslota.s`, slot A,
+  whichever slot a USB Gecko answers in, B first), instead of the plain
+  one, with the player's cheats if any and an empty code list if not.
+  WiiRD or Gecko dotNET on the PC can then pause the game, read and
+  write memory, set breakpoints and send codes. `pause` holds the game
+  at its first frame until the PC lets it go. With no USB Gecko in
+  either slot the plain handler is used and `boot.log` says so. The
+  handler's breakpoints write branches into the game's exception vectors
+  (0x80000300, 0x80000D00, 0x80001300) when the PC asks for one, so an
+  exception there goes to the debugger rather than to the game's own
+  handler (and RiftWii's crash recorder, which hooks that). GameCube
+  games are not covered (their code handler is the plugin's).
+
 In Dolphin the RiftWii channel is not installed, so a Reset there shows
 the fallback (`Reset: ... the RiftWii channel is not installed` in
 `boot.log`, the game restarting without its packs). To see the request

@@ -3018,6 +3018,39 @@ msgstr "さきにSDカードを入れてください。"
 msgid "The SD card is back in. Reading it again."
 msgstr "SDカードがもどりました。よみなおしています。"
 
+msgid "USB Gecko log"
+msgstr "USB Geckoへのログ"
+
+msgid "WiiRD debugger"
+msgstr "WiiRDデバッガー"
+
+msgid "Pause at start"
+msgstr "開始時に止める"
+
+msgid "For developers. RiftWii's log also goes to a USB Gecko in memory card slot B as it is written, for a PC to read."
+msgstr "開発者向けです。RiftWiiのログを、書き込むと同時にメモリーカードスロットBのUSB Geckoにも送り、PCで読めるようにします。"
+
+msgid "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go."
+msgstr "開発者向けです。WiiのゲームをWiiRDデバッガー付きで起動し、スロットBかAのUSB GeckoにつないだPC (WiiRD、Gecko dotNET) から使えるようにします。開始時に止めるでは、PCが再開するまでゲームを最初のフレームで止めます。"
+
+msgid "Off from the next start of RiftWii."
+msgstr "次にRiftWiiを起動したときからオフになります。"
+
+msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
+msgstr "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。"
+
+msgid "On from the next start of RiftWii. No USB Gecko answers in slot B now."
+msgstr "次にRiftWiiを起動したときからオンになります。今はスロットBのUSB Geckoが応答しません。"
+
+msgid "Games start with the plain code handler."
+msgstr "ゲームは通常のコードハンドラーで起動します。"
+
+msgid "Wii games start with the WiiRD debugger, except ones whose RiftWii hooks need its memory. Connect from the PC once the game is running."
+msgstr "WiiのゲームはWiiRDデバッガー付きで起動します。ただし、RiftWiiのフックがそのメモリを使うゲームはデバッガーなしで起動します。ゲームが始まったらPCから接続してください。"
+
+msgid "No USB Gecko answers in slot B or A now. Without one, games start without the debugger."
+msgstr "今はスロットBにもAにもUSB Geckoが応答しません。USB Geckoがないと、ゲームはデバッガーなしで起動します。"
+
 msgid "A search looks through every genre. Press 1 to end it first."
 msgstr "検索はすべてのジャンルから探します。先に1を押して検索を終えてください。"
 

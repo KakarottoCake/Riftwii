@@ -32,6 +32,20 @@ constexpr std::size_t kMaxDistance = 0x1000;  // bytes from the pattern to the f
 // kCodeListAddress), 0x104 bytes in.
 constexpr std::size_t kListLoadOffset = 0x104;
 constexpr std::uint32_t kLisR15 = 0x3DE00000, kOriR15 = 0x61EF0000;
+// The debugger handler's two loads of its list (codehandler.s's `upload`
+// and `_codehandler`), the same in its slot A build.
+constexpr std::size_t kDebuggerUploadLoadOffset = 0x4DC;
+constexpr std::size_t kDebuggerRunLoadOffset = 0x758;
+constexpr std::uint32_t kLisR12 = 0x3D800000, kOriR12 = 0x618C0000;
+
+bool loads_address(const std::uint8_t* at, std::uint32_t lis, std::uint32_t ori, std::uint32_t address) {
+    return word(at) == (lis | (address >> 16)) && word(at + 4) == (ori | (address & 0xFFFF));
+}
+
+void load_address(std::uint8_t* at, std::uint32_t lis, std::uint32_t ori, std::uint32_t address) {
+    put(at, lis | (address >> 16));
+    put(at + 4, ori | (address & 0xFFFF));
+}
 
 }  // namespace
 
@@ -88,6 +102,19 @@ bool relocate_code_list(std::uint8_t* handler, std::size_t size, std::uint32_t a
     if (word(lis) != (kLisR15 | expected_hi) || word(ori) != (kOriR15 | expected_lo)) return false;
     put(lis, kLisR15 | (address >> 16));
     put(ori, kOriR15 | (address & 0xFFFF));
+    return true;
+}
+
+bool relocate_debugger_code_list(std::uint8_t* handler, std::size_t size, std::uint32_t address) {
+    if (handler == nullptr || size < kDebuggerRunLoadOffset + 8) return false;
+    std::uint8_t* upload = handler + kDebuggerUploadLoadOffset;
+    std::uint8_t* run = handler + kDebuggerRunLoadOffset;
+    if (!loads_address(upload, kLisR12, kOriR12, kDebuggerCodeListAddress) ||
+        !loads_address(run, kLisR15, kOriR15, kDebuggerCodeListAddress)) {
+        return false;
+    }
+    load_address(upload, kLisR12, kOriR12, address);
+    load_address(run, kLisR15, kOriR15, address);
     return true;
 }
 

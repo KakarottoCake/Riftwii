@@ -203,6 +203,11 @@ struct LaunchExtras {
     std::uint32_t code_list_end = 0;
     int code_hooktype = 0;
     std::vector<GamePoke> pokes;
+    // Settings > WiiRD debugger (vendor-gecko/README.md): the code handler
+    // with the debugger for a PC on a USB Gecko, and whether the game waits
+    // at its first frame until the PC lets it go.
+    bool wiird_debugger = false;
+    bool wiird_pause = false;
     // Picked at Start: the code build starts with its codes, gameconfig.txt
     // and a plugged-in GameCube adapter only, none of RiftWii's other extras.
     bool code_build_plain = false;

@@ -419,6 +419,10 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
         extras.return_to = headless->return_to;
         extras.return_to_menu = headless->return_to_menu;
     }
+    // Wii games only: a GameCube game's code handler is the plugin's.
+    const std::string& debugger = Settings().wiird_debugger;
+    extras.wiird_debugger = debugger == "on" || debugger == "pause";
+    extras.wiird_pause = debugger == "pause";
     extras.restart_args = RestartArguments(state, extras, headless);
     SetLaunchExtras(std::move(extras));
 }

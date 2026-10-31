@@ -41,6 +41,7 @@
 #include <ogc/machine/processor.h>
 
 #include "crash.hpp"
+#include "gecko.hpp"
 #include "gcadapter.hpp"
 #include "usbinput.hpp"
 #include "gcrealcard.hpp"
@@ -370,6 +371,14 @@ void OpenSessionLog(bool sd_mounted) {
     const bool rotated = riftwii::wii::RotateSessionLog();
     riftwii::wii::startup::Mark(riftwii::wii::startup::Step::LogOpen);
     riftwii::wii::LogOpen("sd:/riftwii/session.log", !rotated);
+    // Settings > USB Gecko log: every line from the session's
+    // first (settings.txt is on the card just mounted) goes to the PC too.
+    if (riftwii::wii::Settings().usb_gecko_log == "on") {
+        if (riftwii::wii::GeckoStart())
+            riftwii::wii::logf("USB Gecko log: on, this log also goes to the USB Gecko in slot B\n");
+        else
+            riftwii::wii::logf("USB Gecko log: on in Settings, but no USB Gecko answers in slot B\n");
+    }
     if (!rotated)
         riftwii::wii::logf("The previous session could not be archived; this session is appended to preserve it.\n");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
