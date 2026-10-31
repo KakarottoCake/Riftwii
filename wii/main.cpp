@@ -214,8 +214,11 @@ void StartChannel(u64 title) {
 
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
 void LeaveTo(int where) {
-    if (where == 1 && !riftwii::wii::StartedByHomebrewChannel()) {
-        StartHomebrewChannelTitle();
+    if (where == 1) {
+        // Started by the Homebrew Channel, std::exit goes back through its
+        // stub; the drives finish their writes first all the same.
+        if (riftwii::wii::StartedByHomebrewChannel()) UnmountDrives();
+        else StartHomebrewChannelTitle();
     } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says; the drives
         // finish their writes first, as for the power button. The disc
