@@ -245,12 +245,17 @@ or game ID; point and press A on the keys, or use the D-pad, and Minus
 deletes a letter. A search looks through every game, whatever the view;
 press 1, or search with nothing typed, to go back to
 the view. Point at the magnifier and hold **B** on a Wii Remote for about a
-second to start a game at random from the ones shown (not the disc drive or
-a homebrew app); its page presses Start for you, so its checks and warnings
-still come up.
+second (or just hold the magnifier's own button: **B** on a GameCube
+controller, **ZL** on a Classic Controller or Wii U Pro Controller) to
+start a game at random from the ones shown (not the disc drive, a
+homebrew app or a mod's own Home tile); its page presses Start for you,
+so its checks and warnings still come up. On a GameCube controller or Classic Controller, a short
+press of B or ZL opens the search when you let go, not when you press it.
 In the Covers view, point at a game's cover and press **1** or **2** to
-see the cover up close; press 1, 2, A or B to put it back. Pointing at
-anything else, 1 and 2 stay the view and settings buttons.
+see the cover up close (**Y** or **Z** on a GameCube controller, **Y** or
+**X** on a Classic Controller or Wii U Pro Controller, pointing with the
+stick); press the same again, A or B to put it back. Pointing at
+anything else, those buttons stay the view and settings buttons.
 To look for new games on the drives, use Settings > Drives > Look for
 games again (or X on a GameCube controller). RiftWii remembers the view
 and opens on the last game
@@ -304,8 +309,11 @@ pointer to press Layout. In Channels, Layout and Search sit on the bottom
 bar beside the filter and settings buttons. A change keeps the same game
 focused and is saved to the SD card.
 On Home, press **1 and 2** together on a Wii Remote to step
-to the next of these without opening Settings; 1 and 2 then do nothing
-else. Pressed alone, each does its usual job when you let go of it.
+to the next of these without opening Settings (**Y and Z** on a GameCube
+controller, **Y and X** on a Classic Controller or Wii U Pro Controller,
+**X and Y** on the Wii U GamePad: the view and settings buttons on each);
+the pair then does nothing else. Pressed alone, each does its usual job
+when you let go of it.
 
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the

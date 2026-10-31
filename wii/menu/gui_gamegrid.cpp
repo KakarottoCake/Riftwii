@@ -152,6 +152,15 @@ bool PressedB(GuiTrigger* t) {
            (t->wiidrcdata.btns_d & WIIDRC_BUTTON_B);
 }
 
+// Home's search button answers a GameCube controller's B and a Classic
+// Controller's ZL (rift_menu.cpp): while a game is carried, by the pointer
+// or the D-pad, from any controller, or a cover is up close (and on the
+// press that starts either), they don't reach it (#382).
+void KeepFromSearch(GuiTrigger* t) {
+    t->pad.btns_d &= ~PAD_BUTTON_B;
+    if (t->wpad) t->wpad->btns_d &= ~WPAD_CLASSIC_BUTTON_ZL;
+}
+
 // The cover zoom (GuiGameGrid::CoverZoomed): the cover comes up this tall,
 // in the middle of the screen and inside a TV's overscan (y 64 to 416),
 // in this long each way, over Home dimmed this much.
@@ -1347,7 +1356,10 @@ void GuiGameGrid::PutDown() {
 // Picking a game up, moving it and putting it down (SetMovable). True
 // while that has the controller's buttons.
 bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
-    if (carryDropped) return true;
+    if (carryDropped) {
+        KeepFromSearch(t);
+        return true;
+    }
     const int ch = t->chan;
     if (carryFrom < 0) {
         if (!movable || shelf || !PressedA(t) || !HeldLetterB(t)) return false;
@@ -1371,9 +1383,12 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         hover = -1;
         arrowHover = 0;
         LettersDone(t);
+        KeepFromSearch(t);
         soundClick->Play();
         return true;
     }
+    const bool back = PressedB(t);
+    KeepFromSearch(t);
     // Another controller waits while one moves a game.
     if (ch != carryChan) return true;
     if (carryPointer) {
@@ -1411,13 +1426,11 @@ bool GuiGameGrid::CarryKeys(GuiTrigger* t, int shoulderPage) {
         PutDown();
         return true;
     }
-    if (PressedB(t)) {
+    if (back) {
         // Back where it was, nothing moved.
         CarryTo(carryFrom);
         PutDown();
         LettersDone(t);
-        // Home uses B for search otherwise; this press only cancels the move.
-        t->pad.btns_d &= ~PAD_BUTTON_B;
         return true;
     }
     const int cols = Cols();
@@ -1564,18 +1577,22 @@ void GuiGameGrid::Update(GuiTrigger* t) {
 }
 
 bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
-    constexpr u32 kZoomKeys = WPAD_BUTTON_1 | WPAD_BUTTON_2;
+    // 1 and 2, and what is 1 and 2 on Home for the controllers that point:
+    // a Classic Controller's (or Wii U Pro Controller's) Y and X, a
+    // GameCube controller's Y and Z. The GamePad has no pointer.
+    constexpr u32 kZoomKeys = WPAD_BUTTON_1 | WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_Y | WPAD_CLASSIC_BUTTON_X;
+    constexpr u16 kPadZoomKeys = PAD_BUTTON_Y | PAD_TRIGGER_Z;
     if (zoomItem >= 0) {
         // Up (or on its way down): the zoom takes 1, 2, A and B from every
         // controller, so neither a tile under it nor the bar's buttons
         // (View on 1, Settings on 2) answer them, and the grid stays still.
-        const bool wpadKey = t->wpad && (t->wpad->btns_d & kZoomKeys);
-        if (zoomClosing && wpadKey) {
+        const bool zoomKey = (t->wpad && (t->wpad->btns_d & kZoomKeys)) || (t->pad.btns_d & kPadZoomKeys);
+        if (zoomClosing && zoomKey) {
             // 1 or 2 again on its way down brings it back up from where it
             // is; A and B only ever put it back.
             zoomClosing = false;
             riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
-        } else if (!zoomClosing && (wpadKey || PressedA(t) || PressedB(t))) {
+        } else if (!zoomClosing && (zoomKey || PressedA(t) || PressedB(t))) {
             zoomClosing = true;
             riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Back);
         }
@@ -1583,15 +1600,17 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
         // after it has gone, must not jump to the next letter as well.
         LettersDone(t);
         if (t->wpad) t->wpad->btns_d &= ~(kZoomKeys | WPAD_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_A | WPAD_CLASSIC_BUTTON_B);
-        t->pad.btns_d &= ~(PAD_BUTTON_A | PAD_BUTTON_B);
-        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B);
+        t->pad.btns_d &= ~(kPadZoomKeys | PAD_BUTTON_A | PAD_BUTTON_B);
+        KeepFromSearch(t);
+        t->wiidrcdata.btns_d &= ~(WIIDRC_BUTTON_A | WIIDRC_BUTTON_B | WIIDRC_BUTTON_X | WIIDRC_BUTTON_Y);
         return true;
     }
-    // Only a Wii Remote pointing at a cover in the Covers view, or at a box
-    // on the shelf or the carousel (not the ring's pictures): 1 and 2 stay
-    // the bar's everywhere else.
+    // Only a pointer on a cover in the Covers view, or on a box on the shelf
+    // or the carousel (not the ring's pictures): 1 and 2 stay the bar's
+    // everywhere else. A GameCube or Classic Controller's stick pointer is
+    // one too: UpdatePadPointers writes it into this channel's ir.
     if (channels || carryFrom >= 0 || (shelf ? ring : !covers)) return false;
-    if (!t->wpad || !t->wpad->ir.valid || !(t->wpad->btns_d & kZoomKeys)) return false;
+    if (!t->wpad || !t->wpad->ir.valid || !((t->wpad->btns_d & kZoomKeys) || (t->pad.btns_d & kPadZoomKeys))) return false;
     const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
     int index = -1, slot = -1;
     bool back = false;
@@ -1624,6 +1643,8 @@ bool GuiGameGrid::CoverZoomKeys(GuiTrigger* t) {
     zoomShown = 0.0f;
     zoomLastFrame = 0;
     t->wpad->btns_d &= ~kZoomKeys;
+    t->pad.btns_d &= ~kPadZoomKeys;
+    KeepFromSearch(t);
     riftwii::wii::PlayMenuSound(riftwii::wii::MenuSoundEvent::Popup);
     return true;
 }
