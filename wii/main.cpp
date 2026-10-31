@@ -78,14 +78,24 @@ volatile int ExitRequested = 0;
 
 namespace {
 
+// The drives finish their writes before RiftWii leaves. The log closes
+// first: it is a file on the SD card, and every unmount logs a line (the
+// menu font's hold, covers.cpp), which after the SD card's own unmount
+// would go to a drive that is gone (a restart with a USB drive plugged in
+// crashed on a Wii U). Lines after this stay in memory.
+void UnmountDrives() {
+    riftwii::wii::LogClose();
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+}
+
 // The Homebrew Channel as a title (channel.hpp's HomebrewChannelTitle).
 // None installed, or one that will not start, the caller goes on to exit
 // (std::exit goes back through the Homebrew Channel's stub when it started
 // RiftWii, else to the Wii Menu).
 void StartHomebrewChannelTitle() {
     const u64 title = riftwii::wii::HomebrewChannelTitle();
-    fatUnmount("sd:");
-    fatUnmount("usb:");
+    UnmountDrives();
     if (title == 0 || WII_Initialize() < 0) return;
     WII_LaunchTitle(title);  // returns only when it could not
 }
@@ -204,16 +214,18 @@ void StartChannel(u64 title) {
 
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
 void LeaveTo(int where) {
-    if (where == 1 && !riftwii::wii::StartedByHomebrewChannel()) {
-        StartHomebrewChannelTitle();
+    if (where == 1) {
+        // Started by the Homebrew Channel, std::exit goes back through its
+        // stub; the drives finish their writes first all the same.
+        if (riftwii::wii::StartedByHomebrewChannel()) UnmountDrives();
+        else StartHomebrewChannelTitle();
     } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says; the drives
         // finish their writes first, as for the power button. The disc
         // drive's motor stops first, while the log can still reach the
         // card, or a disc keeps spinning in standby.
         riftwii::di::stop_motor_for_power_off();
-        fatUnmount("sd:");
-        fatUnmount("usb:");
+        UnmountDrives();
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 5) {
         // The power button: the drives finish their writes, then standby
@@ -223,8 +235,7 @@ void LeaveTo(int where) {
         // The disc drive's motor stops first, while the log can still reach
         // the card, or a disc keeps spinning in standby.
         riftwii::di::stop_motor_for_power_off();
-        fatUnmount("sd:");
-        fatUnmount("usb:");
+        UnmountDrives();
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 6) {
         // A restart, as the console's own: on a Wii U it is the way back
@@ -232,8 +243,7 @@ void LeaveTo(int where) {
         // to the Wii U Menu or whatever starts at boot (Aroma). The drives
         // finish their writes first. Should STM refuse, the Wii Menu exit
         // below still leaves RiftWii.
-        fatUnmount("sd:");
-        fatUnmount("usb:");
+        UnmountDrives();
         STM_RebootSystem();
         SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
     } else if (where == 2 || where == 3) {
