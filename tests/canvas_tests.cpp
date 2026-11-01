@@ -103,6 +103,26 @@ static void test_gx_tiles() {
     EXPECT_EQ(tex[64 + 32 + pixel * 2 + 1], 30);
     EXPECT_EQ(tex[0], 0);
     EXPECT_TRUE(riftwii::to_gx_rgba8(Canvas(6, 4)).empty());  // not a multiple of 4
+
+    // RGB565: one 4x4 tile, two bytes a texel, the high byte first. The
+    // rows are red, green, blue and 0x123456 (whose alpha 0 is ignored).
+    std::uint8_t rgba[4 * 4 * 4] = {
+        0xFF, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0x00, 0xFF, 0xFF, 0x12, 0x34, 0x56, 0x00,
+    };
+    std::uint8_t rgb565[4 * 4 * 2] = {};
+    EXPECT_TRUE(riftwii::to_gx_rgb565(rgba, 4, 4, rgb565));
+    EXPECT_EQ(rgb565[0], 0xF8);  // red: 31 << 11
+    EXPECT_EQ(rgb565[1], 0x00);
+    EXPECT_EQ(rgb565[2], 0x07);  // green: 63 << 5
+    EXPECT_EQ(rgb565[3], 0xE0);
+    EXPECT_EQ(rgb565[4], 0x00);  // blue: 31
+    EXPECT_EQ(rgb565[5], 0x1F);
+    EXPECT_EQ(rgb565[6], 0x11);  // 0x12, 0x34, 0x56: 2 << 11 | 13 << 5 | 10
+    EXPECT_EQ(rgb565[7], 0xAA);
+    EXPECT_EQ(rgb565[8], 0x00);
+    EXPECT_EQ(rgb565[9], 0x00);
+    EXPECT_TRUE(!riftwii::to_gx_rgb565(rgba, 6, 4, rgb565));  // not a multiple of 4
 }
 
 // The distance to a rounded rectangle (negative inside), worked out here

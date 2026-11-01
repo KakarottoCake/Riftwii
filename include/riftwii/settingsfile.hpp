@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "riftwii/launch.hpp"
+#include "riftwii/parental.hpp"
 #include "riftwii/videopatch.hpp"
 #include "riftwii/wfcpatch.hpp"
 
@@ -74,6 +75,13 @@ struct LoaderSettings {
     // For developers with a USB Gecko (wii/core/gecko.hpp):
     std::string usb_gecko_log = "off";    // on, off: RiftWii's log also goes to a USB Gecko in slot B, with what libraries print
     std::string wiird_debugger = "off";   // off, on, pause: games start with the WiiRD debugger's code handler (pause: held at the first frame for the PC)
+    // Parental controls (riftwii/parental.hpp). The PIN's salted hash, ""
+    // for none: without it the other three do nothing, so deleting the
+    // parental_pin line takes every lock away.
+    std::string parental_pin;
+    std::string parental_mode = "lock";   // lock (shown; the PIN starts them), hide (left off Home)
+    int parental_age = 12;                // the highest age rating allowed without the PIN
+    std::string parental_unrated = "allow";  // allow, restrict: a game whose rating RiftWii does not know
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
@@ -90,10 +98,14 @@ struct LoaderSettings {
 // comes, except what the question promises to keep and what finding the
 // games depends on. Favorites are the player's own picks, not a setting;
 // game_folders say where the games are, and without them Home would
-// empty. Unknown keys (`other`) are reset with the rest. Games' own pages,
+// empty. Parental controls stay too: a reset from the menu must not be a
+// way round them. Unknown keys (`other`) are reset with the rest. Games' own pages,
 // play history, order, profiles and mods live in files of their own that
 // a reset never touches.
 LoaderSettings settings_after_reset(const LoaderSettings& before);
+
+// The parental controls the settings ask for (inactive without a PIN).
+ParentalRules parental_rules(const LoaderSettings& settings);
 
 // Where Home puts the focus while the drives are still being read at
 // start-up. Home first shows what is there and the SD card's and the USB
