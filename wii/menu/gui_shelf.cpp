@@ -26,6 +26,7 @@
 #include <string>
 
 #include "boxart.hpp"
+#include "madecover.hpp"
 #include "transition.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
@@ -934,6 +935,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        if (!art && !front) front = MadeUpCoverFor(item);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
                  item.hue, item.caseColour, faces);
@@ -997,6 +999,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        if (!art && !front) front = MadeUpCoverFor(item);
         const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
@@ -1276,6 +1279,7 @@ void GuiGameGrid::DrawRing(int alpha) {
         const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
         const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
         const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
+        if (!tex && !flat) flat = MadeUpCoverFor(item);
         const u8* cover = tex ? nullptr : flat;
         const float ph = tex ? h : h * 0.92f;
         float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
@@ -1367,6 +1371,8 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
                             a.lift + (b.lift - a.lift) * e + arc);
     const u8* art = riftwii::wii::BoxTexture(from.id);
     const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
+    // The made-up cover its tile showed on the shelf, if it has one.
+    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(from.id);
     Face faces[5];
     BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();

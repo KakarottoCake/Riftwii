@@ -71,6 +71,8 @@
 #include "cover3d.hpp"
 #include "discart.hpp"
 #include "covers.hpp"
+#include "madecover.hpp"
+#include "riftwii/emulatorart.hpp"
 #include "emulatorcovers.hpp"
 #include "emupicture.hpp"
 #include "picturepicker.hpp"
@@ -475,6 +477,9 @@ UpdateGUI(void *arg)
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();
+			// Before anything is drawn: they use the frame buffer's corner.
+			riftwii::wii::GuiPhase("making up covers");
+			riftwii::wii::MakeUpCovers();
 			riftwii::wii::GuiPhase("drawing the windows");
 			mainWindow->Draw();
 			riftwii::wii::GuiPhase("transition end");
@@ -11079,6 +11084,12 @@ public:
 		coverName = std::move(name);
 		roundedFrom = nullptr;
 	}
+	// The name and ID printed on the made-up cover (madecover.hpp) the
+	// page shows when there is no art for the game.
+	void SetMadeUpName(std::string title, std::string shownId) {
+		madeUpTitle = std::move(title);
+		madeUpId = std::move(shownId);
+	}
 	~HeroCover() override { free(rounded); }
 	// The page's tile the box is (GameTile::Cover): lit, it grows a little
 	// and gets a ring in the accent's colour, as a tile does.
@@ -11144,6 +11155,11 @@ public:
 		} else if (disc && skin::discCase.data) {
 			const float scale = aw / skin::discCase.w;
 			skin::Draw(skin::discCase, ax + (aw - skin::discCase.w) / 2, ay + (ah - skin::discCase.h) / 2, 255, scale);
+		} else if (const u8* madeUp = MadeUp()) {
+			// No art: the name on a blank cover, as Home shows the game.
+			const float k = std::min(aw / riftwii::kCoverWidth, ah / riftwii::kCoverHeight);
+			riftwii::wii::DrawMadeUpCover(madeUp, ax + aw / 2 - riftwii::kCoverWidth / 2.0f,
+						      ay + ah / 2 - riftwii::kCoverHeight / 2.0f, 255, k);
 		} else {
 			Menu_DrawRectangle(ax, ay, aw, ah, hue, 1);
 			skin::Draw(skin::iconDisc, ax + (aw - 40) / 2, ay + (ah - 40) / 2);
@@ -11209,6 +11225,14 @@ private:
 	int litTile = -1;
 	volatile bool hasArt = false;
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
+	std::string madeUpTitle, madeUpId;
+	// Its own key, apart from Home's tile: the page's name is the game's
+	// whole name, the tile's one fitted to it, and one key with two names
+	// would be made again and again while both are on screen.
+	const u8* MadeUp() const {
+		if (madeUpTitle.empty() || coverName.empty()) return nullptr;
+		return riftwii::wii::MadeUpCover(coverName + "#page", madeUpTitle, madeUpId);
+	}
 	const u8* roundedFrom = nullptr;
 	unsigned roundedFill = 0;
 	int roundedW = 0, roundedH = 0;
@@ -11717,6 +11741,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
 	GuiText whereTxt(overline.c_str(), 13, (GXColor){225, 228, 235, 255});
 	const std::string title = GameOwnTitle(state);
+	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	const int titleRoom = kTilesW - (body.HasRating() ? 70 : 0);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	int titleSize = 28;
@@ -13433,6 +13458,7 @@ static int MenuHome(FrontendState& state)
 	const GXColor kWhereInk = {225, 228, 235, 255}, kFactsInk = {235, 237, 242, 255};
 	GuiText whereTxt(where.c_str(), 13, kWhereInk);
 	const std::string title = GameTitle(state);
+	hero.SetMadeUpName(title, riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	int titleSize = 28;
 	while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);

@@ -12,6 +12,7 @@
 
 #include "boxart.hpp"
 #include "covers.hpp"
+#include "madecover.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
@@ -25,6 +26,13 @@
 namespace skin = riftwii::wii::skin;
 
 riftwii::PlayerActed GuiGameGrid::acted;
+
+const u8* MadeUpCoverFor(const GridItem& item) {
+    if (item.badge == "DISC") return nullptr;
+    // An emulator game's ID is only its cover key: none printed.
+    const std::string id = riftwii::emulator_cover_id(item.id) ? std::string() : item.id;
+    return riftwii::wii::MadeUpCover(CoverName(item), item.title, id);
+}
 
 namespace {
 
@@ -785,8 +793,14 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
     const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
     skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
+    // No cover: one made up (the name on a blank cover) once it is made.
     const u8* cover = riftwii::wii::CoverTexture(CoverName(item));
-    if (cover) {
+    const u8* madeUp = cover ? nullptr : MadeUpCoverFor(item);
+    if (madeUp) {
+        riftwii::wii::DrawMadeUpCover(madeUp, cx - riftwii::kCoverWidth / 2.0f, cy - riftwii::kCoverHeight / 2.0f, alpha,
+                                      s.scale * kCoverScale);
+        cover = madeUp;
+    } else if (cover) {
         skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, cx - riftwii::kCoverWidth / 2.0f,
                          cy - riftwii::kCoverHeight / 2.0f, alpha, s.scale * kCoverScale);
     } else if (item.badge == "DISC" && skin::discCase.data) {
