@@ -166,6 +166,12 @@ void gametdb_covers() {
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDB) == cover_url("US", "RSBE01", false));
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBSecond) == cover_url("US", "RSBE01", true));
     EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::Title).empty());
+    // GameTDB's Chinese regions have four letters; three or five are no region.
+    EXPECT(picture_gametdb_url("RSBW01", "ZHTW", PictureSource::GameTDB) ==
+           "http://art.gametdb.com/wii/cover/ZHTW/RSBW01.png");
+    EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB/ZHCN/RSBC01.png", PictureSource::GameTDBSecond}));
+    EXPECT(picture_gametdb_url("RSBE01", "USA", PictureSource::GameTDB).empty());
+    EXPECT(picture_gametdb_url("RSBE01", "ZHTWX", PictureSource::GameTDB).empty());
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover2/US/RSBE01.png", PictureSource::GameTDBFourth}));
     EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB2/US/RSBE01.png", PictureSource::GameTDBFourth}));
     // The same picture in two GameTDB sets is shown once, the earlier kept;

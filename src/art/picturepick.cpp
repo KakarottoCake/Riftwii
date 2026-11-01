@@ -54,8 +54,9 @@ bool gametdb_id(const std::string& id) {
     return std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
 }
 
+// Two capitals ("US"), or four for GameTDB's Chinese sets ("ZHTW", "ZHCN").
 bool gametdb_region(const std::string& region) {
-    return region.size() == 2 && std::all_of(region.begin(), region.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
+    return (region.size() == 2 || region.size() == 4) && std::all_of(region.begin(), region.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
 }
 
 constexpr const char* kGameTDBArt = "http://art.gametdb.com/wii/";

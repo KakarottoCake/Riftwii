@@ -5585,7 +5585,8 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 
 // GameTDB's covers in the regions the automatic download tries: a mod
 // tile's own entry first (`modId`, its first set), then the game's four
-// sets. Each is asked for with HEAD, so a cover GameTDB doesn't have never
+// sets, a WiiWare or Virtual Console channel's four-letter code before its
+// game ID in each (gametdb_art_ids). Each is asked for with HEAD, so a cover GameTDB doesn't have never
 // becomes an empty tile; the same picture under two regions is dropped by
 // the picker once both thumbnails are in. Runs on the network thread.
 static bool FindGameCovers(const std::string& modId, const std::string& gameId,
@@ -5598,18 +5599,23 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 		error = "Downloads are off";
 		return false;
 	}
+	// `regionsOf`: the ID whose region letter picks the regions; a channel's
+	// four-letter code has none, so its game ID's are used, as the automatic
+	// download does.
 	struct Ask {
 		std::string id;
+		std::string regionsOf;
 		PictureSource source;
 	};
 	std::vector<Ask> asks;
-	if (!modId.empty()) asks.push_back({modId, PictureSource::GameTDBMod});
+	if (!modId.empty())
+		for (const std::string& id : riftwii::gametdb_art_ids(modId)) asks.push_back({id, modId, PictureSource::GameTDBMod});
 	for (const PictureSource set : {PictureSource::GameTDB, PictureSource::GameTDBSecond, PictureSource::GameTDBThird,
 		PictureSource::GameTDBFourth})
-		asks.push_back({gameId, set});
+		for (const std::string& id : riftwii::gametdb_art_ids(gameId)) asks.push_back({id, gameId, set});
 	bool answered = false;
 	for (const Ask& ask : asks) {
-		for (const std::string& region : riftwii::cover_regions(ask.id, riftwii::wii::MenuLanguage())) {
+		for (const std::string& region : riftwii::cover_regions(ask.regionsOf, riftwii::wii::MenuLanguage())) {
 			if (riftwii::wii::NetCancelRequested()) return false;
 			const std::string url = riftwii::picture_gametdb_url(ask.id, region, ask.source);
 			std::string askError;
