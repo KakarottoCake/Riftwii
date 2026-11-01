@@ -57,7 +57,7 @@ struct GridItem {
     bool profile = false;
     GXColor hue = {90, 90, 100, 255};
     // The colour of the game's case on the shelf, as on a real one: the
-    // player's, GameTDB's, its series' or its console's
+    // player's, GameTDB's for its exact ID or its console's
     // (riftwii/casecolour.hpp's resolve_case_colour).
     GXColor caseColour = {255, 255, 255, 255};
 };
