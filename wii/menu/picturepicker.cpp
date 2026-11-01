@@ -19,6 +19,7 @@
 #include "video.h"
 #include "wiidrc.h"
 #include "riftwii/checkedalloc.hpp"
+#include "riftwii/coverart.hpp"
 #include "riftwii/emulatorart.hpp"
 #include "riftwii/emulatorbanner.hpp"
 #include "riftwii/skinpaint.hpp"
@@ -49,6 +50,11 @@ const char* source_name(PictureSource source) {
         case PictureSource::Screenshot: return tr("Screenshot");
         case PictureSource::Boxart: return tr("Box art");
         case PictureSource::SteamGrid: return tr("SteamGridDB");
+        case PictureSource::GameTDB: return tr("Cover");
+        case PictureSource::GameTDBSecond: return tr("Second cover");
+        case PictureSource::GameTDBMod: return tr("The mod's cover");
+        case PictureSource::GameTDBThird: return tr("Third cover");
+        case PictureSource::GameTDBFourth: return tr("Fourth cover");
     }
     return "";
 }
@@ -61,7 +67,57 @@ void spinner(float x, float y, unsigned frame) {
                            skin::WithAlpha(skin::kAccent, 255 - age * 26), 1);
     }
 }
+// A cover thumbnail: the stored cover's pixels, fitted inside the tile's
+// box at the cover's own proportions (it is already rounded).
+void draw_cover(const u8* pixels, const RoundClip& clip, int alpha) {
+    if (!pixels || alpha <= 0 || clip.w <= 0 || clip.h <= 0) return;
+    const float h = clip.h;
+    const float w = h * kCoverWidth / kCoverHeight;
+    const float x = clip.x + (clip.w - w) / 2;
+    const float y = clip.y;
+    GXTexObj texture;
+    GX_InitTexObj(&texture, const_cast<u8*>(pixels), kCoverWidth, kCoverHeight, GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
+                  GX_FALSE);
+    GX_InitTexObjLOD(&texture, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&texture, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    const u8 a = static_cast<u8>(alpha);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(x, y, 0);
+    GX_Color4u8(255, 255, 255, a);
+    GX_TexCoord2f32(0, 0);
+    GX_Position3f32(x + w, y, 0);
+    GX_Color4u8(255, 255, 255, a);
+    GX_TexCoord2f32(1, 0);
+    GX_Position3f32(x + w, y + h, 0);
+    GX_Color4u8(255, 255, 255, a);
+    GX_TexCoord2f32(1, 1);
+    GX_Position3f32(x, y + h, 0);
+    GX_Color4u8(255, 255, 255, a);
+    GX_TexCoord2f32(0, 1);
+    GX_End();
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
 }  // namespace
+
+PicturePreview CoverPicturePreview() {
+    PicturePreview preview;
+    preview.pixel_bytes = kCoverPixelBytes;
+    preview.make = [](const std::uint8_t* rgba, int w, int h) {
+        auto file = make_cover_file(rgba, w, h);
+        if (file.size() != kCoverFileSize) return std::vector<std::uint8_t>();
+        file.erase(file.begin(), file.begin() + kCoverHeaderSize);
+        return file;
+    };
+    preview.draw = draw_cover;
+    return preview;
+}
 
 GuiPicturePicker::GuiPicturePicker(Discover discover, bool wide, PicturePreview preview)
     : discover_(std::move(discover)), preview_(std::move(preview)), wide_(wide),

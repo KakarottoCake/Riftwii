@@ -35,6 +35,45 @@ bool decode_component(const std::string& encoded, std::string& decoded) {
     return emulator_art_component(decoded);
 }
 
+// GameTDB's folder for each of its cover sets; "" for other sources.
+const char* gametdb_folder(PictureSource source) {
+    switch (source) {
+        case PictureSource::GameTDB:
+        case PictureSource::GameTDBMod: return "cover";
+        case PictureSource::GameTDBSecond: return "coverB";
+        case PictureSource::GameTDBThird: return "cover2";
+        case PictureSource::GameTDBFourth: return "coverB2";
+        default: return "";
+    }
+}
+
+bool gametdb_source(PictureSource source) { return gametdb_folder(source)[0] != 0; }
+
+bool gametdb_id(const std::string& id) {
+    if (id.size() != 4 && id.size() != 6) return false;
+    return std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
+}
+
+// Two capitals ("US"), or four for GameTDB's Chinese sets ("ZHTW", "ZHCN").
+bool gametdb_region(const std::string& region) {
+    return (region.size() == 2 || region.size() == 4) && std::all_of(region.begin(), region.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
+}
+
+constexpr const char* kGameTDBArt = "http://art.gametdb.com/wii/";
+
+// A GameTDB cover URL taken apart and built again from checked parts, as
+// for libretro's: anything else (another host, set or file) is refused.
+bool gametdb_url_valid(const PictureCandidate& candidate) {
+    const std::string prefix = std::string(kGameTDBArt) + gametdb_folder(candidate.source) + "/";
+    if (candidate.url.compare(0, prefix.size(), prefix) != 0) return false;
+    const std::string rest = candidate.url.substr(prefix.size());
+    const auto slash = rest.find('/');
+    if (slash == std::string::npos || rest.size() < slash + 5 || rest.compare(rest.size() - 4, 4, ".png") != 0) return false;
+    const std::string region = rest.substr(0, slash);
+    const std::string id = rest.substr(slash + 1, rest.size() - slash - 5);
+    return picture_gametdb_url(id, region, candidate.source) == candidate.url;
+}
+
 std::size_t source_count(const std::vector<PictureCandidate>& candidates, PictureSource source) {
     return static_cast<std::size_t>(std::count_if(candidates.begin(), candidates.end(), [&](const PictureCandidate& item) {
         return item.source == source;
@@ -55,7 +94,12 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
             url.replace(folder, 15, "/Named_Snaps/");
             break;
         case PictureSource::Boxart: break;
-        case PictureSource::SteamGrid: return "";
+        case PictureSource::SteamGrid:
+        case PictureSource::GameTDB:
+        case PictureSource::GameTDBSecond:
+        case PictureSource::GameTDBMod:
+        case PictureSource::GameTDBThird:
+        case PictureSource::GameTDBFourth: return "";
         default: return "";
     }
     return url;
@@ -64,6 +108,7 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
 bool picture_candidate_valid(const PictureCandidate& candidate) {
     if (candidate.url.size() > 2048) return false;
     if (candidate.source == PictureSource::SteamGrid) return steamgrid_image_url(candidate.url);
+    if (gametdb_source(candidate.source)) return gametdb_url_valid(candidate);
     const std::string prefix = "https://thumbnails.libretro.com/";
     if (candidate.url.compare(0, prefix.size(), prefix) != 0) return false;
     const auto folder = candidate.url.find('/', prefix.size());
@@ -85,8 +130,8 @@ bool add_candidate(std::vector<PictureCandidate>& candidates, PictureCandidate c
         return item.url == candidate.url;
     });
     if (duplicate != candidates.end()) return true;
-    if (candidates.size() >= kPictureCandidatesMax ||
-        source_count(candidates, candidate.source) >= kPictureCandidatesPerSource) return true;
+    const std::size_t per_source = gametdb_source(candidate.source) ? kPictureGameTDBPerSet : kPictureCandidatesPerSource;
+    if (candidates.size() >= kPictureCandidatesMax || source_count(candidates, candidate.source) >= per_source) return true;
     return try_push_back(candidates, std::move(candidate));
 }
 }  // namespace
@@ -128,6 +173,18 @@ bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std:
     return true;
 }
 
+std::string picture_gametdb_url(const std::string& game_id, const std::string& region, PictureSource source) {
+    if (!gametdb_id(game_id) || !gametdb_region(region) || !gametdb_source(source)) return "";
+    return std::string(kGameTDBArt) + gametdb_folder(source) + "/" + region + "/" + game_id + ".png";
+}
+
+bool picture_add_gametdb(std::vector<PictureCandidate>& candidates, const std::string& game_id,
+                         const std::string& region, PictureSource source) {
+    const std::string url = picture_gametdb_url(game_id, region, source);
+    if (candidates.size() > kPictureCandidatesMax || url.empty()) return false;
+    return add_candidate(candidates, {url, source});
+}
+
 std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, std::size_t index,
                                      const Sha256Digest& digest) {
     if (candidates.size() > kPictureCandidatesMax || index >= candidates.size()) return kPictureCandidatesMax;
@@ -136,8 +193,11 @@ std::size_t picture_record_thumbnail(std::vector<PictureCandidate>& candidates, 
     candidate.thumbnail_hashed = true;
     for (std::size_t other = 0; other < candidates.size(); ++other) {
         const auto& previous = candidates[other];
-        if (other == index || previous.source != candidate.source || !previous.thumbnail_hashed ||
-            previous.thumbnail_hash != digest) continue;
+        // GameTDB's sets count as one source: a set may hold the same
+        // picture as another (and the mod's entry the game's).
+        const bool same_source = previous.source == candidate.source ||
+                                 (gametdb_source(previous.source) && gametdb_source(candidate.source));
+        if (other == index || !same_source || !previous.thumbnail_hashed || previous.thumbnail_hash != digest) continue;
         const std::size_t duplicate = std::max(index, other);
         candidates.erase(candidates.begin() + duplicate);
         return duplicate;

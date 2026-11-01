@@ -57,6 +57,8 @@ bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const Http
 // to be told which program and version is asking); it is RiftWii's own
 // text, never from the network.
 std::string http_get_request(const HttpUrl& url, const std::string& user_agent = "RiftWii");
+// The same as a HEAD request: the answer's status and headers, no body.
+std::string http_head_request(const HttpUrl& url, const std::string& user_agent = "RiftWii");
 // A POST of `body` (Content-Type `content_type`), body included.
 std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body);
 
@@ -82,11 +84,15 @@ struct HttpReadState {
     std::size_t chunk_at = 0;     // chunked: the next chunk's size line
     std::size_t trailer_at = 0;   // chunked: the next trailer line, 0 = not reached
     std::size_t scanned = 0;      // bytes already searched for the headers' end
+    bool head = false;            // set by the caller: a HEAD's answer ends with its headers
 };
 bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState& reading);
 bool http_response_complete(const std::vector<std::uint8_t>& raw);
 // Parses a response read to its end (or to the connection's close).
-bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error);
+// `head`: the answer to a HEAD request, whose Content-Length describes a
+// body that is never sent; only its status and headers are read.
+bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error,
+                         bool head = false);
 
 // Why a TLS handshake failed, from BearSSL's error number and the Wii's
 // clock at verification: empty when the certificate was not the problem.

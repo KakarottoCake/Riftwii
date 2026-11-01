@@ -69,7 +69,7 @@ std::vector<std::string> g_unreachable;
 // (CAV-04). `resolved` gets the address the host's name came to.
 bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& response, std::string& error,
               std::size_t max_bytes, int timeout_ms, const HttpProgress& progress = nullptr, bool local_ok = true,
-              std::uint32_t* resolved = nullptr) {
+              std::uint32_t* resolved = nullptr, bool head = false) {
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
     if (resolved) *resolved = server.ip;
@@ -112,6 +112,7 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
     std::vector<std::uint8_t> raw;
     std::uint8_t chunk[4096];
     HttpReadState reading;
+    reading.head = head;
     // Read until the response is whole or the server closes.
     while (!http_response_complete(raw, reading)) {
         if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) return too_slow();
@@ -134,7 +135,7 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
             return false;
         }
     }
-    return parse_http_response(raw, response, error);
+    return parse_http_response(raw, response, error, head);
 }
 
 bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
@@ -208,6 +209,19 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
         return true;
     }
     error = "too many redirects for " + http_url_for_messages(url);
+    return false;
+}
+
+bool HttpExists(const std::string& url, std::string& error, int timeout_ms) {
+    if (!NetStart(error)) return false;
+    HttpUrl parsed;
+    if (!parse_http_url(url, parsed, error)) return false;
+    HttpResponse response;
+    if (!exchange(parsed, http_head_request(parsed), response, error, 16u << 10, timeout_ms, nullptr, true, nullptr,
+                  true))
+        return false;
+    if (response.status == 200) return true;
+    error = parsed.host + " answered " + std::to_string(response.status);
     return false;
 }
 
