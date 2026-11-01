@@ -91,6 +91,15 @@ void ForgetHomebrewTitlesRead();
 // `progress` as FindGameInfo's.
 bool ReadHomebrewTitles(std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
+// GameTDB's mods of the player's games (riftwii/modcover.hpp), kept in
+// sd:/riftwii/mod-titles.txt whenever the database is read, for the mod
+// tiles' own covers (#385). False when there is no such file or it can't
+// be read.
+bool LoadModTitles(std::vector<CustomGame>& out);
+// How many times that file was written this session: the tiles are
+// matched again once it changes.
+unsigned ModTitlesWritten();
+
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.
 bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t received)>& received = nullptr);

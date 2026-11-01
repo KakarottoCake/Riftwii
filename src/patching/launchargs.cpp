@@ -128,10 +128,11 @@ bool pin_launch_cios(std::vector<std::string>& args, int running_ios) {
         return true;
     }
     // After the settings, where headless_launch_arguments puts them: before
-    // the keys that follow (wfc_domain, gct, return_to, reset).
+    // the keys that follow (wfc_domain, gct, return_to, extras, reset).
     std::size_t at = args.size();
     while (at > 1 && (args[at - 1].compare(0, 11, "wfc_domain=") == 0 || args[at - 1].compare(0, 4, "gct=") == 0 ||
-                      args[at - 1].compare(0, 10, "return_to=") == 0 || args[at - 1].compare(0, 6, "reset=") == 0)) {
+                      args[at - 1].compare(0, 10, "return_to=") == 0 || args[at - 1].compare(0, 7, "extras=") == 0 ||
+                      args[at - 1].compare(0, 6, "reset=") == 0)) {
         --at;
     }
     args.insert(args.begin() + static_cast<std::ptrdiff_t>(at), pinned);
@@ -271,6 +272,9 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "reset") {
             ok = value == "1";
             out.reset = ok;
+        } else if (key == "extras") {
+            ok = value == "with";
+            out.code_build_extras = ok;
         } else {
             error = "unknown argument '" + key + "'";
             return false;
@@ -330,6 +334,7 @@ std::vector<std::string> headless_launch_arguments(const HeadlessLaunch& h) {
         for (int shift = 60; shift >= 0; shift -= 4) title += kDigits[(h.return_to >> shift) & 15];
         args.push_back("return_to=" + title);
     }
+    if (h.code_build_extras) args.push_back("extras=with");
     if (h.reset) args.push_back("reset=1");
     return args;
 }

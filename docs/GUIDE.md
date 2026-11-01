@@ -291,7 +291,10 @@ a game GameTDB has no cover for shows its name. To use your own cover,
 put a PNG named after the game's ID in `riftwii/covers` on the SD card
 or the USB drive: `sd:/riftwii/covers/RMCE01.png`. For a mod's own Home
 tile, add its tile key: `sd:/riftwii/covers/RMCE01@retro-rewind.png`
-(a tile without one shows the game's cover). Your own cover comes
+(a tile without one shows the game's cover). Some mods are on GameTDB
+as games of their own (Retro Rewind, Project+): a mod's tile named
+like one, and like no other, gets that cover, kept under the tile key.
+Your own cover comes
 before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
 the game's settings, next to **Cover**. **Home tiles** in
@@ -1139,7 +1142,8 @@ A few things to know:
   reached a match). Older builds that go in `sd:/codes` with
   `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
   Legacy XP's setup for USB loaders) use the same files.
-- Choose Play with a code mod on and RiftWii asks how to start it:
+- Choose Play with a code mod on and RiftWii asks how to start it, the
+  first time for each mod:
   - **With RiftWii's extras**: the crash recorder, Return to RiftWii
     from the HOME Menu, the game page's video and other settings, and
     the GameCube controller adapter for Wii U (in the console's second
@@ -1149,9 +1153,16 @@ A few things to know:
     `gameconfig.txt` and the GameCube controller adapter when one is
     plugged in, nothing else (HOME > Wii Menu goes to the Wii Menu).
     Try this when a mod stays on a black screen.
+  RiftWii remembers the answer for that mod (in `sd:/riftwii/codemods.txt`),
+  on the game's page and on every Home tile the mod is on, and starts it
+  that way from then on. To change it, use the mod's **Start** row on the
+  Mods page: **With extras**, **Without extras**, or **Ask each time**, which asks at every Start and remembers nothing.
+  With two code mods on that were answered differently, or one not yet
+  answered, RiftWii asks again.
   A launch without the menu (autorun, another loader) starts with the
   extras, or without them with `code_build_extras = off` in
-  `sd:/riftwii/settings.txt`.
+  `sd:/riftwii/settings.txt`. A start from the menu always goes by the
+  menu's answer.
 - Either way, a code build runs under IOS58 (the Homebrew Channel's) or
   the cIOS RiftWii's menu runs on, and the game is told it has its own
   IOS, as the launcher Project+ and its mods ship with (MinimaLauncher)
@@ -1369,6 +1380,21 @@ wired Xbox 360 pad") and its port. Wireless Xbox 360 controllers (through
 the Wireless Gaming Receiver) and Xbox One or Series controllers are not
 supported. These pads have been tested in Dolphin, but not yet on a real
 Wii.
+
+### Wii U GamePad
+
+The GamePad's buttons work in RiftWii's menu only when RiftWii runs as a
+Wii Virtual Console inject on the Wii U Menu. That needs a specially
+patched inject, such as one built with TeconMoon's WiiVC Injector. Started
+the usual way, from the Homebrew Channel or the RiftWii channel in Wii
+mode, the GamePad only shows the picture and its buttons do nothing. In
+Wii mode, the Wii U passes the GamePad's buttons on only to a Virtual
+Console inject.
+
+Games never get the GamePad's buttons. Even in an inject, starting a game
+switches to a d2x cIOS, and that ends the inject's GamePad support. To play
+wirelessly on a Wii U, use a Wii Remote or a Wii U Pro Controller: in
+games, the Pro Controller plays as a Classic Controller Pro.
 
 ### Wii Remote controls in GameCube games
 

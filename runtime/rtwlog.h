@@ -31,8 +31,10 @@ extern "C" {
 /* 2: the Pro Controller probe's state; 3: the Bluetooth trace; 4: the
  * game's packet and the translator's both traced, two more counts; 5: half
  * the size (43 KB, from 82): every byte of it is MEM2 the game goes
- * without, and Newer Super Mario Bros. Wii from an RVZ ran out. */
-#define RTWLOG_VERSION 5u
+ * without, and Newer Super Mario Bros. Wii from an RVZ ran out; 6: a Pro
+ * Controller recognised late, its corrective mode request, and the game's
+ * first reporting mode requests. */
+#define RTWLOG_VERSION 6u
 /* rtwlog_file.probe: what the loader did to the Wii Remote library's
  * firmware probe (riftwii/wpadlog.hpp, settings.txt "wpad_probe"). */
 #define RTWLOG_PROBE_NOT_ASKED 0u   /* the test is off */
@@ -74,6 +76,17 @@ struct rtwlog_bt {
     uint8_t data[RTWLOG_BT_BYTES];
 };
 
+/* One reporting mode the game asked for (rtpro_mode_log's layout). */
+struct rtwlog_mode {
+    uint16_t handle;               /* the link's HCI handle */
+    uint8_t mode;                  /* the game's requested reporting mode */
+    uint8_t continuous;            /* its 0x12 first byte's continuous bit (0 or 0x04) */
+    uint8_t pro;                   /* 1: the link was known to be a Pro then */
+    uint8_t rewritten;             /* 1: the mode byte was replaced with 0x34 */
+    uint8_t pad[2];                /* explicit: no implicit padding, host and Wii agree */
+};
+#define RTWLOG_MODE_LOG 8u
+
 /* The translator's counts (rtpro_state's), copied as they change. */
 struct rtwlog_pro {
     uint32_t on;                   /* 1: translating; 0: the trace only */
@@ -94,6 +107,16 @@ struct rtwlog_pro {
     uint32_t pro_encrypted;        /* a Pro sent its bytes encrypted although asked not to */
     uint32_t memory_reads;         /* reads of the Wii Remote's memory answered in a Pro's place */
     uint32_t replaced;             /* other reports a Pro cannot take, sent as status or LEDs */
+    uint32_t late_modes;           /* corrective 0x12 requests put in a report's place */
+    uint32_t short_reports;        /* Pro data reports passed through: extension part too short */
+    uint32_t late_pros;            /* links recognised as Pro Controllers by their extension ID */
+    uint32_t mode_requests;        /* reporting mode requests seen (the first few kept below) */
+    uint32_t fe_writes;            /* writes the game made to the extension's 0xA400FE */
+    uint32_t fe_last;              /* the last value written there */
+    uint32_t late_skipped;         /* corrective 0x12 requests left for a later report: no room */
+    uint32_t out_packets;          /* output reports the game sent on Pro links */
+    uint32_t out_aligned;          /* of those, buffers 32-byte aligned (their first 32 bytes theirs) */
+    struct rtwlog_mode mode_log[RTWLOG_MODE_LOG];
 };
 
 /* One message: big-endian, as the Wii wrote it. 152 bytes. */

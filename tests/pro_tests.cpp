@@ -61,12 +61,22 @@ std::uint32_t In(rtpro_state& st, Bytes& acl, std::uint32_t* what = nullptr) {
     return n;
 }
 
-// The packet as the translator sends it on (it may come out shorter).
-std::uint32_t Out(rtpro_state& st, Bytes& acl) {
-    std::uint32_t size = static_cast<std::uint32_t>(acl.size());
-    const std::uint32_t what = rtpro_acl_out(&st, acl.data(), &size);
+// The packet as the translator sends it on, in a buffer of `room` bytes
+// (it may come out shorter, or take the room a 32-byte aligned buffer has).
+// The buffer can hold more than the packet, as a game's largest report can.
+std::uint32_t OutIn(rtpro_state& st, Bytes& acl, std::uint32_t room) {
+    const std::uint32_t packet = static_cast<std::uint32_t>(acl.size());
+    if (acl.size() < room) acl.resize(room, 0x00);
+    std::uint32_t size = packet;
+    const std::uint32_t what = rtpro_acl_out(&st, acl.data(), &size, room);
     acl.resize(size);
     return what;
+}
+
+// The packet as the translator sends it on, in a buffer the size of the
+// packet only (no room to grow).
+std::uint32_t Out(rtpro_state& st, Bytes& acl) {
+    return OutIn(st, acl, static_cast<std::uint32_t>(acl.size()));
 }
 
 // The Pro Controller's eleven bytes: sticks (12 bits LE), buttons (active low).
@@ -94,6 +104,172 @@ void test_links() {
     rtpro_event(&st, kProAddress, 1, gone.data(), static_cast<std::uint32_t>(gone.size()));
     Bytes again = Acl(kPro, {0xA2, 0x12, 0x04, 0x37});
     EXPECT_EQ(Out(st, again) & RTPRO_CHANGED, 0u);
+}
+
+// The game's own mode went out before the link was known to be a Pro, so
+// the controller is in a mode too short to translate. The next report that
+// expects no answer becomes the corrective 0x12, and the game keeps asking
+// for its mode.
+void test_late_pro() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kRemote, kOtherAddress);
+    Bytes mode = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
+    EXPECT_EQ(Out(st, mode) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(mode[11], 0x37);
+    EXPECT_EQ(st.links[0].physical_mode, 0x37);
+    // The ID read says it is a Pro Controller.
+    Bytes read = Acl(kRemote, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    Out(st, read);
+    Bytes reply = Acl(kRemote, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
+    In(st, reply);
+    EXPECT_EQ(st.links[0].pro, RTPRO_BY_ID);
+    EXPECT_EQ(st.late_pros, 1u);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    // A data report in that short mode passes through: the Pro's raw bytes.
+    Bytes shortr = Acl(kRemote, {0xA1, 0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+    In(st, shortr);
+    EXPECT_EQ(st.short_reports, 1u);
+    // The next rumble report, no acknowledgement asked, could carry the
+    // fix, but a 3-byte report's packet is 11 bytes and the corrective
+    // 0x12 needs 12: with no room to grow it stays owed.
+    Bytes tight = Acl(kRemote, {0xA2, 0x10, 0x01});
+    EXPECT_EQ(OutIn(st, tight, static_cast<std::uint32_t>(tight.size())) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(tight.size(), 11u);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    EXPECT_EQ(st.late_skipped, 1u);
+    // A buffer that starts on a 32-byte line owns its first 32 bytes, so
+    // the same report now carries the fix.
+    Bytes rumble = Acl(kRemote, {0xA2, 0x10, 0x01});
+    EXPECT_TRUE(OutIn(st, rumble, 32) & RTPRO_CHANGED);
+    EXPECT_EQ(rumble.size(), 12u);
+    EXPECT_EQ(rumble[2], 8);   // ACL length
+    EXPECT_EQ(rumble[4], 4);   // L2CAP length
+    EXPECT_EQ(rumble[9], 0x12);
+    EXPECT_EQ(rumble[10], 0x05);  // the game's continuous bit and the rumble bit
+    EXPECT_EQ(rumble[11], 0x34);
+    EXPECT_EQ(st.late_modes, 1u);
+    EXPECT_EQ(st.links[0].needs_mode, 0u);
+    EXPECT_EQ(st.links[0].physical_mode, RTPRO_MODE);
+    // The Pro now answers 0x34; the game still gets its 0x37.
+    const Bytes pro = ProBytes(0x800, 0x800, 0x800, 0x800, 0xFF, 0xEF);
+    Bytes r = {0xA1, 0x34, 0x00, 0x00};
+    r.insert(r.end(), pro.begin(), pro.end());
+    r.resize(23, 0x00);
+    Bytes acl = Acl(kRemote, r);
+    In(st, acl);
+    EXPECT_EQ(acl[9], 0x37);
+}
+
+// Only a report that can carry the fix without losing anything takes it:
+// a rumble report, or an LED report whose LEDs are already what the game
+// last set, and only when no acknowledgement is asked (wiibrew: a 0x22
+// answers a report whose first byte has bit 1 set).
+void test_late_pro_choices() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kRemote, kOtherAddress);
+    Bytes mode = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
+    Out(st, mode);
+    Bytes read = Acl(kRemote, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    Out(st, read);
+    Bytes reply = Acl(kRemote, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
+    In(st, reply);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    // LEDs that change: sent as they are, and remembered.
+    Bytes leds = Acl(kRemote, {0xA2, 0x11, 0x10});
+    EXPECT_EQ(Out(st, leds) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(leds[9], 0x11);
+    EXPECT_EQ(st.links[0].leds, 0x10);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    // The same LEDs with the acknowledgement bit: not taken either.
+    Bytes acked = Acl(kRemote, {0xA2, 0x11, 0x12});
+    EXPECT_EQ(Out(st, acked) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    // A rumble report asking for an acknowledgement: not taken.
+    Bytes acked_rumble = Acl(kRemote, {0xA2, 0x10, 0x03});
+    EXPECT_EQ(Out(st, acked_rumble) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    // The same LEDs, no acknowledgement: the fix goes in its place (the
+    // game's buffer has room for the one more byte, as above).
+    Bytes takes = Acl(kRemote, {0xA2, 0x11, 0x10});
+    takes.resize(12, 0x00);
+    EXPECT_TRUE(Out(st, takes) & RTPRO_CHANGED);
+    EXPECT_EQ(takes[9], 0x12);
+    EXPECT_EQ(takes[10], 0x04);
+    EXPECT_EQ(takes[11], 0x34);
+    EXPECT_EQ(st.links[0].needs_mode, 0u);
+}
+
+// A link known to be a Pro from its address was in 0x34 from the start; no
+// corrective request is ever owed.
+void test_known_pro_needs_no_fix() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kPro, kProAddress);
+    Bytes mode = Acl(kPro, {0xA2, 0x12, 0x04, 0x37});
+    EXPECT_TRUE(Out(st, mode) & RTPRO_CHANGED);
+    EXPECT_EQ(mode[11], RTPRO_MODE);
+    Bytes read = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    Out(st, read);
+    Bytes reply = Acl(kPro, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
+    In(st, reply);
+    EXPECT_EQ(st.late_pros, 0u);
+    EXPECT_EQ(st.links[0].needs_mode, 0u);
+    Bytes rumble = Acl(kPro, {0xA2, 0x10, 0x00});
+    EXPECT_EQ(Out(st, rumble) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(rumble[9], 0x10);
+    EXPECT_EQ(st.late_modes, 0u);
+}
+
+// The first reporting mode requests are kept for the log, with whether the
+// link was known to be a Pro and whether the mode was changed.
+void test_mode_log() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kRemote, kOtherAddress);
+    Bytes mode = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
+    Out(st, mode);
+    EXPECT_EQ(st.mode_requests, 1u);
+    EXPECT_EQ(st.mode_log[0].handle, kRemote);
+    EXPECT_EQ(st.mode_log[0].mode, 0x37);
+    EXPECT_EQ(st.mode_log[0].continuous, 0x04);
+    EXPECT_EQ(st.mode_log[0].pro, 0u);
+    EXPECT_EQ(st.mode_log[0].rewritten, 0u);
+    Bytes read = Acl(kRemote, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    Out(st, read);
+    Bytes reply = Acl(kRemote, ReadReply(0x00FA, 6, 0, {0x00, 0x00, 0xA4, 0x20, 0x01, 0x20}));
+    In(st, reply);
+    // 0x34 already: nothing to change, but now known to be a Pro.
+    Bytes same = Acl(kRemote, {0xA2, 0x12, 0x00, 0x34});
+    EXPECT_EQ(Out(st, same) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(st.mode_log[1].handle, kRemote);
+    EXPECT_EQ(st.mode_log[1].mode, 0x34);
+    EXPECT_EQ(st.mode_log[1].continuous, 0u);
+    EXPECT_EQ(st.mode_log[1].pro, 1u);
+    EXPECT_EQ(st.mode_log[1].rewritten, 0u);
+    // A different mode is changed.
+    Bytes changed = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
+    EXPECT_TRUE(Out(st, changed) & RTPRO_CHANGED);
+    EXPECT_EQ(st.mode_log[2].handle, kRemote);
+    EXPECT_EQ(st.mode_log[2].mode, 0x37);
+    EXPECT_EQ(st.mode_log[2].pro, 1u);
+    EXPECT_EQ(st.mode_log[2].rewritten, 1u);
+    EXPECT_EQ(st.mode_requests, 3u);
+    // Only the first eight are kept, the rest counted.
+    for (int i = 0; i < 10; ++i) {
+        Bytes more = Acl(kRemote, {0xA2, 0x12, 0x00, 0x31});
+        Out(st, more);
+    }
+    EXPECT_EQ(st.mode_requests, 13u);
+    EXPECT_EQ(st.mode_log[7].mode, 0x31);
+    // A write to the extension's data-format register is counted.
+    Bytes fe = {0xA2, 0x16, 0x04, 0xA4, 0x00, 0xFE, 0x01, 0x05};
+    fe.resize(23, 0);
+    Bytes fe_acl = Acl(kRemote, fe);
+    Out(st, fe_acl);
+    EXPECT_EQ(st.fe_writes, 1u);
+    EXPECT_EQ(st.fe_last, 0x05);
 }
 
 void test_extension_id() {
@@ -637,6 +813,10 @@ void test_bad_packets() {
 
 int main() {
     test_links();
+    test_late_pro();
+    test_late_pro_choices();
+    test_known_pro_needs_no_fix();
+    test_mode_log();
     test_extension_id();
     test_calibration();
     test_refused_calibration();

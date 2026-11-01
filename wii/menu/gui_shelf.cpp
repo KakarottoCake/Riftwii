@@ -625,7 +625,7 @@ int g_backCur = 0;
 // `id` "*disc": the disc drive's box (skin::discCase).
 constexpr const char* kDiscBackdrop = "*disc";
 
-// `cover_name`: the tile's (CoverName): the player's own cover (#384)
+// `cover_name`: the tile's (CoverName): the player's own cover (#384) or a mod tile's own (#385)
 // comes before GameTDB's box here too, as on the box itself.
 void UpdateBackdrop(const std::string& id, const std::string& cover_name, bool still) {
     const bool disc = id == kDiscBackdrop;
@@ -931,7 +931,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         if (!g_flying.empty() && item.id == g_flying) continue;
         const BoxPose& p = poses[i];
-        // The player's own cover (#384) comes before GameTDB's full box.
+        // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         Face faces[5];
@@ -994,7 +994,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[i];
         const BoxPose& p = poses[i];
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
-        // The player's own cover (#384) comes before GameTDB's full box.
+        // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
         const u8* cover = art ? nullptr : front;
@@ -1271,7 +1271,8 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GXColor lit = {shade, shade, shade, static_cast<u8>(alpha)};
         const u8 glint = static_cast<u8>(70 * near * alpha / 255);
         const GXColor mirrorTop = {shade, shade, shade, glint}, mirrorEnd = {shade, shade, shade, 0};
-        // The player's own cover (#384) comes before GameTDB's 3D one.
+        // The player's own cover (#384), or a mod tile's own (#385), comes
+        // before GameTDB's 3D one of the game.
         const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
         const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
         const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
