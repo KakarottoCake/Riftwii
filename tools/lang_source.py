@@ -1408,16 +1408,46 @@ T = {
         "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。",
         "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
         "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.": (
+        "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods.",
+        "Project+など多くのコードModは、RiftWiiの追加機能ありで動きます。画面が黒いままなら、追加機能なしで起動してください。{1}ではこの選択を保存します。MODのページで変えられます。",
+        "A maioria dos mods de códigos, como o Project+, usa os extras do RiftWii. Se a tela ficar preta, inicie sem. O RiftWii vai lembrar para {1}; a página Mods muda isso.",
+        "La maggior parte dei mod di codici, come Project+, funziona con gli extra di RiftWii. Se resta nero, avvialo senza. RiftWii lo ricorderà per {1}; la pagina Mod lo cambia."),
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.": (
+        "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii.",
+        "sd:/riftwii/codemods.txt に書き込めませんでした。この選択はRiftWiiを閉じるまで使われます。",
+        "Não foi possível gravar sd:/riftwii/codemods.txt: a resposta vale até o RiftWii ser fechado.",
+        "Impossibile scrivere sd:/riftwii/codemods.txt: la risposta vale finché RiftWii non si chiude."),
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.": (
+        "Esta respuesta no se guardó: sd:/riftwii/codemods.txt no puede aceptarla ahora.",
+        "この選択は保存されませんでした。今は sd:/riftwii/codemods.txt に入れられません。",
+        "Esta resposta não foi guardada: sd:/riftwii/codemods.txt não pode aceitá-la agora.",
+        "Questa risposta non è stata salvata: sd:/riftwii/codemods.txt ora non può accettarla."),
+    "Asked at the first Start": (
+        "Se pregunta al primer inicio",
+        "最初の起動でたずねます",
+        "Perguntado no primeiro início",
+        "Chiesto al primo avvio"),
+    "Ask each time": (
+        "Preguntar cada vez",
+        "そのつどたずねる",
+        "Perguntar sempre",
+        "Chiedi ogni volta"),
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.": (
+        "Para {1} en cada página y casilla donde esté activado. «Preguntar cada vez» vuelve a mostrar la pregunta al iniciar.",
+        "{1}をオンにしているすべてのページとタイルで使います。「そのつどたずねる」にすると、起動のたびにたずねます。",
+        "Para {1} em todas as páginas e blocos onde estiver ativado. \"Perguntar sempre\" traz a pergunta de volta ao iniciar.",
+        "Per {1} in ogni pagina e riquadro in cui è attivo. «Chiedi ogni volta» fa tornare la domanda all'avvio."),
     "With extras": (
         "Con extras",
         "追加機能あり",
         "Com extras",
         "Con gli extra"),
     "Crash reports, back to RiftWii": (
-        "Informes de fallos, volver a RiftWii",
+        "Informes de fallos, volver",
         "クラッシュ記録、RiftWiiに戻る",
-        "Relatórios de falhas, voltar ao RiftWii",
-        "Rapporti di crash, ritorno a RiftWii"),
+        "Relatórios de falhas, voltar",
+        "Rapporti di crash, ritorno"),
     "Without extras": (
         "Sin extras",
         "追加機能なし",
@@ -3242,6 +3272,18 @@ KO = {
         "이 코드 모드를 어떻게 시작할까요?",
     "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
         "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요.",
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
+        "Project+ 같은 대부분의 코드 모드는 RiftWii의 추가 기능과 함께 실행됩니다. 화면이 검은 채로 멈추면 추가 기능 없이 시작하세요. RiftWii가 {1}에 대해 이 선택을 기억합니다. 모드 페이지에서 바꿀 수 있습니다.",
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
+        "sd:/riftwii/codemods.txt에 쓸 수 없습니다. 이 선택은 RiftWii를 닫을 때까지만 유지됩니다.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "이 선택은 저장되지 않았습니다. 지금은 sd:/riftwii/codemods.txt에 넣을 수 없습니다.",
+    "Asked at the first Start":
+        "처음 시작할 때 묻습니다",
+    "Ask each time":
+        "매번 묻기",
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.":
+        "{1}이(가) 켜진 모든 페이지와 타일에 적용됩니다. '매번 묻기'로 하면 시작할 때마다 다시 묻습니다.",
     "With extras":
         "추가 기능 사용",
     "Crash reports, back to RiftWii":
@@ -5092,10 +5134,22 @@ FR = {
         "Comment démarrer ce mod de code ?",
     "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
         "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
+    "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it.":
+        "La plupart des mods de code, comme Project+, marchent avec les extras de RiftWii. Écran noir ? Démarrez-le sans. RiftWii s'en souviendra pour {1} ; la page Mods le change.",
+    "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes.":
+        "Impossible d'écrire sd:/riftwii/codemods.txt : la réponse vaut jusqu'à la fermeture de RiftWii.",
+    "This answer was not kept: sd:/riftwii/codemods.txt can't take it now.":
+        "Cette réponse n'a pas été gardée : sd:/riftwii/codemods.txt ne peut pas la prendre pour l'instant.",
+    "Asked at the first Start":
+        "Demandé au premier démarrage",
+    "Ask each time":
+        "Demander à chaque fois",
+    "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start.":
+        "Pour {1} sur chaque page et vignette où il est activé. « Demander à chaque fois » ramène la question au démarrage.",
     "With extras":
         "Avec les extras",
     "Crash reports, back to RiftWii":
-        "Rapports de plantage, retour à RiftWii",
+        "Rapports de plantage, retour",
     "Without extras":
         "Sans extras",
     "As the mod's own loader":

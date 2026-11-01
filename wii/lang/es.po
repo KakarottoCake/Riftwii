@@ -1431,11 +1431,29 @@ msgstr "¿Cómo debe iniciarse este mod de códigos?"
 msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
 msgstr "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador."
 
+msgid "Most code mods, like Project+, run with RiftWii's extras. If one stays on a black screen, start it without. RiftWii will remember this for {1}; the Mods page changes it."
+msgstr "La mayoría de los mods de códigos, como Project+, usan los extras de RiftWii. Si queda en negro, inícialo sin ellos. RiftWii lo recordará para {1}; cámbialo en Mods."
+
+msgid "Could not write sd:/riftwii/codemods.txt: the answer lasts until RiftWii closes."
+msgstr "No se pudo escribir sd:/riftwii/codemods.txt: la respuesta durará hasta que cierres RiftWii."
+
+msgid "This answer was not kept: sd:/riftwii/codemods.txt can't take it now."
+msgstr "Esta respuesta no se guardó: sd:/riftwii/codemods.txt no puede aceptarla ahora."
+
+msgid "Asked at the first Start"
+msgstr "Se pregunta al primer inicio"
+
+msgid "Ask each time"
+msgstr "Preguntar cada vez"
+
+msgid "For {1} on every page and tile it's switched on in. Ask each time brings the question back at Start."
+msgstr "Para {1} en cada página y casilla donde esté activado. «Preguntar cada vez» vuelve a mostrar la pregunta al iniciar."
+
 msgid "With extras"
 msgstr "Con extras"
 
 msgid "Crash reports, back to RiftWii"
-msgstr "Informes de fallos, volver a RiftWii"
+msgstr "Informes de fallos, volver"
 
 msgid "Without extras"
 msgstr "Sin extras"

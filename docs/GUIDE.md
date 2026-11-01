@@ -1124,7 +1124,8 @@ A few things to know:
   reached a match). Older builds that go in `sd:/codes` with
   `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
   Legacy XP's setup for USB loaders) use the same files.
-- Choose Play with a code mod on and RiftWii asks how to start it:
+- Choose Play with a code mod on and RiftWii asks how to start it, the
+  first time for each mod:
   - **With RiftWii's extras**: the crash recorder, Return to RiftWii
     from the HOME Menu, the game page's video and other settings, and
     the GameCube controller adapter for Wii U (in the console's second
@@ -1134,9 +1135,16 @@ A few things to know:
     `gameconfig.txt` and the GameCube controller adapter when one is
     plugged in, nothing else (HOME > Wii Menu goes to the Wii Menu).
     Try this when a mod stays on a black screen.
+  RiftWii remembers the answer for that mod (in `sd:/riftwii/codemods.txt`),
+  on the game's page and on every Home tile the mod is on, and starts it
+  that way from then on. To change it, use the mod's **Start** row on the
+  Mods page: **With extras**, **Without extras**, or **Ask each time**, which asks at every Start and remembers nothing.
+  With two code mods on that were answered differently, or one not yet
+  answered, RiftWii asks again.
   A launch without the menu (autorun, another loader) starts with the
   extras, or without them with `code_build_extras = off` in
-  `sd:/riftwii/settings.txt`.
+  `sd:/riftwii/settings.txt`. A start from the menu always goes by the
+  menu's answer.
 - Either way, a code build runs under IOS58 (the Homebrew Channel's) or
   the cIOS RiftWii's menu runs on, and the game is told it has its own
   IOS, as the launcher Project+ and its mods ship with (MinimaLauncher)
