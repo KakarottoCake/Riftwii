@@ -74,6 +74,10 @@ u8* g_mask = nullptr;  // I8: how much of each texel the rounded corners keep
 bool g_inkChosen = false;
 GXColor g_ink = {46, 49, 56, 255};
 GXColor g_inkDim = {118, 123, 133, 255};
+bool g_spineInkChosen = false;
+GXColor g_spineInk = {46, 49, 56, 255};
+// Light ink on a blank cover darker than this (Rec. 601 brightness).
+constexpr long kLightPaper = 140;
 
 bool PoolReady() {
     if (g_poolTried) return g_poolReady;
@@ -105,17 +109,16 @@ bool PoolReady() {
     return true;
 }
 
-// Dark ink on a light blank cover, light ink on a dark one (a theme's
-// own picture): the average brightness of where the name goes, read from
-// the picture's RGBA8 tiles (32 bytes of alpha and red, then 32 of green
-// and blue, for each 4x4 tile).
-void ChooseInk() {
-    g_inkChosen = true;
+// Whether the blank cover is light from x0 to x1 and y0 to y1 (its
+// average brightness, every `step` pixels), read from the picture's RGBA8
+// tiles (32 bytes of alpha and red, then 32 of green and blue, for each
+// 4x4 tile). Light when there is no picture to read: the painted one is.
+bool BlankIsLight(int x0, int x1, int y0, int y1, int step) {
     const skin::Tex& t = skin::blankCover;
-    if (!t.data || t.w != kDrawW || t.h != kDrawH) return;
+    if (!t.data || t.w != kDrawW || t.h != kDrawH) return true;
     long sum = 0, count = 0;
-    for (int y = kTitleTop; y < kTitleBottom; y += 6) {
-        for (int x = kTitleMargin; x < kDrawW - kTitleMargin; x += 6) {
+    for (int y = y0; y < y1; y += step) {
+        for (int x = x0; x < x1; x += step) {
             const std::size_t tile = static_cast<std::size_t>(y / 4) * (t.w / 4) + x / 4;
             const int texel = (y % 4) * 4 + x % 4;
             const u8* ar = t.data + tile * 64;
@@ -124,8 +127,14 @@ void ChooseInk() {
             ++count;
         }
     }
-    const bool light = count > 0 && sum / count >= 140 * 1000;
-    if (!light) {
+    return count == 0 || sum / count >= kLightPaper * 1000;
+}
+
+// Dark ink on a light blank cover, light ink on a dark one (a theme's
+// own picture), judged where the name goes.
+void ChooseInk() {
+    g_inkChosen = true;
+    if (!BlankIsLight(kTitleMargin, kDrawW - kTitleMargin, kTitleTop, kTitleBottom, 6)) {
         g_ink = {244, 244, 246, 255};
         g_inkDim = {188, 191, 200, 255};
     }
@@ -347,9 +356,15 @@ void DrawMadeUpCover(const u8* cover, float x, float y, int alpha, float scale) 
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
 }
 
-GXColor MadeUpCoverInk() {
-    if (!g_inkChosen) ChooseInk();
-    return g_ink;
+GXColor MadeUpSpineInk() {
+    if (!g_spineInkChosen) {
+        g_spineInkChosen = true;
+        // Where the name runs down the spine: under the band, above the
+        // foot strip, as on the cover.
+        if (!BlankIsLight(kMadeUpSpineLeft, kMadeUpSpineRight, kTitleTop, kTitleBottom, 2))
+            g_spineInk = {244, 244, 246, 255};
+    }
+    return g_spineInk;
 }
 
 }  // namespace riftwii::wii
