@@ -61,12 +61,22 @@ std::uint32_t In(rtpro_state& st, Bytes& acl, std::uint32_t* what = nullptr) {
     return n;
 }
 
-// The packet as the translator sends it on (it may come out shorter).
-std::uint32_t Out(rtpro_state& st, Bytes& acl) {
-    std::uint32_t size = static_cast<std::uint32_t>(acl.size());
-    const std::uint32_t what = rtpro_acl_out(&st, acl.data(), &size);
+// The packet as the translator sends it on, in a buffer of `room` bytes
+// (it may come out shorter, or take the room a 32-byte aligned buffer has).
+// The buffer can hold more than the packet, as a game's largest report can.
+std::uint32_t OutIn(rtpro_state& st, Bytes& acl, std::uint32_t room) {
+    const std::uint32_t packet = static_cast<std::uint32_t>(acl.size());
+    if (acl.size() < room) acl.resize(room, 0x00);
+    std::uint32_t size = packet;
+    const std::uint32_t what = rtpro_acl_out(&st, acl.data(), &size, room);
     acl.resize(size);
     return what;
+}
+
+// The packet as the translator sends it on, in a buffer the size of the
+// packet only (no room to grow).
+std::uint32_t Out(rtpro_state& st, Bytes& acl) {
+    return OutIn(st, acl, static_cast<std::uint32_t>(acl.size()));
 }
 
 // The Pro Controller's eleven bytes: sticks (12 bits LE), buttons (active low).
@@ -120,12 +130,18 @@ void test_late_pro() {
     Bytes shortr = Acl(kRemote, {0xA1, 0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     In(st, shortr);
     EXPECT_EQ(st.short_reports, 1u);
-    // The next rumble report, no acknowledgement asked, carries the fix.
-    // A real game's output buffer is the size of its largest report (the
-    // fix adds one byte); the test gives it that room.
+    // The next rumble report, no acknowledgement asked, could carry the
+    // fix, but a 3-byte report's packet is 11 bytes and the corrective
+    // 0x12 needs 12: with no room to grow it stays owed.
+    Bytes tight = Acl(kRemote, {0xA2, 0x10, 0x01});
+    EXPECT_EQ(OutIn(st, tight, static_cast<std::uint32_t>(tight.size())) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(tight.size(), 11u);
+    EXPECT_EQ(st.links[0].needs_mode, 1u);
+    EXPECT_EQ(st.late_skipped, 1u);
+    // A buffer that starts on a 32-byte line owns its first 32 bytes, so
+    // the same report now carries the fix.
     Bytes rumble = Acl(kRemote, {0xA2, 0x10, 0x01});
-    rumble.resize(12, 0x00);
-    EXPECT_TRUE(Out(st, rumble) & RTPRO_CHANGED);
+    EXPECT_TRUE(OutIn(st, rumble, 32) & RTPRO_CHANGED);
     EXPECT_EQ(rumble.size(), 12u);
     EXPECT_EQ(rumble[2], 8);   // ACL length
     EXPECT_EQ(rumble[4], 4);   // L2CAP length
@@ -215,6 +231,7 @@ void test_mode_log() {
     Bytes mode = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
     Out(st, mode);
     EXPECT_EQ(st.mode_requests, 1u);
+    EXPECT_EQ(st.mode_log[0].handle, kRemote);
     EXPECT_EQ(st.mode_log[0].mode, 0x37);
     EXPECT_EQ(st.mode_log[0].continuous, 0x04);
     EXPECT_EQ(st.mode_log[0].pro, 0u);
@@ -226,6 +243,7 @@ void test_mode_log() {
     // 0x34 already: nothing to change, but now known to be a Pro.
     Bytes same = Acl(kRemote, {0xA2, 0x12, 0x00, 0x34});
     EXPECT_EQ(Out(st, same) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(st.mode_log[1].handle, kRemote);
     EXPECT_EQ(st.mode_log[1].mode, 0x34);
     EXPECT_EQ(st.mode_log[1].continuous, 0u);
     EXPECT_EQ(st.mode_log[1].pro, 1u);
@@ -233,6 +251,7 @@ void test_mode_log() {
     // A different mode is changed.
     Bytes changed = Acl(kRemote, {0xA2, 0x12, 0x04, 0x37});
     EXPECT_TRUE(Out(st, changed) & RTPRO_CHANGED);
+    EXPECT_EQ(st.mode_log[2].handle, kRemote);
     EXPECT_EQ(st.mode_log[2].mode, 0x37);
     EXPECT_EQ(st.mode_log[2].pro, 1u);
     EXPECT_EQ(st.mode_log[2].rewritten, 1u);

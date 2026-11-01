@@ -327,12 +327,16 @@ static int pro_answers_read(uint32_t first, uint32_t address) {
     return (first & OUT_REGISTERS_BIT) && (address & 0xFF0000u) == 0xA40000u;
 }
 
-uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
+uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uint32_t room) {
     uint8_t* p;
     uint32_t n, id, what = RTPRO_SEEN;
     struct rtpro_link* l = report_of(st, acl, *size, 1, &p, &n);
     if (!l || p[0] != HID_OUTPUT || n < 3u) return 0;
     id = p[1];
+    if (l->pro) {
+        st->out_packets++;
+        what |= RTPRO_PRO;
+    }
     if (id == OUT_MODE && n >= 4u) {
         const uint32_t asked_mode = p[3];
         const uint32_t continuous = p[2] & 0x04u;
@@ -355,6 +359,7 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
         }
         if (st->mode_requests < RTPRO_MODE_LOG) {
             struct rtpro_mode_log* e = &st->mode_log[st->mode_requests];
+            e->handle = l->handle;
             e->mode = (uint8_t)asked_mode;
             e->continuous = (uint8_t)continuous;
             e->pro = l->pro ? 1u : 0u;
@@ -398,18 +403,24 @@ uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
      * rumble or an unchanged-LED report (so no LED change is lost). A
      * 0x12 whose first byte has bit 1 clear is answered by no 0x22
      * (wiibrew's "Wiimote" page: 0x22 is sent only when bit 1 of an
-     * output report's first byte is set), so nothing is left waiting. */
+     * output report's first byte is set), so nothing is left waiting.
+     * The request is one byte longer than a 0x10 or 0x11 report: it only
+     * goes in when the buffer has room for it, else it stays owed. */
     if (l->needs_mode && (id == OUT_RUMBLE || id == OUT_LEDS) && !(p[2] & OUT_ACK_BIT) &&
         (id == OUT_RUMBLE || (p[2] & 0xF0u) == l->leds)) {
-        p[1] = OUT_MODE;
-        p[2] = (uint8_t)(l->continuous | (p[2] & OUT_RUMBLE_BIT));
-        p[3] = RTPRO_MODE;
-        set_lengths(acl, 4u);
-        *size = 8u + 4u;
-        l->physical_mode = RTPRO_MODE;
-        l->needs_mode = 0;
-        st->late_modes++;
-        return what | RTPRO_CHANGED;
+        if (8u + 4u > room) {
+            st->late_skipped++;
+        } else {
+            p[1] = OUT_MODE;
+            p[2] = (uint8_t)(l->continuous | (p[2] & OUT_RUMBLE_BIT));
+            p[3] = RTPRO_MODE;
+            set_lengths(acl, 4u);
+            *size = 8u + 4u;
+            l->physical_mode = RTPRO_MODE;
+            l->needs_mode = 0;
+            st->late_modes++;
+            return what | RTPRO_CHANGED;
+        }
     }
     if (id == OUT_LEDS) {
         l->leds = (uint8_t)(p[2] & 0xF0u);
