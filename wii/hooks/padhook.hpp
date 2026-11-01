@@ -149,10 +149,12 @@ std::int32_t open_usb_ven_for_game();
 // (kPadHookSites * 16 bytes); the caller then lowers the MEM2 arena's end to
 // `new_arena2_hi`. A nonzero `stage_base` keeps that blob below the
 // resident runtime's staging area until the handover copies it down.
+// `top_room`, for a code build, is MEM2 left free above the blob for the
+// build's codes (Brawl's).
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
                    const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
-                   std::uint32_t mem1_veneer = 0, std::uint32_t stage_base = 0);
+                   std::uint32_t mem1_veneer = 0, std::uint32_t stage_base = 0, std::uint32_t top_room = 0);
 
 // After the patches and the cheats, just before the handover.
 bool install_pad_hook(PadHook& hook, std::string& why);

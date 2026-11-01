@@ -255,6 +255,12 @@ bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 // MEM2 than it gets from a disc.
 bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 
+// Super Smash Bros. Brawl (RSB, every region and baked mod discs such as RSBEPM): its mods' codes (Project M)
+// write fixed addresses near the top of MEM2, below 0x935E0000; Project M on a tester's Wii U froze the whole
+// console at stage select with the GameCube adapter's code there (2610-782), believed to be its codes writing over
+// it. A code build of it keeps 128 KiB free above that code (boot.cpp).
+bool game_codes_use_mem2_top(const std::string& id) { return id_is(id, "RSB"); }
+
 // Mario Party 4 (GMP), every region: its sound manager's ARAM check
 // (gxpatches.hpp), learned from the game's decompilation (marioparty4's
 // src/msm/msmsys.c and src/game/audio.c). Mario Party 5 (GP5), 6 (GP6),
