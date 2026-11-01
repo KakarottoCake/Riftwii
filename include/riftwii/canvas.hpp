@@ -91,4 +91,9 @@ std::vector<std::uint8_t> to_gx_rgba8(const Canvas& canvas);
 // bytes). False when w or h is not a multiple of 4.
 bool to_gx_rgba8(const std::uint8_t* rgba, int w, int h, std::uint8_t* out);
 
+// GX_TF_RGB565: 4x4 tiles of 32 bytes, two bytes a texel (RGB565, the high
+// byte first). The alpha is ignored. `out` takes w * h * 2 bytes; false
+// when w or h is not a multiple of 4.
+bool to_gx_rgb565(const std::uint8_t* rgba, int w, int h, std::uint8_t* out);
+
 }  // namespace riftwii

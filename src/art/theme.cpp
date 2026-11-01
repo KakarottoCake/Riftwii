@@ -88,6 +88,31 @@ bool parse_decimal(const std::string& s, float& out) {
     return true;
 }
 
+// A whole number, for the keys that count frames or steps a second.
+bool parse_int(const std::string& s, int& out) {
+    if (s.empty()) return false;
+    std::size_t i = 0;
+    bool neg = false;
+    if (s[i] == '-') {
+        neg = true;
+        ++i;
+    } else if (s[i] == '+') {
+        ++i;
+    }
+    if (i >= s.size()) return false;
+
+    const std::size_t start = i;
+    int value = 0;
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') {
+        // Far past every range a key has: stopping here still clamps right.
+        if (value < 1000000) value = value * 10 + (s[i] - '0');
+        ++i;
+    }
+    if (i == start || i != s.size()) return false;
+    out = neg ? -value : value;
+    return true;
+}
+
 enum class Section {
     None,
     Theme,
@@ -335,6 +360,37 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 } else {
                     theme.stripes = true;
                     add_note(notes, line_num, "stripes: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
+                }
+            } else if (key == "frames") {
+                int value = 0;
+                if (!parse_int(val, value)) {
+                    theme.loop_frames = 0;
+                    add_note(notes, line_num, "frames: \"" + val + "\" is not a number; the default 0 stays");
+                } else if (value < 0) {
+                    theme.loop_frames = 0;
+                    add_note(notes, line_num, "frames out of range; clamped to 0");
+                } else if (value == 1) {
+                    theme.loop_frames = 2;
+                    add_note(notes, line_num, "frames out of range; clamped to 2");
+                } else if (value > 60) {
+                    theme.loop_frames = 60;
+                    add_note(notes, line_num, "frames out of range; clamped to 60");
+                } else {
+                    theme.loop_frames = value;
+                }
+            } else if (key == "fps") {
+                int value = 0;
+                if (!parse_int(val, value)) {
+                    theme.loop_fps = 12;
+                    add_note(notes, line_num, "fps: \"" + val + "\" is not a number; the default 12 stays");
+                } else if (value < 1) {
+                    theme.loop_fps = 1;
+                    add_note(notes, line_num, "fps out of range; clamped to 1");
+                } else if (value > 30) {
+                    theme.loop_fps = 30;
+                    add_note(notes, line_num, "fps out of range; clamped to 30");
+                } else {
+                    theme.loop_fps = value;
                 }
             } else {
                 add_note(notes, line_num, "unknown key '" + key + "' in [backdrop]; ignored");
