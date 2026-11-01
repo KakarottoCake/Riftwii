@@ -1007,10 +1007,23 @@ at all.
 **Settings > Drives > Copy a game disc** copies the Wii disc in the drive
 to a `.wbfs` file, so the game then plays from Home without the disc. It
 goes to `wbfs/<name> [<ID>]/<ID>.wbfs` on a FAT32 USB drive or the SD
-card (you pick when both are there), and appears on Home once the copy
-is done (a copy on the SD card only while Settings > Drives > Games on
-the SD card is set to Look for them). A copy bigger than 4 GB is saved in pieces (`.wbfs`, `.wbf1`,
-...), as FAT32 needs; keep them together.
+card (you pick when both are there). A copy bigger than 4 GB is saved in
+pieces (`.wbfs`, `.wbf1`, ...), as FAT32 needs; keep them together.
+
+When the copy is done it is on Home, unless something there leaves it
+out; the message at the end then says which, and what to change:
+
+- Home's **Show** is on Games with mods (where Home starts), and the game
+  has none: choose **Show > All games**.
+- **Settings > Home > Games from** names the other drive: set it to All
+  games.
+- The copy is on the SD card and **Settings > Drives > Games on the SD
+  card** is Don't look: set it to Look for them.
+- Parental controls are set to hide games, and the game's age rating is
+  above the highest age allowed.
+
+A search or a genre you picked on Home before is cleared, so the new
+copy shows.
 
 The copy keeps every partition of the disc: the game, the system update
 and any channel the disc installs, so it works like the disc in every
