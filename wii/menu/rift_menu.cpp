@@ -5641,7 +5641,7 @@ static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 	}
 	logf("Cover picker: GameTDB has %u different cover(s) for %s%s%s.\n", static_cast<unsigned>(candidates.size()),
 		gameId.c_str(), modId.empty() ? "" : " and the mod's entry ", modId.c_str());
-	return answered || !candidates.empty();
+	return (answered && !failed) || !candidates.empty();
 }
 
 // The Choose cover row: a cover from GameTDB's, kept as the player's own
