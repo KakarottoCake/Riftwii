@@ -1105,6 +1105,11 @@ T = {
         "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です",
         "Instalar o canal precisa de um cIOS d2x no slot 249, 250 ou 251",
         "Per installare il canale serve un cIOS d2x nello slot 249, 250 o 251"),
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)": (
+        "esta vez RiftWii se inició sin acceso al hardware, que el instalador necesita. Inicia RiftWii desde el Homebrew Channel o el canal de RiftWii (versión 9 o posterior)",
+        "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。Homebrew ChannelかRiftWiiチャンネル（バージョン9以降）からRiftWiiを起動してください",
+        "desta vez a RiftWii foi iniciada sem acesso ao hardware, que o instalador precisa. Inicie a RiftWii pelo Homebrew Channel ou pelo canal da RiftWii (versão 9 ou mais recente)",
+        "questa volta RiftWii è stato avviato senza accesso all'hardware, che serve all'installatore. Avvia RiftWii dall'Homebrew Channel o dal canale di RiftWii (versione 9 o successiva)"),
     "(Log: sd:/riftwii/session.log)": (
         "(Registro: sd:/riftwii/session.log)", "(ログ: sd:/riftwii/session.log)",
         "(Log: sd:/riftwii/session.log)", "(Log: sd:/riftwii/session.log)"),
@@ -3100,6 +3105,8 @@ KO = {
         "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서만 설치할 수 있음",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. Homebrew Channel이나 RiftWii 채널(버전 9 이상)에서 RiftWii를 실행하세요",
     "(Log: sd:/riftwii/session.log)":
         "(로그: sd:/riftwii/session.log)",
     "RiftWii needs an SD card":
@@ -4962,6 +4969,8 @@ FR = {
         "Dolphin vérifiant les signatures officielles, cette chaîne s'installe uniquement sur une vraie Wii",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "L'installation nécessite un cIOS d2x dans les slots 249, 250 ou 251",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "RiftWii a été lancé cette fois sans accès au matériel, dont l'installeur a besoin. Lancez RiftWii depuis le Homebrew Channel ou la chaîne RiftWii (version 9 ou plus récente)",
     "(Log: sd:/riftwii/session.log)":
         "(Journal : sd:/riftwii/session.log)",
     "RiftWii needs an SD card":

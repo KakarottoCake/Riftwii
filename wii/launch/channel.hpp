@@ -51,12 +51,18 @@ bool ChannelInstallerPresent(std::string& why);
 // says what is missing.
 bool ChannelCanInstall(std::string& why);
 
+// ChannelCanInstall, and for the update prompt's installer (its "update"
+// argument) also the hardware access it needs to find the d2x cIOS.
+bool ChannelCanUpdateHere(std::string& why);
+
 // Shared refusal text identifies a failed marker write across the warm restart.
 extern const char* const kChannelMarkerError;
 // Starts the installer app. Runs after the menu has closed; returns only
 // if it cannot, with `error` saying why. allow_unmarked requires the player's
 // consent to lose interruption detection when the card cannot save its note.
-bool StartChannelInstaller(std::string& error, bool allow_unmarked = false);
+// update: opened by the update prompt, so the installer updates at once, with
+// no button to press, and comes back (its "update" argument).
+bool StartChannelInstaller(std::string& error, bool allow_unmarked = false, bool update = false);
 
 // Starts a Homebrew Channel app (a DOL on the SD card, `path` with its
 // sd: prefix) as the Homebrew Channel does: the running IOS kept. Returns
