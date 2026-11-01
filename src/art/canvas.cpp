@@ -370,4 +370,23 @@ bool to_gx_rgba8(const std::uint8_t* px, int w, int h, std::uint8_t* out) {
     return true;
 }
 
+bool to_gx_rgb565(const std::uint8_t* px, int w, int h, std::uint8_t* out) {
+    if (w <= 0 || h <= 0 || w % 4 != 0 || h % 4 != 0) return false;
+    std::size_t o = 0;
+    for (int ty = 0; ty < h; ty += 4) {
+        for (int tx = 0; tx < w; tx += 4) {
+            for (int y = ty; y < ty + 4; ++y) {
+                for (int x = tx; x < tx + 4; ++x) {
+                    const std::uint8_t* p = &px[(static_cast<std::size_t>(y) * w + x) * 4];
+                    const std::uint16_t texel = static_cast<std::uint16_t>(
+                        ((p[0] >> 3) << 11) | ((p[1] >> 2) << 5) | (p[2] >> 3));
+                    out[o++] = static_cast<std::uint8_t>(texel >> 8);
+                    out[o++] = static_cast<std::uint8_t>(texel & 0xFF);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 }  // namespace riftwii
