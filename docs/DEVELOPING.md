@@ -336,13 +336,16 @@ reports when IOS refused). Never leave either in a tester's settings.
 Two rows in Settings > Help, for anyone with a USB Gecko (or Dolphin's
 emulated one: `SlotB = 7`, read with `tools/dolphin/gecko_log.py`):
 
-- **USB Gecko log** (`usb_gecko_log = on`): from the start of RiftWii,
+- **USB Gecko log** (`usb_gecko_log = on`): once RiftWii has mounted the
+  SD card and read the setting from it (as it opens `session.log`),
   every `logf` line goes to the USB Gecko in slot B as it is logged, with
   the same timestamps as `session.log`, and so does whatever libogc and
   the libraries print to stdout and stderr (`wii/core/gecko.cpp`, after
-  USB Loader GX's and WiiFlow Lite's `gecko.c`). It works without an SD
-  card's log too, so a hang before the card mounts still shows on the
-  PC. `GeckoHexDump` prints a buffer as USB Loader GX's `hexdump` does,
+  USB Loader GX's and WiiFlow Lite's `gecko.c`). The setting lives on the
+  card, so nothing goes out before it mounts or without a card; after
+  that, the PC keeps getting lines the card can't take, such as those
+  logged after the card is put away at power-off. If nothing on the PC
+  reads, the log turns itself off rather than hold up the Wii. `GeckoHexDump` prints a buffer as USB Loader GX's `hexdump` does,
   for a look at bytes while debugging. Without a USB Gecko the setting
   does nothing but log one line saying so.
 - **WiiRD debugger** (`wiird_debugger = off | on | pause`): Wii games
