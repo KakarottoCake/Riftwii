@@ -291,7 +291,10 @@ a game GameTDB has no cover for shows its name. To use your own cover,
 put a PNG named after the game's ID in `riftwii/covers` on the SD card
 or the USB drive: `sd:/riftwii/covers/RMCE01.png`. For a mod's own Home
 tile, add its tile key: `sd:/riftwii/covers/RMCE01@retro-rewind.png`
-(a tile without one shows the game's cover). Your own cover comes
+(a tile without one shows the game's cover). Some mods are on GameTDB
+as games of their own (Retro Rewind, Project+): a mod's tile named
+like one, and like no other, gets that cover, kept under the tile key.
+Your own cover comes
 before GameTDB's, works offline and is never written over. Some games
 have a second cover on GameTDB: switch to it with **GameTDB cover** in
 the game's settings, next to **Cover**. **Home tiles** in

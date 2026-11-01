@@ -5,6 +5,7 @@
 #include <gctypes.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -60,15 +61,15 @@ std::vector<std::string> TakeBrokenOwnCovers();
 // then it is shown instead of GameTDB's full box art too (the shelf, the
 // close-up). Never reads the card; false while it isn't in memory.
 bool CoverIsOwn(const std::string& name);
-// Whether the cover in memory for `name` is shown instead of the game's
-// full box art (the shelf, the ring, the close-up, the game page): the
-// player's own, or GameTDB's second set when chosen, which the full box
-// (always the first set's) is not.
-bool CoverBeforeBox(const std::string& name);
 // Which reading of `name`'s slot the cover in memory is: another once it
 // is read again (another set, a USB drive's), at the same address. 0
 // while it isn't in memory.
 unsigned CoverFill(const std::string& name);
+// Whether the cover in memory for `name` is shown instead of the game's
+// full box art (the shelf, the ring, the close-up, the game page): the
+// player's own, GameTDB's second set when chosen (the full box is always
+// the first set's), or a mod tile's own cover from GameTDB (#385).
+bool CoverBeforeBox(const std::string& name);
 // The same loader, with a separate 24-picture pool, for Channels' emulator
 // pictures. Called only for drawn tiles; no whole-library read-ahead.
 const u8* EmulatorBannerTexture(const std::string& game_id);
@@ -88,6 +89,16 @@ void CoverReadAll(const std::vector<std::string>& game_ids);
 bool CoverSecondSet(const std::string& game_id);
 // False: the card could not be written.
 bool ChooseCoverSet(const std::string& game_id, bool second);
+
+// The mod tiles GameTDB lists as games of their own (#385), tile key to
+// that entry's ID ("RMCE01@retro-rewind" -> "RMCETO",
+// riftwii/modcover.hpp): their own covers are downloaded under the tile's
+// key, and shown before the game's. Other tiles show the game's cover.
+// Kept from the start, before any cover is asked for.
+void SetModCoverIds(std::map<std::string, std::string> ids);
+// How many times ForgetAllCovers dropped them (the SD card swapped, among
+// others): they are to be set again then.
+unsigned ModCoverIdsCleared();
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
