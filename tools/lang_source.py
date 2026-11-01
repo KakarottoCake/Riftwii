@@ -6444,6 +6444,11 @@ T.update({
         "次にRiftWiiを起動したときからオフになります。",
         "Desligado a partir da próxima vez que o RiftWii abrir.",
         "Disattivato dal prossimo avvio di RiftWii."),
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": (
+        "Activado, pero nada en el PC lee el USB Gecko de la ranura B, así que el registro se ha detenido. Abre el lector en el PC y luego desactiva y activa esto otra vez.",
+        "オンですが、PCでスロットBのUSB Geckoを読むものがないため、ログは止まりました。PCで読み取りを始めてから、これをオフにして、もう一度オンにしてください。",
+        "Ligado, mas nada no PC lê o USB Gecko do slot B, então o registro parou. Abra o leitor no PC e depois desligue e ligue isto de novo.",
+        "Attivo, ma nulla sul PC legge l'USB Gecko nello slot B, quindi il registro si è fermato. Avvia il lettore sul PC, poi disattiva e riattiva questa opzione."),
     "On. RiftWii's log now also goes to the USB Gecko in slot B.": (
         "Activado. El registro de RiftWii ahora también va al USB Gecko de la ranura B.",
         "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。",
@@ -6479,6 +6484,7 @@ KO.update({
     "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.":
         "개발자용입니다. Wii 게임이 WiiRD 디버거와 함께 시작되어 슬롯 B 또는 A의 USB Gecko에 연결된 PC(WiiRD, Gecko dotNET)에서 사용할 수 있습니다. 시작할 때 일시 정지는 PC가 풀어 줄 때까지 게임을 첫 프레임에서 멈춥니다.",
     "Off from the next start of RiftWii.": "다음에 RiftWii를 실행할 때부터 꺼집니다.",
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": "켜져 있지만 PC에서 슬롯 B의 USB Gecko를 읽는 것이 없어 로그가 멈췄습니다. PC에서 읽기를 시작한 뒤 이 설정을 껐다가 다시 켜세요.",
     "On. RiftWii's log now also goes to the USB Gecko in slot B.": "켜졌습니다. 이제 RiftWii의 로그가 슬롯 B의 USB Gecko로도 보내집니다.",
     "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "다음에 RiftWii를 실행할 때부터 켜집니다. 지금은 슬롯 B의 USB Gecko가 응답하지 않습니다.",
     "Games start with the plain code handler.": "게임이 일반 코드 핸들러로 시작됩니다.",
@@ -6494,6 +6500,7 @@ FR.update({
     "For developers. Wii games start with the WiiRD debugger, for a PC on a USB Gecko in slot B or A (WiiRD, Gecko dotNET). Pause at start holds the game at its first frame until the PC lets it go.":
         "Pour les développeurs. Les jeux Wii démarrent avec le débogueur WiiRD, pour un PC relié à un USB Gecko dans le port B ou A (WiiRD, Gecko dotNET). Pause au démarrage retient le jeu à sa première image jusqu'à ce que le PC le libère.",
     "Off from the next start of RiftWii.": "Désactivé au prochain démarrage de RiftWii.",
+    "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again.": "Activé, mais rien sur le PC ne lit l'USB Gecko du port B, donc le journal s'est arrêté. Lancez la lecture sur le PC, puis désactivez et réactivez ce réglage.",
     "On. RiftWii's log now also goes to the USB Gecko in slot B.": "Activé. Le journal de RiftWii part maintenant aussi vers l'USB Gecko du port B.",
     "On from the next start of RiftWii. No USB Gecko answers in slot B now.": "Activé au prochain démarrage de RiftWii. Aucun USB Gecko ne répond dans le port B pour l'instant.",
     "Games start with the plain code handler.": "Les jeux démarrent avec le gestionnaire de codes normal.",

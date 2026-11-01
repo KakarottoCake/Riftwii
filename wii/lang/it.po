@@ -3057,6 +3057,9 @@ msgstr "Per sviluppatori. I giochi Wii partono con il debugger WiiRD, per un PC 
 msgid "Off from the next start of RiftWii."
 msgstr "Disattivato dal prossimo avvio di RiftWii."
 
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "Attivo, ma nulla sul PC legge l'USB Gecko nello slot B, quindi il registro si è fermato. Avvia il lettore sul PC, poi disattiva e riattiva questa opzione."
+
 msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
 msgstr "Attivato. Il registro di RiftWii ora va anche all'USB Gecko nello slot B."
 

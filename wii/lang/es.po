@@ -3057,6 +3057,9 @@ msgstr "Para desarrolladores. Los juegos de Wii empiezan con el depurador WiiRD,
 msgid "Off from the next start of RiftWii."
 msgstr "Desactivado desde el próximo inicio de RiftWii."
 
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "Activado, pero nada en el PC lee el USB Gecko de la ranura B, así que el registro se ha detenido. Abre el lector en el PC y luego desactiva y activa esto otra vez."
+
 msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
 msgstr "Activado. El registro de RiftWii ahora también va al USB Gecko de la ranura B."
 

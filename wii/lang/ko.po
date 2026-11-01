@@ -3057,6 +3057,9 @@ msgstr "개발자용입니다. Wii 게임이 WiiRD 디버거와 함께 시작되
 msgid "Off from the next start of RiftWii."
 msgstr "다음에 RiftWii를 실행할 때부터 꺼집니다."
 
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "켜져 있지만 PC에서 슬롯 B의 USB Gecko를 읽는 것이 없어 로그가 멈췄습니다. PC에서 읽기를 시작한 뒤 이 설정을 껐다가 다시 켜세요."
+
 msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
 msgstr "켜졌습니다. 이제 RiftWii의 로그가 슬롯 B의 USB Gecko로도 보내집니다."
 

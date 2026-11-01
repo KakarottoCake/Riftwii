@@ -16597,7 +16597,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						note(tr("Off from the next start of RiftWii."));
 					} else if (riftwii::wii::GeckoActive() || riftwii::wii::GeckoStart()) {
 						logf("USB Gecko log: turned on in Settings\n");
-						note(tr("On. RiftWii's log now also goes to the USB Gecko in slot B."));
+						// That line was the first to go out: the log turns itself
+						// off when the PC doesn't read it.
+						if (riftwii::wii::GeckoActive()) {
+							note(tr("On. RiftWii's log now also goes to the USB Gecko in slot B."));
+						} else {
+							logf("USB Gecko log: nothing on the PC reads the USB Gecko in slot B, so the log stopped\n");
+							note(tr("On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."));
+						}
 					} else {
 						note(tr("On from the next start of RiftWii. No USB Gecko answers in slot B now."));
 					}

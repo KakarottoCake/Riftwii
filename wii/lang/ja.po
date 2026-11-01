@@ -3057,6 +3057,9 @@ msgstr "開発者向けです。WiiのゲームをWiiRDデバッガー付きで�
 msgid "Off from the next start of RiftWii."
 msgstr "次にRiftWiiを起動したときからオフになります。"
 
+msgid "On, but nothing on the PC reads the USB Gecko in slot B, so the log stopped. Start the reader on the PC, then turn this off and on again."
+msgstr "オンですが、PCでスロットBのUSB Geckoを読むものがないため、ログは止まりました。PCで読み取りを始めてから、これをオフにして、もう一度オンにしてください。"
+
 msgid "On. RiftWii's log now also goes to the USB Gecko in slot B."
 msgstr "オンです。RiftWiiのログはスロットBのUSB Geckoにも送られます。"
 
