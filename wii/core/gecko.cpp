@@ -27,9 +27,12 @@ bool g_active = false;
 // console, or nowhere): they still write there, so the screen keeps its
 // text.
 const devoptab_t* g_screen_out = nullptr;
+const devoptab_t* g_screen_err = nullptr;
 // While logf prints its own line to the screen: logf sends that line to
 // the USB Gecko itself, with its time.
 bool g_leave_out_stdout = false;
+
+void give_back_stdout();
 
 void send(const char* text, std::size_t length) {
     if (!g_active || text == nullptr || length == 0) return;
@@ -40,8 +43,12 @@ void send(const char* text, std::size_t length) {
     const int sent = usb_sendbuffer_safe_ex(kSlotB, text, size, size * kPollsPerByte);
     IRQ_Restore(level);
     // Nothing on the PC reads: the log stops here instead of stalling the
-    // menu on every line after this one.
-    if (sent < size) g_active = false;
+    // menu on every line after this one, and stdout and stderr go back to
+    // where they wrote before.
+    if (sent < size) {
+        g_active = false;
+        give_back_stdout();
+    }
 }
 
 ssize_t write_out(struct _reent* reent, void* fd, const char* text, size_t length) {
@@ -63,8 +70,14 @@ const devoptab_t g_gecko_out = make_gecko_out();
 
 void take_stdout() {
     if (devoptab_list[STD_OUT] != &g_gecko_out) g_screen_out = devoptab_list[STD_OUT];
+    if (devoptab_list[STD_ERR] != &g_gecko_out) g_screen_err = devoptab_list[STD_ERR];
     devoptab_list[STD_OUT] = &g_gecko_out;
     devoptab_list[STD_ERR] = &g_gecko_out;
+}
+
+void give_back_stdout() {
+    if (devoptab_list[STD_OUT] == &g_gecko_out && g_screen_out) devoptab_list[STD_OUT] = g_screen_out;
+    if (devoptab_list[STD_ERR] == &g_gecko_out && g_screen_err) devoptab_list[STD_ERR] = g_screen_err;
 }
 
 char printable(unsigned char c) {
