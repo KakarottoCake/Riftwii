@@ -846,6 +846,12 @@ msgstr "Segunda capa"
 msgid "The mod's cover"
 msgstr "A capa do mod"
 
+msgid "Third cover"
+msgstr "Terceira capa"
+
+msgid "Fourth cover"
+msgstr "Quarta capa"
+
 msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
 msgstr "Escolha qualquer uma das capas do GameTDB para este jogo. Ela fica como sua própria capa no cartão SD, então funciona offline; Voltar ao automático a remove."
 

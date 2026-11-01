@@ -846,6 +846,12 @@ msgstr "Seconda copertina"
 msgid "The mod's cover"
 msgstr "La copertina della mod"
 
+msgid "Third cover"
+msgstr "Terza copertina"
+
+msgid "Fourth cover"
+msgstr "Quarta copertina"
+
 msgid "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."
 msgstr "Scegli una qualsiasi delle copertine di GameTDB per questo gioco. Resta come tua copertina sulla scheda SD, quindi funziona offline; Torna ad automatico la rimuove."
 

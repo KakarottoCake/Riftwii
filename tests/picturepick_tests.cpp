@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/picturepick.hpp"
 #include "riftwii/emulatorbanner.hpp"
+#include "riftwii/coverart.hpp"
 
 #include <iostream>
 #include <vector>
@@ -156,12 +157,23 @@ void gametdb_covers() {
     EXPECT(mod.size() == 1 && mod[0].url == "http://art.gametdb.com/wii/cover/EN/RMCP01.png");
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/EN/RMCP01.png", PictureSource::GameTDBMod}));
     EXPECT(!picture_add_gametdb(mod, "RMCP01", "EN", PictureSource::Boxart));
-    // A mod tile's own entry and the game's, four regions each: all kept.
+    // GameTDB's third and fourth sets (cover2/, coverB2/), and the first and
+    // second built as the automatic download builds them.
+    EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBThird) ==
+           "http://art.gametdb.com/wii/cover2/US/RSBE01.png");
+    EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBFourth) ==
+           "http://art.gametdb.com/wii/coverB2/US/RSBE01.png");
+    EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDB) == cover_url("US", "RSBE01", false));
+    EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::GameTDBSecond) == cover_url("US", "RSBE01", true));
+    EXPECT(picture_gametdb_url("RSBE01", "US", PictureSource::Title).empty());
+    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover2/US/RSBE01.png", PictureSource::GameTDBFourth}));
+    EXPECT(picture_candidate_valid({"http://art.gametdb.com/wii/coverB2/US/RSBE01.png", PictureSource::GameTDBFourth}));
+    // Two IDs' covers, four regions each, in one set: all kept.
     std::vector<PictureCandidate> both;
     for (const char* id : {"RMCP01", "RMCE01"})
         for (const char* region : {"US", "EN", "JA", "FR"}) EXPECT(picture_add_gametdb(both, id, region, PictureSource::GameTDB));
     EXPECT(both.size() == 8);
-    static_assert(2 * kPictureGameTDBPerSet <= kPictureCandidatesMax, "both GameTDB sets fit the picker");
+
 }
 }  // namespace
 

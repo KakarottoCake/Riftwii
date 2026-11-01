@@ -29,6 +29,9 @@ using HttpProgress = std::function<void(std::size_t received)>;
 // `redirects` allows (riftwii/http.hpp's HttpRedirects). A redirect it does
 // not allow fails as an answer does ("<host> answered 301 ..."). `body`
 // holds at most `max_bytes`.
+// Whether `url` is there, asked with HEAD: true for a 200, no body read and
+// no redirect followed. `error` says what else came back.
+bool HttpExists(const std::string& url, std::string& error, int timeout_ms = 10000);
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error,
              std::size_t max_bytes = 8u << 20, int timeout_ms = 15000, const HttpProgress& progress = nullptr,
              HttpRedirects redirects = HttpRedirects::Follow);

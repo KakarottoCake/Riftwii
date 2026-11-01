@@ -53,6 +53,8 @@ const char* source_name(PictureSource source) {
         case PictureSource::GameTDB: return tr("Cover");
         case PictureSource::GameTDBSecond: return tr("Second cover");
         case PictureSource::GameTDBMod: return tr("The mod's cover");
+        case PictureSource::GameTDBThird: return tr("Third cover");
+        case PictureSource::GameTDBFourth: return tr("Fourth cover");
     }
     return "";
 }
