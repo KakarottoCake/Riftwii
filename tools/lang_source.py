@@ -1123,6 +1123,11 @@ T = {
         "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です",
         "Instalar o canal precisa de um cIOS d2x no slot 249, 250 ou 251",
         "Per installare il canale serve un cIOS d2x nello slot 249, 250 o 251"),
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)": (
+        "esta vez RiftWii se inició sin acceso al hardware, que el instalador necesita. Inicia RiftWii desde el Homebrew Channel o el canal de RiftWii (versión 9 o posterior)",
+        "今回のRiftWiiはハードウェアアクセスなしで起動されていますが、インストーラーにはそれが必要です。Homebrew ChannelかRiftWiiチャンネル（バージョン9以降）からRiftWiiを起動してください",
+        "desta vez a RiftWii foi iniciada sem acesso ao hardware, que o instalador precisa. Inicie a RiftWii pelo Homebrew Channel ou pelo canal da RiftWii (versão 9 ou mais recente)",
+        "questa volta RiftWii è stato avviato senza accesso all'hardware, che serve all'installatore. Avvia RiftWii dall'Homebrew Channel o dal canale di RiftWii (versione 9 o successiva)"),
     "(Log: sd:/riftwii/session.log)": (
         "(Registro: sd:/riftwii/session.log)", "(ログ: sd:/riftwii/session.log)",
         "(Log: sd:/riftwii/session.log)", "(Log: sd:/riftwii/session.log)"),
@@ -2072,8 +2077,8 @@ T = {
     "Reset all settings": ("Restablecer todos los ajustes", "すべての設定をリセット", "Redefinir todas as configurações", "Ripristina tutte le impostazioni"),
     "Reset": ("Restablecer", "リセット", "Redefinir", "Ripristina"),
     "Reset all settings?": ("¿Restablecer todos los ajustes?", "すべての設定をリセットしますか?", "Redefinir todas as configurações?", "Ripristinare tutte le impostazioni?"),
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego, los mods y el control parental.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MOD、ペアレンタルコントロールはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo, os mods e o controle dos pais são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
     # Wii channels (WiiWare and Virtual Console)
     "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
@@ -3130,6 +3135,8 @@ KO = {
         "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서만 설치할 수 있음",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "이번 RiftWii는 하드웨어 접근 없이 실행되었으며, 설치 프로그램에는 이것이 필요함. Homebrew Channel이나 RiftWii 채널(버전 9 이상)에서 RiftWii를 실행하세요",
     "(Log: sd:/riftwii/session.log)":
         "(로그: sd:/riftwii/session.log)",
     "RiftWii needs an SD card":
@@ -3951,10 +3958,10 @@ KO = {
         "초기화",
     "Reset all settings?":
         "모든 설정을 초기화할까요?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드, 자녀 보호 기능은 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
     "This game's data was removed from the Wii, so it can't start.":
@@ -5004,6 +5011,8 @@ FR = {
         "Dolphin vérifiant les signatures officielles, cette chaîne s'installe uniquement sur une vraie Wii",
     "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
         "L'installation nécessite un cIOS d2x dans les slots 249, 250 ou 251",
+    "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)":
+        "RiftWii a été lancé cette fois sans accès au matériel, dont l'installeur a besoin. Lancez RiftWii depuis le Homebrew Channel ou la chaîne RiftWii (version 9 ou plus récente)",
     "(Log: sd:/riftwii/session.log)":
         "(Journal : sd:/riftwii/session.log)",
     "RiftWii needs an SD card":
@@ -5825,10 +5834,10 @@ FR = {
         "Réinitialiser",
     "Reset all settings?":
         "Réinitialiser tous les paramètres ?",
-    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
-    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
-        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept.":
+        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu, les mods et le contrôle parental sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
     "This game's data was removed from the Wii, so it can't start.":
@@ -6497,6 +6506,307 @@ FR.update({
     "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii.": "Le menu est en anglais : copiez apps/riftwii/korean.ttf du zip de RiftWii sur la carte SD et choisissez la police de RiftWii, ou utilisez celle du Menu Wii sur une Wii coréenne.",
 })
 
+
+# Settings > Copy a game disc (wii/storage/disccopy.hpp).
+T.update({
+    "Copy a game disc": ("Copiar un disco de juego", "ゲームディスクをコピー", "Copiar um disco de jogo", "Copia un disco di gioco"),
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": (
+        "Copia el disco de Wii de la unidad a la carpeta wbfs de una unidad USB FAT32 o de la tarjeta SD, con todas las particiones del disco, para jugar sin el disco. Necesita un cIOS d2x.",
+        "ドライブのWiiディスクを、ディスクのすべてのパーティションごと、FAT32のUSBドライブかSDカードのwbfsフォルダにコピーし、ディスクなしで遊べるようにします。d2x cIOSが必要です。",
+        "Copia o disco de Wii da unidade para a pasta wbfs de uma unidade USB FAT32 ou do cartão SD, com todas as partições do disco, para jogar sem o disco. Precisa de um cIOS d2x.",
+        "Copia il disco Wii dell'unità nella cartella wbfs di un'unità USB FAT32 o della scheda SD, con tutte le partizioni del disco, per giocare senza il disco. Serve un cIOS d2x."),
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": (
+        "Leer un disco entero necesita un cIOS d2x, y esta Wii no tiene ninguno. Instala d2x (wii.hacks.guide/cios) e inténtalo de nuevo.",
+        "ディスク全体を読むにはd2x cIOSが必要ですが、このWiiにはありません。d2x (wii.hacks.guide/cios) をインストールしてから、もう一度お試しください。",
+        "Ler um disco inteiro precisa de um cIOS d2x, e este Wii não tem nenhum. Instale o d2x (wii.hacks.guide/cios) e tente de novo.",
+        "Leggere un disco intero richiede un cIOS d2x, e questa Wii non ne ha. Installa d2x (wii.hacks.guide/cios) e riprova."),
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": (
+        "El IOS de la propia Wii solo lee el principio de un disco. RiftWii se reinicia con IOS{1} (d2x) para esta sesión; luego elige otra vez Copiar un disco de juego.",
+        "Wii本体のIOSはディスクの最初しか読めません。RiftWiiはこのセッションの間IOS{1} (d2x) で再起動します。そのあと、もう一度「ゲームディスクをコピー」を選んでください。",
+        "O IOS do próprio Wii lê só o começo de um disco. O RiftWii reinicia com o IOS{1} (d2x) nesta sessão; depois escolha Copiar um disco de jogo de novo.",
+        "L'IOS della Wii legge solo l'inizio di un disco. RiftWii si riavvia con IOS{1} (d2x) per questa sessione; poi scegli di nuovo Copia un disco di gioco."),
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": (
+        "El menú usa IOS{1} en esta sesión, para copiar un disco de juego. Ajustes > Unidades > Copiar un disco de juego.",
+        "このセッションの間、ゲームディスクをコピーするためにメニューはIOS{1}で動きます。設定 > ドライブ > ゲームディスクをコピー。",
+        "O menu usa o IOS{1} nesta sessão, para copiar um disco de jogo. Configurações > Unidades > Copiar um disco de jogo.",
+        "In questa sessione il menu usa IOS{1}, per copiare un disco di gioco. Impostazioni > Unità > Copia un disco di gioco."),
+    "There is no SD card or FAT32 USB drive to copy the disc to.": (
+        "No hay una tarjeta SD ni una unidad USB FAT32 a la que copiar el disco.",
+        "ディスクをコピーできるSDカードもFAT32のUSBドライブもありません。",
+        "Não há cartão SD nem unidade USB FAT32 para onde copiar o disco.",
+        "Non c'è una scheda SD né un'unità USB FAT32 su cui copiare il disco."),
+    "The disc can't be copied: {1}": (
+        "No se puede copiar el disco: {1}",
+        "ディスクをコピーできません: {1}",
+        "O disco não pode ser copiado: {1}",
+        "Il disco non si può copiare: {1}"),
+    "Where should {1} go? It needs {2}.": (
+        "¿Dónde copiar {1}? Necesita {2}.",
+        "{1}をどこにコピーしますか？{2}必要です。",
+        "Para onde copiar {1}? Precisa de {2}.",
+        "Dove copiare {1}? Servono {2}."),
+    "{1} free": ("{1} libres", "空き {1}", "{1} livres", "{1} liberi"),
+    "{1} needs {2}, and the {3} has {4} free.": (
+        "{1} necesita {2}, y en {3} quedan {4} libres.",
+        "{1}には{2}必要ですが、{3}の空きは{4}です。",
+        "{1} precisa de {2}, e em {3} há {4} livres.",
+        "{1} richiede {2}, e su {3} ci sono {4} liberi."),
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": (
+        "¿Copiar {1} ({2}) a {3}? Se copian todas las particiones del disco: el juego, la actualización del sistema y cualquier canal. Tarda unos {4} minutos.",
+        "{1} ({2}) を{3}にコピーしますか？ゲーム、本体更新、チャンネルなど、ディスクのすべてのパーティションを入れます。約{4}分かかります。",
+        "Copiar {1} ({2}) para {3}? Todas as partições do disco vão junto: o jogo, a atualização do sistema e qualquer canal. Leva cerca de {4} minutos.",
+        "Copiare {1} ({2}) in {3}? Vanno copiate tutte le partizioni del disco: il gioco, l'aggiornamento di sistema e ogni canale. Ci vogliono circa {4} minuti."),
+    "{1} partition(s) could not be looked into, so they are copied whole.": (
+        "No se pudo mirar dentro de {1} partición(es), así que se copian enteras.",
+        "{1}個のパーティションは中身を読めないため、まるごとコピーします。",
+        "Não foi possível olhar dentro de {1} partição(ões), então elas são copiadas inteiras.",
+        "Non è stato possibile guardare dentro {1} partizione/i, quindi vengono copiate per intero."),
+    "Copying {1}": ("Copiando {1}", "{1}をコピー中", "Copiando {1}", "Copia di {1}"),
+    "From the disc to the {1}": ("Del disco a: {1}", "ディスクから{1}へ", "Do disco para: {1}", "Dal disco a: {1}"),
+    "Stop copying {1}?": ("¿Dejar de copiar {1}?", "{1}のコピーを中止しますか？", "Parar de copiar {1}?", "Interrompere la copia di {1}?"),
+    "What is copied so far is deleted. It can be copied again later, from the start.": (
+        "Lo copiado hasta ahora se borra. Se puede volver a copiar más tarde, desde el principio.",
+        "ここまでコピーした分は削除されます。あとで最初からコピーし直せます。",
+        "O que foi copiado até agora é apagado. Dá para copiar de novo depois, do começo.",
+        "Quanto copiato finora viene cancellato. Si può copiare di nuovo più tardi, dall'inizio."),
+    "{1} is already on the {2}: {3}": (
+        "{1} ya está en {2}: {3}",
+        "{1}はすでに{2}にあります: {3}",
+        "{1} já está em {2}: {3}",
+        "{1} è già su {2}: {3}"),
+    "{1} could not be copied: {2}. Nothing was kept.": (
+        "No se pudo copiar {1}: {2}. No se ha guardado nada.",
+        "{1}をコピーできませんでした: {2}。何も残していません。",
+        "Não foi possível copiar {1}: {2}. Nada foi mantido.",
+        "Impossibile copiare {1}: {2}. Non è stato tenuto nulla."),
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": (
+        "{1} se ha copiado en {2}. Ya está en Inicio y se juega sin el disco.",
+        "{1}を{2}にコピーしました。ホームに表示され、ディスクなしで遊べます。",
+        "{1} foi copiado para {2}. Já está no Início e funciona sem o disco.",
+        "{1} è stato copiato su {2}. Ora è nella Home e si gioca senza il disco."),
+    "Copying a disc needs a real Wii: Dolphin can't read a whole disc.": (
+        "Copiar un disco necesita una Wii de verdad: Dolphin no puede leer un disco entero.",
+        "ディスクのコピーには本物のWiiが必要です。Dolphinはディスク全体を読めません。",
+        "Copiar um disco precisa de um Wii de verdade: o Dolphin não consegue ler um disco inteiro.",
+        "Per copiare un disco serve una Wii vera: Dolphin non può leggere un disco intero."),
+    "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc.": (
+        "El menú funciona con IOS{1}, que no es d2x, así que no puede leer un disco entero. Elige IOS 58 o un cIOS d2x en Ajustes > Menú > IOS del menú, vuelve a iniciar RiftWii y luego elige Copiar un disco de juego.",
+        "メニューはd2xではないIOS{1}で動いているため、ディスク全体を読めません。設定 > メニュー > メニューのIOSでIOS 58かd2xのcIOSを選び、RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。",
+        "O menu roda no IOS{1}, que não é d2x, então não consegue ler um disco inteiro. Escolha o IOS 58 ou um cIOS d2x em Configurações > Menu > IOS do menu, inicie o RiftWii de novo e depois escolha Copiar um disco de jogo.",
+        "Il menu usa l'IOS{1}, che non è d2x, quindi non può leggere un disco intero. Scegli l'IOS 58 o un cIOS d2x in Impostazioni > Menu > IOS del menu, riavvia RiftWii e poi scegli Copia un disco di gioco."),
+    "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc.": (
+        "Ajustes > Menú > IOS del menú está en IOS{1}, que se aplica la próxima vez que se abra RiftWii. Vuelve a iniciar RiftWii y luego elige Copiar un disco de juego.",
+        "設定 > メニュー > メニューのIOSはIOS{1}ですが、RiftWiiを次に起動したときから使われます。RiftWiiを起動し直してから、ゲームディスクをコピーを選んでください。",
+        "Configurações > Menu > IOS do menu está no IOS{1}, que vale a partir da próxima vez que o RiftWii abrir. Inicie o RiftWii de novo e depois escolha Copiar um disco de jogo.",
+        "Impostazioni > Menu > IOS del menu è impostato sull'IOS{1}, che si applica al prossimo avvio di RiftWii. Riavvia RiftWii e poi scegli Copia un disco di gioco."),
+    "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.": (
+        "La unidad USB no es FAT32 (es NTFS, por ejemplo), y una copia solo puede ir a una unidad USB FAT32 o a la tarjeta SD.",
+        "USBドライブがFAT32ではありません(NTFSなど)。コピーできるのはFAT32のUSBドライブかSDカードだけです。",
+        "A unidade USB não é FAT32 (é NTFS, por exemplo), e uma cópia só pode ir para uma unidade USB FAT32 ou para o cartão SD.",
+        "L'unità USB non è FAT32 (è NTFS, per esempio), e una copia può andare solo su un'unità USB FAT32 o sulla scheda SD."),
+    "The USB drive is not FAT32, so the copy goes to the SD card.": (
+        "La unidad USB no es FAT32, así que la copia va a la tarjeta SD.",
+        "USBドライブがFAT32ではないため、SDカードにコピーします。",
+        "A unidade USB não é FAT32, então a cópia vai para o cartão SD.",
+        "L'unità USB non è FAT32, quindi la copia va sulla scheda SD."),
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. Aparecerá en Inicio cuando Ajustes > Unidades > Juegos en la tarjeta SD esté en Buscarlos.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ドライブ > SDカードのゲームを「探す」にすると、ホームに表示されます。",
+        "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Unidades > Jogos no cartão SD estiver em Procurar.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Unità > Giochi sulla scheda SD è su Cercali."),
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. Aparecerá en Inicio cuando Ajustes > Inicio > Juegos de esté en Todos los juegos.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。設定 > ホーム > ゲームの場所を「すべてのゲーム」にすると、ホームに表示されます。",
+        "{1} foi copiado para {2} e funciona sem o disco. Ele aparece no Início quando Configurações > Início > Jogos de estiver em Todos os jogos.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Home > Giochi da è su Tutti i giochi."),
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. El control parental lo oculta en Inicio: su clasificación por edad supera la edad máxima permitida.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。ペアレンタルコントロールにより、ホームには表示されません。対象年れいが、選んだ年れいより上です。",
+        "{1} foi copiado para {2} e funciona sem o disco. O controle dos pais o oculta no Início: a classificação etária dele está acima da idade máxima permitida.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Il controllo genitori lo nasconde nella Home: la sua classificazione per età supera l'età massima consentita."),
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": (
+        "{1} se ha copiado en {2} y se juega sin el disco. Para verlo en Inicio, elige Ver > Todos los juegos.",
+        "{1}を{2}にコピーしました。ディスクなしで遊べます。ホームで見るには、表示 > すべてのゲームを選んでください。",
+        "{1} foi copiado para {2} e funciona sem o disco. Para vê-lo no Início, escolha Ver > Todos os jogos.",
+        "{1} è stato copiato su {2} e si gioca senza il disco. Per vederlo nella Home, scegli Mostra > Tutti i giochi."),
+})
+MORE["ko"].update({
+    "Copy a game disc": "게임 디스크 복사",
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": "드라이브의 Wii 디스크를 디스크의 모든 파티션과 함께 FAT32 USB 드라이브나 SD 카드의 wbfs 폴더에 복사해, 디스크 없이 플레이할 수 있게 합니다. d2x cIOS가 필요합니다.",
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": "디스크 전체를 읽으려면 d2x cIOS가 필요한데, 이 Wii에는 없습니다. d2x(wii.hacks.guide/cios)를 설치한 뒤 다시 시도하세요.",
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": "Wii 본체의 IOS는 디스크의 처음 부분만 읽습니다. RiftWii가 이번 세션 동안 IOS{1}(d2x)로 다시 시작합니다. 그다음 게임 디스크 복사를 다시 선택하세요.",
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": "게임 디스크를 복사하기 위해 이번 세션 동안 메뉴가 IOS{1}에서 실행됩니다. 설정 > 드라이브 > 게임 디스크 복사.",
+    "There is no SD card or FAT32 USB drive to copy the disc to.": "디스크를 복사할 SD 카드나 FAT32 USB 드라이브가 없습니다.",
+    "The disc can't be copied: {1}": "디스크를 복사할 수 없습니다: {1}",
+    "Where should {1} go? It needs {2}.": "{1}을(를) 어디에 복사할까요? {2}이(가) 필요합니다.",
+    "{1} free": "{1} 남음",
+    "{1} needs {2}, and the {3} has {4} free.": "{1}에는 {2}이(가) 필요한데, {3}에 남은 공간은 {4}입니다.",
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": "{1}({2})을(를) {3}에 복사할까요? 게임, 시스템 업데이트, 채널 등 디스크의 모든 파티션이 들어갑니다. 약 {4}분 걸립니다.",
+    "{1} partition(s) could not be looked into, so they are copied whole.": "파티션 {1}개는 안을 읽을 수 없어 통째로 복사합니다.",
+    "Copying {1}": "{1} 복사 중",
+    "From the disc to the {1}": "디스크에서 {1}(으)로",
+    "Stop copying {1}?": "{1} 복사를 중지할까요?",
+    "What is copied so far is deleted. It can be copied again later, from the start.": "지금까지 복사한 내용은 삭제됩니다. 나중에 처음부터 다시 복사할 수 있습니다.",
+    "{1} is already on the {2}: {3}": "{1}은(는) 이미 {2}에 있습니다: {3}",
+    "{1} could not be copied: {2}. Nothing was kept.": "{1}을(를) 복사할 수 없었습니다: {2}. 아무것도 남기지 않았습니다.",
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": "{1}을(를) {2}에 복사했습니다. 이제 홈에 있고, 디스크 없이 플레이할 수 있습니다.",
+    "Copying a disc needs a real Wii: Dolphin can't read a whole disc.": "디스크를 복사하려면 실제 Wii가 필요합니다. Dolphin은 디스크 전체를 읽을 수 없습니다.",
+    "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc.": "메뉴가 d2x가 아닌 IOS{1}에서 실행 중이라 디스크 전체를 읽을 수 없습니다. 설정 > 메뉴 > 메뉴 IOS에서 IOS 58이나 d2x cIOS를 고르고 RiftWii를 다시 시작한 뒤 게임 디스크 복사를 선택하세요.",
+    "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc.": "설정 > 메뉴 > 메뉴 IOS가 IOS{1}(으)로 되어 있지만, RiftWii를 다음에 시작할 때부터 적용됩니다. RiftWii를 다시 시작한 뒤 게임 디스크 복사를 선택하세요.",
+    "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.": "USB 드라이브가 FAT32가 아닙니다(NTFS 등). 복사는 FAT32 USB 드라이브나 SD 카드에만 할 수 있습니다.",
+    "The USB drive is not FAT32, so the copy goes to the SD card.": "USB 드라이브가 FAT32가 아니라서 SD 카드에 복사합니다.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 드라이브 > SD 카드의 게임을 찾기로 설정하면 홈에 표시됩니다.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 설정 > 홈 > 게임 위치를 모든 게임으로 설정하면 홈에 표시됩니다.",
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 자녀 보호 기능 때문에 홈에 표시되지 않습니다. 연령 등급이 허용된 최대 연령보다 높습니다.",
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1}을(를) {2}에 복사했습니다. 디스크 없이 플레이할 수 있습니다. 홈에서 보려면 표시 > 모든 게임을 고르세요.",
+})
+MORE["fr"].update({
+    "Copy a game disc": "Copier un disque de jeu",
+    "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS.": "Copie le disque Wii du lecteur dans le dossier wbfs d'un disque USB FAT32 ou de la carte SD, avec toutes les partitions du disque, pour jouer sans le disque. Il faut un cIOS d2x.",
+    "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again.": "Lire un disque entier demande un cIOS d2x, et cette Wii n'en a pas. Installez d2x (wii.hacks.guide/cios), puis réessayez.",
+    "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again.": "L'IOS de la Wii ne lit que le début d'un disque. RiftWii redémarre sous l'IOS{1} (d2x) pour cette session ; choisissez ensuite de nouveau Copier un disque de jeu.",
+    "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc.": "Le menu tourne sous l'IOS{1} pour cette session, pour copier un disque de jeu. Paramètres > Supports > Copier un disque de jeu.",
+    "There is no SD card or FAT32 USB drive to copy the disc to.": "Il n'y a ni carte SD ni disque USB FAT32 où copier le disque.",
+    "The disc can't be copied: {1}": "Le disque ne peut pas être copié : {1}",
+    "Where should {1} go? It needs {2}.": "Où copier {1} ? Il faut {2}.",
+    "{1} free": "{1} libres",
+    "{1} needs {2}, and the {3} has {4} free.": "{1} demande {2}, et il reste {4} sur : {3}.",
+    "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes.": "Copier {1} ({2}) dans {3} ? Toutes les partitions du disque sont copiées : le jeu, la mise à jour du système et toute chaîne. Cela prend environ {4} minutes.",
+    "{1} partition(s) could not be looked into, so they are copied whole.": "{1} partition(s) n'ont pas pu être lues de l'intérieur : elles sont copiées en entier.",
+    "Copying {1}": "Copie de {1}",
+    "From the disc to the {1}": "Du disque vers : {1}",
+    "Stop copying {1}?": "Arrêter la copie de {1} ?",
+    "What is copied so far is deleted. It can be copied again later, from the start.": "Ce qui a été copié est supprimé. Vous pourrez le recopier plus tard, depuis le début.",
+    "{1} is already on the {2}: {3}": "{1} est déjà sur : {2} ({3})",
+    "{1} could not be copied: {2}. Nothing was kept.": "{1} n'a pas pu être copié : {2}. Rien n'a été gardé.",
+    "{1} is copied to the {2}. It is on Home now, and plays without the disc.": "{1} est copié sur : {2}. Il est dans l'Accueil et se joue sans le disque.",
+    "Copying a disc needs a real Wii: Dolphin can't read a whole disc.": "Copier un disque demande une vraie Wii : Dolphin ne peut pas lire un disque entier.",
+    "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc.": "Le menu tourne sous l'IOS{1}, qui n'est pas un d2x : il ne peut pas lire un disque entier. Choisissez l'IOS 58 ou un cIOS d2x dans Paramètres > Menu > IOS du menu, relancez RiftWii, puis choisissez Copier un disque de jeu.",
+    "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc.": "Paramètres > Menu > IOS du menu est réglé sur l'IOS{1}, qui prend effet au prochain lancement de RiftWii. Relancez RiftWii, puis choisissez Copier un disque de jeu.",
+    "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card.": "Le disque USB n'est pas en FAT32 (il est en NTFS, par exemple), et une copie ne peut aller que sur un disque USB FAT32 ou la carte SD.",
+    "The USB drive is not FAT32, so the copy goes to the SD card.": "Le disque USB n'est pas en FAT32 : la copie va sur la carte SD.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Supports > Jeux sur la carte SD est sur Les chercher.",
+    "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games.": "{1} est copié sur : {2}, et se joue sans le disque. Il apparaît dans l'Accueil quand Paramètres > Accueil > Jeux depuis est sur Tous les jeux.",
+    "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed.": "{1} est copié sur : {2}, et se joue sans le disque. Le contrôle parental le masque dans l'Accueil : sa classification par âge dépasse l'âge maximal autorisé.",
+    "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games.": "{1} est copié sur : {2}, et se joue sans le disque. Pour le voir dans l'Accueil, choisissez Afficher > Tous les jeux.",
+})
+
+
+# Parental controls (riftwii/parental.hpp): the PIN pad, Settings' page and the game page's lock.
+T.update({
+    "Parental controls": ("Control parental", "ペアレンタルコントロール", "Controle dos pais", "Controllo genitori"),
+    "A PIN that locks or hides the games rated for players older than an age you pick.": ("Un PIN que bloquea u oculta los juegos clasificados para jugadores mayores que la edad que elijas.", "選んだ年れいより上向けのゲームを、PINでロックするか、かくします。", "Um PIN que bloqueia ou esconde os jogos classificados para jogadores mais velhos que a idade que você escolher.", "Un PIN che blocca o nasconde i giochi classificati per giocatori più grandi dell'età che scegli."),
+    "Parental controls PIN": ("PIN del control parental", "ペアレンタルコントロールのPIN", "PIN do controle dos pais", "PIN del controllo genitori"),
+    "Wrong PIN": ("PIN incorrecto", "PINがちがいます", "PIN incorreto", "PIN errato"),
+    "That is not the parental controls PIN.": ("Ese no es el PIN del control parental.", "ペアレンタルコントロールのPINではありません。", "Esse não é o PIN do controle dos pais.", "Questo non è il PIN del controllo genitori."),
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": ("Este juego no tiene una clasificación por edad conocida, y el control parental bloquea los juegos sin ella. Escribe el PIN para jugar.", "このゲームは対象年れいがわからず、ペアレンタルコントロールはそういうゲームをロックしています。遊ぶにはPINを入力してください。", "Este jogo não tem uma classificação etária conhecida, e o controle dos pais bloqueia os jogos sem ela. Digite o PIN para jogar.", "Questo gioco non ha una classificazione per età nota, e il controllo genitori blocca i giochi senza. Inserisci il PIN per giocare."),
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": ("No se pudo leer la clasificación por edad de este juego, así que el control parental lo bloquea. Escribe el PIN para jugar.", "このゲームの対象年れいを読み込めなかったため、ペアレンタルコントロールがロックしています。遊ぶにはPINを入力してください。", "Não foi possível ler a classificação etária deste jogo, então o controle dos pais o bloqueia. Digite o PIN para jogar.", "Non è stato possibile leggere la classificazione per età di questo gioco, quindi il controllo genitori lo blocca. Inserisci il PIN per giocare."),
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": ("La clasificación por edad de este juego supera lo que permite el control parental. Escribe el PIN para jugar.", "このゲームの対象年れいは、ペアレンタルコントロールでみとめられた年れいより上です。遊ぶにはPINを入力してください。", "A classificação etária deste jogo passa do que o controle dos pais permite. Digite o PIN para jogar.", "La classificazione per età di questo gioco supera quanto permesso dal controllo genitori. Inserisci il PIN per giocare."),
+    "Type the PIN to change parental controls.": ("Escribe el PIN para cambiar el control parental.", "ペアレンタルコントロールを変更するにはPINを入力してください。", "Digite o PIN para mudar o controle dos pais.", "Inserisci il PIN per modificare il controllo genitori."),
+    "New PIN": ("PIN nuevo", "新しいPIN", "Novo PIN", "Nuovo PIN"),
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": ("Elige cuatro cifras que un niño no adivine. En la tarjeta SD solo se guarda una forma cifrada de ellas.", "こどもに当てられない4けたの数字を選んでください。SDカードには読めない形だけを保存します。", "Escolha quatro dígitos que uma criança não adivinhe. Só uma forma embaralhada deles fica no cartão SD.", "Scegli quattro cifre che un bambino non indovini. Sulla scheda SD ne resta solo una forma cifrata."),
+    "Type the new PIN again": ("Vuelve a escribir el PIN nuevo", "新しいPINをもう一度入力", "Digite o novo PIN de novo", "Inserisci di nuovo il nuovo PIN"),
+    "The same four digits, to be sure.": ("Las mismas cuatro cifras, para asegurarse.", "確認のため、同じ4けたを入力してください。", "Os mesmos quatro dígitos, para confirmar.", "Le stesse quattro cifre, per sicurezza."),
+    "PIN not changed": ("PIN sin cambiar", "PINは変更されていません", "PIN não mudado", "PIN non cambiato"),
+    "The two PINs were not the same. Nothing was changed.": ("Los dos PIN no eran iguales. No se ha cambiado nada.", "2つのPINが同じではありませんでした。何も変更していません。", "Os dois PINs não eram iguais. Nada foi mudado.", "I due PIN non erano uguali. Non è stato cambiato nulla."),
+    "Lock them": ("Bloquearlos", "ロックする", "Bloquear", "Bloccali"),
+    "Hide them": ("Ocultarlos", "かくす", "Esconder", "Nascondili"),
+    "Treat as too old": ("Tratar como no aptos", "対象外として扱う", "Tratar como não permitidos", "Trattali come non adatti"),
+    "Allow": ("Permitir", "そのまま遊べる", "Permitir", "Consenti"),
+    "PIN": ("PIN", "PIN", "PIN", "PIN"),
+    "Set": ("Poner", "設定", "Definir", "Imposta"),
+    "Parental controls are on. Change the four-digit PIN they ask for.": ("El control parental está activado. Cambia el PIN de cuatro cifras que pide.", "ペアレンタルコントロールはオンです。必要な4けたのPINを変更します。", "O controle dos pais está ligado. Mude o PIN de quatro dígitos que ele pede.", "Il controllo genitori è attivo. Cambia il PIN di quattro cifre che richiede."),
+    "Parental controls are off. Set a four-digit PIN to turn them on.": ("El control parental está desactivado. Pon un PIN de cuatro cifras para activarlo.", "ペアレンタルコントロールはオフです。4けたのPINを設定するとオンになります。", "O controle dos pais está desligado. Defina um PIN de quatro dígitos para ligá-lo.", "Il controllo genitori è disattivato. Imposta un PIN di quattro cifre per attivarlo."),
+    "Games rated too old": ("Juegos para mayores", "対象年れいが上のゲーム", "Jogos para mais velhos", "Giochi per età superiori"),
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": ("Bloquearlos: siguen en el inicio y piden el PIN para empezar. Ocultarlos: no aparecen en el inicio, y aun así piden el PIN si se inician de otra forma (un disco).", "ロックする: ホームに表示され、始めるときにPINが必要です。かくす: ホームに表示されず、ほかのやり方 (ディスク) で始めるときもPINが必要です。", "Bloquear: continuam no início e pedem o PIN para começar. Esconder: ficam fora do início e ainda pedem o PIN se forem iniciados de outro jeito (um disco).", "Bloccali: restano nella Home e chiedono il PIN per partire. Nascondili: non compaiono nella Home e chiedono comunque il PIN se avviati in altro modo (un disco)."),
+    "Highest age allowed": ("Edad máxima permitida", "遊べるいちばん上の年れい", "Idade máxima permitida", "Età massima consentita"),
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": ("Los juegos clasificados para jugadores mayores que esta edad necesitan el PIN. La clasificación es la de GameTDB, la que muestra la página Acerca del juego.", "この年れいより上向けのゲームにはPINが必要です。対象年れいはGameTDBのもので、ゲームの情報ページと同じです。", "Jogos classificados para jogadores mais velhos que isso precisam do PIN. A classificação é a do GameTDB, como na página Sobre do jogo.", "I giochi classificati per giocatori più grandi di questa età richiedono il PIN. La classificazione è quella di GameTDB, come nella pagina Info del gioco."),
+    "Games with no rating": ("Juegos sin clasificación", "対象年れいがないゲーム", "Jogos sem classificação", "Giochi senza classificazione"),
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": ("Las clasificaciones vienen de la base de datos de GameTDB ({1} en {2} > {3}), y se leen para un juego al iniciarlo o al abrir su página Acerca de. Tratar como no aptos bloquea u oculta también los demás.", "対象年れいはGameTDBのデータベース ({2} > {3}の「{1}」) からわかり、ゲームを始めるときか、そのゲームの「情報」を開いたときに読み込まれます。「対象外として扱う」にすると、それ以外のゲームもロックされるか、かくされます。", "As classificações vêm do banco de dados do GameTDB ({1} em {2} > {3}) e são lidas para um jogo quando ele inicia ou quando sua página Sobre é aberta. Tratar como não permitidos bloqueia ou esconde os outros também.", "Le classificazioni vengono dal database di GameTDB ({1} in {2} > {3}) e sono lette per un gioco quando si avvia o si apre la sua pagina Info. Trattali come non adatti blocca o nasconde anche gli altri."),
+    "Turn off parental controls": ("Desactivar el control parental", "ペアレンタルコントロールをオフにする", "Desligar o controle dos pais", "Disattiva il controllo genitori"),
+    "Turn off": ("Desactivar", "オフにする", "Desligar", "Disattiva"),
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": ("Quita el PIN y, con él, todos los bloqueos. Borrar la línea parental_pin de sd:/riftwii/settings.txt hace lo mismo.", "PINと、すべてのロックを解除します。sd:/riftwii/settings.txt のparental_pinの行を消しても同じです。", "Remove o PIN e, com ele, todos os bloqueios. Apagar a linha parental_pin em sd:/riftwii/settings.txt faz o mesmo.", "Rimuove il PIN e, con esso, ogni blocco. Eliminare la riga parental_pin in sd:/riftwii/settings.txt fa lo stesso."),
+    "Parental controls are on": ("El control parental está activado", "ペアレンタルコントロールがオンになりました", "O controle dos pais está ligado", "Il controllo genitori è attivo"),
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": ("Los juegos clasificados por encima de la edad que elijas piden este PIN. Para desactivar el control sin él, borra la línea parental_pin de sd:/riftwii/settings.txt.", "選んだ年れいより上向けのゲームは、このPINが必要です。PINなしでオフにするには、sd:/riftwii/settings.txt のparental_pinの行を消してください。", "Jogos classificados acima da idade que você escolher pedem este PIN. Para desligar o controle sem ele, apague a linha parental_pin em sd:/riftwii/settings.txt.", "I giochi classificati sopra l'età che scegli chiedono questo PIN. Per disattivare il controllo senza PIN, elimina la riga parental_pin in sd:/riftwii/settings.txt."),
+    "Turn off parental controls?": ("¿Desactivar el control parental?", "ペアレンタルコントロールをオフにしますか？", "Desligar o controle dos pais?", "Disattivare il controllo genitori?"),
+    "Every game can be started without the PIN again.": ("Todos los juegos se podrán volver a iniciar sin el PIN.", "すべてのゲームがPINなしで始められるようになります。", "Todos os jogos poderão ser iniciados sem o PIN de novo.", "Tutti i giochi potranno di nuovo essere avviati senza PIN."),
+})
+KO.update({
+    "Parental controls": "자녀 보호 기능",
+    "A PIN that locks or hides the games rated for players older than an age you pick.": "고른 나이보다 높은 연령 등급의 게임을 PIN으로 잠그거나 숨깁니다.",
+    "Parental controls PIN": "자녀 보호 기능 PIN",
+    "Wrong PIN": "PIN이 틀렸습니다",
+    "That is not the parental controls PIN.": "자녀 보호 기능의 PIN이 아닙니다.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "이 게임은 연령 등급을 알 수 없고, 자녀 보호 기능이 등급 없는 게임을 잠그고 있습니다. 플레이하려면 PIN을 입력하세요.",
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": "이 게임의 연령 등급을 읽을 수 없어 자녀 보호 기능이 잠갔습니다. 플레이하려면 PIN을 입력하세요.",
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": "이 게임의 연령 등급은 자녀 보호 기능이 허용하는 나이보다 높습니다. 플레이하려면 PIN을 입력하세요.",
+    "Type the PIN to change parental controls.": "자녀 보호 기능을 바꾸려면 PIN을 입력하세요.",
+    "New PIN": "새 PIN",
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": "아이가 맞히지 못할 네 자리 숫자를 고르세요. SD 카드에는 알아볼 수 없게 바꾼 형태만 저장됩니다.",
+    "Type the new PIN again": "새 PIN을 다시 입력",
+    "The same four digits, to be sure.": "확인을 위해 같은 네 자리를 입력하세요.",
+    "PIN not changed": "PIN이 바뀌지 않았습니다",
+    "The two PINs were not the same. Nothing was changed.": "두 PIN이 같지 않았습니다. 아무것도 바뀌지 않았습니다.",
+    "Lock them": "잠그기",
+    "Hide them": "숨기기",
+    "Treat as too old": "허용 안 함으로 취급",
+    "Allow": "허용",
+    "PIN": "PIN",
+    "Set": "설정",
+    "Parental controls are on. Change the four-digit PIN they ask for.": "자녀 보호 기능이 켜져 있습니다. 묻는 네 자리 PIN을 바꿉니다.",
+    "Parental controls are off. Set a four-digit PIN to turn them on.": "자녀 보호 기능이 꺼져 있습니다. 네 자리 PIN을 설정하면 켜집니다.",
+    "Games rated too old": "연령 등급이 높은 게임",
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": "잠그기: 홈에 그대로 있고 시작할 때 PIN을 묻습니다. 숨기기: 홈에 나오지 않으며, 다른 방법(디스크)으로 시작해도 PIN을 묻습니다.",
+    "Highest age allowed": "허용할 최고 나이",
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": "이 나이보다 높은 연령 등급의 게임은 PIN이 필요합니다. 등급은 게임 정보 페이지에 나오는 GameTDB의 것입니다.",
+    "Games with no rating": "등급이 없는 게임",
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": "등급은 GameTDB 데이터베이스({2} > {3}의 {1})에서 가져오며, 게임을 시작하거나 정보 페이지를 열 때 읽습니다. 허용 안 함으로 취급하면 나머지 게임도 잠그거나 숨깁니다.",
+    "Turn off parental controls": "자녀 보호 기능 끄기",
+    "Turn off": "끄기",
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": "PIN을 지우고, 그와 함께 모든 잠금을 풉니다. sd:/riftwii/settings.txt의 parental_pin 줄을 지워도 같습니다.",
+    "Parental controls are on": "자녀 보호 기능이 켜졌습니다",
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "고른 나이보다 높은 등급의 게임은 이 PIN을 묻습니다. PIN 없이 끄려면 sd:/riftwii/settings.txt의 parental_pin 줄을 지우세요.",
+    "Turn off parental controls?": "자녀 보호 기능을 끌까요?",
+    "Every game can be started without the PIN again.": "모든 게임을 다시 PIN 없이 시작할 수 있습니다.",
+})
+FR.update({
+    "Parental controls": "Contrôle parental",
+    "A PIN that locks or hides the games rated for players older than an age you pick.": "Un code PIN qui verrouille ou masque les jeux classés pour des joueurs plus âgés que l'âge choisi.",
+    "Parental controls PIN": "Code PIN du contrôle parental",
+    "Wrong PIN": "Code PIN incorrect",
+    "That is not the parental controls PIN.": "Ce n'est pas le code PIN du contrôle parental.",
+    "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it.": "Ce jeu n'a pas de classification d'âge connue, et le contrôle parental verrouille les jeux sans classification. Entrez le code PIN pour y jouer.",
+    "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it.": "La classification d'âge de ce jeu n'a pas pu être lue, donc le contrôle parental le verrouille. Entrez le code PIN pour y jouer.",
+    "This game's age rating is above what parental controls allow. Type the PIN to play it.": "La classification d'âge de ce jeu dépasse ce qu'autorise le contrôle parental. Entrez le code PIN pour y jouer.",
+    "Type the PIN to change parental controls.": "Entrez le code PIN pour modifier le contrôle parental.",
+    "New PIN": "Nouveau code PIN",
+    "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card.": "Choisissez quatre chiffres qu'un enfant ne devinera pas. Seule une forme brouillée est gardée sur la carte SD.",
+    "Type the new PIN again": "Entrez de nouveau le nouveau code PIN",
+    "The same four digits, to be sure.": "Les quatre mêmes chiffres, pour confirmer.",
+    "PIN not changed": "Code PIN inchangé",
+    "The two PINs were not the same. Nothing was changed.": "Les deux codes PIN n'étaient pas identiques. Rien n'a été modifié.",
+    "Lock them": "Les verrouiller",
+    "Hide them": "Les masquer",
+    "Treat as too old": "Traiter comme trop âgés",
+    "Allow": "Autoriser",
+    "PIN": "Code PIN",
+    "Set": "Définir",
+    "Parental controls are on. Change the four-digit PIN they ask for.": "Le contrôle parental est activé. Changez le code PIN à quatre chiffres qu'il demande.",
+    "Parental controls are off. Set a four-digit PIN to turn them on.": "Le contrôle parental est désactivé. Définissez un code PIN à quatre chiffres pour l'activer.",
+    "Games rated too old": "Jeux pour plus âgés",
+    "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc).": "Les verrouiller : ils restent sur l'accueil et demandent le code PIN pour démarrer. Les masquer : ils n'apparaissent plus sur l'accueil, et demandent quand même le code PIN s'ils sont lancés autrement (un disque).",
+    "Highest age allowed": "Âge maximum autorisé",
+    "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it.": "Les jeux classés pour des joueurs plus âgés que cela demandent le code PIN. La classification est celle de GameTDB, comme sur la page À propos du jeu.",
+    "Games with no rating": "Jeux sans classification",
+    "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too.": "Les classifications viennent de la base de données de GameTDB ({1} dans {2} > {3}), lue pour un jeu quand il démarre ou quand sa page À propos s'ouvre. Traiter comme trop âgés verrouille ou masque aussi les autres.",
+    "Turn off parental controls": "Désactiver le contrôle parental",
+    "Turn off": "Désactiver",
+    "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same.": "Supprime le code PIN, et avec lui tous les verrous. Effacer la ligne parental_pin de sd:/riftwii/settings.txt fait de même.",
+    "Parental controls are on": "Le contrôle parental est activé",
+    "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt.": "Les jeux classés au-dessus de l'âge choisi demandent ce code PIN. Pour désactiver le contrôle sans lui, effacez la ligne parental_pin de sd:/riftwii/settings.txt.",
+    "Turn off parental controls?": "Désactiver le contrôle parental ?",
+    "Every game can be started without the PIN again.": "Tous les jeux pourront de nouveau être lancés sans le code PIN.",
+})
 
 def escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")

@@ -26,6 +26,7 @@
 #include <string>
 
 #include "boxart.hpp"
+#include "madecover.hpp"
 #include "transition.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
@@ -75,6 +76,19 @@ constexpr float kLift = 10.0f;                  // a spine under the pointer ris
 constexpr int kReach = 13;                      // boxes drawn each side of the focus
 constexpr float kBoxResponseMs = 58.0f;
 constexpr float kSpineLabelPart = 0.78f;  // stop above the spine's colour band
+// A spine to go with a made-up cover: a strip from the left of the
+// theme's blank cover (skin::blankCover), stretched down the spine, so its
+// band crowns the spine and its foot strip ends it. The name goes between
+// them, above a thin line in the game's colour along the foot strip's top
+// edge (the painted blank cover's band ends 16 of its 224 pixels down and
+// its foot strip starts at 195, inside the case's rim). The name gets
+// about as much of the spine as on a bare one.
+constexpr float kPaperSpineU0 = riftwii::wii::kMadeUpSpineLeft / 160.0f;
+constexpr float kPaperSpineU1 = riftwii::wii::kMadeUpSpineRight / 160.0f;
+constexpr float kPaperLabelTop = 0.07f;  // the text keeps its own margin under the band
+constexpr float kPaperLabelPart = 0.845f;
+constexpr float kPaperStripeTop = 0.85f;
+constexpr float kPaperStripeBottom = 0.872f;
 // The reflection: below the plank's front edge (16 tall), as if the floor
 // in front of the shelf were glossy; the part of each box nearest the
 // floor, fading out.
@@ -282,9 +296,13 @@ void DrawMadeUpBack(const Face& f, float light, u8 a) {
 
 void DrawFace(const Face& f, int alpha);
 
-// A face with a plastic rim (Face::rimLeft...): the plastic over the whole
-// face, a darker line where its bevel meets the paper, then the paper
-// inside. Each corner's fade is carried over to the inner corners.
+// A face with a plastic rim (Face::rimLeft...): the plastic round the
+// paper, a darker line where its bevel meets the paper, then the paper
+// inside. Each corner's fade is carried over to the inner corners. The
+// plastic is only the frame round the paper, never under it: a box
+// drawn faded (the carousel's sides, the shelf's reflection, a box
+// flying to the front) showed a red case's plastic through its
+// see-through cover, a red tint over the whole picture.
 void DrawRimmedFace(const Face& f, int alpha) {
     const float light = Light(f.normal);
     const auto shade = [&](u8 c, float k) { return static_cast<u8>(std::min(255.0f, c * light * k)); };
@@ -295,17 +313,31 @@ void DrawRimmedFace(const Face& f, int alpha) {
         const float bottom = f.fade[3] + (f.fade[2] - f.fade[3]) * u;
         return static_cast<u8>(top + (bottom - top) * v);
     };
+    // The part of the face from u0 to u1 across and v0 to v1 down.
+    const auto part = [&](float u0, float v0, float u1, float v1, GXColor c) {
+        if (u1 <= u0 || v1 <= v0) return;
+        const V3 q[4] = {at(f.c, u0, v0), at(f.c, u1, v0), at(f.c, u1, v1), at(f.c, u0, v1)};
+        const u8 qf[4] = {fadeAt(u0, v0), fadeAt(u1, v0), fadeAt(u1, v1), fadeAt(u0, v1)};
+        Quad(q, c, qf, nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    };
+    // The band between two rectangles, the outer one (ou0..ou1, ov0..ov1)
+    // round the inner: its top and bottom across the whole width, its
+    // sides between them.
+    const auto frame = [&](float ou0, float ov0, float ou1, float ov1, float iu0, float iv0, float iu1, float iv1,
+                           GXColor c) {
+        part(ou0, ov0, ou1, iv0, c);
+        part(ou0, iv1, ou1, ov1, c);
+        part(ou0, iv0, iu0, iv1, c);
+        part(iu1, iv0, ou1, iv1, c);
+    };
     const float l = f.rimLeft, r = 1 - f.rimRight, t = f.rimTop, b = 1 - f.rimBottom;
-    Quad(f.c, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a}, f.fade, nullptr, 0, 0, 0,
-         1, 0, 1, false, false);
     // The bevel's foot: a hair outside the paper, a shade darker.
     constexpr float kFoot = 0.35f;  // of the rim, on each side that has one
     const float fl = l * (1 - kFoot), fr = 1 - f.rimRight * (1 - kFoot);
     const float ft = t * (1 - kFoot), fb = 1 - f.rimBottom * (1 - kFoot);
-    const V3 foot[4] = {at(f.c, fl, ft), at(f.c, fr, ft), at(f.c, fr, fb), at(f.c, fl, fb)};
-    const u8 footFade[4] = {fadeAt(fl, ft), fadeAt(fr, ft), fadeAt(fr, fb), fadeAt(fl, fb)};
-    Quad(foot, GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a}, footFade,
-         nullptr, 0, 0, 0, 1, 0, 1, false, false);
+    frame(0, 0, 1, 1, fl, ft, fr, fb, GXColor{shade(f.plastic.r, 1), shade(f.plastic.g, 1), shade(f.plastic.b, 1), a});
+    frame(fl, ft, fr, fb, l, t, r, b,
+          GXColor{shade(f.plastic.r, 0.78f), shade(f.plastic.g, 0.78f), shade(f.plastic.b, 0.78f), a});
     Face paper = f;
     paper.rimLeft = paper.rimRight = paper.rimTop = paper.rimBottom = 0;
     const V3 inner[4] = {at(f.c, l, t), at(f.c, r, t), at(f.c, r, b), at(f.c, l, b)};
@@ -460,7 +492,11 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     faces[4] = face(1, 0, 2, 3);
     faces[3].color = faces[4].color = CasePlastic(id, caseColour);
     faces[4].rounded = true;
+    // The paper (a scan or a cover) through plain white: through the
+    // plastic's off-white, every picture came out a little grey.
+    constexpr GXColor kPaper = {255, 255, 255, 255};
     if (art) {
+        faces[0].color = faces[1].color = faces[2].color = kPaper;
         faces[0].tex = art;
         faces[0].texW = riftwii::kBoxWidth;
         faces[0].texH = riftwii::kBoxHeight;
@@ -478,6 +514,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[2].u0 = kBackU;
         faces[2].u1 = 1;
     } else if (cover) {
+        faces[1].color = kPaper;
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
@@ -495,9 +532,24 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         return;
     }
     // No scan: a back made up from the front cover, laid out as a Wii
-    // case's back is.
+    // case's back is, and a paper spine to go with the made-up cover
+    // (bare plastic if the theme has no blank cover).
     if (!art) {
-        faces[0].color = faces[3].color;
+        if (skin::blankCover.data) {
+            faces[0].tex = skin::blankCover.data;
+            faces[0].texW = skin::blankCover.w;
+            faces[0].texH = skin::blankCover.h;
+            faces[0].rgba8 = true;
+            faces[0].u0 = kPaperSpineU0;
+            faces[0].u1 = kPaperSpineU1;
+            faces[0].color = {255, 255, 255, 255};
+            // Solid, as paper is: the picture's colours as they are, so the
+            // name's ink (MadeUpSpineInk, judged from those colours) shows
+            // up on it whatever the case's plastic or a theme's alpha.
+            faces[0].opaque = true;
+        } else {
+            faces[0].color = faces[3].color;
+        }
         faces[2].color = {244, 244, 242, 255};
         faces[2].madeUpBack = true;
         faces[2].art = cover;
@@ -506,13 +558,13 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // The case round its paper: a keep case's sleeve leaves a few
     // millimetres of plastic showing above and below the paper and along
     // the open edge, front and back (the paper wraps round the spine).
-    // A spine with no scan is bare plastic already.
+    // A bare plastic spine needs none.
     for (Face& f : faces) f.plastic = faces[3].color;
     faces[1].rimTop = faces[1].rimBottom = kRimHeight;
     faces[1].rimRight = kRimOpenEdge;  // the front: c[1] is on the open edge
     faces[2].rimTop = faces[2].rimBottom = kRimHeight;
     faces[2].rimLeft = kRimOpenEdge;  // the back: c[0] is on the open edge
-    if (art) faces[0].rimTop = faces[0].rimBottom = kRimHeight;
+    if (faces[0].tex) faces[0].rimTop = faces[0].rimBottom = kRimHeight;
 }
 
 // The game whose box is flying (DrawShelfFlight): the shelf leaves its
@@ -934,6 +986,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        if (!art && !front) front = MadeUpCoverFor(item);
         Face faces[5];
         BoxFaces(item.id, MakeBox(p.x, p.z, p.turn, p.lift), art, art ? nullptr : front,
                  item.hue, item.caseColour, faces);
@@ -997,6 +1050,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // The player's own cover (#384), or a mod tile's own (#385), comes before the game's full box.
         const u8* front = riftwii::wii::CoverTexture(CoverName(item));
         const u8* art = front && riftwii::wii::CoverBeforeBox(CoverName(item)) ? nullptr : riftwii::wii::BoxTexture(item.id);
+        if (!art && !front) front = MadeUpCoverFor(item);
         const u8* cover = art ? nullptr : front;
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
@@ -1021,26 +1075,33 @@ void GuiGameGrid::DrawShelf(int alpha) {
             }
         }
         if (!art && spineShown) {
-            // A plain spine: the game's colour in a band along it.
+            // A plain spine: the game's colour in a band along it; on a
+            // paper spine, a thin line over its foot strip.
+            const bool paper = faces[0].tex != nullptr;
             Face band = faces[0];
             const auto along = [&](V3 top, V3 bottom, float t) {
                 return V3{top.x + (bottom.x - top.x) * t, top.y + (bottom.y - top.y) * t, top.z + (bottom.z - top.z) * t};
             };
             const V3 tl = faces[0].c[0], tr = faces[0].c[1], br = faces[0].c[2], bl = faces[0].c[3];
-            band.c[0] = along(tl, bl, 0.80f);
-            band.c[1] = along(tr, br, 0.80f);
-            band.c[2] = along(tr, br, 0.93f);
-            band.c[3] = along(tl, bl, 0.93f);
+            const float bandTop = paper ? kPaperStripeTop : 0.80f;
+            const float bandBottom = paper ? kPaperStripeBottom : 0.93f;
+            band.c[0] = along(tl, bl, bandTop);
+            band.c[1] = along(tr, br, bandTop);
+            band.c[2] = along(tr, br, bandBottom);
+            band.c[3] = along(tl, bl, bandBottom);
             band.color = item.badge == "DISC" ? GXColor{52, 108, 196, 255} : item.hue;
             band.color.a = 255;
             band.tex = nullptr;
+            band.rimTop = band.rimBottom = 0;
             DrawFace(band, alpha);
+            const float labelStart = paper ? kPaperLabelTop : 0.0f;
+            const float labelEnd = paper ? kPaperLabelPart : kSpineLabelPart;
             float leftTopX, leftTopY, rightTopX, rightTopY;
             float leftBottomX, leftBottomY, rightBottomX, rightBottomY;
-            Project(tl, leftTopX, leftTopY);
-            Project(tr, rightTopX, rightTopY);
-            Project(along(tl, bl, kSpineLabelPart), leftBottomX, leftBottomY);
-            Project(along(tr, br, kSpineLabelPart), rightBottomX, rightBottomY);
+            Project(along(tl, bl, labelStart), leftTopX, leftTopY);
+            Project(along(tr, br, labelStart), rightTopX, rightTopY);
+            Project(along(tl, bl, labelEnd), leftBottomX, leftBottomY);
+            Project(along(tr, br, labelEnd), rightBottomX, rightBottomY);
             // Use the space inside both edges: perspective can put their
             // tops and bottoms at slightly different screen positions.
             const float labelLeft = std::max(leftTopX, leftBottomX);
@@ -1050,7 +1111,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             // Not while the box still turns (to or from the focus): its name
             // lay across the next spine's.
             if (p.turn < 0.12f) {
-                labels.push_back({i, (labelLeft + labelRight) / 2, labelTop, labelBottom, labelRight - labelLeft});
+                labels.push_back({i, (labelLeft + labelRight) / 2, labelTop, labelBottom, labelRight - labelLeft, paper});
             }
         }
         if (item.badge == "DISC" && !art && !cover && !skin::discCase.data && FacesEye(faces[1]) && skin::iconDisc.data) {
@@ -1107,19 +1168,21 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const GridItem& item = (*items)[l.index];
         const std::string& title = item.title;
         const float length = l.y1 - l.y0;
-        const spine::SpineTextLayout layout =
-            spine::FitSpineTextLayout(length, l.width, kBoxH * kSpineLabelPart, fit.room);
+        const float normalLength = kBoxH * (l.paper ? kPaperLabelPart - kPaperLabelTop : kSpineLabelPart);
+        const spine::SpineTextLayout layout = spine::FitSpineTextLayout(length, l.width, normalLength, fit.room);
         if (layout.fontSize == 0) continue;
         if (fit.title != title || fit.room != layout.room || fit.fontSize != layout.fontSize) {
             measure->SetFontSize(layout.fontSize);
             fit = {title, Fit(title, layout.room), layout.room, layout.fontSize};
             measure->SetFontSize(spine::kSpineTextSize);
         }
-        // Dark letters on a light case, light ones on a dark case (black,
-        // red: Rec. 601 brightness under half).
+        // On paper, an ink for the strip of the blank cover it shows. On
+        // plastic, dark letters on a light case, light ones on a dark case
+        // (black, red: Rec. 601 brightness under half).
         const GXColor plastic = CasePlastic(item.id, item.caseColour);
         const int brightness = (plastic.r * 299 + plastic.g * 587 + plastic.b * 114) / 1000;
-        spineText->SetColor(brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255});
+        const GXColor plasticInk = brightness < 128 ? GXColor{240, 240, 236, 255} : GXColor{40, 40, 48, 255};
+        spineText->SetColor(l.paper ? riftwii::wii::MadeUpSpineInk() : plasticInk);
         spineText->SetText(fit.text.c_str());
         spineText->SetFontSize(layout.fontSize);
         spineText->SetAlpha(alpha);
@@ -1130,7 +1193,12 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // Turned a quarter right about the label's own start, at the top:
         // the line runs down and the letters' tops face right, so the
         // text's height lies left of px.
-        const float px = l.x + layout.fontSize / 2.0f, py = l.y0 + spine::kSpineTextMargin;
+        // The menu font sits low in its line, so a line centred on the
+        // spine left its letters about a quarter of the font size toward their
+        // foot, the spine's left edge (measured on Dolphin screenshots):
+        // move them back to the middle.
+        const float lowFont = layout.fontSize * 0.25f;
+        const float px = l.x + layout.fontSize / 2.0f + lowFont, py = l.y0 + spine::kSpineTextMargin;
         // The text sits at whole pixels (GuiText) and is turned about a
         // whole pixel, then moved by what is left after the turn: rounded
         // before it, a sliding spine's fraction of a pixel went into the
@@ -1276,6 +1344,7 @@ void GuiGameGrid::DrawRing(int alpha) {
         const u8* flat = riftwii::wii::CoverTexture(CoverName(item));
         const bool own = flat && riftwii::wii::CoverBeforeBox(CoverName(item));
         const u8* tex = own ? nullptr : riftwii::wii::Cover3dTexture(item.id);
+        if (!tex && !flat) flat = MadeUpCoverFor(item);
         const u8* cover = tex ? nullptr : flat;
         const float ph = tex ? h : h * 0.92f;
         float w = ph * riftwii::kCoverWidth / riftwii::kCoverHeight;
@@ -1328,6 +1397,7 @@ bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
     if ((*items)[index].badge == "DISC") return false;
     const BoxPose& p = poses[index];
     out.id = (*items)[index].id;
+    out.coverName = CoverName((*items)[index]);
     out.hue = (*items)[index].hue;
     out.caseColour = (*items)[index].caseColour;
     out.x = p.x;
@@ -1365,8 +1435,14 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const float arc = std::sin(e * static_cast<float>(M_PI)) * 40.0f;
     const Box box = MakeBox(a.x + (b.x - a.x) * e, a.z + (b.z - a.z) * e, a.turn + (b.turn - a.turn) * e,
                             a.lift + (b.lift - a.lift) * e + arc);
-    const u8* art = riftwii::wii::BoxTexture(from.id);
-    const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
+    // As the shelf drew it: by the tile's cover name, the player's own cover
+    // (#384) or a mod tile's own (#385) before the game's box, then the
+    // made-up cover its tile showed, if it has one.
+    const std::string& coverName = from.coverName.empty() ? from.id : from.coverName;
+    const u8* front = riftwii::wii::CoverTexture(coverName);
+    const u8* art = front && riftwii::wii::CoverBeforeBox(coverName) ? nullptr : riftwii::wii::BoxTexture(from.id);
+    const u8* cover = art ? nullptr : front;
+    if (!art && !cover) cover = riftwii::wii::MadeUpCoverMade(coverName);
     Face faces[5];
     BoxFaces(from.id, box, art, cover, from.hue, from.caseColour, faces);
     LoadPerspective();

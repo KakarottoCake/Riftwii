@@ -89,6 +89,7 @@ extern Tex iconDrives, iconGear, iconSearch;  // 28x28
 extern Tex layoutIcons[6];               // 28x28: covers, 3D, carousel, shelf, channels, names
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
+extern Tex blankCover;                  // 160x224 RGBA8: a game's cover without art (madecover.hpp)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
 // The game page's and Settings' tiles (wii/menu/gui_tiles.hpp), 64x64
 // nine-sliced with corner kTileCorner: plain, lit, primary, primary lit.

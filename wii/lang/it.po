@@ -1188,6 +1188,9 @@ msgstr "Dolphin controlla le firme reali, quindi il canale si può installare so
 msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
 msgstr "Per installare il canale serve un cIOS d2x nello slot 249, 250 o 251"
 
+msgid "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)"
+msgstr "questa volta RiftWii è stato avviato senza accesso all'hardware, che serve all'installatore. Avvia RiftWii dall'Homebrew Channel o dal canale di RiftWii (versione 9 o successiva)"
+
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(Log: sd:/riftwii/session.log)"
 
@@ -2364,11 +2367,11 @@ msgstr "Ripristina"
 msgid "Reset all settings?"
 msgstr "Ripristinare tutte le impostazioni?"
 
-msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
-msgstr "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."
 
-msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
-msgstr "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history, mods and parental controls are kept."
+msgstr "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco, le mod e il controllo genitori restano."
 
 msgid "Settings reset to the defaults"
 msgstr "Impostazioni ripristinate"
@@ -3071,6 +3074,198 @@ msgstr "Su/Giù: genere   Rilascia: mostra"
 
 msgid "The menu is in English: copy apps/riftwii/korean.ttf from the RiftWii zip to the SD card and select RiftWii's menu font, or use the Wii Menu font on a Korean Wii."
 msgstr "Il menu è in inglese: copia apps/riftwii/korean.ttf dallo zip di RiftWii sulla scheda SD e scegli il carattere di RiftWii, oppure usa il carattere del Menu Wii su una Wii coreana."
+
+msgid "Copy a game disc"
+msgstr "Copia un disco di gioco"
+
+msgid "Copies the Wii disc in the drive to the wbfs folder of a FAT32 USB drive or the SD card, with every partition of the disc, so the game plays without the disc. Needs a d2x cIOS."
+msgstr "Copia il disco Wii dell'unità nella cartella wbfs di un'unità USB FAT32 o della scheda SD, con tutte le partizioni del disco, per giocare senza il disco. Serve un cIOS d2x."
+
+msgid "Reading a whole disc needs a d2x cIOS, and this Wii has none. Install d2x (wii.hacks.guide/cios), then try again."
+msgstr "Leggere un disco intero richiede un cIOS d2x, e questa Wii non ne ha. Installa d2x (wii.hacks.guide/cios) e riprova."
+
+msgid "The Wii's own IOS reads only the start of a disc. RiftWii restarts under IOS{1} (d2x) for this session; then choose Copy a game disc again."
+msgstr "L'IOS della Wii legge solo l'inizio di un disco. RiftWii si riavvia con IOS{1} (d2x) per questa sessione; poi scegli di nuovo Copia un disco di gioco."
+
+msgid "The menu runs under IOS{1} for this session, to copy a game disc. Settings > Drives > Copy a game disc."
+msgstr "In questa sessione il menu usa IOS{1}, per copiare un disco di gioco. Impostazioni > Unità > Copia un disco di gioco."
+
+msgid "There is no SD card or FAT32 USB drive to copy the disc to."
+msgstr "Non c'è una scheda SD né un'unità USB FAT32 su cui copiare il disco."
+
+msgid "The disc can't be copied: {1}"
+msgstr "Il disco non si può copiare: {1}"
+
+msgid "Where should {1} go? It needs {2}."
+msgstr "Dove copiare {1}? Servono {2}."
+
+msgid "{1} free"
+msgstr "{1} liberi"
+
+msgid "{1} needs {2}, and the {3} has {4} free."
+msgstr "{1} richiede {2}, e su {3} ci sono {4} liberi."
+
+msgid "Copy {1} ({2}) to {3}? Every partition of the disc goes in: the game, the system update and any channel. This takes about {4} minutes."
+msgstr "Copiare {1} ({2}) in {3}? Vanno copiate tutte le partizioni del disco: il gioco, l'aggiornamento di sistema e ogni canale. Ci vogliono circa {4} minuti."
+
+msgid "{1} partition(s) could not be looked into, so they are copied whole."
+msgstr "Non è stato possibile guardare dentro {1} partizione/i, quindi vengono copiate per intero."
+
+msgid "Copying {1}"
+msgstr "Copia di {1}"
+
+msgid "From the disc to the {1}"
+msgstr "Dal disco a: {1}"
+
+msgid "Stop copying {1}?"
+msgstr "Interrompere la copia di {1}?"
+
+msgid "What is copied so far is deleted. It can be copied again later, from the start."
+msgstr "Quanto copiato finora viene cancellato. Si può copiare di nuovo più tardi, dall'inizio."
+
+msgid "{1} is already on the {2}: {3}"
+msgstr "{1} è già su {2}: {3}"
+
+msgid "{1} could not be copied: {2}. Nothing was kept."
+msgstr "Impossibile copiare {1}: {2}. Non è stato tenuto nulla."
+
+msgid "{1} is copied to the {2}. It is on Home now, and plays without the disc."
+msgstr "{1} è stato copiato su {2}. Ora è nella Home e si gioca senza il disco."
+
+msgid "Copying a disc needs a real Wii: Dolphin can't read a whole disc."
+msgstr "Per copiare un disco serve una Wii vera: Dolphin non può leggere un disco intero."
+
+msgid "The menu runs under IOS{1}, which is not d2x, so it can't read a whole disc. Choose IOS 58 or a d2x cIOS in Settings > Menu > Menu IOS, start RiftWii again, then choose Copy a game disc."
+msgstr "Il menu usa l'IOS{1}, che non è d2x, quindi non può leggere un disco intero. Scegli l'IOS 58 o un cIOS d2x in Impostazioni > Menu > IOS del menu, riavvia RiftWii e poi scegli Copia un disco di gioco."
+
+msgid "Settings > Menu > Menu IOS is set to IOS{1}, which takes effect the next time RiftWii starts. Start RiftWii again, then choose Copy a game disc."
+msgstr "Impostazioni > Menu > IOS del menu è impostato sull'IOS{1}, che si applica al prossimo avvio di RiftWii. Riavvia RiftWii e poi scegli Copia un disco di gioco."
+
+msgid "The USB drive is not FAT32 (NTFS, for example), and a copy can only go to a FAT32 USB drive or the SD card."
+msgstr "L'unità USB non è FAT32 (è NTFS, per esempio), e una copia può andare solo su un'unità USB FAT32 o sulla scheda SD."
+
+msgid "The USB drive is not FAT32, so the copy goes to the SD card."
+msgstr "L'unità USB non è FAT32, quindi la copia va sulla scheda SD."
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Drives > Games on the SD card is set to Look for them."
+msgstr "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Unità > Giochi sulla scheda SD è su Cercali."
+
+msgid "{1} is copied to the {2}, and plays without the disc. It is on Home once Settings > Home > Games from is set to All games."
+msgstr "{1} è stato copiato su {2} e si gioca senza il disco. Compare nella Home quando Impostazioni > Home > Giochi da è su Tutti i giochi."
+
+msgid "{1} is copied to the {2}, and plays without the disc. Parental controls hide it on Home: its age rating is above the highest age allowed."
+msgstr "{1} è stato copiato su {2} e si gioca senza il disco. Il controllo genitori lo nasconde nella Home: la sua classificazione per età supera l'età massima consentita."
+
+msgid "{1} is copied to the {2}, and plays without the disc. To see it on Home, choose Show > All games."
+msgstr "{1} è stato copiato su {2} e si gioca senza il disco. Per vederlo nella Home, scegli Mostra > Tutti i giochi."
+
+msgid "Parental controls"
+msgstr "Controllo genitori"
+
+msgid "A PIN that locks or hides the games rated for players older than an age you pick."
+msgstr "Un PIN che blocca o nasconde i giochi classificati per giocatori più grandi dell'età che scegli."
+
+msgid "Parental controls PIN"
+msgstr "PIN del controllo genitori"
+
+msgid "Wrong PIN"
+msgstr "PIN errato"
+
+msgid "That is not the parental controls PIN."
+msgstr "Questo non è il PIN del controllo genitori."
+
+msgid "This game has no known age rating, and parental controls lock games without one. Type the PIN to play it."
+msgstr "Questo gioco non ha una classificazione per età nota, e il controllo genitori blocca i giochi senza. Inserisci il PIN per giocare."
+
+msgid "This game's age rating could not be read, so parental controls lock it. Type the PIN to play it."
+msgstr "Non è stato possibile leggere la classificazione per età di questo gioco, quindi il controllo genitori lo blocca. Inserisci il PIN per giocare."
+
+msgid "This game's age rating is above what parental controls allow. Type the PIN to play it."
+msgstr "La classificazione per età di questo gioco supera quanto permesso dal controllo genitori. Inserisci il PIN per giocare."
+
+msgid "Type the PIN to change parental controls."
+msgstr "Inserisci il PIN per modificare il controllo genitori."
+
+msgid "New PIN"
+msgstr "Nuovo PIN"
+
+msgid "Pick four digits a child won't guess. Only a scrambled form of them is kept on the SD card."
+msgstr "Scegli quattro cifre che un bambino non indovini. Sulla scheda SD ne resta solo una forma cifrata."
+
+msgid "Type the new PIN again"
+msgstr "Inserisci di nuovo il nuovo PIN"
+
+msgid "The same four digits, to be sure."
+msgstr "Le stesse quattro cifre, per sicurezza."
+
+msgid "PIN not changed"
+msgstr "PIN non cambiato"
+
+msgid "The two PINs were not the same. Nothing was changed."
+msgstr "I due PIN non erano uguali. Non è stato cambiato nulla."
+
+msgid "Lock them"
+msgstr "Bloccali"
+
+msgid "Hide them"
+msgstr "Nascondili"
+
+msgid "Treat as too old"
+msgstr "Trattali come non adatti"
+
+msgid "Allow"
+msgstr "Consenti"
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "Set"
+msgstr "Imposta"
+
+msgid "Parental controls are on. Change the four-digit PIN they ask for."
+msgstr "Il controllo genitori è attivo. Cambia il PIN di quattro cifre che richiede."
+
+msgid "Parental controls are off. Set a four-digit PIN to turn them on."
+msgstr "Il controllo genitori è disattivato. Imposta un PIN di quattro cifre per attivarlo."
+
+msgid "Games rated too old"
+msgstr "Giochi per età superiori"
+
+msgid "Lock them: they stay on Home and ask for the PIN to start. Hide them: they are left off Home, and still ask for the PIN if started another way (a disc)."
+msgstr "Bloccali: restano nella Home e chiedono il PIN per partire. Nascondili: non compaiono nella Home e chiedono comunque il PIN se avviati in altro modo (un disco)."
+
+msgid "Highest age allowed"
+msgstr "Età massima consentita"
+
+msgid "Games rated for players older than this need the PIN. The rating is GameTDB's, as the game's About page shows it."
+msgstr "I giochi classificati per giocatori più grandi di questa età richiedono il PIN. La classificazione è quella di GameTDB, come nella pagina Info del gioco."
+
+msgid "Games with no rating"
+msgstr "Giochi senza classificazione"
+
+msgid "Ratings come from GameTDB's database ({1} in {2} > {3}), read for a game when it starts or its About page opens. Treat as too old locks or hides the others too."
+msgstr "Le classificazioni vengono dal database di GameTDB ({1} in {2} > {3}) e sono lette per un gioco quando si avvia o si apre la sua pagina Info. Trattali come non adatti blocca o nasconde anche gli altri."
+
+msgid "Turn off parental controls"
+msgstr "Disattiva il controllo genitori"
+
+msgid "Turn off"
+msgstr "Disattiva"
+
+msgid "Removes the PIN, and with it every lock. Deleting the parental_pin line in sd:/riftwii/settings.txt does the same."
+msgstr "Rimuove il PIN e, con esso, ogni blocco. Eliminare la riga parental_pin in sd:/riftwii/settings.txt fa lo stesso."
+
+msgid "Parental controls are on"
+msgstr "Il controllo genitori è attivo"
+
+msgid "Games rated above the age you pick ask for this PIN. To turn the controls off without it, delete the parental_pin line in sd:/riftwii/settings.txt."
+msgstr "I giochi classificati sopra l'età che scegli chiedono questo PIN. Per disattivare il controllo senza PIN, elimina la riga parental_pin in sd:/riftwii/settings.txt."
+
+msgid "Turn off parental controls?"
+msgstr "Disattivare il controllo genitori?"
+
+msgid "Every game can be started without the PIN again."
+msgstr "Tutti i giochi potranno di nuovo essere avviati senza PIN."
 
 msgid "Channel background"
 msgstr "Sfondo dei canali"

@@ -42,6 +42,7 @@ headers, generated data and assets with the code that uses them.
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
 | The entire menu font from `font.ttf` on the card, kept in MEM2 | `tools/make_menu_font.py`, `wii/menu/fullfont.cpp`, `SetMissingGlyphSource` in `vendor-libgui/source/FreeTypeGX.cpp`, `tests/menufont_tests.cpp` |
 | Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
+| Parental controls (a PIN that locks or hides games by age rating) | `src/data/parental.cpp` (ages, the PIN's salted hash), `src/data/settingsfile.cpp` (`parental_*` lines), Settings > Games > Parental controls, Home's list and the game page's Start in `wii/menu/rift_menu.cpp`, the PIN pad in `wii/menu/gui_searchkeys.cpp`, `tests/parental_tests.cpp` |
 | Finding games on the SD card and USB drives | `wii/menu/homescan.cpp` (Home's scan thread), `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/imagevolume.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
 | Riivolution packs: reading the XML | `src/patching/patch.cpp` |
 | Riivolution packs: what a launch does with them | `wii/launch/modplan.cpp`, `src/patching/apply.cpp`, `src/patching/expand.cpp`, `src/patching/redirect.cpp`, `src/patching/mempatch.cpp` |
@@ -161,6 +162,7 @@ The build compiles every folder into one, so no two files share a name.
 | `codemodstart.cpp` | `codemods.txt` read and written for the menu: how each code build starts (with or without RiftWii's extras), asked once and remembered |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
+| `madecover.cpp` | Made-up covers for games without one: the blank cover with the name printed on it |
 | `homescan.cpp` | Home's look for games on a thread of its own: the SD card's games first, then the USB drive's |
 | `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
 | `drawtrace.cpp` | Where the GUI thread is drawing, for a freeze on a console: the GUI watch and the GX trace (`debug_gx`) |
@@ -240,6 +242,7 @@ The build compiles every folder into one, so no two files share a name.
 | `d2xnandemu.cpp` | Turning d2x's NAND emulation on: RiftWii lets go of the SD card (libfat, boot.log, libogc's driver) while d2x's FAT module mounts it, stays off it while the emulation is on, and takes it back when the emulation does not come on |
 | `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
 | `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
+| `disccopy.cpp`, `disccopy.hpp` | Settings > Copy a game disc: the Wii disc in the drive to a split `.wbfs` file in `wbfs/` on a FAT32 USB drive or the SD card, every partition kept; restarts the menu under d2x first when needed |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 | `movedchannels.cpp` | Channels the Wii Menu moved to the SD card (`sd:/private/wii/title/<code>/content.bin`): their contents read and decrypted with this Wii's key (or a BootMii `keys.bin`'s), copied to the title's NAND folder for the game and removed at the next start |
 | `wfsdrive.cpp`, `wfsdrive.hpp` | Dragon Quest X's WFS drive as the USB scan finds it: opened with the Wii's WFS key, what is installed on it kept for Home and the start |
@@ -322,6 +325,7 @@ reader helpers stay beside their source.
 | `bnrsound` | Banner audio decoding, with limits on archive and sample sizes |
 | `sysfont`, `brfnt` | Finding/extracting the Wii Menu's font content and reading its bitmap glyphs |
 | `wiicrypt` | AES and Wii disc-content decryption, using keys supplied by the caller |
+| `discdump` | Copying a disc to a `.wbfs` file: which sectors every partition uses, and the trimmed WBFS layout the copy is written in |
 | `gcdiscs` | Validating a two-disc GameCube game's partner image and the file-table room both need |
 | `gctgc` | TGC images inside GameCube bonus discs: bounded headers, executable sections and file tables |
 | `gcprograms` | Programs a GameCube game loads itself (`src/patching/gcprograms.cpp`, `runtime/gc/gc_programs.h`): ELF programs on the disc, where their words come from on the disc, the patches the blob puts into reads, a program's start taken by the blob, and RiftWii's words a program switch sets |
@@ -378,6 +382,7 @@ reader helpers stay beside their source.
 | `ghcheats` | GameHacking.org's archive: picking the newest Wii zip from its listing, the bounds on the zip, the game ID index and its file |
 | `titles` | Game names |
 | `settingsfile` | `settings.txt` |
+| `parental` | Parental controls: the age a rating is for, and the PIN kept as a salted PBKDF2 hash |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
 | `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |

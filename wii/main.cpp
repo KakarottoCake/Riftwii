@@ -22,6 +22,7 @@
 #include "movedchannels.hpp"
 #include "nandchannels.hpp"
 #include "wfsdrive.hpp"
+#include "disccopy.hpp"
 #include "menumusic.hpp"
 #include "menusounds.hpp"
 #include "screenshot.hpp"
@@ -481,8 +482,15 @@ int main() {
     if (restart.kind != riftwii::wii::RestartKind::None) {
         riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
-                               restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
+    int session_slot = 0;
+    const char* session_why = "to read a burned disc";
+    if (restart.kind == riftwii::wii::RestartKind::BurnedDisc) {
+        session_slot = riftwii::wii::BurnedDiscSlot();
+    } else if (restart.kind == riftwii::wii::RestartKind::DiscCopy) {
+        session_slot = riftwii::wii::DiscCopySlot();
+        session_why = "to copy a game disc";
+    }
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None, session_slot, session_why);
     // A restart mounts the card before the fresh IOS above, under whatever
     // the last run left (a tester got "RiftWii needs an SD card" right
     // after a game failed to start, with the card in). The fresh IOS has
@@ -789,7 +797,7 @@ int main() {
         // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.
         std::string error;
-        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked);
+        riftwii::wii::StartChannelInstaller(error, state.channel_allow_unmarked, state.channel_update_now);
         riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, error);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();
