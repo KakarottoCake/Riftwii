@@ -113,8 +113,9 @@ bool add_candidate(std::vector<PictureCandidate>& candidates, PictureCandidate c
         return item.url == candidate.url;
     });
     if (duplicate != candidates.end()) return true;
-    if (candidates.size() >= kPictureCandidatesMax ||
-        source_count(candidates, candidate.source) >= kPictureCandidatesPerSource) return true;
+    const bool gametdb = candidate.source == PictureSource::GameTDB || candidate.source == PictureSource::GameTDBSecond;
+    const std::size_t per_source = gametdb ? kPictureGameTDBPerSet : kPictureCandidatesPerSource;
+    if (candidates.size() >= kPictureCandidatesMax || source_count(candidates, candidate.source) >= per_source) return true;
     return try_push_back(candidates, std::move(candidate));
 }
 }  // namespace

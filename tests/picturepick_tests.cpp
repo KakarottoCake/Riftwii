@@ -150,6 +150,12 @@ void gametdb_covers() {
     EXPECT(!picture_candidate_valid({"http://evil.example/wii/cover/US/RMCE01.png", PictureSource::GameTDB}));
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/RMCE01.png", PictureSource::Boxart}));
     EXPECT(picture_libretro_url(PictureSource::GameTDB, "Sega - Dreamcast").empty());
+    // A mod tile's own entry and the game's, four regions each: all kept.
+    std::vector<PictureCandidate> both;
+    for (const char* id : {"RMCP01", "RMCE01"})
+        for (const char* region : {"US", "EN", "JA", "FR"}) EXPECT(picture_add_gametdb(both, id, region, false));
+    EXPECT(both.size() == 8);
+    static_assert(2 * kPictureGameTDBPerSet <= kPictureCandidatesMax, "both GameTDB sets fit the picker");
 }
 }  // namespace
 
