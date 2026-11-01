@@ -13813,7 +13813,9 @@ static int MenuHome(FrontendState& state)
 					say(tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
 					break;
 				case GameTile::Cover:
-					say(tr("The game's box. Press A to see it up close, then Down for its back."));
+					// A made-up cover (no art) has nothing more to show up close.
+					if (hero.HasArt()) say(tr("The game's box. Press A to see it up close, then Down for its back."));
+					else say(tr("There is no box art for this game yet."));
 					break;
 			}
 		}
