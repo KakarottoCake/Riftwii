@@ -105,9 +105,12 @@ void logf(const char* format, ...) {
     Locked lock;
     va_list args;
     if (g_echo) {
+        // The USB Gecko gets this line below, with its time, not twice.
+        GeckoLeaveOutStdout(true);
         va_start(args, format);
         std::vprintf(format, args);
         va_end(args);
+        GeckoLeaveOutStdout(false);
     }
     // With Settings > USB Gecko log, each line also goes to the USB Gecko
     // as it is logged, with its time, card or no card; the text console

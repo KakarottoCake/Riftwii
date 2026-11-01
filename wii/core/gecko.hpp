@@ -17,11 +17,19 @@
 namespace riftwii::wii {
 
 // Looks for the USB Gecko and, when it answers, turns the output on and
-// points stdout and stderr at it. False, with nothing changed, when no
-// USB Gecko is in slot B. Calling it again only looks again.
+// copies stdout and stderr to it (they still reach the screen). False,
+// with nothing changed, when no USB Gecko is in slot B. Calling it again
+// only looks again.
 bool GeckoStart();
-// Whether GeckoStart found one.
+// Whether GeckoStart found one, and the PC still reads it: the output
+// turns itself off when a line can't be sent.
 bool GeckoActive();
+// The text console points stdout at itself when it starts; this copies
+// it to the USB Gecko again, when the output is on.
+void GeckoRetakeStdout();
+// Whether what stdout prints is left out of the USB Gecko: logf sends its
+// lines itself, with their time, and leaves its screen copy out.
+void GeckoLeaveOutStdout(bool leave_out);
 // Sends `text` as it is (no line ending added); nothing while inactive.
 void GeckoWrite(const char* text, std::size_t length);
 void GeckoPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));

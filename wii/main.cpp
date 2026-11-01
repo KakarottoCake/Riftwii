@@ -455,11 +455,13 @@ int main() {
         // A headless start has no log before its first IOS reload, so it
         // asks here; the menu and autorun ask once their logs are open.
         riftwii::wii::mem::DetectDolphin();
+        // Settings > USB Gecko log applies here too; no session log opens
+        // on this path, so it is asked for directly, before the console:
+        // the console then leaves the USB Gecko to the log, instead of
+        // mirroring every line to it a second time.
+        if (sd_mounted && riftwii::wii::Settings().usb_gecko_log == "on") riftwii::wii::GeckoStart();
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
-        // Settings > USB Gecko log applies here too; no session log opens
-        // on this path, so it is asked for directly.
-        if (sd_mounted && riftwii::wii::Settings().usb_gecko_log == "on") riftwii::wii::GeckoStart();
         riftwii::wii::RunHeadless(args);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();

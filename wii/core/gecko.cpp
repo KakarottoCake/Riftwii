@@ -17,20 +17,36 @@ namespace riftwii::wii {
 namespace {
 
 constexpr s32 kSlotB = EXI_CHANNEL_1;
+// How often the send asks the USB Gecko whether it can take a byte, for
+// each byte of a line, before it gives up: plenty for a PC that reads. A
+// USB Gecko nobody reads (no terminal open on the PC) never can, and the
+// unbounded send waited for it with interrupts off, freezing the Wii.
+constexpr int kPollsPerByte = 64;
 bool g_active = false;
+// Where stdout and stderr wrote before the USB Gecko took them (the text
+// console, or nowhere): they still write there, so the screen keeps its
+// text.
+const devoptab_t* g_screen_out = nullptr;
+// While logf prints its own line to the screen: logf sends that line to
+// the USB Gecko itself, with its time.
+bool g_leave_out_stdout = false;
 
 void send(const char* text, std::size_t length) {
     if (!g_active || text == nullptr || length == 0) return;
     // With interrupts off no other thread's line lands in the middle of
-    // this one (WiiFlow Lite's __out_write); the safe send retries while
-    // the PC end is slow to read.
+    // this one (WiiFlow Lite's __out_write).
+    const int size = static_cast<int>(length);
     const u32 level = IRQ_Disable();
-    usb_sendbuffer_safe(kSlotB, text, static_cast<int>(length));
+    const int sent = usb_sendbuffer_safe_ex(kSlotB, text, size, size * kPollsPerByte);
     IRQ_Restore(level);
+    // Nothing on the PC reads: the log stops here instead of stalling the
+    // menu on every line after this one.
+    if (sent < size) g_active = false;
 }
 
-ssize_t write_out(struct _reent*, void*, const char* text, size_t length) {
-    send(text, length);
+ssize_t write_out(struct _reent* reent, void* fd, const char* text, size_t length) {
+    if (!g_leave_out_stdout) send(text, length);
+    if (g_screen_out && g_screen_out->write_r) return g_screen_out->write_r(reent, fd, text, length);
     return static_cast<ssize_t>(length);
 }
 
@@ -44,6 +60,12 @@ devoptab_t make_gecko_out() {
     return device;
 }
 const devoptab_t g_gecko_out = make_gecko_out();
+
+void take_stdout() {
+    if (devoptab_list[STD_OUT] != &g_gecko_out) g_screen_out = devoptab_list[STD_OUT];
+    devoptab_list[STD_OUT] = &g_gecko_out;
+    devoptab_list[STD_ERR] = &g_gecko_out;
+}
 
 char printable(unsigned char c) {
     return (c < 0x20 || c > 0x7E) ? '.' : static_cast<char>(c);
@@ -59,8 +81,7 @@ bool GeckoStart() {
     if (!GeckoInSlot(kSlotB)) return false;
     usb_flush(kSlotB);
     g_active = true;
-    devoptab_list[STD_OUT] = &g_gecko_out;
-    devoptab_list[STD_ERR] = &g_gecko_out;
+    take_stdout();
     // Unbuffered: a line printed just before a hang still reaches the PC.
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     std::setvbuf(stderr, nullptr, _IONBF, 0);
@@ -73,6 +94,14 @@ bool GeckoActive() {
 
 void GeckoWrite(const char* text, std::size_t length) {
     send(text, length);
+}
+
+void GeckoRetakeStdout() {
+    if (g_active) take_stdout();
+}
+
+void GeckoLeaveOutStdout(bool leave_out) {
+    g_leave_out_stdout = leave_out;
 }
 
 void GeckoPrintf(const char* format, ...) {
