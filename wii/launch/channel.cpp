@@ -162,12 +162,15 @@ bool ChannelCanInstall(std::string& why) {
 
 bool ChannelCanUpdateHere(std::string& why) {
     if (!ChannelCanInstall(why)) return false;
-    // The installer starts with RiftWii's hardware access and needs it to
-    // read which cIOS slots hold d2x; in update mode it tries no unchecked
+    // The installer starts on RiftWii's IOS with its hardware access. On
+    // IOS58 it needs that access to read which cIOS slots hold d2x (IOS58
+    // refuses other titles' files), and in update mode it tries no unchecked
     // slot (no one is there to ask). An installer going back to RiftWii
     // takes that access away (its IOS58 reload), so a try from that start
-    // could only fail (31 Oct, on a Wii U).
-    if (read32(0x0D800064) != 0xFFFFFFFF) {
+    // could only fail (31 Oct, on a Wii U). On a cIOS (a menu IOS from
+    // Settings) d2x leaves that check out, so the installer reads the slots
+    // without it; if it still can't, it says so and comes back.
+    if (IOS_GetVersion() < 200 && read32(0x0D800064) != 0xFFFFFFFF) {
         why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)";
         return false;
     }

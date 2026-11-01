@@ -46,6 +46,9 @@ bool g_ios_state_safe = true;
 // Wii U's vWii has no GameCube ports: a player with only a GameCube
 // controller on an adapter could press nothing here (31 Oct, on a Wii U).
 bool g_update;
+// No cIOS slot's information could be read (no hardware access on IOS58):
+// the screen says the check failed rather than that d2x is missing.
+bool g_slots_unread;
 
 enum Button { kNone, kInstall, kRemove, kBack };
 Button wait_button();
@@ -165,6 +168,7 @@ void enter_cios() {
     // player may choose the old ticket fallback after an explicit warning.
     // Each attempt is logged first, so a hang still leaves its slot behind.
     if (!any_read) {
+        g_slots_unread = true;
         if (g_update) {
             // No one to ask: the safe answer. Without a cIOS the update screen
             // says why before going back; RiftWii then says the channel is
@@ -365,6 +369,10 @@ int main(int argc, char** argv) {
                "  restored. Restart it from the Homebrew Channel.\x1b[37m";
     } else if (dolphin) {
         note = "Dolphin checks real signatures, so the channel can only be\n  installed on a Wii.";
+    } else if (!g_cios && g_slots_unread && g_update) {
+        note = "\x1b[33mThe cIOS slots could not be checked from this start. Start\n"
+               "  RiftWii from the Homebrew Channel or the RiftWii channel and\n"
+               "  update again.\x1b[37m";
     } else if (!g_cios) {
         note = "\x1b[33mThis needs a d2x cIOS in slot 249, 250 or 251 (the one\n  RiftWii uses).\x1b[37m";
     }
