@@ -26,6 +26,7 @@
 #include "menumusic.hpp"
 #include "netsock.hpp"
 #include "restart.hpp"
+#include "riftwii/appmeta.hpp"
 #include "riftwii/channelupdate.hpp"
 #include "riftwii/checkedalloc.hpp"
 #include "riftwii/returnstub.hpp"
@@ -159,7 +160,33 @@ bool ChannelCanInstall(std::string& why) {
     return false;
 }
 
-bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
+bool ChannelCanUpdateHere(std::string& why) {
+    if (!ChannelCanInstall(why)) return false;
+    // The installer starts on RiftWii's IOS with its hardware access. On
+    // IOS58 it needs that access to read which cIOS slots hold d2x (IOS58
+    // refuses other titles' files), and in update mode it tries no unchecked
+    // slot (no one is there to ask). An installer going back to RiftWii
+    // takes that access away (its IOS58 reload), so a try from that start
+    // could only fail (31 Oct, on a Wii U). On a cIOS (a menu IOS from
+    // Settings) d2x leaves that check out, so the installer reads the slots
+    // without it; if it still can't, it says so and comes back.
+    if (IOS_GetVersion() < 200 && read32(0x0D800064) != 0xFFFFFFFF) {
+        why = "this start of RiftWii has no hardware access, which the installer needs. Start RiftWii from the Homebrew Channel or the RiftWii channel (version 9 or newer)";
+        return false;
+    }
+    // With that access the installer tries only slots it identifies as d2x,
+    // so a slot RiftWii read as another cIOS would send it back without
+    // updating. One RiftWii could not read is left to the installer, which
+    // reads them its own way (a Wii U, 31 Oct: RiftWii's reads failed with
+    // -102, and the installer's found d2x in 249-251).
+    for (int slot : {249, 250, 251}) {
+        if (slot_has_ticket(slot) && !slot_known_not_d2x(slot)) return true;
+    }
+    why = "Installing the channel needs a d2x cIOS in slot 249, 250 or 251";
+    return false;
+}
+
+bool StartChannelInstaller(std::string& error, bool allow_unmarked, bool update) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;
     u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); },
@@ -189,11 +216,18 @@ bool StartChannelInstaller(std::string& error, bool allow_unmarked) {
     }
     if (marked) logf("Channel: the launch marker was saved before opening the installer.\n");
     else logf("Channel: the player chose to open the installer without a saved launch marker.\n");
+    // From the update prompt the installer gets "update": it updates without
+    // waiting for a button. It reads only the Wii Remote's own buttons and the
+    // Wii's own GameCube ports, so a player with a GameCube controller on a
+    // Wii U's adapter couldn't press one there (31 Oct, on a Wii U).
+    const std::string line = update ? riftwii::app_command_line(kInstaller, {"update"}) : std::string();
+    if (update) logf("Channel: the installer updates at once (its \"update\" argument).\n");
     NetStopForLaunch();
     LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
     AUDIO_StopDMA();
+    if (!line.empty()) dolboot_run_line(dol, line.data(), static_cast<u32>(line.size()));
     dolboot_run(dol, kInstaller);
 }
 

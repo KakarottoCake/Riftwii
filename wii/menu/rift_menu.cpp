@@ -4984,6 +4984,7 @@ static int PickInterruptedChannelUpdate(const std::string& body, const std::stri
 static int RequireChannelUpdate(FrontendState& state)
 {
 	state.channel_allow_unmarked = false;
+	state.channel_update_now = false;
 	static bool postponed = false;
 	if (postponed) return MENU_NONE;
 	// A ChannelDone restart with a message: the installer never started
@@ -5024,7 +5025,7 @@ static int RequireChannelUpdate(FrontendState& state)
 	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
-		const bool can = riftwii::wii::ChannelCanInstall(why);
+		const bool can = riftwii::wii::ChannelCanUpdateHere(why);
 		std::string body;
 		if (required)
 			body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it shows each step while it starts, and an error instead of freezing. RiftWii can't be used until the channel is updated.",
@@ -5059,6 +5060,7 @@ static int RequireChannelUpdate(FrontendState& state)
 			if (markerRefused)
 				logf("Channel: the player accepted opening the installer without interruption detection.\n");
 			logf("Channel: update to %u accepted\n", riftwii::wii::kChannelVersion);
+			state.channel_update_now = true;
 			return MENU_CHANNEL;
 		}
 		// Check again: the card may have been fixed meanwhile.
