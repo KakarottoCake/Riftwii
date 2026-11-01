@@ -132,28 +132,34 @@ void identical_thumbnails() {
 void gametdb_covers() {
     using namespace riftwii;
     std::vector<PictureCandidate> list;
-    EXPECT(picture_add_gametdb(list, "RMCE01", "US", false));
-    EXPECT(picture_add_gametdb(list, "RMCE01", "US", true));
-    EXPECT(picture_add_gametdb(list, "DNDA", "EN", false));
-    EXPECT(picture_add_gametdb(list, "RMCE01", "US", false));  // the same URL again: kept once
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", PictureSource::GameTDB));
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", PictureSource::GameTDBSecond));
+    EXPECT(picture_add_gametdb(list, "DNDA", "EN", PictureSource::GameTDB));
+    EXPECT(picture_add_gametdb(list, "RMCE01", "US", PictureSource::GameTDB));  // the same URL again: kept once
     EXPECT(list.size() == 3);
     EXPECT(list[0].url == "http://art.gametdb.com/wii/cover/US/RMCE01.png");
     EXPECT(list[0].source == PictureSource::GameTDB);
     EXPECT(list[1].url == "http://art.gametdb.com/wii/coverB/US/RMCE01.png");
     EXPECT(list[1].source == PictureSource::GameTDBSecond);
-    EXPECT(!picture_add_gametdb(list, "../x", "US", false));
-    EXPECT(!picture_add_gametdb(list, "RMCE01", "usa", false));
-    EXPECT(!picture_add_gametdb(list, "rmce01", "US", false));
+    EXPECT(!picture_add_gametdb(list, "../x", "US", PictureSource::GameTDB));
+    EXPECT(!picture_add_gametdb(list, "RMCE01", "usa", PictureSource::GameTDB));
+    EXPECT(!picture_add_gametdb(list, "rmce01", "US", PictureSource::GameTDB));
     EXPECT(list.size() == 3);
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/../RMCE01.png", PictureSource::GameTDB}));
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/US/RMCE01.png", PictureSource::GameTDB}));
     EXPECT(!picture_candidate_valid({"http://evil.example/wii/cover/US/RMCE01.png", PictureSource::GameTDB}));
     EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/cover/US/RMCE01.png", PictureSource::Boxart}));
     EXPECT(picture_libretro_url(PictureSource::GameTDB, "Sega - Dreamcast").empty());
+    // A mod tile's own entry: first set only, under its own caption.
+    std::vector<PictureCandidate> mod;
+    EXPECT(picture_add_gametdb(mod, "RMCP01", "EN", PictureSource::GameTDBMod));
+    EXPECT(mod.size() == 1 && mod[0].url == "http://art.gametdb.com/wii/cover/EN/RMCP01.png");
+    EXPECT(!picture_candidate_valid({"http://art.gametdb.com/wii/coverB/EN/RMCP01.png", PictureSource::GameTDBMod}));
+    EXPECT(!picture_add_gametdb(mod, "RMCP01", "EN", PictureSource::Boxart));
     // A mod tile's own entry and the game's, four regions each: all kept.
     std::vector<PictureCandidate> both;
     for (const char* id : {"RMCP01", "RMCE01"})
-        for (const char* region : {"US", "EN", "JA", "FR"}) EXPECT(picture_add_gametdb(both, id, region, false));
+        for (const char* region : {"US", "EN", "JA", "FR"}) EXPECT(picture_add_gametdb(both, id, region, PictureSource::GameTDB));
     EXPECT(both.size() == 8);
     static_assert(2 * kPictureGameTDBPerSet <= kPictureCandidatesMax, "both GameTDB sets fit the picker");
 }

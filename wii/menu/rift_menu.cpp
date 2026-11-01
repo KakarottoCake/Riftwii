@@ -5583,37 +5583,47 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 	}
 }
 
-// GameTDB's covers of each ID (the tile's own match first, then the game),
-// first and second set, in the regions the automatic download tries. Each
-// is fetched once here, so covers GameTDB doesn't have, and the same picture
-// under another region, are left out. Runs on the network thread.
-static bool FindGameCovers(const std::vector<std::string>& ids,
+// GameTDB's covers in the regions the automatic download tries: a mod
+// tile's own entry first (`modId`, its first set), then the game's, first
+// and second set. Each is fetched once here, so covers GameTDB doesn't have,
+// and the same picture under another region, are left out. Runs on the
+// network thread.
+static bool FindGameCovers(const std::string& modId, const std::string& gameId,
 	std::vector<riftwii::PictureCandidate>& candidates, std::string& error)
 {
+	using riftwii::PictureSource;
+	struct Ask {
+		std::string id;
+		PictureSource source;
+	};
+	std::vector<Ask> asks;
+	if (!modId.empty()) asks.push_back({modId, PictureSource::GameTDBMod});
+	asks.push_back({gameId, PictureSource::GameTDB});
+	asks.push_back({gameId, PictureSource::GameTDBSecond});
 	std::vector<riftwii::Sha256Digest> seen;
 	bool answered = false;
-	for (const std::string& id : ids) {
-		for (const bool second : {false, true}) {
-			for (const std::string& region : riftwii::cover_regions(id, riftwii::wii::MenuLanguage())) {
-				if (riftwii::wii::NetCancelRequested()) return false;
-				std::vector<std::uint8_t> png;
-				std::string fetchError;
-				const std::string url = riftwii::cover_url(region, id, second);
-				if (!riftwii::wii::HttpGet(url, png, fetchError, riftwii::kEmulatorCoverMax, 10000, nullptr,
-					riftwii::HttpRedirects::Never)) {
-					if (error.empty()) error = fetchError;
-					continue;
-				}
-				answered = true;
-				const riftwii::Sha256Digest digest = riftwii::sha256(png.data(), png.size());
-				if (std::find(seen.begin(), seen.end(), digest) != seen.end()) continue;
-				seen.push_back(digest);
-				if (!riftwii::picture_add_gametdb(candidates, id, region, second)) return false;
+	for (const Ask& ask : asks) {
+		const std::string& id = ask.id;
+		const bool second = ask.source == PictureSource::GameTDBSecond;
+		for (const std::string& region : riftwii::cover_regions(id, riftwii::wii::MenuLanguage())) {
+			if (riftwii::wii::NetCancelRequested()) return false;
+			std::vector<std::uint8_t> png;
+			std::string fetchError;
+			const std::string url = riftwii::cover_url(region, id, second);
+			if (!riftwii::wii::HttpGet(url, png, fetchError, riftwii::kEmulatorCoverMax, 10000, nullptr,
+				riftwii::HttpRedirects::Never)) {
+				if (error.empty()) error = fetchError;
+				continue;
 			}
+			answered = true;
+			const riftwii::Sha256Digest digest = riftwii::sha256(png.data(), png.size());
+			if (std::find(seen.begin(), seen.end(), digest) != seen.end()) continue;
+			seen.push_back(digest);
+			if (!riftwii::picture_add_gametdb(candidates, id, region, ask.source)) return false;
 		}
 	}
-	logf("Cover picker: GameTDB has %u different cover(s) for %s.\n", static_cast<unsigned>(candidates.size()),
-		ids.empty() ? "" : ids.back().c_str());
+	logf("Cover picker: GameTDB has %u different cover(s) for %s%s%s.\n", static_cast<unsigned>(candidates.size()),
+		gameId.c_str(), modId.empty() ? "" : " and the mod's entry ", modId.c_str());
 	return answered || !candidates.empty();
 }
 
@@ -5636,13 +5646,11 @@ static bool PickGameCover(FrontendState& state)
 		ShowPopup(tr("Cover"), tr("Could not save the picture."), tr("OK"));
 		return false;
 	}
-	std::vector<std::string> ids;
 	const std::string modId = key != state.game_id ? ModTileCoverId(key) : std::string();
-	if (!modId.empty()) ids.push_back(modId);
-	ids.push_back(state.game_id);
+	const std::string gameId = state.game_id;
 	const int picked = PickOwnPicture(tr("Cover"), path,
-		[ids](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
-			return FindGameCovers(ids, candidates, error);
+		[modId, gameId](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
+			return FindGameCovers(modId, gameId, candidates, error);
 		}, false, CoverPicturePreview());
 	if (picked != 1) return false;
 	ForgetCover(state.game_id);

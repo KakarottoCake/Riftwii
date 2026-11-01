@@ -11,9 +11,10 @@
 
 namespace riftwii {
 
-// GameTDB and GameTDBSecond are a Wii or GameCube game's covers from
-// GameTDB's first and second sets, for the cover picker.
-enum class PictureSource { Title, Screenshot, Boxart, SteamGrid, GameTDB, GameTDBSecond };
+// For the cover picker: GameTDB and GameTDBSecond are a Wii or GameCube
+// game's covers from GameTDB's first and second sets; GameTDBMod is the
+// cover of a mod tile's own GameTDB entry (#385), from its first set.
+enum class PictureSource { Title, Screenshot, Boxart, SteamGrid, GameTDB, GameTDBSecond, GameTDBMod };
 
 struct PictureCandidate {
     std::string url;
@@ -40,10 +41,11 @@ bool picture_add_libretro(std::vector<PictureCandidate>& candidates, PictureSour
                           const std::vector<std::string>& names);
 bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std::vector<std::string>& urls);
 // GameTDB's cover of `game_id` (a game's six capitals or digits, a homebrew
-// app's four) in `region` (two capitals), from its first or second set.
-// False only for an ID or region that can't be one.
+// app's four) in `region` (two capitals), as `source` (one of the three
+// GameTDB sources: the second set for GameTDBSecond, else the first). False
+// only for an ID, region or source that can't be one.
 bool picture_add_gametdb(std::vector<PictureCandidate>& candidates, const std::string& game_id,
-                         const std::string& region, bool second);
+                         const std::string& region, PictureSource source);
 // Remember only hashes between pages. Remove the later matching candidate
 // from the same source, preserving the game's preferred name and region.
 // Returns the removed index, or kPictureCandidatesMax if none was removed.

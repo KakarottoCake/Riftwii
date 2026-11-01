@@ -36,6 +36,11 @@ bool decode_component(const std::string& encoded, std::string& decoded) {
     return emulator_art_component(decoded);
 }
 
+bool gametdb_source(PictureSource source) {
+    return source == PictureSource::GameTDB || source == PictureSource::GameTDBSecond ||
+           source == PictureSource::GameTDBMod;
+}
+
 bool gametdb_id(const std::string& id) {
     if (id.size() != 4 && id.size() != 6) return false;
     return std::all_of(id.begin(), id.end(), [](char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); });
@@ -81,7 +86,8 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
         case PictureSource::Boxart: break;
         case PictureSource::SteamGrid:
         case PictureSource::GameTDB:
-        case PictureSource::GameTDBSecond: return "";
+        case PictureSource::GameTDBSecond:
+        case PictureSource::GameTDBMod: return "";
         default: return "";
     }
     return url;
@@ -90,8 +96,7 @@ std::string picture_libretro_url(PictureSource source, const std::string& system
 bool picture_candidate_valid(const PictureCandidate& candidate) {
     if (candidate.url.size() > 2048) return false;
     if (candidate.source == PictureSource::SteamGrid) return steamgrid_image_url(candidate.url);
-    if (candidate.source == PictureSource::GameTDB || candidate.source == PictureSource::GameTDBSecond)
-        return gametdb_url_valid(candidate);
+    if (gametdb_source(candidate.source)) return gametdb_url_valid(candidate);
     const std::string prefix = "https://thumbnails.libretro.com/";
     if (candidate.url.compare(0, prefix.size(), prefix) != 0) return false;
     const auto folder = candidate.url.find('/', prefix.size());
@@ -113,8 +118,7 @@ bool add_candidate(std::vector<PictureCandidate>& candidates, PictureCandidate c
         return item.url == candidate.url;
     });
     if (duplicate != candidates.end()) return true;
-    const bool gametdb = candidate.source == PictureSource::GameTDB || candidate.source == PictureSource::GameTDBSecond;
-    const std::size_t per_source = gametdb ? kPictureGameTDBPerSet : kPictureCandidatesPerSource;
+    const std::size_t per_source = gametdb_source(candidate.source) ? kPictureGameTDBPerSet : kPictureCandidatesPerSource;
     if (candidates.size() >= kPictureCandidatesMax || source_count(candidates, candidate.source) >= per_source) return true;
     return try_push_back(candidates, std::move(candidate));
 }
@@ -158,9 +162,10 @@ bool picture_add_steamgrid(std::vector<PictureCandidate>& candidates, const std:
 }
 
 bool picture_add_gametdb(std::vector<PictureCandidate>& candidates, const std::string& game_id,
-                         const std::string& region, bool second) {
-    if (candidates.size() > kPictureCandidatesMax || !gametdb_id(game_id) || !gametdb_region(region)) return false;
-    const PictureSource source = second ? PictureSource::GameTDBSecond : PictureSource::GameTDB;
+                         const std::string& region, PictureSource source) {
+    if (candidates.size() > kPictureCandidatesMax || !gametdb_id(game_id) || !gametdb_region(region) ||
+        !gametdb_source(source)) return false;
+    const bool second = source == PictureSource::GameTDBSecond;
     return add_candidate(candidates, {cover_url(region, game_id, second), source});
 }
 
