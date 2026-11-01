@@ -346,6 +346,70 @@ static void test_skipped_cases() {
     }
 }
 
+static void test_backdrop_loop() {
+    // No keys: no loop, at the default speed.
+    const Theme def = default_theme();
+    EXPECT_EQ(def.loop_frames, 0);
+    EXPECT_EQ(def.loop_fps, 12);
+    std::vector<std::string> notes;
+    const Theme plain = parse_theme("[backdrop]\nstripes = yes\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_EQ(plain.loop_frames, 0);
+    EXPECT_EQ(plain.loop_fps, 12);
+
+    // Both keys read; fps alone leaves the theme without a loop.
+    notes.clear();
+    const Theme loop = parse_theme("[backdrop]\nframes = 24\nfps = 15\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_EQ(loop.loop_frames, 24);
+    EXPECT_EQ(loop.loop_fps, 15);
+    notes.clear();
+    const Theme fps_only = parse_theme("[backdrop]\nfps = 8\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_EQ(fps_only.loop_frames, 0);
+    EXPECT_EQ(fps_only.loop_fps, 8);
+
+    // Zero and the ends of the ranges are accepted as they are.
+    notes.clear();
+    const Theme zero = parse_theme("[backdrop]\nframes = 0\nfps = 1\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_EQ(zero.loop_frames, 0);
+    EXPECT_EQ(zero.loop_fps, 1);
+    notes.clear();
+    const Theme full = parse_theme("[backdrop]\nframes = 60\nfps = 30\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_EQ(full.loop_frames, 60);
+    EXPECT_EQ(full.loop_fps, 30);
+
+    // Out-of-range and non-numbers clamp (or keep the default) with a note.
+    struct Case {
+        const char* ini;
+        int line;
+        int frames;
+        int fps;
+    };
+    const Case cases[] = {
+        {"[backdrop]\nframes = 1\n", 2, 2, 12},
+        {"[backdrop]\nframes = 99\n", 2, 60, 12},
+        {"[backdrop]\nframes = -3\n", 2, 0, 12},
+        {"[backdrop]\nfps = 0\n", 2, 0, 1},
+        {"[backdrop]\nfps = 31\n", 2, 0, 30},
+        {"[backdrop]\nfps = -5\n", 2, 0, 1},
+        {"[backdrop]\nframes = many\n", 2, 0, 12},
+        {"[backdrop]\nfps = fast\n", 2, 0, 12},
+    };
+    for (const Case& c : cases) {
+        notes.clear();
+        const Theme t = parse_theme(c.ini, notes);
+        EXPECT_EQ(notes.size(), 1U);
+        if (notes.size() == 1U) {
+            EXPECT_TRUE(note_mentions_line(notes[0], c.line));
+        }
+        EXPECT_EQ(t.loop_frames, c.frames);
+        EXPECT_EQ(t.loop_fps, c.fps);
+    }
+}
+
 static void test_theme_color_keys() {
     const auto& keys = theme_color_keys();
     EXPECT_EQ(keys.size(), 33U);
@@ -664,6 +728,7 @@ int main() {
     test_format_theme_color();
     test_full_valid_file();
     test_skipped_cases();
+    test_backdrop_loop();
     test_theme_color_keys();
     test_theme_images();
     test_painted_images();

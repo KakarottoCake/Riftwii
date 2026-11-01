@@ -85,6 +85,35 @@ Controls backdrop stripes:
 - `stripes`: `yes` or `no`. Sets whether thin horizontal stripes are drawn
   across the backdrop. The default is `yes`.
 
+### A looping backdrop
+
+A theme can give the menu a short animation, played over and over behind
+every screen. The frames are separate PNG files in the theme's folder:
+`backdrop_00.png`, `backdrop_01.png`, and so on, two digits from `00`.
+Each frame is decoded on its own, so it only needs its own memory.
+
+Two keys under `[backdrop]` set it:
+
+- `frames`: how many frames, 2 to 60. `0` or no key means no loop.
+- `fps`: frames a second, 1 to 30. The default is `12`.
+
+Every frame must be the same size as `backdrop_00.png`, a multiple of 4
+pixels wide and high, at least 64x48 and at most 856x480. The whole loop
+must fit in 4 MiB (`frames x width x height x 2` bytes). An out-of-range
+value is clamped and noted in `session.log`, as other keys are.
+
+For example, 24 frames of 320x240 at 12 frames a second is 3.5 MiB and
+plays for two seconds. The picture is scaled to cover the screen, keeping
+its shape, and the overflow is cropped. While a loop is loaded it replaces
+every wall picture (`background.png` and its `_wide`, `_shelf`, `_plain`
+and `_channels` versions). If a frame is missing, unreadable, the wrong
+size, or the loop is over 4 MiB, no loop is used and the normal pictures
+show instead; `session.log` says why. The clock-dial theme ignores the
+loop.
+
+A theme should still ship `background.png` for older RiftWii versions,
+which do not read these two keys.
+
 ### [colors]
 
 Colours are written as `#RRGGBB` or `#RRGGBBAA`, where `AA` is opacity

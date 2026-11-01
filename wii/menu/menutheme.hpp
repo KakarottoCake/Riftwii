@@ -34,6 +34,11 @@ std::vector<ThemeEntry> ListMenuThemes();
 bool ThemeImageExists(const char* name);
 bool LoadThemeImage(const char* name, int w, int h, std::vector<std::uint8_t>& rgba);
 
+// The theme's <name>.png at whatever size, for callers that check the size
+// themselves (a looping backdrop's frames). False with `why` when there is
+// no theme folder or file, it is over 2 MiB, or it cannot be decoded.
+bool LoadThemePng(const std::string& name, std::vector<std::uint8_t>& rgba, int& w, int& h, std::string& why);
+
 // The theme's music.ogg path, or "" when the theme has none.
 std::string MenuThemeMusic();
 

@@ -121,6 +121,29 @@ bool LoadThemeImage(const char* name, int w, int h, std::vector<std::uint8_t>& r
     return true;
 }
 
+bool LoadThemePng(const std::string& name, std::vector<std::uint8_t>& rgba, int& w, int& h,
+                  std::string& why) {
+    if (g_dir.empty()) {
+        why = "there is no theme folder";
+        return false;
+    }
+    const std::string path = g_dir + name + ".png";
+    if (!Exists(path)) {
+        why = "missing";
+        return false;
+    }
+    std::vector<std::uint8_t> png;
+    if (!ReadFile(path, kMaxPng, png)) {
+        why = "unreadable or over 2 MiB";
+        return false;
+    }
+    if (!DecodePngRgba(png, rgba, w, h, why)) {
+        rgba.clear();
+        return false;
+    }
+    return true;
+}
+
 std::string MenuThemeMusic() {
     if (g_dir.empty()) return "";
     const std::string path = g_dir + "music.ogg";

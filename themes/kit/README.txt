@@ -102,6 +102,10 @@ Each has a _wide version too (856x480). bar.png (640x124) and
 bar_wide.png (856x124) are Home's bottom bar; keep the shape your [shape]
 bar setting says (dip or bump) so the clock and buttons sit right.
 
+A theme can also loop a short animation instead of every wall picture:
+backdrop_00.png, backdrop_01.png, and so on, with frames and fps under
+[backdrop]. See THEMES.md, "A looping backdrop", for the size rules.
+
 Music
 -----
 
