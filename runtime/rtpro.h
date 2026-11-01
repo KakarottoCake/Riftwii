@@ -14,7 +14,9 @@
  *
  *  - Out: the reporting mode the game asks for is kept, and the
  *    controller is asked for 0x34 instead (buttons and 19 extension
- *    bytes), the only mode with room for all of its 11.
+ *    bytes), the only mode with room for all of its 11. A link found to
+ *    be a Pro only after the game set a shorter mode gets a corrective
+ *    0x12 put in the place of the next report that expects no answer.
  *  - In: each 0x34 report is rebuilt in the game's mode, the extension
  *    bytes as a Classic Controller's (sticks scaled, the button bytes are
  *    the same bits), the accelerometer at rest, no IR points.
@@ -74,6 +76,7 @@ extern "C" {
 #define RTPRO_EVERY_LINK 0xFFFFFFFFu  /* as the count: every link is taken as a Pro (Dolphin tests) */
 #define RTPRO_READS 4u        /* memory reads awaiting their answer, per link */
 #define RTPRO_STATUSES 8u     /* status requests awaiting their answer, per link */
+#define RTPRO_MODE_LOG 8u     /* the game's first reporting mode requests kept */
 
 /* rtpro_link.pro */
 #define RTPRO_NOT_PRO 0u
@@ -129,7 +132,24 @@ struct rtpro_link {
     uint8_t statuses[RTPRO_STATUSES];
     uint8_t status_count;
     uint8_t leds;             /* the player LEDs the game last set (0x11's first byte, its top bits) */
-    uint8_t pad3[2];
+    uint8_t physical_mode;    /* the reporting mode actually sent to the controller, 0 before */
+    uint8_t continuous;       /* the game's last 0x12 first byte, its continuous bit (0x04) only */
+    uint8_t needs_mode;       /* a corrective 0x12 is owed on this link */
+    uint8_t pad3[3];
+};
+
+/* One reporting mode the game asked for, for a problem report: the first
+ * RTPRO_MODE_LOG to Pro-or-unknown links. The handle says which link asked,
+ * as Wii Remote 1's requests mix in with the Pro's. Layout fixed by hand
+ * (explicit pad bytes, no implicit padding) so the host reads what the Wii
+ * wrote. */
+struct rtpro_mode_log {
+    uint16_t handle;          /* the link's HCI handle */
+    uint8_t mode;             /* the game's requested reporting mode */
+    uint8_t continuous;       /* its 0x12 first byte's continuous bit (0 or 0x04) */
+    uint8_t pro;              /* 1: the link was known to be a Pro at that moment */
+    uint8_t rewritten;        /* 1: the mode byte was replaced with RTPRO_MODE */
+    uint8_t pad[2];
 };
 
 struct rtpro_state {
@@ -144,6 +164,17 @@ struct rtpro_state {
     uint32_t bad_keys;        /* keys that did not check out (or no tables) */
     uint32_t memory_reads;    /* reads of the Wii Remote's memory answered in the Pro's place */
     uint32_t replaced;        /* other reports a Pro cannot take, sent as status or LEDs */
+    uint32_t late_modes;      /* corrective 0x12 requests put in a report's place */
+    uint32_t short_reports;   /* Pro data reports passed through: extension part too short */
+    uint32_t late_pros;       /* links recognised as Pro Controllers by their extension ID */
+    uint32_t mode_requests;   /* reporting mode requests seen (mode_log's first few kept) */
+    uint32_t fe_writes;       /* writes the game made to the extension's 0xA400FE */
+    uint8_t fe_last;          /* the last value written there */
+    uint8_t pad4[3];
+    uint32_t late_skipped;    /* corrective 0x12 requests left for a later report: no room */
+    uint32_t out_packets;     /* output reports the game sent on Pro links */
+    uint32_t out_aligned;     /* of those, buffers 32-byte aligned (their first 32 bytes theirs) */
+    struct rtpro_mode_log mode_log[RTPRO_MODE_LOG];
     const uint8_t* tables;    /* the game's lookup tables (rtpro_set_tables), 0: none found */
 };
 
@@ -157,6 +188,7 @@ void rtpro_set_tables(struct rtpro_state* st, const uint8_t* tables);
 #define RTPRO_SEEN 1u         /* an HID report on a followed link */
 #define RTPRO_CHANGED 2u      /* rewritten */
 #define RTPRO_DATA 4u         /* a data report (0x30-0x3F) */
+#define RTPRO_PRO 8u          /* on a link known to be a Pro Controller */
 
 void rtpro_init(struct rtpro_state* st);
 
@@ -170,8 +202,10 @@ void rtpro_event(struct rtpro_state* st, const uint8_t* addresses, uint32_t coun
 
 /* An ACL packet the game sends (bulk-out), changed in place. `size` is
  * its size, and its new one after (a report put in another's place can
- * be shorter: the caller sends that many bytes). Returns RTPRO_* bits. */
-uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size);
+ * be shorter: the caller sends that many bytes); `room` is the bytes the
+ * buffer is known to hold. The corrective request adds one byte, so it is
+ * only made when the buffer has room for it. Returns RTPRO_* bits. */
+uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uint32_t room);
 
 /* An ACL packet the game receives (bulk-in), `size` bytes in a buffer of
  * `room`, changed in place. Returns the packet's new size; `what` gets

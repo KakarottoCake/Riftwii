@@ -5,6 +5,10 @@
 
 #include "rtshot.h"
 
+/* The mode log in the file has the translator's own layout. */
+typedef char rtpro_mode_log_matches_rtwlog[(RTPRO_MODE_LOG == RTWLOG_MODE_LOG &&
+                                            sizeof(struct rtpro_mode_log) == sizeof(struct rtwlog_mode)) ? 1 : -1];
+
 void wlog_on_print(struct rt_wlog_context* c, const uint32_t* words);
 void wlog_on_exit(struct rt_wlog_context* c);
 uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* args);
@@ -254,6 +258,22 @@ static void copy_counts(struct rt_wlog_state* st) {
     f->bad_keys = st->pro.bad_keys;
     f->memory_reads = st->pro.memory_reads;
     f->replaced = st->pro.replaced;
+    f->late_modes = st->pro.late_modes;
+    f->short_reports = st->pro.short_reports;
+    f->late_pros = st->pro.late_pros;
+    f->mode_requests = st->pro.mode_requests;
+    f->fe_writes = st->pro.fe_writes;
+    f->fe_last = st->pro.fe_last;
+    f->late_skipped = st->pro.late_skipped;
+    f->out_packets = st->pro.out_packets;
+    f->out_aligned = st->pro.out_aligned;
+    for (i = 0; i < RTWLOG_MODE_LOG; ++i) {
+        f->mode_log[i].handle = st->pro.mode_log[i].handle;
+        f->mode_log[i].mode = st->pro.mode_log[i].mode;
+        f->mode_log[i].continuous = st->pro.mode_log[i].continuous;
+        f->mode_log[i].pro = st->pro.mode_log[i].pro;
+        f->mode_log[i].rewritten = st->pro.mode_log[i].rewritten;
+    }
     for (i = 0; i < RTPRO_LINKS; ++i) {
         const struct rtpro_link* l = &st->pro.links[i];
         if (l->used && l->pro && l->encrypted) f->encrypted = 1;
@@ -266,6 +286,17 @@ static void copy_counts(struct rt_wlog_state* st) {
 static void set_out_size(uint32_t* vec, uint32_t size) {
     if (vec[3] == 2u && readable(vec[2])) *(uint16_t*)(uintptr_t)vec[2] = (uint16_t)size;
     vec[5] = size;
+}
+
+/* The bytes an outgoing report's buffer is known to hold. IOS flushes an
+ * outgoing USB transfer's buffer before sending it, and the Wii's cache
+ * works in 32-byte lines, so a buffer that starts on a 32-byte boundary is
+ * taken to own its whole first 32 bytes: an allocator that aligns to 32
+ * rounds the block up to 32. (Assumption: writing inside that first line is
+ * safe whatever the transfer's own length.) */
+static uint32_t out_room(uint32_t address, uint32_t size) {
+    if ((address & 31u) != 0u) return size;
+    return size < 32u ? 32u : size;
 }
 
 uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
@@ -297,13 +328,17 @@ uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
     if (endpoint == EP_ACL_OUT && a[1] == USBV0_BLKMSG) {
         uint8_t* acl = (uint8_t*)(uintptr_t)vec[4];
         uint32_t what = 0, size = vec[5];
+        const uint32_t address = (uint32_t)(uintptr_t)acl;
+        const uint32_t aligned = (address & 31u) == 0u;
+        const uint32_t room = out_room(address, size);
         /* The game's packet as it was, for the trace if the translator
          * changes it. */
         uint8_t asked[8u + 32u];  /* a whole report: 23 bytes at most */
         const uint32_t asked_size = size < sizeof(asked) ? size : sizeof(asked);
         for (i = 0; i < asked_size; ++i) asked[i] = acl[i];
         /* Changed before IOS_IoctlvAsync flushes the buffers for IOS. */
-        if (c->flags & RT_WLOG_FLAG_TRANSLATE) what = rtpro_acl_out(&st->pro, acl, &size);
+        if (c->flags & RT_WLOG_FLAG_TRANSLATE) what = rtpro_acl_out(&st->pro, acl, &size, room);
+        if ((what & RTPRO_PRO) && aligned) st->pro.out_aligned++;
         if (size != vec[5]) set_out_size((uint32_t*)(uintptr_t)a[4], size);
         if (what & RTPRO_CHANGED) {
             if (trace_acl(st, RTWLOG_BT_OUT, what, asked, asked_size)) trace_acl(st, RTWLOG_BT_SENT, 0, acl, size);
