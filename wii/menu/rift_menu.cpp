@@ -13892,6 +13892,8 @@ static int MenuHome(FrontendState& state)
 				// page is the game's own then).
 				if (tile == GameTile::Mods) {
 					titleTxt.SetText(GameTitle(state).c_str());
+					hero.SetMadeUpName(GameTitle(state),
+							   riftwii::emulator_cover_id(state.game_id) ? std::string() : state.game_id);
 					// A renamed tile may match another GameTDB entry (or none):
 					// the cover in memory for the old match goes first.
 					UpdateModCoverIds();

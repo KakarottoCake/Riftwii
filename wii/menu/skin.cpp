@@ -307,7 +307,7 @@ void Init() {
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"blank_cover", &blankCover}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
         {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},

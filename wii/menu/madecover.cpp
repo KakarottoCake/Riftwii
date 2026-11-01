@@ -249,6 +249,9 @@ const u8* MadeUpCover(const std::string& key, const std::string& title, const st
 }
 
 const u8* MadeUpCoverMade(const std::string& key) {
+    // A slot whose name went stale has an empty key until it is reused:
+    // never one to hand the disc drive's box (no ID).
+    if (key.empty()) return nullptr;
     for (Slot& s : g_slots) {
         if (s.state != SlotState::Ready || s.key != key) continue;
         s.used = g_frame;
