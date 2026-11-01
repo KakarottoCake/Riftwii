@@ -737,6 +737,21 @@ T = {
         "GameTDBのカバー",
         "Capa do GameTDB",
         "Copertina di GameTDB"),
+    "Choose cover": (
+        "Elegir portada",
+        "カバーを選ぶ",
+        "Escolher capa",
+        "Scegli copertina"),
+    "GameTDB's second cover": (
+        "Segunda portada de GameTDB",
+        "GameTDBの2枚目のカバー",
+        "Segunda capa do GameTDB",
+        "Seconda copertina di GameTDB"),
+    "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.": (
+        "Elige cualquiera de las portadas de GameTDB para este juego. Se guarda como tu propia portada en la tarjeta SD, así que funciona sin conexión; Volver a automático la quita.",
+        "このゲームのGameTDBのカバーから好きなものを選べます。自分のカバーとしてSDカードに保存されるので、オフラインでも使えます。「自動に戻す」で消えます。",
+        "Escolha qualquer uma das capas do GameTDB para este jogo. Ela fica como sua própria capa no cartão SD, então funciona offline; Voltar ao automático a remove.",
+        "Scegli una qualsiasi delle copertine di GameTDB per questo gioco. Resta come tua copertina sulla scheda SD, quindi funziona offline; Torna ad automatico la rimuove."),
     "First": (
         "Primera",
         "1つ目",
@@ -2886,6 +2901,12 @@ KO = {
         "다시 다운로드",
     "GameTDB cover":
         "GameTDB 표지",
+    "Choose cover":
+        "표지 선택",
+    "GameTDB's second cover":
+        "GameTDB 두 번째 표지",
+    "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.":
+        "이 게임의 GameTDB 표지 중 원하는 것을 고르세요. SD 카드에 내 표지로 저장되어 오프라인에서도 쓸 수 있으며, 자동으로 되돌리기를 하면 지워집니다.",
     "First":
         "첫 번째",
     "Second":
@@ -4748,6 +4769,12 @@ FR = {
         "Re-télécharger",
     "GameTDB cover":
         "Jaquette GameTDB",
+    "Choose cover":
+        "Choisir la jaquette",
+    "GameTDB's second cover":
+        "Deuxième jaquette GameTDB",
+    "Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it.":
+        "Choisissez n'importe quelle jaquette GameTDB pour ce jeu. Elle est gardée comme votre jaquette sur la carte SD et marche donc hors ligne ; « Revenir au choix automatique » la retire.",
     "First":
         "Première",
     "Second":

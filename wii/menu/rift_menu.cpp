@@ -77,6 +77,9 @@
 #include "riftwii/emulatorbanner.hpp"
 #include "fullfont.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/emulatorart.hpp"
+#include "riftwii/http.hpp"
+#include "riftwii/sha256.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gcimport.hpp"
 #include "riftwii/gcreal.hpp"
@@ -5479,37 +5482,28 @@ static bool EmulatorPictureOnline()
 	return riftwii::wii::Settings().online && !riftwii::wii::NetFailed();
 }
 
-static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
-	const riftwii::wii::EmulatorGame& game)
+// The picture picker on its own page, then the pick saved as the player's
+// own picture at `path` (or removed by Back to automatic). A picture put
+// there by hand is the player's work: replacing or removing it asks first.
+// Answers 1 when the picture changed, 0 when it could not be saved, -1 when
+// nothing was done. The GUI is halted on entry and on return.
+static int PickOwnPicture(const char* title, const std::string& path, riftwii::wii::GuiPicturePicker::Discover discover,
+	bool wide, riftwii::wii::PicturePreview preview = {})
 {
 	using namespace riftwii::wii;
-	if (!EmulatorPictureOnline()) {
-		ShowPopup(tr("Picture"),
-			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
-				{tr("Downloads"), tr("Settings"), tr("Online")}), tr("OK"));
-		return;
-	}
-	const std::string path = riftwii::emulator_banner_local_path(addon.file.system, game.name);
-	if (!riftwii::picture_save_path_valid(path)) {
-		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
-		return;
-	}
 	GuiPicturePicker::Result choice;
 	std::vector<std::uint8_t> png;
 	{
-		const bool steamgrid = riftwii::wii::Settings().steamgrid_covers;
-		GuiPicturePicker picker([&](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
-			return FindEmulatorPictures(addon.file.covers, game.name, steamgrid, candidates, error);
-		}, skin::WideMenu());
+		GuiPicturePicker picker(std::move(discover), wide, std::move(preview));
 		TitleBand band;
-		GuiText title(tr("Picture"), 30, skin::kInk);
-		Place(title, 78, 28);
+		GuiText heading(title, 30, skin::kInk);
+		Place(heading, 78, 28);
 		GuiPrompts prompts;
 		const int back = prompts.Add("B", tr("Back"));
 		const int choose = prompts.Add("A", tr("Choose"));
 		GuiWindow window(screenwidth, screenheight);
 		window.Append(&band);
-		window.Append(&title);
+		window.Append(&heading);
 		window.Append(&picker);
 		window.Append(&prompts);
 		mainWindow->Append(&window);
@@ -5533,41 +5527,129 @@ static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
 		ResumeGui();
 		const OwnPicture own = OwnPictureState(path);
 		HaltGui();
-		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(title,
 			tr("This picture was added or changed by hand. Delete it and use automatic pictures?"),
-			tr("Back"), tr("Delete")) != 1) return;
+			tr("Back"), tr("Delete")) != 1) return -1;
 		ResumeGui();
 		changed = RemovePickedPicture(path, own == OwnPicture::Hand);
 		HaltGui();
 	} else if (choice == GuiPicturePicker::Result::Picked) {
-		// A picture put there by hand is the player's own work: replacing it
-		// asks first, as Back to automatic does.
 		ResumeGui();
 		const OwnPicture own = OwnPictureState(path);
 		HaltGui();
-		if (own == OwnPicture::Hand && ShowPopupSafeFirst(tr("Picture"),
+		if (own == OwnPicture::Hand && ShowPopupSafeFirst(title,
 			tr("This picture was added or changed by hand. Replace it with the one you picked?"),
-			tr("Back"), tr("Replace")) != 1) return;
+			tr("Back"), tr("Replace")) != 1) return -1;
 		ResumeGui();
 		changed = SavePickedPicture(path, png);
 		HaltGui();
 	} else {
+		return -1;
+	}
+	if (!changed) ShowPopup(title, tr("Could not save the picture."), tr("OK"));
+	return changed ? 1 : 0;
+}
+
+static void PickEmulatorPicture(const riftwii::wii::EmulatorAddon& addon,
+	const riftwii::wii::EmulatorGame& game)
+{
+	using namespace riftwii::wii;
+	if (!EmulatorPictureOnline()) {
+		ShowPopup(tr("Picture"),
+			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
+				{tr("Downloads"), tr("Settings"), tr("Online")}), tr("OK"));
 		return;
 	}
-	if (changed) {
-		ForgetCover(game.key);
-		// The Channels picture has keys of its own (4:3 and 16:9). Forget
-		// them and let Home check them again, so after Back to automatic the
-		// automatic picture is fetched rather than the cover standing in.
-		for (bool wide : {false, true}) {
-			const std::string banner = riftwii::emulator_banner_key(game.key, wide);
-			if (banner.empty()) continue;
-			g_coversChecked.erase(banner);
-			ForgetCover(banner);
-		}
-	} else {
+	const std::string path = riftwii::emulator_banner_local_path(addon.file.system, game.name);
+	if (!riftwii::picture_save_path_valid(path)) {
 		ShowPopup(tr("Picture"), tr("Could not save the picture."), tr("OK"));
+		return;
 	}
+	const bool steamgrid = riftwii::wii::Settings().steamgrid_covers;
+	const int picked = PickOwnPicture(tr("Picture"), path,
+		[&](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
+			return FindEmulatorPictures(addon.file.covers, game.name, steamgrid, candidates, error);
+		}, skin::WideMenu());
+	if (picked != 1) return;
+	ForgetCover(game.key);
+	// The Channels picture has keys of its own (4:3 and 16:9). Forget
+	// them and let Home check them again, so after Back to automatic the
+	// automatic picture is fetched rather than the cover standing in.
+	for (bool wide : {false, true}) {
+		const std::string banner = riftwii::emulator_banner_key(game.key, wide);
+		if (banner.empty()) continue;
+		g_coversChecked.erase(banner);
+		ForgetCover(banner);
+	}
+}
+
+// GameTDB's covers of each ID (the tile's own match first, then the game),
+// first and second set, in the regions the automatic download tries. Each
+// is fetched once here, so covers GameTDB doesn't have, and the same picture
+// under another region, are left out. Runs on the network thread.
+static bool FindGameCovers(const std::vector<std::string>& ids,
+	std::vector<riftwii::PictureCandidate>& candidates, std::string& error)
+{
+	std::vector<riftwii::Sha256Digest> seen;
+	bool answered = false;
+	for (const std::string& id : ids) {
+		for (const bool second : {false, true}) {
+			for (const std::string& region : riftwii::cover_regions(id, riftwii::wii::MenuLanguage())) {
+				if (riftwii::wii::NetCancelRequested()) return false;
+				std::vector<std::uint8_t> png;
+				std::string fetchError;
+				const std::string url = riftwii::cover_url(region, id, second);
+				if (!riftwii::wii::HttpGet(url, png, fetchError, riftwii::kEmulatorCoverMax, 10000, nullptr,
+					riftwii::HttpRedirects::Never)) {
+					if (error.empty()) error = fetchError;
+					continue;
+				}
+				answered = true;
+				const riftwii::Sha256Digest digest = riftwii::sha256(png.data(), png.size());
+				if (std::find(seen.begin(), seen.end(), digest) != seen.end()) continue;
+				seen.push_back(digest);
+				if (!riftwii::picture_add_gametdb(candidates, id, region, second)) return false;
+			}
+		}
+	}
+	logf("Cover picker: GameTDB has %u different cover(s) for %s.\n", static_cast<unsigned>(candidates.size()),
+		ids.empty() ? "" : ids.back().c_str());
+	return answered || !candidates.empty();
+}
+
+// The Choose cover row: a cover from GameTDB's, kept as the player's own
+// cover for the tile (#384's sd:/riftwii/covers/<key>.png), so it works
+// offline and is never downloaded over. True when the cover changed.
+static bool PickGameCover(FrontendState& state)
+{
+	using namespace riftwii::wii;
+	if (!EmulatorPictureOnline()) {
+		ShowPopup(tr("Cover"),
+			tr("Connect the Wii to the internet, then turn on {1} in {2} > {3}.",
+				{tr("Downloads"), tr("Settings"), tr("Online")}), tr("OK"));
+		return false;
+	}
+	// A mod's tile gets a cover of its own; the game's page, the game's.
+	const std::string key = state.profile_key.empty() ? state.game_id : state.profile_key;
+	const std::string path = std::string("sd:/riftwii/covers/") + key + ".png";
+	if (!riftwii::picture_save_path_valid(path)) {
+		ShowPopup(tr("Cover"), tr("Could not save the picture."), tr("OK"));
+		return false;
+	}
+	std::vector<std::string> ids;
+	const std::string modId = key != state.game_id ? ModTileCoverId(key) : std::string();
+	if (!modId.empty()) ids.push_back(modId);
+	ids.push_back(state.game_id);
+	const int picked = PickOwnPicture(tr("Cover"), path,
+		[ids](std::vector<riftwii::PictureCandidate>& candidates, std::string& error) {
+			return FindGameCovers(ids, candidates, error);
+		}, false, CoverPicturePreview());
+	if (picked != 1) return false;
+	ForgetCover(state.game_id);
+	g_coversChecked.erase(key);
+	logf("Cover picker: %s now shows %s.\n", key.c_str(),
+		OwnPictureState(path) == OwnPicture::Missing ? "the automatic cover" : "the chosen cover");
+	return true;
 }
 
 static bool EditEmulator(const riftwii::wii::EmulatorAddon& addon, const riftwii::wii::EmulatorGame* game)
@@ -7769,7 +7851,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, NandSource, Server, Favorite, Pack, Option, Note, ResetOptions,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CoverSet } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile, CodeStart, CoverSet, CoverPick } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -8222,6 +8304,15 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			set.dim = true;
 		}
 		add(set, {RowRef::What::CoverSet});
+		// Any of GameTDB's covers, kept as the player's own (wiiu#6).
+		FlowRow pick;
+		pick.kind = FlowRow::Kind::Action;
+		pick.label = tr("Choose cover");
+		if (!readFiles) {
+			pick.kind = FlowRow::Kind::Info;
+			pick.dim = true;
+		}
+		add(pick, {RowRef::What::CoverPick});
 	}
 
 	// The game's own rows first, then the picture's and the rest under
@@ -8332,7 +8423,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		controls.label = tr("Controls");
 		rows.push_back(controls);
 		refs.push_back({W::GcControls});
-		if (settingsOnly) show({W::Cover, W::CoverSet});
+		if (settingsOnly) show({W::Cover, W::CoverSet, W::CoverPick});
 		if (settingsOnly) {
 			FlowRow reset;
 			reset.kind = FlowRow::Kind::Action;
@@ -8347,7 +8438,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	heading(tr("Other"));
 	if (settingsOnly && GameRowNotApplied(state.game_id, W::Cheats)) show({W::Cheats});
 	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
-	if (settingsOnly) show({W::Cover, W::CoverSet});
+	if (settingsOnly) show({W::Cover, W::CoverSet, W::CoverPick});
 	// What RiftWii's extras take of the game's memory this time.
 	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
 	if (!budget.pieces.empty() && !state.use_channel) {
@@ -13116,6 +13207,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::CoverSet)
 				say(tr("Some games have a second cover on GameTDB. Your own riftwii/covers/{1}.png on the SD card or USB drive comes before either.",
 				       {PageCoverName(state)}));  // a mod tile reads its own, by its key
+			else if (ref.what == RowRef::What::CoverPick)
+				say(tr("Pick any of GameTDB's covers for this game. It is kept as your own cover on the SD card, so it works offline; Back to automatic removes it."));
 			else if (ref.what == RowRef::What::GcDiscReads)
 				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
 			else if (ref.what == RowRef::What::GcCard)
@@ -13287,6 +13380,12 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				g_coverSecondAsked = false;
 				coverAsked = true;
 				done = true;
+				changed = false;
+			} else if (ref.what == RowRef::What::CoverPick && !state.game_id.empty()) {
+				// The picker is a page of its own over this one.
+				mainWindow->Remove(&w);
+				PickGameCover(state);
+				mainWindow->Append(&w);
 				changed = false;
 			} else if (ref.what == RowRef::What::CoverSet && !state.game_id.empty()) {
 				// The other set, downloaded on the game page as Cover's is.

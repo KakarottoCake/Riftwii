@@ -99,6 +99,8 @@ void SetModCoverIds(std::map<std::string, std::string> ids);
 // How many times ForgetAllCovers dropped them (the SD card swapped, among
 // others): they are to be set again then.
 unsigned ModCoverIdsCleared();
+// The GameTDB entry a mod tile matches (#385), "" when none.
+std::string ModTileCoverId(const std::string& tile_key);
 
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);

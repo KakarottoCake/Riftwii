@@ -19,6 +19,10 @@ struct PicturePreview {
     std::function<void(const u8*, const RoundClip&, int)> draw;
 };
 
+// The cover picker's thumbnails: a stored cover, portrait, fitted in the
+// tile (the default preview is an emulator game's Channels picture).
+PicturePreview CoverPicturePreview();
+
 // A reusable modal widget: a metadata provider in, a chosen original PNG
 // out. It owns paging, cancellation and six thumbnails, but no save path.
 // Construct, Pump and destroy with the GUI halted. Draw/Update do no IO.

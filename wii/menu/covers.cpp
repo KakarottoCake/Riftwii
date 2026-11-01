@@ -748,6 +748,8 @@ void CoverPrefetch(const std::string& game_id, int rank) {
     }
 }
 
+std::string ModTileCoverId(const std::string& tile_key) { return ModCoverId(tile_key); }
+
 unsigned ModCoverIdsCleared() {
     if (g_lock == LWP_MUTEX_NULL) return 0;
     Lock lock;
