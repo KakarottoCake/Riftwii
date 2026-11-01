@@ -78,10 +78,12 @@ struct rtwlog_bt {
 
 /* One reporting mode the game asked for (rtpro_mode_log's layout). */
 struct rtwlog_mode {
+    uint16_t handle;               /* the link's HCI handle */
     uint8_t mode;                  /* the game's requested reporting mode */
     uint8_t continuous;            /* its 0x12 first byte's continuous bit (0 or 0x04) */
     uint8_t pro;                   /* 1: the link was known to be a Pro then */
     uint8_t rewritten;             /* 1: the mode byte was replaced with 0x34 */
+    uint8_t pad[2];                /* explicit: no implicit padding, host and Wii agree */
 };
 #define RTWLOG_MODE_LOG 8u
 
@@ -111,6 +113,9 @@ struct rtwlog_pro {
     uint32_t mode_requests;        /* reporting mode requests seen (the first few kept below) */
     uint32_t fe_writes;            /* writes the game made to the extension's 0xA400FE */
     uint32_t fe_last;              /* the last value written there */
+    uint32_t late_skipped;         /* corrective 0x12 requests left for a later report: no room */
+    uint32_t out_packets;          /* output reports the game sent on Pro links */
+    uint32_t out_aligned;          /* of those, buffers 32-byte aligned (their first 32 bytes theirs) */
     struct rtwlog_mode mode_log[RTWLOG_MODE_LOG];
 };
 

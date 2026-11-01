@@ -139,12 +139,17 @@ struct rtpro_link {
 };
 
 /* One reporting mode the game asked for, for a problem report: the first
- * RTPRO_MODE_LOG to Pro-or-unknown links. */
+ * RTPRO_MODE_LOG to Pro-or-unknown links. The handle says which link asked,
+ * as Wii Remote 1's requests mix in with the Pro's. Layout fixed by hand
+ * (explicit pad bytes, no implicit padding) so the host reads what the Wii
+ * wrote. */
 struct rtpro_mode_log {
+    uint16_t handle;          /* the link's HCI handle */
     uint8_t mode;             /* the game's requested reporting mode */
     uint8_t continuous;       /* its 0x12 first byte's continuous bit (0 or 0x04) */
     uint8_t pro;              /* 1: the link was known to be a Pro at that moment */
     uint8_t rewritten;        /* 1: the mode byte was replaced with RTPRO_MODE */
+    uint8_t pad[2];
 };
 
 struct rtpro_state {
@@ -166,6 +171,9 @@ struct rtpro_state {
     uint32_t fe_writes;       /* writes the game made to the extension's 0xA400FE */
     uint8_t fe_last;          /* the last value written there */
     uint8_t pad4[3];
+    uint32_t late_skipped;    /* corrective 0x12 requests left for a later report: no room */
+    uint32_t out_packets;     /* output reports the game sent on Pro links */
+    uint32_t out_aligned;     /* of those, buffers 32-byte aligned (their first 32 bytes theirs) */
     struct rtpro_mode_log mode_log[RTPRO_MODE_LOG];
     const uint8_t* tables;    /* the game's lookup tables (rtpro_set_tables), 0: none found */
 };
@@ -180,6 +188,7 @@ void rtpro_set_tables(struct rtpro_state* st, const uint8_t* tables);
 #define RTPRO_SEEN 1u         /* an HID report on a followed link */
 #define RTPRO_CHANGED 2u      /* rewritten */
 #define RTPRO_DATA 4u         /* a data report (0x30-0x3F) */
+#define RTPRO_PRO 8u          /* on a link known to be a Pro Controller */
 
 void rtpro_init(struct rtpro_state* st);
 
@@ -193,8 +202,10 @@ void rtpro_event(struct rtpro_state* st, const uint8_t* addresses, uint32_t coun
 
 /* An ACL packet the game sends (bulk-out), changed in place. `size` is
  * its size, and its new one after (a report put in another's place can
- * be shorter: the caller sends that many bytes). Returns RTPRO_* bits. */
-uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size);
+ * be shorter: the caller sends that many bytes); `room` is the bytes the
+ * buffer is known to hold. The corrective request adds one byte, so it is
+ * only made when the buffer has room for it. Returns RTPRO_* bits. */
+uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size, uint32_t room);
 
 /* An ACL packet the game receives (bulk-in), `size` bytes in a buffer of
  * `room`, changed in place. Returns the packet's new size; `what` gets
